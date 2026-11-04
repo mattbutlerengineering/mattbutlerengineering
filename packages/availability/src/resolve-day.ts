@@ -1,4 +1,4 @@
-import type { AvailabilityConfig, DateRule, ScheduleAssignment, ScheduleService } from "@mbe/types";
+import type { AvailabilityConfig, DateRule, ScheduleAssignment } from "@mbe/types";
 import { weekdayIndexOf } from "./civil-date.js";
 import {
   WHOLE_DAY,
@@ -13,7 +13,7 @@ import {
 } from "./date-rules.js";
 import { hoursOf, seriesOf, targetOf, tonightOf, type LayerDetail } from "./layer-detail.js";
 import { liveServices, servicesOn } from "./service-days.js";
-import type { ServiceDate } from "./types.js";
+import type { ResolvedService, ServiceDate } from "./types.js";
 
 /**
  * Resolves the layer stack for one service day (ADR-030), bottom-up:
@@ -28,15 +28,6 @@ export interface AvailabilitySnapshot {
   /** IANA zone of the venue. */
   timezone: string;
   config: AvailabilityConfig;
-}
-
-export interface ResolvedService extends Pick<
-  ScheduleService,
-  "venueServiceId" | "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
-> {
-  /** `null` for a service from special hours. */
-  scheduleServiceId: string | null;
-  name: string;
 }
 
 /** A closed band of the service day, in minutes; a whole-day closure is 0–2880. */

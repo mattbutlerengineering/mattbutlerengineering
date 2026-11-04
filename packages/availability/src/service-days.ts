@@ -1,5 +1,5 @@
 import type { ScheduleService, SpecialHoursService, VenueService } from "@mbe/types";
-import type { ResolvedService } from "./resolve-day.js";
+import type { ResolvedService } from "./types.js";
 
 /**
  * Which hours a service row has on a weekday (ADR-031). A row's base hours apply on its own

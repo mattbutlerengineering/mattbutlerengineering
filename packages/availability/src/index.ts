@@ -22,7 +22,6 @@ export {
   type ResolvedClosure,
   type ResolvedDay,
   type ResolvedDaySummary,
-  type ResolvedService,
 } from "./resolve-day.js";
 export {
   decodeWeek,
@@ -65,7 +64,13 @@ export {
   type LegacyDayHours,
   type LegacyOperatingHours,
 } from "./legacy-projection.js";
-export { MINUTES_PER_DAY, WEEKDAYS, type ServiceDate, type Weekday } from "./types.js";
+export {
+  MINUTES_PER_DAY,
+  WEEKDAYS,
+  type ResolvedService,
+  type ServiceDate,
+  type Weekday,
+} from "./types.js";
 export { validateConfig, type ConfigIssue, type ConfigIssueCode } from "./validate-config.js";
 export {
   DEFAULT_SLOT_INTERVAL,

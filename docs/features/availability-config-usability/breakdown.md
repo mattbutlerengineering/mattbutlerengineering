@@ -298,7 +298,7 @@ none.
 
 ## CI fix loop (2026-11-04)
 
-- [ ] **Build: dependency-cruiser `no-circular`** — `resolve-day.ts` and `service-days.ts` import each other (a type-only import, which `tsPreCompilationDeps` counts).
+- [x] **Build: dependency-cruiser `no-circular`** — `resolve-day.ts` and `service-days.ts` import each other (a type-only import, which `tsPreCompilationDeps` counts).
   - Accept: `pnpm check:boundaries` exits 0 (RED: `error no-circular: packages/availability/src/resolve-day.ts → packages/availability/src/service-days.ts → packages/availability/src/resolve-day.ts`); `pnpm --filter @mbe/availability test`, `typecheck`, `lint` and `build` pass; the package index exports are unchanged.
 - [ ] **Lint: knip unused export** — `toClock` in `apps/hospitality/src/components/availability/quick-setup-draft.ts` is exported and used by nothing outside the file.
   - Accept: `pnpm check:knip` exits 0 (RED: `Unused exports (1)`, `toClock function … quick-setup-draft.ts:117:17`); the hospitality quick-setup tests pass.
@@ -306,3 +306,4 @@ none.
   - Accept: `node --test scripts/__tests__/assert-vitest-ran.test.mjs` exits 0 (RED: `src/scripts/collapse-day-named-schedules.integration.test.ts is DATABASE_URL-gated but never runs`); the RLS integration step's list names the new file, and `availability-day-scope.integration.test.ts` is listed there too.
 
 - 2026-11-04: PR #8237's CI failed three jobs that block `CI Gate`: Build (run 41837794534, job 126602551637, `no-circular`), Lint (job 126602551393, knip `Unused exports (1)`) and Test (Node 22, rest) (job 126602551842, `assert-vitest-ran`). Visual Regression (hospitality) also failed; it is advisory and its baselines only regenerate through a `workflow_dispatch` of `visual-noise-floor.yml`, so it is an Owner step and not part of this loop.
+- 2026-11-04: The cycle was `ResolvedService` (a type `service-days.ts` needed from `resolve-day.ts`). It now lives in `types.ts`, the engine's leaf vocabulary module, which `resolve-day.ts`, `service-days.ts` and `slots.ts` import; the package index exports it from there, so the public surface is unchanged. This is the same cycle Milestone 1's `week-spans.ts` note avoided one hop away.
