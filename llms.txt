@@ -3280,6 +3280,9 @@
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-holidays.ts">
+    <item priority="medium">
+      function addressCountry(profile: unknown): string | undefined { /* ... */ }
+    </item>
     <item priority="high">
       export function useHolidayCountry(): HolidayCountry | null { /* ... */ }
     </item>
