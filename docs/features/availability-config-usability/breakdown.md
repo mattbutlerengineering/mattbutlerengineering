@@ -40,7 +40,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Legacy projection per weekday** — `legacy-projection.ts` takes the hull of `servicesOn` per weekday for the covering undated assignment.
   - Accept: tests show a scoped row projects per weekday (Monday has no dinner window in the demo week), and a config of unscoped rows projects identically to the pre-change function kept in the test as the oracle.
   - Blocked by: hoursOn and servicesOn in resolveDay
-- [ ] **Scoped-row property tests** — extend `slots.property.test.ts` with a generator for scoped rows and sets, and add the oracle comparison for legacy configs.
+- [x] **Scoped-row property tests** — extend `slots.property.test.ts` with a generator for scoped rows and sets, and add the oracle comparison for legacy configs.
   - Accept: over generated configs no listed slot falls outside `resolveDay`, `judge` returns hard inside a closure, and for configs with every row unscoped `resolveDay` and `validateConfig` agree with the pre-change functions kept in the test. The existing `packages/availability` suite is green.
   - Blocked by: validateConfig per weekday, encodeWeek and decodeWeek, Legacy projection per weekday
 - [ ] **weekSpans and regularWeekView** — `weekSpans(config, options)` returns, for seven consecutive service dates from `options.from`, each running service's `{ venueServiceId, firstAt, lastAt, noTableFits }` through `listSlots` (filtered to tables that fit the party only when the venue has active tables), taking no clock but the `now` it is given. `regularWeekView(config)` keeps only live kind-`regular` schedules' assignments and drops date rules.
