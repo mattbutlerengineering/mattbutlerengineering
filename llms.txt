@@ -6291,7 +6291,35 @@
   <section priority="medium" role="helpers">
   <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
     <item priority="high">
-      export async function mockEmptyVenue(page: Page) { /* ... */ }
+      export async function mockEmptyVenue(page: Page, options: { derive?: boolean } = {}) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/helpers/engine-days-mock.ts">
+    <item priority="medium">
+      function isDayClosed(day: ResolvedDay): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function summarize(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary { /* ... */ }
+    </item>
+    <item priority="medium">
+      function between(from: string, to: string): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SavedConfig {
+        config: AvailabilityConfig;
+        version: number;
+      }
+    </item>
+    <item priority="high">
+      export async function serveDaysAndPreview(
+        page: Page,
+        venueBase: string,
+        timezone: string,
+        current: () => SavedConfig
+      ) { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/helpers/interaction-counter.ts">
