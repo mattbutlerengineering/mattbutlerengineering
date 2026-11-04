@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useId } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Text, Checkbox, ConfirmDialog } from "@mattbutlerengineering/rialto";
@@ -39,6 +39,7 @@ function isCloseBeforeOpen(open: string, close: string): boolean {
 export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursStepProps) {
   const { t } = useTranslation();
   const [confirmDay, setConfirmDay] = useState<DayOfWeek | null>(null);
+  const idPrefix = useId();
 
   // Keep a cache of previously-set schedules so re-enabling restores times
   const cachedSchedulesRef = useRef<Partial<Record<DayOfWeek, DaySchedule>>>({});
@@ -117,6 +118,8 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
           const dayError = errors?.days?.[day];
           const hasTimeError = enabled && isCloseBeforeOpen(schedule.open, schedule.close);
           const dayName = t(`onboarding.days.${day}`);
+          const hasError = hasTimeError || Boolean(dayError);
+          const errorId = hasError ? `${idPrefix}-${day}-error` : undefined;
 
           return (
             <div key={day} className={styles.dayRow}>
@@ -135,6 +138,8 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
                       value={schedule.open}
                       onChange={(e) => handleTimeChange(day, "open", e.target.value)}
                       aria-label={t("onboarding.hours.openingTime", { day: dayName })}
+                      aria-invalid={hasError || undefined}
+                      aria-describedby={errorId}
                     />
                     <Text variant="caption" color="secondary">
                       {t("onboarding.hours.to")}
@@ -145,15 +150,17 @@ export function OperatingHoursStep({ data, errors, onChange }: OperatingHoursSte
                       value={schedule.close}
                       onChange={(e) => handleTimeChange(day, "close", e.target.value)}
                       aria-label={t("onboarding.hours.closingTime", { day: dayName })}
+                      aria-invalid={hasError || undefined}
+                      aria-describedby={errorId}
                     />
                   </div>
                   {hasTimeError && (
-                    <Text className={styles.errorText} role="alert">
+                    <Text id={errorId} className={styles.errorText} role="alert">
                       {t("onboarding.hours.closeAfterOpen")}
                     </Text>
                   )}
                   {dayError && !hasTimeError && (
-                    <Text className={styles.errorText} role="alert">
+                    <Text id={errorId} className={styles.errorText} role="alert">
                       {dayError}
                     </Text>
                   )}
