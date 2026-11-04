@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -28,6 +28,7 @@ import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
 import { layerEffectText, layerLabelText } from "./layer-text.js";
+import { useHolidayNames } from "./use-holidays.js";
 import styles from "./AvailabilityDayDrawer.module.css";
 
 /** What a Manager needs to change the day; without it the drawer is read-only. */
@@ -173,6 +174,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
 
   // Several picked dates: the first date's summary, Close… and Copy would describe or act on one.
   const picked = editing?.fixedDates && editing.fixedDates.length > 1 ? editing.fixedDates : null;
+  // A holiday's name under the date ("Thanksgiving"), as the calendar cell shows it.
+  const holidays = useHolidayNames(useMemo(() => (date ? [date] : []), [date]));
+  const holiday = date && !picked ? holidays.get(date) : undefined;
   // Any open editor, even one with no change yet, has pinned the version it will save against.
   const editorOpen = useEditorOpen();
   // Past the Manager's own save, the config on hand is behind it: a draft made on it would conflict.
@@ -372,6 +376,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             ? t("availability.selection.count", { count: picked.length })
             : format.formatCalendarDate(date, { weekday: "long", month: "long", day: "numeric" })
       }
+      description={holiday}
     >
       <Stack gap="md">
         {body}
