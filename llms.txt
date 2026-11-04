@@ -10913,6 +10913,34 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="pwa">
+  <file path="apps/marketing/pwa/workbox-options.ts">
+    <item priority="low">
+      interface ServiceWorkerRuntimeRoute {
+        urlPattern: RegExp | string;
+        handler: "CacheFirst" | "CacheOnly" | "NetworkFirst" | "NetworkOnl...;
+      }
+    </item>
+    <item priority="high">
+      export const workboxRuntimeCaching: readonly ServiceWorkerRuntimeRoute[];
+    </item>
+    <item priority="high">
+      export const workboxPrecacheGlobPatterns: readonly string[];
+    </item>
+    <item priority="high">
+      export function isDocumentFontRequest(url: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function routeListClaims(
+        routes: readonly ServiceWorkerRuntimeRoute[],
+        url: string
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceWorkerClaimsUrl(url: string): boolean { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="react">
   <file path="packages/auth/src/react/auth-error.ts">
     <item priority="high">
