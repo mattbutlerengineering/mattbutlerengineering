@@ -96,6 +96,13 @@ describe("BookingConfirmedExamplePage", () => {
     expect(labels).toEqual(expect.arrayContaining(["Property", "Dates", "Party"]));
   });
 
+  it("keeps a space before the inline reduced-motion code in the composition note", () => {
+    render(<BookingConfirmedExamplePage />);
+    const notes = screen.getAllByRole("note", { name: "Composition note" });
+    const motionNote = notes.find((note) => note.textContent?.includes("prefers-reduced-motion"));
+    expect(motionNote?.textContent).toContain("behind prefers-reduced-motion");
+  });
+
   it("offers at least two next-step CTAs including a primary action", () => {
     render(<BookingConfirmedExamplePage />);
     const view = screen.getByRole("button", { name: "View reservation" });

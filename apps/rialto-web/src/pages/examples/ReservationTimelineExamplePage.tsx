@@ -31,7 +31,7 @@ const SOURCE_JSX = `import { TapeChart } from "@mattbutlerengineering/rialto";
 const COMPOSITION_NOTES: ReactNode = (
   <CompositionNote>
     One Gantt-style timeline composed from a single <code>TapeChart</code> — one row per room, one
-    bar per reservation spanning its stay. Clicking a bar reports the selection back through
+    bar per reservation spanning its stay. Clicking a bar reports the selection back through{" "}
     <code>onReservationClick</code>; the details card below reads the same fixture data the chart
     was given.
   </CompositionNote>
