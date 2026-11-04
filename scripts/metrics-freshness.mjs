@@ -55,6 +55,8 @@
  * Exit code: 0 when every watched metric is fresh, 1 otherwise — in both modes.
  */
 
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { read } from "./metrics-store.mjs";
 import { runCheck } from "./lib/fitness-check.mjs";
@@ -137,7 +139,43 @@ export const FRESHNESS_POLICY = [
     maxAgeDays: 5,
     producer: "scripts/collect-ai-issue-feedback.mjs",
   },
+  {
+    // Not a metrics/ file: the weekly shipped-features-snapshot.yml commits
+    // apps/marketing/src/data/shipped-features.json, and it went 18 days
+    // without a real update while looking fine (#8202, #8204). An empty
+    // feature list is not healthy even with a fresh date. 14 days = two
+    // missed weekly runs (same convention as sdlcSpeed).
+    metric: "shipped-features",
+    sourceFile: "apps/marketing/src/data/shipped-features.json",
+    isHealthy: (row) => Array.isArray(row?.features) && row.features.length > 0,
+    timestampField: "generatedAt",
+    maxAgeDays: 14,
+    producer:
+      ".github/workflows/shipped-features-snapshot.yml (scripts/collect-shipped-features.mjs)",
+  },
 ];
+
+const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+/**
+ * Reader for every watched metric: policy entries with a `sourceFile` are
+ * read from that repo path (missing file -> null); the rest come from the
+ * metrics store.
+ *
+ * @param {string} metric
+ * @param {{ root?: string }} [opts]
+ * @returns {unknown}
+ */
+export function readWatched(metric, { root = REPO_ROOT } = {}) {
+  const entry = FRESHNESS_POLICY.find((p) => p.metric === metric && p.sourceFile);
+  if (!entry) return read(metric, { root });
+  try {
+    return JSON.parse(readFileSync(join(root, entry.sourceFile), "utf8"));
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+}
 
 /** The one passing state. Anything else — named or not — is a finding. */
 export const FRESH = "fresh";
@@ -250,7 +288,7 @@ export function classifyFreshness({
  * @returns {Array<object>}
  */
 export function assessFreshness({
-  readMetric = (metric) => read(metric),
+  readMetric = (metric) => readWatched(metric),
   now = new Date(),
   policy = FRESHNESS_POLICY,
   env = process.env,

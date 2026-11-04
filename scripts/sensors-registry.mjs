@@ -41,7 +41,12 @@ import {
   readMergedAiPrsPaged,
 } from "./collect-queue-efficiency.mjs";
 import { read, lastEntry } from "./metrics-store.mjs";
-import { assessFreshness, freshnessFindings, freshnessRegressions } from "./metrics-freshness.mjs";
+import {
+  assessFreshness,
+  readWatched,
+  freshnessFindings,
+  freshnessRegressions,
+} from "./metrics-freshness.mjs";
 import { describeGhError, listRunArtifacts, downloadArtifactZip } from "@mbe/gh-client";
 import { extractZipEntries } from "./extract-zip-entries.mjs";
 import { parseJUnitXml } from "./parse-junit-xml.mjs";
@@ -431,7 +436,10 @@ export const SENSORS = [
     id: "metricsFreshness",
     category: "quality",
     collect: ({ root, now = new Date() }) => {
-      const results = assessFreshness({ readMetric: (metric) => read(metric, { root }), now });
+      const results = assessFreshness({
+        readMetric: (metric) => readWatched(metric, { root }),
+        now,
+      });
       return {
         // Always available: the check can always answer, even (especially)
         // when every file it watches is missing.
