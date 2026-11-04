@@ -2596,7 +2596,8 @@
       "suggestions": {
         "private": "Cerrado por evento privado",
         "weather": "Cerrado por clima",
-        "holiday": "Cerrado por el día festivo"
+        "holiday": "Cerrado por el día festivo",
+        "holidayNamed": "Cerrado por {{name}}"
       },
       "what": {
         "label": "Qué",
