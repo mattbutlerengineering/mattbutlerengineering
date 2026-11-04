@@ -18223,6 +18223,139 @@
     }
   </file>
   </section>
+  <section priority="medium" role="helpers">
+  <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
+    export async function mockEmptyVenue(page: Page) {
+      let saved: Record<string, unknown> | null = null;
+      let version = 3;
+    
+      const venues = JSON.parse(loadFixture("venues-list")) as {
+        data: Array<Record<string, unknown>>;
+        pagination: Record<string, unknown>;
+      };
+      const venueId = String(venues.data[0]?.id);
+    
+      await page.route("**/api/v1/venues?*", (route) => {
+        const [venue] = venues.data;
+        const data = [
+          { ...venue, operatingHours: saved ? { monday: { open: "17:00", close: "22:00" } } : null },
+        ];
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data, pagination: venues.pagination }),
+        });
+      });
+      // No floor plan yet, so the hours step is the only one the save can complete.
+      await page.route("**/api/v1/floor-plans?*", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: [],
+            pagination: { page: 1, limit: 10, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
+          }),
+        })
+      );
+      await page.route(`**/api/v1/venues/${venueId}/availability/config`, (route) => {
+        if (route.request().method() === "PUT") {
+          saved = route.request().postDataJSON() as Record<string, unknown>;
+          version += 1;
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ data: { version, changeId: "change-1" } }),
+          });
+        }
+        const upsert = (saved?.changes as { upsert?: Record<string, unknown[]> } | undefined)?.upsert;
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: saved
+              ? {
+                  config: {
+                    ...EMPTY_CONFIG,
+                    schedules: upsert?.schedules ?? [],
+                    venueServices: upsert?.venueServices ?? [],
+                    scheduleServices: upsert?.scheduleServices ?? [],
+                    assignments: upsert?.assignments ?? [],
+                  },
+                  version,
+                  source: "rows",
+                }
+              : { config: EMPTY_CONFIG, version, source: "empty" },
+          }),
+        });
+      });
+      await page.route(`**/api/v1/venues/${venueId}/availability/days*`, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: [] }),
+        })
+      );
+      return { savedBody: () => saved };
+    }
+  </file>
+  <file path="apps/hospitality/e2e/helpers/interaction-counter.ts">
+    export interface InteractionCounter {
+      /** Use this in place of the test's `page`. */
+      readonly page: Page;
+      /** Interactions counted so far. */
+      readonly count: () => number;
+    }
+    export function countInteractions(page: Page): InteractionCounter {
+      let interactions = 0;
+    
+      const wrap = <T extends Page | Locator>(target: T): T =>
+        new Proxy(target, {
+          get(_, prop) {
+            const member: unknown = Reflect.get(target, prop, target);
+            if (typeof member !== "function" || typeof prop !== "string") return member;
+            return (...args: unknown[]) => {
+              if (COUNTED_ACTIONS.has(prop)) interactions += 1;
+              const result: unknown = member.apply(target, args);
+              return LOCATOR_RETURNING.has(prop) ? wrap(result as Locator) : result;
+            };
+          },
+        });
+    
+      return { page: wrap(page), count: () => interactions };
+    }
+  </file>
+  <file path="apps/hospitality/e2e/helpers/quick-setup-scenarios.ts">
+    export const UNIFORM_BISTRO_BASELINE = 5;
+    export const LARGE_SETUP_BASELINE = 13;
+    async function chooseTime(page: Page, serviceIndex: number, label: string, time: string) {
+      await page.getByRole("combobox", { name: label }).nth(serviceIndex).click();
+      await page
+        .getByRole("listbox", { name: label })
+        .getByRole("option", { name: time, exact: true })
+        .click();
+    }
+    export async function setUniformBistroWeek(page: Page) {
+      await page.getByRole("button", { name: "Lunch" }).click();
+      await page.getByRole("button", { name: "Add another service" }).click();
+      await page.getByRole("button", { name: "Dinner" }).last().click();
+      await page.getByRole("button", { name: "Weekdays" }).click();
+      await page.getByRole("button", { name: "Save and open bookings" }).click();
+    }
+    export async function setLargeSetup(page: Page) {
+      await page.getByRole("button", { name: "Brunch" }).click();
+      await page.getByRole("button", { name: "Add another service" }).click();
+      await page.getByRole("button", { name: "Dinner" }).last().click();
+      await page.getByRole("button", { name: "Add another service" }).click();
+      await page.getByRole("textbox", { name: /name/i }).last().fill("Tasting Menu");
+      await chooseTime(page, 2, "Opens", "3:00 PM");
+      await chooseTime(page, 2, "Closes", "4:30 PM");
+      await page.getByRole("button", { name: "Add another service" }).click();
+      await page.getByRole("button", { name: "Late" }).last().click();
+      await page.getByRole("button", { name: "Every day" }).click();
+      await page.getByRole("button", { name: "Save and open bookings" }).click();
+    }
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="apps/gen/src/hooks/useApi.ts">
     export function useApi(): ApiClient {

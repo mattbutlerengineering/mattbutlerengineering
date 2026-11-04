@@ -6148,6 +6148,41 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="helpers">
+  <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
+    <item priority="high">
+      export async function mockEmptyVenue(page: Page) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/helpers/interaction-counter.ts">
+    <item priority="low">
+      interface InteractionCounter {
+        page: Page;
+        count: () => number;
+      }
+    </item>
+    <item priority="high">
+      export function countInteractions(page: Page): InteractionCounter { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/helpers/quick-setup-scenarios.ts">
+    <item priority="high">
+      export const UNIFORM_BISTRO_BASELINE: unknown;
+    </item>
+    <item priority="high">
+      export const LARGE_SETUP_BASELINE: unknown;
+    </item>
+    <item priority="low">
+      async function chooseTime(page: Page, serviceIndex: number, label: string, time: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setUniformBistroWeek(page: Page) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setLargeSetup(page: Page) { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="apps/gen/src/hooks/useApi.ts">
     <item priority="high">
