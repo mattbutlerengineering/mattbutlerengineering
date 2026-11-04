@@ -74,23 +74,22 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh workflow run ci.yml --ref automation/pr-acceptance-metrics
       - name: Dispatch tier-classifier on the automation branch
-        # tier-classifier.yml only triggers on `pull_request`, and this PR's
-        # commits are GITHUB_TOKEN/AUTOMATION_PAT-authored -- the same
-        # anti-recursion gap ci.yml has (#3684) -- so it never reliably lands
-        # a tier:* label on its own, and the Enable auto-merge step below
-        # fails closed without one (#4070). tier-classifier.yml now accepts
-        # the same workflow_dispatch escape hatch ci.yml already does.
+        # tier-classifier.yml is dispatched by hand because a GITHUB_TOKEN/AUTOMATION_PAT-authored
+        # PR fires no `pull_request(_target)` event (the anti-recursion gap ci.yml has, #3684),
+        # so no tier:* label would land and the gate below would fail closed (#4070). The
+        # dispatch runs from the default branch: never pass `--ref` (the classifier fails
+        # closed off the default branch and treats the PR head as data).
         if: steps.create-pr.outputs.pull-request-number
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
-        run: gh workflow run tier-classifier.yml --ref automation/pr-acceptance-metrics -f pr="$PR_NUMBER"
+        run: gh workflow run tier-classifier.yml -f pr="$PR_NUMBER"
       - name: Approve pending automation workflow runs
         # #3684/#3982: the dispatch step above produces a workflow_dispatch
         # CI run, but that is a DIFFERENT run than the PR's own required
         # pull_request CI Gate check (gotcha #3969's gate-missing state) --
         # a green dispatch run does not make CI Gate appear on this PR.
-        # Every pull_request-triggered run on this PR (CI, tier-classifier,
+        # Every pull_request(_target)-triggered run on this PR (CI, tier-classifier,
         # Auto Review, ADR check, ...) instead parks at action_required
         # because the commit is pushed via GITHUB_TOKEN/AUTOMATION_PAT, not
         # a full collaborator identity. Nothing else in the chain unblocks

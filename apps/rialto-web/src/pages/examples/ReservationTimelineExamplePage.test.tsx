@@ -46,17 +46,20 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     reservations,
     onReservationClick,
     selectedReservationId,
+    viewMode,
   }: {
     rooms: { id: string }[];
     reservations: { id: string; guestName?: string }[];
     onReservationClick?: (r: { id: string; guestName?: string }) => void;
     selectedReservationId?: string | null;
+    viewMode?: string;
   }) => (
     <div
       data-testid="tapechart-stub"
       data-rooms={rooms.length}
       data-reservations={reservations.length}
       data-selected={selectedReservationId ?? ""}
+      data-view-mode={viewMode ?? ""}
     >
       {reservations.map((r) => (
         <button key={r.id} type="button" onClick={() => onReservationClick?.(r)}>
@@ -86,6 +89,12 @@ describe("ReservationTimelineExamplePage", () => {
     expect(reservations.length).toBeGreaterThan(0);
   });
 
+  it("keeps a space before the inline click-handler code in the composition note", () => {
+    render(<ReservationTimelineExamplePage />);
+    const note = screen.getByRole("note", { name: "Composition note" });
+    expect(note.textContent).toContain("through onReservationClick");
+  });
+
   it("shows no selection details until a reservation bar is clicked", () => {
     render(<ReservationTimelineExamplePage />);
     expect(screen.queryByTestId("reservation-timeline-selection")).not.toBeInTheDocument();
@@ -103,5 +112,25 @@ describe("ReservationTimelineExamplePage", () => {
     const card = screen.getByTestId("reservation-timeline-selection");
     expect(card).toHaveTextContent(guestName);
     expect(chart).not.toHaveAttribute("data-selected", "");
+  });
+
+  it("prints the clicked reservation's own dates, the same ones the bar was given", async () => {
+    const user = userEvent.setup();
+    render(<ReservationTimelineExamplePage />);
+    const rooms = makeRooms(ROOM_COUNT);
+    const { startDate, endDate } = defaultDateRange();
+    const reservations = makeReservations(rooms, startDate, endDate, RESERVATION_DENSITY);
+    const target = reservations.find((r) => r.guestName);
+    expect(target).toBeDefined();
+
+    await user.click(screen.getByRole("button", { name: target!.guestName }));
+
+    const card = screen.getByTestId("reservation-timeline-selection");
+    expect(card).toHaveTextContent(`${target!.start} → ${target!.end}`);
+  });
+
+  it("does not lock TapeChart to grid, so the Grid/List toggle can change the view", () => {
+    render(<ReservationTimelineExamplePage />);
+    expect(screen.getByTestId("tapechart-stub")).toHaveAttribute("data-view-mode", "");
   });
 });

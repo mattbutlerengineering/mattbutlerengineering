@@ -3,6 +3,23 @@
   max-width: 640px;
 }
 
+.stepHeadingWrap {
+  margin-block-end: var(--rialto-space-md);
+}
+
+/* Hug the words so the focus ring is not a bar across the card. */
+.stepHeading {
+  width: fit-content;
+}
+
+/* :focus, not :focus-visible — the heading is focused from script when the
+   step changes, and programmatic focus does not match :focus-visible. */
+.stepHeading:focus {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+  border-radius: var(--rialto-radius-default);
+}
+
 .steps {
   max-width: 640px;
   margin-bottom: var(--rialto-space-lg);

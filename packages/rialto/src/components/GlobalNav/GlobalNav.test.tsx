@@ -135,6 +135,39 @@ describe("GlobalNav", () => {
     expect(document.getElementById(menuId)).toBeNull();
   });
 
+  it("reports mobile-menu changes and follows a controlled open state", async () => {
+    const user = userEvent.setup();
+    const onMobileMenuOpenChange = vi.fn();
+    const { rerender } = render(
+      <GlobalNav
+        currentApp="marketing"
+        mobileMenuOpen={false}
+        onMobileMenuOpenChange={onMobileMenuOpenChange}
+      />
+    );
+
+    const hamburger = screen.getByRole("button", { name: "Open menu" });
+    expect(hamburger.getAttribute("aria-expanded")).toBe("false");
+    await user.click(hamburger);
+    expect(onMobileMenuOpenChange).toHaveBeenCalledWith(true);
+    // Parent did not update, so the menu stays closed.
+    expect(document.getElementById(hamburger.getAttribute("aria-controls")!)).toBeNull();
+
+    rerender(
+      <GlobalNav
+        currentApp="marketing"
+        mobileMenuOpen={true}
+        onMobileMenuOpenChange={onMobileMenuOpenChange}
+      />
+    );
+    const close = screen.getByRole("button", { name: "Close menu" });
+    expect(close.getAttribute("aria-expanded")).toBe("true");
+    expect(document.getElementById(close.getAttribute("aria-controls")!)).toBeTruthy();
+
+    await user.keyboard("{Escape}");
+    expect(onMobileMenuOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it("closes mobile menu on Escape key", async () => {
     const user = userEvent.setup();
     render(<GlobalNav currentApp="marketing" />);

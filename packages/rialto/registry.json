@@ -2204,6 +2204,18 @@
           "type": "GlobalNavMenu | undefined",
           "required": false,
           "description": "Optional dropdown after the app links. The trigger is marked current when any item is."
+        },
+        {
+          "name": "mobileMenuOpen",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Mobile menu open state. Omit it and GlobalNav owns the menu.\nPass it with `onMobileMenuOpenChange` so a page can close this menu\nwhen another overlay opens."
+        },
+        {
+          "name": "onMobileMenuOpenChange",
+          "type": "((open: boolean) => void) | undefined",
+          "required": false,
+          "description": "Called with the next open state when the hamburger or Escape toggles the menu."
         }
       ],
       "slots": []
@@ -4535,7 +4547,7 @@
           "name": "timeZone",
           "type": "string | undefined",
           "required": false,
-          "description": "IANA time zone (e.g. \"America/Los_Angeles\"). Defaults to the runtime zone."
+          "description": "IANA time zone used to decide which calendar day is \"today\"\n(e.g. \"America/Los_Angeles\"). Defaults to the runtime zone.\nDay labels stay on the YYYY-MM-DD calendar day and do not shift with this zone."
         },
         {
           "name": "currency",

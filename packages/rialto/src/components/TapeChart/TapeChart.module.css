@@ -92,7 +92,9 @@
 .gridBody {
   display: flex;
   flex-direction: column;
-  min-inline-size: calc(
+  /* Exact width, not a minimum. A wider card used to stretch each row, and the
+     lane's day-width gradient kept painting columns past the last date header. */
+  inline-size: calc(
     var(--tapechart-room-col-width) + var(--tapechart-day-width) * var(--tapechart-day-count, 7)
   );
 }
@@ -229,7 +231,9 @@
 
 .row {
   display: grid;
-  grid-template-columns: var(--tapechart-room-col-width) 1fr;
+  grid-template-columns:
+    var(--tapechart-room-col-width)
+    calc(var(--tapechart-day-count, 7) * var(--tapechart-day-width));
   border-block-end: 1px solid var(--rialto-border);
   contain: layout style;
   content-visibility: auto;

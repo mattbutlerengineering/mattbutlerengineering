@@ -125,3 +125,27 @@ Coordination: another session (package-consolidation batch, issues
 `useChatStream.ts`, check `git fetch origin main && git log origin/main
 --since=2026-10-18 -- packages/rialto/src/components/ChatPanel` and open PRs
 touching it; if it moved, adapt to its new location rather than reverting it.
+
+## Resume 2026-11-03 (Owner, live — not assumptions)
+
+Resumed for Operate. `release.md` records `outcome: released`,
+`released-at: 2026-10-19` (#7108). Nothing above is changed.
+
+- **Minimum signal, leg 1, read by intent.** The deployed
+  `/hospitality/assets/rialto-vendor-CkkMuhjh.js` (fetched 2026-11-03 22:03Z)
+  still contains "Switch to dark mode" and "Switch to light mode" once each,
+  but only as the en-US `RialtoMessages` values `switchToDarkMode` /
+  `switchToLightMode`. ThemeToggle reads its `aria-label` from
+  `useRialtoLocale`'s messages, and the es-MX and fr-CA values are deployed.
+  The Owner answered **"Met by intent — run Operate"**: the hardcoded
+  conditional is gone, and the literal wording could never be met while en-US
+  ships inline.
+- **Leg 2:** 15 days since merge. Operate records whether any CI run caught a
+  new conditional literal.
+- **Where:** the § Execution environment worktree no longer exists. Operate
+  works in `.claude/worktrees/loc-literals-operate`, branch
+  `docs/localization-conditional-literals-retro` off `origin/main`
+  `765bd2e90`. The retro lands by a docs PR for the Owner's merge; nothing is
+  merged by this run.
+- `users-observed` is counted by Operate from the signal it finds. This brief
+  supplies no count.
