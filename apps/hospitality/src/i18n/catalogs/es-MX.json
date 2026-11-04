@@ -2040,7 +2040,7 @@
   },
   "availability": {
     "title": "Disponibilidad",
-    "description": "Qué rige cada día y por qué.",
+    "description": "Cuándo pueden reservar tus clientes: tu semana habitual, días festivos y cambios puntuales.",
     "hostNote": "Solo los gerentes cambian los horarios. Para esta noche, usa el panel Esta noche.",
     "loadError": "No se pudo cargar la disponibilidad",
     "noVenue": "Selecciona un local para ver su disponibilidad.",
