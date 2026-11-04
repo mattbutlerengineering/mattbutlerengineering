@@ -41,6 +41,7 @@ function problem(status: number, extra: Record<string, unknown> = {}) {
 const NOW = new Date("2026-10-28T20:00:00Z");
 const NO_IMPACT = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
 const SEATING = { version: 1, interval: 15 };
+const NO_SCOPE = { weekdays: [], dayHours: { version: 1, sets: [] } };
 
 function configState(dateRules: unknown[] = []) {
   return {
@@ -63,6 +64,7 @@ function configState(dateRules: unknown[] = []) {
           closesAt: 900,
           seating: SEATING,
           bookingTypes: ["online"],
+          ...NO_SCOPE,
         },
         {
           id: "ss2",
@@ -73,10 +75,67 @@ function configState(dateRules: unknown[] = []) {
           closesAt: 1380,
           seating: SEATING,
           bookingTypes: ["online", "phone"],
+          ...NO_SCOPE,
         },
       ],
       assignments: [],
       dateRules,
+    },
+  };
+}
+
+/**
+ * The demo week: Lunch Mon-Fri, Dinner Tue-Sun closing later Fri-Sat (a day set), Brunch Sat-Sun.
+ * Mirrors `DEMO_WEEK_CONFIG` in apps/hospitality (a service cannot import from an app).
+ */
+function demoWeekState() {
+  const hours = (opensAt: number, lastSeatingAt: number, closesAt: number) => ({
+    opensAt,
+    lastSeatingAt,
+    closesAt,
+    seating: SEATING,
+    bookingTypes: ["online", "phone"],
+  });
+  return {
+    version: 7,
+    source: "rows",
+    config: {
+      schedules: [{ id: "demo", name: "Regular week", kind: "regular", isRegular: true }],
+      venueServices: [
+        { id: "svc-lunch", name: "Lunch", position: 0 },
+        { id: "svc-dinner", name: "Dinner", position: 1 },
+        { id: "svc-brunch", name: "Brunch", position: 2 },
+      ],
+      scheduleServices: [
+        {
+          id: "ss-lunch",
+          scheduleId: "demo",
+          venueServiceId: "svc-lunch",
+          ...hours(690, 840, 900),
+          weekdays: [1, 2, 3, 4, 5],
+          dayHours: { version: 1, sets: [] },
+        },
+        {
+          id: "ss-dinner",
+          scheduleId: "demo",
+          venueServiceId: "svc-dinner",
+          ...hours(1020, 1260, 1380),
+          weekdays: [2, 3, 4, 0],
+          dayHours: { version: 1, sets: [{ weekdays: [5, 6], ...hours(1020, 1320, 1440) }] },
+        },
+        {
+          id: "ss-brunch",
+          scheduleId: "demo",
+          venueServiceId: "svc-brunch",
+          ...hours(600, 780, 840),
+          weekdays: [6, 0],
+          dayHours: { version: 1, sets: [] },
+        },
+      ],
+      assignments: [
+        { id: "as-demo", scheduleId: "demo", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+      ],
+      dateRules: [],
     },
   };
 }
@@ -658,6 +717,65 @@ describe("closure chat tools", () => {
         expect.any(String)
       );
       expect(result).toMatchObject({ saved: true, date: "2026-12-24", service: "Dinner" });
+    });
+
+    describe("on a varied week", () => {
+      const lunchHours = { opensAt: "11:00", lastSeating: "13:30", closesAt: "14:30" };
+
+      it("seeds a Friday from the rows that run Friday, with Friday's hours", async () => {
+        api.availability.getConfig.mockResolvedValue(demoWeekState());
+        api.availability.listDays.mockResolvedValue([day("2026-10-30", { scheduleId: "demo" })]);
+
+        await run("set_special_hours", { date: "2026-10-30", service: "Lunch", ...lunchHours });
+
+        const rule = api.availability.createClosure.mock.calls[0]![1].rule;
+        expect(rule.payload.services).toEqual([
+          {
+            venueServiceId: "svc-lunch",
+            opensAt: 660,
+            lastSeatingAt: 810,
+            closesAt: 870,
+            seating: SEATING,
+            bookingTypes: ["online", "phone"],
+          },
+          {
+            venueServiceId: "svc-dinner", // Friday's later close, not the base hours
+            opensAt: 1020,
+            lastSeatingAt: 1320,
+            closesAt: 1440,
+            seating: SEATING,
+            bookingTypes: ["online", "phone"],
+          },
+        ]);
+      });
+
+      it("leaves a service that does not run that weekday out, and refuses to base hours on it", async () => {
+        api.availability.getConfig.mockResolvedValue(demoWeekState());
+        api.availability.listDays.mockResolvedValue([day("2026-11-02", { scheduleId: "demo" })]);
+
+        const monday = await run("set_special_hours", {
+          date: "2026-11-02",
+          service: "Lunch",
+          ...lunchHours,
+        });
+        expect(
+          api.availability.createClosure.mock.calls[0]![1].rule.payload.services.map(
+            (s: { venueServiceId: string }) => s.venueServiceId
+          )
+        ).toEqual(["svc-lunch"]);
+        expect(monday).toMatchObject({ saved: true });
+
+        const dinner = await run("set_special_hours", {
+          date: "2026-11-02",
+          service: "Dinner",
+          opensAt: "17:00",
+          lastSeating: "21:00",
+          closesAt: "23:00",
+        });
+        expect(dinner).toMatchObject({
+          error: expect.stringMatching(/isn't one of the regular services on 2026-11-02/),
+        });
+      });
     });
 
     it("reads a closing time after midnight on the two-day scale", async () => {

@@ -3,6 +3,7 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
+import { servicesOn, weekdayIndexOf } from "@mbe/availability";
 import type {
   AvailabilityChangesPage,
   AvailabilityConfig,
@@ -126,9 +127,13 @@ export function clockToMinute(clock: string): number {
  * venue's earliest opening belongs to the night that started the day before
  * (01:00 after a late dinner is minute 1500).
  */
-function serviceDayMinute(clock: string, config: AvailabilityConfig): number {
+function serviceDayMinute(clock: string, config: AvailabilityConfig, date: string): number {
   const minute = clockToMinute(clock);
-  const opens = config.scheduleServices.map((s) => s.opensAt);
+  // The services running on `date`'s weekday, each with that weekday's hours.
+  const venueServices = new Map(config.venueServices.map((v) => [v.id, v]));
+  const opens = servicesOn(config.scheduleServices, venueServices, weekdayIndexOf(date)).map(
+    (s) => s.opensAt
+  );
   const earliest = opens.length ? Math.min(...opens) : 0;
   return minute < earliest ? minute + MINUTES_IN_DAY : minute;
 }
@@ -224,9 +229,10 @@ async function buildChange(
   input: ChangeTonightInput,
   config: AvailabilityConfig,
   api: ApiClient,
-  venueId: string
+  venueId: string,
+  today: string
 ): Promise<{ change: TonightChange } | { error: string }> {
-  const minute = (clock: string) => serviceDayMinute(clock, config);
+  const minute = (clock: string) => serviceDayMinute(clock, config, today);
   const window =
     input.from && input.to ? { from: minute(input.from), to: minute(input.to) } : undefined;
   if (window && window.to <= window.from) {
@@ -380,7 +386,7 @@ export function createAvailabilityTools(
         let unsure: string | undefined;
         try {
           const state = await api.availability.getConfig(venueId);
-          const built = await buildChange(input, state.config, api, venueId);
+          const built = await buildChange(input, state.config, api, venueId, todayIn(timeZone));
           if ("error" in built) return notExecuted(built);
           unsure = TONIGHT_SAVE_UNSURE;
           const result = await api.availability.setTonight(venueId, {

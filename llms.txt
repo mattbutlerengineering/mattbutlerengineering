@@ -10855,7 +10855,7 @@
       export function clockToMinute(clock: string): number { /* ... */ }
     </item>
     <item priority="medium">
-      function serviceDayMinute(clock: string, config: AvailabilityConfig): number { /* ... */ }
+      function serviceDayMinute(clock: string, config: AvailabilityConfig, date: string): number { /* ... */ }
     </item>
     <item priority="high">
       export function minuteToClock(minute: number): string { /* ... */ }
@@ -10894,7 +10894,8 @@
         input: ChangeTonightInput,
         config: AvailabilityConfig,
         api: ApiClient,
-        venueId: string
+        venueId: string,
+        today: string
       ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
     </item>
     <item priority="medium">
