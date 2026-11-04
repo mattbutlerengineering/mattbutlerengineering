@@ -16,10 +16,21 @@ import {
 
 // Stand-in for the dialog (covered by its own suite): one button that reports a completed change.
 vi.mock("../components/manage-reservation/ChangeBookingDialog.js", () => ({
-  ChangeBookingDialog: ({ onChanged }: { onChanged: (r: unknown) => void }) => (
-    <button type="button" onClick={() => onChanged({})}>
-      mock-change-done
-    </button>
+  ChangeBookingDialog: ({
+    onChanged,
+    onClose,
+  }: {
+    onChanged: (r: unknown) => void;
+    onClose: () => void;
+  }) => (
+    <div>
+      <button type="button" onClick={() => onChanged({})}>
+        mock-change-done
+      </button>
+      <button type="button" onClick={onClose}>
+        mock-change-dismiss
+      </button>
+    </div>
   ),
 }));
 
@@ -621,5 +632,72 @@ describe("ManageReservationPage change booking", () => {
         expect.anything()
       );
     });
+  });
+});
+
+describe("ManageReservationPage focus return (#8234, WCAG 2.4.3)", () => {
+  const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+
+  function mockPayload() {
+    mockSearchParams.set("token", "valid-token-abc");
+    mockFetch.mockResolvedValueOnce(
+      makeOkResponse(
+        makeManagedPayload({
+          reservation: { startTime: hoursFromNow(72), endTime: hoursFromNow(74) },
+        })
+      )
+    );
+  }
+
+  it("dismissing the change dialog returns focus to Change booking", async () => {
+    mockPayload();
+    renderPage();
+    const trigger = await screen.findByRole("button", { name: /change booking/i });
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByRole("button", { name: "mock-change-dismiss" }));
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("a successful change returns focus to Change booking", async () => {
+    mockPayload();
+    mockFetch.mockResolvedValueOnce(
+      makeOkResponse(
+        makeManagedPayload({
+          reservation: { startTime: hoursFromNow(96), endTime: hoursFromNow(98) },
+        })
+      )
+    );
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: /change booking/i }));
+    fireEvent.click(screen.getByRole("button", { name: "mock-change-done" }));
+    await screen.findByRole("status");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /change booking/i })).toHaveFocus()
+    );
+  });
+
+  it("dismissing the cancel dialog returns focus to Cancel", async () => {
+    mockPayload();
+    renderPage();
+    const trigger = await screen.findByRole("button", { name: /cancel reservation/i });
+    fireEvent.click(trigger);
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /keep reservation/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
+
+  it("a confirmed cancel moves focus to the page heading (the Cancel control is gone)", async () => {
+    mockPayload();
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: /cancel reservation/i }));
+    const dialog = await screen.findByRole("dialog");
+    mockFetch.mockResolvedValueOnce(makeOkResponse({ data: { status: "CANCELLED" } }));
+    mockFetch.mockResolvedValueOnce(
+      makeOkResponse(makeManagedPayload({ reservation: { status: "CANCELLED" } }))
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: /^cancel reservation$/i }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveFocus());
   });
 });
