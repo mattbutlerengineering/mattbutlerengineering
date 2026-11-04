@@ -10989,6 +10989,14 @@
         assignments: pick("assignments"),
       };
     }
+    export function introducedIssues(
+      before: readonly ConfigIssue[],
+      after: readonly ConfigIssue[]
+    ): ConfigIssue[] {
+      const key = (i: ConfigIssue) => `${i.code}|${i.path}|${i.weekday ?? ""}`;
+      const had = new Set(before.map(key));
+      return after.filter((i) => !had.has(key(i)));
+    }
     function createdBy(diff: ConfigDiff): CreatedRows {
       const ids = (table: keyof CreatedRows) => diff.create[table].map((r) => r.id);
       return {
@@ -11019,7 +11027,7 @@
     
         const next = applyChanges(config, changes, now.toISOString());
         const issues = validateConfig(next);
-        if (issues.length > validateConfig(config).length) {
+        if (introducedIssues(validateConfig(config), issues).length > 0) {
           return {
             venueId,
             outcome: "refused" as const,

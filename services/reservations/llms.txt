@@ -1839,6 +1839,12 @@
     <item priority="medium">
       function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows { /* ... */ }
     </item>
+    <item priority="high">
+      export function introducedIssues(
+        before: readonly ConfigIssue[],
+        after: readonly ConfigIssue[]
+      ): ConfigIssue[] { /* ... */ }
+    </item>
     <item priority="medium">
       function createdBy(diff: ConfigDiff): CreatedRows { /* ... */ }
     </item>

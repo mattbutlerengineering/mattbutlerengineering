@@ -3,7 +3,7 @@ import { resolveDay, validateConfig } from "@mbe/availability";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { readStoredConfig } from "../services/availability-config-rows.js";
 import { getAllVenueIds } from "../services/lapsed-guest-cron.js";
-import { collapseVenue, runCollapse } from "./collapse-day-named-schedules.js";
+import { collapseVenue, introducedIssues, runCollapse } from "./collapse-day-named-schedules.js";
 
 vi.mock("../services/database.js", () => ({ db: { prisma: {} } }));
 vi.mock("../services/lapsed-guest-cron.js", () => ({ getAllVenueIds: vi.fn() }));
@@ -262,6 +262,25 @@ describe("collapseVenue", () => {
     expect(outcome.outcome).toBe("raced");
     expect(writes.mock.calls.flat()).toEqual(["venue.updateMany"]);
     expect(venues["v-1"].scheduleAssignments).toHaveLength(2);
+  });
+});
+
+describe("introducedIssues", () => {
+  const issue = (code: string, path: string) => ({ code, path, message: `${code} at ${path}` });
+
+  it("reports an issue the collapse adds even when it also fixes one (equal counts)", () => {
+    const before = [issue("close_before_open", "scheduleServices[0].closesAt")];
+    const after = [issue("overlap", "scheduleServices[1].opensAt")];
+
+    expect(introducedIssues(before as never, after as never)).toEqual(after);
+  });
+
+  it("reports nothing when the collapse only keeps or removes issues", () => {
+    const kept = issue("overlap", "scheduleServices[1].opensAt");
+    const fixed = issue("close_before_open", "scheduleServices[0].closesAt");
+
+    expect(introducedIssues([kept, fixed] as never, [kept] as never)).toEqual([]);
+    expect(introducedIssues([kept] as never, [] as never)).toEqual([]);
   });
 });
 

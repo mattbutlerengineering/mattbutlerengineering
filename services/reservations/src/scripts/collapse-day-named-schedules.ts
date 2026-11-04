@@ -1,7 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { applyChanges, collapseDayNamedSchedules, validateConfig } from "@mbe/availability";
+import {
+  applyChanges,
+  collapseDayNamedSchedules,
+  validateConfig,
+  type ConfigIssue,
+} from "@mbe/availability";
 import type { AvailabilityConfig } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
@@ -83,6 +88,21 @@ function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows 
   };
 }
 
+/**
+ * The issues in `after` that `before` did not have, by code, path and weekday. A count compare
+ * would pass a collapse that fixes one stored issue and adds another.
+ * lean: paths are row indexes, so a stored issue whose row moves counts as new and the venue is
+ * refused (safe: the operator sees it); upgrade to a row-id key if that refuses real venues.
+ */
+export function introducedIssues(
+  before: readonly ConfigIssue[],
+  after: readonly ConfigIssue[]
+): ConfigIssue[] {
+  const key = (i: ConfigIssue) => `${i.code}|${i.path}|${i.weekday ?? ""}`;
+  const had = new Set(before.map(key));
+  return after.filter((i) => !had.has(key(i)));
+}
+
 function createdBy(diff: ConfigDiff): CreatedRows {
   const ids = (table: keyof CreatedRows) => diff.create[table].map((r) => r.id);
   return {
@@ -114,7 +134,7 @@ export async function collapseVenue(
 
     const next = applyChanges(config, changes, now.toISOString());
     const issues = validateConfig(next);
-    if (issues.length > validateConfig(config).length) {
+    if (introducedIssues(validateConfig(config), issues).length > 0) {
       return {
         venueId,
         outcome: "refused" as const,
