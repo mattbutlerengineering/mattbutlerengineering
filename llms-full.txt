@@ -50404,6 +50404,116 @@
       }
     }
   </file>
+  <file path="services/reservations/src/scripts/collapse-day-named-schedules.ts">
+    export interface ReplacedRows {
+      schedules: unknown[];
+      scheduleServices: unknown[];
+      assignments: unknown[];
+    }
+    export type CollapseOutcome =
+      | { venueId: string; outcome: "would_collapse" | "collapsed"; replaced: ReplacedRows }
+      | { venueId: string; outcome: "nothing_to_collapse" | "raced" | "not_found" }
+      | { venueId: string; outcome: "refused"; issues: string[] };
+    export interface CollapseSummary {
+      apply: boolean;
+      venues: number;
+      counts: Record<string, number>;
+      errors: { venueId: string; message: string }[];
+    }
+    type Log = (line: string) => void;
+    function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows {
+      const pick = <T extends keyof ReplacedRows>(table: T) => {
+        const touched = new Set([
+          ...(diff.update[table] as { id: string }[]).map((r) => r.id),
+          ...diff.remove[table],
+        ]);
+        return (config[table] as { id: string }[]).filter((r) => touched.has(r.id));
+      };
+      return {
+        schedules: pick("schedules"),
+        scheduleServices: pick("scheduleServices"),
+        assignments: pick("assignments"),
+      };
+    }
+    export async function collapseVenue(
+      prisma: PrismaClient,
+      venueId: string,
+      options: { apply: boolean; now?: Date }
+    ): Promise<CollapseOutcome> {
+      const now = options.now ?? new Date();
+      return prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const venue = await tx.venue.findUnique({
+          where: { id: venueId },
+          select: { availabilityVersion: true },
+        });
+        if (!venue) return { venueId, outcome: "not_found" as const };
+    
+        // The version is read before the rows: a save landing in between moves it, so the
+        // compare-and-set below misses instead of writing over a config this plan never saw.
+        const { config } = await readStoredConfig(tx, venueId);
+        const changes = collapseDayNamedSchedules(config, randomUUID);
+        if (!changes) return { venueId, outcome: "nothing_to_collapse" as const };
+    
+        const next = applyChanges(config, changes, now.toISOString());
+        const issues = validateConfig(next);
+        if (issues.length > validateConfig(config).length) {
+          return {
+            venueId,
+            outcome: "refused" as const,
+            issues: issues.map((i) => `${i.code}: ${i.message}`),
+          };
+        }
+        const diff = diffConfig(config, next);
+        const replaced = replacedBy(config, diff);
+        if (!options.apply) return { venueId, outcome: "would_collapse" as const, replaced };
+    
+        const cas = await tx.venue.updateMany({
+          where: { id: venueId, availabilityVersion: venue.availabilityVersion },
+          data: { availabilityVersion: { increment: 1 } },
+        });
+        if (cas.count === 0) return { venueId, outcome: "raced" as const };
+    
+        await writeConfigDiff(tx, venueId, diff, { actorId: COLLAPSE_ACTOR, now });
+        return { venueId, outcome: "collapsed" as const, replaced };
+      });
+    }
+    export async function runCollapse(
+      prisma: PrismaClient,
+      options: { apply: boolean },
+      log: Log
+    ): Promise<CollapseSummary> {
+      const venueIds = await getAllVenueIds(prisma);
+      const counts: Record<string, number> = {};
+      const errors: CollapseSummary["errors"] = [];
+    
+      for (const venueId of venueIds) {
+        try {
+          const outcome = await collapseVenue(prisma, venueId, options);
+          counts[outcome.outcome] = (counts[outcome.outcome] ?? 0) + 1;
+          log(JSON.stringify(outcome));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push({ venueId, message });
+          log(JSON.stringify({ venueId, outcome: "error", message }));
+        }
+      }
+      return { apply: options.apply, venues: venueIds.length, counts, errors };
+    }
+    async function main(): Promise<void> {
+      const apply = process.argv.includes("--apply");
+      const prisma = db.prisma as unknown as PrismaClient;
+      try {
+        const summary = await runCollapse(prisma, { apply }, (line) =>
+          process.stdout.write(`${line}\n`)
+        );
+        process.stdout.write(`${JSON.stringify({ summary })}\n`);
+        process.exitCode = summary.errors.length > 0 ? 1 : 0;
+      } finally {
+        await prisma.$disconnect();
+      }
+    }
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="services/agent/src/services/database.ts">
@@ -77995,6 +78105,125 @@
       return services.length === 0
         ? "Closed"
         : services.map((s) => `${s.name} ${timeRange(s.opensAt, s.closesAt)}`).join(", ");
+    }
+  </file>
+  <file path="packages/availability/src/day-named-schedules.ts">
+    export function weekdayRangeLabel(storedDays: readonly number[]): string {
+      const positions = storedDays.map((d) => (d + 6) % 7).sort((a, b) => a - b);
+      const runs = positions.reduce<number[][]>((acc, p) => {
+        const last = acc[acc.length - 1];
+        return last && last[last.length - 1] === p - 1
+          ? [...acc.slice(0, -1), [...last, p]]
+          : [...acc, [p]];
+      }, []);
+      return runs
+        .map((run) => {
+          const first = WEEKDAY_ABBREVIATIONS[run[0]!];
+          return run.length === 1 ? first : `${first}–${WEEKDAY_ABBREVIATIONS[run[run.length - 1]!]}`;
+        })
+        .join(", ");
+    }
+    export function collapseDayNamedSchedules(
+      config: AvailabilityConfig,
+      newId: () => string
+    ): AvailabilityConfigChanges | null {
+      const live = config.schedules.filter((s) => !s.archivedAt);
+      const regular = live.find((s) => s.isRegular);
+      if (!regular) return null;
+    
+      const regularAssignments = config.assignments.filter((a) => a.scheduleId === regular.id);
+      const regularAssignment = regularAssignments[0];
+      if (regularAssignments.length !== 1 || !regularAssignment || !isUndated(regularAssignment)) {
+        return null;
+      }
+    
+      const referenced = new Set(
+        config.dateRules.flatMap((r) => (r.kind === "use_schedule" ? [r.useScheduleId] : []))
+      );
+      const folded = live.filter((s) => {
+        if (s.isRegular || s.kind !== "alternate" || referenced.has(s.id)) return false;
+        const assignments = config.assignments.filter((a) => a.scheduleId === s.id);
+        if (assignments.length === 0 || !assignments.every(isUndated)) return false;
+        const days = assignments.flatMap((a) => a.weekdays);
+        return s.name === `${weekdayRangeLabel(days)} hours`;
+      });
+      if (folded.length === 0) return null;
+    
+      const foldedIds = new Set(folded.map((s) => s.id));
+      const foldedAssignments = config.assignments.filter((a) => foldedIds.has(a.scheduleId));
+      const participants = [regularAssignment, ...foldedAssignments];
+      const liveIds = new Set(live.map((s) => s.id));
+      const others = config.assignments.filter(
+        (a) => liveIds.has(a.scheduleId) && !participants.includes(a)
+      );
+      const rowsOf = (scheduleId: string) =>
+        config.scheduleServices.filter((r) => r.scheduleId === scheduleId);
+      const regularRows = rowsOf(regular.id);
+    
+      // Each service's hours per weekday as the venue resolves them today.
+      const week = new Map<string, (ServiceHours | null)[]>();
+      for (const row of regularRows) {
+        week.set(row.venueServiceId, new Array<ServiceHours | null>(7).fill(null));
+      }
+      for (const day of WEEKDAYS_OF_WEEK) {
+        const covering = participants.filter((a) => a.weekdays.includes(day));
+        if (covering.length === 0) continue;
+        const before = Math.max(...covering.map((a) => a.precedence));
+        const winners = covering.filter((a) => a.precedence === before);
+        const winner = winners[0];
+        if (winners.length !== 1 || !winner) return null;
+    
+        // After the collapse the regular assignment covers the day at its own precedence; a third
+        // assignment between the two precedences would change sides.
+        const after = regularAssignment.precedence;
+        if (before !== after) {
+          const [low, high] = [Math.min(before, after), Math.max(before, after)];
+          const reordered = others.some(
+            (a) => a.weekdays.includes(day) && a.precedence >= low && a.precedence <= high
+          );
+          if (reordered) return null;
+        }
+    
+        const seen = new Set<string>();
+        for (const row of rowsOf(winner.scheduleId)) {
+          const hours = hoursOn(row, day);
+          if (!hours) continue;
+          if (seen.has(row.venueServiceId)) return null;
+          seen.add(row.venueServiceId);
+          const days = week.get(row.venueServiceId) ?? new Array<ServiceHours | null>(7).fill(null);
+          week.set(
+            row.venueServiceId,
+            days.map((h, d) => (d === day ? hours : h))
+          );
+        }
+      }
+    
+      const weekdays = [...new Set(participants.flatMap((a) => a.weekdays))].sort((a, b) => a - b);
+      const reusable = new Map<string, string>();
+      for (const row of regularRows) {
+        if (!reusable.has(row.venueServiceId)) reusable.set(row.venueServiceId, row.id);
+      }
+      const encoded: ScheduleService[] = encodeWeek(
+        [...week].map(([venueServiceId, days]) => ({ venueServiceId, days })),
+        weekdays
+      ).map((row) => ({
+        id: reusable.get(row.venueServiceId) ?? newId(),
+        scheduleId: regular.id,
+        ...row,
+      }));
+      const kept = new Set(encoded.map((r) => r.id));
+    
+      return {
+        upsert: {
+          scheduleServices: encoded,
+          assignments: [{ ...regularAssignment, weekdays }],
+        },
+        remove: {
+          scheduleServices: regularRows.filter((r) => !kept.has(r.id)).map((r) => r.id),
+          assignments: foldedAssignments.map((a) => a.id),
+          schedules: folded.map((s) => s.id),
+        },
+      };
     }
   </file>
   <file path="packages/availability/src/diff-days.ts">

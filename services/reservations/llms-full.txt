@@ -10948,6 +10948,116 @@
       }
     }
   </file>
+  <file path="src/scripts/collapse-day-named-schedules.ts">
+    export interface ReplacedRows {
+      schedules: unknown[];
+      scheduleServices: unknown[];
+      assignments: unknown[];
+    }
+    export type CollapseOutcome =
+      | { venueId: string; outcome: "would_collapse" | "collapsed"; replaced: ReplacedRows }
+      | { venueId: string; outcome: "nothing_to_collapse" | "raced" | "not_found" }
+      | { venueId: string; outcome: "refused"; issues: string[] };
+    export interface CollapseSummary {
+      apply: boolean;
+      venues: number;
+      counts: Record<string, number>;
+      errors: { venueId: string; message: string }[];
+    }
+    type Log = (line: string) => void;
+    function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows {
+      const pick = <T extends keyof ReplacedRows>(table: T) => {
+        const touched = new Set([
+          ...(diff.update[table] as { id: string }[]).map((r) => r.id),
+          ...diff.remove[table],
+        ]);
+        return (config[table] as { id: string }[]).filter((r) => touched.has(r.id));
+      };
+      return {
+        schedules: pick("schedules"),
+        scheduleServices: pick("scheduleServices"),
+        assignments: pick("assignments"),
+      };
+    }
+    export async function collapseVenue(
+      prisma: PrismaClient,
+      venueId: string,
+      options: { apply: boolean; now?: Date }
+    ): Promise<CollapseOutcome> {
+      const now = options.now ?? new Date();
+      return prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const venue = await tx.venue.findUnique({
+          where: { id: venueId },
+          select: { availabilityVersion: true },
+        });
+        if (!venue) return { venueId, outcome: "not_found" as const };
+    
+        // The version is read before the rows: a save landing in between moves it, so the
+        // compare-and-set below misses instead of writing over a config this plan never saw.
+        const { config } = await readStoredConfig(tx, venueId);
+        const changes = collapseDayNamedSchedules(config, randomUUID);
+        if (!changes) return { venueId, outcome: "nothing_to_collapse" as const };
+    
+        const next = applyChanges(config, changes, now.toISOString());
+        const issues = validateConfig(next);
+        if (issues.length > validateConfig(config).length) {
+          return {
+            venueId,
+            outcome: "refused" as const,
+            issues: issues.map((i) => `${i.code}: ${i.message}`),
+          };
+        }
+        const diff = diffConfig(config, next);
+        const replaced = replacedBy(config, diff);
+        if (!options.apply) return { venueId, outcome: "would_collapse" as const, replaced };
+    
+        const cas = await tx.venue.updateMany({
+          where: { id: venueId, availabilityVersion: venue.availabilityVersion },
+          data: { availabilityVersion: { increment: 1 } },
+        });
+        if (cas.count === 0) return { venueId, outcome: "raced" as const };
+    
+        await writeConfigDiff(tx, venueId, diff, { actorId: COLLAPSE_ACTOR, now });
+        return { venueId, outcome: "collapsed" as const, replaced };
+      });
+    }
+    export async function runCollapse(
+      prisma: PrismaClient,
+      options: { apply: boolean },
+      log: Log
+    ): Promise<CollapseSummary> {
+      const venueIds = await getAllVenueIds(prisma);
+      const counts: Record<string, number> = {};
+      const errors: CollapseSummary["errors"] = [];
+    
+      for (const venueId of venueIds) {
+        try {
+          const outcome = await collapseVenue(prisma, venueId, options);
+          counts[outcome.outcome] = (counts[outcome.outcome] ?? 0) + 1;
+          log(JSON.stringify(outcome));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push({ venueId, message });
+          log(JSON.stringify({ venueId, outcome: "error", message }));
+        }
+      }
+      return { apply: options.apply, venues: venueIds.length, counts, errors };
+    }
+    async function main(): Promise<void> {
+      const apply = process.argv.includes("--apply");
+      const prisma = db.prisma as unknown as PrismaClient;
+      try {
+        const summary = await runCollapse(prisma, { apply }, (line) =>
+          process.stdout.write(`${line}\n`)
+        );
+        process.stdout.write(`${JSON.stringify({ summary })}\n`);
+        process.exitCode = summary.errors.length > 0 ? 1 : 0;
+      } finally {
+        await prisma.$disconnect();
+      }
+    }
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="src/services/actor-name.ts">

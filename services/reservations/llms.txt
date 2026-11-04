@@ -1805,6 +1805,49 @@
       async function main(): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="src/scripts/collapse-day-named-schedules.ts">
+    <item priority="low">
+      interface ReplacedRows {
+        schedules: unknown[];
+        scheduleServices: unknown[];
+        assignments: unknown[];
+      }
+    </item>
+    <item priority="low">
+      type CollapseOutcome = { venueId: string; outcome: "w | { venueId: string; outcome: "n | { venueId: string; outcome: "r;
+    </item>
+    <item priority="low">
+      interface CollapseSummary {
+        apply: boolean;
+        venues: number;
+        counts: Record<string, number>;
+        errors: { venueId: string; message: string }[];
+      }
+    </item>
+    <item priority="high">
+      type Log = (line: string) => void;
+    </item>
+    <item priority="medium">
+      function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function collapseVenue(
+        prisma: PrismaClient,
+        venueId: string,
+        options: { apply: boolean; now?: Date }
+      ): Promise<CollapseOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runCollapse(
+        prisma: PrismaClient,
+        options: { apply: boolean },
+        log: Log
+      ): Promise<CollapseSummary> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main(): Promise<void> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="src/services/actor-name.ts">
