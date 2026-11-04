@@ -1824,6 +1824,7 @@
       "open": "Agregar fecha especial",
       "title": "Agregar fechas especiales",
       "rowLegend": "Fecha {{n}}",
+      "rowLegendNamed": "Fecha {{n}}: {{name}}",
       "date": "Fecha",
       "dateMissing": "Elige una fecha.",
       "dateInvalid": "Elige una fecha de hoy en adelante, una sola vez y sin horario especial ya definido.",
@@ -1857,6 +1858,37 @@
         "title": "Ya está guardado",
         "body": "Un intento anterior para {{dates}} se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
         "bodyPlain": "Un intento anterior para {{dates}} se guardó. Los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado."
+      }
+    },
+    "holidays": {
+      "heading": "Próximos días festivos",
+      "plan": "Planear…",
+      "planName": "Planear {{name}}, {{date}}…",
+      "planAll_one": "Planear {{count}} día festivo…",
+      "planAll_many": "Planear los {{count}}…",
+      "planAll_other": "Planear los {{count}}…",
+      "name": {
+        "newYearsDay": "Año Nuevo",
+        "constitutionDay": "Día de la Constitución",
+        "valentinesDay": "Día de San Valentín",
+        "benitoJuarez": "Natalicio de Benito Juárez",
+        "holyThursday": "Jueves Santo",
+        "goodFriday": "Viernes Santo",
+        "easter": "Domingo de Pascua",
+        "workersDay": "Día del Trabajo",
+        "mothersDay": "Día de las Madres",
+        "victoriaDay": "Día de Victoria",
+        "memorialDay": "Memorial Day",
+        "canadaDay": "Día de Canadá",
+        "independenceDay": "Día de la Independencia",
+        "laborDay": "Día del Trabajo (septiembre)",
+        "thanksgiving": "Día de Acción de Gracias",
+        "dayOfTheDead": "Día de Muertos",
+        "revolutionDay": "Día de la Revolución",
+        "christmasEve": "Nochebuena",
+        "christmasDay": "Navidad",
+        "boxingDay": "Boxing Day",
+        "newYearsEve": "Nochevieja"
       }
     }
   },

@@ -2139,6 +2139,48 @@
       export const useEditorOpen: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/holidays.ts">
+    <item priority="low">
+      type HolidayCountry = "US" | "CA" | "MX";
+    </item>
+    <item priority="low">
+      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
+    </item>
+    <item priority="low">
+      interface Holiday {
+        id: HolidayId;
+        date: string;
+      }
+    </item>
+    <item priority="medium">
+      function nthWeekday(year: number, month: number, weekday: number, n: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function easterSunday(year: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidaysIn(country: HolidayCountry, year: number): Holiday[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isPlanned(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const HOLIDAY_HORIZON_DAYS: unknown;
+    </item>
+    <item priority="high">
+      export function upcomingHolidays(
+        country: HolidayCountry,
+        today: string,
+        config: AvailabilityConfig
+      ): Holiday[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidayCountry(
+        addressCountry: string | undefined,
+        locale: string
+      ): HolidayCountry | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/layer-text.ts">
     <item priority="medium">
       function upperFirst(text: string, locale: string): string { /* ... */ }

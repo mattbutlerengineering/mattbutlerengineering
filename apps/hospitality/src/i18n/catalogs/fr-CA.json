@@ -1824,6 +1824,7 @@
       "open": "Ajouter une date spéciale",
       "title": "Ajouter des dates spéciales",
       "rowLegend": "Date {{n}}",
+      "rowLegendNamed": "Date {{n}} : {{name}}",
       "date": "Date",
       "dateMissing": "Choisissez une date.",
       "dateInvalid": "Choisissez une date d’aujourd’hui ou plus tard, une seule fois et sans horaire spécial déjà défini.",
@@ -1857,6 +1858,37 @@
         "title": "Déjà enregistré",
         "body": "Un essai précédent pour {{dates}} a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
         "bodyPlain": "Un essai précédent pour {{dates}} a été enregistré. Les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat."
+      }
+    },
+    "holidays": {
+      "heading": "Jours fériés à venir",
+      "plan": "Planifier…",
+      "planName": "Planifier {{name}}, {{date}}…",
+      "planAll_one": "Planifier {{count}} jour férié…",
+      "planAll_many": "Tout planifier ({{count}})…",
+      "planAll_other": "Tout planifier ({{count}})…",
+      "name": {
+        "newYearsDay": "Jour de l’An",
+        "constitutionDay": "Jour de la Constitution",
+        "valentinesDay": "Saint-Valentin",
+        "benitoJuarez": "Anniversaire de Benito Juárez",
+        "holyThursday": "Jeudi saint",
+        "goodFriday": "Vendredi saint",
+        "easter": "Dimanche de Pâques",
+        "workersDay": "Fête du Travail (1er mai)",
+        "mothersDay": "Fête des Mères",
+        "victoriaDay": "Journée nationale des patriotes",
+        "memorialDay": "Memorial Day",
+        "canadaDay": "Fête du Canada",
+        "independenceDay": "Jour de l’Indépendance",
+        "laborDay": "Fête du Travail",
+        "thanksgiving": "Action de grâce",
+        "dayOfTheDead": "Jour des Morts",
+        "revolutionDay": "Jour de la Révolution",
+        "christmasEve": "Veille de Noël",
+        "christmasDay": "Noël",
+        "boxingDay": "Lendemain de Noël",
+        "newYearsEve": "Veille du Jour de l’An"
       }
     }
   },

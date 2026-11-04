@@ -1788,6 +1788,7 @@
       "open": "Add special date",
       "title": "Add special dates",
       "rowLegend": "Date {{n}}",
+      "rowLegendNamed": "Date {{n}}: {{name}}",
       "date": "Date",
       "dateMissing": "Pick a date.",
       "dateInvalid": "Pick a date that is today or later, once, and without special hours already set.",
@@ -1821,6 +1822,36 @@
         "title": "Already saved",
         "body": "An earlier try for {{dates}} was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
         "bodyPlain": "An earlier try for {{dates}} was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome."
+      }
+    },
+    "holidays": {
+      "heading": "Upcoming holidays",
+      "plan": "Plan…",
+      "planName": "Plan {{name}}, {{date}}…",
+      "planAll_one": "Plan {{count}} holiday…",
+      "planAll_other": "Plan all {{count}}…",
+      "name": {
+        "newYearsDay": "New Year’s Day",
+        "constitutionDay": "Constitution Day",
+        "valentinesDay": "Valentine’s Day",
+        "benitoJuarez": "Benito Juárez’s Birthday",
+        "holyThursday": "Holy Thursday",
+        "goodFriday": "Good Friday",
+        "easter": "Easter Sunday",
+        "workersDay": "Labor Day (May 1)",
+        "mothersDay": "Mother’s Day",
+        "victoriaDay": "Victoria Day",
+        "memorialDay": "Memorial Day",
+        "canadaDay": "Canada Day",
+        "independenceDay": "Independence Day",
+        "laborDay": "Labor Day",
+        "thanksgiving": "Thanksgiving",
+        "dayOfTheDead": "Day of the Dead",
+        "revolutionDay": "Revolution Day",
+        "christmasEve": "Christmas Eve",
+        "christmasDay": "Christmas Day",
+        "boxingDay": "Boxing Day",
+        "newYearsEve": "New Year’s Eve"
       }
     }
   },

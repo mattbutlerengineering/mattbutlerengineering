@@ -20,10 +20,11 @@ import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js"
 import { useViewport } from "../../hooks/useViewport.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { AddSpecialDatesSheet } from "./AddSpecialDatesSheet.js";
+import { AddSpecialDatesSheet, type PlannedDate } from "./AddSpecialDatesSheet.js";
 import { minuteText } from "./closure-band.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
+import { UpcomingHolidays } from "./UpcomingHolidays.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
 import { closureSubject, DATE_FORMAT, hoursSubject, rangeLabel } from "./rule-subjects.js";
@@ -259,7 +260,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [reopening, setReopening] = useState<SpecialDateRule | null>(null);
   const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
   const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
-  const [adding, setAdding] = useState(false);
+  // The dates Add special date opens with: `[]` for one empty row, `null` while it is shut.
+  const [adding, setAdding] = useState<readonly PlannedDate[] | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [editingHours, setEditingHours] = useState<{
     date: string;
@@ -380,7 +382,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           />
         )}
         {isManager && (
-          <Button variant="primary" onClick={() => setAdding(true)}>
+          <Button variant="primary" onClick={() => setAdding([])}>
             {t("availabilitySpecial.add.open")}
           </Button>
         )}
@@ -394,6 +396,9 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
       )}
       {/* Outside the alert, which would read every row aloud. */}
       {rowSave.failure.length > 0 && <StrandedBookings reservations={rowSave.stranded} />}
+      {isManager && filter !== "past" && (
+        <UpcomingHolidays config={state.config} today={today} onPlan={setAdding} />
+      )}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
       {summaries.isLoading ? (
         <Skeleton variant="text" lines={3} />
@@ -468,7 +473,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           timezone={timezone}
           today={today}
           onStale={onStale}
-          onClose={() => setAdding(false)}
+          initialRows={adding}
+          onClose={() => setAdding(null)}
         />
       )}
       {callListFor && (

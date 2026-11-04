@@ -57,6 +57,14 @@ export interface AddSpecialDatesSheetProps {
   readonly today: string;
   readonly onStale: () => void;
   readonly onClose: () => void;
+  /** One Closed row per date to start from (the holidays offered on Special dates); else one empty row. */
+  readonly initialRows?: readonly PlannedDate[];
+}
+
+/** A date the sheet opens on, and what it is ("Thanksgiving"), shown in its row's legend. */
+export interface PlannedDate {
+  readonly date: string;
+  readonly name: string;
 }
 
 const SHARED_MESSAGE_ID = "add-dates-shared-message";
@@ -69,7 +77,7 @@ const SHARED_MESSAGE_ID = "add-dates-shared-message";
  */
 export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const viewport = useViewport();
-  const { venueId, state, timezone, today, onStale, onClose } = props;
+  const { venueId, state, timezone, today, onStale, onClose, initialRows } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -77,11 +85,14 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const previewImpacts = usePreviewClosureImpacts();
   const createClosures = useCreateClosures();
 
-  const [form, setForm] = useState<AddDatesForm>({
-    rows: [emptyRow(crypto.randomUUID(), "")],
+  const [form, setForm] = useState<AddDatesForm>(() => ({
+    rows:
+      initialRows && initialRows.length > 0
+        ? initialRows.map((r) => emptyRow(crypto.randomUUID(), r.date, r.name))
+        : [emptyRow(crypto.randomUUID(), "")],
     shareMessage: false,
     sharedMessage: "",
-  });
+  }));
   const [step, setStep] = useState<1 | 2>(1);
   const [impacts, setImpacts] = useState<readonly ClosureImpact[]>([]);
   const [choices, setChoices] = useState<ChoiceMap>({});
