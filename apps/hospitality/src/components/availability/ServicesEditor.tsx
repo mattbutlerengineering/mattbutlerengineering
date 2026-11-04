@@ -119,7 +119,7 @@ function ServiceRow(props: {
               })}
         </Text>
       )}
-      <div className={styles.times}>
+      <div className={styles.options}>
         {interval !== null ? (
           <Select
             label={t("availability.editor.seating")}
