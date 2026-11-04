@@ -71,7 +71,9 @@ test.describe("A migrated venue", () => {
     await mockEmptyVenue(page, { derive: true, config: collapsed() });
     await page.goto("availability");
 
-    await expect(page.getByText("Regular week: Dinner Mon–Fri, later Thu–Fri")).toBeVisible();
+    await expect(
+      page.getByText("Regular week: Dinner 5:00 PM–10:00 PM Mon–Fri, Thu–Fri until 11:00 PM")
+    ).toBeVisible();
     await expect(page.getByRole("grid")).toBeVisible();
     expect(await page.locator("body").innerText()).not.toMatch(/Thu–Fri hours/);
     await expect(page.getByRole("radio", { name: "Calendar" })).toBeVisible();
@@ -82,7 +84,7 @@ test.describe("A migrated venue", () => {
     await mockEmptyVenue(page, { derive: true, config: oldShapeMigrated() });
     await page.goto("availability");
 
-    await expect(page.getByText("Regular week: Dinner Mon–Wed")).toBeVisible();
+    await expect(page.getByText("Regular week: Dinner 5:00 PM–10:00 PM Mon–Wed")).toBeVisible();
     await expect(page.getByRole("radio", { name: "Schedules" })).toBeVisible();
     // The day-named schedule shows on the calendar, so its absence above is not an empty page.
     await expect(page.getByText("Thu–Fri hours").first()).toBeVisible();

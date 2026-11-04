@@ -2868,11 +2868,11 @@
     },
     "regularWeekLine": {
       "line": "Semaine habituelle : {{services}}",
-      "service": "{{name}} {{days}}",
-      "serviceWith": "{{name}} {{days}}, {{changes}}",
-      "later": "plus tard {{days}}",
-      "earlier": "plus tôt {{days}}",
-      "different": "heures différentes {{days}}",
+      "service": "{{name}} {{hours}} {{days}}",
+      "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
+      "hours": "{{open}}–{{close}}",
+      "closes": "{{days}} jusqu’à {{close}}",
+      "different": "{{days}} {{hours}}",
       "details": "Détails",
       "heading": "Semaine habituelle"
     }

@@ -16,27 +16,16 @@ describe("regularWeekLine", () => {
     expect(services.Brunch?.days).toEqual([6, 0]);
   });
 
-  it("says Dinner closes later on Fri and Sat", () => {
-    expect(byName(DEMO_WEEK_CONFIG).Dinner?.changes).toEqual([{ weekdays: [5, 6], kind: "later" }]);
-    expect(byName(DEMO_WEEK_CONFIG).Lunch?.changes).toEqual([]);
-  });
-
-  it("says earlier for an earlier close and different for other hours", () => {
+  it("reads each service's base hours and Dinner's later close on Fri and Sat", () => {
+    const { Dinner, Lunch } = byName(DEMO_WEEK_CONFIG);
     const dinner = DEMO_WEEK_CONFIG.scheduleServices.find((s) => s.id === "demo-ss-dinner")!;
     const set = dinner.dayHours.sets[0]!;
-    const withSet = (patch: Partial<typeof set>): AvailabilityConfig => ({
-      ...DEMO_WEEK_CONFIG,
-      scheduleServices: DEMO_WEEK_CONFIG.scheduleServices.map((s) =>
-        s.id === dinner.id ? { ...s, dayHours: { version: 1, sets: [{ ...set, ...patch }] } } : s
-      ),
-    });
-    expect(byName(withSet({ closesAt: 1320, lastSeatingAt: 1260 })).Dinner?.changes[0]?.kind).toBe(
-      "earlier"
-    );
-    expect(
-      byName(withSet({ closesAt: dinner.closesAt, lastSeatingAt: 1260, opensAt: 960 })).Dinner
-        ?.changes[0]?.kind
-    ).toBe("different");
+    expect(Dinner).toMatchObject({ opensAt: dinner.opensAt, closesAt: dinner.closesAt });
+    expect(Dinner?.changes).toEqual([
+      { weekdays: [5, 6], opensAt: set.opensAt, closesAt: set.closesAt },
+    ]);
+    expect(set.closesAt).toBeGreaterThan(dinner.closesAt);
+    expect(Lunch?.changes).toEqual([]);
   });
 
   it("is uniform when every service runs the same days with no different hours", () => {
@@ -103,7 +92,7 @@ describe("regularWeekLine", () => {
       ],
     };
 
-    expect(byName(dated, TODAY).Dinner?.changes).toEqual([{ weekdays: [5, 6], kind: "later" }]);
+    expect(byName(dated, TODAY).Dinner?.changes.map((c) => c.weekdays)).toEqual([[5, 6]]);
     expect(Object.keys(byName(dated, "2026-12-01"))).toEqual(["Dinner"]);
     expect(byName(dated, "2026-12-01").Dinner?.changes).toEqual([]);
   });

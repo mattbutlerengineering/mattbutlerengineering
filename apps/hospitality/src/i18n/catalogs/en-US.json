@@ -2783,11 +2783,11 @@
     },
     "regularWeekLine": {
       "line": "Regular week: {{services}}",
-      "service": "{{name}} {{days}}",
-      "serviceWith": "{{name}} {{days}}, {{changes}}",
-      "later": "later {{days}}",
-      "earlier": "earlier {{days}}",
-      "different": "different hours {{days}}",
+      "service": "{{name}} {{hours}} {{days}}",
+      "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
+      "hours": "{{open}}–{{close}}",
+      "closes": "{{days}} until {{close}}",
+      "different": "{{days}} {{hours}}",
       "details": "Details",
       "heading": "Regular week"
     }

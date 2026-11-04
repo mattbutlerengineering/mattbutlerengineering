@@ -11,7 +11,7 @@ import {
 import type { AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { minuteText } from "./closure-band.js";
-import { regularWeekLine } from "./regular-week-line.js";
+import { regularWeekLine, type LineHours } from "./regular-week-line.js";
 import { useWeekdayName } from "./quick-setup-field-helpers.js";
 import { WEEK_DISPLAY_ORDER } from "./quick-setup-draft.js";
 import { useWeekdaySummary } from "./ScheduleFormParts.js";
@@ -69,15 +69,23 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
 
   if (line.services.length === 0) return null;
 
+  const time = (minute: number) => minuteText(minute, t, format);
+  const hours = (h: LineHours) =>
+    t("availability.regularWeekLine.hours", { open: time(h.opensAt), close: time(h.closesAt) });
   const text = line.services
     .map((service) => {
-      const days = summarize(service.days);
-      if (service.changes.length === 0)
-        return t("availability.regularWeekLine.service", { name: service.name, days });
+      const base = { name: service.name, hours: hours(service), days: summarize(service.days) };
+      if (service.changes.length === 0) return t("availability.regularWeekLine.service", base);
       const changes = service.changes
-        .map((c) => t(`availability.regularWeekLine.${c.kind}`, { days: summarize(c.weekdays) }))
+        .map((c) => {
+          const days = summarize(c.weekdays);
+          // Same opening: only the close moved, so say only the close.
+          return c.opensAt === service.opensAt
+            ? t("availability.regularWeekLine.closes", { days, close: time(c.closesAt) })
+            : t("availability.regularWeekLine.different", { days, hours: hours(c) });
+        })
         .join(", ");
-      return t("availability.regularWeekLine.serviceWith", { name: service.name, days, changes });
+      return t("availability.regularWeekLine.serviceWith", { ...base, changes });
     })
     .join(" · ");
 

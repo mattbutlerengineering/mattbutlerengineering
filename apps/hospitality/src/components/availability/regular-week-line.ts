@@ -8,14 +8,17 @@ import { WEEK_DISPLAY_ORDER } from "./quick-setup-draft.js";
  * the editors read them. Pure, no React. Weekdays are stored indexes (0 = Sunday), Monday first.
  */
 
-export type HoursChangeKind = "later" | "earlier" | "different";
-
-export interface HoursChange {
-  readonly weekdays: readonly number[];
-  readonly kind: HoursChangeKind;
+/** Service-day minutes, as the rows store them; a close past 24:00 is the next day. */
+export interface LineHours {
+  readonly opensAt: number;
+  readonly closesAt: number;
 }
 
-export interface RegularWeekLineService {
+export interface HoursChange extends LineHours {
+  readonly weekdays: readonly number[];
+}
+
+export interface RegularWeekLineService extends LineHours {
   readonly venueServiceId: string;
   readonly name: string;
   /** Every weekday the service runs, Monday first. */
@@ -31,12 +34,6 @@ export interface RegularWeekLine {
 }
 
 const NONE: RegularWeekLine = { services: [], uniform: true };
-
-/** A set's closing against the base's decides later or earlier; the same close with other hours is "different". */
-function kindOf(base: { closesAt: number }, set: { closesAt: number }): HoursChangeKind {
-  if (set.closesAt > base.closesAt) return "later";
-  return set.closesAt < base.closesAt ? "earlier" : "different";
-}
 
 /**
  * The regular schedule in force on `today` (a service date): a dated Change regular week leaves the
@@ -79,10 +76,13 @@ export function regularWeekLine(config: AvailabilityConfig, today: string): Regu
       {
         venueServiceId: row.venueServiceId,
         name,
+        opensAt: row.opensAt,
+        closesAt: row.closesAt,
         days: WEEK_DISPLAY_ORDER.filter((day) => week.days[day] !== null),
         changes: row.dayHours.sets.map((set) => ({
           weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
-          kind: kindOf(row, set),
+          opensAt: set.opensAt,
+          closesAt: set.closesAt,
         })),
       },
     ];
