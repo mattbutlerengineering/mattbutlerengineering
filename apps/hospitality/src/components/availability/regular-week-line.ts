@@ -91,3 +91,33 @@ export function regularWeekLine(config: AvailabilityConfig, today: string): Regu
   const uniform = services.every((s) => s.changes.length === 0 && s.days.join() === first);
   return { services, uniform };
 }
+
+export interface UpcomingRegularWeek {
+  /** The first day the change is in force. */
+  readonly startsOn: string;
+  /** Its last day for a period; `null` when it becomes the regular week. */
+  readonly endsOn: string | null;
+  /** The line as it will read on `startsOn`. */
+  readonly line: RegularWeekLine;
+}
+
+/**
+ * The next dated Change regular week after `today`, read as the line will read on its first day,
+ * so a change saved "from tomorrow" shows before it takes over. `null` when none is scheduled.
+ */
+export function upcomingRegularWeek(
+  config: AvailabilityConfig,
+  today: string
+): UpcomingRegularWeek | null {
+  const live = new Set(
+    config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt).map((s) => s.id)
+  );
+  const next = config.assignments
+    .filter((a) => live.has(a.scheduleId) && a.startsOn != null && a.startsOn > today)
+    .sort((a, b) => a.startsOn!.localeCompare(b.startsOn!))[0];
+  if (!next?.startsOn) return null;
+  const line = regularWeekLine(config, next.startsOn);
+  return line.services.length === 0
+    ? null
+    : { startsOn: next.startsOn, endsOn: next.endsOn ?? null, line };
+}

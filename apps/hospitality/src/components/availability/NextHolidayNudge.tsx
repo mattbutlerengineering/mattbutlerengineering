@@ -5,7 +5,8 @@ import { addDays } from "@mbe/availability";
 import type { AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { upcomingHolidays } from "./holidays.js";
-import { readOpenAsUsual, useHolidayCountry } from "./use-holidays.js";
+import { readOpenAsUsual } from "./open-as-usual.js";
+import { useHolidayCountry } from "./use-holidays.js";
 import styles from "./RegularWeekLine.module.css";
 
 /** Near enough that a Manager who has not planned it should hear about it on the calendar. */

@@ -4,7 +4,8 @@ import { Button, Heading, Text, useToast } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { upcomingHolidays } from "./holidays.js";
-import { readOpenAsUsual, useHolidayCountry, writeOpenAsUsual } from "./use-holidays.js";
+import { readOpenAsUsual, writeOpenAsUsual } from "./open-as-usual.js";
+import { useHolidayCountry } from "./use-holidays.js";
 import type { PlannedDate } from "./AddSpecialDatesSheet.js";
 import styles from "./SpecialDatesTab.module.css";
 

@@ -2824,6 +2824,8 @@
     },
     "regularWeekLine": {
       "line": "Regular week: {{services}}",
+      "upcoming": "From {{date}}: {{services}}",
+      "upcomingPeriod": "{{from}}–{{to}}: {{services}}",
       "service": "{{name}} {{hours}} {{days}}",
       "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
       "hours": "{{open}}–{{close}}",
