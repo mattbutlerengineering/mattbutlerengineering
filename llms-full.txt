@@ -32791,7 +32791,9 @@
     }
     function serviceDayMinute(clock: string, config: AvailabilityConfig, date: string): number {
       const minute = clockToMinute(clock);
-      // The services running on `date`'s weekday, each with that weekday's hours.
+      // Every schedule's rows that run on `date`'s weekday, each with that weekday's hours, over all
+      // venue services (archived ones too): not only the schedule that covers `date`. Pre-existing; a
+      // holiday schedule opening earlier than the regular day moves the cutoff for every date.
       const venueServices = new Map(config.venueServices.map((v) => [v.id, v]));
       const opens = servicesOn(config.scheduleServices, venueServices, weekdayIndexOf(date)).map(
         (s) => s.opensAt
