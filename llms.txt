@@ -27719,6 +27719,17 @@
       ): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/demo-week.fixture.ts">
+    <item priority="high">
+      export const DEMO_WEEK_CONFIG: AvailabilityConfig;
+    </item>
+    <item priority="high">
+      export const DEMO_WEEK_TZ: unknown;
+    </item>
+    <item priority="high">
+      export const DEMO_WEEK_MONDAY: unknown;
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/dinner-config.fixture.ts">
     <item priority="high">
       export const DINNER_CONFIG: AvailabilityConfig;
