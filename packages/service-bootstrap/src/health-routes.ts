@@ -226,12 +226,15 @@ const healthRoutesPlugin: FastifyPluginAsync<HealthRoutesOptions> = async (
 
   // Register each route with the shared handler
   for (const route of routes) {
-    // github[js/missing-rate-limiting] — restrictive limit for DB-intensive health check
+    // Exempt from @fastify/rate-limit: the round-trip and status-page probes
+    // share an egress IP and burst together, so any per-IP limit here turned a
+    // healthy service into a 429 "degraded" reading (#8260). The handler's own
+    // cost is one `SELECT 1` plus a 2 s-bounded JWKS fetch.
     fastify.get<{ Reply: HealthResponse }>(
       route.path,
       {
         schema: { ...healthSchema, operationId: route.operationId } as Record<string, unknown>,
-        config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        config: { rateLimit: false },
       },
       healthHandler
     );

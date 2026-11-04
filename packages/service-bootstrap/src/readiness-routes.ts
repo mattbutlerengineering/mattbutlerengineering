@@ -78,7 +78,9 @@ const readinessRoutesPlugin: FastifyPluginAsync<ReadinessRoutesOptions> = async 
     "/ready",
     {
       schema: { ...readinessSchema, operationId: "getReady" },
-      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+      // Exempt from @fastify/rate-limit, like /health (#8260): a 429 here reads
+      // as "not ready" to probes and orchestrators.
+      config: { rateLimit: false },
     },
     async (_request, reply) => {
       const snapshot = await readiness.evaluate();
