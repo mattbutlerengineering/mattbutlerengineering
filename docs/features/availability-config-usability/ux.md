@@ -234,6 +234,7 @@ Only these lines of predecessor F2 change.
 3. The line is shown to Hosts too (view only). Only **Change regular week…** is Manager-only, as today.
 4. On a phone the line is the first row under the toolbar; **Details** is collapsed.
 5. In the month grid and the phone agenda, a closed day is flat with a dashed outline and a special-hours day carries an accent rule on its leading edge, so exceptions stand out among regular days; the label still names which.
+6. Month cells and agenda rows name the day's services under the label ("Lunch · Dinner", "Brunch · Dinner"), so a weekday's services read at a glance; week cells list each service with its hours and carry no service count.
 
 ### F12 (amended): History (PRD 9)
 
@@ -357,10 +358,11 @@ Availability
 ```
 Availability   [Calendar] Special dates  Schedules*        ⋯ History · Go to date · Create another schedule
 This week: open 5 days · 1 closure · online booking on                          Venue time (Pacific)
-Regular week: Lunch Mon–Fri · Dinner Tue–Sun, later Fri–Sat · Brunch Sat–Sun   [Details ▾]
+Regular week: Lunch 11:30 AM–3:00 PM Mon–Fri · Dinner 5:00 PM–11:00 PM Tue–Sun, Fri–Sat until 12:00 AM (next day) · Brunch 10:00 AM–2:00 PM Sat–Sun   [Details ▾]
 [◂] October 2026 [▸] [Today]   (Month|Week)  Services [All ▾]  [Select… ▾] [Change regular week…] [Close…]
 ┌ Mon ──── Tue ───── Wed ───── Thu ───── Fri ───── Sat ───── Sun ─────┐
 │ Regular week  Regular week  …                                        │
+│ Lunch         Lunch · Dinner …                                       │
 ```
 
 - Purpose: show the saved week as one regular week and lead to Change regular week.
@@ -378,7 +380,7 @@ Regular week
 - Loading state: the line is part of the page's existing grid `Skeleton`; it renders when the config loads.
 - Error state: the page `Alert` "Couldn't load availability · Retry" (existing). The line is omitted.
 - Phone: the line is one row; **Details** is collapsed.
-- Cells for regular-week days read "Regular week" (as for a one-schedule venue today). A dated schedule keeps its name.
+- Cells for regular-week days read "Regular week" (as for a one-schedule venue today) with the day's services named beneath. A dated schedule keeps its name.
 
 ### S3 (amended): Day drawer scope
 
@@ -396,7 +398,7 @@ Regular week
 
 ```
 ┌ Change regular week ────────────────────────────────────────────────── [✕]┐
-│ Starting [Nov 6 ▾]   Ending [No end — this becomes the new regular week ▾]  │
+│ Starting [Nov 6 ▾]   Ending [No end ▾]     [Start today] [Start tomorrow]    │
 │ Days  Mon–Sun [Change days]                                                  │
 │ This becomes your regular week: open Mon–Sun.                                │
 │ (Name [            ] [Use “Summer hours”]  shown only when Ending is set)   │
