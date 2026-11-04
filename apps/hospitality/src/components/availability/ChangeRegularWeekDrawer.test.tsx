@@ -110,6 +110,22 @@ describe("ChangeRegularWeekDrawer on a varied week", () => {
     ]);
   });
 
+  it("Start tomorrow picks the day after today and saves from it", async () => {
+    renderDrawer();
+    const tomorrow = screen.getByRole("button", { name: "Start tomorrow" });
+    expect(tomorrow).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(tomorrow);
+    expect(tomorrow).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Start today" })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Save hours from Oct 26" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    const { assignments } = save.mock.calls[0]![0].body.changes.upsert;
+    expect(assignments.map((a: { startsOn: string | null }) => a.startsOn)).toContain("2026-10-26");
+  });
+
   it("a period still needs a name, in the period's words", () => {
     renderDrawer();
     chooseStart("2026-11-06");

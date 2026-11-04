@@ -1962,7 +1962,11 @@
       "noEnd": "Sans fin : elle devient la nouvelle semaine habituelle",
       "save": "Enregistrer les heures dès le {{date}}",
       "saved": "{{name}} dès le {{date}}",
-      "savedWeek": "Semaine habituelle modifiée dès le {{date}}"
+      "savedWeek": "Semaine habituelle modifiée dès le {{date}}",
+      "start": {
+        "today": "Commencer aujourd’hui",
+        "tomorrow": "Commencer demain"
+      }
     },
     "compare": {
       "open": "Comparer les services",

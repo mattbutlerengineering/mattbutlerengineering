@@ -1962,7 +1962,11 @@
       "noEnd": "Sin fin: esta pasa a ser la nueva semana habitual",
       "save": "Guardar horario desde el {{date}}",
       "saved": "{{name}} desde el {{date}}",
-      "savedWeek": "Semana habitual cambiada desde el {{date}}"
+      "savedWeek": "Semana habitual cambiada desde el {{date}}",
+      "start": {
+        "today": "Empezar hoy",
+        "tomorrow": "Empezar mañana"
+      }
     },
     "compare": {
       "open": "Comparar servicios",
