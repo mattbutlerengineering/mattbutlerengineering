@@ -842,8 +842,8 @@
     <item priority="medium">
       function toMinutes(hhmm: string): number { /* ... */ }
     </item>
-    <item priority="medium">
-      function toClock(minutes: number): string { /* ... */ }
+    <item priority="high">
+      export function toClock(minutes: number): string { /* ... */ }
     </item>
     <item priority="high">
       export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
@@ -1234,12 +1234,12 @@
     </item>
     <item priority="high">
       interface RegularWeekInput {
+        config: AvailabilityConfig;
+        name: string;
+        draft: QuickSetupDraft;
         startsOn: string;
         endsOn: string | null;
       }
-    </item>
-    <item priority="high">
-      export function regularWeekdays(config: AvailabilityConfig, from: string): number[] { /* ... */ }
     </item>
     <item priority="high">
       export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges { /* ... */ }

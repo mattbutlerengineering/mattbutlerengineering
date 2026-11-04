@@ -10,10 +10,15 @@ import {
   buildRegularWeekChanges,
   overlappingSchedules,
   datesOfUse,
-  regularWeekdays,
   scheduleSaveBlock,
   type Winner,
 } from "./schedule-changes.js";
+import {
+  draftFromConfig,
+  emptyService,
+  toClock,
+  type QuickSetupDraft,
+} from "./quick-setup-draft.js";
 import { ownChangeDates } from "./scope-dates.js";
 import {
   BlockedReason,
@@ -99,9 +104,26 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
   // Escape, the backdrop and Cancel all ask first while there is something to lose.
   const guard = useDiscardGuard<void>(onClose, dirty);
 
-  const weekdays = useMemo(
-    () => regularWeekdays(config, startsOn ?? today),
-    [config, startsOn, today]
+  // lean: a bridge until the drawer edits a `QuickSetupDraft` itself (the Change regular week
+  // drawer item): the uniform rows become services on the days the regular week runs on.
+  const storedDays = useMemo(() => {
+    const days = draftFromConfig(config, () => "bridge").days;
+    return days.length > 0 ? days : [0, 1, 2, 3, 4, 5, 6];
+  }, [config]);
+  const weekdays = storedDays;
+  const week = useMemo(
+    (): QuickSetupDraft => ({
+      days: storedDays,
+      services: services.map((s) => ({
+        ...emptyService(s.key),
+        name: s.name,
+        opens: toClock(s.opensAt),
+        lastSeating: toClock(s.lastSeatingAt),
+        closes: toClock(s.closesAt),
+        lastSeatingLinked: false,
+      })),
+    }),
+    [storedDays, services]
   );
   const dates = useMemo(
     () => (startsOn ? datesOfUse({ weekdays, startsOn, endsOn }, startsOn) : []),
@@ -133,13 +155,13 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
         : buildRegularWeekChanges({
             config,
             name: trimmed,
-            services,
+            draft: week,
             startsOn,
             endsOn,
             winner,
             makeId: previewIds(),
           }),
-    [block, config, trimmed, services, startsOn, endsOn, winner]
+    [block, config, trimmed, week, startsOn, endsOn, winner]
   );
   const startText = startsOn
     ? format.formatCalendarDate(startsOn, { month: "short", day: "numeric" })
@@ -150,7 +172,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
     const changes = buildRegularWeekChanges({
       config,
       name: trimmed,
-      services,
+      draft: week,
       startsOn,
       endsOn,
       winner,

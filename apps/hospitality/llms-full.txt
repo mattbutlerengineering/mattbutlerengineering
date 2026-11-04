@@ -1770,7 +1770,7 @@
       const [h = 0, m = 0] = hhmm.split(":").map(Number);
       return h * 60 + m;
     }
-    function toClock(minutes: number): string {
+    export function toClock(minutes: number): string {
       const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
       const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
       const mm = String(wrapped % 60).padStart(2, "0");
@@ -2830,38 +2830,58 @@
         remove: {},
       });
     }
-    interface RegularWeekInput extends Omit<NewScheduleInput, "useOn"> {
+    interface RegularWeekInput {
+      readonly config: AvailabilityConfig;
+      /** The period's name; a change with no end is the regular week itself and is named by nothing. */
+      readonly name: string;
+      /** The week as the editor holds it: services with their days and different-hours blocks. */
+      readonly draft: QuickSetupDraft;
       readonly startsOn: string;
       readonly endsOn: string | null;
-    }
-    export function regularWeekdays(config: AvailabilityConfig, from: string): number[] {
-      const regular = liveSchedules(config).find((s) => s.isRegular);
-      const days = new Set(
-        config.assignments
-          .filter((a) => a.scheduleId === regular?.id && (a.endsOn == null || a.endsOn >= from))
-          .flatMap((a) => a.weekdays)
-      );
-      return days.size > 0 ? [...days].sort((x, y) => x - y) : EVERY_DAY;
+      readonly winner: Winner;
+      readonly makeId: () => string;
     }
     export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
-      const { config, startsOn, endsOn } = input;
-      const weekdays = regularWeekdays(config, startsOn);
-      if (endsOn !== null) {
-        return buildNewScheduleChanges({
-          ...input,
-          useOn: { weekdays, startsOn, endsOn },
-        });
-      }
-      const scheduleId = input.makeId();
-      const schedule: Schedule = { id: scheduleId, name: input.name, kind: "regular", isRegular: true };
-      const rows = buildDraftChanges({
-        config,
-        scope: { kind: "schedule", scheduleId },
-        services: freshRows(input.services),
-        makeId: input.makeId,
+      const { config, draft, startsOn, endsOn, makeId } = input;
+      const venueServiceIds = Object.fromEntries(
+        config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+      );
+      const week = draftToConfig(draft, makeId, { venueServiceIds });
+      const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
+      const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
+      const [built] = week.schedules;
+      const [covering] = week.assignments;
+      if (!built || !covering) return { upsert: {}, remove: {} };
+      // The week editor has no controls for seating or booking types, so a service keeps the ones its
+      // regular-week row had (a service it never had gets quick setup's defaults).
+      const live = liveSchedules(config).find((s) => s.isRegular);
+      const was = new Map(
+        config.scheduleServices
+          .filter((s) => s.scheduleId === live?.id)
+          .map((s) => [s.venueServiceId, s])
+      );
+      const scheduleServices = week.scheduleServices.map((row) => {
+        const stored = was.get(row.venueServiceId);
+        if (!stored) return row;
+        const { seating, bookingTypes } = stored;
+        const sets = row.dayHours.sets.map((set) => ({ ...set, seating, bookingTypes }));
+        return { ...row, seating, bookingTypes, dayHours: { ...row.dayHours, sets } };
       });
-      const old = liveSchedules(config).find((s) => s.isRegular);
-      const oldAssignments = config.assignments.filter((a) => a.scheduleId === old?.id);
+      const rows = {
+        upsert: {
+          ...(created.length > 0 ? { venueServices: created } : {}),
+          scheduleServices,
+        },
+        remove: {},
+      };
+    
+      if (endsOn !== null) {
+        const schedule: Schedule = { ...built, name: input.name, kind: "alternate", isRegular: false };
+        const assignments = placeAssignment(config, { ...covering, startsOn, endsOn }, input.winner);
+        return mergeChanges(rows, { upsert: { schedules: [schedule], assignments }, remove: {} });
+      }
+    
+      const oldAssignments = config.assignments.filter((a) => a.scheduleId === live?.id);
       const dropped = oldAssignments.filter((a) => a.startsOn != null && a.startsOn >= startsOn);
       const truncated = oldAssignments
         .filter((a) => !dropped.includes(a) && (a.endsOn == null || a.endsOn >= startsOn))
@@ -2873,22 +2893,8 @@
         .filter((a) => a.precedence !== config.assignments.find((x) => x.id === a.id)?.precedence);
       return mergeChanges(rows, {
         upsert: {
-          schedules: [
-            schedule,
-            ...(old ? [{ ...old, isRegular: false, kind: "alternate" as const }] : []),
-          ],
-          assignments: [
-            {
-              id: input.makeId(),
-              scheduleId,
-              weekdays,
-              startsOn,
-              endsOn: null,
-              precedence: 0,
-            },
-            ...truncated,
-            ...renumbered,
-          ],
+          schedules: [built, ...(live ? [{ ...live, isRegular: false }] : [])],
+          assignments: [{ ...covering, startsOn, endsOn: null }, ...truncated, ...renumbered],
         },
         remove: { assignments: dropped.map((a) => a.id) },
       });

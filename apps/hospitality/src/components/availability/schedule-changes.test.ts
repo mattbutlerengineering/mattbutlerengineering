@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { applyChanges, resolveDay, validateConfig } from "@mbe/availability";
 import type { AvailabilityConfig, Schedule, ScheduleAssignment } from "@mbe/types";
+import { demoDraft } from "./quick-setup-demo.fixture.js";
+import { draftFromConfig, draftToConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
 import { seedServices, type DraftService } from "./draft-changes.js";
 import {
   buildDeleteScheduleChanges,
@@ -10,7 +12,6 @@ import {
   isScheduleUnused,
   overlappingSchedules,
   datesOfUse,
-  regularWeekdays,
   weekdayRuns,
 } from "./schedule-changes.js";
 import { FIXTURE_TIMEZONE, fixtureConfig } from "./resolved-day-fixtures.js";
@@ -27,6 +28,11 @@ function resolve(config: AvailabilityConfig, date: string) {
   return resolveDay({ timezone: FIXTURE_TIMEZONE, config }, date);
 }
 
+/** The regular week as Change regular week opens it: `draftFromConfig`. */
+function weekDraft(config: AvailabilityConfig): QuickSetupDraft {
+  let n = 0;
+  return draftFromConfig(config, () => `draft-${++n}`);
+}
 /** The fixture venue's regular week, as the rows a draft starts from. */
 function regularDraft(config: AvailabilityConfig): DraftService[] {
   return seedServices(config, { services: [] }, { kind: "schedule", scheduleId: "regular" });
@@ -200,17 +206,24 @@ describe("overlap precedence", () => {
 });
 
 describe("Change regular week", () => {
-  const draftOf = (config: AvailabilityConfig) =>
-    regularDraft(config).map((s) =>
-      s.name === "Dinner" ? { ...s, lastSeatingAt: 1290, closesAt: 1410 } : s
-    );
+  const draftOf = (config: AvailabilityConfig): QuickSetupDraft => {
+    const draft = weekDraft(config);
+    return {
+      ...draft,
+      services: draft.services.map((s) =>
+        s.name === "Dinner"
+          ? { ...s, lastSeating: "21:30", closes: "23:30", lastSeatingLinked: false }
+          : s
+      ),
+    };
+  };
 
   it("an ending date: the new hours run for the period, then the regular week returns", () => {
     const config = fixtureConfig();
     const changes = buildRegularWeekChanges({
       config,
       name: "Summer hours",
-      services: draftOf(config),
+      draft: draftOf(config),
       startsOn: "2026-10-26",
       endsOn: "2026-11-01",
       winner: "new",
@@ -231,7 +244,7 @@ describe("Change regular week", () => {
     const changes = buildRegularWeekChanges({
       config,
       name: "Winter hours",
-      services: draftOf(config),
+      draft: draftOf(config),
       startsOn: "2026-11-02",
       endsOn: null,
       winner: "new",
@@ -276,7 +289,7 @@ describe("Change regular week", () => {
       buildRegularWeekChanges({
         config,
         name: "Winter hours",
-        services: draftOf(config),
+        draft: draftOf(config),
         startsOn: "2026-12-01",
         endsOn: null,
         winner: "new",
@@ -303,7 +316,7 @@ describe("Change regular week", () => {
         buildRegularWeekChanges({
           config,
           name: "Summer hours",
-          services: draftOf(config),
+          draft: draftOf(config),
           startsOn: "2026-11-10",
           endsOn: "2026-12-10",
           winner,
@@ -314,6 +327,173 @@ describe("Change regular week", () => {
     expect(resolve(make("new"), "2026-11-13").scheduleId).toBe("new-1");
     expect(resolve(make("existing"), "2026-11-13").scheduleId).toBe("patio");
     expect(validateConfig(make("existing"))).toEqual([]);
+  });
+});
+
+describe("Change regular week by weekday", () => {
+  const MON = "2026-11-02";
+  const FRI = "2026-11-06";
+  const WEEK = [MON, "2026-11-03", "2026-11-04", "2026-11-05", FRI, "2026-11-07", "2026-11-08"];
+
+  /** The PRD demo week, stored: lunch Mon–Fri, dinner Tue–Sun (later Fri–Sat), brunch Sat–Sun. */
+  function demoConfig(): AvailabilityConfig {
+    let n = 0;
+    return draftToConfig(demoDraft(), () => `demo-${++n}`);
+  }
+
+  const timesOn = (config: AvailabilityConfig, date: string) =>
+    resolve(config, date).services.map((s) => [s.name, s.opensAt, s.lastSeatingAt, s.closesAt]);
+
+  const build = (
+    config: AvailabilityConfig,
+    draft: QuickSetupDraft,
+    endsOn: string | null,
+    startsOn = MON
+  ) =>
+    applyChanges(
+      config,
+      buildRegularWeekChanges({
+        config,
+        name: "Summer hours",
+        draft,
+        startsOn,
+        endsOn,
+        winner: "new",
+        makeId: counter(),
+      }),
+      NOW
+    );
+
+  /** The demo week with Friday's dinner closing 11:30 PM instead of 12:00 AM. */
+  function earlierFriday(config: AvailabilityConfig): QuickSetupDraft {
+    const draft = weekDraft(config);
+    const friday = {
+      id: "fri",
+      days: [5],
+      opens: "17:00",
+      lastSeating: "22:00",
+      closes: "23:30",
+      lastSeatingLinked: false,
+    };
+    return {
+      ...draft,
+      services: draft.services.map((s) =>
+        s.name === "Dinner"
+          ? {
+              ...s,
+              blocks: [
+                ...s.blocks.map((b) => ({ ...b, days: b.days.filter((d) => d !== 5) })),
+                friday,
+              ].filter((b) => b.days.length > 0),
+            }
+          : s
+      ),
+    };
+  }
+
+  it("a no-end change of one weekday's hours leaves the other six unchanged and names no schedule", () => {
+    const config = demoConfig();
+    const next = build(config, earlierFriday(config), null);
+    expect(validateConfig(next)).toEqual([]);
+    for (const date of WEEK.filter((d) => d !== FRI)) {
+      expect(timesOn(next, date)).toEqual(timesOn(config, date));
+    }
+    expect(resolve(next, FRI).services.find((s) => s.name === "Dinner")?.closesAt).toBe(1410);
+    // One new regular version, called what the Manager already sees, and no other schedule.
+    expect(next.schedules.map((s) => [s.name, s.kind])).toEqual([
+      ["Regular week", "regular"],
+      ["Regular week", "regular"],
+    ]);
+  });
+
+  it("a closed weekday can be opened", () => {
+    const config = demoConfig();
+    const draft = weekDraft(config);
+    // Brunch now runs Monday too; before, only Lunch did.
+    const opened: QuickSetupDraft = {
+      ...draft,
+      services: draft.services.map((s) => (s.name === "Brunch" ? { ...s, days: [1, 6, 0] } : s)),
+    };
+    const next = build(config, opened, null);
+    expect(resolve(next, MON).services.map((s) => s.name)).toEqual(["Brunch", "Lunch"]);
+  });
+
+  it("a weekday the regular week never ran is opened by a service that runs it", () => {
+    const base = fixtureConfig(); // the regular week runs Friday only
+    const draft = weekDraft(base);
+    const next = build(base, { ...draft, days: [1, 5] }, null, "2026-10-26");
+    expect(resolve(next, "2026-10-26").scheduleId).toBe("new-1");
+  });
+
+  it("with no end a weekday no service runs on is closed from the start date", () => {
+    const config = demoConfig();
+    const draft = weekDraft(config);
+    // Tuesday: Lunch and Dinner both stop running on it.
+    const closedTue: QuickSetupDraft = {
+      ...draft,
+      services: draft.services.map((s) => {
+        if (s.name === "Lunch") return { ...s, days: [1, 3, 4, 5] };
+        if (s.name === "Dinner") return { ...s, days: [3, 4, 5, 6, 0] };
+        return s;
+      }),
+    };
+    const next = build(config, closedTue, null, "2026-11-10");
+    expect(validateConfig(next)).toEqual([]);
+    expect(resolve(next, "2026-11-03").services.length).toBeGreaterThan(0);
+    expect(resolve(next, "2026-11-10").scheduleId).toBeNull();
+    expect(resolve(next, "2026-11-10").services).toEqual([]);
+    expect(resolve(next, "2026-11-11").services.length).toBeGreaterThan(0);
+  });
+
+  it("with an end date the period covers the days the services run and the rest keep their hours", () => {
+    const config = demoConfig();
+    const next = build(config, earlierFriday(config), "2026-11-08");
+    expect(validateConfig(next)).toEqual([]);
+    expect(next.schedules.find((s) => s.name === "Summer hours")).toMatchObject({
+      kind: "alternate",
+      isRegular: false,
+    });
+    expect(resolve(next, FRI).services.find((s) => s.name === "Dinner")?.closesAt).toBe(1410);
+    expect(timesOn(next, "2026-11-13")).toEqual(timesOn(config, "2026-11-13"));
+
+    // A weekday no edited service runs on is outside the period and keeps what it had.
+    const draft = weekDraft(config);
+    const noLunch = { ...draft, services: draft.services.filter((s) => s.name !== "Lunch") };
+    const quiet = build(config, noLunch, "2026-11-08");
+    expect(timesOn(quiet, MON)).toEqual(timesOn(config, MON));
+  });
+
+  it("keeps a service's seating and booking types, which the week editor has no controls for", () => {
+    const config = demoConfig();
+    const phoneOnly = {
+      seating: { version: 1 as const, fixed: [1050, 1140] },
+      bookingTypes: ["phone" as const],
+    };
+    const stored: AvailabilityConfig = {
+      ...config,
+      scheduleServices: config.scheduleServices.map((row) => {
+        const name = config.venueServices.find((v) => v.id === row.venueServiceId)?.name;
+        return name === "Dinner"
+          ? {
+              ...row,
+              ...phoneOnly,
+              dayHours: {
+                ...row.dayHours,
+                sets: row.dayHours.sets.map((set) => ({ ...set, ...phoneOnly })),
+              },
+            }
+          : row;
+      }),
+    };
+    const next = build(stored, earlierFriday(stored), null);
+    const dinner = next.scheduleServices.filter(
+      (row) =>
+        row.scheduleId === "new-1" &&
+        next.venueServices.find((v) => v.id === row.venueServiceId)?.name === "Dinner"
+    );
+    expect(dinner).toHaveLength(1);
+    expect(dinner[0]).toMatchObject(phoneOnly);
+    expect(dinner[0]?.dayHours.sets.every((set) => set.bookingTypes.join() === "phone")).toBe(true);
   });
 });
 
@@ -366,7 +546,7 @@ describe("Change regular week on a venue that is closed some days", () => {
   const input = (config: AvailabilityConfig, endsOn: string | null) => ({
     config,
     name: "Summer hours",
-    services: regularDraft(config),
+    draft: weekDraft(config),
     startsOn: "2026-10-26",
     endsOn,
     winner: "new" as const,
@@ -374,8 +554,8 @@ describe("Change regular week on a venue that is closed some days", () => {
   });
 
   it("reads the weekdays the regular week is used on", () => {
-    expect(regularWeekdays(tueSat(), "2026-10-26")).toEqual(TUE_SAT);
-    expect(regularWeekdays(migrated(), "2026-10-26")).toEqual([1, 2, 3]);
+    expect(weekDraft(tueSat()).days).toEqual(TUE_SAT);
+    expect(weekDraft(migrated()).days).toEqual([1, 2, 3]);
   });
 
   it("with an end date, Sunday and Monday stay closed", () => {

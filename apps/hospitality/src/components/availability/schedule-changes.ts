@@ -6,6 +6,7 @@ import type {
   ScheduleAssignment,
 } from "@mbe/types";
 import { buildDraftChanges, type DraftService } from "./draft-changes.js";
+import { draftToConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
 import { SCOPE_HORIZON_DAYS } from "./scope-dates.js";
 
 /**
@@ -225,54 +226,68 @@ export function buildNewScheduleChanges(input: NewScheduleInput): AvailabilityCo
   });
 }
 
-interface RegularWeekInput extends Omit<NewScheduleInput, "useOn"> {
+interface RegularWeekInput {
+  readonly config: AvailabilityConfig;
+  /** The period's name; a change with no end is the regular week itself and is named by nothing. */
+  readonly name: string;
+  /** The week as the editor holds it: services with their days and different-hours blocks. */
+  readonly draft: QuickSetupDraft;
   readonly startsOn: string;
   readonly endsOn: string | null;
-}
-
-const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
-
-/**
- * The weekdays (0 = Sunday) the regular week runs on from `from` on: what its assignments cover.
- * A Tue–Sat venue gets Tue–Sat, so changing the week never opens its closed days; days that
- * another schedule runs (a migrated "Thu–Fri hours") are not in it and keep their own hours. A
- * regular week with no assignment left has no days of its own to keep, so it takes every day.
- */
-export function regularWeekdays(config: AvailabilityConfig, from: string): number[] {
-  const regular = liveSchedules(config).find((s) => s.isRegular);
-  const days = new Set(
-    config.assignments
-      .filter((a) => a.scheduleId === regular?.id && (a.endsOn == null || a.endsOn >= from))
-      .flatMap((a) => a.weekdays)
-  );
-  return days.size > 0 ? [...days].sort((x, y) => x - y) : EVERY_DAY;
+  readonly winner: Winner;
+  readonly makeId: () => string;
 }
 
 /**
- * F-UW. With an end date the period is a dated schedule and the regular week returns by itself
- * after it. With none the new week takes over as the regular week from the start date: the old
- * regular week's assignments end the day before. Either way it covers only the weekdays the
- * regular week used.
+ * F-UW. The draft is encoded into one regular schedule's rows (`draftToConfig`) and its one
+ * assignment covers the union of the days any service runs, so the days follow the editor: a
+ * closed weekday can be opened, and one no service runs on loses its hours. With an end date the
+ * period is a dated schedule and the regular week returns by itself after it, other days keeping
+ * their hours. With none the new week takes over as the regular week from the start date: it is
+ * named "Regular week", the old assignments end the day before, and the superseded schedule stays
+ * `kind: "regular"` (it is still part of the regular week, so nothing new appears on Schedules).
  */
 export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
-  const { config, startsOn, endsOn } = input;
-  const weekdays = regularWeekdays(config, startsOn);
-  if (endsOn !== null) {
-    return buildNewScheduleChanges({
-      ...input,
-      useOn: { weekdays, startsOn, endsOn },
-    });
-  }
-  const scheduleId = input.makeId();
-  const schedule: Schedule = { id: scheduleId, name: input.name, kind: "regular", isRegular: true };
-  const rows = buildDraftChanges({
-    config,
-    scope: { kind: "schedule", scheduleId },
-    services: freshRows(input.services),
-    makeId: input.makeId,
+  const { config, draft, startsOn, endsOn, makeId } = input;
+  const venueServiceIds = Object.fromEntries(
+    config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+  );
+  const week = draftToConfig(draft, makeId, { venueServiceIds });
+  const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
+  const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
+  const [built] = week.schedules;
+  const [covering] = week.assignments;
+  if (!built || !covering) return { upsert: {}, remove: {} };
+  // The week editor has no controls for seating or booking types, so a service keeps the ones its
+  // regular-week row had (a service it never had gets quick setup's defaults).
+  const live = liveSchedules(config).find((s) => s.isRegular);
+  const was = new Map(
+    config.scheduleServices
+      .filter((s) => s.scheduleId === live?.id)
+      .map((s) => [s.venueServiceId, s])
+  );
+  const scheduleServices = week.scheduleServices.map((row) => {
+    const stored = was.get(row.venueServiceId);
+    if (!stored) return row;
+    const { seating, bookingTypes } = stored;
+    const sets = row.dayHours.sets.map((set) => ({ ...set, seating, bookingTypes }));
+    return { ...row, seating, bookingTypes, dayHours: { ...row.dayHours, sets } };
   });
-  const old = liveSchedules(config).find((s) => s.isRegular);
-  const oldAssignments = config.assignments.filter((a) => a.scheduleId === old?.id);
+  const rows = {
+    upsert: {
+      ...(created.length > 0 ? { venueServices: created } : {}),
+      scheduleServices,
+    },
+    remove: {},
+  };
+
+  if (endsOn !== null) {
+    const schedule: Schedule = { ...built, name: input.name, kind: "alternate", isRegular: false };
+    const assignments = placeAssignment(config, { ...covering, startsOn, endsOn }, input.winner);
+    return mergeChanges(rows, { upsert: { schedules: [schedule], assignments }, remove: {} });
+  }
+
+  const oldAssignments = config.assignments.filter((a) => a.scheduleId === live?.id);
   const dropped = oldAssignments.filter((a) => a.startsOn != null && a.startsOn >= startsOn);
   const truncated = oldAssignments
     .filter((a) => !dropped.includes(a) && (a.endsOn == null || a.endsOn >= startsOn))
@@ -284,22 +299,8 @@ export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityCo
     .filter((a) => a.precedence !== config.assignments.find((x) => x.id === a.id)?.precedence);
   return mergeChanges(rows, {
     upsert: {
-      schedules: [
-        schedule,
-        ...(old ? [{ ...old, isRegular: false, kind: "alternate" as const }] : []),
-      ],
-      assignments: [
-        {
-          id: input.makeId(),
-          scheduleId,
-          weekdays,
-          startsOn,
-          endsOn: null,
-          precedence: 0,
-        },
-        ...truncated,
-        ...renumbered,
-      ],
+      schedules: [built, ...(live ? [{ ...live, isRegular: false }] : [])],
+      assignments: [{ ...covering, startsOn, endsOn: null }, ...truncated, ...renumbered],
     },
     remove: { assignments: dropped.map((a) => a.id) },
   });
