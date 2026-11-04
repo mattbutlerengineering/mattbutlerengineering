@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createWaitlistNotifier, validatePhone } from "./waitlist-notifier.js";
 import type { WaitlistNotifierDeps } from "./waitlist-notifier.js";
+import { JobQueueUnavailableError } from "./notifier-runtime.js";
 
 // ─── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ function buildDeps(overrides: Partial<WaitlistNotifierDeps> = {}): WaitlistNotif
     notifyTableReady: mockNotifyTableReady,
     markNotified: mockMarkNotified,
     revertNotified: mockRevertNotified,
-    logger: { error: vi.fn(), info: vi.fn() },
+    logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
     ...overrides,
   };
 }
@@ -88,7 +89,7 @@ describe("WaitlistNotifier.notifyAdded", () => {
   });
 
   it("logs but does not throw when SMS send fails", async () => {
-    const logger = { error: vi.fn(), info: vi.fn() };
+    const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() };
     mockSendWaitlistAdded.mockRejectedValueOnce(new Error("Twilio 429"));
     const notifier = createWaitlistNotifier(buildDeps({ logger }));
 
@@ -178,7 +179,7 @@ describe("WaitlistNotifier.notifyPositionUpdate", () => {
   });
 
   it("logs but does not throw when SMS send fails", async () => {
-    const logger = { error: vi.fn(), info: vi.fn() };
+    const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() };
     mockSendWaitlistPositionUpdate.mockRejectedValueOnce(new Error("Network error"));
     const notifier = createWaitlistNotifier(buildDeps({ logger }));
 
@@ -233,7 +234,7 @@ describe("WaitlistNotifier.notifyTableReady", () => {
   });
 
   it("logs but does not throw when SMS send fails, still schedules expiry", async () => {
-    const logger = { error: vi.fn(), info: vi.fn() };
+    const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() };
     mockSendWaitlistTableReady.mockRejectedValueOnce(new Error("Twilio down"));
     const notifier = createWaitlistNotifier(buildDeps({ logger }));
 
@@ -361,6 +362,39 @@ describe("WaitlistNotifier.notifyTableReady records notified state", () => {
     const notifier = createWaitlistNotifier(buildDeps());
     await expect(notifier.notifyTableReady(input)).rejects.toThrow("redis down");
     expect(mockRevertNotified).toHaveBeenCalledWith("entry-1");
+  });
+
+  // #8257 (Sentry RESERVATIONS-API-G): production has no Redis, so the expiry
+  // job cannot be queued. Notifying must still succeed: the row stays notified
+  // (its expiresAt is the claim deadline), the guest is texted, the parties
+  // behind move up, and only the delayed expiry job is skipped.
+  it("keeps the party notified and texts it when the job queue is unavailable (#8257)", async () => {
+    mockSchedule.mockRejectedValueOnce(new JobQueueUnavailableError());
+    mockMarkNotified.mockResolvedValueOnce({
+      id: "entry-1",
+      positionChanges: [
+        {
+          id: "entry-2",
+          guestPhone: "+15550000002",
+          guestName: "Bob",
+          previousPosition: 2,
+          newPosition: 1,
+          estimatedWaitMinutes: null,
+        },
+      ],
+    });
+    const logger = { error: vi.fn(), info: vi.fn(), warn: vi.fn() };
+    const notifier = createWaitlistNotifier(buildDeps({ logger }));
+
+    await expect(notifier.notifyTableReady(input)).resolves.toBeUndefined();
+
+    expect(mockRevertNotified).not.toHaveBeenCalled();
+    expect(mockSendWaitlistTableReady).toHaveBeenCalledOnce();
+    expect(mockSendWaitlistPositionUpdate).toHaveBeenCalledOnce();
+    expect(logger.warn).toHaveBeenCalledWith(
+      expect.objectContaining({ waitlistEntryId: "entry-1" }),
+      expect.stringContaining("expiry job not scheduled")
+    );
   });
 
   it("does not revert when scheduling succeeds", async () => {

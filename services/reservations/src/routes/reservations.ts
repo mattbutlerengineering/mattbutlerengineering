@@ -20,7 +20,11 @@ import {
 } from "@mbe/types";
 import { requireAuth, requireVenueAccess, type VenueIdResolver } from "@mbe/auth/fastify";
 
-import { parsePaginationQuery, createListResponseSchema } from "@mbe/database";
+import {
+  parsePaginationQuery,
+  createListResponseSchema,
+  buildPaginatedResponse,
+} from "@mbe/database";
 import { ReservationTransitionError } from "../services/reservation.js";
 import { staffActor, type ReservationEventActor } from "../services/reservation-events.js";
 import type { DomainServices } from "../services/domain-services.js";
@@ -31,35 +35,35 @@ import { resolveGuestLink, linkOrCreateGuest } from "../services/guest-link.js";
 import { generateManageToken } from "./public-reservations.js";
 import { bodyVenueId, inNamedVenueContext } from "./named-venue.js";
 import { venueScoped } from "./venue-scope.js";
+import { resolveVenueId } from "../services/resolve-venue.js";
 
 /** The authenticated user as the reservation event log's staff actor. */
 const requestActor = (request: FastifyRequest): ReservationEventActor =>
   staffActor(request.user?.id);
 
 /**
- * Venue-id resolver for the staff reservations list (#4865, Sentry
- * HOSPITALITY-6). The route accepts either `venueId` or `guestId` as a
- * filter — the CRM guest card sends only `guestId` — so the resolver must
- * fall back to the filtered guest's venue when no `venueId` is present.
- * Without this, a caller who supplied only `guestId` was undeterminable and
- * always 403'd; had the guest's own `venueId` been silently substituted for
- * the *whole-venue* filter instead, that would leak every other guest's
- * reservations at that venue, so falling through to a 403 (never guessing) is
- * deliberate.
+ * The venue a staff reservations-list request is scoped to (#4865, #8256).
+ * The route accepts `venueId`, `guestId`, or both. A named `venueId` wins:
+ * the access check runs against it and the list is filtered to that venue
+ * AND the guest. With only `guestId` (older clients), the venue is the
+ * guest's own, resolved through the SECURITY DEFINER `app_resolve_venue_id`
+ * — never `guestService.getById`, an unscoped read of the FORCE-RLS `guests`
+ * table that resolves `null` with no venue context (ADR-026 §4) and 403'd
+ * every guest card in production (Sentry HOSPITALITY-E, #8256). `null`
+ * (nothing named, or an unknown guest) is deny for a non-admin; the guest's
+ * venue is never substituted into a whole-venue list without the guest filter.
  */
-const resolveReservationsListVenueId =
-  (guestService: DomainServices["guestService"]): VenueIdResolver =>
-  async (request) => {
-    const query = request.query as { venueId?: unknown; guestId?: unknown } | null | undefined;
-    if (typeof query?.venueId === "string") {
-      return query.venueId;
-    }
-    if (typeof query?.guestId === "string") {
-      const guest = await guestService.getById(query.guestId);
-      return guest?.venueId ?? null;
-    }
-    return null;
-  };
+const resolveListVenueId = async (query: {
+  venueId?: unknown;
+  guestId?: unknown;
+}): Promise<string | null> => {
+  if (typeof query.venueId === "string") return query.venueId;
+  if (typeof query.guestId === "string") return resolveVenueId("guest", query.guestId);
+  return null;
+};
+
+const reservationsListVenueId: VenueIdResolver = (request) =>
+  resolveListVenueId(request.query ?? {});
 
 /**
  * The `/:id` routes' venue scope (ADR-020 ownership, ADR-026 context): the
@@ -83,8 +87,7 @@ const reservationOwnerScope = (reservationService: DomainServices["reservationSe
   }) as const;
 
 export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
-  const { reservationService, guestService } = fastify.services;
-  const listVenueId = resolveReservationsListVenueId(guestService);
+  const { reservationService } = fastify.services;
   const ownerScope = reservationOwnerScope(reservationService);
 
   /**
@@ -141,7 +144,10 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
   }>(
     "/",
     {
-      preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, listVenueId)],
+      preHandler: [
+        requireAuth,
+        requireVenueAccess(fastify.venueMembershipLookup, reservationsListVenueId),
+      ],
       schema: {
         summary: "List reservations",
         operationId: "listReservations",
@@ -163,16 +169,25 @@ export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
     },
     async (request, _reply) => {
       const { page, limit } = parsePaginationQuery(request.query);
-      // Context only for a named venue; a guestId-only list runs without one.
-      return inNamedVenueContext(request.query.venueId, () =>
+      const { guestId } = request.query;
+      // A guest-filtered list always runs in a venue's context (the named one,
+      // else the guest's). Only an admin's unfiltered list may name none.
+      const venueId =
+        (guestId ? await resolveListVenueId(request.query) : request.query.venueId) ?? undefined;
+      if (guestId && !venueId) {
+        // Only an admin reaches here (the guard denied everyone else): an
+        // unknown guest has no reservations.
+        return buildPaginatedResponse<Reservation>([], page, limit, 0);
+      }
+      return inNamedVenueContext(venueId, () =>
         reservationService.list({
           page,
           limit,
           date: request.query.date,
           status: request.query.status,
           tableId: request.query.tableId,
-          venueId: request.query.venueId,
-          guestId: request.query.guestId,
+          venueId,
+          guestId,
         })
       );
     }

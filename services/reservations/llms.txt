@@ -4649,6 +4649,11 @@
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
     </item>
+    <item priority="high">
+      class JobQueueUnavailableError {
+        
+      }
+    </item>
     <item priority="low">
       interface NotifierRuntime {
         redisUrl: string | null;

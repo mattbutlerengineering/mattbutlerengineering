@@ -530,6 +530,19 @@ describe("GuestsPage - guest detail drawer", () => {
     );
   });
 
+  // #8256: the history request names the selected venue so the API authorises
+  // and scopes it against that venue, not a venue resolved from the guest.
+  it("sends the selected venueId with the guest history request", () => {
+    renderPage({
+      guests: [makeGuest()],
+      selectedGuestId: "g1",
+      selectedGuest: makeGuest(),
+    });
+    expect(vi.mocked(useReservations)).toHaveBeenCalledWith(
+      expect.objectContaining({ guestId: "g1", venueId: "venue-1" })
+    );
+  });
+
   it("calls clearSelection when drawer closes", async () => {
     const clearSelection = vi.fn();
     const guest = makeGuest();
