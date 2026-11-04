@@ -171,6 +171,23 @@
   transform-origin: right;
 }
 
+/* An open end-side Drawer would sit under the toasts: they would cover its title and close button
+   (top) or its actions (bottom). Move them beside it. Widths are Drawer.module.css's panel widths;
+   from 1024px every size leaves room for a 380px toast. Narrower, the toasts keep their corner. */
+@media (min-width: 1024px) {
+  :global(body:has([data-rialto-drawer="right-compact"])) .container {
+    inset-inline-end: calc(320px + var(--rialto-space-lg));
+  }
+
+  :global(body:has([data-rialto-drawer="right-default"])) .container {
+    inset-inline-end: calc(400px + var(--rialto-space-lg));
+  }
+
+  :global(body:has([data-rialto-drawer="right-wide"])) .container {
+    inset-inline-end: calc(560px + var(--rialto-space-lg));
+  }
+}
+
 @media (max-width: 480px) {
   .container {
     inset-inline-start: var(--rialto-space-sm);
