@@ -12,23 +12,78 @@ assumptions:
   - "Criteria list: the 13 PRD success criteria; 11 grouped breakdown Accept sets (E1 to E11) as in the earlier passes, plus E12 (CLI checks and the drift lane); the 2 Verify fix-loop items; and the 12 Review fix-loop items (3 majors, 9 minors), each with its own Accept. Anything not run is NOT RUN, with a reason, in its criterion and in Not verified."
   - "The first `pack --check` attempt passed absolute directories to `mbe pack`, which writes the absolute path into the `<codebase path=...>` attribute; that reported `packages/types/llms.txt is out of sync` only because of my invocation. I ran `pack` once on that directory to see the diff (the single changed line was that attribute), reverted both files with `git checkout --` in the worktree, and re-ran all 22 directories with the repo-relative path CI's `pnpm regen` uses. Only the second run is evidence; it is not a drift."
   - "The Spanish and French `closedDays_many` wording was judged by the fix loop's reasoning, not by a native speaker; `check:i18n-catalogs` checks keys, placeholders and plural-form presence only."
+  - "Re-verify (2026-11-04, targeted): this file is the b46a22fcd full pass plus a re-verify of the CI fix diff at HEAD 004c8881a (13 files from origin/feat/availability-config-usability..HEAD: `ResolvedService` moved to `packages/availability/src/types.ts`, `toClock` un-exported in `quick-setup-draft.ts`, two integration suites added to ci.yml's RLS list, hospitality size-limit budgets, regenerated llms files, breakdown.md). Each criterion carries a `Re-verify basis` line saying whether its evidence is fresh at HEAD or carried from the full pass (b46a22fcd, rebased 775762bab). Sections written by the earlier pass (the assumptions above, the criterion bodies) keep their original wording and numbers; where they say `284 passed` or cite b46a22fcd they describe that earlier pass."
+  - "Re-verify environment: node v22.22.3; a new throwaway container `acu-pg-test` (postgres:15, host port 55439, CI's `rls_owner`/`rls_scratch` recipe, `db:migrate:deploy` as rls_owner) removed with `docker rm -f acu-pg-test` (`docker ps -a` lists none of that name afterwards). Nothing was listening on :3002 before the e2e run (`lsof -i :3002` printed nothing). The e2e run used the same synthetic-OIDC harness /tmp/acu-e2e/run-e2e.sh at default workers (1); its evidence is labelled local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally). `e2e/locale-sweep.spec.ts` was not in the re-verify's list and was not re-run, so the earlier 284 (14 availability specs plus locale-sweep) is now 158 (14 availability specs)."
+  - "Re-verify drift lane: `pnpm regen` then `pnpm regen --check --git-only` (CI's two steps), then `pack <dir> --check` for each of the 22 `git ls-files '*llms.txt'` directories passed as repo-relative paths. The CLI prints the resolved absolute path in its `is in sync` line; the directory argument was relative."
+  - "E11 is split by head: PASS on PR #8237's CI for the pre-fix head 7b5e1d375 (the head CI ran; `gh run view 41837794423` headSha), NOT RUN for HEAD 004c8881a until Ship pushes it and CI runs. In the Summary count it is a NOT RUN, because the head under verification is 004c8881a. E13 is PASS only for the local replication; GitHub's own CI run on the pushed head is NOT RUN here."
+  - "Visual Regression (hospitality) on PR #8237 failed on `availability@1280x720.png` and `availability@375x812.png` `toHaveScreenshot` (read from `gh run view 41837794354 --job 126601665997 --log-failed`). `apps-visual.yml` says `Advisory: no ci.yml job needs this workflow, so it never moves CI Gate`. This run did not regenerate baselines and did not examine the image diff; regenerating them is an Owner `workflow_dispatch` of `visual-noise-floor.yml` with `app: hospitality`."
 ---
 
 # Verification: One regular week that can differ by day
 
 ## Summary
 
-Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criteria: **37 PASS, 2 NOT RUN, 0 FAIL**, and one known pre-existing open risk. This is not an unqualified pass.
+Targeted re-verify at HEAD 004c8881a (the CI fix diff) on top of the full pass at b46a22fcd (rebased 775762bab). 40 criteria (39 from the full pass plus the new **E13**): **38 PASS, 2 NOT RUN, 0 FAIL**, one known pre-existing open risk, and one open item that is not this run's to close. This is not an unqualified pass.
 
-- **NOT RUN (2):** the PRD's Owner-only human-timed five-minute walkthrough (PRD 12: an Owner post-release check, never claimed by an agent) and **E11**, the real Auth0 `auth.setup.ts` e2e login (CI only; no Auth0 E2E creds exist locally).
-- **Known pre-existing open risk (not a FAIL of this run, not a pass of the test):** the e2e `Escape on Go to date puts focus back on the menu button` still fails intermittently under `--workers=4 --retries=0`. This stage's run at HEAD: 59 passed, 1 failed of 60 (desktop, fr-CA, `expect(locator).toBeHidden() failed`). The fix loop's two-tree numbers (8b550f8bc Notes): this branch 59/60, origin/main 58/60. `GoToDateDialog.tsx` and the test are unchanged by this run. Its cause is unknown and unfixed; it was not re-measured on origin/main here. E9 is a PASS only for the question "did this run introduce it?".
-- **Unknown (not examined):** CI-only jobs (Migration Dry-Run on postgres:16-alpine, the `services/agent` Docker build, visual-regression workflows, Lighthouse, mutation testing, `pnpm regen --check --git-only`, `pnpm size:check`), a full-stack browser run against the real service (every e2e mocks the API), an Owner apply of the collapse script on a real database, the es-MX and fr-CA wording of `closedDays_many` beyond key parity, a screen-reader or keyboard pass, dark mode, and browsers other than Chromium.
-- **Evidence basis:** every PASS rests on output this stage produced at HEAD. Every e2e line is a local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally). The interaction counts are agent stand-in evidence (counts of Playwright actions), not human time.
+- **NOT RUN (2):**
+  - **PRD 12**, the Owner-only human-timed five-minute walkthrough (an Owner post-release check, never claimed by an agent).
+  - **E11**, the real Auth0 `auth.setup.ts` e2e login, **at the new head 004c8881a**. It is PASS on PR #8237's CI for the PRE-fix head 7b5e1d375 (`Hospitality E2E (shard 1)`, `(shard 2)` and `(shard 3)` all `pass`, run 41837794423), but that run did not include the CI fix commits, so for 004c8881a it is NOT RUN until Ship pushes and CI runs.
+- **Also NOT RUN inside a PASS:** **E13**'s confirmation by GitHub's own CI. E13 is PASS only as a local replication of Build, Lint and Test (rest); the real jobs on the pushed head are NOT RUN here and are confirmed only at Ship.
+- **Open item, not a FAIL of this run (Owner step): Visual Regression (hospitality) baselines.** PR #8237's `Visual Regression (hospitality)` job failed on `availability@1280x720.png` and `availability@375x812.png`. It is advisory (`apps-visual.yml`: "no ci.yml job needs this workflow, so it never moves CI Gate"). Its baselines must be regenerated by a `workflow_dispatch` of `visual-noise-floor.yml` with `app: hospitality`, which this run may not take. I did not examine the image diff, and the new baselines are not verified.
+- **Known pre-existing open risk (not a FAIL of this run, not a pass of the test):** the e2e `Escape on Go to date puts focus back on the menu button` still fails intermittently under `--workers=4 --retries=0` (earlier pass at b46a22fcd: 59 passed, 1 failed of 60; fix loop: this branch 59/60, origin/main 58/60). It was not re-run at 004c8881a; the default-workers e2e at 004c8881a had 0 failures of 158. Its cause is unknown and unfixed. E9 is a PASS only for "did this run introduce it?" and is carried from the full pass.
+- **Unknown (not examined):** the real CI jobs on the pushed head, Migration Dry-Run on postgres:16-alpine, the `services/agent` Docker build, Lighthouse, mutation testing, a full-stack browser run against the real service (every e2e mocks the API), an Owner apply of the collapse script on a real database, the es-MX and fr-CA wording of `closedDays_many` beyond key parity, a screen-reader or keyboard pass, dark mode, browsers other than Chromium, and `e2e/locale-sweep.spec.ts` at 004c8881a (not re-run).
+- **Evidence basis:** criteria whose path the CI fix diff touched (the `@mbe/availability` type move, quick setup) cite fresh runs at 004c8881a; the others rest on output from the full pass at b46a22fcd (rebased 775762bab), marked per criterion. Every e2e line is a local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally). The interaction counts are agent stand-in evidence (counts of Playwright actions), not human time.
+
+## Re-verification at HEAD 004c8881a (CI fix diff)
+
+Fresh runs by this stage, all in the worktree on branch feat/availability-config-usability, HEAD `004c8881a4f44405e4da61e768c20dc5169a21d7`, porcelain empty before and after. Output below is quoted from those runs.
+
+```
+$ pnpm check:boundaries
+✔ no dependency violations found (4453 modules, 11911 dependencies cruised)        EXIT=0
+$ pnpm check:knip
+Configuration hints (123) ... (hints only; no `Unused exports` section)               EXIT=0
+$ pnpm exec vitest run --config scripts/vitest.config.mjs scripts/__tests__/assert-vitest-ran.test.mjs
+ ✓ scripts/__tests__/assert-vitest-ran.test.mjs (12 tests) 14ms
+ Test Files  1 passed (1) / Tests  12 passed (12)
+$ pnpm size:check
+ Tasks:    32 successful, 32 total / Cached:    0 cached, 32 total                  EXIT=0
+   Quick-setup draft + legacy-hours reader ...  Size limit: 8 kB   Size: 4.37 kB brotlied
+   Copilot context + catalog registry ...       Size limit: 11.3 kB Size: 11.23 kB brotlied
+$ pnpm --filter @mbe/availability test        Test Files  20 passed (20) / Tests  340 passed (340)   EXIT=0
+$ pnpm --filter @mbe/availability typecheck   (tsc --noEmit -p tsconfig.test.json)                    EXIT=0
+$ pnpm --filter @mbe/availability build       (tsc)                                                   EXIT=0
+$ pnpm --filter @mbe/hospitality test         Test Files  383 passed (383) / Tests  5238 passed (5238)   EXIT=0
+$ pnpm --filter @mbe/types test               Test Files  29 passed (29) / Tests  494 passed (494)
+$ pnpm --filter @mbe/agent-service test       Test Files  53 passed (53) / Tests  1028 passed (1028)
+$ pnpm check:i18n-catalogs                    PASS: Every translation catalog matches its en-US keys, placeholders and plural forms.
+$ pnpm install --frozen-lockfile              services/reservations postinstall: ✔ Generated Prisma Client (v7.10.1) ...   Done in 3.1s   INSTALL_EXIT=0
+$ pnpm typecheck --force                      Tasks: 45 successful, 45 total / Cached: 0 cached, 45 total   EXIT=0
+$ pnpm lint --force                           Tasks: 45 successful, 45 total / Cached: 0 cached, 45 total   EXIT=0
+    @mbe/hospitality:lint: ✖ 230 problems (0 errors, 230 warnings); rialto 182; @mbe/gen 108; @mbe/rialto-web 165; @mbe/auth 2 (all 0 errors)
+$ DATABASE_URL=postgresql://rls_owner:...@localhost:55439/rls_scratch pnpm --filter @mbe/reservations-service db:migrate:deploy
+    All migrations have been successfully applied.
+$ (services/reservations) vitest run --reporter=default --reporter=json --outputFile.json=/tmp/acu-e2e/res-ci.json
+ Test Files  234 passed (234) / Tests  3965 passed (3965)
+$ node scripts/assert-vitest-ran.mjs /tmp/acu-e2e/res-ci.json
+Suites ran for real: 3965/3965 tests passed, 0 skipped.                                    EXIT=0
+  from the JSON report: 19 integration files, {"passed":286}, total 3965, pending 0, failed 0   (ran 286, skipped 0; includes the two files the fix added to ci.yml's RLS list: availability-day-scope 2 tests and collapse-day-named-schedules.integration 1 test)
+$ pnpm regen                                  Done. All artifacts regenerated.             REGEN=0
+$ pnpm regen --check --git-only               All generated artifacts are up to date.      CHECK=0      (git status --porcelain empty afterwards)
+$ pack <dir> --check, 22 llms.txt directories, relative paths      22 of 22 in sync (each line "... llms.txt is in sync."), porcelain empty afterwards
+$ run-e2e.sh <the 14 e2e/availability-*.spec.ts>      (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally; default workers 1; :3002 free before)
+  158 passed (9.9m)     EXIT=0
+```
+
+Notes on that output: the e2e run printed `[WebServer] http proxy error ... AggregateError [ECONNREFUSED]` lines for `/api/v1/venues/...` requests (the dev server's proxy to a service that is not running; every spec mocks the API). They did not fail a test, and I did not examine which requests they were. The `knip` output carries 123 configuration hints; its exit code is 0 and it lists no unused exports.
+
+Reading against the CI fix loop's four items (breakdown.md `## CI fix loop`): Build `no-circular` and the size budgets (`check:boundaries`, `size:check`, `@mbe/availability` test/typecheck/build), Lint knip (`check:knip`, root `lint --force`), Test (rest) `assert-vitest-ran` (the vitest guard test, plus the reservations run in which both gated integration files ran for real).
 
 ## Criteria & evidence
 
 ### PRD 1. Varied week in quick setup
 
+- Re-verify basis: CI fix diff touched this path (quick setup, `toClock` un-export). Fresh at HEAD 004c8881a: `e2e/availability-demo-week.spec.ts` is inside the 158 passed, and the hospitality suite passed 383 files / 5238 tests. The `284 passed` below is from the full pass at b46a22fcd (rebased 775762bab).
 - Check: the demo-week e2e (lunch Mon–Fri, dinner Tue–Sun closing later Fri–Sat, brunch Sat–Sun, from an empty venue, entirely in quick setup; its steps use only quick-setup controls and the strip, no Schedules tab) ran inside the full availability run below.
 - Evidence (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
   ```
@@ -41,6 +96,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 2. Per-weekday result
 
+- Re-verify basis: CI fix diff touched this path (the `ResolvedService` type move in `@mbe/availability`). Fresh at HEAD 004c8881a: `@mbe/availability` Test Files 20 passed (20) / Tests 340 passed (340); `build` and `typecheck` exit 0; the 14 availability e2e specs 158 passed. Quoted output below is from the full pass (same counts).
 - Check: engine, route and component tests by name, plus the demo-week e2e (calendar, day drawer, guest preview per weekday).
 - Evidence:
   ```
@@ -57,6 +113,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 3. One regular week
 
+- Re-verify basis: hospitality code is shared with the CI fix diff (quick setup). Fresh at HEAD 004c8881a: `@mbe/hospitality` 383 files / 5238 tests passed, and `availability-migrated-venue.spec.ts` is inside the 158 passed e2e. The quoted output is from the full pass, with the same counts.
+- Re-verify basis (PRD 3 continued): the migrated-venue path itself (collapse, regular-week reading) is unaffected by the CI fix diff.
 - Check: component tests on a migrated-venue fixture and the migrated-venue e2e.
 - Evidence:
   ```
@@ -69,6 +127,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 4. Change regular week, one day
 
+- Re-verify basis: shares the hospitality path the CI fix diff touched. Fresh at HEAD 004c8881a: `availability-one-weekday.spec.ts` is inside the 158 passed and the hospitality suite is 5238/5238. Quoted output is from the full pass.
 - Check: `availability-one-weekday.spec.ts` (demo week, then one weekday's hours changed; the other six unchanged, the Schedules tab absent, History names the weekday) in the 284-pass run, plus the builder unit tests and the drawer tests by name.
 - Evidence:
   ```
@@ -81,6 +140,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 5. Strip is live and honest
 
+- Re-verify basis: shares the quick-setup path the CI fix diff touched. Fresh at HEAD 004c8881a: hospitality 5238/5238 (includes `RegularWeekStrip.test.tsx`) and `availability-demo-week.spec.ts` inside the 158 passed. The strip text below was read from the browser in the full pass (E10) and was not re-read at 004c8881a.
 - Check: `RegularWeekStrip.test.tsx` by name; the demo-week e2e (Friday's last slot moves before any save, same URL; strip equals guest preview after save; Monday no dinner); the strip read off the browser at HEAD in the visual check (E10).
 - Evidence:
   ```
@@ -97,6 +157,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 6. Uniform week no slower
 
+- Re-verify basis: quick setup is on the CI fix diff's path. Fresh at HEAD 004c8881a: `availability-interaction-guards.spec.ts` and `availability-quick-setup.spec.ts` are inside the 158 passed, so the guard's assertion (count within the bound) held; the `COUNT` lines below were not re-printed at 004c8881a (they come from the full pass's throwaway console.log copy).
 - Check: the guard spec counted by a throwaway copy with a console.log (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally); `availability-quick-setup.spec.ts` ran inside the 284.
 - Evidence:
   ```
@@ -108,6 +169,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 7. Varied week faster than today
 
+- Re-verify basis: same as PRD 6. Fresh: the guard spec passed at 004c8881a (inside the 158). The `COUNT demo quick-setup=18 via-schedules=26` line is from the full pass.
 - Check: same run; quick setup alone against quick setup plus the Schedules tab's New schedule, one wrapper, one spec.
 - Evidence:
   ```
@@ -118,6 +180,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 8. Large setup no slower
 
+- Re-verify basis: same as PRD 6. Fresh: the guard spec passed at 004c8881a (inside the 158). The `COUNT large multi-service = 13` line is from the full pass.
 - Check: same run, the four-service large fixture.
 - Evidence:
   ```
@@ -128,6 +191,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 9. Interactions keep working
 
+- Re-verify basis: `services/agent` and `services/reservations` import `@mbe/availability`, whose types the CI fix diff moved. Fresh at HEAD 004c8881a: `@mbe/agent-service` Test Files 53 passed (53) / Tests 1028 passed (1028); reservations 234 files / 3965 tests passed; `availability-tonight-decisions.spec.ts` inside the 158 passed. Quoted named tests are from the full pass.
 - Check: History/Undo, Tonight and the agent's availability chat tools, each on a varied week, by name.
 - Evidence:
   ```
@@ -145,6 +209,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 10. Copy in three locales
 
+- Re-verify basis: locale catalogs are untouched by the CI fix diff. Fresh at HEAD 004c8881a: `pnpm check:i18n-catalogs` prints `PASS: Every translation catalog matches its en-US keys, placeholders and plural forms.`; `availability-locale.spec.ts` is inside the 158 passed. `locale-sweep.spec.ts` was not re-run at 004c8881a: its evidence is from the full pass (b46a22fcd, rebased 775762bab), code unaffected by the CI fix diff.
 - Check: `pnpm check:i18n-catalogs`, plus the locale e2e files in the 284 run.
 - Evidence:
   ```
@@ -157,6 +222,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 11. No regression
 
+- Re-verify basis: CI fix diff touched this path. Fresh at HEAD 004c8881a: `@mbe/types` 29 files / 494 tests, `@mbe/availability` 20 / 340, `@mbe/agent-service` 53 / 1028, `@mbe/hospitality` 383 / 5238, reservations (fresh Postgres 15, DATABASE_URL set) 234 / 3965 with `Suites ran for real: 3965/3965 tests passed, 0 skipped.` and 19 integration files, 286 ran and passed, 0 skipped; the 14 availability e2e specs 158 passed (default workers). The property-test names and the `284 passed` line below are from the full pass.
 - Check: every existing availability suite, the property tests, and every `e2e/availability-*.spec.ts`.
 - Evidence:
   ```
@@ -182,11 +248,15 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### PRD 12. Owner-only, never claimed by an agent: human-timed five-minute walkthrough
 
+- Re-verify basis: not run at b46a22fcd and not run now.
+
 - Check: none run. It is an Owner post-release check; no stage claims it.
 - Evidence: not run.
 - Result: NOT RUN (Owner-only, by design)
 
 ### PRD 13. The demo runs as written
+
+- Re-verify basis: shares the quick-setup path the CI fix diff touched. Fresh at HEAD 004c8881a: `availability-demo-week.spec.ts` inside the 158 passed (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally). The strip text below is from the full pass.
 
 - Check: `availability-demo-week.spec.ts` follows the PRD's demo step by step; the strip read at HEAD in the visual check (E10).
 - Evidence (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
@@ -198,6 +268,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS
 
 ### E1. Engine: day scope, validation, encode/decode, projection, week spans, property tests (Milestone 1)
+
+- Re-verify basis: CI fix diff touched this path (`ResolvedService` moved to `packages/availability/src/types.ts`; `resolve-day.ts`, `service-days.ts`, `slots.ts`, `index.ts`). Fresh at HEAD 004c8881a: `@mbe/types` Test Files 29 passed (29) / Tests 494 passed (494); `@mbe/availability` Test Files 20 passed (20) / Tests 340 passed (340); `@mbe/availability` typecheck and build exit 0. Named tests below are from the full pass.
 
 - Check: `pnpm --filter @mbe/types test`, `pnpm --filter @mbe/availability test`.
 - Evidence:
@@ -215,6 +287,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS
 
 ### E2. Prisma migration add_schedule_service_day_scope
+
+- Re-verify basis: migration and schema untouched by the CI fix diff; evidence is from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff. Additionally at HEAD 004c8881a: `db:migrate:deploy` as rls_owner on the fresh container printed `All migrations have been successfully applied.` including `20261103120000_add_schedule_service_day_scope`.
 
 - Check: `node scripts/check-destructive-migrations.js`; `db:migrate:deploy` as `rls_owner` on the fresh container (twice); the columns; `rls-force-coverage`; `prisma-enum-drift.mjs`.
 - Evidence:
@@ -237,6 +311,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### E3. Reservations store, save path, audit detail and the Postgres integration tests (Milestone 2)
 
+- Re-verify basis: the CI fix diff touched this path only through the `@mbe/availability` type move and the RLS-list addition in ci.yml. Fresh at HEAD 004c8881a: full `services/reservations` suite on a fresh Postgres 15: Test Files 234 passed (234) / Tests 3965 passed (3965); `Suites ran for real: 3965/3965 tests passed, 0 skipped.`; 19 integration files, 286 ran and passed, 0 skipped, including `availability-day-scope.integration.test.ts` (2) and `collapse-day-named-schedules.integration.test.ts` (1), the two files the fix added to ci.yml's RLS list.
+
 - Check: the full `services/reservations` suite against the fresh Postgres, with `DATABASE_URL` set and the JSON reporter, then `scripts/assert-vitest-ran.mjs`; the day-scope integration tests by name.
 - Evidence:
   ```
@@ -253,6 +329,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### E4. Legacy migration emits one regular week; collapse function and script (Milestone 3)
 
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff. The fresh reservations run at HEAD 004c8881a (234 files / 3965 tests, 0 skipped, collapse integration 1 passed) also contains these tests.
+
 - Check: golden, backfill, collapse unit and integration, from the same reservations run; the collapse property test from the engine run.
 - Evidence:
   ```
@@ -267,6 +345,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### E5. Quick-setup draft, form, strip in quick setup and wizard, guest-facing lines (Milestone 4, unit level)
 
+- Re-verify basis: CI fix diff touched this path (`toClock` un-exported in `quick-setup-draft.ts`). Fresh at HEAD 004c8881a: `@mbe/hospitality` Test Files 383 passed (383) / Tests 5238 passed (5238); `pnpm check:knip` exit 0. Named tests below are from the full pass.
+
 - Check: the full `apps/hospitality` unit suite, plus named tests.
 - Evidence:
   ```
@@ -279,6 +359,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS
 
 ### E6. Change regular week, day drawer scope and nudge, Schedules tab, New/Edit schedule rows, Compare, History line, migrated test (Milestone 5, unit level)
+
+- Re-verify basis: same hospitality suite and e2e as E5, fresh at HEAD 004c8881a (383 files / 5238 tests; `availability-dead-ends`, `availability-draft`, `availability-regular-week`, `availability-phone` specs inside the 158 passed). The code of these drawers is unaffected by the CI fix diff; quoted names and the `284 passed` line are from the full pass at b46a22fcd (rebased 775762bab).
 
 - Check: the same hospitality suite; named tests; e2e dead-ends and draft specs in the 284 run.
 - Evidence:
@@ -295,6 +377,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### E7. Interaction counter wrapper (Milestone 1)
 
+- Re-verify basis: fresh at HEAD 004c8881a: `availability-interaction-baselines.spec.ts` and `availability-interaction-guards.spec.ts` are inside the 158 passed (0 failed). The `COUNT` lines below are from the full pass.
+
 - Check: `e2e/availability-interaction-baselines.spec.ts` in the 284 run (the wrapper's own tests), and the guard run above.
 - Evidence (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
   ```
@@ -305,6 +389,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS
 
 ### E8. Install, lint, typecheck
+
+- Re-verify basis: fresh at HEAD 004c8881a, re-run by this stage: `pnpm install --frozen-lockfile` exit 0 (`Done in 3.1s`); `pnpm typecheck --force` `Tasks: 45 successful, 45 total / Cached: 0 cached, 45 total`; `pnpm lint --force` `Tasks: 45 successful, 45 total / Cached: 0 cached, 45 total`, 0 errors, hospitality 230 warnings, rialto 182, gen 108, rialto-web 165, auth 2. These match the counts quoted below, so the later fix commits did not change them.
 
 - Check: `pnpm install --frozen-lockfile`; `pnpm typecheck --force`; `pnpm lint --force` (node v22.22.3).
 - Evidence:
@@ -322,6 +408,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### E9. Flake check: did this run introduce or worsen the "Escape on Go to date puts focus back on the menu button" flake?
 
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff (`GoToDateDialog.tsx`, `AvailabilityToolbar.tsx` and the test are not among the 13 files). The `--workers=4 --retries=0` repeat run was NOT re-run at 004c8881a; the default-workers run of `availability-regular-week.spec.ts` inside the 158 had 0 failures.
+
 - Check: (1) the fix loop's two-tree numbers (8b550f8bc Notes, breakdown.md line 253), (2) this stage's re-run of the same command at HEAD, (3) whether the 284-pass default-workers run saw it.
 - Evidence (1), quoted from the breakdown Notes (not re-measured here): `This branch: 59 passed, 1 failed (desktop, fr-CA; expect(dialog).toBeHidden() Received: visible ...). origin/main (106eaaf9c ...): 58 passed, 2 failed (both desktop, en-US, same assertion shape).`
 - Evidence (2), this stage, HEAD, nothing on :3002 beforehand (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
@@ -337,6 +425,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS for the rescoped question (this run neither introduced nor worsened it). **Not a pass of the test:** it remains a pre-existing open risk (OPEN).
 
 ### E10. Visual check of the real surface
+
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff in rendered output (the diff is a type move, an un-export, budgets, CI config and generated docs). The screenshots were not retaken at 004c8881a.
 
 - Check: Playwright screenshots through the harness's session and mocked API, saved to `/tmp/acu-e2e/shots-final/` (outside the repo) at 1280x720 and 375x812 after the Review fix loop (including Minor 9's a11y changes): `NNNxNNN-01-quick-setup-viewport`, `-02-quick-setup-full`, `-03-strip`, `-04-different-hours-block`, `-05-service-row-dinner`, `-06-after-remove-service` (12 PNG). I opened each of `1280x720-02, -03, -05, -06` and `375x812-01, -02, -03, -05`.
 - Evidence (text read from the DOM at the same time, then what I saw):
@@ -357,12 +447,20 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### E11. Real Auth0 `auth.setup.ts` e2e login
 
-- Check: none run locally: E2E_AUTH0_* creds exist only in CI.
-- Evidence: not run. All e2e evidence above used the synthetic OIDC session, which skips `auth.setup.ts`, so the real login path is a limitation of this verification, not a pass.
-- Result: NOT RUN (CI-only)
+- Check: (1) PR #8237's CI, read with `gh pr checks 8237` and `gh run view 41837794423 --json headSha`; (2) a local run with the real `auth.setup.ts` was not possible: E2E_AUTH0_* creds exist only in CI.
+- Evidence (1), `gh pr checks 8237` (read now); the E2E run 41837794423 has headSha 7b5e1d375ffec4c6bd9ff5d12c56b1ccb788d09a, the pre-fix head (an ancestor of HEAD; the five commits a369a207d to 004c8881a come after it):
+  ```
+  Hospitality E2E (shard 1)	pass	16m32s	.../actions/runs/41837794423/job/126601959501
+  Hospitality E2E (shard 2)	pass	12m6s	.../actions/runs/41837794423/job/126601959537
+  Hospitality E2E (shard 3)	pass	15m12s	.../actions/runs/41837794423/job/126601959601
+  Hospitality E2E	pass	4s	.../actions/runs/41837794423/job/126610868240
+  ```
+  These ran with the real `auth.setup.ts` (the dispatch states it; I did not open the job logs to confirm the setup step). The local e2e at 004c8881a used the synthetic OIDC session, which skips `auth.setup.ts`.
+- Result: PASS on CI evidence for the pre-fix head 7b5e1d375; **NOT RUN for HEAD 004c8881a** until Ship pushes it and CI runs there. Counted as NOT RUN in the Summary.
 
 ### E12. CLI checks and the drift lane
 
+- Re-verify basis: CI fix diff touched this path (regenerated `llms.txt` and `llms-full.txt`, the size budgets). Fresh at HEAD 004c8881a, below under "Re-verified at HEAD 004c8881a". The CLI, ADR, deps and graph lines below are from the full pass at b46a22fcd (rebased 775762bab); their code is unaffected by the CI fix diff.
 - Check: `pnpm --filter @mbe/cli build && ... start check-adr && ... start check-deps`; `pnpm graph`, `pnpm generate:dep-graph`, `git diff --exit-code` on the two generated files; `mbe pack <dir> --check` for each of the 22 tracked `llms.txt` directories.
 - Evidence:
   ```
@@ -378,9 +476,41 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
   22 of 22: exit 0, "<dir>/llms.txt is in sync."
   ```
   No drift. (The first attempt with absolute paths is explained in the assumptions; it is not evidence.)
+- Re-verified at HEAD 004c8881a (the drift lane; relative paths; porcelain empty afterwards):
+  ```
+  $ pnpm regen                          Done. All artifacts regenerated.            REGEN=0
+  $ pnpm regen --check --git-only       All generated artifacts are up to date.     CHECK=0
+  $ pnpm --filter @mbe/cli start pack <dir> --check   for the 22 `git ls-files '*llms.txt'` dirs
+  22 of 22 in sync ("... llms.txt is in sync.")
+  $ pnpm size:check                     Tasks: 32 successful, 32 total              EXIT=0
+  ```
 - Result: PASS
 
+### E13. CI-blocking jobs Build, Lint and Test (rest) replicated locally, green
+
+- Re-verify basis: new criterion at this re-verify; every line below was run at HEAD 004c8881a.
+- Check: PR #8237's CI failed three jobs that block `CI Gate` (`gh pr checks 8237`: `Build fail 1m55s`, `Lint fail 2m43s`, `Test (Node 22, rest) fail 5m33s`; breakdown.md `## CI fix loop`: Build `no-circular`, Lint knip `Unused exports (1)`, Test (rest) `assert-vitest-ran`), plus a fourth failure the local Build replica found past where CI stopped (`size:check`). Each failing step was re-run locally at HEAD, along with the rest of the Build, Lint and Test steps that the repo's root scripts cover.
+- Evidence (local replica, not GitHub's runners):
+  ```
+  Build  : pnpm check:boundaries     ✔ no dependency violations found (4453 modules, 11911 dependencies cruised)   EXIT=0
+           pnpm size:check          Tasks: 32 successful, 32 total   EXIT=0
+           pnpm --filter @mbe/availability build   EXIT=0
+           pnpm regen --check --git-only   All generated artifacts are up to date.   CHECK=0
+  Lint   : pnpm check:knip           (no Unused exports)   EXIT=0
+           pnpm lint --force         Tasks: 45 successful, 45 total / Cached: 0 cached   EXIT=0 (0 errors)
+           pnpm typecheck --force    Tasks: 45 successful, 45 total / Cached: 0 cached   EXIT=0
+  Test   : vitest run --config scripts/vitest.config.mjs scripts/__tests__/assert-vitest-ran.test.mjs   Tests  12 passed (12)
+           services/reservations on Postgres 15: Test Files 234 passed (234) / Tests 3965 passed (3965); Suites ran for real: 3965/3965 tests passed, 0 skipped.
+           @mbe/availability 340/340; @mbe/hospitality 5238/5238; @mbe/types 494/494; @mbe/agent-service 1028/1028
+  install: pnpm install --frozen-lockfile   Done in 3.1s   INSTALL_EXIT=0
+  ```
+  Differences from CI that this run did not remove: I ran package-level and root scripts, not CI's `ci.yml` steps one by one (the `Build` job's `repo-audit` boundaries step and the `Test (Node 22, rest)` job's test matrix legs were not replayed as workflow steps); the Postgres image is 15, not the 16-alpine of Migration Dry-Run; the `rest` job's package list was not diffed against what I ran.
+- Not run: **GitHub's own CI run on the pushed head 004c8881a (or whatever head Ship pushes)** that would turn the Build, Lint and Test (rest) jobs green. Nothing has been pushed. That confirmation happens at Ship: NOT RUN here.
+- Result: PASS (local replication green). The CI confirmation is NOT RUN (see the Summary).
+
 ### Verify fix loop: es-MX and fr-CA plural forms for closedDays
+
+- Re-verify basis: fresh at HEAD 004c8881a: `pnpm check:i18n-catalogs` prints `PASS: Every translation catalog matches its en-US keys, placeholders and plural forms.`
 
 - Check: `pnpm check:i18n-catalogs` at HEAD.
 - Evidence:
@@ -393,6 +523,7 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 ### Verify fix loop: Go to date Escape flake classified
 
 - Check: the classification and both-tree evidence are recorded in the breakdown Notes (breakdown.md line 253: this branch 59/60, origin/main 58/60); the test body is unchanged since the merge base; this stage's run is in E9.
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff.
 - Evidence (this stage, HEAD):
   ```
   $ git diff --stat origin/main...HEAD -- apps/hospitality/src/components/availability/GoToDateDialog.tsx apps/hospitality/src/components/availability/AvailabilityToolbar.tsx
@@ -405,6 +536,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS (the Accept is the classification, not a fix)
 
 ### Review major 1: a stale client erases a varied week
+
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff. Its tests sit in suites re-run green at HEAD 004c8881a (`@mbe/types` 494/494; reservations 3965/3965).
 
 - Check: the route test, the schema tests, and the full suites.
 - Evidence:
@@ -422,6 +555,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### Review major 2: per-set seating and booking types flattened
 
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff. The test sits in the hospitality suite, 5238/5238 at HEAD 004c8881a.
+
 - Check: the set-seating preservation tests, by name.
 - Evidence:
   ```
@@ -433,6 +568,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS
 
 ### Review major 3: duplicating a schedule makes an all-week winner
+
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff. The test sits in the hospitality suite, 5238/5238 at HEAD 004c8881a.
 
 - Check: the duplicate-schedule seeding test, by name.
 - Evidence:
@@ -446,6 +583,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### Review minor 1: Edit schedule drops a service whose own days are outside the schedule's days
 
+- Re-verify basis: CI fix diff touched this path (`quick-setup-draft.ts`, `toClock` un-exported). Fresh at HEAD 004c8881a: the test sits in the hospitality suite, Test Files 383 passed (383) / Tests 5238 passed (5238), and `pnpm check:knip` exit 0. I did not re-run the single named test on its own; the quoted line is from the full pass.
+
 - Check: the named test.
 - Evidence:
   ```
@@ -457,6 +596,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### Review minor 2: the collapse script's `replaced` log omits created rows
 
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff. The tests sit in the reservations suite, 3965/3965 at HEAD 004c8881a.
+
 - Check: the named test; `reference.md`.
 - Evidence:
   ```
@@ -466,6 +607,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS
 
 ### Review minor 3: the collapse script's `refused` check compares issue sets
+
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff. The tests sit in the reservations suite, 3965/3965 at HEAD 004c8881a.
 
 - Check: the named tests.
 - Evidence:
@@ -478,6 +621,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### Review minor 4: `encodeWeek` is canonical over `bookingTypes` and `fixed` seating order
 
+- Re-verify basis: CI fix diff touched this path (`service-days.ts` imports `ResolvedService` from `types.ts`). Fresh at HEAD 004c8881a: `@mbe/availability` Test Files 20 passed (20) / Tests 340 passed (340), which include `service-days.test.ts`. The single named test was not re-run on its own; the quoted line is from the full pass.
+
 - Check: the named test.
 - Evidence:
   ```
@@ -487,6 +632,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS
 
 ### Review minor 5: the "varied week faster than today" guard can fail
+
+- Re-verify basis: the mutation proof is from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff; it was NOT re-run at 004c8881a. At HEAD 004c8881a the unmutated guard spec `availability-interaction-guards.spec.ts` passed inside the 158 (porcelain empty afterwards, so the constant is unmodified).
 
 - Check: the guard compares against the constant `DEMO_WEEK_VIA_SCHEDULES_COUNT = 26`; I ran the spec with the constant mutated to 18, watched it fail, restored it and re-ran.
 - Evidence (local run, synthetic OIDC session; auth.setup.ts skipped; no Auth0 E2E creds locally):
@@ -505,6 +652,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### Review minor 7: the calendar's regular-week line agrees with Details after a dated Change regular week
 
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff. The test sits in the hospitality suite, 5238/5238 at HEAD 004c8881a.
+
 - Check: the named test.
 - Evidence:
   ```
@@ -515,6 +664,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS
 
 ### Review minor 8: the lint warning at `ScheduleEditorDrawer.tsx:130`
+
+- Re-verify basis: fresh at HEAD 004c8881a for the lint leg: `pnpm lint --force` exit 0, `@mbe/hospitality:lint: ✖ 230 problems (0 errors, 230 warnings)`, the count quoted below. The single-file `eslint` run is from the full pass.
 
 - Check: `eslint` on the file; the root `lint --force` above.
 - Evidence:
@@ -528,6 +679,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 
 ### Review minor 9: accessibility in the new service row
 
+- Re-verify basis: `QuickSetupForm` is on the quick-setup path the CI fix diff touched. Fresh at HEAD 004c8881a: the tests sit in the hospitality suite, 383 files / 5238 tests passed. The single-file runs and the browser readings are from the full pass.
+
 - Check: the three component tests by name, and the same behaviours read from the browser (E10).
 - Evidence:
   ```
@@ -540,6 +693,8 @@ Fresh, full verification at HEAD b46a22fcd, after the Review fix loop. 39 criter
 - Result: PASS
 
 ### Review minor 14: the agent tool's comment states what `serviceDayMinute` reads
+
+- Re-verify basis: from the full pass at b46a22fcd (rebased 775762bab), code unaffected by the CI fix diff. At HEAD 004c8881a `@mbe/agent-service` is Test Files 53 passed (53) / Tests 1028 passed (1028).
 
 - Check: read the comment at `services/agent/src/routes/gen-agent-availability-tools.ts` and ran the agent suite.
 - Evidence:
@@ -559,12 +714,16 @@ Open and not failing this run (routes to the Owner or a later run, not to Implem
 
 Non-blocking observation for Review: the service-row caption buttons ("Different days for this service", "Use the shared days", "Different hours on some days", "Remove service N") read as low-contrast captions without a border (earlier O1; still visible in the HEAD shots).
 
+Open and not failing this run (Owner step, not routed to Implement): **Visual Regression (hospitality) baselines.** PR #8237's `Visual Regression (hospitality)` job failed (`toHaveScreenshot` on `availability@1280x720.png` and `availability@375x812.png`). It is advisory and never moves CI Gate (`apps-visual.yml`). The baselines are regenerated by a `workflow_dispatch` of `visual-noise-floor.yml` with `app: hospitality`; this run may not take that step.
+
 ## Not verified
 
 - **Owner-only human-timed five-minute walkthrough** (PRD 12): not run, by design.
-- **Real Auth0 e2e login (`auth.setup.ts`)** (E11): CI-only; not run.
+- **Real Auth0 e2e login (`auth.setup.ts`)** (E11) at HEAD 004c8881a: not run. PASS only on PR #8237's CI for the pre-fix head 7b5e1d375; needs CI on the pushed head, at Ship.
+- **GitHub's own CI on the pushed head** (E13's confirmation): not run; nothing is pushed.
 - **A full-stack browser run**: every e2e mocks the API; the calendar, day drawer and guest preview in the demo e2e come from `engine-days-mock.ts` running the same pure engine as the service, so PRD 2's e2e leg is not independent of the engine. The service's own builders were exercised by the reservations suite, not by a browser.
-- **CI-only jobs**: the Migration Dry-Run job (postgres:16-alpine; this run used postgres:15), the `services/agent` Docker build, visual-regression workflows, Lighthouse, mutation testing, `pnpm regen --check --git-only` and `pnpm size:check`. None was run here.
+- **CI-only jobs**: the Migration Dry-Run job (postgres:16-alpine; this run used postgres:15), the `services/agent` Docker build, Lighthouse and mutation testing. None was run here. (`pnpm regen --check --git-only` and `pnpm size:check`, which the earlier pass listed here, were run at 004c8881a.)
+- **Visual Regression (hospitality)**: not run, failing on the PR, advisory; baselines need an Owner `workflow_dispatch` of `visual-noise-floor.yml` with `app: hospitality`. `e2e/locale-sweep.spec.ts` was not re-run at 004c8881a.
 - **Collapse script apply on a real database**: the Owner's step; only the mocked-client unit tests and the throwaway Postgres were used.
 - **Whether the 230 hospitality lint warnings predate this run**: not examined. **Whether the Go to date Escape flake exists on `origin/main`**: shown only by the fix loop's run (2 of 60), not re-measured here; its cause was not investigated.
 - **Correctness of the es-MX and fr-CA `closedDays_many` wording** beyond key, placeholder and plural-form presence: no native-speaker review.
