@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.1
+
+### Patch Changes
+
+- [#8210](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8210) [`d2e9416`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/d2e9416c9a7a22136d54b9cb2f44c098e66f93d1) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav Home is current only on the marketing index when `currentPath` is passed, and DepartureBoard scales its flap row to the container instead of scrolling it.
+
+- [#8212](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8212) [`59a9cfa`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/59a9cfab5cde807ea4c410eb3156fb3d5aeb554f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DataList values wrap inside the row instead of painting past the card, including a run of letters with no soft-wrap opportunity. GlobalNav's mobile menu can be controlled so a page can close it when another overlay opens.
+
+- [#8219](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8219) [`3fb1235`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3fb1235d5b4ec630883d0497b2eb04d095bf226d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart day labels stay on the YYYY-MM-DD calendar day in every time zone, and the grid stops at the last dated column.
+
 ## 0.10.0
 
 ### Minor Changes
