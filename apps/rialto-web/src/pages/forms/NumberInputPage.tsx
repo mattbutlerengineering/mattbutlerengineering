@@ -62,10 +62,15 @@ function NumberInputPlayground() {
 // Page
 // ---------------------------------------------------------------------------
 
+const PIT_TARGET_LAP = 14;
+const PIT_FUEL_LOAD = 45;
+
 export function NumberInputPage() {
   const [lapCount, setLapCount] = useState(5);
   const [fuelMix, setFuelMix] = useState(3);
   const [brakeBias, setBrakeBias] = useState(56);
+  const [targetLap, setTargetLap] = useState(PIT_TARGET_LAP);
+  const [fuelLoad, setFuelLoad] = useState(PIT_FUEL_LOAD);
 
   return (
     <ComponentPageLayout
@@ -136,16 +141,16 @@ export function NumberInputPage() {
             <Stack direction="row" gap="sm" align="end" wrap>
               <NumberInput
                 label="Target Lap"
-                value={14}
-                onChange={() => {}}
+                value={targetLap}
+                onChange={setTargetLap}
                 min={1}
                 max={78}
                 hint="Planned pit entry lap"
               />
               <NumberInput
                 label="Fuel Load (kg)"
-                value={45}
-                onChange={() => {}}
+                value={fuelLoad}
+                onChange={setFuelLoad}
                 min={0}
                 max={110}
                 step={0.5}
@@ -153,7 +158,14 @@ export function NumberInputPage() {
               />
             </Stack>
             <Stack direction="row" gap="sm" align="center" justify="end" wrap>
-              <Button variant="ghost" size="sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setTargetLap(PIT_TARGET_LAP);
+                  setFuelLoad(PIT_FUEL_LOAD);
+                }}
+              >
                 Reset
               </Button>
               <Button variant="primary" size="sm">

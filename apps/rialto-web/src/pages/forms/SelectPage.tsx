@@ -62,6 +62,9 @@ function SelectPlayground() {
 
 export function SelectPage() {
   const [drivingMode, setDrivingMode] = useState("");
+  const [tyreCompound, setTyreCompound] = useState("");
+  const [startingTyre, setStartingTyre] = useState("");
+  const [pitWindow, setPitWindow] = useState("");
 
   return (
     <ComponentPageLayout
@@ -87,6 +90,8 @@ export function SelectPage() {
           <Select
             label="Tyre Compound"
             placeholder="Select compound…"
+            value={tyreCompound}
+            onChange={setTyreCompound}
             options={[
               { value: "soft", label: "Soft (C5)" },
               { value: "medium", label: "Medium (C3)" },
@@ -131,6 +136,8 @@ export function SelectPage() {
               <Select
                 label="Starting tyre"
                 placeholder="Select compound…"
+                value={startingTyre}
+                onChange={setStartingTyre}
                 options={[
                   { value: "soft", label: "Soft (C5)" },
                   { value: "medium", label: "Medium (C3)" },
@@ -140,6 +147,8 @@ export function SelectPage() {
               <Select
                 label="Pit window"
                 placeholder="Select lap…"
+                value={pitWindow}
+                onChange={setPitWindow}
                 options={[
                   { value: "10", label: "Lap 10–15" },
                   { value: "20", label: "Lap 20–25" },
@@ -148,7 +157,14 @@ export function SelectPage() {
               />
             </Stack>
             <Stack direction="row" gap="sm" align="center" justify="end" wrap>
-              <Button variant="ghost" size="sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setStartingTyre("");
+                  setPitWindow("");
+                }}
+              >
                 Reset
               </Button>
               <Button variant="primary" size="sm">
