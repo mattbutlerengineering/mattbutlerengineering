@@ -52,7 +52,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Store reads and writes day scope** — `availability-config-rows.ts` `scheduleServiceData` writes `weekdays` and `dayHours` and reads through `ScheduleServiceSchema`; `availability-snapshot.ts` and `availability-migration.ts` `writeAvailabilityConfig` carry the two columns.
   - Accept: a unit test shows a stored row without the two fields reads as "no scope". A row with an unknown `dayHours.version` is dropped by `parseRows` with a warning, and the venue serves the rows left. `writeAvailabilityConfig` writes both columns.
   - Blocked by: Day-scope schema in @mbe/types, Prisma migration add_schedule_service_day_scope
-- [ ] **Migration forward-path integration test** — a reservations integration test on the harness `rls-isolation.integration.test.ts` uses, against Docker Postgres only.
+- [x] **Migration forward-path integration test** — a reservations integration test on the harness `rls-isolation.integration.test.ts` uses, against Docker Postgres only.
   - Accept: the test inserts a row in the old shape (the two columns omitted), reads it through `readStoredConfig` and gets "no scope"; it writes a varied week through the store and reads it back byte-equal.
   - Blocked by: Store reads and writes day scope
 - [ ] **Config save path with day scope** — `PUT …/availability/config` accepts rows carrying the two fields, validates through `validateConfig`, and keeps the `expectedVersion` compare-and-set.
