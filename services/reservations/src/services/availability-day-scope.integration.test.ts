@@ -169,10 +169,19 @@ describe.skipIf(!DATABASE_URL)("schedule service day scope (real Postgres)", () 
     expect(back).toEqual(brunchRow);
     expect(JSON.stringify(back?.dayHours)).toBe(JSON.stringify(brunchRow.dayHours));
 
-    const raw = await pool.query<{ weekdays: number[]; day_hours: unknown }>(
-      "SELECT weekdays, day_hours FROM schedule_services WHERE id = $1",
-      [brunchRow.id]
-    );
-    expect(raw.rows[0]).toEqual({ weekdays: brunchRow.weekdays, day_hours: brunchRow.dayHours });
+    // The table is FORCE row-level secured, so the raw read sets the venue context like the store.
+    const conn = await pool.connect();
+    try {
+      await conn.query("BEGIN");
+      await conn.query("SELECT set_config('app.venue_id', $1, true)", [venueId]);
+      const raw = await conn.query<{ weekdays: number[]; day_hours: unknown }>(
+        "SELECT weekdays, day_hours FROM schedule_services WHERE id = $1",
+        [brunchRow.id]
+      );
+      await conn.query("COMMIT");
+      expect(raw.rows[0]).toEqual({ weekdays: brunchRow.weekdays, day_hours: brunchRow.dayHours });
+    } finally {
+      conn.release();
+    }
   });
 });
