@@ -1830,6 +1830,9 @@
       "planName": "Plan {{name}}, {{date}}…",
       "planAll_one": "Plan {{count}} holiday…",
       "planAll_other": "Plan all {{count}}…",
+      "openAsUsual": "Open as usual",
+      "openAsUsualName": "{{name}}, {{date}}: open as usual",
+      "openAsUsualToast": "{{name}}: open as usual",
       "name": {
         "newYearsDay": "New Year’s Day",
         "constitutionDay": "Constitution Day",

@@ -1867,6 +1867,9 @@
       "planAll_one": "Planear {{count}} día festivo…",
       "planAll_many": "Planear los {{count}}…",
       "planAll_other": "Planear los {{count}}…",
+      "openAsUsual": "Horario habitual",
+      "openAsUsualName": "{{name}}, {{date}}: horario habitual",
+      "openAsUsualToast": "{{name}}: horario habitual",
       "name": {
         "newYearsDay": "Año Nuevo",
         "constitutionDay": "Día de la Constitución",
