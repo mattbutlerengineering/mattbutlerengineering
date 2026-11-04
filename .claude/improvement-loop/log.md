@@ -4734,6 +4734,51 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 
 0 `agent-skip` issues open — nothing to manually review.
 
+## 2026-11-04 — mbe-evening
+
+### Metrics
+
+| Metric                                                                                    | Value                                                           | Status                                        |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------- |
+| Created (7d, audit+ci-fix)                                                                | 28                                                              | -                                             |
+| Closed (7d, audit+ci-fix)                                                                 | 24                                                              | -                                             |
+| Closure Rate                                                                              | 24/28 ≈ 85.7%                                                   | Green (>80%)                                  |
+| Time-to-Close (mean, 7d closes)                                                           | 10.8h                                                           | Green (<24h)                                  |
+| Agent Success (has-pr/(has-pr+failed), open)                                              | 3/3 = 100%                                                      | Green (>70%)                                  |
+| CI Pass (`main`, last 20 runs, skipped/cancelled excluded)                                | 10/10 = 100%                                                    | Green (>95%)                                  |
+| Queue (ready, open)                                                                       | 10                                                              | Yellow (5-10)                                 |
+| Stale (ready>7d)                                                                          | 0                                                               | Green                                         |
+| Blocked (agent-failed, open)                                                              | 0                                                               | Green                                         |
+| Skipped (agent-skip, open)                                                                | 1 (#8202 — diagnosis delivered, see below, not a failure-skip)  | -                                             |
+| Daily/7d Spend (attributed, `.claude/agent-spend/sessions.jsonl`)                         | $0 (0 attributed sessions)                                      | Green — no `mbe agent run`/`eval` this window |
+| Queue worker usage (7d, `metrics/queue-telemetry.jsonl`, not in the Daily/7d Spend total) | 5 sessions, 908,509 tokens, cost unknown, 54 rows without usage | Unmeasured — never reported as $0             |
+| Cost/Issue                                                                                | unknown                                                         | Unmeasured (no `cost_usd` on queue rows)      |
+| Reverts (7d)                                                                              | 0                                                               | Green (<3/week)                               |
+
+### Patterns
+
+- Phase 0 preflight: main green (0 `CI Gate` failures in last 5 runs). One unfinished PR from the prior run (#8207, issue #8197 `has-pr`) was gated first, per protocol, before claiming anything new.
+- Claimed a batch of 3 via `selectZoneSpreadBatch` (`strictMain: true`, distinct zones — root/`apps/gen`/global): **#8185**, **#8198**, **#8202**. A 4th candidate (#8186, same root zone as #8185) and a 5th (#8199, same `apps/gen` zone as #8198) were deferred to a future iteration by the zone-spread rule; #8203 was dropped from this batch for an unmet dependency (`Depends on: #8202`), which #8202's work this run now clears.
+- **#8185** → PR #8216: low-risk fast path (`qualifiesForLowRiskFastPath` true — test-only diff, no specialist matched) → reviewed+green, awaiting human merge.
+- **#8198** → PR #8217: fast path not eligible (`reviewersForDiff` matched `e2e-selector-drift-reviewer`) → full review (universal 9/10 pass + specialist pass, no block) → reviewed+green, awaiting human merge.
+- **#8202** (diagnosis-only issue, by its own acceptance criteria): root cause identified with run-log evidence — `shipped-features-snapshot.yml`'s `GITHUB_TOKEN` permissions block has never declared an `issues:` scope, so the collector's issue/timeline REST reads return a successful-but-empty view in production (confirmed by the sub-second failure timing on both failed runs, ruling out the batch-rate-limiting hypothesis). No code fix landed — the sibling fix issue (#8203, now unblocked) does that. Findings posted as an issue comment; transitioned `agent-skip` (not a failure — the diagnosis deliverable is the whole point of this issue).
+- **#8207** (prior-run `has-pr` PR for #8197) was also gated this run: universal reviewer passed 7/10 (flagged an unverified AC — whether the advisory `Gen E2E` job actually ran — which this session then confirmed directly from the workflow run's jobs, resolving the flag) plus `e2e-selector-drift-reviewer` pass → reviewed+green, awaiting human merge.
+- **`[Merge Without Review]` CCR permission-classifier denial (#6125, already filed and closed/accepted) recurred on all 3 merge attempts this run** (#8207, #8216, #8217) — a 2nd consecutive day where 100% of this routine's gated PRs sat "reviewed, green, awaiting human merge" instead of landing. The underlying cause is already tracked; flagging the growing backlog (now 3 PRs plus the telemetry PR #8218) as an operational cost worth the Owner's attention, not a new defect.
+- Telemetry persisted: 3 rows appended to `metrics/queue-telemetry.jsonl` (#8185/#8198 with real `subagent_tokens`/`tool_uses`/`duration_ms` from worker `<usage>`, #8202 with `pr_number: null`), committed on `chore/queue-telemetry-2026-11-04`, PR #8218 opened and labeled `has-pr`, subscribed.
+- Reap (dry-run): 2 worktrees examined (the 2 workers that committed), 0 eligible for removal — correctly retained fail-closed, since neither #8216 nor #8217 is merged yet. The diagnosis-only worker's worktree made no commits and was already auto-reclaimed by the harness before reap ran.
+- A stale local `main` branch ref (unrelated history to `origin/main`, almost certainly a shallow-clone artifact from container init) was found and reset to `origin/main` mid-run — no uncommitted work was on it.
+- 0 circuit-breaker failures this iteration.
+
+### Recommendations
+
+- Human merge needed for 3 reviewed-green PRs from this run: #8207, #8216, #8217 — plus #8218 (telemetry) once its own CI settles.
+- #8203 ([2/3] of the shipped-features-freshness chain) is now unblocked for a future iteration: #8202 found the root cause (missing `issues:` permission scope in `shipped-features-snapshot.yml`) with log evidence.
+- Nothing new to file as `[Meta]` this run — the merge-classifier denial is already tracked (closed #6125) and the node_modules cold-start meta-issue from yesterday (#8169) is still open and unduplicated.
+
+### Skipped Issues
+
+1 `agent-skip` issue open: **#8202** — not a failure-after-retries skip. Its acceptance criteria only required a documented root cause with log evidence (explicitly no code fix required in this issue), which was delivered as an issue comment.
+
 ## 2026-11-03
 
 **queueEfficiency:** composite 0.856 (baseline n/a) — healthy
