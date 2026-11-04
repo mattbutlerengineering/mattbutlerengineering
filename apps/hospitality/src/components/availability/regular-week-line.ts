@@ -38,8 +38,29 @@ function kindOf(base: { closesAt: number }, set: { closesAt: number }): HoursCha
   return set.closesAt < base.closesAt ? "earlier" : "different";
 }
 
-export function regularWeekLine(config: AvailabilityConfig): RegularWeekLine {
-  const schedule = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+/**
+ * The regular schedule in force on `today` (a service date): a dated Change regular week leaves the
+ * old week running until its date, and Details (`regularWeekView`) already reads that one. With no
+ * regular assignment in force today (a week that starts later, nothing yet) it is the one marked regular.
+ */
+function inForce(config: AvailabilityConfig, today: string) {
+  const live = config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt);
+  const running = config.assignments
+    .filter(
+      (a) =>
+        live.some((s) => s.id === a.scheduleId) &&
+        (a.startsOn == null || a.startsOn <= today) &&
+        (a.endsOn == null || a.endsOn >= today)
+    )
+    .sort((a, b) => b.precedence - a.precedence)[0];
+  return (
+    live.find((s) => s.id === running?.scheduleId) ??
+    config.schedules.find((s) => s.isRegular && !s.archivedAt)
+  );
+}
+
+export function regularWeekLine(config: AvailabilityConfig, today: string): RegularWeekLine {
+  const schedule = inForce(config, today);
   if (!schedule) return NONE;
   const covered = [
     ...new Set(

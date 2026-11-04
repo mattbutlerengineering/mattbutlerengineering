@@ -3,8 +3,10 @@ import type { AvailabilityConfig } from "@mbe/types";
 import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
 import { regularWeekLine } from "./regular-week-line.js";
 
-const byName = (config: AvailabilityConfig) =>
-  Object.fromEntries(regularWeekLine(config).services.map((s) => [s.name, s]));
+const TODAY = "2026-11-04";
+
+const byName = (config: AvailabilityConfig, today = TODAY) =>
+  Object.fromEntries(regularWeekLine(config, today).services.map((s) => [s.name, s]));
 
 describe("regularWeekLine", () => {
   it("reads the demo week as each service's days, Monday first", () => {
@@ -49,10 +51,10 @@ describe("regularWeekLine", () => {
         },
       ],
     };
-    const line = regularWeekLine(uniform);
+    const line = regularWeekLine(uniform, TODAY);
     expect(line.uniform).toBe(true);
     expect(line.services[0]?.days).toEqual([1, 2, 3, 4, 5, 6, 0]);
-    expect(regularWeekLine(DEMO_WEEK_CONFIG).uniform).toBe(false);
+    expect(regularWeekLine(DEMO_WEEK_CONFIG, TODAY).uniform).toBe(false);
   });
 
   it("lists no schedule or assignment, and ignores archived or non-regular schedules", () => {
@@ -63,7 +65,46 @@ describe("regularWeekLine", () => {
         { id: "holiday", name: "Holiday", kind: "alternate", isRegular: false },
       ],
     };
-    expect(regularWeekLine(other)).toEqual(regularWeekLine(DEMO_WEEK_CONFIG));
-    expect(regularWeekLine({ ...DEMO_WEEK_CONFIG, scheduleServices: [] }).services).toEqual([]);
+    expect(regularWeekLine(other, TODAY)).toEqual(regularWeekLine(DEMO_WEEK_CONFIG, TODAY));
+    expect(regularWeekLine({ ...DEMO_WEEK_CONFIG, scheduleServices: [] }, TODAY).services).toEqual(
+      []
+    );
+  });
+
+  it("reads the week in force today, not a dated Change regular week that starts later", () => {
+    const old = DEMO_WEEK_CONFIG.schedules[0]!;
+    const dinner = DEMO_WEEK_CONFIG.scheduleServices.find((r) => r.id === "demo-ss-dinner")!;
+    const dated: AvailabilityConfig = {
+      ...DEMO_WEEK_CONFIG,
+      schedules: [
+        { ...old, isRegular: false },
+        { ...old, id: "next", isRegular: true },
+      ],
+      scheduleServices: [
+        ...DEMO_WEEK_CONFIG.scheduleServices,
+        // The week from Dec 1: Dinner runs every day with no later Friday or Saturday.
+        {
+          ...dinner,
+          id: "next-dinner",
+          scheduleId: "next",
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
+        },
+      ],
+      assignments: [
+        { ...DEMO_WEEK_CONFIG.assignments[0]!, endsOn: "2026-11-30" },
+        {
+          id: "as-next",
+          scheduleId: "next",
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          precedence: 1,
+          startsOn: "2026-12-01",
+        },
+      ],
+    };
+
+    expect(byName(dated, TODAY).Dinner?.changes).toEqual([{ weekdays: [5, 6], kind: "later" }]);
+    expect(Object.keys(byName(dated, "2026-12-01"))).toEqual(["Dinner"]);
+    expect(byName(dated, "2026-12-01").Dinner?.changes).toEqual([]);
   });
 });

@@ -278,7 +278,7 @@ none.
   - Accept: a test (permutations of `bookingTypes` and `fixed` seating across days) where days equal but for order encode to one hours group with no spurious set.
 - [x] **Minor 5: the "varied week faster than today" e2e guard can fail** — it compares against a constant measured once.
   - Accept: the guard asserts the count against a constant bound; a mutated (lowered) bound makes the spec fail, shown by running it; the bound is restored and the spec passes.
-- [ ] **Minor 7: the calendar's regular-week line and its Details agree after a dated Change regular week** — the line is built from the schedule in force.
+- [x] **Minor 7: the calendar's regular-week line and its Details agree after a dated Change regular week** — the line is built from the schedule in force.
   - Accept: a test where a Change regular week "from" a future date leaves the line reading the week in force today, not the future week.
 - [ ] **Minor 8: the lint warning at `ScheduleEditorDrawer.tsx:130`** — the disable comment names the rule that fires, or the warning is gone.
   - Accept: `eslint` on the file shows no warning for the line (RED: the warning as is).

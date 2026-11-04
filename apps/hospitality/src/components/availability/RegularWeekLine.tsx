@@ -39,7 +39,8 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
   const summarize = useWeekdaySummary();
   const [open, setOpen] = useState(false);
   const detailsId = useId();
-  const line = useMemo(() => regularWeekLine(config), [config]);
+  const todayDate = localDateTimeOf(now, timeZone).date;
+  const line = useMemo(() => regularWeekLine(config, todayDate), [config, todayDate]);
 
   const rows = useMemo(() => {
     if (!open) return [];

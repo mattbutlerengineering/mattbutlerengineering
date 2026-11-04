@@ -2541,8 +2541,11 @@
     <item priority="medium">
       function kindOf(base: { closesAt: number }, set: { closesAt: number }): HoursChangeKind { /* ... */ }
     </item>
+    <item priority="medium">
+      function inForce(config: AvailabilityConfig, today: string) { /* ... */ }
+    </item>
     <item priority="high">
-      export function regularWeekLine(config: AvailabilityConfig): RegularWeekLine { /* ... */ }
+      export function regularWeekLine(config: AvailabilityConfig, today: string): RegularWeekLine { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/removal-diff.ts">
