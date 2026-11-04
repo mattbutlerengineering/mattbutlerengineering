@@ -171,18 +171,6 @@ describe("ShowcaseSidebar", () => {
     expect(backdrop).toBeInTheDocument();
   });
 
-  it("offers a close control while the mobile drawer is open", () => {
-    const onMobileClose = vi.fn();
-    renderSidebar({ isMobileOpen: true, onMobileClose });
-    fireEvent.click(screen.getByRole("button", { name: "Close sidebar" }));
-    expect(onMobileClose).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not render the mobile close control while the drawer is closed", () => {
-    renderSidebar({ isMobileOpen: false });
-    expect(screen.queryByRole("button", { name: "Close sidebar" })).not.toBeInTheDocument();
-  });
-
   it("calls onMobileClose when backdrop is clicked", () => {
     const onMobileClose = vi.fn();
     renderSidebar({ isMobileOpen: true, onMobileClose });

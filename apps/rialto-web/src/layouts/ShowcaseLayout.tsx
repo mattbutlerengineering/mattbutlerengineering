@@ -28,34 +28,19 @@ export function ShowcaseLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [navMenuOpen, setNavMenuOpen] = useState(false);
   const toggleButtonRef = useRef<HTMLButtonElement>(null);
   const mainRef = useRef<HTMLElement>(null);
-  const returnFocusToToggleRef = useRef(false);
 
   // The window never scrolls in this layout — <main> is the scroll container.
   useScrollToTop(mainRef);
 
   const handleMobileClose = useCallback(() => {
-    returnFocusToToggleRef.current = true;
     setIsMobileMenuOpen(false);
+    toggleButtonRef.current?.focus();
   }, []);
 
-  useEffect(() => {
-    if (!isMobileMenuOpen && returnFocusToToggleRef.current) {
-      returnFocusToToggleRef.current = false;
-      toggleButtonRef.current?.focus();
-    }
-  }, [isMobileMenuOpen]);
-
-  const handleMobileOpen = useCallback(() => {
-    setNavMenuOpen(false);
-    setIsMobileMenuOpen(true);
-  }, []);
-
-  const handleNavMenuOpenChange = useCallback((open: boolean) => {
-    setNavMenuOpen(open);
-    if (open) setIsMobileMenuOpen(false);
+  const handleMobileToggle = useCallback(() => {
+    setIsMobileMenuOpen((prev) => !prev);
   }, []);
 
   return (
@@ -63,47 +48,38 @@ export function ShowcaseLayout() {
       <a href="#main-content" className="skip-link">
         Skip to main content
       </a>
-      <GlobalNav
-        currentApp="rialto"
-        theme={theme}
-        onThemeToggle={toggleTheme}
-        mobileMenuOpen={navMenuOpen}
-        onMobileMenuOpenChange={handleNavMenuOpenChange}
-      />
+      <GlobalNav currentApp="rialto" theme={theme} onThemeToggle={toggleTheme} />
+
+      {/* ── Mobile sidebar toggle (visible < 768px only) ── */}
+      {/* eslint-disable mbe-local/prefer-rialto-components */}
+      <button
+        ref={toggleButtonRef}
+        className={styles.mobileSidebarToggle}
+        onClick={handleMobileToggle}
+        aria-label={isMobileMenuOpen ? "Close sidebar" : "Open sidebar"}
+        aria-expanded={isMobileMenuOpen}
+        type="button"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+      {/* eslint-enable mbe-local/prefer-rialto-components */}
 
       {/* ── Body (sidebar + content) ────────────── */}
       <div className={styles.body}>
-        {/* In-flow on small screens so it never covers page content or the drawer.
-            Hidden while the drawer is open; the drawer has its own close control. */}
-        <div className={styles.mobileNavBar} hidden={isMobileMenuOpen ? true : undefined}>
-          {/* eslint-disable mbe-local/prefer-rialto-components */}
-          <button
-            ref={toggleButtonRef}
-            className={styles.mobileSidebarToggle}
-            onClick={handleMobileOpen}
-            aria-label="Open sidebar"
-            aria-expanded={isMobileMenuOpen}
-            type="button"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <line x1="3" y1="6" x2="21" y2="6" />
-              <line x1="3" y1="12" x2="21" y2="12" />
-              <line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-          {/* eslint-enable mbe-local/prefer-rialto-components */}
-        </div>
-
         <ShowcaseSidebar
           sections={NAV_SECTIONS}
           demoPages={DEMO_PAGES}

@@ -61,50 +61,20 @@ export interface GlobalNavProps extends Pick<
   labels?: Partial<Record<NavItem["app"], string>>;
   /** Optional dropdown after the app links. The trigger is marked current when any item is. */
   menu?: GlobalNavMenu;
-  /**
-   * Mobile menu open state. Omit it and GlobalNav owns the menu.
-   * Pass it with `onMobileMenuOpenChange` so a page can close this menu
-   * when another overlay opens.
-   */
-  mobileMenuOpen?: boolean;
-  /** Called with the next open state when the hamburger or Escape toggles the menu. */
-  onMobileMenuOpenChange?: (open: boolean) => void;
 }
 
 /** Product name, not translatable text. */
 const BRAND_NAME = "MBE";
 
 export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
-  (
-    {
-      currentApp,
-      theme,
-      onThemeToggle,
-      labels,
-      menu,
-      mobileMenuOpen,
-      onMobileMenuOpenChange,
-      className,
-      ...props
-    },
-    ref
-  ) => {
+  ({ currentApp, theme, onThemeToggle, labels, menu, className, ...props }, ref) => {
     const { messages } = useRialtoLocale();
-    const [uncontrolledMenuOpen, setUncontrolledMenuOpen] = useState(false);
-    const menuOpen = mobileMenuOpen ?? uncontrolledMenuOpen;
+    const [menuOpen, setMenuOpen] = useState(false);
     const mobileMenuId = useId();
 
-    const setMenuOpen = useCallback(
-      (open: boolean) => {
-        if (mobileMenuOpen === undefined) setUncontrolledMenuOpen(open);
-        onMobileMenuOpenChange?.(open);
-      },
-      [mobileMenuOpen, onMobileMenuOpenChange]
-    );
-
     const handleToggle = useCallback(() => {
-      setMenuOpen(!menuOpen);
-    }, [menuOpen, setMenuOpen]);
+      setMenuOpen((prev) => !prev);
+    }, []);
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
@@ -112,7 +82,7 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
           setMenuOpen(false);
         }
       },
-      [menuOpen, setMenuOpen]
+      [menuOpen]
     );
 
     const [dropdownOpen, setDropdownOpen] = useState(false);

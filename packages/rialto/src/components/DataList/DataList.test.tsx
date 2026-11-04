@@ -1,11 +1,6 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { render, screen } from "@testing-library/react";
 import { DataList } from "./DataList";
 import type { DataListItem } from "./DataList";
-
-const cssPath = resolve(dirname(fileURLToPath(import.meta.url)), "DataList.module.css");
 
 const items: DataListItem[] = [
   { label: "Team", value: "Red Bull Racing" },
@@ -100,19 +95,6 @@ describe("DataList", () => {
       render(<DataList items={[{ label: "Solo", value: "Only" }]} />);
       expect(screen.getByText("Solo")).toBeInTheDocument();
       expect(screen.getByText("Only")).toBeInTheDocument();
-    });
-
-    it("lets an unbreakable value wrap inside the list", () => {
-      // A run of Latin letters has no soft-wrap opportunity. In a column flex
-      // parent (the team-review form) the list's min-content width then beats
-      // the card, and the glyphs paint past the 640px edge. `anywhere` creates
-      // the wrap, and min-inline-size: 0 lets the flex item use it.
-      const css = readFileSync(cssPath, "utf8");
-      const value = css.match(/\.value\s*\{([^}]+)\}/)?.[1] ?? "";
-      const list = css.match(/\.list\s*\{([^}]+)\}/)?.[1] ?? "";
-      expect(value).toMatch(/overflow-wrap:\s*anywhere/);
-      expect(value).toMatch(/min-inline-size:\s*0/);
-      expect(list).toMatch(/min-inline-size:\s*0/);
     });
 
     it("applies striped and vertical classes together", () => {

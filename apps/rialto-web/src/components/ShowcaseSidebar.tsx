@@ -223,45 +223,28 @@ export function ShowcaseSidebar({
       <nav ref={sidebarRef} className={rootClassName} aria-label="Component navigation">
         {/* ── Search ──────────────────────────── */}
         <div className={styles.searchWrapper}>
-          <div className={styles.searchRow}>
-            <div className={styles.searchInputWrapper}>
-              <span className={styles.searchIcon}>
-                <SearchIcon />
-              </span>
-              <input
-                ref={inputRef}
-                type="text"
-                className={styles.searchInput}
-                placeholder="Filter components…"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                aria-label="Filter components"
-              />
-              {isFiltering && (
-                <button
-                  className={styles.clearButton}
-                  onClick={clearFilter}
-                  aria-label="Clear filter"
-                  type="button"
-                >
-                  <ClearIcon />
-                </button>
-              )}
-            </div>
-            {isMobileOpen && (
-              <>
-                {/* Drawer chrome, same native control as the filter clear button. */}
-                {/* eslint-disable mbe-local/prefer-rialto-components */}
-                <button
-                  type="button"
-                  className={styles.mobileClose}
-                  onClick={() => onMobileClose?.()}
-                  aria-label="Close sidebar"
-                >
-                  <ClearIcon />
-                </button>
-                {/* eslint-enable mbe-local/prefer-rialto-components */}
-              </>
+          <div className={styles.searchInputWrapper}>
+            <span className={styles.searchIcon}>
+              <SearchIcon />
+            </span>
+            <input
+              ref={inputRef}
+              type="text"
+              className={styles.searchInput}
+              placeholder="Filter components…"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              aria-label="Filter components"
+            />
+            {isFiltering && (
+              <button
+                className={styles.clearButton}
+                onClick={clearFilter}
+                aria-label="Clear filter"
+                type="button"
+              >
+                <ClearIcon />
+              </button>
             )}
           </div>
         </div>

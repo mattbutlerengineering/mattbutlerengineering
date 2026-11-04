@@ -6,26 +6,10 @@ import { ThemeContext } from "../ThemeContext.js";
 import { ShowcaseLayout } from "./ShowcaseLayout.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  GlobalNav: ({
-    onThemeToggle,
-    mobileMenuOpen,
-    onMobileMenuOpenChange,
-  }: {
-    onThemeToggle?: () => void;
-    mobileMenuOpen?: boolean;
-    onMobileMenuOpenChange?: (open: boolean) => void;
-  }) => (
+  GlobalNav: ({ onThemeToggle }: { onThemeToggle?: () => void }) => (
     <nav data-testid="global-nav">
       <button onClick={onThemeToggle} data-testid="theme-toggle">
         toggle
-      </button>
-      <button
-        type="button"
-        aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
-        aria-expanded={mobileMenuOpen ?? false}
-        onClick={() => onMobileMenuOpenChange?.(!(mobileMenuOpen ?? false))}
-      >
-        menu
       </button>
     </nav>
   ),
@@ -42,24 +26,11 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
 }));
 
 vi.mock("../components/ShowcaseSidebar.js", () => ({
-  ShowcaseSidebar: ({
-    onNavigate,
-    isMobileOpen,
-    onMobileClose,
-  }: {
-    onNavigate: (path: string) => void;
-    isMobileOpen?: boolean;
-    onMobileClose?: () => void;
-  }) => (
-    <aside data-testid="sidebar" data-open={isMobileOpen ? "true" : "false"}>
+  ShowcaseSidebar: ({ onNavigate }: { onNavigate: (path: string) => void }) => (
+    <aside data-testid="sidebar">
       <button data-testid="sidebar-nav" onClick={() => onNavigate("/components/button")}>
         nav
       </button>
-      {isMobileOpen && (
-        <button type="button" data-testid="sidebar-close" onClick={() => onMobileClose?.()}>
-          Close sidebar
-        </button>
-      )}
     </aside>
   ),
 }));
@@ -109,39 +80,6 @@ describe("ShowcaseLayout", () => {
 
     fireEvent.click(screen.getByTestId("theme-toggle"));
     expect(toggleTheme).toHaveBeenCalled();
-  });
-
-  it("closes the sidebar drawer when the header menu opens", () => {
-    renderLayout();
-    fireEvent.click(screen.getByRole("button", { name: "Open sidebar" }));
-    expect(screen.getByTestId("sidebar")).toHaveAttribute("data-open", "true");
-
-    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
-
-    expect(screen.getByRole("button", { name: "Close menu" })).toHaveAttribute(
-      "aria-expanded",
-      "true"
-    );
-    expect(screen.getByTestId("sidebar")).toHaveAttribute("data-open", "false");
-  });
-
-  it("closes the header menu when the sidebar drawer opens", () => {
-    renderLayout();
-    fireEvent.click(screen.getByRole("button", { name: "Open menu" }));
-    expect(screen.getByRole("button", { name: "Close menu" })).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Open sidebar" }));
-
-    expect(screen.queryByRole("button", { name: "Close menu" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("sidebar")).toHaveAttribute("data-open", "true");
-  });
-
-  it("returns focus to the sidebar toggle when the drawer closes", () => {
-    renderLayout();
-    const toggle = screen.getByRole("button", { name: "Open sidebar" });
-    fireEvent.click(toggle);
-    fireEvent.click(screen.getByTestId("sidebar-close"));
-    expect(toggle).toHaveFocus();
   });
 
   it("resets main content scroll on navigation", () => {
