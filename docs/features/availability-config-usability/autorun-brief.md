@@ -187,12 +187,17 @@ adds.
 
 - #7738 seeds the run. Its work item or items carry `(tracker: #7738)` in the
   breakdown.
-- **Closing [orchestrator default, under prepare-and-stop]:**
-  - The Ship PR body says `Closes #7738` only if the run fully covers the
-    issue, including collapsing migrated day-named schedules into the regular
-    week (its "What this issue is for"). Otherwise it says `Refs #7738`.
-  - No stage closes, comments on or relabels any issue by hand. "Closed" on the
-    tracker means merged.
+- **Closing (Owner accepted the option text "Implement closes an issue only
+  when its item fully covers it"):**
+  - Implement closes #7738 with `gh issue close` when it checks off the items
+    that mirror it, and only if they fully cover the issue. Full coverage
+    includes collapsing migrated day-named schedules into the regular week
+    (the issue's "What this issue is for"). The closing comment names the run
+    directory and the branch. Otherwise #7738 stays open.
+  - The Ship PR body says `Closes #7738` when the run fully covers it, and
+    `Refs #7738` otherwise.
+  - No other issue interaction: no comments, label changes or closes on any
+    other issue.
 - #7493, #7981, #7983 and #7984 are context only and stay untouched.
 
 ## UX
@@ -233,8 +238,12 @@ run stays active after Ship until someone has feedback to capture.
 - End the stage by committing its own artifact on
   `feat/availability-config-usability`, as one commit with the subject
   `docs(availability-config-usability): <stage> — <one line>`.
-- GitHub is read-only until Ship. No issue or PR comments, and no label
-  changes.
+- GitHub is read-only until Ship, apart from Implement closing #7738 (see
+  Tracker). No other issue or PR comments, and no label changes.
+- **Ambition ladder (Idea):** the Owner did not answer it, so the skill's
+  recommended default applies **[orchestrator default]**. Take Showstopper,
+  run its four tests, and make Solid the pick only through the skill's own
+  demotion rule.
 
 ## Pre-flight record (2026-11-03, before the first stage)
 
