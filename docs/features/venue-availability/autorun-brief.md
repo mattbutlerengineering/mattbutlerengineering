@@ -47,3 +47,12 @@ Stop and surface instead of choosing for:
 
 - any irreversible or production action;
 - any acceptance criterion that needs an Owner decision the artifacts give no default for.
+
+## Resume, 2026-11-03
+
+The Owner answered these live in the resuming session. Nothing above is changed.
+
+- Resumed for the Ship write-back (`release.md` records `outcome: prepared`, `pending-merge: []`).
+- The Owner-only release steps in `release.md` (confirm the migration, the `backfill-availability.ts` dry run then `--apply`, the production checks) have **not been run**. Keep `outcome: prepared`; the run stays at Ship.
+- Release authorization: still none. No backfill, deploy, dispatch, tag or other production action.
+- Operate: still not specified, so Operate does not run.
