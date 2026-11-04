@@ -124,7 +124,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Calendar regular-week line** — new `regular-week-line.ts` gives the calendar's one-line summary and Details rows from `decodeWeek` and `weekSpans(regularWeekView(config))`, including "later/earlier/different hours Fri–Sat" from a set's closing against the base's.
   - Accept: component tests on the demo-week fixture show the line for a Manager and for a Host (the config read needs `requireAuth` only), "later hours Fri–Sat" for the later close, and no per-day schedule or assignment listed.
   - Blocked by: weekSpans and regularWeekView, encodeWeek and decodeWeek
-- [ ] **Schedules tab visibility** — the tab shows only while a live schedule has `kind !== "regular"`.
+- [x] **Schedules tab visibility** — the tab shows only while a live schedule has `kind !== "regular"`.
   - Accept: a component test shows the tab absent for a venue whose only schedules are kind `regular` (including a superseded version), present when a live schedule of another kind exists, and a schedule saved before this change with kind `alternate` still lists.
   - Blocked by: Regular week builder by weekday
 - [ ] **New and Edit schedule rows** — `ScheduleEditorDrawer` (New schedule and Edit schedule) uses the quick-setup service rows and blocks in place of the uniform `ServicesEditor`.
