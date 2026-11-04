@@ -2040,7 +2040,7 @@
   },
   "availability": {
     "title": "Disponibilité",
-    "description": "Quand les clients peuvent réserver : votre semaine habituelle, les jours fériés et les changements ponctuels.",
+    "description": "Vos heures, jours fériés et changements ponctuels.",
     "hostNote": "Seuls les gérants modifient les heures. Pour ce soir, utilisez le panneau Ce soir.",
     "loadError": "Impossible de charger la disponibilité",
     "noVenue": "Sélectionnez un établissement pour voir sa disponibilité.",
