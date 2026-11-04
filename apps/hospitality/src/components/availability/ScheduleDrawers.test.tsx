@@ -146,7 +146,7 @@ describe("schedule drawers", () => {
       expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it("asks before Escape closes Change regular week once a name is typed", () => {
+    it("asks before Escape closes Change regular week once a date is chosen", () => {
       const onClose = vi.fn();
       render(
         <main>
@@ -161,7 +161,7 @@ describe("schedule drawers", () => {
       );
       fireEvent.keyDown(document, { key: "Escape" });
       expect(onClose).toHaveBeenCalledTimes(1);
-      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Summer" } });
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
       fireEvent.keyDown(document, { key: "Escape" });
       expect(onClose).toHaveBeenCalledTimes(1);
       expect(
@@ -274,6 +274,7 @@ describe("schedule drawers", () => {
 
     it("never overwrites a name the Manager typed", () => {
       renderWeek();
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
       fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Patio" } });
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
       expect(screen.queryByRole("button", { name: /^Use “/ })).toBeNull();
@@ -282,11 +283,8 @@ describe("schedule drawers", () => {
 
     it("shows the days the regular week runs, and saves only those", async () => {
       renderWeek();
-      expect(
-        screen.getByText(/^Applies to Tue–Sat, the days your regular week runs/)
-      ).toBeInTheDocument();
+      expect(screen.getByText("This becomes your regular week: open Tue–Sat.")).toBeInTheDocument();
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
-      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
       const assignments = save.mock.calls[0]?.[0].body.changes.upsert.assignments;
@@ -298,16 +296,21 @@ describe("schedule drawers", () => {
       const save = screen.getByRole("button", { name: /^Save/ });
       expect(save).toBeDisabled();
       expect(screen.getByText("Choose a start date to save.")).toBeInTheDocument();
+      // No end date: the change is the regular week itself, so a start date is all it needs.
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-30" } });
-      expect(screen.getByText("Name this schedule to save.")).toBeInTheDocument();
+      expect(screen.queryByText(/to save\.$/)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Save/ })).toBeEnabled();
+      // A period is a schedule and is named.
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-12-31" } });
+      expect(screen.getByText("Name this period to save.")).toBeInTheDocument();
       fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
       expect(screen.queryByText(/to save\.$/)).not.toBeInTheDocument();
     });
 
     it("refuses a start date after the end date, and says so (#7979)", () => {
       renderWeek();
-      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-02" } });
+      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-30" } });
       expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();
       expect(screen.getByText("The end date is before the start date.")).toBeInTheDocument();
@@ -404,9 +407,8 @@ describe("schedule drawers", () => {
       const opened = tueSat();
       save.mockRejectedValueOnce(conflict());
       const { props, rerenderWith } = renderWeek(opened);
-      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
-      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
 
@@ -438,7 +440,7 @@ describe("schedule drawers", () => {
       const opened = tueSat();
       save.mockRejectedValueOnce(conflict());
       const { props, rerenderWith } = renderWeek(opened);
-      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
       fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
@@ -446,10 +448,11 @@ describe("schedule drawers", () => {
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
       rerenderWith(tueSat(), 8);
       fireEvent.click(await screen.findByRole("button", { name: "Start over" }));
-      expect(screen.getByLabelText(/Schedule name/)).toHaveValue("");
+      // Ending is clear again, so the period's name is not asked for.
+      expect(screen.queryByLabelText(/Schedule name/)).not.toBeInTheDocument();
       expect(screen.getByLabelText("Starting")).toHaveValue("");
       expect(screen.getByLabelText("Ending")).toHaveValue("");
-      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /^Remove service/ })).toHaveLength(2);
       fireEvent.keyDown(document, { key: "Escape" });
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });

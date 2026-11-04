@@ -263,6 +263,95 @@
       return coded ?? describeChange(change, format, t) ?? change.summary;
     }
   </file>
+  <file path="src/components/availability/change-week-draft.ts">
+    function serviceKey(service: ServiceDraft) {
+      return JSON.stringify([
+        nameKey(service),
+        service.opens,
+        service.lastSeating,
+        service.closes,
+        sorted(service.days),
+        service.blocks.map((b) => [sorted(b.days), b.opens, b.lastSeating, b.closes]),
+      ]);
+    }
+    export function weekKey(draft: QuickSetupDraft): string {
+      return JSON.stringify([sorted(draft.days), draft.services.map(serviceKey)]);
+    }
+    function daySignatures(draft: QuickSetupDraft): string[] {
+      let n = 0;
+      const config = draftToConfig(draft, () => `edit-${++n}`);
+      const names = new Map(config.venueServices.map((v) => [v.id, v.name.trim().toLowerCase()]));
+      const week = decodeWeek(config.scheduleServices, coveredDays(draft));
+      return Array.from({ length: 7 }, (_, day) =>
+        JSON.stringify(
+          week
+            .flatMap((service) => {
+              const hours = service.days[day];
+              return hours
+                ? [
+                    [
+                      names.get(service.venueServiceId),
+                      hours.opensAt,
+                      hours.lastSeatingAt,
+                      hours.closesAt,
+                    ],
+                  ]
+                : [];
+            })
+            .sort()
+        )
+      );
+    }
+    export function editedWeekday(before: QuickSetupDraft, after: QuickSetupDraft): number | null {
+      const was = daySignatures(before);
+      const now = daySignatures(after);
+      return WEEK_DISPLAY_ORDER.find((day) => was[day] !== now[day]) ?? null;
+    }
+    interface ReapplyInput {
+      /** The week the draft was opened on. */
+      readonly base: QuickSetupDraft;
+      /** The week as the Manager has it now. */
+      readonly draft: QuickSetupDraft;
+      /** The regular week in the version that won. */
+      readonly latest: QuickSetupDraft;
+    }
+    export function reapplyWeek({ base, draft, latest }: ReapplyInput): QuickSetupDraft {
+      const baseBy = new Map(base.services.map((s) => [nameKey(s), s]));
+      const draftBy = new Map(draft.services.map((s) => [nameKey(s), s]));
+      const kept = latest.services.flatMap((row): ServiceDraft[] => {
+        const was = baseBy.get(nameKey(row));
+        const mine = draftBy.get(nameKey(row));
+        if (was && !mine) return [];
+        if (!was || !mine || serviceKey(was) === serviceKey(mine)) return [row];
+        return [{ ...mine, id: row.id }];
+      });
+      const latestNames = new Set(latest.services.map(nameKey));
+      const added = draft.services.filter(
+        (s) => !baseBy.has(nameKey(s)) && !latestNames.has(nameKey(s))
+      );
+      const days =
+        JSON.stringify(sorted(base.days)) === JSON.stringify(sorted(draft.days))
+          ? latest.days
+          : draft.days;
+      return { days, services: [...kept, ...added] };
+    }
+    export interface OutsideSchedule {
+      readonly name: string;
+      readonly weekdays: readonly number[];
+    }
+    export function outsideSchedules(config: AvailabilityConfig): OutsideSchedule[] {
+      return config.schedules
+        .filter((s) => !s.archivedAt && s.kind !== "regular")
+        .flatMap((s) => {
+          const days = new Set(
+            config.assignments
+              .filter((a) => a.scheduleId === s.id && a.startsOn == null && a.endsOn == null)
+              .flatMap((a) => a.weekdays)
+          );
+          return days.size > 0 ? [{ name: s.name, weekdays: [...days].sort((a, b) => a - b) }] : [];
+        });
+    }
+  </file>
   <file path="src/components/availability/clock-minutes.ts">
     export function toClock(minute: number): string {
       const wrapped = minute % MINUTES_PER_DAY;
@@ -2691,16 +2780,19 @@
     export function scheduleSaveBlock(draft: {
       readonly conflicted: boolean;
       readonly name: string;
-      readonly services: readonly DraftService[];
+      /** A draft whose rows are quick-setup services has no `venueServiceId`; its own issues name them. */
+      readonly services: readonly { readonly name: string; readonly venueServiceId?: string | null }[];
       readonly startsOn: string | null;
       readonly endsOn: string | null;
       readonly startRequired?: boolean;
+      /** False for a change with no end date: it is the regular week itself and is named by nothing. */
+      readonly nameRequired?: boolean;
     }): ScheduleSaveBlock | null {
       const { startsOn, endsOn, services } = draft;
       if (draft.conflicted) return "conflict";
       if (draft.startRequired && !startsOn) return "startRequired";
       if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
-      if (draft.name.trim() === "") return "nameRequired";
+      if (draft.nameRequired !== false && draft.name.trim() === "") return "nameRequired";
       if (services.length === 0) return "servicesRequired";
       if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
         return "serviceNameRequired";
@@ -3772,8 +3864,15 @@
       readonly name: string | null;
       readonly conflicted: boolean;
       readonly clearConflict: () => void;
-      /** Replaces the draft with the answer the Manager chose. */
-      readonly apply: (next: { services: DraftService[]; name: string | null }) => void;
+      /**
+       * Replaces the draft with the answer the Manager chose. `baseline` is the version the draft was
+       * opened on, for a draft that is not made of `DraftService` rows and merges itself.
+       */
+      readonly apply: (next: {
+        services: DraftService[];
+        name: string | null;
+        baseline: AvailabilityConfig;
+      }) => void;
       /** Starts the whole draft again (name, dates and all) from these rows; for non-edit drafts. */
       readonly startOver: (services: DraftService[]) => void;
       /** The schedule is gone, so there is nothing left to edit. */
@@ -3827,6 +3926,7 @@
                 ? reapplyDraft({ base: baselineServices, draft: services, latest })
                 : [...services],
               name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
+              baseline: baseline.config,
             });
           }),
         /** The winning version as it is; the draft is dropped. */
@@ -3838,6 +3938,7 @@
                 input.apply({
                   services: latestRows(),
                   name: name === null ? null : nameIn(state.config),
+                  baseline: baseline.config,
                 })
               );
             return;

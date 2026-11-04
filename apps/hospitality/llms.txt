@@ -125,6 +125,39 @@
       export function changeSummaryText(change: Change, format: VenueFormat, t: TFunction): string { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/change-week-draft.ts">
+    <item priority="medium">
+      function serviceKey(service: ServiceDraft) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekKey(draft: QuickSetupDraft): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function daySignatures(draft: QuickSetupDraft): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editedWeekday(before: QuickSetupDraft, after: QuickSetupDraft): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ReapplyInput {
+        base: QuickSetupDraft;
+        draft: QuickSetupDraft;
+        latest: QuickSetupDraft;
+      }
+    </item>
+    <item priority="high">
+      export function reapplyWeek({ base, draft, latest }: ReapplyInput): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      interface OutsideSchedule {
+        name: string;
+        weekdays: readonly number[];
+      }
+    </item>
+    <item priority="high">
+      export function outsideSchedules(config: AvailabilityConfig): OutsideSchedule[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/clock-minutes.ts">
     <item priority="high">
       export function toClock(minute: number): string { /* ... */ }
@@ -1185,10 +1218,13 @@
       export function scheduleSaveBlock(draft: {
         readonly conflicted: boolean;
         readonly name: string;
-        readonly services: readonly DraftService[];
+        /** A draft whose rows are quick-setup services has no `venueServiceId`; its own issues name them. */
+        readonly services: readonly { readonly name: string; readonly venueServiceId?: string | null }[];
         readonly startsOn: string | null;
         readonly endsOn: string | null;
         readonly startRequired?: boolean;
+        /** False for a change with no end date: it is the regular week itself and is named by nothing. */
+        readonly nameRequired?: boolean;
       }): ScheduleSaveBlock | null { /* ... */ }
     </item>
     <item priority="medium">

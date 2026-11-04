@@ -154,9 +154,8 @@ describe("Change regular week previews before saving (F-UW.2)", () => {
       )
     );
   const fill = () => {
-    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
     fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
   };
 
   it("says what the preview waits for, then shows guests' view and the stranded bookings", async () => {
@@ -376,6 +375,7 @@ describe("what the preview says when it has nothing to show (#7982 review)", () 
       )
     );
     fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-03" } });
+    fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
     fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
     await screen.findByText("Guest preview", {}, WAIT);
     fireEvent.click(screen.getByRole("combobox", { name: "Party" }));

@@ -5,6 +5,11 @@
   align-items: start;
 }
 
+/* Change regular week's drawer: the services alone, no strip beside them. */
+.layoutSingle {
+  display: block;
+}
+
 .service,
 .days,
 .block {

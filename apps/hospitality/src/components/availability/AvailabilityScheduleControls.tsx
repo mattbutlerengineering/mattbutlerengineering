@@ -65,6 +65,7 @@ export function AvailabilityScheduleControls(props: AvailabilityScheduleControls
           today={today}
           onStale={onStale}
           onClose={() => setChanging(false)}
+          onOpenSchedules={() => onTabChange("schedules")}
         />
       )}
     </div>

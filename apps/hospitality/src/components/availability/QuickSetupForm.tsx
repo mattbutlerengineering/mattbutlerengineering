@@ -12,6 +12,7 @@ import { issuesFor, quickSetupFieldId } from "./quick-setup-field-helpers.js";
 import { DayPicker } from "./quick-setup-fields.js";
 import { ServiceRow } from "./QuickSetupServiceRow.js";
 import { RegularWeekStrip } from "./RegularWeekStrip.js";
+import { useWeekdaySummary } from "./ScheduleFormParts.js";
 import styles from "./QuickSetupForm.module.css";
 
 export interface QuickSetupFormProps {
@@ -21,10 +22,17 @@ export interface QuickSetupFormProps {
   readonly issues: readonly QuickSetupIssue[];
   /** The venue does not exist yet (the onboarding wizard): the strip shows the typed hours only. */
   readonly local?: boolean;
+  /**
+   * The form in Change regular week's drawer (ux.md S14): no strip beside it, and the shared Days
+   * as a one-line summary that opens its controls on "Change days".
+   */
+  readonly inDrawer?: boolean;
 }
 
-function DaysField({ draft, onChange, issues }: QuickSetupFormProps) {
+function DaysField({ draft, onChange, issues, inDrawer }: QuickSetupFormProps) {
   const { t } = useTranslation();
+  const summarize = useWeekdaySummary();
+  const [changing, setChanging] = useState(false);
   // F1 5: nothing follows the shared days, so there is nothing to ask.
   if (draft.services.length > 0 && draft.services.every((s) => s.days !== null)) {
     return (
@@ -36,6 +44,19 @@ function DaysField({ draft, onChange, issues }: QuickSetupFormProps) {
       </fieldset>
     );
   }
+  const problems = issuesFor(issues, null, "days");
+  if (inDrawer && !changing && problems.length === 0) {
+    return (
+      <Stack direction="row" gap="sm" align="center">
+        <Text variant="body">
+          {t("availability.quickSetup.daysSummary", { days: summarize(draft.days) })}
+        </Text>
+        <Button variant="ghost" size="sm" aria-expanded={false} onClick={() => setChanging(true)}>
+          {t("availability.quickSetup.changeDays")}
+        </Button>
+      </Stack>
+    );
+  }
   return (
     <DayPicker
       id={quickSetupFieldId(null, "days")}
@@ -43,7 +64,7 @@ function DaysField({ draft, onChange, issues }: QuickSetupFormProps) {
       days={draft.days}
       onChange={(days) => onChange(setSharedDays(draft, days))}
       draft={draft}
-      problems={issuesFor(issues, null, "days")}
+      problems={problems}
     />
   );
 }
@@ -52,7 +73,13 @@ function DaysField({ draft, onChange, issues }: QuickSetupFormProps) {
  * The S1 form: services (name chips, three times, their own days and hours) over shared days,
  * with the guest preview strip beside it. Controlled; the card and the onboarding wizard each own what happens next.
  */
-export function QuickSetupForm({ draft, onChange, issues, local = false }: QuickSetupFormProps) {
+export function QuickSetupForm({
+  draft,
+  onChange,
+  issues,
+  local = false,
+  inDrawer = false,
+}: QuickSetupFormProps) {
   const { t } = useTranslation();
   const [announcement, setAnnouncement] = useState("");
   const focusAfterAdd = useRef<string | null>(null);
@@ -76,7 +103,7 @@ export function QuickSetupForm({ draft, onChange, issues, local = false }: Quick
   };
 
   return (
-    <div className={styles.layout}>
+    <div className={inDrawer ? styles.layoutSingle : styles.layout}>
       <Stack gap="md">
         {draft.services.map((service, index) => (
           <ServiceRow
@@ -96,14 +123,16 @@ export function QuickSetupForm({ draft, onChange, issues, local = false }: Quick
             {t("availability.quickSetup.addService")}
           </Button>
         </div>
-        <DaysField draft={draft} onChange={onChange} issues={issues} />
+        <DaysField draft={draft} onChange={onChange} issues={issues} inDrawer={inDrawer} />
         <Text className={styles.visuallyHidden} role="status">
           {announcement}
         </Text>
       </Stack>
-      <div className={styles.stripColumn}>
-        <RegularWeekStrip draft={draft} local={local} />
-      </div>
+      {!inDrawer && (
+        <div className={styles.stripColumn}>
+          <RegularWeekStrip draft={draft} local={local} />
+        </div>
+      )}
     </div>
   );
 }

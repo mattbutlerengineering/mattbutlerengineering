@@ -1912,10 +1912,16 @@
     "regularWeek": {
       "open": "Change regular week…",
       "title": "Change regular week",
-      "appliesTo": "Applies to {{days}}, the days your regular week runs. Other days keep their hours.",
+      "appliesTo": "Applies to {{days}}. Other days keep their hours.",
+      "becomes": "This becomes your regular week: open {{days}}.",
+      "closedDays_one": "{{days}} is closed.",
+      "closedDays_other": "{{days}} are closed.",
+      "outside": "{{days}} use “{{name}}”. Edit it on Schedules.",
+      "openSchedules": "Open Schedules",
       "noEnd": "No end — this becomes the new regular week",
       "save": "Save hours from {{date}}",
-      "saved": "{{name}} from {{date}}"
+      "saved": "{{name}} from {{date}}",
+      "savedWeek": "Regular week changed from {{date}}"
     },
     "compare": {
       "open": "Compare services",
@@ -1971,6 +1977,7 @@
       "startRequired": "Choose a start date to save.",
       "endBeforeStart": "The end date is before the start date.",
       "nameRequired": "Name this schedule to save.",
+      "nameRequiredPeriod": "Name this period to save.",
       "servicesRequired": "Add a service to save.",
       "serviceNameRequired": "Name the new service to save."
     },
@@ -2163,6 +2170,8 @@
       "useSharedDays": "Use the shared days",
       "runsOn": "{{service}} runs on",
       "everyServiceOwnDays": "Every service has its own days.",
+      "daysSummary": "Days: {{days}}",
+      "changeDays": "Change days",
       "differentHours": "Different hours on some days",
       "blockLegend": "{{service}}: different hours",
       "removeBlock": "Remove these hours",

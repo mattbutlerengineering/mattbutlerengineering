@@ -74,16 +74,19 @@ export type ScheduleSaveBlock =
 export function scheduleSaveBlock(draft: {
   readonly conflicted: boolean;
   readonly name: string;
-  readonly services: readonly DraftService[];
+  /** A draft whose rows are quick-setup services has no `venueServiceId`; its own issues name them. */
+  readonly services: readonly { readonly name: string; readonly venueServiceId?: string | null }[];
   readonly startsOn: string | null;
   readonly endsOn: string | null;
   readonly startRequired?: boolean;
+  /** False for a change with no end date: it is the regular week itself and is named by nothing. */
+  readonly nameRequired?: boolean;
 }): ScheduleSaveBlock | null {
   const { startsOn, endsOn, services } = draft;
   if (draft.conflicted) return "conflict";
   if (draft.startRequired && !startsOn) return "startRequired";
   if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
-  if (draft.name.trim() === "") return "nameRequired";
+  if (draft.nameRequired !== false && draft.name.trim() === "") return "nameRequired";
   if (services.length === 0) return "servicesRequired";
   if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
     return "serviceNameRequired";

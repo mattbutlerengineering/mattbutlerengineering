@@ -39,8 +39,15 @@ interface Input {
   readonly name: string | null;
   readonly conflicted: boolean;
   readonly clearConflict: () => void;
-  /** Replaces the draft with the answer the Manager chose. */
-  readonly apply: (next: { services: DraftService[]; name: string | null }) => void;
+  /**
+   * Replaces the draft with the answer the Manager chose. `baseline` is the version the draft was
+   * opened on, for a draft that is not made of `DraftService` rows and merges itself.
+   */
+  readonly apply: (next: {
+    services: DraftService[];
+    name: string | null;
+    baseline: AvailabilityConfig;
+  }) => void;
   /** Starts the whole draft again (name, dates and all) from these rows; for non-edit drafts. */
   readonly startOver: (services: DraftService[]) => void;
   /** The schedule is gone, so there is nothing left to edit. */
@@ -114,6 +121,7 @@ export function useConflictReview(input: Input) {
             ? reapplyDraft({ base: baselineServices, draft: services, latest })
             : [...services],
           name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
+          baseline: baseline.config,
         });
       }),
     /** The winning version as it is; the draft is dropped. */
@@ -125,6 +133,7 @@ export function useConflictReview(input: Input) {
             input.apply({
               services: latestRows(),
               name: name === null ? null : nameIn(state.config),
+              baseline: baseline.config,
             })
           );
         return;

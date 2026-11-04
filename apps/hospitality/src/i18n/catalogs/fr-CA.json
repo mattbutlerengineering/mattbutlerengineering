@@ -1952,10 +1952,16 @@
     "regularWeek": {
       "open": "Modifier la semaine habituelle…",
       "title": "Modifier la semaine habituelle",
-      "appliesTo": "S’applique à {{days}}, les jours de la semaine habituelle. Les autres jours gardent leurs heures.",
+      "appliesTo": "S’applique à {{days}}. Les autres jours gardent leurs heures.",
+      "becomes": "Elle devient votre semaine habituelle : ouvert {{days}}.",
+      "closedDays_one": "{{days}} est fermé.",
+      "closedDays_other": "{{days}} sont fermés.",
+      "outside": "{{days}} utilisent « {{name}} ». Modifiez-le dans Horaires.",
+      "openSchedules": "Ouvrir Horaires",
       "noEnd": "Sans fin : elle devient la nouvelle semaine habituelle",
       "save": "Enregistrer les heures dès le {{date}}",
-      "saved": "{{name}} dès le {{date}}"
+      "saved": "{{name}} dès le {{date}}",
+      "savedWeek": "Semaine habituelle modifiée dès le {{date}}"
     },
     "compare": {
       "open": "Comparer les services",
@@ -2018,6 +2024,7 @@
       "startRequired": "Choisissez une date de début pour enregistrer.",
       "endBeforeStart": "La date de fin est avant la date de début.",
       "nameRequired": "Nommez cet horaire pour enregistrer.",
+      "nameRequiredPeriod": "Nommez cette période pour enregistrer.",
       "servicesRequired": "Ajoutez un service pour enregistrer.",
       "serviceNameRequired": "Nommez le nouveau service pour enregistrer."
     },
@@ -2217,6 +2224,8 @@
       "useSharedDays": "Utiliser les jours communs",
       "runsOn": "{{service}} est offert les jours suivants",
       "everyServiceOwnDays": "Chaque service a ses propres jours.",
+      "daysSummary": "Jours : {{days}}",
+      "changeDays": "Modifier les jours",
       "differentHours": "Heures différentes certains jours",
       "blockLegend": "{{service}} : heures différentes",
       "removeBlock": "Retirer ces heures",

@@ -585,6 +585,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           today={today}
           onStale={() => void config.refetch()}
           onClose={() => setChangingWeek(false)}
+          onOpenSchedules={() => changeTab("schedules")}
         />
       )}
       {closing && config.data && (

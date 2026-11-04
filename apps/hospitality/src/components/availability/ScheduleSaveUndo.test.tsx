@@ -98,7 +98,6 @@ describe("Undo after a schedule save", () => {
       </main>
     );
     fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
     (await undoOffered())();
     await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
