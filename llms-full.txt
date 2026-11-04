@@ -18891,17 +18891,31 @@
   </section>
   <section priority="medium" role="helpers">
   <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
+    function changedWeekdays(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      timezone: string,
+      from: string
+    ): number[] {
+      const services = (config: AvailabilityConfig, date: string) =>
+        JSON.stringify(
+          resolveDay({ timezone, config }, date).services.map((svc) => [
+            svc.venueServiceId,
+            svc.opensAt,
+            svc.lastSeatingAt,
+            svc.closesAt,
+          ])
+        );
+      return Array.from({ length: 7 }, (_, i) => addDays(from, i))
+        .filter((date) => services(before, date) !== services(after, date))
+        .map((date) => new Date(`${date}T00:00:00Z`).getUTCDay());
+    }
     export async function mockEmptyVenue(page: Page, options: { derive?: boolean } = {}) {
       let saved: Record<string, unknown> | null = null;
       let version = 3;
-      const appliedConfig = (): AvailabilityConfig =>
-        saved
-          ? applyChanges(
-              EMPTY_CONFIG,
-              saved.changes as AvailabilityConfigChanges,
-              new Date().toISOString()
-            )
-          : EMPTY_CONFIG;
+      let config: AvailabilityConfig = EMPTY_CONFIG;
+      const history: AvailabilityChangeEntry[] = [];
+      const appliedConfig = (): AvailabilityConfig => config;
     
       const venues = JSON.parse(loadFixture("venues-list")) as {
         data: Array<Record<string, unknown>>;
@@ -18934,7 +18948,32 @@
       await page.route(`**/api/v1/venues/${venueId}/availability/config`, (route) => {
         if (route.request().method() === "PUT") {
           saved = route.request().postDataJSON() as Record<string, unknown>;
+          const changes = saved.changes as AvailabilityConfigChanges;
+          const before = config;
+          const at = new Date().toISOString();
+          config = applyChanges(before, changes, at);
           version += 1;
+          const startsOn = changes.upsert.assignments?.find((a) => a.startsOn)?.startsOn ?? localDay();
+          const weekdays = changedWeekdays(
+            before,
+            config,
+            String(venues.data[0]?.ianaTimezone),
+            startsOn
+          );
+          history.unshift({
+            id: `change-${version}`,
+            actorId: "auth0|local-e2e",
+            at,
+            kind: "config_saved",
+            summary: "Regular week changed",
+            detail: { code: "regular_week_changed", startsOn, weekdays },
+            affectedFrom: null,
+            affectedTo: null,
+            notifiedGuests: false,
+            revertedById: null,
+            revertible: false,
+            actorName: "E2E Manager",
+          });
           return route.fulfill({
             status: 200,
             contentType: "application/json",
@@ -18955,6 +18994,13 @@
           }),
         });
       });
+      await page.route(`**/api/v1/venues/${venueId}/availability/changes*`, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: { total: history.length, offset: 0, items: history } }),
+        })
+      );
       if (options.derive) {
         const timezone = String(venues.data[0]?.ianaTimezone);
         await serveDaysAndPreview(page, `**/api/v1/venues/${venueId}`, timezone, () => ({
@@ -19145,6 +19191,52 @@
         .getByRole("group", { name: "Brunch runs on" })
         .getByRole("button", { name: "Weekends" })
         .click();
+    }
+  </file>
+  <file path="apps/hospitality/e2e/helpers/week-dates.ts">
+    export const WEEKDAYS = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ];
+    function utc(iso: string): Date {
+      return new Date(`${iso}T00:00:00Z`);
+    }
+    export function plusDays(iso: string, days: number): string {
+      const d = utc(iso);
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+    export function nextMonday(today: string): string {
+      const sinceMonday = (utc(today).getUTCDay() + 6) % 7;
+      return plusDays(today, 7 - sinceMonday);
+    }
+    export async function serviceLines(scope: Locator): Promise<string[]> {
+      const text = await scope.innerText();
+      return text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => SERVICE_LINE.test(line));
+    }
+    export async function calendarWeek(page: Page, monday: string): Promise<Record<string, string[]>> {
+      const week: Record<string, string[]> = {};
+      for (const [offset, day] of WEEKDAYS.entries()) {
+        const cell = page.locator(`[data-date="${plusDays(monday, offset)}"]`);
+        await expect
+          .poll(
+            async () => (await serviceLines(cell)).length > 0 || /Closed/.test(await cell.innerText()),
+            {
+              message: `calendar, ${day}`,
+            }
+          )
+          .toBe(true);
+        week[day] = (await serviceLines(cell)).map((l) => l.replace("–", " – ").replace(/ +/g, " "));
+      }
+      return week;
     }
   </file>
   </section>

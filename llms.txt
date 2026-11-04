@@ -6406,6 +6406,14 @@
   </section>
   <section priority="medium" role="helpers">
   <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
+    <item priority="medium">
+      function changedWeekdays(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        timezone: string,
+        from: string
+      ): number[] { /* ... */ }
+    </item>
     <item priority="high">
       export async function mockEmptyVenue(page: Page, options: { derive?: boolean } = {}) { /* ... */ }
     </item>
@@ -6467,6 +6475,26 @@
     </item>
     <item priority="high">
       export async function setDemoWeek(page: Page, scope: Page | Locator = page) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/helpers/week-dates.ts">
+    <item priority="high">
+      export const WEEKDAYS: unknown;
+    </item>
+    <item priority="medium">
+      function utc(iso: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function plusDays(iso: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextMonday(today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function serviceLines(scope: Locator): Promise<string[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function calendarWeek(page: Page, monday: string): Promise<Record<string, string[]>> { /* ... */ }
     </item>
   </file>
   </section>

@@ -2,6 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
 import { localDay } from "./local-day.js";
+import { WEEKDAYS, nextMonday, plusDays, serviceLines } from "./helpers/week-dates.js";
 
 /**
  * The PRD's demo, step by step, on an empty venue and through quick setup only (no visit to the
@@ -17,9 +18,6 @@ import { localDay } from "./local-day.js";
  * Fri–Sat, brunch Sat–Sun. Presets give Lunch 11:30 AM–2:30 PM, Dinner 5:00 PM–10:00 PM and
  * Brunch 10:00 AM–2:00 PM, each with its last seating 45 minutes before close.
  */
-
-// Monday first: the order the strip and the calendar list a week in.
-const WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 /** Each weekday's services as a guest could book them: first to last time. */
 const GUEST_LINES: Record<string, string[]> = {
@@ -43,36 +41,9 @@ const DRAWER_LINES: Record<string, string[]> = {
   Sunday: ["Brunch 10:00 AM – 2:00 PM", "Dinner 5:00 PM – 10:00 PM"],
 };
 
-const SERVICE_LINE = /^(Lunch|Brunch|Dinner) \d/;
-
-function utc(iso: string): Date {
-  return new Date(`${iso}T00:00:00Z`);
-}
-
-function plusDays(iso: string, days: number): string {
-  const d = utc(iso);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
-/** The Monday after the current week, so every date of the next week is in the future. */
-function nextMonday(today: string): string {
-  const sinceMonday = (utc(today).getUTCDay() + 6) % 7;
-  return plusDays(today, 7 - sinceMonday);
-}
-
 const strip = (page: Page) => page.getByRole("complementary", { name: "Guest preview" });
 const stripRow = (page: Page, day: string) =>
   strip(page).getByRole("listitem", { name: new RegExp(`^${day}:`) });
-
-/** The service lines a strip row, a preview or a drawer prints: "Dinner 5:00 PM – 9:15 PM". */
-async function serviceLines(scope: Locator): Promise<string[]> {
-  const text = await scope.innerText();
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => SERVICE_LINE.test(line));
-}
 
 async function stripWeek(page: Page): Promise<Record<string, string[]>> {
   const week: Record<string, string[]> = {};
