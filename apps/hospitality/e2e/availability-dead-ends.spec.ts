@@ -320,9 +320,8 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
   await page.getByRole("button", { name: "Create another schedule…" }).click();
   await page.getByRole("button", { name: "New schedule" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
-  await page.getByRole("combobox", { name: "Add service" }).click();
-  await page.getByRole("option", { name: "A new service…" }).click();
-  await page.getByRole("textbox", { name: /Service name/ }).fill("Brunch");
+  await page.getByRole("button", { name: "Brunch", exact: true }).click();
+  await page.getByRole("button", { name: "Weekdays", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Spare saved")).toBeVisible();
   // By keyboard, with the drawer that offered it gone: focus must not fall to the page body.
@@ -418,9 +417,8 @@ test("a refused Undo names each stranded booking with a link, outside the alert 
   await page.getByRole("button", { name: "Create another schedule…" }).click();
   await page.getByRole("button", { name: "New schedule" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
-  await page.getByRole("combobox", { name: "Add service" }).click();
-  await page.getByRole("option", { name: "A new service…" }).click();
-  await page.getByRole("textbox", { name: /Service name/ }).fill("Brunch");
+  await page.getByRole("button", { name: "Brunch", exact: true }).click();
+  await page.getByRole("button", { name: "Weekdays", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Spare saved")).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();

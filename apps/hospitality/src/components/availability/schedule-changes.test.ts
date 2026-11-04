@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { applyChanges, resolveDay, validateConfig } from "@mbe/availability";
 import type { AvailabilityConfig, Schedule, ScheduleAssignment } from "@mbe/types";
-import { demoDraft } from "./quick-setup-demo.fixture.js";
+import { demoDraft, draftBlock, draftService } from "./quick-setup-demo.fixture.js";
 import { draftFromConfig, draftToConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
-import { seedServices, type DraftService } from "./draft-changes.js";
 import {
   buildDeleteScheduleChanges,
   buildEditScheduleChanges,
@@ -33,13 +32,16 @@ function weekDraft(config: AvailabilityConfig): QuickSetupDraft {
   let n = 0;
   return draftFromConfig(config, () => `draft-${++n}`);
 }
-/** The fixture venue's regular week, as the rows a draft starts from. */
-function regularDraft(config: AvailabilityConfig): DraftService[] {
-  return seedServices(config, { services: [] }, { kind: "schedule", scheduleId: "regular" });
+/** A schedule's services as the editor opens them, with the days a new use would cover. */
+function scheduleDraft(
+  config: AvailabilityConfig,
+  days?: readonly number[],
+  scheduleId = "regular"
+): QuickSetupDraft {
+  let n = 0;
+  const draft = draftFromConfig(config, () => `draft-${++n}`, scheduleId);
+  return days ? { ...draft, days } : draft;
 }
-
-const asNew = (services: DraftService[]) =>
-  services.map((s) => ({ ...s, scheduleServiceId: null }));
 
 /** A dated alternate schedule already in the venue (Patio season, Nov 1 – Nov 30). */
 function withPatio(): AvailabilityConfig {
@@ -120,7 +122,7 @@ describe("new and duplicated schedules", () => {
     const changes = buildNewScheduleChanges({
       config,
       name: "Weeknight",
-      services: asNew(regularDraft(config)),
+      draft: scheduleDraft(config, [1, 2, 3, 4]),
       useOn: { weekdays: [1, 2, 3, 4], startsOn: null, endsOn: null },
       winner: "new",
       makeId: counter(),
@@ -141,7 +143,7 @@ describe("new and duplicated schedules", () => {
     const changes = buildNewScheduleChanges({
       config,
       name: "Weekend (copy)",
-      services: asNew(regularDraft(config)),
+      draft: scheduleDraft(config, []),
       useOn: { weekdays: [], startsOn: null, endsOn: null },
       winner: "new",
       makeId: counter(),
@@ -153,20 +155,65 @@ describe("new and duplicated schedules", () => {
 
   it("renaming and re-timing a schedule edits its own rows", () => {
     const config = fixtureConfig();
-    const services = regularDraft(config).map((s) =>
-      s.name === "Dinner" ? { ...s, closesAt: 1320, lastSeatingAt: 1260 } : s
-    );
+    const draft = scheduleDraft(config);
     const changes = buildEditScheduleChanges({
       config,
       scheduleId: "regular",
       name: "Regular week",
-      services,
+      draft: {
+        ...draft,
+        services: draft.services.map((s) =>
+          s.name === "Dinner" ? { ...s, lastSeating: "21:00", closes: "22:00" } : s
+        ),
+      },
       makeId: counter(),
       baseline: config,
     });
     const next = applyChanges(config, changes, NOW);
     expect(next.schedules[0]?.name).toBe("Regular week");
     expect(resolve(next, "2026-10-30").services.at(-1)?.closesAt).toBe(1320);
+    // Each service keeps its stored row.
+    expect(changes.upsert.scheduleServices?.map((s) => s.id).sort()).toEqual([
+      "ss-dinner",
+      "ss-lunch",
+    ]);
+  });
+
+  it("a schedule with one service Mon–Fri and later hours Fri saves its sets and reads them back", () => {
+    const config = fixtureConfig();
+    const base = scheduleDraft(config, [1, 2, 3, 4, 5, 6]);
+    const draft: QuickSetupDraft = {
+      ...base,
+      services: [
+        {
+          ...draftService("d", "Dinner", ["17:00", "21:00", "23:00"], { days: [1, 2, 3, 4, 5] }),
+          blocks: [draftBlock("late", [5], ["17:00", "22:00", "00:00"])],
+        },
+      ],
+    };
+    const changes = buildNewScheduleChanges({
+      config,
+      name: "Late Fridays",
+      draft,
+      useOn: { weekdays: [1, 2, 3, 4, 5], startsOn: null, endsOn: null },
+      winner: "new",
+      makeId: counter(),
+    });
+    const next = applyChanges(config, changes, NOW);
+    expect(validateConfig(next)).toEqual([]);
+    const [row] = next.scheduleServices.filter((s) => s.scheduleId === "new-1");
+    expect(row?.dayHours.sets).toHaveLength(1);
+    expect(row?.dayHours.sets[0]?.weekdays).toEqual([5]);
+    // Reopened, the same service, days and block come back.
+    const reopened = draftFromConfig(next, () => "x", "new-1");
+    expect(reopened.services).toHaveLength(1);
+    expect(reopened.services[0]).toMatchObject({
+      name: "Dinner",
+      opens: "17:00",
+      closes: "23:00",
+      blocks: [{ days: [5], closes: "00:00" }],
+    });
+    expect(resolve(next, "2026-10-30").services.at(-1)?.closesAt).toBe(1440);
   });
 });
 
@@ -190,7 +237,7 @@ describe("overlap precedence", () => {
     const changes = buildNewScheduleChanges({
       config,
       name: "Summer",
-      services: asNew(regularDraft(config)),
+      draft: scheduleDraft(config, EVERY_DAY),
       useOn: { weekdays: EVERY_DAY, ...dates },
       winner,
       makeId: counter(),

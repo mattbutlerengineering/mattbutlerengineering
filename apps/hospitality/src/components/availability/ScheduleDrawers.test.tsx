@@ -186,7 +186,7 @@ describe("schedule drawers", () => {
           <ScheduleEditorDrawer {...props} state={stateOf(opened)} />
         </main>
       );
-      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
 
@@ -230,7 +230,7 @@ describe("schedule drawers", () => {
           <ScheduleEditorDrawer {...props} state={stateOf(opened)} />
         </main>
       );
-      fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalled());
       rerender(
@@ -239,8 +239,8 @@ describe("schedule drawers", () => {
         </main>
       );
       fireEvent.click(await screen.findByRole("button", { name: "Discard my changes" }));
-      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Remove Brunch" })).toBeInTheDocument();
+      expect(screen.getAllByRole("button", { name: /^Remove service/ })).toHaveLength(3);
+      expect(screen.getByDisplayValue("Brunch")).toBeInTheDocument();
     });
   });
 
@@ -340,18 +340,25 @@ describe("schedule drawers", () => {
         </main>
       );
 
+    /** The reason the footer gives for Save being off. */
+    const whySaveIsOff = () =>
+      document.getElementById(
+        screen.getByRole("button", { name: "Save" }).getAttribute("aria-describedby") ?? ""
+      )?.textContent;
+
     it("names what is missing, then the date order", () => {
       renderNew();
       expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
       expect(screen.getByText("Name this schedule to save.")).toBeInTheDocument();
       fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
-      expect(screen.getByText("Add a service to save.")).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
-      fireEvent.click(screen.getByRole("option", { name: "A new service…" }));
-      expect(screen.getByText("Name the new service to save.")).toBeInTheDocument();
+      expect(whySaveIsOff()).toBe("Give this service a name.");
       fireEvent.change(screen.getByRole("textbox", { name: /Service name/ }), {
         target: { value: "Brunch" },
       });
+      expect(whySaveIsOff()).toBe("Choose a time.");
+      fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
+      expect(whySaveIsOff()).toBe("Choose at least one day.");
+      fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
       expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
       fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-02" } });
       fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-30" } });
@@ -486,9 +493,8 @@ describe("schedule drawers", () => {
       fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
         target: { value: "Pop-up" },
       });
-      fireEvent.click(screen.getByRole("checkbox", { name: "Mon" }));
-      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
-      fireEvent.click(screen.getByRole("option", { name: "Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
 
@@ -500,8 +506,8 @@ describe("schedule drawers", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Start over" }));
       expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("");
-      expect(screen.getByRole("checkbox", { name: "Mon" })).not.toBeChecked();
-      expect(screen.queryByRole("button", { name: "Remove Lunch" })).not.toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Monday" })).not.toBeChecked();
+      expect(screen.getByRole("textbox", { name: /Service name/ })).toHaveValue("");
       fireEvent.keyDown(document, { key: "Escape" });
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });
@@ -513,8 +519,8 @@ describe("schedule drawers", () => {
       fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
         target: { value: "Pop-up" },
       });
-      fireEvent.click(screen.getByRole("combobox", { name: "Add service" }));
-      fireEvent.click(screen.getByRole("option", { name: "Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
+      fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
       rerenderWith(withBrunch(opened), 8);
@@ -539,7 +545,7 @@ describe("schedule drawers", () => {
       expect(screen.queryByText(/can’t be saved/)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Keep my schedule" })).toBeEnabled();
       fireEvent.click(screen.getByRole("button", { name: "Keep my schedule" }));
-      expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Remove service 1" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     });
 

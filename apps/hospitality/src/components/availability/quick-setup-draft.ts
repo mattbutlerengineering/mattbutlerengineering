@@ -528,7 +528,12 @@ function weekOf(draft: QuickSetupDraft, service: ServiceDraft, m: ServiceMinutes
 export function draftToConfig(
   draft: QuickSetupDraft,
   newId: () => string,
-  existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+  existing?: {
+    regularScheduleId?: string;
+    venueServiceIds?: Readonly<Record<string, string>>;
+    /** The days the rows are encoded over, when the schedule's use is fixed apart from the draft. */
+    coveredDays?: readonly number[];
+  }
 ): AvailabilityConfig {
   const scheduleId = existing?.regularScheduleId ?? newId();
   const schedule: Schedule = {
@@ -547,7 +552,7 @@ export function draftToConfig(
     venueServices.push({ id: venueServiceId, name, position });
     week.push({ venueServiceId, days: weekOf(draft, service, m) });
   });
-  const covered = coveredDays(draft);
+  const covered = existing?.coveredDays ?? coveredDays(draft);
   const scheduleServices: ScheduleService[] = encodeWeek(week, covered).map((row) => ({
     id: newId(),
     scheduleId,
@@ -556,7 +561,7 @@ export function draftToConfig(
   const assignment: ScheduleAssignment = {
     id: newId(),
     scheduleId,
-    weekdays: covered,
+    weekdays: [...covered],
     precedence: 0,
   };
   return {
@@ -581,19 +586,39 @@ function clockTimes(hours: ServiceHours): DraftTimes {
 }
 
 /**
+ * The weekdays a schedule's assignments cover, ascending. A schedule that no assignment uses (one
+ * only a `use_schedule` rule sends dates to) runs on whichever days its rows say, so with
+ * `anyDay` it covers all seven.
+ */
+export function scheduleDays(
+  config: AvailabilityConfig,
+  scheduleId: string,
+  anyDay = false
+): number[] {
+  const assigned = [
+    ...new Set(
+      config.assignments.filter((a) => a.scheduleId === scheduleId).flatMap((a) => a.weekdays)
+    ),
+  ].sort((a, b) => a - b);
+  return assigned.length === 0 && anyDay ? [0, 1, 2, 3, 4, 5, 6] : assigned;
+}
+
+/**
  * The editor's view of a stored regular week: `decodeWeek` over the days its assignments cover,
  * then presentation. Each service shows the base hours most of its days share and a block per
  * other set of hours; a service on every covered day follows the shared days. A last seating
  * that happens to equal the linked default reads as linked.
  */
-export function draftFromConfig(config: AvailabilityConfig, newId: () => string): QuickSetupDraft {
-  const regular = config.schedules.find((s) => s.isRegular);
+export function draftFromConfig(
+  config: AvailabilityConfig,
+  newId: () => string,
+  scheduleId?: string
+): QuickSetupDraft {
+  const regular = scheduleId
+    ? config.schedules.find((s) => s.id === scheduleId)
+    : config.schedules.find((s) => s.isRegular);
   if (!regular) return emptyDraft(newId());
-  const covered = [
-    ...new Set(
-      config.assignments.filter((a) => a.scheduleId === regular.id).flatMap((a) => a.weekdays)
-    ),
-  ].sort((a, b) => a - b);
+  const covered = scheduleDays(config, regular.id, scheduleId !== undefined);
   const rows = config.scheduleServices.filter((row) => row.scheduleId === regular.id);
   const names = new Map(config.venueServices.map((vs) => [vs.id, vs]));
   const positionOf = (id: string) => names.get(id)?.position ?? 0;

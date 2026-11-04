@@ -210,7 +210,7 @@ describe("the schedule editor previews before saving (F3.2)", () => {
         />
       )
     );
-    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
     expect(
       await screen.findByText("1 booking would fall outside these hours", {}, WAIT)
     ).toBeInTheDocument();
@@ -316,7 +316,7 @@ describe("dates that reach a schedule through a use_schedule rule (#7982 review)
 
   it("checks bookings from today on for a schedule edit, as the save does, and starts the strip on the rule's date", async () => {
     editor("regular");
-    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
     expect(
       await screen.findByText("1 booking would fall outside these hours", {}, WAIT)
     ).toBeInTheDocument();

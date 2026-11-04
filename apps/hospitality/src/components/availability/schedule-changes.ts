@@ -5,8 +5,12 @@ import type {
   Schedule,
   ScheduleAssignment,
 } from "@mbe/types";
-import { buildDraftChanges, type DraftService } from "./draft-changes.js";
-import { draftToConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
+import {
+  coveredDays,
+  draftToConfig,
+  scheduleDays,
+  type QuickSetupDraft,
+} from "./quick-setup-draft.js";
 import { SCOPE_HORIZON_DAYS } from "./scope-dates.js";
 
 /**
@@ -198,8 +202,8 @@ function mergeChanges(
 interface NewScheduleInput {
   readonly config: AvailabilityConfig;
   readonly name: string;
-  /** Rows for the new schedule; a copy's rows must have `scheduleServiceId: null`. */
-  readonly services: readonly DraftService[];
+  /** The new schedule's services as the editor holds them; a copy is seeded from the source. */
+  readonly draft: QuickSetupDraft;
   readonly useOn: UseOn;
   readonly winner: Winner;
   readonly makeId: () => string;
@@ -210,10 +214,11 @@ export function buildNewScheduleChanges(input: NewScheduleInput): AvailabilityCo
   const { config, name, useOn, winner, makeId } = input;
   const scheduleId = makeId();
   const schedule: Schedule = { id: scheduleId, name, kind: "alternate", isRegular: false };
-  const rows = buildDraftChanges({
+  const rows = scheduleRowChanges({
     config,
-    scope: { kind: "schedule", scheduleId },
-    services: freshRows(input.services),
+    draft: input.draft,
+    scheduleId,
+    covered: coveredDays(input.draft),
     makeId,
   });
   const assignments =
@@ -322,16 +327,19 @@ export function buildEditScheduleChanges(input: {
   readonly config: AvailabilityConfig;
   readonly scheduleId: string;
   readonly name: string;
-  readonly services: readonly DraftService[];
+  /** The schedule's services as the editor holds them: days and different-hours blocks. */
+  readonly draft: QuickSetupDraft;
   readonly makeId: () => string;
   /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
   readonly baseline: AvailabilityConfig;
 }): AvailabilityConfigChanges {
   const { config, scheduleId, name, makeId } = input;
-  const rows = buildDraftChanges({
+  // An edit keeps the schedule's use, so its rows are encoded over the days it is assigned to.
+  const rows = scheduleRowChanges({
     config,
-    scope: { kind: "schedule", scheduleId },
-    services: input.services,
+    draft: input.draft,
+    scheduleId,
+    covered: scheduleDays(config, scheduleId, true),
     makeId,
     baseline: input.baseline,
   });
@@ -340,9 +348,50 @@ export function buildEditScheduleChanges(input: {
   return mergeChanges(rows, { upsert: rename, remove: {} });
 }
 
-/** A new schedule gets rows of its own; rows seeded from another schedule must not overwrite it. */
-function freshRows(services: readonly DraftService[]): DraftService[] {
-  return services.map((s) => ({ ...s, scheduleServiceId: null }));
+/**
+ * The rows of one schedule from the editor's draft, encoded over `covered` (`draftToConfig`).
+ * Same-named venue services are reused and a service the schedule already ran keeps its row id,
+ * seating and booking types (the editor has no controls for those). With `baseline`, a service
+ * the Manager saw and dropped loses its row; a row only a colleague added is left alone.
+ */
+function scheduleRowChanges(input: {
+  readonly config: AvailabilityConfig;
+  readonly draft: QuickSetupDraft;
+  readonly scheduleId: string;
+  readonly covered: readonly number[];
+  readonly makeId: () => string;
+  readonly baseline?: AvailabilityConfig;
+}): AvailabilityConfigChanges {
+  const { config, draft, scheduleId, covered, makeId } = input;
+  const venueServiceIds = Object.fromEntries(
+    config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+  );
+  const week = draftToConfig(draft, makeId, { venueServiceIds, coveredDays: covered });
+  const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
+  const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
+  const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
+  const was = new Map(stored.map((s) => [s.venueServiceId, s]));
+  const scheduleServices = week.scheduleServices.map((row) => {
+    const prev = was.get(row.venueServiceId);
+    const own = { ...row, scheduleId };
+    if (!prev) return own;
+    const { seating, bookingTypes } = prev;
+    const sets = row.dayHours.sets.map((set) => ({ ...set, seating, bookingTypes }));
+    return { ...own, id: prev.id, seating, bookingTypes, dayHours: { ...row.dayHours, sets } };
+  });
+  const kept = new Set(scheduleServices.map((s) => s.venueServiceId));
+  const stillStored = new Set(stored.map((s) => s.id));
+  const seen = (input.baseline?.scheduleServices ?? stored).filter(
+    (s) => s.scheduleId === scheduleId && stillStored.has(s.id)
+  );
+  const removed = seen.filter((s) => !kept.has(s.venueServiceId)).map((s) => s.id);
+  return {
+    upsert: {
+      ...(created.length > 0 ? { venueServices: created } : {}),
+      scheduleServices,
+    },
+    remove: removed.length > 0 ? { scheduleServices: removed } : {},
+  };
 }
 
 /** The future service dates a use covers (today onward, one year at most). */

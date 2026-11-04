@@ -47,6 +47,8 @@ interface Input {
     services: DraftService[];
     name: string | null;
     baseline: AvailabilityConfig;
+    /** The Manager chose the winning version as it is, not their changes on top of it. */
+    discarded: boolean;
   }) => void;
   /** Starts the whole draft again (name, dates and all) from these rows; for non-edit drafts. */
   readonly startOver: (services: DraftService[]) => void;
@@ -122,6 +124,7 @@ export function useConflictReview(input: Input) {
             : [...services],
           name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
           baseline: baseline.config,
+          discarded: false,
         });
       }),
     /** The winning version as it is; the draft is dropped. */
@@ -134,6 +137,7 @@ export function useConflictReview(input: Input) {
               services: latestRows(),
               name: name === null ? null : nameIn(state.config),
               baseline: baseline.config,
+              discarded: true,
             })
           );
         return;

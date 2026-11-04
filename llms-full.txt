@@ -6967,7 +6967,12 @@
     export function draftToConfig(
       draft: QuickSetupDraft,
       newId: () => string,
-      existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+      existing?: {
+        regularScheduleId?: string;
+        venueServiceIds?: Readonly<Record<string, string>>;
+        /** The days the rows are encoded over, when the schedule's use is fixed apart from the draft. */
+        coveredDays?: readonly number[];
+      }
     ): AvailabilityConfig {
       const scheduleId = existing?.regularScheduleId ?? newId();
       const schedule: Schedule = {
@@ -6986,7 +6991,7 @@
         venueServices.push({ id: venueServiceId, name, position });
         week.push({ venueServiceId, days: weekOf(draft, service, m) });
       });
-      const covered = coveredDays(draft);
+      const covered = existing?.coveredDays ?? coveredDays(draft);
       const scheduleServices: ScheduleService[] = encodeWeek(week, covered).map((row) => ({
         id: newId(),
         scheduleId,
@@ -6995,7 +7000,7 @@
       const assignment: ScheduleAssignment = {
         id: newId(),
         scheduleId,
-        weekdays: covered,
+        weekdays: [...covered],
         precedence: 0,
       };
       return {
@@ -7017,14 +7022,28 @@
         lastSeatingLinked: lastSeating === autoLastSeating(closes, opens),
       };
     }
-    export function draftFromConfig(config: AvailabilityConfig, newId: () => string): QuickSetupDraft {
-      const regular = config.schedules.find((s) => s.isRegular);
-      if (!regular) return emptyDraft(newId());
-      const covered = [
+    export function scheduleDays(
+      config: AvailabilityConfig,
+      scheduleId: string,
+      anyDay = false
+    ): number[] {
+      const assigned = [
         ...new Set(
-          config.assignments.filter((a) => a.scheduleId === regular.id).flatMap((a) => a.weekdays)
+          config.assignments.filter((a) => a.scheduleId === scheduleId).flatMap((a) => a.weekdays)
         ),
       ].sort((a, b) => a - b);
+      return assigned.length === 0 && anyDay ? [0, 1, 2, 3, 4, 5, 6] : assigned;
+    }
+    export function draftFromConfig(
+      config: AvailabilityConfig,
+      newId: () => string,
+      scheduleId?: string
+    ): QuickSetupDraft {
+      const regular = scheduleId
+        ? config.schedules.find((s) => s.id === scheduleId)
+        : config.schedules.find((s) => s.isRegular);
+      if (!regular) return emptyDraft(newId());
+      const covered = scheduleDays(config, regular.id, scheduleId !== undefined);
       const rows = config.scheduleServices.filter((row) => row.scheduleId === regular.id);
       const names = new Map(config.venueServices.map((vs) => [vs.id, vs]));
       const positionOf = (id: string) => names.get(id)?.position ?? 0;
@@ -7711,8 +7730,8 @@
     interface NewScheduleInput {
       readonly config: AvailabilityConfig;
       readonly name: string;
-      /** Rows for the new schedule; a copy's rows must have `scheduleServiceId: null`. */
-      readonly services: readonly DraftService[];
+      /** The new schedule's services as the editor holds them; a copy is seeded from the source. */
+      readonly draft: QuickSetupDraft;
       readonly useOn: UseOn;
       readonly winner: Winner;
       readonly makeId: () => string;
@@ -7721,10 +7740,11 @@
       const { config, name, useOn, winner, makeId } = input;
       const scheduleId = makeId();
       const schedule: Schedule = { id: scheduleId, name, kind: "alternate", isRegular: false };
-      const rows = buildDraftChanges({
+      const rows = scheduleRowChanges({
         config,
-        scope: { kind: "schedule", scheduleId },
-        services: freshRows(input.services),
+        draft: input.draft,
+        scheduleId,
+        covered: coveredDays(input.draft),
         makeId,
       });
       const assignments =
@@ -7820,16 +7840,19 @@
       readonly config: AvailabilityConfig;
       readonly scheduleId: string;
       readonly name: string;
-      readonly services: readonly DraftService[];
+      /** The schedule's services as the editor holds them: days and different-hours blocks. */
+      readonly draft: QuickSetupDraft;
       readonly makeId: () => string;
       /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
       readonly baseline: AvailabilityConfig;
     }): AvailabilityConfigChanges {
       const { config, scheduleId, name, makeId } = input;
-      const rows = buildDraftChanges({
+      // An edit keeps the schedule's use, so its rows are encoded over the days it is assigned to.
+      const rows = scheduleRowChanges({
         config,
-        scope: { kind: "schedule", scheduleId },
-        services: input.services,
+        draft: input.draft,
+        scheduleId,
+        covered: scheduleDays(config, scheduleId, true),
         makeId,
         baseline: input.baseline,
       });
@@ -7837,8 +7860,44 @@
       const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
       return mergeChanges(rows, { upsert: rename, remove: {} });
     }
-    function freshRows(services: readonly DraftService[]): DraftService[] {
-      return services.map((s) => ({ ...s, scheduleServiceId: null }));
+    function scheduleRowChanges(input: {
+      readonly config: AvailabilityConfig;
+      readonly draft: QuickSetupDraft;
+      readonly scheduleId: string;
+      readonly covered: readonly number[];
+      readonly makeId: () => string;
+      readonly baseline?: AvailabilityConfig;
+    }): AvailabilityConfigChanges {
+      const { config, draft, scheduleId, covered, makeId } = input;
+      const venueServiceIds = Object.fromEntries(
+        config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+      );
+      const week = draftToConfig(draft, makeId, { venueServiceIds, coveredDays: covered });
+      const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
+      const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
+      const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
+      const was = new Map(stored.map((s) => [s.venueServiceId, s]));
+      const scheduleServices = week.scheduleServices.map((row) => {
+        const prev = was.get(row.venueServiceId);
+        const own = { ...row, scheduleId };
+        if (!prev) return own;
+        const { seating, bookingTypes } = prev;
+        const sets = row.dayHours.sets.map((set) => ({ ...set, seating, bookingTypes }));
+        return { ...own, id: prev.id, seating, bookingTypes, dayHours: { ...row.dayHours, sets } };
+      });
+      const kept = new Set(scheduleServices.map((s) => s.venueServiceId));
+      const stillStored = new Set(stored.map((s) => s.id));
+      const seen = (input.baseline?.scheduleServices ?? stored).filter(
+        (s) => s.scheduleId === scheduleId && stillStored.has(s.id)
+      );
+      const removed = seen.filter((s) => !kept.has(s.venueServiceId)).map((s) => s.id);
+      return {
+        upsert: {
+          ...(created.length > 0 ? { venueServices: created } : {}),
+          scheduleServices,
+        },
+        remove: removed.length > 0 ? { scheduleServices: removed } : {},
+      };
     }
     export function datesOfUse(useOn: UseOn, today: string): string[] {
       const dates: string[] = [];
@@ -8708,6 +8767,8 @@
         services: DraftService[];
         name: string | null;
         baseline: AvailabilityConfig;
+        /** The Manager chose the winning version as it is, not their changes on top of it. */
+        discarded: boolean;
       }) => void;
       /** Starts the whole draft again (name, dates and all) from these rows; for non-edit drafts. */
       readonly startOver: (services: DraftService[]) => void;
@@ -8763,6 +8824,7 @@
                 : [...services],
               name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
               baseline: baseline.config,
+              discarded: false,
             });
           }),
         /** The winning version as it is; the draft is dropped. */
@@ -8775,6 +8837,7 @@
                   services: latestRows(),
                   name: name === null ? null : nameIn(state.config),
                   baseline: baseline.config,
+                  discarded: true,
                 })
               );
             return;

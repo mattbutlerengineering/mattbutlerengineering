@@ -27,9 +27,11 @@ export interface QuickSetupFormProps {
    * as a one-line summary that opens its controls on "Change days".
    */
   readonly inDrawer?: boolean;
+  /** The days belong to where the schedule is used, not to this form (Edit schedule): shown, not changed. */
+  readonly fixedDays?: boolean;
 }
 
-function DaysField({ draft, onChange, issues, inDrawer }: QuickSetupFormProps) {
+function DaysField({ draft, onChange, issues, inDrawer, fixedDays }: QuickSetupFormProps) {
   const { t } = useTranslation();
   const summarize = useWeekdaySummary();
   const [changing, setChanging] = useState(false);
@@ -42,6 +44,13 @@ function DaysField({ draft, onChange, issues, inDrawer }: QuickSetupFormProps) {
           {t("availability.quickSetup.everyServiceOwnDays")}
         </Text>
       </fieldset>
+    );
+  }
+  if (fixedDays) {
+    return (
+      <Text variant="body">
+        {t("availability.quickSetup.daysSummary", { days: summarize(draft.days) })}
+      </Text>
     );
   }
   const problems = issuesFor(issues, null, "days");
@@ -79,6 +88,7 @@ export function QuickSetupForm({
   issues,
   local = false,
   inDrawer = false,
+  fixedDays = false,
 }: QuickSetupFormProps) {
   const { t } = useTranslation();
   const [announcement, setAnnouncement] = useState("");
@@ -123,7 +133,13 @@ export function QuickSetupForm({
             {t("availability.quickSetup.addService")}
           </Button>
         </div>
-        <DaysField draft={draft} onChange={onChange} issues={issues} inDrawer={inDrawer} />
+        <DaysField
+          draft={draft}
+          onChange={onChange}
+          issues={issues}
+          inDrawer={inDrawer}
+          fixedDays={fixedDays}
+        />
         <Text className={styles.visuallyHidden} role="status">
           {announcement}
         </Text>

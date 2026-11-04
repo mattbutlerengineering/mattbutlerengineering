@@ -2427,14 +2427,30 @@
       export function draftToConfig(
         draft: QuickSetupDraft,
         newId: () => string,
-        existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+        existing?: {
+          regularScheduleId?: string;
+          venueServiceIds?: Readonly<Record<string, string>>;
+          /** The days the rows are encoded over, when the schedule's use is fixed apart from the draft. */
+          coveredDays?: readonly number[];
+        }
       ): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="medium">
       function clockTimes(hours: ServiceHours): DraftTimes { /* ... */ }
     </item>
     <item priority="high">
-      export function draftFromConfig(config: AvailabilityConfig, newId: () => string): QuickSetupDraft { /* ... */ }
+      export function scheduleDays(
+        config: AvailabilityConfig,
+        scheduleId: string,
+        anyDay = false
+      ): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftFromConfig(
+        config: AvailabilityConfig,
+        newId: () => string,
+        scheduleId?: string
+      ): QuickSetupDraft { /* ... */ }
     </item>
     <item priority="high">
       export function draftToChanges(
@@ -2701,7 +2717,7 @@
       interface NewScheduleInput {
         config: AvailabilityConfig;
         name: string;
-        services: readonly DraftService[];
+        draft: QuickSetupDraft;
         useOn: UseOn;
         winner: Winner;
       }
@@ -2726,14 +2742,22 @@
         readonly config: AvailabilityConfig;
         readonly scheduleId: string;
         readonly name: string;
-        readonly services: readonly DraftService[];
+        /** The schedule's services as the editor holds them: days and different-hours blocks. */
+        readonly draft: QuickSetupDraft;
         readonly makeId: () => string;
         /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
         readonly baseline: AvailabilityConfig;
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="medium">
-      function freshRows(services: readonly DraftService[]): DraftService[] { /* ... */ }
+      function scheduleRowChanges(input: {
+        readonly config: AvailabilityConfig;
+        readonly draft: QuickSetupDraft;
+        readonly scheduleId: string;
+        readonly covered: readonly number[];
+        readonly makeId: () => string;
+        readonly baseline?: AvailabilityConfig;
+      }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
       export function datesOfUse(useOn: UseOn, today: string): string[] { /* ... */ }
