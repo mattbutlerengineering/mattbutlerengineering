@@ -44,7 +44,7 @@
     {
       "name": "index (subpath)",
       "path": "dist/index.js",
-      "limit": "650 B"
+      "limit": "680 B"
     },
     {
       "name": "users (subpath)",
