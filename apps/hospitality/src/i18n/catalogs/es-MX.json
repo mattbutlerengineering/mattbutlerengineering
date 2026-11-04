@@ -2233,7 +2233,10 @@
         "legacy_closed_day": "Un día de exactamente 24 horas, o un servicio más corto que la ventana de 90 minutos de última sentada, dejaría el local como cerrado. Ajusta los horarios.",
         "name_too_long": "Usa 40 caracteres o menos para el nombre del servicio.",
         "overlap": "Este servicio se traslapa con otro.",
-        "days_required": "Elige al menos un día."
+        "days_required": "Elige al menos un día.",
+        "days_required_service": "Elige al menos un día para {{service}}.",
+        "block_days_required": "Elige al menos un día para estos horarios.",
+        "overlap_on": "{{service}} se traslapa con {{other}} el {{day}}."
       }
     },
     "migrationBanner": "Se conservaron tus horarios. No cambió nada para los comensales.",

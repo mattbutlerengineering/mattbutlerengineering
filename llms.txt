@@ -2158,12 +2158,25 @@
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
     <item priority="low">
-      interface ServiceDraft {
-        id: string;
-        name: string;
+      interface DraftTimes {
         opens: string | null;
         lastSeating: string | null;
         closes: string | null;
+        lastSeatingLinked: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface HoursBlock {
+        id: string;
+        days: readonly number[];
+      }
+    </item>
+    <item priority="low">
+      interface ServiceDraft {
+        id: string;
+        name: string;
+        days: readonly number[] | null;
+        blocks: readonly HoursBlock[];
       }
     </item>
     <item priority="low">
@@ -2212,11 +2225,11 @@
       export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) { /* ... */ }
     </item>
     <item priority="high">
-      export function setServiceTime(
-        service: ServiceDraft,
+      export function setServiceTime<T extends DraftTimes>(
+        service: T,
         field: "opens" | "lastSeating" | "closes",
         value: string | null
-      ): ServiceDraft { /* ... */ }
+      ): T { /* ... */ }
     </item>
     <item priority="high">
       export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft { /* ... */ }
@@ -2228,13 +2241,15 @@
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     </item>
     <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required";
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required" | "block_days_required";
     </item>
     <item priority="low">
       interface QuickSetupIssue {
         serviceId: string | null;
+        blockId?: string;
         field: QuickSetupField | "days";
         code: QuickSetupIssueCode;
+        weekday?: number;
       }
     </item>
     <item priority="high">
@@ -2245,19 +2260,44 @@
       }
     </item>
     <item priority="medium">
-      function minutesOf(service: ServiceDraft): ServiceMinutes | null { /* ... */ }
+      function minutesOf(
+        service: Pick<DraftTimes, "opens" | "lastSeating" | "closes">
+      ): ServiceMinutes | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface IssueOwner {
+        serviceId: string;
+        blockId?: string;
+      }
+    </item>
+    <item priority="medium">
+      function missingTimes(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
       function completenessIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
-      function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] { /* ... */ }
+      function orderIssues(times: DraftTimes, m: ServiceMinutes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function timesIssues(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function serviceIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">
       export function validateDraft(
         draft: QuickSetupDraft,
         options: { readonly legacyReader?: boolean } = {}
       ): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueMessage(
+        issue: QuickSetupIssue,
+        draft: QuickSetupDraft,
+        t: TFunction,
+        weekdayName: (weekday: number) => string
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
       function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
@@ -2266,11 +2306,29 @@
       function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean { /* ... */ }
     </item>
     <item priority="high">
+      export function effectiveDays(draft: QuickSetupDraft, service: ServiceDraft): readonly number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function coveredDays(draft: QuickSetupDraft): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursOf(m: ServiceMinutes): ServiceHours { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekOf(draft: QuickSetupDraft, service: ServiceDraft, m: ServiceMinutes) { /* ... */ }
+    </item>
+    <item priority="high">
       export function draftToConfig(
         draft: QuickSetupDraft,
         newId: () => string,
         existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
       ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="medium">
+      function clockTimes(hours: ServiceHours): DraftTimes { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftFromConfig(config: AvailabilityConfig, newId: () => string): QuickSetupDraft { /* ... */ }
     </item>
     <item priority="high">
       export function draftToChanges(

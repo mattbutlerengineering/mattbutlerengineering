@@ -2233,7 +2233,10 @@
         "legacy_closed_day": "Une journée d’exactement 24 heures, ou un service plus court que la fenêtre de 90 minutes de dernière assise, afficherait le lieu comme fermé. Ajustez les heures.",
         "name_too_long": "Utilisez 40 caractères ou moins pour le nom du service.",
         "overlap": "Ce service chevauche un autre service.",
-        "days_required": "Choisissez au moins un jour."
+        "days_required": "Choisissez au moins un jour.",
+        "days_required_service": "Choisissez au moins un jour pour {{service}}.",
+        "block_days_required": "Choisissez au moins un jour pour ces heures.",
+        "overlap_on": "{{service}} chevauche {{other}} le {{day}}."
       }
     },
     "migrationBanner": "Vos heures ont été reprises. Rien n’a changé pour les clients.",

@@ -88,7 +88,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 
 ## Milestone 4: A Manager sets up a varied week in quick setup with a live strip (the demo)
 
-- [ ] **Quick-setup draft with days and blocks** — `quick-setup-draft.ts`: `ServiceDraft` gains `days: number[] | null` and `blocks`; `draftToConfig` builds a weekday → hours map and calls `encodeWeek`; `draftFromConfig` is `decodeWeek` plus presentation; `validateDraft` maps an issue path into a block (`QuickSetupIssue.blockId`) and its `weekday` into the message, with `days_required` per service that has its own days; `draftToLegacyHours` stays `projectLegacyOperatingHours(draftToConfig(...))`.
+- [x] **Quick-setup draft with days and blocks** — `quick-setup-draft.ts`: `ServiceDraft` gains `days: number[] | null` and `blocks`; `draftToConfig` builds a weekday → hours map and calls `encodeWeek`; `draftFromConfig` is `decodeWeek` plus presentation; `validateDraft` maps an issue path into a block (`QuickSetupIssue.blockId`) and its `weekday` into the message, with `days_required` per service that has its own days; `draftToLegacyHours` stays `projectLegacyOperatingHours(draftToConfig(...))`.
   - Accept: unit tests show a uniform draft (every `days` null, no blocks) writes the same rows as before (`weekdays: []`, no sets); the demo week draft encodes to the rows in the demo-week fixture; `draftFromConfig(draftToConfig(d))` round-trips; and a Saturday overlap gives the message "Dinner overlaps Brunch on Saturday." with the block's id.
   - Blocked by: encodeWeek and decodeWeek
 - [ ] **Per-service days in QuickSetupForm** — the "Different days for this service" control behind a closed disclosure per service row, following the shared Days when unset (`ux.md` F1 and S1).

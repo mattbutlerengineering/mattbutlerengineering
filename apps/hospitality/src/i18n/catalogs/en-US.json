@@ -2179,7 +2179,10 @@
         "legacy_closed_day": "A day of exactly 24 hours, or a service shorter than the 90-minute last-seating window, would show the venue as closed. Adjust the times.",
         "name_too_long": "Use 40 characters or fewer for the service name.",
         "overlap": "This service overlaps another one.",
-        "days_required": "Choose at least one day."
+        "days_required": "Choose at least one day.",
+        "days_required_service": "Choose at least one day for {{service}}.",
+        "block_days_required": "Choose at least one day for these hours.",
+        "overlap_on": "{{service}} overlaps {{other}} on {{day}}."
       }
     },
     "migrationBanner": "Your hours were carried over. Nothing changed for guests.",
