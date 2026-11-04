@@ -47,6 +47,45 @@ test.describe("Playground", () => {
     expect(mocks.uiRequests[0]).toMatchObject({ prompt: "a simple button" });
   });
 
+  // #7883/#8198: rialto's Dialog portals a nested Dialog into a layer inside the
+  // outer one's own provider subtree, so each manages its own open state. Dismissing
+  // the inner dialog must close only itself, not the outer dialog around it too.
+  test("dismissing the inner dialog leaves the outer dialog open", async ({ authPage }) => {
+    await mockGenApi(authPage, {
+      generate: [
+        { key: "root", type: "Stack", props: {} },
+        {
+          key: "outer",
+          type: "Dialog",
+          props: { open: true, title: "Outer dialog" },
+          parentKey: "root",
+        },
+        {
+          key: "inner",
+          type: "Dialog",
+          props: { open: true, title: "Inner dialog" },
+          parentKey: "outer",
+        },
+      ],
+      refineSubtree: [],
+    });
+    await authPage.goto("/");
+    await authPage
+      .getByPlaceholder("Describe the UI you want to build...")
+      .fill("two nested dialogs");
+    await authPage.getByRole("button", { name: "Generate" }).click();
+
+    const outer = authPage.getByRole("dialog", { name: "Outer dialog" });
+    const inner = authPage.getByRole("dialog", { name: "Inner dialog" });
+    await expect(outer).toBeVisible();
+    await expect(inner).toBeVisible();
+
+    await inner.getByRole("button", { name: "Close dialog" }).click();
+
+    await expect(inner).toBeHidden();
+    await expect(outer).toBeVisible();
+  });
+
   // #7907: the second click of a double-click lands on the Stop button that just replaced
   // Generate. The guard must swallow it, so the generation it started runs to completion.
   test("double-click on Generate does not abort the generation it started", async ({
