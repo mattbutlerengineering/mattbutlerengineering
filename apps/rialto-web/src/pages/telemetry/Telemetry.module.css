@@ -112,6 +112,11 @@
   overflow-x: auto;
 }
 
+/* DepartureBoard centers its flaps by default; the event feed reads from the start. */
+.ticker .tickerBoard {
+  justify-content: flex-start;
+}
+
 /* Stale values are retained and dimmed — never cleared. */
 .hud[data-dimmed] .body {
   opacity: 0.6;

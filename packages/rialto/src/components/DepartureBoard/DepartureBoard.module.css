@@ -34,7 +34,8 @@
 /* ── Flap display ───────────────────────────── */
 .display {
   display: flex;
-  justify-content: center;
+  /* Follows .board, so a caller that start-aligns the board start-aligns the flaps. */
+  justify-content: inherit;
   inline-size: 100%;
   max-inline-size: 100%;
   min-inline-size: 0;
