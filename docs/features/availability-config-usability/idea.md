@@ -3,9 +3,10 @@ stage: idea
 run: feature:availability-config-usability
 date: 2026-11-03
 assumptions:
-  - "Ambition rung: the brief records the Owner's choice as 'Scope A' and names no rung from the skill's ladder. Scope A is mapped to the Solid rung (fixes the problem, no added wow moment), per the run assignment that the rung taken is Scope A. The skill's recommended default, Showstopper, was not taken because the brief names no demo moment to build it on."
-  - "Ladder tests: because Solid is chosen, the four Showstopper tests were not run. The skill requires them only for the Showstopper."
-  - "Unchosen rungs: the skill seeds every unchosen rung larger than the pick (Showstopper and Moonshot). Their one-line seed texts were written by the Idea stage, anchored on the Manager's sentence, and appended to docs/backlog.md. The Owner has not seen them."
+  - "Ambition rung: the brief records the Owner's choice as 'Scope A' and names no rung from the skill's ladder. Scope A is the Owner's scope, not a rung answer, so the Owner did not answer the ladder. The skill's recommended default, Showstopper, was taken, per the brief's standing instruction. Its four tests were run (below) and it passed all four, so Showstopper is the pick."
+  - "Showstopper moment: the brief names no demo moment. The moment (the setup week played back as a guest would book it, per weekday, live while the Manager types) was written by the Idea stage from the Manager's sentence and from code read on 2026-11-03: QuickSetupForm.tsx, AvailabilityGuestPreview.tsx, DraftPreview.tsx and PreviewAvailabilityBodySchema. The Owner has not seen it. It stays inside Scope A: it adds no item the brief lists as Out."
+  - "Backlog: docs/backlog.md is unchanged by this second pass. Existing line 301 already carries the Moonshot (from: feature:availability-config-usability). Existing line 300 (a suggested typical week for the venue type) was written by the first pass as a Showstopper; the Showstopper picked here differs from it, so by the skill's re-run rule it stays as written and is not claimed, and nothing new is appended."
+  - "Second pass: this is a second Idea pass. The first pass (ab4463c00) mapped Scope A to the Solid rung and skipped the four Showstopper tests. This pass corrects the rung default and replaces the rung, test, spike, kill-test and hunch text."
   - "Riskiest piece and spike: the brief names the unknown (whether the model must change, #7738) but no spike. The two-day spike below is written by the Idea stage from the brief's unknowns, not given by the Owner."
   - "Cheapest kill test: the brief names none. The test below is drafted by the Idea stage from the brief's success criteria."
   - "Optional last30days corroboration: not run. The skill says never to run it unasked, and nobody asked. No community evidence is claimed."
@@ -62,35 +63,52 @@ All of this is **anecdote**. Nothing here is validation.
 
 ## Ambition rung
 
-Chosen: Solid (the Owner's Scope A), in the user's words: "My week isn't uniform. Lunch on weekdays, brunch at weekends, a later close on Friday and Saturday." The brief records Scope A, not a rung name. See assumptions.
-Not taken: Showstopper: seeded to `docs/backlog.md`; Moonshot: seeded to `docs/backlog.md`.
-Demo: n/a — Solid chosen, the Showstopper tests were not run
-Removes a step: n/a — Solid chosen, the Showstopper tests were not run
-Only this product: n/a — Solid chosen, the Showstopper tests were not run
-Achievable: n/a — Solid chosen, the Showstopper tests were not run
+Chosen: Showstopper (the skill's recommended default, taken because the Owner did not answer the ladder; see assumptions), in the user's words: "My week isn't uniform. Lunch on weekdays, brunch at weekends, a later close on Friday and Saturday."
+Not taken: Moonshot: seeded to `docs/backlog.md` (line carrying "Availability configures itself from the venue booking history and its external listings"). Solid is never seeded. The first pass's Showstopper seed (a suggested typical week for the venue type) differs from this Showstopper and stays in `docs/backlog.md` unclaimed.
+Demo: Before, the Manager types a week, saves, then opens the calendar and the Schedules tab to find out that Friday closes at the wrong time. After, as they set Friday's close, a seven-day strip beside the setup form shows each weekday's bookable times as a guest would see them, and Friday's last slot moves while they type.
+Removes a step: pass. It removes the "save, then discover the week is wrong on another tab" step: the Manager sees the wrong week before saving, which is the problem sentence's "I finish with the wrong week".
+Only this product: pass. The strip is the product's own engine and booking-time resolution: `AvailabilityGuestPreview` and `DraftPreview` already preview an unsaved draft through `PreviewAvailabilityBodySchema` (`draft.changes`, `focusDate`, `partySize`) against the venue's real tables and bookings, and `previewIds()` in `DraftPreview.tsx` exists for a draft that is only previewed. No competitor's setup form can show this.
+Achievable: pass. The riskiest piece is named and a two-day spike can prove it (below). Today the quick setup form shows only a text list (`QuickSetupForm.tsx` around line 221, `previewLine` per service) and does not use `DraftPreview`.
+
+Test verdicts, each with evidence:
+
+1. **30-second demo: pass.** The before and the after fit in the two sentences above, and the after is something you see (a strip whose Friday slots shift), not a metric.
+2. **Removes a step: pass.** It is done before the Manager asks: the check happens during entry, not after a save and a trip to the calendar.
+3. **Only this product: pass.** It rests on the venue's own engine, tables and bookings, which an outside setup form cannot read.
+4. **Achievable: pass.** It reuses `DraftPreview` and the existing preview endpoint, so no new engine. The riskiest piece is named, with a spike of about two days, below.
+
+No test failed, so no re-scope and no demotion happened.
+
+The rungs, from the Manager's sentence:
+
+- **Solid:** quick setup lets each service have its own days, and a day have its own hours, and Change regular week edits one weekday. The Manager can enter the varied week without the Schedules tab. This fixes the problem and adds no wow moment.
+- **Showstopper (picked):** Solid, plus the guest-view strip above: the varied week plays back as a guest would book it, per weekday, live while typing.
+- **Moonshot:** the product proposes the Manager's week itself from its booking history and external listings, and the Manager only confirms it. Not achievable at this run's scale (needs data the product does not hold for a new venue, and listing sync is Out).
 
 Scope A, as the Owner set it:
 
 - **In:** quick setup lets a Manager give services different days, and give a day different hours, in one pass. Change regular week lets a Manager change one weekday's hours without creating a schedule. The calendar, the day drawer and the guest preview show the result as one regular week. Any model, engine or API change the above needs.
 - **Out:** the 2026-10-31 audit leftovers (#7981, #7984 criterion 2, #7983's leftovers); group cascade and self-tuning; external listing sync; venue-availability's Owner-only release steps; re-timing the ≤15 min multi-room setup bar as a criterion (it must not get slower).
 
+The Showstopper adds nothing from the Out list: it reuses the guest preview that already exists, it does not touch #7983's leftover "rebooking times in the preview", and it does not sync any listing.
+
 ## The demo
 
-None — Solid chosen.
+Open an empty venue's setup as the Manager. Enter lunch Mon–Fri, then dinner Tue–Sun. Set Friday's and Saturday's close later. Beside the form, the seven-day strip shows each weekday's bookable times as a guest would see them. Friday's and Saturday's last slots move later as the close is set, and Monday has no dinner. The Manager saves a week they already watched.
 
 ## Riskiest piece + spike
 
-Riskiest piece: whether the data model must change (#7738). The candidates in the brief are a weekday scope on `ScheduleService` or a per-weekday hours payload. A change means a Prisma migration, an ADR-030 amendment and a second data migration for venues already backfilled. It also touches `validateConfig`, `resolveDay` and `legacy-projection`.
+Riskiest piece: whether the existing preview can show a whole unsaved regular week for a venue with no saved hours. `QuickSetupForm`'s card works on an `empty`-source venue (no rows), and the preview endpoint's `compareWith: "saved"` measures against saved rows. The date strip in `AvailabilityGuestPreview` is `STRIP_SIZE = 5` dates, and it reports what guests gain and lose, not a plain week. If against an empty saved week it reports every slot as "added", the strip may need a different compare mode or a seven-date window. A second risk is the data model (#7738): a weekday scope on `ScheduleService` or a per-weekday hours payload means a Prisma migration, an ADR-030 amendment and a second data migration for venues already backfilled. It also touches `validateConfig`, `resolveDay` and `legacy-projection`.
 
-Spike of about two days (drafted by this stage, see assumptions): in a scratch branch, add a weekday scope to `ScheduleService` in the types schema and `packages/availability`. Express the success-sentence week (lunch Mon–Fri, dinner Tue–Sun closing later Fri–Sat, brunch Sat–Sun) in it. Run the engine's existing property test ("no slot is offered outside resolved availability") against it. If the week cannot be expressed, or the property test fails, the model change is larger than Scope A assumes. This spike is for Architect to weigh against the UI-only option on today's model, which the brief also allows.
+Spike of about two days (drafted by this stage, see assumptions): in a scratch branch, take `draftToChanges` output for the success-sentence week (lunch Mon–Fri, dinner Tue–Sun closing later Fri–Sat, brunch Sat–Sun, expressed with a weekday scope on `ScheduleService`) and send it as `draft.changes` to the preview endpoint for an `empty`-source venue, once per weekday date across seven days. Pass if each day returns the expected bookable times inside the debounce window the form already uses (`PREVIEW_DEBOUNCE_MS = 400`) and the engine's property test ("no slot is offered outside resolved availability") holds. If the endpoint cannot return a plain week for an empty venue, the strip needs a new preview mode, and Architect weighs that against a client-side strip built from the draft alone. Architect also weighs the model change against the UI-only option on today's model, which the brief allows.
 
 ## Cheapest kill test
 
-Drafted by this stage (see assumptions). Script the success-sentence week through today's path (quick setup, then the Schedules tab) as an e2e on one fixture, and count the interactions. If today's path is already close to the uniform bistro week's count, or a UI-only change on today's model cannot get the varied week below it, the pain is smaller than the idea claims. The idea then needs the Owner's judgement before PRD. The count is agent stand-in evidence only. The Owner's human-timed ≤5 minute walkthrough stays an Owner-only post-release check and is never claimed.
+Drafted by this stage (see assumptions). First, the preview half: with a fixture of an `empty` venue, call the existing preview endpoint with the success-sentence draft for seven dates and check that it returns one distinct, correct set of times per weekday. If it cannot, the Showstopper moment has no engine to stand on and the run needs the Owner's judgement before PRD. Second, the pain half: script the success-sentence week through today's path (quick setup, then the Schedules tab) as an e2e on one fixture and count the interactions. If today's path is already close to the uniform bistro week's count, or a UI-only change on today's model cannot get the varied week below it, the pain is smaller than the idea claims. The count is agent stand-in evidence only. The Owner's human-timed ≤5 minute walkthrough stays an Owner-only post-release check and is never claimed.
 
 ## Solution hunch
 
-Quick setup and Change regular week carry per-day differences directly, and the calendar shows the result as one regular week. This is a hunch, not a design.
+Quick setup and Change regular week carry per-day differences directly, and the calendar shows the result as one regular week. The Showstopper moment: while the Manager sets the week, the setup form shows a seven-day strip of what a guest could book on each weekday, so the wrong week is caught before it is saved. This is a hunch, not a design.
 
 ## Success in one sentence
 
