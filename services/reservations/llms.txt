@@ -1912,8 +1912,16 @@
     </item>
   </file>
   <file path="src/services/availability-change-detail.ts">
+    <item priority="medium">
+      function regularWeek(config: AvailabilityConfig) { /* ... */ }
+    </item>
     <item priority="high">
-      export function configSavedDetail(diff: ConfigDiff): AvailabilityChangeDetail { /* ... */ }
+      export function configSavedDetail(
+        diff: ConfigDiff,
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        today: string
+      ): AvailabilityChangeDetail { /* ... */ }
     </item>
     <item priority="high">
       export function closureDetail(

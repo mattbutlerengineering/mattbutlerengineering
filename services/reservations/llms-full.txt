@@ -11264,13 +11264,60 @@
     }
   </file>
   <file path="src/services/availability-change-detail.ts">
-    export function configSavedDetail(diff: ConfigDiff): AvailabilityChangeDetail {
-      return {
-        code: "config_saved",
+    function regularWeek(config: AvailabilityConfig) {
+      const schedule = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+      if (!schedule) return { signatures: new Array<string>(7).fill("[]"), assignments: [] };
+      const assignments = config.assignments.filter((a) => a.scheduleId === schedule.id);
+      const live = new Set(config.venueServices.filter((v) => !v.archivedAt).map((v) => v.id));
+      const rows = config.scheduleServices.filter(
+        (r) => r.scheduleId === schedule.id && live.has(r.venueServiceId)
+      );
+      const week = decodeWeek(rows, [...new Set(assignments.flatMap((a) => a.weekdays))]);
+      const signatures = Array.from({ length: 7 }, (_, day) =>
+        JSON.stringify(
+          week
+            .flatMap((s) => {
+              const h = s.days[day];
+              return h
+                ? [
+                    [
+                      s.venueServiceId,
+                      h.opensAt,
+                      h.lastSeatingAt,
+                      h.closesAt,
+                      h.seating,
+                      [...h.bookingTypes].sort(),
+                    ],
+                  ]
+                : [];
+            })
+            .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+        )
+      );
+      return { signatures, assignments };
+    }
+    export function configSavedDetail(
+      diff: ConfigDiff,
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      today: string
+    ): AvailabilityChangeDetail {
+      const rows = {
         added: count(diff.create),
         changed: count(diff.update),
         removed: count(diff.remove),
       };
+      const was = regularWeek(before);
+      const now = regularWeek(after);
+      const weekdays = [0, 1, 2, 3, 4, 5, 6].filter((d) => was.signatures[d] !== now.signatures[d]);
+      if (weekdays.length === 0) return { code: "config_saved", ...rows };
+    
+      // An assignment with no start date, or one already started, takes effect with this save.
+      const starts = now.assignments
+        .filter((a) => a.weekdays.some((d) => weekdays.includes(d)))
+        .map((a) => (a.startsOn && a.startsOn > today ? a.startsOn : today));
+      const startsOn = starts.reduce((first, s) => (s < first ? s : first), starts[0] ?? today);
+      return { code: "regular_week_changed", startsOn, weekdays, ...rows };
     }
     export function closureDetail(
       rule: Pick<DateRule, "kind" | "startsOn" | "endsOn">,
@@ -12248,7 +12295,10 @@
           detail: AvailabilityChangeDetail;
         };
     function describeDiff(detail: AvailabilityChangeDetail): string {
-      return `Availability updated: ${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+      const rows = `${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+      if (detail.code !== "regular_week_changed") return `Availability updated: ${rows}`;
+      const days = (detail.weekdays ?? []).map((d) => WEEKDAY_NAMES[d]).join(", ");
+      return `Regular week changed on ${days} from ${detail.startsOn}: ${rows}`;
     }
     export function planSave(input: {
       state: ConfigState;
@@ -12289,7 +12339,7 @@
       if (reservations.length > 0) return { kind: "stranded", reservations };
     
       const diff = diffConfig(state.stored, next);
-      const detail = configSavedDetail(diff);
+      const detail = configSavedDetail(diff, state.stored, next, civilDateIn(now, state.timezone));
       return {
         kind: "write",
         next,

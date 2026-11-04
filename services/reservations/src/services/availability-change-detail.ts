@@ -1,6 +1,8 @@
+import { decodeWeek } from "@mbe/availability";
 import {
   AvailabilityChangeDetailSchema,
   type AvailabilityChangeDetail,
+  type AvailabilityConfig,
   type ClosureAction,
   type DateRule,
   type TonightChange,
@@ -16,13 +18,71 @@ import type { ConfigDiff } from "./availability-config-plan.js";
 const count = (part: Record<string, readonly unknown[]>) =>
   Object.values(part).reduce((n, rows) => n + rows.length, 0);
 
-export function configSavedDetail(diff: ConfigDiff): AvailabilityChangeDetail {
-  return {
-    code: "config_saved",
+/**
+ * What each weekday of the regular schedule (the live `isRegular` one) resolves to: per weekday,
+ * the services that run and their hours. Read through `decodeWeek`, so row ids and how the week
+ * is encoded into base hours and sets do not matter, only what a guest would be offered.
+ */
+function regularWeek(config: AvailabilityConfig) {
+  const schedule = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+  if (!schedule) return { signatures: new Array<string>(7).fill("[]"), assignments: [] };
+  const assignments = config.assignments.filter((a) => a.scheduleId === schedule.id);
+  const live = new Set(config.venueServices.filter((v) => !v.archivedAt).map((v) => v.id));
+  const rows = config.scheduleServices.filter(
+    (r) => r.scheduleId === schedule.id && live.has(r.venueServiceId)
+  );
+  const week = decodeWeek(rows, [...new Set(assignments.flatMap((a) => a.weekdays))]);
+  const signatures = Array.from({ length: 7 }, (_, day) =>
+    JSON.stringify(
+      week
+        .flatMap((s) => {
+          const h = s.days[day];
+          return h
+            ? [
+                [
+                  s.venueServiceId,
+                  h.opensAt,
+                  h.lastSeatingAt,
+                  h.closesAt,
+                  h.seating,
+                  [...h.bookingTypes].sort(),
+                ],
+              ]
+            : [];
+        })
+        .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+    )
+  );
+  return { signatures, assignments };
+}
+
+/**
+ * `regular_week_changed` (the weekdays whose hours changed, and when they take effect) when the
+ * save changes which hours a regular-week weekday resolves to; otherwise `config_saved`. A rename,
+ * or an edit to any schedule other than the regular one, leaves the regular week as it was.
+ */
+export function configSavedDetail(
+  diff: ConfigDiff,
+  before: AvailabilityConfig,
+  after: AvailabilityConfig,
+  today: string
+): AvailabilityChangeDetail {
+  const rows = {
     added: count(diff.create),
     changed: count(diff.update),
     removed: count(diff.remove),
   };
+  const was = regularWeek(before);
+  const now = regularWeek(after);
+  const weekdays = [0, 1, 2, 3, 4, 5, 6].filter((d) => was.signatures[d] !== now.signatures[d]);
+  if (weekdays.length === 0) return { code: "config_saved", ...rows };
+
+  // An assignment with no start date, or one already started, takes effect with this save.
+  const starts = now.assignments
+    .filter((a) => a.weekdays.some((d) => weekdays.includes(d)))
+    .map((a) => (a.startsOn && a.startsOn > today ? a.startsOn : today));
+  const startsOn = starts.reduce((first, s) => (s < first ? s : first), starts[0] ?? today);
+  return { code: "regular_week_changed", startsOn, weekdays, ...rows };
 }
 
 /** A saved closure, or a close-early (a `tonight` rule saved through the closure command). */

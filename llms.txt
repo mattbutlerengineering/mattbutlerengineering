@@ -15376,8 +15376,16 @@
     </item>
   </file>
   <file path="services/reservations/src/services/availability-change-detail.ts">
+    <item priority="medium">
+      function regularWeek(config: AvailabilityConfig) { /* ... */ }
+    </item>
     <item priority="high">
-      export function configSavedDetail(diff: ConfigDiff): AvailabilityChangeDetail { /* ... */ }
+      export function configSavedDetail(
+        diff: ConfigDiff,
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        today: string
+      ): AvailabilityChangeDetail { /* ... */ }
     </item>
     <item priority="high">
       export function closureDetail(
@@ -22899,9 +22907,6 @@
     </item>
     <item priority="medium">
       function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function weekdayRangeLabel(storedDays: readonly number[]): string { /* ... */ }
     </item>
     <item priority="medium">
       function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] { /* ... */ }
