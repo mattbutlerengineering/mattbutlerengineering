@@ -594,6 +594,12 @@
       export const RepeatSchema: unknown;
     </item>
     <item priority="high">
+      export const DayHoursSetSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DayHoursSchema: unknown;
+    </item>
+    <item priority="high">
       export const SpecialHoursServiceSchema: unknown;
     </item>
     <item priority="high">
@@ -619,6 +625,12 @@
     </item>
     <item priority="high">
       export const AvailabilityConfigSchema: unknown;
+    </item>
+    <item priority="low">
+      type DayHoursSet = z.infer<typeof DayHoursSetSchema>;
+    </item>
+    <item priority="low">
+      type DayHours = z.infer<typeof DayHoursSchema>;
     </item>
     <item priority="low">
       type Seating = z.infer<typeof SeatingSchema>;

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  AvailabilityChangeDetailSchema,
   AvailabilityChangesPageSchema,
+  AvailabilityConfigChangesSchema,
   AvailabilityCheckBodySchema,
   ReopenClosureBodySchema,
   AvailabilityCheckResultSchema,
@@ -484,5 +486,57 @@ describe("AvailabilityChangeSummarySchema.detail", () => {
 
   it("accepts a null detail, as a row stored before codes has", () => {
     expect(parse(null)?.detail).toBeNull();
+  });
+});
+
+describe("regular_week_changed detail and day scope on the wire", () => {
+  it("carries the changed weekdays beside startsOn", () => {
+    expect(
+      AvailabilityChangeDetailSchema.parse({
+        code: "regular_week_changed",
+        startsOn: "2026-11-06",
+        weekdays: [5],
+      })
+    ).toEqual({ code: "regular_week_changed", startsOn: "2026-11-06", weekdays: [5] });
+    expect(
+      AvailabilityChangeDetailSchema.safeParse({ code: "regular_week_changed", weekdays: [7] })
+        .success
+    ).toBe(false);
+  });
+
+  it("parses an old History inverse (rows without the two fields) with no scope", () => {
+    const row = {
+      id: "ss-1",
+      scheduleId: "sch-1",
+      venueServiceId: "vs-1",
+      opensAt: 1020,
+      lastSeatingAt: 1260,
+      closesAt: 1380,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online"],
+    };
+    const inverse = AvailabilityConfigChangesSchema.parse({ upsert: { scheduleServices: [row] } });
+    expect(inverse.upsert.scheduleServices?.[0]).toMatchObject({
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+    });
+  });
+
+  it("takes both new fields as optional in the PUT body", () => {
+    const row = {
+      id: "ss-1",
+      scheduleId: "sch-1",
+      venueServiceId: "vs-1",
+      opensAt: 1020,
+      lastSeatingAt: 1260,
+      closesAt: 1380,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online"],
+    };
+    const parsed = PutAvailabilityConfigBodySchema.parse({
+      expectedVersion: 1,
+      changes: { upsert: { scheduleServices: [row, { ...row, id: "ss-2", weekdays: [1, 2] }] } },
+    });
+    expect(parsed.changes.upsert.scheduleServices?.map((r) => r.weekdays)).toEqual([[], [1, 2]]);
   });
 });

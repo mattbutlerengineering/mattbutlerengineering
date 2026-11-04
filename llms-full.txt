@@ -6034,6 +6034,8 @@
         upsert: services.map((s) => ({
           ...hoursOf(s),
           bookingTypes: [...s.bookingTypes],
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
           id:
             s.scheduleServiceId ??
             stored.find((row) => row.venueServiceId === s.venueServiceId)?.id ??
@@ -6586,6 +6588,8 @@
           ...m,
           seating: { version: 1, interval: SEATING_INTERVAL_MINUTES },
           bookingTypes: ["online", "phone"],
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
         });
       });
       const assignment: ScheduleAssignment = {
@@ -45749,6 +45753,8 @@
       code: z.string(),
       /** The change undid the one the code names (`Reverted: …`). */
       reverted: z.boolean().optional(),
+      /** `regular_week_changed`: the weekdays whose hours changed (with `startsOn`). */
+      weekdays: z.array(z.number().int().min(0).max(6)).optional(),
       /** `config_saved`: rows added, changed and removed. */
       added: z.number().int().optional(),
       changed: z.number().int().optional(),
@@ -46343,6 +46349,14 @@
       version: z.literal(1),
       weekdays: z.array(WeekdayIndexSchema).min(1),
     });
+    export const DayHoursSetSchema = z.object({
+      weekdays: z.array(WeekdayIndexSchema).min(1),
+      ...ServiceHoursFields,
+    });
+    export const DayHoursSchema = z.object({
+      version: z.literal(1),
+      sets: z.array(DayHoursSetSchema),
+    });
     export const SpecialHoursServiceSchema = z.object({
       venueServiceId: IdSchema,
       ...ServiceHoursFields,
@@ -46380,6 +46394,10 @@
       scheduleId: IdSchema,
       venueServiceId: IdSchema,
       ...ServiceHoursFields,
+      /** Days the base hours apply on; [] = every day the assignment covers, less the days a set claims. */
+      weekdays: z.array(WeekdayIndexSchema).default([]),
+      /** Other hours on some weekdays; absent reads as no sets, so stored rows and old inverses parse. */
+      dayHours: DayHoursSchema.default({ version: 1, sets: [] }),
     });
     export const ScheduleAssignmentSchema = z.object({
       id: IdSchema,
@@ -46411,6 +46429,8 @@
       assignments: z.array(ScheduleAssignmentSchema),
       dateRules: z.array(DateRuleSchema),
     });
+    export type DayHoursSet = z.infer<typeof DayHoursSetSchema>;
+    export type DayHours = z.infer<typeof DayHoursSchema>;
     export type Seating = z.infer<typeof SeatingSchema>;
     export type AvailabilityWindow = z.infer<typeof WindowSchema>;
     export type Repeat = z.infer<typeof RepeatSchema>;
@@ -78532,6 +78552,8 @@
           id: newId(),
           scheduleId: id,
           ...hoursFields(w),
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
         }));
         const assignments = group
           ? [{ id: newId(), scheduleId: id, weekdays: [...group.days].sort(), precedence: 0 }]
@@ -89878,6 +89900,8 @@
           closesAt: 1560,
           seating: { version: 1, interval: 15 },
           bookingTypes: ["online", "phone"],
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
         },
       ],
       assignments: [{ id: "a1", scheduleId: "s1", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 }],

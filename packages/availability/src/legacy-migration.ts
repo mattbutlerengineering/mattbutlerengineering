@@ -286,6 +286,8 @@ export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationR
       id: newId(),
       scheduleId: id,
       ...hoursFields(w),
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
     }));
     const assignments = group
       ? [{ id: newId(), scheduleId: id, weekdays: [...group.days].sort(), precedence: 0 }]

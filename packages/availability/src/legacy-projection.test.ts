@@ -11,6 +11,8 @@ const service = (id: string, scheduleId: string, venueServiceId: string, opensAt
   closesAt: opensAt + 180,
   seating: { version: 1 as const, interval: 15 },
   bookingTypes: ["online" as const, "phone" as const],
+  weekdays: [],
+  dayHours: { version: 1 as const, sets: [] },
 });
 
 const CONFIG: AvailabilityConfig = {

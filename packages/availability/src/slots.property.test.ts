@@ -56,6 +56,8 @@ const servicesArb = fc
             ? { version: 1, fixed: [opensAt, Math.floor((opensAt + lastSeatingAt) / 2)] }
             : { version: 1, interval: spec.interval },
           bookingTypes: [...spec.bookingTypes],
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
         },
       ];
     }, [])

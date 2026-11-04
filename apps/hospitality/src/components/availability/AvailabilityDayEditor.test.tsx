@@ -941,7 +941,12 @@ describe("AvailabilityDayEditor", () => {
 
   describe("switching to Your regular week after editing", () => {
     const SEATING = { version: 1, interval: 15 } as const;
-    const HOURS = { seating: SEATING, bookingTypes: ["online", "phone"] as ("online" | "phone")[] };
+    const HOURS = {
+      seating: SEATING,
+      bookingTypes: ["online", "phone"] as ("online" | "phone")[],
+      weekdays: [] as number[],
+      dayHours: { version: 1 as const, sets: [] },
+    };
 
     /** The regular week also holds a colleague's Brunch, and Fri Oct 30 has its own Dinner-only hours. */
     function withOwnDay(

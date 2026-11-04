@@ -282,6 +282,8 @@ describe("quick setup draft", () => {
           closesAt: 20,
           seating: { version: 1 as const, interval: 15 },
           bookingTypes: [],
+          weekdays: [],
+          dayHours: { version: 1 as const, sets: [] },
         },
       ],
       assignments: [{ id: "old-a", scheduleId: "reg", weekdays: [1], precedence: 0 }],

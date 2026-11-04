@@ -319,6 +319,8 @@ export function draftToConfig(
       ...m,
       seating: { version: 1, interval: SEATING_INTERVAL_MINUTES },
       bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
     });
   });
   const assignment: ScheduleAssignment = {

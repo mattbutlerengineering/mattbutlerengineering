@@ -200,6 +200,8 @@ function scheduleServiceRows(
     upsert: services.map((s) => ({
       ...hoursOf(s),
       bookingTypes: [...s.bookingTypes],
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
       id:
         s.scheduleServiceId ??
         stored.find((row) => row.venueServiceId === s.venueServiceId)?.id ??
