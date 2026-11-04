@@ -10,6 +10,7 @@ import {
   draftFromConfig,
   emptyDraft,
   issueMessage,
+  scheduleDays,
   validateDraft,
   type QuickSetupDraft,
 } from "./quick-setup-draft.js";
@@ -167,7 +168,14 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     [editing, config, useOn]
   );
 
-  const issues = useMemo(() => validateDraft(draft), [draft]);
+  const issues = useMemo(
+    () =>
+      validateDraft(
+        draft,
+        editing && sourceScheduleId ? { within: scheduleDays(config, sourceScheduleId, true) } : {}
+      ),
+    [draft, editing, sourceScheduleId, config]
+  );
   const trimmed = name.trim();
   const block = scheduleSaveBlock({
     conflicted: saver.conflicted,

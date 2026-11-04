@@ -273,7 +273,8 @@ export type QuickSetupIssueCode =
   | "legacy_closed_day"
   | "overlap"
   | "days_required"
-  | "block_days_required";
+  | "block_days_required"
+  | "days_outside_use";
 
 export interface QuickSetupIssue {
   /** `null` for the whole card (the shared days). */
@@ -393,9 +394,19 @@ function serviceIssues(service: ServiceDraft): QuickSetupIssue[] {
  */
 export function validateDraft(
   draft: QuickSetupDraft,
-  options: { readonly legacyReader?: boolean } = {}
+  options: { readonly legacyReader?: boolean; readonly within?: readonly number[] } = {}
 ): QuickSetupIssue[] {
-  const perService = draft.services.flatMap(serviceIssues);
+  // `within`: the days an edited schedule is used on. Rows are stored over those days only, so a
+  // service whose own days are all outside would be dropped and its stored row deleted.
+  const outside: QuickSetupIssue[] = draft.services.flatMap((service) =>
+    options.within &&
+    service.days !== null &&
+    service.days.length > 0 &&
+    service.days.every((day) => !options.within?.includes(day))
+      ? [{ serviceId: service.id, field: "days" as const, code: "days_outside_use" as const }]
+      : []
+  );
+  const perService = [...draft.services.flatMap(serviceIssues), ...outside];
   // The shared days are needed only while a service follows them.
   const followsShared = draft.services.length === 0 || draft.services.some((s) => s.days === null);
   const daysIssue: QuickSetupIssue[] =

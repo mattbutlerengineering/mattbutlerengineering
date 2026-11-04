@@ -2278,6 +2278,7 @@
         "days_required": "Choisissez au moins un jour.",
         "days_required_service": "Choisissez au moins un jour pour {{service}}.",
         "block_days_required": "Choisissez au moins un jour pour ces heures.",
+        "days_outside_use": "Ces jours sont en dehors des jours où cet horaire est utilisé. Choisissez des jours où il s'applique.",
         "overlap_on": "{{service}} chevauche {{other}} le {{day}}."
       }
     },

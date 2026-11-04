@@ -177,6 +177,23 @@ describe("quick setup draft", () => {
     expect(validateDraft(dinnerWeekdays())).toEqual([]);
   });
 
+  it("flags a service whose own days all fall outside the days the schedule is used on", () => {
+    const week = dinnerWeekdays();
+    const late = { ...week.services[0]!, days: [6] };
+    const draft = { ...week, services: [late] };
+
+    expect(validateDraft(draft)).toEqual([]);
+    expect(validateDraft(draft, { within: WEEKDAY_SHORTCUT })).toEqual([
+      { serviceId: late.id, field: "days", code: "days_outside_use" },
+    ]);
+    expect(
+      validateDraft(
+        { ...week, services: [{ ...late, days: [5, 6] }] },
+        { within: WEEKDAY_SHORTCUT }
+      )
+    ).toEqual([]);
+  });
+
   it("flags every empty field and the missing days, in card order", () => {
     const issues = validateDraft(emptyDraft("s1"));
     expect(issues.map((i) => `${i.field}:${i.code}`)).toEqual([
