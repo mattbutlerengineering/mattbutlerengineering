@@ -268,6 +268,24 @@ none.
   - Accept: a stored row whose `dayHours` set has different seating and booking types, put through an unrelated edit (base hours or a rename), still has that set's seating and booking types.
 - [x] **Major 3: duplicating a schedule makes an all-week winner** — a duplicate is seeded with no days.
   - Accept: duplicating a schedule used only by a `use_schedule` date rule and saving does not write an undated all-week assignment; Save stays disabled until the Manager picks days; the regular week is unchanged on every day.
+- [ ] **Minor 1: Edit schedule drops a service whose own days are outside the schedule's days** — the editor does not silently delete its stored row.
+  - Accept: a test where Edit schedule gives a service own days wholly outside the schedule's days is refused by `validateDraft` with an issue (or the picker offers only the schedule's days), and Save does not delete that service's row.
+- [ ] **Minor 2: the collapse script's `replaced` log omits created rows** — the log lists the ids of rows the collapse created.
+  - Accept: a collapse test where a service only the folded schedules ran gets a new row has that row's id under `created.scheduleServices` in the `replaced` log entry; `reference.md` says rollback is manual.
+- [ ] **Minor 3: the collapse script's `refused` check compares issue sets** — a collapse that fixes one issue and adds another is refused.
+  - Accept: a unit test where the collapse swaps one validation issue for a different one (equal count) is refused; a collapse that only removes issues is not.
+- [ ] **Minor 4: `encodeWeek` is canonical over `bookingTypes` and `fixed` seating order** — same input, same rows.
+  - Accept: a test (permutations of `bookingTypes` and `fixed` seating across days) where days equal but for order encode to one hours group with no spurious set.
+- [ ] **Minor 5: the "varied week faster than today" e2e guard can fail** — it compares against a constant measured once.
+  - Accept: the guard asserts the count against a constant bound; a mutated (lowered) bound makes the spec fail, shown by running it; the bound is restored and the spec passes.
+- [ ] **Minor 7: the calendar's regular-week line and its Details agree after a dated Change regular week** — the line is built from the schedule in force.
+  - Accept: a test where a Change regular week "from" a future date leaves the line reading the week in force today, not the future week.
+- [ ] **Minor 8: the lint warning at `ScheduleEditorDrawer.tsx:130`** — the disable comment names the rule that fires, or the warning is gone.
+  - Accept: `eslint` on the file shows no warning for the line (RED: the warning as is).
+- [ ] **Minor 9: accessibility in the new service row** — no `aria-expanded` on the add-hours button, a repeated announcement is announced, and removing a service moves focus.
+  - Accept: component tests: the add button has no `aria-expanded`; two identical announcements both change the live region's DOM; after removing a service, focus is on an element, not `body`.
+- [ ] **Minor 14: the agent tool's comment states what `serviceDayMinute` reads** — it does not claim the weekday's services only.
+  - Accept: the comment at `gen-agent-availability-tools.ts` names every schedule's rows and archived venue services, as `servicesOn` reads them.
 
 - 2026-11-04: The three items above come from `review.md` at 074ce4ac0 (Major 1-3; the 15 minors are not in this loop).
 - 2026-11-04: Major 1 deviates from `architecture.md` assumption 6 (defaults on the request too). `ScheduleServiceRequestSchema` (`@mbe/types`) is the PUT body's and the preview draft's row schema, with `weekdays` and `dayHours` required; `ScheduleServiceSchema` keeps the defaults, so stored rows and `readInverse` still parse and Undo of every pre-change History entry works, which was the reason assumption 6 gave for defaulting. The refusal is the service's standard body-validation 400 problem (`about:blank`, `Validation failed: 'changes/upsert/scheduleServices/0' must have required property 'weekdays'`), not a 422 `invalid-config`: body-schema failures are 400 on every endpoint of this service (the existing "rejects a malformed body" test), and only `validateConfig` issues are 422. The validator names the first missing field. ADR-031's consequence line is reworded to match. Every typed caller already sent both fields (`ScheduleService` requires them; `pnpm typecheck` stays green over `SaveAvailabilityConfigRequest`, now the required form); the agent service never PUTs config rows (it uses `setTonight` and the closure endpoints) and `@mbe/api-client` passes the body through. ADR test: reversible (a schema line), not surprising to the Owner given the review, and no real trade-off left once Undo is preserved, so no new ADR.
