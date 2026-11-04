@@ -657,3 +657,85 @@ describe("datesOfUse", () => {
     ).toEqual(["2026-10-25", "2026-10-26", "2026-10-27"]);
   });
 });
+
+describe("an hour set's own seating and booking types", () => {
+  const SET_OWN = {
+    seating: { version: 1 as const, fixed: [1140, 1200] },
+    bookingTypes: ["phone" as const],
+  };
+
+  /** The demo week stored, with Dinner's Fri–Sat set seating differently from its base (a stored row the API or a collapse can make). */
+  function storedWithOwnSet(): AvailabilityConfig {
+    let n = 0;
+    const config = draftToConfig(demoDraft(), () => `demo-${++n}`);
+    return {
+      ...config,
+      scheduleServices: config.scheduleServices.map((row) =>
+        config.venueServices.find((v) => v.id === row.venueServiceId)?.name === "Dinner"
+          ? {
+              ...row,
+              dayHours: {
+                ...row.dayHours,
+                sets: row.dayHours.sets.map((set) => ({ ...set, ...SET_OWN })),
+              },
+            }
+          : row
+      ),
+    };
+  }
+
+  const dinnerRow = (config: AvailabilityConfig, scheduleId: string) =>
+    config.scheduleServices.find(
+      (row) =>
+        row.scheduleId === scheduleId &&
+        config.venueServices.find((v) => v.id === row.venueServiceId)?.name === "Dinner"
+    );
+
+  it("Change regular week keeps the set's seating and booking types when only the base hours change", () => {
+    const config = storedWithOwnSet();
+    const baseSeating = dinnerRow(config, config.schedules[0]!.id)?.seating;
+    const draft = weekDraft(config);
+    const edited: QuickSetupDraft = {
+      ...draft,
+      services: draft.services.map((s) =>
+        s.name === "Dinner" ? { ...s, closes: "22:30", lastSeating: "21:30" } : s
+      ),
+    };
+    const next = applyChanges(
+      config,
+      buildRegularWeekChanges({
+        config,
+        name: "Regular week",
+        draft: edited,
+        startsOn: "2026-11-02",
+        endsOn: null,
+        winner: "new",
+        makeId: counter(),
+      }),
+      NOW
+    );
+    const dinner = dinnerRow(next, "new-1");
+    expect(dinner?.dayHours.sets).toHaveLength(1);
+    expect(dinner?.dayHours.sets[0]).toMatchObject(SET_OWN);
+    expect(dinner?.seating).toEqual(baseSeating);
+    expect(dinner?.bookingTypes).toEqual(["online", "phone"]);
+  });
+
+  it("Edit schedule keeps the set's seating and booking types through a rename", () => {
+    const config = storedWithOwnSet();
+    const scheduleId = config.schedules[0]!.id;
+    const changes = buildEditScheduleChanges({
+      config,
+      scheduleId,
+      name: "Renamed week",
+      draft: scheduleDraft(config, undefined, scheduleId),
+      makeId: counter(),
+      baseline: config,
+    });
+    const next = applyChanges(config, changes, NOW);
+    const dinner = dinnerRow(next, scheduleId);
+    expect(dinner?.dayHours.sets[0]).toMatchObject(SET_OWN);
+    expect(dinner?.bookingTypes).toEqual(["online", "phone"]);
+    expect(next.schedules[0]?.name).toBe("Renamed week");
+  });
+});

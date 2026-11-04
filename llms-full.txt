@@ -6605,12 +6605,19 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
+    export type KeptHours = Pick<ServiceHours, "seating" | "bookingTypes">;
     export interface DraftTimes {
       readonly opens: string | null;
       readonly lastSeating: string | null;
       readonly closes: string | null;
       /** While true, last seating follows close minus {@link LAST_SEATING_LEAD_MINUTES}. */
       readonly lastSeatingLinked: boolean;
+      /**
+       * The stored seating and booking types of these hours (`draftFromConfig`), so a set's own are
+       * not overwritten by the base's. Absent on hours the form made: they take the service's stored
+       * ones (`draftToConfig`'s `keptOf`), or quick setup's defaults.
+       */
+      readonly kept?: KeptHours;
     }
     export interface HoursBlock extends DraftTimes {
       readonly id: string;
@@ -6730,8 +6737,16 @@
       };
     }
     export function addBlock(service: ServiceDraft, id: string): ServiceDraft {
-      const { opens, lastSeating, closes, lastSeatingLinked } = service;
-      const block: HoursBlock = { id, days: [], opens, lastSeating, closes, lastSeatingLinked };
+      const { opens, lastSeating, closes, lastSeatingLinked, kept } = service;
+      const block: HoursBlock = {
+        id,
+        days: [],
+        opens,
+        lastSeating,
+        closes,
+        lastSeatingLinked,
+        ...(kept ? { kept } : {}),
+      };
       return { ...service, blocks: [...service.blocks, block] };
     }
     export function replaceBlock(service: ServiceDraft, next: HoursBlock): ServiceDraft {
@@ -6978,21 +6993,28 @@
           : draft.services.flatMap((service) => effectiveDays(draft, service));
       return [...new Set(days)].sort((a, b) => a - b);
     }
-    function hoursOf(m: ServiceMinutes): ServiceHours {
+    function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours {
       return {
         ...m,
-        seating: { version: 1, interval: SEATING_INTERVAL_MINUTES },
-        bookingTypes: ["online", "phone"],
+        ...(kept ?? {
+          seating: { version: 1 as const, interval: SEATING_INTERVAL_MINUTES },
+          bookingTypes: ["online" as const, "phone" as const],
+        }),
       };
     }
-    function weekOf(draft: QuickSetupDraft, service: ServiceDraft, m: ServiceMinutes) {
+    function weekOf(
+      draft: QuickSetupDraft,
+      service: ServiceDraft,
+      m: ServiceMinutes,
+      keptOf: KeptHours | undefined
+    ) {
       const running = new Set(effectiveDays(draft, service));
-      const base = hoursOf(m);
+      const base = hoursOf(m, service.kept ?? keptOf);
       // A day in two blocks (the form moves it out of the first) takes the last block's hours.
       const blocks = service.blocks
         .flatMap((block) => {
           const bm = minutesOf(block);
-          return bm ? [{ days: block.days, hours: hoursOf(bm) }] : [];
+          return bm ? [{ days: block.days, hours: hoursOf(bm, block.kept ?? keptOf) }] : [];
         })
         .reverse();
       return Array.from({ length: 7 }, (_, day) =>
@@ -7007,6 +7029,8 @@
         venueServiceIds?: Readonly<Record<string, string>>;
         /** The days the rows are encoded over, when the schedule's use is fixed apart from the draft. */
         coveredDays?: readonly number[];
+        /** Per venue service id, the seating and booking types hours the draft carries none for take. */
+        keptOf?: Readonly<Record<string, KeptHours>>;
       }
     ): AvailabilityConfig {
       const scheduleId = existing?.regularScheduleId ?? newId();
@@ -7024,7 +7048,10 @@
         const name = service.name.trim();
         const venueServiceId = existing?.venueServiceIds?.[name.toLowerCase()] ?? newId();
         venueServices.push({ id: venueServiceId, name, position });
-        week.push({ venueServiceId, days: weekOf(draft, service, m) });
+        week.push({
+          venueServiceId,
+          days: weekOf(draft, service, m, existing?.keptOf?.[venueServiceId]),
+        });
       });
       const covered = existing?.coveredDays ?? coveredDays(draft);
       const scheduleServices: ScheduleService[] = encodeWeek(week, covered).map((row) => ({
@@ -7055,6 +7082,7 @@
         lastSeating,
         closes,
         lastSeatingLinked: lastSeating === autoLastSeating(closes, opens),
+        kept: { seating: hours.seating, bookingTypes: hours.bookingTypes },
       };
     }
     export function scheduleDays(
@@ -7818,27 +7846,17 @@
       const venueServiceIds = Object.fromEntries(
         config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
       );
-      const week = draftToConfig(draft, makeId, { venueServiceIds });
+      const live = liveSchedules(config).find((s) => s.isRegular);
+      const week = draftToConfig(draft, makeId, {
+        venueServiceIds,
+        keptOf: keptOf(config, live?.id),
+      });
       const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
       const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
       const [built] = week.schedules;
       const [covering] = week.assignments;
       if (!built || !covering) return { upsert: {}, remove: {} };
-      // The week editor has no controls for seating or booking types, so a service keeps the ones its
-      // regular-week row had (a service it never had gets quick setup's defaults).
-      const live = liveSchedules(config).find((s) => s.isRegular);
-      const was = new Map(
-        config.scheduleServices
-          .filter((s) => s.scheduleId === live?.id)
-          .map((s) => [s.venueServiceId, s])
-      );
-      const scheduleServices = week.scheduleServices.map((row) => {
-        const stored = was.get(row.venueServiceId);
-        if (!stored) return row;
-        const { seating, bookingTypes } = stored;
-        const sets = row.dayHours.sets.map((set) => ({ ...set, seating, bookingTypes }));
-        return { ...row, seating, bookingTypes, dayHours: { ...row.dayHours, sets } };
-      });
+      const { scheduleServices } = week;
       const rows = {
         upsert: {
           ...(created.length > 0 ? { venueServices: created } : {}),
@@ -7895,6 +7913,13 @@
       const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
       return mergeChanges(rows, { upsert: rename, remove: {} });
     }
+    function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) {
+      return Object.fromEntries(
+        config.scheduleServices
+          .filter((s) => s.scheduleId === scheduleId)
+          .map((s) => [s.venueServiceId, { seating: s.seating, bookingTypes: s.bookingTypes }])
+      );
+    }
     function scheduleRowChanges(input: {
       readonly config: AvailabilityConfig;
       readonly draft: QuickSetupDraft;
@@ -7907,19 +7932,20 @@
       const venueServiceIds = Object.fromEntries(
         config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
       );
-      const week = draftToConfig(draft, makeId, { venueServiceIds, coveredDays: covered });
+      const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
+      const week = draftToConfig(draft, makeId, {
+        venueServiceIds,
+        coveredDays: covered,
+        keptOf: keptOf(config, scheduleId),
+      });
       const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
       const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
-      const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
       const was = new Map(stored.map((s) => [s.venueServiceId, s]));
-      const scheduleServices = week.scheduleServices.map((row) => {
-        const prev = was.get(row.venueServiceId);
-        const own = { ...row, scheduleId };
-        if (!prev) return own;
-        const { seating, bookingTypes } = prev;
-        const sets = row.dayHours.sets.map((set) => ({ ...set, seating, bookingTypes }));
-        return { ...own, id: prev.id, seating, bookingTypes, dayHours: { ...row.dayHours, sets } };
-      });
+      const scheduleServices = week.scheduleServices.map((row) => ({
+        ...row,
+        scheduleId,
+        id: was.get(row.venueServiceId)?.id ?? row.id,
+      }));
       const kept = new Set(scheduleServices.map((s) => s.venueServiceId));
       const stillStored = new Set(stored.map((s) => s.id));
       const seen = (input.baseline?.scheduleServices ?? stored).filter(

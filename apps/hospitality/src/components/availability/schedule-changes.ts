@@ -268,27 +268,17 @@ export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityCo
   const venueServiceIds = Object.fromEntries(
     config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
   );
-  const week = draftToConfig(draft, makeId, { venueServiceIds });
+  const live = liveSchedules(config).find((s) => s.isRegular);
+  const week = draftToConfig(draft, makeId, {
+    venueServiceIds,
+    keptOf: keptOf(config, live?.id),
+  });
   const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
   const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
   const [built] = week.schedules;
   const [covering] = week.assignments;
   if (!built || !covering) return { upsert: {}, remove: {} };
-  // The week editor has no controls for seating or booking types, so a service keeps the ones its
-  // regular-week row had (a service it never had gets quick setup's defaults).
-  const live = liveSchedules(config).find((s) => s.isRegular);
-  const was = new Map(
-    config.scheduleServices
-      .filter((s) => s.scheduleId === live?.id)
-      .map((s) => [s.venueServiceId, s])
-  );
-  const scheduleServices = week.scheduleServices.map((row) => {
-    const stored = was.get(row.venueServiceId);
-    if (!stored) return row;
-    const { seating, bookingTypes } = stored;
-    const sets = row.dayHours.sets.map((set) => ({ ...set, seating, bookingTypes }));
-    return { ...row, seating, bookingTypes, dayHours: { ...row.dayHours, sets } };
-  });
+  const { scheduleServices } = week;
   const rows = {
     upsert: {
       ...(created.length > 0 ? { venueServices: created } : {}),
@@ -349,10 +339,23 @@ export function buildEditScheduleChanges(input: {
 }
 
 /**
+ * The seating and booking types each service of a schedule keeps, from its stored base row: what
+ * hours the editor made (a new block) take, since the editor has no controls for them. Hours that
+ * came from a stored row carry their own (`HoursBlock.kept`).
+ */
+function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) {
+  return Object.fromEntries(
+    config.scheduleServices
+      .filter((s) => s.scheduleId === scheduleId)
+      .map((s) => [s.venueServiceId, { seating: s.seating, bookingTypes: s.bookingTypes }])
+  );
+}
+
+/**
  * The rows of one schedule from the editor's draft, encoded over `covered` (`draftToConfig`).
  * Same-named venue services are reused and a service the schedule already ran keeps its row id,
- * seating and booking types (the editor has no controls for those). With `baseline`, a service
- * the Manager saw and dropped loses its row; a row only a colleague added is left alone.
+ * and its seating and booking types (the editor has no controls for those; each hour set's own
+ * ride in the draft). With `baseline`, a service the Manager saw and dropped loses its row; a row only a colleague added is left alone.
  */
 function scheduleRowChanges(input: {
   readonly config: AvailabilityConfig;
@@ -366,19 +369,20 @@ function scheduleRowChanges(input: {
   const venueServiceIds = Object.fromEntries(
     config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
   );
-  const week = draftToConfig(draft, makeId, { venueServiceIds, coveredDays: covered });
+  const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
+  const week = draftToConfig(draft, makeId, {
+    venueServiceIds,
+    coveredDays: covered,
+    keptOf: keptOf(config, scheduleId),
+  });
   const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
   const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
-  const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
   const was = new Map(stored.map((s) => [s.venueServiceId, s]));
-  const scheduleServices = week.scheduleServices.map((row) => {
-    const prev = was.get(row.venueServiceId);
-    const own = { ...row, scheduleId };
-    if (!prev) return own;
-    const { seating, bookingTypes } = prev;
-    const sets = row.dayHours.sets.map((set) => ({ ...set, seating, bookingTypes }));
-    return { ...own, id: prev.id, seating, bookingTypes, dayHours: { ...row.dayHours, sets } };
-  });
+  const scheduleServices = week.scheduleServices.map((row) => ({
+    ...row,
+    scheduleId,
+    id: was.get(row.venueServiceId)?.id ?? row.id,
+  }));
   const kept = new Set(scheduleServices.map((s) => s.venueServiceId));
   const stillStored = new Set(stored.map((s) => s.id));
   const seen = (input.baseline?.scheduleServices ?? stored).filter(

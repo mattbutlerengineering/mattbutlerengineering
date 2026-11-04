@@ -404,9 +404,10 @@ const WEEKDAY_NAMES = [
 function withoutIds(draft: QuickSetupDraft) {
   return {
     days: draft.days,
-    services: draft.services.map(({ id: _id, blocks, ...rest }) => ({
+    // `kept` (stored seating and booking types) is not something the form makes, so it is not compared.
+    services: draft.services.map(({ id: _id, kept: _kept, blocks, ...rest }) => ({
       ...rest,
-      blocks: blocks.map(({ id: _blockId, ...b }) => b),
+      blocks: blocks.map(({ id: _blockId, kept: _blockKept, ...b }) => b),
     })),
   };
 }

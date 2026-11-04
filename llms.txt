@@ -2236,11 +2236,15 @@
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
     <item priority="low">
+      type KeptHours = Pick<ServiceHours, "seating" | "bookingTypes">;
+    </item>
+    <item priority="low">
       interface DraftTimes {
         opens: string | null;
         lastSeating: string | null;
         closes: string | null;
         lastSeatingLinked: boolean;
+        kept?: KeptHours;
       }
     </item>
     <item priority="low">
@@ -2429,10 +2433,15 @@
       export function coveredDays(draft: QuickSetupDraft): number[] { /* ... */ }
     </item>
     <item priority="medium">
-      function hoursOf(m: ServiceMinutes): ServiceHours { /* ... */ }
+      function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours { /* ... */ }
     </item>
     <item priority="medium">
-      function weekOf(draft: QuickSetupDraft, service: ServiceDraft, m: ServiceMinutes) { /* ... */ }
+      function weekOf(
+        draft: QuickSetupDraft,
+        service: ServiceDraft,
+        m: ServiceMinutes,
+        keptOf: KeptHours | undefined
+      ) { /* ... */ }
     </item>
     <item priority="high">
       export function draftToConfig(
@@ -2443,6 +2452,8 @@
           venueServiceIds?: Readonly<Record<string, string>>;
           /** The days the rows are encoded over, when the schedule's use is fixed apart from the draft. */
           coveredDays?: readonly number[];
+          /** Per venue service id, the seating and booking types hours the draft carries none for take. */
+          keptOf?: Readonly<Record<string, KeptHours>>;
         }
       ): AvailabilityConfig { /* ... */ }
     </item>
@@ -2759,6 +2770,9 @@
         /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
         readonly baseline: AvailabilityConfig;
       }): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="medium">
+      function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) { /* ... */ }
     </item>
     <item priority="medium">
       function scheduleRowChanges(input: {
