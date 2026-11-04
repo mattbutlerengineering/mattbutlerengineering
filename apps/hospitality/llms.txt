@@ -3100,7 +3100,10 @@
       ): number[] { /* ... */ }
     </item>
     <item priority="high">
-      export async function mockEmptyVenue(page: Page, options: { derive?: boolean } = {}) { /* ... */ }
+      export async function mockEmptyVenue(
+        page: Page,
+        options: { derive?: boolean; config?: AvailabilityConfig } = {}
+      ) { /* ... */ }
     </item>
   </file>
   <file path="e2e/helpers/engine-days-mock.ts">

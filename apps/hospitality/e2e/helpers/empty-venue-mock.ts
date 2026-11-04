@@ -43,13 +43,18 @@ function changedWeekdays(
  * Every later PUT is applied on top of the rows already saved, and each one adds a History entry
  * worded as the service words a regular-week change (`regular_week_changed` with the weekdays whose
  * hours moved, from the engine); the service's own audit writer sits behind Prisma.
- * With `derive`, the calendar's day summaries and the guest preview are answered from the saved
+ * With `config`, the venue starts with those stored rows instead (a venue that already has a
+ * regular week). With `derive`, the calendar's day summaries and the guest preview are answered from the saved
  * week by the engine (`engine-days-mock.ts`); without it the day list stays empty.
  */
-export async function mockEmptyVenue(page: Page, options: { derive?: boolean } = {}) {
+export async function mockEmptyVenue(
+  page: Page,
+  options: { derive?: boolean; config?: AvailabilityConfig } = {}
+) {
   let saved: Record<string, unknown> | null = null;
   let version = 3;
-  let config: AvailabilityConfig = EMPTY_CONFIG;
+  let config: AvailabilityConfig = options.config ?? EMPTY_CONFIG;
+  const hasRows = () => saved !== null || options.config !== undefined;
   const history: AvailabilityChangeEntry[] = [];
   const appliedConfig = (): AvailabilityConfig => config;
 
@@ -62,7 +67,10 @@ export async function mockEmptyVenue(page: Page, options: { derive?: boolean } =
   await page.route("**/api/v1/venues?*", (route) => {
     const [venue] = venues.data;
     const data = [
-      { ...venue, operatingHours: saved ? { monday: { open: "17:00", close: "22:00" } } : null },
+      {
+        ...venue,
+        operatingHours: hasRows() ? { monday: { open: "17:00", close: "22:00" } } : null,
+      },
     ];
     return route.fulfill({
       status: 200,
@@ -120,7 +128,7 @@ export async function mockEmptyVenue(page: Page, options: { derive?: boolean } =
       status: 200,
       contentType: "application/json",
       body: JSON.stringify({
-        data: saved
+        data: hasRows()
           ? {
               config: appliedConfig(),
               version,
