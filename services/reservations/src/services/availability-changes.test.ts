@@ -340,6 +340,8 @@ const CURRENT_SERVICE = {
   closesAt: 1320,
   seating: { version: 1, interval: 15 },
   bookingTypes: ["online", "phone"],
+  weekdays: [],
+  dayHours: { version: 1 as const, sets: [] },
 };
 const PRIOR_SERVICE = { ...CURRENT_SERVICE, opensAt: 1020 };
 

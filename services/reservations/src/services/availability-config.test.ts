@@ -24,6 +24,8 @@ const CONFIG: AvailabilityConfig = {
       closesAt: 1320,
       seating: { version: 1, interval: 15 },
       bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1 as const, sets: [] },
     },
   ],
   assignments: [
@@ -694,6 +696,8 @@ describe("getAvailabilityConfig: the migrated flag", () => {
             closesAt: 1320,
             seating: { version: 1, interval: 15 },
             bookingTypes: ["online", "phone"],
+            weekdays: [],
+            dayHours: { version: 1 as const, sets: [] },
           },
         ]),
       },
