@@ -136,6 +136,7 @@ export function TapeChartPage() {
         todayLabel: "本日",
         nightsLabel: (n: number) => `${n}泊`,
         partySizeLabel: (n: number) => `${n}名`,
+        reservationCountLabel: () => "予約",
       };
     }
     if (locale === "de-DE") {
@@ -150,6 +151,7 @@ export function TapeChartPage() {
         todayLabel: "Heute",
         nightsLabel: (n: number) => (n === 1 ? "1 Nacht" : `${n} Nächte`),
         partySizeLabel: (n: number) => (n === 1 ? "1 Gast" : `${n} Gäste`),
+        reservationCountLabel: (n: number) => (n === 1 ? "Reservierung" : "Reservierungen"),
       };
     }
     if (locale === "ar-SA") {
@@ -164,6 +166,7 @@ export function TapeChartPage() {
         todayLabel: "اليوم",
         nightsLabel: (n: number) => (n === 1 ? "ليلة واحدة" : `${n} ليالٍ`),
         partySizeLabel: (n: number) => (n === 1 ? "ضيف واحد" : `${n} ضيوف`),
+        reservationCountLabel: (n: number) => (n === 1 ? "حجز" : "حجوزات"),
       };
     }
     return undefined;

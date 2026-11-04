@@ -505,4 +505,69 @@ describe("useFlipDotAnimation", () => {
       vi.useRealTimers();
     });
   });
+
+  describe("autoStart across commits", () => {
+    function litColumns(matrix: readonly (readonly boolean[])[]): number {
+      const width = matrix[0]?.length ?? 0;
+      let count = 0;
+      for (let col = 0; col < width; col++) {
+        if (matrix.some((row) => row[col])) count += 1;
+      }
+      return count;
+    }
+
+    async function step(times: number, ms: number) {
+      for (let i = 0; i < times; i++) {
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(ms);
+        });
+      }
+    }
+
+    it("scroll-left keeps advancing after each commit instead of resetting to a blank frame", async () => {
+      vi.useFakeTimers();
+      const { result, unmount } = renderHook(() =>
+        useFlipDotAnimation({
+          rows: 7,
+          cols: 6,
+          text: "A",
+          mode: "scroll-left",
+          speed: 20,
+          loop: true,
+          autoStart: true,
+        })
+      );
+      try {
+        await step(6, 20);
+        expect(result.current.matrix.flat().some(Boolean)).toBe(true);
+        expect(result.current.isPlaying).toBe(true);
+      } finally {
+        unmount();
+        vi.useRealTimers();
+      }
+    });
+
+    it("typewriter reveals past the first column and then stops so replay can run", async () => {
+      vi.useFakeTimers();
+      const { result, unmount } = renderHook(() =>
+        useFlipDotAnimation({
+          rows: 7,
+          cols: 8,
+          text: "A",
+          mode: "typewriter",
+          speed: 20,
+          loop: false,
+          autoStart: true,
+        })
+      );
+      try {
+        await step(8, 20);
+        expect(litColumns(result.current.matrix)).toBeGreaterThan(1);
+        expect(result.current.isPlaying).toBe(false);
+      } finally {
+        unmount();
+        vi.useRealTimers();
+      }
+    });
+  });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { textToMatrix, createEmptyMatrix } from "./pixel-font";
 
 export type FlipDotAnimationMode =
@@ -51,7 +51,7 @@ export function useFlipDotAnimation(
     autoStart = true,
   } = options;
 
-  const empty = createEmptyMatrix(rows, cols);
+  const empty = useMemo(() => createEmptyMatrix(rows, cols), [rows, cols]);
   const [matrix, setMatrix] = useState<readonly (readonly boolean[])[]>(empty);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -174,11 +174,23 @@ export function useFlipDotAnimation(
     stepRef.current += 1;
   }, [mode, cols, loop, frames, empty, sliceColumns, clearTimer]);
 
+  // The interval must call the latest tick without listing `tick` as an
+  // effect dependency. `empty` used to be a new array every render, so
+  // `tick` changed every commit, the effect cleared the interval, and
+  // autoStart reset the step — the marquee stayed blank and the typewriter
+  // stayed on its first column, with Restart/Replay disabled.
+  const tickRef = useRef(tick);
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
+
   const start = useCallback(() => {
     clearTimer();
     setIsPlaying(true);
-    intervalRef.current = setInterval(tick, speed);
-  }, [clearTimer, tick, speed]);
+    intervalRef.current = setInterval(() => {
+      tickRef.current();
+    }, speed);
+  }, [clearTimer, speed]);
 
   const pause = useCallback(() => {
     clearTimer();
@@ -198,10 +210,12 @@ export function useFlipDotAnimation(
       stepRef.current = 0;
       // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional mount sync
       setIsPlaying(true);
-      intervalRef.current = setInterval(tick, speed);
+      intervalRef.current = setInterval(() => {
+        tickRef.current();
+      }, speed);
     }
     return clearTimer;
-  }, [autoStart, tick, speed, clearTimer]);
+  }, [autoStart, speed, clearTimer]);
 
   return { matrix, start, pause, reset, isPlaying };
 }

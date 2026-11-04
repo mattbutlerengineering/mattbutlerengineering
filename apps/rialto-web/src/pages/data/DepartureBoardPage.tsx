@@ -25,25 +25,40 @@ export function DepartureBoardPage() {
       </Section>
 
       {/* ── Sizes ─────────────────────────────────────────────────── */}
+      {/* Stretch, not start: a start-aligned stack shrink-wraps to the short
+          "sm" caption, and the board's 100% width then collapses the
+          container-query font to a sliver. */}
       <Section title="Sizes">
-        <Stack gap="lg" align="start">
-          <Stack gap="xs">
+        <Stack gap="lg" align="stretch">
+          <Stack gap="xs" align="start">
             <Text variant="caption" color="secondary">
               sm
             </Text>
-            <DepartureBoard phrases={VALUE_PROPS} size="sm" />
+            <DepartureBoard
+              phrases={VALUE_PROPS}
+              size="sm"
+              style={{ justifyContent: "flex-start" }}
+            />
           </Stack>
-          <Stack gap="xs">
+          <Stack gap="xs" align="start">
             <Text variant="caption" color="secondary">
               md
             </Text>
-            <DepartureBoard phrases={VALUE_PROPS} size="md" />
+            <DepartureBoard
+              phrases={VALUE_PROPS}
+              size="md"
+              style={{ justifyContent: "flex-start" }}
+            />
           </Stack>
-          <Stack gap="xs">
+          <Stack gap="xs" align="start">
             <Text variant="caption" color="secondary">
               lg (default)
             </Text>
-            <DepartureBoard phrases={VALUE_PROPS} size="lg" />
+            <DepartureBoard
+              phrases={VALUE_PROPS}
+              size="lg"
+              style={{ justifyContent: "flex-start" }}
+            />
           </Stack>
         </Stack>
       </Section>

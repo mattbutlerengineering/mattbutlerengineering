@@ -56,6 +56,7 @@ export function DataListPage() {
       {/* ── Vertical ──────────────────────────────────────────────── */}
       <Section title="Vertical (default)">
         <DataList
+          orientation="vertical"
           items={[
             { label: "Engine", value: "Twin-turbo 3.0L V6 Hybrid" },
             { label: "Power", value: "1,200 PS" },
