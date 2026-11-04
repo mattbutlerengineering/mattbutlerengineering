@@ -203,6 +203,26 @@ describe("buildOptimizeLogEntry", () => {
   });
 });
 
+describe("buildOptimizeLogEntry review_coverage_trend (#8186)", () => {
+  it("logs the trend's previous value as 'was'", () => {
+    const result = {
+      ...REGRESSED_RESULT,
+      regressions: [
+        {
+          sensor: "queueEfficiency",
+          metric: "review_coverage_trend",
+          current: 0.5,
+          previous: 0.8,
+          delta: -0.3,
+          severity: "high",
+        },
+      ],
+    };
+    const entry = buildOptimizeLogEntry("2026-11-04", result, 1);
+    expect(entry).toContain("review_coverage_trend: 0.5 (was 0.8");
+  });
+});
+
 describe("buildRegressionIssueBody", () => {
   const regression = REGRESSED_RESULT.regressions[0];
 
@@ -237,6 +257,30 @@ describe("buildRegressionIssueBody", () => {
   it("references the learning loop skill", () => {
     const body = buildRegressionIssueBody(regression, REGRESSED_RESULT);
     expect(body).toContain("optimize-implement-queue");
+  });
+
+  describe("review_coverage_trend (#8186)", () => {
+    const trend = {
+      sensor: "queueEfficiency",
+      metric: "review_coverage_trend",
+      current: 0.5,
+      previous: 0.8,
+      delta: -0.3,
+      severity: "high",
+    };
+
+    it("renders the trend's start value as the baseline", () => {
+      const body = buildRegressionIssueBody(trend, REGRESSED_RESULT);
+      expect(body).toContain("**Baseline:** 0.8");
+      expect(body).not.toContain("**Baseline:** n/a");
+    });
+
+    it("uses review-coverage acceptance criteria, not the composite wording", () => {
+      const body = buildRegressionIssueBody(trend, REGRESSED_RESULT);
+      expect(body).toContain("review_coverage");
+      expect(body).toContain("stops declining");
+      expect(body).not.toContain("composite regression clears");
+    });
   });
 });
 
@@ -288,6 +332,52 @@ describe("isRealRegression", () => {
       },
     };
     expect(isRealRegression(dominantXlLarge)).toBe(true);
+  });
+
+  it("returns true for a lone review_coverage_trend regression (#8186)", () => {
+    const lone = {
+      ...HEALTHY_RESULT,
+      regressions: [
+        {
+          sensor: "queueEfficiency",
+          metric: "review_coverage_trend",
+          current: 0.5,
+          previous: 0.8,
+          delta: -0.3,
+          severity: "high",
+        },
+      ],
+    };
+    expect(isRealRegression(lone)).toBe(true);
+  });
+
+  it("a trend regression survives xl-dominant suppression of a small composite drop (#8186)", () => {
+    const mixed = {
+      ...REGRESSED_RESULT,
+      distribution: {
+        "size:xl": { count: 9, avg_commits: 3.0, avg_ttm_hours: 35.0 },
+        "size:xs": { count: 1, avg_commits: 1.0, avg_ttm_hours: 5.0 },
+      },
+      regressions: [
+        {
+          sensor: "queueEfficiency",
+          metric: "composite",
+          current: 0.77,
+          baseline: 0.8,
+          delta: -0.03,
+          severity: "medium",
+        },
+        {
+          sensor: "queueEfficiency",
+          metric: "review_coverage_trend",
+          current: 0.5,
+          previous: 0.8,
+          delta: -0.3,
+          severity: "high",
+        },
+      ],
+    };
+    expect(isRealRegression(mixed)).toBe(true);
   });
 });
 

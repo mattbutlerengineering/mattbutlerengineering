@@ -124,7 +124,7 @@ export function buildOptimizeLogEntry(date, sensorResult, issueCount) {
     lines.push("**Regressions:**");
     for (const r of regressions) {
       lines.push(
-        `  - ${r.metric}: ${r.current} (was ${r.baseline ?? "n/a"}, Δ${r.delta ?? ""}) [${r.severity}]`
+        `  - ${r.metric}: ${r.current} (was ${r.baseline ?? r.previous ?? "n/a"}, Δ${r.delta ?? ""}) [${r.severity}]`
       );
     }
   }
@@ -153,20 +153,29 @@ export function buildRegressionIssueBody(regression, sensorResult) {
     ? `\n## Difficulty Distribution (Goodhart guard)\n\n| Tier | Count | Avg commits | Avg TTM |\n|------|-------|-------------|--------|\n${tierRows}\n`
     : "";
 
+  // A trend regression carries `previous` (the window's first reading), not `baseline`.
+  const baseline = regression.baseline ?? regression.previous;
+  const isReviewTrend = regression.metric === "review_coverage_trend";
+  const criteria = isReviewTrend
+    ? `- [ ] \`review_coverage\` stops declining and recovers to ≥ ${baseline ?? "the window's starting value"}
+- [ ] Verified by next optimize-implement-queue run (\`review_coverage_trend\` regression clears)
+- [ ] Root cause identified (reviewer dispatch skipped, review gate narrowed, or PRs bypassing review)`
+    : `- [ ] \`${regression.metric}\` returns to baseline level or better (≥ ${baseline ?? "previous value"})
+- [ ] Verified by next optimize-implement-queue run (composite regression clears)
+- [ ] Root cause identified (agent/prompt quality vs harder issues; use async eval to distinguish)`;
+
   return `## Regression Detected
 
 **Sensor:** ${regression.sensor}
 **Metric:** ${regression.metric}
 **Current:** ${regression.current}
-**Baseline:** ${regression.baseline ?? "n/a"}
+**Baseline:** ${baseline ?? "n/a"}
 **Delta:** ${regression.delta ?? "n/a"}
 **Severity:** ${regression.severity}
 ${distSection}
 ## Acceptance Criteria
 
-- [ ] \`${regression.metric}\` returns to baseline level or better (≥ ${regression.baseline ?? "previous value"})
-- [ ] Verified by next optimize-implement-queue run (composite regression clears)
-- [ ] Root cause identified (agent/prompt quality vs harder issues; use async eval to distinguish)
+${criteria}
 
 ## Notes
 
@@ -195,8 +204,10 @@ export function isRealRegression(sensorResult) {
   if (regressions.length === 0) return false;
 
   // Check difficulty normalization: if xl-dominant, require larger composite drop.
+  // It only discounts the composite; any other metric's regression (e.g.
+  // review_coverage_trend, #8186) is real on its own.
   const xl = xlFraction(sensorResult.distribution ?? {});
-  if (xl > XL_DOMINANT_THRESHOLD) {
+  if (xl > XL_DOMINANT_THRESHOLD && regressions.every((r) => r.metric === "composite")) {
     const compositeRegression = regressions.find((r) => r.metric === "composite");
     if (compositeRegression) {
       const dropMagnitude = Math.abs(compositeRegression.delta ?? 0);
