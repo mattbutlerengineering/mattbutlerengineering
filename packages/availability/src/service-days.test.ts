@@ -259,6 +259,36 @@ describe("resolveDay with day scope", () => {
   });
 });
 
+describe("encodeWeek canonical form", () => {
+  const base = {
+    opensAt: 1020,
+    lastSeatingAt: 1335,
+    closesAt: 1380,
+  };
+  it("groups days whose bookingTypes or fixed seating differ only in order", () => {
+    fc.assert(
+      fc.property(
+        fc.shuffledSubarray(["online", "phone", "walk_in"], { minLength: 3, maxLength: 3 }),
+        fc.shuffledSubarray([1080, 1140, 1200], { minLength: 3, maxLength: 3 }),
+        (types, fixed) => {
+          const monday = {
+            ...base,
+            seating: { fixed: [1080, 1140, 1200] },
+            bookingTypes: ["online", "phone", "walk_in"],
+          } as ServiceHours;
+          const tuesday = { ...monday, seating: { fixed }, bookingTypes: types } as ServiceHours;
+          const days = Array.from({ length: 7 }, (_, d) =>
+            d === 1 ? monday : d === 2 ? tuesday : null
+          );
+          const [row] = encodeWeek([{ venueServiceId: "vs", days }], [1, 2]);
+          expect(row?.dayHours.sets).toEqual([]);
+          expect(row?.weekdays).toEqual([]);
+        }
+      )
+    );
+  });
+});
+
 describe("encodeWeek and decodeWeek", () => {
   const hoursOf = (opensAt: number, closesAt: number): ServiceHours => ({
     opensAt,

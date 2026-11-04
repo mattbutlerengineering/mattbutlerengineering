@@ -116,8 +116,13 @@ export type EncodedRow = Pick<
 export const WEEK_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
 
 function hoursKey(h: ServiceHours): string {
-  const seating = "interval" in h.seating ? ["i", h.seating.interval] : ["f", h.seating.fixed];
-  return JSON.stringify([h.opensAt, h.lastSeatingAt, h.closesAt, seating, h.bookingTypes]);
+  const seating =
+    "interval" in h.seating
+      ? ["i", h.seating.interval]
+      : ["f", [...h.seating.fixed].sort((a, b) => a - b)];
+  // Order is not meaning: the same booking types or fixed times in another order are the same hours.
+  const bookingTypes = [...h.bookingTypes].sort();
+  return JSON.stringify([h.opensAt, h.lastSeatingAt, h.closesAt, seating, bookingTypes]);
 }
 
 interface HoursGroup {

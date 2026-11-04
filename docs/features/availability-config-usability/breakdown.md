@@ -274,7 +274,7 @@ none.
   - Accept: a collapse test where a service only the folded schedules ran gets a new row has that row's id under `created.scheduleServices` in the `replaced` log entry; `reference.md` says rollback is manual.
 - [ ] **Minor 3: the collapse script's `refused` check compares issue sets** — a collapse that fixes one issue and adds another is refused.
   - Accept: a unit test where the collapse swaps one validation issue for a different one (equal count) is refused; a collapse that only removes issues is not.
-- [ ] **Minor 4: `encodeWeek` is canonical over `bookingTypes` and `fixed` seating order** — same input, same rows.
+- [x] **Minor 4: `encodeWeek` is canonical over `bookingTypes` and `fixed` seating order** — same input, same rows.
   - Accept: a test (permutations of `bookingTypes` and `fixed` seating across days) where days equal but for order encode to one hours group with no spurious set.
 - [ ] **Minor 5: the "varied week faster than today" e2e guard can fail** — it compares against a constant measured once.
   - Accept: the guard asserts the count against a constant bound; a mutated (lowered) bound makes the spec fail, shown by running it; the bound is restored and the spec passes.
