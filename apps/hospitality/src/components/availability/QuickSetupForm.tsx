@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Button,
-  Checkbox,
   Heading,
   Input,
   Stack,
@@ -10,36 +9,24 @@ import {
   Text,
   TimePicker,
 } from "@mattbutlerengineering/rialto";
-import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { clockHour } from "../../utils/clock-hour.js";
 import {
   SERVICE_NAME_MAX_LENGTH,
   SERVICE_PRESET_IDS,
-  WEEKDAY_SHORTCUT,
-  WEEKEND_SHORTCUT,
-  WEEK_DISPLAY_ORDER,
   applyPreset,
   autoLastSeating,
   emptyService,
   replaceService,
+  setServiceDays,
   setServiceTime,
-  toggleDay,
   type QuickSetupDraft,
-  type QuickSetupField,
   type QuickSetupIssue,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
+import { issuesFor, quickSetupFieldId } from "./quick-setup-field-helpers.js";
+import { DayPicker, IssueText } from "./quick-setup-fields.js";
 import styles from "./QuickSetupForm.module.css";
-
-/** A fixed Monday: weekday names come from the active locale, never a hand-kept list. */
-const SAMPLE_MONDAY = "2026-10-26";
-const DAYS_FIELD_ID = "quick-setup-days";
-
-/** The DOM id of a field, so the owner can move focus to the first invalid one. */
-export function quickSetupFieldId(serviceId: string | null, field: QuickSetupField | "days") {
-  return field === "days" ? DAYS_FIELD_ID : `quick-setup-${serviceId}-${field}`;
-}
 
 export interface QuickSetupFormProps {
   readonly draft: QuickSetupDraft;
@@ -48,20 +35,8 @@ export interface QuickSetupFormProps {
   readonly issues: readonly QuickSetupIssue[];
 }
 
-function issuesFor(issues: readonly QuickSetupIssue[], serviceId: string | null, field: string) {
-  return issues.filter((i) => i.serviceId === serviceId && i.field === field);
-}
-
-function IssueText({ problems }: { readonly problems: readonly QuickSetupIssue[] }) {
-  const { t } = useTranslation();
-  return problems.map((p) => (
-    <Text key={p.code} variant="caption" color="error" role="alert">
-      {t(`availability.quickSetup.issues.${p.code}`)}
-    </Text>
-  ));
-}
-
 interface TimeFieldProps {
+  readonly draft: QuickSetupDraft;
   readonly service: ServiceDraft;
   readonly field: "opens" | "lastSeating" | "closes";
   readonly label: string;
@@ -69,7 +44,7 @@ interface TimeFieldProps {
   readonly onChange: (next: ServiceDraft) => void;
 }
 
-function TimeField({ service, field, label, issues, onChange }: TimeFieldProps) {
+function TimeField({ draft, service, field, label, issues, onChange }: TimeFieldProps) {
   return (
     <div className={styles.timeField}>
       <TimePicker
@@ -78,12 +53,13 @@ function TimeField({ service, field, label, issues, onChange }: TimeFieldProps) 
         value={service[field]}
         onChange={(value) => onChange(setServiceTime(service, field, value))}
       />
-      <IssueText problems={issuesFor(issues, service.id, field)} />
+      <IssueText problems={issuesFor(issues, service.id, field)} draft={draft} />
     </div>
   );
 }
 
 interface ServiceRowProps {
+  readonly draft: QuickSetupDraft;
   readonly service: ServiceDraft;
   readonly index: number;
   readonly removable: boolean;
@@ -92,7 +68,15 @@ interface ServiceRowProps {
   readonly onRemove: () => void;
 }
 
-function ServiceRow({ service, index, removable, issues, onChange, onRemove }: ServiceRowProps) {
+function ServiceRow({
+  draft,
+  service,
+  index,
+  removable,
+  issues,
+  onChange,
+  onRemove,
+}: ServiceRowProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const nameProblems = issuesFor(issues, service.id, "name");
@@ -100,6 +84,23 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
     t(`availability.quickSetup.presets.${id}`);
   const lastSeating =
     service.closes === null ? null : autoLastSeating(service.closes, service.opens);
+
+  // F1 3: the disclosure is open while the service has days of its own.
+  const ownDays = service.days !== null;
+  const daysRef = useRef<HTMLFieldSetElement>(null);
+  const daysButtonRef = useRef<HTMLButtonElement>(null);
+  const focusAfterToggleRef = useRef<"into" | "back" | null>(null);
+  useEffect(() => {
+    const target = focusAfterToggleRef.current;
+    focusAfterToggleRef.current = null;
+    if (target === "into") daysRef.current?.querySelector("input")?.focus();
+    if (target === "back") daysButtonRef.current?.focus();
+  }, [ownDays]);
+  const setOwnDays = (open: boolean) => {
+    focusAfterToggleRef.current = open ? "into" : "back";
+    onChange(setServiceDays(service, open ? [...draft.days] : null));
+  };
+
   return (
     <fieldset className={styles.service}>
       <legend className={styles.legend}>
@@ -125,9 +126,10 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
           error={nameProblems.length > 0}
           onChange={(e) => onChange({ ...service, name: e.target.value })}
         />
-        <IssueText problems={nameProblems} />
+        <IssueText problems={nameProblems} draft={draft} />
         <div className={styles.times}>
           <TimeField
+            draft={draft}
             service={service}
             field="opens"
             label={t("availability.quickSetup.opens")}
@@ -135,6 +137,7 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
             onChange={onChange}
           />
           <TimeField
+            draft={draft}
             service={service}
             field="lastSeating"
             label={t("availability.quickSetup.lastSeating")}
@@ -142,6 +145,7 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
             onChange={onChange}
           />
           <TimeField
+            draft={draft}
             service={service}
             field="closes"
             label={t("availability.quickSetup.closes")}
@@ -157,6 +161,38 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
             })}
           </Text>
         )}
+        <div>
+          <Button
+            ref={daysButtonRef}
+            variant="ghost"
+            size="sm"
+            aria-expanded={ownDays}
+            onClick={() => setOwnDays(!ownDays)}
+          >
+            {t("availability.quickSetup.differentDays")}
+          </Button>
+        </div>
+        {service.days !== null && (
+          <>
+            <div>
+              <Button variant="ghost" size="sm" onClick={() => setOwnDays(false)}>
+                {t("availability.quickSetup.useSharedDays")}
+              </Button>
+            </div>
+            <DayPicker
+              id={quickSetupFieldId(service.id, "days")}
+              ref={daysRef}
+              legend={t("availability.quickSetup.runsOn", {
+                service:
+                  service.name.trim() || t("availability.quickSetup.serviceN", { n: index + 1 }),
+              })}
+              days={service.days}
+              onChange={(days) => onChange(setServiceDays(service, days))}
+              draft={draft}
+              problems={issuesFor(issues, service.id, "days")}
+            />
+          </>
+        )}
         {removable && (
           <div>
             <Button variant="ghost" size="sm" onClick={onRemove}>
@@ -171,43 +207,26 @@ function ServiceRow({ service, index, removable, issues, onChange, onRemove }: S
 
 function DaysField({ draft, onChange, issues }: QuickSetupFormProps) {
   const { t } = useTranslation();
-  const format = useVenueFormat();
-  const shortcuts = [
-    { id: "weekdays", days: WEEKDAY_SHORTCUT },
-    { id: "weekends", days: WEEKEND_SHORTCUT },
-    { id: "everyDay", days: WEEK_DISPLAY_ORDER },
-  ] as const;
+  // F1 5: nothing follows the shared days, so there is nothing to ask.
+  if (draft.services.length > 0 && draft.services.every((s) => s.days !== null)) {
+    return (
+      <fieldset className={styles.days} id={quickSetupFieldId(null, "days")}>
+        <legend className={styles.legend}>{t("availability.quickSetup.days")}</legend>
+        <Text variant="body" color="secondary">
+          {t("availability.quickSetup.everyServiceOwnDays")}
+        </Text>
+      </fieldset>
+    );
+  }
   return (
-    <fieldset className={styles.days} id={DAYS_FIELD_ID} tabIndex={-1}>
-      <legend className={styles.legend}>{t("availability.quickSetup.days")}</legend>
-      <Stack gap="sm">
-        <div className={styles.chips}>
-          {shortcuts.map(({ id, days }) => (
-            <Button
-              key={id}
-              variant="secondary"
-              size="sm"
-              onClick={() => onChange({ ...draft, days })}
-            >
-              {t(`availability.quickSetup.shortcuts.${id}`)}
-            </Button>
-          ))}
-        </div>
-        <div className={styles.dayToggles}>
-          {WEEK_DISPLAY_ORDER.map((day, position) => (
-            <Checkbox
-              key={day}
-              label={format.formatCalendarDate(addDays(SAMPLE_MONDAY, position), {
-                weekday: "long",
-              })}
-              checked={draft.days.includes(day)}
-              onCheckedChange={() => onChange(toggleDay(draft, day))}
-            />
-          ))}
-        </div>
-        <IssueText problems={issuesFor(issues, null, "days")} />
-      </Stack>
-    </fieldset>
+    <DayPicker
+      id={quickSetupFieldId(null, "days")}
+      legend={t("availability.quickSetup.days")}
+      days={draft.days}
+      onChange={(days) => onChange({ ...draft, days })}
+      draft={draft}
+      problems={issuesFor(issues, null, "days")}
+    />
   );
 }
 
@@ -275,6 +294,7 @@ export function QuickSetupForm({ draft, onChange, issues }: QuickSetupFormProps)
       <Stack gap="md">
         {draft.services.map((service, index) => (
           <ServiceRow
+            draft={draft}
             key={service.id}
             service={service}
             index={index}

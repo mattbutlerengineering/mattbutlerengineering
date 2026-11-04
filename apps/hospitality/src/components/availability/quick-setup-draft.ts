@@ -158,11 +158,26 @@ export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): Quic
   return { ...draft, services: draft.services.map((s) => (s.id === next.id ? next : s)) };
 }
 
-export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft {
-  const days = draft.days.includes(day)
-    ? draft.days.filter((d) => d !== day)
-    : [...draft.days, day];
-  return { ...draft, days };
+export function toggleDayIn(days: readonly number[], day: number): readonly number[] {
+  return days.includes(day) ? days.filter((d) => d !== day) : [...days, day];
+}
+
+/**
+ * A service's own days (`null` follows the shared days again). Days its blocks had on days it no
+ * longer runs are dropped from them.
+ */
+export function setServiceDays(
+  service: ServiceDraft,
+  days: readonly number[] | null
+): ServiceDraft {
+  const blocks =
+    days === null
+      ? service.blocks
+      : service.blocks.map((block) => ({
+          ...block,
+          days: block.days.filter((day) => days.includes(day)),
+        }));
+  return { ...service, days, blocks };
 }
 
 // ── Validation ────────────────────────────────────────────────────────────

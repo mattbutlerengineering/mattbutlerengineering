@@ -6455,11 +6455,21 @@
     export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
       return { ...draft, services: draft.services.map((s) => (s.id === next.id ? next : s)) };
     }
-    export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft {
-      const days = draft.days.includes(day)
-        ? draft.days.filter((d) => d !== day)
-        : [...draft.days, day];
-      return { ...draft, days };
+    export function toggleDayIn(days: readonly number[], day: number): readonly number[] {
+      return days.includes(day) ? days.filter((d) => d !== day) : [...days, day];
+    }
+    export function setServiceDays(
+      service: ServiceDraft,
+      days: readonly number[] | null
+    ): ServiceDraft {
+      const blocks =
+        days === null
+          ? service.blocks
+          : service.blocks.map((block) => ({
+              ...block,
+              days: block.days.filter((day) => days.includes(day)),
+            }));
+      return { ...service, days, blocks };
     }
     export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     export type QuickSetupIssueCode =
@@ -6854,6 +6864,31 @@
         ],
         days: open.map((o) => o.index),
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-field-helpers.ts">
+    export function quickSetupFieldId(
+      serviceId: string | null,
+      field: QuickSetupField | "days",
+      blockId?: string
+    ) {
+      if (serviceId === null) return DAYS_FIELD_ID;
+      return `quick-setup-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
+    }
+    export function issuesFor(
+      issues: readonly QuickSetupIssue[],
+      serviceId: string | null,
+      field: string,
+      blockId?: string
+    ) {
+      return issues.filter(
+        (i) => i.serviceId === serviceId && i.field === field && i.blockId === blockId
+      );
+    }
+    export function useWeekdayName() {
+      const format = useVenueFormat();
+      return (day: number, weekday: "long" | "short" = "long") =>
+        format.formatCalendarDate(addDays(SAMPLE_MONDAY, WEEK_DISPLAY_ORDER.indexOf(day)), { weekday });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/removal-diff.ts">

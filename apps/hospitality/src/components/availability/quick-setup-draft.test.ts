@@ -14,8 +14,9 @@ import {
   emptyService,
   issueMessage,
   replaceService,
+  setServiceDays,
   setServiceTime,
-  toggleDay,
+  toggleDayIn,
   validateDraft,
   validateQuickSetupHours,
   WEEKDAY_SHORTCUT,
@@ -109,9 +110,18 @@ describe("quick setup draft", () => {
   });
 
   it("toggles a day on and off", () => {
-    const on = toggleDay(emptyDraft("s1"), 6);
-    expect(on.days).toEqual([6]);
-    expect(toggleDay(on, 6).days).toEqual([]);
+    const on = toggleDayIn(emptyDraft("s1").days, 6);
+    expect(on).toEqual([6]);
+    expect(toggleDayIn(on, 6)).toEqual([]);
+  });
+
+  it("drops a block's days the service no longer runs on when its own days change", () => {
+    const dinner = service("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+      days: EVERY_DAY,
+      blocks: [block("late", [5, 6], ["17:00", "22:00", "00:00"])],
+    });
+    expect(setServiceDays(dinner, [1, 2, 3, 4, 5]).blocks[0]?.days).toEqual([5]);
+    expect(setServiceDays(dinner, null).blocks[0]?.days).toEqual([5, 6]);
   });
 
   it("accepts the bistro week", () => {

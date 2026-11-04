@@ -2235,7 +2235,13 @@
       export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft { /* ... */ }
     </item>
     <item priority="high">
-      export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft { /* ... */ }
+      export function toggleDayIn(days: readonly number[], day: number): readonly number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setServiceDays(
+        service: ServiceDraft,
+        days: readonly number[] | null
+      ): ServiceDraft { /* ... */ }
     </item>
     <item priority="low">
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
@@ -2348,6 +2354,26 @@
     </item>
     <item priority="high">
       export function draftFromLegacyHours(hours: OperatingHours, serviceId: string): QuickSetupDraft { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-field-helpers.ts">
+    <item priority="high">
+      export function quickSetupFieldId(
+        serviceId: string | null,
+        field: QuickSetupField | "days",
+        blockId?: string
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issuesFor(
+        issues: readonly QuickSetupIssue[],
+        serviceId: string | null,
+        field: string,
+        blockId?: string
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useWeekdayName() { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/removal-diff.ts">
