@@ -49,6 +49,16 @@ describe("the server's en-US words (#7980)", () => {
     expect(view.label).toBe("availability.calendar.dayLabel.closed");
     expect(view.accessibleDetails).toBe("availability.calendar.dayLabel.closed");
   });
+
+  it("marks a closed and a special-hours day apart from a schedule's day, whatever the language", () => {
+    const tone = (label: string) =>
+      presentDay("2026-10-30", { ...baseSummary, label }, false, t, format).tone;
+    expect(tone("Closed")).toBe("closed");
+    expect(tone("Special hours")).toBe("special");
+    expect(tone("Regular week")).toBeNull();
+    expect(tone("Summer patio")).toBeNull();
+    expect(presentDay("2026-10-30", undefined, false, t, format).tone).toBeNull();
+  });
 });
 
 describe("presentDay services", () => {
