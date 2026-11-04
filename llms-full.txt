@@ -1935,7 +1935,11 @@
       /** ISO date (exclusive). */
       endDate: string;
       locale?: string;
-      /** IANA time zone (e.g. "America/Los_Angeles"). Defaults to the runtime zone. */
+      /**
+       * IANA time zone used to decide which calendar day is "today"
+       * (e.g. "America/Los_Angeles"). Defaults to the runtime zone.
+       * Day labels stay on the YYYY-MM-DD calendar day and do not shift with this zone.
+       */
       timeZone?: string;
       /** ISO 4217 code used for rate display when reservations don't carry their own. */
       currency?: string;
@@ -2029,25 +2033,31 @@
         locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
     
       return useMemo(() => {
+        // A YYYY-MM-DD value is a calendar day, parsed at UTC midnight. Formatting
+        // that instant in any other zone (the runtime zone, or an explicit
+        // America/Los_Angeles) lands on the previous evening, so headers and bar
+        // labels read one day earlier than the date string. Labels always use UTC.
+        // `timeZone` still chooses which calendar day is "today".
+        const civilTimeZone = "UTC";
         const weekdayShort = new Intl.DateTimeFormat(effectiveLocale, {
           weekday: "short",
-          timeZone,
+          timeZone: civilTimeZone,
         });
         const dayNumeric = new Intl.DateTimeFormat(effectiveLocale, {
           day: "2-digit",
-          timeZone,
+          timeZone: civilTimeZone,
         });
         const dayLong = new Intl.DateTimeFormat(effectiveLocale, {
           weekday: "long",
           year: "numeric",
           month: "long",
           day: "numeric",
-          timeZone,
+          timeZone: civilTimeZone,
         });
         const monthYearLong = new Intl.DateTimeFormat(effectiveLocale, {
           month: "long",
           year: "numeric",
-          timeZone,
+          timeZone: civilTimeZone,
         });
         const todayParts = new Intl.DateTimeFormat("en-CA", {
           year: "numeric",
@@ -15671,15 +15681,27 @@
       else if (!EMAIL.test(email.trim())) errors.email = "Enter a valid email address.";
       return errors;
     }
-    export function validatePayment(state: BookingWizardState): FieldErrors {
+    function isCardExpiryPast(expiry: string, now: Date): boolean {
+      const match = EXPIRY_PATTERN.exec(expiry.trim());
+      if (!match) return false;
+      const month = Number(match[1]);
+      const year = 2000 + Number(match[2]);
+      const todayYear = now.getFullYear();
+      const todayMonth = now.getMonth() + 1;
+      return year < todayYear || (year === todayYear && month < todayMonth);
+    }
+    export function validatePayment(state: BookingWizardState, now: Date = new Date()): FieldErrors {
       const errors: FieldErrors = {};
       const { cardName, cardNumber, expiry, cvc } = state.payment;
       if (!cardName.trim()) errors.cardName = "Name on card is required.";
       if (!/^\d{16}$/.test(cardNumber.replace(/\s+/g, ""))) {
         errors.cardNumber = "Enter the 16-digit card number.";
       }
-      if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry.trim())) {
+      const expiryText = expiry.trim();
+      if (!EXPIRY_PATTERN.test(expiryText)) {
         errors.expiry = "Use MM/YY format.";
+      } else if (isCardExpiryPast(expiryText, now)) {
+        errors.expiry = "Expiry date is in the past.";
       }
       if (!/^\d{3,4}$/.test(cvc.trim())) {
         errors.cvc = "Enter the 3-4 digit security code.";
