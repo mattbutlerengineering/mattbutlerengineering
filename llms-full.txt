@@ -51954,7 +51954,13 @@
       const tables = CONFIG_TABLES.every(
         (t) => Array.isArray(v.restore?.[t]) && Array.isArray(v.remove?.[t])
       );
-      return tables ? (v as ConfigInverse) : null;
+      if (!tables) return null;
+      const rows = (v.restore.scheduleServices as unknown[]).map((r) =>
+        ScheduleServiceSchema.safeParse(r)
+      );
+      if (!rows.every((r) => r.success)) return null;
+      const scheduleServices = rows.flatMap((r): ScheduleService[] => (r.success ? [r.data] : []));
+      return { ...v, restore: { ...v.restore, scheduleServices } } as ConfigInverse;
     }
     export async function revertAvailabilityChange(
       input: {

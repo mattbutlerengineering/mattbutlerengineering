@@ -506,6 +506,84 @@ describe("revertAvailabilityChange", () => {
     });
   });
 
+  describe("on a varied week", () => {
+    const FRIDAY_LATE = {
+      weekdays: [5],
+      opensAt: 1080,
+      lastSeatingAt: 1320,
+      closesAt: 1440,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online", "phone"],
+    };
+    const VARIED = {
+      ...CURRENT_SERVICE,
+      weekdays: [1, 2, 3, 4],
+      dayHours: { version: 1 as const, sets: [FRIDAY_LATE] },
+    };
+    const restoring = (prior: Record<string, unknown>) =>
+      inverse({
+        restore: { ...inverse().restore, scheduleServices: [prior] },
+      });
+
+    it("restores the prior rows including their day scope", async () => {
+      // Undoing a save that made the week uniform puts the varied rows back.
+      const tx = revertingTx({
+        change: row({ id: "chg-5", inverse: restoring(VARIED) }),
+      });
+
+      const outcome = await revertAvailabilityChange(
+        { ...request, expectedVersion: 5 },
+        fakeClient(tx)
+      );
+
+      expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
+      expect(tx.scheduleService.update).toHaveBeenCalledWith({
+        where: { id: "ss-1" },
+        data: expect.objectContaining({
+          weekdays: [1, 2, 3, 4],
+          dayHours: { version: 1, sets: [FRIDAY_LATE] },
+        }),
+      });
+    });
+
+    it("undoes a varied-week save back to the uniform row", async () => {
+      const tx = revertingTx({ service: VARIED });
+
+      await revertAvailabilityChange({ ...request, expectedVersion: 5 }, fakeClient(tx));
+
+      expect(tx.scheduleService.update).toHaveBeenCalledWith({
+        where: { id: "ss-1" },
+        data: expect.objectContaining({
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
+        }),
+      });
+    });
+
+    it("restores and parses an entry saved before the day scope (an inverse without the two fields)", async () => {
+      const { weekdays: _w, dayHours: _d, ...oldRow } = PRIOR_SERVICE;
+      const tx = revertingTx({
+        service: VARIED,
+        change: row({ id: "chg-5", inverse: restoring(oldRow) }),
+      });
+
+      const outcome = await revertAvailabilityChange(
+        { ...request, expectedVersion: 5 },
+        fakeClient(tx)
+      );
+
+      expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
+      expect(tx.scheduleService.update).toHaveBeenCalledWith({
+        where: { id: "ss-1" },
+        data: expect.objectContaining({
+          opensAt: 1020,
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
+        }),
+      });
+    });
+  });
+
   it("answers a stale version with the change that won, touching nothing", async () => {
     const tx = revertingTx({ cas: 0 });
     (tx.availabilityChange as Record<string, unknown>)["findMany"] = vi.fn(async () => []);
