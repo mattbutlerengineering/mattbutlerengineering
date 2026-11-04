@@ -748,7 +748,7 @@
       type HolidayCountry = "US" | "CA" | "MX";
     </item>
     <item priority="low">
-      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
+      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "fathersDay" | "juneteenth" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
     </item>
     <item priority="low">
       interface Holiday {
