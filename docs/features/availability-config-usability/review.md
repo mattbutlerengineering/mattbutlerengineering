@@ -311,7 +311,66 @@ New lint warnings against origin/main (eslint over the 88 changed hospitality fi
 | Minor 15            | still deferred: five process items, same reasons                                      |
 | New 1, New 2, New 3 | new minors, all deferred with reasons above                                           |
 
+## CI fix loop review (2026-11-04)
+
+Scope: `git diff origin/feat/availability-config-usability..HEAD -- ':!docs'` at `d3013ffb7` (commits `a369a207d`..`004c8881a`, 12 non-doc files, +49/-40; the 13th file is `breakdown.md`). Read: the diff, `breakdown.md`'s CI fix loop section and its Notes, `verification.md`'s re-verification section, `packages/availability/src/index.ts`, the changed files' neighbours, `check-chunk-coverage.mjs`, the RLS job in `ci.yml`, and `adr_status.py` (31 ADRs, same set as the first pass; no ADR is touched by this diff). Read-only: this pass ran `git`, `grep`, `adr_status.py` and `gates.py`; it built and tested nothing, and relies on Verify's runs at `004c8881a` (E13) for the executions.
+
+### Five passes over the CI fix diff
+
+- **Correctness: clean.** The type move is behaviour-free (type-only declaration, `import type` at every site). `toClock` and the two CI-list lines change no runtime path in the product.
+  - Type move: `ResolvedService` left `resolve-day.ts` for `types.ts`; `index.ts` removes it from the `./resolve-day.js` export group and adds it to the `./types.js` group, so the package's public export list is unchanged (same name, still a type). The package's `exports` map has only `"."`, so no consumer can deep-import `resolve-day.js`. The two app consumers (`online-seatings.ts:1`, `removal-diff.ts:6`) import it from `@mbe/availability`; no file in `apps`, `services` or `packages` imports `ResolvedService` from `resolve-day`. Remaining in-package importers (`service-days.ts`, `slots.ts`, `resolve-day.ts`) were all repointed; `ScheduleService` is dropped from `resolve-day.ts`'s import and re-imported in `types.ts`. Verify's `@mbe/availability` build and typecheck, plus agent, hospitality and types suites, pass at `004c8881a`. Cycle gone: `types.ts` imports only `@mbe/types`.
+  - `toClock`: un-exporting leaves no dead code. `quick-setup-draft.ts` still calls it at lines 131, 134 and 617-619; `CompareServices.tsx` and `ServicesEditor.tsx` use the separate `toClock` in `clock-minutes.js`, not this one, so no consumer lost an import.
+  - `ci.yml`: the two lines (`src/services/availability-day-scope.integration.test.ts`, `src/scripts/collapse-day-named-schedules.integration.test.ts`) use the list's exact format (leading path, trailing ` \`, before the `--reporter` line). The job's `run:` lines are `pnpm --filter @mbe/reservations-service exec vitest run <the 17 files> --reporter=...`, after `db:migrate:deploy` as `rls_owner` and `Build workspace dependencies`, and the next step runs `assert-vitest-ran.mjs` on the JSON report, so the new files run with `DATABASE_URL` set and a skip would fail the job. Verify's local replica of that recipe passed both files. The vitest config's `exclude` (`src/**/*.test.ts`) applies to coverage, not to a named-file run.
+  - Regenerated `llms.txt`/`llms-full.txt` (4 files): the hunks are `export function toClock` becoming `function toClock` (priority `high` to `medium`) and `ResolvedService` moving to its new source file's block with identical text. Regenerated content only; no hand edit.
+- **Design: one decayed contract, Minor 16.** The engine's own size budget is gone. See Minor 16. The cycle fix itself matches the existing pattern (a leaf vocabulary module, as `week-spans.ts` did in Milestone 1); it needs no ADR, since it records no choice that the protocol's ADR test covers.
+- **Security: clean.** No input path, secret or boundary changed; the CI edit only adds two files to a job that already has the same DB credentials.
+- **Complexity: clean.** The diff removes an export, a budget entry, and a duplicate declaration location; it adds one budget entry and no `lean:` marker. No dead export is left.
+- **ADR compliance: no violation.** The 31 ADRs are unchanged and no ADR governs size budgets or the CI job list.
+
+### Domain passes
+
+- **Dependencies** (selected: `apps/hospitality/package.json`): ran, clean. The change is in the `size-limit` array only; no `dependencies`, `devDependencies`, override or lockfile line changed, so there is no bump, no new package and no duplicate copy to check. The one new budget entry is covered by Minor 16 and by the ranked check below.
+
+  ```
+  Dependency: none added, removed or moved (size-limit budgets only)
+  Verdict: safe
+  Consumers: n/a
+  Breaking changes: n/a
+  Build / tests: pass at 004c8881a per verification.md (`pnpm size:check` exit 0); not re-run in this pass
+  Workspace alignment: aligned
+  Duplicate runtime copies: none
+  Coverage-tooling risk: n/a
+  ```
+
+- **`.github/workflows/ci.yml`**: not in the domain table (`references/domain-reviewers.md` selects on payments, migrations and dependency manifests only), so no domain pass was selected for it; it was read under Correctness above. Payments and Migrations: not selected (no path matches).
+
+### New findings
+
+No new critical or major finding.
+
+### Minor 16: the engine's bytes lost their own budget and fall under an unbudgeted allowlist glob
+
+- **Where:** `apps/hospitality/package.json:68-72` (the removed `resolve-day-*.js` entry, 2.7 kB; the added `schedule-changes-*.js` entry, 3 kB) and `apps/hospitality/scripts/check-chunk-coverage.mjs` (`"dist/assets/dist-*.js"` in `UNBUDGETED_CHUNK_ALLOWLIST`).
+- **Is it a decayed contract?** Yes, in part. The `resolve-day-*.js` budget was removed because rollup no longer emits that chunk (Notes: it folds into `dist-*`, with or without the cycle fix), so the entry matched nothing and `size-limit` failed on a missing file; removing it was right. But the guarantee it carried (growth in the availability engine's bytes is visible to `size:check`) went with it, and nothing replaced it. The engine now sits in a `dist-*` chunk (in the local build `dist-D45m9kac.js`, 21.2 kB raw / 7.4 kB gzip, the one containing `weekday_clash`, `scheduleServiceId` and the service-resolution code; two sibling `dist-*` chunks hold other workspace code). Those chunks match no `size-limit` glob. The budget they fall under now is none: `dist/assets/dist-*.js` is on the check's allowlist, whose own contract says an allowlisted chunk carries no budget, and `check-chunk-coverage` passes them. They are also not inside `index-*.js`'s 500 kB budget, since they are separate chunks.
+- **Scenario (ranked minor):** a later change adds a layer or a large lookup table to `resolveDay` (the first pass's engine grew by the day-scope work, and each layer adds a module). The `dist-*` chunk grows by, say, 6 kB; no budget trips, `check-chunk-coverage` stays green because the glob is allowlisted, and the availability page and the timeline's Tonight panel download the larger chunk on first load. Ranked minor, not major: nothing is wrong today, the 500 kB entry budget and the vendor budgets still bound the total app, and the run's own 3 kB-to-6.8 kB `schedule-changes` chunk shows the tooling does catch a new named chunk.
+- **Should a budget for `dist-*` be tightened?** Not as a plain glob. `size-limit` sums every file a glob matches, so `dist-*.js` would budget three unrelated workspace chunks as one number, and the hashed `dist-*` names are rollup's choice from the source directory, the exact instability that made the `resolve-day` entry vanish. The coverage check also requires a budgeted glob to be removed from the allowlist (its "disjoint" test), so promoting needs both edits. The sound fix is a `manualChunks` group for `@mbe/availability` named `availability-engine` with its own budget (about 8 kB brotlied, from the measured 7.4 kB gzip plus margin), which restores the contract with a stable name.
+- **Disposition: deferred.** Reason: it changes the app's chunking, which moves bytes between first-load chunks and needs its own measure of `index-*.js` and the vendor budgets; the CI fix loop's scope was to make `size:check` green, and a chunk-split belongs in its own change with a size comparison. Trigger: the next run that touches `packages/availability/src/resolve-day.ts` or `layer-detail.ts` adds the group and the budget then. The measured chunk size above came from a local `dist/` built at 05:59, not rebuilt by this pass, so treat it as `[INFERENCE]` for the current head.
+
+### Minor 17: the RLS suite-list comment still counts the suites wrongly
+
+- **Where:** `.github/workflows/ci.yml` comment above the `Run RLS integration suites against the owner role` step ("All SEVEN `DATABASE_URL`-gated suites"; "5 files pass in a few seconds") against a list that now names 17 files.
+- **Scenario:** a future maintainer reading the comment concludes the list is complete at seven, or that the 15s `hookTimeout` margin was measured for the whole list. No behaviour changes; the coverage test, not the comment, pins the list. The count was already stale before this fix (15 files at the previous head), so this fix did not introduce it.
+- **Disposition: deferred.** Reason: comment-only, pre-existing, and it touches the CI file the Ship stage pushes; fold it into the next edit to that list.
+
+### What this section did not examine
+
+Any execution (Verify's runs are relied on, not repeated); the real CI run on the new head `d3013ffb7`/`004c8881a` (not yet observed: Ship pushes it); the Visual Regression (hospitality) job and its baselines; the rest of `ci.yml`; the size of the engine chunk at the current head (the local `dist/` was inspected as built, not rebuilt).
+
 ## Verdict
+
+**Update after the CI fix loop (2026-11-04, `d3013ffb7`):** no critical or major finding is open, and the CI fix diff introduced none. It adds two minors, both deferred with reasons: Minor 16 (the engine's size budget was removed with no replacement; its chunk now falls under the unbudgeted `dist-*` allowlist entry) and Minor 17 (a stale suite-count comment in `ci.yml`). This is still a read-only review and not an unqualified pass: the real CI on the new head is not yet observed (Ship pushes, so the three fixed jobs, Build, Lint and Test (rest), are green only on Verify's local replica, E13); the Visual Regression (hospitality) baseline is an Owner step (`workflow_dispatch` of `visual-noise-floor.yml`) and remains open; and the re-verification relied on is Verify's 38 PASS, 2 NOT RUN, 0 FAIL at `004c8881a`. Not examined by this pass: execution of any kind, CI-only jobs, the rest of `ci.yml`, the Visual Regression job, the current-head engine chunk size, and everything the list below names. Ready to ship from the review's side, fail-closed on those open items.
+
+Earlier verdict (3349496dd), still in force for everything the CI fix loop did not touch:
 
 **No critical or major finding is open, and none was introduced by the fix loop: Majors 1, 2 and 3 are fixed (716319fd1, 799e11c04, cdba16575). That is a read-only review (this stage executed nothing, and relies on Verify's 37 PASS, 2 NOT RUN, 0 FAIL at 3349496dd for the runs), so it is not an unqualified pass. Ready to ship from the review's side, with the open items below named.**
 
