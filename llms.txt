@@ -2516,12 +2516,14 @@
   </file>
   <file path="apps/hospitality/src/components/availability/regular-week-line.ts">
     <item priority="low">
-      type HoursChangeKind = "later" | "earlier" | "different";
+      interface LineHours {
+        opensAt: number;
+        closesAt: number;
+      }
     </item>
     <item priority="low">
       interface HoursChange {
         weekdays: readonly number[];
-        kind: HoursChangeKind;
       }
     </item>
     <item priority="low">
@@ -2537,9 +2539,6 @@
         services: readonly RegularWeekLineService[];
         uniform: boolean;
       }
-    </item>
-    <item priority="medium">
-      function kindOf(base: { closesAt: number }, set: { closesAt: number }): HoursChangeKind { /* ... */ }
     </item>
     <item priority="medium">
       function inForce(config: AvailabilityConfig, today: string) { /* ... */ }

@@ -7246,12 +7246,14 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/regular-week-line.ts">
-    export type HoursChangeKind = "later" | "earlier" | "different";
-    export interface HoursChange {
-      readonly weekdays: readonly number[];
-      readonly kind: HoursChangeKind;
+    export interface LineHours {
+      readonly opensAt: number;
+      readonly closesAt: number;
     }
-    export interface RegularWeekLineService {
+    export interface HoursChange extends LineHours {
+      readonly weekdays: readonly number[];
+    }
+    export interface RegularWeekLineService extends LineHours {
       readonly venueServiceId: string;
       readonly name: string;
       /** Every weekday the service runs, Monday first. */
@@ -7263,10 +7265,6 @@
       readonly services: readonly RegularWeekLineService[];
       /** Every service runs the same days with the same hours: no Details disclosure. */
       readonly uniform: boolean;
-    }
-    function kindOf(base: { closesAt: number }, set: { closesAt: number }): HoursChangeKind {
-      if (set.closesAt > base.closesAt) return "later";
-      return set.closesAt < base.closesAt ? "earlier" : "different";
     }
     function inForce(config: AvailabilityConfig, today: string) {
       const live = config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt);
@@ -7303,10 +7301,13 @@
           {
             venueServiceId: row.venueServiceId,
             name,
+            opensAt: row.opensAt,
+            closesAt: row.closesAt,
             days: WEEK_DISPLAY_ORDER.filter((day) => week.days[day] !== null),
             changes: row.dayHours.sets.map((set) => ({
               weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
-              kind: kindOf(row, set),
+              opensAt: set.opensAt,
+              closesAt: set.closesAt,
             })),
           },
         ];
