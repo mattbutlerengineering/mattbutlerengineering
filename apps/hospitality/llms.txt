@@ -760,6 +760,29 @@
       ): string | null { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/quick-setup-demo.fixture.ts">
+    <item priority="high">
+      export const EVERY_DAY: unknown;
+    </item>
+    <item priority="high">
+      export function draftService(
+        id: string,
+        name: string,
+        times: readonly [string, string, string],
+        extra: Partial<ServiceDraft> = {}
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftBlock(
+        id: string,
+        days: number[],
+        times: readonly [string, string, string]
+      ): HoursBlock { /* ... */ }
+    </item>
+    <item priority="high">
+      export function demoDraft(): QuickSetupDraft { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/quick-setup-draft.ts">
     <item priority="low">
       interface DraftTimes {

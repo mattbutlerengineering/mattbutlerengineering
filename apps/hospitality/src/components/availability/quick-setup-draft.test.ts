@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { validateConfig } from "@mbe/availability";
 import { localeRuntime } from "../../i18n/runtime.js";
 import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
+import { EVERY_DAY, demoDraft, draftBlock, draftService } from "./quick-setup-demo.fixture.js";
 import {
   addBlock,
   applyPreset,
@@ -24,7 +25,6 @@ import {
   validateQuickSetupHours,
   WEEKDAY_SHORTCUT,
   WEEK_DISPLAY_ORDER,
-  type HoursBlock,
   type QuickSetupDraft,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
@@ -119,9 +119,9 @@ describe("quick setup draft", () => {
   });
 
   it("drops a block's days the service no longer runs on when its own days change", () => {
-    const dinner = service("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+    const dinner = draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
       days: EVERY_DAY,
-      blocks: [block("late", [5, 6], ["17:00", "22:00", "00:00"])],
+      blocks: [draftBlock("late", [5, 6], ["17:00", "22:00", "00:00"])],
     });
     expect(setServiceDays(dinner, [1, 2, 3, 4, 5], EVERY_DAY).blocks[0]?.days).toEqual([5]);
     expect(setServiceDays(dinner, null, EVERY_DAY).blocks[0]?.days).toEqual([5, 6]);
@@ -130,12 +130,12 @@ describe("quick setup draft", () => {
   });
 
   it("drops the blocks' days off the shared days from the services that follow them", () => {
-    const follows = service("a", "A", ["17:00", "21:00", "23:00"], {
-      blocks: [block("b", [5, 6], ["17:00", "22:00", "00:00"])],
+    const follows = draftService("a", "A", ["17:00", "21:00", "23:00"], {
+      blocks: [draftBlock("b", [5, 6], ["17:00", "22:00", "00:00"])],
     });
-    const own = service("c", "C", ["10:00", "13:00", "14:00"], {
+    const own = draftService("c", "C", ["10:00", "13:00", "14:00"], {
       days: EVERY_DAY,
-      blocks: [block("d", [5, 6], ["10:00", "13:00", "14:00"])],
+      blocks: [draftBlock("d", [5, 6], ["10:00", "13:00", "14:00"])],
     });
     const next = setSharedDays({ days: EVERY_DAY, services: [follows, own] }, [1, 2, 3, 4, 5]);
     expect(next.days).toEqual([1, 2, 3, 4, 5]);
@@ -143,7 +143,7 @@ describe("quick setup draft", () => {
   });
 
   it("adds a block with the service's own hours and no day ticked", () => {
-    const dinner = service("dinner", "Dinner", ["17:00", "21:00", "23:00"]);
+    const dinner = draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"]);
     expect(addBlock(dinner, "late").blocks).toEqual([
       {
         id: "late",
@@ -157,10 +157,10 @@ describe("quick setup draft", () => {
   });
 
   it("moves a ticked day out of the other block and drops a block left with no day", () => {
-    const dinner = service("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+    const dinner = draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
       blocks: [
-        block("one", [5], ["17:00", "22:00", "00:00"]),
-        block("two", [6], ["17:00", "22:00", "00:30"]),
+        draftBlock("one", [5], ["17:00", "22:00", "00:00"]),
+        draftBlock("two", [6], ["17:00", "22:00", "00:30"]),
       ],
     });
     const claim = toggleBlockDay(dinner, "two", 5);
@@ -391,7 +391,6 @@ describe("quick setup draft", () => {
   });
 });
 
-const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
 const WEEKDAY_NAMES = [
   "Sunday",
   "Monday",
@@ -401,44 +400,6 @@ const WEEKDAY_NAMES = [
   "Friday",
   "Saturday",
 ];
-
-function service(
-  id: string,
-  name: string,
-  times: readonly [string, string, string],
-  extra: Partial<ServiceDraft> = {}
-): ServiceDraft {
-  const [opens, lastSeating, closes] = times;
-  return {
-    ...emptyService(id),
-    name,
-    opens,
-    lastSeating,
-    closes,
-    lastSeatingLinked: false,
-    ...extra,
-  };
-}
-
-function block(id: string, days: number[], times: readonly [string, string, string]): HoursBlock {
-  const [opens, lastSeating, closes] = times;
-  return { id, days, opens, lastSeating, closes, lastSeatingLinked: false };
-}
-
-/** The PRD demo week as the form holds it: lunch Mon-Fri, dinner Tue-Sun later Fri-Sat, brunch Sat-Sun. */
-function demoDraft(): QuickSetupDraft {
-  return {
-    days: EVERY_DAY,
-    services: [
-      service("lunch", "Lunch", ["11:30", "14:00", "15:00"], { days: [1, 2, 3, 4, 5] }),
-      service("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
-        days: [2, 3, 4, 5, 6, 0],
-        blocks: [block("late", [5, 6], ["17:00", "22:00", "00:00"])],
-      }),
-      service("brunch", "Brunch", ["10:00", "13:00", "14:00"], { days: [6, 0] }),
-    ],
-  };
-}
 
 function withoutIds(draft: QuickSetupDraft) {
   return {
@@ -500,10 +461,10 @@ describe("quick setup draft with days and blocks", () => {
     const draft: QuickSetupDraft = {
       days: EVERY_DAY,
       services: [
-        service("brunch", "Brunch", ["10:00", "17:00", "18:00"], { days: [6] }),
-        service("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+        draftService("brunch", "Brunch", ["10:00", "17:00", "18:00"], { days: [6] }),
+        draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
           days: [5, 6],
-          blocks: [block("late", [5, 6], ["17:00", "22:00", "00:00"])],
+          blocks: [draftBlock("late", [5, 6], ["17:00", "22:00", "00:00"])],
         }),
       ],
     };
@@ -526,8 +487,8 @@ describe("quick setup draft with days and blocks", () => {
     const draft: QuickSetupDraft = {
       days: EVERY_DAY,
       services: [
-        service("brunch", "Brunch", ["10:00", "17:00", "18:00"], { days: [6, 0] }),
-        service("dinner", "Dinner", ["17:00", "21:00", "23:00"], { days: [1, 2, 3, 4, 5] }),
+        draftService("brunch", "Brunch", ["10:00", "17:00", "18:00"], { days: [6, 0] }),
+        draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], { days: [1, 2, 3, 4, 5] }),
       ],
     };
     expect(validateDraft(draft)).toEqual([]);
@@ -537,9 +498,9 @@ describe("quick setup draft with days and blocks", () => {
     const draft: QuickSetupDraft = {
       days: [],
       services: [
-        service("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+        draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
           days: [],
-          blocks: [block("late", [], ["17:00", "22:00", "00:00"])],
+          blocks: [draftBlock("late", [], ["17:00", "22:00", "00:00"])],
         }),
       ],
     };
@@ -558,8 +519,8 @@ describe("quick setup draft with days and blocks", () => {
     const draft: QuickSetupDraft = {
       days: EVERY_DAY,
       services: [
-        service("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
-          blocks: [block("late", [5], ["17:00", "23:30", "23:00"])],
+        draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+          blocks: [draftBlock("late", [5], ["17:00", "23:30", "23:00"])],
         }),
       ],
     };
