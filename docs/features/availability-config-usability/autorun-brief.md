@@ -268,3 +268,48 @@ hospitality)`, `CI Gate`). Never to be merged; surfaced to close.
   - `closure-fixes` (2026-10-25) has no PR. It carries closure-command
     internals that #7600 and #7785 superseded [INFERENCE].
   - No branch claims #7738.
+
+## Resume, 2026-11-04: release authorization changed (Owner, live)
+
+Matt said this live in the session, while Ship was waiting on PR #8237: "you
+have my permission to merge any prs". It supersedes "Release authorization
+(Owner, 2026-11-03)" above, which said prepare and stop. Nothing else above
+changes.
+
+- **Ship may merge the run's PR** (#8237) and the run's own follow-up
+  write-back PR, under these conditions:
+  - `CI Gate` is green on the exact head being merged, and `review.md` has
+    no unfixed critical finding;
+  - squash only, with an explicit subject
+    (`gh pr merge <N> --squash --subject "<title> (#<N>)"
+--match-head-commit <sha>`);
+  - never `--admin` and never past branch protection.
+- **What merging #8237 does:** CI deploys it. The `db-migrate-reservations`
+  `PRE_DEPLOY` job applies `add_schedule_service_day_scope` to production.
+  Ship checks each deploy at **job** level, not by the workflow rollup. It runs
+  the post-release checks and writes `outcome: released` with `released-at:`
+  back through a docs-only PR, which it may also merge once `CI Gate` is green.
+- **Still forbidden, because the authorization covers merging only:**
+  - workflow dispatches. So the Visual Regression (hospitality) baseline
+    refresh (`visual-noise-floor.yml`, `app: hospitality`) stays an Owner step.
+  - the collapse script's `--apply`, the venue-availability backfill, and any
+    other write to a production database by hand;
+  - label changes, comments and tags;
+  - closing other PRs or issues.
+- **Still Owner-only after merge:**
+  - the human-timed ≤5 min walkthrough (PRD 12);
+  - the collapse script, dry run then `--apply`;
+  - confirming or superseding ADR-031 (provisional);
+  - the visual baseline refresh.
+
+### Open PRs worked under the new authorization (2026-11-04)
+
+- Merged, each `MERGEABLE`/`CLEAN` with `CI Gate` green at the merged head:
+  - #8231 (tier-gate-pr-head-code write-back), as `509c25ca2`;
+  - #8230 (drain #8204), as `efd8c97b9`;
+  - #8232 (drain #8186), as `b5a96f879`.
+- Not merged:
+  - #8157, the chaos synthetic bug. It is red by design, and merging it would
+    plant the bug on main. Surfaced to close.
+  - #8227 (gen e2e for #8199), red on `Gen E2E`. The drain session left the
+    focus-restore question with the Owner. Blocked.
