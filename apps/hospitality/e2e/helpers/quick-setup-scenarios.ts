@@ -88,3 +88,10 @@ export async function setDemoWeek(page: Page, scope: Page | Locator = page) {
     .getByRole("button", { name: "Weekends" })
     .click();
 }
+
+/**
+ * The demo week entered in quick setup, then again through the Schedules tab's New schedule: the
+ * path a Manager took to a varied week before quick setup held it. Measured once (26 counted
+ * actions, local run, synthetic OIDC session). The guard asserts quick setup alone stays under it.
+ */
+export const DEMO_WEEK_VIA_SCHEDULES_COUNT = 26;

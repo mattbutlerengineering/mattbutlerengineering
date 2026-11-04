@@ -8911,6 +8911,7 @@
         .getByRole("button", { name: "Weekends" })
         .click();
     }
+    export const DEMO_WEEK_VIA_SCHEDULES_COUNT = 26;
   </file>
   <file path="e2e/helpers/week-dates.ts">
     export const WEEKDAYS = [

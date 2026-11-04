@@ -2,6 +2,7 @@ import { test, expect } from "./fixtures.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
 import { countInteractions } from "./helpers/interaction-counter.js";
 import {
+  DEMO_WEEK_VIA_SCHEDULES_COUNT,
   LARGE_SETUP_BASELINE,
   UNIFORM_BISTRO_BASELINE,
   setDemoWeek,
@@ -99,6 +100,6 @@ test.describe("Interaction guards (agent stand-in counts)", () => {
       type: "interactions (agent stand-in)",
       description: `quick setup ${quickSetup.count()}, quick setup then New schedule ${counter.count()}`,
     });
-    expect(quickSetup.count()).toBeLessThan(counter.count());
+    expect(quickSetup.count()).toBeLessThan(DEMO_WEEK_VIA_SCHEDULES_COUNT);
   });
 });

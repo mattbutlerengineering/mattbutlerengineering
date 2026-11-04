@@ -6493,6 +6493,9 @@
     <item priority="high">
       export async function setDemoWeek(page: Page, scope: Page | Locator = page) { /* ... */ }
     </item>
+    <item priority="high">
+      export const DEMO_WEEK_VIA_SCHEDULES_COUNT: unknown;
+    </item>
   </file>
   <file path="apps/hospitality/e2e/helpers/week-dates.ts">
     <item priority="high">
