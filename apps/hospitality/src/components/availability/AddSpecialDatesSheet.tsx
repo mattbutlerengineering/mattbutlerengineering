@@ -10,8 +10,10 @@ import {
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
+import { weekdayIndexOf } from "@mbe/availability";
 import {
   GUEST_MESSAGE_MAX_LENGTH,
+  type AvailabilityConfig,
   type AvailabilityConfigState,
   type ClosureImpact,
 } from "@mbe/types";
@@ -24,6 +26,7 @@ import {
   combineImpacts,
   decisionsFor,
   emptyRow,
+  regularServices,
   ruleItems,
   saveLabelParts,
   rowFieldId,
@@ -65,6 +68,25 @@ export interface AddSpecialDatesSheetProps {
 export interface PlannedDate {
   readonly date: string;
   readonly name: string;
+  /**
+   * How the row starts. "hours" starts from the weekday's usual hours, so saving it untouched
+   * cancels nothing: the safe start for a day most venues open (Valentine's Day, Mother's Day).
+   */
+  readonly kind: "closed" | "hours";
+}
+
+function plannedRow(
+  planned: PlannedDate,
+  config: AvailabilityConfig,
+  timezone: string,
+  today: string
+): DateRow {
+  const row = emptyRow(crypto.randomUUID(), planned.date, planned.name);
+  if (planned.kind === "closed") return row;
+  const weekday = weekdayIndexOf(planned.date);
+  const services = regularServices(config, timezone, weekday, today);
+  // A weekday with no usual hours has nothing to start from: the row stays Closed.
+  return services.length === 0 ? row : { ...row, kind: "hours", services, seededFor: weekday };
 }
 
 const SHARED_MESSAGE_ID = "add-dates-shared-message";
@@ -88,7 +110,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const [form, setForm] = useState<AddDatesForm>(() => ({
     rows:
       initialRows && initialRows.length > 0
-        ? initialRows.map((r) => emptyRow(crypto.randomUUID(), r.date, r.name))
+        ? initialRows.map((r) => plannedRow(r, state.config, timezone, today))
         : [emptyRow(crypto.randomUUID(), "")],
     shareMessage: false,
     sharedMessage: "",

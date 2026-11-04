@@ -167,3 +167,13 @@ export function holidayCountry(
   const code = (addressCountry ?? locale.split("-")[1] ?? "").toUpperCase();
   return COUNTRIES.find((c) => c === code) ?? null;
 }
+
+/**
+ * The holidays most restaurants close for. Plan… starts these as Closed; every other holiday starts
+ * from the weekday's usual hours, so planning Valentine's Day without reading cancels nothing.
+ */
+export const USUALLY_CLOSED: ReadonlySet<HolidayId> = new Set([
+  "thanksgiving",
+  "christmasDay",
+  "newYearsDay",
+]);

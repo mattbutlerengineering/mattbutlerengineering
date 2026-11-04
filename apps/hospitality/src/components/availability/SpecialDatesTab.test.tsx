@@ -58,6 +58,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { VenueContext, type VenueContextValue } from "../../contexts/venue-context-object.js";
+import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
 import { SpecialDatesTab } from "./SpecialDatesTab.js";
 import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 
@@ -246,13 +247,38 @@ describe("SpecialDatesTab", () => {
     expect(screen.queryByRole("region", { name: "Upcoming holidays" })).toBeNull();
   });
 
-  it("plans every coming holiday at once, one Closed row each, named for its holiday", () => {
+  it("plans every coming holiday at once, one row each, named for its holiday", () => {
     renderTab(true);
     fireEvent.click(screen.getByRole("button", { name: "Plan all 5…" }));
     const sheet = screen.getByRole("dialog", { name: "Add special dates" });
     expect(within(sheet).getAllByLabelText("Date")).toHaveLength(5);
     expect(within(sheet).getByRole("group", { name: "Date 5: Easter Sunday" })).toBeTruthy();
+    // No regular week here: there are no usual hours to start from, so every row starts Closed.
     expect(within(sheet).getAllByRole("radio", { name: "Closed", checked: true })).toHaveLength(5);
+  });
+
+  it("starts a day most venues open from its usual hours, and a usual closing day as Closed", () => {
+    renderTab(true, {
+      ...STATE,
+      config: { ...DEMO_WEEK_CONFIG, dateRules: RULES },
+    } as AvailabilityConfigState);
+    fireEvent.click(screen.getByRole("button", { name: "Plan all 5…" }));
+    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
+    const kind = (legend: string) =>
+      within(within(sheet).getByRole("group", { name: legend }))
+        .getAllByRole("radio")
+        .find((r) => r.getAttribute("aria-checked") === "true")?.textContent;
+    expect(kind("Date 1: Christmas Day")).toBe("Closed");
+    expect(kind("Date 3: New Year’s Day")).toBe("Closed");
+    expect(kind("Date 2: New Year’s Eve")).toBe("Special hours");
+    expect(kind("Date 4: Valentine’s Day")).toBe("Special hours");
+    // Valentine's Day is a Sunday: the row starts from Sunday's Brunch and Dinner.
+    const valentines = within(sheet).getByRole("group", { name: "Date 4: Valentine’s Day" });
+    expect(
+      within(valentines)
+        .getAllByLabelText("Closes")
+        .map((c) => (c as HTMLInputElement).value)
+    ).toEqual(["2:00 PM", "11:00 PM"]);
   });
 
   it("Open as usual drops a holiday for this venue, and it stays dropped across a reload", () => {
