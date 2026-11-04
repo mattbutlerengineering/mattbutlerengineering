@@ -42,7 +42,9 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
     setAttempted(true);
     const first = found[0];
     if (first) {
-      document.getElementById(quickSetupFieldId(first.serviceId, first.field))?.focus();
+      document
+        .getElementById(quickSetupFieldId(first.serviceId, first.field, first.blockId))
+        ?.focus();
       return;
     }
     setIsSaving(true);

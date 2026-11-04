@@ -162,22 +162,85 @@ export function toggleDayIn(days: readonly number[], day: number): readonly numb
   return days.includes(day) ? days.filter((d) => d !== day) : [...days, day];
 }
 
+function keepDays<T extends { readonly days: readonly number[] }>(
+  blocks: readonly T[],
+  allowed: readonly number[]
+): T[] {
+  return blocks.map((block) => ({
+    ...block,
+    days: block.days.filter((day) => allowed.includes(day)),
+  }));
+}
+
 /**
- * A service's own days (`null` follows the shared days again). Days its blocks had on days it no
- * longer runs are dropped from them.
+ * A service's own days (`null` follows the shared days again). Days its blocks had on days it
+ * then no longer runs are dropped from them.
  */
 export function setServiceDays(
   service: ServiceDraft,
-  days: readonly number[] | null
+  days: readonly number[] | null,
+  sharedDays: readonly number[]
 ): ServiceDraft {
-  const blocks =
-    days === null
-      ? service.blocks
-      : service.blocks.map((block) => ({
-          ...block,
-          days: block.days.filter((day) => days.includes(day)),
-        }));
-  return { ...service, days, blocks };
+  return { ...service, days, blocks: keepDays(service.blocks, days ?? sharedDays) };
+}
+
+/** The shared days; the services that follow them lose any block day they no longer run on. */
+export function setSharedDays(draft: QuickSetupDraft, days: readonly number[]): QuickSetupDraft {
+  return {
+    ...draft,
+    days,
+    services: draft.services.map((service) =>
+      service.days === null ? { ...service, blocks: keepDays(service.blocks, days) } : service
+    ),
+  };
+}
+
+/** A new block with the service's own hours, so the Manager changes only what differs (S13). */
+export function addBlock(service: ServiceDraft, id: string): ServiceDraft {
+  const { opens, lastSeating, closes, lastSeatingLinked } = service;
+  const block: HoursBlock = { id, days: [], opens, lastSeating, closes, lastSeatingLinked };
+  return { ...service, blocks: [...service.blocks, block] };
+}
+
+export function replaceBlock(service: ServiceDraft, next: HoursBlock): ServiceDraft {
+  return { ...service, blocks: service.blocks.map((b) => (b.id === next.id ? next : b)) };
+}
+
+export function removeBlock(service: ServiceDraft, blockId: string): ServiceDraft {
+  return { ...service, blocks: service.blocks.filter((b) => b.id !== blockId) };
+}
+
+export interface BlockDayToggle {
+  readonly service: ServiceDraft;
+  /** The day was in another block and moved out of it. */
+  readonly moved: boolean;
+  /** Blocks the move left with no day; they are gone from `service`. */
+  readonly removed: readonly HoursBlock[];
+}
+
+/**
+ * Ticks or unticks a day in a block. A day is in at most one block of a service, so ticking one
+ * moves it out of the other (F1 6); a block that leaves with no day goes too.
+ */
+export function toggleBlockDay(
+  service: ServiceDraft,
+  blockId: string,
+  day: number
+): BlockDayToggle {
+  const target = service.blocks.find((b) => b.id === blockId);
+  if (!target) return { service, moved: false, removed: [] };
+  if (target.days.includes(day)) {
+    const next = { ...target, days: toggleDayIn(target.days, day) };
+    return { service: replaceBlock(service, next), moved: false, removed: [] };
+  }
+  const moved = service.blocks.some((b) => b.id !== blockId && b.days.includes(day));
+  const removed = service.blocks.filter((b) => b.id !== blockId && b.days.join() === String(day));
+  const blocks = service.blocks.flatMap((b): HoursBlock[] => {
+    if (b.id === blockId) return [{ ...b, days: [...b.days, day] }];
+    if (!b.days.includes(day)) return [b];
+    return removed.includes(b) ? [] : [{ ...b, days: b.days.filter((d) => d !== day) }];
+  });
+  return { service: { ...service, blocks }, moved, removed };
 }
 
 // ── Validation ────────────────────────────────────────────────────────────

@@ -94,7 +94,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Per-service days in QuickSetupForm** — the "Different days for this service" control behind a closed disclosure per service row, following the shared Days when unset (`ux.md` F1 and S1).
   - Accept: a component test shows ticking Mon–Fri on Lunch and Sat–Sun on Brunch gives per-service days; the shared Days fieldset and the "Weekdays", "Dinner", "Opens", "Closes", "Last seating" and name controls are not duplicated in the DOM while the disclosures are closed; focus moves in on open and returns on close; `availability-quick-setup.spec.ts` still passes.
   - Blocked by: Quick-setup draft with days and blocks
-- [ ] **Different-hours blocks in QuickSetupForm** — the "Different hours on some days" block (`ux.md` S13): a block starts with no day ticked and carries its own opens, last seating (linked or not) and closes.
+- [x] **Different-hours blocks in QuickSetupForm** — the "Different hours on some days" block (`ux.md` S13): a block starts with no day ticked and carries its own opens, last seating (linked or not) and closes.
   - Accept: a component test adds a block to Dinner for Fri–Sat with a later close and the draft holds one set; removing the block removes it; an empty-day block is reported by `validateDraft`; additions and removals are announced politely.
   - Blocked by: Per-service days in QuickSetupForm
 - [ ] **RegularWeekStrip** — new component (`ux.md` S12) rendering `weekSpans(regularWeekView(applyChanges(emptyConfig, draftChanges)))` on every draft change with a local party `Select`, tables from `useTables({ activeOnly: true })`, the "Updated" tag diffing this render's spans with the last, and no preview request.

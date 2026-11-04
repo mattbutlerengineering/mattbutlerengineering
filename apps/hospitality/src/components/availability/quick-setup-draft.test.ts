@@ -3,6 +3,7 @@ import { validateConfig } from "@mbe/availability";
 import { localeRuntime } from "../../i18n/runtime.js";
 import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
 import {
+  addBlock,
   applyPreset,
   autoLastSeating,
   draftFromConfig,
@@ -16,6 +17,8 @@ import {
   replaceService,
   setServiceDays,
   setServiceTime,
+  setSharedDays,
+  toggleBlockDay,
   toggleDayIn,
   validateDraft,
   validateQuickSetupHours,
@@ -120,8 +123,54 @@ describe("quick setup draft", () => {
       days: EVERY_DAY,
       blocks: [block("late", [5, 6], ["17:00", "22:00", "00:00"])],
     });
-    expect(setServiceDays(dinner, [1, 2, 3, 4, 5]).blocks[0]?.days).toEqual([5]);
-    expect(setServiceDays(dinner, null).blocks[0]?.days).toEqual([5, 6]);
+    expect(setServiceDays(dinner, [1, 2, 3, 4, 5], EVERY_DAY).blocks[0]?.days).toEqual([5]);
+    expect(setServiceDays(dinner, null, EVERY_DAY).blocks[0]?.days).toEqual([5, 6]);
+    // Back to the shared days: only the days those cover stay in the block.
+    expect(setServiceDays(dinner, null, [1, 2, 3, 4, 5]).blocks[0]?.days).toEqual([5]);
+  });
+
+  it("drops the blocks' days off the shared days from the services that follow them", () => {
+    const follows = service("a", "A", ["17:00", "21:00", "23:00"], {
+      blocks: [block("b", [5, 6], ["17:00", "22:00", "00:00"])],
+    });
+    const own = service("c", "C", ["10:00", "13:00", "14:00"], {
+      days: EVERY_DAY,
+      blocks: [block("d", [5, 6], ["10:00", "13:00", "14:00"])],
+    });
+    const next = setSharedDays({ days: EVERY_DAY, services: [follows, own] }, [1, 2, 3, 4, 5]);
+    expect(next.days).toEqual([1, 2, 3, 4, 5]);
+    expect(next.services.map((s) => s.blocks[0]?.days)).toEqual([[5], [5, 6]]);
+  });
+
+  it("adds a block with the service's own hours and no day ticked", () => {
+    const dinner = service("dinner", "Dinner", ["17:00", "21:00", "23:00"]);
+    expect(addBlock(dinner, "late").blocks).toEqual([
+      {
+        id: "late",
+        days: [],
+        opens: "17:00",
+        lastSeating: "21:00",
+        closes: "23:00",
+        lastSeatingLinked: false,
+      },
+    ]);
+  });
+
+  it("moves a ticked day out of the other block and drops a block left with no day", () => {
+    const dinner = service("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+      blocks: [
+        block("one", [5], ["17:00", "22:00", "00:00"]),
+        block("two", [6], ["17:00", "22:00", "00:30"]),
+      ],
+    });
+    const claim = toggleBlockDay(dinner, "two", 5);
+    expect(claim.moved).toBe(true);
+    expect(claim.removed.map((b) => b.id)).toEqual(["one"]);
+    expect(claim.service.blocks).toMatchObject([{ id: "two", days: [6, 5] }]);
+    // Unticking a day of its own block moves nothing.
+    const untick = toggleBlockDay(claim.service, "two", 6);
+    expect(untick).toMatchObject({ moved: false, removed: [] });
+    expect(untick.service.blocks[0]?.days).toEqual([5]);
   });
 
   it("accepts the bistro week", () => {

@@ -2237,11 +2237,44 @@
     <item priority="high">
       export function toggleDayIn(days: readonly number[], day: number): readonly number[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function keepDays<T extends { readonly days: readonly number[] }>(
+        blocks: readonly T[],
+        allowed: readonly number[]
+      ): T[] { /* ... */ }
+    </item>
     <item priority="high">
       export function setServiceDays(
         service: ServiceDraft,
-        days: readonly number[] | null
+        days: readonly number[] | null,
+        sharedDays: readonly number[]
       ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setSharedDays(draft: QuickSetupDraft, days: readonly number[]): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addBlock(service: ServiceDraft, id: string): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replaceBlock(service: ServiceDraft, next: HoursBlock): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function removeBlock(service: ServiceDraft, blockId: string): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      interface BlockDayToggle {
+        service: ServiceDraft;
+        moved: boolean;
+        removed: readonly HoursBlock[];
+      }
+    </item>
+    <item priority="high">
+      export function toggleBlockDay(
+        service: ServiceDraft,
+        blockId: string,
+        day: number
+      ): BlockDayToggle { /* ... */ }
     </item>
     <item priority="low">
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";

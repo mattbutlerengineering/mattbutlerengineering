@@ -6,11 +6,17 @@
 }
 
 .service,
-.days {
+.days,
+.block {
   border: 0;
   margin: 0;
   padding: 0;
   min-width: 0;
+}
+
+.block {
+  padding-inline-start: var(--rialto-space-md);
+  border-inline-start: 2px solid var(--rialto-border);
 }
 
 .legend {
