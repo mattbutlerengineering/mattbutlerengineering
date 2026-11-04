@@ -2228,6 +2228,14 @@
       ): boolean { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/open-as-usual.ts">
+    <item priority="high">
+      export function readOpenAsUsual(venueId: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
     <item priority="high">
       export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string { /* ... */ }

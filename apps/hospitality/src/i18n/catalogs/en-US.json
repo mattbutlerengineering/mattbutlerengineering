@@ -2841,6 +2841,10 @@
       "different": "{{days}} {{hours}}",
       "details": "Details",
       "heading": "Regular week"
+    },
+    "holidayNudge": {
+      "line": "{{name}} is {{date}} and isn't planned yet.",
+      "plan": "Plan holidays"
     }
   },
   "setup": {

@@ -39,6 +39,9 @@ vi.mock("../hooks/useClosures.js", () => ({
   useClosureImpact: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }),
   useCreateClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useReopenClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  // Special dates, reached from the holiday nudge.
+  useClosureSummaries: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+  useRetryClosureRefunds: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
   AvailabilityQuickSetup: () => <section aria-label="Quick setup" />,
@@ -122,6 +125,28 @@ describe("AvailabilityPage regular-week line", () => {
     renderPage();
     expect(screen.getByText("Regular week: Dinner 5:00 PM–11:00 PM every day")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
+  });
+
+  it("tells a Manager the next unplanned holiday and takes them to Special dates", () => {
+    localStorage.clear();
+    renderPage();
+    expect(
+      screen.getByText("Thanksgiving is Thu, Nov 26 and isn't planned yet.")
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Plan holidays" }));
+    expect(screen.getByRole("radio", { name: "Special dates" })).toBeChecked();
+  });
+
+  it("says nothing of a holiday to a Host, or of one marked Open as usual", () => {
+    team.value = { viewerRole: "host" };
+    const { unmount } = renderPage();
+    expect(screen.queryByText(/isn't planned yet/)).not.toBeInTheDocument();
+    unmount();
+    team.value = { viewerRole: "manager" };
+    localStorage.setItem("mbe-availability-open-as-usual:venue-1", JSON.stringify(["2026-11-26"]));
+    renderPage();
+    expect(screen.queryByText(/Thanksgiving is/)).not.toBeInTheDocument();
+    localStorage.clear();
   });
 
   it("shows a regular week saved for a later date before it takes over", () => {

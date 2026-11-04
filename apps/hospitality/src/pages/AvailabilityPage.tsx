@@ -40,6 +40,7 @@ import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
 import { hasOwnSchedules } from "../components/availability/schedule-changes.js";
 import { RegularWeekLine } from "../components/availability/RegularWeekLine.js";
+import { NextHolidayNudge } from "../components/availability/NextHolidayNudge.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
@@ -425,12 +426,24 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const device = deviceTimeZone();
   const showVenueTime = timeZone !== "" && device !== "" && !sameTimeZone(device, timeZone);
 
+  // In the summary row's spare width, not a row of its own; a phone's agenda names holidays already
+  // and has no row to spare above the first day.
+  const nudge =
+    config.data && isManager && viewport !== "phone" ? (
+      <NextHolidayNudge
+        venueId={selectedVenueId}
+        config={config.data.config}
+        today={today}
+        onPlan={() => changeTab("special")}
+      />
+    ) : null;
+
   return (
     <Stack gap="md">
       <PageHeader title={t("availability.title")} description={t("availability.description")} />
       <div className={styles.controlsRow}>
         {scheduleControls}
-        {(summary || showVenueTime) && (
+        {(summary || showVenueTime || nudge) && (
           <div className={styles.summaryRow}>
             {summary && (
               <Text variant="caption" color="secondary">
@@ -444,6 +457,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
                 })}
               </Text>
             )}
+            {nudge}
           </div>
         )}
       </div>

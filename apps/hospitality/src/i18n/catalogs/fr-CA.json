@@ -2927,6 +2927,10 @@
       "different": "{{days}} {{hours}}",
       "details": "Détails",
       "heading": "Semaine habituelle"
+    },
+    "holidayNudge": {
+      "line": "{{name}} tombe le {{date}} et n’est pas encore planifié.",
+      "plan": "Planifier les jours fériés"
     }
   },
   "setup": {
