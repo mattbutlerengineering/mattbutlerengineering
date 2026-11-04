@@ -82,7 +82,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Collapse script** — `services/reservations/src/scripts/collapse-day-named-schedules.ts`, the shape of `backfill-availability.ts`: dry run by default, `--apply` writes. Per venue, in one transaction in its own RLS context: compare-and-set `Venue.availabilityVersion` (+1), replace the regular schedule's rows with the encoded week, delete the folded schedules' assignments, archive the folded schedules; no `AvailabilityChange` row. The Owner runs any apply; the run never applies against a real database. (tracker: #7738)
   - Accept: a unit test with a mocked client (as `backfill-availability.test.ts`) shows the default mode performs no write call, `--apply` performs the writes above, one venue failing does not stop the rest, a missed compare-and-set is reported `raced` and skipped, each venue's JSON line carries the rows it replaced, and the exit code is 1 only when a venue errored. After a collapse `validateConfig` on the venue's config reports no `precedence_tie`, and re-running changes nothing.
   - Blocked by: collapseDayNamedSchedules, Store reads and writes day scope
-- [ ] **Collapse script integration test** — one test against Docker Postgres.
+- [x] **Collapse script integration test** — one test against Docker Postgres.
   - Accept: a venue backfilled in the old shape (regular Mon–Wed plus "Thu–Fri hours") has the same `resolveDay` for every weekday before and after the script's apply on the test database, the folded schedules are archived, and the carried-over state (`isCarriedOver`: rows and no change) still holds.
   - Blocked by: Collapse script
 
