@@ -3150,6 +3150,9 @@
     <item priority="high">
       export async function setLargeSetup(page: Page) { /* ... */ }
     </item>
+    <item priority="high">
+      export async function setDemoWeek(page: Page, scope: Page | Locator = page) { /* ... */ }
+    </item>
   </file>
   </section>
   <section priority="medium" role="hooks">
