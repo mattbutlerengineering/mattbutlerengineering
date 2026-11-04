@@ -1814,7 +1814,16 @@
       }
     </item>
     <item priority="low">
-      type CollapseOutcome = { venueId: string; outcome: "w | { venueId: string; outcome: "n | { venueId: string; outcome: "r;
+      interface CreatedRows {
+        schedules: string[];
+        scheduleServices: string[];
+        assignments: string[];
+      }
+    </item>
+    <item priority="low">
+      type CollapseOutcome = {
+            venueId: string;
+            | { venueId: string; outcome: "n | { venueId: string; outcome: "r;
     </item>
     <item priority="low">
       interface CollapseSummary {
@@ -1829,6 +1838,9 @@
     </item>
     <item priority="medium">
       function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createdBy(diff: ConfigDiff): CreatedRows { /* ... */ }
     </item>
     <item priority="high">
       export async function collapseVenue(

@@ -270,7 +270,7 @@ none.
   - Accept: duplicating a schedule used only by a `use_schedule` date rule and saving does not write an undated all-week assignment; Save stays disabled until the Manager picks days; the regular week is unchanged on every day.
 - [ ] **Minor 1: Edit schedule drops a service whose own days are outside the schedule's days** — the editor does not silently delete its stored row.
   - Accept: a test where Edit schedule gives a service own days wholly outside the schedule's days is refused by `validateDraft` with an issue (or the picker offers only the schedule's days), and Save does not delete that service's row.
-- [ ] **Minor 2: the collapse script's `replaced` log omits created rows** — the log lists the ids of rows the collapse created.
+- [x] **Minor 2: the collapse script's `replaced` log omits created rows** — the log lists the ids of rows the collapse created.
   - Accept: a collapse test where a service only the folded schedules ran gets a new row has that row's id under `created.scheduleServices` in the `replaced` log entry; `reference.md` says rollback is manual.
 - [ ] **Minor 3: the collapse script's `refused` check compares issue sets** — a collapse that fixes one issue and adds another is refused.
   - Accept: a unit test where the collapse swaps one validation issue for a different one (equal count) is refused; a collapse that only removes issues is not.

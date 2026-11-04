@@ -10954,8 +10954,18 @@
       scheduleServices: unknown[];
       assignments: unknown[];
     }
+    export interface CreatedRows {
+      schedules: string[];
+      scheduleServices: string[];
+      assignments: string[];
+    }
     export type CollapseOutcome =
-      | { venueId: string; outcome: "would_collapse" | "collapsed"; replaced: ReplacedRows }
+      | {
+          venueId: string;
+          outcome: "would_collapse" | "collapsed";
+          replaced: ReplacedRows;
+          created: CreatedRows;
+        }
       | { venueId: string; outcome: "nothing_to_collapse" | "raced" | "not_found" }
       | { venueId: string; outcome: "refused"; issues: string[] };
     export interface CollapseSummary {
@@ -10977,6 +10987,14 @@
         schedules: pick("schedules"),
         scheduleServices: pick("scheduleServices"),
         assignments: pick("assignments"),
+      };
+    }
+    function createdBy(diff: ConfigDiff): CreatedRows {
+      const ids = (table: keyof CreatedRows) => diff.create[table].map((r) => r.id);
+      return {
+        schedules: ids("schedules"),
+        scheduleServices: ids("scheduleServices"),
+        assignments: ids("assignments"),
       };
     }
     export async function collapseVenue(
@@ -11010,7 +11028,8 @@
         }
         const diff = diffConfig(config, next);
         const replaced = replacedBy(config, diff);
-        if (!options.apply) return { venueId, outcome: "would_collapse" as const, replaced };
+        const created = createdBy(diff);
+        if (!options.apply) return { venueId, outcome: "would_collapse" as const, replaced, created };
     
         const cas = await tx.venue.updateMany({
           where: { id: venueId, availabilityVersion: venue.availabilityVersion },
@@ -11019,7 +11038,7 @@
         if (cas.count === 0) return { venueId, outcome: "raced" as const };
     
         await writeConfigDiff(tx, venueId, diff, { actorId: COLLAPSE_ACTOR, now });
-        return { venueId, outcome: "collapsed" as const, replaced };
+        return { venueId, outcome: "collapsed" as const, replaced, created };
       });
     }
     export async function runCollapse(

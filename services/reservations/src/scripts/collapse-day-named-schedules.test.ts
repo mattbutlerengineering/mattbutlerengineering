@@ -175,6 +175,33 @@ describe("collapseVenue", () => {
     expect(outcome.replaced.schedules).toEqual([expect.objectContaining({ id: "thu-fri" })]);
   });
 
+  it("logs the ids of the rows a collapse creates, so the log can be rolled back from", async () => {
+    const state = oldShape("v-1");
+    state.venueServices.push({
+      id: "vs-brunch",
+      venueId: "v-1",
+      name: "Brunch",
+      position: 1,
+      archivedAt: null,
+    });
+    state.scheduleServices.push({
+      ...serviceRow("ss-brunch", "thu-fri", 840),
+      venueServiceId: "vs-brunch",
+      opensAt: 600,
+    });
+    const venues = { "v-1": state };
+    const { prisma } = fakePrisma(venues);
+
+    const outcome = await collapseVenue(prisma, "v-1", { apply: true, now: NOW });
+
+    if (outcome.outcome !== "collapsed") throw new Error(outcome.outcome);
+    const created = venues["v-1"].scheduleServices.filter(
+      (r) => r.venueServiceId === "vs-brunch" && r.scheduleId === "regular"
+    );
+    expect(created).toHaveLength(1);
+    expect(outcome.created.scheduleServices).toEqual([created[0]?.id]);
+  });
+
   it("applies the collapse in one transaction, bumps the version and is idempotent", async () => {
     const venues = { "v-1": oldShape("v-1") };
     const { prisma, tx } = fakePrisma(venues);

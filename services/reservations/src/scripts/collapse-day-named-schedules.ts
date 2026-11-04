@@ -25,8 +25,9 @@ import { getAllVenueIds } from "../services/lapsed-guest-cron.js";
  * overwriting), replace the regular schedule's rows with the encoded week, delete the folded
  * schedules' assignments and archive the schedules. No `AvailabilityChange` row is written, as for
  * Backfill, so the "carried over" banner stays for venues nobody has saved. Every outcome line
- * carries the rows it replaced, so the log doubles as a backup (the archived schedules can be
- * unarchived). A venue whose compare-and-set misses (a Manager saved meanwhile) is `raced` and
+ * carries the rows it replaced and the ids it created, so the log doubles as a backup (the
+ * archived schedules can be unarchived; rollback from the log is manual: restore the replaced rows,
+ * delete the created ones). A venue whose compare-and-set misses (a Manager saved meanwhile) is `raced` and
  * skipped. Safe to re-run: a collapsed venue has nothing left to collapse. One venue failing does
  * not stop the rest. Exit code is 1 only if a venue errored.
  */
@@ -40,8 +41,20 @@ export interface ReplacedRows {
   assignments: unknown[];
 }
 
+/** The ids of the rows an apply creates: a rollback from the log deletes these. */
+export interface CreatedRows {
+  schedules: string[];
+  scheduleServices: string[];
+  assignments: string[];
+}
+
 export type CollapseOutcome =
-  | { venueId: string; outcome: "would_collapse" | "collapsed"; replaced: ReplacedRows }
+  | {
+      venueId: string;
+      outcome: "would_collapse" | "collapsed";
+      replaced: ReplacedRows;
+      created: CreatedRows;
+    }
   | { venueId: string; outcome: "nothing_to_collapse" | "raced" | "not_found" }
   | { venueId: string; outcome: "refused"; issues: string[] };
 
@@ -67,6 +80,15 @@ function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows 
     schedules: pick("schedules"),
     scheduleServices: pick("scheduleServices"),
     assignments: pick("assignments"),
+  };
+}
+
+function createdBy(diff: ConfigDiff): CreatedRows {
+  const ids = (table: keyof CreatedRows) => diff.create[table].map((r) => r.id);
+  return {
+    schedules: ids("schedules"),
+    scheduleServices: ids("scheduleServices"),
+    assignments: ids("assignments"),
   };
 }
 
@@ -101,7 +123,8 @@ export async function collapseVenue(
     }
     const diff = diffConfig(config, next);
     const replaced = replacedBy(config, diff);
-    if (!options.apply) return { venueId, outcome: "would_collapse" as const, replaced };
+    const created = createdBy(diff);
+    if (!options.apply) return { venueId, outcome: "would_collapse" as const, replaced, created };
 
     const cas = await tx.venue.updateMany({
       where: { id: venueId, availabilityVersion: venue.availabilityVersion },
@@ -110,7 +133,7 @@ export async function collapseVenue(
     if (cas.count === 0) return { venueId, outcome: "raced" as const };
 
     await writeConfigDiff(tx, venueId, diff, { actorId: COLLAPSE_ACTOR, now });
-    return { venueId, outcome: "collapsed" as const, replaced };
+    return { venueId, outcome: "collapsed" as const, replaced, created };
   });
 }
 

@@ -667,7 +667,7 @@ pnpm db:collapse-day-named-schedules [--apply]                                  
 
 - A schedule folds only when it is undated, `alternate`, named exactly `<days> hours` and no `use_schedule` rule points at it. Anything else stays a schedule.
 - Per venue, in one transaction in its own venue context: compare-and-set `Venue.availabilityVersion` (+1), replace the regular schedule's rows with the encoded week, delete the folded schedules' assignments, archive the schedules. No `AvailabilityChange` row is written.
-- Outcomes: `would_collapse` / `collapsed`, `nothing_to_collapse` (re-running is a no-op), `raced` (a Manager saved meanwhile; skipped), `refused` (the result would not validate), `not_found`, `error`. Every `would_collapse` / `collapsed` line carries the rows it replaced: keep the log, it is the backup (archived schedules can be unarchived). Exit code is 1 only if a venue errored.
+- Outcomes: `would_collapse` / `collapsed`, `nothing_to_collapse` (re-running is a no-op), `raced` (a Manager saved meanwhile; skipped), `refused` (the result would not validate), `not_found`, `error`. Every `would_collapse` / `collapsed` line carries the rows it replaced and the ids of the rows it created (`created`): keep the log, it is the backup. Rollback is manual: restore the replaced rows, delete the created ones (archived schedules can be unarchived). Exit code is 1 only if a venue errored.
 
 ## Environment Variables
 
