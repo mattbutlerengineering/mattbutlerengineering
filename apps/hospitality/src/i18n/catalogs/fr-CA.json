@@ -1956,6 +1956,7 @@
       "becomes": "Elle devient votre semaine habituelle : ouvert {{days}}.",
       "closedDays_one": "{{days}} est fermé.",
       "closedDays_other": "{{days}} sont fermés.",
+      "closedDays_many": "{{days}} sont fermés.",
       "outside": "{{days}} utilisent « {{name}} ». Modifiez-le dans Horaires.",
       "openSchedules": "Ouvrir Horaires",
       "noEnd": "Sans fin : elle devient la nouvelle semaine habituelle",
