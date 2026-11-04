@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { applyChanges, resolveDay, validateConfig } from "@mbe/availability";
 import { PutAvailabilityConfigBodySchema } from "@mbe/types";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
+import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
 import { demoDraft } from "./quick-setup-demo.fixture.js";
 import { draftToConfig } from "./quick-setup-draft.js";
 import {
@@ -204,6 +205,19 @@ describe("buildDraftChanges", () => {
     ]);
     expect(changes.remove.scheduleServices).toEqual(["ss-lunch"]);
     expect(parses(changes)).toBe(true);
+  });
+
+  it("everywhere a schedule is used: a varied row keeps its own days and different hours", () => {
+    const config = DEMO_WEEK_CONFIG;
+    const scope = { kind: "schedule", scheduleId: "demo-regular" } as const;
+    const services = seedServices(config, { services: [] }, scope).map((s) =>
+      s.name === "Dinner" ? { ...s, lastSeatingAt: 1230 } : s
+    );
+    const changes = buildDraftChanges({ config, scope, services, makeId: counter() });
+    const dinner = changes.upsert.scheduleServices?.find((s) => s.id === "demo-ss-dinner");
+    expect(dinner?.lastSeatingAt).toBe(1230);
+    expect(dinner?.weekdays).toEqual([2, 3, 4, 0]);
+    expect(dinner?.dayHours.sets.map((set) => set.weekdays)).toEqual([[5, 6]]);
   });
 
   it("never removes a service the Manager did not remove: a colleague's new one survives a stale draft", () => {

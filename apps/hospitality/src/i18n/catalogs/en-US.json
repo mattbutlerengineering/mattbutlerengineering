@@ -1947,7 +1947,9 @@
       "save_other": "Save {{count}} schedules",
       "saved_one": "{{count}} schedule updated",
       "saved_other": "{{count}} schedules updated",
-      "blocked": "Change a row to save."
+      "blocked": "Change a row to save.",
+      "different": "+ different hours",
+      "editSchedule": "Edit schedule"
     },
     "copy": {
       "action": "Copy to other days…",

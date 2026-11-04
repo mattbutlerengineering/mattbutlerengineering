@@ -222,18 +222,23 @@ function scheduleServiceRows(
   // (a colleague's new service) was never in front of them, so a save must not delete it.
   const seen = baseline && new Set(baseline.scheduleServices.map((s) => s.id));
   return {
-    upsert: services.map((s) => ({
-      ...hoursOf(s),
-      bookingTypes: [...s.bookingTypes],
-      weekdays: [],
-      dayHours: { version: 1, sets: [] },
-      id:
+    upsert: services.map((s) => {
+      const id =
         s.scheduleServiceId ??
         stored.find((row) => row.venueServiceId === s.venueServiceId)?.id ??
-        makeId(),
-      scheduleId,
-      venueServiceId: s.venueServiceId,
-    })),
+        makeId();
+      // These rows carry a service's base hours only: its own days and different hours stay as stored.
+      const was = stored.find((row) => row.id === id);
+      return {
+        ...hoursOf(s),
+        bookingTypes: [...s.bookingTypes],
+        weekdays: was?.weekdays ?? [],
+        dayHours: was?.dayHours ?? { version: 1 as const, sets: [] },
+        id,
+        scheduleId,
+        venueServiceId: s.venueServiceId,
+      };
+    }),
     removed: stored
       .filter((s) => !kept.has(s.venueServiceId) && (!seen || seen.has(s.id)))
       .map((s) => s.id),

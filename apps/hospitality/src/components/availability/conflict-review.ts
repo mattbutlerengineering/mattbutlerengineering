@@ -1,5 +1,7 @@
-import type { AvailabilityConfig } from "@mbe/types";
+import { hoursOn } from "@mbe/availability";
+import type { AvailabilityConfig, ScheduleService } from "@mbe/types";
 import type { DraftService } from "./draft-changes.js";
+import { scheduleDays } from "./quick-setup-draft.js";
 
 /**
  * After a lost race (`version-conflict`) on a schedule drawer: what the colleague changed in the
@@ -22,14 +24,25 @@ export interface ScheduleChangeSince {
 const HOURS_FIELDS = ["opensAt", "lastSeatingAt", "closesAt", "seating", "bookingTypes"] as const;
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+/** What a row does on each weekday the schedule is used on: its hours, or `null` where it does not run. */
+const weekOfRow = (row: ScheduleService, days: readonly number[]) =>
+  days.map((day) => hoursOn(row, day));
+
+/**
+ * The schedule's services that run on at least one weekday it is used on, with that week. A row
+ * scoped to days the schedule never covers never resolves, so it is nobody's change to name.
+ */
 function rowsByService(config: AvailabilityConfig, scheduleId: string) {
   const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+  const days = scheduleDays(config, scheduleId, true);
   return new Map(
     config.scheduleServices
       .filter((s) => s.scheduleId === scheduleId)
-      .map((s) => [
-        s.venueServiceId,
-        { row: s, name: names.get(s.venueServiceId) ?? s.venueServiceId },
+      .map((s) => ({ row: s, week: weekOfRow(s, days) }))
+      .filter(({ week }) => week.some((hours) => hours !== null))
+      .map((v) => [
+        v.row.venueServiceId,
+        { ...v, name: names.get(v.row.venueServiceId) ?? v.row.venueServiceId },
       ])
   );
 }
@@ -60,7 +73,7 @@ export function scheduleChangesSince(
     changed: [...next]
       .filter(([id, v]) => {
         const prior = old.get(id);
-        return prior !== undefined && HOURS_FIELDS.some((f) => !same(prior.row[f], v.row[f]));
+        return prior !== undefined && !same(prior.week, v.week);
       })
       .map(([, v]) => v.name),
   };

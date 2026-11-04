@@ -1992,7 +1992,9 @@
       "saved_one": "{{count}} horario actualizado",
       "saved_other": "{{count}} horarios actualizados",
       "saved_many": "{{count}} de horarios actualizados",
-      "blocked": "Cambia una fila para guardar."
+      "blocked": "Cambia una fila para guardar.",
+      "different": "+ horario distinto",
+      "editSchedule": "Editar horario"
     },
     "copy": {
       "action": "Copiar a otros días…",

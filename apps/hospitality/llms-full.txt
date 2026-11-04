@@ -876,6 +876,11 @@
       readonly scheduleServiceId: string;
       readonly scheduleId: string;
       readonly scheduleName: string;
+      /** The row has its own days or different hours on some days; the hours above are its base hours. */
+      readonly different: boolean;
+    }
+    function runs(config: AvailabilityConfig, row: ScheduleService): boolean {
+      return scheduleDays(config, row.scheduleId, true).some((day) => hoursOn(row, day) !== null);
     }
     export function compareServiceOptions(config: AvailabilityConfig) {
       const live = liveScheduleIds(config);
@@ -883,8 +888,9 @@
         .filter((v) => !v.archivedAt)
         .filter(
           (v) =>
-            config.scheduleServices.filter((s) => s.venueServiceId === v.id && live.has(s.scheduleId))
-              .length > 1
+            config.scheduleServices.filter(
+              (s) => s.venueServiceId === v.id && live.has(s.scheduleId) && runs(config, s)
+            ).length > 1
         )
         .sort((a, b) => a.position - b.position);
     }
@@ -892,6 +898,7 @@
       const names = new Map(config.schedules.filter((s) => !s.archivedAt).map((s) => [s.id, s.name]));
       return config.scheduleServices
         .filter((s) => s.venueServiceId === venueServiceId && names.has(s.scheduleId))
+        .filter((s) => runs(config, s))
         .map((s) => ({
           scheduleServiceId: s.id,
           scheduleId: s.scheduleId,
@@ -901,6 +908,7 @@
           closesAt: s.closesAt,
           seating: s.seating,
           bookingTypes: s.bookingTypes,
+          different: s.weekdays.length > 0 || s.dayHours.sets.length > 0,
         }));
     }
     export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] {
@@ -1004,12 +1012,15 @@
     }
     function rowsByService(config: AvailabilityConfig, scheduleId: string) {
       const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+      const days = scheduleDays(config, scheduleId, true);
       return new Map(
         config.scheduleServices
           .filter((s) => s.scheduleId === scheduleId)
-          .map((s) => [
-            s.venueServiceId,
-            { row: s, name: names.get(s.venueServiceId) ?? s.venueServiceId },
+          .map((s) => ({ row: s, week: weekOfRow(s, days) }))
+          .filter(({ week }) => week.some((hours) => hours !== null))
+          .map((v) => [
+            v.row.venueServiceId,
+            { ...v, name: names.get(v.row.venueServiceId) ?? v.row.venueServiceId },
           ])
       );
     }
@@ -1035,7 +1046,7 @@
         changed: [...next]
           .filter(([id, v]) => {
             const prior = old.get(id);
-            return prior !== undefined && HOURS_FIELDS.some((f) => !same(prior.row[f], v.row[f]));
+            return prior !== undefined && !same(prior.week, v.week);
           })
           .map(([, v]) => v.name),
       };
@@ -1452,18 +1463,23 @@
       // (a colleague's new service) was never in front of them, so a save must not delete it.
       const seen = baseline && new Set(baseline.scheduleServices.map((s) => s.id));
       return {
-        upsert: services.map((s) => ({
-          ...hoursOf(s),
-          bookingTypes: [...s.bookingTypes],
-          weekdays: [],
-          dayHours: { version: 1, sets: [] },
-          id:
+        upsert: services.map((s) => {
+          const id =
             s.scheduleServiceId ??
             stored.find((row) => row.venueServiceId === s.venueServiceId)?.id ??
-            makeId(),
-          scheduleId,
-          venueServiceId: s.venueServiceId,
-        })),
+            makeId();
+          // These rows carry a service's base hours only: its own days and different hours stay as stored.
+          const was = stored.find((row) => row.id === id);
+          return {
+            ...hoursOf(s),
+            bookingTypes: [...s.bookingTypes],
+            weekdays: was?.weekdays ?? [],
+            dayHours: was?.dayHours ?? { version: 1 as const, sets: [] },
+            id,
+            scheduleId,
+            venueServiceId: s.venueServiceId,
+          };
+        }),
         removed: stored
           .filter((s) => !kept.has(s.venueServiceId) && (!seen || seen.has(s.id)))
           .map((s) => s.id),

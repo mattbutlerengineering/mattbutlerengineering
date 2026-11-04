@@ -442,7 +442,11 @@
         scheduleServiceId: string;
         scheduleId: string;
         scheduleName: string;
+        different: boolean;
       }
+    </item>
+    <item priority="medium">
+      function runs(config: AvailabilityConfig, row: ScheduleService): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function compareServiceOptions(config: AvailabilityConfig) { /* ... */ }
