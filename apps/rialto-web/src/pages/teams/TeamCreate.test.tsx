@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
-import type { ChangeEvent, ReactNode } from "react";
+import userEvent from "@testing-library/user-event";
+import type { ChangeEvent, ReactNode, Ref } from "react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { TeamCreate } from "./TeamCreate";
 
@@ -119,6 +120,24 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     </dl>
   );
 
+  const Heading = ({
+    children,
+    level = 2,
+    ref,
+    ...props
+  }: {
+    children?: ReactNode;
+    level?: number;
+    ref?: Ref<HTMLHeadingElement>;
+  }) => {
+    const Tag = `h${level}` as "h2";
+    return (
+      <Tag ref={ref} {...props}>
+        {children}
+      </Tag>
+    );
+  };
+
   const useToast = () => ({ toast: toastSpy });
   const useDeviceContext = () => deviceContextRef;
 
@@ -135,6 +154,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     Card: Pass,
     DataList,
     Divider: () => <hr />,
+    Heading,
     Input,
     NumberInput,
     Select,
@@ -278,5 +298,116 @@ describe("TeamCreate — registration success handoff", () => {
     });
 
     expect(toastSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("TeamCreate — step-change focus", () => {
+  function stepHeading(name: string) {
+    return screen.getByRole("heading", { level: 2, name });
+  }
+
+  it("does not steal focus on first mount", () => {
+    renderTeamCreate();
+    expect(document.body).toHaveFocus();
+    expect(stepHeading("Team Info")).not.toHaveFocus();
+  });
+
+  it("moves focus to the new step heading after Next", () => {
+    renderTeamCreate();
+    fillTeamInfoStep();
+    const next = screen.getByRole("button", { name: /^next$/i });
+    next.focus();
+    fireEvent.click(next);
+
+    const heading = stepHeading("Car Setup");
+    expect(heading).toHaveFocus();
+    expect(heading).toHaveAttribute("tabindex", "-1");
+    expect(document.body).not.toHaveFocus();
+  });
+
+  it("moves focus to the review heading after the second Next", () => {
+    renderTeamCreate();
+    fillTeamInfoStep();
+    advanceStep();
+    fillCarSetupStep();
+    const next = screen.getByRole("button", { name: /^next$/i });
+    next.focus();
+    fireEvent.click(next);
+
+    expect(stepHeading("Review")).toHaveFocus();
+  });
+
+  it("moves focus to the previous step heading on Back", () => {
+    renderTeamCreate();
+    fillTeamInfoStep();
+    advanceStep();
+    expect(stepHeading("Car Setup")).toHaveFocus();
+
+    const back = screen.getByRole("button", { name: /^back$/i });
+    back.focus();
+    fireEvent.click(back);
+
+    expect(stepHeading("Team Info")).toHaveFocus();
+    expect(screen.getByLabelText("Team Name")).toHaveValue("Scuderia Nova");
+  });
+
+  it("moves focus back to Car Setup when leaving Review", () => {
+    renderTeamCreate();
+    fillTeamInfoStep();
+    advanceStep();
+    fillCarSetupStep();
+    advanceStep();
+
+    fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
+    expect(stepHeading("Car Setup")).toHaveFocus();
+    expect(screen.getByLabelText("Chassis Designation")).toHaveValue("SN-01");
+  });
+
+  it("leaves an empty step 1 to native validation instead of focusing the heading", () => {
+    renderTeamCreate();
+    const next = screen.getByRole("button", { name: /^next$/i });
+    next.focus();
+    fireEvent.click(next);
+
+    expect(screen.queryByLabelText("Chassis Designation")).not.toBeInTheDocument();
+    expect(stepHeading("Team Info")).not.toHaveFocus();
+    const active = document.activeElement;
+    expect(active === next || active === screen.getByLabelText("Team Name")).toBe(true);
+  });
+
+  it("keeps the step-2 error alert and leaves focus on Next when the step does not change", () => {
+    renderTeamCreate();
+    fillTeamInfoStep();
+    advanceStep();
+    fireEvent.change(screen.getByLabelText("Chassis Designation"), { target: { value: "SF-24" } });
+
+    const next = screen.getByRole("button", { name: /^next$/i });
+    next.focus();
+    fireEvent.click(next);
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/engine supplier/i);
+    expect(next).toHaveFocus();
+    expect(stepHeading("Car Setup")).not.toHaveFocus();
+  });
+
+  it("moves focus with Enter and Space from Next", async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup({ delay: null });
+    renderTeamCreate();
+    fillTeamInfoStep();
+
+    const next = screen.getByRole("button", { name: /^next$/i });
+    next.focus();
+    await user.keyboard("{Enter}");
+    expect(stepHeading("Car Setup")).toHaveFocus();
+
+    fireEvent.change(screen.getByLabelText("Chassis Designation"), { target: { value: "SF-24" } });
+    fireEvent.change(screen.getByLabelText("Engine Supplier"), { target: { value: "Ferrari" } });
+    fireEvent.change(screen.getByLabelText("Primary Livery Color"), { target: { value: "Red" } });
+
+    const secondNext = screen.getByRole("button", { name: /^next$/i });
+    secondNext.focus();
+    await user.keyboard(" ");
+    expect(stepHeading("Review")).toHaveFocus();
   });
 });
