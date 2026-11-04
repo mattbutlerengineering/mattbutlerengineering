@@ -89,6 +89,12 @@ describe("ReservationTimelineExamplePage", () => {
     expect(reservations.length).toBeGreaterThan(0);
   });
 
+  it("keeps a space before the inline click-handler code in the composition note", () => {
+    render(<ReservationTimelineExamplePage />);
+    const note = screen.getByRole("note", { name: "Composition note" });
+    expect(note.textContent).toContain("through onReservationClick");
+  });
+
   it("shows no selection details until a reservation bar is clicked", () => {
     render(<ReservationTimelineExamplePage />);
     expect(screen.queryByTestId("reservation-timeline-selection")).not.toBeInTheDocument();
