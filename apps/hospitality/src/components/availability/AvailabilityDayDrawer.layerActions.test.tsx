@@ -67,11 +67,11 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
     const rules = opts.rules ?? [EARLY_DINNER];
     const onFinished = vi.fn();
     const onStale = vi.fn();
-    render(
+    const ui = (date: string | null) => (
       <ToastProvider>
         <main>
           <AvailabilityDayDrawer
-            date={FIXTURE_DATE}
+            date={date}
             day={resolveFixtureDay(...rules)}
             isLoading={false}
             error={null}
@@ -90,7 +90,8 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
         </main>
       </ToastProvider>
     );
-    return { onFinished, onStale };
+    const view = render(ui(FIXTURE_DATE));
+    return { onFinished, onStale, setDate: (date: string | null) => view.rerender(ui(date)) };
   }
 
   it("is a Manager's control: a Host sees the layers and no Remove or Edit", () => {
@@ -183,6 +184,19 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
   it("keeps the editor's own scope select when no scope was chosen first", () => {
     renderDrawer({ rules: [FRIDAY_HOURS] });
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    expect(screen.getByRole("combobox", { name: /changing/i })).toBeInTheDocument();
+  });
+
+  it("does not carry a scope chosen before the drawer was closed into the next edit", () => {
+    const { setDate } = renderDrawer({ rules: [FRIDAY_HOURS] });
+    fireEvent.click(screen.getByRole("button", { name: /Edit special hours/ }));
+    const ask = screen.getByRole("dialog", { name: "Edit special hours" });
+    fireEvent.click(within(ask).getByRole("radio", { name: /All dates/i }));
+    fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
+    setDate(null);
+    setDate(FIXTURE_DATE);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    // The earlier "All dates" is gone: the editor asks for its own scope again.
     expect(screen.getByRole("combobox", { name: /changing/i })).toBeInTheDocument();
   });
 

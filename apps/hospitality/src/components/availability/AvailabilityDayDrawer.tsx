@@ -195,6 +195,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
 
   // "Edit" on a layer: the scope the Manager chose first (F-SER), and the editor takes focus.
   const [chosen, setChosen] = useState<{ date: string; scope: SeriesRuleScope } | null>(null);
+  // The choice belongs to one opening of one date: once the drawer closes or moves on, drop it, so
+  // reopening that date cannot re-apply "All dates" to a later, unrelated edit.
+  if (chosen !== null && chosen.date !== date) setChosen(null);
   const [focusEditor, setFocusEditor] = useState(0);
   const ruleScope = (chosen?.date === date ? chosen.scope : undefined) ?? editing?.ruleScope;
   const editHours = (scope?: SeriesRuleScope) => {
