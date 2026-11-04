@@ -14,7 +14,16 @@
   font-weight: 600;
 }
 
+/* 8.5rem fits a time and its clock icon, so the 400px day drawer holds two fields a row
+   instead of stacking all three times one per line. */
 .times {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: var(--rialto-space-sm);
+}
+
+/* Seating and booking selects need more room than a time; they stack in the day drawer. */
+.options {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
   gap: var(--rialto-space-sm);
