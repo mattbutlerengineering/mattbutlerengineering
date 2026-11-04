@@ -1883,6 +1883,14 @@
       export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/use-holidays.ts">
+    <item priority="high">
+      export function useHolidayCountry(): HolidayCountry | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/use-reload-hold.ts">
     <item priority="medium">
       function emit() { /* ... */ }

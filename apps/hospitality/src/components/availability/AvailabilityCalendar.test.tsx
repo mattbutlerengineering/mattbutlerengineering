@@ -91,6 +91,19 @@ describe("AvailabilityCalendar", () => {
     expect(within(cell).getByText("Dinner 6:00 PM–9:30 PM")).toBeInTheDocument();
   });
 
+  it("names a holiday beside its day number and in the cell's name, and no other day", () => {
+    const thanksgiving = day("2026-11-26");
+    renderCalendar({
+      view: "month",
+      anchor: "2026-11-15",
+      days: [thanksgiving, day("2026-11-25")],
+    });
+    const cell = screen.getByRole("button", { name: /^Thursday, November 26: .*, Thanksgiving$/ });
+    expect(within(cell).getByText("Thanksgiving")).toBeInTheDocument();
+    const before = screen.getByRole("button", { name: /^Wednesday, November 25:/ });
+    expect(before.getAttribute("aria-label")).not.toMatch(/Thanksgiving/);
+  });
+
   it("prints the first and last time a guest can book, not the close", () => {
     const week = WEEK.map((d) =>
       d.serviceDate === "2026-10-30"

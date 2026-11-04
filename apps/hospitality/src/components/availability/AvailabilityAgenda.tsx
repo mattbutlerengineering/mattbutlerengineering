@@ -25,6 +25,8 @@ export interface AvailabilityAgendaProps {
   readonly handlersFor: (date: string) => DateGestureHandlers;
   /** Space on a row: add it to the selection or take it out, the same key as the grid. */
   readonly onToggle: (date: string) => void;
+  /** The holidays among the dates ("Thanksgiving"), by date; each shows under its date. */
+  readonly holidays: ReadonlyMap<string, string>;
 }
 
 /** Enter opens a row; Space picks it. Firefox clicks on Space's keyup, so that is stopped too. */
@@ -56,6 +58,7 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
       {dates.map((date) => {
         const summary = byDate.get(date);
         const view = presentDay(date, summary, false, t, format);
+        const holiday = props.holidays.get(date);
         const shownDate = format.formatCalendarDate(date, {
           weekday: "short",
           month: "short",
@@ -64,7 +67,7 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
         // Starts with the date as the row shows it, so what is heard matches what is seen.
         const name = t("availability.calendar.cellName", {
           date: shownDate,
-          details: view.accessibleDetails,
+          details: holiday ? `${view.accessibleDetails}, ${holiday}` : view.accessibleDetails,
         });
         return (
           <li key={date} className={styles.item}>
@@ -92,6 +95,7 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
               )}
               <span className={styles.date} aria-hidden="true">
                 {shownDate}
+                {holiday && <span className={styles.holiday}>{holiday}</span>}
               </span>{" "}
               {isLoading || !summary ? (
                 !props.loadFailed && <Skeleton variant="text" width="100%" height={16} />
