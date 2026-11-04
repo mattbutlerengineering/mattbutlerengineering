@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { applyChanges, collapseDayNamedSchedules } from "@mbe/availability";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig, VenueTeam } from "@mbe/types";
 import { DEMO_WEEK_CONFIG } from "../utils/demo-week.fixture.js";
@@ -121,5 +122,106 @@ describe("AvailabilityPage regular-week line", () => {
     renderPage();
     expect(screen.getByText("Regular week: Dinner every day")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * A venue migrated in the old shape: the regular week Mon–Wed and a day-named "Thu–Fri hours"
+ * schedule that closes later, undated and ranked above it.
+ */
+function oldShapeMigrated(): AvailabilityConfig {
+  const seating = { version: 1, interval: 15 } as const;
+  const hours = { seating, bookingTypes: ["online", "phone"] as ("online" | "phone")[] };
+  const none = { weekdays: [], dayHours: { version: 1 as const, sets: [] } };
+  return {
+    schedules: [
+      { id: "regular", name: "Regular week", kind: "regular", isRegular: true },
+      { id: "thu-fri", name: "Thu–Fri hours", kind: "alternate", isRegular: false },
+    ],
+    venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+    scheduleServices: [
+      {
+        id: "ss-regular",
+        scheduleId: "regular",
+        venueServiceId: "vs-dinner",
+        opensAt: 1020,
+        lastSeatingAt: 1260,
+        closesAt: 1320,
+        ...hours,
+        ...none,
+      },
+      {
+        id: "ss-thu-fri",
+        scheduleId: "thu-fri",
+        venueServiceId: "vs-dinner",
+        opensAt: 1020,
+        lastSeatingAt: 1320,
+        closesAt: 1380,
+        ...hours,
+        ...none,
+      },
+    ],
+    assignments: [
+      { id: "as-regular", scheduleId: "regular", weekdays: [1, 2, 3], precedence: 0 },
+      { id: "as-thu-fri", scheduleId: "thu-fri", weekdays: [4, 5], precedence: 1 },
+    ],
+    dateRules: [],
+  };
+}
+
+function collapsed(): AvailabilityConfig {
+  const before = oldShapeMigrated();
+  let n = 0;
+  const changes = collapseDayNamedSchedules(before, () => `fold-${++n}`);
+  expect(changes).not.toBeNull();
+  return applyChanges(before, changes!, "2026-11-04T00:00:00.000Z");
+}
+
+describe("AvailabilityPage on a migrated venue", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-04T20:00:00Z") });
+    read.source = "rows";
+    read.migrated = false;
+    team.value = { viewerRole: "manager" };
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+
+  it("reads a collapsed venue as one regular week, with no day-named schedule and no Schedules tab", () => {
+    read.config = collapsed();
+    const { container } = renderPage();
+    expect(screen.getByText("Regular week: Dinner Mon–Fri, later Thu–Fri")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/Thu–Fri hours/);
+    expect(screen.queryByRole("radio", { name: "Schedules" })).not.toBeInTheDocument();
+  });
+
+  it("opens Change regular week pre-filled from the collapsed week", () => {
+    read.config = collapsed();
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Change regular week…" }));
+    const drawer = screen.getByRole("dialog", { name: "Change regular week" });
+    expect(within(drawer).getByDisplayValue("Dinner")).toBeInTheDocument();
+    // The Thu–Fri close is a block of different hours on the one Dinner row, not a schedule.
+    const block = within(drawer).getByRole("group", { name: "Dinner: different hours" });
+    expect(
+      within(block)
+        .getAllByRole("checkbox")
+        .filter((c) => (c as HTMLInputElement).checked)
+        .map((c) => c.closest("label")?.textContent)
+    ).toEqual(["Thu", "Fri"]);
+  });
+
+  it("keeps the Schedules tab and the day-named schedule for a venue not yet collapsed", () => {
+    read.config = oldShapeMigrated();
+    renderPage();
+    expect(screen.getByRole("radio", { name: "Schedules" })).toBeInTheDocument();
+    expect(screen.getByText("Regular week: Dinner Mon–Wed")).toBeInTheDocument();
+  });
+
+  it("still tells a venue with rows and no change that its hours were carried over", () => {
+    read.config = collapsed();
+    read.migrated = true;
+    renderPage();
+    expect(screen.getByText(/Your hours were carried over/)).toBeInTheDocument();
   });
 });
