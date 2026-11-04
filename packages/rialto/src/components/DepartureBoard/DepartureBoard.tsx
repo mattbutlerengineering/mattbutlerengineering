@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState, type HTMLAttributes } from "react";
+import { forwardRef, useEffect, useState, type CSSProperties, type HTMLAttributes } from "react";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { SplitFlap } from "../SplitFlap/SplitFlap";
 import type { CharsetName } from "../SplitFlap/charset";
@@ -60,6 +60,7 @@ export const DepartureBoard = forwardRef<HTMLDivElement, DepartureBoardProps>(
 
     // Fixed board width so cells never reflow between phrases of different lengths.
     const cellCount = length ?? phrases.reduce((max, p) => Math.max(max, p.length), 0);
+    const boardStyle = { "--board-cells": Math.max(cellCount, 1) } as CSSProperties;
 
     useEffect(() => {
       if (shouldReduceMotion || count <= 1) return;
@@ -88,7 +89,7 @@ export const DepartureBoard = forwardRef<HTMLDivElement, DepartureBoardProps>(
         <span className={styles.srOnly} role="status">
           {currentPhrase}
         </span>
-        <div className={styles.display} aria-hidden="true">
+        <div className={styles.display} style={boardStyle} aria-hidden="true">
           <SplitFlap
             value={currentPhrase}
             aria-label={currentPhrase}

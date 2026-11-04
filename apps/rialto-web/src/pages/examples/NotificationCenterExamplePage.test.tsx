@@ -201,6 +201,15 @@ describe("NotificationCenterExamplePage — filtering", () => {
   });
 });
 
+describe("NotificationCenterExamplePage — composition notes", () => {
+  it("keeps a space before the inline mark-all helper in the composition note", () => {
+    renderPage();
+    const notes = screen.getAllByRole("note", { name: "Composition note" });
+    const helpersNote = notes.find((note) => note.textContent?.includes("markAllRead"));
+    expect(helpersNote?.textContent).toContain("markRead / markAllRead");
+  });
+});
+
 describe("NotificationCenterExamplePage — marking read", () => {
   it("clicking an unread notification marks it read and decrements the unread count", async () => {
     const user = userEvent.setup();

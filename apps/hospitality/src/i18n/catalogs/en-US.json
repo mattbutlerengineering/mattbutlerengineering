@@ -1710,10 +1710,18 @@
       "retryCount": "Retry",
       "changed": "A teammate changed this closure while you had it open, so it wasn't reopened. The list is up to date: review it and reopen again if you still want to.",
       "descriptionStillClosed": "This removes one closure, but another still closes these dates, so guests can't book them yet.",
-      "doneStillClosed": "Closure removed: {{date}}. Not reopened"
+      "doneStillClosed": "Closure removed: {{date}}. Not reopened",
+      "dateLabel": "What to reopen",
+      "allDates": "All dates",
+      "descriptionDate": "Guests can book {{date}} again. The other dates in this range stay closed.",
+      "descriptionDateCancelled": "Guests can book {{date}} again. The other dates in this range stay closed. The reservations you cancelled stay cancelled.",
+      "tellDate": "Tell any guests we cancelled on {{date}} that we've reopened, with a link to rebook",
+      "doneTold_one": "{{date}} reopened. {{count}} guest told.",
+      "doneTold_other": "{{date}} reopened. {{count}} guests told."
     },
     "series": {
       "editDates": "Edit dates…",
+      "editDatesFor": "Edit dates of the closure on {{date}}",
       "title": "Edit dates",
       "dateLabel": "Date",
       "scopeLabel": "Change",
@@ -1850,6 +1858,15 @@
     "noStart": "Right away",
     "noEnd": "No end",
     "thisSchedule": "This schedule",
+    "suggest": {
+      "use": "Use “{{name}}”",
+      "spring": "Spring hours",
+      "summer": "Summer hours",
+      "autumn": "Fall hours",
+      "winter": "Winter hours",
+      "from": "Hours from {{from}}",
+      "range": "Hours {{from}} – {{to}}"
+    },
     "impactNone": "Not used on any date yet",
     "overlap": "{{name}} overlaps {{other}}.",
     "overlapNewWins": "{{name}} wins",
@@ -1974,7 +1991,11 @@
       "next": "Next",
       "today": "Today",
       "range": "{{from}} – {{to}}",
-      "more": "More actions"
+      "more": "More actions",
+      "goToDate": "Go to date",
+      "goToDateLabel": "Date",
+      "goToDateSubmit": "Go",
+      "goToDateCancel": "Cancel"
     },
     "calendar": {
       "label": "Availability calendar",
@@ -2025,6 +2046,9 @@
       }
     },
     "drawer": {
+      "useOtherDay": "Use another day’s hours…",
+      "useSchedule": "Use schedule…",
+      "useBlockedClosed": "Closed all day. Remove the closure to use other hours.",
       "summaryOpen": "Open for {{services}}.",
       "summaryClosed": "Closed.",
       "closedRegular": "Closed. Your regular week has no hours on {{weekday}}.",
@@ -2591,6 +2615,9 @@
       "use": {
         "titleSchedule": "Use a schedule on the selected dates",
         "titleDay": "Use another day’s hours",
+        "titleScheduleOne": "Use a schedule on {{date}}",
+        "titleDayOne": "Use another day’s hours on {{date}}",
+        "blockedSame": "That is the date you are changing. Choose another day.",
         "schedule": "Schedule",
         "from": "Copy hours from",
         "cancel": "Cancel",

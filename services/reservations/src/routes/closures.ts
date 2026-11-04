@@ -304,7 +304,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       summary: "Reopen a closure",
       operationId: "reopenClosure",
       description:
-        "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Takes no `expectedVersion`: a save to anything else never stops a reopen. Optional `seen` is the rule and its skips and one-date edits as the caller read them (they are deleted together): if they differ now (a teammate extended or edited the rule), nothing is changed and the answer is 409 `version-conflict` naming the latest change, so the caller refreshes. A caller that sends no `seen` (an older client) reopens the rule as it is now, whatever changed since it read it; an already-removed rule answers 404. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
+        "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Takes no `expectedVersion`: a save to anything else never stops a reopen. Optional `seen` is the rule and its skips and one-date edits as the caller read them (they are deleted together): if they differ now (a teammate extended or edited the rule), nothing is changed and the answer is 409 `version-conflict` naming the latest change, so the caller refreshes. A caller that sends no `seen` (an older client) reopens the rule as it is now, whatever changed since it read it; an already-removed rule answers 404. Optional `date` (Manager, needs `seen`) reopens only that date of a bounded, non-repeating range: the range is removed and its other dates are saved as new rules, each cancelled guest's outcome follows their date to the rule that still closes it, and the reopen notice reaches only guests on the reopened date. Undo of a reopen that told no guest puts the range and its outcomes back exactly. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
       tags: ["Availability"],
       security: [{ bearerAuth: [] }],
     },
@@ -317,6 +317,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         caller,
         tellCancelledGuests: request.body.tellCancelledGuests,
         seen: request.body.seen,
+        date: request.body.date,
         now: new Date(),
       });
       if (outcome.kind === "reopened") {
@@ -324,7 +325,11 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
           await enqueueNotices(
             closureNoticeService.enqueueForReopen,
-            { venueId, ruleId: request.params.ruleId },
+            {
+              venueId,
+              ruleId: request.params.ruleId,
+              ...(request.body.date ? { date: request.body.date } : {}),
+            },
             request.log
           );
         }

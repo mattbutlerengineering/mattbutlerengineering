@@ -9,6 +9,11 @@
 }
 
 /* ── Stats ────────────────────────────────────── */
+.statsFrame {
+  container-type: inline-size;
+  min-inline-size: 0;
+}
+
 .stats {
   display: flex;
   align-items: center;
@@ -18,6 +23,11 @@
   background: var(--rialto-surface-elevated);
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-soft);
+  min-inline-size: 0;
+}
+
+.stat {
+  min-inline-size: 0;
 }
 
 .statDivider {
@@ -140,6 +150,30 @@
   .page {
     gap: var(--rialto-space-2xl);
     padding-block: var(--rialto-space-xl);
+  }
+}
+
+/* 768px with the sidebar open leaves this row ~444px. The viewport query
+   below never fires there, and the three cards then shrink unevenly and
+   paint across the border. Restack from the row's own width instead. */
+@container (max-width: 40rem) {
+  .stats {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--rialto-space-md);
+  }
+
+  .stat {
+    inline-size: 100%;
+    min-inline-size: 0;
+    align-items: center;
+    text-align: center;
+  }
+
+  .statDivider {
+    width: 48px;
+    height: 1px;
+    align-self: center;
   }
 }
 

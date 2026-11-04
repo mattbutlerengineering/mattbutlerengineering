@@ -1743,10 +1743,19 @@
       "retryCount": "Réessayer",
       "changed": "Un collègue a modifié cette fermeture pendant que vous l'aviez ouverte, elle n'a donc pas été rouverte. La liste est à jour : examinez-la et rouvrez de nouveau si vous le souhaitez toujours.",
       "descriptionStillClosed": "Ceci retire une fermeture, mais une autre ferme encore ces dates : les clients ne peuvent pas encore les réserver.",
-      "doneStillClosed": "Fermeture retirée : {{date}}. Pas rouvert"
+      "doneStillClosed": "Fermeture retirée : {{date}}. Pas rouvert",
+      "dateLabel": "À rouvrir",
+      "allDates": "Toutes les dates",
+      "descriptionDate": "Les clients peuvent de nouveau réserver le {{date}}. Les autres dates de cette plage restent fermées.",
+      "descriptionDateCancelled": "Les clients pourront de nouveau réserver le {{date}}. Les autres dates de cette plage restent fermées. Les réservations que vous avez annulées restent annulées.",
+      "tellDate": "Aviser les clients, s’il y en a, dont nous avons annulé la réservation le {{date}} que nous avons rouvert, avec un lien pour réserver à nouveau",
+      "doneTold_one": "{{date}} rouvert. {{count}} client avisé.",
+      "doneTold_many": "{{date}} rouvert. {{count}} clients avisés.",
+      "doneTold_other": "{{date}} rouvert. {{count}} clients avisés."
     },
     "series": {
       "editDates": "Modifier les dates…",
+      "editDatesFor": "Modifier les dates de la fermeture du {{date}}",
       "title": "Modifier les dates",
       "dateLabel": "Date",
       "scopeLabel": "Modifier",
@@ -1886,6 +1895,15 @@
     "noStart": "Tout de suite",
     "noEnd": "Sans fin",
     "thisSchedule": "Cet horaire",
+    "suggest": {
+      "use": "Utiliser « {{name}} »",
+      "spring": "Horaire du printemps",
+      "summer": "Horaire d’été",
+      "autumn": "Horaire d’automne",
+      "winter": "Horaire d’hiver",
+      "from": "Horaire à partir du {{from}}",
+      "range": "Horaire du {{from}} au {{to}}"
+    },
     "impactNone": "Pas encore utilisé à une date",
     "overlap": "{{name}} chevauche {{other}}.",
     "overlapNewWins": "{{name}} l’emporte",
@@ -2020,7 +2038,11 @@
       "next": "Suivant",
       "today": "Aujourd'hui",
       "range": "{{from}} – {{to}}",
-      "more": "Plus d’actions"
+      "more": "Plus d’actions",
+      "goToDate": "Aller à une date",
+      "goToDateLabel": "Date",
+      "goToDateSubmit": "Aller",
+      "goToDateCancel": "Annuler"
     },
     "calendar": {
       "label": "Calendrier de disponibilité",
@@ -2071,6 +2093,9 @@
       }
     },
     "drawer": {
+      "useOtherDay": "Utiliser les heures d’un autre jour…",
+      "useSchedule": "Utiliser un horaire…",
+      "useBlockedClosed": "Fermé toute la journée. Retirez la fermeture pour utiliser d’autres heures.",
       "summaryOpen": "Ouvert pour {{services}}.",
       "summaryClosed": "Fermé.",
       "closedRegular": "Fermé. Votre semaine habituelle n'a pas d'heures le {{weekday}}.",
@@ -2670,6 +2695,9 @@
       "use": {
         "titleSchedule": "Utiliser un horaire pour les dates sélectionnées",
         "titleDay": "Utiliser les heures d’un autre jour",
+        "titleScheduleOne": "Utiliser un horaire le {{date}}",
+        "titleDayOne": "Utiliser les heures d’un autre jour le {{date}}",
+        "blockedSame": "C’est la date que vous modifiez. Choisissez un autre jour.",
         "schedule": "Horaire",
         "from": "Copier les heures du",
         "cancel": "Annuler",

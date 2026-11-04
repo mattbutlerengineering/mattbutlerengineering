@@ -635,6 +635,11 @@
       );
     }
   </file>
+  <file path="src/components/availability/closed-all-day.ts">
+    export const closedAllDay = (day: ResolvedDay): boolean =>
+      day.services.length === 0 &&
+      day.explanation.some((layer) => layer.kind === "closure" && !layer.window);
+  </file>
   <file path="src/components/availability/closure-band.ts">
     type Closure = AvailabilityDaySummary["closures"][number];
     export interface ClosureBandText {
@@ -1423,6 +1428,7 @@
     }
   </file>
   <file path="src/components/availability/draft-wait.ts">
+    export const skipInitialFocus = { "data-focus-trap-skip-initial": "true" } as const;
     export function waitingProps(waiting: boolean, reasonId: string | undefined) {
       return waiting
         ? { "aria-disabled": true, "aria-describedby": reasonId, className: styles.waiting }
@@ -2287,6 +2293,55 @@
       const code = error instanceof ApiClientError ? error.problemDetails.code : undefined;
       const known = REVERT_CODES.find((c) => c === code);
       return known ? t(`availability.undo.errors.${known}`) : describeApiError(error).detail;
+    }
+  </file>
+  <file path="src/components/availability/rule-subjects.ts">
+    export const DATE_FORMAT = { weekday: "short", month: "short", day: "numeric" } as const;
+    export function rangeLabel(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+      const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
+      if (rule.endsOn == null) {
+        // Hours are not "reopened": an open-ended hours rule just runs from its start on.
+        return t(
+          rule.kind === "closure" ? "availabilitySpecial.untilReopened" : "availabilitySpecial.fromOn",
+          { from }
+        );
+      }
+      if (rule.endsOn === rule.startsOn) return from;
+      return t("availabilitySpecial.range", {
+        from,
+        to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
+      });
+    }
+    function weekdayList(rule: SpecialDateRule, format: VenueFormat): string {
+      const days = (rule.repeat?.weekdays ?? []).map((d) =>
+        format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
+      );
+      return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days);
+    }
+    export function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+      if (rule.repeat != null) {
+        return t("availabilitySpecial.hours.subjectRepeat", { days: weekdayList(rule, format) });
+      }
+      return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
+    }
+    export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+      const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
+      const span =
+        rule.endsOn == null
+          ? t("availabilitySpecial.reopen.fromOn", { from })
+          : rule.endsOn === rule.startsOn
+            ? from
+            : t("availabilitySpecial.range", {
+                from,
+                to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
+              });
+      if (rule.repeat != null) {
+        return t("availabilitySpecial.reopen.subjectRepeat", {
+          days: weekdayList(rule, format),
+          span,
+        });
+      }
+      return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
     }
   </file>
   <file path="src/components/availability/schedule-changes.ts">
@@ -3271,6 +3326,21 @@
         return;
       }
       toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
+    }
+  </file>
+  <file path="src/components/availability/suggest-name.ts">
+    export type Season = "spring" | "summer" | "autumn" | "winter";
+    export type NameSuggestion =
+      | { readonly kind: "season"; readonly season: Season }
+      | { readonly kind: "from"; readonly from: string }
+      | { readonly kind: "range"; readonly from: string; readonly to: string };
+    export function suggestName(startsOn: string | null, endsOn: string | null): NameSuggestion | null {
+      if (!startsOn) return null;
+      if (!endsOn) return { kind: "from", from: startsOn };
+      if (days(startsOn, endsOn) > SEASON_MAX_DAYS)
+        return { kind: "range", from: startsOn, to: endsOn };
+      const season = SEASON_OF_MONTH[Number(startsOn.slice(5, 7)) - 1];
+      return { kind: "season", season: season ?? "winter" };
     }
   </file>
   <file path="src/components/availability/tonight-state.ts">
@@ -8842,6 +8912,8 @@
       tellCancelledGuests: boolean;
       /** The rule and its skips and one-date edits as the screen read them; a change since is refused. */
       seen?: ReopenSeen;
+      /** Reopen only this date of a bounded range. */
+      date?: string;
     };
     export const useReopenClosure = createMutationHook<ReopenClosureVariables, ReopenResult>({
       invalidateKeys: [
@@ -8849,9 +8921,9 @@
         AVAILABILITY_DAYS_QUERY_KEY,
         CLOSURE_SUMMARIES_QUERY_KEY,
       ],
-      mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen }) =>
+      mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen, date }) =>
         trackOwnSave(venueId, () =>
-          api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests, undefined, seen)
+          api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests, undefined, seen, date)
         ),
     });
     export type PreviewClosureImpactsVariables = {

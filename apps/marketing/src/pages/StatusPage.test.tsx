@@ -2,12 +2,20 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { ReactNode } from "react";
+import type { ElementType, ReactNode } from "react";
 import { StatusPage } from "./StatusPage.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Heading: ({ children }: { children?: ReactNode }) => <h1>{children}</h1>,
-  Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
+  Text: ({
+    as: Tag = "p",
+    children,
+    className,
+  }: {
+    as?: ElementType;
+    children?: ReactNode;
+    className?: string;
+  }) => <Tag className={className}>{children}</Tag>,
   Button: ({ children }: { children?: ReactNode }) => <button>{children}</button>,
   Card: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   Badge: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
@@ -54,17 +62,29 @@ describe("StatusPage", () => {
     expect(screen.getByText("Hospitality")).toBeInTheDocument();
   });
 
-  it("renders the version in a no-wrap monospace element", async () => {
+  it("keeps a long version hash in a truncating monospace element", async () => {
+    const version = "77f84aca5c5c2c53b92df10b9a3390abcdef12";
     mockFetch.mockResolvedValue({
       ok: true,
-      json: async () => ({ status: "ok", version: "a1b2c3d4e5f6" }),
+      json: async () => ({ status: "ok", version }),
     });
     render(<StatusPage />);
-    const versions = await screen.findAllByText("va1b2c3d4e5f6", { selector: "code" });
+    const versions = await screen.findAllByText(`v${version}`, { selector: "code" });
+    // Full hash stays in the accessibility tree and on the tooltip, even when
+    // the visible line ellipsizes inside the card.
+    expect(versions[0]).toHaveAttribute("title", `v${version}`);
     expect(versions[0]?.tagName).toBe("CODE");
+    expect(versions[0]?.parentElement?.tagName).toBe("P");
     const css = readFileSync(join(__dirname, "StatusPage.module.css"), "utf8");
-    expect(css).toMatch(/\.version\s*\{[^}]*white-space:\s*nowrap/);
-    expect(css).toMatch(/\.version\s*\{[^}]*var\(--rialto-font-mono\)/);
+    const versionRule = css.match(/\.version\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(versionRule).toMatch(/font-family:\s*var\(--rialto-font-mono\)/);
+    const cardRule = css.match(/\.card\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(cardRule).toMatch(/min-width:\s*0/);
+    const metaRule = css.match(/\.meta\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(metaRule).toMatch(/overflow:\s*hidden/);
+    expect(metaRule).toMatch(/text-overflow:\s*ellipsis/);
+    expect(metaRule).toMatch(/white-space:\s*nowrap/);
+    expect(metaRule).toMatch(/min-width:\s*0/);
   });
 
   it("renders healthy state", async () => {

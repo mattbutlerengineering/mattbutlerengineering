@@ -128,11 +128,13 @@ export function StatusPage() {
               </div>
               {service.latency !== undefined && (
                 <Text className={styles.meta}>
-                  Latency: {service.latency}ms
+                  {`Latency: ${service.latency}ms`}
                   {service.version && (
                     <>
                       {" · "}
-                      <code className={styles.version}>{`v${service.version}`}</code>
+                      <code className={styles.version} title={`v${service.version}`}>
+                        {`v${service.version}`}
+                      </code>
                     </>
                   )}
                 </Text>

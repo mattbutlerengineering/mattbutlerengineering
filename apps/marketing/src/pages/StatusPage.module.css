@@ -41,6 +41,9 @@
 
 .card {
   padding: 1rem;
+  /* Grid items default to min-width: auto, so a nowrap hash widens the column
+     past the card. Allow the track to shrink to the 14rem floor. */
+  min-width: 0;
 }
 
 .cardHeader {
@@ -59,10 +62,12 @@
   margin-top: 0.5rem;
   font-size: 0.8125rem;
   opacity: 0.6;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .version {
   font-family: var(--rialto-font-mono);
-  white-space: nowrap;
-  overflow-wrap: normal;
 }

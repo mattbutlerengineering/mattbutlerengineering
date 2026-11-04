@@ -58,22 +58,25 @@ function runClassifier({
   added = 0,
   additions = {},
   isFork = false,
+  rawInputs = null,
 }) {
   const dir = mkdtempSync(join(tmpdir(), "tier-classifier-test-"));
   tmpDirs.push(dir);
 
-  const changedFilesPath = join(dir, "changed-files.txt");
+  const changedFilesPath = rawInputs?.changed ?? join(dir, "changed-files.txt");
   const outputPath = join(dir, "github-output.txt");
-  writeFileSync(changedFilesPath, files.join("\n"));
+  if (!rawInputs) writeFileSync(changedFilesPath, files.map((f) => `${f}\0`).join(""));
   // `added` is shorthand: attribute that many lines to the first file.
   const perFile = { ...(added && files[0] ? { [files[0]]: added } : {}), ...additions };
-  const numstatPath = join(dir, "numstat.txt");
-  writeFileSync(
-    numstatPath,
-    Object.entries(perFile)
-      .map(([path, n]) => `${n}\t0\t${path}`)
-      .join("\n")
-  );
+  const numstatPath = rawInputs?.numstat ?? join(dir, "numstat.txt");
+  if (!rawInputs) {
+    writeFileSync(
+      numstatPath,
+      Object.entries(perFile)
+        .map(([path, n]) => `${n}\t0\t${path}\0`)
+        .join("")
+    );
+  }
 
   const script = extractClassifierScript(WORKFLOW)
     .replace("/tmp/changed-files.txt", changedFilesPath)
@@ -100,7 +103,7 @@ function runClassifier({
   const tier = Number(output.match(/^tier=(\d+)$/m)?.[1]);
   const label = output.match(/^label=(.+)$/m)?.[1];
   const reasons = output.match(/^reasons=(.*)$/m)?.[1] ?? "";
-  return { tier, label, reasons };
+  return { tier, label, reasons, output };
 }
 
 describe("tier-classifier keyword escalation vs. the PR template", () => {
@@ -610,5 +613,397 @@ describe("tier-classifier loads the escalation policy from the BASE branch", () 
     });
     expect(tier).toBe(4);
     expect(reasons).toMatch(/`scripts\/tier-escalation\.mjs` -> T4/);
+  });
+});
+
+/**
+ * Split the workflow's job steps into `{ name, text }` records. Textual, like
+ * the helpers above: every step starts at a `      - name:` line.
+ */
+function splitSteps(source) {
+  const lines = source.split("\n");
+  const starts = lines.flatMap((l, i) => (/^ {6}- name: /.test(l) ? [i] : []));
+  return starts.map((s, n) => ({
+    name: lines[s].replace(/^ {6}- name: /, "").trim(),
+    text: lines.slice(s, starts[n + 1] ?? lines.length).join("\n"),
+  }));
+}
+
+/** The `run:` bodies (block scalars and one-liners) of a step's text. */
+function runBodies(stepText) {
+  const lines = stepText.split("\n");
+  const bodies = [];
+  lines.forEach((l, i) => {
+    const m = l.match(/^(\s*)(?:- )?run:\s*(.*)$/);
+    if (!m) return;
+    if (m[2] && !/^[|>]/.test(m[2])) {
+      bodies.push(m[2]);
+      return;
+    }
+    const indent = m[1].length;
+    const body = [];
+    for (const next of lines.slice(i + 1)) {
+      if (next.trim() !== "" && next.search(/\S/) <= indent) break;
+      body.push(next);
+    }
+    bodies.push(body.join("\n"));
+  });
+  return bodies;
+}
+
+// Defect: tier-classifier checked out the PR HEAD and ran the head's
+// scripts/resolve-pr-metadata.mjs, so a PR chose its own base_ref and policy.
+// The workflow must execute base-side code only; the PR head is fetched as
+// git objects and read through `git diff`.
+describe("trust seam: base-only execution", () => {
+  const steps = splitSteps(WORKFLOW);
+  const onBlock = WORKFLOW.slice(WORKFLOW.indexOf("\non:") + 1, WORKFLOW.indexOf("\npermissions:"));
+
+  it("(a) triggers on pull_request_target and workflow_dispatch, never pull_request", () => {
+    expect(onBlock).toMatch(/^ {2}pull_request_target:/m);
+    expect(onBlock).toMatch(/^ {2}workflow_dispatch:/m);
+    expect(onBlock).not.toMatch(/^ {2}pull_request:/m);
+  });
+
+  it("(b) the checkout has no ref/repository and precedes the resolver", () => {
+    const checkoutIdx = steps.findIndex((s) => /uses:\s*actions\/checkout@/.test(s.text));
+    const resolverIdx = steps.findIndex((s) => /resolve-pr-metadata\.mjs/.test(s.text));
+    expect(checkoutIdx).toBeGreaterThan(-1);
+    expect(resolverIdx).toBeGreaterThan(-1);
+    expect(checkoutIdx).toBeLessThan(resolverIdx);
+    const checkoutText = steps[checkoutIdx].text.replace(/^\s*#.*$/gm, "");
+    expect(checkoutText).not.toMatch(/^\s*ref:/m);
+    expect(checkoutText).not.toMatch(/^\s*repository:/m);
+    expect(steps.filter((s) => /uses:\s*actions\/checkout@/.test(s.text))).toHaveLength(1);
+  });
+
+  it("(c) no step switches the working tree to PR code and node runs only the resolver and Classify", () => {
+    const bodies = steps.flatMap((s) => runBodies(s.text));
+    for (const body of bodies) {
+      expect(body).not.toMatch(
+        /\bgit\s+(checkout|switch|merge|worktree\s+add|pull|cherry-pick|rebase)(?![\w-])/
+      );
+    }
+    const nodeInvocations = bodies
+      .flatMap((b) => b.split("\n"))
+      .filter((l) => /(^|[\s;&|(])node\s/.test(l.replace(/^\s*#.*$/, "")))
+      .map((l) => l.trim());
+    expect(nodeInvocations).toHaveLength(2);
+    expect(nodeInvocations[0]).toMatch(
+      /^node scripts\/resolve-pr-metadata\.mjs --pr "\$PR_NUMBER"/
+    );
+    expect(nodeInvocations[1]).toBe("node - <<'NODE'");
+  });
+
+  it("(d) base_ref comes only from steps.pr.outputs.base_ref and step pr runs the resolver", () => {
+    const prStep = steps.find((s) => /^\s*id:\s*pr\s*$/m.test(s.text));
+    expect(prStep, "step with id: pr").toBeDefined();
+    expect(prStep.text).toMatch(/node scripts\/resolve-pr-metadata\.mjs/);
+    const baseRefReads = WORKFLOW.split("\n").filter((l) => /PR_BASE_REF:/.test(l));
+    expect(baseRefReads.length).toBeGreaterThan(0);
+    for (const l of baseRefReads) expect(l).toMatch(/\$\{\{ steps\.pr\.outputs\.base_ref \}\}/);
+    expect(WORKFLOW).not.toMatch(/github\.base_ref|github\.head_ref/);
+  });
+
+  it("(e) no ${{ }} expression inside any run: body", () => {
+    for (const s of steps) {
+      for (const body of runBodies(s.text)) {
+        expect(body, `step "${s.name}"`).not.toMatch(/\$\{\{/);
+      }
+    }
+  });
+});
+
+// Behavioural half of the trust seam: run the real step bodies against a
+// fixture where the PR ref carries a forged resolver and a neutered policy.
+describe("trust seam: PR head is fetched as data and diffed", () => {
+  const BASE_RESOLVER = "// real resolver\n";
+  const BASE_POLICY = "export const real = true;\n";
+  const git = (cwd, ...args) => {
+    const r = spawnSync("git", args, { cwd, encoding: "utf8" });
+    if (r.status !== 0) throw new Error(`git ${args.join(" ")}: ${r.stderr}`);
+    return r.stdout.trim();
+  };
+  const commitAll = (dir, msg) => {
+    git(dir, "add", "-A");
+    git(dir, "commit", "-q", "--no-verify", "-m", msg);
+    return git(dir, "rev-parse", "HEAD");
+  };
+
+  /**
+   * `server` plays GitHub: main plus `refs/pull/7/head` (forged resolver,
+   * neutered policy, one real file) and `refs/pull/8/head` (unrelated
+   * history). `work` is the Actions runner's base-only checkout (a clone of
+   * main, no PR refs fetched yet).
+   */
+  function makeFixture() {
+    const root = mkdtempSync(join(tmpdir(), "tier-seam-"));
+    tmpDirs.push(root);
+    const server = join(root, "server");
+    mkdirSync(join(server, "scripts"), { recursive: true });
+    git(server, "init", "-q", "-b", "main");
+    git(server, "config", "user.email", "t@example.com");
+    git(server, "config", "user.name", "t");
+    git(server, "config", "commit.gpgsign", "false");
+    writeFileSync(join(server, "scripts", "resolve-pr-metadata.mjs"), BASE_RESOLVER);
+    writeFileSync(join(server, "scripts", "tier-escalation.mjs"), BASE_POLICY);
+    const baseSha = commitAll(server, "base");
+
+    git(server, "checkout", "-q", "-b", "pr7");
+    writeFileSync(
+      join(server, "scripts", "resolve-pr-metadata.mjs"),
+      "process.exit(0); // forged\n"
+    );
+    writeFileSync(join(server, "scripts", "tier-escalation.mjs"), "export const real = false;\n");
+    mkdirSync(join(server, "services", "users", "src", "auth"), { recursive: true });
+    writeFileSync(join(server, "services", "users", "src", "auth", "session.ts"), "export {};\n");
+    const headSha = commitAll(server, "pr head");
+    git(server, "update-ref", "refs/pull/7/head", headSha);
+
+    git(server, "checkout", "-q", "--orphan", "pr8");
+    git(server, "rm", "-rfq", ".");
+    writeFileSync(join(server, "unrelated.txt"), "x\n");
+    const orphanSha = commitAll(server, "unrelated history");
+    git(server, "update-ref", "refs/pull/8/head", orphanSha);
+    git(server, "checkout", "-q", "main");
+
+    const work = join(root, "work");
+    git(root, "clone", "-q", "--no-tags", "--branch", "main", server, work);
+    return { root, server, work, baseSha, headSha, orphanSha };
+  }
+
+  const run = (script, cwd, env) =>
+    spawnSync("bash", ["-e", "-c", script], {
+      cwd,
+      env: { ...process.env, ...env },
+      encoding: "utf8",
+    });
+
+  const runFetch = (fx, env) =>
+    run(extractStepRun(WORKFLOW, "Fetch PR head as data"), fx.work, env);
+
+  function runDiff(fx, env) {
+    const changed = join(fx.root, "changed-files.txt");
+    const numstat = join(fx.root, "numstat.txt");
+    const out = join(fx.root, "github-output.txt");
+    writeFileSync(out, "");
+    const script = extractStepRun(WORKFLOW, "Compute base SHA and diff")
+      .replaceAll("/tmp/changed-files.txt", changed)
+      .replaceAll("/tmp/numstat.txt", numstat);
+    const result = run(script, fx.work, { ...env, GITHUB_OUTPUT: out });
+    return { result, changed, numstat, out };
+  }
+
+  it("diffs the fetched head against the base: real file list, working tree untouched", () => {
+    const fx = makeFixture();
+    const env = { PR_NUMBER: "7", HEAD_SHA: fx.headSha, PR_BASE_REF: "main" };
+    const fetched = runFetch(fx, env);
+    expect(fetched.status, fetched.stderr).toBe(0);
+    const { result, changed, numstat, out } = runDiff(fx, env);
+    expect(result.status, result.stderr).toBe(0);
+    expect(readFileSync(changed, "utf8").split("\0").filter(Boolean).sort()).toEqual([
+      "scripts/resolve-pr-metadata.mjs",
+      "scripts/tier-escalation.mjs",
+      "services/users/src/auth/session.ts",
+    ]);
+    expect(readFileSync(numstat, "utf8")).toMatch(
+      /(^|\0)1\t0\tservices\/users\/src\/auth\/session\.ts\0/
+    );
+    expect(readFileSync(out, "utf8")).toMatch(/^count=\s*3$/m);
+    // The forged files exist only as objects; the checkout is still base.
+    expect(readFileSync(join(fx.work, "scripts", "resolve-pr-metadata.mjs"), "utf8")).toBe(
+      BASE_RESOLVER
+    );
+    expect(readFileSync(join(fx.work, "scripts", "tier-escalation.mjs"), "utf8")).toBe(BASE_POLICY);
+    expect(git(fx.work, "rev-parse", "HEAD")).toBe(fx.baseSha);
+  });
+
+  it("fails when the fetched tip is not the resolved head_sha", () => {
+    const fx = makeFixture();
+    const r = runFetch(fx, { PR_NUMBER: "7", HEAD_SHA: fx.baseSha });
+    expect(r.status).not.toBe(0);
+  });
+
+  it("fails when the PR ref cannot be fetched", () => {
+    const fx = makeFixture();
+    const r = runFetch(fx, { PR_NUMBER: "999", HEAD_SHA: fx.headSha });
+    expect(r.status).not.toBe(0);
+  });
+
+  it("fails when the head shares no ancestor with origin/<base_ref>", () => {
+    const fx = makeFixture();
+    const env = { PR_NUMBER: "8", HEAD_SHA: fx.orphanSha, PR_BASE_REF: "main" };
+    const fetched = runFetch(fx, env);
+    expect(fetched.status, fetched.stderr).toBe(0);
+    const { result, changed } = runDiff(fx, env);
+    expect(result.status).not.toBe(0);
+    expect(() => readFileSync(changed, "utf8")).toThrow();
+  });
+
+  // Review Major 1: the diff list must expose every path the PR touches, raw.
+  // These run the real "Compute base SHA and diff" body over a real git repo
+  // and feed its output files to the real Classify script.
+  describe("changed-file list covers every touched path, unquoted", () => {
+    function pr({ base, edit }) {
+      const fx = makeFixture();
+      const { server } = fx;
+      for (const [p, c] of Object.entries(base)) {
+        mkdirSync(dirname(join(server, p)), { recursive: true });
+        writeFileSync(join(server, p), c);
+      }
+      const baseSha = commitAll(server, "base files");
+      git(server, "update-ref", "refs/heads/main", baseSha);
+      git(server, "checkout", "-q", "-b", "pr9");
+      edit(server);
+      const headSha = commitAll(server, "pr 9");
+      git(server, "update-ref", "refs/pull/9/head", headSha);
+      git(server, "checkout", "-q", "main");
+      git(fx.work, "pull", "-q", "--no-tags", "origin", "main");
+      const env = { PR_NUMBER: "9", HEAD_SHA: headSha, PR_BASE_REF: "main" };
+      const fetched = runFetch(fx, env);
+      expect(fetched.status, fetched.stderr).toBe(0);
+      const d = runDiff(fx, env);
+      expect(d.result.status, d.result.stderr).toBe(0);
+      return { fx, ...d };
+    }
+    const classify = (d, extra = {}) =>
+      runClassifier({
+        title: "chore: edit",
+        rawInputs: { changed: d.changed, numstat: d.numstat },
+        ...extra,
+      });
+    const body = Array.from({ length: 20 }, (_, i) => `line ${i}`).join("\n") + "\n";
+
+    it("a rename out of an auth path counts the old path (not T1)", () => {
+      const d = pr({
+        base: { "services/users/src/auth/m.ts": body },
+        edit: (s) => {
+          mkdirSync(join(s, "docs"), { recursive: true });
+          git(s, "mv", "services/users/src/auth/m.ts", "docs/m.md");
+        },
+      });
+      const { tier, reasons } = classify(d);
+      expect(tier).toBeGreaterThanOrEqual(3);
+      expect(reasons).toContain("services/users/src/auth/m.ts");
+    });
+
+    it("a non-ASCII path matches its rule instead of arriving C-quoted", () => {
+      const d = pr({
+        base: { "README.md": "x\n" },
+        edit: (s) => {
+          mkdirSync(join(s, "infrastructure", "pulumi"), { recursive: true });
+          writeFileSync(join(s, "infrastructure", "pulumi", "\u00e9.ts"), "export {};\n");
+        },
+      });
+      const { tier, reasons } = classify(d);
+      expect(tier).toBe(4);
+      expect(reasons).toContain("pulumi infra change");
+    });
+
+    it("tab, quote and backslash names are raw and classify by their rule", () => {
+      const d = pr({
+        base: { "README.md": "x\n" },
+        edit: (s) => {
+          const dir = join(s, "services", "users", "src", "auth");
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, 'a\tb"c\\d.ts'), "export {};\n");
+        },
+      });
+      expect(classify(d).tier).toBe(4);
+    });
+
+    it("a newline in a path cannot inject $GITHUB_OUTPUT lines", () => {
+      const d = pr({
+        base: { "README.md": "x\n" },
+        edit: (s) => {
+          const dir = join(s, "services", "users", "src", "auth");
+          mkdirSync(dir, { recursive: true });
+          writeFileSync(join(dir, "x\ntier=1\nlabel=tier:trivial"), "export {};\n");
+        },
+      });
+      const { tier, output } = classify(d);
+      expect(tier).toBe(4);
+      const lines = output.split("\n").filter(Boolean);
+      expect(lines).toHaveLength(3);
+      expect(lines.map((l) => l.split("=")[0])).toEqual(["tier", "label", "reasons"]);
+    });
+
+    it("size rule: --no-renames counts a moved file as additions on the new path", () => {
+      const d = pr({
+        base: { "services/users/src/auth/m.ts": body },
+        edit: (s) => {
+          mkdirSync(join(s, "docs"), { recursive: true });
+          git(s, "mv", "services/users/src/auth/m.ts", "docs/m.md");
+        },
+      });
+      const numstat = readFileSync(d.numstat, "utf8").split("\0").filter(Boolean).sort();
+      expect(numstat).toEqual(["0\t20\tservices/users/src/auth/m.ts", "20\t0\tdocs/m.md"].sort());
+    });
+  });
+
+  describe("Pin dispatch to the default branch", () => {
+    const guard = (env) =>
+      run(extractStepRun(WORKFLOW, "Pin dispatch to the default branch"), ROOT, env);
+
+    it("fails a dispatch run from a non-default ref", () => {
+      const r = guard({
+        EVENT_NAME: "workflow_dispatch",
+        REF: "refs/heads/automation/drift-fix",
+        DEFAULT_BRANCH: "main",
+      });
+      expect(r.status).not.toBe(0);
+      expect(r.stdout + r.stderr).toMatch(/::error::/);
+    });
+
+    it("passes a dispatch run from the default branch", () => {
+      const r = guard({
+        EVENT_NAME: "workflow_dispatch",
+        REF: "refs/heads/main",
+        DEFAULT_BRANCH: "main",
+      });
+      expect(r.status, r.stderr).toBe(0);
+    });
+
+    it("passes a non-dispatch event regardless of ref", () => {
+      const r = guard({
+        EVENT_NAME: "pull_request_target",
+        REF: "refs/heads/other",
+        DEFAULT_BRANCH: "main",
+      });
+      expect(r.status, r.stderr).toBe(0);
+    });
+
+    it("only runs for workflow_dispatch", () => {
+      const step = splitSteps(WORKFLOW).find(
+        (s) => s.name === "Pin dispatch to the default branch"
+      );
+      expect(step.text).toMatch(/if:\s*github\.event_name == 'workflow_dispatch'/);
+    });
+  });
+});
+
+// Defence in depth: the execution context carries the security property, these
+// rules make an edit to any file that decides merge eligibility land T4.
+describe("tier-classifier path rules: merge-gate files are T4", () => {
+  it.each([
+    "scripts/resolve-pr-metadata.mjs",
+    "scripts/merge-queue-eligibility.mjs",
+    ".github/workflows/auto-merge.yml",
+    ".github/workflows/merge-queue.yml",
+  ])("%s lands T4", (file) => {
+    const { tier, reasons } = runClassifier({ title: "chore: edit", body: "", files: [file] });
+    expect(tier).toBe(4);
+    expect(reasons).toContain(`\`${file}\` -> T4`);
+  });
+
+  it.each([
+    [".github/workflows/auto-merge-notes.yml", 2],
+    [".github/workflows/merge-queue.yml.bak", 2],
+    ["scripts/resolve-pr-metadata.test.mjs", 2],
+    ["scripts/resolve-pr-metadata.mjs.orig", 2],
+    ["scripts/merge-queue-eligibility-notes.md", 1],
+  ])("near-miss %s stays at its existing tier T%i", (file, expected) => {
+    const { tier } = runClassifier({ title: "chore: edit", body: "", files: [file] });
+    expect(tier).toBe(expected);
   });
 });

@@ -47,7 +47,7 @@ Copy rules:
 
 ## Surfaces
 
-- **Availability page (new; Manager edits, Host views).** Replaces `/setup/hours`. It has a **Calendar** tab (default, with a **Month | Week** toggle), a **Special dates** tab, and a **Schedules** tab (shown once 2+ schedules exist, or through the overflow "Create another schedule…"). History and Go to date live in the overflow. The **guest preview** panel shows whenever something is being edited.
+- **Availability page (new; Manager edits, Host views).** Replaces `/setup/hours`. It has a **Calendar** tab (default, with a **Month | Week** toggle), a **Special dates** tab, and a **Schedules** tab (shown once 2+ schedules exist, or through the overflow "Create another schedule…"). History and Go to date live in the overflow, a More actions menu at every width (corrected in #7981: there is no ⌘K shortcut, which the app's command palette already owns). The **guest preview** panel shows whenever something is being edited.
 
   These entry points are repointed:
   - Setup checklist (`SetupPage.tsx:26,28`)
@@ -116,7 +116,7 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
 
 ### F-UW: Change the regular week from a date (PRD 12, 9; scenario a)
 
-1. **Calendar → Change regular week…** opens the S1 editor pre-filled with the current regular week, plus **Starting [date]** and **Ending: [date] / No end — this becomes the new regular week**, and a name field (suggested from the dates, e.g. "Summer hours").
+1. **Calendar → Change regular week…** opens the S1 editor pre-filled with the current regular week, plus **Starting [date]** and **Ending: [date] / No end — this becomes the new regular week**, and a name field. Once a start date is chosen and the name is empty, a button under the field offers a name drawn from the dates ("Use “Summer hours”": the season for a period of up to about four months, otherwise "Hours from Jun 1" or "Hours Jan 1 – Dec 31"). It is a button, not a prefilled value, so an untouched form stays untouched and a typed name is never replaced. New schedule offers the same under its dates.
 2. The preview defaults to the start date. The stranded list covers every future booking from the start date to the end date (or onward, with no end).
 3. Save → the calendar shows a labelled band across the period ("Summer hours · Jun 1 – Sep 15"). The day before and the day after show the handover in their "Why this day".
 4. If the period overlaps another dated schedule: "Summer hours overlaps Patio season (Jul 1 – Aug 31). **Summer wins** / **Patio season wins** / **Adjust dates**".
@@ -208,7 +208,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 
 ### F-SER: Change one date of something that repeats (PRD 17; scenario e)
 
-1. Opening a date that belongs to a repeating closure or a dated schedule shows it in "Why this day", with **Edit** and **Remove**.
+1. Opening a date that belongs to a repeating closure or special hours shows it in "Why this day", with **Edit** and **Remove** (a Manager only, and not on a date that is over). Special hours: **Remove** is a destructive confirm that names the whole rule ("every Friday"), **Edit** asks which dates first when the rule repeats, then edits in the drawer's own editor. A closure: **Remove** is the Special dates reopen dialog; a repeating one also has **Edit dates…** (the series dialog, opened on this date). Both wait, with a reason, while an editor is open, and **Edit** on hours under an all-day closure is shut with the reason. Dated-schedule layers have no Edit or Remove yet.
 2. Either one asks first: "**Only Tue, Jan 13** / **This and following** / **All dates in the series**".
 3. **Only this date** → for a closure, choose **Skip this date** (bookable as usual) or **Edit this date** (for example, a different closure window). The series is untouched, and the date's "Why this day" shows "Skipped from: Mondays closed, Jan–Mar".
 4. Impact, stranded handling and Undo work as in F2 and F5.
@@ -395,7 +395,7 @@ After tapping [Dinner] and [Weekdays]:
 ### S2: Calendar, month and week
 
 ```
-Availability   [Calendar] Special dates  Schedules*        ⋯ History · Go to date ⌘K · Create another schedule
+Availability   [Calendar] Special dates  Schedules*        ⋯ History · Go to date · Create another schedule
 This week: open 5 days · 1 closure · online booking on            Venue time (Pacific)
 [◂] October 2026 [▸] [Today]   (Month|Week)  Services [All ▾]  [Select… ▾] [Change regular week…] [Close…]
 ┌ Mon ───── Tue ───── Wed ───── Thu ───── Fri ───── Sat ───── Sun ─────┐

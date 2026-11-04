@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -21,6 +21,9 @@ import { useHeldFor } from "./use-held-for.js";
 import { useHoldFocus } from "./use-hold-focus.js";
 import { useReloadHold } from "./use-reload-hold.js";
 import { CopyDayAction } from "./CopyDayAction.js";
+import { UseDayHoursAction } from "./UseDayHoursAction.js";
+import { closedAllDay } from "./closed-all-day.js";
+import { LayerRuleActions } from "./LayerRuleActions.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
@@ -68,6 +71,8 @@ export interface AvailabilityDayDrawerProps {
   readonly onClose: () => void;
 }
 
+type SeriesRuleScope = { readonly ruleId: string; readonly mode: SeriesScope };
+
 const noop = () => undefined;
 const RELOAD_OFFER_AFTER_MS = 2000;
 
@@ -100,7 +105,16 @@ function summaryText(day: ResolvedDay, weekday: string, locale: string, t: TFunc
   ];
 }
 
-function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: string }) {
+function DayBody({
+  day,
+  date,
+  layerActions,
+}: {
+  readonly day: ResolvedDay;
+  readonly date: string;
+  /** Remove / Edit beside a layer that stands for a saved rule; a Host and a past date get none. */
+  readonly layerActions?: (layer: Layer) => ReactNode;
+}) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const weekday = format.formatCalendarDate(date, { weekday: "long" });
@@ -135,6 +149,7 @@ function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: stri
                     result: removalText(day, layer, format, t),
                   })}
                 </Text>
+                {layerActions?.(layer)}
               </li>
             ))}
           </ol>
@@ -178,6 +193,24 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
     error ? "banner" : offerReload ? "reload" : null
   );
 
+  // "Edit" on a layer: the scope the Manager chose first (F-SER), and the editor takes focus.
+  const [chosen, setChosen] = useState<{ date: string; scope: SeriesRuleScope } | null>(null);
+  // The choice belongs to one opening of one date: once the drawer closes or moves on, drop it, so
+  // reopening that date cannot re-apply "All dates" to a later, unrelated edit.
+  if (chosen !== null && chosen.date !== date) setChosen(null);
+  const [focusEditor, setFocusEditor] = useState(0);
+  const ruleScope = (chosen?.date === date ? chosen.scope : undefined) ?? editing?.ruleScope;
+  const editHours = (scope?: SeriesRuleScope) => {
+    setChosen(date !== null && scope ? { date, scope } : null);
+    setFocusEditor((n) => n + 1);
+  };
+  useEffect(() => {
+    if (focusEditor === 0) return;
+    // After the scope dialog's own restore frame, which would otherwise take focus back.
+    const frame = requestAnimationFrame(() => editorRef.current?.querySelector("button")?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [focusEditor, editorRef]);
+
   let body;
   if (date === null) {
     body = null;
@@ -202,7 +235,32 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             />
           </div>
         )}
-        {!picked && <DayBody day={day} date={date} />}
+        {!picked && (
+          <DayBody
+            day={day}
+            date={date}
+            layerActions={
+              viewerRole === "manager" && editing && date >= editing.today
+                ? (layer) => (
+                    <LayerRuleActions
+                      layer={layer}
+                      date={date}
+                      day={day}
+                      venueId={editing.venueId}
+                      state={editing.state}
+                      timezone={editing.timezone}
+                      today={editing.today}
+                      waiting={waiting}
+                      reasonId={reasonId}
+                      onFinished={() => editing.onFinished(true)}
+                      onStale={editing.onStale ?? noop}
+                      onEditHours={editHours}
+                    />
+                  )
+                : undefined
+            }
+          />
+        )}
         {picked && editing?.hoursDiffer && (
           <Text variant="body" color="primary">
             {t("availability.drawer.hoursDiffer", {
@@ -220,7 +278,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               held={behind}
               heldReasonId={reasonId}
               // A new date, or a new pick for the same date, is a new draft.
-              key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
+              key={`${date}|${editing.fixedDates?.join(",") ?? ""}|${ruleScope?.ruleId ?? ""}|${ruleScope?.mode ?? ""}`}
               venueId={editing.venueId}
               state={editing.state}
               timezone={editing.timezone}
@@ -228,7 +286,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               onDirtyChange={editing.onDirtyChange}
               onFinished={editing.onFinished}
               fixedDates={editing.fixedDates}
-              ruleScope={editing.ruleScope}
+              ruleScope={ruleScope}
               onStale={editing.onStale}
               date={date}
               day={day}
@@ -240,6 +298,19 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
           <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
             {t("availability.close.open")}
           </Button>
+        )}
+        {viewerRole === "manager" && editing && !picked && date >= editing.today && (
+          <UseDayHoursAction
+            waiting={waiting}
+            reasonId={reasonId}
+            venueId={editing.venueId}
+            state={editing.state}
+            timezone={editing.timezone}
+            date={date}
+            closedReason={closedAllDay(day) ? t("availability.drawer.useBlockedClosed") : null}
+            onFinished={() => editing.onFinished(true)}
+            onStale={editing.onStale ?? noop}
+          />
         )}
         {viewerRole === "manager" && editing && !picked && (
           <>

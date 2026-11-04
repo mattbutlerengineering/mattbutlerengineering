@@ -258,6 +258,28 @@ describe("schedule drawers", () => {
         </main>
       );
 
+    it("suggests a name from the dates, and saves the name that was chosen", async () => {
+      renderWeek();
+      expect(screen.queryByRole("button", { name: /^Use “/ })).toBeNull();
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
+      fireEvent.click(screen.getByRole("button", { name: "Use “Fall hours”" }));
+      expect(screen.getByLabelText(/Schedule name/)).toHaveValue("Fall hours");
+      expect(screen.queryByRole("button", { name: /^Use “/ })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      const schedules = save.mock.calls[0]?.[0].body.changes.upsert.schedules;
+      expect(schedules?.[0]?.name).toBe("Fall hours");
+    });
+
+    it("never overwrites a name the Manager typed", () => {
+      renderWeek();
+      fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Patio" } });
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+      expect(screen.queryByRole("button", { name: /^Use “/ })).toBeNull();
+      expect(screen.getByLabelText(/Schedule name/)).toHaveValue("Patio");
+    });
+
     it("shows the days the regular week runs, and saves only those", async () => {
       renderWeek();
       expect(

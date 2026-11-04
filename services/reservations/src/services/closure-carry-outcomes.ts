@@ -28,7 +28,7 @@ export interface CarriedOutcomes {
  * Re-keys outcomes to `ruleId` without touching `updated_at`: the refund sweeper judges a pending
  * refund by how long ago its row last changed, and a move is not a change to the refund.
  */
-async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) {
+export async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) {
   for (let i = 0; i < ids.length; i += CHUNK) {
     const chunk = ids.slice(i, i + CHUNK);
     await tx.$executeRaw`UPDATE closure_outcomes SET date_rule_id = ${ruleId} WHERE id IN (${Prisma.join(chunk)})`;

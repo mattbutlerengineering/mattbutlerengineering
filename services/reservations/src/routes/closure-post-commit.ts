@@ -36,7 +36,7 @@ export async function publishClosureChanges(
 
 export async function enqueueNotices(
   enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-  input: { venueId: string; ruleId: string; carried?: readonly string[] },
+  input: { venueId: string; ruleId: string; carried?: readonly string[]; date?: string },
   log: FastifyBaseLogger
 ): Promise<void> {
   try {

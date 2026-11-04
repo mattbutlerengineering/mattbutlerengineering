@@ -209,9 +209,8 @@ jobs:
         if: steps.create-pr.outputs.pull-request-number
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: ${{ steps.plan.outputs.branch }}
           PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
-        run: gh workflow run tier-classifier.yml --ref "$BRANCH" -f pr="$PR_NUMBER"
+        run: gh workflow run tier-classifier.yml -f pr="$PR_NUMBER"
 
       - name: Approve pending automation workflow runs
         if: steps.create-pr.outputs.pull-request-number
