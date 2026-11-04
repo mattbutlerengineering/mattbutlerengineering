@@ -60,6 +60,18 @@ describe("AvailabilityDayDrawer", () => {
     Reflect.deleteProperty(window, "matchMedia");
   });
 
+  it("names the holiday a date falls on under its title, and nothing on an ordinary day", () => {
+    const { unmount } = renderDrawer({ date: "2026-12-25" });
+    expect(
+      screen.getByRole("dialog", { name: "Friday, December 25", description: "Christmas Day" })
+    ).toBeInTheDocument();
+    unmount();
+    renderDrawer();
+    expect(screen.getByRole("dialog", { name: "Friday, October 30" })).not.toHaveAttribute(
+      "aria-describedby"
+    );
+  });
+
   it("is full screen on a phone (ux.md S2)", () => {
     setViewportWidth(390);
     renderDrawer();
