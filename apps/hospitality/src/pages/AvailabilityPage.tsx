@@ -38,6 +38,7 @@ import { CloseDialog } from "../components/availability/CloseDialog.js";
 import { GoToDateDialog } from "../components/availability/GoToDateDialog.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
+import { RegularWeekLine } from "../components/availability/RegularWeekLine.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
 import { LeaveGuard } from "../components/availability/LeaveGuard.js";
 import { useDiscardGuard } from "../components/availability/use-discard-guard.js";
@@ -444,6 +445,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           </div>
         )}
       </div>
+      {config.data && <RegularWeekLine config={config.data.config} timeZone={timeZone} now={now} />}
       <AvailabilityToolbar
         viewport={viewport}
         view={view}

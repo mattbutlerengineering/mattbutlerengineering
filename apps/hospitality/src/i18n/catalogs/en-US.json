@@ -2776,6 +2776,16 @@
       "booking": "Booking: {{channels}}",
       "tables": "Some tables",
       "doneAndStays": "{{done}}. {{stays}}"
+    },
+    "regularWeekLine": {
+      "line": "Regular week: {{services}}",
+      "service": "{{name}} {{days}}",
+      "serviceWith": "{{name}} {{days}}, {{changes}}",
+      "later": "later {{days}}",
+      "earlier": "earlier {{days}}",
+      "different": "different hours {{days}}",
+      "details": "Details",
+      "heading": "Regular week"
     }
   },
   "setup": {

@@ -1080,6 +1080,37 @@
       export function useWeekdayName() { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/regular-week-line.ts">
+    <item priority="low">
+      type HoursChangeKind = "later" | "earlier" | "different";
+    </item>
+    <item priority="low">
+      interface HoursChange {
+        weekdays: readonly number[];
+        kind: HoursChangeKind;
+      }
+    </item>
+    <item priority="low">
+      interface RegularWeekLineService {
+        venueServiceId: string;
+        name: string;
+        days: readonly number[];
+        changes: readonly HoursChange[];
+      }
+    </item>
+    <item priority="low">
+      interface RegularWeekLine {
+        services: readonly RegularWeekLineService[];
+        uniform: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function kindOf(base: { closesAt: number }, set: { closesAt: number }): HoursChangeKind { /* ... */ }
+    </item>
+    <item priority="high">
+      export function regularWeekLine(config: AvailabilityConfig): RegularWeekLine { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/removal-diff.ts">
     <item priority="high">
       type Channel = keyof BookingOpen;

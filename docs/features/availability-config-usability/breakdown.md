@@ -121,7 +121,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Day drawer weekday scope and nudge** — in `draft-changes.ts`, `EditScope` kind `schedule` for a day that resolves to the regular week becomes `{ kind: "regularWeekday", weekday }`: decode, replace that weekday's services, encode, diff against the stored rows, in place. `ScheduleNudge.tsx` builds the same changes instead of `buildNewScheduleChanges`.
   - Accept: tests show "Every regular Friday" changes only Friday's hours and counts the weekday's future dates; no schedule or assignment is created; the nudge after three one-off Friday changes writes Friday's hours into the regular week and shows the toast `ux.md` F2 3 gives it.
   - Blocked by: encodeWeek and decodeWeek, regular_week_changed audit detail
-- [ ] **Calendar regular-week line** — new `regular-week-line.ts` gives the calendar's one-line summary and Details rows from `decodeWeek` and `weekSpans(regularWeekView(config))`, including "later/earlier/different hours Fri–Sat" from a set's closing against the base's.
+- [x] **Calendar regular-week line** — new `regular-week-line.ts` gives the calendar's one-line summary and Details rows from `decodeWeek` and `weekSpans(regularWeekView(config))`, including "later/earlier/different hours Fri–Sat" from a set's closing against the base's.
   - Accept: component tests on the demo-week fixture show the line for a Manager and for a Host (the config read needs `requireAuth` only), "later hours Fri–Sat" for the later close, and no per-day schedule or assignment listed.
   - Blocked by: weekSpans and regularWeekView, encodeWeek and decodeWeek
 - [ ] **Schedules tab visibility** — the tab shows only while a live schedule has `kind !== "regular"`.

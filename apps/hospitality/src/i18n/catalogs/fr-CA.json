@@ -2860,6 +2860,16 @@
       "booking": "Réservations : {{channels}}",
       "tables": "Certaines tables",
       "doneAndStays": "{{done}}. {{stays}}"
+    },
+    "regularWeekLine": {
+      "line": "Semaine habituelle : {{services}}",
+      "service": "{{name}} {{days}}",
+      "serviceWith": "{{name}} {{days}}, {{changes}}",
+      "later": "plus tard {{days}}",
+      "earlier": "plus tôt {{days}}",
+      "different": "heures différentes {{days}}",
+      "details": "Détails",
+      "heading": "Semaine habituelle"
     }
   },
   "setup": {
