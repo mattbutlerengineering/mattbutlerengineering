@@ -118,6 +118,20 @@ describe("migrateVenue", () => {
     expect(tx.venue.update).not.toHaveBeenCalled();
   });
 
+  it("writes both day-scope columns on every schedule service row", async () => {
+    const { prisma, tx } = fakePrisma(venueRow(WEEKDAY_HOURS));
+    await migrateVenue(prisma, "v1", { apply: true, now: NOW });
+    const rows = tx.scheduleService.createMany.mock.calls[0]![0].data as {
+      weekdays: unknown;
+      dayHours: unknown;
+    }[];
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(Array.isArray(row.weekdays)).toBe(true);
+      expect(row.dayHours).toMatchObject({ version: 1, sets: expect.any(Array) });
+    }
+  });
+
   it("never updates the venue row, whatever the legacy shape, and logs the original column", async () => {
     for (const hours of [SEED_HOURS, WEEKDAY_HOURS]) {
       const { prisma, tx } = fakePrisma(venueRow(hours));

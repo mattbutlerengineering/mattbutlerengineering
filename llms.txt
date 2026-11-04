@@ -23065,18 +23065,6 @@
       ): ScheduleAssignment | null { /* ... */ }
     </item>
     <item priority="medium">
-      function toResolved(
-        service: ScheduleService | SpecialHoursService,
-        venueService: VenueService
-      ): ResolvedService { /* ... */ }
-    </item>
-    <item priority="medium">
-      function liveServices(
-        services: readonly (ScheduleService | SpecialHoursService)[],
-        venueServices: ReadonlyMap<string, VenueService>
-      ): ResolvedService[] { /* ... */ }
-    </item>
-    <item priority="medium">
       function closureOf(rule: DateRule, band: { from: number; to: number }): ResolvedClosure { /* ... */ }
     </item>
     <item priority="medium">
@@ -23102,6 +23090,90 @@
     </item>
     <item priority="high">
       export function resolveDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate): ResolvedDay { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/service-days.ts">
+    <item priority="low">
+      type ServiceHours = Pick<
+        ScheduleService,
+        "opensAt" | "lastSeatingAt" | ...;
+    </item>
+    <item priority="medium">
+      function hoursFields(hours: ServiceHours): ServiceHours { /* ... */ }
+    </item>
+    <item priority="low">
+      interface HoursSource {
+        hours: ServiceHours;
+        setIndex: number | null;
+      }
+    </item>
+    <item priority="high">
+      type DayScopedRow = Pick<ScheduleService, "weekdays" | "dayHours" | keyof Ser...;
+    </item>
+    <item priority="high">
+      export function hoursSourceOn(row: DayScopedRow, weekday: number): HoursSource | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hoursOn(row: DayScopedRow, weekday: number): ServiceHours | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toResolved(
+        service: ScheduleService | SpecialHoursService,
+        venueService: VenueService
+      ): ResolvedService { /* ... */ }
+    </item>
+    <item priority="high">
+      export function liveServices(
+        services: readonly (ScheduleService | SpecialHoursService)[],
+        venueServices: ReadonlyMap<string, VenueService>
+      ): ResolvedService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function servicesOn(
+        rows: readonly ScheduleService[],
+        venueServices: ReadonlyMap<string, VenueService>,
+        weekday: number
+      ): ResolvedService[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ServiceWeek {
+        venueServiceId: string;
+        days: readonly (ServiceHours | null)[];
+      }
+    </item>
+    <item priority="low">
+      type Week = readonly ServiceWeek[];
+    </item>
+    <item priority="low">
+      type EncodedRow = Pick<
+        ScheduleService,
+        "venueServiceId" | "weekdays" ...;
+    </item>
+    <item priority="high">
+      export const WEEK_ORDER: readonly number[];
+    </item>
+    <item priority="medium">
+      function hoursKey(h: ServiceHours): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface HoursGroup {
+        hours: ServiceHours;
+        days: number[];
+      }
+    </item>
+    <item priority="medium">
+      function groupByHours(week: ServiceWeek, coveredDays: ReadonlySet<number>): HoursGroup[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function encodeWeek(week: Week, coveredDays: readonly number[]): EncodedRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decodeWeek(
+        rows: readonly (Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours> & {
+          venueServiceId: string;
+        })[],
+        coveredDays: readonly number[]
+      ): Week { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/slot-rules.ts">
@@ -23353,13 +23425,15 @@
   </file>
   <file path="packages/availability/src/validate-config.ts">
     <item priority="low">
-      type ConfigIssueCode = "invalid" | "overlap" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start" | "booking_types_required";
+      type ConfigIssueCode = "invalid" | "overlap" | "weekday_clash" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start" | "booking_types_required";
     </item>
     <item priority="low">
       interface ConfigIssue {
         path: string;
         code: ConfigIssueCode;
         message: string;
+        weekday?: number;
+        otherPath?: string;
       }
     </item>
     <item priority="high">
@@ -23388,6 +23462,35 @@
     </item>
     <item priority="medium">
       function serviceListIssues(services: readonly PathedService[]): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      type ScheduleServiceRow = AvailabilityConfig["scheduleServices"][number];
+    </item>
+    <item priority="high">
+      interface IndexedRow {
+        index: number;
+        row: ScheduleServiceRow;
+      }
+    </item>
+    <item priority="medium">
+      function rowHoursIssues({ index, row }: IndexedRow): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdayClashIssues({ index, row }: IndexedRow): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface DayOverlap {
+        later: string;
+        earlier: string;
+        range: string;
+        weekday: number;
+      }
+    </item>
+    <item priority="medium">
+      function overlapsOn(rows: readonly IndexedRow[], weekday: number): DayOverlap[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overlapIssuesPerWeekday(rows: readonly IndexedRow[]): ConfigIssue[] { /* ... */ }
     </item>
     <item priority="medium">
       function scheduleServiceIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
@@ -23427,6 +23530,37 @@
     </item>
     <item priority="high">
       export function validateConfig(input: unknown): ConfigIssue[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/week-spans.ts">
+    <item priority="high">
+      export function regularWeekView(config: AvailabilityConfig): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="low">
+      interface WeekSpansOptions {
+        timezone: string;
+        from: ServiceDate;
+        partySize: number;
+        tables: readonly EngineTable[];
+        now: Date;
+      }
+    </item>
+    <item priority="low">
+      interface ServiceSpan {
+        venueServiceId: string;
+        firstAt: number;
+        lastAt: number;
+        noTableFits: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface DaySpans {
+        serviceDate: ServiceDate;
+        services: ServiceSpan[];
+      }
+    </item>
+    <item priority="high">
+      export function weekSpans(config: AvailabilityConfig, options: WeekSpansOptions): DaySpans[] { /* ... */ }
     </item>
   </file>
   <file path="packages/cancellation-policy/src/cancellation-policy.ts">
