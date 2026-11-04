@@ -262,7 +262,7 @@ export function EventTicker({ frame, frozen }: { frame: TelemetryFrame | null; f
 
   return (
     <section className={styles.ticker} aria-label="Event feed">
-      <DepartureBoard phrases={shown} size="sm" charset="full" />
+      <DepartureBoard className={styles.tickerBoard} phrases={shown} size="sm" charset="full" />
     </section>
   );
 }

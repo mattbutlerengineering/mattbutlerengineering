@@ -59,13 +59,30 @@ export function OverviewPage() {
       />
 
       {/* ── Stats ───────────────────────────────── */}
-      <section className={styles.stats}>
-        <Stat label="Components" value={String(COMPONENT_COUNT)} size="lg" />
-        <div className={styles.statDivider} />
-        <Stat label="Categories" value={String(CATEGORY_COUNT)} size="lg" />
-        <div className={styles.statDivider} />
-        <Stat label="Design Tokens" value={String(__RIALTO_TOKEN_COUNT__)} size="lg" />
-      </section>
+      <div className={styles.statsFrame}>
+        <section className={styles.stats}>
+          <Stat
+            className={styles.stat}
+            label="Components"
+            value={String(COMPONENT_COUNT)}
+            size="lg"
+          />
+          <div className={styles.statDivider} />
+          <Stat
+            className={styles.stat}
+            label="Categories"
+            value={String(CATEGORY_COUNT)}
+            size="lg"
+          />
+          <div className={styles.statDivider} />
+          <Stat
+            className={styles.stat}
+            label="Design Tokens"
+            value={String(__RIALTO_TOKEN_COUNT__)}
+            size="lg"
+          />
+        </section>
+      </div>
 
       {/* ── Category previews ───────────────────── */}
       <section className={styles.categories}>

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { createRef } from "react";
 import { render, screen, act } from "@testing-library/react";
 import { DepartureBoard } from "./DepartureBoard";
@@ -36,6 +38,23 @@ describe("DepartureBoard", () => {
       render(<DepartureBoard phrases={PHRASES} data-testid="board" />);
       expect(screen.getByTestId("board")).toBeInTheDocument();
     });
+
+    it("publishes the cell count so a narrow container can scale the row to fit", () => {
+      const { container } = render(<DepartureBoard phrases={PHRASES} size="sm" />);
+      const display = container.querySelector("[style*='--board-cells']");
+      expect(display).not.toBeNull();
+      expect(display).toHaveStyle({ "--board-cells": "15" });
+    });
+  });
+
+  it("scales the flap row to its container instead of scrolling it", () => {
+    const css = readFileSync(resolve(import.meta.dirname, "./DepartureBoard.module.css"), "utf8");
+    const display = /\.display\s*\{([^}]*)\}/.exec(css)?.[1];
+    expect(display).toBeDefined();
+    expect(display).toMatch(/overflow-x:\s*clip/);
+    expect(display).not.toMatch(/overflow-x:\s*auto/);
+    expect(display).toMatch(/container-type:\s*inline-size/);
+    expect(display).toMatch(/--sf-fit-font-size/);
   });
 
   describe("accessibility — animated path", () => {

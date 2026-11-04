@@ -2176,6 +2176,12 @@
           "description": "Which app is currently active — drives the active link indicator.\n`\"gen\"` is a sibling app with no nav link of its own, so no link is marked active."
         },
         {
+          "name": "currentPath",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Path within the current app. Home is the marketing index, so when this is\nset Home is current only for `\"/\"`. Omit it and `currentApp=\"marketing\"`\nkeeps marking Home current."
+        },
+        {
           "name": "theme",
           "type": "\"light\" | \"dark\" | undefined",
           "required": false,
