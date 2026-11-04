@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
+import { afterEach, vi } from "vitest";
 import { NavigationMenu } from "./NavigationMenu";
 import type { NavItem } from "./NavigationMenu";
 
@@ -64,6 +65,82 @@ describe("NavigationMenu", () => {
       await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument(), {
         timeout: 1000,
       });
+    });
+  });
+
+  describe("keyboard opens a closed dropdown", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it.each(["Enter", " "])("opens on %s before the hover/focus delay", (key) => {
+      vi.useFakeTimers();
+      render(<NavigationMenu items={items} />);
+      const trigger = screen.getByRole("button", { name: /products/i });
+      act(() => {
+        trigger.focus();
+      });
+      // Focus alone only schedules the 200ms open. The key must open now.
+      act(() => {
+        vi.advanceTimersByTime(199);
+      });
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+      fireEvent.keyDown(trigger, { key });
+
+      expect(trigger).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("ArrowDown opens the menu and moves focus into the first item", () => {
+      vi.useFakeTimers();
+      render(<NavigationMenu items={items} />);
+      const trigger = screen.getByRole("button", { name: /products/i });
+      act(() => {
+        trigger.focus();
+      });
+
+      fireEvent.keyDown(trigger, { key: "ArrowDown" });
+
+      expect(trigger).toHaveAttribute("aria-expanded", "true");
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Widgets" }));
+      // Moving focus into the panel blurs the trigger; that must not dismiss.
+      act(() => {
+        vi.advanceTimersByTime(400);
+      });
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Widgets" }));
+    });
+
+    it("Escape closes a hover-opened menu when focus is outside it and does not reopen", () => {
+      vi.useFakeTimers();
+      render(
+        <>
+          <button type="button">Elsewhere</button>
+          <NavigationMenu items={items} />
+        </>
+      );
+      const elsewhere = screen.getByRole("button", { name: "Elsewhere" });
+      act(() => {
+        elsewhere.focus();
+      });
+      const trigger = screen.getByRole("button", { name: /products/i });
+      fireEvent.mouseEnter(trigger.parentElement!);
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+      expect(document.activeElement).toBe(elsewhere);
+
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+      act(() => {
+        vi.advanceTimersByTime(250);
+      });
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
     });
   });
 

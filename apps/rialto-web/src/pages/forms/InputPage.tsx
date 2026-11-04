@@ -105,7 +105,7 @@ export function InputPage() {
           <Input label="Default" placeholder="Enabled" />
           <Input label="Error" placeholder="Required" error hint="This field is required" />
           <Input label="Disabled" placeholder="Not editable" disabled />
-          <Input label="Read-only" value="SF-24" disabled />
+          <Input label="Read-only" value="SF-24" readOnly />
           <Input
             label="Locked"
             placeholder="Requires upgrade"

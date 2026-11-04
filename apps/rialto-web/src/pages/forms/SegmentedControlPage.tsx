@@ -62,6 +62,57 @@ function SegmentedControlPlayground() {
 }
 
 // ---------------------------------------------------------------------------
+// Usage example
+// ---------------------------------------------------------------------------
+
+const LAP_VIEW_CONTENT: Record<string, string> = {
+  chart: "Chart view content",
+  data: "Data view content",
+  compare: "Compare view content",
+};
+
+function LapAnalysisExample() {
+  const [view, setView] = useState("chart");
+
+  return (
+    <Card variant="elevated" style={{ padding: "var(--rialto-space-lg)" }}>
+      <Stack gap="md">
+        <div className={styles.row} style={{ justifyContent: "space-between", flexWrap: "wrap" }}>
+          <Text variant="label" color="primary">
+            Lap Analysis
+          </Text>
+          <SegmentedControl
+            aria-label="Lap analysis view"
+            segments={[
+              { id: "chart", label: "Chart" },
+              { id: "data", label: "Data" },
+              { id: "compare", label: "Compare" },
+            ]}
+            value={view}
+            onChange={setView}
+            size="sm"
+          />
+        </div>
+        <div
+          style={{
+            height: 120,
+            background: "var(--rialto-surface-recessed)",
+            borderRadius: "var(--rialto-radius-soft)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text variant="caption" color="tertiary">
+            {LAP_VIEW_CONTENT[view]}
+          </Text>
+        </div>
+      </Stack>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -129,42 +180,7 @@ export function SegmentedControlPage() {
 
       {/* ── Usage Example ─────────────────────────────────────────── */}
       <Section title="Usage Example">
-        <Card variant="elevated" style={{ padding: "var(--rialto-space-lg)" }}>
-          <Stack gap="md">
-            <div
-              className={styles.row}
-              style={{ justifyContent: "space-between", flexWrap: "wrap" }}
-            >
-              <Text variant="label" color="primary">
-                Lap Analysis
-              </Text>
-              <SegmentedControl
-                segments={[
-                  { id: "chart", label: "Chart" },
-                  { id: "data", label: "Data" },
-                  { id: "compare", label: "Compare" },
-                ]}
-                value="chart"
-                onChange={() => {}}
-                size="sm"
-              />
-            </div>
-            <div
-              style={{
-                height: 120,
-                background: "var(--rialto-surface-recessed)",
-                borderRadius: "var(--rialto-radius-soft)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text variant="caption" color="tertiary">
-                Chart view content
-              </Text>
-            </div>
-          </Stack>
-        </Card>
+        <LapAnalysisExample />
       </Section>
 
       {/* ── Playground ────────────────────────────────────────────── */}
