@@ -332,7 +332,7 @@ describe("waitlistService", () => {
         notifyTableReady: vi.fn(),
         markNotified: vi.fn(),
         revertNotified: vi.fn(),
-        logger: { error: vi.fn(), info: vi.fn() },
+        logger: { error: vi.fn(), info: vi.fn(), warn: vi.fn() },
       });
       vi.mocked(prisma.waitlistEntry.update).mockResolvedValueOnce(
         makeEntry({ id: "a", status: "cancelled" }) as never
