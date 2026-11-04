@@ -107,6 +107,106 @@ describe("availability config routes", () => {
       expect(svc.get).toHaveBeenCalledWith("venue-1", expect.any(Date));
     });
 
+    // #8259 (Sentry HOSPITALITY-H, release 37de61b8b): the client rejected
+    // `dateRules[0].payload` — a tonight rule that reached it as `{ version: 1 }`.
+    // The response serializer chose the first union branch (pacing) for every
+    // payload because toResponseJsonSchema stripped `required`; fixed by #7736.
+    // This pins it at the route: every rule kind survives serialization and
+    // parses with the client's schema. Fails 4 tonight cases with #7736 reverted.
+    it.each([
+      ["tonight pacing", { kind: "tonight", payload: { version: 1, pacing: { covers: 8 } } }],
+      ["tonight close early", { kind: "tonight", payload: { version: 1, closeAt: 1260 } }],
+      [
+        "tonight stop",
+        { kind: "tonight", payload: { version: 1, stop: { from: 1140, to: 1200 } } },
+      ],
+      [
+        "special hours",
+        {
+          kind: "special_hours",
+          payload: {
+            version: 1,
+            services: [
+              {
+                venueServiceId: "vs-1",
+                opensAt: 1020,
+                lastSeatingAt: 1260,
+                closesAt: 1320,
+                seating: { version: 1, interval: 30 },
+                bookingTypes: ["online"],
+              },
+            ],
+          },
+        },
+      ],
+      [
+        "tonight block tables (as stored)",
+        {
+          kind: "tonight",
+          targetKind: "tables",
+          tableIds: ["t-1"],
+          venueServiceId: null,
+          bookingTypes: [],
+          repeat: null,
+          window: null,
+          seriesId: null,
+          guestMessage: null,
+          staffNote: null,
+          expiresAt: "2026-10-27T07:00:00.000Z",
+          payload: { version: 1, stop: { from: 0, to: 1439 } },
+        },
+      ],
+      [
+        "tonight pause online (as stored)",
+        {
+          kind: "tonight",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          expiresAt: null,
+          payload: { version: 1, stop: { from: 0, to: 1439 } },
+        },
+      ],
+      [
+        "special hours with fixed seatings",
+        {
+          kind: "special_hours",
+          payload: {
+            version: 1,
+            services: [
+              {
+                venueServiceId: "vs-1",
+                opensAt: 1020,
+                lastSeatingAt: 1260,
+                closesAt: 1320,
+                seating: { version: 1, fixed: [1080, 1200] },
+                bookingTypes: ["online"],
+              },
+            ],
+          },
+        },
+      ],
+      ["closure", { kind: "closure" }],
+      ["skip", { kind: "skip" }],
+      ["use schedule", { kind: "use_schedule", useScheduleId: "sch-1" }],
+    ])("serializes a %s date rule so the client schema accepts it (#8259)", async (_l, rule) => {
+      const dateRule = {
+        id: "rule-1",
+        targetKind: "venue",
+        startsOn: "2026-10-26",
+        endsOn: "2026-10-26",
+        ...rule,
+      };
+      const config = { ...CONFIG, dateRules: [dateRule] };
+      svc.get.mockResolvedValueOnce({ config, version: 3, source: "rows" });
+
+      const res = await app.inject({ method: "GET", url: `${BASE}/config`, headers: ADMIN });
+
+      expect(res.statusCode).toBe(200);
+      const parsed = AvailabilityConfigStateSchema.safeParse(res.json().data);
+      expect(parsed.error?.issues).toBeUndefined();
+      expect(parsed.data?.config.dateRules[0]).toMatchObject(rule);
+    });
+
     it("404s for an unknown venue", async () => {
       svc.get.mockResolvedValueOnce(null);
       const res = await app.inject({ method: "GET", url: `${BASE}/config`, headers: ADMIN });
