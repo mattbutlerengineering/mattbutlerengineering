@@ -188,7 +188,8 @@ describe("SpecialDatesTab", () => {
       window: { version: 1, from: 22 * 60, to: 2880 },
     };
     renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [fromTen] } });
-    expect(screen.getByText("Closed · From 10:00 PM")).toBeTruthy();
+    // Dec 24: the row names the holiday first.
+    expect(screen.getByText("Christmas Eve · Closed · From 10:00 PM")).toBeTruthy();
   });
 
   it("names each closure row's buttons with its date", () => {
@@ -515,7 +516,9 @@ describe("SpecialDatesTab", () => {
         config: { ...STATE.config, dateRules: [dinner] },
       } as AvailabilityConfigState);
       expect(
-        screen.getByText("Special hours · 11:00 AM – 3:00 PM, 6:00 PM – 1:00 AM (next day)")
+        screen.getByText(
+          "New Year’s Eve · Special hours · 11:00 AM – 3:00 PM, 6:00 PM – 1:00 AM (next day)"
+        )
       ).toBeTruthy();
     });
 
