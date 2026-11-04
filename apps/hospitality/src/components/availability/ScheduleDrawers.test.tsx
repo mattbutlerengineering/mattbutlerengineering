@@ -534,6 +534,7 @@ describe("schedule drawers", () => {
       const opened = fixtureConfig();
       save.mockRejectedValueOnce(conflict());
       const { props, rerenderWith } = renderNew("duplicate", opened);
+      fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
       const deleted = {
@@ -623,6 +624,36 @@ describe("schedule drawers", () => {
       expect(screen.queryByText("Not used yet")).not.toBeInTheDocument();
       expect(screen.getByText("Used by 1 Use schedule rule")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Delete Spare" })).toBeDisabled();
+    });
+
+    it("a copy of a schedule only a Use schedule rule runs needs days before it can save (it would otherwise win every day)", async () => {
+      render(
+        <main>
+          <ScheduleEditorDrawer
+            {...common}
+            state={stateOf(usedByRule())}
+            mode="duplicate"
+            sourceScheduleId="spare"
+            onStale={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </main>
+      );
+      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+        target: { value: "Holiday copy" },
+      });
+      const saveButton = screen.getByRole("button", { name: "Save" });
+      expect(saveButton).toBeDisabled();
+      fireEvent.click(saveButton);
+      expect(save).not.toHaveBeenCalled();
+
+      // Once the Manager chooses where it is used, it is used there and nowhere else.
+      fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+      expect(saveButton).toBeEnabled();
+      fireEvent.click(saveButton);
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      const assignments = save.mock.calls[0]?.[0].body.changes.upsert.assignments ?? [];
+      expect(assignments.map((a: { weekdays: number[] }) => a.weekdays)).toEqual([[1, 2, 3, 4, 5]]);
     });
 
     it("asks before the Compare toggle drops edited rows", () => {

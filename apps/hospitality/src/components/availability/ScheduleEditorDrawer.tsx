@@ -70,10 +70,14 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const saver = useScheduleSave(onStale);
 
   const source = config.schedules.find((s) => s.id === sourceScheduleId);
-  const seedDraft = (from: AvailabilityConfig): QuickSetupDraft =>
-    source
-      ? draftFromConfig(from, () => crypto.randomUUID(), source.id)
-      : emptyDraft(crypto.randomUUID());
+  // A copy starts with no days, as a new schedule does: it is used where the Manager says. Seeded
+  // with the source's days it would save as an undated assignment that outranks the regular week
+  // on every day, and a schedule only a Use schedule rule runs has no days of its own to copy.
+  const seedDraft = (from: AvailabilityConfig): QuickSetupDraft => {
+    if (!source) return emptyDraft(crypto.randomUUID());
+    const seeded = draftFromConfig(from, () => crypto.randomUUID(), source.id);
+    return mode === "duplicate" ? { ...seeded, days: [] } : seeded;
+  };
   const [initialName] = useState(() =>
     mode === "edit"
       ? (source?.name ?? "")
