@@ -115,6 +115,13 @@
       ): string | null { /* ... */ }
     </item>
     <item priority="medium">
+      function regularWeekText(
+        detail: AvailabilityChangeDetail,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
       function detailText(
         detail: AvailabilityChangeDetail,
         format: VenueFormat,

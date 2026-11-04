@@ -2358,7 +2358,8 @@
         "tonightPacing_one": "Esta noche: ritmo reducido a {{count}} cubierto",
         "tonightPacing_other": "Esta noche: ritmo reducido a {{count}} cubiertos",
         "tonightPacing_many": "Esta noche: ritmo reducido a {{count}} de cubiertos",
-        "reverted": "Revertido: {{summary}}"
+        "reverted": "Revertido: {{summary}}",
+        "regularWeekChanged": "Semana habitual cambiada desde el {{from}}: {{days}}"
       }
     },
     "editor": {

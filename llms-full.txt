@@ -4925,6 +4925,23 @@
         { when, outcome: outcomeText({ cancelled, moved, kept }, format, t) }
       );
     }
+    function regularWeekText(
+      detail: AvailabilityChangeDetail,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      const { startsOn, weekdays } = detail;
+      if (!startsOn || !weekdays || weekdays.length === 0) return null;
+      const name = (day: number) =>
+        format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" });
+      const days = new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
+        weekdayRuns(weekdays).map(([a, b]) => (a === b ? name(a) : `${name(a)}–${name(b)}`))
+      );
+      return t("availability.history.summary.regularWeekChanged", {
+        from: format.formatCalendarDate(startsOn, { month: "short", day: "numeric" }),
+        days,
+      });
+    }
     function detailText(
       detail: AvailabilityChangeDetail,
       format: VenueFormat,
@@ -4936,9 +4953,11 @@
           ? isCount(added) && isCount(changed) && isCount(removed)
             ? t("availability.history.summary.configSaved", { added, changed, removed })
             : null
-          : detail.code.startsWith("tonight_")
-            ? tonightText(detail, t)
-            : closureText(detail, format, t);
+          : detail.code === "regular_week_changed"
+            ? regularWeekText(detail, format, t)
+            : detail.code.startsWith("tonight_")
+              ? tonightText(detail, t)
+              : closureText(detail, format, t);
       return text !== null && detail.reverted
         ? t("availability.history.summary.reverted", { summary: text })
         : text;

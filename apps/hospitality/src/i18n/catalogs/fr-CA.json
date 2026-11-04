@@ -2358,7 +2358,8 @@
         "tonightPacing_one": "Ce soir : cadence réduite à {{count}} couvert",
         "tonightPacing_other": "Ce soir : cadence réduite à {{count}} couverts",
         "tonightPacing_many": "Ce soir : cadence réduite à {{count}} de couverts",
-        "reverted": "Annulé : {{summary}}"
+        "reverted": "Annulé : {{summary}}",
+        "regularWeekChanged": "Semaine habituelle modifiée dès le {{from}} : {{days}}"
       }
     },
     "editor": {

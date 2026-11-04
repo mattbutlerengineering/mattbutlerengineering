@@ -2299,7 +2299,8 @@
         "tonightBlockTables_other": "Tonight: {{count}} tables blocked",
         "tonightPacing_one": "Tonight: pacing lowered to {{count}} cover",
         "tonightPacing_other": "Tonight: pacing lowered to {{count}} covers",
-        "reverted": "Reverted: {{summary}}"
+        "reverted": "Reverted: {{summary}}",
+        "regularWeekChanged": "Changed regular week from {{from}}: {{days}}"
       }
     },
     "editor": {
