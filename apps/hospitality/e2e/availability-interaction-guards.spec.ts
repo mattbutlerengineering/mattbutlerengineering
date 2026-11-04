@@ -2,8 +2,10 @@ import { test, expect } from "./fixtures.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
 import { countInteractions } from "./helpers/interaction-counter.js";
 import {
+  LARGE_SETUP_BASELINE,
   UNIFORM_BISTRO_BASELINE,
   setDemoWeek,
+  setLargeSetup,
   setUniformBistroWeek,
 } from "./helpers/quick-setup-scenarios.js";
 
@@ -34,6 +36,21 @@ test.describe("Interaction guards (agent stand-in counts)", () => {
     await expect(mockedPage.getByRole("grid")).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
     expect(counter.count()).toBeLessThanOrEqual(UNIFORM_BISTRO_BASELINE);
+  });
+
+  // A guard, not a re-timed 15-minute bar: it holds the count at or under the recorded baseline.
+  test("the large multi-service setup takes no more interactions than the recorded baseline", async ({
+    mockedPage,
+  }) => {
+    const state = await mockEmptyVenue(mockedPage);
+    await mockedPage.goto("availability");
+    const counter = countInteractions(mockedPage);
+
+    await setLargeSetup(counter.page);
+
+    await expect(mockedPage.getByRole("grid")).toBeVisible();
+    expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
+    expect(counter.count()).toBeLessThanOrEqual(LARGE_SETUP_BASELINE);
   });
 
   test("the demo week takes fewer interactions in quick setup than quick setup then New schedule", async ({
