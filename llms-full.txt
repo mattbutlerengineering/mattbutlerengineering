@@ -9158,6 +9158,31 @@
       return { editorRef, bannerRef, reloadRef, track };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/use-holidays.ts">
+    export function useHolidayCountry(): HolidayCountry | null {
+      const format = useVenueFormat();
+      const venue = useOptionalVenue()?.selectedVenue;
+      return holidayCountry(
+        toPublicVenueProfile(venue?.settings?.["profile"]).address?.country,
+        format.locale
+      );
+    }
+    export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> {
+      const country = useHolidayCountry();
+      const { t } = useTranslation();
+      return useMemo(() => {
+        if (!country || dates.length === 0) return new Map();
+        const shown = new Set(dates);
+        const years = [...new Set(dates.map((d) => Number(d.slice(0, 4))))];
+        return new Map(
+          years
+            .flatMap((year) => holidaysIn(country, year))
+            .filter((h) => shown.has(h.date))
+            .map((h) => [h.date, t(`availabilitySpecial.holidays.name.${h.id}`)])
+        );
+      }, [country, dates, t]);
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
     function emit() {
       for (const listener of listeners) listener();

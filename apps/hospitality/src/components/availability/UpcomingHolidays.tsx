@@ -1,10 +1,10 @@
 import { useId, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Heading, Text } from "@mattbutlerengineering/rialto";
-import { toPublicVenueProfile, type AvailabilityConfig } from "@mbe/types";
-import { useOptionalVenue } from "../../contexts/venue-context-object.js";
+import type { AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { holidayCountry, upcomingHolidays } from "./holidays.js";
+import { upcomingHolidays } from "./holidays.js";
+import { useHolidayCountry } from "./use-holidays.js";
 import type { PlannedDate } from "./AddSpecialDatesSheet.js";
 import styles from "./SpecialDatesTab.module.css";
 
@@ -25,11 +25,7 @@ export function UpcomingHolidays({ config, today, onPlan }: UpcomingHolidaysProp
   const { t } = useTranslation();
   const format = useVenueFormat();
   const headingId = useId();
-  const venue = useOptionalVenue()?.selectedVenue;
-  const country = holidayCountry(
-    toPublicVenueProfile(venue?.settings?.["profile"]).address?.country,
-    format.locale
-  );
+  const country = useHolidayCountry();
   const holidays = useMemo(
     () =>
       (country ? upcomingHolidays(country, today, config) : []).map((h) => ({
