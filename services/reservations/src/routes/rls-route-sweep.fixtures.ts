@@ -1885,9 +1885,9 @@ const guestFixtures: Record<string, RouteFixture> = {
 };
 
 /**
- * Reservations. `GET /` is a THIRD mixed case: `?venueId=` is scoped
- * correctly (ok), but `?guestId=` resolves via an unscoped `guestService.getById`
- * (item 2's own text names this). `/me` was item 1 (`listByUserId`, cross-venue
+ * Reservations. `GET /` scopes by `?venueId=`, or by `?guestId=`'s own venue
+ * through `app_resolve_venue_id` (#8256; it was an unscoped
+ * `guestService.getById`, item 2). `/me` was item 1 (`listByUserId`, cross-venue
  * by construction — a diner's bookings span whatever venues they visited) and
  * is now RESOLVED (#5369 PR 6) via a per-venue fan-out over
  * `app_reservation_venue_ids_for_user()`. `/:id` (GET/PATCH/DELETE) is item 2 via `requireReservationOwnerOrAdmin`'s
@@ -1898,6 +1898,8 @@ const guestFixtures: Record<string, RouteFixture> = {
  * `requireVenueAccess` at all — anyone may book), so it gets one smoke
  * assertion rather than the 4-way matrix.
  */
+const RESERVATIONS_LIST = "/api/v1/reservations";
+
 const reservationFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/reservations": ok(async (ctx) => {
     expectOk(
@@ -1907,11 +1909,28 @@ const reservationFixtures: Record<string, RouteFixture> = {
       }),
       "admin, venueId"
     );
-    expectBroken(
-      await asAdmin(ctx, { method: "GET", url: `/api/v1/reservations?guestId=${ctx.guestA}` }),
-      "admin, guestId (item-2: unscoped guestService.getById)",
-      ctx
+    // #8256: `?guestId=` resolves through `app_resolve_venue_id` and lists inside
+    // the guest's venue context (was the unscoped `guestService.getById`).
+    expectOk(
+      await asAdmin(ctx, { method: "GET", url: `${RESERVATIONS_LIST}?guestId=${ctx.guestA}` }),
+      "admin, guestId"
     );
+    expectOk(
+      await asMember(ctx, { method: "GET", url: `${RESERVATIONS_LIST}?guestId=${ctx.guestA}` }),
+      "member, own-venue guestId"
+    );
+    expectOk(
+      await asMember(ctx, {
+        method: "GET",
+        url: `${RESERVATIONS_LIST}?venueId=${ctx.venueA.id}&guestId=${ctx.guestA}`,
+      }),
+      "member, venueId + guestId"
+    );
+    expect(
+      (await asMember(ctx, { method: "GET", url: `${RESERVATIONS_LIST}?guestId=${ctx.guestB}` }))
+        .statusCode,
+      "member, other-venue guestId"
+    ).toBe(403);
   }),
   "GET /api/v1/reservations/me": ok(async (ctx) => {
     // `asAdmin`'s bypass identity is the diner who booked reservationMineA
