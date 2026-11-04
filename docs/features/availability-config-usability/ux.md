@@ -199,7 +199,7 @@ Predecessor F-UW stands for the period case. Changes:
 2. **The editor** is the S1 editor with its new parts (different days for a service, different hours on some days), pre-filled from the saved regular week, including migrated day-named schedules read as part of it (rule below).
 3. **Starting** stays required with no default; **Start today** and **Start tomorrow** under the dates set it in one click. **Ending** stays optional (placeholder "No end").
    - With **Ending** set: the change is a named period. **Name** appears (with the existing name suggestion button) and works as in predecessor F-UW. A period is a schedule, and the Schedules tab shows it.
-   - With no **Ending**: the note "No end — this becomes the new regular week" shows, **Name** is not asked, and Save changes the regular week in place. No schedule or assignment is shown to the Manager or named by them.
+   - With no **Ending**: "This becomes your regular week: open …" (item 4) says so; the note "No end — this becomes the new regular week" shows only while no service has days, **Name** is not asked, and Save changes the regular week in place. No schedule or assignment is shown to the Manager or named by them.
 4. **Which days.** The days a change covers follow the editor, live. The line under the dates reads:
    - no **Ending**: "This becomes your regular week: open Tue–Sun." (a weekday no service runs on is closed from the start date; the line names it, "Monday is closed.");
    - with an **Ending**: "Applies to Tue–Sun. Other days keep their hours." (a weekday no service runs on in the period keeps the hours it has).
