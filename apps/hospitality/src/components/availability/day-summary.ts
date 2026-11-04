@@ -38,9 +38,13 @@ export function dayLabelText(label: string, t: TFunction): string {
   }
 }
 
+/** How a day departs from its schedule, so a closed or special-hours day stands out in a month of regular days. */
+export type DayTone = "closed" | "special";
+
 export interface DayPresentation {
   /** The day's label in the viewer's language. */
   readonly label: string | null;
+  readonly tone: DayTone | null;
   readonly bands: readonly ClosureBandText[];
   /** "2 services", or `null` when the count is not worth showing. */
   readonly count: string | null;
@@ -111,6 +115,13 @@ export function presentDay(
   });
   return {
     label,
+    // The service's own en-US labels, as dayLabelText reads them.
+    tone:
+      summary?.label === "Closed"
+        ? "closed"
+        : summary?.label === "Special hours"
+          ? "special"
+          : null,
     bands,
     count,
     services,

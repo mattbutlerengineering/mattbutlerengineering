@@ -69,6 +69,7 @@ function Cell(props: CellProps) {
     isSelected ? styles.selected : "",
     isPicked ? styles.picked : "",
     detailed ? styles.detailed : "",
+    view.tone ? styles[view.tone] : "",
   ]
     .filter(Boolean)
     .join(" ");

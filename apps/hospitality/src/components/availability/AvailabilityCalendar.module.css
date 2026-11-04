@@ -60,6 +60,24 @@
   color: var(--rialto-text-secondary);
 }
 
+/* A closed day is flat and outlined, a special-hours day carries an accent rule: both stand out in
+   a month of regular days. The label says which, so neither relies on colour alone. Before
+   .selected and .picked, which win over them. */
+.closed {
+  border: 1px dashed var(--rialto-border-strong);
+  background: transparent;
+  box-shadow: none;
+}
+
+.special {
+  border-inline-start: 3px solid var(--rialto-accent);
+}
+
+.closed .label,
+.special .label {
+  font-weight: var(--rialto-weight-medium);
+}
+
 .selected {
   outline: 2px solid var(--rialto-accent);
 }

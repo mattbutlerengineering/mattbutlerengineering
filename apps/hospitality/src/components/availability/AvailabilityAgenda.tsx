@@ -74,6 +74,7 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
                 styles.row,
                 date === selectedDate ? styles.selected : "",
                 picked.has(date) ? styles.picked : "",
+                view.tone ? styles[view.tone] : "",
               ]
                 .filter(Boolean)
                 .join(" ")}

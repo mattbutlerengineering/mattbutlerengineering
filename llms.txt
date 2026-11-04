@@ -1975,12 +1975,15 @@
       export function dayLabelText(label: string, t: TFunction): string { /* ... */ }
     </item>
     <item priority="low">
+      type DayTone = "closed" | "special";
+    </item>
+    <item priority="low">
       interface DayPresentation {
         label: string | null;
+        tone: DayTone | null;
         bands: readonly ClosureBandText[];
         count: string | null;
         services: readonly ServiceLineText[];
-        onlineOff: boolean;
       }
     </item>
     <item priority="medium">
