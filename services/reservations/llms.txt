@@ -4198,6 +4198,13 @@
     <item priority="medium">
       function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan { /* ... */ }
     </item>
+    <item priority="medium">
+      function venueUniqueNames(
+        desired: readonly string[],
+        taken: readonly string[],
+        candidate: (name: string, n: number) => string
+      ): string[] { /* ... */ }
+    </item>
     <item priority="high">
       export const floorPlanService: unknown;
     </item>

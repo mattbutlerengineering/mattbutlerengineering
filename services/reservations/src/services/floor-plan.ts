@@ -56,6 +56,30 @@ function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan {
   };
 }
 
+/**
+ * A venue-unique name for each of `desired`, in order: the name itself when
+ * free, else the first `candidate(name, n)` (n = 2, 3, …) nobody holds yet.
+ *
+ * Table names are unique per **venue** (`tables_venue_id_name_key`), not per
+ * plan, and that is relied on: the agent's `resolveTable` and onboarding's
+ * `launch-sequence.ts` resolve a table by name across the whole venue. So a
+ * cloned table cannot keep its source's name (#8255). `T1` → `T1-2` matches the
+ * scheme `apply-room-template.ts` already uses for a venue's later plans.
+ */
+function venueUniqueNames(
+  desired: readonly string[],
+  taken: readonly string[],
+  candidate: (name: string, n: number) => string
+): string[] {
+  const used = new Set(taken);
+  return desired.map((name) => {
+    let pick = used.has(name) ? candidate(name, 2) : name;
+    for (let n = 3; used.has(pick); n += 1) pick = candidate(name, n);
+    used.add(pick);
+    return pick;
+  });
+}
+
 export const floorPlanService = {
   async list(page: number, limit: number, venueId?: string): Promise<PaginatedResponse<FloorPlan>> {
     const where = venueId ? { venueId } : {};
@@ -147,11 +171,11 @@ export const floorPlanService = {
 
     // Handle name collisions: find next available copy name
     const baseName = source.name;
+    // Every plan name in the venue: the first copy's `Copy of …` does not start
+    // with `baseName`, so a `startsWith` filter missed it and a second clone
+    // reused the same name.
     const existingNames = await prisma.floorPlan.findMany({
-      where: {
-        venueId: source.venueId,
-        name: { startsWith: baseName },
-      },
+      where: { venueId: source.venueId },
       select: { name: true },
     });
     const existingNameSet = new Set(existingNames.map((n) => n.name));
@@ -183,9 +207,18 @@ export const floorPlanService = {
       });
 
       if (source.tables.length > 0) {
+        const venueTables = await tx.table.findMany({
+          where: { venueId: source.venueId },
+          select: { name: true },
+        });
+        const copyNames = venueUniqueNames(
+          source.tables.map((t) => t.name),
+          venueTables.map((t) => t.name),
+          (name, n) => `${name}-${n}`
+        );
         await tx.table.createMany({
-          data: source.tables.map((t) => ({
-            name: t.name,
+          data: source.tables.map((t, i) => ({
+            name: copyNames[i]!,
             tableNumber: t.tableNumber,
             capacity: t.capacity,
             minCovers: t.minCovers,

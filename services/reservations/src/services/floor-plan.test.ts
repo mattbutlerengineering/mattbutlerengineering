@@ -188,6 +188,7 @@ describe("floorPlanService", () => {
     });
 
     it("clones floor plan with tables in a transaction", async () => {
+      const createMany = vi.fn().mockResolvedValue({ count: 1 });
       const source = makePrismaFloorPlan();
       vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce(source as never);
 
@@ -208,7 +209,8 @@ describe("floorPlanService", () => {
               findUnique: vi.fn().mockResolvedValue(cloned),
             },
             table: {
-              createMany: vi.fn().mockResolvedValue({ count: 1 }),
+              findMany: vi.fn().mockResolvedValue([{ name: "Table 1" }]),
+              createMany,
             },
           };
           return fn(tx);
@@ -219,9 +221,14 @@ describe("floorPlanService", () => {
 
       expect(result).not.toBeNull();
       expect(result!.name).toBe("Copy of Main Floor");
+      // Table names are unique per venue (#8255): the copy cannot reuse "Table 1".
+      expect(createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ name: "Table 1-2", floorPlanId: "fp-2" })],
+      });
     });
 
     it("handles name collisions by appending copy number", async () => {
+      const createMany = vi.fn().mockResolvedValue({ count: 1 });
       const source = makePrismaFloorPlan();
       vi.mocked(prisma.floorPlan.findUnique).mockResolvedValueOnce(source as never);
 
@@ -244,7 +251,8 @@ describe("floorPlanService", () => {
               findUnique: vi.fn().mockResolvedValue(cloned),
             },
             table: {
-              createMany: vi.fn().mockResolvedValue({ count: 1 }),
+              findMany: vi.fn().mockResolvedValue([{ name: "Table 1" }]),
+              createMany,
             },
           };
           return fn(tx);
