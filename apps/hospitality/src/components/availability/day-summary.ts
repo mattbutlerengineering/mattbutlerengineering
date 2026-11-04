@@ -5,7 +5,7 @@ import { closureBandText, isWholeDay, minuteText, type ClosureBandText } from ".
 
 export interface ServiceLineText {
   readonly key: string;
-  /** "Lunch 11:00 AM – 2:00 PM". */
+  /** "Lunch 11:00 AM – 1:30 PM": first to last time a guest can book, not open to close. */
   readonly text: string;
 }
 
@@ -44,7 +44,7 @@ export interface DayPresentation {
   readonly bands: readonly ClosureBandText[];
   /** "2 services", or `null` when the count is not worth showing. */
   readonly count: string | null;
-  /** One line per service, open to close; only populated when `detailed`. */
+  /** One line per service, first to last bookable time; only populated when `detailed`. */
   readonly services: readonly ServiceLineText[];
   readonly onlineOff: boolean;
   /** The spoken details after the date: "Special hours, 2 services, closed 10:00 PM – 11:00 PM". */
@@ -61,7 +61,7 @@ function serviceLineText(
   const text = t("availability.calendar.serviceLine", {
     name: service.name,
     from: minuteText(service.opensAt, t, format),
-    to: minuteText(service.closesAt, t, format),
+    to: minuteText(service.lastSeatingAt, t, format),
   });
   return { key: service.venueServiceId, text };
 }

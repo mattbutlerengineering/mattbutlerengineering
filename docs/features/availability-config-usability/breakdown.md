@@ -103,7 +103,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **Strip in quick setup and wizard local mode** — mount `RegularWeekStrip` beside the quick-setup form in `QuickSetupCard`, below it at 720 px; the saved toast lists the union of the days any service runs; the onboarding step (`QuickSetupHoursStep.tsx`) shows the new controls and the strip's local mode with no tables, and sends the legacy projection.
   - Accept: a component test shows the strip beside the form on a Manager's empty venue and absent for a Host; the wizard renders the controls and the strip without a `venueId`; a varied week through `draftToLegacyHours` keeps each weekday's earliest open to latest close; the saved toast lists the union of the services' days.
   - Blocked by: Different-hours blocks in QuickSetupForm, RegularWeekStrip
-- [ ] **Guest-facing lines show first and last bookable time** — `AvailabilityGuestPreview.tsx` (`:301-309`) and `day-summary.ts` (`:56-66`) print first and last bookable time instead of opening and closing, using `lastSeatingAt` already in the data.
+- [x] **Guest-facing lines show first and last bookable time** — `AvailabilityGuestPreview.tsx` (`:301-309`) and `day-summary.ts` (`:56-66`) print first and last bookable time instead of opening and closing, using `lastSeatingAt` already in the data.
   - Accept: component tests show a service with opens 5:00 PM, last seating 9:15 PM and closes 10:00 PM is printed as 5:00 PM to 9:15 PM in the focus-date list and in the calendar's day line, and not as 10:00 PM.
   - Blocked by: —
 - [ ] **Demo week e2e** — a Playwright spec following the PRD demo step by step on an empty venue, through quick setup only.

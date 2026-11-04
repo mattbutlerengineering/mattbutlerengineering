@@ -55,8 +55,8 @@ describe("presentDay services", () => {
   it("emits a service line per service when detailed", () => {
     const view = presentDay("2026-10-30", baseSummary, true, t, format);
     expect(view.services).toEqual([
-      { key: "svc-1", text: "availability.calendar.serviceLine Lunch|11:00|14:00" },
-      { key: "svc-2", text: "availability.calendar.serviceLine Dinner|18:00|22:00" },
+      { key: "svc-1", text: "availability.calendar.serviceLine Lunch|11:00|13:30" },
+      { key: "svc-2", text: "availability.calendar.serviceLine Dinner|18:00|21:30" },
     ]);
   });
 
@@ -64,8 +64,8 @@ describe("presentDay services", () => {
     const view = presentDay("2026-10-30", baseSummary, true, t, format);
     expect(view.accessibleDetails).toBe(
       "Regular hours, availability.calendar.services 2, " +
-        "availability.calendar.serviceLine Lunch|11:00|14:00, " +
-        "availability.calendar.serviceLine Dinner|18:00|22:00"
+        "availability.calendar.serviceLine Lunch|11:00|13:30, " +
+        "availability.calendar.serviceLine Dinner|18:00|21:30"
     );
   });
 
