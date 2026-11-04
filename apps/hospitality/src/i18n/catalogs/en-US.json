@@ -2796,7 +2796,7 @@
     },
     "venueTime": "Venue time ({{zone}})",
     "weekSummary": {
-      "line": "This week: {{open}} · {{closures}} · {{online}}",
+      "line": "This week: {{parts}}",
       "open_one": "open {{count}} day",
       "open_other": "open {{count}} days",
       "closures_one": "{{count}} closure",

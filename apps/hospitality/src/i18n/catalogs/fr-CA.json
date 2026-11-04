@@ -2879,7 +2879,7 @@
     },
     "venueTime": "Heure de l'établissement ({{zone}})",
     "weekSummary": {
-      "line": "Cette semaine : {{open}} · {{closures}} · {{online}}",
+      "line": "Cette semaine : {{parts}}",
       "open_one": "ouvert {{count}} jour",
       "open_other": "ouvert {{count}} jours",
       "open_many": "ouvert {{count}} jours",
