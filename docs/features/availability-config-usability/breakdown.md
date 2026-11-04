@@ -37,7 +37,7 @@ Names follow `architecture.md` exactly. "Engine" means `packages/availability` (
 - [x] **encodeWeek and decodeWeek** — `encodeWeek(week, coveredDays)` produces the canonical rows (base is the hours most days share, a tie goes to the group holding the earliest Monday-first day, `weekdays` empty exactly when the base days equal the covered days minus the sets' days, sets ordered by first Monday-first day) and `decodeWeek(rows, coveredDays)` reads them back.
   - Accept: a fast-check property test shows `decodeWeek(encodeWeek(w, days), days)` equals `w` for every generated `w`, and that encoding the decoded rows again returns identical rows. A uniform week encodes to `weekdays: []` and no sets. The demo week (lunch Mon–Fri, dinner Tue–Sun closing later Fri–Sat, brunch Sat–Sun) encodes to one row per service with the later close as one set.
   - Blocked by: hoursOn and servicesOn in resolveDay
-- [ ] **Legacy projection per weekday** — `legacy-projection.ts` takes the hull of `servicesOn` per weekday for the covering undated assignment.
+- [x] **Legacy projection per weekday** — `legacy-projection.ts` takes the hull of `servicesOn` per weekday for the covering undated assignment.
   - Accept: tests show a scoped row projects per weekday (Monday has no dinner window in the demo week), and a config of unscoped rows projects identically to the pre-change function kept in the test as the oracle.
   - Blocked by: hoursOn and servicesOn in resolveDay
 - [ ] **Scoped-row property tests** — extend `slots.property.test.ts` with a generator for scoped rows and sets, and add the oracle comparison for legacy configs.
