@@ -105,6 +105,18 @@ describe("QuickSetupForm per-service days", () => {
   });
 });
 
+describe("QuickSetupForm removing a service", () => {
+  it("moves focus to the previous service's name instead of dropping it to the page", () => {
+    renderCard();
+    fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+    const names = screen.getAllByLabelText("Service name");
+    expect(names[1]).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "Remove service 2" }));
+    expect(screen.getAllByLabelText("Service name")).toHaveLength(1);
+    expect(screen.getByLabelText("Service name")).toHaveFocus();
+  });
+});
+
 const DIFFERENT_HOURS = "Different hours on some days";
 
 function chooseTime(scope: HTMLElement, label: string, option: string) {
@@ -140,6 +152,23 @@ describe("QuickSetupForm different hours on some days", () => {
     expect(within(block).getAllByRole("checkbox")).toHaveLength(7);
     expect(within(block).getAllByRole("checkbox")[0]).toHaveFocus();
     expect(announced()).toContain("Different hours added");
+  });
+
+  it("does not mark the add button expanded: a click adds another block, it never collapses", () => {
+    bistroWithLateBlock();
+    expect(screen.getByRole("button", { name: DIFFERENT_HOURS })).not.toHaveAttribute(
+      "aria-expanded"
+    );
+  });
+
+  it("changes the live region's DOM when the same announcement repeats", () => {
+    bistroWithLateBlock();
+    const region = () => screen.getAllByRole("status")[0]!;
+    const first = region().textContent;
+    expect(first).toContain("Different hours added");
+    fireEvent.click(screen.getByRole("button", { name: DIFFERENT_HOURS }));
+    expect(region().textContent).toContain("Different hours added");
+    expect(region().textContent).not.toBe(first);
   });
 
   it("puts a later close on Friday and Saturday into one set of the draft", async () => {

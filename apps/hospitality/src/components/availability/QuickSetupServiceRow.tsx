@@ -190,13 +190,7 @@ export function ServiceRow({
           </>
         )}
         <div>
-          <Button
-            ref={hoursButtonRef}
-            variant="ghost"
-            size="sm"
-            aria-expanded={service.blocks.length > 0}
-            onClick={addHours}
-          >
+          <Button ref={hoursButtonRef} variant="ghost" size="sm" onClick={addHours}>
             {t("availability.quickSetup.differentHours")}
           </Button>
         </div>

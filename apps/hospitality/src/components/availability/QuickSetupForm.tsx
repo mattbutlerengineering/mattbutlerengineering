@@ -91,24 +91,33 @@ export function QuickSetupForm({
   fixedDays = false,
 }: QuickSetupFormProps) {
   const { t } = useTranslation();
-  const [announcement, setAnnouncement] = useState("");
-  const focusAfterAdd = useRef<string | null>(null);
+  // The same sentence twice would change no DOM, so a screen reader would stay silent the second
+  // time: `repeat` flips a trailing no-break space to make each announcement a DOM change.
+  const [announcement, setAnnouncement] = useState({ message: "", repeat: false });
+  const announce = (message: string) =>
+    setAnnouncement((last) => ({ message, repeat: !last.repeat }));
+  const focusAfterChangeRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const id = focusAfterAdd.current;
+    const id = focusAfterChangeRef.current;
     if (id === null) return;
-    focusAfterAdd.current = null;
+    focusAfterChangeRef.current = null;
     document.getElementById(quickSetupFieldId(id, "name"))?.focus();
   }, [draft.services.length]);
 
   const addService = () => {
     const service = emptyService(crypto.randomUUID());
-    focusAfterAdd.current = service.id;
-    setAnnouncement(t("availability.quickSetup.serviceAdded", { n: draft.services.length + 1 }));
+    focusAfterChangeRef.current = service.id;
+    announce(t("availability.quickSetup.serviceAdded", { n: draft.services.length + 1 }));
     onChange({ ...draft, services: [...draft.services, service] });
   };
   const removeService = (id: string) => {
-    setAnnouncement("");
+    announce("");
+    // The removed row's controls are gone, so focus goes to the name of the service before it
+    // (after it, for the first).
+    const at = draft.services.findIndex((s) => s.id === id);
+    const neighbour = draft.services[at > 0 ? at - 1 : 1];
+    focusAfterChangeRef.current = neighbour?.id ?? null;
     onChange({ ...draft, services: draft.services.filter((s) => s.id !== id) });
   };
 
@@ -125,7 +134,7 @@ export function QuickSetupForm({
             issues={issues}
             onChange={(next) => onChange(replaceService(draft, next))}
             onRemove={() => removeService(service.id)}
-            announce={setAnnouncement}
+            announce={announce}
           />
         ))}
         <div>
@@ -141,7 +150,8 @@ export function QuickSetupForm({
           fixedDays={fixedDays}
         />
         <Text className={styles.visuallyHidden} role="status">
-          {announcement}
+          {announcement.message}
+          {announcement.repeat ? "\u00a0" : ""}
         </Text>
       </Stack>
       {!inDrawer && (
