@@ -1,3 +1,4 @@
+export { collapseDayNamedSchedules, weekdayRangeLabel } from "./day-named-schedules.js";
 export { addDays, weekdayIndexOf, weekdayOf } from "./civil-date.js";
 export { ARCHIVED_ON_REMOVE, applyChanges, applyDraft } from "./apply-draft.js";
 export { activeRules } from "./date-rules.js";
