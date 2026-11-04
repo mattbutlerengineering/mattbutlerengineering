@@ -67,6 +67,29 @@ describe("useApiClient", () => {
     expect(vi.mocked(createApiClient).mock.calls.length).toBeGreaterThan(firstCallCount);
   });
 
+  // #8258: a 401 mid-session refreshes through the OIDC silent sign-in, whose
+  // failure surfaces the existing "sign in again" banner (useAccessToken).
+  it("refreshes the access token through a silent sign-in", async () => {
+    const signInSilent = vi.fn().mockResolvedValue({ access_token: "fresh-token" });
+    vi.mocked(useAuth).mockReturnValue({ accessToken: "expired", signInSilent } as any);
+
+    renderHook(() => useApiClient());
+
+    const callArgs = vi.mocked(createApiClient).mock.calls.at(-1)![0];
+    await expect(callArgs.refreshAccessToken!()).resolves.toBe("fresh-token");
+    expect(signInSilent).toHaveBeenCalledTimes(1);
+  });
+
+  it("yields no token when the silent sign-in fails", async () => {
+    const signInSilent = vi.fn().mockResolvedValue(null);
+    vi.mocked(useAuth).mockReturnValue({ accessToken: "expired", signInSilent } as any);
+
+    renderHook(() => useApiClient());
+
+    const callArgs = vi.mocked(createApiClient).mock.calls.at(-1)![0];
+    await expect(callArgs.refreshAccessToken!()).resolves.toBeNull();
+  });
+
   it("passes reportApiError as onError callback", () => {
     vi.mocked(useAuth).mockReturnValue({
       accessToken: "token",
