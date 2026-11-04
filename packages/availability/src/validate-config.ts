@@ -6,7 +6,7 @@ import {
 } from "@mbe/types";
 import { addDays, weekdayIndexOf } from "./civil-date.js";
 import { formatMinute } from "./format-minute.js";
-import { hoursSourceOn } from "./service-days.js";
+import { WEEK_ORDER, hoursSourceOn } from "./service-days.js";
 
 /**
  * The invariants the configuration layers must satisfy together (ADR-030).
@@ -125,8 +125,6 @@ const WEEKDAY_NAMES = [
   "Friday",
   "Saturday",
 ] as const;
-/** Monday first, as a week reads. */
-const WEEK_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
 
 type ScheduleServiceRow = AvailabilityConfig["scheduleServices"][number];
 

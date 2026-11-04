@@ -23,7 +23,16 @@ export {
   type ResolvedDaySummary,
   type ResolvedService,
 } from "./resolve-day.js";
-export { hoursOn, servicesOn, type ServiceHours } from "./service-days.js";
+export {
+  decodeWeek,
+  encodeWeek,
+  hoursOn,
+  servicesOn,
+  type EncodedRow,
+  type ServiceHours,
+  type ServiceWeek,
+  type Week,
+} from "./service-days.js";
 export {
   normalizeLegacyHours,
   type LegacyHours,

@@ -94,3 +94,95 @@ export function servicesOn(
     venueServices
   );
 }
+
+// ── The week as an editor sees it, and the canonical rows it is stored as ─────────────────────
+
+/** One service's hours on each weekday, indexed 0 = Sunday … 6 = Saturday; `null` = does not run. */
+export interface ServiceWeek {
+  venueServiceId: string;
+  days: readonly (ServiceHours | null)[];
+}
+
+/** A regular week: each service with its own days and hours. A service that runs on no day is not in it. */
+export type Week = readonly ServiceWeek[];
+
+/** A schedule service row without the ids a caller gives it. */
+export type EncodedRow = Pick<
+  ScheduleService,
+  "venueServiceId" | "weekdays" | "dayHours" | keyof ServiceHours
+>;
+
+/** Monday first, as a week reads. */
+export const WEEK_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
+
+function hoursKey(h: ServiceHours): string {
+  const seating = "interval" in h.seating ? ["i", h.seating.interval] : ["f", h.seating.fixed];
+  return JSON.stringify([h.opensAt, h.lastSeatingAt, h.closesAt, seating, h.bookingTypes]);
+}
+
+interface HoursGroup {
+  hours: ServiceHours;
+  /** In Monday-first order. */
+  days: number[];
+}
+
+/** The days a service runs, grouped by identical hours, biggest group first (a tie: earliest Monday-first day). */
+function groupByHours(week: ServiceWeek, coveredDays: ReadonlySet<number>): HoursGroup[] {
+  const groups = new Map<string, HoursGroup>();
+  for (const day of WEEK_ORDER) {
+    const hours = week.days[day];
+    if (!hours || !coveredDays.has(day)) continue;
+    const key = hoursKey(hours);
+    const group = groups.get(key);
+    if (group) group.days.push(day);
+    else groups.set(key, { hours: hoursFields(hours), days: [day] });
+  }
+  // Insertion order is first-Monday-first-day order, and sort is stable, so size breaks the rest.
+  return [...groups.values()].sort((a, b) => b.days.length - a.days.length);
+}
+
+/**
+ * The canonical rows for a week over the days its assignment covers. Per service the base is the
+ * hours most of its days share (a tie goes to the group holding the earliest Monday-first day);
+ * `weekdays` is empty exactly when the base days equal the covered days minus the sets' days;
+ * every other hours become a set, ordered by its first Monday-first day. Same week, same rows:
+ * re-saving an unchanged week churns nothing.
+ */
+export function encodeWeek(week: Week, coveredDays: readonly number[]): EncodedRow[] {
+  const covered = new Set(coveredDays);
+  return week.flatMap((service) => {
+    const [base, ...others] = groupByHours(service, covered);
+    if (!base) return [];
+    const sets = others
+      .sort((a, b) => WEEK_ORDER.indexOf(a.days[0] ?? 0) - WEEK_ORDER.indexOf(b.days[0] ?? 0))
+      .map((g) => ({ weekdays: g.days, ...g.hours }));
+    const claimed = new Set(others.flatMap((g) => g.days));
+    const implicit = WEEK_ORDER.filter((d) => covered.has(d) && !claimed.has(d));
+    const baseIsEveryOtherDay =
+      implicit.length === base.days.length && implicit.every((d, i) => d === base.days[i]);
+    return [
+      {
+        venueServiceId: service.venueServiceId,
+        ...base.hours,
+        weekdays: baseIsEveryOtherDay ? [] : base.days,
+        dayHours: { version: 1 as const, sets },
+      },
+    ];
+  });
+}
+
+/** The week a schedule's rows give over the days its assignment covers; the inverse of `encodeWeek`. */
+export function decodeWeek(
+  rows: readonly (Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours> & {
+    venueServiceId: string;
+  })[],
+  coveredDays: readonly number[]
+): Week {
+  const covered = new Set(coveredDays);
+  return rows.flatMap((row) => {
+    const days = Array.from({ length: 7 }, (_, day) =>
+      covered.has(day) ? hoursOn(row, day) : null
+    );
+    return days.some((h) => h !== null) ? [{ venueServiceId: row.venueServiceId, days }] : [];
+  });
+}
