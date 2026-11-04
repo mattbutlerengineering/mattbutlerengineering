@@ -1921,7 +1921,11 @@
       "noEnd": "No end — this becomes the new regular week",
       "save": "Save hours from {{date}}",
       "saved": "{{name}} from {{date}}",
-      "savedWeek": "Regular week changed from {{date}}"
+      "savedWeek": "Regular week changed from {{date}}",
+      "start": {
+        "today": "Start today",
+        "tomorrow": "Start tomorrow"
+      }
     },
     "compare": {
       "open": "Compare services",

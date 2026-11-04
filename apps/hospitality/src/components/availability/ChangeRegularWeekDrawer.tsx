@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
-import { weekdayIndexOf } from "@mbe/availability";
+import { addDays, weekdayIndexOf } from "@mbe/availability";
 import type { AvailabilityConfig, AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
@@ -259,7 +259,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
             />
             <DatePicker
               label={t("availabilitySchedules.endsOn")}
-              placeholder={t("availabilitySchedules.regularWeek.noEnd")}
+              placeholder={t("availabilitySchedules.noEnd")}
               value={endsOn}
               min={startsOn ?? today}
               onChange={setEndsOn}
@@ -269,6 +269,23 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
                 {t("availabilitySchedules.noEnd")}
               </Button>
             )}
+          </div>
+          {/* Most changes start today or tomorrow: one click instead of a calendar. */}
+          <div className={styles.dates}>
+            {(["today", "tomorrow"] as const).map((when) => {
+              const date = when === "today" ? today : addDays(today, 1);
+              return (
+                <Button
+                  key={when}
+                  variant="secondary"
+                  size="sm"
+                  aria-pressed={startsOn === date}
+                  onClick={() => setStartsOn(date)}
+                >
+                  {t(`availabilitySchedules.regularWeek.start.${when}`)}
+                </Button>
+              );
+            })}
           </div>
           {endsOn === null && (
             <Text variant="caption" color="secondary">
