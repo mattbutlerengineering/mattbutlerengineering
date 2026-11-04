@@ -77,7 +77,6 @@ export function ReservationTimelineExamplePage() {
             locale="en-US"
             currency="USD"
             density="comfortable"
-            viewMode="grid"
             onReservationClick={handleReservationClick}
             selectedReservationId={selectedId}
           />

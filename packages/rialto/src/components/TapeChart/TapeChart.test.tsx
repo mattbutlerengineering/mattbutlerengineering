@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi } from "vitest";
@@ -296,13 +298,9 @@ describe("<TapeChart /> rendering", () => {
     );
   });
 
-  // Guards the "platform provenance" gap from #4450: without an explicit
-  // timeZone, the day header falls back to the host machine's system
-  // timezone, so a baseline captured on a non-UTC machine renders a
-  // different weekday/date than Linux CI. Any consumer that needs
-  // deterministic, screenshot-stable output (like the visual test harness)
-  // must pin timeZone="UTC" — this test fails loudly if that pinned render
-  // ever drifts from the expected UTC date.
+  // Day headers render the YYYY-MM-DD calendar day. Pinning timeZone="UTC"
+  // still has to produce that day (#4450): timeZone chooses which day is
+  // "today", and must not move the label onto the previous evening.
   it("renders a deterministic UTC day header regardless of host timezone", () => {
     render(<TapeChart {...BASE} startDate="2026-01-15" endDate="2026-01-17" timeZone="UTC" />);
     const header = screen.getByRole("columnheader", {
@@ -310,6 +308,65 @@ describe("<TapeChart /> rendering", () => {
     });
     expect(header).toHaveTextContent("Thu");
     expect(header).toHaveTextContent("15");
+  });
+
+  it("labels a day header with its calendar date in America/Los_Angeles", () => {
+    render(
+      <TapeChart
+        {...BASE}
+        startDate="2026-11-04"
+        endDate="2026-11-06"
+        timeZone="America/Los_Angeles"
+      />
+    );
+    const header = screen.getByRole("columnheader", {
+      name: /Wednesday, November 4, 2026/i,
+    });
+    expect(header).toHaveTextContent("Wed");
+    expect(header).toHaveTextContent("04");
+  });
+
+  it("names a bar with the reservation's civil dates in America/Los_Angeles", () => {
+    render(
+      <TapeChart
+        reservations={[
+          buildReservation({
+            start: "2026-11-03",
+            end: "2026-11-05",
+            guestName: "Priya García",
+          }),
+        ]}
+        rooms={ROOMS}
+        startDate="2026-10-29"
+        endDate="2026-11-12"
+        timeZone="America/Los_Angeles"
+      />
+    );
+    const label = screen.getByRole("button", { name: /Priya García/ }).getAttribute("aria-label");
+    expect(label).toContain("November 3, 2026");
+    expect(label).toContain("November 5, 2026");
+    expect(label).not.toContain("November 2, 2026");
+    expect(label).not.toContain("November 4, 2026");
+  });
+
+  it("switches an uncontrolled chart to the list and updates the radio", async () => {
+    const user = userEvent.setup();
+    render(<TapeChart {...BASE} />);
+    expect(screen.getByRole("radio", { name: "Grid" })).toHaveAttribute("aria-checked", "true");
+    await user.click(screen.getByRole("radio", { name: "List" }));
+    expect(screen.getByRole("radio", { name: "List" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("radio", { name: "Grid" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /Jane Doe/ }).length).toBeGreaterThan(0);
+  });
+
+  it("switches an uncontrolled chart to the list with ArrowRight", async () => {
+    const user = userEvent.setup();
+    render(<TapeChart {...BASE} />);
+    screen.getByRole("radio", { name: "Grid" }).focus();
+    await user.keyboard("{ArrowRight}");
+    expect(screen.getByRole("radio", { name: "List" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
   });
 
   it("renders an empty state when no rooms are provided", () => {
@@ -434,6 +491,21 @@ describe("<TapeChart /> rendering", () => {
 
 // WCAG 2.5.3 / axe label-content-name-mismatch: a bar's accessible name must
 // contain the text it shows (title + price), not only describe it.
+describe("TapeChart grid width", () => {
+  it("sizes the grid to its dated columns so a wider card cannot paint headerless ones", () => {
+    const css = readFileSync(
+      join(process.cwd(), "src/components/TapeChart/TapeChart.module.css"),
+      "utf8"
+    );
+    const block = css.match(/\.gridBody \{[^}]+\}/)?.[0] ?? "";
+    expect(block).toMatch(/inline-size:\s*calc\(/);
+    expect(block).not.toMatch(/min-inline-size/);
+    const row = css.match(/\.row \{[^}]+\}/)?.[0] ?? "";
+    expect(row).toContain("var(--tapechart-day-count");
+    expect(row).not.toContain("1fr");
+  });
+});
+
 describe("<TapeChart /> bar accessible name", () => {
   it("contains the bar's visible text, including the price", () => {
     render(
