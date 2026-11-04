@@ -42943,8 +42943,7 @@
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
-      const { reservationService, guestService } = fastify.services;
-      const listVenueId = resolveReservationsListVenueId(guestService);
+      const { reservationService } = fastify.services;
       const ownerScope = reservationOwnerScope(reservationService);
     
       /**
@@ -43001,7 +43000,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, listVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, reservationsListVenueId),
+          ],
           schema: {
             summary: "List reservations",
             operationId: "listReservations",
@@ -43023,16 +43025,25 @@
         },
         async (request, _reply) => {
           const { page, limit } = parsePaginationQuery(request.query);
-          // Context only for a named venue; a guestId-only list runs without one.
-          return inNamedVenueContext(request.query.venueId, () =>
+          const { guestId } = request.query;
+          // A guest-filtered list always runs in a venue's context (the named one,
+          // else the guest's). Only an admin's unfiltered list may name none.
+          const venueId =
+            (guestId ? await resolveListVenueId(request.query) : request.query.venueId) ?? undefined;
+          if (guestId && !venueId) {
+            // Only an admin reaches here (the guard denied everyone else): an
+            // unknown guest has no reservations.
+            return buildPaginatedResponse<Reservation>([], page, limit, 0);
+          }
+          return inNamedVenueContext(venueId, () =>
             reservationService.list({
               page,
               limit,
               date: request.query.date,
               status: request.query.status,
               tableId: request.query.tableId,
-              venueId: request.query.venueId,
-              guestId: request.query.guestId,
+              venueId,
+              guestId,
             })
           );
         }
@@ -62803,6 +62814,14 @@
   </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
+    export class JobQueueUnavailableError extends Error {
+      constructor() {
+        super(
+          "Cannot schedule/cancel notification jobs: REDIS_URL is not configured in production (see #3763)."
+        );
+        this.name = "JobQueueUnavailableError";
+      }
+    }
     export interface NotifierRuntime {
       /**
        * Redis URL — the single source for the scheduler AND the in-process worker.
@@ -62863,9 +62882,7 @@
       function connect(): JobScheduler {
         if (!redisUrl) {
           // Never connect to redis://localhost:6379 as a blind guess (#4172).
-          throw new Error(
-            "Cannot schedule/cancel notification jobs: REDIS_URL is not configured in production (see #3763)."
-          );
+          throw new JobQueueUnavailableError();
         }
         if (!scheduler) scheduler = new JobScheduler({ redisUrl });
         return scheduler;
@@ -67505,6 +67522,7 @@
   <file path="services/reservations/src/services/waitlist-notifier.ts">
     export interface WaitlistNotifierLogger {
       error(obj: Record<string, unknown>, msg: string): void;
+      warn(obj: Record<string, unknown>, msg: string): void;
       info(obj: Record<string, unknown>, msg: string): void;
     }
     export interface WaitlistEntryRef {
@@ -67645,6 +67663,11 @@
         // Always schedule expiry regardless of SMS outcome. If scheduling fails the
         // row would stay notified forever (host can't retry, next guest never
         // notified), so roll it back to waiting and surface the error.
+        //
+        // Exception (#8257): with no job queue configured at all (production has
+        // no Redis, #3763) the row stays notified — the guest has been texted and
+        // `expiresAt` already records the claim deadline — and only the automatic
+        // expiry is skipped; the host expires or seats the party by hand.
         try {
           await scheduler.schedule(
             JOB_TYPES.WAITLIST_EXPIRY,
@@ -67653,8 +67676,14 @@
             `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
           );
         } catch (err) {
-          await revertNotified(input.id);
-          throw err;
+          if (!(err instanceof JobQueueUnavailableError)) {
+            await revertNotified(input.id);
+            throw err;
+          }
+          logger.warn(
+            { err, waitlistEntryId: input.id, venueId: input.venueId },
+            "waitlist expiry job not scheduled: job queue unavailable; the party stays notified until a host expires or seats it"
+          );
         }
     
         // Queue positions are final only now that the notified state stuck.

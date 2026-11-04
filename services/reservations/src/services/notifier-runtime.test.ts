@@ -22,7 +22,7 @@ vi.mock("../jobs/index.js", async (importOriginal) => {
   return { ...actual, JobScheduler: FakeJobScheduler };
 });
 
-import { createNotifierRuntime } from "./notifier-runtime.js";
+import { createNotifierRuntime, JobQueueUnavailableError } from "./notifier-runtime.js";
 import { JOB_TYPES } from "../jobs/index.js";
 import type { ReminderPayload } from "../jobs/index.js";
 
@@ -149,6 +149,16 @@ describe("createNotifierRuntime", () => {
         runtime.scheduler.schedule(JOB_TYPES.WAITLIST_EXPIRY, { waitlistEntryId: "e1" }, 1, "j")
       ).rejects.toThrow(/REDIS_URL/);
       expect(jobSchedulerCtor).not.toHaveBeenCalled();
+    });
+
+    it("rejects with a JobQueueUnavailableError callers can degrade on (#8257)", async () => {
+      process.env.NODE_ENV = "production";
+      const runtime = createNotifierRuntime();
+
+      await expect(
+        runtime.scheduler.schedule(JOB_TYPES.WAITLIST_EXPIRY, { waitlistEntryId: "e1" }, 1, "j")
+      ).rejects.toBeInstanceOf(JobQueueUnavailableError);
+      await expect(runtime.scheduler.cancel("j")).rejects.toBeInstanceOf(JobQueueUnavailableError);
     });
 
     it("uses the provided REDIS_URL unchanged when NODE_ENV=production and REDIS_URL is set", async () => {
