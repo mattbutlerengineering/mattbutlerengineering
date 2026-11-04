@@ -59,6 +59,10 @@ export interface SeriesEditDialogProps {
   /** "Edit this date…": hands the date to the closure flow (impact, then Step 2). */
   readonly onEditDate: (series: DateRule, date: string) => void;
   readonly onClose: () => void;
+  /** The date the question opens on; the series' next date when absent. */
+  readonly initialDate?: string;
+  /** A change to the series or one of its dates was saved. */
+  readonly onSaved?: () => void;
 }
 
 /**
@@ -81,7 +85,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
     "availabilitySpecial.series.stranded"
   );
   const [scope, setScope] = useState<Scope>("only");
-  const [date, setDate] = useState(() => nextOccurrence(series, today));
+  const [date, setDate] = useState(() => props.initialDate ?? nextOccurrence(series, today));
   const [weekdays, setWeekdays] = useState<readonly number[]>(series.repeat?.weekdays ?? []);
   const [endsOn, setEndsOn] = useState<string | null>(series.endsOn ?? null);
   const [invalid, setInvalid] = useState<"date" | "edit" | "taken" | "skipped" | null>(null);
@@ -115,6 +119,7 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
     if (saved) {
       // A config save tells no guest anything, so its change is always one History can revert.
       offerUndo({ venueId, saved, title });
+      props.onSaved?.();
       onClose();
     }
   };

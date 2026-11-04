@@ -322,6 +322,11 @@
       ): DateRule | null { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/closed-all-day.ts">
+    <item priority="high">
+      export const closedAllDay: unknown;
+    </item>
+  </file>
   <file path="src/components/availability/closure-band.ts">
     <item priority="high">
       type Closure = AvailabilityDaySummary["closures"][number];
@@ -657,6 +662,9 @@
   </file>
   <file path="src/components/availability/draft-wait.ts">
     <item priority="high">
+      export const skipInitialFocus: unknown;
+    </item>
+    <item priority="high">
       export function waitingProps(waiting: boolean, reasonId: string | undefined) { /* ... */ }
     </item>
   </file>
@@ -991,6 +999,23 @@
   <file path="src/components/availability/revert-error.ts">
     <item priority="high">
       export function revertErrorText(error: unknown, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/rule-subjects.ts">
+    <item priority="high">
+      export const DATE_FORMAT: unknown;
+    </item>
+    <item priority="high">
+      export function rangeLabel(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdayList(rule: SpecialDateRule, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/schedule-changes.ts">
@@ -1442,6 +1467,17 @@
         toast: (input: ToastInput) => unknown,
         venueId: string
       ) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/suggest-name.ts">
+    <item priority="low">
+      type Season = "spring" | "summer" | "autumn" | "winter";
+    </item>
+    <item priority="low">
+      type NameSuggestion = { readonly kind: "season"; rea | { readonly kind: "from"; reado | { readonly kind: "range"; read;
+    </item>
+    <item priority="high">
+      export function suggestName(startsOn: string | null, endsOn: string | null): NameSuggestion | null { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/tonight-state.ts">

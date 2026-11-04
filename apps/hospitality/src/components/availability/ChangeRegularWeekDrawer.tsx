@@ -25,6 +25,7 @@ import {
   useWeekdaySummary,
 } from "./ScheduleFormParts.js";
 import { DraftPreview, previewIds } from "./DraftPreview.js";
+import { NameSuggestionChip } from "./NameSuggestionChip.js";
 import { ServicesEditor } from "./ServicesEditor.js";
 import { useConflictReview } from "./use-conflict-review.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
@@ -248,6 +249,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
             required
             onChange={(e) => setName(e.target.value)}
           />
+          <NameSuggestionChip startsOn={startsOn} endsOn={endsOn} name={name} onUse={setName} />
           {startsOn && (
             <Text variant="caption" color="secondary">
               {t("availabilitySchedules.impact", { count: dates.length })}
