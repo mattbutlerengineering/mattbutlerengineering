@@ -1192,6 +1192,19 @@
     <item priority="high">
       export function regularWeekLine(config: AvailabilityConfig, today: string): RegularWeekLine { /* ... */ }
     </item>
+    <item priority="low">
+      interface UpcomingRegularWeek {
+        startsOn: string;
+        endsOn: string | null;
+        line: RegularWeekLine;
+      }
+    </item>
+    <item priority="high">
+      export function upcomingRegularWeek(
+        config: AvailabilityConfig,
+        today: string
+      ): UpcomingRegularWeek | null { /* ... */ }
+    </item>
   </file>
   <file path="src/components/availability/removal-diff.ts">
     <item priority="high">

@@ -11,7 +11,12 @@ import {
 import type { AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { minuteText } from "./closure-band.js";
-import { regularWeekLine, type LineHours } from "./regular-week-line.js";
+import {
+  regularWeekLine,
+  upcomingRegularWeek,
+  type LineHours,
+  type RegularWeekLine as Line,
+} from "./regular-week-line.js";
 import { useWeekdayName } from "./quick-setup-field-helpers.js";
 import { WEEK_DISPLAY_ORDER } from "./quick-setup-draft.js";
 import { useWeekdaySummary } from "./ScheduleFormParts.js";
@@ -41,6 +46,7 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
   const detailsId = useId();
   const todayDate = localDateTimeOf(now, timeZone).date;
   const line = useMemo(() => regularWeekLine(config, todayDate), [config, todayDate]);
+  const upcoming = useMemo(() => upcomingRegularWeek(config, todayDate), [config, todayDate]);
 
   const rows = useMemo(() => {
     if (!open) return [];
@@ -72,22 +78,28 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
   const time = (minute: number) => minuteText(minute, t, format);
   const hours = (h: LineHours) =>
     t("availability.regularWeekLine.hours", { open: time(h.opensAt), close: time(h.closesAt) });
-  const text = line.services
-    .map((service) => {
-      const base = { name: service.name, hours: hours(service), days: summarize(service.days) };
-      if (service.changes.length === 0) return t("availability.regularWeekLine.service", base);
-      const changes = service.changes
-        .map((c) => {
-          const days = summarize(c.weekdays);
-          // Same opening: only the close moved, so say only the close.
-          return c.opensAt === service.opensAt
-            ? t("availability.regularWeekLine.closes", { days, close: time(c.closesAt) })
-            : t("availability.regularWeekLine.different", { days, hours: hours(c) });
-        })
-        .join(", ");
-      return t("availability.regularWeekLine.serviceWith", { ...base, changes });
-    })
-    .join(" · ");
+  const describe = (week: Line) =>
+    week.services
+      .map((service) => {
+        const base = { name: service.name, hours: hours(service), days: summarize(service.days) };
+        if (service.changes.length === 0) return t("availability.regularWeekLine.service", base);
+        const changes = service.changes
+          .map((c) => {
+            const days = summarize(c.weekdays);
+            // Same opening: only the close moved, so say only the close.
+            return c.opensAt === service.opensAt
+              ? t("availability.regularWeekLine.closes", { days, close: time(c.closesAt) })
+              : t("availability.regularWeekLine.different", { days, hours: hours(c) });
+          })
+          .join(", ");
+        return t("availability.regularWeekLine.serviceWith", { ...base, changes });
+      })
+      .join(" · ");
+  const text = describe(line);
+  // A change saved for a later date reads here before it takes over, unless it reads the same.
+  const upcomingText = upcoming && describe(upcoming.line);
+  const shortDate = (date: string) =>
+    format.formatCalendarDate(date, { month: "short", day: "numeric" });
 
   return (
     <div className={styles.line}>
@@ -107,6 +119,20 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
           </Button>
         )}
       </div>
+      {upcoming && upcomingText && upcomingText !== text && (
+        <Text variant="caption" color="secondary">
+          {upcoming.endsOn
+            ? t("availability.regularWeekLine.upcomingPeriod", {
+                from: shortDate(upcoming.startsOn),
+                to: shortDate(upcoming.endsOn),
+                services: upcomingText,
+              })
+            : t("availability.regularWeekLine.upcoming", {
+                date: shortDate(upcoming.startsOn),
+                services: upcomingText,
+              })}
+        </Text>
+      )}
       {open && !line.uniform && (
         <ul
           id={detailsId}
