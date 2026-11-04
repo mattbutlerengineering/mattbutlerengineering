@@ -9164,13 +9164,17 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-holidays.ts">
+    function addressCountry(profile: unknown): string | undefined {
+      if (typeof profile !== "object" || profile === null) return undefined;
+      const address = (profile as { address?: unknown }).address;
+      if (typeof address !== "object" || address === null) return undefined;
+      const country = (address as { country?: unknown }).country;
+      return typeof country === "string" ? country : undefined;
+    }
     export function useHolidayCountry(): HolidayCountry | null {
       const format = useVenueFormat();
       const venue = useOptionalVenue()?.selectedVenue;
-      return holidayCountry(
-        toPublicVenueProfile(venue?.settings?.["profile"]).address?.country,
-        format.locale
-      );
+      return holidayCountry(addressCountry(venue?.settings?.["profile"]), format.locale);
     }
     export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> {
       const country = useHolidayCountry();

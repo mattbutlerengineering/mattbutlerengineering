@@ -2599,7 +2599,8 @@
       "suggestions": {
         "private": "Fermé pour un événement privé",
         "weather": "Fermé en raison de la météo",
-        "holiday": "Fermé pour le congé"
+        "holiday": "Fermé pour le congé",
+        "holidayNamed": "Fermé pour {{name}}"
       },
       "what": {
         "label": "Quoi",

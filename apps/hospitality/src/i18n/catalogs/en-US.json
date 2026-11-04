@@ -2521,7 +2521,8 @@
       "suggestions": {
         "private": "Closed for a private event",
         "weather": "Closed due to weather",
-        "holiday": "Closed for the holiday"
+        "holiday": "Closed for the holiday",
+        "holidayNamed": "Closed for {{name}}"
       },
       "what": {
         "label": "What",
