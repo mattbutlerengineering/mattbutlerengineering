@@ -202,11 +202,11 @@ describe("AvailabilityDayDrawer around a draft", () => {
 
     it("waits for an open editor too, with the same reason", () => {
       render(drawer({ rules: FRIDAYS, date: "2026-10-30" }));
-      expect(screen.getByRole("button", { name: /^Make a Friday schedule/ })).not.toHaveAttribute(
-        "aria-disabled"
-      );
+      expect(
+        screen.getByRole("button", { name: /^Make these Friday’s regular hours/ })
+      ).not.toHaveAttribute("aria-disabled");
       fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
-      const make = screen.getByRole("button", { name: /^Make a Friday schedule/ });
+      const make = screen.getByRole("button", { name: /^Make these Friday’s regular hours/ });
       expect(make).toHaveAttribute("aria-disabled", "true");
       fireEvent.click(make);
       expect(save).not.toHaveBeenCalled();
@@ -291,7 +291,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
         })
       );
       const { rerender } = render(drawer({ rules: FRIDAYS, date: "2026-10-30" }));
-      fireEvent.click(screen.getByRole("button", { name: /^Make a Friday schedule/ }));
+      fireEvent.click(screen.getByRole("button", { name: /^Make these Friday’s regular hours/ }));
       expect(screen.getByRole("button", { name: "Edit Lunch" })).toHaveAttribute(
         "aria-disabled",
         "true"

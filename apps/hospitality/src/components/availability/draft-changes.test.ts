@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { applyChanges, resolveDay, validateConfig } from "@mbe/availability";
 import { PutAvailabilityConfigBodySchema } from "@mbe/types";
-import type { DateRule } from "@mbe/types";
+import type { AvailabilityConfig, DateRule } from "@mbe/types";
+import { demoDraft } from "./quick-setup-demo.fixture.js";
+import { draftToConfig } from "./quick-setup-draft.js";
 import {
   buildDraftChanges,
   overnightHintDate,
@@ -14,6 +17,7 @@ import {
   EARLY_DINNER,
   FIXTURE_DATE,
   fixtureConfig,
+  FIXTURE_TIMEZONE,
   resolveFixtureDay,
 } from "./resolved-day-fixtures.js";
 
@@ -321,5 +325,109 @@ describe("overnightHintDate", () => {
     ).toBe(undefined);
     const rule: EditScope = { kind: "rule", ruleId: "r", mode: "all", from: friday };
     expect(overnightHintDate(rule, friday, [friday, "2026-10-31"])).toBe(undefined);
+  });
+});
+
+describe("a regular weekday scope", () => {
+  const FRIDAY: EditScope = { kind: "regularWeekday", weekday: 5 };
+  const WEEK = [
+    "2026-11-02",
+    "2026-11-03",
+    "2026-11-04",
+    "2026-11-05",
+    "2026-11-06",
+    "2026-11-07",
+    "2026-11-08",
+  ];
+
+  /** The PRD demo week: lunch Mon–Fri, dinner Tue–Sun (later Fri–Sat), brunch Sat–Sun. */
+  function demo() {
+    let n = 0;
+    const config = draftToConfig(demoDraft(), () => `demo-${++n}`);
+    return { config, day: { services: [] } };
+  }
+
+  const hoursOn = (config: AvailabilityConfig, date: string) =>
+    resolveDay({ timezone: FIXTURE_TIMEZONE, config }, date).services.map((s) => [
+      s.name,
+      s.opensAt,
+      s.lastSeatingAt,
+      s.closesAt,
+    ]);
+
+  it("seeds the weekday's own services with that day's hours", () => {
+    const { config, day } = demo();
+    const services = seedServices(config, day, FRIDAY);
+    // Friday: lunch, and dinner with the later close (12:00 AM is minute 1440).
+    expect(services.map((s) => [s.name, s.closesAt])).toEqual([
+      ["Lunch", 900],
+      ["Dinner", 1440],
+    ]);
+  });
+
+  it("changes only that weekday, in place, with no schedule or assignment created", () => {
+    const { config, day } = demo();
+    const services = seedServices(config, day, FRIDAY).map((s) =>
+      s.name === "Dinner" ? { ...s, lastSeatingAt: 1350, closesAt: 1410 } : s
+    );
+    const changes = buildDraftChanges({ config, scope: FRIDAY, services, makeId: counter() });
+    expect(changes.upsert.schedules).toBeUndefined();
+    expect(changes.upsert.assignments).toBeUndefined();
+    expect(changes.remove).toEqual({});
+    // Only the row that changed is written.
+    expect(changes.upsert.scheduleServices).toHaveLength(1);
+    expect(parses(changes)).toBe(true);
+
+    const next = applyChanges(config, changes, "2026-11-01T00:00:00.000Z");
+    expect(validateConfig(next)).toEqual([]);
+    expect(hoursOn(next, "2026-11-06")).toEqual([
+      ["Lunch", 690, 840, 900],
+      ["Dinner", 1020, 1350, 1410],
+    ]);
+    for (const date of WEEK.filter((d) => d !== "2026-11-06")) {
+      expect(hoursOn(next, date)).toEqual(hoursOn(config, date));
+    }
+  });
+
+  it("a service taken off that weekday keeps its row for the others", () => {
+    const { config, day } = demo();
+    const services = seedServices(config, day, FRIDAY).filter((s) => s.name !== "Lunch");
+    const next = applyChanges(
+      config,
+      buildDraftChanges({ config, scope: FRIDAY, services, makeId: counter() }),
+      "2026-11-01T00:00:00.000Z"
+    );
+    expect(hoursOn(next, "2026-11-06").map((s) => s[0])).toEqual(["Dinner"]);
+    expect(hoursOn(next, "2026-11-05")).toEqual(hoursOn(config, "2026-11-05"));
+  });
+
+  it("a service added on that weekday runs only that weekday", () => {
+    const { config, day } = demo();
+    const services = [
+      ...seedServices(config, day, FRIDAY),
+      {
+        key: "late",
+        venueServiceId: null,
+        scheduleServiceId: null,
+        name: "Late",
+        opensAt: 1380,
+        lastSeatingAt: 1400,
+        closesAt: 1430,
+        seating: { version: 1, interval: 15 },
+        bookingTypes: ["online", "phone"],
+      } satisfies DraftService,
+    ];
+    const next = applyChanges(
+      config,
+      buildDraftChanges({ config, scope: FRIDAY, services, makeId: counter() }),
+      "2026-11-01T00:00:00.000Z"
+    );
+    expect(hoursOn(next, "2026-11-06").map((s) => s[0])).toContain("Late");
+    expect(hoursOn(next, "2026-11-05").map((s) => s[0])).not.toContain("Late");
+    expect(hoursOn(next, "2026-11-07").map((s) => s[0])).not.toContain("Late");
+  });
+
+  it("names a date for an overnight close, like a weekday edit", () => {
+    expect(overnightHintDate(FRIDAY, "2026-10-30", [])).toBe("2026-10-30");
   });
 });

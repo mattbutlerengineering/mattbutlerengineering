@@ -2016,8 +2016,8 @@
     "nudge": {
       "label": "Suggestion",
       "text": "{{weekday}} a connu {{count}} changements ponctuels.",
-      "make": "Créer un horaire pour {{weekday}}",
-      "created": "Horaire pour {{weekday}} créé"
+      "make": "Faire de ces heures les heures habituelles du {{weekday}}",
+      "created": "Heures habituelles du {{weekday}} mises à jour"
     },
     "blocked": {
       "conflict": "Répondez au message ci-dessus pour enregistrer.",
@@ -2398,7 +2398,7 @@
         "date": "Cette date seulement",
         "weekday": "Chaque {{weekday}} à partir du {{date}}",
         "schedule": "Partout où “{{name}}” est utilisé",
-        "regularWeek": "Votre semaine habituelle"
+        "regularWeekday": "Chaque {{weekday}} de la semaine habituelle"
       },
       "until": "Jusqu’au",
       "noEnd": "Sans date de fin",

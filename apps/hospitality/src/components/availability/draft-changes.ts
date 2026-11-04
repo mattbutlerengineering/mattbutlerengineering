@@ -1,4 +1,12 @@
-import { weekdayIndexOf, type ResolvedDaySummary } from "@mbe/availability";
+import {
+  decodeWeek,
+  encodeWeek,
+  servicesOn,
+  weekdayIndexOf,
+  type ResolvedDaySummary,
+  type ServiceHours,
+  type ServiceWeek,
+} from "@mbe/availability";
 import type {
   AvailabilityConfig,
   AvailabilityConfigChanges,
@@ -22,6 +30,8 @@ export type EditScope =
   /** Every weekday of `from`, from `from` until `until` (`null`: until changed again). */
   | { readonly kind: "weekday"; readonly from: string; readonly until: string | null }
   | { readonly kind: "schedule"; readonly scheduleId: string }
+  /** One weekday of the live regular week, in place: no schedule or assignment is made (ux.md F2 1). */
+  | { readonly kind: "regularWeekday"; readonly weekday: number }
   /** Exactly these dates, picked in the multi-select bar (ux.md F-MS). */
   | { readonly kind: "dates"; readonly dates: readonly string[] }
   /** A range or repeating special-hours rule, from `from` on ("following") or whole ("all"). */
@@ -42,7 +52,9 @@ export function overnightHintDate(
   date: string,
   dates: readonly string[]
 ): string | undefined {
-  if (scope.kind === "date" || scope.kind === "weekday") return date;
+  if (scope.kind === "date" || scope.kind === "weekday" || scope.kind === "regularWeekday") {
+    return date;
+  }
   if (scope.kind === "rule" && dates.length === 1) return date;
   return undefined;
 }
@@ -99,6 +111,19 @@ export function seedServices(
         scheduleServiceId: null,
         name: names.get(s.venueServiceId) ?? s.venueServiceId,
       }));
+  }
+  if (scope.kind === "regularWeekday") {
+    const week = liveRegularWeek(config);
+    const venueServices = new Map(config.venueServices.map((v) => [v.id, v]));
+    return week
+      ? servicesOn(week.rows, venueServices, scope.weekday).map((s) => ({
+          ...hoursOf(s),
+          key: s.venueServiceId,
+          venueServiceId: s.venueServiceId,
+          scheduleServiceId: s.scheduleServiceId,
+          name: s.name,
+        }))
+      : [];
   }
   if (scope.kind !== "schedule") {
     return day.services.map((s) => ({
@@ -215,6 +240,81 @@ function scheduleServiceRows(
   };
 }
 
+/** The live regular week: its schedule, that schedule's rows, and the weekdays its assignments cover. */
+function liveRegularWeek(config: AvailabilityConfig) {
+  const schedule = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+  if (!schedule) return null;
+  return {
+    schedule,
+    rows: config.scheduleServices.filter((s) => s.scheduleId === schedule.id),
+    covered: [
+      ...new Set(
+        config.assignments.filter((a) => a.scheduleId === schedule.id).flatMap((a) => a.weekdays)
+      ),
+    ],
+  };
+}
+
+const rowKey = (row: Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours>) =>
+  JSON.stringify([
+    row.opensAt,
+    row.lastSeatingAt,
+    row.closesAt,
+    row.seating,
+    row.bookingTypes,
+    row.weekdays,
+    row.dayHours,
+  ]);
+
+/**
+ * ux.md F2 1: one weekday of the regular week, in place. The week is decoded, that weekday's
+ * services replaced by the draft's, and encoded again; only the rows the encoding changes are
+ * written, and a service that now runs on no day loses its row. No schedule or assignment is made.
+ */
+function regularWeekdayRows(
+  config: AvailabilityConfig,
+  weekday: number,
+  services: readonly (DraftService & { venueServiceId: string })[],
+  makeId: () => string
+): { upsert: ScheduleService[]; removed: string[] } {
+  const week = liveRegularWeek(config);
+  if (!week) return { upsert: [], removed: [] };
+  const edited = new Map(services.map((s) => [s.venueServiceId, s]));
+  const hoursFor = (s: DraftService): ServiceHours => ({
+    ...hoursOf(s),
+    bookingTypes: [...s.bookingTypes],
+  });
+  const decoded = decodeWeek(week.rows, week.covered);
+  const replaced: ServiceWeek[] = [
+    ...decoded.map((service) => {
+      const mine = edited.get(service.venueServiceId);
+      return {
+        venueServiceId: service.venueServiceId,
+        days: service.days.map((hours, day) =>
+          day === weekday ? (mine ? hoursFor(mine) : null) : hours
+        ),
+      };
+    }),
+    ...services
+      .filter((s) => !decoded.some((d) => d.venueServiceId === s.venueServiceId))
+      .map((s) => ({
+        venueServiceId: s.venueServiceId,
+        days: Array.from({ length: 7 }, (_, day) => (day === weekday ? hoursFor(s) : null)),
+      })),
+  ];
+  const encoded = encodeWeek(replaced, week.covered);
+  const stored = new Map(week.rows.map((row) => [row.venueServiceId, row]));
+  return {
+    upsert: encoded.flatMap((row): ScheduleService[] => {
+      const was = stored.get(row.venueServiceId);
+      if (was && rowKey(was) === rowKey(row)) return [];
+      return [{ ...row, id: was?.id ?? makeId(), scheduleId: week.schedule.id }];
+    }),
+    removed: week.rows
+      .filter((row) => !encoded.some((e) => e.venueServiceId === row.venueServiceId))
+      .map((row) => row.id),
+  };
+}
 /** The row operations a save of this draft sends. Rows are only listed when there is something in them. */
 export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges {
   const { config, scope, makeId } = input;
@@ -229,6 +329,13 @@ export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges 
   }));
   const venueServices = created.length > 0 ? { venueServices: created } : {};
 
+  if (scope.kind === "regularWeekday") {
+    const { upsert, removed } = regularWeekdayRows(config, scope.weekday, services, makeId);
+    return {
+      upsert: { ...venueServices, ...(upsert.length > 0 ? { scheduleServices: upsert } : {}) },
+      remove: removed.length > 0 ? { scheduleServices: removed } : {},
+    };
+  }
   if (scope.kind === "schedule") {
     const { upsert, removed } = scheduleServiceRows(
       config,

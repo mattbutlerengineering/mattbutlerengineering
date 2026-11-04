@@ -1969,8 +1969,8 @@
     "nudge": {
       "label": "Suggestion",
       "text": "{{weekday}} has had {{count}} one-off changes.",
-      "make": "Make a {{weekday}} schedule",
-      "created": "{{weekday}} schedule created"
+      "make": "Make these {{weekday}}’s regular hours",
+      "created": "{{weekday}}’s regular hours updated"
     },
     "blocked": {
       "conflict": "Answer the message above to save.",
@@ -2335,7 +2335,7 @@
         "date": "This date only",
         "weekday": "Every {{weekday}} from {{date}}",
         "schedule": "Everywhere “{{name}}” is used",
-        "regularWeek": "Your regular week"
+        "regularWeekday": "Every regular {{weekday}}"
       },
       "until": "Until",
       "noEnd": "No end",

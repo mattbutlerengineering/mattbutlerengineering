@@ -2016,7 +2016,7 @@
   </file>
   <file path="apps/hospitality/src/components/availability/draft-changes.ts">
     <item priority="low">
-      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {
+      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "regularWeekd | { readonly kind: "dates"; read | {
             readonly kind: "rule";;
     </item>
     <item priority="high">
@@ -2083,6 +2083,17 @@
         services: readonly (DraftService & { venueServiceId: string })[],
         makeId: () => string,
         baseline?: AvailabilityConfig
+      ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function liveRegularWeek(config: AvailabilityConfig) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularWeekdayRows(
+        config: AvailabilityConfig,
+        weekday: number,
+        services: readonly (DraftService & { venueServiceId: string })[],
+        makeId: () => string
       ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
     </item>
     <item priority="high">

@@ -213,7 +213,7 @@ describe("Undo after a schedule save", () => {
         />
       </main>
     );
-    fireEvent.click(screen.getByRole("button", { name: /^Make a .* schedule/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Make these .* regular hours/ }));
     (await undoOffered())();
     await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
   });
