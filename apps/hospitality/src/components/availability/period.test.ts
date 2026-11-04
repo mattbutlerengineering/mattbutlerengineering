@@ -50,12 +50,12 @@ describe("weekSummary", () => {
 
   it("says online booking is off when every open day has it off", () => {
     const days = week().map((d) => ({ ...d, bookingOpen: { ...OPEN, online: false } }));
-    expect(summary(days)).toBe("This week: open 7 days · 0 closures · online booking off");
+    expect(summary(days)).toBe("This week: open 7 days · online booking off");
   });
 
   it("never says online booking is on when no day is open", () => {
     const days = week().map((d) => ({ ...d, serviceCount: 0, label: "Closed" }));
-    expect(summary(days)).toBe("This week: open 0 days · 0 closures · online booking off");
+    expect(summary(days)).toBe("This week: open 0 days · online booking off");
   });
 
   it("keeps a day open under a whole-day tables block", () => {

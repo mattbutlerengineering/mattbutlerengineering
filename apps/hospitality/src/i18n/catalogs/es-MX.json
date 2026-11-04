@@ -2883,7 +2883,7 @@
     },
     "venueTime": "Hora del local ({{zone}})",
     "weekSummary": {
-      "line": "Esta semana: {{open}} · {{closures}} · {{online}}",
+      "line": "Esta semana: {{parts}}",
       "open_one": "abierto {{count}} día",
       "open_other": "abierto {{count}} días",
       "open_many": "abierto {{count}} días",
