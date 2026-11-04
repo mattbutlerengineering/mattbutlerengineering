@@ -404,7 +404,13 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
       {/* Outside the alert, which would read every row aloud. */}
       {rowSave.failure.length > 0 && <StrandedBookings reservations={rowSave.stranded} />}
       {isManager && filter !== "past" && (
-        <UpcomingHolidays config={state.config} today={today} onPlan={setAdding} />
+        <UpcomingHolidays
+          key={venueId}
+          venueId={venueId}
+          config={state.config}
+          today={today}
+          onPlan={setAdding}
+        />
       )}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
       {summaries.isLoading ? (

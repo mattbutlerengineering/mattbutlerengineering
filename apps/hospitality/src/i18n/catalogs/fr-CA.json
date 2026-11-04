@@ -1867,6 +1867,9 @@
       "planAll_one": "Planifier {{count}} jour férié…",
       "planAll_many": "Tout planifier ({{count}})…",
       "planAll_other": "Tout planifier ({{count}})…",
+      "openAsUsual": "Heures habituelles",
+      "openAsUsualName": "{{name}}, {{date}} : heures habituelles",
+      "openAsUsualToast": "{{name}} : heures habituelles",
       "name": {
         "newYearsDay": "Jour de l’An",
         "constitutionDay": "Jour de la Constitution",
