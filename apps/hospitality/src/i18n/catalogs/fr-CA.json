@@ -2072,7 +2072,7 @@
   },
   "availability": {
     "title": "Disponibilité",
-    "description": "Ce qui régit chaque jour, et pourquoi.",
+    "description": "Vos heures, jours fériés et changements ponctuels.",
     "hostNote": "Seuls les gérants modifient les heures. Pour ce soir, utilisez le panneau Ce soir.",
     "loadError": "Impossible de charger la disponibilité",
     "noVenue": "Sélectionnez un établissement pour voir sa disponibilité.",
