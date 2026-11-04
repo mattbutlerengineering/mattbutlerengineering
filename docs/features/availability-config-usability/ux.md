@@ -233,6 +233,7 @@ Only these lines of predecessor F2 change.
 2. **Details ▾** opens the same seven rows as the Guest preview, read-only (no Party, no Updated tags), as the saved week. A uniform week reads "Regular week: Dinner 5:00 PM–10:00 PM Mon–Fri" and shows no Details disclosure.
 3. The line is shown to Hosts too (view only). Only **Change regular week…** is Manager-only, as today.
 4. On a phone the line is the first row under the toolbar; **Details** is collapsed.
+   A Change regular week saved for a later date adds a line under it until it takes over: "From Nov 5: Dinner 5:00 PM–11:00 PM every day" (a period reads "Jun 1–Sep 15: …"). It is left out when it would read the same.
 5. In the month grid and the phone agenda, a closed day is flat with a dashed outline and a special-hours day carries an accent rule on its leading edge, so exceptions stand out among regular days; the label still names which.
 6. Month cells and agenda rows name the day's services under the label ("Lunch · Dinner", "Brunch · Dinner"), so a weekday's services read at a glance; week cells list each service with its hours and carry no service count.
 
