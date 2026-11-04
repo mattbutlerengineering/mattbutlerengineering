@@ -6467,7 +6467,6 @@
           (r.repeat == null || r.repeat.weekdays.includes(weekdayIndexOf(date)))
       );
     }
-    export const HOLIDAY_HORIZON_DAYS = 120;
     export function upcomingHolidays(
       country: HolidayCountry,
       today: string,

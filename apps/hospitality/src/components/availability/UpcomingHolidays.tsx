@@ -43,7 +43,8 @@ export function UpcomingHolidays({ config, today, onPlan }: UpcomingHolidaysProp
   return (
     <section className={styles.holidays} aria-labelledby={headingId}>
       <div className={styles.holidaysHead}>
-        <Heading level={3} size={6} id={headingId}>
+        {/* Level 2: the page's h1 is the last heading above it (axe heading-order). */}
+        <Heading level={2} size={6} id={headingId}>
           {t("availabilitySpecial.holidays.heading")}
         </Heading>
         {holidays.length > 1 && (

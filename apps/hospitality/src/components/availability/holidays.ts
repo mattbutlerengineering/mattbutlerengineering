@@ -131,7 +131,7 @@ function isPlanned(config: AvailabilityConfig, date: string): boolean {
 }
 
 /** How far ahead the tab looks: far enough to plan a season, near enough to stay relevant. */
-export const HOLIDAY_HORIZON_DAYS = 120;
+const HOLIDAY_HORIZON_DAYS = 120;
 
 /**
  * The holidays from `today` (inclusive) to the horizon that no date rule covers yet, in date
