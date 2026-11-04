@@ -131,7 +131,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   });
   const baselineDraft = useMemo(
     () => (editing ? seedDraft(review.baseline) : initialDraft),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- seedDraft reads only `source`, fixed by the ids below
+    // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- seedDraft reads only `source`, fixed by the ids below
     [editing, review.baseline, initialDraft, sourceScheduleId]
   );
   const dirty =
