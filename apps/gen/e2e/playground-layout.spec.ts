@@ -71,3 +71,25 @@ test.describe("Playground layout (desktop)", () => {
     expect(Math.abs(mark.y + mark.height / 2 - (name.y + name.height / 2))).toBeLessThan(4);
   });
 });
+
+test.describe("Playground layout (narrow)", () => {
+  test("Escape closes the history overlay and returns focus to its toggle", async ({
+    authPage,
+  }) => {
+    await authPage.setViewportSize({ width: 600, height: 900 });
+    await authPage.goto("/");
+    await expect(authPage.getByPlaceholder("Describe the UI you want to build...")).toBeVisible();
+    await authPage.emulateMedia({ reducedMotion: "reduce" });
+
+    const toggle = authPage.getByRole("button", { name: "Toggle history panel" });
+    const dialog = authPage.getByRole("dialog", { name: "History" });
+    await toggle.click();
+    await expect(dialog).toBeVisible();
+
+    await authPage.keyboard.press("Escape");
+
+    await expect(dialog).toBeHidden();
+    await expect(authPage).toHaveURL(/\/$/);
+    await expect(toggle).toBeFocused();
+  });
+});
