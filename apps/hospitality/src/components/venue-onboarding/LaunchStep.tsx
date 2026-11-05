@@ -240,9 +240,9 @@ export function LaunchStep({
             <div className={styles.reviewSection}>
               <Text className={styles.reviewLabel}>{t("onboarding.launch.advanceBooking")}</Text>
               <Text className={styles.reviewValue}>
-                {t("onboarding.launch.days", {
-                  count: Number(settings.advanceBookingDays || "30"),
-                })}
+                {settings.advanceBookingDays
+                  ? t("onboarding.launch.days", { count: Number(settings.advanceBookingDays) })
+                  : t("onboarding.launch.noLimit")}
                 {!settings.advanceBookingDays && (
                   <Text variant="caption" color="secondary">
                     {" "}

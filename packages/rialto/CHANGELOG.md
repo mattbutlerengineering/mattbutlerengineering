@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.2
+
+### Patch Changes
+
+- [#8279](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8279) [`c45b0f1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c45b0f1025c8fa55df0c864e21e3c8627feee319) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A light theme island nested inside a dark ancestor keeps the light color tokens. Custom properties inherit, so a `data-theme="light"` scope previously painted with the surrounding dark palette.
+
+- [#8246](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8246) [`977915f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/977915f9153d1fd38445f6a7a22732070a87dd75) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Toasts move beside an open end-side Drawer on screens 1024px and wider, instead of covering its title and close button (top placement) or its actions (bottom placement). The Drawer panel carries `data-rialto-drawer="<side>-<size>"` for this.
+
 ## 0.10.1
 
 ### Patch Changes
