@@ -117,7 +117,8 @@
       "defaultPlaceholder": "Predeterminado: {{value}}",
       "durationHint": "Si lo dejas en blanco, se usan {{value}} minutos",
       "maxPartyHint": "Si lo dejas en blanco, se usan {{value}} invitados",
-      "advanceHint": "Si lo dejas en blanco, los invitados pueden reservar hasta con {{value}} días de anticipación",
+      "advanceHint": "Si lo dejas en blanco, los invitados pueden reservar cualquier fecha futura",
+      "advanceNoLimit": "Sin límite",
       "errors": {
         "durationInvalid": "La duración debe ser un número positivo",
         "maxPartyInvalid": "El tamaño del grupo debe ser un número positivo",
@@ -197,7 +198,8 @@
         "floorPlan": "Plano",
         "tables": "Mesas",
         "activate": "Activación"
-      }
+      },
+      "noLimit": "Sin límite"
     },
     "stagePanel": {
       "label": "Progreso del lanzamiento",
@@ -2927,6 +2929,27 @@
       "different": "{{days}} {{hours}}",
       "details": "Detalles",
       "heading": "Semana habitual"
+    },
+    "bookingRules": {
+      "open": "Reglas de reserva…",
+      "title": "Reglas de reserva",
+      "description": "Cuándo pueden reservar los clientes en línea, sea cual sea tu horario.",
+      "daysAhead": "Con cuánta anticipación pueden reservar (días)",
+      "noLimit": "Sin límite",
+      "daysAheadHint": "0 permite reservar solo para hoy.",
+      "noticeHours": "Aviso mínimo (horas)",
+      "noNotice": "Ninguno",
+      "noticeHoursHint": "No se puede reservar un horario más cercano que esto.",
+      "largestParty": "Grupo más grande en línea",
+      "partyDefault": "{{count}}",
+      "largestPartyHint": "A los grupos más grandes se les muestra tu teléfono.",
+      "invalid": {
+        "daysAhead": "Usa un número entero de días de 0 a 730.",
+        "noticeHours": "Usa un número entero de horas de 0 a 720.",
+        "largestParty": "Usa un número entero de 1 a 100."
+      },
+      "saved": "Reglas de reserva guardadas",
+      "saveError": "No se pudieron guardar las reglas de reserva"
     },
     "holidayNudge": {
       "line": "{{name}} es el {{date}} y aún no está planeado.",

@@ -486,6 +486,17 @@ describe("schedule drawers", () => {
       return { props, rerenderWith };
     }
 
+    it("New schedule opens with no field errors and its days open, until a service is started", () => {
+      renderNew("new", fixtureConfig());
+      expect(screen.queryByText("Give this service a name.")).not.toBeInTheDocument();
+      expect(screen.queryByText("Choose a time.")).not.toBeInTheDocument();
+      expect(screen.getByRole("checkbox", { name: "Monday" })).toBeInTheDocument();
+      // Save still says why it is off.
+      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+      fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
+      expect(screen.getByText("Choose at least one day.")).toBeInTheDocument();
+    });
+
     it("New schedule: says availability changed, not that a schedule did, and Start over clears every field", async () => {
       const opened = fixtureConfig();
       save.mockRejectedValueOnce(conflict());

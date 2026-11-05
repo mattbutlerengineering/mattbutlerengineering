@@ -99,7 +99,9 @@ function Cell(props: CellProps) {
       >
         {isDraft && <span className={styles.draftDot} data-draft-dot aria-hidden="true" />}
         <span className={styles.dayNumber} aria-hidden="true">
-          {format.formatCalendarDate(date, { day: "numeric" })}
+          <span className={styles.number}>
+            {format.formatCalendarDate(date, { day: "numeric" })}
+          </span>
           {holiday && <span className={styles.holiday}> {holiday}</span>}
         </span>{" "}
         {isLoading || !summary ? (

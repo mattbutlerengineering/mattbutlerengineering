@@ -10,11 +10,13 @@ export interface SettingsData {
   advanceBookingDays: string;
 }
 
-/** Default values used by the backend when no explicit value is set. */
+/**
+ * Default values used by the backend when no explicit value is set. A blank advance window has
+ * none: guests can book any date ahead (slot-rules.ts `bookingWindow`).
+ */
 const DEFAULTS = {
   defaultReservationDuration: 90,
   maxPartySize: 8,
-  advanceBookingDays: 30,
 } as const;
 
 /**
@@ -126,14 +128,10 @@ export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: 
           value={data.advanceBookingDays}
           onChange={(e) => onChange({ ...data, advanceBookingDays: e.target.value })}
           onBlur={onValidate}
-          placeholder={t("onboarding.settings.defaultPlaceholder", {
-            value: DEFAULTS.advanceBookingDays,
-          })}
+          // Blank sets no window: the service then lets guests book any date ahead.
+          placeholder={t("onboarding.settings.advanceNoLimit")}
           error={errors.advanceBookingDays !== undefined}
-          hint={
-            errors.advanceBookingDays ??
-            t("onboarding.settings.advanceHint", { value: DEFAULTS.advanceBookingDays })
-          }
+          hint={errors.advanceBookingDays ?? t("onboarding.settings.advanceHint")}
           showOptional
         />
       </Stack>

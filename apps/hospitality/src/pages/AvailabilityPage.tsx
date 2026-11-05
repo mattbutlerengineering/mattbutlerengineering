@@ -12,6 +12,7 @@ import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
 import { AvailabilityHistoryDrawer } from "../components/availability/AvailabilityHistoryDrawer.js";
+import { BookingRulesDrawer } from "../components/availability/BookingRulesDrawer.js";
 import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { AvailabilityMigrationBanner } from "../components/availability/AvailabilityMigrationBanner.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
@@ -117,11 +118,14 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const openDate = target.date;
   const [closing, setClosing] = useState<Closing | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [bookingRulesOpen, setBookingRulesOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
   // The day Go to date went to. The dialog hands focus back to its trigger a frame after it
   // closes, so focus moves to the day only once that has happened (see the effect below).
   const [jumpTo, setJumpTo] = useState<string | null>(null);
   const [tab, setTab] = useState<AvailabilityTab>("calendar");
+  // Set by Create another schedule…; read once when the Schedules tab mounts.
+  const [openNewSchedule, setOpenNewSchedule] = useState(false);
   // A range drag holds the selection bar as it was, so the grid does not move under the pointer.
   const [barDuringDrag, setBarDuringDrag] = useState<string[] | null>(null);
   const [selectionAction, setSelectionAction] = useState<"use" | "clear" | null>(null);
@@ -338,12 +342,17 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   ];
 
   // Leaving the calendar with an unsaved draft asks first; the tab changes on the next try.
-  const changeTab = (next: AvailabilityTab) =>
-    guard.dirty
-      ? guard.request(CLOSED)
-      : tab === "schedules"
-        ? tabGuard.request(next)
-        : setTab(next);
+  const changeTab = (next: AvailabilityTab) => {
+    setOpenNewSchedule(false);
+    if (guard.dirty) guard.request(CLOSED);
+    else if (tab === "schedules") tabGuard.request(next);
+    else setTab(next);
+  };
+  // "Create another schedule…" promises a schedule editor, so it lands on Schedules with New open.
+  const createSchedule = () => {
+    changeTab("schedules");
+    setOpenNewSchedule(true);
+  };
 
   const scheduleControls =
     team?.viewerRole && config.data ? (
@@ -354,6 +363,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         today={today}
         tab={tab}
         onTabChange={changeTab}
+        onCreateSchedule={createSchedule}
         onStale={() => void config.refetch()}
       />
     ) : null;
@@ -370,6 +380,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           today={today}
           onStale={() => void config.refetch()}
           onDirtyChange={setSchedulesDirty}
+          startNew={openNewSchedule}
         />
         <DiscardChangesDialog
           open={tabGuard.pending !== null}
@@ -471,12 +482,13 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onNext={() => moveTo(shiftAnchor(view, anchor, 1))}
         onToday={() => moveTo(null)}
         onHistory={() => setHistoryOpen(true)}
+        onBookingRules={canAct ? () => setBookingRulesOpen(true) : undefined}
         onGoToDate={() => setGoToOpen(true)}
         selectItems={selectItems}
         onClose={canAct ? () => setClosing({ date: null, pause: false }) : undefined}
         onPause={canAct && !pause ? () => setClosing({ date: null, pause: true }) : undefined}
         onChangeRegularWeek={canAct ? () => setChangingWeek(true) : undefined}
-        onCreateSchedule={canAct && !ownSchedules ? () => changeTab("schedules") : undefined}
+        onCreateSchedule={canAct && !ownSchedules ? createSchedule : undefined}
       />
       {(config.data?.source === "legacy" || config.data?.migrated) && (
         <AvailabilityMigrationBanner key={selectedVenueId} venueId={selectedVenueId} />
@@ -574,6 +586,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         }
         onClose={() => guard.request(CLOSED)}
       />
+      {bookingRulesOpen && <BookingRulesDrawer onClose={() => setBookingRulesOpen(false)} />}
       <AvailabilityHistoryDrawer
         open={historyOpen}
         venueId={selectedVenueId}
