@@ -342,6 +342,7 @@ export function CloseDialog(props: CloseDialogProps) {
               impact={impact}
               impactLoading={impactQuery.isLoading}
               impactFailed={impactQuery.error !== null}
+              onRetryImpact={() => void impactQuery.refetch()}
               replacedDate={replacedDate}
               invalid={invalid}
               locked={props.hostLocked}

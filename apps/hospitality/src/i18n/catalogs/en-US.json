@@ -2576,6 +2576,8 @@
       "impact_many": "{{count}} reservations · {{guests}} guests are booked in this closure",
       "impactNone": "No reservations are booked in this closure.",
       "impactError": "Couldn't check existing reservations. Change a field to try again.",
+      "impactFailed": "Couldn't check existing reservations.",
+      "checkAgain": "Check again",
       "guestsWillSee": "Guests will see: {{date}} · {{status}}",
       "guestsWillSeeMessage": "Guests will see: {{date}} · {{status}} · “{{message}}”",
       "button": {
