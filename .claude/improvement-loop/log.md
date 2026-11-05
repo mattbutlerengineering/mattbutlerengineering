@@ -4898,3 +4898,25 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **queueEfficiency:** composite 0.843 (baseline n/a) — healthy
 **Difficulty distribution:** size:m:5, size:s:20, size:l:16, size:xl:19, size:xs:8
 **Issues filed:** 0
+
+## 2026-11-05 — mbe-ui-quality
+
+**State:** `state.mjs checkout` source `branch` (head c82f581, merged origin/main 0da7ca8, 0 conflicts resolved).
+
+**Routes:** 11 due / 11 captured / 11 audited (marketing 1, rialto-web 9, hospitality 1). 20 hospitality rows `unreachable:auth`, 0 `unreachable:build` — all three app builds succeeded.
+
+**Findings:** 0 mechanical, 0 judged. Every captured route judged clean against rubric v1's judged tells; unjudged 0, dropped tells 0.
+
+**Calibration:** stamp `stale`. `calibration-status` returned exit 3, and `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-stage task of labelling >= 10 pairs is unowned by this routine). Not retried. Re-queried status after: still `stale`. Agent-built findings stay suppressed until a human labels the set.
+
+**Rating:** 10 pairs over 3 apps rated and recorded — hospitality 0, marketing 1.25, rialto-web 0.83.
+
+**Filing:** plan produced no actions and no seeds. 0 issues created / 0 reopened / 0 commented, 0 seeds. All 35 issue numbers in the findings ledger resolve to `closed`; 37 `ui-quality`-labelled issues read across one complete page, none unknown to the plan beyond the two closed escalation issues (#7477, #7908). No escalation file written.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+
+**Coverage before this fire:** 100% (135/135 reachable rows covered, 0 uncovered, not provisional).
+
+**Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so the two issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion.
