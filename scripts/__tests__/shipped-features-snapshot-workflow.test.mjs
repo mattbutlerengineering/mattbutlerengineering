@@ -56,6 +56,10 @@ describe("shipped-features-snapshot triggers", () => {
 });
 
 describe("shipped-features-snapshot permissions and concurrency", () => {
+  it("grants issues: read so the collector sees tracking issues and timelines (#8203)", () => {
+    expect(wf.permissions.issues).toBe("read");
+  });
+
   it("declares a concurrency group", () => {
     expect(WORKFLOW).toMatch(/^concurrency:\n\s+group:/m);
   });
@@ -64,6 +68,7 @@ describe("shipped-features-snapshot permissions and concurrency", () => {
     expect(wf.permissions).toEqual({
       contents: "write",
       "pull-requests": "write",
+      issues: "read",
       actions: "write",
     });
   });
