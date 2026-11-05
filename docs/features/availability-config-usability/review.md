@@ -279,6 +279,7 @@ New lint warnings against origin/main (eslint over the 88 changed hospitality fi
 - Why minor: the copy does what its visible rows say, under the same rule a New schedule follows (it runs where its services run); there is no data loss, no silent surface (the overlap list is shown) and the plain rule-only case is closed.
 - Fix, if wanted: in duplicate mode also clear each service's own `days` (the copy then needs the Manager to pick days, as origin/main did), or require an explicit winner choice when the copy would outrank the regular week on all seven days.
 - Decision: deferred: reason above, and the Notes record the ceiling; a human should decide whether a copy should inherit own days.
+- Final status (2026-11-05): **fixed**, after a browser repro showed the demo week's **Duplicate Regular week → Save** (two clicks, name prefilled) writing an undated assignment on all seven days at precedence 1, after which Change regular week reaches no date. A new or copied schedule with no end date that runs on every day the regular week still does is now refused (`replacesRegularWeek` in `schedule-changes.ts`, block code `replacesRegularWeek`): "With no end date, this replaces your regular week. Add an end date, or use Change regular week…". Copies keep their services' own days; days that leave the regular week some of its own, or any end date, still save.
 
 #### New 3 (minor): `regular-week-line.ts` hand-rolls the "assignment in force" pick
 

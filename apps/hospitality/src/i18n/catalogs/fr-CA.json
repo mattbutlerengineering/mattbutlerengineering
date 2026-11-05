@@ -2079,7 +2079,8 @@
       "nameRequired": "Nommez cet horaire pour enregistrer.",
       "nameRequiredPeriod": "Nommez cette période pour enregistrer.",
       "servicesRequired": "Ajoutez un service pour enregistrer.",
-      "serviceNameRequired": "Nommez le nouveau service pour enregistrer."
+      "serviceNameRequired": "Nommez le nouveau service pour enregistrer.",
+      "replacesRegularWeek": "Sans date de fin, cet horaire remplace votre semaine habituelle. Ajoutez une date de fin ou utilisez Modifier la semaine habituelle…"
     },
     "edit": "Modifier",
     "duplicate": "Dupliquer"

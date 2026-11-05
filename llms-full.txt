@@ -7981,7 +7981,8 @@
       | "endBeforeStart"
       | "nameRequired"
       | "servicesRequired"
-      | "serviceNameRequired";
+      | "serviceNameRequired"
+      | "replacesRegularWeek";
     export function scheduleSaveBlock(draft: {
       readonly conflicted: boolean;
       readonly name: string;
@@ -7992,6 +7993,8 @@
       readonly startRequired?: boolean;
       /** False for a change with no end date: it is the regular week itself and is named by nothing. */
       readonly nameRequired?: boolean;
+      /** A new schedule would take the regular week over for good (`replacesRegularWeek`). */
+      readonly replacesRegularWeek?: boolean;
     }): ScheduleSaveBlock | null {
       const { startsOn, endsOn, services } = draft;
       if (draft.conflicted) return "conflict";
@@ -8002,7 +8005,31 @@
       if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
         return "serviceNameRequired";
       }
+      if (draft.replacesRegularWeek) return "replacesRegularWeek";
       return null;
+    }
+    function regularWeekdays(config: AvailabilityConfig, today: string): number[] {
+      const regular = new Set(
+        liveSchedules(config)
+          .filter((s) => s.kind === "regular")
+          .map((s) => s.id)
+      );
+      return [
+        ...new Set(
+          config.assignments
+            .filter((a) => regular.has(a.scheduleId) && (a.endsOn == null || a.endsOn >= today))
+            .flatMap((a) => a.weekdays)
+        ),
+      ];
+    }
+    export function replacesRegularWeek(
+      config: AvailabilityConfig,
+      useOn: UseOn,
+      today: string
+    ): boolean {
+      if (useOn.endsOn != null || useOn.weekdays.length === 0) return false;
+      const days = regularWeekdays(config, today);
+      return days.length > 0 && days.every((day) => useOn.weekdays.includes(day));
     }
     function meets(a: UseOn, b: UseOn): boolean {
       const shared = a.weekdays.filter((d) => b.weekdays.includes(d));

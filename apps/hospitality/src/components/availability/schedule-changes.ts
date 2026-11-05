@@ -80,7 +80,8 @@ export type ScheduleSaveBlock =
   | "endBeforeStart"
   | "nameRequired"
   | "servicesRequired"
-  | "serviceNameRequired";
+  | "serviceNameRequired"
+  | "replacesRegularWeek";
 
 /** The first problem, in form order, or `null` when the draft can be saved. */
 export function scheduleSaveBlock(draft: {
@@ -93,6 +94,8 @@ export function scheduleSaveBlock(draft: {
   readonly startRequired?: boolean;
   /** False for a change with no end date: it is the regular week itself and is named by nothing. */
   readonly nameRequired?: boolean;
+  /** A new schedule would take the regular week over for good (`replacesRegularWeek`). */
+  readonly replacesRegularWeek?: boolean;
 }): ScheduleSaveBlock | null {
   const { startsOn, endsOn, services } = draft;
   if (draft.conflicted) return "conflict";
@@ -103,7 +106,40 @@ export function scheduleSaveBlock(draft: {
   if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
     return "serviceNameRequired";
   }
+  if (draft.replacesRegularWeek) return "replacesRegularWeek";
   return null;
+}
+
+/** The weekdays the regular week still runs on from `today`; a superseded version has ended. */
+function regularWeekdays(config: AvailabilityConfig, today: string): number[] {
+  const regular = new Set(
+    liveSchedules(config)
+      .filter((s) => s.kind === "regular")
+      .map((s) => s.id)
+  );
+  return [
+    ...new Set(
+      config.assignments
+        .filter((a) => regular.has(a.scheduleId) && (a.endsOn == null || a.endsOn >= today))
+        .flatMap((a) => a.weekdays)
+    ),
+  ];
+}
+
+/**
+ * A new schedule with no end date that runs on every day the regular week still does takes the
+ * week over for good: the regular week always gives way (`overlappingSchedules`), so nothing
+ * changed in it afterwards would reach a date. Changing the whole week from a date on is Change
+ * regular week's job; a schedule needs an end, or days the regular week keeps.
+ */
+export function replacesRegularWeek(
+  config: AvailabilityConfig,
+  useOn: UseOn,
+  today: string
+): boolean {
+  if (useOn.endsOn != null || useOn.weekdays.length === 0) return false;
+  const days = regularWeekdays(config, today);
+  return days.length > 0 && days.every((day) => useOn.weekdays.includes(day));
 }
 
 /** Do the two uses cover at least one common date? */
