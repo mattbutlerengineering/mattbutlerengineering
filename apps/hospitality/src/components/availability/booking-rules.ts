@@ -1,0 +1,70 @@
+import type { VenueSettings } from "@mbe/types";
+
+/**
+ * The venue-wide limits on when and how large a guest can book (`Venue.settings`): how far ahead
+ * (`maxAdvanceBooking`, days), the least notice (`minAdvanceBooking`, hours) and the largest party
+ * online (`maxPartySize`). Onboarding sets them once; Availability → Booking rules edits them.
+ * Pure, no React. The form keeps text so an empty field means "not set".
+ */
+
+export interface BookingRulesForm {
+  readonly daysAhead: string;
+  readonly noticeHours: string;
+  readonly largestParty: string;
+}
+
+export type BookingRulesField = keyof BookingRulesForm;
+
+/** What the service applies when a rule is not set (slot-rules.ts, the booking widget). */
+export const UNSET_LARGEST_PARTY = 8;
+
+const LIMITS: Record<BookingRulesField, { readonly min: number; readonly max: number }> = {
+  daysAhead: { min: 0, max: 730 },
+  noticeHours: { min: 0, max: 720 },
+  largestParty: { min: 1, max: 100 },
+};
+
+const text = (value: unknown) => (typeof value === "number" ? String(value) : "");
+
+export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm {
+  return {
+    daysAhead: text(settings?.maxAdvanceBooking),
+    noticeHours: text(settings?.minAdvanceBooking),
+    largestParty: text(settings?.maxPartySize),
+  };
+}
+
+/** The first field that is not a whole number in range, or `null`. Empty is allowed: "not set". */
+export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null {
+  for (const field of Object.keys(LIMITS) as BookingRulesField[]) {
+    const raw = form[field].trim();
+    if (raw === "") continue;
+    const n = Number(raw);
+    const { min, max } = LIMITS[field];
+    if (!Number.isInteger(n) || n < min || n > max) return field;
+  }
+  return null;
+}
+
+/**
+ * `settings` with the three rules from the form, every other key kept (the profile, the theme,
+ * deposits). An empty field removes its key, so the service's default applies again.
+ */
+export function withBookingRules(
+  settings: VenueSettings | null | undefined,
+  form: BookingRulesForm
+): VenueSettings {
+  const {
+    maxAdvanceBooking: _a,
+    minAdvanceBooking: _b,
+    maxPartySize: _c,
+    ...rest
+  } = settings ?? {};
+  const set = (key: string, raw: string) => (raw.trim() === "" ? {} : { [key]: Number(raw) });
+  return {
+    ...rest,
+    ...set("maxAdvanceBooking", form.daysAhead),
+    ...set("minAdvanceBooking", form.noticeHours),
+    ...set("maxPartySize", form.largestParty),
+  };
+}

@@ -80,6 +80,33 @@
       ): { dates: number; parts: { action: ClosureAction; count: number }[] } { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/booking-rules.ts">
+    <item priority="low">
+      interface BookingRulesForm {
+        daysAhead: string;
+        noticeHours: string;
+        largestParty: string;
+      }
+    </item>
+    <item priority="low">
+      type BookingRulesField = keyof BookingRulesForm;
+    </item>
+    <item priority="high">
+      export const UNSET_LARGEST_PARTY: unknown;
+    </item>
+    <item priority="high">
+      export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withBookingRules(
+        settings: VenueSettings | null | undefined,
+        form: BookingRulesForm
+      ): VenueSettings { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/calendar-dates.ts">
     <item priority="low">
       type CalendarView = "month" | "week";

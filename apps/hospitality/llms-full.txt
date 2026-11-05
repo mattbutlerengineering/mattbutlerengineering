@@ -170,6 +170,50 @@
       };
     }
   </file>
+  <file path="src/components/availability/booking-rules.ts">
+    export interface BookingRulesForm {
+      readonly daysAhead: string;
+      readonly noticeHours: string;
+      readonly largestParty: string;
+    }
+    export type BookingRulesField = keyof BookingRulesForm;
+    export const UNSET_LARGEST_PARTY = 8;
+    export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm {
+      return {
+        daysAhead: text(settings?.maxAdvanceBooking),
+        noticeHours: text(settings?.minAdvanceBooking),
+        largestParty: text(settings?.maxPartySize),
+      };
+    }
+    export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null {
+      for (const field of Object.keys(LIMITS) as BookingRulesField[]) {
+        const raw = form[field].trim();
+        if (raw === "") continue;
+        const n = Number(raw);
+        const { min, max } = LIMITS[field];
+        if (!Number.isInteger(n) || n < min || n > max) return field;
+      }
+      return null;
+    }
+    export function withBookingRules(
+      settings: VenueSettings | null | undefined,
+      form: BookingRulesForm
+    ): VenueSettings {
+      const {
+        maxAdvanceBooking: _a,
+        minAdvanceBooking: _b,
+        maxPartySize: _c,
+        ...rest
+      } = settings ?? {};
+      const set = (key: string, raw: string) => (raw.trim() === "" ? {} : { [key]: Number(raw) });
+      return {
+        ...rest,
+        ...set("maxAdvanceBooking", form.daysAhead),
+        ...set("minAdvanceBooking", form.noticeHours),
+        ...set("maxPartySize", form.largestParty),
+      };
+    }
+  </file>
   <file path="src/components/availability/calendar-dates.ts">
     export type CalendarView = "month" | "week";
     export const WEEK_STARTS_ON = 1;

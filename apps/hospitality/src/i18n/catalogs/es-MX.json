@@ -2928,6 +2928,27 @@
       "details": "Detalles",
       "heading": "Semana habitual"
     },
+    "bookingRules": {
+      "open": "Reglas de reserva…",
+      "title": "Reglas de reserva",
+      "description": "Cuándo pueden reservar los clientes en línea, sea cual sea tu horario.",
+      "daysAhead": "Con cuánta anticipación pueden reservar (días)",
+      "noLimit": "Sin límite",
+      "daysAheadHint": "0 permite reservar solo para hoy.",
+      "noticeHours": "Aviso mínimo (horas)",
+      "noNotice": "Ninguno",
+      "noticeHoursHint": "No se puede reservar un horario más cercano que esto.",
+      "largestParty": "Grupo más grande en línea",
+      "partyDefault": "{{count}}",
+      "largestPartyHint": "A los grupos más grandes se les muestra tu teléfono.",
+      "invalid": {
+        "daysAhead": "Usa un número entero de días de 0 a 730.",
+        "noticeHours": "Usa un número entero de horas de 0 a 720.",
+        "largestParty": "Usa un número entero de 1 a 100."
+      },
+      "saved": "Reglas de reserva guardadas",
+      "saveError": "No se pudieron guardar las reglas de reserva"
+    },
     "holidayNudge": {
       "line": "{{name}} es el {{date}} y aún no está planeado.",
       "plan": "Planear días festivos"

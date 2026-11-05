@@ -12,6 +12,7 @@ import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
 import { AvailabilityHistoryDrawer } from "../components/availability/AvailabilityHistoryDrawer.js";
+import { BookingRulesDrawer } from "../components/availability/BookingRulesDrawer.js";
 import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { AvailabilityMigrationBanner } from "../components/availability/AvailabilityMigrationBanner.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
@@ -117,6 +118,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const openDate = target.date;
   const [closing, setClosing] = useState<Closing | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [bookingRulesOpen, setBookingRulesOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
   // The day Go to date went to. The dialog hands focus back to its trigger a frame after it
   // closes, so focus moves to the day only once that has happened (see the effect below).
@@ -480,6 +482,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onNext={() => moveTo(shiftAnchor(view, anchor, 1))}
         onToday={() => moveTo(null)}
         onHistory={() => setHistoryOpen(true)}
+        onBookingRules={canAct ? () => setBookingRulesOpen(true) : undefined}
         onGoToDate={() => setGoToOpen(true)}
         selectItems={selectItems}
         onClose={canAct ? () => setClosing({ date: null, pause: false }) : undefined}
@@ -583,6 +586,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         }
         onClose={() => guard.request(CLOSED)}
       />
+      {bookingRulesOpen && <BookingRulesDrawer onClose={() => setBookingRulesOpen(false)} />}
       <AvailabilityHistoryDrawer
         open={historyOpen}
         venueId={selectedVenueId}
