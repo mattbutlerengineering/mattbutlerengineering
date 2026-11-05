@@ -117,7 +117,8 @@
       "defaultPlaceholder": "Par défaut : {{value}}",
       "durationHint": "Si laissé vide, la valeur par défaut est de {{value}} minutes",
       "maxPartyHint": "Si laissé vide, la valeur par défaut est de {{value}} convives",
-      "advanceHint": "Si laissé vide, les clients peuvent réserver jusqu’à {{value}} jours à l’avance",
+      "advanceHint": "Si laissé vide, les clients peuvent réserver n’importe quelle date à venir",
+      "advanceNoLimit": "Aucune limite",
       "errors": {
         "durationInvalid": "La durée doit être un nombre positif",
         "maxPartyInvalid": "La taille du groupe doit être un nombre positif",
@@ -197,7 +198,8 @@
         "floorPlan": "Plan de salle",
         "tables": "Tables",
         "activate": "Activation"
-      }
+      },
+      "noLimit": "Aucune limite"
     },
     "stagePanel": {
       "label": "Progression du lancement",
