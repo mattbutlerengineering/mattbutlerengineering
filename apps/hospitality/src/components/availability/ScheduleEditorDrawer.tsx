@@ -96,6 +96,12 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const [endsOn, setEndsOn] = useState<string | null>(null);
   const [winner, setWinner] = useState<Winner>("new");
   const [conflictMode, setConflictMode] = useState<ScopeConflictMode>("keep");
+  // Most schedules are the regular week with a few changes (summer hours, a holiday stretch), so a
+  // New schedule can start from its services instead of retyping them: with no days, as a copy
+  // starts, so it is used where the Manager says. Offered until the draft is touched.
+  const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+  const startFromRegular = (regularId: string) =>
+    setDraft({ ...draftFromConfig(config, () => crypto.randomUUID(), regularId), days: [] });
 
   const editing = mode === "edit";
   const review = useConflictReview({
@@ -331,6 +337,13 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
               ? t("availabilitySchedules.impactNone")
               : t("availabilitySchedules.impact", { count: dates.length })}
           </Text>
+          {mode === "new" && regular && !draftTouched && (
+            <div>
+              <Button variant="secondary" size="sm" onClick={() => startFromRegular(regular.id)}>
+                {t("availabilitySchedules.fromRegularWeek")}
+              </Button>
+            </div>
+          )}
           <QuickSetupForm
             draft={draft}
             onChange={setDraft}
