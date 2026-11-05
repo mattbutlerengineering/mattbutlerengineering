@@ -4852,3 +4852,9 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 
 - `metricsFreshness.shipped-features`: fresh -> stale (+18.86d). Duplicate of already-open #8263 ("Metrics collection is stale or empty", `ci-fix`) plus the in-flight `shipped-features-freshness` tracking chain (#8205/#8202/#8203) already diagnosing/fixing this exact collector. No new issue filed.
 - `ciHealth.pass_rate_pct`: 100 -> 90 (-10, high). The sensor's 30-run window holds exactly one failure, at commit `59a9cfab5cde807ea4c410eb3156fb3d5aeb554f` (2026-11-04T03:46Z) — already filed and already closed as #8225 ("Broken Main at commit 59a9cfab...", closed 2026-11-04T04:28Z, same day). The metric self-corrects as the window ages the fixed run out; filing a new issue would duplicate an already-resolved incident.
+
+## 2026-11-05
+
+**queueEfficiency:** composite 0.843 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:5, size:s:20, size:l:16, size:xl:19, size:xs:8
+**Issues filed:** 0
