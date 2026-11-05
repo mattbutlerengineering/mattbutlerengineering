@@ -54,6 +54,11 @@ export interface PopoverProps {
   /** Called with the requested next state on every open/close attempt (trigger, Escape, outside click, close button). */
   onOpenChange?: (open: boolean) => void;
   className?: string;
+  /**
+   * Paint the opaque elevated surface instead of translucent glass. For a panel of form controls
+   * over a busy page (a timeline grid), where the page showing through hurts reading the fields.
+   */
+  solid?: boolean;
 }
 
 /* ── Motion origins per placement ────────────── */
@@ -79,7 +84,16 @@ function mergeRefs<T>(...refs: (ForwardedRef<T> | React.RefObject<T | null>)[]) 
 
 /* ── Component ──────────────────────────────── */
 export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover(
-  { trigger, title, children, placement = "bottom", open: openProp, onOpenChange, className = "" },
+  {
+    trigger,
+    title,
+    children,
+    placement = "bottom",
+    open: openProp,
+    onOpenChange,
+    className = "",
+    solid = false,
+  },
   ref
 ) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -133,7 +147,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
         <motion.div
           ref={panelRef}
           id={panelId}
-          className={cn(styles.panel, styles[placement], dialogLayer && styles.floating)}
+          className={cn(styles.panel, styles[placement], (dialogLayer || solid) && styles.floating)}
           role="dialog"
           aria-modal="true"
           aria-label={title ?? messages.popover}
