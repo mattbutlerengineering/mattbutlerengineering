@@ -174,7 +174,10 @@ export function RegularWeekStrip({ draft, local = false }: RegularWeekStripProps
   return (
     <aside className={styles.strip} aria-label={t("availability.quickSetup.previewTitle")}>
       <Stack gap="sm">
-        <Heading level={3}>{t("availability.quickSetup.previewTitle")}</Heading>
+        {/* Size 5: a side panel's title, not louder than the card it sits in. */}
+        <Heading level={3} size={5}>
+          {t("availability.quickSetup.previewTitle")}
+        </Heading>
         <Text variant="caption" color="secondary">
           {t(local ? "availability.quickSetup.strip.local" : "availability.quickSetup.strip.about")}
         </Text>
