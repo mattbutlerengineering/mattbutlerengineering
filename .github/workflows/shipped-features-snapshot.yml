@@ -24,6 +24,8 @@ concurrency:
 permissions:
   contents: write
   pull-requests: write
+  # Collector reads /issues, /issues/{n} and /issues/{n}/timeline (#8203).
+  issues: read
   # Required by the `gh workflow run` dispatch steps below.
   actions: write
 
