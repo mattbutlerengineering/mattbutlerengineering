@@ -1,7 +1,8 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Stack, Text, Input, Button } from "@mattbutlerengineering/rialto";
+import { Stack, Input, Button } from "@mattbutlerengineering/rialto";
 import { localeRuntime } from "../../i18n/runtime.js";
+import { SETTINGS_DEFAULTS as DEFAULTS } from "./settings-defaults.js";
 import styles from "./venue-onboarding.module.css";
 
 export interface SettingsData {
@@ -9,15 +10,6 @@ export interface SettingsData {
   maxPartySize: string;
   advanceBookingDays: string;
 }
-
-/**
- * Default values used by the backend when no explicit value is set. A blank advance window has
- * none: guests can book any date ahead (slot-rules.ts `bookingWindow`).
- */
-const DEFAULTS = {
-  defaultReservationDuration: 90,
-  maxPartySize: 8,
-} as const;
 
 /**
  * Recommended settings for the "Use recommended settings" one-click action and
@@ -79,14 +71,9 @@ export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: 
 
   return (
     <div className={styles.stepContainer}>
-      <Text variant="caption" color="secondary">
-        {t("onboarding.settings.stepIntro")}
-      </Text>
-
       <Button variant="primary" onClick={handleUseRecommended}>
         {t("onboarding.settings.useRecommended")}
       </Button>
-
       <Stack gap="md">
         <Input
           label={t("onboarding.settings.durationLabel")}
@@ -106,7 +93,7 @@ export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: 
         />
 
         <Input
-          label={t("onboarding.settings.maxPartyLabel")}
+          label={t("availability.bookingRules.largestParty")}
           type="number"
           value={data.maxPartySize}
           onChange={(e) => onChange({ ...data, maxPartySize: e.target.value })}
@@ -123,7 +110,7 @@ export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: 
         />
 
         <Input
-          label={t("onboarding.settings.advanceLabel")}
+          label={t("availability.bookingRules.daysAhead")}
           type="number"
           value={data.advanceBookingDays}
           onChange={(e) => onChange({ ...data, advanceBookingDays: e.target.value })}

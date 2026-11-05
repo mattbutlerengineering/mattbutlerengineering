@@ -93281,11 +93281,32 @@
         .replace(/^-|-$/g, "");
     }
   </file>
+  <file path="apps/hospitality/src/components/venue-onboarding/launch-hours.ts">
+    export function launchHoursChanges(
+      draft: QuickSetupDraft,
+      derived: AvailabilityConfig,
+      newId: () => string
+    ): AvailabilityConfigChanges {
+      const changes = draftToChanges(draft, derived, newId);
+      const named = new Set((changes.upsert.scheduleServices ?? []).map((s) => s.venueServiceId));
+      const unused = derived.venueServices.filter((s) => !s.archivedAt && !named.has(s.id));
+      if (unused.length === 0) return changes;
+      return {
+        ...changes,
+        remove: { ...changes.remove, venueServices: unused.map((s) => s.id) },
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/components/venue-onboarding/launch-sequence.ts">
-    export type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
+    export type LaunchStageId = "venue" | "hours" | "floorPlan" | "tables" | "activate";
     export type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
     export interface LaunchProgress {
       venueId: string | null;
+      /**
+       * True once the hours step's services are the venue's regular week. Absent means not yet: the
+       * venue still serves the one-window projection it was created with.
+       */
+      hoursSaved?: boolean;
       floorPlanId: string | null;
       /**
        * True once the plan's section rows exist and their zone rectangles are in
@@ -93339,6 +93360,8 @@
       switch (stage) {
         case "venue":
           return progress.venueId !== null;
+        case "hours":
+          return progress.hoursSaved === true;
         case "floorPlan":
           return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
@@ -93367,6 +93390,8 @@
       switch (stage) {
         case "venue":
           return progress.venueId !== null;
+        case "hours":
+          return progress.hoursSaved === true;
         case "floorPlan":
           return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
@@ -93392,6 +93417,13 @@
     }
     export interface LaunchApi {
       venues: { create(data: CreateVenueRequest): Promise<Venue> };
+      availability: {
+        getConfig(venueId: string): Promise<AvailabilityConfigState>;
+        saveConfig(
+          venueId: string,
+          body: Pick<PutAvailabilityConfigBody, "expectedVersion" | "changes">
+        ): Promise<AvailabilityConfigSaveResult>;
+      };
       floorPlans: {
         create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
         update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
@@ -93427,6 +93459,31 @@
         throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.venueFailed"));
       }
       const next: LaunchProgress = { ...progress, venueId: venue.id, inFlightStage: null };
+      onProgress(next);
+      return next;
+    }
+    async function runHoursStage(
+      api: LaunchApi,
+      hours: QuickSetupDraft,
+      progress: LaunchProgress,
+      onProgress: (next: LaunchProgress) => void
+    ): Promise<LaunchProgress> {
+      const venueId = progress.venueId;
+      // Invariant: nextStage only selects "hours" once "venue" is done (stagesFor's order is fixed).
+      if (venueId === null) {
+        throw new Error("runLaunchSequence: hours stage reached without a venueId");
+      }
+    
+      try {
+        const state = await api.availability.getConfig(venueId);
+        await api.availability.saveConfig(venueId, {
+          expectedVersion: state.version,
+          changes: launchHoursChanges(hours, state.config, () => crypto.randomUUID()),
+        });
+      } catch (err) {
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.hoursFailed"));
+      }
+      const next: LaunchProgress = { ...progress, hoursSaved: true, inFlightStage: null };
       onProgress(next);
       return next;
     }
@@ -93626,12 +93683,15 @@
       stage: LaunchStageId,
       draft: FloorPlanDraft,
       venuePayload: CreateVenueRequest,
+      hours: QuickSetupDraft,
       progress: LaunchProgress,
       onProgress: (next: LaunchProgress) => void
     ): Promise<LaunchProgress> {
       switch (stage) {
         case "venue":
           return runVenueStage(api, venuePayload, progress, onProgress);
+        case "hours":
+          return runHoursStage(api, hours, progress, onProgress);
         case "floorPlan":
           return runFloorPlanStage(api, draft, progress, onProgress);
         case "tables":
@@ -93645,7 +93705,8 @@
       draft: FloorPlanDraft,
       venuePayload: CreateVenueRequest,
       progress: LaunchProgress,
-      onProgress: (next: LaunchProgress) => void
+      onProgress: (next: LaunchProgress) => void,
+      hours: QuickSetupDraft
     ): Promise<LaunchProgress> {
       let current = progress;
     
@@ -93656,13 +93717,13 @@
         }
     
         current = { ...current, inFlightStage: stage, failedStage: null, errorMessage: null };
-        // Emit before awaiting the stage — otherwise venue/floorPlan/activate
+        // Emit before awaiting the stage — otherwise venue/hours/floorPlan/activate
         // (which call onProgress only once, on completion) never surface an
         // in-flight value, and stageStateOf can never read "in-flight" for them.
         onProgress(current);
     
         try {
-          current = await runStage(api, stage, draft, venuePayload, current, onProgress);
+          current = await runStage(api, stage, draft, venuePayload, hours, current, onProgress);
         } catch (err) {
           // A LaunchStageError carries whatever progress accumulated before
           // the failure (e.g. tables created before the one that rejected) —
@@ -93695,6 +93756,12 @@
       { id: "floorPlan" },
       { id: "launch" },
     ];
+  </file>
+  <file path="apps/hospitality/src/components/venue-onboarding/settings-defaults.ts">
+    export const SETTINGS_DEFAULTS = {
+      defaultReservationDuration: 90,
+      maxPartySize: UNSET_LARGEST_PARTY,
+    } as const;
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/useOnboardingWizard.ts">
     export const TOTAL_STEPS = 6;
