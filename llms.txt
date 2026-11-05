@@ -5005,6 +5005,9 @@
     <item priority="medium">
       function between(from: string, to: string): string[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function addDays(date: string, n: number): string { /* ... */ }
+    </item>
     <item priority="high">
       export async function mockAvailability(
         page: Page,

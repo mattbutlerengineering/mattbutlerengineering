@@ -7573,6 +7573,11 @@
       }
       return out;
     }
+    function addDays(date: string, n: number): string {
+      const d = new Date(`${date}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().slice(0, 10);
+    }
     export async function mockAvailability(
       page: Page,
       options: { weekdays?: number[]; rules?: unknown[] } = {}
@@ -7705,27 +7710,48 @@
           })
         );
       });
+      const open = options.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
+      const isOpenOn = (serviceDate: string) =>
+        open.includes(new Date(`${serviceDate}T00:00:00Z`).getUTCDay());
+      /** The calendar cell `/availability/days` and the focus day of `/availability/preview` share. */
+      const dayCell = (serviceDate: string) => {
+        const isOpen = isOpenOn(serviceDate);
+        return {
+          serviceDate,
+          label: isOpen ? "Regular week" : "Closed",
+          scheduleId: isOpen ? "regular" : null,
+          serviceCount: isOpen ? 1 : 0,
+          closures: [],
+          bookingOpen: { online: isOpen, phone: isOpen, waitlist: isOpen },
+        };
+      };
+    
       await page.route(`${base}/availability/days*`, (route) => {
         const url = new URL(route.request().url());
-        const open = options.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
-        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map(
-          (serviceDate) => {
-            const isOpen = open.includes(new Date(`${serviceDate}T00:00:00Z`).getUTCDay());
-            return {
-              serviceDate,
-              label: isOpen ? "Regular week" : "Closed",
-              scheduleId: isOpen ? "regular" : null,
-              serviceCount: isOpen ? 1 : 0,
-              closures: [],
-              bookingOpen: { online: isOpen, phone: isOpen, waitlist: isOpen },
-            };
-          }
-        );
+        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map(dayCell);
         return route.fulfill(json(days));
       });
-      await page.route(`${base}/availability/preview*`, (route) =>
-        route.fulfill(problem(500, "internal"))
-      );
+      // No test here drafts a change that moves added/removed times or strands a booking, so a
+      // no-op diff over the current config is a fine stand-in for the real preview — unlike the
+      // blind 500 this route used to answer, which `AvailabilityGuestPreview` renders for real
+      // whenever the editor is open, and whose literal "Server said no." detail text is exactly
+      // what Sentry read as a production reservations-service 500 (#8280). There was no such bug.
+      await page.route(`${base}/availability/preview*`, (route) => {
+        const body = route.request().postDataJSON() as { focusDate: string };
+        const days = between(body.focusDate, addDays(body.focusDate, 29)).map((serviceDate) => ({
+          serviceDate,
+          added: [] as number[],
+          removed: [] as number[],
+        }));
+        return route.fulfill(
+          json({
+            version: mock.version,
+            days,
+            focusDay: dayCell(body.focusDate),
+            stranded: { total: 0, offset: 0, items: [] },
+          })
+        );
+      });
       await page.route("**/availability/changes/*/revert", (route) => {
         mock.reverts += 1;
         mock.version += 1;
