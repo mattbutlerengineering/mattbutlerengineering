@@ -4198,6 +4198,16 @@
     <item priority="medium">
       function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan { /* ... */ }
     </item>
+    <item priority="medium">
+      function venueUniqueNames(
+        desired: readonly string[],
+        taken: readonly string[],
+        candidate: (name: string, n: number) => string
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      type FloorPlanDeleteOutcome = "deleted" | "archived" | "active" | "has_upcoming" | "in_use" | "not_found";
+    </item>
     <item priority="high">
       export const floorPlanService: unknown;
     </item>
@@ -4638,6 +4648,11 @@
   <file path="src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
+    </item>
+    <item priority="high">
+      class JobQueueUnavailableError {
+        
+      }
     </item>
     <item priority="low">
       interface NotifierRuntime {

@@ -24,6 +24,7 @@ function renderControls(state: AvailabilityConfigState, isManager = true) {
       today="2026-11-04"
       tab="calendar"
       onTabChange={vi.fn()}
+      onCreateSchedule={vi.fn()}
       onStale={vi.fn()}
     />
   );

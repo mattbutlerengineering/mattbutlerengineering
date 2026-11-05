@@ -117,7 +117,8 @@
       "defaultPlaceholder": "Predeterminado: {{value}}",
       "durationHint": "Si lo dejas en blanco, se usan {{value}} minutos",
       "maxPartyHint": "Si lo dejas en blanco, se usan {{value}} invitados",
-      "advanceHint": "Si lo dejas en blanco, los invitados pueden reservar hasta con {{value}} días de anticipación",
+      "advanceHint": "Si lo dejas en blanco, los invitados pueden reservar cualquier fecha futura",
+      "advanceNoLimit": "Sin límite",
       "errors": {
         "durationInvalid": "La duración debe ser un número positivo",
         "maxPartyInvalid": "El tamaño del grupo debe ser un número positivo",
@@ -197,7 +198,8 @@
         "floorPlan": "Plano",
         "tables": "Mesas",
         "activate": "Activación"
-      }
+      },
+      "noLimit": "Sin límite"
     },
     "stagePanel": {
       "label": "Progreso del lanzamiento",
@@ -391,7 +393,15 @@
       "updated": "Actualizado {{date}}",
       "clone": "Clonar",
       "openAria": "Abrir plano de sala: {{name}}",
-      "cloneAria": "Clonar plano de sala: {{name}}"
+      "cloneAria": "Clonar plano de sala: {{name}}",
+      "delete": "Eliminar",
+      "deleteAria": "Eliminar plano de sala: {{name}}",
+      "deleteActiveReason": "Activa otro plano de sala antes de eliminar este.",
+      "deleteTitle": "¿Eliminar {{name}}?",
+      "deleteDescription": "El plano y sus mesas salen de tus planos de sala. Las reservaciones pasadas conservan sus mesas.",
+      "deleteConfirm": "Eliminar plano",
+      "deleteFailed": "No se eliminó el plano de sala.",
+      "deleted": "Plano de sala \"{{name}}\" eliminado"
     },
     "editor": {
       "loading": "Cargando",
@@ -1824,6 +1834,7 @@
       "open": "Agregar fecha especial",
       "title": "Agregar fechas especiales",
       "rowLegend": "Fecha {{n}}",
+      "rowLegendNamed": "Fecha {{n}}: {{name}}",
       "date": "Fecha",
       "dateMissing": "Elige una fecha.",
       "dateInvalid": "Elige una fecha de hoy en adelante, una sola vez y sin horario especial ya definido.",
@@ -1857,6 +1868,42 @@
         "title": "Ya está guardado",
         "body": "Un intento anterior para {{dates}} se guardó: {{summary}}. Los comensales se atendieron como eligió ese intento; los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado.",
         "bodyPlain": "Un intento anterior para {{dates}} se guardó. Los cambios posteriores no se aplicaron. Abre las fechas especiales para ver el resultado."
+      }
+    },
+    "holidays": {
+      "heading": "Próximos días festivos",
+      "plan": "Planear…",
+      "planName": "Planear {{name}}, {{date}}…",
+      "planAll_one": "Planear {{count}} día festivo…",
+      "planAll_many": "Planear los {{count}}…",
+      "planAll_other": "Planear los {{count}}…",
+      "openAsUsual": "Horario habitual",
+      "openAsUsualName": "{{name}}, {{date}}: horario habitual",
+      "openAsUsualToast": "{{name}}: horario habitual",
+      "name": {
+        "newYearsDay": "Año Nuevo",
+        "constitutionDay": "Día de la Constitución",
+        "valentinesDay": "Día de San Valentín",
+        "benitoJuarez": "Natalicio de Benito Juárez",
+        "holyThursday": "Jueves Santo",
+        "goodFriday": "Viernes Santo",
+        "easter": "Domingo de Pascua",
+        "workersDay": "Día del Trabajo",
+        "mothersDay": "Día de las Madres",
+        "fathersDay": "Día del Padre",
+        "juneteenth": "Juneteenth",
+        "victoriaDay": "Día de Victoria",
+        "memorialDay": "Memorial Day",
+        "canadaDay": "Día de Canadá",
+        "independenceDay": "Día de la Independencia",
+        "laborDay": "Día del Trabajo (septiembre)",
+        "thanksgiving": "Día de Acción de Gracias",
+        "dayOfTheDead": "Día de Muertos",
+        "revolutionDay": "Día de la Revolución",
+        "christmasEve": "Nochebuena",
+        "christmasDay": "Navidad",
+        "boxingDay": "Boxing Day",
+        "newYearsEve": "Nochevieja"
       }
     }
   },
@@ -1962,7 +2009,11 @@
       "noEnd": "Sin fin: esta pasa a ser la nueva semana habitual",
       "save": "Guardar horario desde el {{date}}",
       "saved": "{{name}} desde el {{date}}",
-      "savedWeek": "Semana habitual cambiada desde el {{date}}"
+      "savedWeek": "Semana habitual cambiada desde el {{date}}",
+      "start": {
+        "today": "Empezar hoy",
+        "tomorrow": "Empezar mañana"
+      }
     },
     "compare": {
       "open": "Comparar servicios",
@@ -2036,7 +2087,7 @@
   },
   "availability": {
     "title": "Disponibilidad",
-    "description": "Qué rige cada día y por qué.",
+    "description": "Tu horario, días festivos y cambios puntuales.",
     "hostNote": "Solo los gerentes cambian los horarios. Para esta noche, usa el panel Esta noche.",
     "loadError": "No se pudo cargar la disponibilidad",
     "noVenue": "Selecciona un local para ver su disponibilidad.",
@@ -2558,7 +2609,8 @@
       "suggestions": {
         "private": "Cerrado por evento privado",
         "weather": "Cerrado por clima",
-        "holiday": "Cerrado por el día festivo"
+        "holiday": "Cerrado por el día festivo",
+        "holidayNamed": "Cerrado por {{name}}"
       },
       "what": {
         "label": "Qué",
@@ -2841,7 +2893,7 @@
     },
     "venueTime": "Hora del local ({{zone}})",
     "weekSummary": {
-      "line": "Esta semana: {{open}} · {{closures}} · {{online}}",
+      "line": "Esta semana: {{parts}}",
       "open_one": "abierto {{count}} día",
       "open_other": "abierto {{count}} días",
       "open_many": "abierto {{count}} días",
@@ -2868,13 +2920,40 @@
     },
     "regularWeekLine": {
       "line": "Semana habitual: {{services}}",
-      "service": "{{name}} {{days}}",
-      "serviceWith": "{{name}} {{days}}, {{changes}}",
-      "later": "más tarde {{days}}",
-      "earlier": "más temprano {{days}}",
-      "different": "horario distinto {{days}}",
+      "upcoming": "Desde el {{date}}: {{services}}",
+      "upcomingPeriod": "{{from}}–{{to}}: {{services}}",
+      "service": "{{name}} {{hours}} {{days}}",
+      "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
+      "hours": "{{open}}–{{close}}",
+      "closes": "{{days}} cierre {{close}}",
+      "different": "{{days}} {{hours}}",
       "details": "Detalles",
       "heading": "Semana habitual"
+    },
+    "bookingRules": {
+      "open": "Reglas de reserva…",
+      "title": "Reglas de reserva",
+      "description": "Cuándo pueden reservar los clientes en línea, sea cual sea tu horario.",
+      "daysAhead": "Con cuánta anticipación pueden reservar (días)",
+      "noLimit": "Sin límite",
+      "daysAheadHint": "0 permite reservar solo para hoy.",
+      "noticeHours": "Aviso mínimo (horas)",
+      "noNotice": "Ninguno",
+      "noticeHoursHint": "No se puede reservar un horario más cercano que esto.",
+      "largestParty": "Grupo más grande en línea",
+      "partyDefault": "{{count}}",
+      "largestPartyHint": "A los grupos más grandes se les muestra tu teléfono.",
+      "invalid": {
+        "daysAhead": "Usa un número entero de días de 0 a 730.",
+        "noticeHours": "Usa un número entero de horas de 0 a 720.",
+        "largestParty": "Usa un número entero de 1 a 100."
+      },
+      "saved": "Reglas de reserva guardadas",
+      "saveError": "No se pudieron guardar las reglas de reserva"
+    },
+    "holidayNudge": {
+      "line": "{{name}} es el {{date}} y aún no está planeado.",
+      "plan": "Planear días festivos"
     }
   },
   "setup": {

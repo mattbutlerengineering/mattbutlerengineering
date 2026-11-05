@@ -131,6 +131,17 @@ describe("useAuth", () => {
     expect(mockSigninSilent).toHaveBeenCalledOnce();
   });
 
+  // Consumers memoize on it (hospitality's useApiClient, #8258).
+  it("keeps signInSilent stable across renders", () => {
+    mockUseAuth.mockReturnValue(makeOIDCAuth());
+
+    const { result, rerender } = renderHook(() => useAuth());
+    const first = result.current.signInSilent;
+    rerender();
+
+    expect(result.current.signInSilent).toBe(first);
+  });
+
   it("passes an explicit returnTo through OIDC state when signIn is invoked", () => {
     mockUseAuth.mockReturnValue(makeOIDCAuth());
 

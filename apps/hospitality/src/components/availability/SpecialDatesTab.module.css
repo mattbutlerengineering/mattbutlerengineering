@@ -19,6 +19,55 @@
   list-style: none;
 }
 
+/* Upcoming holidays: a quiet panel above the list, one row per holiday. */
+.holidays {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+  border: 1px dashed var(--rialto-border-strong);
+  border-radius: var(--rialto-radius-default);
+}
+
+.holidaysHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.holiday {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) auto;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+}
+
+.holidayActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  justify-content: flex-end;
+}
+
+/* A phone: the name and date share a line, the two actions go under them. */
+@media (max-width: 767px) {
+  .holiday {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .holidayActions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+/* Holds focus after Open as usual removes a row; it is not a control, so no ring. */
+.holidays:focus {
+  outline: none;
+}
+
 .item {
   display: flex;
   flex-wrap: wrap;

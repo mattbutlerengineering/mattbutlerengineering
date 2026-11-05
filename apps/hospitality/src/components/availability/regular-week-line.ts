@@ -8,14 +8,17 @@ import { WEEK_DISPLAY_ORDER } from "./quick-setup-draft.js";
  * the editors read them. Pure, no React. Weekdays are stored indexes (0 = Sunday), Monday first.
  */
 
-export type HoursChangeKind = "later" | "earlier" | "different";
-
-export interface HoursChange {
-  readonly weekdays: readonly number[];
-  readonly kind: HoursChangeKind;
+/** Service-day minutes, as the rows store them; a close past 24:00 is the next day. */
+export interface LineHours {
+  readonly opensAt: number;
+  readonly closesAt: number;
 }
 
-export interface RegularWeekLineService {
+export interface HoursChange extends LineHours {
+  readonly weekdays: readonly number[];
+}
+
+export interface RegularWeekLineService extends LineHours {
   readonly venueServiceId: string;
   readonly name: string;
   /** Every weekday the service runs, Monday first. */
@@ -31,12 +34,6 @@ export interface RegularWeekLine {
 }
 
 const NONE: RegularWeekLine = { services: [], uniform: true };
-
-/** A set's closing against the base's decides later or earlier; the same close with other hours is "different". */
-function kindOf(base: { closesAt: number }, set: { closesAt: number }): HoursChangeKind {
-  if (set.closesAt > base.closesAt) return "later";
-  return set.closesAt < base.closesAt ? "earlier" : "different";
-}
 
 /**
  * The regular schedule in force on `today` (a service date): a dated Change regular week leaves the
@@ -79,10 +76,13 @@ export function regularWeekLine(config: AvailabilityConfig, today: string): Regu
       {
         venueServiceId: row.venueServiceId,
         name,
+        opensAt: row.opensAt,
+        closesAt: row.closesAt,
         days: WEEK_DISPLAY_ORDER.filter((day) => week.days[day] !== null),
         changes: row.dayHours.sets.map((set) => ({
           weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
-          kind: kindOf(row, set),
+          opensAt: set.opensAt,
+          closesAt: set.closesAt,
         })),
       },
     ];
@@ -90,4 +90,34 @@ export function regularWeekLine(config: AvailabilityConfig, today: string): Regu
   const first = services[0]?.days.join();
   const uniform = services.every((s) => s.changes.length === 0 && s.days.join() === first);
   return { services, uniform };
+}
+
+export interface UpcomingRegularWeek {
+  /** The first day the change is in force. */
+  readonly startsOn: string;
+  /** Its last day for a period; `null` when it becomes the regular week. */
+  readonly endsOn: string | null;
+  /** The line as it will read on `startsOn`. */
+  readonly line: RegularWeekLine;
+}
+
+/**
+ * The next dated Change regular week after `today`, read as the line will read on its first day,
+ * so a change saved "from tomorrow" shows before it takes over. `null` when none is scheduled.
+ */
+export function upcomingRegularWeek(
+  config: AvailabilityConfig,
+  today: string
+): UpcomingRegularWeek | null {
+  const live = new Set(
+    config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt).map((s) => s.id)
+  );
+  const next = config.assignments
+    .filter((a) => live.has(a.scheduleId) && a.startsOn != null && a.startsOn > today)
+    .sort((a, b) => a.startsOn!.localeCompare(b.startsOn!))[0];
+  if (!next?.startsOn) return null;
+  const line = regularWeekLine(config, next.startsOn);
+  return line.services.length === 0
+    ? null
+    : { startsOn: next.startsOn, endsOn: next.endsOn ?? null, line };
 }

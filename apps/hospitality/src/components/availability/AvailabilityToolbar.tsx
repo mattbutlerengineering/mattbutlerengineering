@@ -34,6 +34,8 @@ export interface AvailabilityToolbarProps {
   /** Absent as above: the schedule actions the page's controls hold on a wider screen. */
   readonly onChangeRegularWeek?: () => void;
   readonly onCreateSchedule?: () => void;
+  /** Booking rules… (Managers): how far ahead, notice, largest party. */
+  readonly onBookingRules?: () => void;
 }
 
 /**
@@ -55,8 +57,17 @@ const DIVIDER: MenuEntry = { type: "divider" };
  */
 export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
   const { viewport, view, period, selectItems, onClose, onPause } = props;
-  const { onChangeRegularWeek, onCreateSchedule, onHistory } = props;
+  const { onChangeRegularWeek, onCreateSchedule, onHistory, onBookingRules } = props;
   const { t } = useTranslation();
+  const bookingRulesItems: MenuItems = onBookingRules
+    ? [
+        {
+          id: "booking-rules",
+          label: t("availability.bookingRules.open"),
+          onSelect: afterMenuCloses(onBookingRules),
+        },
+      ]
+    : [];
 
   const dateNavigation = (
     <div className={styles.group}>
@@ -132,6 +143,7 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
             },
           ]
         : []),
+      ...bookingRulesItems,
     ];
     const items: MenuItems = [
       {
@@ -189,6 +201,7 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
               label: t("availability.toolbar.goToDate"),
               onSelect: afterMenuCloses(props.onGoToDate),
             },
+            ...bookingRulesItems,
           ]}
         />
         {selectItems.length > 0 && (

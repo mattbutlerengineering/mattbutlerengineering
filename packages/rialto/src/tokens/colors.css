@@ -126,3 +126,83 @@
 
   color-scheme: dark;
 }
+
+/* ── Nested light scope ──────────────────────── */
+/* Custom properties inherit, and :root does not match an element.
+   A light island inside a dark ancestor would otherwise keep the
+   dark palette. Re-declare the light tokens on that island. This
+   rule follows the dark block so a parser that takes the first
+   dark-attribute rule still reads the dark palette. */
+[data-theme="dark"] [data-theme="light"] {
+  /* ── Surface ──────────────────────────────────── */
+  /* Page backgrounds, default component backgrounds */
+  --rialto-surface: #f8f6f3;
+  /* Cards, popovers, elevated containers */
+  --rialto-surface-elevated: #fdfcfa;
+  /* Input fields, slider tracks, recessed channels */
+  --rialto-surface-recessed: #edeae5;
+  /* Disabled button fills, subtle divider backgrounds */
+  --rialto-surface-matte: #d8d4cd;
+  /* Heavy separators, decorative dark accents */
+  --rialto-surface-deep: #a8a49d;
+
+  /* ── Text ─────────────────────────────────────── */
+  /* Headings, body text, primary labels (16.28:1 on surface — WCAG AAA) */
+  --rialto-text-primary: #1a1918;
+  /* Descriptions, helper text, secondary labels (5.27:1 on surface — WCAG AA) */
+  --rialto-text-secondary: #6b6660;
+  /* Placeholders, disabled text, timestamps (4.53:1 on surface — WCAG AA minimum) */
+  --rialto-text-tertiary: #747070;
+  /* Text on accent-filled backgrounds (primary buttons, badges) */
+  --rialto-text-on-accent: #1a1918;
+
+  /* ── Border ───────────────────────────────────── */
+  /* Default borders for cards, inputs, dividers (3.06:1 on surface — WCAG AA UI) */
+  --rialto-border: #918d87;
+  /* Emphasized borders, active input outlines (3.49:1 on surface — WCAG AA UI) */
+  --rialto-border-strong: #88837c;
+
+  /* ── Accent (Amber gold — surgical use only) ──── */
+  /* Primary buttons, focus rings, active/selected states only */
+  --rialto-accent: #b0841e;
+  /* Primary button hover state */
+  --rialto-accent-hover: #c0942e;
+  /* Subtle accent backgrounds (selected rows, active tabs) */
+  --rialto-accent-muted: rgb(176 132 30 / 0.12);
+  /* Focus ring outer glow (used in --rialto-shadow-focus) */
+  --rialto-accent-glow: rgb(176 132 30 / 0.35);
+
+  /* ── Semantic ─────────────────────────────────── */
+  /* Error text, destructive button fills, invalid borders */
+  --rialto-error: #b84a3c;
+  /* Error alert backgrounds, error badge tints */
+  --rialto-error-muted: rgb(184 74 60 / 0.1);
+  /* Warning text, caution banners, pending states */
+  --rialto-warning: #8a6820;
+  /* Warning alert backgrounds, warning badge tints */
+  --rialto-warning-muted: rgb(138 104 32 / 0.1);
+  /* Success text, confirmation icons */
+  --rialto-success: #5e6a2e;
+  /* Success alert backgrounds, success badge tints */
+  --rialto-success-muted: rgb(94 106 46 / 0.1);
+
+  /* ── Neon (NeonSign tube tones — lit tube text and strokes only, never fills) ─ */
+  /* Red neon tube (AA on the recessed housing and its glow wash) */
+  --rialto-neon-red: #a82019;
+  /* Pink neon tube */
+  --rialto-neon-pink: #a31a60;
+  /* Blue neon tube */
+  --rialto-neon-blue: #1a56a8;
+  /* Green neon tube */
+  --rialto-neon-green: #246a2f;
+  /* Orange neon tube (warm vintage glass) */
+  --rialto-neon-orange: #8f4707;
+  /* Purple neon tube */
+  --rialto-neon-purple: #7a35b8;
+
+  /* ── Overlay ──────────────────────────────────── */
+  /* Modal/drawer backdrop, scrim behind overlays */
+  --rialto-overlay: rgb(26 25 24 / 0.4);
+
+  color-scheme: light;
+}

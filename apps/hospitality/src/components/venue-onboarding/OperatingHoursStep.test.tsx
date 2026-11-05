@@ -4,7 +4,11 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { OperatingHoursStep, validateOperatingHours } from "./OperatingHoursStep.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
-  Text: ({ children }: any) => <span>{children}</span>,
+  Text: ({ children, id, role }: any) => (
+    <span id={id} role={role}>
+      {children}
+    </span>
+  ),
   Checkbox: ({ label, checked, onCheckedChange }: any) => (
     <label>
       <input
@@ -180,6 +184,60 @@ describe("OperatingHoursStep", () => {
     fireEvent.click(screen.getByTestId("checkbox-monday"));
     expect(onChange).toHaveBeenCalledWith({
       monday: { open: "09:00", close: "22:00" },
+    });
+  });
+
+  describe("error wiring", () => {
+    const wiring = (alertText: string) => ({
+      alertId: screen.getByText(alertText).id,
+      inputs: ["monday opening time", "monday closing time"].map((name) =>
+        screen.getByLabelText(name)
+      ),
+    });
+
+    it("links both inputs to the close-before-open error", () => {
+      render(
+        <OperatingHoursStep
+          data={{ monday: { open: "22:00", close: "09:00" } }}
+          onChange={onChange}
+        />
+      );
+      const { alertId, inputs } = wiring("Closing time must be after opening time");
+      expect(alertId).not.toBe("");
+      for (const input of inputs) {
+        expect(input.getAttribute("aria-invalid")).toBe("true");
+        expect(input.getAttribute("aria-describedby")).toBe(alertId);
+      }
+    });
+
+    it("links both inputs to a generic day error", () => {
+      render(
+        <OperatingHoursStep
+          data={{ monday: { open: "09:00", close: "22:00" } }}
+          errors={{ days: { monday: "Enter both an opening and a closing time" } }}
+          onChange={onChange}
+        />
+      );
+      const { alertId, inputs } = wiring("Enter both an opening and a closing time");
+      expect(alertId).not.toBe("");
+      for (const input of inputs) {
+        expect(input.getAttribute("aria-invalid")).toBe("true");
+        expect(input.getAttribute("aria-describedby")).toBe(alertId);
+      }
+    });
+
+    it("sets neither attribute when the day has no error", () => {
+      render(
+        <OperatingHoursStep
+          data={{ monday: { open: "09:00", close: "22:00" } }}
+          onChange={onChange}
+        />
+      );
+      for (const name of ["monday opening time", "monday closing time"]) {
+        const input = screen.getByLabelText(name);
+        expect(input.hasAttribute("aria-invalid")).toBe(false);
+        expect(input.hasAttribute("aria-describedby")).toBe(false);
+      }
     });
   });
 });
