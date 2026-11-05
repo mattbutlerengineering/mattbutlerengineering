@@ -18,6 +18,8 @@ export interface AvailabilityScheduleControlsProps {
   readonly today: string;
   readonly tab: AvailabilityTab;
   readonly onTabChange: (tab: AvailabilityTab) => void;
+  /** Create another schedule…: the Schedules tab with the New schedule editor open. */
+  readonly onCreateSchedule: () => void;
   readonly onStale: () => void;
 }
 
@@ -27,7 +29,7 @@ export interface AvailabilityScheduleControlsProps {
  * regular week… beside the calendar.
  */
 export function AvailabilityScheduleControls(props: AvailabilityScheduleControlsProps) {
-  const { venueId, isManager, state, today, tab, onTabChange, onStale } = props;
+  const { venueId, isManager, state, today, tab, onTabChange, onCreateSchedule, onStale } = props;
   const { t } = useTranslation();
   const [changing, setChanging] = useState(false);
   // On a phone's calendar both schedule actions live in the toolbar's menu (AvailabilityToolbar).
@@ -49,7 +51,7 @@ export function AvailabilityScheduleControls(props: AvailabilityScheduleControls
         onChange={(id) => onTabChange(id as AvailabilityTab)}
       />
       {isManager && !showSchedules && !inMenu && (
-        <Button variant="secondary" onClick={() => onTabChange("schedules")}>
+        <Button variant="secondary" onClick={onCreateSchedule}>
           {t("availabilitySchedules.createAnother")}
         </Button>
       )}

@@ -54,7 +54,8 @@ function DaysField({ draft, onChange, issues, inDrawer, fixedDays }: QuickSetupF
     );
   }
   const problems = issuesFor(issues, null, "days");
-  if (inDrawer && !changing && problems.length === 0) {
+  // No days yet (a New schedule): the picker shows open, as it does once days have a problem.
+  if (inDrawer && !changing && problems.length === 0 && draft.days.length > 0) {
     return (
       <Stack direction="row" gap="sm" align="center">
         <Text variant="body">

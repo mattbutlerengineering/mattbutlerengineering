@@ -114,6 +114,12 @@ describe("SchedulesTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Duplicate Weeknight" }));
     expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("Weeknight (copy)");
   });
+
+  it("opens on the New schedule editor when asked to (Create another schedule…)", () => {
+    renderWith(<SchedulesTab {...common} state={state()} startNew />);
+    expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
 });
 
 describe("CompareServices", () => {
