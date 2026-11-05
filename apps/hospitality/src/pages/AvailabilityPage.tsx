@@ -304,6 +304,9 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const scheduleDates = anchorSchedule
     ? futureDates(datesUsingSchedule(days.data ?? [], anchorSchedule.id), today)
     : [];
+  // On a phone these sit in More actions, with no Select… button to say what they do, so they
+  // name the verb themselves ("Select every Thursday in November").
+  const onPhone = viewport === "phone";
   const selectItems = [
     // The grid has Ctrl-click and drag; the agenda list has only this and a long press.
     ...(viewport !== "desktop"
@@ -320,10 +323,15 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       ? [
           {
             id: "weekday",
-            label: t("availability.selection.weekdayInMonth", {
-              weekday: format.formatCalendarDate(anchor, { weekday: "long" }),
-              month: format.formatCalendarDate(anchor, { month: "long" }),
-            }),
+            label: t(
+              onPhone
+                ? "availability.selection.selectWeekdayInMonth"
+                : "availability.selection.weekdayInMonth",
+              {
+                weekday: format.formatCalendarDate(anchor, { weekday: "long" }),
+                month: format.formatCalendarDate(anchor, { month: "long" }),
+              }
+            ),
             onSelect: () => setSelection(weekdayDatesInMonth(anchor)),
           },
         ]
@@ -332,9 +340,12 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       ? [
           {
             id: "schedule",
-            label: t("availability.selection.usingSchedule", {
-              schedule: scheduleNameText(anchorSchedule.name, t),
-            }),
+            label: t(
+              onPhone
+                ? "availability.selection.selectUsingSchedule"
+                : "availability.selection.usingSchedule",
+              { schedule: scheduleNameText(anchorSchedule.name, t) }
+            ),
             onSelect: () => setSelection(datesUsingSchedule(days.data ?? [], anchorSchedule.id)),
           },
         ]

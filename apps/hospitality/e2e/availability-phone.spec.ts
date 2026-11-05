@@ -160,6 +160,10 @@ test.describe("the first screen", () => {
     ]) {
       await expect(menu.getByRole("menuitem", { name })).toBeVisible();
     }
+    // What changes the hours leads the menu, so it is on screen the moment the menu opens.
+    for (const name of ["Change regular week…", "Booking rules…"]) {
+      await expect(menu.getByRole("menuitem", { name })).toBeInViewport();
+    }
     await menu.getByRole("menuitem", { name: /^Close…/ }).click();
     await expect(page.getByRole("dialog", { name: "Close", exact: true })).toBeVisible();
   });
