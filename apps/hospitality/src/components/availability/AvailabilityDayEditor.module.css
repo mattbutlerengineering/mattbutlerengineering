@@ -7,12 +7,22 @@
   list-style: none;
 }
 
+/* A long line ("Dinner 5:00 PM – 12:00 AM (next day)") wraps inside its own column, so its Edit
+   stays beside it, level with the first line, as every shorter row's does. */
 .service {
   display: flex;
-  flex-wrap: wrap;
   gap: var(--rialto-space-sm);
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
+}
+
+.serviceLine {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.service > :last-child {
+  flex-shrink: 0;
 }
 
 .until {

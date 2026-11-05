@@ -298,26 +298,27 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             />
           </div>
         )}
-        {viewerRole === "manager" && !picked && editing?.onCloseDay && (
-          <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
-            {t("availability.close.open")}
-          </Button>
-        )}
-        {viewerRole === "manager" && editing && !picked && date >= editing.today && (
-          <UseDayHoursAction
-            waiting={waiting}
-            reasonId={reasonId}
-            venueId={editing.venueId}
-            state={editing.state}
-            timezone={editing.timezone}
-            date={date}
-            closedReason={closedAllDay(day) ? t("availability.drawer.useBlockedClosed") : null}
-            onFinished={() => editing.onFinished(true)}
-            onStale={editing.onStale ?? noop}
-          />
-        )}
+        {/* The day's other actions, one row of equals under its hours: none outweighs Edit. */}
         {viewerRole === "manager" && editing && !picked && (
-          <>
+          <div className={styles.dayActions}>
+            {editing.onCloseDay && (
+              <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
+                {t("availability.close.open")}
+              </Button>
+            )}
+            {date >= editing.today && (
+              <UseDayHoursAction
+                waiting={waiting}
+                reasonId={reasonId}
+                venueId={editing.venueId}
+                state={editing.state}
+                timezone={editing.timezone}
+                date={date}
+                closedReason={closedAllDay(day) ? t("availability.drawer.useBlockedClosed") : null}
+                onFinished={() => editing.onFinished(true)}
+                onStale={editing.onStale ?? noop}
+              />
+            )}
             <CopyDayAction
               waiting={waiting}
               reasonId={reasonId}
@@ -328,16 +329,18 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               day={day}
               onStale={editing.onStale ?? noop}
             />
-            <ScheduleNudge
-              waiting={waiting}
-              reasonId={reasonId}
-              venueId={editing.venueId}
-              state={editing.state}
-              date={date}
-              day={day}
-              onStale={editing.onStale ?? noop}
-            />
-          </>
+          </div>
+        )}
+        {viewerRole === "manager" && editing && !picked && (
+          <ScheduleNudge
+            waiting={waiting}
+            reasonId={reasonId}
+            venueId={editing.venueId}
+            state={editing.state}
+            date={date}
+            day={day}
+            onStale={editing.onStale ?? noop}
+          />
         )}
         {/* Below Copy and the nudge, so what a reload brings and takes away never moves a control
             under a pointer. */}
