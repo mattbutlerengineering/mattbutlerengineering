@@ -2023,6 +2023,8 @@ describe("Reservation Routes", () => {
 describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
+  const LIST_PATH = "/api/v1/reservations";
+  const listUrl = (query: string): string => (query ? `${LIST_PATH}?${query}` : LIST_PATH);
 
   beforeEach(() => {
     // Prior suites queue mockResolvedValueOnce payloads that the auth bypass
@@ -2034,6 +2036,8 @@ describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
   afterEach(async () => {
     await app?.close();
     vi.clearAllMocks();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-1");
+    vi.mocked(guestService.getById).mockReset();
     process.env = originalEnv;
   });
 
@@ -2057,59 +2061,159 @@ describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
     return built;
   }
 
-  it("resolves the venue from guestId when venueId is absent and admits a member operator", async () => {
+  function asOperator(): void {
     vi.mocked(jwtVerify).mockResolvedValue({
       payload: createMockJWTPayload({ sub: "auth0|operator-A", permissions: ["staff"] }),
       protectedHeader: { alg: "RS256" },
     } as never);
-    vi.mocked(guestService.getById).mockResolvedValueOnce({
-      id: "guest-1",
-      venueId: "venue-in-group-A",
-    } as never);
-    const lookup = vi
-      .fn<VenueMembershipLookup>()
-      .mockImplementation(async (_sub, venueId) => venueId === "venue-in-group-A");
+  }
+
+  function listReturnsOne(): void {
     vi.mocked(reservationService.list).mockResolvedValueOnce({
       data: [createMockReservation()],
       pagination: createMockPagination({ total: 1 }),
     });
+  }
+
+  const memberOfVenueA = () =>
+    vi
+      .fn<VenueMembershipLookup>()
+      .mockImplementation(async (_sub, venueId) => venueId === "venue-in-group-A");
+
+  // #8256 (Sentry HOSPITALITY-E): the #4865 resolver read the guest through
+  // `guestService.getById` — an unscoped read of the FORCE-RLS `guests` table
+  // with no venue context, which resolves `null` in production (ADR-026 §4
+  // default-deny), so every guest-card history request 403'd. Here the guest
+  // read answers `null` exactly as RLS does; the venue must come from the
+  // SECURITY DEFINER resolver instead.
+  it("resolves the venue from guestId through app_resolve_venue_id, not the RLS-scoped guest read (#8256)", async () => {
+    asOperator();
+    vi.mocked(guestService.getById).mockResolvedValue(null);
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-in-group-A");
+    const lookup = memberOfVenueA();
+    let listVenueContext: string | null = null;
+    vi.mocked(reservationService.list).mockImplementationOnce(async () => {
+      listVenueContext = getCurrentVenueId();
+      return { data: [createMockReservation()], pagination: createMockPagination({ total: 1 }) };
+    });
     app = await buildAppWithMembership(lookup);
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations?guestId=guest-1",
+      url: listUrl("guestId=guest-1"),
       headers: { authorization: "Bearer operator-token" },
     });
 
     expect(response.statusCode).toBe(200);
-    expect(guestService.getById).toHaveBeenCalledWith("guest-1");
+    expect(resolveVenueId).toHaveBeenCalledWith("guest", "guest-1");
     expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-in-group-A");
     expect(reservationService.list).toHaveBeenCalledWith(
-      expect.objectContaining({ guestId: "guest-1" })
+      expect.objectContaining({ guestId: "guest-1", venueId: "venue-in-group-A" })
     );
+    expect(listVenueContext).toBe("venue-in-group-A");
   });
 
   it("denies an operator who is not a member of the guest's venue", async () => {
-    vi.mocked(jwtVerify).mockResolvedValue({
-      payload: createMockJWTPayload({ sub: "auth0|operator-A", permissions: ["staff"] }),
-      protectedHeader: { alg: "RS256" },
-    } as never);
-    vi.mocked(guestService.getById).mockResolvedValueOnce({
-      id: "guest-1",
-      venueId: "venue-in-group-B",
-    } as never);
-    const lookup = vi
-      .fn<VenueMembershipLookup>()
-      .mockImplementation(async (_sub, venueId) => venueId === "venue-in-group-A");
-    app = await buildAppWithMembership(lookup);
+    asOperator();
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-in-group-B");
+    app = await buildAppWithMembership(memberOfVenueA());
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations?guestId=guest-1",
+      url: listUrl("guestId=guest-1"),
       headers: { authorization: "Bearer operator-token" },
     });
 
     expect(response.statusCode).toBe(403);
+    expect(reservationService.list).not.toHaveBeenCalled();
+  });
+
+  it("denies a non-admin when the guest resolves to no venue", async () => {
+    asOperator();
+    vi.mocked(resolveVenueId).mockResolvedValue(null);
+    app = await buildAppWithMembership(memberOfVenueA());
+
+    const response = await app.inject({
+      method: "GET",
+      url: listUrl("guestId=guest-missing"),
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(reservationService.list).not.toHaveBeenCalled();
+  });
+
+  it("authorises venueId + guestId against the named venue and scopes the list to both (#8256)", async () => {
+    asOperator();
+    listReturnsOne();
+    const lookup = memberOfVenueA();
+    app = await buildAppWithMembership(lookup);
+
+    const response = await app.inject({
+      method: "GET",
+      url: listUrl("venueId=venue-in-group-A&guestId=guest-1&limit=20"),
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(resolveVenueId).not.toHaveBeenCalledWith("guest", expect.anything());
+    expect(lookup).toHaveBeenCalledWith("auth0|operator-A", "venue-in-group-A");
+    expect(reservationService.list).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "venue-in-group-A", guestId: "guest-1" })
+    );
+  });
+
+  it("denies venueId + guestId when the caller is not a member of the named venue", async () => {
+    asOperator();
+    app = await buildAppWithMembership(memberOfVenueA());
+
+    const response = await app.inject({
+      method: "GET",
+      url: listUrl("venueId=venue-in-group-B&guestId=guest-1"),
+      headers: { authorization: "Bearer operator-token" },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(reservationService.list).not.toHaveBeenCalled();
+  });
+
+  it("scopes a platform admin's guestId-only list to the guest's venue (no unscoped list)", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|admin", permissions: ["admin"] }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    vi.mocked(resolveVenueId).mockResolvedValue("venue-in-group-B");
+    listReturnsOne();
+    app = await buildAppWithMembership(memberOfVenueA());
+
+    const response = await app.inject({
+      method: "GET",
+      url: listUrl("guestId=guest-1"),
+      headers: { authorization: "Bearer admin-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(reservationService.list).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "venue-in-group-B", guestId: "guest-1" })
+    );
+  });
+
+  it("answers a platform admin an empty page when the guest resolves to no venue", async () => {
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: createMockJWTPayload({ sub: "auth0|admin", permissions: ["admin"] }),
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    vi.mocked(resolveVenueId).mockResolvedValue(null);
+    app = await buildAppWithMembership(memberOfVenueA());
+
+    const response = await app.inject({
+      method: "GET",
+      url: listUrl("guestId=guest-missing"),
+      headers: { authorization: "Bearer admin-token" },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(JSON.parse(response.body).data).toEqual([]);
     expect(reservationService.list).not.toHaveBeenCalled();
   });
 
@@ -2123,7 +2227,7 @@ describe("GET /v1/reservations — guestId venue resolution (#4865)", () => {
 
     const response = await app.inject({
       method: "GET",
-      url: "/api/v1/reservations",
+      url: listUrl(""),
       headers: { authorization: "Bearer operator-token" },
     });
 

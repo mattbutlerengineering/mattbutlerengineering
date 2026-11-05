@@ -1,17 +1,26 @@
 import { describe, it, expect } from "vitest";
 import { validateConfig } from "@mbe/availability";
+import { localeRuntime } from "../../i18n/runtime.js";
+import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
+import { EVERY_DAY, demoDraft, draftBlock, draftService } from "./quick-setup-demo.fixture.js";
 import {
+  addBlock,
   applyPreset,
   autoLastSeating,
+  draftFromConfig,
   draftFromLegacyHours,
   draftToChanges,
   draftToConfig,
   draftToLegacyHours,
   emptyDraft,
   emptyService,
+  issueMessage,
   replaceService,
+  setServiceDays,
   setServiceTime,
-  toggleDay,
+  setSharedDays,
+  toggleBlockDay,
+  toggleDayIn,
   validateDraft,
   validateQuickSetupHours,
   WEEKDAY_SHORTCUT,
@@ -39,7 +48,16 @@ describe("quick setup draft", () => {
     const draft = emptyDraft("s1");
     expect(draft.days).toEqual([]);
     expect(draft.services).toEqual([
-      { id: "s1", name: "", opens: null, lastSeating: null, closes: null, lastSeatingLinked: true },
+      {
+        id: "s1",
+        name: "",
+        opens: null,
+        lastSeating: null,
+        closes: null,
+        lastSeatingLinked: true,
+        days: null,
+        blocks: [],
+      },
     ]);
   });
 
@@ -95,13 +113,85 @@ describe("quick setup draft", () => {
   });
 
   it("toggles a day on and off", () => {
-    const on = toggleDay(emptyDraft("s1"), 6);
-    expect(on.days).toEqual([6]);
-    expect(toggleDay(on, 6).days).toEqual([]);
+    const on = toggleDayIn(emptyDraft("s1").days, 6);
+    expect(on).toEqual([6]);
+    expect(toggleDayIn(on, 6)).toEqual([]);
+  });
+
+  it("drops a block's days the service no longer runs on when its own days change", () => {
+    const dinner = draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+      days: EVERY_DAY,
+      blocks: [draftBlock("late", [5, 6], ["17:00", "22:00", "00:00"])],
+    });
+    expect(setServiceDays(dinner, [1, 2, 3, 4, 5], EVERY_DAY).blocks[0]?.days).toEqual([5]);
+    expect(setServiceDays(dinner, null, EVERY_DAY).blocks[0]?.days).toEqual([5, 6]);
+    // Back to the shared days: only the days those cover stay in the block.
+    expect(setServiceDays(dinner, null, [1, 2, 3, 4, 5]).blocks[0]?.days).toEqual([5]);
+  });
+
+  it("drops the blocks' days off the shared days from the services that follow them", () => {
+    const follows = draftService("a", "A", ["17:00", "21:00", "23:00"], {
+      blocks: [draftBlock("b", [5, 6], ["17:00", "22:00", "00:00"])],
+    });
+    const own = draftService("c", "C", ["10:00", "13:00", "14:00"], {
+      days: EVERY_DAY,
+      blocks: [draftBlock("d", [5, 6], ["10:00", "13:00", "14:00"])],
+    });
+    const next = setSharedDays({ days: EVERY_DAY, services: [follows, own] }, [1, 2, 3, 4, 5]);
+    expect(next.days).toEqual([1, 2, 3, 4, 5]);
+    expect(next.services.map((s) => s.blocks[0]?.days)).toEqual([[5], [5, 6]]);
+  });
+
+  it("adds a block with the service's own hours and no day ticked", () => {
+    const dinner = draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"]);
+    expect(addBlock(dinner, "late").blocks).toEqual([
+      {
+        id: "late",
+        days: [],
+        opens: "17:00",
+        lastSeating: "21:00",
+        closes: "23:00",
+        lastSeatingLinked: false,
+      },
+    ]);
+  });
+
+  it("moves a ticked day out of the other block and drops a block left with no day", () => {
+    const dinner = draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+      blocks: [
+        draftBlock("one", [5], ["17:00", "22:00", "00:00"]),
+        draftBlock("two", [6], ["17:00", "22:00", "00:30"]),
+      ],
+    });
+    const claim = toggleBlockDay(dinner, "two", 5);
+    expect(claim.moved).toBe(true);
+    expect(claim.removed.map((b) => b.id)).toEqual(["one"]);
+    expect(claim.service.blocks).toMatchObject([{ id: "two", days: [6, 5] }]);
+    // Unticking a day of its own block moves nothing.
+    const untick = toggleBlockDay(claim.service, "two", 6);
+    expect(untick).toMatchObject({ moved: false, removed: [] });
+    expect(untick.service.blocks[0]?.days).toEqual([5]);
   });
 
   it("accepts the bistro week", () => {
     expect(validateDraft(dinnerWeekdays())).toEqual([]);
+  });
+
+  it("flags a service whose own days all fall outside the days the schedule is used on", () => {
+    const week = dinnerWeekdays();
+    const late = { ...week.services[0]!, days: [6] };
+    const draft = { ...week, services: [late] };
+
+    expect(validateDraft(draft)).toEqual([]);
+    expect(validateDraft(draft, { within: WEEKDAY_SHORTCUT })).toEqual([
+      { serviceId: late.id, field: "days", code: "days_outside_use" },
+    ]);
+    expect(
+      validateDraft(
+        { ...week, services: [{ ...late, days: [5, 6] }] },
+        { within: WEEKDAY_SHORTCUT }
+      )
+    ).toEqual([]);
   });
 
   it("flags every empty field and the missing days, in card order", () => {
@@ -282,6 +372,8 @@ describe("quick setup draft", () => {
           closesAt: 20,
           seating: { version: 1 as const, interval: 15 },
           bookingTypes: [],
+          weekdays: [],
+          dayHours: { version: 1 as const, sets: [] },
         },
       ],
       assignments: [{ id: "old-a", scheduleId: "reg", weekdays: [1], precedence: 0 }],
@@ -313,5 +405,158 @@ describe("quick setup draft", () => {
       lastSeating: "21:15",
     });
     expect(draftFromLegacyHours({}, "s9")).toEqual(emptyDraft("s9"));
+  });
+});
+
+const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+function withoutIds(draft: QuickSetupDraft) {
+  return {
+    days: draft.days,
+    // `kept` (stored seating and booking types) is not something the form makes, so it is not compared.
+    services: draft.services.map(({ id: _id, kept: _kept, blocks, ...rest }) => ({
+      ...rest,
+      blocks: blocks.map(({ id: _blockId, kept: _blockKept, ...b }) => b),
+    })),
+  };
+}
+
+describe("quick setup draft with days and blocks", () => {
+  it("writes a uniform draft as the rows it always wrote: no scope, no sets", () => {
+    const config = draftToConfig(dinnerWeekdays(), counter());
+    expect(config.scheduleServices).toHaveLength(1);
+    expect(config.scheduleServices[0]).toMatchObject({
+      opensAt: 1020,
+      lastSeatingAt: 1275,
+      closesAt: 1320,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+    });
+    expect(config.assignments[0]?.weekdays).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  it("encodes the demo week to the rows of the demo-week fixture", () => {
+    const config = draftToConfig(demoDraft(), counter());
+    const rowsOf = (c: typeof config) =>
+      c.scheduleServices.map(
+        ({ id: _id, scheduleId: _schedule, venueServiceId: _service, ...row }) => row
+      );
+    expect(rowsOf(config)).toEqual(rowsOf(DEMO_WEEK_CONFIG));
+    expect(config.assignments[0]?.weekdays).toEqual(EVERY_DAY);
+    expect(config.venueServices.map((s) => s.name)).toEqual(["Lunch", "Dinner", "Brunch"]);
+    expect(validateConfig(config)).toEqual([]);
+  });
+
+  it("round-trips through draftFromConfig", () => {
+    const draft = demoDraft();
+    expect(withoutIds(draftFromConfig(draftToConfig(draft, counter()), counter()))).toEqual(
+      withoutIds(draft)
+    );
+    const uniform = dinnerWeekdays();
+    expect(withoutIds(draftFromConfig(draftToConfig(uniform, counter()), counter()))).toEqual(
+      withoutIds(uniform)
+    );
+  });
+
+  it("reads a stored week back as base hours plus blocks", () => {
+    const draft = draftFromConfig(DEMO_WEEK_CONFIG, counter());
+    const dinner = draft.services.find((s) => s.name === "Dinner");
+    expect(dinner).toMatchObject({ days: [2, 3, 4, 5, 6, 0], opens: "17:00", closes: "23:00" });
+    expect(dinner?.blocks).toMatchObject([{ days: [5, 6], closes: "00:00" }]);
+  });
+
+  it("reports a Saturday-only overlap with the block that makes it", () => {
+    const draft: QuickSetupDraft = {
+      days: EVERY_DAY,
+      services: [
+        draftService("brunch", "Brunch", ["10:00", "17:00", "18:00"], { days: [6] }),
+        draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+          days: [5, 6],
+          blocks: [draftBlock("late", [5, 6], ["17:00", "22:00", "00:00"])],
+        }),
+      ],
+    };
+    const [issue, ...rest] = validateDraft(draft);
+    expect(rest).toEqual([]);
+    expect(issue).toEqual({
+      serviceId: "dinner",
+      blockId: "late",
+      field: "opens",
+      code: "overlap",
+      weekday: 6,
+      otherServiceId: "brunch",
+    });
+    expect(issueMessage(issue!, draft, localeRuntime.i18n.t, (d) => WEEKDAY_NAMES[d]!)).toBe(
+      "Dinner overlaps Brunch on Saturday."
+    );
+  });
+
+  it("accepts services that share a time on different days", () => {
+    const draft: QuickSetupDraft = {
+      days: EVERY_DAY,
+      services: [
+        draftService("brunch", "Brunch", ["10:00", "17:00", "18:00"], { days: [6, 0] }),
+        draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], { days: [1, 2, 3, 4, 5] }),
+      ],
+    };
+    expect(validateDraft(draft)).toEqual([]);
+  });
+
+  it("needs days for a service with its own days, and for a block", () => {
+    const draft: QuickSetupDraft = {
+      days: [],
+      services: [
+        draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+          days: [],
+          blocks: [draftBlock("late", [], ["17:00", "22:00", "00:00"])],
+        }),
+      ],
+    };
+    // Every service has its own days, so the shared days are not asked for.
+    const issues = validateDraft(draft);
+    expect(issues).toEqual([
+      { serviceId: "dinner", field: "days", code: "days_required" },
+      { serviceId: "dinner", blockId: "late", field: "days", code: "block_days_required" },
+    ]);
+    expect(issueMessage(issues[0]!, draft, localeRuntime.i18n.t, (d) => WEEKDAY_NAMES[d]!)).toBe(
+      "Choose at least one day for Dinner."
+    );
+  });
+
+  it("checks a block's own times", () => {
+    const draft: QuickSetupDraft = {
+      days: EVERY_DAY,
+      services: [
+        draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+          blocks: [draftBlock("late", [5], ["17:00", "23:30", "23:00"])],
+        }),
+      ],
+    };
+    expect(validateDraft(draft)).toEqual([
+      {
+        serviceId: "dinner",
+        blockId: "late",
+        field: "lastSeating",
+        code: "last_seating_after_close",
+      },
+    ]);
+  });
+
+  it("projects a varied week to each weekday's earliest open and latest close", () => {
+    const hours = draftToLegacyHours(demoDraft());
+    expect(hours.monday).toEqual({ open: "11:30", close: "15:00" });
+    expect(hours.friday).toEqual({ open: "11:30", close: "00:00" });
+    expect(hours.saturday).toEqual({ open: "10:00", close: "00:00" });
+    expect(hours.sunday).toEqual({ open: "10:00", close: "23:00" });
   });
 });

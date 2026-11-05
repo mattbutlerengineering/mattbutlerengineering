@@ -191,6 +191,44 @@ describe("loadAvailabilitySnapshot", () => {
     expect(listSlots(snapshot, "2026-11-05", 2, "online", now)).toEqual([]);
   });
 
+  it("reads a stored row without the day-scope columns as no scope", async () => {
+    const { db } = fakeDb();
+    const { snapshot, warnings } = await loadAvailabilitySnapshot(
+      "v1",
+      "2026-11-05",
+      "2026-11-05",
+      now,
+      { db }
+    );
+    expect(warnings).toEqual([]);
+    expect(snapshot.config.scheduleServices[0]).toMatchObject({
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+    });
+  });
+
+  it("drops a row with an unknown dayHours version with a warning and serves the rows left", async () => {
+    const { db } = fakeDb({
+      scheduleServices: [
+        { ...goodScheduleService, id: "ss-bad", dayHours: { version: 2, sets: [] } },
+        { ...goodScheduleService, id: "ss-fine", weekdays: [], dayHours: { version: 1, sets: [] } },
+      ],
+    });
+    const logger = { warn: vi.fn() };
+    const { snapshot, warnings } = await loadAvailabilitySnapshot(
+      "v1",
+      "2026-11-05",
+      "2026-11-05",
+      now,
+      { db, logger }
+    );
+    expect(snapshot.config.scheduleServices.map((r) => r.id)).toEqual(["ss-fine"]);
+    expect(warnings).toEqual([
+      expect.objectContaining({ table: "schedule_services", id: "ss-bad" }),
+    ]);
+    expect(logger.warn).toHaveBeenCalledOnce();
+  });
+
   it("fails closed on a tonight rule with an unknown payload version", async () => {
     const { db } = fakeDb({
       dateRules: [

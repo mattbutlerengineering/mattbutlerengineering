@@ -5,7 +5,7 @@ import { closureBandText, isWholeDay, minuteText, type ClosureBandText } from ".
 
 export interface ServiceLineText {
   readonly key: string;
-  /** "Lunch 11:00 AM – 2:00 PM". */
+  /** "Lunch 11:00 AM – 1:30 PM": first to last time a guest can book, not open to close. */
   readonly text: string;
 }
 
@@ -38,13 +38,20 @@ export function dayLabelText(label: string, t: TFunction): string {
   }
 }
 
+/** How a day departs from its schedule, so a closed or special-hours day stands out in a month of regular days. */
+export type DayTone = "closed" | "special";
+
 export interface DayPresentation {
   /** The day's label in the viewer's language. */
   readonly label: string | null;
+  readonly tone: DayTone | null;
   readonly bands: readonly ClosureBandText[];
-  /** "2 services", or `null` when the count is not worth showing. */
-  readonly count: string | null;
-  /** One line per service, open to close; only populated when `detailed`. */
+  /**
+   * Month view's one line about the services: their names ("Lunch · Dinner"), or "2 services"
+   * from an older API that sends no service lines. `null` in week view, which lists each service.
+   */
+  readonly servicesSummary: string | null;
+  /** One line per service, first to last bookable time; only populated when `detailed`. */
   readonly services: readonly ServiceLineText[];
   readonly onlineOff: boolean;
   /** The spoken details after the date: "Special hours, 2 services, closed 10:00 PM – 11:00 PM". */
@@ -61,7 +68,7 @@ function serviceLineText(
   const text = t("availability.calendar.serviceLine", {
     name: service.name,
     from: minuteText(service.opensAt, t, format),
-    to: minuteText(service.closesAt, t, format),
+    to: minuteText(service.lastSeatingAt, t, format),
   });
   return { key: service.venueServiceId, text };
 }
@@ -75,13 +82,21 @@ export function presentDay(
   format: VenueFormat
 ): DayPresentation {
   const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
-  const showCount = summary !== undefined && (detailed || summary.serviceCount >= 2);
-  const count = showCount
-    ? t("availability.calendar.services", { count: summary.serviceCount })
-    : null;
   const services = detailed
     ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
     : [];
+  // Month names the services, which says more than a count in the same space: a Monday with only
+  // Lunch reads apart from a Friday with Lunch · Dinner. Week lists each one, so says neither; an
+  // older API that sends no service lines gets the count instead.
+  const showCount =
+    summary !== undefined &&
+    summary.services === undefined &&
+    (detailed || summary.serviceCount >= 2);
+  const countText = showCount
+    ? t("availability.calendar.services", { count: summary.serviceCount })
+    : null;
+  const monthNames = detailed ? [] : (summary?.services?.map((s) => s.name) ?? []);
+  const servicesSummary = countText ?? (monthNames.length > 0 ? monthNames.join(" · ") : null);
   // A whole-day pause that names online already says so; saying it twice reads as two facts.
   // The band names a channel only when it is the single one paused (closure-band.ts channelSuffix).
   const bandNamesOnline = (summary?.closures ?? []).some(
@@ -97,7 +112,8 @@ export function presentDay(
   const parts = summary
     ? [
         label,
-        ...(count ? [count] : []),
+        // Each name its own phrase: a screen reader would read the dot.
+        ...(countText ? [countText] : monthNames),
         ...bands.map((b) => b.name),
         ...services.map((s) => s.text),
         ...(onlineOff ? [t("availability.calendar.onlineOffName")] : []),
@@ -111,8 +127,15 @@ export function presentDay(
   });
   return {
     label,
+    // The service's own en-US labels, as dayLabelText reads them.
+    tone:
+      summary?.label === "Closed"
+        ? "closed"
+        : summary?.label === "Special hours"
+          ? "special"
+          : null,
     bands,
-    count,
+    servicesSummary,
     services,
     onlineOff,
     accessibleDetails,

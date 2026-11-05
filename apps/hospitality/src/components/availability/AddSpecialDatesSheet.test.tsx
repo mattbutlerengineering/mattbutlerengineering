@@ -87,6 +87,8 @@ function withSaturday() {
         closesAt: 1200,
         seating: { version: 1 as const, interval: 15 },
         bookingTypes: ["online" as const],
+        weekdays: [],
+        dayHours: { version: 1 as const, sets: [] },
       },
     ],
     assignments: [

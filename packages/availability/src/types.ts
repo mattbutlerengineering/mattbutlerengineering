@@ -5,8 +5,20 @@
  * See docs/features/venue-availability/architecture.md and ADR-029 (service day).
  */
 
+import type { ScheduleService } from "@mbe/types";
+
 /** Venue-local civil date "YYYY-MM-DD". Never an instant. */
 export type ServiceDate = string;
+
+/** A service as the engine resolves it for a day: a stored row, or one from special hours. */
+export interface ResolvedService extends Pick<
+  ScheduleService,
+  "venueServiceId" | "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
+> {
+  /** `null` for a service from special hours. */
+  scheduleServiceId: string | null;
+  name: string;
+}
 
 export const WEEKDAYS = [
   "monday",

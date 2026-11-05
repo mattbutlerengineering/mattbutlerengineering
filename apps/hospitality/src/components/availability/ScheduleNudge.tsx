@@ -5,9 +5,8 @@ import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { NUDGE_THRESHOLD, singleDateChangeCount } from "./copy-day.js";
-import { seedServices } from "./draft-changes.js";
+import { buildDraftChanges, seedServices } from "./draft-changes.js";
 import { waitingProps } from "./draft-wait.js";
-import { buildNewScheduleChanges } from "./schedule-changes.js";
 import { SaveFailure } from "./ScheduleFormParts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 
@@ -25,9 +24,9 @@ export interface ScheduleNudgeProps {
 
 /**
  * The discovery nudge (ux.md F2 step 7): once the same weekday has been changed for single
- * dates three times, offer one tap that makes a schedule of this day's hours for that weekday.
- * Shown only while the day still follows the regular week; a weekday that already has its own
- * schedule needs no suggestion.
+ * dates three times, offer one tap that writes this day's hours into the regular week as that
+ * weekday's hours (the same in-place change as "Every regular Friday"). Shown only while the day
+ * still follows the regular week.
  */
 export function ScheduleNudge(props: ScheduleNudgeProps) {
   const { venueId, state, date, day, onStale, waiting = false, reasonId } = props;
@@ -44,12 +43,10 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
   const weekdayName = format.formatCalendarDate(date, { weekday: "long" });
   const make = async () => {
     if (waiting) return;
-    const changes = buildNewScheduleChanges({
+    const changes = buildDraftChanges({
       config: state.config,
-      name: weekdayName,
+      scope: { kind: "regularWeekday", weekday },
       services: seedServices(state.config, day, { kind: "date", date }),
-      useOn: { weekdays: [weekday], startsOn: null, endsOn: null },
-      winner: "new",
       makeId: () => crypto.randomUUID(),
     });
     const saved = await saver.save(venueId, state, changes, "keep");

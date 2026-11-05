@@ -1,3 +1,4 @@
+export { collapseDayNamedSchedules, weekdayRangeLabel } from "./day-named-schedules.js";
 export { addDays, weekdayIndexOf, weekdayOf } from "./civil-date.js";
 export { ARCHIVED_ON_REMOVE, applyChanges, applyDraft } from "./apply-draft.js";
 export { activeRules } from "./date-rules.js";
@@ -21,8 +22,24 @@ export {
   type ResolvedClosure,
   type ResolvedDay,
   type ResolvedDaySummary,
-  type ResolvedService,
 } from "./resolve-day.js";
+export {
+  decodeWeek,
+  encodeWeek,
+  hoursOn,
+  servicesOn,
+  type EncodedRow,
+  type ServiceHours,
+  type ServiceWeek,
+  type Week,
+} from "./service-days.js";
+export {
+  regularWeekView,
+  weekSpans,
+  type DaySpans,
+  type ServiceSpan,
+  type WeekSpansOptions,
+} from "./week-spans.js";
 export {
   normalizeLegacyHours,
   type LegacyHours,
@@ -47,7 +64,13 @@ export {
   type LegacyDayHours,
   type LegacyOperatingHours,
 } from "./legacy-projection.js";
-export { MINUTES_PER_DAY, WEEKDAYS, type ServiceDate, type Weekday } from "./types.js";
+export {
+  MINUTES_PER_DAY,
+  WEEKDAYS,
+  type ResolvedService,
+  type ServiceDate,
+  type Weekday,
+} from "./types.js";
 export { validateConfig, type ConfigIssue, type ConfigIssueCode } from "./validate-config.js";
 export {
   DEFAULT_SLOT_INTERVAL,

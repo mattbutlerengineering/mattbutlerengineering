@@ -1,6 +1,7 @@
 import type { AvailabilityConfig, DateRule, ScheduleService } from "@mbe/types";
 import type { LegacyHours, LegacyWindow } from "./legacy-hours.js";
 import { DEFAULT_SLOT_INTERVAL } from "./slot-rules.js";
+import { encodeWeek, type ServiceHours } from "./service-days.js";
 import { WEEKDAYS, type ServiceDate } from "./types.js";
 import { validateConfig } from "./validate-config.js";
 
@@ -11,10 +12,10 @@ import { validateConfig } from "./validate-config.js";
  * which dated overrides are kept, and the result is checked with
  * `validateConfig` — a config that does not validate is reported, never returned.
  *
- * The legacy column holds one set of hours per weekday but a schedule holds one
- * set of hours per service, so weekdays that share hours share a schedule. The
- * largest group is the regular week; any other group is an `alternate` schedule
- * with its own assignment. A weekday with no seating window gets no assignment,
+ * The legacy column holds one set of hours per weekday. The result is one regular
+ * schedule with one assignment over every open weekday and one row per service
+ * name; a service whose hours differ by weekday carries its other hours as day
+ * sets (`encodeWeek`). A weekday with no seating window gets no assignment,
  * which the engine reads as closed.
  */
 
@@ -93,29 +94,6 @@ function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] 
   return windows.map((w) => ({ ...w, last: w.close - buffer })).filter((w) => w.last >= w.open);
 }
 
-/** Stored stable data, so not localised: Monday-first abbreviations. */
-const WEEKDAY_ABBREVIATIONS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
-
-/**
- * "Thu–Fri", "Sat", "Mon, Wed": a contiguous Monday-first run joins with an en
- * dash (two or more days), gaps are comma-separated. Takes stored indexes (0 = Sunday).
- */
-function weekdayRangeLabel(storedDays: readonly number[]): string {
-  const positions = storedDays.map((d) => (d + 6) % 7).sort((a, b) => a - b);
-  const runs = positions.reduce<number[][]>((acc, p) => {
-    const last = acc[acc.length - 1];
-    return last && last[last.length - 1] === p - 1
-      ? [...acc.slice(0, -1), [...last, p]]
-      : [...acc, [p]];
-  }, []);
-  return runs
-    .map((run) => {
-      const first = WEEKDAY_ABBREVIATIONS[run[0]!];
-      return run.length === 1 ? first : `${first}–${WEEKDAY_ABBREVIATIONS[run[run.length - 1]!]}`;
-    })
-    .join(", ");
-}
-
 /** Names a day's windows; unnamed or clashing names fall back to their order. */
 function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] {
   const fallback = (i: number) => (multiple ? `Service ${i + 1}` : "Service");
@@ -123,9 +101,6 @@ function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): Named
   const clash = new Set(names).size < names.length;
   return windows.map((w, i) => ({ ...w, serviceName: clash ? `Service ${i + 1}` : names[i]! }));
 }
-
-const signature = (windows: readonly NamedWindow[]): string =>
-  JSON.stringify(windows.map((w) => [w.serviceName, w.open, w.close]));
 
 function validIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule | LegacyMigrationResult {
   const interval = input.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
@@ -251,17 +226,6 @@ export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationR
     return created.id;
   };
 
-  // Group weekdays that share hours; first-seen order keeps the output stable.
-  const groups = new Map<string, { days: number[]; windows: NamedWindow[] }>();
-  seatedWeek.forEach((windows, i) => {
-    if (windows.length === 0) return;
-    const named = nameWindows(windows, multiple);
-    const key = signature(named);
-    const group = groups.get(key) ?? { days: [], windows: named };
-    groups.set(key, { ...group, days: [...group.days, storedIndex(i)] });
-  });
-  const ordered = [...groups.values()].sort((a, b) => b.days.length - a.days.length);
-
   const hoursFields = (w: NamedWindow) => ({
     venueServiceId: serviceId(w.serviceName),
     opensAt: w.open,
@@ -273,25 +237,48 @@ export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationR
     bookingTypes: [...CHANNELS],
   });
 
-  const schedules = ordered.length === 0 ? [null] : ordered;
-  const rows = schedules.map((group, index) => {
-    const id = newId();
-    const schedule = {
-      id,
-      name: index === 0 || !group ? "Regular week" : `${weekdayRangeLabel(group.days)} hours`,
-      kind: index === 0 ? ("regular" as const) : ("alternate" as const),
-      isRegular: index === 0,
-    };
-    const services: ScheduleService[] = (group?.windows ?? []).map((w) => ({
-      id: newId(),
-      scheduleId: id,
-      ...hoursFields(w),
-    }));
-    const assignments = group
-      ? [{ id: newId(), scheduleId: id, weekdays: [...group.days].sort(), precedence: 0 }]
-      : [];
-    return { schedule, services, assignments };
+  // The legacy column holds one set of hours per weekday. Re-read it as each service's hours on
+  // each open weekday (0 = Sunday); `encodeWeek` stores that as one row per service, with other
+  // hours on the days that differ.
+  const openDays: number[] = [];
+  const weekByService = new Map<string, (ServiceHours | null)[]>();
+  seatedWeek.forEach((windows, i) => {
+    if (windows.length === 0) return;
+    const day = storedIndex(i);
+    openDays.push(day);
+    for (const w of nameWindows(windows, multiple)) {
+      const { venueServiceId, ...serviceHours } = hoursFields(w);
+      const days =
+        weekByService.get(venueServiceId) ?? new Array<ServiceHours | null>(7).fill(null);
+      weekByService.set(
+        venueServiceId,
+        days.map((h, d) => (d === day ? serviceHours : h))
+      );
+    }
   });
+
+  const scheduleId = newId();
+  const schedule = {
+    id: scheduleId,
+    name: "Regular week",
+    kind: "regular" as const,
+    isRegular: true,
+  };
+  const scheduleServices: ScheduleService[] = encodeWeek(
+    [...weekByService].map(([venueServiceId, days]) => ({ venueServiceId, days })),
+    openDays
+  ).map((row) => ({ id: newId(), scheduleId, ...row }));
+  const assignments =
+    openDays.length > 0
+      ? [
+          {
+            id: newId(),
+            scheduleId,
+            weekdays: [...openDays].sort((a, b) => a - b),
+            precedence: 0,
+          },
+        ]
+      : [];
 
   const futureOverrides = hours.overrides.filter((o) => o.date >= today);
   const dateRules: DateRule[] = futureOverrides.map((override) => {
@@ -313,10 +300,10 @@ export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationR
   });
 
   const config: AvailabilityConfig = {
-    schedules: rows.map((r) => r.schedule),
+    schedules: [schedule],
     venueServices: [...venueServices.values()],
-    scheduleServices: rows.flatMap((r) => r.services),
-    assignments: rows.flatMap((r) => r.assignments),
+    scheduleServices,
+    assignments,
     dateRules,
   };
 

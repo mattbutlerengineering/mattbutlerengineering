@@ -154,9 +154,8 @@ describe("Change regular week previews before saving (F-UW.2)", () => {
       )
     );
   const fill = () => {
-    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
     fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
   };
 
   it("says what the preview waits for, then shows guests' view and the stranded bookings", async () => {
@@ -211,7 +210,7 @@ describe("the schedule editor previews before saving (F3.2)", () => {
         />
       )
     );
-    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
     expect(
       await screen.findByText("1 booking would fall outside these hours", {}, WAIT)
     ).toBeInTheDocument();
@@ -317,7 +316,7 @@ describe("dates that reach a schedule through a use_schedule rule (#7982 review)
 
   it("checks bookings from today on for a schedule edit, as the save does, and starts the strip on the rule's date", async () => {
     editor("regular");
-    fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
     expect(
       await screen.findByText("1 booking would fall outside these hours", {}, WAIT)
     ).toBeInTheDocument();
@@ -376,6 +375,7 @@ describe("what the preview says when it has nothing to show (#7982 review)", () 
       )
     );
     fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-03" } });
+    fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
     fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
     await screen.findByText("Guest preview", {}, WAIT);
     fireEvent.click(screen.getByRole("combobox", { name: "Party" }));

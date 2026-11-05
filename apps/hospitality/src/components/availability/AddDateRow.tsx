@@ -4,6 +4,7 @@ import {
   DatePicker,
   SegmentedControl,
   Select,
+  Tag,
   Text,
   TextArea,
 } from "@mattbutlerengineering/rialto";
@@ -69,13 +70,19 @@ export function AddDateRow(props: AddDateRowProps) {
     onChange({ ...row, kind });
   };
 
+  const holidayMessage = row.name
+    ? t("availability.close.suggestions.holidayNamed", { name: row.name })
+    : "";
+
   const chooseDate = (date: string) => {
     const weekday = ownWeekday(date, row.sameAs);
     // Hours still as copied from a weekday follow the date; hours the Manager edited stay theirs.
     const follows =
       row.kind === "hours" && (row.services.length === 0 || row.seededFor !== undefined);
+    // The row's name was the date it opened on; another date is not that holiday.
+    const { name: _name, ...rest } = row;
     onChange({
-      ...row,
+      ...(date === row.date ? row : rest),
       date,
       // "Same as" starts on the date's own weekday.
       sameAs: row.kind === "closed" ? weekday : row.sameAs,
@@ -86,7 +93,9 @@ export function AddDateRow(props: AddDateRowProps) {
   return (
     <fieldset className={styles.row}>
       <legend className={styles.legend}>
-        {t("availabilitySpecial.add.rowLegend", { n: index + 1 })}
+        {row.name
+          ? t("availabilitySpecial.add.rowLegendNamed", { n: index + 1, name: row.name })
+          : t("availabilitySpecial.add.rowLegend", { n: index + 1 })}
       </legend>
       <div className={styles.rowHead}>
         <DatePicker
@@ -188,6 +197,17 @@ export function AddDateRow(props: AddDateRowProps) {
           showOptional
           onChange={(e) => onChange({ ...row, message: e.target.value })}
         />
+      )}
+      {/* A row the sheet opened on a holiday offers the Close dialog's wording for it. */}
+      {!messageShared && row.name && row.kind === "closed" && (
+        <div className={styles.chips}>
+          <Tag
+            selected={row.message === holidayMessage}
+            onClick={() => onChange({ ...row, message: holidayMessage })}
+          >
+            {holidayMessage}
+          </Tag>
+        </div>
       )}
     </fieldset>
   );

@@ -22,6 +22,8 @@ const CONFIG: AvailabilityConfig = {
       closesAt: 1200,
       seating: { version: 1, interval: 30 },
       bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1 as const, sets: [] },
     },
   ],
   assignments: [

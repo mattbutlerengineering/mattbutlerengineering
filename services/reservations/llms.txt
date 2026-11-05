@@ -1805,6 +1805,67 @@
       async function main(): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="src/scripts/collapse-day-named-schedules.ts">
+    <item priority="low">
+      interface ReplacedRows {
+        schedules: unknown[];
+        scheduleServices: unknown[];
+        assignments: unknown[];
+      }
+    </item>
+    <item priority="low">
+      interface CreatedRows {
+        schedules: string[];
+        scheduleServices: string[];
+        assignments: string[];
+      }
+    </item>
+    <item priority="low">
+      type CollapseOutcome = {
+            venueId: string;
+            | { venueId: string; outcome: "n | { venueId: string; outcome: "r;
+    </item>
+    <item priority="low">
+      interface CollapseSummary {
+        apply: boolean;
+        venues: number;
+        counts: Record<string, number>;
+        errors: { venueId: string; message: string }[];
+      }
+    </item>
+    <item priority="high">
+      type Log = (line: string) => void;
+    </item>
+    <item priority="medium">
+      function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows { /* ... */ }
+    </item>
+    <item priority="high">
+      export function introducedIssues(
+        before: readonly ConfigIssue[],
+        after: readonly ConfigIssue[]
+      ): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createdBy(diff: ConfigDiff): CreatedRows { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function collapseVenue(
+        prisma: PrismaClient,
+        venueId: string,
+        options: { apply: boolean; now?: Date }
+      ): Promise<CollapseOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runCollapse(
+        prisma: PrismaClient,
+        options: { apply: boolean },
+        log: Log
+      ): Promise<CollapseSummary> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main(): Promise<void> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="src/services/actor-name.ts">
@@ -1912,8 +1973,16 @@
     </item>
   </file>
   <file path="src/services/availability-change-detail.ts">
+    <item priority="medium">
+      function regularWeek(config: AvailabilityConfig) { /* ... */ }
+    </item>
     <item priority="high">
-      export function configSavedDetail(diff: ConfigDiff): AvailabilityChangeDetail { /* ... */ }
+      export function configSavedDetail(
+        diff: ConfigDiff,
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        today: string
+      ): AvailabilityChangeDetail { /* ... */ }
     </item>
     <item priority="high">
       export function closureDetail(
@@ -4129,6 +4198,16 @@
     <item priority="medium">
       function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan { /* ... */ }
     </item>
+    <item priority="medium">
+      function venueUniqueNames(
+        desired: readonly string[],
+        taken: readonly string[],
+        candidate: (name: string, n: number) => string
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      type FloorPlanDeleteOutcome = "deleted" | "archived" | "active" | "has_upcoming" | "in_use" | "not_found";
+    </item>
     <item priority="high">
       export const floorPlanService: unknown;
     </item>
@@ -4569,6 +4648,11 @@
   <file path="src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
+    </item>
+    <item priority="high">
+      class JobQueueUnavailableError {
+        
+      }
     </item>
     <item priority="low">
       interface NotifierRuntime {

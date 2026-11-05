@@ -1,5 +1,13 @@
-import { Button, DataList, Select, Stack, Tooltip } from "@mattbutlerengineering/rialto";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { Download, Trash2, Upload } from "lucide-react";
+import {
+  Button,
+  DataList,
+  IconButton,
+  Select,
+  Stack,
+  Tooltip,
+} from "@mattbutlerengineering/rialto";
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
@@ -9,6 +17,35 @@ import styles from "../components/ComponentPageLayout.module.css";
 // ---------------------------------------------------------------------------
 
 type Placement = "top" | "bottom" | "left" | "right";
+
+/**
+ * IconButton, not a padded Button squeezed to 32px. Button's horizontal
+ * padding is 16px each side, so a 32px box has no content width, and the
+ * reset's `svg { max-width: 100% }` scales the stroke to nothing.
+ */
+function IconTrigger({
+  label,
+  content,
+  icon,
+  color,
+}: {
+  label: string;
+  content: string;
+  icon: ReactNode;
+  color?: string;
+}) {
+  return (
+    <Tooltip content={content} placement="top">
+      <IconButton
+        variant="secondary"
+        size="sm"
+        aria-label={label}
+        icon={icon}
+        style={color ? { color } : undefined}
+      />
+    </Tooltip>
+  );
+}
 
 export function TooltipPage() {
   const [placement, setPlacement] = useState<Placement>("top");
@@ -58,96 +95,21 @@ export function TooltipPage() {
         </div>
       </Section>
 
-      {/* ── On Disabled Elements ──────────────────────────────────── */}
+      {/* ── With Icon Trigger ────────────────────────────────────── */}
       <Section title="With Icon Trigger">
         <div className={styles.row}>
-          <Tooltip content="Upload telemetry" placement="top">
-            <Button
-              type="button"
-              aria-label="Upload"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 32,
-                height: 32,
-                borderRadius: "var(--rialto-radius-default)",
-                border: "1px solid var(--rialto-border)",
-                background: "var(--rialto-surface-elevated)",
-                cursor: "pointer",
-                color: "var(--rialto-text-secondary)",
-              }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M8 11V3M5 6l3-3 3 3M2 13h12" />
-              </svg>
-            </Button>
-          </Tooltip>
-          <Tooltip content="Download session data" placement="top">
-            <Button
-              type="button"
-              aria-label="Download"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 32,
-                height: 32,
-                borderRadius: "var(--rialto-radius-default)",
-                border: "1px solid var(--rialto-border)",
-                background: "var(--rialto-surface-elevated)",
-                cursor: "pointer",
-                color: "var(--rialto-text-secondary)",
-              }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M8 3v8M5 8l3 3 3-3M2 13h12" />
-              </svg>
-            </Button>
-          </Tooltip>
-          <Tooltip content="Delete permanently — cannot be undone" placement="top">
-            <Button
-              type="button"
-              aria-label="Delete"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 32,
-                height: 32,
-                borderRadius: "var(--rialto-radius-default)",
-                border: "1px solid var(--rialto-border)",
-                background: "var(--rialto-surface-elevated)",
-                cursor: "pointer",
-                color: "var(--rialto-error)",
-              }}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-              >
-                <path d="M3 4h10M6 4V3h4v1M5 4l1 9h4l1-9" />
-              </svg>
-            </Button>
-          </Tooltip>
+          <IconTrigger label="Upload" content="Upload telemetry" icon={<Upload size={16} />} />
+          <IconTrigger
+            label="Download"
+            content="Download session data"
+            icon={<Download size={16} />}
+          />
+          <IconTrigger
+            label="Delete"
+            content="Delete permanently — cannot be undone"
+            icon={<Trash2 size={16} />}
+            color="var(--rialto-error)"
+          />
         </div>
       </Section>
 

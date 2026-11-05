@@ -37,6 +37,9 @@ vi.mock("../../hooks/useClosures.js", () => ({
   useRetryClosureRefunds: () => ({ mutateAsync: retry, isPending: false }),
   usePreviewClosureImpact: () => ({ mutateAsync: previewImpact, isPending: false }),
   useCreateClosure: () => ({ mutateAsync: createClosure, isPending: false }),
+  // Add special date (opened from Upcoming holidays) previews and saves several dates at once.
+  usePreviewClosureImpacts: () => ({ mutateAsync: previewImpact, isPending: false }),
+  useCreateClosures: () => ({ mutateAsync: createClosure, isPending: false }),
 }));
 const revertChange = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
@@ -55,6 +58,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { VenueContext, type VenueContextValue } from "../../contexts/venue-context-object.js";
+import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
 import { SpecialDatesTab } from "./SpecialDatesTab.js";
 import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 
@@ -185,7 +189,8 @@ describe("SpecialDatesTab", () => {
       window: { version: 1, from: 22 * 60, to: 2880 },
     };
     renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [fromTen] } });
-    expect(screen.getByText("Closed · From 10:00 PM")).toBeTruthy();
+    // Dec 24: the row names the holiday first.
+    expect(screen.getByText("Christmas Eve · Closed · From 10:00 PM")).toBeTruthy();
   });
 
   it("names each closure row's buttons with its date", () => {
@@ -207,6 +212,109 @@ describe("SpecialDatesTab", () => {
     unmount();
     renderTab(false);
     expect(screen.queryByRole("button", { name: "Add special date" })).toBeNull();
+  });
+
+  it("offers a Manager the coming holidays no rule covers, each opening Add special date on it", () => {
+    const { unmount } = renderTab(true);
+    const panel = screen.getByRole("region", { name: "Upcoming holidays" });
+    const names = within(panel)
+      .getAllByRole("listitem")
+      .map((li) => li.firstChild?.textContent);
+    // Dec 24 is already closed; Easter (Mar 28) is the last date inside 120 days of Dec 1.
+    expect(names).toEqual([
+      "Christmas Day",
+      "New Year’s Eve",
+      "New Year’s Day",
+      "Valentine’s Day",
+      "Easter Sunday",
+    ]);
+
+    fireEvent.click(
+      within(panel).getByRole("button", { name: "Plan Christmas Day, Fri, Dec 25…" })
+    );
+    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
+    const dates = within(sheet).getAllByLabelText("Date") as HTMLInputElement[];
+    expect(dates.map((d) => d.value)).toEqual(["Dec 25, 2026"]);
+    expect(within(sheet).getByRole("group", { name: "Date 1: Christmas Day" })).toBeTruthy();
+    // The row offers the holiday's message, as the Close dialog does.
+    fireEvent.click(within(sheet).getByText("Closed for Christmas Day"));
+    expect(within(sheet).getByLabelText(/Message for guests/)).toHaveValue(
+      "Closed for Christmas Day"
+    );
+    unmount();
+
+    renderTab(false);
+    expect(screen.queryByRole("region", { name: "Upcoming holidays" })).toBeNull();
+  });
+
+  it("plans every coming holiday at once, one row each, named for its holiday", () => {
+    renderTab(true);
+    fireEvent.click(screen.getByRole("button", { name: "Plan all 5…" }));
+    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
+    expect(within(sheet).getAllByLabelText("Date")).toHaveLength(5);
+    expect(within(sheet).getByRole("group", { name: "Date 5: Easter Sunday" })).toBeTruthy();
+    // No regular week here: there are no usual hours to start from, so every row starts Closed.
+    expect(within(sheet).getAllByRole("radio", { name: "Closed", checked: true })).toHaveLength(5);
+  });
+
+  it("starts a day most venues open from its usual hours, and a usual closing day as Closed", () => {
+    renderTab(true, {
+      ...STATE,
+      config: { ...DEMO_WEEK_CONFIG, dateRules: RULES },
+    } as AvailabilityConfigState);
+    fireEvent.click(screen.getByRole("button", { name: "Plan all 5…" }));
+    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
+    const kind = (legend: string) =>
+      within(within(sheet).getByRole("group", { name: legend }))
+        .getAllByRole("radio")
+        .find((r) => r.getAttribute("aria-checked") === "true")?.textContent;
+    expect(kind("Date 1: Christmas Day")).toBe("Closed");
+    expect(kind("Date 3: New Year’s Day")).toBe("Closed");
+    expect(kind("Date 2: New Year’s Eve")).toBe("Special hours");
+    expect(kind("Date 4: Valentine’s Day")).toBe("Special hours");
+    // Valentine's Day is a Sunday: the row starts from Sunday's Brunch and Dinner.
+    const valentines = within(sheet).getByRole("group", { name: "Date 4: Valentine’s Day" });
+    expect(
+      within(valentines)
+        .getAllByLabelText("Closes")
+        .map((c) => (c as HTMLInputElement).value)
+    ).toEqual(["2:00 PM", "11:00 PM"]);
+  });
+
+  it("Open as usual drops a holiday for this venue, and it stays dropped across a reload", () => {
+    localStorage.clear();
+    const names = () =>
+      within(screen.getByRole("region", { name: "Upcoming holidays" }))
+        .getAllByRole("listitem")
+        .map((li) => li.firstChild?.textContent);
+    const { unmount } = renderTab(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Valentine’s Day, Sun, Feb 14: open as usual" })
+    );
+    expect(names()).not.toContain("Valentine’s Day");
+    expect(screen.getByRole("region", { name: "Upcoming holidays" })).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Plan all 4…" })).toBeTruthy();
+    unmount();
+
+    // A fresh mount reads the mark back.
+    renderTab(true);
+    expect(names()).not.toContain("Valentine’s Day");
+    localStorage.clear();
+  });
+
+  it("Undo after Open as usual offers the holiday again", async () => {
+    localStorage.clear();
+    renderTab(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Christmas Day, Fri, Dec 25: open as usual" })
+    );
+    expect(await screen.findByText("Christmas Day: open as usual")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    const panel = screen.getByRole("region", { name: "Upcoming holidays" });
+    expect(within(panel).getByText("Christmas Day")).toBeTruthy();
+    expect(
+      JSON.parse(localStorage.getItem("mbe-availability-open-as-usual:venue-1") ?? "[]")
+    ).toEqual([]);
   });
 
   it("skips one date of a repeating closure and leaves the series alone", async () => {
@@ -475,7 +583,9 @@ describe("SpecialDatesTab", () => {
         config: { ...STATE.config, dateRules: [dinner] },
       } as AvailabilityConfigState);
       expect(
-        screen.getByText("Special hours · 11:00 AM – 3:00 PM, 6:00 PM – 1:00 AM (next day)")
+        screen.getByText(
+          "New Year’s Eve · Special hours · 11:00 AM – 3:00 PM, 6:00 PM – 1:00 AM (next day)"
+        )
       ).toBeTruthy();
     });
 

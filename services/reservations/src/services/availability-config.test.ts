@@ -24,6 +24,8 @@ const CONFIG: AvailabilityConfig = {
       closesAt: 1320,
       seating: { version: 1, interval: 15 },
       bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1 as const, sets: [] },
     },
   ],
   assignments: [
@@ -84,6 +86,88 @@ describe("planSave", () => {
     expect(plan).toEqual({
       kind: "invalid",
       issues: [expect.objectContaining({ path: "scheduleServices[0].lastSeatingAt" })],
+    });
+  });
+
+  describe("a varied week", () => {
+    const FRIDAY_LATE = {
+      weekdays: [4],
+      opensAt: 1020,
+      lastSeatingAt: 1320,
+      closesAt: 1380,
+      seating: { version: 1 as const, interval: 15 },
+      bookingTypes: ["online" as const, "phone" as const],
+    };
+    const scoped = (over: Partial<AvailabilityConfig["scheduleServices"][number]>) => ({
+      ...CONFIG.scheduleServices[0]!,
+      ...over,
+    });
+
+    it("plans a row carrying days and hour sets, and its inverse restores the prior row", () => {
+      const row = scoped({
+        weekdays: [1, 2, 3, 4],
+        dayHours: { version: 1, sets: [{ ...FRIDAY_LATE, weekdays: [5] }] },
+      });
+      const plan = planSave({
+        state: STATE,
+        body: body({ upsert: { scheduleServices: [row] } }),
+        bookings: [],
+        tableIds: new Set(),
+        now: NOW,
+      });
+
+      expect(plan.kind).toBe("write");
+      if (plan.kind !== "write") return;
+      expect(plan.diff.update.scheduleServices).toEqual([row]);
+      expect(plan.inverse.restore.scheduleServices).toEqual([CONFIG.scheduleServices[0]]);
+    });
+
+    it("records regular_week_changed for Friday alone, with an English summary older clients show", () => {
+      const friday = scoped({
+        weekdays: [0, 1, 2, 3, 4, 6],
+        dayHours: { version: 1, sets: [{ ...FRIDAY_LATE, weekdays: [5] }] },
+      });
+      const plan = planSave({
+        state: { ...STATE, stored: CONFIG },
+        body: body({ upsert: { scheduleServices: [friday] } }),
+        bookings: [],
+        tableIds: new Set(),
+        now: NOW,
+      });
+
+      expect(plan.kind).toBe("write");
+      if (plan.kind !== "write") return;
+      expect(plan.detail).toMatchObject({
+        code: "regular_week_changed",
+        startsOn: "2026-10-25",
+        weekdays: [5],
+      });
+      expect(plan.summary).toBe(
+        "Regular week changed on Fri from 2026-10-25: 0 added, 1 changed, 0 removed"
+      );
+    });
+
+    it("refuses a weekday claimed twice in one row as weekday_clash, with the set's path", () => {
+      const row = scoped({
+        weekdays: [1, 2],
+        dayHours: { version: 1, sets: [{ ...FRIDAY_LATE, weekdays: [2, 3] }] },
+      });
+      const plan = planSave({
+        state: STATE,
+        body: body({ upsert: { scheduleServices: [row] } }),
+        bookings: [],
+        tableIds: new Set(),
+        now: NOW,
+      });
+
+      expect(plan.kind).toBe("invalid");
+      if (plan.kind !== "invalid") return;
+      expect(plan.issues).toEqual([
+        expect.objectContaining({
+          code: "weekday_clash",
+          path: expect.stringContaining("scheduleServices[0]"),
+        }),
+      ]);
     });
   });
 
@@ -505,8 +589,10 @@ describe("saveAvailabilityConfig", () => {
     const data = (tx.availabilityChange.create.mock.calls[0] as unknown as [{ data: unknown }])[0]
       .data;
     expect(data).toMatchObject({
-      summary: expect.stringMatching(/^Availability updated: \d+ added, \d+ changed, \d+ removed$/),
-      summaryDetail: { code: "config_saved", added: expect.any(Number) },
+      summary: expect.stringMatching(
+        /^Regular week changed on .+ from \d{4}-\d{2}-\d{2}: \d+ added, \d+ changed, \d+ removed$/
+      ),
+      summaryDetail: { code: "regular_week_changed", added: expect.any(Number) },
     });
   });
 
@@ -694,6 +780,8 @@ describe("getAvailabilityConfig: the migrated flag", () => {
             closesAt: 1320,
             seating: { version: 1, interval: 15 },
             bookingTypes: ["online", "phone"],
+            weekdays: [],
+            dayHours: { version: 1 as const, sets: [] },
           },
         ]),
       },

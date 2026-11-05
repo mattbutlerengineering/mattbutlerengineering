@@ -94,6 +94,18 @@ const ServiceHoursFields = {
   bookingTypes: z.array(z.enum(SERVICE_BOOKING_TYPES)),
 };
 
+/** Other hours a service keeps on some weekdays; those days are not on the base hours. */
+export const DayHoursSetSchema = z.object({
+  weekdays: z.array(WeekdayIndexSchema).min(1),
+  ...ServiceHoursFields,
+});
+
+/** Versioned bundle of a row's hour sets (ADR-031). */
+export const DayHoursSchema = z.object({
+  version: z.literal(1),
+  sets: z.array(DayHoursSetSchema),
+});
+
 export const SpecialHoursServiceSchema = z.object({
   venueServiceId: IdSchema,
   ...ServiceHoursFields,
@@ -140,6 +152,10 @@ export const ScheduleServiceSchema = z.object({
   scheduleId: IdSchema,
   venueServiceId: IdSchema,
   ...ServiceHoursFields,
+  /** Days the base hours apply on; [] = every day the assignment covers, less the days a set claims. */
+  weekdays: z.array(WeekdayIndexSchema).default([]),
+  /** Other hours on some weekdays; absent reads as no sets, so stored rows and old inverses parse. */
+  dayHours: DayHoursSchema.default({ version: 1, sets: [] }),
 });
 
 export const ScheduleAssignmentSchema = z.object({
@@ -193,6 +209,8 @@ export const AvailabilityConfigSchema = z.object({
   dateRules: z.array(DateRuleSchema),
 });
 
+export type DayHoursSet = z.infer<typeof DayHoursSetSchema>;
+export type DayHours = z.infer<typeof DayHoursSchema>;
 export type Seating = z.infer<typeof SeatingSchema>;
 export type AvailabilityWindow = z.infer<typeof WindowSchema>;
 export type Repeat = z.infer<typeof RepeatSchema>;

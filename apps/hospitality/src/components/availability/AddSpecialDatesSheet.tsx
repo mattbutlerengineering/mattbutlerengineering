@@ -10,8 +10,10 @@ import {
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
+import { weekdayIndexOf } from "@mbe/availability";
 import {
   GUEST_MESSAGE_MAX_LENGTH,
+  type AvailabilityConfig,
   type AvailabilityConfigState,
   type ClosureImpact,
 } from "@mbe/types";
@@ -24,6 +26,7 @@ import {
   combineImpacts,
   decisionsFor,
   emptyRow,
+  regularServices,
   ruleItems,
   saveLabelParts,
   rowFieldId,
@@ -57,6 +60,33 @@ export interface AddSpecialDatesSheetProps {
   readonly today: string;
   readonly onStale: () => void;
   readonly onClose: () => void;
+  /** One Closed row per date to start from (the holidays offered on Special dates); else one empty row. */
+  readonly initialRows?: readonly PlannedDate[];
+}
+
+/** A date the sheet opens on, and what it is ("Thanksgiving"), shown in its row's legend. */
+export interface PlannedDate {
+  readonly date: string;
+  readonly name: string;
+  /**
+   * How the row starts. "hours" starts from the weekday's usual hours, so saving it untouched
+   * cancels nothing: the safe start for a day most venues open (Valentine's Day, Mother's Day).
+   */
+  readonly kind: "closed" | "hours";
+}
+
+function plannedRow(
+  planned: PlannedDate,
+  config: AvailabilityConfig,
+  timezone: string,
+  today: string
+): DateRow {
+  const row = emptyRow(crypto.randomUUID(), planned.date, planned.name);
+  if (planned.kind === "closed") return row;
+  const weekday = weekdayIndexOf(planned.date);
+  const services = regularServices(config, timezone, weekday, today);
+  // A weekday with no usual hours has nothing to start from: the row stays Closed.
+  return services.length === 0 ? row : { ...row, kind: "hours", services, seededFor: weekday };
 }
 
 const SHARED_MESSAGE_ID = "add-dates-shared-message";
@@ -69,7 +99,7 @@ const SHARED_MESSAGE_ID = "add-dates-shared-message";
  */
 export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const viewport = useViewport();
-  const { venueId, state, timezone, today, onStale, onClose } = props;
+  const { venueId, state, timezone, today, onStale, onClose, initialRows } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -77,11 +107,14 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const previewImpacts = usePreviewClosureImpacts();
   const createClosures = useCreateClosures();
 
-  const [form, setForm] = useState<AddDatesForm>({
-    rows: [emptyRow(crypto.randomUUID(), "")],
+  const [form, setForm] = useState<AddDatesForm>(() => ({
+    rows:
+      initialRows && initialRows.length > 0
+        ? initialRows.map((r) => plannedRow(r, state.config, timezone, today))
+        : [emptyRow(crypto.randomUUID(), "")],
     shareMessage: false,
     sharedMessage: "",
-  });
+  }));
   const [step, setStep] = useState<1 | 2>(1);
   const [impacts, setImpacts] = useState<readonly ClosureImpact[]>([]);
   const [choices, setChoices] = useState<ChoiceMap>({});

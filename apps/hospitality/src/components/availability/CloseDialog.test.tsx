@@ -128,6 +128,16 @@ describe("CloseDialog", () => {
     expect(screen.getAllByText("0/200")).toHaveLength(1);
   });
 
+  it("names the holiday in the holiday message on a holiday, and keeps it generic otherwise", () => {
+    const { unmount } = renderDialog();
+    fireEvent.click(screen.getByText("Closed for Christmas Eve"));
+    expect(screen.getByLabelText(/Message for guests/)).toHaveValue("Closed for Christmas Eve");
+    unmount();
+    renderDialog({ initialDate: "2026-12-02" });
+    expect(screen.getByText("Closed for the holiday")).toBeInTheDocument();
+    expect(screen.queryByText(/Closed for Christmas/)).not.toBeInTheDocument();
+  });
+
   it("explains an over-limit guest message", () => {
     renderDialog();
     fireEvent.change(screen.getByLabelText(/Message for guests/), {

@@ -55,6 +55,119 @@ test("Select page — opening a select shows options", async ({ page }) => {
   await expect(listbox).toBeVisible();
 });
 
+async function consent(page: Page) {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "rialto-cookie-consent",
+      JSON.stringify({
+        consented: true,
+        preferences: { essential: true, analytics: true, functional: true, marketing: true },
+      })
+    );
+  });
+}
+
+test("Select page — Tyre Compound and Race Strategy keep the picked option", async ({ page }) => {
+  await consent(page);
+  await page.goto("components/select");
+  await page.waitForLoadState("networkidle");
+
+  const tyre = page.getByRole("combobox", { name: "Tyre Compound" });
+  await tyre.click();
+  await page.getByRole("option", { name: "Medium (C3)" }).click();
+  await expect(tyre).toContainText("Medium (C3)");
+
+  await tyre.focus();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(tyre).toContainText("Hard (C1)");
+
+  const starting = page.getByRole("combobox", { name: "Starting tyre" });
+  const pit = page.getByRole("combobox", { name: "Pit window" });
+  await starting.click();
+  await page.getByRole("option", { name: "Hard (C1)" }).click();
+  await pit.click();
+  await page.getByRole("option", { name: "Lap 20–25" }).click();
+  await expect(starting).toContainText("Hard (C1)");
+  await expect(pit).toContainText("Lap 20–25");
+
+  await page.getByRole("button", { name: "Reset" }).click();
+  await expect(starting).toContainText("Select compound…");
+  await expect(pit).toContainText("Select lap…");
+  await expect(tyre).toContainText("Hard (C1)");
+});
+
+test("Number input page — pit strategy steps inside its bounds and Reset restores defaults", async ({
+  page,
+}) => {
+  await consent(page);
+  await page.goto("components/number-input");
+  await page.waitForLoadState("networkidle");
+
+  const target = page.getByLabel("Target Lap");
+  const fuel = page.getByLabel("Fuel Load (kg)");
+  await expect(target).toHaveValue("14");
+  await expect(fuel).toHaveValue("45");
+
+  await target.locator("xpath=..").getByRole("button", { name: "Increase" }).click();
+  await expect(target).toHaveValue("15");
+  await target.focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(target).toHaveValue("16");
+
+  await fuel.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(fuel).toHaveValue("44.5");
+
+  await page.getByRole("button", { name: "Reset" }).click();
+  await expect(target).toHaveValue("14");
+  await expect(fuel).toHaveValue("45");
+
+  await page.getByLabel("Lap Count").focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByLabel("Lap Count")).toHaveValue("6");
+});
+
+async function glyphIsVisible(page: Page, name: string) {
+  const button = page.getByRole("button", { name, exact: true });
+  const svg = button.locator("svg");
+  const box = await svg.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThan(8);
+  expect(box!.height).toBeGreaterThan(8);
+
+  const paint = await svg.evaluate((el) => {
+    const path = el.querySelector("path, line, polyline, circle");
+    const stroke = path ? getComputedStyle(path).stroke : "";
+    const background = getComputedStyle(el.closest("button")!).backgroundColor;
+    return { stroke, background };
+  });
+  expect(paint.stroke).not.toBe("none");
+  expect(paint.stroke).not.toBe("rgba(0, 0, 0, 0)");
+  expect(paint.stroke.replace(/\s/g, "")).not.toBe(paint.background.replace(/\s/g, ""));
+}
+
+test("Tooltip page — icon triggers paint a glyph in light and dark", async ({ page }) => {
+  await consent(page);
+
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ reducedMotion: "reduce", colorScheme: scheme });
+    await page.goto("components/tooltip");
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
+
+    for (const name of ["Upload", "Download", "Delete"]) {
+      await glyphIsVisible(page, name);
+    }
+
+    const upload = page.getByRole("button", { name: "Upload", exact: true });
+    await upload.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Upload telemetry");
+    await upload.blur();
+  }
+});
+
 test("Checkbox page — checking a checkbox toggles its state", async ({ page }) => {
   await page.goto("components/checkbox-radio");
   await page.waitForLoadState("networkidle");

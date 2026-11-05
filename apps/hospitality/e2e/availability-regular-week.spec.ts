@@ -89,13 +89,14 @@ test.describe("Change regular week (F-UW)", () => {
     await mockedPage.goto("availability");
 
     await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
-    await expect(mockedPage.getByText(/^Applies to Tue–Sat/)).toBeVisible();
+    await expect(
+      mockedPage.getByText("This becomes your regular week: open Tue–Sat.")
+    ).toBeVisible();
 
     await mockedPage.getByLabel("Starting").click();
     // The page's own calendar also has a button with this data-date, behind the drawer; only the
     // date picker's cell is a gridcell itself.
     await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
-    await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
     await mockedPage.getByRole("button", { name: /^Save hours from/ }).click();
 
     await expect.poll(() => state.savedBody()).not.toBeNull();
@@ -112,13 +113,15 @@ test.describe("Change regular week (F-UW)", () => {
     const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
     await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
     await expect(drawer).toBeVisible();
-    await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
+    await mockedPage.getByRole("textbox", { name: "Service name" }).first().fill("Dinner late");
 
     await mockedPage.keyboard.press("Escape");
     const ask = mockedPage.getByRole("alertdialog", { name: "Discard your changes?" });
     await expect(ask).toBeVisible();
     await ask.getByRole("button", { name: "Keep editing" }).click();
-    await expect(mockedPage.getByLabel(/Schedule name/)).toHaveValue("Summer hours");
+    await expect(mockedPage.getByRole("textbox", { name: "Service name" }).first()).toHaveValue(
+      "Dinner late"
+    );
 
     await mockedPage.keyboard.press("Escape");
     await mockedPage
@@ -136,7 +139,7 @@ test.describe("Change regular week (F-UW)", () => {
 
     const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
     await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
-    await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
+    await mockedPage.getByRole("textbox", { name: "Service name" }).first().fill("Dinner late");
 
     await mockedPage.getByRole("button", { name: "Cancel" }).click();
     const ask = mockedPage.getByRole("alertdialog", { name: "Discard your changes?" });
@@ -213,7 +216,6 @@ test.describe("Change regular week (F-UW)", () => {
 
         await mockedPage.getByLabel("Starting").click();
         await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
-        await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
 
         await expect(drawer.getByText("Guest preview")).toBeVisible();
         const stranded = drawer.getByText("1 booking would fall outside these hours");
@@ -255,7 +257,6 @@ test.describe("Change regular week (F-UW)", () => {
       const drawer = mockedPage.getByRole("dialog").first();
       await mockedPage.getByLabel(/^Début/).click();
       await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
-      await mockedPage.getByLabel(/^Nom de l’horaire/).fill("Heures d’été");
       const stranded = drawer.getByText("1 réservation serait hors de ces heures");
       await stranded.scrollIntoViewIfNeeded();
       await expect(stranded).toBeVisible();
@@ -281,7 +282,6 @@ test.describe("Change regular week (F-UW)", () => {
       await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
       await mockedPage.getByLabel("Starting").click();
       await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
-      await mockedPage.getByLabel(/Schedule name/).fill("Summer hours");
 
       await expect(mockedPage.getByText("Preview unavailable")).toBeVisible();
       await expect(mockedPage.getByText(/You can still save/)).toBeVisible();
@@ -603,6 +603,13 @@ test.describe("Change regular week: name suggestion (#7981)", () => {
         } else {
           await mockedPage.getByRole("button", { name: open }).click();
         }
+        // The name is asked for only when the change has an end date (it is then a named period).
+        // Ending first, so no preview starts before the name is typed or suggested.
+        await mockedPage.getByLabel(fr ? /^Fin/ : "Ending").click();
+        await mockedPage.locator(`[role="gridcell"][data-date="${lastDayOfThisMonth()}"]`).click();
+        await mockedPage.waitForFunction(() =>
+          document.getAnimations().every((a) => a.playState !== "running")
+        );
         await mockedPage.getByLabel(fr ? /^Début/ : "Starting").click();
         // The open calendar popover is part of what axe reads.
         // By its gridcells, not its name: the popover's label is "Popover" only in English.

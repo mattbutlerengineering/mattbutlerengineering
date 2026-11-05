@@ -80,6 +80,33 @@
       ): { dates: number; parts: { action: ClosureAction; count: number }[] } { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/booking-rules.ts">
+    <item priority="low">
+      interface BookingRulesForm {
+        daysAhead: string;
+        noticeHours: string;
+        largestParty: string;
+      }
+    </item>
+    <item priority="low">
+      type BookingRulesField = keyof BookingRulesForm;
+    </item>
+    <item priority="high">
+      export const UNSET_LARGEST_PARTY: unknown;
+    </item>
+    <item priority="high">
+      export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withBookingRules(
+        settings: VenueSettings | null | undefined,
+        form: BookingRulesForm
+      ): VenueSettings { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/calendar-dates.ts">
     <item priority="low">
       type CalendarView = "month" | "week";
@@ -115,6 +142,13 @@
       ): string | null { /* ... */ }
     </item>
     <item priority="medium">
+      function regularWeekText(
+        detail: AvailabilityChangeDetail,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
       function detailText(
         detail: AvailabilityChangeDetail,
         format: VenueFormat,
@@ -123,6 +157,39 @@
     </item>
     <item priority="high">
       export function changeSummaryText(change: Change, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/change-week-draft.ts">
+    <item priority="medium">
+      function serviceKey(service: ServiceDraft) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekKey(draft: QuickSetupDraft): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function daySignatures(draft: QuickSetupDraft): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editedWeekday(before: QuickSetupDraft, after: QuickSetupDraft): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ReapplyInput {
+        base: QuickSetupDraft;
+        draft: QuickSetupDraft;
+        latest: QuickSetupDraft;
+      }
+    </item>
+    <item priority="high">
+      export function reapplyWeek({ base, draft, latest }: ReapplyInput): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      interface OutsideSchedule {
+        name: string;
+        weekdays: readonly number[];
+      }
+    </item>
+    <item priority="high">
+      export function outsideSchedules(config: AvailabilityConfig): OutsideSchedule[] { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/clock-minutes.ts">
@@ -409,7 +476,11 @@
         scheduleServiceId: string;
         scheduleId: string;
         scheduleName: string;
+        different: boolean;
       }
+    </item>
+    <item priority="medium">
+      function runs(config: AvailabilityConfig, row: ScheduleService): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function compareServiceOptions(config: AvailabilityConfig) { /* ... */ }
@@ -535,12 +606,15 @@
       export function dayLabelText(label: string, t: TFunction): string { /* ... */ }
     </item>
     <item priority="low">
+      type DayTone = "closed" | "special";
+    </item>
+    <item priority="low">
       interface DayPresentation {
         label: string | null;
+        tone: DayTone | null;
         bands: readonly ClosureBandText[];
-        count: string | null;
+        servicesSummary: string | null;
         services: readonly ServiceLineText[];
-        onlineOff: boolean;
       }
     </item>
     <item priority="medium">
@@ -587,7 +661,7 @@
   </file>
   <file path="src/components/availability/draft-changes.ts">
     <item priority="low">
-      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {
+      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "regularWeekd | { readonly kind: "dates"; read | {
             readonly kind: "rule";;
     </item>
     <item priority="high">
@@ -656,6 +730,17 @@
         baseline?: AvailabilityConfig
       ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
     </item>
+    <item priority="medium">
+      function liveRegularWeek(config: AvailabilityConfig) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularWeekdayRows(
+        config: AvailabilityConfig,
+        weekday: number,
+        services: readonly (DraftService & { venueServiceId: string })[],
+        makeId: () => string
+      ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
+    </item>
     <item priority="high">
       export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
     </item>
@@ -683,6 +768,48 @@
     </item>
     <item priority="high">
       export const useEditorOpen: unknown;
+    </item>
+  </file>
+  <file path="src/components/availability/holidays.ts">
+    <item priority="low">
+      type HolidayCountry = "US" | "CA" | "MX";
+    </item>
+    <item priority="low">
+      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "fathersDay" | "juneteenth" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
+    </item>
+    <item priority="low">
+      interface Holiday {
+        id: HolidayId;
+        date: string;
+      }
+    </item>
+    <item priority="medium">
+      function nthWeekday(year: number, month: number, weekday: number, n: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function easterSunday(year: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidaysIn(country: HolidayCountry, year: number): Holiday[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isPlanned(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function upcomingHolidays(
+        country: HolidayCountry,
+        today: string,
+        config: AvailabilityConfig
+      ): Holiday[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidayCountry(
+        addressCountry: string | undefined,
+        locale: string
+      ): HolidayCountry | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export const USUALLY_CLOSED: ReadonlySet<HolidayId>;
     </item>
   </file>
   <file path="src/components/availability/layer-text.ts">
@@ -735,6 +862,14 @@
       ): boolean { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/open-as-usual.ts">
+    <item priority="high">
+      export function readOpenAsUsual(venueId: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/outcome-label.ts">
     <item priority="high">
       export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
@@ -760,14 +895,54 @@
       ): string | null { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/quick-setup-demo.fixture.ts">
+    <item priority="high">
+      export const EVERY_DAY: unknown;
+    </item>
+    <item priority="high">
+      export function draftService(
+        id: string,
+        name: string,
+        times: readonly [string, string, string],
+        extra: Partial<ServiceDraft> = {}
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftBlock(
+        id: string,
+        days: number[],
+        times: readonly [string, string, string]
+      ): HoursBlock { /* ... */ }
+    </item>
+    <item priority="high">
+      export function demoDraft(): QuickSetupDraft { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/quick-setup-draft.ts">
+    <item priority="low">
+      type KeptHours = Pick<ServiceHours, "seating" | "bookingTypes">;
+    </item>
+    <item priority="low">
+      interface DraftTimes {
+        opens: string | null;
+        lastSeating: string | null;
+        closes: string | null;
+        lastSeatingLinked: boolean;
+        kept?: KeptHours;
+      }
+    </item>
+    <item priority="low">
+      interface HoursBlock {
+        id: string;
+        days: readonly number[];
+      }
+    </item>
     <item priority="low">
       interface ServiceDraft {
         id: string;
         name: string;
-        opens: string | null;
-        lastSeating: string | null;
-        closes: string | null;
+        days: readonly number[] | null;
+        blocks: readonly HoursBlock[];
       }
     </item>
     <item priority="low">
@@ -816,29 +991,70 @@
       export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) { /* ... */ }
     </item>
     <item priority="high">
-      export function setServiceTime(
-        service: ServiceDraft,
+      export function setServiceTime<T extends DraftTimes>(
+        service: T,
         field: "opens" | "lastSeating" | "closes",
         value: string | null
-      ): ServiceDraft { /* ... */ }
+      ): T { /* ... */ }
     </item>
     <item priority="high">
       export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft { /* ... */ }
     </item>
     <item priority="high">
-      export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft { /* ... */ }
+      export function toggleDayIn(days: readonly number[], day: number): readonly number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function keepDays<T extends { readonly days: readonly number[] }>(
+        blocks: readonly T[],
+        allowed: readonly number[]
+      ): T[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setServiceDays(
+        service: ServiceDraft,
+        days: readonly number[] | null,
+        sharedDays: readonly number[]
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setSharedDays(draft: QuickSetupDraft, days: readonly number[]): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addBlock(service: ServiceDraft, id: string): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replaceBlock(service: ServiceDraft, next: HoursBlock): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function removeBlock(service: ServiceDraft, blockId: string): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      interface BlockDayToggle {
+        service: ServiceDraft;
+        moved: boolean;
+        removed: readonly HoursBlock[];
+      }
+    </item>
+    <item priority="high">
+      export function toggleBlockDay(
+        service: ServiceDraft,
+        blockId: string,
+        day: number
+      ): BlockDayToggle { /* ... */ }
     </item>
     <item priority="low">
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     </item>
     <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required";
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required" | "block_days_required" | "days_outside_use";
     </item>
     <item priority="low">
       interface QuickSetupIssue {
         serviceId: string | null;
+        blockId?: string;
         field: QuickSetupField | "days";
         code: QuickSetupIssueCode;
+        weekday?: number;
       }
     </item>
     <item priority="high">
@@ -849,19 +1065,44 @@
       }
     </item>
     <item priority="medium">
-      function minutesOf(service: ServiceDraft): ServiceMinutes | null { /* ... */ }
+      function minutesOf(
+        service: Pick<DraftTimes, "opens" | "lastSeating" | "closes">
+      ): ServiceMinutes | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface IssueOwner {
+        serviceId: string;
+        blockId?: string;
+      }
+    </item>
+    <item priority="medium">
+      function missingTimes(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
       function completenessIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
-      function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] { /* ... */ }
+      function orderIssues(times: DraftTimes, m: ServiceMinutes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function timesIssues(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function serviceIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">
       export function validateDraft(
         draft: QuickSetupDraft,
-        options: { readonly legacyReader?: boolean } = {}
+        options: { readonly legacyReader?: boolean; readonly within?: readonly number[] } = {}
       ): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueMessage(
+        issue: QuickSetupIssue,
+        draft: QuickSetupDraft,
+        t: TFunction,
+        weekdayName: (weekday: number) => string
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
       function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
@@ -870,11 +1111,52 @@
       function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean { /* ... */ }
     </item>
     <item priority="high">
+      export function effectiveDays(draft: QuickSetupDraft, service: ServiceDraft): readonly number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function coveredDays(draft: QuickSetupDraft): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekOf(
+        draft: QuickSetupDraft,
+        service: ServiceDraft,
+        m: ServiceMinutes,
+        keptOf: KeptHours | undefined
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
       export function draftToConfig(
         draft: QuickSetupDraft,
         newId: () => string,
-        existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+        existing?: {
+          regularScheduleId?: string;
+          venueServiceIds?: Readonly<Record<string, string>>;
+          /** The days the rows are encoded over, when the schedule's use is fixed apart from the draft. */
+          coveredDays?: readonly number[];
+          /** Per venue service id, the seating and booking types hours the draft carries none for take. */
+          keptOf?: Readonly<Record<string, KeptHours>>;
+        }
       ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="medium">
+      function clockTimes(hours: ServiceHours): DraftTimes { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scheduleDays(
+        config: AvailabilityConfig,
+        scheduleId: string,
+        anyDay = false
+      ): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftFromConfig(
+        config: AvailabilityConfig,
+        newId: () => string,
+        scheduleId?: string
+      ): QuickSetupDraft { /* ... */ }
     </item>
     <item priority="high">
       export function draftToChanges(
@@ -894,6 +1176,72 @@
     </item>
     <item priority="high">
       export function draftFromLegacyHours(hours: OperatingHours, serviceId: string): QuickSetupDraft { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/quick-setup-field-helpers.ts">
+    <item priority="high">
+      export function quickSetupFieldId(
+        serviceId: string | null,
+        field: QuickSetupField | "days",
+        blockId?: string
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issuesFor(
+        issues: readonly QuickSetupIssue[],
+        serviceId: string | null,
+        field: string,
+        blockId?: string
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useWeekdayName() { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/regular-week-line.ts">
+    <item priority="low">
+      interface LineHours {
+        opensAt: number;
+        closesAt: number;
+      }
+    </item>
+    <item priority="low">
+      interface HoursChange {
+        weekdays: readonly number[];
+      }
+    </item>
+    <item priority="low">
+      interface RegularWeekLineService {
+        venueServiceId: string;
+        name: string;
+        days: readonly number[];
+        changes: readonly HoursChange[];
+      }
+    </item>
+    <item priority="low">
+      interface RegularWeekLine {
+        services: readonly RegularWeekLineService[];
+        uniform: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function inForce(config: AvailabilityConfig, today: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function regularWeekLine(config: AvailabilityConfig, today: string): RegularWeekLine { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UpcomingRegularWeek {
+        startsOn: string;
+        endsOn: string | null;
+        line: RegularWeekLine;
+      }
+    </item>
+    <item priority="high">
+      export function upcomingRegularWeek(
+        config: AvailabilityConfig,
+        today: string
+      ): UpcomingRegularWeek | null { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/removal-diff.ts">
@@ -1033,6 +1381,9 @@
       export function weekdayRuns(weekdays: readonly number[]): [number, number][] { /* ... */ }
     </item>
     <item priority="high">
+      export function hasOwnSchedules(config: AvailabilityConfig): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -1045,10 +1396,13 @@
       export function scheduleSaveBlock(draft: {
         readonly conflicted: boolean;
         readonly name: string;
-        readonly services: readonly DraftService[];
+        /** A draft whose rows are quick-setup services has no `venueServiceId`; its own issues name them. */
+        readonly services: readonly { readonly name: string; readonly venueServiceId?: string | null }[];
         readonly startsOn: string | null;
         readonly endsOn: string | null;
         readonly startRequired?: boolean;
+        /** False for a change with no end date: it is the regular week itself and is named by nothing. */
+        readonly nameRequired?: boolean;
       }): ScheduleSaveBlock | null { /* ... */ }
     </item>
     <item priority="medium">
@@ -1084,7 +1438,7 @@
       interface NewScheduleInput {
         config: AvailabilityConfig;
         name: string;
-        services: readonly DraftService[];
+        draft: QuickSetupDraft;
         useOn: UseOn;
         winner: Winner;
       }
@@ -1094,12 +1448,12 @@
     </item>
     <item priority="high">
       interface RegularWeekInput {
+        config: AvailabilityConfig;
+        name: string;
+        draft: QuickSetupDraft;
         startsOn: string;
         endsOn: string | null;
       }
-    </item>
-    <item priority="high">
-      export function regularWeekdays(config: AvailabilityConfig, from: string): number[] { /* ... */ }
     </item>
     <item priority="high">
       export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges { /* ... */ }
@@ -1109,14 +1463,25 @@
         readonly config: AvailabilityConfig;
         readonly scheduleId: string;
         readonly name: string;
-        readonly services: readonly DraftService[];
+        /** The schedule's services as the editor holds them: days and different-hours blocks. */
+        readonly draft: QuickSetupDraft;
         readonly makeId: () => string;
         /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
         readonly baseline: AvailabilityConfig;
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="medium">
-      function freshRows(services: readonly DraftService[]): DraftService[] { /* ... */ }
+      function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleRowChanges(input: {
+        readonly config: AvailabilityConfig;
+        readonly draft: QuickSetupDraft;
+        readonly scheduleId: string;
+        readonly covered: readonly number[];
+        readonly makeId: () => string;
+        readonly baseline?: AvailabilityConfig;
+      }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
       export function datesOfUse(useOn: UseOn, today: string): string[] { /* ... */ }
@@ -1567,6 +1932,17 @@
     </item>
     <item priority="high">
       export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-holidays.ts">
+    <item priority="medium">
+      function addressCountry(profile: unknown): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayCountry(): HolidayCountry | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/use-reload-hold.ts">
@@ -2171,6 +2547,9 @@
     </item>
     <item priority="medium">
       function between(from: string, to: string): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addDays(date: string, n: number): string { /* ... */ }
     </item>
     <item priority="high">
       export async function mockAvailability(
@@ -2833,6 +3212,106 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="helpers">
+  <file path="e2e/helpers/empty-venue-mock.ts">
+    <item priority="medium">
+      function changedWeekdays(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        timezone: string,
+        from: string
+      ): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockEmptyVenue(
+        page: Page,
+        options: { derive?: boolean; config?: AvailabilityConfig } = {}
+      ) { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/helpers/engine-days-mock.ts">
+    <item priority="medium">
+      function isDayClosed(day: ResolvedDay): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function summarize(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary { /* ... */ }
+    </item>
+    <item priority="medium">
+      function between(from: string, to: string): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SavedConfig {
+        config: AvailabilityConfig;
+        version: number;
+      }
+    </item>
+    <item priority="high">
+      export async function serveDaysAndPreview(
+        page: Page,
+        venueBase: string,
+        timezone: string,
+        current: () => SavedConfig
+      ) { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/helpers/interaction-counter.ts">
+    <item priority="low">
+      interface InteractionCounter {
+        page: Page;
+        count: () => number;
+      }
+    </item>
+    <item priority="high">
+      export function countInteractions(page: Page): InteractionCounter { /* ... */ }
+    </item>
+  </file>
+  <file path="e2e/helpers/quick-setup-scenarios.ts">
+    <item priority="high">
+      export const UNIFORM_BISTRO_BASELINE: unknown;
+    </item>
+    <item priority="high">
+      export const LARGE_SETUP_BASELINE: unknown;
+    </item>
+    <item priority="low">
+      async function chooseTime(page: Page, serviceIndex: number, label: string, time: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setUniformBistroWeek(page: Page) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setLargeSetup(page: Page) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setDemoWeek(page: Page, scope: Page | Locator = page) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEMO_WEEK_VIA_SCHEDULES_COUNT: unknown;
+    </item>
+  </file>
+  <file path="e2e/helpers/week-dates.ts">
+    <item priority="high">
+      export const WEEKDAYS: unknown;
+    </item>
+    <item priority="medium">
+      function utc(iso: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function plusDays(iso: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextMonday(today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function serviceLines(scope: Locator): Promise<string[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function calendarWeek(page: Page, monday: string): Promise<Record<string, string[]>> { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="src/hooks/create-mutation-hook.ts">
     <item priority="low">
@@ -3415,6 +3894,9 @@
     </item>
     <item priority="high">
       export const useActivateFloorPlan: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteFloorPlan: unknown;
     </item>
     <item priority="low">
       interface BulkUpdatePositionsPayload {
@@ -5335,6 +5817,17 @@
         timeZone: string,
         now: Date
       ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/demo-week.fixture.ts">
+    <item priority="high">
+      export const DEMO_WEEK_CONFIG: AvailabilityConfig;
+    </item>
+    <item priority="high">
+      export const DEMO_WEEK_TZ: unknown;
+    </item>
+    <item priority="high">
+      export const DEMO_WEEK_MONDAY: unknown;
     </item>
   </file>
   <file path="src/utils/dinner-config.fixture.ts">

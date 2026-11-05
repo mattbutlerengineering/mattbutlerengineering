@@ -170,8 +170,9 @@ test.describe("the first screen", () => {
     await mockAvailability(page);
     await open(page, DESKTOP);
     const first = await page.locator("[data-date]").first().boundingBox();
-    // The toolbar used to push the first day to 472.
-    expect(first!.y).toBeLessThan(430);
+    // The toolbar used to push the first day to 472. The regular-week line (ux.md S2) is one row
+    // more than the 430 this allowed before it, so the guard sits just under the old 472.
+    expect(first!.y).toBeLessThan(460);
     const today = await page.getByRole("button", { name: "Today" }).boundingBox();
     const month = await page.getByRole("radio", { name: "Month" }).boundingBox();
     const close = await page.getByRole("button", { name: /^Close…/ }).boundingBox();

@@ -17,6 +17,7 @@ import {
 import type { Reservation } from "@mbe/types";
 import { useGuest, useAddStaffNote } from "../../hooks/useGuests.js";
 import { useReservations } from "../../hooks/useReservations.js";
+import { useOptionalVenue } from "../../contexts/venue-context-object.js";
 import {
   isAllergyTag,
   getSegmentLabel,
@@ -58,8 +59,12 @@ export function GuestCard({ guestId, onEditProfile }: GuestCardProps) {
   const fmt = useVenueFormat();
   const { data: guest, isLoading, error, refetch } = useGuest(guestId);
 
+  // The current venue scopes the history request (#8256); outside a venue
+  // provider the API resolves the guest's own venue instead.
+  const venueId = useOptionalVenue()?.selectedVenueId ?? undefined;
   const { data: reservations = [] } = useReservations({
     guestId: guestId ?? undefined,
+    venueId,
     limit: 20,
     enabled: !!guestId,
   });

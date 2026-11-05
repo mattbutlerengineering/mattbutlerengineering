@@ -71,14 +71,14 @@ function renderCalendar(props: Partial<React.ComponentProps<typeof AvailabilityC
 }
 
 describe("AvailabilityCalendar", () => {
-  it("names each cell with its date, label, service count and closure band", () => {
+  it("names each cell with its date, label, closure band and services", () => {
     renderCalendar();
     expect(
       screen.getByRole("grid", { name: "Availability calendar, Oct 26 – Nov 1, 2026" })
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Friday, October 30: Special hours, 2 services, closed 10:00 PM – 11:00 PM, Lunch 11:00 AM–2:00 PM, Dinner 6:00 PM–10:00 PM",
+        name: "Friday, October 30: Special hours, closed 10:00 PM – 11:00 PM, Lunch 11:00 AM–1:30 PM, Dinner 6:00 PM–9:30 PM",
       })
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Monday, October 26: Closed/ })).toBeInTheDocument();
@@ -87,8 +87,46 @@ describe("AvailabilityCalendar", () => {
   it("shows each service's hours as its own line", () => {
     renderCalendar();
     const cell = screen.getByRole("button", { name: /Friday, October 30/ });
-    expect(within(cell).getByText("Lunch 11:00 AM–2:00 PM")).toBeInTheDocument();
-    expect(within(cell).getByText("Dinner 6:00 PM–10:00 PM")).toBeInTheDocument();
+    expect(within(cell).getByText("Lunch 11:00 AM–1:30 PM")).toBeInTheDocument();
+    expect(within(cell).getByText("Dinner 6:00 PM–9:30 PM")).toBeInTheDocument();
+  });
+
+  it("names a holiday beside its day number and in the cell's name, and no other day", () => {
+    const thanksgiving = day("2026-11-26");
+    renderCalendar({
+      view: "month",
+      anchor: "2026-11-15",
+      days: [thanksgiving, day("2026-11-25")],
+    });
+    const cell = screen.getByRole("button", { name: /^Thursday, November 26: .*, Thanksgiving$/ });
+    expect(within(cell).getByText("Thanksgiving")).toBeInTheDocument();
+    const before = screen.getByRole("button", { name: /^Wednesday, November 25:/ });
+    expect(before.getAttribute("aria-label")).not.toMatch(/Thanksgiving/);
+  });
+
+  it("prints the first and last time a guest can book, not the close", () => {
+    const week = WEEK.map((d) =>
+      d.serviceDate === "2026-10-30"
+        ? {
+            ...d,
+            closures: [],
+            serviceCount: 1,
+            services: [
+              {
+                venueServiceId: "svc-2",
+                name: "Dinner",
+                opensAt: 1020,
+                lastSeatingAt: 1275,
+                closesAt: 1320,
+              },
+            ],
+          }
+        : d
+    );
+    renderCalendar({ days: week });
+    const cell = screen.getByRole("button", { name: /Friday, October 30/ });
+    expect(within(cell).getByText("Dinner 5:00 PM–9:15 PM")).toBeInTheDocument();
+    expect(cell).not.toHaveTextContent("10:00 PM");
   });
 
   it("marks the day that holds an unsaved draft with a dot and says so in its name", () => {

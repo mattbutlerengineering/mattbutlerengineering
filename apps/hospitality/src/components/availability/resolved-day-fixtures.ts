@@ -15,6 +15,8 @@ const LUNCH_HOURS = {
   closesAt: 900,
   seating: SEATING,
   bookingTypes: BOOKING_TYPES,
+  weekdays: [] as number[],
+  dayHours: { version: 1 as const, sets: [] },
 };
 const DINNER_HOURS = {
   opensAt: 1020,
@@ -22,6 +24,8 @@ const DINNER_HOURS = {
   closesAt: 1380,
   seating: SEATING,
   bookingTypes: BOOKING_TYPES,
+  weekdays: [] as number[],
+  dayHours: { version: 1 as const, sets: [] },
 };
 
 const BASE_CONFIG: AvailabilityConfig = {

@@ -328,7 +328,10 @@ function otherModalOpen(): boolean {
  * Remembers the element focused when the overlay mounted (the panel toggle,
  * when it was used to open) and puts focus back there when the overlay unmounts.
  */
-function useRestoreTriggerFocus(): void {
+function useRestoreTriggerFocus(panelRef: RefObject<HTMLDivElement | null>): void {
+  // Captured once. StrictMode replays setup after useOverlayKeyControls has
+  // already moved focus into the panel; re-capturing then would remember a
+  // panel button that unmounts with the overlay, and the restore would no-op.
   const triggerRef = useRef<HTMLElement | null>(null);
   // Stays true across StrictMode's setup → cleanup → setup replay. The replay's
   // cleanup schedules a restore rAF; that rAF must not yank focus back while the
@@ -336,18 +339,23 @@ function useRestoreTriggerFocus(): void {
   const openRef = useRef(false);
   useLayoutEffect(() => {
     openRef.current = true;
-    triggerRef.current =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const active = document.activeElement;
+    if (
+      triggerRef.current === null &&
+      active instanceof HTMLElement &&
+      !panelRef.current?.contains(active)
+    ) {
+      triggerRef.current = active;
+    }
     return () => {
       const trigger = triggerRef.current;
-      triggerRef.current = null;
       openRef.current = false;
       requestAnimationFrame(() => {
         if (openRef.current) return;
         trigger?.focus();
       });
     };
-  }, []);
+  }, [panelRef]);
 }
 
 /**
@@ -420,7 +428,7 @@ interface OverlayPanelProps {
  */
 function OverlayPanel({ children, label, onClose, placement }: OverlayPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
-  useRestoreTriggerFocus();
+  useRestoreTriggerFocus(panelRef);
   useOverlayKeyControls(panelRef, onClose);
   const placementClass = placement === "start" ? styles.overlayStart : styles.overlayEnd;
 

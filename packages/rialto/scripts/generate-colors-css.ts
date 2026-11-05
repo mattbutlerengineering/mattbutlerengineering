@@ -3,7 +3,8 @@
  * Rialto Color CSS Generator (issue #3361)
  *
  * Generates src/tokens/colors.css from the two DTCG authoring sources:
- *   - src/tokens/colors.json       → `:root` (light theme)
+ *   - src/tokens/colors.json       → `:root` (light theme) and a nested
+ *     `[data-theme="light"]` island inside `[data-theme="dark"]`
  *   - src/tokens/colors.dark.json  → `[data-theme="dark"]`
  *
  * Custom property names derive deterministically from token paths
@@ -143,6 +144,12 @@ function main(): void {
     ...(typeof darkPreamble === "string" ? wrapComment(darkPreamble) : []),
     renderBlock('[data-theme="dark"]', dark, "color-scheme: dark;"),
     "",
+    "/* ── Nested light scope ──────────────────────── */",
+    ...wrapComment(
+      "Custom properties inherit, and :root does not match an element. A light island inside a dark ancestor would otherwise keep the dark palette. Re-declare the light tokens on that island. This rule follows the dark block so a parser that takes the first dark-attribute rule still reads the dark palette."
+    ),
+    renderBlock('[data-theme="dark"] [data-theme="light"]', light, "color-scheme: light;"),
+    "",
   ];
 
   const outPath = path.join(tokensDir, "colors.css");
@@ -150,7 +157,7 @@ function main(): void {
 
   const tokenCount = walkTokens(light).length;
   console.info(
-    `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens × 2 themes`
+    `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens, dark override plus nested light scope`
   );
 }
 

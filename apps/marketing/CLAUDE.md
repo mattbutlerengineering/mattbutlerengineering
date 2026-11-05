@@ -21,7 +21,7 @@ All UI primitives come from `@mattbutlerengineering/rialto` (`Footer`, `GlobalNa
 ## Patterns
 
 - **Rialto-only UI** — no raw `<button>`, `<input>`, `<select>`. All colors via `var(--rialto-*)` tokens.
-- **PWA** — service worker with auto-update, Google Fonts cached 1 year, HTML always network-first.
+- **PWA** — service worker with auto-update, same-origin build assets precached, HTML always network-first. Google Fonts stay on the document's style-src/font-src loads; the worker does not fetch them, because connect-src would block that fetch.
 - **API proxy (dev only)** — `/api/*` proxies to `http://localhost:3001`.
 - **Module alias** — `@` maps to `./src/`.
 - **Sentry** — error boundary + source map upload on build.

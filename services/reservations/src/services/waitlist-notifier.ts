@@ -1,10 +1,12 @@
 import { JOB_TYPES } from "../jobs/index.js";
 import type { SmsPort } from "../notifications/index.js";
 import { waitlistService } from "./waitlist.js";
+import { JobQueueUnavailableError } from "./notifier-runtime.js";
 import type { NotifierRuntime, NotifierScheduler } from "./notifier-runtime.js";
 
 export interface WaitlistNotifierLogger {
   error(obj: Record<string, unknown>, msg: string): void;
+  warn(obj: Record<string, unknown>, msg: string): void;
   info(obj: Record<string, unknown>, msg: string): void;
 }
 
@@ -163,6 +165,11 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
     // Always schedule expiry regardless of SMS outcome. If scheduling fails the
     // row would stay notified forever (host can't retry, next guest never
     // notified), so roll it back to waiting and surface the error.
+    //
+    // Exception (#8257): with no job queue configured at all (production has
+    // no Redis, #3763) the row stays notified — the guest has been texted and
+    // `expiresAt` already records the claim deadline — and only the automatic
+    // expiry is skipped; the host expires or seats the party by hand.
     try {
       await scheduler.schedule(
         JOB_TYPES.WAITLIST_EXPIRY,
@@ -171,8 +178,14 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
         `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
       );
     } catch (err) {
-      await revertNotified(input.id);
-      throw err;
+      if (!(err instanceof JobQueueUnavailableError)) {
+        await revertNotified(input.id);
+        throw err;
+      }
+      logger.warn(
+        { err, waitlistEntryId: input.id, venueId: input.venueId },
+        "waitlist expiry job not scheduled: job queue unavailable; the party stays notified until a host expires or seats it"
+      );
     }
 
     // Queue positions are final only now that the notified state stuck.
@@ -208,6 +221,7 @@ export function createWaitlistNotifier(deps: WaitlistNotifierDeps): WaitlistNoti
 
 const consoleLogger: WaitlistNotifierLogger = {
   error: (obj, msg) => process.stderr.write(JSON.stringify({ ...obj, msg }) + "\n"),
+  warn: (obj, msg) => process.stderr.write(JSON.stringify({ level: "warn", ...obj, msg }) + "\n"),
   info: (obj, msg) => process.stdout.write(JSON.stringify({ ...obj, msg }) + "\n"),
 };
 

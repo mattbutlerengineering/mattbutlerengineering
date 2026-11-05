@@ -5,12 +5,23 @@
   align-items: start;
 }
 
+/* Change regular week's drawer: the services alone, no strip beside them. */
+.layoutSingle {
+  display: block;
+}
+
 .service,
-.days {
+.days,
+.block {
   border: 0;
   margin: 0;
   padding: 0;
   min-width: 0;
+}
+
+.block {
+  padding-inline-start: var(--rialto-space-md);
+  border-inline-start: 2px solid var(--rialto-border);
 }
 
 .legend {
@@ -47,22 +58,9 @@
   margin-top: var(--rialto-space-sm);
 }
 
-.preview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-sm);
-  padding: var(--rialto-space-md);
-  border-radius: var(--rialto-radius-default);
-  background: var(--rialto-surface-recessed);
-}
-
-.previewList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-xs);
+.stripColumn {
+  position: sticky;
+  top: var(--rialto-space-md);
 }
 
 .visuallyHidden {
@@ -78,5 +76,10 @@
   .layout,
   .times {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* One column: the strip follows the days, not pinned beside them. */
+  .stripColumn {
+    position: static;
   }
 }

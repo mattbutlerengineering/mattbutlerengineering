@@ -64,15 +64,41 @@ export interface DateRangeProps extends Omit<HTMLAttributes<HTMLDivElement>, "on
   weekStartsOn?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
 }
 
-function initialMonth(startIso: string | null, today: string): CalendarMonth {
-  return startIso ? monthOfIso(startIso) : monthOfIso(today);
+function initialMonth(
+  startIso: string | null,
+  today: string,
+  min: string | undefined,
+  max: string | undefined
+): CalendarMonth {
+  if (startIso) return monthOfIso(startIso);
+  if (min && today < min) return monthOfIso(min);
+  if (max && today > max) return monthOfIso(max);
+  return monthOfIso(today);
 }
 
-function initialFocus(startIso: string | null, month: CalendarMonth, today: string): string {
+function clampToBounds(iso: string, min: string | undefined, max: string | undefined): string {
+  if (min && iso < min) return min;
+  if (max && iso > max) return max;
+  return iso;
+}
+
+function initialFocus(
+  startIso: string | null,
+  month: CalendarMonth,
+  today: string,
+  min: string | undefined,
+  max: string | undefined
+): string {
   if (startIso) return startIso;
   const todayMonth = monthOfIso(today);
-  if (todayMonth.year === month.year && todayMonth.month === month.month) return today;
-  return toIsoDate(month.year, month.month, 1);
+  const candidate =
+    todayMonth.year === month.year && todayMonth.month === month.month
+      ? today
+      : toIsoDate(month.year, month.month, 1);
+  const clamped = clampToBounds(candidate, min, max);
+  const clampedMonth = monthOfIso(clamped);
+  if (clampedMonth.year === month.year && clampedMonth.month === month.month) return clamped;
+  return candidate;
 }
 
 export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function DateRange(
@@ -104,10 +130,10 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
   // Visible month is derived once (lazy init) then changed only in event
   // handlers — never synced from a `useEffect` body (a Rialto rendering rule).
   const [visibleMonth, setVisibleMonth] = useState<CalendarMonth>(() =>
-    initialMonth(startIso, today)
+    initialMonth(startIso, today, min, max)
   );
   const [focusedDate, setFocusedDate] = useState<string>(() =>
-    initialFocus(startIso, initialMonth(startIso, today), today)
+    initialFocus(startIso, initialMonth(startIso, today, min, max), today, min, max)
   );
   // The hovered day drives the in-progress range preview (mouse); keyboard nav
   // falls back to `focusedDate`.

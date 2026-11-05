@@ -4838,3 +4838,63 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
   2. The floating "Copy JSX" button overlaps the page subtitle at 375 px on the example pages (`examples/availability-heatmap`, `examples/booking-confirmed`, `examples/checkout`, `examples/guest-checkin`, `examples/notification-center`, `examples/reservation-kanban`, `examples/reservation-timeline`).
      Both are real defects a human would want fixed; raising them needs either a human-authored rubric bump (a new judged tell for mobile overlap/occlusion, which only a human may make) or an issue filed outside this loop. The routine cannot file them itself.
 - **Note (environment):** the MCP tool names this routine's prompt uses (`get_issue`, `create_issue`, `update_issue`, `search_issues`) still do not exist in this session; the available equivalents are `issue_read`, `issue_write` and `list_issues`, and GitHub MCP `search_*` tools are unavailable. Both label sweeps (`ui-quality`, `ui-quality:p1`) were done with `list_issues` filtered by label, every page read (37 and 0 results, `hasNextPage: false` on both). Per-issue state came from that same authoritative listing after spot-checking #8106 and #5943 with `issue_read` and confirming the states matched; all 35 ledger issues were present in the listing, so none was recorded `missing`.
+
+## 2026-11-04
+
+**Sensors:** 15/17 available
+**Regressions:** 2 detected, 0 issues created
+**Verifications:** 2 checked, 0 verified, 0 failed, 2 skipped (no completed CI runs to compare against); threshold auto-tuner applied 1 adjustment (acmm 1.47 -> 1.5, headroom)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected) — all budgets at default 3
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Sentry triage:** skipped — stored Sentry access token rejected ("Authorization Expired"), needs re-auth
+**Threshold notes:** false-positive rate 2/36 closed learning-loop issues (~5.6%, well under 30%) — no loosening needed. Fix-effectiveness over the 30-day verification log is 6/102 (5.9%) taken literally, but 92 of those 102 rows are `skip` (no CI run to compare against — a known cloud-session gh-client limitation, not a real failure); over the 10 rows actually evaluated, 6/10 = 60% (above the 50% bar). Treat the literal 5.9% as an artifact of the skip-heavy sample, not a regression in fix strategy.
+**Regression detail:**
+
+- `metricsFreshness.shipped-features`: fresh -> stale (+18.86d). Duplicate of already-open #8263 ("Metrics collection is stale or empty", `ci-fix`) plus the in-flight `shipped-features-freshness` tracking chain (#8205/#8202/#8203) already diagnosing/fixing this exact collector. No new issue filed.
+- `ciHealth.pass_rate_pct`: 100 -> 90 (-10, high). The sensor's 30-run window holds exactly one failure, at commit `59a9cfab5cde807ea4c410eb3156fb3d5aeb554f` (2026-11-04T03:46Z) — already filed and already closed as #8225 ("Broken Main at commit 59a9cfab...", closed 2026-11-04T04:28Z, same day). The metric self-corrects as the window ages the fixed run out; filing a new issue would duplicate an already-resolved incident.
+
+## 2026-11-05 — mbe-evening (progress-tracker)
+
+### Metrics (7d; `audit`+`ci-fix` labels, REST `since=` as an updated-at proxy — a floor estimate, not exact `created_at` filtering)
+
+| Metric                 | Value                                                                                                                  | Status                       |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Created (7d)           | 27 (8 audit + 19 ci-fix)                                                                                               | -                            |
+| Closed (7d)            | 26 (8 audit + 18 ci-fix)                                                                                               | -                            |
+| Closure Rate           | 26/27 ≈ 96.3%                                                                                                          | 🟢 Green (>80%)              |
+| Time-to-Close          | mean 72.0h                                                                                                             | 🔴 Red (>72h) — but see note |
+| Agent Success          | has-pr/(has-pr+failed) = 2/3 ≈ 66.7%                                                                                   | 🟡 Yellow (40-70%)           |
+| CI Pass                | 8/8 non-skipped runs on main (last 20) = 100%                                                                          | 🟢 Green (>95%)              |
+| Queue (ready)          | 6                                                                                                                      | 🟡 Yellow (5-10)             |
+| Stale (ready>7d)       | 0                                                                                                                      | 🟢 Green                     |
+| Blocked (agent-failed) | 1 (#8199)                                                                                                              | — not 0, see Patterns        |
+| Skipped (agent-skip)   | 1 (#8202)                                                                                                              | — not 0, see Patterns        |
+| Daily Spend            | unknown — 0 attributed `recordSpend` sessions today                                                                    | n/a (never report as $0)     |
+| 7d Spend               | unknown — 0 attributed `recordSpend` sessions this window; 8 queue-worker sessions, 1,214,488 tokens, cost unconverted | n/a                          |
+| Cost/Issue             | unknown (same cause)                                                                                                   | n/a                          |
+
+**Time-to-close note:** the 72.0h mean is a single outlier (#4670, closed after 1517h ≈ 63 days — a very old stale issue finally closed this window) dragging up an otherwise-healthy distribution; the median of the same 26 closures is ≈17h and 24/26 closed under 40h. Read the mean as misleading here, not as a real slowdown.
+
+### Patterns
+
+- **Dependency-chain stall on the `shipped-features-freshness` decompose chain:** #8203 ("[Feature] shipped-features-freshness [2/3]") carries `ready` but its body names `Depends on: #8202`, and #8202 ("...[1/3]: diagnose...") is labelled `agent-skip`, not closed — so #8203 can never become claimable through the normal dependency check (which only looks for the dependency being _closed_, not _abandoned_). This run correctly dropped #8203 from the claimable batch per Phase 1's dependency rule, but the chain itself is stuck: #8202 was skipped (2 agent attempts exhausted) rather than resolved, so #8203 sits in `ready` indefinitely with no path forward except a human re-diagnosing #8202 or closing the chain. Single observation this run — flagging for a human look rather than filing a `[Meta]` issue, since 3+ day consistency hasn't been confirmed from this session alone.
+- **Queue composition is bug/audit-heavy, not feature-heavy:** of the 6 `ready` issues, 2 are Sentry-sourced hospitality 500/502 bugs (#8282, #8281 — siblings of this run's #8280, same `apps/hospitality` zone, deferred this batch by the zone-spread selector since main is `strict`), 1 is the blocked #8203 above, and 3 are `needs-human`-labelled rialto-web a11y features awaiting a human judgment call on vague/subjective acceptance criteria — none of the three a11y issues were ever claimable by this skill.
+- **CI is fully green** on main (8/8 non-skipped runs in the sample), consistent with the green-main policy holding.
+- **Agent Success at 66.7% (Yellow)** is a single-run snapshot (2 open `has-pr` / 1 open `agent-failed`) and shouldn't be read as a trend without more data points; this run's own batch (3/3 issues produced a PR, 0 failures) was 100%.
+
+### Recommendations
+
+- A human should decide #8202/#8203's fate: either re-attempt the diagnosis (perhaps with a different model tier or more context) or close both and let `/decompose` re-propose `shipped-features-freshness` cleanly, so `ready` doesn't carry a permanently-stuck issue.
+- No threshold or automation changes recommended this run — all signals are within normal range or explained by a known outlier/sampling artifact.
+
+### Skipped Issues
+
+1 skipped after max retries:
+
+- #8202 [Feature] shipped-features-freshness [1/3]: diagnose why the live collector reports zero features
+
+## 2026-11-05
+
+**queueEfficiency:** composite 0.843 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:5, size:s:20, size:l:16, size:xl:19, size:xs:8
+**Issues filed:** 0

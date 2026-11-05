@@ -107,6 +107,52 @@ describe("changeSummaryText from a code", () => {
     expect(await textOf("en-US", open)).toBe("Reopened from Thu, Dec 24 onward");
   });
 
+  it("words a regular-week change from its start date and weekdays, in each language", async () => {
+    const friday = change(
+      "Regular week changed on Fri from 2026-11-06: 0 added, 1 changed, 0 removed",
+      {
+        code: "regular_week_changed",
+        startsOn: "2026-11-06",
+        weekdays: [5],
+        added: 0,
+        changed: 1,
+        removed: 0,
+      }
+    );
+    expect(await textOf("en-US", friday)).toBe("Changed regular week from Nov 6: Fri");
+    expect(await textOf("es-MX", friday)).toMatch(/^Semana habitual cambiada desde el 6 nov: vie/);
+    expect(await textOf("fr-CA", friday)).toMatch(
+      /^Semaine habituelle modifiée dès le 6 nov\. : ven/
+    );
+    // Days read as runs, Monday first, so Sunday joins Saturday.
+    const weekend = change("…", {
+      code: "regular_week_changed",
+      startsOn: "2026-11-06",
+      weekdays: [0, 5, 6],
+    });
+    expect(await textOf("en-US", weekend)).toBe("Changed regular week from Nov 6: Fri–Sun");
+    expect(
+      await textOf("en-US", { ...friday, detail: { ...friday.detail!, reverted: true } })
+    ).toBe("Reverted: Changed regular week from Nov 6: Fri");
+  });
+
+  it("falls back to the English summary for a regular-week change missing its data, and for unknown codes", async () => {
+    const noDays = change(
+      "Regular week changed on Fri from 2026-11-06: 0 added, 1 changed, 0 removed",
+      {
+        code: "regular_week_changed",
+        startsOn: "2026-11-06",
+      }
+    );
+    expect(await textOf("en-US", noDays)).toBe(noDays.summary);
+    const unknown = change("Something a newer server says", {
+      code: "week_rearranged",
+      startsOn: "2026-11-06",
+      weekdays: [5],
+    });
+    expect(await textOf("en-US", unknown)).toBe("Something a newer server says");
+  });
+
   it("words each Tonight change, with plurals where it counts", async () => {
     const tonight = (detail: AvailabilityChangeSummary["detail"]) => change("Tonight: …", detail);
     expect(await textOf("es-MX", tonight({ code: "tonight_pause_online" }))).toBe(

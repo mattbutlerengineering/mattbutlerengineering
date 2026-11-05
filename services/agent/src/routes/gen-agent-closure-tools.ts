@@ -3,6 +3,7 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
+import { servicesOn, weekdayIndexOf } from "@mbe/availability";
 import type { AvailabilityConfig, DateRule, ReopenResult, SpecialHoursService } from "@mbe/types";
 import {
   AVAILABILITY_PAGE,
@@ -99,7 +100,10 @@ async function saveIfNoBookings(
 
 // ── Special hours ───────────────────────────────────────────
 
-/** The day's regular services (from its schedule) with `serviceId`'s hours replaced. */
+/**
+ * The services running on the day (its schedule's rows that run on its weekday, with that
+ * weekday's hours) with `serviceId`'s hours replaced.
+ */
 async function specialServices(
   api: ApiClient,
   venueId: string,
@@ -111,9 +115,11 @@ async function specialServices(
   const days = await api.availability.listDays(venueId, { from: date, to: date });
   const scheduleId = days.find((d) => d.serviceDate === date)?.scheduleId;
   if (!scheduleId) return { error: NO_REGULAR_HOURS };
-  const live = new Set(config.venueServices.filter((s) => !s.archivedAt).map((s) => s.id));
-  const rows = config.scheduleServices.filter(
-    (row) => row.scheduleId === scheduleId && live.has(row.venueServiceId)
+  const live = new Map(config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.id, s]));
+  const rows = servicesOn(
+    config.scheduleServices.filter((row) => row.scheduleId === scheduleId),
+    live,
+    weekdayIndexOf(date)
   );
   if (!rows.some((row) => row.venueServiceId === serviceId)) {
     return {

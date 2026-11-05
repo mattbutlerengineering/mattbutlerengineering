@@ -3,7 +3,7 @@
  * (start→end ordering, swap, same-day, clearing), disabled-date interaction,
  * keyboard navigation, and ARIA range structure.
  */
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DateRange } from "./DateRange";
@@ -169,5 +169,64 @@ describe("DateRange — month navigation", () => {
     renderRange({ value: { start: "2024-06-10", end: "2024-06-15" } });
     await user.click(screen.getByRole("button", { name: /next month/i }));
     expect(screen.getByRole("grid")).toHaveAttribute("aria-label", expect.stringContaining("July"));
+  });
+});
+
+describe("DateRange — initial month when today is outside min/max", () => {
+  const BOUNDS = { min: "2026-07-05", max: "2026-07-25" };
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function atLocalNoon(year: number, monthIndex: number, day: number) {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(year, monthIndex, day, 12, 0, 0));
+  }
+
+  it("opens on the min month when today is before the bounds", () => {
+    atLocalNoon(2026, 2, 1); // 1 March 2026
+    renderRange(BOUNDS);
+    expect(screen.getByRole("grid")).toHaveAttribute(
+      "aria-label",
+      expect.stringMatching(/July\s+2026/)
+    );
+    const focusable = document.querySelector('[role="gridcell"][tabindex="0"]');
+    expect(focusable).toHaveAttribute("data-date", "2026-07-05");
+    expect(focusable).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("opens on the max month when today is after the bounds", () => {
+    atLocalNoon(2026, 10, 4); // 4 November 2026
+    renderRange(BOUNDS);
+    expect(screen.getByRole("grid")).toHaveAttribute(
+      "aria-label",
+      expect.stringMatching(/July\s+2026/)
+    );
+    const focusable = document.querySelector('[role="gridcell"][tabindex="0"]');
+    expect(focusable).toHaveAttribute("data-date", "2026-07-05");
+    expect(focusable).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("stays on today's month when today falls inside the bounds", () => {
+    atLocalNoon(2026, 6, 10); // 10 July 2026
+    renderRange(BOUNDS);
+    expect(screen.getByRole("grid")).toHaveAttribute(
+      "aria-label",
+      expect.stringMatching(/July\s+2026/)
+    );
+    expect(document.querySelector('[role="gridcell"][tabindex="0"]')).toHaveAttribute(
+      "data-date",
+      "2026-07-10"
+    );
+  });
+
+  it("still opens on a selected start's month when one is set", () => {
+    atLocalNoon(2026, 10, 4);
+    renderRange({ ...BOUNDS, value: { start: "2026-08-02", end: null } });
+    expect(screen.getByRole("grid")).toHaveAttribute(
+      "aria-label",
+      expect.stringMatching(/August\s+2026/)
+    );
   });
 });

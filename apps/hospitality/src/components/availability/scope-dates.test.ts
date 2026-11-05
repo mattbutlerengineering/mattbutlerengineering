@@ -129,3 +129,13 @@ describe("ownChangeDates", () => {
     expect(ownChangeDates(fixtureConfig(closure), [FIXTURE_DATE], null)).toEqual([]);
   });
 });
+
+describe("scopeDates for a regular weekday", () => {
+  it("is every future date of that weekday the live regular week runs, to the 366-day horizon", () => {
+    const fridays = dates({ kind: "regularWeekday", weekday: 5 });
+    expect(fridays[0]).toBe("2026-10-30");
+    expect(fridays).toHaveLength(52);
+    // The fixture's regular week runs Fridays only.
+    expect(dates({ kind: "regularWeekday", weekday: 4 })).toEqual([]);
+  });
+});

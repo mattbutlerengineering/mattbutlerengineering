@@ -79,6 +79,12 @@ export interface TapeChartStrings {
   reservationAriaTemplate?: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
   nightsLabel?: (count: number) => string;
   partySizeLabel?: (count: number) => string;
+  /**
+   * Noun after a separately formatted reservation count, capitalized
+   * ("Reservation" / "Reservations"). The stat chips and the mobile day
+   * cards both use it; the mobile card lowercases the result.
+   */
+  reservationCountLabel?: (count: number) => string;
 }
 
 export interface TapeChartMovePayload {

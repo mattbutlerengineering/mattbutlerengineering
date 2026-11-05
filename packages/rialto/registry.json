@@ -1,5 +1,5 @@
 {
-  "version": "0.10.1",
+  "version": "0.10.3",
   "components": [
     {
       "name": "Accordion",
@@ -3398,6 +3398,12 @@
           "name": "className",
           "type": "string | undefined",
           "required": false
+        },
+        {
+          "name": "solid",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Paint the opaque elevated surface instead of translucent glass. For a panel of form controls\nover a busy page (a timeline grid), where the page showing through hurts reading the fields."
         }
       ],
       "slots": [

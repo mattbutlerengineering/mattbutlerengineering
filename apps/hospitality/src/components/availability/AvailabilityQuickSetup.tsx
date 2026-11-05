@@ -9,7 +9,12 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { LeaveGuard } from "./LeaveGuard.js";
 import { QuickSetupCard } from "./QuickSetupCard.js";
-import { WEEK_DISPLAY_ORDER, draftToChanges, type QuickSetupDraft } from "./quick-setup-draft.js";
+import {
+  WEEK_DISPLAY_ORDER,
+  coveredDays,
+  draftToChanges,
+  type QuickSetupDraft,
+} from "./quick-setup-draft.js";
 
 const SAMPLE_MONDAY = "2026-10-26";
 
@@ -32,8 +37,10 @@ export function AvailabilityQuickSetup({ venueId, state, onStale }: Availability
   const [dirty, setDirty] = useState(false);
 
   const openDays = (draft: QuickSetupDraft) => {
+    // The union of the days any service runs, not just the shared days.
+    const running = coveredDays(draft);
     const names = WEEK_DISPLAY_ORDER.flatMap((day, position) =>
-      draft.days.includes(day)
+      running.includes(day)
         ? [format.formatCalendarDate(addDays(SAMPLE_MONDAY, position), { weekday: "short" })]
         : []
     );

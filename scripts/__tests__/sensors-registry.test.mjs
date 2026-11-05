@@ -1530,11 +1530,19 @@ describe("metricsFreshness sensor (#5529)", () => {
     }),
   };
 
-  function seed(files) {
+  function seed(files, { withSnapshot = true } = {}) {
     tmpDir = mkdtempSync(join(tmpdir(), "metrics-freshness-sensor-"));
     mkdirSync(join(tmpDir, "metrics"), { recursive: true });
     for (const [name, content] of Object.entries(files)) {
       writeFileSync(join(tmpDir, "metrics", name), content);
+    }
+    if (withSnapshot) {
+      const dir = join(tmpDir, "apps/marketing/src/data");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "shipped-features.json"),
+        JSON.stringify({ generatedAt: "2026-09-20T00:00:00.000Z", features: [{ slug: "a" }] })
+      );
     }
     return tmpDir;
   }
@@ -1548,14 +1556,14 @@ describe("metricsFreshness sensor (#5529)", () => {
   it("reports a regression when the watched file does not exist", () => {
     // The state the repo was actually in. If this ever returns [], the
     // self-check has become decorative and this batch's whole point is lost.
-    const root = seed({});
+    const root = seed({}, { withSnapshot: false });
     const data = sensor().collect({
       root,
       now: new Date("2026-09-20T12:00:00.000Z"),
     });
 
     expect(data.available).toBe(true);
-    expect(data.stale_count).toBe(7);
+    expect(data.stale_count).toBe(8);
 
     const regressions = sensor().detectRegression(data, undefined, {});
     expect(regressions.map((r) => r.metric).sort()).toEqual([
@@ -1566,6 +1574,7 @@ describe("metricsFreshness sensor (#5529)", () => {
       "queueEfficiency",
       "review-burden",
       "sdlcSpeed",
+      "shipped-features",
     ]);
     expect(regressions.every((r) => r.sensor === "metricsFreshness")).toBe(true);
   });

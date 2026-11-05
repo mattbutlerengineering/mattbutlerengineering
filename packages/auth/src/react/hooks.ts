@@ -35,6 +35,10 @@ export function useAuth() {
   const activeNavigator = auth.activeNavigator;
   const signOutInFlight = activeNavigator !== undefined && SIGN_OUT_NAVIGATORS.has(activeNavigator);
   const silentFailure = isSilentAuthError(auth.error);
+  // react-oidc-context memoizes signinSilent per UserManager, so this stays
+  // stable across renders and consumers can memoize on it.
+  const oidcSigninSilent = auth.signinSilent;
+  const signInSilent = useCallback(() => oidcSigninSilent(), [oidcSigninSilent]);
 
   const user: AuthUser | null = auth.user
     ? {
@@ -81,7 +85,7 @@ export function useAuth() {
     /** Sign out - redirects to OIDC provider */
     signOut: () => auth.signoutRedirect(),
     /** Sign in silently (refresh token) */
-    signInSilent: () => auth.signinSilent(),
+    signInSilent,
     /** Interactive sign-in / sign-out error, if any — never a background refresh failure */
     error: silentFailure ? undefined : auth.error,
     /** The most recent silent-refresh failure, or null — see {@link useAccessToken} */

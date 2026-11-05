@@ -300,6 +300,11 @@
     },
     {
       "from": "@mbe/agent-service",
+      "to": "@mbe/availability",
+      "type": "dependency"
+    },
+    {
+      "from": "@mbe/agent-service",
       "to": "@mbe/database",
       "type": "dependency"
     },

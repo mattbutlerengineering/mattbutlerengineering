@@ -364,3 +364,115 @@ describe("validateConfig — review follow-ups", () => {
     ]);
   });
 });
+
+describe("validateConfig per weekday", () => {
+  const hours = (opensAt: number, closesAt: number) => ({
+    opensAt,
+    lastSeatingAt: closesAt - 45,
+    closesAt,
+    seating: { version: 1, interval: 15 },
+    bookingTypes: ["online", "phone"],
+  });
+  const scoped = (
+    id: string,
+    opensAt: number,
+    closesAt: number,
+    scope: { weekdays?: number[]; sets?: unknown[] } = {}
+  ) => ({
+    ...service(id, opensAt, closesAt - 45, closesAt),
+    weekdays: scope.weekdays ?? [],
+    dayHours: { version: 1, sets: scope.sets ?? [] },
+  });
+  const week = (rows: unknown[]) => config({ scheduleServices: rows });
+
+  it("reports Dinner and Brunch overlapping on Saturday only, once, with the weekday and the other row", () => {
+    const dinner = scoped("dinner", 1020, 1380, { weekdays: [1, 2, 3, 4, 5, 6] });
+    const brunch = scoped("brunch", 600, 1080, { weekdays: [6, 0] });
+    const issues = validateConfig(week([dinner, brunch]));
+    expect(issues).toEqual([
+      expect.objectContaining({
+        path: "scheduleServices[0].opensAt",
+        code: "overlap",
+        weekday: 6,
+        otherPath: "scheduleServices[1].opensAt",
+      }),
+    ]);
+  });
+
+  it("gives no overlap for the same two rows on disjoint days", () => {
+    const dinner = scoped("dinner", 1020, 1380, { weekdays: [1, 2, 3, 4, 5] });
+    const brunch = scoped("brunch", 600, 1080, { weekdays: [6, 0] });
+    expect(validateConfig(week([dinner, brunch]))).toEqual([]);
+  });
+
+  it("sees an overlap that only a set's hours create, and names the set", () => {
+    const lunch = scoped("lunch", 690, 900);
+    const dinner = scoped("dinner", 1020, 1380, {
+      sets: [{ weekdays: [5], ...hours(840, 1380) }],
+    });
+    expect(validateConfig(week([lunch, dinner]))).toEqual([
+      expect.objectContaining({
+        path: "scheduleServices[1].dayHours.sets[0].opensAt",
+        code: "overlap",
+        weekday: 5,
+        otherPath: "scheduleServices[0].opensAt",
+      }),
+    ]);
+  });
+
+  it("reports a weekday in two sets as weekday_clash at the later set", () => {
+    const dinner = scoped("dinner", 1020, 1380, {
+      sets: [
+        { weekdays: [5, 6], ...hours(1020, 1440) },
+        { weekdays: [6], ...hours(1020, 1400) },
+      ],
+    });
+    expect(validateConfig(week([dinner]))).toEqual([
+      expect.objectContaining({
+        path: "scheduleServices[0].dayHours.sets[1].weekdays",
+        code: "weekday_clash",
+        weekday: 6,
+      }),
+    ]);
+  });
+
+  it("reports a weekday in a set and in an explicit base as weekday_clash", () => {
+    const dinner = scoped("dinner", 1020, 1380, {
+      weekdays: [1, 2, 3, 4, 5],
+      sets: [{ weekdays: [5], ...hours(1020, 1440) }],
+    });
+    expect(pathsAndCodes(week([dinner]))).toEqual([
+      { path: "scheduleServices[0].dayHours.sets[0].weekdays", code: "weekday_clash" },
+    ]);
+  });
+
+  it("puts an issue inside a set at scheduleServices[i].dayHours.sets[j].<field>", () => {
+    const dinner = scoped("dinner", 1020, 1380, {
+      sets: [
+        {
+          weekdays: [5],
+          opensAt: 1020,
+          lastSeatingAt: 1500,
+          closesAt: 1440,
+          seating: { version: 1, interval: 15 },
+          bookingTypes: ["online"],
+        },
+      ],
+    });
+    expect(pathsAndCodes(week([dinner]))).toEqual([
+      {
+        path: "scheduleServices[0].dayHours.sets[0].lastSeatingAt",
+        code: "last_seating_after_close",
+      },
+    ]);
+  });
+
+  it("still rejects legacy overlapping rows once, with no weekday", () => {
+    const earlyDinner = service("dinner", 870, 1260, 1380);
+    const issues = validateConfig(config({ scheduleServices: [LUNCH, earlyDinner] }));
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ path: "scheduleServices[1].opensAt", code: "overlap" });
+    expect(issues[0]).not.toHaveProperty("weekday");
+    expect(issues[0]?.message).toBe("Overlaps another service (11:30 AM – 3:00 PM).");
+  });
+});

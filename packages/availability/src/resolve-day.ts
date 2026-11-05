@@ -1,11 +1,4 @@
-import type {
-  AvailabilityConfig,
-  DateRule,
-  ScheduleAssignment,
-  ScheduleService,
-  SpecialHoursService,
-  VenueService,
-} from "@mbe/types";
+import type { AvailabilityConfig, DateRule, ScheduleAssignment } from "@mbe/types";
 import { weekdayIndexOf } from "./civil-date.js";
 import {
   WHOLE_DAY,
@@ -19,7 +12,8 @@ import {
   type RuleOf,
 } from "./date-rules.js";
 import { hoursOf, seriesOf, targetOf, tonightOf, type LayerDetail } from "./layer-detail.js";
-import type { ServiceDate } from "./types.js";
+import { liveServices, servicesOn } from "./service-days.js";
+import type { ResolvedService, ServiceDate } from "./types.js";
 
 /**
  * Resolves the layer stack for one service day (ADR-030), bottom-up:
@@ -34,15 +28,6 @@ export interface AvailabilitySnapshot {
   /** IANA zone of the venue. */
   timezone: string;
   config: AvailabilityConfig;
-}
-
-export interface ResolvedService extends Pick<
-  ScheduleService,
-  "venueServiceId" | "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
-> {
-  /** `null` for a service from special hours. */
-  scheduleServiceId: string | null;
-  name: string;
 }
 
 /** A closed band of the service day, in minutes; a whole-day closure is 0–2880. */
@@ -119,34 +104,6 @@ function assignmentFor(
       (best, a) => (best === null || a.precedence > best.precedence ? a : best),
       null
     );
-}
-
-function toResolved(
-  service: ScheduleService | SpecialHoursService,
-  venueService: VenueService
-): ResolvedService {
-  return {
-    scheduleServiceId: "id" in service ? service.id : null,
-    venueServiceId: service.venueServiceId,
-    name: venueService.name,
-    opensAt: service.opensAt,
-    lastSeatingAt: service.lastSeatingAt,
-    closesAt: service.closesAt,
-    seating: service.seating,
-    bookingTypes: service.bookingTypes,
-  };
-}
-
-function liveServices(
-  services: readonly (ScheduleService | SpecialHoursService)[],
-  venueServices: ReadonlyMap<string, VenueService>
-): ResolvedService[] {
-  return services
-    .flatMap((s) => {
-      const venueService = venueServices.get(s.venueServiceId);
-      return venueService ? [toResolved(s, venueService)] : [];
-    })
-    .sort((a, b) => a.opensAt - b.opensAt);
 }
 
 function closureOf(rule: DateRule, band: { from: number; to: number }): ResolvedClosure {
@@ -242,10 +199,12 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
     config.venueServices.filter((v) => !v.archivedAt).map((v) => [v.id, v])
   );
   const rules = activeRules(config.dateRules, serviceDate);
+  const weekday = weekdayIndexOf(serviceDate);
   const servicesOf = (scheduleId: string | null) =>
-    liveServices(
+    servicesOn(
       config.scheduleServices.filter((s) => s.scheduleId === scheduleId),
-      venueServices
+      venueServices,
+      weekday
     );
   const skippedLabel = (skip: DateRule) => {
     const series = config.dateRules.find((r) => r.id === skip.seriesId);

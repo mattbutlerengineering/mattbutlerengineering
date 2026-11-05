@@ -36,6 +36,8 @@ export interface DateRow {
   readonly seededFor?: number;
   /** This row's message for guests; the shared one wins while `shareMessage` is on. */
   readonly message: string;
+  /** What the date is, when the sheet opened on it (a holiday's name); shown in the row's legend. */
+  readonly name?: string;
 }
 
 export interface AddDatesForm {
@@ -51,13 +53,14 @@ export type RowField = "dateMissing" | "date" | "hours" | "message";
 export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message" | "same"): string =>
   `add-date-${rowKey}-${field}`;
 
-export const emptyRow = (key: string, date: string): DateRow => ({
+export const emptyRow = (key: string, date: string, name?: string): DateRow => ({
   key,
   date,
   kind: "closed",
   sameAs: date ? weekdayIndexOf(date) : 0,
   services: [],
   message: "",
+  ...(name ? { name } : {}),
 });
 
 const messageOf = (form: AddDatesForm, row: DateRow): string =>

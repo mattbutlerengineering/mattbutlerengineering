@@ -1,5 +1,23 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.3
+
+### Patch Changes
+
+- [#8310](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8310) [`32881a0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/32881a06be6a62e29fcf5ea8ff6c2c5ca2a4aa9a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Popover takes `solid` to paint the opaque elevated surface instead of translucent glass, for a panel of form controls over a busy page.
+
+- [#8248](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8248) [`ea9afa7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ea9afa7d18f4e796c47b8ef78edf279d3ab80377) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DateRange opens on the bounded month when today falls outside `min`/`max`, instead of a month where every day is disabled. NavigationMenu opens from Enter, Space, and ArrowDown, and Escape closes a menu that was opened by hover.
+
+- [#8265](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8265) [`e0c92f9`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e0c92f928b182d01efa03f1e29cc4701f2e39b49) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Navbar fills a sized frame and scrolls its link list, so the footer stays on screen. Spinner renders a `label` as visible text beside the ring. Flip-dot marquee and typewriter animations keep stepping after each commit. TapeChart stat chips and mobile day cards take `strings.reservationCountLabel`, so a locale override can translate the reservation count.
+
+## 0.10.2
+
+### Patch Changes
+
+- [#8279](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8279) [`c45b0f1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c45b0f1025c8fa55df0c864e21e3c8627feee319) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A light theme island nested inside a dark ancestor keeps the light color tokens. Custom properties inherit, so a `data-theme="light"` scope previously painted with the surrounding dark palette.
+
+- [#8246](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8246) [`977915f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/977915f9153d1fd38445f6a7a22732070a87dd75) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Toasts move beside an open end-side Drawer on screens 1024px and wider, instead of covering its title and close button (top placement) or its actions (bottom placement). The Drawer panel carries `data-rialto-drawer="<side>-<size>"` for this.
+
 ## 0.10.1
 
 ### Patch Changes

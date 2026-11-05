@@ -880,7 +880,7 @@
         autoStart = true,
       } = options;
     
-      const empty = createEmptyMatrix(rows, cols);
+      const empty = useMemo(() => createEmptyMatrix(rows, cols), [rows, cols]);
       const [matrix, setMatrix] = useState<readonly (readonly boolean[])[]>(empty);
       const [isPlaying, setIsPlaying] = useState(false);
     
@@ -1003,11 +1003,23 @@
         stepRef.current += 1;
       }, [mode, cols, loop, frames, empty, sliceColumns, clearTimer]);
     
+      // The interval must call the latest tick without listing `tick` as an
+      // effect dependency. `empty` used to be a new array every render, so
+      // `tick` changed every commit, the effect cleared the interval, and
+      // autoStart reset the step — the marquee stayed blank and the typewriter
+      // stayed on its first column, with Restart/Replay disabled.
+      const tickRef = useRef(tick);
+      useEffect(() => {
+        tickRef.current = tick;
+      }, [tick]);
+    
       const start = useCallback(() => {
         clearTimer();
         setIsPlaying(true);
-        intervalRef.current = setInterval(tick, speed);
-      }, [clearTimer, tick, speed]);
+        intervalRef.current = setInterval(() => {
+          tickRef.current();
+        }, speed);
+      }, [clearTimer, speed]);
     
       const pause = useCallback(() => {
         clearTimer();
@@ -1027,10 +1039,12 @@
           stepRef.current = 0;
           // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional mount sync
           setIsPlaying(true);
-          intervalRef.current = setInterval(tick, speed);
+          intervalRef.current = setInterval(() => {
+            tickRef.current();
+          }, speed);
         }
         return clearTimer;
-      }, [autoStart, tick, speed, clearTimer]);
+      }, [autoStart, speed, clearTimer]);
     
       return { matrix, start, pause, reset, isPlaying };
     }
@@ -1725,6 +1739,7 @@
         ...labels,
         errorRetryLabel: messages.tryAgain,
         moveCancelLabel: messages.cancel,
+        reservationCountLabel: messages.reservationCount,
         reservationAriaTemplate: ariaTemplateFor(messages),
       };
     }
@@ -1744,6 +1759,7 @@
         reservationAriaTemplate: overrides.reservationAriaTemplate ?? defaults.reservationAriaTemplate,
         nightsLabel: overrides.nightsLabel ?? defaults.nightsLabel,
         partySizeLabel: overrides.partySizeLabel ?? defaults.partySizeLabel,
+        reservationCountLabel: overrides.reservationCountLabel ?? defaults.reservationCountLabel,
       };
     }
   </file>
@@ -1819,6 +1835,12 @@
       reservationAriaTemplate?: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
       nightsLabel?: (count: number) => string;
       partySizeLabel?: (count: number) => string;
+      /**
+       * Noun after a separately formatted reservation count, capitalized
+       * ("Reservation" / "Reservations"). The stat chips and the mobile day
+       * cards both use it; the mobile card lowercases the result.
+       */
+      reservationCountLabel?: (count: number) => string;
     }
     export interface TapeChartMovePayload {
       id: string;
@@ -5295,6 +5317,12 @@
         ...(typeof darkPreamble === "string" ? wrapComment(darkPreamble) : []),
         renderBlock('[data-theme="dark"]', dark, "color-scheme: dark;"),
         "",
+        "/* ── Nested light scope ──────────────────────── */",
+        ...wrapComment(
+          "Custom properties inherit, and :root does not match an element. A light island inside a dark ancestor would otherwise keep the dark palette. Re-declare the light tokens on that island. This rule follows the dark block so a parser that takes the first dark-attribute rule still reads the dark palette."
+        ),
+        renderBlock('[data-theme="dark"] [data-theme="light"]', light, "color-scheme: light;"),
+        "",
       ];
     
       const outPath = path.join(tokensDir, "colors.css");
@@ -5302,7 +5330,7 @@
     
       const tokenCount = walkTokens(light).length;
       console.info(
-        `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens × 2 themes`
+        `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens, dark override plus nested light scope`
       );
     }
   </file>
