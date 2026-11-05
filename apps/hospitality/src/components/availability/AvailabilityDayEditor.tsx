@@ -372,7 +372,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         <ul className={styles.services}>
           {day.services.map((service, row) => (
             <li key={service.venueServiceId} className={styles.service}>
-              <Text as="span" variant="body" color="primary">
+              <Text as="span" variant="body" color="primary" className={styles.serviceLine}>
                 {t("availability.editor.serviceLine", {
                   name: service.name,
                   from: minuteText(service.opensAt, t, format),
@@ -380,7 +380,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
                 })}
               </Text>
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 {...waitingProps(held, heldReasonId)}
                 onClick={() => begin(false, row)}
