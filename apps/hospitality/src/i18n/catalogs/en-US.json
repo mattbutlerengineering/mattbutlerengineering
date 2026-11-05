@@ -2842,6 +2842,27 @@
       "details": "Details",
       "heading": "Regular week"
     },
+    "bookingRules": {
+      "open": "Booking rules…",
+      "title": "Booking rules",
+      "description": "When guests can book online, whatever your hours.",
+      "daysAhead": "How far ahead guests can book (days)",
+      "noLimit": "No limit",
+      "daysAheadHint": "0 lets guests book today only.",
+      "noticeHours": "Minimum notice (hours)",
+      "noNotice": "None",
+      "noticeHoursHint": "Guests can't book a time sooner than this.",
+      "largestParty": "Largest party online",
+      "partyDefault": "{{count}}",
+      "largestPartyHint": "Larger parties are shown your phone number instead.",
+      "invalid": {
+        "daysAhead": "Use a whole number of days from 0 to 730.",
+        "noticeHours": "Use a whole number of hours from 0 to 720.",
+        "largestParty": "Use a whole number from 1 to 100."
+      },
+      "saved": "Booking rules saved",
+      "saveError": "Couldn't save booking rules"
+    },
     "holidayNudge": {
       "line": "{{name}} is {{date}} and isn't planned yet.",
       "plan": "Plan holidays"

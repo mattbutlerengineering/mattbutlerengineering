@@ -224,6 +224,11 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 3. Toast "Thu, Dec 24 reopened". Removing a change that told no guests offers **Undo**.
 4. **A date another closure also closes** stays closed, and the dialog and the toast say so, naming it: "Stays closed on Fri, Dec 25: Whole venue." When every date stays closed, nothing comes back: the description says guests can't book them yet, the notice checkbox is gone, the server asks no notice even if one is requested, and the toast reads "Closure removed: Fri, Dec 25. Not reopened."
 
+### F-RULES: Booking rules
+
+1. **More actions → Booking rules…** (Managers; the calendar's ⋯ menu, or More actions on a phone) opens a drawer with the three venue-wide limits onboarding asked once: **How far ahead guests can book (days)** (empty: no limit; 0: today only), **Minimum notice (hours)** (empty: none) and **Largest party online** (empty: 8; larger parties see the venue's phone).
+2. Whole numbers only (0–730 days, 0–720 hours, 1–100 guests); a bad value says why under its field and keeps **Save** off. Save writes them into the venue's settings, every other setting kept; a cleared field unsets its rule. Toast "Booking rules saved".
+
 ### F7: Tonight panel (PRD 26, 27, 28; scenarios b, c)
 
 1. **Tonight ▾** in the timeline header opens a popover (a bottom sheet on phones, with 44 px targets) (S8):
