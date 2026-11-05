@@ -47,7 +47,7 @@ export function NextHolidayNudge({ venueId, config, today, onPlan }: NextHoliday
     day: "numeric",
   });
   return (
-    <div className={styles.head}>
+    <div className={styles.nudge}>
       <Text variant="caption" color="secondary">
         {t("availability.holidayNudge.line", { name, date })}
       </Text>

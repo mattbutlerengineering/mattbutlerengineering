@@ -4,7 +4,18 @@
   gap: var(--rialto-space-xs);
 }
 
+/* Inline, not flex: a long line wraps and Details follows its last word, instead of taking a row
+   of its own under a full-width line. */
 .head {
+  display: block;
+}
+
+.text {
+  margin-inline-end: var(--rialto-space-sm);
+}
+
+/* The next-holiday nudge (NextHolidayNudge): its sentence and Plan holidays side by side. */
+.nudge {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

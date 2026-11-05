@@ -104,7 +104,7 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
   return (
     <div className={styles.line}>
       <div className={styles.head}>
-        <Text variant="caption" color="secondary">
+        <Text as="span" variant="caption" color="secondary" className={styles.text}>
           {t("availability.regularWeekLine.line", { services: text })}
         </Text>
         {!line.uniform && (
