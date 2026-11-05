@@ -6502,6 +6502,11 @@
       const code = (addressCountry ?? locale.split("-")[1] ?? "").toUpperCase();
       return COUNTRIES.find((c) => c === code) ?? null;
     }
+    export const USUALLY_CLOSED: ReadonlySet<HolidayId> = new Set([
+      "thanksgiving",
+      "christmasDay",
+      "newYearsDay",
+    ]);
   </file>
   <file path="apps/hospitality/src/components/availability/layer-text.ts">
     function upperFirst(text: string, locale: string): string {

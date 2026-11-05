@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button, Heading, Text, useToast } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { upcomingHolidays } from "./holidays.js";
+import { upcomingHolidays, USUALLY_CLOSED } from "./holidays.js";
 import { readOpenAsUsual, writeOpenAsUsual } from "./open-as-usual.js";
 import { useHolidayCountry } from "./use-holidays.js";
 import type { PlannedDate } from "./AddSpecialDatesSheet.js";
@@ -36,7 +36,11 @@ export function UpcomingHolidays({ venueId, config, today, onPlan }: UpcomingHol
     () =>
       (country ? upcomingHolidays(country, today, config) : [])
         .filter((h) => !openAsUsual.includes(h.date))
-        .map((h) => ({ ...h, name: t(`availabilitySpecial.holidays.name.${h.id}`) })),
+        .map((h) => ({
+          ...h,
+          name: t(`availabilitySpecial.holidays.name.${h.id}`),
+          kind: USUALLY_CLOSED.has(h.id) ? ("closed" as const) : ("hours" as const),
+        })),
     [country, today, config, openAsUsual, t]
   );
 

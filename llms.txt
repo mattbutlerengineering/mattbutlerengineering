@@ -2177,6 +2177,9 @@
         locale: string
       ): HolidayCountry | null { /* ... */ }
     </item>
+    <item priority="high">
+      export const USUALLY_CLOSED: ReadonlySet<HolidayId>;
+    </item>
   </file>
   <file path="apps/hospitality/src/components/availability/layer-text.ts">
     <item priority="medium">
