@@ -145,7 +145,10 @@ export function SchedulesTab(props: SchedulesTabProps) {
                 <Text as="span" variant="body" color="primary">
                   {shown}
                 </Text>
-                {schedule.isRegular && <Tag>{t("availabilitySchedules.regularMarker")}</Tag>}
+                {/* A regular week still named "Regular week" says so already; the tag would repeat it. */}
+                {schedule.isRegular && shown !== t("availabilitySchedules.regularMarker") && (
+                  <Tag>{t("availabilitySchedules.regularMarker")}</Tag>
+                )}
                 <Text as="span" variant="caption" color="secondary">
                   {where}
                 </Text>
