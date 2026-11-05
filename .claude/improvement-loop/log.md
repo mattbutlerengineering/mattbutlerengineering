@@ -4920,3 +4920,12 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **Coverage before this fire:** 100% (135/135 reachable rows covered, 0 uncovered, not provisional).
 
 **Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so the two issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion.
+
+## 2026-11-05 — mbe-learning-loop
+
+**Sensors:** 16/17 available (e2eStability not available)
+**Regressions:** 1 detected (metricsFreshness.shipped-features: fresh → stale, +19.85d, medium), 0 issues created — duplicate of open #8263 (Metrics collection is stale or empty) and #8202 ([Feature] shipped-features-freshness [1/3])
+**Verifications:** 5 checked, 0 verified, 0 failed (reopened), 5 skipped (#8295 no CI runs to verify against; #8280/#8260/#8259 Sentry verification unavailable — MCP auth expired this run; #8261 no automated security verifier, manual cors-audit.mjs re-run needed)
+**Sentry triage:** skipped — stored Sentry MCP access token rejected (authorization expired), no human available to re-authorize in this unattended run
+**Skill proposals:** 0 (not Friday — session log analysis skipped)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.5 → 1.516, headroom). False-positive rate low across all issue-feedback categories (max 3% rejected, feature category; all others 0%) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 97 skipped-for-lack-of-data) — above 50% threshold, no review needed. AI issue-feedback budgets: all 7 categories at default budget=3 (no category >40% rejected).
