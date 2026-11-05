@@ -117,7 +117,8 @@
       "defaultPlaceholder": "Default: {{value}}",
       "durationHint": "If left blank, defaults to {{value}} minutes",
       "maxPartyHint": "If left blank, defaults to {{value}} guests",
-      "advanceHint": "If left blank, guests can book up to {{value}} days ahead",
+      "advanceHint": "If left blank, guests can book any date ahead",
+      "advanceNoLimit": "No limit",
       "errors": {
         "durationInvalid": "Duration must be a positive number",
         "maxPartyInvalid": "Party size must be a positive number",
@@ -191,7 +192,8 @@
         "floorPlan": "Floor plan",
         "tables": "Tables",
         "activate": "Activate"
-      }
+      },
+      "noLimit": "No limit"
     },
     "stagePanel": {
       "label": "Launch progress",

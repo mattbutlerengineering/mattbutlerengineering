@@ -117,7 +117,8 @@
       "defaultPlaceholder": "Predeterminado: {{value}}",
       "durationHint": "Si lo dejas en blanco, se usan {{value}} minutos",
       "maxPartyHint": "Si lo dejas en blanco, se usan {{value}} invitados",
-      "advanceHint": "Si lo dejas en blanco, los invitados pueden reservar hasta con {{value}} días de anticipación",
+      "advanceHint": "Si lo dejas en blanco, los invitados pueden reservar cualquier fecha futura",
+      "advanceNoLimit": "Sin límite",
       "errors": {
         "durationInvalid": "La duración debe ser un número positivo",
         "maxPartyInvalid": "El tamaño del grupo debe ser un número positivo",
@@ -197,7 +198,8 @@
         "floorPlan": "Plano",
         "tables": "Mesas",
         "activate": "Activación"
-      }
+      },
+      "noLimit": "Sin límite"
     },
     "stagePanel": {
       "label": "Progreso del lanzamiento",
