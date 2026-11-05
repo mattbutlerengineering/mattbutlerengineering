@@ -52,8 +52,19 @@
   outline-offset: 2px;
 }
 
-.cell[aria-current="date"] .dayNumber {
-  text-decoration: underline;
+/* Today's number sits in an accent disc, so the eye finds today in a month at a glance. The
+   shape, not only the colour, sets it apart. */
+.cell[aria-current="date"] .number {
+  display: inline-block;
+  min-width: 1.75em;
+  /* The disc's padding hangs outside the column, so today's number lines up with the rest. */
+  margin-inline-start: calc(-1 * var(--rialto-space-xs));
+  padding: 0 var(--rialto-space-xs);
+  border-radius: 999px;
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+  font-weight: var(--rialto-weight-medium);
+  text-align: center;
 }
 
 .muted {
