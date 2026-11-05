@@ -317,8 +317,8 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
 }) => {
   const mock = await mockAvailability(page);
   await page.goto("availability");
+  // Create another schedule… opens the New schedule editor itself.
   await page.getByRole("button", { name: "Create another schedule…" }).click();
-  await page.getByRole("button", { name: "New schedule" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
   await page.getByRole("button", { name: "Brunch", exact: true }).click();
   await page.getByRole("button", { name: "Weekdays", exact: true }).click();
@@ -414,8 +414,8 @@ test("a refused Undo names each stranded booking with a link, outside the alert 
     })
   );
   await page.goto("availability");
+  // Create another schedule… opens the New schedule editor itself.
   await page.getByRole("button", { name: "Create another schedule…" }).click();
-  await page.getByRole("button", { name: "New schedule" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
   await page.getByRole("button", { name: "Brunch", exact: true }).click();
   await page.getByRole("button", { name: "Weekdays", exact: true }).click();

@@ -287,7 +287,8 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
               );
             })}
           </div>
-          {endsOn === null && (
+          {/* With days to name, "This becomes your regular week: open …" below says the same. */}
+          {endsOn === null && weekdays.length === 0 && (
             <Text variant="caption" color="secondary">
               {t("availabilitySchedules.regularWeek.noEnd")}
             </Text>

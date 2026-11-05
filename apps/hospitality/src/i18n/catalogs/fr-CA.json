@@ -117,7 +117,8 @@
       "defaultPlaceholder": "Par défaut : {{value}}",
       "durationHint": "Si laissé vide, la valeur par défaut est de {{value}} minutes",
       "maxPartyHint": "Si laissé vide, la valeur par défaut est de {{value}} convives",
-      "advanceHint": "Si laissé vide, les clients peuvent réserver jusqu’à {{value}} jours à l’avance",
+      "advanceHint": "Si laissé vide, les clients peuvent réserver n’importe quelle date à venir",
+      "advanceNoLimit": "Aucune limite",
       "errors": {
         "durationInvalid": "La durée doit être un nombre positif",
         "maxPartyInvalid": "La taille du groupe doit être un nombre positif",
@@ -197,7 +198,8 @@
         "floorPlan": "Plan de salle",
         "tables": "Tables",
         "activate": "Activation"
-      }
+      },
+      "noLimit": "Aucune limite"
     },
     "stagePanel": {
       "label": "Progression du lancement",
@@ -391,7 +393,15 @@
       "updated": "Mis à jour {{date}}",
       "clone": "Cloner",
       "openAria": "Ouvrir le plan de salle : {{name}}",
-      "cloneAria": "Cloner le plan de salle : {{name}}"
+      "cloneAria": "Cloner le plan de salle : {{name}}",
+      "delete": "Supprimer",
+      "deleteAria": "Supprimer le plan de salle : {{name}}",
+      "deleteActiveReason": "Activez un autre plan de salle avant de supprimer celui-ci.",
+      "deleteTitle": "Supprimer {{name}} ?",
+      "deleteDescription": "Le plan et ses tables sont retirés de vos plans de salle. Les réservations passées conservent leurs tables.",
+      "deleteConfirm": "Supprimer le plan",
+      "deleteFailed": "Le plan de salle n'a pas été supprimé.",
+      "deleted": "Plan de salle « {{name}} » supprimé"
     },
     "editor": {
       "loading": "Chargement",
@@ -1824,6 +1834,7 @@
       "open": "Ajouter une date spéciale",
       "title": "Ajouter des dates spéciales",
       "rowLegend": "Date {{n}}",
+      "rowLegendNamed": "Date {{n}} : {{name}}",
       "date": "Date",
       "dateMissing": "Choisissez une date.",
       "dateInvalid": "Choisissez une date d’aujourd’hui ou plus tard, une seule fois et sans horaire spécial déjà défini.",
@@ -1857,6 +1868,42 @@
         "title": "Déjà enregistré",
         "body": "Un essai précédent pour {{dates}} a été enregistré : {{summary}}. Les clients ont été traités selon les choix de cet essai; les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat.",
         "bodyPlain": "Un essai précédent pour {{dates}} a été enregistré. Les modifications faites ensuite n'ont pas été appliquées. Ouvrez les dates spéciales pour voir le résultat."
+      }
+    },
+    "holidays": {
+      "heading": "Jours fériés à venir",
+      "plan": "Planifier…",
+      "planName": "Planifier {{name}}, {{date}}…",
+      "planAll_one": "Planifier {{count}} jour férié…",
+      "planAll_many": "Tout planifier ({{count}})…",
+      "planAll_other": "Tout planifier ({{count}})…",
+      "openAsUsual": "Heures habituelles",
+      "openAsUsualName": "{{name}}, {{date}} : heures habituelles",
+      "openAsUsualToast": "{{name}} : heures habituelles",
+      "name": {
+        "newYearsDay": "Jour de l’An",
+        "constitutionDay": "Jour de la Constitution",
+        "valentinesDay": "Saint-Valentin",
+        "benitoJuarez": "Anniversaire de Benito Juárez",
+        "holyThursday": "Jeudi saint",
+        "goodFriday": "Vendredi saint",
+        "easter": "Dimanche de Pâques",
+        "workersDay": "Fête du Travail (1er mai)",
+        "mothersDay": "Fête des Mères",
+        "fathersDay": "Fête des Pères",
+        "juneteenth": "Juneteenth",
+        "victoriaDay": "Journée nationale des patriotes",
+        "memorialDay": "Memorial Day",
+        "canadaDay": "Fête du Canada",
+        "independenceDay": "Jour de l’Indépendance",
+        "laborDay": "Fête du Travail",
+        "thanksgiving": "Action de grâce",
+        "dayOfTheDead": "Jour des Morts",
+        "revolutionDay": "Jour de la Révolution",
+        "christmasEve": "Veille de Noël",
+        "christmasDay": "Noël",
+        "boxingDay": "Lendemain de Noël",
+        "newYearsEve": "Veille du Jour de l’An"
       }
     }
   },
@@ -2040,7 +2087,7 @@
   },
   "availability": {
     "title": "Disponibilité",
-    "description": "Ce qui régit chaque jour, et pourquoi.",
+    "description": "Vos heures, jours fériés et changements ponctuels.",
     "hostNote": "Seuls les gérants modifient les heures. Pour ce soir, utilisez le panneau Ce soir.",
     "loadError": "Impossible de charger la disponibilité",
     "noVenue": "Sélectionnez un établissement pour voir sa disponibilité.",
@@ -2562,7 +2609,8 @@
       "suggestions": {
         "private": "Fermé pour un événement privé",
         "weather": "Fermé en raison de la météo",
-        "holiday": "Fermé pour le congé"
+        "holiday": "Fermé pour le congé",
+        "holidayNamed": "Fermé pour {{name}}"
       },
       "what": {
         "label": "Quoi",
@@ -2845,7 +2893,7 @@
     },
     "venueTime": "Heure de l'établissement ({{zone}})",
     "weekSummary": {
-      "line": "Cette semaine : {{open}} · {{closures}} · {{online}}",
+      "line": "Cette semaine : {{parts}}",
       "open_one": "ouvert {{count}} jour",
       "open_other": "ouvert {{count}} jours",
       "open_many": "ouvert {{count}} jours",
@@ -2872,6 +2920,8 @@
     },
     "regularWeekLine": {
       "line": "Semaine habituelle : {{services}}",
+      "upcoming": "Dès le {{date}} : {{services}}",
+      "upcomingPeriod": "{{from}}–{{to}} : {{services}}",
       "service": "{{name}} {{hours}} {{days}}",
       "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
       "hours": "{{open}}–{{close}}",
@@ -2879,6 +2929,31 @@
       "different": "{{days}} {{hours}}",
       "details": "Détails",
       "heading": "Semaine habituelle"
+    },
+    "bookingRules": {
+      "open": "Règles de réservation…",
+      "title": "Règles de réservation",
+      "description": "Quand les clients peuvent réserver en ligne, quelles que soient vos heures.",
+      "daysAhead": "Combien de jours à l’avance (jours)",
+      "noLimit": "Aucune limite",
+      "daysAheadHint": "0 ne permet de réserver que pour aujourd’hui.",
+      "noticeHours": "Préavis minimal (heures)",
+      "noNotice": "Aucun",
+      "noticeHoursHint": "Impossible de réserver une heure plus proche que ce délai.",
+      "largestParty": "Plus grand groupe en ligne",
+      "partyDefault": "{{count}}",
+      "largestPartyHint": "Les groupes plus grands voient votre numéro de téléphone.",
+      "invalid": {
+        "daysAhead": "Indiquez un nombre entier de jours entre 0 et 730.",
+        "noticeHours": "Indiquez un nombre entier d’heures entre 0 et 720.",
+        "largestParty": "Indiquez un nombre entier entre 1 et 100."
+      },
+      "saved": "Règles de réservation enregistrées",
+      "saveError": "Impossible d’enregistrer les règles de réservation"
+    },
+    "holidayNudge": {
+      "line": "{{name}} tombe le {{date}} et n’est pas encore planifié.",
+      "plan": "Planifier les jours fériés"
     }
   },
   "setup": {

@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
@@ -8,6 +8,7 @@ import { Stack, Text, Card, Button, EmptyState } from "@mattbutlerengineering/ri
 import { ApiClientError, type ManageReservationData } from "@mbe/api-client";
 import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
+import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { ChangeBookingDialog } from "../components/manage-reservation/ChangeBookingDialog.js";
 import { VenueCancelledCard } from "../components/manage-reservation/VenueCancelledCard.js";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog.js";
@@ -125,6 +126,14 @@ function ManageReservationPageContent() {
       : t("manageReservation.documentTitle")
   );
 
+  // Both dialogs leave focus return to this page (see WalkInDialog): every close path restores it.
+  const { focusAfter } = useFocusAfter();
+  const changeTriggerRef = useRef<HTMLButtonElement>(null);
+  const cancelTriggerRef = useRef<HTMLButtonElement>(null);
+  const returnFocusTo = (trigger: HTMLButtonElement | null) => {
+    if (trigger) focusAfter({ kind: "element", element: trigger });
+  };
+
   const handleCancelConfirm = async (reason: string, note: string): Promise<void> => {
     await publicApiClient.reservations.cancelManaged(token!, {
       cancellationReason: reason,
@@ -132,10 +141,13 @@ function ManageReservationPageContent() {
     });
     await refetch();
     setShowCancelDialog(false);
+    // The Cancel control is gone once the reservation is cancelled; the heading is the anchor.
+    focusAfter({ kind: "pageHeading" });
   };
 
   const handleChanged = async (): Promise<void> => {
     setShowChangeDialog(false);
+    returnFocusTo(changeTriggerRef.current);
     await refetch();
     setChanged(true);
   };
@@ -198,7 +210,7 @@ function ManageReservationPageContent() {
       <Stack align="center" style={{ minHeight: "100vh", padding: "2rem" }}>
         <Stack gap="lg" style={{ maxWidth: 600, width: "100%" }}>
           <WidgetLocalePicker />
-          <Text as="h1" variant="display">
+          <Text as="h1" variant="display" tabIndex={-1}>
             {venue ? venue.name : t("manageReservation.fallbackTitle")}
           </Text>
 
@@ -320,7 +332,11 @@ function ManageReservationPageContent() {
               </a>
             )}
             {canChange && (
-              <Button variant="secondary" onClick={() => setShowChangeDialog(true)}>
+              <Button
+                ref={changeTriggerRef}
+                variant="secondary"
+                onClick={() => setShowChangeDialog(true)}
+              >
                 {t("manageReservation.change.action")}
               </Button>
             )}
@@ -333,7 +349,11 @@ function ManageReservationPageContent() {
               </Text>
             )}
             {canCancel ? (
-              <Button variant="ghost" onClick={() => setShowCancelDialog(true)}>
+              <Button
+                ref={cancelTriggerRef}
+                variant="ghost"
+                onClick={() => setShowCancelDialog(true)}
+              >
                 {t("manageReservation.cancel")}
               </Button>
             ) : (
@@ -355,7 +375,10 @@ function ManageReservationPageContent() {
             venue={venue}
             reservation={reservation}
             onChanged={() => void handleChanged()}
-            onClose={() => setShowChangeDialog(false)}
+            onClose={() => {
+              setShowChangeDialog(false);
+              returnFocusTo(changeTriggerRef.current);
+            }}
           />
         )}
 
@@ -364,7 +387,10 @@ function ManageReservationPageContent() {
             reservationId={reservation.id}
             guestName={reservation.guestName}
             onConfirm={handleCancelConfirm}
-            onClose={() => setShowCancelDialog(false)}
+            onClose={() => {
+              setShowCancelDialog(false);
+              returnFocusTo(cancelTriggerRef.current);
+            }}
           />
         )}
       </Stack>

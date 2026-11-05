@@ -27,6 +27,8 @@
       readonly seededFor?: number;
       /** This row's message for guests; the shared one wins while `shareMessage` is on. */
       readonly message: string;
+      /** What the date is, when the sheet opened on it (a holiday's name); shown in the row's legend. */
+      readonly name?: string;
     }
     export interface AddDatesForm {
       readonly rows: readonly DateRow[];
@@ -36,13 +38,14 @@
     export type RowField = "dateMissing" | "date" | "hours" | "message";
     export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message" | "same"): string =>
       `add-date-${rowKey}-${field}`;
-    export const emptyRow = (key: string, date: string): DateRow => ({
+    export const emptyRow = (key: string, date: string, name?: string): DateRow => ({
       key,
       date,
       kind: "closed",
       sameAs: date ? weekdayIndexOf(date) : 0,
       services: [],
       message: "",
+      ...(name ? { name } : {}),
     });
     function hasOwnHours(config: AvailabilityConfig, date: string): boolean {
       return config.dateRules.some(
@@ -164,6 +167,50 @@
         parts: actions
           .filter((a) => counts[a] > 0)
           .map((action) => ({ action, count: counts[action] })),
+      };
+    }
+  </file>
+  <file path="src/components/availability/booking-rules.ts">
+    export interface BookingRulesForm {
+      readonly daysAhead: string;
+      readonly noticeHours: string;
+      readonly largestParty: string;
+    }
+    export type BookingRulesField = keyof BookingRulesForm;
+    export const UNSET_LARGEST_PARTY = 8;
+    export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm {
+      return {
+        daysAhead: text(settings?.maxAdvanceBooking),
+        noticeHours: text(settings?.minAdvanceBooking),
+        largestParty: text(settings?.maxPartySize),
+      };
+    }
+    export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null {
+      for (const field of Object.keys(LIMITS) as BookingRulesField[]) {
+        const raw = form[field].trim();
+        if (raw === "") continue;
+        const n = Number(raw);
+        const { min, max } = LIMITS[field];
+        if (!Number.isInteger(n) || n < min || n > max) return field;
+      }
+      return null;
+    }
+    export function withBookingRules(
+      settings: VenueSettings | null | undefined,
+      form: BookingRulesForm
+    ): VenueSettings {
+      const {
+        maxAdvanceBooking: _a,
+        minAdvanceBooking: _b,
+        maxPartySize: _c,
+        ...rest
+      } = settings ?? {};
+      const set = (key: string, raw: string) => (raw.trim() === "" ? {} : { [key]: Number(raw) });
+      return {
+        ...rest,
+        ...set("maxAdvanceBooking", form.daysAhead),
+        ...set("minAdvanceBooking", form.noticeHours),
+        ...set("maxPartySize", form.largestParty),
       };
     }
   </file>
@@ -1183,8 +1230,11 @@
       readonly label: string | null;
       readonly tone: DayTone | null;
       readonly bands: readonly ClosureBandText[];
-      /** "2 services", or `null` when the count is not worth showing. */
-      readonly count: string | null;
+      /**
+       * Month view's one line about the services: their names ("Lunch · Dinner"), or "2 services"
+       * from an older API that sends no service lines. `null` in week view, which lists each service.
+       */
+      readonly servicesSummary: string | null;
       /** One line per service, first to last bookable time; only populated when `detailed`. */
       readonly services: readonly ServiceLineText[];
       readonly onlineOff: boolean;
@@ -1213,13 +1263,21 @@
       format: VenueFormat
     ): DayPresentation {
       const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
-      const showCount = summary !== undefined && (detailed || summary.serviceCount >= 2);
-      const count = showCount
-        ? t("availability.calendar.services", { count: summary.serviceCount })
-        : null;
       const services = detailed
         ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
         : [];
+      // Month names the services, which says more than a count in the same space: a Monday with only
+      // Lunch reads apart from a Friday with Lunch · Dinner. Week lists each one, so says neither; an
+      // older API that sends no service lines gets the count instead.
+      const showCount =
+        summary !== undefined &&
+        summary.services === undefined &&
+        (detailed || summary.serviceCount >= 2);
+      const countText = showCount
+        ? t("availability.calendar.services", { count: summary.serviceCount })
+        : null;
+      const monthNames = detailed ? [] : (summary?.services?.map((s) => s.name) ?? []);
+      const servicesSummary = countText ?? (monthNames.length > 0 ? monthNames.join(" · ") : null);
       // A whole-day pause that names online already says so; saying it twice reads as two facts.
       // The band names a channel only when it is the single one paused (closure-band.ts channelSuffix).
       const bandNamesOnline = (summary?.closures ?? []).some(
@@ -1235,7 +1293,8 @@
       const parts = summary
         ? [
             label,
-            ...(count ? [count] : []),
+            // Each name its own phrase: a screen reader would read the dot.
+            ...(countText ? [countText] : monthNames),
             ...bands.map((b) => b.name),
             ...services.map((s) => s.text),
             ...(onlineOff ? [t("availability.calendar.onlineOffName")] : []),
@@ -1257,7 +1316,7 @@
               ? "special"
               : null,
         bands,
-        count,
+        servicesSummary,
         services,
         onlineOff,
         accessibleDetails,
@@ -1673,6 +1732,141 @@
     }
     export const useEditorOpen = (): boolean => useSyncExternalStore(subscribe, isEditorOpen);
   </file>
+  <file path="src/components/availability/holidays.ts">
+    export type HolidayCountry = "US" | "CA" | "MX";
+    export type HolidayId =
+      | "newYearsDay"
+      | "constitutionDay"
+      | "valentinesDay"
+      | "benitoJuarez"
+      | "holyThursday"
+      | "goodFriday"
+      | "easter"
+      | "workersDay"
+      | "mothersDay"
+      | "fathersDay"
+      | "juneteenth"
+      | "victoriaDay"
+      | "memorialDay"
+      | "canadaDay"
+      | "independenceDay"
+      | "laborDay"
+      | "thanksgiving"
+      | "dayOfTheDead"
+      | "revolutionDay"
+      | "christmasEve"
+      | "christmasDay"
+      | "boxingDay"
+      | "newYearsEve";
+    export interface Holiday {
+      readonly id: HolidayId;
+      readonly date: string;
+    }
+    function nthWeekday(year: number, month: number, weekday: number, n: number): string {
+      if (n > 0) {
+        const first = iso(year, month, 1);
+        return addDays(first, ((weekday - weekdayIndexOf(first) + 7) % 7) + (n - 1) * 7);
+      }
+      const last = addDays(iso(month === 12 ? year + 1 : year, month === 12 ? 1 : month + 1, 1), -1);
+      return addDays(last, -((weekdayIndexOf(last) - weekday + 7) % 7) + (n + 1) * 7);
+    }
+    function easterSunday(year: number): string {
+      const a = year % 19;
+      const b = Math.floor(year / 100);
+      const c = year % 100;
+      const d = Math.floor(b / 4);
+      const e = b % 4;
+      const f = Math.floor((b + 8) / 25);
+      const g = Math.floor((b - f + 1) / 3);
+      const h = (19 * a + b - d - g + 15) % 30;
+      const i = Math.floor(c / 4);
+      const k = c % 4;
+      const l = (32 + 2 * e + 2 * i - h - k) % 7;
+      const m = Math.floor((a + 11 * h + 22 * l) / 451);
+      const month = Math.floor((h + l - 7 * m + 114) / 31);
+      const day = ((h + l - 7 * m + 114) % 31) + 1;
+      return iso(year, month, day);
+    }
+    export function holidaysIn(country: HolidayCountry, year: number): Holiday[] {
+      const easter = easterSunday(year);
+      const at = (id: HolidayId, date: string): Holiday => ({ id, date });
+      const common = [
+        at("newYearsDay", iso(year, 1, 1)),
+        at("valentinesDay", iso(year, 2, 14)),
+        at("easter", easter),
+        // Third Sunday of June in all three countries.
+        at("fathersDay", nthWeekday(year, 6, SUNDAY, 3)),
+        at("christmasEve", iso(year, 12, 24)),
+        at("christmasDay", iso(year, 12, 25)),
+        at("newYearsEve", iso(year, 12, 31)),
+      ];
+      const own: Record<HolidayCountry, Holiday[]> = {
+        US: [
+          at("mothersDay", nthWeekday(year, 5, SUNDAY, 2)),
+          at("memorialDay", nthWeekday(year, 5, MONDAY, -1)),
+          at("juneteenth", iso(year, 6, 19)),
+          at("independenceDay", iso(year, 7, 4)),
+          at("laborDay", nthWeekday(year, 9, MONDAY, 1)),
+          at("thanksgiving", nthWeekday(year, 11, THURSDAY, 4)),
+        ],
+        CA: [
+          at("goodFriday", addDays(easter, -2)),
+          at("mothersDay", nthWeekday(year, 5, SUNDAY, 2)),
+          // The Monday before May 25.
+          at("victoriaDay", addDays(iso(year, 5, 24), -((weekdayIndexOf(iso(year, 5, 24)) + 6) % 7))),
+          at("canadaDay", iso(year, 7, 1)),
+          at("laborDay", nthWeekday(year, 9, MONDAY, 1)),
+          at("thanksgiving", nthWeekday(year, 10, MONDAY, 2)),
+          at("boxingDay", iso(year, 12, 26)),
+        ],
+        MX: [
+          at("constitutionDay", nthWeekday(year, 2, MONDAY, 1)),
+          at("benitoJuarez", nthWeekday(year, 3, MONDAY, 3)),
+          at("holyThursday", addDays(easter, -3)),
+          at("goodFriday", addDays(easter, -2)),
+          at("workersDay", iso(year, 5, 1)),
+          at("mothersDay", iso(year, 5, 10)),
+          at("independenceDay", iso(year, 9, 16)),
+          at("dayOfTheDead", iso(year, 11, 2)),
+          at("revolutionDay", nthWeekday(year, 11, MONDAY, 3)),
+        ],
+      };
+      return [...common, ...own[country]].sort((x, y) => x.date.localeCompare(y.date));
+    }
+    function isPlanned(config: AvailabilityConfig, date: string): boolean {
+      return config.dateRules.some(
+        (r) =>
+          r.kind !== "tonight" &&
+          r.kind !== "skip" &&
+          r.startsOn <= date &&
+          (r.endsOn == null || r.endsOn >= date) &&
+          (r.repeat == null || r.repeat.weekdays.includes(weekdayIndexOf(date)))
+      );
+    }
+    export function upcomingHolidays(
+      country: HolidayCountry,
+      today: string,
+      config: AvailabilityConfig
+    ): Holiday[] {
+      const end = addDays(today, HOLIDAY_HORIZON_DAYS);
+      const year = Number(today.slice(0, 4));
+      return [...holidaysIn(country, year), ...holidaysIn(country, year + 1)].filter(
+        (h) => h.date >= today && h.date <= end && !isPlanned(config, h.date)
+      );
+    }
+    export function holidayCountry(
+      addressCountry: string | undefined,
+      locale: string
+    ): HolidayCountry | null {
+      const code = (addressCountry ?? locale.split("-")[1] ?? "").toUpperCase();
+      return COUNTRIES.find((c) => c === code) ?? null;
+    }
+    export const USUALLY_CLOSED: ReadonlySet<HolidayId> = new Set([
+      "thanksgiving",
+      "christmasDay",
+      "newYearsDay",
+    ]);
+  </file>
   <file path="src/components/availability/layer-text.ts">
     function upperFirst(text: string, locale: string): string {
       return `${text.charAt(0).toLocaleUpperCase(locale)}${text.slice(1)}`;
@@ -1821,6 +2015,24 @@
       );
     }
   </file>
+  <file path="src/components/availability/open-as-usual.ts">
+    export function readOpenAsUsual(venueId: string): readonly string[] {
+      try {
+        const parsed: unknown = JSON.parse(window.localStorage.getItem(storageKey(venueId)) ?? "[]");
+        return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
+      } catch {
+        // Storage blocked or garbled: every holiday is offered again, which is harmless.
+        return [];
+      }
+    }
+    export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void {
+      try {
+        window.localStorage.setItem(storageKey(venueId), JSON.stringify(dates));
+      } catch {
+        // Blocked storage: the choice lasts until the page reloads.
+      }
+    }
+  </file>
   <file path="src/components/availability/outcome-label.ts">
     export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string {
       return (["cancel", "move", "keep_notify", "keep_silent"] as const)
@@ -1880,11 +2092,15 @@
       const onlineOff = open.filter((d) => !d.bookingOpen.online).length;
       const online =
         onlineOff === open.length ? "onlineOff" : onlineOff === 0 ? "onlineOn" : "onlinePartial";
-      return t("availability.weekSummary.line", {
-        open: t("availability.weekSummary.open", { count: open.length }),
-        closures: t("availability.weekSummary.closures", { count: closures.size }),
-        online: t(`availability.weekSummary.${online}`),
-      });
+      const parts = [
+        t("availability.weekSummary.open", { count: open.length }),
+        // "0 closures" is a fact nobody needs: the line names closures only when there are some.
+        ...(closures.size > 0
+          ? [t("availability.weekSummary.closures", { count: closures.size })]
+          : []),
+        t(`availability.weekSummary.${online}`),
+      ];
+      return t("availability.weekSummary.line", { parts: parts.join(" · ") });
     }
   </file>
   <file path="src/components/availability/quick-setup-demo.fixture.ts">
@@ -2639,6 +2855,30 @@
       const first = services[0]?.days.join();
       const uniform = services.every((s) => s.changes.length === 0 && s.days.join() === first);
       return { services, uniform };
+    }
+    export interface UpcomingRegularWeek {
+      /** The first day the change is in force. */
+      readonly startsOn: string;
+      /** Its last day for a period; `null` when it becomes the regular week. */
+      readonly endsOn: string | null;
+      /** The line as it will read on `startsOn`. */
+      readonly line: RegularWeekLine;
+    }
+    export function upcomingRegularWeek(
+      config: AvailabilityConfig,
+      today: string
+    ): UpcomingRegularWeek | null {
+      const live = new Set(
+        config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt).map((s) => s.id)
+      );
+      const next = config.assignments
+        .filter((a) => live.has(a.scheduleId) && a.startsOn != null && a.startsOn > today)
+        .sort((a, b) => a.startsOn!.localeCompare(b.startsOn!))[0];
+      if (!next?.startsOn) return null;
+      const line = regularWeekLine(config, next.startsOn);
+      return line.services.length === 0
+        ? null
+        : { startsOn: next.startsOn, endsOn: next.endsOn ?? null, line };
     }
   </file>
   <file path="src/components/availability/removal-diff.ts">
@@ -4331,6 +4571,35 @@
       );
     
       return { editorRef, bannerRef, reloadRef, track };
+    }
+  </file>
+  <file path="src/components/availability/use-holidays.ts">
+    function addressCountry(profile: unknown): string | undefined {
+      if (typeof profile !== "object" || profile === null) return undefined;
+      const address = (profile as { address?: unknown }).address;
+      if (typeof address !== "object" || address === null) return undefined;
+      const country = (address as { country?: unknown }).country;
+      return typeof country === "string" ? country : undefined;
+    }
+    export function useHolidayCountry(): HolidayCountry | null {
+      const format = useVenueFormat();
+      const venue = useOptionalVenue()?.selectedVenue;
+      return holidayCountry(addressCountry(venue?.settings?.["profile"]), format.locale);
+    }
+    export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> {
+      const country = useHolidayCountry();
+      const { t } = useTranslation();
+      return useMemo(() => {
+        if (!country || dates.length === 0) return new Map();
+        const shown = new Set(dates);
+        const years = [...new Set(dates.map((d) => Number(d.slice(0, 4))))];
+        return new Map(
+          years
+            .flatMap((year) => holidaysIn(country, year))
+            .filter((h) => shown.has(h.date))
+            .map((h) => [h.date, t(`availabilitySpecial.holidays.name.${h.id}`)])
+        );
+      }, [country, dates, t]);
     }
   </file>
   <file path="src/components/availability/use-reload-hold.ts">
@@ -7348,6 +7617,11 @@
       }
       return out;
     }
+    function addDays(date: string, n: number): string {
+      const d = new Date(`${date}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().slice(0, 10);
+    }
     export async function mockAvailability(
       page: Page,
       options: { weekdays?: number[]; rules?: unknown[] } = {}
@@ -7480,27 +7754,48 @@
           })
         );
       });
+      const open = options.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
+      const isOpenOn = (serviceDate: string) =>
+        open.includes(new Date(`${serviceDate}T00:00:00Z`).getUTCDay());
+      /** The calendar cell `/availability/days` and the focus day of `/availability/preview` share. */
+      const dayCell = (serviceDate: string) => {
+        const isOpen = isOpenOn(serviceDate);
+        return {
+          serviceDate,
+          label: isOpen ? "Regular week" : "Closed",
+          scheduleId: isOpen ? "regular" : null,
+          serviceCount: isOpen ? 1 : 0,
+          closures: [],
+          bookingOpen: { online: isOpen, phone: isOpen, waitlist: isOpen },
+        };
+      };
+    
       await page.route(`${base}/availability/days*`, (route) => {
         const url = new URL(route.request().url());
-        const open = options.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
-        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map(
-          (serviceDate) => {
-            const isOpen = open.includes(new Date(`${serviceDate}T00:00:00Z`).getUTCDay());
-            return {
-              serviceDate,
-              label: isOpen ? "Regular week" : "Closed",
-              scheduleId: isOpen ? "regular" : null,
-              serviceCount: isOpen ? 1 : 0,
-              closures: [],
-              bookingOpen: { online: isOpen, phone: isOpen, waitlist: isOpen },
-            };
-          }
-        );
+        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map(dayCell);
         return route.fulfill(json(days));
       });
-      await page.route(`${base}/availability/preview*`, (route) =>
-        route.fulfill(problem(500, "internal"))
-      );
+      // No test here drafts a change that moves added/removed times or strands a booking, so a
+      // no-op diff over the current config is a fine stand-in for the real preview — unlike the
+      // blind 500 this route used to answer, which `AvailabilityGuestPreview` renders for real
+      // whenever the editor is open, and whose literal "Server said no." detail text is exactly
+      // what Sentry read as a production reservations-service 500 (#8280). There was no such bug.
+      await page.route(`${base}/availability/preview*`, (route) => {
+        const body = route.request().postDataJSON() as { focusDate: string };
+        const days = between(body.focusDate, addDays(body.focusDate, 29)).map((serviceDate) => ({
+          serviceDate,
+          added: [] as number[],
+          removed: [] as number[],
+        }));
+        return route.fulfill(
+          json({
+            version: mock.version,
+            days,
+            focusDay: dayCell(body.focusDate),
+            stranded: { total: 0, offset: 0, items: [] },
+          })
+        );
+      });
       await page.route("**/availability/changes/*/revert", (route) => {
         mock.reverts += 1;
         mock.version += 1;
@@ -9496,16 +9791,21 @@
   </file>
   <file path="src/hooks/useApiClient.ts">
     export function useApiClient() {
-      const { accessToken } = useAuth();
+      const { accessToken, signInSilent } = useAuth();
     
       return useMemo(
         () =>
           createApiClient({
             baseUrl: import.meta.env.VITE_API_URL ?? "",
             getAccessToken: () => accessToken,
+            // A 401 mid-session (expired token, #8258) refreshes once via a silent
+            // sign-in, which always fetches a new token. A failed refresh resolves
+            // null, and react-oidc-context records it as a silent error that
+            // DashboardLayout's "sign in again" banner already surfaces.
+            refreshAccessToken: async () => (await signInSilent())?.access_token ?? null,
             onError: reportApiError,
           }),
-        [accessToken]
+        [accessToken, signInSilent]
       );
     }
   </file>
@@ -10308,6 +10608,13 @@
       mutationFn: (api, id) => api.floorPlans.setActive(id),
       onSuccess: (queryClient, _data, id) => {
         queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(id) });
+      },
+    });
+    export const useDeleteFloorPlan = createMutationHook<string>({
+      invalidateKeys: FLOOR_PLANS_QUERY_KEY,
+      mutationFn: (api, id) => api.floorPlans.delete(id),
+      onSuccess: (queryClient, _data, id) => {
+        queryClient.removeQueries({ queryKey: floorPlanQueryKey(id) });
       },
     });
     export interface BulkUpdatePositionsPayload {

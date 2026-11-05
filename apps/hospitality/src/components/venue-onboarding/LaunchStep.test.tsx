@@ -119,6 +119,12 @@ describe("LaunchStep", () => {
     expect(screen.getByText("Launch Venue")).toBeTruthy();
   });
 
+  it("says a blank advance window has no limit, as the service treats it, not 30 days", () => {
+    renderLaunchStep();
+    expect(screen.getByText(/^No limit/)).toBeTruthy();
+    expect(screen.queryByText("30 days")).toBeNull();
+  });
+
   it("calls onLaunch when the Launch button is clicked", async () => {
     const { onLaunch } = renderLaunchStep();
 

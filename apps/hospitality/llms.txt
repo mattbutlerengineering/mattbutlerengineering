@@ -80,6 +80,33 @@
       ): { dates: number; parts: { action: ClosureAction; count: number }[] } { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/booking-rules.ts">
+    <item priority="low">
+      interface BookingRulesForm {
+        daysAhead: string;
+        noticeHours: string;
+        largestParty: string;
+      }
+    </item>
+    <item priority="low">
+      type BookingRulesField = keyof BookingRulesForm;
+    </item>
+    <item priority="high">
+      export const UNSET_LARGEST_PARTY: unknown;
+    </item>
+    <item priority="high">
+      export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withBookingRules(
+        settings: VenueSettings | null | undefined,
+        form: BookingRulesForm
+      ): VenueSettings { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/calendar-dates.ts">
     <item priority="low">
       type CalendarView = "month" | "week";
@@ -586,7 +613,7 @@
         label: string | null;
         tone: DayTone | null;
         bands: readonly ClosureBandText[];
-        count: string | null;
+        servicesSummary: string | null;
         services: readonly ServiceLineText[];
       }
     </item>
@@ -743,6 +770,48 @@
       export const useEditorOpen: unknown;
     </item>
   </file>
+  <file path="src/components/availability/holidays.ts">
+    <item priority="low">
+      type HolidayCountry = "US" | "CA" | "MX";
+    </item>
+    <item priority="low">
+      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "fathersDay" | "juneteenth" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
+    </item>
+    <item priority="low">
+      interface Holiday {
+        id: HolidayId;
+        date: string;
+      }
+    </item>
+    <item priority="medium">
+      function nthWeekday(year: number, month: number, weekday: number, n: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function easterSunday(year: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidaysIn(country: HolidayCountry, year: number): Holiday[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isPlanned(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function upcomingHolidays(
+        country: HolidayCountry,
+        today: string,
+        config: AvailabilityConfig
+      ): Holiday[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidayCountry(
+        addressCountry: string | undefined,
+        locale: string
+      ): HolidayCountry | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export const USUALLY_CLOSED: ReadonlySet<HolidayId>;
+    </item>
+  </file>
   <file path="src/components/availability/layer-text.ts">
     <item priority="medium">
       function upperFirst(text: string, locale: string): string { /* ... */ }
@@ -791,6 +860,14 @@
         date: string,
         nowMinute: number
       ): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/open-as-usual.ts">
+    <item priority="high">
+      export function readOpenAsUsual(venueId: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/outcome-label.ts">
@@ -1152,6 +1229,19 @@
     </item>
     <item priority="high">
       export function regularWeekLine(config: AvailabilityConfig, today: string): RegularWeekLine { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UpcomingRegularWeek {
+        startsOn: string;
+        endsOn: string | null;
+        line: RegularWeekLine;
+      }
+    </item>
+    <item priority="high">
+      export function upcomingRegularWeek(
+        config: AvailabilityConfig,
+        today: string
+      ): UpcomingRegularWeek | null { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/removal-diff.ts">
@@ -1844,6 +1934,17 @@
       export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/use-holidays.ts">
+    <item priority="medium">
+      function addressCountry(profile: unknown): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayCountry(): HolidayCountry | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/use-reload-hold.ts">
     <item priority="medium">
       function emit() { /* ... */ }
@@ -2446,6 +2547,9 @@
     </item>
     <item priority="medium">
       function between(from: string, to: string): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addDays(date: string, n: number): string { /* ... */ }
     </item>
     <item priority="high">
       export async function mockAvailability(
@@ -3790,6 +3894,9 @@
     </item>
     <item priority="high">
       export const useActivateFloorPlan: unknown;
+    </item>
+    <item priority="high">
+      export const useDeleteFloorPlan: unknown;
     </item>
     <item priority="low">
       interface BulkUpdatePositionsPayload {

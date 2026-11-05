@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { GuestCard } from "./GuestCard.js";
 import type { Guest, Reservation } from "@mbe/types";
+import { VenueContext, type VenueContextValue } from "../../contexts/venue-context-object.js";
 
 // Mock scrollIntoView for JSDOM
 window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -514,6 +515,29 @@ describe("GuestCard", () => {
       });
       render(<GuestCard guestId="guest-1" />);
       expect(screen.getByText(/standard/i)).toBeDefined();
+    });
+  });
+
+  // #8256 (Sentry HOSPITALITY-E): the history request names the current venue
+  // so the API authorises and scopes it against that venue.
+  describe("reservation history request", () => {
+    it("sends the selected venueId with guestId", () => {
+      const venue = { selectedVenueId: "venue-7" } as unknown as VenueContextValue;
+      render(
+        <VenueContext.Provider value={venue}>
+          <GuestCard guestId="guest-1" />
+        </VenueContext.Provider>
+      );
+      expect(mockUseReservations).toHaveBeenCalledWith(
+        expect.objectContaining({ guestId: "guest-1", venueId: "venue-7", limit: 20 })
+      );
+    });
+
+    it("sends guestId alone outside a venue provider", () => {
+      render(<GuestCard guestId="guest-1" />);
+      const params = mockUseReservations.mock.calls.at(-1)?.[0] as Record<string, unknown>;
+      expect(params).toMatchObject({ guestId: "guest-1" });
+      expect(params.venueId).toBeUndefined();
     });
   });
 });

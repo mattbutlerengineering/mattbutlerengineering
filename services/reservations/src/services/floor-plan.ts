@@ -8,7 +8,12 @@ import type {
   UpdateTablePositionRequest,
   PaginatedResponse,
 } from "@mbe/types";
-import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
+import {
+  paginate,
+  toPaginationMeta,
+  isPrismaNotFound,
+  isPrismaForeignKeyViolation,
+} from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { toTable } from "./serializers.js";
@@ -56,9 +61,43 @@ function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan {
   };
 }
 
+/**
+ * A venue-unique name for each of `desired`, in order: the name itself when
+ * free, else the first `candidate(name, n)` (n = 2, 3, …) nobody holds yet.
+ *
+ * Table names are unique per **venue** (`tables_venue_id_name_key`), not per
+ * plan, and that is relied on: the agent's `resolveTable` and onboarding's
+ * `launch-sequence.ts` resolve a table by name across the whole venue. So a
+ * cloned table cannot keep its source's name (#8255). `T1` → `T1-2` matches the
+ * scheme `apply-room-template.ts` already uses for a venue's later plans.
+ */
+function venueUniqueNames(
+  desired: readonly string[],
+  taken: readonly string[],
+  candidate: (name: string, n: number) => string
+): string[] {
+  const used = new Set(taken);
+  return desired.map((name) => {
+    let pick = used.has(name) ? candidate(name, 2) : name;
+    for (let n = 3; used.has(pick); n += 1) pick = candidate(name, n);
+    used.add(pick);
+    return pick;
+  });
+}
+
+/**
+ * `deleted` and `archived` both mean the plan is gone for the caller;
+ * `active` and `in_use` are refusals the route answers with a 409.
+ */
+export type FloorPlanDeleteOutcome =
+  "deleted" | "archived" | "active" | "has_upcoming" | "in_use" | "not_found";
+
+/** Statuses of a booking that is over or never happened: it does not hold a table. */
+const SETTLED_STATUSES = ["CANCELLED", "NO_SHOW", "COMPLETED"] as const;
+
 export const floorPlanService = {
   async list(page: number, limit: number, venueId?: string): Promise<PaginatedResponse<FloorPlan>> {
-    const where = venueId ? { venueId } : {};
+    const where = { archivedAt: null, ...(venueId ? { venueId } : {}) };
 
     const [floorPlans, total] = await Promise.all([
       prisma.floorPlan.findMany({
@@ -89,6 +128,7 @@ export const floorPlanService = {
     venueId?: string
   ): Promise<PaginatedResponse<FloorPlan>> {
     const where: Prisma.FloorPlanWhereInput = {
+      archivedAt: null,
       venue: { memberships: { some: { userSub } } },
       ...(venueId ? { venueId } : {}),
     };
@@ -110,8 +150,8 @@ export const floorPlanService = {
   },
 
   async getById(id: string): Promise<FloorPlan | null> {
-    const floorPlan = await prisma.floorPlan.findUnique({
-      where: { id },
+    const floorPlan = await prisma.floorPlan.findFirst({
+      where: { id, archivedAt: null },
       include: { tables: true },
     });
     return floorPlan ? mapPrismaFloorPlan(floorPlan) : null;
@@ -139,19 +179,19 @@ export const floorPlanService = {
   },
 
   async clone(id: string): Promise<FloorPlan | null> {
-    const source = await prisma.floorPlan.findUnique({
-      where: { id },
+    const source = await prisma.floorPlan.findFirst({
+      where: { id, archivedAt: null },
       include: { tables: true },
     });
     if (!source) return null;
 
     // Handle name collisions: find next available copy name
     const baseName = source.name;
+    // Every plan name in the venue: the first copy's `Copy of …` does not start
+    // with `baseName`, so a `startsWith` filter missed it and a second clone
+    // reused the same name.
     const existingNames = await prisma.floorPlan.findMany({
-      where: {
-        venueId: source.venueId,
-        name: { startsWith: baseName },
-      },
+      where: { venueId: source.venueId },
       select: { name: true },
     });
     const existingNameSet = new Set(existingNames.map((n) => n.name));
@@ -183,15 +223,27 @@ export const floorPlanService = {
       });
 
       if (source.tables.length > 0) {
+        const venueTables = await tx.table.findMany({
+          where: { venueId: source.venueId },
+          select: { name: true },
+        });
+        const copyNames = venueUniqueNames(
+          source.tables.map((t) => t.name),
+          venueTables.map((t) => t.name),
+          (name, n) => `${name}-${n}`
+        );
         await tx.table.createMany({
-          data: source.tables.map((t) => ({
-            name: t.name,
+          data: source.tables.map((t, i) => ({
+            name: copyNames[i]!,
             tableNumber: t.tableNumber,
             capacity: t.capacity,
             minCovers: t.minCovers,
             maxCovers: t.maxCovers,
             location: t.location,
-            isActive: t.isActive,
+            // Inactive until the owner turns them on: any active table is
+            // bookable whatever its plan, so an active copy would double
+            // online capacity (#8255; plan-scoped bookability is #8276).
+            isActive: false,
             priority: t.priority,
             status: "AVAILABLE",
             venueId: t.venueId,
@@ -222,7 +274,7 @@ export const floorPlanService = {
       }
 
       const floorPlan = await prisma.floorPlan.update({
-        where: { id },
+        where: { id, archivedAt: null },
         data: updateData,
         include: { tables: true },
       });
@@ -233,15 +285,81 @@ export const floorPlanService = {
     }
   },
 
-  async delete(id: string): Promise<boolean> {
+  /**
+   * Deletes a floor plan in one transaction (#8254). Reservations and holds
+   * reference tables with ON DELETE RESTRICT and are never deleted, so a plan
+   * whose tables carry any (even cancelled or expired) history is archived
+   * instead: hidden from every read, its tables taken out of service and
+   * renamed so the venue can reuse their names. The active plan is refused —
+   * the venue must never be left without one — and so is a plan with a booking
+   * still to come, which would otherwise sit on a table no longer shown.
+   */
+  async delete(id: string): Promise<FloorPlanDeleteOutcome> {
+    // Read through the venue-scoped client first: the explicit transaction
+    // below must set app.venue_id itself (ADR-026 part 6), so it needs the venue.
+    const found = await prisma.floorPlan.findFirst({
+      where: { id, archivedAt: null },
+      select: { venueId: true },
+    });
+    if (!found) return "not_found";
+    const { venueId } = found;
+
     try {
-      await prisma.table.deleteMany({
-        where: { floorPlanId: id },
+      return await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        // Lock the plan row so a concurrent activate cannot slip in between
+        // the active check and the delete.
+        const [plan] = await tx.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null }>>`
+          SELECT is_active AS "isActive", archived_at AS "archivedAt"
+          FROM floor_plans WHERE id = ${id} FOR UPDATE
+        `;
+        if (!plan || plan.archivedAt) return "not_found" as const;
+        if (plan.isActive) return "active" as const;
+
+        const tables = await tx.table.findMany({
+          where: { floorPlanId: id },
+          select: { id: true, name: true },
+        });
+        const tableIds = tables.map((t) => t.id);
+        const upcoming = await tx.reservation.count({
+          where: {
+            tableId: { in: tableIds },
+            status: { notIn: [...SETTLED_STATUSES] },
+            endTime: { gt: new Date() },
+          },
+        });
+        if (upcoming > 0) return "has_upcoming" as const;
+        const [reservations, holds] = await Promise.all([
+          tx.reservation.count({ where: { tableId: { in: tableIds } } }),
+          tx.reservationHold.count({ where: { tableId: { in: tableIds } } }),
+        ]);
+
+        if (reservations + holds === 0) {
+          await tx.table.deleteMany({ where: { floorPlanId: id } });
+          await tx.floorPlan.delete({ where: { id } });
+          return "deleted" as const;
+        }
+
+        const ownNames = new Set(tables.map((t) => t.name));
+        const venueTables = await tx.table.findMany({ where: { venueId }, select: { name: true } });
+        const archivedNames = venueUniqueNames(
+          tables.map((t) => `${t.name} (archived)`),
+          venueTables.map((t) => t.name).filter((name) => !ownNames.has(name)),
+          (name, n) => `${name.slice(0, -")".length)} ${n})`
+        );
+        for (const [i, table] of tables.entries()) {
+          await tx.table.update({
+            where: { id: table.id },
+            data: { name: archivedNames[i]!, isActive: false },
+          });
+        }
+        await tx.floorPlan.update({ where: { id }, data: { archivedAt: new Date() } });
+        return "archived" as const;
       });
-      await prisma.floorPlan.delete({ where: { id } });
-      return true;
     } catch (err: unknown) {
-      if (isPrismaNotFound(err)) return false;
+      // A booking or hold committed on one of the tables after the history
+      // check: the RESTRICT FK refuses the delete. Never surface the raw error.
+      if (isPrismaForeignKeyViolation(err)) return "in_use";
       throw err;
     }
   },
@@ -259,7 +377,7 @@ export const floorPlanService = {
         });
 
         return tx.floorPlan.update({
-          where: { id },
+          where: { id, archivedAt: null },
           data: { isActive: true },
           include: { tables: true },
         });

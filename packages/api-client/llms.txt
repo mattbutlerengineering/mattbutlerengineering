@@ -156,9 +156,9 @@
       interface ClientConfig {
         baseUrl: string;
         getAccessToken?: () => string | null | Promise<string | null>;
+        refreshAccessToken?: () => Promise<string | null>;
         timeout?: number;
         maxRetries?: number;
-        onError?: (error: ApiClientError) => void;
       }
     </item>
     <item priority="low">
@@ -178,8 +178,8 @@
       class ApiClient {
         timeout: number;
         maxRetries: number;
+        refreshInFlight: Promise<string | null> | null;
         async request(): Promise<unknown>;
-        async call(): Promise<unknown>;
       }
     </item>
     <item priority="low">
@@ -299,6 +299,7 @@
       export function createApiClient(config: {
         baseUrl?: string;
         getAccessToken?: () => string | null | Promise<string | null>;
+        refreshAccessToken?: () => Promise<string | null>;
         timeout?: number;
         maxRetries?: number;
         onError?: (error: ApiClientError) => void;

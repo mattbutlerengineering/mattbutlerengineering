@@ -9,6 +9,7 @@ import { shiftAnchor, visibleDates, type CalendarView } from "./calendar-dates.j
 import { columnDates } from "./selection.js";
 import { useDateSelection, type DateGestureHandlers } from "./useDateSelection.js";
 import { presentDay } from "./day-summary.js";
+import { useHolidayNames } from "./use-holidays.js";
 import { periodLabel } from "./period.js";
 import { AvailabilityAgenda } from "./AvailabilityAgenda.js";
 import styles from "./AvailabilityCalendar.module.css";
@@ -50,6 +51,8 @@ interface CellProps {
   readonly isPicked: boolean;
   readonly isTabStop: boolean;
   readonly isMuted: boolean;
+  /** The holiday this date falls on ("Thanksgiving"), shown beside the day number. */
+  readonly holiday: string | null;
   readonly format: VenueFormat;
   readonly handlers: DateGestureHandlers;
   readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>, date: string) => void;
@@ -57,7 +60,7 @@ interface CellProps {
 
 function Cell(props: CellProps) {
   const { date, summary, isLoading, detailed, isToday, isSelected, isPicked, isTabStop } = props;
-  const { isMuted, handlers, isDraft } = props;
+  const { isMuted, handlers, isDraft, holiday } = props;
   const { t } = useTranslation();
   const { format } = props;
 
@@ -82,11 +85,11 @@ function Cell(props: CellProps) {
         data-date={date}
         tabIndex={isTabStop ? 0 : -1}
         aria-current={isToday ? "date" : undefined}
-        aria-label={
-          isDraft
-            ? `${view.accessibleName}, ${t("availability.calendar.draftName")}`
-            : view.accessibleName
-        }
+        aria-label={[
+          view.accessibleName,
+          ...(holiday ? [holiday] : []),
+          ...(isDraft ? [t("availability.calendar.draftName")] : []),
+        ].join(", ")}
         {...handlers}
         onKeyDown={(event) => props.onKeyDown(event, date)}
         // Firefox clicks a button on Space keyup; Space toggles selection, so it must not open the day.
@@ -96,14 +99,17 @@ function Cell(props: CellProps) {
       >
         {isDraft && <span className={styles.draftDot} data-draft-dot aria-hidden="true" />}
         <span className={styles.dayNumber} aria-hidden="true">
-          {format.formatCalendarDate(date, { day: "numeric" })}
+          <span className={styles.number}>
+            {format.formatCalendarDate(date, { day: "numeric" })}
+          </span>
+          {holiday && <span className={styles.holiday}> {holiday}</span>}
         </span>{" "}
         {isLoading || !summary ? (
           !props.loadFailed && <Skeleton variant="text" width="100%" height={16} />
         ) : (
           <span className={styles.details} aria-hidden="true">
             <span className={styles.label}>{view.label} </span>
-            {view.count && <span className={styles.meta}>{view.count} </span>}
+            {view.servicesSummary && <span className={styles.meta}>{view.servicesSummary} </span>}
             {view.bands.map((b) => (
               <span key={b.key} className={styles.band}>
                 {b.text}{" "}
@@ -164,6 +170,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   const [headerStop, setHeaderStop] = useState(0);
 
   const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
+  const holidays = useHolidayNames(dates);
   const byDate = useMemo(() => new Map((days ?? []).map((d) => [d.serviceDate, d])), [days]);
   const anchorMonth = anchor.slice(0, 7);
   const tabStop = dates.includes(anchor) ? anchor : dates[0];
@@ -253,6 +260,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
         isLoading={isLoading}
         loadFailed={loadFailed}
         handlersFor={handlersFor}
+        holidays={holidays}
         onToggle={toggleSelected}
       />
     );
@@ -296,6 +304,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
               isPicked={picked.has(date)}
               isTabStop={date === tabStop}
               isMuted={view === "month" && !date.startsWith(anchorMonth)}
+              holiday={holidays.get(date) ?? null}
               format={format}
               handlers={handlersFor(date)}
               onKeyDown={handleKeyDown}

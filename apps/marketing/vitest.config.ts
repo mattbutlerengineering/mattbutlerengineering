@@ -5,10 +5,10 @@ import { defineVitestConfig } from "@mbe/config/vitest/react";
 export default defineVitestConfig({
   // e2e/workflow-coverage.test.ts is a vitest guard over the CI wiring that
   // happens to live beside the Playwright specs (the hospitality pattern).
-  include: ["src/**/*.test.{ts,tsx}", "e2e/workflow-coverage.test.ts"],
+  include: ["src/**/*.test.{ts,tsx}", "e2e/workflow-coverage.test.ts", "pwa/**/*.test.ts"],
   coverage: {
-    include: ["src/**/*.ts", "src/**/*.tsx"],
-    exclude: ["src/**/*.test.{ts,tsx}", "src/main.tsx", "src/vite-env.d.ts"],
+    include: ["src/**/*.ts", "src/**/*.tsx", "pwa/**/*.ts"],
+    exclude: ["src/**/*.test.{ts,tsx}", "pwa/**/*.test.ts", "src/main.tsx", "src/vite-env.d.ts"],
     thresholds: {
       lines: 80,
     },

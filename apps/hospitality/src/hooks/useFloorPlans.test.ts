@@ -9,6 +9,7 @@ import {
   useBulkUpdatePositions,
   useAddTable,
   useUpdateTable,
+  useDeleteFloorPlan,
 } from "./useFloorPlans.js";
 import type { FloorPlan } from "@mbe/types";
 
@@ -20,6 +21,7 @@ const mockSetActive = vi.fn();
 const mockBulkUpdatePositions = vi.fn();
 const mockCreateTable = vi.fn();
 const mockUpdateTable = vi.fn();
+const mockDeleteFloorPlan = vi.fn();
 
 vi.mock("./useApiClient.js", () => ({
   useApiClient: () => ({
@@ -28,6 +30,7 @@ vi.mock("./useApiClient.js", () => ({
       getById: mockGetById,
       setActive: mockSetActive,
       bulkUpdatePositions: mockBulkUpdatePositions,
+      delete: mockDeleteFloorPlan,
     },
     tables: {
       create: mockCreateTable,
@@ -215,5 +218,25 @@ describe("floor-plan mutations invalidate the cached useFloorPlan entry", () => 
     await result.current.mutateAsync({ name: "T1", capacity: 2, floorPlanId: "fp-1" });
 
     expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
+  });
+});
+
+describe("useDeleteFloorPlan", () => {
+  it("deletes the plan, re-reads the list and drops the plan's own entry", async () => {
+    mockDeleteFloorPlan.mockResolvedValue(undefined);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const listKey = ["floorPlans", { venueId: "venue-1" }];
+    const detailKey = ["floorPlan", { id: "fp-1" }];
+    queryClient.setQueryData(listKey, [makeFloorPlan()]);
+    queryClient.setQueryData(detailKey, makeFloorPlan());
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    const { result } = renderHook(() => useDeleteFloorPlan(), { wrapper });
+
+    await result.current.mutateAsync("fp-1");
+
+    expect(mockDeleteFloorPlan).toHaveBeenCalledWith("fp-1");
+    expect(queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(detailKey)).toBeUndefined();
   });
 });

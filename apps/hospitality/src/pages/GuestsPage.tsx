@@ -193,6 +193,7 @@ export function GuestsPage({ _useGuestDirectory }: GuestsPageProps = {}) {
 
   const { data: guestReservations = [], isLoading: historyLoading } = useReservations({
     guestId: selectedGuestId ?? undefined,
+    venueId: selectedVenueId ?? undefined,
     limit: 10,
     enabled: !!selectedGuestId,
   });
