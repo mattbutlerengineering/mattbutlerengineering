@@ -1878,6 +1878,7 @@
     "regularMarker": "Regular week",
     "new": "New schedule",
     "newTitle": "New schedule",
+    "fromRegularWeek": "Start from your regular week",
     "duplicateTitle": "Duplicate schedule",
     "editTitle": "Edit {{name}}",
     "editNamed": "Edit {{name}}",

@@ -1915,6 +1915,7 @@
     "regularMarker": "Semana habitual",
     "new": "Nuevo horario",
     "newTitle": "Nuevo horario",
+    "fromRegularWeek": "Empezar con tu semana habitual",
     "duplicateTitle": "Duplicar horario",
     "editTitle": "Editar {{name}}",
     "editNamed": "Editar {{name}}",
