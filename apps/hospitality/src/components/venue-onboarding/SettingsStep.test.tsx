@@ -64,10 +64,10 @@ describe("SettingsStep", () => {
     expect(screen.getByLabelText(/Default Reservation Duration/i)).toHaveValue(
       Number(RECOMMENDED_SETTINGS.defaultReservationDuration)
     );
-    expect(screen.getByLabelText(/Maximum Party Size/i)).toHaveValue(
+    expect(screen.getByLabelText(/Largest party online/i)).toHaveValue(
       Number(RECOMMENDED_SETTINGS.maxPartySize)
     );
-    expect(screen.getByLabelText(/Advance Booking Window/i)).toHaveValue(
+    expect(screen.getByLabelText(/How far ahead guests can book/i)).toHaveValue(
       Number(RECOMMENDED_SETTINGS.advanceBookingDays)
     );
   });
@@ -101,7 +101,7 @@ describe("SettingsStep", () => {
       />
     );
 
-    const maxPartyInput = screen.getByLabelText(/Maximum Party Size/i);
+    const maxPartyInput = screen.getByLabelText(/Largest party online/i);
     fireEvent.change(maxPartyInput, { target: { value: "4" } });
 
     expect(onChange).toHaveBeenLastCalledWith({

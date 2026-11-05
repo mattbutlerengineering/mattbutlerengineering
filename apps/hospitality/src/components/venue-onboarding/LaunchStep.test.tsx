@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import type { OperatingHours } from "@mbe/types";
 import type * as RialtoModule from "@mattbutlerengineering/rialto";
 import { LaunchStep } from "./LaunchStep";
 import type { BasicInfoData } from "./BasicInfoStep.js";
@@ -10,6 +9,13 @@ import type { SettingsData } from "./SettingsStep.js";
 import { EMPTY_FLOOR_PLAN_DRAFT, type FloorPlanDraft } from "./floor-plan-draft.js";
 import { draftFromTemplate } from "./floor-plan-templates.js";
 import { INITIAL_LAUNCH_PROGRESS, type LaunchProgress } from "./launch-sequence.js";
+import { draftService } from "../availability/quick-setup-demo.fixture.js";
+import type { QuickSetupDraft } from "../availability/quick-setup-draft.js";
+
+// The Guest preview's tables read is switched off in the wizard (no venue yet); keep it inert here.
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+}));
 
 // Button/Card/Text/Stack keep the pre-existing shallow mocks so the tests
 // written against them stay unaffected; StatusLED/Progress/Alert (pulled in
@@ -49,8 +55,9 @@ const basicInfo: BasicInfoData = {
   venueGroupId: "",
 };
 const locationTime: LocationTimeData = { ianaTimezone: "America/New_York", currencyCode: "USD" };
-const operatingHours: OperatingHours = {
-  monday: { open: "09:00", close: "22:00" },
+const hoursDraft: QuickSetupDraft = {
+  days: [1],
+  services: [draftService("s1", "Dinner", ["17:00", "21:15", "22:00"])],
 };
 const settings: SettingsData = {
   defaultReservationDuration: "",
@@ -83,7 +90,7 @@ function renderLaunchStep(overrides: Partial<ComponentProps<typeof LaunchStep>> 
   const props: ComponentProps<typeof LaunchStep> = {
     basicInfo,
     locationTime,
-    operatingHours,
+    hoursDraft,
     settings,
     onLaunch,
     onCelebrationDone,
@@ -119,10 +126,23 @@ describe("LaunchStep", () => {
     expect(screen.getByText("Launch Venue")).toBeTruthy();
   });
 
-  it("says a blank advance window has no limit, as the service treats it, not 30 days", () => {
+  it("reviews the hours as the Guest preview the hours step showed: service, first and last seating", () => {
+    renderLaunchStep();
+
+    const strip = screen.getByRole("complementary", { name: "Guest preview" });
+    expect(within(strip).getByRole("listitem", { name: /^Monday:/ })).toHaveTextContent(
+      "Dinner 5:00 PM – 9:15 PM"
+    );
+    expect(within(strip).getByRole("listitem", { name: /^Tuesday:/ })).toHaveTextContent("Closed");
+    expect(screen.queryByText(/17:00/)).toBeNull();
+  });
+
+  it("prints the service's own defaults for blank settings: no limit ahead, a party of 8", () => {
     renderLaunchStep();
     expect(screen.getByText(/^No limit/)).toBeTruthy();
     expect(screen.queryByText("30 days")).toBeNull();
+    expect(screen.getByText(/^8 guests/)).toBeTruthy();
+    expect(screen.queryByText(/12 guests/)).toBeNull();
   });
 
   it("calls onLaunch when the Launch button is clicked", async () => {

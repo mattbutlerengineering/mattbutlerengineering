@@ -6324,9 +6324,18 @@
       export function generateSlug(name: string): string { /* ... */ }
     </item>
   </file>
+  <file path="src/components/venue-onboarding/launch-hours.ts">
+    <item priority="high">
+      export function launchHoursChanges(
+        draft: QuickSetupDraft,
+        derived: AvailabilityConfig,
+        newId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/venue-onboarding/launch-sequence.ts">
     <item priority="low">
-      type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
+      type LaunchStageId = "venue" | "hours" | "floorPlan" | "tables" | "activate";
     </item>
     <item priority="low">
       type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
@@ -6334,10 +6343,10 @@
     <item priority="low">
       interface LaunchProgress {
         venueId: string | null;
+        hoursSaved?: boolean;
         floorPlanId: string | null;
         sectionsDone: boolean;
         createdTableNames: readonly string[];
-        membershipDone?: boolean;
       }
     </item>
     <item priority="high">
@@ -6377,6 +6386,8 @@
     <item priority="low">
       interface LaunchApi {
         venues: { create(data: CreateVenueRequest): Promise<Venue> };
+        availability: {
+          getConfig(venueId: string): Promise<AvailabilityCon...;
         floorPlans: {
           create(data: CreateFloorPlanRequest): Promise<Floor...;
         floorPlanSections: {
@@ -6393,6 +6404,14 @@
       async function runVenueStage(
         api: LaunchApi,
         venuePayload: CreateVenueRequest,
+        progress: LaunchProgress,
+        onProgress: (next: LaunchProgress) => void
+      ): Promise<LaunchProgress> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runHoursStage(
+        api: LaunchApi,
+        hours: QuickSetupDraft,
         progress: LaunchProgress,
         onProgress: (next: LaunchProgress) => void
       ): Promise<LaunchProgress> { /* ... */ }
@@ -6447,6 +6466,7 @@
         stage: LaunchStageId,
         draft: FloorPlanDraft,
         venuePayload: CreateVenueRequest,
+        hours: QuickSetupDraft,
         progress: LaunchProgress,
         onProgress: (next: LaunchProgress) => void
       ): Promise<LaunchProgress> { /* ... */ }
@@ -6457,7 +6477,8 @@
         draft: FloorPlanDraft,
         venuePayload: CreateVenueRequest,
         progress: LaunchProgress,
-        onProgress: (next: LaunchProgress) => void
+        onProgress: (next: LaunchProgress) => void,
+        hours: QuickSetupDraft
       ): Promise<LaunchProgress> { /* ... */ }
     </item>
   </file>
@@ -6472,6 +6493,11 @@
     </item>
     <item priority="high">
       export const ONBOARDING_STEPS: readonly OnboardingStep[];
+    </item>
+  </file>
+  <file path="src/components/venue-onboarding/settings-defaults.ts">
+    <item priority="high">
+      export const SETTINGS_DEFAULTS: unknown;
     </item>
   </file>
   <file path="src/components/venue-onboarding/useOnboardingWizard.ts">

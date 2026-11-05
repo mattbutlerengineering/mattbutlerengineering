@@ -1,10 +1,10 @@
 import { useRef, useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Stack, Text, Card, Button } from "@mattbutlerengineering/rialto";
-import type { OperatingHours } from "@mbe/types";
 import type { BasicInfoData } from "./BasicInfoStep.js";
 import type { LocationTimeData } from "./LocationTimeStep.js";
 import type { SettingsData } from "./SettingsStep.js";
+import { SETTINGS_DEFAULTS as DEFAULTS } from "./settings-defaults.js";
 import { EMPTY_FLOOR_PLAN_DRAFT, type FloorPlanDraft } from "./floor-plan-draft.js";
 import { layoutForDraft, templateById } from "./floor-plan-templates.js";
 import { layoutCounts } from "./floor-plan-copy.js";
@@ -12,17 +12,9 @@ import { TemplateMiniPreview } from "../floor-plan/TemplateMiniPreview.js";
 import { INITIAL_LAUNCH_PROGRESS, type LaunchProgress } from "./launch-sequence.js";
 import { LaunchStagePanel } from "./LaunchStagePanel.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
+import { RegularWeekStrip } from "../availability/RegularWeekStrip.js";
+import type { QuickSetupDraft } from "../availability/quick-setup-draft.js";
 import styles from "./LaunchStep.module.css";
-
-const DAYS_OF_WEEK = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
-] as const;
 
 // Full celebration is a short, deliberate pause; under prefers-reduced-motion
 // we still show the success state (so it doesn't look like nothing happened)
@@ -41,7 +33,8 @@ function prefersReducedMotion(): boolean {
 interface LaunchStepProps {
   basicInfo: BasicInfoData;
   locationTime: LocationTimeData;
-  operatingHours: OperatingHours;
+  /** The hours step's form, reviewed as the same Guest preview that step showed. */
+  hoursDraft: QuickSetupDraft;
   settings: SettingsData;
   onLaunch: () => Promise<void>;
   onCelebrationDone: () => void;
@@ -55,7 +48,7 @@ interface LaunchStepProps {
 export function LaunchStep({
   basicInfo,
   locationTime,
-  operatingHours,
+  hoursDraft,
   settings,
   onLaunch,
   onCelebrationDone,
@@ -143,7 +136,6 @@ export function LaunchStep({
     );
   }
 
-  const hasOperatingHours = Object.keys(operatingHours).length > 0;
   const template = floorPlan.templateId !== null ? templateById(floorPlan.templateId) : null;
   // The draft as the operator left it — their own tables at their own
   // positions, on the room's canvas with its walls and zones. Projected from
@@ -189,25 +181,7 @@ export function LaunchStep({
           </Card>
 
           <Card title={t("onboarding.hours.heading")} variant="flat">
-            {hasOperatingHours ? (
-              DAYS_OF_WEEK.map((day) => {
-                const schedule = operatingHours[day];
-                return (
-                  <div key={day} className={styles.reviewSection}>
-                    <Text className={styles.reviewLabel}>{t(`onboarding.days.${day}`)}</Text>
-                    <Text className={styles.reviewValue}>
-                      {schedule
-                        ? `${schedule.open} - ${schedule.close}`
-                        : t("onboarding.hours.closed")}
-                    </Text>
-                  </div>
-                );
-              })
-            ) : (
-              <Text variant="caption" color="secondary">
-                {t("onboarding.launch.noHours")}
-              </Text>
-            )}
+            <RegularWeekStrip draft={hoursDraft} local />
           </Card>
 
           <Card title={t("onboarding.launch.settingsCard")} variant="flat">
@@ -215,7 +189,9 @@ export function LaunchStep({
               <Text className={styles.reviewLabel}>{t("onboarding.launch.defaultDuration")}</Text>
               <Text className={styles.reviewValue}>
                 {t("onboarding.launch.minutes", {
-                  count: Number(settings.defaultReservationDuration || "90"),
+                  count: Number(
+                    settings.defaultReservationDuration || DEFAULTS.defaultReservationDuration
+                  ),
                 })}
                 {!settings.defaultReservationDuration && (
                   <Text variant="caption" color="secondary">
@@ -226,9 +202,13 @@ export function LaunchStep({
               </Text>
             </div>
             <div className={styles.reviewSection}>
-              <Text className={styles.reviewLabel}>{t("onboarding.launch.maxPartySize")}</Text>
+              <Text className={styles.reviewLabel}>
+                {t("availability.bookingRules.largestParty")}
+              </Text>
               <Text className={styles.reviewValue}>
-                {t("onboarding.launch.guests", { count: Number(settings.maxPartySize || "12") })}
+                {t("onboarding.launch.guests", {
+                  count: Number(settings.maxPartySize || DEFAULTS.maxPartySize),
+                })}
                 {!settings.maxPartySize && (
                   <Text variant="caption" color="secondary">
                     {" "}

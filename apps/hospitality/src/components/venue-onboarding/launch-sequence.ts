@@ -1,11 +1,13 @@
 /**
- * The Launch sequence: a resumable, four-stage machine that turns a
- * FloorPlanDraft into a live venue.
+ * The Launch sequence: a resumable, five-stage machine that turns the
+ * wizard's answers into a live venue.
  *
- * Pressing "Launch Venue" must create four things in order — the venue,
- * its floor plan, N tables, and then activate the plan — and the manager
- * must be able to see where it stopped and retry from there. This module
- * owns that ordering, the resume point, and the duplicate-is-done rule.
+ * Pressing "Launch Venue" must create five things in order — the venue,
+ * its regular week (the hours step's services, saved over the one-window
+ * projection the venue was created with), its floor plan, N tables, and
+ * then activate the plan — and the manager must be able to see where it
+ * stopped and retry from there. This module owns that ordering, the resume
+ * point, and the duplicate-is-done rule.
  *
  * The resume point is a *value* (`LaunchProgress`), not a state of the
  * world that has to be re-derived. Retry is literally the same function
@@ -41,22 +43,32 @@ import type {
   CreateFloorPlanRequest,
   UpdateFloorPlanRequest,
   FloorPlanLayout,
+  AvailabilityConfigState,
+  AvailabilityConfigSaveResult,
+  PutAvailabilityConfigBody,
 } from "@mbe/types";
 import { ApiClientError } from "@mbe/api-client";
 import { localeRuntime } from "../../i18n/runtime.js";
+import type { QuickSetupDraft } from "../availability/quick-setup-draft.js";
 import type { FloorPlanDraft } from "./floor-plan-draft.js";
 import {
   draftLayoutJson,
   draftTableToCreateRequest,
   DUPLICATE_TABLE_NAME_MESSAGE,
 } from "./floor-plan-draft.js";
+import { launchHoursChanges } from "./launch-hours.js";
 import { CANVAS_WIDTH, CANVAS_HEIGHT, GRID_SIZE } from "../floor-plan/floor-plan-geometry.js";
 
-export type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
+export type LaunchStageId = "venue" | "hours" | "floorPlan" | "tables" | "activate";
 export type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
 
 export interface LaunchProgress {
   venueId: string | null;
+  /**
+   * True once the hours step's services are the venue's regular week. Absent means not yet: the
+   * venue still serves the one-window projection it was created with.
+   */
+  hoursSaved?: boolean;
   floorPlanId: string | null;
   /**
    * True once the plan's section rows exist and their zone rectangles are in
@@ -104,7 +116,7 @@ export const DEFAULT_LAYOUT: FloorPlanLayout = {
   showGrid: true,
 };
 
-const ALL_STAGES: readonly LaunchStageId[] = ["venue", "floorPlan", "tables", "activate"];
+const ALL_STAGES: readonly LaunchStageId[] = ["venue", "hours", "floorPlan", "tables", "activate"];
 
 /** Omits "tables" when the draft holds none — a row reading "0 of 0" is a stage that never existed. */
 export function stagesFor(draft: FloorPlanDraft): readonly LaunchStageId[] {
@@ -122,6 +134,8 @@ function isStageDone(
   switch (stage) {
     case "venue":
       return progress.venueId !== null;
+    case "hours":
+      return progress.hoursSaved === true;
     case "floorPlan":
       return progress.floorPlanId !== null && progress.sectionsDone;
     case "tables":
@@ -152,8 +166,8 @@ export function nextStage(progress: LaunchProgress, draft: FloorPlanDraft): Laun
 }
 
 /**
- * "Done" without a draft in scope. venue/floorPlan/activate read straight
- * off their own progress field. For "tables": by the time this is reached,
+ * "Done" without a draft in scope. venue/hours/floorPlan/activate read
+ * straight off their own progress field. For "tables": by the time this is reached,
  * stageStateOf has already ruled out inFlightStage === "tables" and
  * failedStage === "tables" (checked before this runs) — and the tables
  * stage always either drains every remaining table in one turn or throws,
@@ -164,6 +178,8 @@ function isDoneWithoutDraft(progress: LaunchProgress, stage: LaunchStageId): boo
   switch (stage) {
     case "venue":
       return progress.venueId !== null;
+    case "hours":
+      return progress.hoursSaved === true;
     case "floorPlan":
       return progress.floorPlanId !== null && progress.sectionsDone;
     case "tables":
@@ -195,6 +211,13 @@ export function isAlreadyCreatedError(err: unknown): boolean {
 /** Narrow structural interface, so the test needs no network and no client mock module. */
 export interface LaunchApi {
   venues: { create(data: CreateVenueRequest): Promise<Venue> };
+  availability: {
+    getConfig(venueId: string): Promise<AvailabilityConfigState>;
+    saveConfig(
+      venueId: string,
+      body: Pick<PutAvailabilityConfigBody, "expectedVersion" | "changes">
+    ): Promise<AvailabilityConfigSaveResult>;
+  };
   floorPlans: {
     create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
     update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
@@ -233,6 +256,38 @@ async function runVenueStage(
     throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.venueFailed"));
   }
   const next: LaunchProgress = { ...progress, venueId: venue.id, inFlightStage: null };
+  onProgress(next);
+  return next;
+}
+
+/**
+ * Saves the hours step's services as the venue's regular week, over the one-window projection
+ * `venues.create` stored (see `launchHoursChanges`). Two calls, one stage: the config read gives
+ * the version the save must send back, and a venue a second ago created has nothing else to
+ * race with. A retry reads again, so it always saves against the current version.
+ */
+async function runHoursStage(
+  api: LaunchApi,
+  hours: QuickSetupDraft,
+  progress: LaunchProgress,
+  onProgress: (next: LaunchProgress) => void
+): Promise<LaunchProgress> {
+  const venueId = progress.venueId;
+  // Invariant: nextStage only selects "hours" once "venue" is done (stagesFor's order is fixed).
+  if (venueId === null) {
+    throw new Error("runLaunchSequence: hours stage reached without a venueId");
+  }
+
+  try {
+    const state = await api.availability.getConfig(venueId);
+    await api.availability.saveConfig(venueId, {
+      expectedVersion: state.version,
+      changes: launchHoursChanges(hours, state.config, () => crypto.randomUUID()),
+    });
+  } catch (err) {
+    throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.hoursFailed"));
+  }
+  const next: LaunchProgress = { ...progress, hoursSaved: true, inFlightStage: null };
   onProgress(next);
   return next;
 }
@@ -469,12 +524,15 @@ async function runStage(
   stage: LaunchStageId,
   draft: FloorPlanDraft,
   venuePayload: CreateVenueRequest,
+  hours: QuickSetupDraft,
   progress: LaunchProgress,
   onProgress: (next: LaunchProgress) => void
 ): Promise<LaunchProgress> {
   switch (stage) {
     case "venue":
       return runVenueStage(api, venuePayload, progress, onProgress);
+    case "hours":
+      return runHoursStage(api, hours, progress, onProgress);
     case "floorPlan":
       return runFloorPlanStage(api, draft, progress, onProgress);
     case "tables":
@@ -488,13 +546,15 @@ async function runStage(
  * Executes ONE stage per turn until nextStage returns null or a stage fails.
  * Never throws: a failure sets failedStage + errorMessage and returns.
  * Calls onProgress after every progress change so the panel updates live.
+ * `hours` is the hours step's draft, which the hours stage saves as the regular week.
  */
 export async function runLaunchSequence(
   api: LaunchApi,
   draft: FloorPlanDraft,
   venuePayload: CreateVenueRequest,
   progress: LaunchProgress,
-  onProgress: (next: LaunchProgress) => void
+  onProgress: (next: LaunchProgress) => void,
+  hours: QuickSetupDraft
 ): Promise<LaunchProgress> {
   let current = progress;
 
@@ -505,13 +565,13 @@ export async function runLaunchSequence(
     }
 
     current = { ...current, inFlightStage: stage, failedStage: null, errorMessage: null };
-    // Emit before awaiting the stage — otherwise venue/floorPlan/activate
+    // Emit before awaiting the stage — otherwise venue/hours/floorPlan/activate
     // (which call onProgress only once, on completion) never surface an
     // in-flight value, and stageStateOf can never read "in-flight" for them.
     onProgress(current);
 
     try {
-      current = await runStage(api, stage, draft, venuePayload, current, onProgress);
+      current = await runStage(api, stage, draft, venuePayload, hours, current, onProgress);
     } catch (err) {
       // A LaunchStageError carries whatever progress accumulated before
       // the failure (e.g. tables created before the one that rejected) —
