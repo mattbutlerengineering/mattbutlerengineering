@@ -369,10 +369,11 @@ describe("AppShell overlay panels", () => {
     expect(document.activeElement).toBe(toggle);
   });
 
-  it("does not yank focus back to the toggle while the overlay is open (StrictMode)", async () => {
+  it("restores focus to the toggle after close, and not before, under StrictMode", async () => {
     panelLayoutState = { ...panelLayoutState, historyVisible: false, breakpoint: "mobile" };
     const { rerender } = render(<StrictMode>{shellTree("history")}</StrictMode>);
-    screen.getByRole("button", { name: /toggle history panel/i }).focus();
+    const toggle = screen.getByRole("button", { name: /toggle history panel/i });
+    toggle.focus();
 
     panelLayoutState = { ...panelLayoutState, historyVisible: true, breakpoint: "mobile" };
     rerender(<StrictMode>{shellTree("history")}</StrictMode>);
@@ -381,6 +382,14 @@ describe("AppShell overlay panels", () => {
     expect(document.activeElement).toBe(all);
     await flushFocusRestore();
     expect(document.activeElement).toBe(all);
+
+    // StrictMode replays the overlay's effects after it has already taken
+    // focus; the replay must not re-capture a panel button as the trigger.
+    pressEscape();
+    panelLayoutState = { ...panelLayoutState, historyVisible: false };
+    rerender(<StrictMode>{shellTree("history")}</StrictMode>);
+    await flushFocusRestore();
+    expect(document.activeElement).toBe(toggle);
   });
 
   it("closes a tablet history overlay from the backdrop as well as Escape", () => {
