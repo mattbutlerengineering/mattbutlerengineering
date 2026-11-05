@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { RialtoLocaleProvider } from "../i18n/RialtoLocaleProvider";
+import { RialtoLocaleProvider, useRialtoLocale } from "../i18n/RialtoLocaleProvider";
 import { esMX } from "../i18n/locales/es-MX";
 import { frCA } from "../i18n/locales/fr-CA";
 import type { RialtoMessages } from "../i18n/messages";
@@ -25,6 +25,7 @@ const TWO = [reservation("a", "r1"), reservation("b", "r2")];
 
 function MobileStack({ reservations }: { reservations: TapeChartReservation[] }) {
   const formatters = useTapeChartI18n("en-US", "UTC");
+  const { messages } = useRialtoLocale();
   return (
     <TapeChartMobileStack
       reservations={reservations}
@@ -33,7 +34,7 @@ function MobileStack({ reservations }: { reservations: TapeChartReservation[] })
       endDate="2026-04-24"
       todayISO="2026-04-20"
       formatters={formatters}
-      strings={mergeStrings()}
+      strings={mergeStrings(undefined, messages)}
       selectedReservationId={null}
       onReservationSelect={noop}
     />
@@ -79,6 +80,24 @@ describe("TapeChart reservation counts follow the locale", () => {
   it("keeps the en-US wording and casing with no provider", () => {
     render(<MobileStack reservations={TWO} />);
     expect(screen.getAllByText("2 reservations").length).toBeGreaterThan(0);
+  });
+
+  it("a strings.reservationCountLabel override wins over the locale catalog", () => {
+    render(
+      <RialtoLocaleProvider messages={esMX}>
+        <TapeChart
+          reservations={TWO}
+          rooms={ROOMS}
+          startDate="2026-04-20"
+          endDate="2026-04-27"
+          strings={{
+            reservationCountLabel: (n) => (n === 1 ? "Reservierung" : "Reservierungen"),
+          }}
+        />
+      </RialtoLocaleProvider>
+    );
+    expect(screen.getByText("Reservierungen", { selector: "span" })).toBeInTheDocument();
+    expect(screen.queryByText("Reservaciones")).not.toBeInTheDocument();
   });
 });
 

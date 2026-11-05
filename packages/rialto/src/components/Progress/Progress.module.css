@@ -99,9 +99,22 @@
 /*   The aluminum ring, glow, and light point are  */
 /*   all drawn in the same coordinate space.       */
 /* ─────────────────────────────────────────────── */
+.spinner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+  vertical-align: middle;
+}
+
+.spinnerLabel {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
 .trace {
   display: inline-block;
-  vertical-align: middle;
+  flex-shrink: 0;
 }
 
 .traceSm {

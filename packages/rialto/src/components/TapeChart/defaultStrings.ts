@@ -53,6 +53,7 @@ function defaultStringsFor(messages: RialtoMessages): ResolvedStrings {
     ...labels,
     errorRetryLabel: messages.tryAgain,
     moveCancelLabel: messages.cancel,
+    reservationCountLabel: messages.reservationCount,
     reservationAriaTemplate: ariaTemplateFor(messages),
   };
 }
@@ -75,5 +76,6 @@ export function mergeStrings(
     reservationAriaTemplate: overrides.reservationAriaTemplate ?? defaults.reservationAriaTemplate,
     nightsLabel: overrides.nightsLabel ?? defaults.nightsLabel,
     partySizeLabel: overrides.partySizeLabel ?? defaults.partySizeLabel,
+    reservationCountLabel: overrides.reservationCountLabel ?? defaults.reservationCountLabel,
   };
 }

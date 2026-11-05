@@ -116,6 +116,15 @@ describe("Spinner", () => {
     expect(screen.getByRole("status")).toHaveAttribute("aria-label", "Processing...");
   });
 
+  it("shows the label prop as visible text and hides the default name", () => {
+    const { rerender } = render(<Spinner />);
+    expect(screen.queryByText("Loading")).not.toBeInTheDocument();
+
+    rerender(<Spinner label="Loading data..." />);
+    expect(screen.getByText("Loading data...")).toBeVisible();
+    expect(screen.getByRole("status", { name: "Loading data..." })).toBeInTheDocument();
+  });
+
   it("supports size=sm", () => {
     render(<Spinner size="sm" />);
     expect(screen.getByRole("status")).toBeInTheDocument();

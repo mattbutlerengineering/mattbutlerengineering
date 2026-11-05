@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import styles from "./TapeChart.module.css";
 import { daysBetween } from "./dateMath";
 import type { TapeChartLayout } from "./types";
@@ -17,7 +16,6 @@ export interface TapeChartStatPillsProps {
 
 export const TapeChartStatPills = memo(function TapeChartStatPills(props: TapeChartStatPillsProps) {
   const { layout, todayISO, startDate, roomCount, formatters, strings } = props;
-  const { messages } = useRialtoLocale();
   const todayOffset = daysBetween(startDate, todayISO);
   const withinView = todayOffset >= 0 && todayOffset < layout.dayCount;
   const todayCounts = withinView ? layout.dailyCounts[todayOffset] : undefined;
@@ -33,7 +31,7 @@ export const TapeChartStatPills = memo(function TapeChartStatPills(props: TapeCh
       </span>
       <span className={styles.statPill}>
         <strong>{formatters.number(totalReservations)}</strong>
-        <span>{messages.reservationCount(totalReservations)}</span>
+        <span>{strings.reservationCountLabel(totalReservations)}</span>
       </span>
       {todayCounts && (
         <>
