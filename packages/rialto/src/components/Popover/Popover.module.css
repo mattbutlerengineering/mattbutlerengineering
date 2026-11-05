@@ -26,7 +26,8 @@
    4.21:1 (#8140). There it paints the opaque elevated surface in both themes, with
    no backdrop blur behind a fill that hides it, and keeps the glass border, shine
    and shadow. The extra class out-specifies the composed .glass rules (light, and
-   dark at the same weight) whatever the bundle order. */
+   dark at the same weight) whatever the bundle order. The `solid` prop asks for the
+   same surface on a plain page. */
 .panel.floating,
 :global([data-theme="dark"]) .panel.floating {
   background: var(--rialto-surface-elevated);

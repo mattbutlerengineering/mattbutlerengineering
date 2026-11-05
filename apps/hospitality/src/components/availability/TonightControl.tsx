@@ -544,6 +544,8 @@ export function TonightControl(props: TonightControlProps) {
           placement="bottom"
           open={open}
           onOpenChange={setOpen}
+          // A column of fields over the timeline grid: glass let the grid show through them.
+          solid
         >
           {panel}
         </Popover>

@@ -101,27 +101,30 @@ export const Spinner = forwardRef<HTMLDivElement, SpinnerProps>(
     return (
       <div
         ref={ref}
-        className={cn(styles.trace, sizeClass, className)}
+        className={cn(styles.spinner, className)}
         role="status"
         aria-live="polite"
         aria-label={label}
         {...props}
       >
-        <svg className={styles.traceSvg} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="rialto-trace-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-              <stop offset="0%" stopColor="var(--rialto-accent)" stopOpacity="0" />
-              <stop offset="50%" stopColor="var(--rialto-accent-hover)" stopOpacity="1" />
-              <stop offset="100%" stopColor="var(--rialto-accent)" stopOpacity="0.3" />
-            </linearGradient>
-          </defs>
-          {/* Aluminum ring — the machined channel */}
-          <circle className={styles.traceRing} cx="50" cy="50" r="46" />
-          {/* Glow — soft gold halo behind the light point */}
-          <circle className={styles.traceGlow} cx="50" cy="50" r="46" pathLength="100" />
-          {/* Light point — the sharp gold trace */}
-          <circle className={styles.tracePath} cx="50" cy="50" r="46" pathLength="100" />
-        </svg>
+        <div className={cn(styles.trace, sizeClass)} aria-hidden="true">
+          <svg className={styles.traceSvg} viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="rialto-trace-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="var(--rialto-accent)" stopOpacity="0" />
+                <stop offset="50%" stopColor="var(--rialto-accent-hover)" stopOpacity="1" />
+                <stop offset="100%" stopColor="var(--rialto-accent)" stopOpacity="0.3" />
+              </linearGradient>
+            </defs>
+            {/* Aluminum ring — the machined channel */}
+            <circle className={styles.traceRing} cx="50" cy="50" r="46" />
+            {/* Glow — soft gold halo behind the light point */}
+            <circle className={styles.traceGlow} cx="50" cy="50" r="46" pathLength="100" />
+            {/* Light point — the sharp gold trace */}
+            <circle className={styles.tracePath} cx="50" cy="50" r="46" pathLength="100" />
+          </svg>
+        </div>
+        {labelProp ? <span className={styles.spinnerLabel}>{labelProp}</span> : null}
       </div>
     );
   }

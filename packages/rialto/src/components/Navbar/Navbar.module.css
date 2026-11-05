@@ -3,7 +3,12 @@
   flex-direction: column;
   width: 280px;
   min-width: 280px;
-  height: 100vh;
+  /* Fill a sized frame (the contained docs demo, a split pane). A viewport
+     height ignores that frame and leaves the footer outside it. A parent
+     with no definite height treats 100% as auto; a flex row still stretches
+     this column to the shell. */
+  height: 100%;
+  min-height: 0;
   background: var(--rialto-surface-elevated);
   border-inline-end: 1px solid var(--rialto-border);
 }
@@ -13,6 +18,7 @@
 .header {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   gap: var(--rialto-space-md);
   padding: var(--rialto-space-md);
   border-bottom: 1px solid var(--rialto-border);
@@ -140,7 +146,10 @@
 /* ── Links Section ────────────────────────── */
 
 .links {
-  flex: 1;
+  flex: 1 1 auto;
+  /* Default min-height: auto won't shrink below the link list, so an
+     expanded submenu pushes the footer out of a short frame. */
+  min-height: 0;
   overflow-y: auto;
   padding: var(--rialto-space-sm) 0;
 }
@@ -240,6 +249,7 @@
 /* ── Footer ───────────────────────────────── */
 
 .footer {
+  flex-shrink: 0;
   padding: var(--rialto-space-md);
   border-top: 1px solid var(--rialto-border);
 }
