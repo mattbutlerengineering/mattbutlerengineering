@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@testing-library/react";
 import { SilkFlow } from "./SilkFlow";
@@ -84,6 +86,14 @@ const originalGetContext = HTMLCanvasElement.prototype.getContext;
 function step() {
   const frame = frames.shift();
   frame?.(performance.now());
+}
+
+/** Installs the real generated token stylesheet so nested scopes resolve. */
+function installTokenStyles(): HTMLStyleElement {
+  const style = document.createElement("style");
+  style.textContent = readFileSync(resolve(__dirname, "../../tokens/colors.css"), "utf8");
+  document.head.appendChild(style);
+  return style;
 }
 
 beforeEach(() => {
@@ -259,6 +269,108 @@ describe("SilkFlow", () => {
         attributes: true,
         attributeFilter: ["data-theme"],
       });
+    });
+
+    it("reads tokens from the nearest theme scope, not the document root", () => {
+      document.documentElement.setAttribute("data-theme", "dark");
+      document.documentElement.style.setProperty("--rialto-surface", "#161514");
+      document.documentElement.style.setProperty("--rialto-accent", "#d4a23a");
+      document.documentElement.style.setProperty("--rialto-text-primary", "#fdfcfa");
+
+      // Inline on the island, so this locks the engine's read target even
+      // before the stylesheet re-declares the light palette.
+      const island = document.createElement("div");
+      island.setAttribute("data-theme", "light");
+      island.style.setProperty("--rialto-surface", "#f8f6f3");
+      island.style.setProperty("--rialto-accent", "#b0841e");
+      island.style.setProperty("--rialto-text-primary", "#1a1918");
+      document.body.appendChild(island);
+
+      try {
+        render(<SilkFlow />, { container: island });
+        step();
+        expect(harness.fillStyles).toContain("#f8f6f3");
+        expect(harness.strokeStyles).toContain("#1a1918");
+        expect(harness.strokeStyles).toContain("#b0841e");
+        expect(harness.fillStyles).not.toContain("#161514");
+        // Light gold alpha is 0.4; the dark theme deepens it to 0.5.
+        expect(Math.max(...harness.alphas.slice(1))).toBeCloseTo(0.4);
+      } finally {
+        island.remove();
+      }
+    });
+
+    it("paints a light island with the light surface while the document is dark", () => {
+      const style = installTokenStyles();
+      try {
+        document.documentElement.setAttribute("data-theme", "dark");
+        render(
+          <div data-theme="dark">
+            <div data-theme="light">
+              <SilkFlow />
+            </div>
+          </div>
+        );
+        step();
+        expect(harness.fillStyles[0]).toBe("#f8f6f3");
+        expect(harness.strokeStyles).toContain("#1a1918");
+        expect(harness.strokeStyles).toContain("#b0841e");
+        expect(harness.strokeStyles).not.toContain("#d4a23a");
+        // Light silk is fainter than dark silk (0.11 vs 0.16). The gold accent
+        // is the peak, and the light theme keeps it at 0.4 rather than 0.5.
+        expect(Math.max(...harness.alphas.slice(1))).toBeCloseTo(0.4);
+      } finally {
+        style.remove();
+      }
+    });
+
+    it("keeps that light island light when the document theme flips to dark", async () => {
+      const style = installTokenStyles();
+      const computed = vi.spyOn(window, "getComputedStyle");
+      try {
+        document.documentElement.setAttribute("data-theme", "light");
+        render(
+          <div data-theme="light">
+            <SilkFlow />
+          </div>
+        );
+        step();
+        expect(harness.fillStyles[0]).toBe("#f8f6f3");
+
+        const readsBeforeFlip = computed.mock.calls.length;
+        document.documentElement.setAttribute("data-theme", "dark");
+        // The observer re-reads on a microtask. Wait until that read happens,
+        // then paint — a frame from before the flip is still the light color
+        // and would hide a regression.
+        await vi.waitFor(() => {
+          expect(computed.mock.calls.length).toBeGreaterThan(readsBeforeFlip);
+        });
+        harness.fillStyles.length = 0;
+        step();
+        expect(harness.fillStyles[0]).toBe("#f8f6f3");
+      } finally {
+        computed.mockRestore();
+        style.remove();
+      }
+    });
+
+    it("paints a dark island with the dark surface while the document is light", () => {
+      const style = installTokenStyles();
+      try {
+        document.documentElement.setAttribute("data-theme", "light");
+        render(
+          <div data-theme="light">
+            <div data-theme="dark">
+              <SilkFlow />
+            </div>
+          </div>
+        );
+        step();
+        expect(harness.fillStyles[0]).toBe("#1e1c1a");
+        expect(Math.max(...harness.alphas.slice(1))).toBeCloseTo(0.5);
+      } finally {
+        style.remove();
+      }
     });
 
     it("deepens strand opacity in the dark theme", () => {
