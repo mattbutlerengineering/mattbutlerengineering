@@ -2030,7 +2030,8 @@
       "nameRequired": "Name this schedule to save.",
       "nameRequiredPeriod": "Name this period to save.",
       "servicesRequired": "Add a service to save.",
-      "serviceNameRequired": "Name the new service to save."
+      "serviceNameRequired": "Name the new service to save.",
+      "replacesRegularWeek": "With no end date, this replaces your regular week. Add an end date, or use Change regular week…"
     },
     "edit": "Edit",
     "duplicate": "Duplicate"

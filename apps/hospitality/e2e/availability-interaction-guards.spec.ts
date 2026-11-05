@@ -81,6 +81,13 @@ test.describe("Interaction guards (agent stand-in counts)", () => {
     const drawer = counter.page.getByRole("dialog");
     await drawer.getByRole("textbox", { name: /Schedule name/ }).fill("Demo week");
     await setDemoWeek(counter.page, drawer);
+    // It runs on every day the bistro week does, so it needs an end not to take that week over
+    // for good (the regular week always gives way to a schedule).
+    await drawer.getByRole("combobox", { name: "Ending" }).click();
+    await counter.page
+      .locator('[role="gridcell"][data-date]:not([aria-disabled]):visible')
+      .last()
+      .click();
     await drawer.getByRole("button", { name: "Save", exact: true }).click();
     await expect(second.getByText("Demo week saved")).toBeVisible();
 

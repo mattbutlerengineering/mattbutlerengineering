@@ -140,8 +140,8 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
 ### F3: Schedules (PRD 6, 7, 9, 11, 12)
 
 1. The **Schedules** tab (S5) lists each schedule with where it applies ("Weeknight · Mon–Thu", "Summer hours · Jun 1 – Sep 15, every day"). The regular week is marked.
-2. **New schedule** opens the S1 editor plus **Use on**: weekday toggles and an optional date range. Before saving, it shows the impact count and stranded list over every affected future date.
-3. **Duplicate** → "<name> (copy)", opened in the editor.
+2. **New schedule** opens the S1 editor plus **Use on**: weekday toggles and an optional date range. Before saving, it shows the impact count and stranded list over every affected future date. A schedule always wins over the regular week, so one with no end date on every day the regular week still runs would take it over for good; Save stays off and says so: "With no end date, this replaces your regular week. Add an end date, or use Change regular week…".
+3. **Duplicate** → "<name> (copy)", opened in the editor, under the same rule.
 4. **Edit** works like F2 with the scope fixed to "Everywhere this schedule is used".
 5. **Delete** is offered only for schedules used nowhere. Otherwise a `DisabledTooltip` explains why ("Used on Mon–Thu; move those days to another schedule first").
 

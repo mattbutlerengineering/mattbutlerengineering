@@ -20,6 +20,7 @@ import {
   buildNewScheduleChanges,
   overlappingSchedules,
   datesOfUse,
+  replacesRegularWeek,
   scheduleSaveBlock,
   type Winner,
 } from "./schedule-changes.js";
@@ -186,6 +187,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     services: draft.services,
     startsOn,
     endsOn,
+    // A copy of the regular week saved with no end would take it over for good.
+    replacesRegularWeek: !editing && replacesRegularWeek(config, useOn, today),
   });
   const firstIssue = issues[0];
   const blockedText = block

@@ -1390,7 +1390,7 @@
       export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="low">
-      type ScheduleSaveBlock = "conflict" | "startRequired" | "endBeforeStart" | "nameRequired" | "servicesRequired" | "serviceNameRequired";
+      type ScheduleSaveBlock = "conflict" | "startRequired" | "endBeforeStart" | "nameRequired" | "servicesRequired" | "serviceNameRequired" | "replacesRegularWeek";
     </item>
     <item priority="high">
       export function scheduleSaveBlock(draft: {
@@ -1403,7 +1403,19 @@
         readonly startRequired?: boolean;
         /** False for a change with no end date: it is the regular week itself and is named by nothing. */
         readonly nameRequired?: boolean;
+        /** A new schedule would take the regular week over for good (`replacesRegularWeek`). */
+        readonly replacesRegularWeek?: boolean;
       }): ScheduleSaveBlock | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularWeekdays(config: AvailabilityConfig, today: string): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replacesRegularWeek(
+        config: AvailabilityConfig,
+        useOn: UseOn,
+        today: string
+      ): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function meets(a: UseOn, b: UseOn): boolean { /* ... */ }

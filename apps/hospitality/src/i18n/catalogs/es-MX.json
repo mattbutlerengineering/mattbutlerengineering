@@ -2079,7 +2079,8 @@
       "nameRequired": "Ponle nombre a este horario para guardar.",
       "nameRequiredPeriod": "Ponle nombre a este periodo para guardar.",
       "servicesRequired": "Agrega un servicio para guardar.",
-      "serviceNameRequired": "Ponle nombre al nuevo servicio para guardar."
+      "serviceNameRequired": "Ponle nombre al nuevo servicio para guardar.",
+      "replacesRegularWeek": "Sin fecha de fin, esto reemplaza tu semana habitual. Agrega una fecha de fin o usa Cambiar la semana habitual…"
     },
     "edit": "Editar",
     "duplicate": "Duplicar"
