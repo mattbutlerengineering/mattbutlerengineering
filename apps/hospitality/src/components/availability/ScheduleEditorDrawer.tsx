@@ -55,6 +55,8 @@ export interface ScheduleEditorDrawerProps {
   readonly onClose: () => void;
 }
 
+const NO_ISSUES: readonly never[] = [];
+
 /**
  * New, duplicate and edit for a schedule (ux.md F3). The services are quick setup's rows, with
  * their own days and different-hours blocks. A new or copied schedule is used on the days its
@@ -134,9 +136,10 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- seedDraft reads only `source`, fixed by the ids below
     [editing, review.baseline, initialDraft, sourceScheduleId]
   );
+  const draftTouched = weekKey(draft) !== weekKey(baselineDraft);
   const dirty =
     name !== (editing ? review.baselineName : initialName) ||
-    weekKey(draft) !== weekKey(baselineDraft) ||
+    draftTouched ||
     startsOn !== null ||
     endsOn !== null;
   // Escape, the backdrop and Cancel all ask first while there is something to lose.
@@ -328,7 +331,9 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
           <QuickSetupForm
             draft={draft}
             onChange={setDraft}
-            issues={issues}
+            // A New schedule opens on an empty service: its fields wait for the Manager to start
+            // on it before they say what is missing. Save's own reason is shown either way.
+            issues={draftTouched ? issues : NO_ISSUES}
             inDrawer
             fixedDays={editing}
           />
