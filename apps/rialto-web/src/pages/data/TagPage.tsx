@@ -5,6 +5,50 @@ import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
 
 // ---------------------------------------------------------------------------
+// Usage example
+// ---------------------------------------------------------------------------
+
+function ActiveCircuitsExample() {
+  const [circuits, setCircuits] = useState(["Fiorano", "Monza", "Mugello"]);
+
+  return (
+    <div
+      style={{
+        padding: "var(--rialto-space-lg)",
+        background: "var(--rialto-surface-elevated)",
+        borderRadius: "var(--rialto-radius-soft)",
+        border: "1px solid var(--rialto-border)",
+      }}
+    >
+      <Text
+        style={{
+          fontSize: "var(--rialto-text-xs)",
+          color: "var(--rialto-text-tertiary)",
+          textTransform: "uppercase",
+          letterSpacing: "var(--rialto-tracking-wide)",
+          marginBottom: "var(--rialto-space-xs)",
+        }}
+      >
+        Active circuits
+      </Text>
+      <TagGroup>
+        {circuits.map((circuit) => (
+          <AnimatedTag
+            key={circuit}
+            id={circuit}
+            variant="accent"
+            dismissible
+            onDismiss={() => setCircuits((prev) => prev.filter((item) => item !== circuit))}
+          >
+            {circuit}
+          </AnimatedTag>
+        ))}
+      </TagGroup>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -82,37 +126,7 @@ export function TagPage() {
 
       {/* ── Usage Example ─────────────────────────────────────────── */}
       <Section title="Usage Example">
-        <div
-          style={{
-            padding: "var(--rialto-space-lg)",
-            background: "var(--rialto-surface-elevated)",
-            borderRadius: "var(--rialto-radius-soft)",
-            border: "1px solid var(--rialto-border)",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: "var(--rialto-text-xs)",
-              color: "var(--rialto-text-tertiary)",
-              textTransform: "uppercase",
-              letterSpacing: "var(--rialto-tracking-wide)",
-              marginBottom: "var(--rialto-space-xs)",
-            }}
-          >
-            Active circuits
-          </Text>
-          <TagGroup>
-            <AnimatedTag id="fiorano" variant="accent" dismissible onDismiss={() => {}}>
-              Fiorano
-            </AnimatedTag>
-            <AnimatedTag id="monza" variant="accent" dismissible onDismiss={() => {}}>
-              Monza
-            </AnimatedTag>
-            <AnimatedTag id="mugello" variant="accent" dismissible onDismiss={() => {}}>
-              Mugello
-            </AnimatedTag>
-          </TagGroup>
-        </div>
+        <ActiveCircuitsExample />
       </Section>
 
       {/* ── Props Table ───────────────────────────────────────────── */}

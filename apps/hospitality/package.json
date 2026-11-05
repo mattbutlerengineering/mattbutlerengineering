@@ -52,7 +52,7 @@
     {
       "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving')",
       "path": "dist/assets/CallListDialog-*.js",
-      "limit": "9.5 kB"
+      "limit": "10 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",

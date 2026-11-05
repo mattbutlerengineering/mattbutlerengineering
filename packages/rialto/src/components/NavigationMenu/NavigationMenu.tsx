@@ -1,9 +1,18 @@
-import { forwardRef, useState, useRef, useEffect, useCallback, type HTMLAttributes } from "react";
+import {
+  forwardRef,
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  type HTMLAttributes,
+} from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn } from "../../utils/class-composer";
 import { useDismiss } from "../../hooks/useDismiss";
+import { useEscapeKey } from "../../hooks/useEscapeKey";
 import styles from "./NavigationMenu.module.css";
 
 /**
@@ -89,6 +98,7 @@ function NavTrigger({
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const skipFocusOpen = useRef(false);
+  const focusFirstOnOpenRef = useRef(false);
   const isOpen = openId === item.label;
 
   const hasChildren = item.children && item.children.length > 0;
@@ -114,6 +124,33 @@ function NavTrigger({
     };
   }, []);
 
+  const openImmediately = () => {
+    clearTimeout(closeTimeout.current);
+    clearTimeout(openTimeout.current);
+    onOpen(item.label);
+  };
+
+  // Escape must close even when the menu was opened by hover and focus is
+  // still outside the trigger and panel. Returning focus sets skipFocusOpen
+  // first so the trigger's focus handler does not schedule a reopen.
+  const closeAndReturnFocus = useCallback(() => {
+    const trigger = triggerRef.current;
+    if (trigger && document.activeElement !== trigger) {
+      skipFocusOpen.current = true;
+      trigger.focus();
+    }
+    onClose();
+  }, [onClose]);
+
+  useEscapeKey(closeAndReturnFocus, isOpen);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !focusFirstOnOpenRef.current) return;
+    focusFirstOnOpenRef.current = false;
+    const first = panelRef.current?.querySelector<HTMLElement>("[role='menuitem']");
+    first?.focus();
+  }, [isOpen]);
+
   // Keyboard nav inside dropdown
   const handlePanelKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -136,17 +173,21 @@ function NavTrigger({
         items[items.length - 1]?.focus();
       } else if (e.key === "Escape") {
         e.preventDefault();
-        // The focused item is about to unmount: hand focus back to the trigger, and
-        // skip the focus-opens-menu handler so the menu does not reopen.
-        if (triggerRef.current && document.activeElement !== triggerRef.current) {
-          skipFocusOpen.current = true;
-          triggerRef.current.focus();
-        }
-        onClose();
+        closeAndReturnFocus();
       }
     },
-    [onClose]
+    [closeAndReturnFocus]
   );
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (!isOpen && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+      e.preventDefault();
+      if (e.key === "ArrowDown") focusFirstOnOpenRef.current = true;
+      openImmediately();
+      return;
+    }
+    handlePanelKeyDown(e);
+  };
 
   const handleTriggerFocus = () => {
     if (skipFocusOpen.current) {
@@ -174,7 +215,7 @@ function NavTrigger({
         aria-expanded={isOpen}
         onFocus={handleTriggerFocus}
         onBlur={startClose}
-        onKeyDown={handlePanelKeyDown}
+        onKeyDown={handleTriggerKeyDown}
       >
         {item.label}
         <NavChevron open={isOpen} />
