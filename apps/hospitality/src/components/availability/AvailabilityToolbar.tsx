@@ -53,7 +53,10 @@ const DIVIDER: MenuEntry = { type: "divider" };
 /**
  * The calendar's controls, in three groups: where you are (date navigation), how you look at it
  * (Month | Week) and what you can do. On a phone the third group folds into one menu, so the
- * calendar keeps the first screen.
+ * calendar keeps the first screen. The menu leads with what changes the hours — the buttons a
+ * wider screen shows beside the tabs — then closing and pausing, then the ways to pick days, and
+ * ends with getting around (Go to date, History), so the configuration it holds is never below
+ * the fold.
  */
 export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
   const { viewport, view, period, selectItems, onClose, onPause } = props;
@@ -145,21 +148,21 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
         : []),
       ...bookingRulesItems,
     ];
-    const items: MenuItems = [
-      {
-        id: "history",
-        label: t("availability.historyButton"),
-        onSelect: afterMenuCloses(onHistory),
-      },
+    const navigationItems: MenuItems = [
       {
         id: "go-to-date",
         label: t("availability.toolbar.goToDate"),
         onSelect: afterMenuCloses(props.onGoToDate),
       },
-      ...selectItems,
-      ...(actionItems.length > 0 ? [DIVIDER, ...actionItems] : []),
-      ...(scheduleItems.length > 0 ? [DIVIDER, ...scheduleItems] : []),
+      {
+        id: "history",
+        label: t("availability.historyButton"),
+        onSelect: afterMenuCloses(onHistory),
+      },
     ];
+    const items: MenuItems = [scheduleItems, actionItems, selectItems, navigationItems]
+      .filter((group) => group.length > 0)
+      .flatMap((group, i) => (i === 0 ? group : [DIVIDER, ...group]));
     return (
       <div className={styles.toolbar}>
         {dateNavigation}
