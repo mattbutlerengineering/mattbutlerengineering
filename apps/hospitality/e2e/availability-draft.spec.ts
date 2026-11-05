@@ -320,7 +320,7 @@ for (const size of SIZES) {
       const drawer = await openNextMonthDay(mockedPage, friday);
 
       mock.holdReads();
-      await drawer.getByRole("button", { name: "Make a Friday schedule" }).click();
+      await drawer.getByRole("button", { name: "Make these Friday’s regular hours" }).click();
       await expect.poll(() => mock.puts.length).toBe(1);
       await expectEditHeld(drawer);
 

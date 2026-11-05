@@ -72,28 +72,22 @@ export function classifyError(err: unknown): ErrorClassification {
   };
 }
 
+// Client-facing details are generic on purpose (#8261, CWE-209): Prisma's
+// `meta` and `message` carry constraint, column and model names. The error
+// handler logs the full error — `meta` included — before classifying it.
 function classifyPrismaError(e: CustomError): ErrorClassification {
   const prismaCode = e.code || "";
   const extensions: Record<string, unknown> = { prismaCode };
-  if (e.meta) {
-    extensions.prismaMeta = e.meta;
-  }
 
   if (prismaCode === "P2025") {
-    return {
-      status: 404,
-      title: "Not Found",
-      detail: (e.meta?.cause as string) || e.message || "Record not found",
-      extensions,
-    };
+    return { status: 404, title: "Not Found", detail: "Record not found", extensions };
   }
 
   if (prismaCode === "P2002") {
-    const target = Array.isArray(e.meta?.target) ? e.meta.target.join(", ") : "field";
     return {
       status: 409,
       title: "Conflict",
-      detail: `Unique constraint failed: ${target}`,
+      detail: "A record with these details already exists",
       extensions,
     };
   }
@@ -102,7 +96,7 @@ function classifyPrismaError(e: CustomError): ErrorClassification {
     return {
       status: 409,
       title: "Conflict",
-      detail: `Foreign key constraint failed on field: ${(e.meta?.field_name as string) || "field"}`,
+      detail: "This item is still in use by other records",
       extensions,
     };
   }

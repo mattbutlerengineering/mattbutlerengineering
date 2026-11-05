@@ -248,9 +248,15 @@
       const [hours, minutes] = clock.split(":").map(Number);
       return hours! * 60 + minutes!;
     }
-    function serviceDayMinute(clock: string, config: AvailabilityConfig): number {
+    function serviceDayMinute(clock: string, config: AvailabilityConfig, date: string): number {
       const minute = clockToMinute(clock);
-      const opens = config.scheduleServices.map((s) => s.opensAt);
+      // Every schedule's rows that run on `date`'s weekday, each with that weekday's hours, over all
+      // venue services (archived ones too): not only the schedule that covers `date`. Pre-existing; a
+      // holiday schedule opening earlier than the regular day moves the cutoff for every date.
+      const venueServices = new Map(config.venueServices.map((v) => [v.id, v]));
+      const opens = servicesOn(config.scheduleServices, venueServices, weekdayIndexOf(date)).map(
+        (s) => s.opensAt
+      );
       const earliest = opens.length ? Math.min(...opens) : 0;
       return minute < earliest ? minute + MINUTES_IN_DAY : minute;
     }
@@ -333,9 +339,10 @@
       input: ChangeTonightInput,
       config: AvailabilityConfig,
       api: ApiClient,
-      venueId: string
+      venueId: string,
+      today: string
     ): Promise<{ change: TonightChange } | { error: string }> {
-      const minute = (clock: string) => serviceDayMinute(clock, config);
+      const minute = (clock: string) => serviceDayMinute(clock, config, today);
       const window =
         input.from && input.to ? { from: minute(input.from), to: minute(input.to) } : undefined;
       if (window && window.to <= window.from) {
@@ -475,7 +482,7 @@
             let unsure: string | undefined;
             try {
               const state = await api.availability.getConfig(venueId);
-              const built = await buildChange(input, state.config, api, venueId);
+              const built = await buildChange(input, state.config, api, venueId, todayIn(timeZone));
               if ("error" in built) return notExecuted(built);
               unsure = TONIGHT_SAVE_UNSURE;
               const result = await api.availability.setTonight(venueId, {
@@ -996,9 +1003,11 @@
       const days = await api.availability.listDays(venueId, { from: date, to: date });
       const scheduleId = days.find((d) => d.serviceDate === date)?.scheduleId;
       if (!scheduleId) return { error: NO_REGULAR_HOURS };
-      const live = new Set(config.venueServices.filter((s) => !s.archivedAt).map((s) => s.id));
-      const rows = config.scheduleServices.filter(
-        (row) => row.scheduleId === scheduleId && live.has(row.venueServiceId)
+      const live = new Map(config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.id, s]));
+      const rows = servicesOn(
+        config.scheduleServices.filter((row) => row.scheduleId === scheduleId),
+        live,
+        weekdayIndexOf(date)
       );
       if (!rows.some((row) => row.venueServiceId === serviceId)) {
         return {

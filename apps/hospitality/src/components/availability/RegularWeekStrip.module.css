@@ -1,0 +1,44 @@
+.strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+}
+
+.party {
+  max-width: 8rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  padding-top: var(--rialto-space-xs);
+  border-top: 1px solid var(--rialto-border);
+}
+
+.rowHead {
+  display: flex;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

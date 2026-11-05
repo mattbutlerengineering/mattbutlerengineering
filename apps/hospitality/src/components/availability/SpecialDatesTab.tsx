@@ -19,14 +19,16 @@ import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClos
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
-import { addDays } from "../../utils/service-day.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import { AddSpecialDatesSheet } from "./AddSpecialDatesSheet.js";
+import { AddSpecialDatesSheet, type PlannedDate } from "./AddSpecialDatesSheet.js";
 import { minuteText } from "./closure-band.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
+import { UpcomingHolidays } from "./UpcomingHolidays.js";
+import { useHolidayNames } from "./use-holidays.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
+import { closureSubject, DATE_FORMAT, hoursSubject, rangeLabel } from "./rule-subjects.js";
 import { isSeries, restoreDate, skipRows, type SeriesScope } from "./series-edit.js";
 import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
 import { SpecialHoursScopeDialog } from "./SpecialHoursScopeDialog.js";
@@ -65,67 +67,6 @@ const FILTERS: readonly SpecialDatesFilter[] = [
   "repeating",
   "past",
 ];
-
-const DATE_FORMAT = { weekday: "short", month: "short", day: "numeric" } as const;
-
-function rangeLabel(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
-  const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
-  if (rule.endsOn == null) {
-    // Hours are not "reopened": an open-ended hours rule just runs from its start on.
-    return t(
-      rule.kind === "closure" ? "availabilitySpecial.untilReopened" : "availabilitySpecial.fromOn",
-      { from }
-    );
-  }
-  if (rule.endsOn === rule.startsOn) return from;
-  return t("availabilitySpecial.range", {
-    from,
-    to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
-  });
-}
-
-/** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
-const SUNDAY = "2026-01-04";
-
-/** What removing a special-hours rule takes away, named whole: "for Thu, Dec 31", a range, or a repeat. */
-function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
-  if (rule.repeat != null) {
-    const days = rule.repeat.weekdays.map((d) =>
-      format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
-    );
-    return t("availabilitySpecial.hours.subjectRepeat", {
-      days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
-    });
-  }
-  return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
-}
-
-/**
- * What reopening a closure takes away, named whole: one date, the full range, "all dates from
- * Dec 24 on" for an open end, or a repeat by its weekdays and span.
- */
-function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
-  const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
-  const span =
-    rule.endsOn == null
-      ? t("availabilitySpecial.reopen.fromOn", { from })
-      : rule.endsOn === rule.startsOn
-        ? from
-        : t("availabilitySpecial.range", {
-            from,
-            to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
-          });
-  if (rule.repeat != null) {
-    const days = rule.repeat.weekdays.map((d) =>
-      format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
-    );
-    return t("availabilitySpecial.reopen.subjectRepeat", {
-      days: new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days),
-      span,
-    });
-  }
-  return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
-}
 
 /** "11:00 AM – 3:00 PM, 5:00 PM – 10:00 PM": one range per service, so a gap between them shows (ux.md S6b). */
 function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string | null {
@@ -320,7 +261,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [reopening, setReopening] = useState<SpecialDateRule | null>(null);
   const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
   const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
-  const [adding, setAdding] = useState(false);
+  // The dates Add special date opens with: `[]` for one empty row, `null` while it is shut.
+  const [adding, setAdding] = useState<readonly PlannedDate[] | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [editingHours, setEditingHours] = useState<{
     date: string;
@@ -333,6 +275,12 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
 
   const scopingRule = scopingHours ? rules.find((r) => r.id === scopingHours.ruleId) : undefined;
   const rows = specialDateRows(rules, today, filter);
+  // A one-date row on a holiday says which ("Christmas Eve"), as the calendar does.
+  const holidays = useHolidayNames(
+    rows
+      .filter(({ rule }) => rule.endsOn === rule.startsOn && !rule.repeat)
+      .map(({ rule }) => rule.startsOn)
+  );
   const editDateOf = (rule: DateRule) => hoursEditDate(rule, today);
   const summaryOf = (ruleId: string) => summaries.data?.find((s) => s.ruleId === ruleId);
   /**
@@ -441,7 +389,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           />
         )}
         {isManager && (
-          <Button variant="primary" onClick={() => setAdding(true)}>
+          <Button variant="primary" onClick={() => setAdding([])}>
             {t("availabilitySpecial.add.open")}
           </Button>
         )}
@@ -455,6 +403,15 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
       )}
       {/* Outside the alert, which would read every row aloud. */}
       {rowSave.failure.length > 0 && <StrandedBookings reservations={rowSave.stranded} />}
+      {isManager && filter !== "past" && (
+        <UpcomingHolidays
+          key={venueId}
+          venueId={venueId}
+          config={state.config}
+          today={today}
+          onPlan={setAdding}
+        />
+      )}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
       {summaries.isLoading ? (
         <Skeleton variant="text" lines={3} />
@@ -473,6 +430,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               ruleId={rule.id}
               title={rangeLabel(rule, format, t)}
               detail={[
+                rule.endsOn === rule.startsOn && !rule.repeat ? holidays.get(rule.startsOn) : null,
                 rule.kind === "closure"
                   ? closureDetail(rule, format, t)
                   : t("availabilitySpecial.kind.specialHours"),
@@ -529,7 +487,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           timezone={timezone}
           today={today}
           onStale={onStale}
-          onClose={() => setAdding(false)}
+          initialRows={adding}
+          onClose={() => setAdding(null)}
         />
       )}
       {callListFor && (

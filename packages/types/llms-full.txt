@@ -641,12 +641,16 @@
       .catchall(z.unknown());
   </file>
   <file path="src/schemas/availability-config-api.ts">
+    export const ScheduleServiceRequestSchema = ScheduleServiceSchema.extend({
+      weekdays: ScheduleServiceSchema.shape.weekdays.removeDefault(),
+      dayHours: ScheduleServiceSchema.shape.dayHours.removeDefault(),
+    });
     export const AvailabilityConfigChangesSchema = z.object({
       upsert: z
         .object({
           schedules: z.array(ScheduleSchema).optional(),
           venueServices: z.array(VenueServiceSchema).optional(),
-          scheduleServices: z.array(ScheduleServiceSchema).optional(),
+          scheduleServices: z.array(ScheduleServiceRequestSchema).optional(),
           assignments: z.array(ScheduleAssignmentSchema).optional(),
           dateRules: z.array(DateRuleSchema).optional(),
         })
@@ -693,6 +697,8 @@
       code: z.string(),
       /** The change undid the one the code names (`Reverted: …`). */
       reverted: z.boolean().optional(),
+      /** `regular_week_changed`: the weekdays whose hours changed (with `startsOn`). */
+      weekdays: z.array(z.number().int().min(0).max(6)).optional(),
       /** `config_saved`: rows added, changed and removed. */
       added: z.number().int().optional(),
       changed: z.number().int().optional(),
@@ -1287,6 +1293,14 @@
       version: z.literal(1),
       weekdays: z.array(WeekdayIndexSchema).min(1),
     });
+    export const DayHoursSetSchema = z.object({
+      weekdays: z.array(WeekdayIndexSchema).min(1),
+      ...ServiceHoursFields,
+    });
+    export const DayHoursSchema = z.object({
+      version: z.literal(1),
+      sets: z.array(DayHoursSetSchema),
+    });
     export const SpecialHoursServiceSchema = z.object({
       venueServiceId: IdSchema,
       ...ServiceHoursFields,
@@ -1324,6 +1338,10 @@
       scheduleId: IdSchema,
       venueServiceId: IdSchema,
       ...ServiceHoursFields,
+      /** Days the base hours apply on; [] = every day the assignment covers, less the days a set claims. */
+      weekdays: z.array(WeekdayIndexSchema).default([]),
+      /** Other hours on some weekdays; absent reads as no sets, so stored rows and old inverses parse. */
+      dayHours: DayHoursSchema.default({ version: 1, sets: [] }),
     });
     export const ScheduleAssignmentSchema = z.object({
       id: IdSchema,
@@ -1355,6 +1373,8 @@
       assignments: z.array(ScheduleAssignmentSchema),
       dateRules: z.array(DateRuleSchema),
     });
+    export type DayHoursSet = z.infer<typeof DayHoursSetSchema>;
+    export type DayHours = z.infer<typeof DayHoursSchema>;
     export type Seating = z.infer<typeof SeatingSchema>;
     export type AvailabilityWindow = z.infer<typeof WindowSchema>;
     export type Repeat = z.infer<typeof RepeatSchema>;

@@ -219,6 +219,9 @@ model FloorPlan {
   name       String
   isActive   Boolean  @default(false) @map("is_active")
   layoutJson Json     @map("layout_json")
+  /// Set when a plan whose tables carry booking history is deleted (#8254):
+  /// the rows stay so reservations keep their table, but every read skips it.
+  archivedAt DateTime? @map("archived_at")
   tables     Table[]
   sections   FloorPlanSection[]
   createdAt  DateTime @default(now()) @map("created_at")
@@ -618,6 +621,10 @@ model ScheduleService {
   bookingTypes   String[]     @default([]) @map("booking_types")
   /// Versioned value bundle (P3 turn times, pacing, party limits, windows).
   rules          Json         @default("{}")
+  /// Days the base hours apply on; empty = every day the assignment covers (less the days a set claims).
+  weekdays       Int[]        @default([])
+  /// Versioned value bundle: other hours on some weekdays. {version:1, sets:[{weekdays, ...hours}]}.
+  dayHours       Json         @default("{\"version\":1,\"sets\":[]}") @map("day_hours")
 
   @@unique([scheduleId, venueServiceId])
   @@index([venueId])

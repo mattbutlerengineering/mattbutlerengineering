@@ -51,6 +51,8 @@ function withSchedules(config: AvailabilityConfig, regularName: string): Availab
         closesAt: 900,
         seating: { version: 1, interval: 15 },
         bookingTypes: ["online", "phone"],
+        weekdays: [],
+        dayHours: { version: 1, sets: [] },
       },
     ],
   };

@@ -16,6 +16,8 @@ const config: AvailabilityConfig = {
       closesAt: 1560,
       seating: { version: 1, interval: 15 },
       bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
     },
   ],
   assignments: [{ id: "a1", scheduleId: "s1", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 }],

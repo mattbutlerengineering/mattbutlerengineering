@@ -183,42 +183,64 @@ describe("buildLegacyConfig", () => {
     expect(assigned).not.toContain(0);
   });
 
-  it("puts weekdays with different hours on their own alternate schedule", () => {
+  it("puts a venue whose days differ on one regular schedule, with the other hours as day sets", () => {
     const result = build(WEEKDAY_SHAPE);
     if (!result.ok) throw new Error(result.detail);
-    expect(result.config.schedules.map((s) => [s.kind, s.isRegular])).toEqual([
-      ["regular", true],
-      ["alternate", false],
-      ["alternate", false],
+    const { schedules, assignments, scheduleServices } = result.config;
+    expect(schedules).toEqual([
+      { id: expect.any(String), name: "Regular week", kind: "regular", isRegular: true },
     ]);
-    // Mon-Wed share the largest group and are the regular week.
-    const regular = result.config.assignments[0]!;
-    expect(regular.weekdays).toEqual([1, 2, 3]);
-  });
-
-  it("names the regular week and names other schedules from their days, never 'Alternate week N'", () => {
-    const result = build({ ...WEEKDAY_SHAPE, sunday: { open: "10:00", close: "21:00" } });
-    if (!result.ok) throw new Error(result.detail);
-    expect(result.config.schedules.map((s) => s.name)).toEqual([
-      "Regular week",
-      "Thu–Fri hours",
-      "Sat hours",
-      "Sun hours",
+    expect(schedules.some((s) => /hours/.test(s.name) || s.kind === "alternate")).toBe(false);
+    expect(assignments).toEqual([
+      expect.objectContaining({ scheduleId: schedules[0]!.id, weekdays: [1, 2, 3, 4, 5, 6] }),
+    ]);
+    // Mon-Wed share the most days and are the base (`weekdays` stays empty: every day the sets
+    // do not claim); Thu-Fri and Sat are sets, in week order.
+    expect(scheduleServices).toHaveLength(1);
+    const row = scheduleServices[0]!;
+    expect(row).toMatchObject({ weekdays: [], opensAt: 660, closesAt: 1320 });
+    expect(row.dayHours.sets.map((s) => [s.weekdays, s.opensAt, s.closesAt])).toEqual([
+      [[4, 5], 660, 1380],
+      [[6], 600, 1320],
     ]);
   });
 
-  it("joins a contiguous run with an en dash and comma-separates gaps", () => {
+  it("stores a uniform week as one unscoped row", () => {
     const result = build({
-      monday: { open: "10:00", close: "20:00" },
-      tuesday: { open: "11:00", close: "22:00" },
-      wednesday: { open: "10:00", close: "20:00" },
-      thursday: { open: "11:00", close: "22:00" },
-      friday: { open: "11:00", close: "22:00" },
-      saturday: { open: "11:00", close: "22:00" },
-      sunday: { open: "11:00", close: "22:00" },
+      ...WEEKDAY_SHAPE,
+      thursday: WEEKDAY_SHAPE.monday,
+      friday: WEEKDAY_SHAPE.monday,
+      saturday: WEEKDAY_SHAPE.monday,
     });
     if (!result.ok) throw new Error(result.detail);
-    expect(result.config.schedules.map((s) => s.name)).toEqual(["Regular week", "Mon, Wed hours"]);
+    expect(result.config.scheduleServices).toEqual([
+      expect.objectContaining({ weekdays: [], dayHours: { version: 1, sets: [] } }),
+    ]);
+  });
+
+  it("gives a service that runs only some days its own days, one row per service name", () => {
+    const result = build({
+      version: 2,
+      weekly: {
+        monday: [{ name: "Lunch", open: "11:00", close: "15:00" }],
+        tuesday: [
+          { name: "Lunch", open: "11:00", close: "15:00" },
+          { name: "Dinner", open: "17:00", close: "22:00" },
+        ],
+        wednesday: [{ name: "Dinner", open: "17:00", close: "22:00" }],
+      },
+    });
+    if (!result.ok) throw new Error(result.detail);
+    const byName = new Map(
+      result.config.venueServices.map((v) => [
+        v.name,
+        result.config.scheduleServices.filter((r) => r.venueServiceId === v.id),
+      ])
+    );
+    expect(result.config.schedules).toHaveLength(1);
+    expect(byName.get("Lunch")).toEqual([expect.objectContaining({ weekdays: [1, 2] })]);
+    expect(byName.get("Dinner")).toEqual([expect.objectContaining({ weekdays: [2, 3] })]);
+    expect(validateConfig(result.config)).toEqual([]);
   });
 
   it("names a lone unnamed service 'Service' so the day reads 'Open for Service.'", () => {

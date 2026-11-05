@@ -4821,3 +4821,40 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **queueEfficiency:** composite 0.847 (baseline n/a) — healthy
 **Difficulty distribution:** size:m:6, size:s:18, size:xl:21, size:l:17, size:xs:8
 **Issues filed:** 0
+
+## 2026-11-04 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` exit 0, `source: branch` — `ui-quality/ledger` at `39ea7989`, `origin/main` merged in (`106eaaf9`), no conflicts resolved. All three apps built (12/12 turbo tasks), so no `unreachable:build` rows.
+- **Routes:** 21 due (marketing 9, rialto-web 12) / 21 captured / 21 audited. Hospitality contributed 0 due rows — all 20 of its routes are `unreachable:auth` and are never captured; its capture run skipped cleanly.
+- **Unjudged:** 0. **Dropped tells:** 0. Every captured route was opened at both viewports (42 screenshots) and judged against the v1 rubric's 10 judged tells.
+- **Findings:** 1 mechanical (`marketing status — bugs/failed-request`, P2, already a known seed), 0 judged. No route exhibited an agent-built or semantic-accessibility tell. One borderline case was checked against source before being ruled out: the three identical "View live" links on `marketing /` each carry a descriptive `aria-label` ("View live: <project> (opens in new tab)"), which is exactly the remedy `accessibility/vague-link-purpose` prescribes — not a finding.
+- **Calibration stamp:** `stale`. `calibration-status` exit 3, so calibration was attempted once; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-stage human labelling of ≥ 10 pairs has still not happened; same as the 2026-11-03 fire). Not retried. Re-query returned exit 3 again, so rating ran anyway: 12 pairs over 2 apps judged and recorded (`marketing 0, rialto-web 1.67`). Agent-built findings stay suppressed under a `stale` stamp (intended).
+- **Filing:** plan exit 0 — 1 `skip`, 0 seeds. Nothing created, reopened or commented. All 35 issues in the findings ledger are closed; the 37 `ui-quality`-labelled issues are all closed and contain no unknown titles (the two "filing blocked by unknown labelled issues" escalations, #7477 and #7908, are both closed), so no escalation issue was written.
+- **Fix PR:** none — `fix_pr_candidate` was null; the only action was a `skip`.
+- **P1 breaches escalated:** 0 (no open `ui-quality:p1` issues).
+- **Coverage before this fire:** 100% (135/135 covered, not provisional, first run 2026-10-01); 20 hospitality routes `unreachable:auth`. `coverage.mjs` exit 0 — no breach.
+- **Observed but not filable (outside rubric v1):** two reproducible mobile (375×812) layout faults on `rialto-web` that no current tell covers, so no Finding was written and none may be:
+  1. The cookie-consent bar collapses at 375 px — its message wraps to one or two words per line and the "Reject All" control overlaps that text. Identical on `demos/login`, `demos/signup` and `demos/teams/new`; absent at 1280 px. Not a capture artefact: it reproduces on three independent routes.
+  2. The floating "Copy JSX" button overlaps the page subtitle at 375 px on the example pages (`examples/availability-heatmap`, `examples/booking-confirmed`, `examples/checkout`, `examples/guest-checkin`, `examples/notification-center`, `examples/reservation-kanban`, `examples/reservation-timeline`).
+     Both are real defects a human would want fixed; raising them needs either a human-authored rubric bump (a new judged tell for mobile overlap/occlusion, which only a human may make) or an issue filed outside this loop. The routine cannot file them itself.
+- **Note (environment):** the MCP tool names this routine's prompt uses (`get_issue`, `create_issue`, `update_issue`, `search_issues`) still do not exist in this session; the available equivalents are `issue_read`, `issue_write` and `list_issues`, and GitHub MCP `search_*` tools are unavailable. Both label sweeps (`ui-quality`, `ui-quality:p1`) were done with `list_issues` filtered by label, every page read (37 and 0 results, `hasNextPage: false` on both). Per-issue state came from that same authoritative listing after spot-checking #8106 and #5943 with `issue_read` and confirming the states matched; all 35 ledger issues were present in the listing, so none was recorded `missing`.
+
+## 2026-11-04
+
+**Sensors:** 15/17 available
+**Regressions:** 2 detected, 0 issues created
+**Verifications:** 2 checked, 0 verified, 0 failed, 2 skipped (no completed CI runs to compare against); threshold auto-tuner applied 1 adjustment (acmm 1.47 -> 1.5, headroom)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected) — all budgets at default 3
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Sentry triage:** skipped — stored Sentry access token rejected ("Authorization Expired"), needs re-auth
+**Threshold notes:** false-positive rate 2/36 closed learning-loop issues (~5.6%, well under 30%) — no loosening needed. Fix-effectiveness over the 30-day verification log is 6/102 (5.9%) taken literally, but 92 of those 102 rows are `skip` (no CI run to compare against — a known cloud-session gh-client limitation, not a real failure); over the 10 rows actually evaluated, 6/10 = 60% (above the 50% bar). Treat the literal 5.9% as an artifact of the skip-heavy sample, not a regression in fix strategy.
+**Regression detail:**
+
+- `metricsFreshness.shipped-features`: fresh -> stale (+18.86d). Duplicate of already-open #8263 ("Metrics collection is stale or empty", `ci-fix`) plus the in-flight `shipped-features-freshness` tracking chain (#8205/#8202/#8203) already diagnosing/fixing this exact collector. No new issue filed.
+- `ciHealth.pass_rate_pct`: 100 -> 90 (-10, high). The sensor's 30-run window holds exactly one failure, at commit `59a9cfab5cde807ea4c410eb3156fb3d5aeb554f` (2026-11-04T03:46Z) — already filed and already closed as #8225 ("Broken Main at commit 59a9cfab...", closed 2026-11-04T04:28Z, same day). The metric self-corrects as the window ages the fixed run out; filing a new issue would duplicate an already-resolved incident.
+
+## 2026-11-05
+
+**queueEfficiency:** composite 0.843 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:5, size:s:20, size:l:16, size:xl:19, size:xs:8
+**Issues filed:** 0

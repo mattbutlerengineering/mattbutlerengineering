@@ -81,6 +81,18 @@ describe("SchedulesTab", () => {
     expect(screen.getByText("Not used yet")).toBeInTheDocument();
   });
 
+  it("does not repeat 'Regular week' as a tag on a regular week still named that", () => {
+    const named = state();
+    const config = {
+      ...named.config,
+      schedules: named.config.schedules.map((s) =>
+        s.isRegular ? { ...s, name: "Regular week" } : s
+      ),
+    };
+    renderWith(<SchedulesTab {...common} state={{ ...named, config }} />);
+    expect(screen.getAllByText("Regular week")).toHaveLength(1);
+  });
+
   it("shows short actions and keeps the schedule's name in what is spoken (#7980)", () => {
     renderWith(<SchedulesTab {...common} state={state()} />);
     expect(screen.getByRole("button", { name: "Edit Weeknight" })).toHaveTextContent(/^Edit$/);
@@ -113,6 +125,12 @@ describe("SchedulesTab", () => {
     renderWith(<SchedulesTab {...common} state={state()} />);
     fireEvent.click(screen.getByRole("button", { name: "Duplicate Weeknight" }));
     expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("Weeknight (copy)");
+  });
+
+  it("opens on the New schedule editor when asked to (Create another schedule…)", () => {
+    renderWith(<SchedulesTab {...common} state={state()} startNew />);
+    expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 });
 

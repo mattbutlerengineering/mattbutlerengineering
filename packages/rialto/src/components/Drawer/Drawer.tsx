@@ -119,6 +119,8 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
                 else if (ref) ref.current = node;
               }}
               className={panelClasses}
+              // Read by Toast.module.css, which moves toasts beside an open end-side drawer.
+              data-rialto-drawer={`${side}-${size}`}
               role="dialog"
               aria-modal="true"
               aria-labelledby={title ? titleId : undefined}

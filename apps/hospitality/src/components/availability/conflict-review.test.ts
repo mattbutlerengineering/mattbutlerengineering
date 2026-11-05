@@ -3,6 +3,7 @@ import type { AvailabilityConfig } from "@mbe/types";
 import { seedServices, type DraftService } from "./draft-changes.js";
 import { reapplyDraft, scheduleChangesSince } from "./conflict-review.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
+import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
 
 const SCOPE = { kind: "schedule", scheduleId: "regular" } as const;
 const rowsOf = (config: AvailabilityConfig) => seedServices(config, { services: [] }, SCOPE);
@@ -113,5 +114,56 @@ describe("reapplyDraft", () => {
     };
     const merged = reapplyDraft({ base, draft: [...base, added], latest });
     expect(merged.map((s) => s.name)).toEqual(["Brunch", "Lunch", "Dinner", "Late night"]);
+  });
+});
+
+describe("scheduleChangesSince on a varied week", () => {
+  const demo = DEMO_WEEK_CONFIG;
+  const edited = (patch: (config: AvailabilityConfig) => AvailabilityConfig) => patch(demo);
+
+  it("names a service whose hours moved on one weekday, and only that service", () => {
+    const after = edited((c) => ({
+      ...c,
+      scheduleServices: c.scheduleServices.map((s) =>
+        s.id === "demo-ss-dinner"
+          ? {
+              ...s,
+              dayHours: {
+                ...s.dayHours,
+                sets: s.dayHours.sets.map((set) => ({ ...set, closesAt: 1500 })),
+              },
+            }
+          : s
+      ),
+    }));
+    const changes = scheduleChangesSince(demo, after, "demo-regular");
+    expect(changes.changed).toEqual(["Dinner"]);
+    expect(changes.added).toEqual([]);
+    expect(changes.removed).toEqual([]);
+  });
+
+  it("does not name a service that runs on no weekday the schedule is used on", () => {
+    // The assignment covers every day; scope Brunch to nothing the week covers by dropping Sat and Sun.
+    const before = edited((c) => ({
+      ...c,
+      assignments: c.assignments.map((a) => ({ ...a, weekdays: [1, 2, 3, 4, 5] })),
+    }));
+    const after = {
+      ...before,
+      venueServices: [
+        ...before.venueServices,
+        { id: "vs-sunday", name: "Sunday only", position: 3 },
+      ],
+      scheduleServices: [
+        ...before.scheduleServices,
+        {
+          ...before.scheduleServices[0]!,
+          id: "ss-sunday",
+          venueServiceId: "vs-sunday",
+          weekdays: [0],
+        },
+      ],
+    };
+    expect(scheduleChangesSince(before, after, "demo-regular").added).toEqual([]);
   });
 });

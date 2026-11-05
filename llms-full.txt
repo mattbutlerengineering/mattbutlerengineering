@@ -4712,6 +4712,8 @@
       readonly seededFor?: number;
       /** This row's message for guests; the shared one wins while `shareMessage` is on. */
       readonly message: string;
+      /** What the date is, when the sheet opened on it (a holiday's name); shown in the row's legend. */
+      readonly name?: string;
     }
     export interface AddDatesForm {
       readonly rows: readonly DateRow[];
@@ -4721,13 +4723,14 @@
     export type RowField = "dateMissing" | "date" | "hours" | "message";
     export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message" | "same"): string =>
       `add-date-${rowKey}-${field}`;
-    export const emptyRow = (key: string, date: string): DateRow => ({
+    export const emptyRow = (key: string, date: string, name?: string): DateRow => ({
       key,
       date,
       kind: "closed",
       sameAs: date ? weekdayIndexOf(date) : 0,
       services: [],
       message: "",
+      ...(name ? { name } : {}),
     });
     function hasOwnHours(config: AvailabilityConfig, date: string): boolean {
       return config.dateRules.some(
@@ -4852,6 +4855,50 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/booking-rules.ts">
+    export interface BookingRulesForm {
+      readonly daysAhead: string;
+      readonly noticeHours: string;
+      readonly largestParty: string;
+    }
+    export type BookingRulesField = keyof BookingRulesForm;
+    export const UNSET_LARGEST_PARTY = 8;
+    export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm {
+      return {
+        daysAhead: text(settings?.maxAdvanceBooking),
+        noticeHours: text(settings?.minAdvanceBooking),
+        largestParty: text(settings?.maxPartySize),
+      };
+    }
+    export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null {
+      for (const field of Object.keys(LIMITS) as BookingRulesField[]) {
+        const raw = form[field].trim();
+        if (raw === "") continue;
+        const n = Number(raw);
+        const { min, max } = LIMITS[field];
+        if (!Number.isInteger(n) || n < min || n > max) return field;
+      }
+      return null;
+    }
+    export function withBookingRules(
+      settings: VenueSettings | null | undefined,
+      form: BookingRulesForm
+    ): VenueSettings {
+      const {
+        maxAdvanceBooking: _a,
+        minAdvanceBooking: _b,
+        maxPartySize: _c,
+        ...rest
+      } = settings ?? {};
+      const set = (key: string, raw: string) => (raw.trim() === "" ? {} : { [key]: Number(raw) });
+      return {
+        ...rest,
+        ...set("maxAdvanceBooking", form.daysAhead),
+        ...set("minAdvanceBooking", form.noticeHours),
+        ...set("maxPartySize", form.largestParty),
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
     export type CalendarView = "month" | "week";
     export const WEEK_STARTS_ON = 1;
@@ -4925,6 +4972,23 @@
         { when, outcome: outcomeText({ cancelled, moved, kept }, format, t) }
       );
     }
+    function regularWeekText(
+      detail: AvailabilityChangeDetail,
+      format: VenueFormat,
+      t: TFunction
+    ): string | null {
+      const { startsOn, weekdays } = detail;
+      if (!startsOn || !weekdays || weekdays.length === 0) return null;
+      const name = (day: number) =>
+        format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" });
+      const days = new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
+        weekdayRuns(weekdays).map(([a, b]) => (a === b ? name(a) : `${name(a)}–${name(b)}`))
+      );
+      return t("availability.history.summary.regularWeekChanged", {
+        from: format.formatCalendarDate(startsOn, { month: "short", day: "numeric" }),
+        days,
+      });
+    }
     function detailText(
       detail: AvailabilityChangeDetail,
       format: VenueFormat,
@@ -4936,9 +5000,11 @@
           ? isCount(added) && isCount(changed) && isCount(removed)
             ? t("availability.history.summary.configSaved", { added, changed, removed })
             : null
-          : detail.code.startsWith("tonight_")
-            ? tonightText(detail, t)
-            : closureText(detail, format, t);
+          : detail.code === "regular_week_changed"
+            ? regularWeekText(detail, format, t)
+            : detail.code.startsWith("tonight_")
+              ? tonightText(detail, t)
+              : closureText(detail, format, t);
       return text !== null && detail.reverted
         ? t("availability.history.summary.reverted", { summary: text })
         : text;
@@ -4946,6 +5012,95 @@
     export function changeSummaryText(change: Change, format: VenueFormat, t: TFunction): string {
       const coded = change.detail ? detailText(change.detail, format, t) : null;
       return coded ?? describeChange(change, format, t) ?? change.summary;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/change-week-draft.ts">
+    function serviceKey(service: ServiceDraft) {
+      return JSON.stringify([
+        nameKey(service),
+        service.opens,
+        service.lastSeating,
+        service.closes,
+        sorted(service.days),
+        service.blocks.map((b) => [sorted(b.days), b.opens, b.lastSeating, b.closes]),
+      ]);
+    }
+    export function weekKey(draft: QuickSetupDraft): string {
+      return JSON.stringify([sorted(draft.days), draft.services.map(serviceKey)]);
+    }
+    function daySignatures(draft: QuickSetupDraft): string[] {
+      let n = 0;
+      const config = draftToConfig(draft, () => `edit-${++n}`);
+      const names = new Map(config.venueServices.map((v) => [v.id, v.name.trim().toLowerCase()]));
+      const week = decodeWeek(config.scheduleServices, coveredDays(draft));
+      return Array.from({ length: 7 }, (_, day) =>
+        JSON.stringify(
+          week
+            .flatMap((service) => {
+              const hours = service.days[day];
+              return hours
+                ? [
+                    [
+                      names.get(service.venueServiceId),
+                      hours.opensAt,
+                      hours.lastSeatingAt,
+                      hours.closesAt,
+                    ],
+                  ]
+                : [];
+            })
+            .sort()
+        )
+      );
+    }
+    export function editedWeekday(before: QuickSetupDraft, after: QuickSetupDraft): number | null {
+      const was = daySignatures(before);
+      const now = daySignatures(after);
+      return WEEK_DISPLAY_ORDER.find((day) => was[day] !== now[day]) ?? null;
+    }
+    interface ReapplyInput {
+      /** The week the draft was opened on. */
+      readonly base: QuickSetupDraft;
+      /** The week as the Manager has it now. */
+      readonly draft: QuickSetupDraft;
+      /** The regular week in the version that won. */
+      readonly latest: QuickSetupDraft;
+    }
+    export function reapplyWeek({ base, draft, latest }: ReapplyInput): QuickSetupDraft {
+      const baseBy = new Map(base.services.map((s) => [nameKey(s), s]));
+      const draftBy = new Map(draft.services.map((s) => [nameKey(s), s]));
+      const kept = latest.services.flatMap((row): ServiceDraft[] => {
+        const was = baseBy.get(nameKey(row));
+        const mine = draftBy.get(nameKey(row));
+        if (was && !mine) return [];
+        if (!was || !mine || serviceKey(was) === serviceKey(mine)) return [row];
+        return [{ ...mine, id: row.id }];
+      });
+      const latestNames = new Set(latest.services.map(nameKey));
+      const added = draft.services.filter(
+        (s) => !baseBy.has(nameKey(s)) && !latestNames.has(nameKey(s))
+      );
+      const days =
+        JSON.stringify(sorted(base.days)) === JSON.stringify(sorted(draft.days))
+          ? latest.days
+          : draft.days;
+      return { days, services: [...kept, ...added] };
+    }
+    export interface OutsideSchedule {
+      readonly name: string;
+      readonly weekdays: readonly number[];
+    }
+    export function outsideSchedules(config: AvailabilityConfig): OutsideSchedule[] {
+      return config.schedules
+        .filter((s) => !s.archivedAt && s.kind !== "regular")
+        .flatMap((s) => {
+          const days = new Set(
+            config.assignments
+              .filter((a) => a.scheduleId === s.id && a.startsOn == null && a.endsOn == null)
+              .flatMap((a) => a.weekdays)
+          );
+          return days.size > 0 ? [{ name: s.name, weekdays: [...days].sort((a, b) => a - b) }] : [];
+        });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/clock-minutes.ts">
@@ -5320,6 +5475,11 @@
       );
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/closed-all-day.ts">
+    export const closedAllDay = (day: ResolvedDay): boolean =>
+      day.services.length === 0 &&
+      day.explanation.some((layer) => layer.kind === "closure" && !layer.window);
+  </file>
   <file path="apps/hospitality/src/components/availability/closure-band.ts">
     type Closure = AvailabilityDaySummary["closures"][number];
     export interface ClosureBandText {
@@ -5467,6 +5627,11 @@
       readonly scheduleServiceId: string;
       readonly scheduleId: string;
       readonly scheduleName: string;
+      /** The row has its own days or different hours on some days; the hours above are its base hours. */
+      readonly different: boolean;
+    }
+    function runs(config: AvailabilityConfig, row: ScheduleService): boolean {
+      return scheduleDays(config, row.scheduleId, true).some((day) => hoursOn(row, day) !== null);
     }
     export function compareServiceOptions(config: AvailabilityConfig) {
       const live = liveScheduleIds(config);
@@ -5474,8 +5639,9 @@
         .filter((v) => !v.archivedAt)
         .filter(
           (v) =>
-            config.scheduleServices.filter((s) => s.venueServiceId === v.id && live.has(s.scheduleId))
-              .length > 1
+            config.scheduleServices.filter(
+              (s) => s.venueServiceId === v.id && live.has(s.scheduleId) && runs(config, s)
+            ).length > 1
         )
         .sort((a, b) => a.position - b.position);
     }
@@ -5483,6 +5649,7 @@
       const names = new Map(config.schedules.filter((s) => !s.archivedAt).map((s) => [s.id, s.name]));
       return config.scheduleServices
         .filter((s) => s.venueServiceId === venueServiceId && names.has(s.scheduleId))
+        .filter((s) => runs(config, s))
         .map((s) => ({
           scheduleServiceId: s.id,
           scheduleId: s.scheduleId,
@@ -5492,6 +5659,7 @@
           closesAt: s.closesAt,
           seating: s.seating,
           bookingTypes: s.bookingTypes,
+          different: s.weekdays.length > 0 || s.dayHours.sets.length > 0,
         }));
     }
     export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] {
@@ -5595,12 +5763,15 @@
     }
     function rowsByService(config: AvailabilityConfig, scheduleId: string) {
       const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+      const days = scheduleDays(config, scheduleId, true);
       return new Map(
         config.scheduleServices
           .filter((s) => s.scheduleId === scheduleId)
-          .map((s) => [
-            s.venueServiceId,
-            { row: s, name: names.get(s.venueServiceId) ?? s.venueServiceId },
+          .map((s) => ({ row: s, week: weekOfRow(s, days) }))
+          .filter(({ week }) => week.some((hours) => hours !== null))
+          .map((v) => [
+            v.row.venueServiceId,
+            { ...v, name: names.get(v.row.venueServiceId) ?? v.row.venueServiceId },
           ])
       );
     }
@@ -5626,7 +5797,7 @@
         changed: [...next]
           .filter(([id, v]) => {
             const prior = old.get(id);
-            return prior !== undefined && HOURS_FIELDS.some((f) => !same(prior.row[f], v.row[f]));
+            return prior !== undefined && !same(prior.week, v.week);
           })
           .map(([, v]) => v.name),
       };
@@ -5720,7 +5891,7 @@
   <file path="apps/hospitality/src/components/availability/day-summary.ts">
     export interface ServiceLineText {
       readonly key: string;
-      /** "Lunch 11:00 AM – 2:00 PM". */
+      /** "Lunch 11:00 AM – 1:30 PM": first to last time a guest can book, not open to close. */
       readonly text: string;
     }
     export function scheduleNameText(name: string, t: TFunction): string {
@@ -5738,13 +5909,18 @@
           return scheduleNameText(label, t);
       }
     }
+    export type DayTone = "closed" | "special";
     export interface DayPresentation {
       /** The day's label in the viewer's language. */
       readonly label: string | null;
+      readonly tone: DayTone | null;
       readonly bands: readonly ClosureBandText[];
-      /** "2 services", or `null` when the count is not worth showing. */
-      readonly count: string | null;
-      /** One line per service, open to close; only populated when `detailed`. */
+      /**
+       * Month view's one line about the services: their names ("Lunch · Dinner"), or "2 services"
+       * from an older API that sends no service lines. `null` in week view, which lists each service.
+       */
+      readonly servicesSummary: string | null;
+      /** One line per service, first to last bookable time; only populated when `detailed`. */
       readonly services: readonly ServiceLineText[];
       readonly onlineOff: boolean;
       /** The spoken details after the date: "Special hours, 2 services, closed 10:00 PM – 11:00 PM". */
@@ -5760,7 +5936,7 @@
       const text = t("availability.calendar.serviceLine", {
         name: service.name,
         from: minuteText(service.opensAt, t, format),
-        to: minuteText(service.closesAt, t, format),
+        to: minuteText(service.lastSeatingAt, t, format),
       });
       return { key: service.venueServiceId, text };
     }
@@ -5772,13 +5948,21 @@
       format: VenueFormat
     ): DayPresentation {
       const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
-      const showCount = summary !== undefined && (detailed || summary.serviceCount >= 2);
-      const count = showCount
-        ? t("availability.calendar.services", { count: summary.serviceCount })
-        : null;
       const services = detailed
         ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
         : [];
+      // Month names the services, which says more than a count in the same space: a Monday with only
+      // Lunch reads apart from a Friday with Lunch · Dinner. Week lists each one, so says neither; an
+      // older API that sends no service lines gets the count instead.
+      const showCount =
+        summary !== undefined &&
+        summary.services === undefined &&
+        (detailed || summary.serviceCount >= 2);
+      const countText = showCount
+        ? t("availability.calendar.services", { count: summary.serviceCount })
+        : null;
+      const monthNames = detailed ? [] : (summary?.services?.map((s) => s.name) ?? []);
+      const servicesSummary = countText ?? (monthNames.length > 0 ? monthNames.join(" · ") : null);
       // A whole-day pause that names online already says so; saying it twice reads as two facts.
       // The band names a channel only when it is the single one paused (closure-band.ts channelSuffix).
       const bandNamesOnline = (summary?.closures ?? []).some(
@@ -5794,7 +5978,8 @@
       const parts = summary
         ? [
             label,
-            ...(count ? [count] : []),
+            // Each name its own phrase: a screen reader would read the dot.
+            ...(countText ? [countText] : monthNames),
             ...bands.map((b) => b.name),
             ...services.map((s) => s.text),
             ...(onlineOff ? [t("availability.calendar.onlineOffName")] : []),
@@ -5808,8 +5993,15 @@
       });
       return {
         label,
+        // The service's own en-US labels, as dayLabelText reads them.
+        tone:
+          summary?.label === "Closed"
+            ? "closed"
+            : summary?.label === "Special hours"
+              ? "special"
+              : null,
         bands,
-        count,
+        servicesSummary,
         services,
         onlineOff,
         accessibleDetails,
@@ -5883,6 +6075,8 @@
       /** Every weekday of `from`, from `from` until `until` (`null`: until changed again). */
       | { readonly kind: "weekday"; readonly from: string; readonly until: string | null }
       | { readonly kind: "schedule"; readonly scheduleId: string }
+      /** One weekday of the live regular week, in place: no schedule or assignment is made (ux.md F2 1). */
+      | { readonly kind: "regularWeekday"; readonly weekday: number }
       /** Exactly these dates, picked in the multi-select bar (ux.md F-MS). */
       | { readonly kind: "dates"; readonly dates: readonly string[] }
       /** A range or repeating special-hours rule, from `from` on ("following") or whole ("all"). */
@@ -5897,7 +6091,9 @@
       date: string,
       dates: readonly string[]
     ): string | undefined {
-      if (scope.kind === "date" || scope.kind === "weekday") return date;
+      if (scope.kind === "date" || scope.kind === "weekday" || scope.kind === "regularWeekday") {
+        return date;
+      }
       if (scope.kind === "rule" && dates.length === 1) return date;
       return undefined;
     }
@@ -5940,6 +6136,19 @@
             scheduleServiceId: null,
             name: names.get(s.venueServiceId) ?? s.venueServiceId,
           }));
+      }
+      if (scope.kind === "regularWeekday") {
+        const week = liveRegularWeek(config);
+        const venueServices = new Map(config.venueServices.map((v) => [v.id, v]));
+        return week
+          ? servicesOn(week.rows, venueServices, scope.weekday).map((s) => ({
+              ...hoursOf(s),
+              key: s.venueServiceId,
+              venueServiceId: s.venueServiceId,
+              scheduleServiceId: s.scheduleServiceId,
+              name: s.name,
+            }))
+          : [];
       }
       if (scope.kind !== "schedule") {
         return day.services.map((s) => ({
@@ -6026,19 +6235,83 @@
       // (a colleague's new service) was never in front of them, so a save must not delete it.
       const seen = baseline && new Set(baseline.scheduleServices.map((s) => s.id));
       return {
-        upsert: services.map((s) => ({
-          ...hoursOf(s),
-          bookingTypes: [...s.bookingTypes],
-          id:
+        upsert: services.map((s) => {
+          const id =
             s.scheduleServiceId ??
             stored.find((row) => row.venueServiceId === s.venueServiceId)?.id ??
-            makeId(),
-          scheduleId,
-          venueServiceId: s.venueServiceId,
-        })),
+            makeId();
+          // These rows carry a service's base hours only: its own days and different hours stay as stored.
+          const was = stored.find((row) => row.id === id);
+          return {
+            ...hoursOf(s),
+            bookingTypes: [...s.bookingTypes],
+            weekdays: was?.weekdays ?? [],
+            dayHours: was?.dayHours ?? { version: 1 as const, sets: [] },
+            id,
+            scheduleId,
+            venueServiceId: s.venueServiceId,
+          };
+        }),
         removed: stored
           .filter((s) => !kept.has(s.venueServiceId) && (!seen || seen.has(s.id)))
           .map((s) => s.id),
+      };
+    }
+    function liveRegularWeek(config: AvailabilityConfig) {
+      const schedule = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+      if (!schedule) return null;
+      return {
+        schedule,
+        rows: config.scheduleServices.filter((s) => s.scheduleId === schedule.id),
+        covered: [
+          ...new Set(
+            config.assignments.filter((a) => a.scheduleId === schedule.id).flatMap((a) => a.weekdays)
+          ),
+        ],
+      };
+    }
+    function regularWeekdayRows(
+      config: AvailabilityConfig,
+      weekday: number,
+      services: readonly (DraftService & { venueServiceId: string })[],
+      makeId: () => string
+    ): { upsert: ScheduleService[]; removed: string[] } {
+      const week = liveRegularWeek(config);
+      if (!week) return { upsert: [], removed: [] };
+      const edited = new Map(services.map((s) => [s.venueServiceId, s]));
+      const hoursFor = (s: DraftService): ServiceHours => ({
+        ...hoursOf(s),
+        bookingTypes: [...s.bookingTypes],
+      });
+      const decoded = decodeWeek(week.rows, week.covered);
+      const replaced: ServiceWeek[] = [
+        ...decoded.map((service) => {
+          const mine = edited.get(service.venueServiceId);
+          return {
+            venueServiceId: service.venueServiceId,
+            days: service.days.map((hours, day) =>
+              day === weekday ? (mine ? hoursFor(mine) : null) : hours
+            ),
+          };
+        }),
+        ...services
+          .filter((s) => !decoded.some((d) => d.venueServiceId === s.venueServiceId))
+          .map((s) => ({
+            venueServiceId: s.venueServiceId,
+            days: Array.from({ length: 7 }, (_, day) => (day === weekday ? hoursFor(s) : null)),
+          })),
+      ];
+      const encoded = encodeWeek(replaced, week.covered);
+      const stored = new Map(week.rows.map((row) => [row.venueServiceId, row]));
+      return {
+        upsert: encoded.flatMap((row): ScheduleService[] => {
+          const was = stored.get(row.venueServiceId);
+          if (was && rowKey(was) === rowKey(row)) return [];
+          return [{ ...row, id: was?.id ?? makeId(), scheduleId: week.schedule.id }];
+        }),
+        removed: week.rows
+          .filter((row) => !encoded.some((e) => e.venueServiceId === row.venueServiceId))
+          .map((row) => row.id),
       };
     }
     export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges {
@@ -6054,6 +6327,13 @@
       }));
       const venueServices = created.length > 0 ? { venueServices: created } : {};
     
+      if (scope.kind === "regularWeekday") {
+        const { upsert, removed } = regularWeekdayRows(config, scope.weekday, services, makeId);
+        return {
+          upsert: { ...venueServices, ...(upsert.length > 0 ? { scheduleServices: upsert } : {}) },
+          remove: removed.length > 0 ? { scheduleServices: removed } : {},
+        };
+      }
       if (scope.kind === "schedule") {
         const { upsert, removed } = scheduleServiceRows(
           config,
@@ -6108,6 +6388,7 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/draft-wait.ts">
+    export const skipInitialFocus = { "data-focus-trap-skip-initial": "true" } as const;
     export function waitingProps(waiting: boolean, reasonId: string | undefined) {
       return waiting
         ? { "aria-disabled": true, "aria-describedby": reasonId, className: styles.waiting }
@@ -6135,6 +6416,141 @@
       return () => listeners.delete(listener);
     }
     export const useEditorOpen = (): boolean => useSyncExternalStore(subscribe, isEditorOpen);
+  </file>
+  <file path="apps/hospitality/src/components/availability/holidays.ts">
+    export type HolidayCountry = "US" | "CA" | "MX";
+    export type HolidayId =
+      | "newYearsDay"
+      | "constitutionDay"
+      | "valentinesDay"
+      | "benitoJuarez"
+      | "holyThursday"
+      | "goodFriday"
+      | "easter"
+      | "workersDay"
+      | "mothersDay"
+      | "fathersDay"
+      | "juneteenth"
+      | "victoriaDay"
+      | "memorialDay"
+      | "canadaDay"
+      | "independenceDay"
+      | "laborDay"
+      | "thanksgiving"
+      | "dayOfTheDead"
+      | "revolutionDay"
+      | "christmasEve"
+      | "christmasDay"
+      | "boxingDay"
+      | "newYearsEve";
+    export interface Holiday {
+      readonly id: HolidayId;
+      readonly date: string;
+    }
+    function nthWeekday(year: number, month: number, weekday: number, n: number): string {
+      if (n > 0) {
+        const first = iso(year, month, 1);
+        return addDays(first, ((weekday - weekdayIndexOf(first) + 7) % 7) + (n - 1) * 7);
+      }
+      const last = addDays(iso(month === 12 ? year + 1 : year, month === 12 ? 1 : month + 1, 1), -1);
+      return addDays(last, -((weekdayIndexOf(last) - weekday + 7) % 7) + (n + 1) * 7);
+    }
+    function easterSunday(year: number): string {
+      const a = year % 19;
+      const b = Math.floor(year / 100);
+      const c = year % 100;
+      const d = Math.floor(b / 4);
+      const e = b % 4;
+      const f = Math.floor((b + 8) / 25);
+      const g = Math.floor((b - f + 1) / 3);
+      const h = (19 * a + b - d - g + 15) % 30;
+      const i = Math.floor(c / 4);
+      const k = c % 4;
+      const l = (32 + 2 * e + 2 * i - h - k) % 7;
+      const m = Math.floor((a + 11 * h + 22 * l) / 451);
+      const month = Math.floor((h + l - 7 * m + 114) / 31);
+      const day = ((h + l - 7 * m + 114) % 31) + 1;
+      return iso(year, month, day);
+    }
+    export function holidaysIn(country: HolidayCountry, year: number): Holiday[] {
+      const easter = easterSunday(year);
+      const at = (id: HolidayId, date: string): Holiday => ({ id, date });
+      const common = [
+        at("newYearsDay", iso(year, 1, 1)),
+        at("valentinesDay", iso(year, 2, 14)),
+        at("easter", easter),
+        // Third Sunday of June in all three countries.
+        at("fathersDay", nthWeekday(year, 6, SUNDAY, 3)),
+        at("christmasEve", iso(year, 12, 24)),
+        at("christmasDay", iso(year, 12, 25)),
+        at("newYearsEve", iso(year, 12, 31)),
+      ];
+      const own: Record<HolidayCountry, Holiday[]> = {
+        US: [
+          at("mothersDay", nthWeekday(year, 5, SUNDAY, 2)),
+          at("memorialDay", nthWeekday(year, 5, MONDAY, -1)),
+          at("juneteenth", iso(year, 6, 19)),
+          at("independenceDay", iso(year, 7, 4)),
+          at("laborDay", nthWeekday(year, 9, MONDAY, 1)),
+          at("thanksgiving", nthWeekday(year, 11, THURSDAY, 4)),
+        ],
+        CA: [
+          at("goodFriday", addDays(easter, -2)),
+          at("mothersDay", nthWeekday(year, 5, SUNDAY, 2)),
+          // The Monday before May 25.
+          at("victoriaDay", addDays(iso(year, 5, 24), -((weekdayIndexOf(iso(year, 5, 24)) + 6) % 7))),
+          at("canadaDay", iso(year, 7, 1)),
+          at("laborDay", nthWeekday(year, 9, MONDAY, 1)),
+          at("thanksgiving", nthWeekday(year, 10, MONDAY, 2)),
+          at("boxingDay", iso(year, 12, 26)),
+        ],
+        MX: [
+          at("constitutionDay", nthWeekday(year, 2, MONDAY, 1)),
+          at("benitoJuarez", nthWeekday(year, 3, MONDAY, 3)),
+          at("holyThursday", addDays(easter, -3)),
+          at("goodFriday", addDays(easter, -2)),
+          at("workersDay", iso(year, 5, 1)),
+          at("mothersDay", iso(year, 5, 10)),
+          at("independenceDay", iso(year, 9, 16)),
+          at("dayOfTheDead", iso(year, 11, 2)),
+          at("revolutionDay", nthWeekday(year, 11, MONDAY, 3)),
+        ],
+      };
+      return [...common, ...own[country]].sort((x, y) => x.date.localeCompare(y.date));
+    }
+    function isPlanned(config: AvailabilityConfig, date: string): boolean {
+      return config.dateRules.some(
+        (r) =>
+          r.kind !== "tonight" &&
+          r.kind !== "skip" &&
+          r.startsOn <= date &&
+          (r.endsOn == null || r.endsOn >= date) &&
+          (r.repeat == null || r.repeat.weekdays.includes(weekdayIndexOf(date)))
+      );
+    }
+    export function upcomingHolidays(
+      country: HolidayCountry,
+      today: string,
+      config: AvailabilityConfig
+    ): Holiday[] {
+      const end = addDays(today, HOLIDAY_HORIZON_DAYS);
+      const year = Number(today.slice(0, 4));
+      return [...holidaysIn(country, year), ...holidaysIn(country, year + 1)].filter(
+        (h) => h.date >= today && h.date <= end && !isPlanned(config, h.date)
+      );
+    }
+    export function holidayCountry(
+      addressCountry: string | undefined,
+      locale: string
+    ): HolidayCountry | null {
+      const code = (addressCountry ?? locale.split("-")[1] ?? "").toUpperCase();
+      return COUNTRIES.find((c) => c === code) ?? null;
+    }
+    export const USUALLY_CLOSED: ReadonlySet<HolidayId> = new Set([
+      "thanksgiving",
+      "christmasDay",
+      "newYearsDay",
+    ]);
   </file>
   <file path="apps/hospitality/src/components/availability/layer-text.ts">
     function upperFirst(text: string, locale: string): string {
@@ -6284,6 +6700,24 @@
       );
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/open-as-usual.ts">
+    export function readOpenAsUsual(venueId: string): readonly string[] {
+      try {
+        const parsed: unknown = JSON.parse(window.localStorage.getItem(storageKey(venueId)) ?? "[]");
+        return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
+      } catch {
+        // Storage blocked or garbled: every holiday is offered again, which is harmless.
+        return [];
+      }
+    }
+    export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void {
+      try {
+        window.localStorage.setItem(storageKey(venueId), JSON.stringify(dates));
+      } catch {
+        // Blocked storage: the choice lasts until the page reloads.
+      }
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
     export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string {
       return (["cancel", "move", "keep_notify", "keep_silent"] as const)
@@ -6343,26 +6777,88 @@
       const onlineOff = open.filter((d) => !d.bookingOpen.online).length;
       const online =
         onlineOff === open.length ? "onlineOff" : onlineOff === 0 ? "onlineOn" : "onlinePartial";
-      return t("availability.weekSummary.line", {
-        open: t("availability.weekSummary.open", { count: open.length }),
-        closures: t("availability.weekSummary.closures", { count: closures.size }),
-        online: t(`availability.weekSummary.${online}`),
-      });
+      const parts = [
+        t("availability.weekSummary.open", { count: open.length }),
+        // "0 closures" is a fact nobody needs: the line names closures only when there are some.
+        ...(closures.size > 0
+          ? [t("availability.weekSummary.closures", { count: closures.size })]
+          : []),
+        t(`availability.weekSummary.${online}`),
+      ];
+      return t("availability.weekSummary.line", { parts: parts.join(" · ") });
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-demo.fixture.ts">
+    export const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
+    export function draftService(
+      id: string,
+      name: string,
+      times: readonly [string, string, string],
+      extra: Partial<ServiceDraft> = {}
+    ): ServiceDraft {
+      const [opens, lastSeating, closes] = times;
+      return {
+        ...emptyService(id),
+        name,
+        opens,
+        lastSeating,
+        closes,
+        lastSeatingLinked: false,
+        ...extra,
+      };
+    }
+    export function draftBlock(
+      id: string,
+      days: number[],
+      times: readonly [string, string, string]
+    ): HoursBlock {
+      const [opens, lastSeating, closes] = times;
+      return { id, days, opens, lastSeating, closes, lastSeatingLinked: false };
+    }
+    export function demoDraft(): QuickSetupDraft {
+      return {
+        days: EVERY_DAY,
+        services: [
+          draftService("lunch", "Lunch", ["11:30", "14:00", "15:00"], { days: [1, 2, 3, 4, 5] }),
+          draftService("dinner", "Dinner", ["17:00", "21:00", "23:00"], {
+            days: [2, 3, 4, 5, 6, 0],
+            blocks: [draftBlock("late", [5, 6], ["17:00", "22:00", "00:00"])],
+          }),
+          draftService("brunch", "Brunch", ["10:00", "13:00", "14:00"], { days: [6, 0] }),
+        ],
+      };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
-    export interface ServiceDraft {
-      readonly id: string;
-      readonly name: string;
+    export type KeptHours = Pick<ServiceHours, "seating" | "bookingTypes">;
+    export interface DraftTimes {
       readonly opens: string | null;
       readonly lastSeating: string | null;
       readonly closes: string | null;
       /** While true, last seating follows close minus {@link LAST_SEATING_LEAD_MINUTES}. */
       readonly lastSeatingLinked: boolean;
+      /**
+       * The stored seating and booking types of these hours (`draftFromConfig`), so a set's own are
+       * not overwritten by the base's. Absent on hours the form made: they take the service's stored
+       * ones (`draftToConfig`'s `keptOf`), or quick setup's defaults.
+       */
+      readonly kept?: KeptHours;
+    }
+    export interface HoursBlock extends DraftTimes {
+      readonly id: string;
+      /** Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
+      readonly days: readonly number[];
+    }
+    export interface ServiceDraft extends DraftTimes {
+      readonly id: string;
+      readonly name: string;
+      /** `null` follows the shared {@link QuickSetupDraft.days}. */
+      readonly days: readonly number[] | null;
+      readonly blocks: readonly HoursBlock[];
     }
     export interface QuickSetupDraft {
       readonly services: readonly ServiceDraft[];
-      /** Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
+      /** Shared days, for the services that follow them. Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
       readonly days: readonly number[];
     }
     export const SERVICE_NAME_MAX_LENGTH = 40;
@@ -6378,7 +6874,16 @@
     export type ServicePresetId = keyof typeof SERVICE_PRESETS;
     export const SERVICE_PRESET_IDS = Object.keys(SERVICE_PRESETS) as ServicePresetId[];
     export function emptyService(id: string): ServiceDraft {
-      return { id, name: "", opens: null, lastSeating: null, closes: null, lastSeatingLinked: true };
+      return {
+        id,
+        name: "",
+        opens: null,
+        lastSeating: null,
+        closes: null,
+        lastSeatingLinked: true,
+        days: null,
+        blocks: [],
+      };
     }
     export function emptyDraft(firstServiceId: string): QuickSetupDraft {
       return { services: [emptyService(firstServiceId)], days: [] };
@@ -6411,11 +6916,11 @@
         lastSeatingLinked: true,
       };
     }
-    export function setServiceTime(
-      service: ServiceDraft,
+    export function setServiceTime<T extends DraftTimes>(
+      service: T,
       field: "opens" | "lastSeating" | "closes",
       value: string | null
-    ): ServiceDraft {
+    ): T {
       if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
       const next = { ...service, [field]: value };
       // Both ends bound a linked last seating, so moving either one keeps it in step.
@@ -6428,11 +6933,79 @@
     export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
       return { ...draft, services: draft.services.map((s) => (s.id === next.id ? next : s)) };
     }
-    export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft {
-      const days = draft.days.includes(day)
-        ? draft.days.filter((d) => d !== day)
-        : [...draft.days, day];
-      return { ...draft, days };
+    export function toggleDayIn(days: readonly number[], day: number): readonly number[] {
+      return days.includes(day) ? days.filter((d) => d !== day) : [...days, day];
+    }
+    function keepDays<T extends { readonly days: readonly number[] }>(
+      blocks: readonly T[],
+      allowed: readonly number[]
+    ): T[] {
+      return blocks.map((block) => ({
+        ...block,
+        days: block.days.filter((day) => allowed.includes(day)),
+      }));
+    }
+    export function setServiceDays(
+      service: ServiceDraft,
+      days: readonly number[] | null,
+      sharedDays: readonly number[]
+    ): ServiceDraft {
+      return { ...service, days, blocks: keepDays(service.blocks, days ?? sharedDays) };
+    }
+    export function setSharedDays(draft: QuickSetupDraft, days: readonly number[]): QuickSetupDraft {
+      return {
+        ...draft,
+        days,
+        services: draft.services.map((service) =>
+          service.days === null ? { ...service, blocks: keepDays(service.blocks, days) } : service
+        ),
+      };
+    }
+    export function addBlock(service: ServiceDraft, id: string): ServiceDraft {
+      const { opens, lastSeating, closes, lastSeatingLinked, kept } = service;
+      const block: HoursBlock = {
+        id,
+        days: [],
+        opens,
+        lastSeating,
+        closes,
+        lastSeatingLinked,
+        ...(kept ? { kept } : {}),
+      };
+      return { ...service, blocks: [...service.blocks, block] };
+    }
+    export function replaceBlock(service: ServiceDraft, next: HoursBlock): ServiceDraft {
+      return { ...service, blocks: service.blocks.map((b) => (b.id === next.id ? next : b)) };
+    }
+    export function removeBlock(service: ServiceDraft, blockId: string): ServiceDraft {
+      return { ...service, blocks: service.blocks.filter((b) => b.id !== blockId) };
+    }
+    export interface BlockDayToggle {
+      readonly service: ServiceDraft;
+      /** The day was in another block and moved out of it. */
+      readonly moved: boolean;
+      /** Blocks the move left with no day; they are gone from `service`. */
+      readonly removed: readonly HoursBlock[];
+    }
+    export function toggleBlockDay(
+      service: ServiceDraft,
+      blockId: string,
+      day: number
+    ): BlockDayToggle {
+      const target = service.blocks.find((b) => b.id === blockId);
+      if (!target) return { service, moved: false, removed: [] };
+      if (target.days.includes(day)) {
+        const next = { ...target, days: toggleDayIn(target.days, day) };
+        return { service: replaceBlock(service, next), moved: false, removed: [] };
+      }
+      const moved = service.blocks.some((b) => b.id !== blockId && b.days.includes(day));
+      const removed = service.blocks.filter((b) => b.id !== blockId && b.days.join() === String(day));
+      const blocks = service.blocks.flatMap((b): HoursBlock[] => {
+        if (b.id === blockId) return [{ ...b, days: [...b.days, day] }];
+        if (!b.days.includes(day)) return [b];
+        return removed.includes(b) ? [] : [{ ...b, days: b.days.filter((d) => d !== day) }];
+      });
+      return { service: { ...service, blocks }, moved, removed };
     }
     export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     export type QuickSetupIssueCode =
@@ -6444,19 +7017,28 @@
       | "span_too_long"
       | "legacy_closed_day"
       | "overlap"
-      | "days_required";
+      | "days_required"
+      | "block_days_required"
+      | "days_outside_use";
     export interface QuickSetupIssue {
-      /** `null` for the whole card (days). */
+      /** `null` for the whole card (the shared days). */
       readonly serviceId: string | null;
+      /** Set when the problem is inside one of the service's different-hours blocks. */
+      readonly blockId?: string;
       readonly field: QuickSetupField | "days";
       readonly code: QuickSetupIssueCode;
+      /** `overlap` on some weekdays only: the weekday (0 = Sunday) and the service it overlaps. */
+      readonly weekday?: number;
+      readonly otherServiceId?: string;
     }
     interface ServiceMinutes {
       readonly opensAt: number;
       readonly lastSeatingAt: number;
       readonly closesAt: number;
     }
-    function minutesOf(service: ServiceDraft): ServiceMinutes | null {
+    function minutesOf(
+      service: Pick<DraftTimes, "opens" | "lastSeating" | "closes">
+    ): ServiceMinutes | null {
       if (service.opens === null || service.lastSeating === null || service.closes === null)
         return null;
       const opensAt = toMinutes(service.opens);
@@ -6476,54 +7058,138 @@
         lastSeatingAt: afterOpen(service.lastSeating, false),
       };
     }
+    interface IssueOwner {
+      readonly serviceId: string;
+      readonly blockId?: string;
+    }
+    function missingTimes(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] {
+      return TIME_FIELDS.filter(([key]) => times[key] === null).map(([, field]): QuickSetupIssue => ({
+        ...owner,
+        field,
+        code: "time_required",
+      }));
+    }
     function completenessIssues(service: ServiceDraft): QuickSetupIssue[] {
-      const missing = TIME_FIELDS.filter(([key]) => service[key] === null).map(
-        ([, field]): QuickSetupIssue => ({
-          serviceId: service.id,
-          field,
-          code: "time_required",
-        })
-      );
+      const owner = { serviceId: service.id };
       const name = service.name.trim();
       const unnamed: QuickSetupIssue[] =
         name === ""
-          ? [{ serviceId: service.id, field: "name", code: "name_required" }]
+          ? [{ ...owner, field: "name", code: "name_required" }]
           : name.length > SERVICE_NAME_MAX_LENGTH
-            ? [{ serviceId: service.id, field: "name", code: "name_too_long" }]
+            ? [{ ...owner, field: "name", code: "name_too_long" }]
             : [];
-      return [...unnamed, ...missing];
+      return [...unnamed, ...missingTimes(service, owner)];
     }
-    function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] {
+    function orderIssues(times: DraftTimes, m: ServiceMinutes, owner: IssueOwner): QuickSetupIssue[] {
       const at = (field: QuickSetupField, code: QuickSetupIssueCode): QuickSetupIssue => ({
-        serviceId: service.id,
+        ...owner,
         field,
         code,
       });
-      if (service.opens === service.closes) return [at("closes", "close_after_open")];
+      if (times.opens === times.closes) return [at("closes", "close_after_open")];
       return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
+    }
+    function timesIssues(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] {
+      const missing = missingTimes(times, owner);
+      const minutes = minutesOf(times);
+      return missing.length > 0 || minutes === null ? missing : orderIssues(times, minutes, owner);
+    }
+    function serviceIssues(service: ServiceDraft): QuickSetupIssue[] {
+      const missing = completenessIssues(service);
+      const minutes = minutesOf(service);
+      const times =
+        missing.length > 0 || minutes === null
+          ? missing
+          : orderIssues(service, minutes, { serviceId: service.id });
+      const days: QuickSetupIssue[] =
+        service.days !== null && service.days.length === 0
+          ? [{ serviceId: service.id, field: "days", code: "days_required" }]
+          : [];
+      const blocks = service.blocks.flatMap((block): QuickSetupIssue[] => {
+        const owner = { serviceId: service.id, blockId: block.id };
+        const blockDays: QuickSetupIssue[] =
+          block.days.length === 0 ? [{ ...owner, field: "days", code: "block_days_required" }] : [];
+        return [...timesIssues(block, owner), ...blockDays];
+      });
+      return [...times, ...days, ...blocks];
     }
     export function validateDraft(
       draft: QuickSetupDraft,
-      options: { readonly legacyReader?: boolean } = {}
+      options: { readonly legacyReader?: boolean; readonly within?: readonly number[] } = {}
     ): QuickSetupIssue[] {
-      const perService = draft.services.flatMap((service) => {
-        const missing = completenessIssues(service);
-        const minutes = minutesOf(service);
-        return missing.length > 0 || minutes === null ? missing : orderIssues(service, minutes);
-      });
+      // `within`: the days an edited schedule is used on. Rows are stored over those days only, so a
+      // service whose own days are all outside would be dropped and its stored row deleted.
+      const outside: QuickSetupIssue[] = draft.services.flatMap((service) =>
+        options.within &&
+        service.days !== null &&
+        service.days.length > 0 &&
+        service.days.every((day) => !options.within?.includes(day))
+          ? [{ serviceId: service.id, field: "days" as const, code: "days_outside_use" as const }]
+          : []
+      );
+      const perService = [...draft.services.flatMap(serviceIssues), ...outside];
+      // The shared days are needed only while a service follows them.
+      const followsShared = draft.services.length === 0 || draft.services.some((s) => s.days === null);
       const daysIssue: QuickSetupIssue[] =
-        draft.days.length === 0 ? [{ serviceId: null, field: "days", code: "days_required" }] : [];
+        followsShared && draft.days.length === 0
+          ? [{ serviceId: null, field: "days", code: "days_required" }]
+          : [];
       if (perService.length > 0) return [...perService, ...daysIssue];
     
-      const config = draftToConfig(draft, () => "check");
+      let n = 0;
+      const config = draftToConfig(draft, () => `check-${++n}`);
+      const serviceByVenueService = new Map(
+        config.venueServices.map((vs) => [vs.id, draft.services[vs.position]])
+      );
+      const serviceAt = (path: string) => {
+        const row = config.scheduleServices[Number(/scheduleServices\[(\d+)\]/.exec(path)?.[1])];
+        return row ? serviceByVenueService.get(row.venueServiceId) : undefined;
+      };
       const overlaps = validateConfig(config)
         .filter((issue) => issue.code === "overlap")
         .flatMap((issue): QuickSetupIssue[] => {
-          const index = Number(/scheduleServices\[(\d+)\]/.exec(issue.path)?.[1]);
-          const service = draft.services[index];
-          return service ? [{ serviceId: service.id, field: "opens", code: "overlap" }] : [];
+          const service = serviceAt(issue.path);
+          if (!service) return [];
+          const other = issue.otherPath === undefined ? undefined : serviceAt(issue.otherPath);
+          const { weekday } = issue;
+          const block =
+            weekday === undefined ? undefined : service.blocks.find((b) => b.days.includes(weekday));
+          return [
+            {
+              serviceId: service.id,
+              ...(block ? { blockId: block.id } : {}),
+              field: "opens",
+              code: "overlap",
+              ...(weekday !== undefined && other ? { weekday, otherServiceId: other.id } : {}),
+            },
+          ];
         });
       return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
+    }
+    export function issueMessage(
+      issue: QuickSetupIssue,
+      draft: QuickSetupDraft,
+      t: TFunction,
+      weekdayName: (weekday: number) => string
+    ): string {
+      const nameOf = (id: string | null | undefined) => {
+        const index = draft.services.findIndex((s) => s.id === id);
+        const service = draft.services[index];
+        return service?.name.trim() || t("availability.quickSetup.serviceN", { n: index + 1 });
+      };
+      if (issue.code === "overlap" && issue.weekday !== undefined) {
+        return t("availability.quickSetup.issues.overlap_on", {
+          service: nameOf(issue.serviceId),
+          other: nameOf(issue.otherServiceId),
+          day: weekdayName(issue.weekday),
+        });
+      }
+      if (issue.code === "days_required" && issue.serviceId !== null) {
+        return t("availability.quickSetup.issues.days_required_service", {
+          service: nameOf(issue.serviceId),
+        });
+      }
+      return t(`availability.quickSetup.issues.${issue.code}`);
     }
     function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
       const read = normalizeLegacyHours(draftToLegacyHours(draft));
@@ -6551,12 +7217,57 @@
       const built = buildLegacyConfig({ hours, today: "1970-01-01", newId: () => `legacy-${++n}` });
       if (!built.ok) return false;
       const open = new Set(built.config.assignments.flatMap((a) => a.weekdays));
-      return draft.days.some((day) => !open.has(day));
+      return coveredDays(draft).some((day) => !open.has(day));
+    }
+    export function effectiveDays(draft: QuickSetupDraft, service: ServiceDraft): readonly number[] {
+      return service.days ?? draft.days;
+    }
+    export function coveredDays(draft: QuickSetupDraft): number[] {
+      const days =
+        draft.services.length === 0
+          ? draft.days
+          : draft.services.flatMap((service) => effectiveDays(draft, service));
+      return [...new Set(days)].sort((a, b) => a - b);
+    }
+    function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours {
+      return {
+        ...m,
+        ...(kept ?? {
+          seating: { version: 1 as const, interval: SEATING_INTERVAL_MINUTES },
+          bookingTypes: ["online" as const, "phone" as const],
+        }),
+      };
+    }
+    function weekOf(
+      draft: QuickSetupDraft,
+      service: ServiceDraft,
+      m: ServiceMinutes,
+      keptOf: KeptHours | undefined
+    ) {
+      const running = new Set(effectiveDays(draft, service));
+      const base = hoursOf(m, service.kept ?? keptOf);
+      // A day in two blocks (the form moves it out of the first) takes the last block's hours.
+      const blocks = service.blocks
+        .flatMap((block) => {
+          const bm = minutesOf(block);
+          return bm ? [{ days: block.days, hours: hoursOf(bm, block.kept ?? keptOf) }] : [];
+        })
+        .reverse();
+      return Array.from({ length: 7 }, (_, day) =>
+        running.has(day) ? (blocks.find((b) => b.days.includes(day))?.hours ?? base) : null
+      );
     }
     export function draftToConfig(
       draft: QuickSetupDraft,
       newId: () => string,
-      existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+      existing?: {
+        regularScheduleId?: string;
+        venueServiceIds?: Readonly<Record<string, string>>;
+        /** The days the rows are encoded over, when the schedule's use is fixed apart from the draft. */
+        coveredDays?: readonly number[];
+        /** Per venue service id, the seating and booking types hours the draft carries none for take. */
+        keptOf?: Readonly<Record<string, KeptHours>>;
+      }
     ): AvailabilityConfig {
       const scheduleId = existing?.regularScheduleId ?? newId();
       const schedule: Schedule = {
@@ -6566,26 +7277,28 @@
         isRegular: true,
       };
       const venueServices: VenueService[] = [];
-      const scheduleServices: ScheduleService[] = [];
+      const week: ServiceWeek[] = [];
       draft.services.forEach((service, position) => {
         const m = minutesOf(service);
         if (m === null) return;
         const name = service.name.trim();
         const venueServiceId = existing?.venueServiceIds?.[name.toLowerCase()] ?? newId();
         venueServices.push({ id: venueServiceId, name, position });
-        scheduleServices.push({
-          id: newId(),
-          scheduleId,
+        week.push({
           venueServiceId,
-          ...m,
-          seating: { version: 1, interval: SEATING_INTERVAL_MINUTES },
-          bookingTypes: ["online", "phone"],
+          days: weekOf(draft, service, m, existing?.keptOf?.[venueServiceId]),
         });
       });
+      const covered = existing?.coveredDays ?? coveredDays(draft);
+      const scheduleServices: ScheduleService[] = encodeWeek(week, covered).map((row) => ({
+        id: newId(),
+        scheduleId,
+        ...row,
+      }));
       const assignment: ScheduleAssignment = {
         id: newId(),
         scheduleId,
-        weekdays: [...draft.days].sort((a, b) => a - b),
+        weekdays: [...covered],
         precedence: 0,
       };
       return {
@@ -6595,6 +7308,67 @@
         assignments: [assignment],
         dateRules: [],
       };
+    }
+    function clockTimes(hours: ServiceHours): DraftTimes {
+      const opens = toClock(hours.opensAt);
+      const closes = toClock(hours.closesAt);
+      const lastSeating = toClock(hours.lastSeatingAt);
+      return {
+        opens,
+        lastSeating,
+        closes,
+        lastSeatingLinked: lastSeating === autoLastSeating(closes, opens),
+        kept: { seating: hours.seating, bookingTypes: hours.bookingTypes },
+      };
+    }
+    export function scheduleDays(
+      config: AvailabilityConfig,
+      scheduleId: string,
+      anyDay = false
+    ): number[] {
+      const assigned = [
+        ...new Set(
+          config.assignments.filter((a) => a.scheduleId === scheduleId).flatMap((a) => a.weekdays)
+        ),
+      ].sort((a, b) => a - b);
+      return assigned.length === 0 && anyDay ? [0, 1, 2, 3, 4, 5, 6] : assigned;
+    }
+    export function draftFromConfig(
+      config: AvailabilityConfig,
+      newId: () => string,
+      scheduleId?: string
+    ): QuickSetupDraft {
+      const regular = scheduleId
+        ? config.schedules.find((s) => s.id === scheduleId)
+        : config.schedules.find((s) => s.isRegular);
+      if (!regular) return emptyDraft(newId());
+      const covered = scheduleDays(config, regular.id, scheduleId !== undefined);
+      const rows = config.scheduleServices.filter((row) => row.scheduleId === regular.id);
+      const names = new Map(config.venueServices.map((vs) => [vs.id, vs]));
+      const positionOf = (id: string) => names.get(id)?.position ?? 0;
+      const week = [...decodeWeek(rows, covered)].sort(
+        (a, b) => positionOf(a.venueServiceId) - positionOf(b.venueServiceId)
+      );
+      const services = encodeWeek(week, covered).flatMap((row): ServiceDraft[] => {
+        const venueService = names.get(row.venueServiceId);
+        const running = week.find((w) => w.venueServiceId === row.venueServiceId);
+        if (!venueService || !running) return [];
+        const days = WEEK_DISPLAY_ORDER.filter((day) => running.days[day] !== null);
+        return [
+          {
+            ...clockTimes(row),
+            id: newId(),
+            name: venueService.name,
+            days: days.length === covered.length ? null : days,
+            blocks: row.dayHours.sets.map((set) => ({
+              ...clockTimes(set),
+              id: newId(),
+              days: set.weekdays,
+            })),
+          },
+        ];
+      });
+      return services.length === 0 ? emptyDraft(newId()) : { services, days: covered };
     }
     export function draftToChanges(
       draft: QuickSetupDraft,
@@ -6633,7 +7407,8 @@
       return Object.keys(hours).length === 0 ? { global: t("onboarding.hours.atLeastOne") } : null;
     }
     export function draftToLegacyHours(draft: QuickSetupDraft): OperatingHours {
-      const projected = projectLegacyOperatingHours(draftToConfig(draft, () => "wizard"));
+      let n = 0;
+      const projected = projectLegacyOperatingHours(draftToConfig(draft, () => `wizard-${++n}`));
       const hours: OperatingHours = {};
       for (const [day, value] of Object.entries(projected)) {
         if (!value.closed)
@@ -6668,6 +7443,127 @@
         ],
         days: open.map((o) => o.index),
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-field-helpers.ts">
+    export function quickSetupFieldId(
+      serviceId: string | null,
+      field: QuickSetupField | "days",
+      blockId?: string
+    ) {
+      if (serviceId === null) return DAYS_FIELD_ID;
+      return `quick-setup-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
+    }
+    export function issuesFor(
+      issues: readonly QuickSetupIssue[],
+      serviceId: string | null,
+      field: string,
+      blockId?: string
+    ) {
+      return issues.filter(
+        (i) => i.serviceId === serviceId && i.field === field && i.blockId === blockId
+      );
+    }
+    export function useWeekdayName() {
+      const format = useVenueFormat();
+      return (day: number, weekday: "long" | "short" = "long") =>
+        format.formatCalendarDate(addDays(SAMPLE_MONDAY, WEEK_DISPLAY_ORDER.indexOf(day)), { weekday });
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/regular-week-line.ts">
+    export interface LineHours {
+      readonly opensAt: number;
+      readonly closesAt: number;
+    }
+    export interface HoursChange extends LineHours {
+      readonly weekdays: readonly number[];
+    }
+    export interface RegularWeekLineService extends LineHours {
+      readonly venueServiceId: string;
+      readonly name: string;
+      /** Every weekday the service runs, Monday first. */
+      readonly days: readonly number[];
+      /** Where its hours differ from its base hours, in the order the engine stores the sets. */
+      readonly changes: readonly HoursChange[];
+    }
+    export interface RegularWeekLine {
+      readonly services: readonly RegularWeekLineService[];
+      /** Every service runs the same days with the same hours: no Details disclosure. */
+      readonly uniform: boolean;
+    }
+    function inForce(config: AvailabilityConfig, today: string) {
+      const live = config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt);
+      const running = config.assignments
+        .filter(
+          (a) =>
+            live.some((s) => s.id === a.scheduleId) &&
+            (a.startsOn == null || a.startsOn <= today) &&
+            (a.endsOn == null || a.endsOn >= today)
+        )
+        .sort((a, b) => b.precedence - a.precedence)[0];
+      return (
+        live.find((s) => s.id === running?.scheduleId) ??
+        config.schedules.find((s) => s.isRegular && !s.archivedAt)
+      );
+    }
+    export function regularWeekLine(config: AvailabilityConfig, today: string): RegularWeekLine {
+      const schedule = inForce(config, today);
+      if (!schedule) return NONE;
+      const covered = [
+        ...new Set(
+          config.assignments.filter((a) => a.scheduleId === schedule.id).flatMap((a) => a.weekdays)
+        ),
+      ];
+      const rows = config.scheduleServices.filter((r) => r.scheduleId === schedule.id);
+      const names = new Map(config.venueServices.map((vs) => [vs.id, vs.name]));
+      const canonical = encodeWeek(decodeWeek(rows, covered), covered);
+    
+      const services = canonical.flatMap((row): RegularWeekLineService[] => {
+        const week = decodeWeek([row], covered)[0];
+        const name = names.get(row.venueServiceId);
+        if (!week || name === undefined) return [];
+        return [
+          {
+            venueServiceId: row.venueServiceId,
+            name,
+            opensAt: row.opensAt,
+            closesAt: row.closesAt,
+            days: WEEK_DISPLAY_ORDER.filter((day) => week.days[day] !== null),
+            changes: row.dayHours.sets.map((set) => ({
+              weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
+              opensAt: set.opensAt,
+              closesAt: set.closesAt,
+            })),
+          },
+        ];
+      });
+      const first = services[0]?.days.join();
+      const uniform = services.every((s) => s.changes.length === 0 && s.days.join() === first);
+      return { services, uniform };
+    }
+    export interface UpcomingRegularWeek {
+      /** The first day the change is in force. */
+      readonly startsOn: string;
+      /** Its last day for a period; `null` when it becomes the regular week. */
+      readonly endsOn: string | null;
+      /** The line as it will read on `startsOn`. */
+      readonly line: RegularWeekLine;
+    }
+    export function upcomingRegularWeek(
+      config: AvailabilityConfig,
+      today: string
+    ): UpcomingRegularWeek | null {
+      const live = new Set(
+        config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt).map((s) => s.id)
+      );
+      const next = config.assignments
+        .filter((a) => live.has(a.scheduleId) && a.startsOn != null && a.startsOn > today)
+        .sort((a, b) => a.startsOn!.localeCompare(b.startsOn!))[0];
+      if (!next?.startsOn) return null;
+      const line = regularWeekLine(config, next.startsOn);
+      return line.services.length === 0
+        ? null
+        : { startsOn: next.startsOn, endsOn: next.endsOn ?? null, line };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/removal-diff.ts">
@@ -6974,6 +7870,55 @@
       return known ? t(`availability.undo.errors.${known}`) : describeApiError(error).detail;
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/rule-subjects.ts">
+    export const DATE_FORMAT = { weekday: "short", month: "short", day: "numeric" } as const;
+    export function rangeLabel(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+      const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
+      if (rule.endsOn == null) {
+        // Hours are not "reopened": an open-ended hours rule just runs from its start on.
+        return t(
+          rule.kind === "closure" ? "availabilitySpecial.untilReopened" : "availabilitySpecial.fromOn",
+          { from }
+        );
+      }
+      if (rule.endsOn === rule.startsOn) return from;
+      return t("availabilitySpecial.range", {
+        from,
+        to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
+      });
+    }
+    function weekdayList(rule: SpecialDateRule, format: VenueFormat): string {
+      const days = (rule.repeat?.weekdays ?? []).map((d) =>
+        format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" })
+      );
+      return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days);
+    }
+    export function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+      if (rule.repeat != null) {
+        return t("availabilitySpecial.hours.subjectRepeat", { days: weekdayList(rule, format) });
+      }
+      return t("availabilitySpecial.hours.subjectDates", { dates: rangeLabel(rule, format, t) });
+    }
+    export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+      const from = format.formatCalendarDate(rule.startsOn, DATE_FORMAT);
+      const span =
+        rule.endsOn == null
+          ? t("availabilitySpecial.reopen.fromOn", { from })
+          : rule.endsOn === rule.startsOn
+            ? from
+            : t("availabilitySpecial.range", {
+                from,
+                to: format.formatCalendarDate(rule.endsOn, DATE_FORMAT),
+              });
+      if (rule.repeat != null) {
+        return t("availabilitySpecial.reopen.subjectRepeat", {
+          days: weekdayList(rule, format),
+          span,
+        });
+      }
+      return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/schedule-changes.ts">
     export interface UseOn {
       readonly weekdays: readonly number[];
@@ -6993,6 +7938,9 @@
         }
       });
       return runs;
+    }
+    export function hasOwnSchedules(config: AvailabilityConfig): boolean {
+      return liveSchedules(config).some((s) => s.kind !== "regular");
     }
     export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
       const schedule = config.schedules.find((s) => s.id === scheduleId);
@@ -7015,16 +7963,19 @@
     export function scheduleSaveBlock(draft: {
       readonly conflicted: boolean;
       readonly name: string;
-      readonly services: readonly DraftService[];
+      /** A draft whose rows are quick-setup services has no `venueServiceId`; its own issues name them. */
+      readonly services: readonly { readonly name: string; readonly venueServiceId?: string | null }[];
       readonly startsOn: string | null;
       readonly endsOn: string | null;
       readonly startRequired?: boolean;
+      /** False for a change with no end date: it is the regular week itself and is named by nothing. */
+      readonly nameRequired?: boolean;
     }): ScheduleSaveBlock | null {
       const { startsOn, endsOn, services } = draft;
       if (draft.conflicted) return "conflict";
       if (draft.startRequired && !startsOn) return "startRequired";
       if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
-      if (draft.name.trim() === "") return "nameRequired";
+      if (draft.nameRequired !== false && draft.name.trim() === "") return "nameRequired";
       if (services.length === 0) return "servicesRequired";
       if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
         return "serviceNameRequired";
@@ -7118,8 +8069,8 @@
     interface NewScheduleInput {
       readonly config: AvailabilityConfig;
       readonly name: string;
-      /** Rows for the new schedule; a copy's rows must have `scheduleServiceId: null`. */
-      readonly services: readonly DraftService[];
+      /** The new schedule's services as the editor holds them; a copy is seeded from the source. */
+      readonly draft: QuickSetupDraft;
       readonly useOn: UseOn;
       readonly winner: Winner;
       readonly makeId: () => string;
@@ -7128,10 +8079,11 @@
       const { config, name, useOn, winner, makeId } = input;
       const scheduleId = makeId();
       const schedule: Schedule = { id: scheduleId, name, kind: "alternate", isRegular: false };
-      const rows = buildDraftChanges({
+      const rows = scheduleRowChanges({
         config,
-        scope: { kind: "schedule", scheduleId },
-        services: freshRows(input.services),
+        draft: input.draft,
+        scheduleId,
+        covered: coveredDays(input.draft),
         makeId,
       });
       const assignments =
@@ -7154,38 +8106,48 @@
         remove: {},
       });
     }
-    interface RegularWeekInput extends Omit<NewScheduleInput, "useOn"> {
+    interface RegularWeekInput {
+      readonly config: AvailabilityConfig;
+      /** The period's name; a change with no end is the regular week itself and is named by nothing. */
+      readonly name: string;
+      /** The week as the editor holds it: services with their days and different-hours blocks. */
+      readonly draft: QuickSetupDraft;
       readonly startsOn: string;
       readonly endsOn: string | null;
-    }
-    export function regularWeekdays(config: AvailabilityConfig, from: string): number[] {
-      const regular = liveSchedules(config).find((s) => s.isRegular);
-      const days = new Set(
-        config.assignments
-          .filter((a) => a.scheduleId === regular?.id && (a.endsOn == null || a.endsOn >= from))
-          .flatMap((a) => a.weekdays)
-      );
-      return days.size > 0 ? [...days].sort((x, y) => x - y) : EVERY_DAY;
+      readonly winner: Winner;
+      readonly makeId: () => string;
     }
     export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
-      const { config, startsOn, endsOn } = input;
-      const weekdays = regularWeekdays(config, startsOn);
-      if (endsOn !== null) {
-        return buildNewScheduleChanges({
-          ...input,
-          useOn: { weekdays, startsOn, endsOn },
-        });
-      }
-      const scheduleId = input.makeId();
-      const schedule: Schedule = { id: scheduleId, name: input.name, kind: "regular", isRegular: true };
-      const rows = buildDraftChanges({
-        config,
-        scope: { kind: "schedule", scheduleId },
-        services: freshRows(input.services),
-        makeId: input.makeId,
+      const { config, draft, startsOn, endsOn, makeId } = input;
+      const venueServiceIds = Object.fromEntries(
+        config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+      );
+      const live = liveSchedules(config).find((s) => s.isRegular);
+      const week = draftToConfig(draft, makeId, {
+        venueServiceIds,
+        keptOf: keptOf(config, live?.id),
       });
-      const old = liveSchedules(config).find((s) => s.isRegular);
-      const oldAssignments = config.assignments.filter((a) => a.scheduleId === old?.id);
+      const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
+      const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
+      const [built] = week.schedules;
+      const [covering] = week.assignments;
+      if (!built || !covering) return { upsert: {}, remove: {} };
+      const { scheduleServices } = week;
+      const rows = {
+        upsert: {
+          ...(created.length > 0 ? { venueServices: created } : {}),
+          scheduleServices,
+        },
+        remove: {},
+      };
+    
+      if (endsOn !== null) {
+        const schedule: Schedule = { ...built, name: input.name, kind: "alternate", isRegular: false };
+        const assignments = placeAssignment(config, { ...covering, startsOn, endsOn }, input.winner);
+        return mergeChanges(rows, { upsert: { schedules: [schedule], assignments }, remove: {} });
+      }
+    
+      const oldAssignments = config.assignments.filter((a) => a.scheduleId === live?.id);
       const dropped = oldAssignments.filter((a) => a.startsOn != null && a.startsOn >= startsOn);
       const truncated = oldAssignments
         .filter((a) => !dropped.includes(a) && (a.endsOn == null || a.endsOn >= startsOn))
@@ -7197,22 +8159,8 @@
         .filter((a) => a.precedence !== config.assignments.find((x) => x.id === a.id)?.precedence);
       return mergeChanges(rows, {
         upsert: {
-          schedules: [
-            schedule,
-            ...(old ? [{ ...old, isRegular: false, kind: "alternate" as const }] : []),
-          ],
-          assignments: [
-            {
-              id: input.makeId(),
-              scheduleId,
-              weekdays,
-              startsOn,
-              endsOn: null,
-              precedence: 0,
-            },
-            ...truncated,
-            ...renumbered,
-          ],
+          schedules: [built, ...(live ? [{ ...live, isRegular: false }] : [])],
+          assignments: [{ ...covering, startsOn, endsOn: null }, ...truncated, ...renumbered],
         },
         remove: { assignments: dropped.map((a) => a.id) },
       });
@@ -7221,16 +8169,19 @@
       readonly config: AvailabilityConfig;
       readonly scheduleId: string;
       readonly name: string;
-      readonly services: readonly DraftService[];
+      /** The schedule's services as the editor holds them: days and different-hours blocks. */
+      readonly draft: QuickSetupDraft;
       readonly makeId: () => string;
       /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
       readonly baseline: AvailabilityConfig;
     }): AvailabilityConfigChanges {
       const { config, scheduleId, name, makeId } = input;
-      const rows = buildDraftChanges({
+      // An edit keeps the schedule's use, so its rows are encoded over the days it is assigned to.
+      const rows = scheduleRowChanges({
         config,
-        scope: { kind: "schedule", scheduleId },
-        services: input.services,
+        draft: input.draft,
+        scheduleId,
+        covered: scheduleDays(config, scheduleId, true),
         makeId,
         baseline: input.baseline,
       });
@@ -7238,8 +8189,52 @@
       const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
       return mergeChanges(rows, { upsert: rename, remove: {} });
     }
-    function freshRows(services: readonly DraftService[]): DraftService[] {
-      return services.map((s) => ({ ...s, scheduleServiceId: null }));
+    function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) {
+      return Object.fromEntries(
+        config.scheduleServices
+          .filter((s) => s.scheduleId === scheduleId)
+          .map((s) => [s.venueServiceId, { seating: s.seating, bookingTypes: s.bookingTypes }])
+      );
+    }
+    function scheduleRowChanges(input: {
+      readonly config: AvailabilityConfig;
+      readonly draft: QuickSetupDraft;
+      readonly scheduleId: string;
+      readonly covered: readonly number[];
+      readonly makeId: () => string;
+      readonly baseline?: AvailabilityConfig;
+    }): AvailabilityConfigChanges {
+      const { config, draft, scheduleId, covered, makeId } = input;
+      const venueServiceIds = Object.fromEntries(
+        config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+      );
+      const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
+      const week = draftToConfig(draft, makeId, {
+        venueServiceIds,
+        coveredDays: covered,
+        keptOf: keptOf(config, scheduleId),
+      });
+      const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
+      const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
+      const was = new Map(stored.map((s) => [s.venueServiceId, s]));
+      const scheduleServices = week.scheduleServices.map((row) => ({
+        ...row,
+        scheduleId,
+        id: was.get(row.venueServiceId)?.id ?? row.id,
+      }));
+      const kept = new Set(scheduleServices.map((s) => s.venueServiceId));
+      const stillStored = new Set(stored.map((s) => s.id));
+      const seen = (input.baseline?.scheduleServices ?? stored).filter(
+        (s) => s.scheduleId === scheduleId && stillStored.has(s.id)
+      );
+      const removed = seen.filter((s) => !kept.has(s.venueServiceId)).map((s) => s.id);
+      return {
+        upsert: {
+          ...(created.length > 0 ? { venueServices: created } : {}),
+          scheduleServices,
+        },
+        remove: removed.length > 0 ? { scheduleServices: removed } : {},
+      };
     }
     export function datesOfUse(useOn: UseOn, today: string): string[] {
       const dates: string[] = [];
@@ -7291,6 +8286,17 @@
         timezone: context.timezone,
         config: { ...context.config, dateRules: [] },
       };
+      if (scope.kind === "regularWeekday") {
+        // The dates the live regular week runs on that weekday: later versions and schedules of the
+        // Manager's own keep their dates, which this edit does not reach.
+        const live = context.config.schedules.find((s) => s.isRegular && !s.archivedAt)?.id;
+        const first = Array.from({ length: 7 }, (_, i) => addDays(context.today, i)).find(
+          (d) => weekdayIndexOf(d) === scope.weekday
+        )!;
+        return eachDate(first, addDays(context.today, SCOPE_HORIZON_DAYS - 1), 7).filter(
+          (d) => live !== undefined && resolveDay(week, d).scheduleId === live
+        );
+      }
       return eachDate(context.today, addDays(context.today, SCOPE_HORIZON_DAYS - 1), 1).filter(
         (d) => resolveDay(week, d).scheduleId === scope.scheduleId
       );
@@ -7958,6 +8964,21 @@
       toast({ title: revertErrorText(error, t), variant: "error", duration: 8000 });
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/suggest-name.ts">
+    export type Season = "spring" | "summer" | "autumn" | "winter";
+    export type NameSuggestion =
+      | { readonly kind: "season"; readonly season: Season }
+      | { readonly kind: "from"; readonly from: string }
+      | { readonly kind: "range"; readonly from: string; readonly to: string };
+    export function suggestName(startsOn: string | null, endsOn: string | null): NameSuggestion | null {
+      if (!startsOn) return null;
+      if (!endsOn) return { kind: "from", from: startsOn };
+      if (days(startsOn, endsOn) > SEASON_MAX_DAYS)
+        return { kind: "range", from: startsOn, to: endsOn };
+      const season = SEASON_OF_MONTH[Number(startsOn.slice(5, 7)) - 1];
+      return { kind: "season", season: season ?? "winter" };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">
     export type TonightChange =
       | { readonly ruleId: string; readonly kind: "pause_online" }
@@ -8075,8 +9096,17 @@
       readonly name: string | null;
       readonly conflicted: boolean;
       readonly clearConflict: () => void;
-      /** Replaces the draft with the answer the Manager chose. */
-      readonly apply: (next: { services: DraftService[]; name: string | null }) => void;
+      /**
+       * Replaces the draft with the answer the Manager chose. `baseline` is the version the draft was
+       * opened on, for a draft that is not made of `DraftService` rows and merges itself.
+       */
+      readonly apply: (next: {
+        services: DraftService[];
+        name: string | null;
+        baseline: AvailabilityConfig;
+        /** The Manager chose the winning version as it is, not their changes on top of it. */
+        discarded: boolean;
+      }) => void;
       /** Starts the whole draft again (name, dates and all) from these rows; for non-edit drafts. */
       readonly startOver: (services: DraftService[]) => void;
       /** The schedule is gone, so there is nothing left to edit. */
@@ -8130,6 +9160,8 @@
                 ? reapplyDraft({ base: baselineServices, draft: services, latest })
                 : [...services],
               name: name === null || name !== nameIn(baseline.config) ? name : nameIn(state.config),
+              baseline: baseline.config,
+              discarded: false,
             });
           }),
         /** The winning version as it is; the draft is dropped. */
@@ -8141,6 +9173,8 @@
                 input.apply({
                   services: latestRows(),
                   name: name === null ? null : nameIn(state.config),
+                  baseline: baseline.config,
+                  discarded: true,
                 })
               );
             return;
@@ -8222,6 +9256,35 @@
       );
     
       return { editorRef, bannerRef, reloadRef, track };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-holidays.ts">
+    function addressCountry(profile: unknown): string | undefined {
+      if (typeof profile !== "object" || profile === null) return undefined;
+      const address = (profile as { address?: unknown }).address;
+      if (typeof address !== "object" || address === null) return undefined;
+      const country = (address as { country?: unknown }).country;
+      return typeof country === "string" ? country : undefined;
+    }
+    export function useHolidayCountry(): HolidayCountry | null {
+      const format = useVenueFormat();
+      const venue = useOptionalVenue()?.selectedVenue;
+      return holidayCountry(addressCountry(venue?.settings?.["profile"]), format.locale);
+    }
+    export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> {
+      const country = useHolidayCountry();
+      const { t } = useTranslation();
+      return useMemo(() => {
+        if (!country || dates.length === 0) return new Map();
+        const shown = new Set(dates);
+        const years = [...new Set(dates.map((d) => Number(d.slice(0, 4))))];
+        return new Map(
+          years
+            .flatMap((year) => holidaysIn(country, year))
+            .filter((h) => shown.has(h.date))
+            .map((h) => [h.date, t(`availabilitySpecial.holidays.name.${h.id}`)])
+        );
+      }, [country, dates, t]);
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
@@ -14106,6 +15169,8 @@
         closesAt,
         seating: { version: 1, interval: 15 },
         bookingTypes: ["online", "phone"],
+        weekdays: [],
+        dayHours: { version: 1, sets: [] },
       });
       return {
         config: {
@@ -14339,6 +15404,11 @@
       }
       return out;
     }
+    function addDays(date: string, n: number): string {
+      const d = new Date(`${date}T00:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + n);
+      return d.toISOString().slice(0, 10);
+    }
     export async function mockAvailability(
       page: Page,
       options: { weekdays?: number[]; rules?: unknown[] } = {}
@@ -14452,6 +15522,8 @@
                   ...DINNER,
                   seating: { version: 1, interval: 15 },
                   bookingTypes: ["online", "phone"],
+                  weekdays: [],
+                  dayHours: { version: 1, sets: [] },
                 },
               ],
               assignments: [
@@ -14469,27 +15541,48 @@
           })
         );
       });
+      const open = options.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
+      const isOpenOn = (serviceDate: string) =>
+        open.includes(new Date(`${serviceDate}T00:00:00Z`).getUTCDay());
+      /** The calendar cell `/availability/days` and the focus day of `/availability/preview` share. */
+      const dayCell = (serviceDate: string) => {
+        const isOpen = isOpenOn(serviceDate);
+        return {
+          serviceDate,
+          label: isOpen ? "Regular week" : "Closed",
+          scheduleId: isOpen ? "regular" : null,
+          serviceCount: isOpen ? 1 : 0,
+          closures: [],
+          bookingOpen: { online: isOpen, phone: isOpen, waitlist: isOpen },
+        };
+      };
+    
       await page.route(`${base}/availability/days*`, (route) => {
         const url = new URL(route.request().url());
-        const open = options.weekdays ?? [0, 1, 2, 3, 4, 5, 6];
-        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map(
-          (serviceDate) => {
-            const isOpen = open.includes(new Date(`${serviceDate}T00:00:00Z`).getUTCDay());
-            return {
-              serviceDate,
-              label: isOpen ? "Regular week" : "Closed",
-              scheduleId: isOpen ? "regular" : null,
-              serviceCount: isOpen ? 1 : 0,
-              closures: [],
-              bookingOpen: { online: isOpen, phone: isOpen, waitlist: isOpen },
-            };
-          }
-        );
+        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map(dayCell);
         return route.fulfill(json(days));
       });
-      await page.route(`${base}/availability/preview*`, (route) =>
-        route.fulfill(problem(500, "internal"))
-      );
+      // No test here drafts a change that moves added/removed times or strands a booking, so a
+      // no-op diff over the current config is a fine stand-in for the real preview — unlike the
+      // blind 500 this route used to answer, which `AvailabilityGuestPreview` renders for real
+      // whenever the editor is open, and whose literal "Server said no." detail text is exactly
+      // what Sentry read as a production reservations-service 500 (#8280). There was no such bug.
+      await page.route(`${base}/availability/preview*`, (route) => {
+        const body = route.request().postDataJSON() as { focusDate: string };
+        const days = between(body.focusDate, addDays(body.focusDate, 29)).map((serviceDate) => ({
+          serviceDate,
+          added: [] as number[],
+          removed: [] as number[],
+        }));
+        return route.fulfill(
+          json({
+            version: mock.version,
+            days,
+            focusDay: dayCell(body.focusDate),
+            stranded: { total: 0, offset: 0, items: [] },
+          })
+        );
+      });
       await page.route("**/availability/changes/*/revert", (route) => {
         mock.reverts += 1;
         mock.version += 1;
@@ -18153,6 +19246,365 @@
     }
   </file>
   </section>
+  <section priority="medium" role="helpers">
+  <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
+    function changedWeekdays(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      timezone: string,
+      from: string
+    ): number[] {
+      const services = (config: AvailabilityConfig, date: string) =>
+        JSON.stringify(
+          resolveDay({ timezone, config }, date).services.map((svc) => [
+            svc.venueServiceId,
+            svc.opensAt,
+            svc.lastSeatingAt,
+            svc.closesAt,
+          ])
+        );
+      return Array.from({ length: 7 }, (_, i) => addDays(from, i))
+        .filter((date) => services(before, date) !== services(after, date))
+        .map((date) => new Date(`${date}T00:00:00Z`).getUTCDay());
+    }
+    export async function mockEmptyVenue(
+      page: Page,
+      options: { derive?: boolean; config?: AvailabilityConfig } = {}
+    ) {
+      let saved: Record<string, unknown> | null = null;
+      let version = 3;
+      let config: AvailabilityConfig = options.config ?? EMPTY_CONFIG;
+      const hasRows = () => saved !== null || options.config !== undefined;
+      const history: AvailabilityChangeEntry[] = [];
+      const appliedConfig = (): AvailabilityConfig => config;
+    
+      const venues = JSON.parse(loadFixture("venues-list")) as {
+        data: Array<Record<string, unknown>>;
+        pagination: Record<string, unknown>;
+      };
+      const venueId = String(venues.data[0]?.id);
+    
+      await page.route("**/api/v1/venues?*", (route) => {
+        const [venue] = venues.data;
+        const data = [
+          {
+            ...venue,
+            operatingHours: hasRows() ? { monday: { open: "17:00", close: "22:00" } } : null,
+          },
+        ];
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data, pagination: venues.pagination }),
+        });
+      });
+      // No floor plan yet, so the hours step is the only one the save can complete.
+      await page.route("**/api/v1/floor-plans?*", (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: [],
+            pagination: { page: 1, limit: 10, total: 0, totalPages: 0, hasNext: false, hasPrev: false },
+          }),
+        })
+      );
+      await page.route(`**/api/v1/venues/${venueId}/availability/config`, (route) => {
+        if (route.request().method() === "PUT") {
+          saved = route.request().postDataJSON() as Record<string, unknown>;
+          const changes = saved.changes as AvailabilityConfigChanges;
+          const before = config;
+          const at = new Date().toISOString();
+          config = applyChanges(before, changes, at);
+          version += 1;
+          const startsOn = changes.upsert.assignments?.find((a) => a.startsOn)?.startsOn ?? localDay();
+          const weekdays = changedWeekdays(
+            before,
+            config,
+            String(venues.data[0]?.ianaTimezone),
+            startsOn
+          );
+          history.unshift({
+            id: `change-${version}`,
+            actorId: "auth0|local-e2e",
+            at,
+            kind: "config_saved",
+            summary: "Regular week changed",
+            detail: { code: "regular_week_changed", startsOn, weekdays },
+            affectedFrom: null,
+            affectedTo: null,
+            notifiedGuests: false,
+            revertedById: null,
+            revertible: false,
+            actorName: "E2E Manager",
+          });
+          return route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ data: { version, changeId: "change-1" } }),
+          });
+        }
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: hasRows()
+              ? {
+                  config: appliedConfig(),
+                  version,
+                  source: "rows",
+                }
+              : { config: EMPTY_CONFIG, version, source: "empty" },
+          }),
+        });
+      });
+      await page.route(`**/api/v1/venues/${venueId}/availability/changes*`, (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ data: { total: history.length, offset: 0, items: history } }),
+        })
+      );
+      if (options.derive) {
+        const timezone = String(venues.data[0]?.ianaTimezone);
+        await serveDaysAndPreview(page, `**/api/v1/venues/${venueId}`, timezone, () => ({
+          config: appliedConfig(),
+          version,
+        }));
+      } else {
+        await page.route(`**/api/v1/venues/${venueId}/availability/days*`, (route) =>
+          route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body: JSON.stringify({ data: [] }),
+          })
+        );
+      }
+      return { savedBody: () => saved };
+    }
+  </file>
+  <file path="apps/hospitality/e2e/helpers/engine-days-mock.ts">
+    function isDayClosed(day: ResolvedDay): boolean {
+      const closedAllDay = day.closures.some(
+        (c) => c.targetKind === "venue" && c.from <= 0 && c.to >= WHOLE_DAY_MINUTES
+      );
+      return closedAllDay || day.services.length === 0;
+    }
+    function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string {
+      if (isDayClosed(day)) return "Closed";
+      if (day.explanation.some((l) => l.kind === "special_hours")) return "Special hours";
+      return config.schedules.find((s) => s.id === day.scheduleId)?.name ?? "Open";
+    }
+    function summarize(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary {
+      const names = new Map(config.venueServices.map((s) => [s.id, s.name]));
+      return {
+        serviceDate: day.serviceDate,
+        label: dayLabel(config, day),
+        scheduleId: day.scheduleId,
+        serviceCount: day.services.length,
+        closures: [],
+        bookingOpen: day.bookingOpen,
+        services: isDayClosed(day)
+          ? []
+          : day.services.map((s) => ({
+              venueServiceId: s.venueServiceId,
+              name: names.get(s.venueServiceId) ?? s.name,
+              opensAt: s.opensAt,
+              lastSeatingAt: s.lastSeatingAt,
+              closesAt: s.closesAt,
+            })),
+      };
+    }
+    function between(from: string, to: string): string[] {
+      const out: string[] = [];
+      for (let d = from; d <= to; d = addDays(d, 1)) out.push(d);
+      return out;
+    }
+    export interface SavedConfig {
+      config: AvailabilityConfig;
+      version: number;
+    }
+    export async function serveDaysAndPreview(
+      page: Page,
+      venueBase: string,
+      timezone: string,
+      current: () => SavedConfig
+    ) {
+      await page.route(`${venueBase}/availability/days*`, (route) => {
+        const url = new URL(route.request().url());
+        const { config } = current();
+        const days = between(url.searchParams.get("from")!, url.searchParams.get("to")!).map((date) =>
+          summarize(config, resolveDay({ timezone, config }, date))
+        );
+        return route.fulfill(json(days));
+      });
+      await page.route(`${venueBase}/availability/preview*`, (route) => {
+        const body = PreviewAvailabilityBodySchema.parse(route.request().postDataJSON());
+        const { config, version } = current();
+        const now = new Date();
+        const after = applyChanges(config, body.draft.changes, now.toISOString());
+        const structural = (c: AvailabilityConfig): BookingSnapshot => ({
+          timezone,
+          config: c,
+          tables: [],
+          reservations: [],
+          holds: [],
+          settings: null,
+        });
+        const dates = Array.from({ length: PREVIEW_WINDOW_DAYS }, (_, i) => addDays(body.focusDate, i));
+        const result: PreviewResult = {
+          version,
+          days: diffDays(structural(config), structural(after), dates, {
+            partySize: body.partySize,
+            channel: "online",
+            now,
+          }),
+          focusDay: summarize(after, resolveDay({ timezone, config: after }, body.focusDate)),
+          stranded: { total: 0, offset: 0, items: [] },
+        };
+        return route.fulfill(json(result));
+      });
+    }
+  </file>
+  <file path="apps/hospitality/e2e/helpers/interaction-counter.ts">
+    export interface InteractionCounter {
+      /** Use this in place of the test's `page`. */
+      readonly page: Page;
+      /** Interactions counted so far. */
+      readonly count: () => number;
+    }
+    export function countInteractions(page: Page): InteractionCounter {
+      let interactions = 0;
+    
+      const wrap = <T extends Page | Locator>(target: T): T =>
+        new Proxy(target, {
+          get(_, prop) {
+            const member: unknown = Reflect.get(target, prop, target);
+            if (typeof member !== "function" || typeof prop !== "string") return member;
+            return (...args: unknown[]) => {
+              if (COUNTED_ACTIONS.has(prop)) interactions += 1;
+              const result: unknown = member.apply(target, args);
+              return LOCATOR_RETURNING.has(prop) ? wrap(result as Locator) : result;
+            };
+          },
+        });
+    
+      return { page: wrap(page), count: () => interactions };
+    }
+  </file>
+  <file path="apps/hospitality/e2e/helpers/quick-setup-scenarios.ts">
+    export const UNIFORM_BISTRO_BASELINE = 5;
+    export const LARGE_SETUP_BASELINE = 13;
+    async function chooseTime(page: Page, serviceIndex: number, label: string, time: string) {
+      await page.getByRole("combobox", { name: label }).nth(serviceIndex).click();
+      await page
+        .getByRole("listbox", { name: label })
+        .getByRole("option", { name: time, exact: true })
+        .click();
+    }
+    export async function setUniformBistroWeek(page: Page) {
+      await page.getByRole("button", { name: "Lunch" }).click();
+      await page.getByRole("button", { name: "Add another service" }).click();
+      await page.getByRole("button", { name: "Dinner" }).last().click();
+      await page.getByRole("button", { name: "Weekdays" }).click();
+      await page.getByRole("button", { name: "Save and open bookings" }).click();
+    }
+    export async function setLargeSetup(page: Page) {
+      await page.getByRole("button", { name: "Brunch" }).click();
+      await page.getByRole("button", { name: "Add another service" }).click();
+      await page.getByRole("button", { name: "Dinner" }).last().click();
+      await page.getByRole("button", { name: "Add another service" }).click();
+      await page.getByRole("textbox", { name: /name/i }).last().fill("Tasting Menu");
+      await chooseTime(page, 2, "Opens", "3:00 PM");
+      await chooseTime(page, 2, "Closes", "4:30 PM");
+      await page.getByRole("button", { name: "Add another service" }).click();
+      await page.getByRole("button", { name: "Late" }).last().click();
+      await page.getByRole("button", { name: "Every day" }).click();
+      await page.getByRole("button", { name: "Save and open bookings" }).click();
+    }
+    export async function setDemoWeek(page: Page, scope: Page | Locator = page) {
+      await scope.getByRole("button", { name: "Lunch" }).click();
+      await scope.getByRole("button", { name: "Every day" }).click();
+      await scope.getByRole("button", { name: "Different days for this service" }).click();
+      await scope
+        .getByRole("group", { name: "Lunch runs on" })
+        .getByRole("button", { name: "Weekdays" })
+        .click();
+    
+      await scope.getByRole("button", { name: "Add another service" }).click();
+      await scope.getByRole("button", { name: "Dinner" }).last().click();
+      await scope.getByRole("button", { name: "Different days for this service" }).last().click();
+      await scope
+        .getByRole("group", { name: "Dinner runs on" })
+        .getByText("Monday", { exact: true })
+        .click();
+      await scope.getByRole("button", { name: "Different hours on some days" }).last().click();
+      const later = scope.getByRole("group", { name: "Dinner: different hours" });
+      await later.getByText("Fri", { exact: true }).click();
+      await later.getByText("Sat", { exact: true }).click();
+      await later.getByRole("combobox", { name: "Closes" }).click();
+      await page
+        .getByRole("listbox", { name: "Closes" })
+        .getByRole("option", { name: "12:00 AM", exact: true })
+        .click();
+    
+      await scope.getByRole("button", { name: "Add another service" }).click();
+      await scope.getByRole("button", { name: "Brunch" }).last().click();
+      await scope.getByRole("button", { name: "Different days for this service" }).last().click();
+      await scope
+        .getByRole("group", { name: "Brunch runs on" })
+        .getByRole("button", { name: "Weekends" })
+        .click();
+    }
+    export const DEMO_WEEK_VIA_SCHEDULES_COUNT = 26;
+  </file>
+  <file path="apps/hospitality/e2e/helpers/week-dates.ts">
+    export const WEEKDAYS = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ];
+    function utc(iso: string): Date {
+      return new Date(`${iso}T00:00:00Z`);
+    }
+    export function plusDays(iso: string, days: number): string {
+      const d = utc(iso);
+      d.setUTCDate(d.getUTCDate() + days);
+      return d.toISOString().slice(0, 10);
+    }
+    export function nextMonday(today: string): string {
+      const sinceMonday = (utc(today).getUTCDay() + 6) % 7;
+      return plusDays(today, 7 - sinceMonday);
+    }
+    export async function serviceLines(scope: Locator): Promise<string[]> {
+      const text = await scope.innerText();
+      return text
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => SERVICE_LINE.test(line));
+    }
+    export async function calendarWeek(page: Page, monday: string): Promise<Record<string, string[]>> {
+      const week: Record<string, string[]> = {};
+      for (const [offset, day] of WEEKDAYS.entries()) {
+        const cell = page.locator(`[data-date="${plusDays(monday, offset)}"]`);
+        await expect
+          .poll(
+            async () => (await serviceLines(cell)).length > 0 || /Closed/.test(await cell.innerText()),
+            {
+              message: `calendar, ${day}`,
+            }
+          )
+          .toBe(true);
+        week[day] = (await serviceLines(cell)).map((l) => l.replace("–", " – ").replace(/ +/g, " "));
+      }
+      return week;
+    }
+  </file>
+  </section>
   <section priority="medium" role="hooks">
   <file path="apps/gen/src/hooks/useApi.ts">
     export function useApi(): ApiClient {
@@ -19364,16 +20816,21 @@
   </file>
   <file path="apps/hospitality/src/hooks/useApiClient.ts">
     export function useApiClient() {
-      const { accessToken } = useAuth();
+      const { accessToken, signInSilent } = useAuth();
     
       return useMemo(
         () =>
           createApiClient({
             baseUrl: import.meta.env.VITE_API_URL ?? "",
             getAccessToken: () => accessToken,
+            // A 401 mid-session (expired token, #8258) refreshes once via a silent
+            // sign-in, which always fetches a new token. A failed refresh resolves
+            // null, and react-oidc-context records it as a silent error that
+            // DashboardLayout's "sign in again" banner already surfaces.
+            refreshAccessToken: async () => (await signInSilent())?.access_token ?? null,
             onError: reportApiError,
           }),
-        [accessToken]
+        [accessToken, signInSilent]
       );
     }
   </file>
@@ -20176,6 +21633,13 @@
       mutationFn: (api, id) => api.floorPlans.setActive(id),
       onSuccess: (queryClient, _data, id) => {
         queryClient.invalidateQueries({ queryKey: floorPlanQueryKey(id) });
+      },
+    });
+    export const useDeleteFloorPlan = createMutationHook<string>({
+      invalidateKeys: FLOOR_PLANS_QUERY_KEY,
+      mutationFn: (api, id) => api.floorPlans.delete(id),
+      onSuccess: (queryClient, _data, id) => {
+        queryClient.removeQueries({ queryKey: floorPlanQueryKey(id) });
       },
     });
     export interface BulkUpdatePositionsPayload {
@@ -30728,6 +32192,38 @@
     export const healthKvNamespaceId = healthKv.id;
   </file>
   </section>
+  <section priority="medium" role="pwa">
+  <file path="apps/marketing/pwa/workbox-options.ts">
+    export interface ServiceWorkerRuntimeRoute {
+      readonly urlPattern: RegExp | string;
+      readonly handler:
+        "CacheFirst" | "CacheOnly" | "NetworkFirst" | "NetworkOnly" | "StaleWhileRevalidate";
+    }
+    export const workboxRuntimeCaching: readonly ServiceWorkerRuntimeRoute[] = [];
+    export const workboxPrecacheGlobPatterns: readonly string[] = [
+      "**/*.{js,css,ico,png,svg,woff,woff2}",
+    ];
+    export function isDocumentFontRequest(url: string): boolean {
+      try {
+        return DOCUMENT_FONT_HOSTS.has(new URL(url).hostname);
+      } catch {
+        return false;
+      }
+    }
+    export function routeListClaims(
+      routes: readonly ServiceWorkerRuntimeRoute[],
+      url: string
+    ): boolean {
+      return routes.some((route) => {
+        if (typeof route.urlPattern === "string") return url.includes(route.urlPattern);
+        return route.urlPattern.test(url);
+      });
+    }
+    export function serviceWorkerClaimsUrl(url: string): boolean {
+      return routeListClaims(workboxRuntimeCaching, url);
+    }
+  </file>
+  </section>
   <section priority="medium" role="react">
   <file path="packages/auth/src/react/auth-error.ts">
     export const SILENT_AUTH_ERROR_SOURCES = ["signinSilent", "renewSilent", "signoutSilent"] as const;
@@ -30906,6 +32402,10 @@
       const activeNavigator = auth.activeNavigator;
       const signOutInFlight = activeNavigator !== undefined && SIGN_OUT_NAVIGATORS.has(activeNavigator);
       const silentFailure = isSilentAuthError(auth.error);
+      // react-oidc-context memoizes signinSilent per UserManager, so this stays
+      // stable across renders and consumers can memoize on it.
+      const oidcSigninSilent = auth.signinSilent;
+      const signInSilent = useCallback(() => oidcSigninSilent(), [oidcSigninSilent]);
     
       const user: AuthUser | null = auth.user
         ? {
@@ -30952,7 +32452,7 @@
         /** Sign out - redirects to OIDC provider */
         signOut: () => auth.signoutRedirect(),
         /** Sign in silently (refresh token) */
-        signInSilent: () => auth.signinSilent(),
+        signInSilent,
         /** Interactive sign-in / sign-out error, if any — never a background refresh failure */
         error: silentFailure ? undefined : auth.error,
         /** The most recent silent-refresh failure, or null — see {@link useAccessToken} */
@@ -31642,9 +33142,15 @@
       const [hours, minutes] = clock.split(":").map(Number);
       return hours! * 60 + minutes!;
     }
-    function serviceDayMinute(clock: string, config: AvailabilityConfig): number {
+    function serviceDayMinute(clock: string, config: AvailabilityConfig, date: string): number {
       const minute = clockToMinute(clock);
-      const opens = config.scheduleServices.map((s) => s.opensAt);
+      // Every schedule's rows that run on `date`'s weekday, each with that weekday's hours, over all
+      // venue services (archived ones too): not only the schedule that covers `date`. Pre-existing; a
+      // holiday schedule opening earlier than the regular day moves the cutoff for every date.
+      const venueServices = new Map(config.venueServices.map((v) => [v.id, v]));
+      const opens = servicesOn(config.scheduleServices, venueServices, weekdayIndexOf(date)).map(
+        (s) => s.opensAt
+      );
       const earliest = opens.length ? Math.min(...opens) : 0;
       return minute < earliest ? minute + MINUTES_IN_DAY : minute;
     }
@@ -31727,9 +33233,10 @@
       input: ChangeTonightInput,
       config: AvailabilityConfig,
       api: ApiClient,
-      venueId: string
+      venueId: string,
+      today: string
     ): Promise<{ change: TonightChange } | { error: string }> {
-      const minute = (clock: string) => serviceDayMinute(clock, config);
+      const minute = (clock: string) => serviceDayMinute(clock, config, today);
       const window =
         input.from && input.to ? { from: minute(input.from), to: minute(input.to) } : undefined;
       if (window && window.to <= window.from) {
@@ -31869,7 +33376,7 @@
             let unsure: string | undefined;
             try {
               const state = await api.availability.getConfig(venueId);
-              const built = await buildChange(input, state.config, api, venueId);
+              const built = await buildChange(input, state.config, api, venueId, todayIn(timeZone));
               if ("error" in built) return notExecuted(built);
               unsure = TONIGHT_SAVE_UNSURE;
               const result = await api.availability.setTonight(venueId, {
@@ -32390,9 +33897,11 @@
       const days = await api.availability.listDays(venueId, { from: date, to: date });
       const scheduleId = days.find((d) => d.serviceDate === date)?.scheduleId;
       if (!scheduleId) return { error: NO_REGULAR_HOURS };
-      const live = new Set(config.venueServices.filter((s) => !s.archivedAt).map((s) => s.id));
-      const rows = config.scheduleServices.filter(
-        (row) => row.scheduleId === scheduleId && live.has(row.venueServiceId)
+      const live = new Map(config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.id, s]));
+      const rows = servicesOn(
+        config.scheduleServices.filter((row) => row.scheduleId === scheduleId),
+        live,
+        weekdayIndexOf(date)
       );
       if (!rows.some((row) => row.venueServiceId === serviceId)) {
         return {
@@ -38669,6 +40178,9 @@
           preHandler: requireAuth,
           schema: {
             summary: "Delete floor plan",
+            description:
+              "Deletes a floor plan that is not active. A plan whose tables have any " +
+              "reservation or hold is archived instead, so booking history keeps its table.",
             params: {
               type: "object",
               properties: {
@@ -38678,10 +40190,16 @@
           },
         },
         venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
-          const success = await floorPlanService.delete(request.params.id);
-          if (!success) {
+          const outcome = await floorPlanService.delete(request.params.id);
+          if (outcome === "not_found") {
             return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
           }
+          if (outcome === "active" || outcome === "has_upcoming" || outcome === "in_use") {
+            return reply
+              .code(409)
+              .send(createProblemDetails(409, titleForStatus(409), DELETE_REFUSED[outcome]));
+          }
+          // "deleted" or "archived": either way the plan is gone for the caller.
           return reply.code(204).send();
         })
       );
@@ -41532,8 +43050,7 @@
   </file>
   <file path="services/reservations/src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
-      const { reservationService, guestService } = fastify.services;
-      const listVenueId = resolveReservationsListVenueId(guestService);
+      const { reservationService } = fastify.services;
       const ownerScope = reservationOwnerScope(reservationService);
     
       /**
@@ -41590,7 +43107,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, listVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, reservationsListVenueId),
+          ],
           schema: {
             summary: "List reservations",
             operationId: "listReservations",
@@ -41612,16 +43132,25 @@
         },
         async (request, _reply) => {
           const { page, limit } = parsePaginationQuery(request.query);
-          // Context only for a named venue; a guestId-only list runs without one.
-          return inNamedVenueContext(request.query.venueId, () =>
+          const { guestId } = request.query;
+          // A guest-filtered list always runs in a venue's context (the named one,
+          // else the guest's). Only an admin's unfiltered list may name none.
+          const venueId =
+            (guestId ? await resolveListVenueId(request.query) : request.query.venueId) ?? undefined;
+          if (guestId && !venueId) {
+            // Only an admin reaches here (the guard denied everyone else): an
+            // unknown guest has no reservations.
+            return buildPaginatedResponse<Reservation>([], page, limit, 0);
+          }
+          return inNamedVenueContext(venueId, () =>
             reservationService.list({
               page,
               limit,
               date: request.query.date,
               status: request.query.status,
               tableId: request.query.tableId,
-              venueId: request.query.venueId,
-              guestId: request.query.guestId,
+              venueId,
+              guestId,
             })
           );
         }
@@ -42753,6 +44282,8 @@
               closesAt: 1320,
               seating: { version: 1, interval: 15 },
               bookingTypes: ["online", "phone"],
+              weekdays: [],
+              dayHours: { version: 1, sets: [] },
             },
           ],
           assignments: [
@@ -45494,12 +47025,16 @@
       .catchall(z.unknown());
   </file>
   <file path="packages/types/src/schemas/availability-config-api.ts">
+    export const ScheduleServiceRequestSchema = ScheduleServiceSchema.extend({
+      weekdays: ScheduleServiceSchema.shape.weekdays.removeDefault(),
+      dayHours: ScheduleServiceSchema.shape.dayHours.removeDefault(),
+    });
     export const AvailabilityConfigChangesSchema = z.object({
       upsert: z
         .object({
           schedules: z.array(ScheduleSchema).optional(),
           venueServices: z.array(VenueServiceSchema).optional(),
-          scheduleServices: z.array(ScheduleServiceSchema).optional(),
+          scheduleServices: z.array(ScheduleServiceRequestSchema).optional(),
           assignments: z.array(ScheduleAssignmentSchema).optional(),
           dateRules: z.array(DateRuleSchema).optional(),
         })
@@ -45546,6 +47081,8 @@
       code: z.string(),
       /** The change undid the one the code names (`Reverted: …`). */
       reverted: z.boolean().optional(),
+      /** `regular_week_changed`: the weekdays whose hours changed (with `startsOn`). */
+      weekdays: z.array(z.number().int().min(0).max(6)).optional(),
       /** `config_saved`: rows added, changed and removed. */
       added: z.number().int().optional(),
       changed: z.number().int().optional(),
@@ -46140,6 +47677,14 @@
       version: z.literal(1),
       weekdays: z.array(WeekdayIndexSchema).min(1),
     });
+    export const DayHoursSetSchema = z.object({
+      weekdays: z.array(WeekdayIndexSchema).min(1),
+      ...ServiceHoursFields,
+    });
+    export const DayHoursSchema = z.object({
+      version: z.literal(1),
+      sets: z.array(DayHoursSetSchema),
+    });
     export const SpecialHoursServiceSchema = z.object({
       venueServiceId: IdSchema,
       ...ServiceHoursFields,
@@ -46177,6 +47722,10 @@
       scheduleId: IdSchema,
       venueServiceId: IdSchema,
       ...ServiceHoursFields,
+      /** Days the base hours apply on; [] = every day the assignment covers, less the days a set claims. */
+      weekdays: z.array(WeekdayIndexSchema).default([]),
+      /** Other hours on some weekdays; absent reads as no sets, so stored rows and old inverses parse. */
+      dayHours: DayHoursSchema.default({ version: 1, sets: [] }),
     });
     export const ScheduleAssignmentSchema = z.object({
       id: IdSchema,
@@ -46208,6 +47757,8 @@
       assignments: z.array(ScheduleAssignmentSchema),
       dateRules: z.array(DateRuleSchema),
     });
+    export type DayHoursSet = z.infer<typeof DayHoursSetSchema>;
+    export type DayHours = z.infer<typeof DayHoursSchema>;
     export type Seating = z.infer<typeof SeatingSchema>;
     export type AvailabilityWindow = z.infer<typeof WindowSchema>;
     export type Repeat = z.infer<typeof RepeatSchema>;
@@ -49449,6 +51000,12 @@
         ...(typeof darkPreamble === "string" ? wrapComment(darkPreamble) : []),
         renderBlock('[data-theme="dark"]', dark, "color-scheme: dark;"),
         "",
+        "/* ── Nested light scope ──────────────────────── */",
+        ...wrapComment(
+          "Custom properties inherit, and :root does not match an element. A light island inside a dark ancestor would otherwise keep the dark palette. Re-declare the light tokens on that island. This rule follows the dark block so a parser that takes the first dark-attribute rule still reads the dark palette."
+        ),
+        renderBlock('[data-theme="dark"] [data-theme="light"]', light, "color-scheme: light;"),
+        "",
       ];
     
       const outPath = path.join(tokensDir, "colors.css");
@@ -49456,7 +51013,7 @@
     
       const tokenCount = walkTokens(light).length;
       console.info(
-        `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens × 2 themes`
+        `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens, dark override plus nested light scope`
       );
     }
   </file>
@@ -50159,6 +51716,143 @@
       const prisma = db.prisma as unknown as PrismaClient;
       try {
         const summary = await runBackfill(prisma, { apply }, (line) =>
+          process.stdout.write(`${line}\n`)
+        );
+        process.stdout.write(`${JSON.stringify({ summary })}\n`);
+        process.exitCode = summary.errors.length > 0 ? 1 : 0;
+      } finally {
+        await prisma.$disconnect();
+      }
+    }
+  </file>
+  <file path="services/reservations/src/scripts/collapse-day-named-schedules.ts">
+    export interface ReplacedRows {
+      schedules: unknown[];
+      scheduleServices: unknown[];
+      assignments: unknown[];
+    }
+    export interface CreatedRows {
+      schedules: string[];
+      scheduleServices: string[];
+      assignments: string[];
+    }
+    export type CollapseOutcome =
+      | {
+          venueId: string;
+          outcome: "would_collapse" | "collapsed";
+          replaced: ReplacedRows;
+          created: CreatedRows;
+        }
+      | { venueId: string; outcome: "nothing_to_collapse" | "raced" | "not_found" }
+      | { venueId: string; outcome: "refused"; issues: string[] };
+    export interface CollapseSummary {
+      apply: boolean;
+      venues: number;
+      counts: Record<string, number>;
+      errors: { venueId: string; message: string }[];
+    }
+    type Log = (line: string) => void;
+    function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows {
+      const pick = <T extends keyof ReplacedRows>(table: T) => {
+        const touched = new Set([
+          ...(diff.update[table] as { id: string }[]).map((r) => r.id),
+          ...diff.remove[table],
+        ]);
+        return (config[table] as { id: string }[]).filter((r) => touched.has(r.id));
+      };
+      return {
+        schedules: pick("schedules"),
+        scheduleServices: pick("scheduleServices"),
+        assignments: pick("assignments"),
+      };
+    }
+    export function introducedIssues(
+      before: readonly ConfigIssue[],
+      after: readonly ConfigIssue[]
+    ): ConfigIssue[] {
+      const key = (i: ConfigIssue) => `${i.code}|${i.path}|${i.weekday ?? ""}`;
+      const had = new Set(before.map(key));
+      return after.filter((i) => !had.has(key(i)));
+    }
+    function createdBy(diff: ConfigDiff): CreatedRows {
+      const ids = (table: keyof CreatedRows) => diff.create[table].map((r) => r.id);
+      return {
+        schedules: ids("schedules"),
+        scheduleServices: ids("scheduleServices"),
+        assignments: ids("assignments"),
+      };
+    }
+    export async function collapseVenue(
+      prisma: PrismaClient,
+      venueId: string,
+      options: { apply: boolean; now?: Date }
+    ): Promise<CollapseOutcome> {
+      const now = options.now ?? new Date();
+      return prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const venue = await tx.venue.findUnique({
+          where: { id: venueId },
+          select: { availabilityVersion: true },
+        });
+        if (!venue) return { venueId, outcome: "not_found" as const };
+    
+        // The version is read before the rows: a save landing in between moves it, so the
+        // compare-and-set below misses instead of writing over a config this plan never saw.
+        const { config } = await readStoredConfig(tx, venueId);
+        const changes = collapseDayNamedSchedules(config, randomUUID);
+        if (!changes) return { venueId, outcome: "nothing_to_collapse" as const };
+    
+        const next = applyChanges(config, changes, now.toISOString());
+        const issues = validateConfig(next);
+        if (introducedIssues(validateConfig(config), issues).length > 0) {
+          return {
+            venueId,
+            outcome: "refused" as const,
+            issues: issues.map((i) => `${i.code}: ${i.message}`),
+          };
+        }
+        const diff = diffConfig(config, next);
+        const replaced = replacedBy(config, diff);
+        const created = createdBy(diff);
+        if (!options.apply) return { venueId, outcome: "would_collapse" as const, replaced, created };
+    
+        const cas = await tx.venue.updateMany({
+          where: { id: venueId, availabilityVersion: venue.availabilityVersion },
+          data: { availabilityVersion: { increment: 1 } },
+        });
+        if (cas.count === 0) return { venueId, outcome: "raced" as const };
+    
+        await writeConfigDiff(tx, venueId, diff, { actorId: COLLAPSE_ACTOR, now });
+        return { venueId, outcome: "collapsed" as const, replaced, created };
+      });
+    }
+    export async function runCollapse(
+      prisma: PrismaClient,
+      options: { apply: boolean },
+      log: Log
+    ): Promise<CollapseSummary> {
+      const venueIds = await getAllVenueIds(prisma);
+      const counts: Record<string, number> = {};
+      const errors: CollapseSummary["errors"] = [];
+    
+      for (const venueId of venueIds) {
+        try {
+          const outcome = await collapseVenue(prisma, venueId, options);
+          counts[outcome.outcome] = (counts[outcome.outcome] ?? 0) + 1;
+          log(JSON.stringify(outcome));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push({ venueId, message });
+          log(JSON.stringify({ venueId, outcome: "error", message }));
+        }
+      }
+      return { apply: options.apply, venues: venueIds.length, counts, errors };
+    }
+    async function main(): Promise<void> {
+      const apply = process.argv.includes("--apply");
+      const prisma = db.prisma as unknown as PrismaClient;
+      try {
+        const summary = await runCollapse(prisma, { apply }, (line) =>
           process.stdout.write(`${line}\n`)
         );
         process.stdout.write(`${JSON.stringify({ summary })}\n`);
@@ -51514,13 +53208,60 @@
     }
   </file>
   <file path="services/reservations/src/services/availability-change-detail.ts">
-    export function configSavedDetail(diff: ConfigDiff): AvailabilityChangeDetail {
-      return {
-        code: "config_saved",
+    function regularWeek(config: AvailabilityConfig) {
+      const schedule = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+      if (!schedule) return { signatures: new Array<string>(7).fill("[]"), assignments: [] };
+      const assignments = config.assignments.filter((a) => a.scheduleId === schedule.id);
+      const live = new Set(config.venueServices.filter((v) => !v.archivedAt).map((v) => v.id));
+      const rows = config.scheduleServices.filter(
+        (r) => r.scheduleId === schedule.id && live.has(r.venueServiceId)
+      );
+      const week = decodeWeek(rows, [...new Set(assignments.flatMap((a) => a.weekdays))]);
+      const signatures = Array.from({ length: 7 }, (_, day) =>
+        JSON.stringify(
+          week
+            .flatMap((s) => {
+              const h = s.days[day];
+              return h
+                ? [
+                    [
+                      s.venueServiceId,
+                      h.opensAt,
+                      h.lastSeatingAt,
+                      h.closesAt,
+                      h.seating,
+                      [...h.bookingTypes].sort(),
+                    ],
+                  ]
+                : [];
+            })
+            .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+        )
+      );
+      return { signatures, assignments };
+    }
+    export function configSavedDetail(
+      diff: ConfigDiff,
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      today: string
+    ): AvailabilityChangeDetail {
+      const rows = {
         added: count(diff.create),
         changed: count(diff.update),
         removed: count(diff.remove),
       };
+      const was = regularWeek(before);
+      const now = regularWeek(after);
+      const weekdays = [0, 1, 2, 3, 4, 5, 6].filter((d) => was.signatures[d] !== now.signatures[d]);
+      if (weekdays.length === 0) return { code: "config_saved", ...rows };
+    
+      // An assignment with no start date, or one already started, takes effect with this save.
+      const starts = now.assignments
+        .filter((a) => a.weekdays.some((d) => weekdays.includes(d)))
+        .map((a) => (a.startsOn && a.startsOn > today ? a.startsOn : today));
+      const startsOn = starts.reduce((first, s) => (s < first ? s : first), starts[0] ?? today);
+      return { code: "regular_week_changed", startsOn, weekdays, ...rows };
     }
     export function closureDetail(
       rule: Pick<DateRule, "kind" | "startsOn" | "endsOn">,
@@ -51671,7 +53412,13 @@
       const tables = CONFIG_TABLES.every(
         (t) => Array.isArray(v.restore?.[t]) && Array.isArray(v.remove?.[t])
       );
-      return tables ? (v as ConfigInverse) : null;
+      if (!tables) return null;
+      const rows = (v.restore.scheduleServices as unknown[]).map((r) =>
+        ScheduleServiceSchema.safeParse(r)
+      );
+      if (!rows.every((r) => r.success)) return null;
+      const scheduleServices = rows.flatMap((r): ScheduleService[] => (r.success ? [r.data] : []));
+      return { ...v, restore: { ...v.restore, scheduleServices } } as ConfigInverse;
     }
     export async function revertAvailabilityChange(
       input: {
@@ -52498,7 +54245,10 @@
           detail: AvailabilityChangeDetail;
         };
     function describeDiff(detail: AvailabilityChangeDetail): string {
-      return `Availability updated: ${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+      const rows = `${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+      if (detail.code !== "regular_week_changed") return `Availability updated: ${rows}`;
+      const days = (detail.weekdays ?? []).map((d) => WEEKDAY_NAMES[d]).join(", ");
+      return `Regular week changed on ${days} from ${detail.startsOn}: ${rows}`;
     }
     export function planSave(input: {
       state: ConfigState;
@@ -52539,7 +54289,7 @@
       if (reservations.length > 0) return { kind: "stranded", reservations };
     
       const diff = diffConfig(state.stored, next);
-      const detail = configSavedDetail(diff);
+      const detail = configSavedDetail(diff, state.stored, next, civilDateIn(now, state.timezone));
       return {
         kind: "write",
         next,
@@ -53006,6 +54756,8 @@
           closesAt: s.closesAt,
           seating: s.seating,
           bookingTypes: s.bookingTypes,
+          weekdays: s.weekdays,
+          dayHours: s.dayHours,
         })),
       });
       await tx.scheduleAssignment.createMany({
@@ -58741,9 +60493,24 @@
         updatedAt: floorPlan.updatedAt.toISOString(),
       };
     }
+    function venueUniqueNames(
+      desired: readonly string[],
+      taken: readonly string[],
+      candidate: (name: string, n: number) => string
+    ): string[] {
+      const used = new Set(taken);
+      return desired.map((name) => {
+        let pick = used.has(name) ? candidate(name, 2) : name;
+        for (let n = 3; used.has(pick); n += 1) pick = candidate(name, n);
+        used.add(pick);
+        return pick;
+      });
+    }
+    export type FloorPlanDeleteOutcome =
+      "deleted" | "archived" | "active" | "has_upcoming" | "in_use" | "not_found";
     export const floorPlanService = {
       async list(page: number, limit: number, venueId?: string): Promise<PaginatedResponse<FloorPlan>> {
-        const where = venueId ? { venueId } : {};
+        const where = { archivedAt: null, ...(venueId ? { venueId } : {}) };
     
         const [floorPlans, total] = await Promise.all([
           prisma.floorPlan.findMany({
@@ -58774,6 +60541,7 @@
         venueId?: string
       ): Promise<PaginatedResponse<FloorPlan>> {
         const where: Prisma.FloorPlanWhereInput = {
+          archivedAt: null,
           venue: { memberships: { some: { userSub } } },
           ...(venueId ? { venueId } : {}),
         };
@@ -58795,8 +60563,8 @@
       },
     
       async getById(id: string): Promise<FloorPlan | null> {
-        const floorPlan = await prisma.floorPlan.findUnique({
-          where: { id },
+        const floorPlan = await prisma.floorPlan.findFirst({
+          where: { id, archivedAt: null },
           include: { tables: true },
         });
         return floorPlan ? mapPrismaFloorPlan(floorPlan) : null;
@@ -58824,19 +60592,19 @@
       },
     
       async clone(id: string): Promise<FloorPlan | null> {
-        const source = await prisma.floorPlan.findUnique({
-          where: { id },
+        const source = await prisma.floorPlan.findFirst({
+          where: { id, archivedAt: null },
           include: { tables: true },
         });
         if (!source) return null;
     
         // Handle name collisions: find next available copy name
         const baseName = source.name;
+        // Every plan name in the venue: the first copy's `Copy of …` does not start
+        // with `baseName`, so a `startsWith` filter missed it and a second clone
+        // reused the same name.
         const existingNames = await prisma.floorPlan.findMany({
-          where: {
-            venueId: source.venueId,
-            name: { startsWith: baseName },
-          },
+          where: { venueId: source.venueId },
           select: { name: true },
         });
         const existingNameSet = new Set(existingNames.map((n) => n.name));
@@ -58868,15 +60636,27 @@
           });
     
           if (source.tables.length > 0) {
+            const venueTables = await tx.table.findMany({
+              where: { venueId: source.venueId },
+              select: { name: true },
+            });
+            const copyNames = venueUniqueNames(
+              source.tables.map((t) => t.name),
+              venueTables.map((t) => t.name),
+              (name, n) => `${name}-${n}`
+            );
             await tx.table.createMany({
-              data: source.tables.map((t) => ({
-                name: t.name,
+              data: source.tables.map((t, i) => ({
+                name: copyNames[i]!,
                 tableNumber: t.tableNumber,
                 capacity: t.capacity,
                 minCovers: t.minCovers,
                 maxCovers: t.maxCovers,
                 location: t.location,
-                isActive: t.isActive,
+                // Inactive until the owner turns them on: any active table is
+                // bookable whatever its plan, so an active copy would double
+                // online capacity (#8255; plan-scoped bookability is #8276).
+                isActive: false,
                 priority: t.priority,
                 status: "AVAILABLE",
                 venueId: t.venueId,
@@ -58907,7 +60687,7 @@
           }
     
           const floorPlan = await prisma.floorPlan.update({
-            where: { id },
+            where: { id, archivedAt: null },
             data: updateData,
             include: { tables: true },
           });
@@ -58918,15 +60698,81 @@
         }
       },
     
-      async delete(id: string): Promise<boolean> {
+      /**
+       * Deletes a floor plan in one transaction (#8254). Reservations and holds
+       * reference tables with ON DELETE RESTRICT and are never deleted, so a plan
+       * whose tables carry any (even cancelled or expired) history is archived
+       * instead: hidden from every read, its tables taken out of service and
+       * renamed so the venue can reuse their names. The active plan is refused —
+       * the venue must never be left without one — and so is a plan with a booking
+       * still to come, which would otherwise sit on a table no longer shown.
+       */
+      async delete(id: string): Promise<FloorPlanDeleteOutcome> {
+        // Read through the venue-scoped client first: the explicit transaction
+        // below must set app.venue_id itself (ADR-026 part 6), so it needs the venue.
+        const found = await prisma.floorPlan.findFirst({
+          where: { id, archivedAt: null },
+          select: { venueId: true },
+        });
+        if (!found) return "not_found";
+        const { venueId } = found;
+    
         try {
-          await prisma.table.deleteMany({
-            where: { floorPlanId: id },
+          return await prisma.$transaction(async (tx) => {
+            await setVenueContext(tx, venueId);
+            // Lock the plan row so a concurrent activate cannot slip in between
+            // the active check and the delete.
+            const [plan] = await tx.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null }>>`
+              SELECT is_active AS "isActive", archived_at AS "archivedAt"
+              FROM floor_plans WHERE id = ${id} FOR UPDATE
+            `;
+            if (!plan || plan.archivedAt) return "not_found" as const;
+            if (plan.isActive) return "active" as const;
+    
+            const tables = await tx.table.findMany({
+              where: { floorPlanId: id },
+              select: { id: true, name: true },
+            });
+            const tableIds = tables.map((t) => t.id);
+            const upcoming = await tx.reservation.count({
+              where: {
+                tableId: { in: tableIds },
+                status: { notIn: [...SETTLED_STATUSES] },
+                endTime: { gt: new Date() },
+              },
+            });
+            if (upcoming > 0) return "has_upcoming" as const;
+            const [reservations, holds] = await Promise.all([
+              tx.reservation.count({ where: { tableId: { in: tableIds } } }),
+              tx.reservationHold.count({ where: { tableId: { in: tableIds } } }),
+            ]);
+    
+            if (reservations + holds === 0) {
+              await tx.table.deleteMany({ where: { floorPlanId: id } });
+              await tx.floorPlan.delete({ where: { id } });
+              return "deleted" as const;
+            }
+    
+            const ownNames = new Set(tables.map((t) => t.name));
+            const venueTables = await tx.table.findMany({ where: { venueId }, select: { name: true } });
+            const archivedNames = venueUniqueNames(
+              tables.map((t) => `${t.name} (archived)`),
+              venueTables.map((t) => t.name).filter((name) => !ownNames.has(name)),
+              (name, n) => `${name.slice(0, -")".length)} ${n})`
+            );
+            for (const [i, table] of tables.entries()) {
+              await tx.table.update({
+                where: { id: table.id },
+                data: { name: archivedNames[i]!, isActive: false },
+              });
+            }
+            await tx.floorPlan.update({ where: { id }, data: { archivedAt: new Date() } });
+            return "archived" as const;
           });
-          await prisma.floorPlan.delete({ where: { id } });
-          return true;
         } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return false;
+          // A booking or hold committed on one of the tables after the history
+          // check: the RESTRICT FK refuses the delete. Never surface the raw error.
+          if (isPrismaForeignKeyViolation(err)) return "in_use";
           throw err;
         }
       },
@@ -58944,7 +60790,7 @@
             });
     
             return tx.floorPlan.update({
-              where: { id },
+              where: { id, archivedAt: null },
               data: { isActive: true },
               include: { tables: true },
             });
@@ -61081,6 +62927,14 @@
   </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
+    export class JobQueueUnavailableError extends Error {
+      constructor() {
+        super(
+          "Cannot schedule/cancel notification jobs: REDIS_URL is not configured in production (see #3763)."
+        );
+        this.name = "JobQueueUnavailableError";
+      }
+    }
     export interface NotifierRuntime {
       /**
        * Redis URL — the single source for the scheduler AND the in-process worker.
@@ -61141,9 +62995,7 @@
       function connect(): JobScheduler {
         if (!redisUrl) {
           // Never connect to redis://localhost:6379 as a blind guess (#4172).
-          throw new Error(
-            "Cannot schedule/cancel notification jobs: REDIS_URL is not configured in production (see #3763)."
-          );
+          throw new JobQueueUnavailableError();
         }
         if (!scheduler) scheduler = new JobScheduler({ redisUrl });
         return scheduler;
@@ -65783,6 +67635,7 @@
   <file path="services/reservations/src/services/waitlist-notifier.ts">
     export interface WaitlistNotifierLogger {
       error(obj: Record<string, unknown>, msg: string): void;
+      warn(obj: Record<string, unknown>, msg: string): void;
       info(obj: Record<string, unknown>, msg: string): void;
     }
     export interface WaitlistEntryRef {
@@ -65923,6 +67776,11 @@
         // Always schedule expiry regardless of SMS outcome. If scheduling fails the
         // row would stay notified forever (host can't retry, next guest never
         // notified), so roll it back to waiting and surface the error.
+        //
+        // Exception (#8257): with no job queue configured at all (production has
+        // no Redis, #3763) the row stays notified — the guest has been texted and
+        // `expiresAt` already records the claim deadline — and only the automatic
+        // expiry is skipped; the host expires or seats the party by hand.
         try {
           await scheduler.schedule(
             JOB_TYPES.WAITLIST_EXPIRY,
@@ -65931,8 +67789,14 @@
             `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
           );
         } catch (err) {
-          await revertNotified(input.id);
-          throw err;
+          if (!(err instanceof JobQueueUnavailableError)) {
+            await revertNotified(input.id);
+            throw err;
+          }
+          logger.warn(
+            { err, waitlistEntryId: input.id, venueId: input.venueId },
+            "waitlist expiry job not scheduled: job queue unavailable; the party stays notified until a host expires or seats it"
+          );
         }
     
         // Queue positions are final only now that the notified state stuck.
@@ -75659,6 +77523,14 @@
     export interface ClientConfig {
       baseUrl: string;
       getAccessToken?: () => string | null | Promise<string | null>;
+      /**
+       * Fetch a fresh access token, bypassing any cached one. Called at most once
+       * per request, and only when a request that carried the `getAccessToken`
+       * token answers 401 (an expired session, #8258). A non-null result replays
+       * that request exactly once with the new token; null or a throw surfaces
+       * the original 401. Concurrent 401s share one refresh.
+       */
+      refreshAccessToken?: () => Promise<string | null>;
       timeout?: number;
       maxRetries?: number;
       onError?: (error: ApiClientError) => void;
@@ -75688,6 +77560,7 @@
     export class ApiClient {
       private readonly timeout: number;
       private readonly maxRetries: number;
+      private refreshInFlight: Promise<string | null> | null = null;
     
       constructor(private config: ClientConfig) {
         this.timeout = config.timeout ?? DEFAULT_TIMEOUT_MS;
@@ -75710,28 +77583,39 @@
           ...override?.headers,
         };
     
-        if (getAccessToken && !hasHeader(headers, "authorization")) {
-          const token = await getAccessToken();
-          if (token) {
-            headers.Authorization = `Bearer ${token}`;
-          }
-        }
+        // Only a token this client attached is eligible for refresh-on-401 — an
+        // explicit per-call Authorization (e.g. a manage token) is the caller's.
+        const usesClientToken = Boolean(getAccessToken) && !hasHeader(headers, "authorization");
+        const token = usesClientToken ? await getAccessToken?.() : null;
     
         const effectiveTimeout = override?.timeout ?? this.timeout;
         const effectiveMaxRetries = override?.maxRetries ?? this.maxRetries;
         const idempotentRetry = override?.idempotentRetry ?? false;
     
-        const combinedSignal = createCombinedSignal(effectiveTimeout, options.signal);
-    
-        const fetchOptions: RequestInit = {
-          ...options,
-          headers,
-          signal: combinedSignal,
-        };
-    
         const url = `${baseUrl}${path}`;
         const canRetry = SAFE_RETRY_METHODS.has(method) || idempotentRetry;
-        const response = await fetchWithRetry(url, fetchOptions, canRetry ? effectiveMaxRetries : 0);
+        const send = (bearer: string | null | undefined) =>
+          fetchWithRetry(
+            url,
+            {
+              ...options,
+              headers: bearer ? { ...headers, Authorization: `Bearer ${bearer}` } : headers,
+              signal: createCombinedSignal(effectiveTimeout, options.signal),
+            },
+            canRetry ? effectiveMaxRetries : 0
+          );
+    
+        let response = await send(token);
+    
+        // A 401 is the origin refusing the bearer before running the handler, so
+        // replaying once — even a POST/PATCH — cannot duplicate a side effect.
+        if (response.status === 401 && token) {
+          const freshToken = await this.refreshToken();
+          if (freshToken) {
+            await response.body?.cancel().catch(() => undefined);
+            response = await send(freshToken);
+          }
+        }
     
         if (!response.ok) {
           const raw = await response.json().catch(() => null);
@@ -75760,6 +77644,18 @@
         }
     
         return data as T;
+      }
+    
+      /** One shared refresh for concurrent 401s; null when unavailable or failed. */
+      private refreshToken(): Promise<string | null> {
+        const { refreshAccessToken } = this.config;
+        if (!refreshAccessToken) return Promise.resolve(null);
+        this.refreshInFlight ??= refreshAccessToken()
+          .catch(() => null)
+          .finally(() => {
+            this.refreshInFlight = null;
+          });
+        return this.refreshInFlight;
       }
     
       /**
@@ -76397,6 +78293,7 @@
     export function createApiClient(config: {
       baseUrl?: string;
       getAccessToken?: () => string | null | Promise<string | null>;
+      refreshAccessToken?: () => Promise<string | null>;
       timeout?: number;
       maxRetries?: number;
       onError?: (error: ApiClientError) => void;
@@ -76404,6 +78301,7 @@
       const client = new ApiClient({
         baseUrl: config.baseUrl ?? "",
         getAccessToken: config.getAccessToken,
+        refreshAccessToken: config.refreshAccessToken,
         timeout: config.timeout,
         maxRetries: config.maxRetries,
         onError: config.onError,
@@ -77703,6 +79601,125 @@
         : services.map((s) => `${s.name} ${timeRange(s.opensAt, s.closesAt)}`).join(", ");
     }
   </file>
+  <file path="packages/availability/src/day-named-schedules.ts">
+    export function weekdayRangeLabel(storedDays: readonly number[]): string {
+      const positions = storedDays.map((d) => (d + 6) % 7).sort((a, b) => a - b);
+      const runs = positions.reduce<number[][]>((acc, p) => {
+        const last = acc[acc.length - 1];
+        return last && last[last.length - 1] === p - 1
+          ? [...acc.slice(0, -1), [...last, p]]
+          : [...acc, [p]];
+      }, []);
+      return runs
+        .map((run) => {
+          const first = WEEKDAY_ABBREVIATIONS[run[0]!];
+          return run.length === 1 ? first : `${first}–${WEEKDAY_ABBREVIATIONS[run[run.length - 1]!]}`;
+        })
+        .join(", ");
+    }
+    export function collapseDayNamedSchedules(
+      config: AvailabilityConfig,
+      newId: () => string
+    ): AvailabilityConfigChanges | null {
+      const live = config.schedules.filter((s) => !s.archivedAt);
+      const regular = live.find((s) => s.isRegular);
+      if (!regular) return null;
+    
+      const regularAssignments = config.assignments.filter((a) => a.scheduleId === regular.id);
+      const regularAssignment = regularAssignments[0];
+      if (regularAssignments.length !== 1 || !regularAssignment || !isUndated(regularAssignment)) {
+        return null;
+      }
+    
+      const referenced = new Set(
+        config.dateRules.flatMap((r) => (r.kind === "use_schedule" ? [r.useScheduleId] : []))
+      );
+      const folded = live.filter((s) => {
+        if (s.isRegular || s.kind !== "alternate" || referenced.has(s.id)) return false;
+        const assignments = config.assignments.filter((a) => a.scheduleId === s.id);
+        if (assignments.length === 0 || !assignments.every(isUndated)) return false;
+        const days = assignments.flatMap((a) => a.weekdays);
+        return s.name === `${weekdayRangeLabel(days)} hours`;
+      });
+      if (folded.length === 0) return null;
+    
+      const foldedIds = new Set(folded.map((s) => s.id));
+      const foldedAssignments = config.assignments.filter((a) => foldedIds.has(a.scheduleId));
+      const participants = [regularAssignment, ...foldedAssignments];
+      const liveIds = new Set(live.map((s) => s.id));
+      const others = config.assignments.filter(
+        (a) => liveIds.has(a.scheduleId) && !participants.includes(a)
+      );
+      const rowsOf = (scheduleId: string) =>
+        config.scheduleServices.filter((r) => r.scheduleId === scheduleId);
+      const regularRows = rowsOf(regular.id);
+    
+      // Each service's hours per weekday as the venue resolves them today.
+      const week = new Map<string, (ServiceHours | null)[]>();
+      for (const row of regularRows) {
+        week.set(row.venueServiceId, new Array<ServiceHours | null>(7).fill(null));
+      }
+      for (const day of WEEKDAYS_OF_WEEK) {
+        const covering = participants.filter((a) => a.weekdays.includes(day));
+        if (covering.length === 0) continue;
+        const before = Math.max(...covering.map((a) => a.precedence));
+        const winners = covering.filter((a) => a.precedence === before);
+        const winner = winners[0];
+        if (winners.length !== 1 || !winner) return null;
+    
+        // After the collapse the regular assignment covers the day at its own precedence; a third
+        // assignment between the two precedences would change sides.
+        const after = regularAssignment.precedence;
+        if (before !== after) {
+          const [low, high] = [Math.min(before, after), Math.max(before, after)];
+          const reordered = others.some(
+            (a) => a.weekdays.includes(day) && a.precedence >= low && a.precedence <= high
+          );
+          if (reordered) return null;
+        }
+    
+        const seen = new Set<string>();
+        for (const row of rowsOf(winner.scheduleId)) {
+          const hours = hoursOn(row, day);
+          if (!hours) continue;
+          if (seen.has(row.venueServiceId)) return null;
+          seen.add(row.venueServiceId);
+          const days = week.get(row.venueServiceId) ?? new Array<ServiceHours | null>(7).fill(null);
+          week.set(
+            row.venueServiceId,
+            days.map((h, d) => (d === day ? hours : h))
+          );
+        }
+      }
+    
+      const weekdays = [...new Set(participants.flatMap((a) => a.weekdays))].sort((a, b) => a - b);
+      const reusable = new Map<string, string>();
+      for (const row of regularRows) {
+        if (!reusable.has(row.venueServiceId)) reusable.set(row.venueServiceId, row.id);
+      }
+      const encoded: ScheduleService[] = encodeWeek(
+        [...week].map(([venueServiceId, days]) => ({ venueServiceId, days })),
+        weekdays
+      ).map((row) => ({
+        id: reusable.get(row.venueServiceId) ?? newId(),
+        scheduleId: regular.id,
+        ...row,
+      }));
+      const kept = new Set(encoded.map((r) => r.id));
+    
+      return {
+        upsert: {
+          scheduleServices: encoded,
+          assignments: [{ ...regularAssignment, weekdays }],
+        },
+        remove: {
+          scheduleServices: regularRows.filter((r) => !kept.has(r.id)).map((r) => r.id),
+          assignments: foldedAssignments.map((a) => a.id),
+          schedules: folded.map((s) => s.id),
+        },
+      };
+    }
+  </file>
   <file path="packages/availability/src/diff-days.ts">
     export interface DayDiff {
       serviceDate: ServiceDate;
@@ -78171,21 +80188,6 @@
     function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] {
       return windows.map((w) => ({ ...w, last: w.close - buffer })).filter((w) => w.last >= w.open);
     }
-    function weekdayRangeLabel(storedDays: readonly number[]): string {
-      const positions = storedDays.map((d) => (d + 6) % 7).sort((a, b) => a - b);
-      const runs = positions.reduce<number[][]>((acc, p) => {
-        const last = acc[acc.length - 1];
-        return last && last[last.length - 1] === p - 1
-          ? [...acc.slice(0, -1), [...last, p]]
-          : [...acc, [p]];
-      }, []);
-      return runs
-        .map((run) => {
-          const first = WEEKDAY_ABBREVIATIONS[run[0]!];
-          return run.length === 1 ? first : `${first}–${WEEKDAY_ABBREVIATIONS[run[run.length - 1]!]}`;
-        })
-        .join(", ");
-    }
     function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] {
       const fallback = (i: number) => (multiple ? `Service ${i + 1}` : "Service");
       const names = windows.map((w, i) => w.name ?? fallback(i));
@@ -78294,17 +80296,6 @@
         return created.id;
       };
     
-      // Group weekdays that share hours; first-seen order keeps the output stable.
-      const groups = new Map<string, { days: number[]; windows: NamedWindow[] }>();
-      seatedWeek.forEach((windows, i) => {
-        if (windows.length === 0) return;
-        const named = nameWindows(windows, multiple);
-        const key = signature(named);
-        const group = groups.get(key) ?? { days: [], windows: named };
-        groups.set(key, { ...group, days: [...group.days, storedIndex(i)] });
-      });
-      const ordered = [...groups.values()].sort((a, b) => b.days.length - a.days.length);
-    
       const hoursFields = (w: NamedWindow) => ({
         venueServiceId: serviceId(w.serviceName),
         opensAt: w.open,
@@ -78316,25 +80307,48 @@
         bookingTypes: [...CHANNELS],
       });
     
-      const schedules = ordered.length === 0 ? [null] : ordered;
-      const rows = schedules.map((group, index) => {
-        const id = newId();
-        const schedule = {
-          id,
-          name: index === 0 || !group ? "Regular week" : `${weekdayRangeLabel(group.days)} hours`,
-          kind: index === 0 ? ("regular" as const) : ("alternate" as const),
-          isRegular: index === 0,
-        };
-        const services: ScheduleService[] = (group?.windows ?? []).map((w) => ({
-          id: newId(),
-          scheduleId: id,
-          ...hoursFields(w),
-        }));
-        const assignments = group
-          ? [{ id: newId(), scheduleId: id, weekdays: [...group.days].sort(), precedence: 0 }]
-          : [];
-        return { schedule, services, assignments };
+      // The legacy column holds one set of hours per weekday. Re-read it as each service's hours on
+      // each open weekday (0 = Sunday); `encodeWeek` stores that as one row per service, with other
+      // hours on the days that differ.
+      const openDays: number[] = [];
+      const weekByService = new Map<string, (ServiceHours | null)[]>();
+      seatedWeek.forEach((windows, i) => {
+        if (windows.length === 0) return;
+        const day = storedIndex(i);
+        openDays.push(day);
+        for (const w of nameWindows(windows, multiple)) {
+          const { venueServiceId, ...serviceHours } = hoursFields(w);
+          const days =
+            weekByService.get(venueServiceId) ?? new Array<ServiceHours | null>(7).fill(null);
+          weekByService.set(
+            venueServiceId,
+            days.map((h, d) => (d === day ? serviceHours : h))
+          );
+        }
       });
+    
+      const scheduleId = newId();
+      const schedule = {
+        id: scheduleId,
+        name: "Regular week",
+        kind: "regular" as const,
+        isRegular: true,
+      };
+      const scheduleServices: ScheduleService[] = encodeWeek(
+        [...weekByService].map(([venueServiceId, days]) => ({ venueServiceId, days })),
+        openDays
+      ).map((row) => ({ id: newId(), scheduleId, ...row }));
+      const assignments =
+        openDays.length > 0
+          ? [
+              {
+                id: newId(),
+                scheduleId,
+                weekdays: [...openDays].sort((a, b) => a - b),
+                precedence: 0,
+              },
+            ]
+          : [];
     
       const futureOverrides = hours.overrides.filter((o) => o.date >= today);
       const dateRules: DateRule[] = futureOverrides.map((override) => {
@@ -78356,10 +80370,10 @@
       });
     
       const config: AvailabilityConfig = {
-        schedules: rows.map((r) => r.schedule),
+        schedules: [schedule],
         venueServices: [...venueServices.values()],
-        scheduleServices: rows.flatMap((r) => r.services),
-        assignments: rows.flatMap((r) => r.assignments),
+        scheduleServices,
+        assignments,
         dateRules,
       };
     
@@ -78401,7 +80415,9 @@
     export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyOperatingHours {
       // Archived rows stay in the config (others reference them) but no longer run.
       const liveSchedules = new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
-      const liveServices = new Set(config.venueServices.filter((s) => !s.archivedAt).map((s) => s.id));
+      const liveServices = new Map(
+        config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.id, s])
+      );
       const regularWeek = config.assignments.filter(
         (a) => !a.startsOn && !a.endsOn && liveSchedules.has(a.scheduleId)
       );
@@ -78414,8 +80430,10 @@
             null
           );
         const services = covering
-          ? config.scheduleServices.filter(
-              (s) => s.scheduleId === covering.scheduleId && liveServices.has(s.venueServiceId)
+          ? servicesOn(
+              config.scheduleServices.filter((s) => s.scheduleId === covering.scheduleId),
+              liveServices,
+              stored
             )
           : [];
         if (services.length === 0) return CLOSED_DAY;
@@ -78497,14 +80515,6 @@
       timezone: string;
       config: AvailabilityConfig;
     }
-    export interface ResolvedService extends Pick<
-      ScheduleService,
-      "venueServiceId" | "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
-    > {
-      /** `null` for a service from special hours. */
-      scheduleServiceId: string | null;
-      name: string;
-    }
     export interface ResolvedClosure {
       ruleId: string;
       targetKind: DateRule["targetKind"];
@@ -78565,32 +80575,6 @@
           (best, a) => (best === null || a.precedence > best.precedence ? a : best),
           null
         );
-    }
-    function toResolved(
-      service: ScheduleService | SpecialHoursService,
-      venueService: VenueService
-    ): ResolvedService {
-      return {
-        scheduleServiceId: "id" in service ? service.id : null,
-        venueServiceId: service.venueServiceId,
-        name: venueService.name,
-        opensAt: service.opensAt,
-        lastSeatingAt: service.lastSeatingAt,
-        closesAt: service.closesAt,
-        seating: service.seating,
-        bookingTypes: service.bookingTypes,
-      };
-    }
-    function liveServices(
-      services: readonly (ScheduleService | SpecialHoursService)[],
-      venueServices: ReadonlyMap<string, VenueService>
-    ): ResolvedService[] {
-      return services
-        .flatMap((s) => {
-          const venueService = venueServices.get(s.venueServiceId);
-          return venueService ? [toResolved(s, venueService)] : [];
-        })
-        .sort((a, b) => a.opensAt - b.opensAt);
     }
     function closureOf(rule: DateRule, band: { from: number; to: number }): ResolvedClosure {
       return {
@@ -78678,10 +80662,12 @@
         config.venueServices.filter((v) => !v.archivedAt).map((v) => [v.id, v])
       );
       const rules = activeRules(config.dateRules, serviceDate);
+      const weekday = weekdayIndexOf(serviceDate);
       const servicesOf = (scheduleId: string | null) =>
-        liveServices(
+        servicesOn(
           config.scheduleServices.filter((s) => s.scheduleId === scheduleId),
-          venueServices
+          venueServices,
+          weekday
         );
       const skippedLabel = (skip: DateRule) => {
         const series = config.dateRules.find((r) => r.id === skip.seriesId);
@@ -78803,6 +80789,150 @@
           removalResult: resolveLayers(withoutRow(config, layer.id), serviceDate).day,
         })),
       };
+    }
+  </file>
+  <file path="packages/availability/src/service-days.ts">
+    export type ServiceHours = Pick<
+      ScheduleService,
+      "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
+    >;
+    function hoursFields(hours: ServiceHours): ServiceHours {
+      return {
+        opensAt: hours.opensAt,
+        lastSeatingAt: hours.lastSeatingAt,
+        closesAt: hours.closesAt,
+        seating: hours.seating,
+        bookingTypes: hours.bookingTypes,
+      };
+    }
+    export interface HoursSource {
+      hours: ServiceHours;
+      /** Index into `dayHours.sets`; `null` for the base hours. */
+      setIndex: number | null;
+    }
+    type DayScopedRow = Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours>;
+    export function hoursSourceOn(row: DayScopedRow, weekday: number): HoursSource | null {
+      const setIndex = row.dayHours.sets.findIndex((s) => s.weekdays.includes(weekday));
+      const set = row.dayHours.sets[setIndex];
+      if (set) return { hours: hoursFields(set), setIndex };
+      return row.weekdays.length === 0 || row.weekdays.includes(weekday)
+        ? { hours: hoursFields(row), setIndex: null }
+        : null;
+    }
+    export function hoursOn(row: DayScopedRow, weekday: number): ServiceHours | null {
+      return hoursSourceOn(row, weekday)?.hours ?? null;
+    }
+    function toResolved(
+      service: ScheduleService | SpecialHoursService,
+      venueService: VenueService
+    ): ResolvedService {
+      return {
+        scheduleServiceId: "id" in service ? service.id : null,
+        venueServiceId: service.venueServiceId,
+        name: venueService.name,
+        opensAt: service.opensAt,
+        lastSeatingAt: service.lastSeatingAt,
+        closesAt: service.closesAt,
+        seating: service.seating,
+        bookingTypes: service.bookingTypes,
+      };
+    }
+    export function liveServices(
+      services: readonly (ScheduleService | SpecialHoursService)[],
+      venueServices: ReadonlyMap<string, VenueService>
+    ): ResolvedService[] {
+      return services
+        .flatMap((s) => {
+          const venueService = venueServices.get(s.venueServiceId);
+          return venueService ? [toResolved(s, venueService)] : [];
+        })
+        .sort((a, b) => a.opensAt - b.opensAt);
+    }
+    export function servicesOn(
+      rows: readonly ScheduleService[],
+      venueServices: ReadonlyMap<string, VenueService>,
+      weekday: number
+    ): ResolvedService[] {
+      return liveServices(
+        rows.flatMap((row) => {
+          const hours = hoursOn(row, weekday);
+          return hours ? [{ ...row, ...hours }] : [];
+        }),
+        venueServices
+      );
+    }
+    export interface ServiceWeek {
+      venueServiceId: string;
+      days: readonly (ServiceHours | null)[];
+    }
+    export type Week = readonly ServiceWeek[];
+    export type EncodedRow = Pick<
+      ScheduleService,
+      "venueServiceId" | "weekdays" | "dayHours" | keyof ServiceHours
+    >;
+    export const WEEK_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
+    function hoursKey(h: ServiceHours): string {
+      const seating =
+        "interval" in h.seating
+          ? ["i", h.seating.interval]
+          : ["f", [...h.seating.fixed].sort((a, b) => a - b)];
+      // Order is not meaning: the same booking types or fixed times in another order are the same hours.
+      const bookingTypes = [...h.bookingTypes].sort();
+      return JSON.stringify([h.opensAt, h.lastSeatingAt, h.closesAt, seating, bookingTypes]);
+    }
+    interface HoursGroup {
+      hours: ServiceHours;
+      /** In Monday-first order. */
+      days: number[];
+    }
+    function groupByHours(week: ServiceWeek, coveredDays: ReadonlySet<number>): HoursGroup[] {
+      const groups = new Map<string, HoursGroup>();
+      for (const day of WEEK_ORDER) {
+        const hours = week.days[day];
+        if (!hours || !coveredDays.has(day)) continue;
+        const key = hoursKey(hours);
+        const group = groups.get(key);
+        if (group) group.days.push(day);
+        else groups.set(key, { hours: hoursFields(hours), days: [day] });
+      }
+      // Insertion order is first-Monday-first-day order, and sort is stable, so size breaks the rest.
+      return [...groups.values()].sort((a, b) => b.days.length - a.days.length);
+    }
+    export function encodeWeek(week: Week, coveredDays: readonly number[]): EncodedRow[] {
+      const covered = new Set(coveredDays);
+      return week.flatMap((service) => {
+        const [base, ...others] = groupByHours(service, covered);
+        if (!base) return [];
+        const sets = others
+          .sort((a, b) => WEEK_ORDER.indexOf(a.days[0] ?? 0) - WEEK_ORDER.indexOf(b.days[0] ?? 0))
+          .map((g) => ({ weekdays: g.days, ...g.hours }));
+        const claimed = new Set(others.flatMap((g) => g.days));
+        const implicit = WEEK_ORDER.filter((d) => covered.has(d) && !claimed.has(d));
+        const baseIsEveryOtherDay =
+          implicit.length === base.days.length && implicit.every((d, i) => d === base.days[i]);
+        return [
+          {
+            venueServiceId: service.venueServiceId,
+            ...base.hours,
+            weekdays: baseIsEveryOtherDay ? [] : base.days,
+            dayHours: { version: 1 as const, sets },
+          },
+        ];
+      });
+    }
+    export function decodeWeek(
+      rows: readonly (Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours> & {
+        venueServiceId: string;
+      })[],
+      coveredDays: readonly number[]
+    ): Week {
+      const covered = new Set(coveredDays);
+      return rows.flatMap((row) => {
+        const days = Array.from({ length: 7 }, (_, day) =>
+          covered.has(day) ? hoursOn(row, day) : null
+        );
+        return days.some((h) => h !== null) ? [{ venueServiceId: row.venueServiceId, days }] : [];
+      });
     }
   </file>
   <file path="packages/availability/src/slot-rules.ts">
@@ -79228,6 +81358,14 @@
   </file>
   <file path="packages/availability/src/types.ts">
     export type ServiceDate = string;
+    export interface ResolvedService extends Pick<
+      ScheduleService,
+      "venueServiceId" | "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
+    > {
+      /** `null` for a service from special hours. */
+      scheduleServiceId: string | null;
+      name: string;
+    }
     export const WEEKDAYS = [
       "monday",
       "tuesday",
@@ -79244,6 +81382,7 @@
     export type ConfigIssueCode =
       | "invalid"
       | "overlap"
+      | "weekday_clash"
       | "close_before_open"
       | "last_seating_after_close"
       | "last_seating_before_open"
@@ -79259,6 +81398,10 @@
       path: string;
       code: ConfigIssueCode;
       message: string;
+      /** `overlap` on some weekdays only, `weekday_clash`: the weekday (0 = Sunday). */
+      weekday?: number;
+      /** `overlap`: the path of the other service's `opensAt`. */
+      otherPath?: string;
     }
     type ServiceHours = Pick<SpecialHoursService, "opensAt" | "lastSeatingAt" | "closesAt" | "seating">;
     interface PathedService {
@@ -79326,14 +81469,104 @@
     function serviceListIssues(services: readonly PathedService[]): ConfigIssue[] {
       return [...services.flatMap(hoursIssues), ...overlapIssues(services)];
     }
+    type ScheduleServiceRow = AvailabilityConfig["scheduleServices"][number];
+    interface IndexedRow {
+      index: number;
+      row: ScheduleServiceRow;
+    }
+    function rowHoursIssues({ index, row }: IndexedRow): ConfigIssue[] {
+      const path = `scheduleServices[${index}]`;
+      return [
+        ...hoursIssues({ path, hours: row }),
+        ...row.dayHours.sets.flatMap((set, j) =>
+          hoursIssues({ path: `${path}.dayHours.sets[${j}]`, hours: set })
+        ),
+      ];
+    }
+    function weekdayClashIssues({ index, row }: IndexedRow): ConfigIssue[] {
+      const claimed = new Set(row.weekdays);
+      return row.dayHours.sets.flatMap((set, j) =>
+        WEEK_ORDER.filter((d) => set.weekdays.includes(d)).flatMap((weekday) => {
+          const clash = claimed.has(weekday);
+          claimed.add(weekday);
+          return clash
+            ? [
+                {
+                  ...issue(
+                    `scheduleServices[${index}].dayHours.sets[${j}].weekdays`,
+                    "weekday_clash",
+                    `${WEEKDAY_NAMES[weekday]} can only have one set of hours.`
+                  ),
+                  weekday,
+                },
+              ]
+            : [];
+        })
+      );
+    }
+    interface DayOverlap {
+      later: string;
+      earlier: string;
+      /** The earlier hours, as "5:00 PM – 10:00 PM". */
+      range: string;
+      weekday: number;
+    }
+    function overlapsOn(rows: readonly IndexedRow[], weekday: number): DayOverlap[] {
+      const running = rows.flatMap(({ index, row }) => {
+        const source = hoursSourceOn(row, weekday);
+        if (!source) return [];
+        const base = `scheduleServices[${index}]`;
+        const path = source.setIndex === null ? base : `${base}.dayHours.sets[${source.setIndex}]`;
+        return [{ path, hours: source.hours }];
+      });
+      const sorted = running
+        .filter(({ hours }) => hours.closesAt > hours.opensAt)
+        .sort((a, b) => a.hours.opensAt - b.hours.opensAt);
+      return sorted.flatMap((later, i) => {
+        const earlier = sorted.slice(0, i).find((e) => e.hours.closesAt > later.hours.opensAt);
+        return earlier
+          ? [
+              {
+                later: `${later.path}.opensAt`,
+                earlier: `${earlier.path}.opensAt`,
+                range: `${formatMinute(earlier.hours.opensAt)} – ${formatMinute(earlier.hours.closesAt)}`,
+                weekday,
+              },
+            ]
+          : [];
+      });
+    }
+    function overlapIssuesPerWeekday(rows: readonly IndexedRow[]): ConfigIssue[] {
+      const byPair = new Map<string, DayOverlap[]>();
+      for (const weekday of WEEK_ORDER) {
+        for (const overlap of overlapsOn(rows, weekday)) {
+          const key = `${overlap.later}|${overlap.earlier}`;
+          byPair.set(key, [...(byPair.get(key) ?? []), overlap]);
+        }
+      }
+      return [...byPair.values()].flatMap(([first, ...rest]) => {
+        if (!first) return [];
+        const allDays = rest.length + 1 === WEEK_ORDER.length;
+        return [
+          {
+            ...issue(first.later, "overlap", `Overlaps another service (${first.range}).`),
+            ...(allDays ? {} : { weekday: first.weekday }),
+            otherPath: first.earlier,
+          },
+        ];
+      });
+    }
     function scheduleServiceIssues(config: AvailabilityConfig): ConfigIssue[] {
-      const pathed = config.scheduleServices.map((s, i) => ({
-        scheduleId: s.scheduleId,
-        path: `scheduleServices[${i}]`,
-        hours: s,
-      }));
-      const scheduleIds = [...new Set(pathed.map((s) => s.scheduleId))];
-      return scheduleIds.flatMap((id) => serviceListIssues(pathed.filter((s) => s.scheduleId === id)));
+      const rows = config.scheduleServices.map((row, index) => ({ index, row }));
+      const scheduleIds = [...new Set(rows.map(({ row }) => row.scheduleId))];
+      return scheduleIds.flatMap((id) => {
+        const own = rows.filter(({ row }) => row.scheduleId === id);
+        return [
+          ...own.flatMap(rowHoursIssues),
+          ...own.flatMap(weekdayClashIssues),
+          ...overlapIssuesPerWeekday(own),
+        ];
+      });
     }
     function specialHoursIssues(config: AvailabilityConfig): ConfigIssue[] {
       return config.dateRules.flatMap((rule, i) =>
@@ -79461,6 +81694,72 @@
         ...windowIssues(config),
         ...bookingTypesIssues(config),
       ];
+    }
+  </file>
+  <file path="packages/availability/src/week-spans.ts">
+    export function regularWeekView(config: AvailabilityConfig): AvailabilityConfig {
+      const regular = new Set(
+        config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt).map((s) => s.id)
+      );
+      return {
+        ...config,
+        assignments: config.assignments.filter((a) => regular.has(a.scheduleId)),
+        dateRules: [],
+      };
+    }
+    export interface WeekSpansOptions {
+      /** IANA zone of the venue. */
+      timezone: string;
+      /** The first of seven consecutive service dates. */
+      from: ServiceDate;
+      partySize: number;
+      /** The venue's active tables; none means no party check (nothing to check against). */
+      tables: readonly EngineTable[];
+      /** The only clock the function reads. */
+      now: Date;
+      /** The guest's channel; online by default. */
+      channel?: BookingChannel;
+    }
+    export interface ServiceSpan {
+      venueServiceId: string;
+      firstAt: number;
+      lastAt: number;
+      /** The venue has active tables and none fits the party; the service still runs. */
+      noTableFits: boolean;
+    }
+    export interface DaySpans {
+      serviceDate: ServiceDate;
+      /** In opening order; a service with nothing bookable that day is left out. */
+      services: ServiceSpan[];
+    }
+    export function weekSpans(config: AvailabilityConfig, options: WeekSpansOptions): DaySpans[] {
+      const { timezone, from, partySize, tables, now, channel = "online" } = options;
+      const snapshot = {
+        timezone,
+        config,
+        tables: [...tables],
+        reservations: [],
+        holds: [],
+        settings: null,
+      };
+      return Array.from({ length: DAYS_IN_WEEK }, (_, offset) => {
+        const serviceDate = addDays(from, offset);
+        const slots = listSlots(snapshot, serviceDate, partySize, channel, now);
+        const byService = new Map<string, typeof slots>();
+        for (const slot of slots) {
+          byService.set(slot.venueServiceId, [...(byService.get(slot.venueServiceId) ?? []), slot]);
+        }
+        const services = [...byService].map(([venueServiceId, own]): ServiceSpan => {
+          const minutes = own.map((slot) => slot.minute);
+          return {
+            venueServiceId,
+            firstAt: Math.min(...minutes),
+            lastAt: Math.max(...minutes),
+            noTableFits: tables.length > 0 && own.every((slot) => slot.reason === "no_table"),
+          };
+        });
+        return { serviceDate, services };
+      });
     }
   </file>
   <file path="packages/cancellation-policy/src/cancellation-policy.ts">
@@ -82432,25 +84731,16 @@
     function classifyPrismaError(e: CustomError): ErrorClassification {
       const prismaCode = e.code || "";
       const extensions: Record<string, unknown> = { prismaCode };
-      if (e.meta) {
-        extensions.prismaMeta = e.meta;
-      }
     
       if (prismaCode === "P2025") {
-        return {
-          status: 404,
-          title: "Not Found",
-          detail: (e.meta?.cause as string) || e.message || "Record not found",
-          extensions,
-        };
+        return { status: 404, title: "Not Found", detail: "Record not found", extensions };
       }
     
       if (prismaCode === "P2002") {
-        const target = Array.isArray(e.meta?.target) ? e.meta.target.join(", ") : "field";
         return {
           status: 409,
           title: "Conflict",
-          detail: `Unique constraint failed: ${target}`,
+          detail: "A record with these details already exists",
           extensions,
         };
       }
@@ -82459,7 +84749,7 @@
         return {
           status: 409,
           title: "Conflict",
-          detail: `Foreign key constraint failed on field: ${(e.meta?.field_name as string) || "field"}`,
+          detail: "This item is still in use by other records",
           extensions,
         };
       }
@@ -82878,6 +85168,7 @@
        */
       readonly checkAuth0?: () => Promise<Auth0CheckResult>;
     }
+    export const HEALTH_RATE_LIMIT = { max: 600, timeWindow: "1 minute" } as const;
     export const registerHealthRoutes = fp(healthRoutesPlugin, {
       name: "health-routes",
       fastify: "5.x",
@@ -89661,6 +91952,77 @@
       return isOpen(yesterday, local.minute + MINUTES_PER_DAY) ? yesterday : local.date;
     }
   </file>
+  <file path="apps/hospitality/src/utils/demo-week.fixture.ts">
+    export const DEMO_WEEK_CONFIG: AvailabilityConfig = {
+      schedules: [{ id: "demo-regular", name: "Regular week", kind: "regular", isRegular: true }],
+      venueServices: [
+        { id: "demo-lunch", name: "Lunch", position: 0 },
+        { id: "demo-dinner", name: "Dinner", position: 1 },
+        { id: "demo-brunch", name: "Brunch", position: 2 },
+      ],
+      scheduleServices: [
+        {
+          id: "demo-ss-lunch",
+          scheduleId: "demo-regular",
+          venueServiceId: "demo-lunch",
+          opensAt: 690,
+          lastSeatingAt: 840,
+          closesAt: 900,
+          seating: SEATING,
+          bookingTypes: [...BOOKING_TYPES],
+          weekdays: [1, 2, 3, 4, 5],
+          dayHours: { version: 1, sets: [] },
+        },
+        {
+          id: "demo-ss-dinner",
+          scheduleId: "demo-regular",
+          venueServiceId: "demo-dinner",
+          opensAt: 1020,
+          lastSeatingAt: 1260,
+          closesAt: 1380,
+          seating: SEATING,
+          bookingTypes: [...BOOKING_TYPES],
+          weekdays: [2, 3, 4, 0],
+          dayHours: {
+            version: 1,
+            sets: [
+              {
+                weekdays: [5, 6],
+                opensAt: 1020,
+                lastSeatingAt: 1320,
+                closesAt: 1440,
+                seating: SEATING,
+                bookingTypes: [...BOOKING_TYPES],
+              },
+            ],
+          },
+        },
+        {
+          id: "demo-ss-brunch",
+          scheduleId: "demo-regular",
+          venueServiceId: "demo-brunch",
+          opensAt: 600,
+          lastSeatingAt: 780,
+          closesAt: 840,
+          seating: SEATING,
+          bookingTypes: [...BOOKING_TYPES],
+          weekdays: [6, 0],
+          dayHours: { version: 1, sets: [] },
+        },
+      ],
+      assignments: [
+        {
+          id: "demo-as-regular",
+          scheduleId: "demo-regular",
+          weekdays: [0, 1, 2, 3, 4, 5, 6],
+          precedence: 0,
+        },
+      ],
+      dateRules: [],
+    };
+    export const DEMO_WEEK_TZ = "America/Los_Angeles";
+    export const DEMO_WEEK_MONDAY = "2026-11-02";
+  </file>
   <file path="apps/hospitality/src/utils/dinner-config.fixture.ts">
     export const DINNER_CONFIG: AvailabilityConfig = {
       schedules: [{ id: "s1", name: "Regular", kind: "regular", isRegular: true }],
@@ -89675,6 +92037,8 @@
           closesAt: 1560,
           seating: { version: 1, interval: 15 },
           bookingTypes: ["online", "phone"],
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
         },
       ],
       assignments: [{ id: "a1", scheduleId: "s1", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 }],

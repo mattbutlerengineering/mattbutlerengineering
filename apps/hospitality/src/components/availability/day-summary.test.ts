@@ -49,29 +49,62 @@ describe("the server's en-US words (#7980)", () => {
     expect(view.label).toBe("availability.calendar.dayLabel.closed");
     expect(view.accessibleDetails).toBe("availability.calendar.dayLabel.closed");
   });
+
+  it("marks a closed and a special-hours day apart from a schedule's day, whatever the language", () => {
+    const tone = (label: string) =>
+      presentDay("2026-10-30", { ...baseSummary, label }, false, t, format).tone;
+    expect(tone("Closed")).toBe("closed");
+    expect(tone("Special hours")).toBe("special");
+    expect(tone("Regular week")).toBeNull();
+    expect(tone("Summer patio")).toBeNull();
+    expect(presentDay("2026-10-30", undefined, false, t, format).tone).toBeNull();
+  });
 });
 
 describe("presentDay services", () => {
   it("emits a service line per service when detailed", () => {
     const view = presentDay("2026-10-30", baseSummary, true, t, format);
     expect(view.services).toEqual([
-      { key: "svc-1", text: "availability.calendar.serviceLine Lunch|11:00|14:00" },
-      { key: "svc-2", text: "availability.calendar.serviceLine Dinner|18:00|22:00" },
+      { key: "svc-1", text: "availability.calendar.serviceLine Lunch|11:00|13:30" },
+      { key: "svc-2", text: "availability.calendar.serviceLine Dinner|18:00|21:30" },
     ]);
   });
 
-  it("speaks the services in order in the accessible details", () => {
+  it("speaks the services in order in the accessible details, with no count to repeat them", () => {
     const view = presentDay("2026-10-30", baseSummary, true, t, format);
+    expect(view.servicesSummary).toBeNull();
     expect(view.accessibleDetails).toBe(
-      "Regular hours, availability.calendar.services 2, " +
-        "availability.calendar.serviceLine Lunch|11:00|14:00, " +
-        "availability.calendar.serviceLine Dinner|18:00|22:00"
+      "Regular hours, " +
+        "availability.calendar.serviceLine Lunch|11:00|13:30, " +
+        "availability.calendar.serviceLine Dinner|18:00|21:30"
     );
   });
 
-  it("omits service lines when not detailed", () => {
+  it("keeps the count in week view for an older API that sends no service lines", () => {
+    const { services: _services, ...old } = baseSummary;
+    expect(presentDay("2026-10-30", old, true, t, format).servicesSummary).toBe(
+      "availability.calendar.services 2"
+    );
+  });
+
+  it("names the services in month view, one service or several, and speaks each name", () => {
     const view = presentDay("2026-10-30", baseSummary, false, t, format);
     expect(view.services).toEqual([]);
+    expect(view.servicesSummary).toBe("Lunch · Dinner");
+    expect(view.accessibleDetails).toBe("Regular hours, Lunch, Dinner");
+    const lunchOnly = {
+      ...baseSummary,
+      serviceCount: 1,
+      services: baseSummary.services!.slice(0, 1),
+    };
+    expect(presentDay("2026-10-30", lunchOnly, false, t, format).servicesSummary).toBe("Lunch");
+    const closed = { ...baseSummary, label: "Closed", serviceCount: 0, services: [] };
+    expect(presentDay("2026-10-30", closed, false, t, format).servicesSummary).toBeNull();
+    // An older API with no service lines still gets the count, from two services up.
+    const { services: _services, ...old } = baseSummary;
+    expect(presentDay("2026-10-30", old, false, t, format).servicesSummary).toBe(
+      "availability.calendar.services 2"
+    );
   });
 
   it("omits service lines when there is no summary", () => {

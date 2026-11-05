@@ -4,13 +4,17 @@ import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
-vi.mock("../../hooks/useAvailability.js", () => ({
+vi.mock("../../hooks/useAvailability.js", async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
 // The preview has its own tests (ScheduleFlowPreview.test.tsx); here it never answers.
 vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
   useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
+}));
+vi.mock("../../hooks/useClosures.js", () => ({
+  useClosureSummaries: () => ({ data: [], error: null, isLoading: false, refetch: vi.fn() }),
 }));
 vi.mock("./AvailabilityGuestPreview.js", () => ({ AvailabilityGuestPreview: () => null }));
 vi.mock("../../contexts/VenueContext.js", () => ({

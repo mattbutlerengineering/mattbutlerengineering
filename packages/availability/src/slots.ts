@@ -5,7 +5,6 @@ import {
   type AvailabilitySnapshot,
   type ResolvedClosure,
   type ResolvedDaySummary,
-  type ResolvedService,
 } from "./resolve-day.js";
 import {
   checkPacingForSlot,
@@ -17,7 +16,7 @@ import {
   type ReservationSlim,
   type TableFilter,
 } from "./slot-rules.js";
-import { MINUTES_PER_DAY, type ServiceDate } from "./types.js";
+import { MINUTES_PER_DAY, type ResolvedService, type ServiceDate } from "./types.js";
 
 /**
  * Slot listing and the booking verdict — the two questions every booking path

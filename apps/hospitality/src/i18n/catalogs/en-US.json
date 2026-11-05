@@ -117,7 +117,8 @@
       "defaultPlaceholder": "Default: {{value}}",
       "durationHint": "If left blank, defaults to {{value}} minutes",
       "maxPartyHint": "If left blank, defaults to {{value}} guests",
-      "advanceHint": "If left blank, guests can book up to {{value}} days ahead",
+      "advanceHint": "If left blank, guests can book any date ahead",
+      "advanceNoLimit": "No limit",
       "errors": {
         "durationInvalid": "Duration must be a positive number",
         "maxPartyInvalid": "Party size must be a positive number",
@@ -191,7 +192,8 @@
         "floorPlan": "Floor plan",
         "tables": "Tables",
         "activate": "Activate"
-      }
+      },
+      "noLimit": "No limit"
     },
     "stagePanel": {
       "label": "Launch progress",
@@ -383,7 +385,15 @@
       "updated": "Updated {{date}}",
       "clone": "Clone",
       "openAria": "Open floor plan: {{name}}",
-      "cloneAria": "Clone floor plan: {{name}}"
+      "cloneAria": "Clone floor plan: {{name}}",
+      "delete": "Delete",
+      "deleteAria": "Delete floor plan: {{name}}",
+      "deleteActiveReason": "Activate another floor plan before deleting this one.",
+      "deleteTitle": "Delete {{name}}?",
+      "deleteDescription": "The plan and its tables leave your floor plans. Past reservations keep their tables.",
+      "deleteConfirm": "Delete floor plan",
+      "deleteFailed": "Floor plan not deleted.",
+      "deleted": "Floor plan \"{{name}}\" deleted"
     },
     "editor": {
       "loading": "Loading",
@@ -1721,6 +1731,7 @@
     },
     "series": {
       "editDates": "Edit dates…",
+      "editDatesFor": "Edit dates of the closure on {{date}}",
       "title": "Edit dates",
       "dateLabel": "Date",
       "scopeLabel": "Change",
@@ -1787,6 +1798,7 @@
       "open": "Add special date",
       "title": "Add special dates",
       "rowLegend": "Date {{n}}",
+      "rowLegendNamed": "Date {{n}}: {{name}}",
       "date": "Date",
       "dateMissing": "Pick a date.",
       "dateInvalid": "Pick a date that is today or later, once, and without special hours already set.",
@@ -1820,6 +1832,41 @@
         "title": "Already saved",
         "body": "An earlier try for {{dates}} was saved: {{summary}}. Guests were handled as that try chose; changes you made afterwards did not apply. Open Special dates to see the outcome.",
         "bodyPlain": "An earlier try for {{dates}} was saved. Changes you made afterwards did not apply. Open Special dates to see the outcome."
+      }
+    },
+    "holidays": {
+      "heading": "Upcoming holidays",
+      "plan": "Plan…",
+      "planName": "Plan {{name}}, {{date}}…",
+      "planAll_one": "Plan {{count}} holiday…",
+      "planAll_other": "Plan all {{count}}…",
+      "openAsUsual": "Open as usual",
+      "openAsUsualName": "{{name}}, {{date}}: open as usual",
+      "openAsUsualToast": "{{name}}: open as usual",
+      "name": {
+        "newYearsDay": "New Year’s Day",
+        "constitutionDay": "Constitution Day",
+        "valentinesDay": "Valentine’s Day",
+        "benitoJuarez": "Benito Juárez’s Birthday",
+        "holyThursday": "Holy Thursday",
+        "goodFriday": "Good Friday",
+        "easter": "Easter Sunday",
+        "workersDay": "Labor Day (May 1)",
+        "mothersDay": "Mother’s Day",
+        "fathersDay": "Father’s Day",
+        "juneteenth": "Juneteenth",
+        "victoriaDay": "Victoria Day",
+        "memorialDay": "Memorial Day",
+        "canadaDay": "Canada Day",
+        "independenceDay": "Independence Day",
+        "laborDay": "Labor Day",
+        "thanksgiving": "Thanksgiving",
+        "dayOfTheDead": "Day of the Dead",
+        "revolutionDay": "Revolution Day",
+        "christmasEve": "Christmas Eve",
+        "christmasDay": "Christmas Day",
+        "boxingDay": "Boxing Day",
+        "newYearsEve": "New Year’s Eve"
       }
     }
   },
@@ -1857,6 +1904,15 @@
     "noStart": "Right away",
     "noEnd": "No end",
     "thisSchedule": "This schedule",
+    "suggest": {
+      "use": "Use “{{name}}”",
+      "spring": "Spring hours",
+      "summer": "Summer hours",
+      "autumn": "Fall hours",
+      "winter": "Winter hours",
+      "from": "Hours from {{from}}",
+      "range": "Hours {{from}} – {{to}}"
+    },
     "impactNone": "Not used on any date yet",
     "overlap": "{{name}} overlaps {{other}}.",
     "overlapNewWins": "{{name}} wins",
@@ -1902,10 +1958,20 @@
     "regularWeek": {
       "open": "Change regular week…",
       "title": "Change regular week",
-      "appliesTo": "Applies to {{days}}, the days your regular week runs. Other days keep their hours.",
+      "appliesTo": "Applies to {{days}}. Other days keep their hours.",
+      "becomes": "This becomes your regular week: open {{days}}.",
+      "closedDays_one": "{{days}} is closed.",
+      "closedDays_other": "{{days}} are closed.",
+      "outside": "{{days}} use “{{name}}”. Edit it on Schedules.",
+      "openSchedules": "Open Schedules",
       "noEnd": "No end — this becomes the new regular week",
       "save": "Save hours from {{date}}",
-      "saved": "{{name}} from {{date}}"
+      "saved": "{{name}} from {{date}}",
+      "savedWeek": "Regular week changed from {{date}}",
+      "start": {
+        "today": "Start today",
+        "tomorrow": "Start tomorrow"
+      }
     },
     "compare": {
       "open": "Compare services",
@@ -1931,7 +1997,9 @@
       "save_other": "Save {{count}} schedules",
       "saved_one": "{{count}} schedule updated",
       "saved_other": "{{count}} schedules updated",
-      "blocked": "Change a row to save."
+      "blocked": "Change a row to save.",
+      "different": "+ different hours",
+      "editSchedule": "Edit schedule"
     },
     "copy": {
       "action": "Copy to other days…",
@@ -1953,14 +2021,15 @@
     "nudge": {
       "label": "Suggestion",
       "text": "{{weekday}} has had {{count}} one-off changes.",
-      "make": "Make a {{weekday}} schedule",
-      "created": "{{weekday}} schedule created"
+      "make": "Make these {{weekday}}’s regular hours",
+      "created": "{{weekday}}’s regular hours updated"
     },
     "blocked": {
       "conflict": "Answer the message above to save.",
       "startRequired": "Choose a start date to save.",
       "endBeforeStart": "The end date is before the start date.",
       "nameRequired": "Name this schedule to save.",
+      "nameRequiredPeriod": "Name this period to save.",
       "servicesRequired": "Add a service to save.",
       "serviceNameRequired": "Name the new service to save."
     },
@@ -1969,7 +2038,7 @@
   },
   "availability": {
     "title": "Availability",
-    "description": "What governs each day, and why.",
+    "description": "Your hours, holidays and one-off changes.",
     "hostNote": "Only managers change hours. For tonight, use the Tonight panel.",
     "loadError": "Couldn't load availability",
     "noVenue": "Select a venue to see its availability.",
@@ -2149,9 +2218,41 @@
       "addService": "Add another service",
       "serviceAdded": "Service {{n}} added",
       "removeService": "Remove service {{n}}",
+      "differentDays": "Different days for this service",
+      "useSharedDays": "Use the shared days",
+      "runsOn": "{{service}} runs on",
+      "everyServiceOwnDays": "Every service has its own days.",
+      "daysSummary": "Days: {{days}}",
+      "changeDays": "Change days",
+      "differentHours": "Different hours on some days",
+      "blockLegend": "{{service}}: different hours",
+      "removeBlock": "Remove these hours",
+      "strip": {
+        "about": "First and last time a guest can book.",
+        "local": "From the hours you typed",
+        "empty": "Add a service with its times and days to see what guests can book each day.",
+        "chooseDays": "Choose days to see your week.",
+        "span": "{{name}} {{first}} – {{last}}",
+        "spanSpoken": "{{name}} {{first}} to {{last}}",
+        "noTableFits": "{{name}}: Runs, but no table fits a party of {{size}}.",
+        "notOffered": "Not offered: {{services}}",
+        "closed": "Closed",
+        "row": "{{day}}: {{lines}}",
+        "rowUpdated": "{{day}}: {{lines}}, updated",
+        "updated": "Updated",
+        "updatedDays": "{{days}} updated",
+        "notShownTime": "{{name}} isn't shown yet: choose a time.",
+        "notShownDays": "{{name}} isn't shown yet: choose its days.",
+        "checking": "Checking your tables…",
+        "tablesFailed": "These are the hours you typed, not checked against your tables",
+        "checkAgain": "Check again"
+      },
+      "blockAdded": "Different hours added",
+      "blockDayMoved": "{{day}} moved from the other hours",
+      "blockRemoved": "Hours for {{days}} removed",
+      "blockRemovedEmpty": "Different hours removed",
+      "blockMatchesBase": "These match the other days. Remove them.",
       "previewTitle": "Guest preview",
-      "previewEmpty": "Add a service to see the times guests get.",
-      "previewLine": "{{name}}: first seating {{first}}, last seating {{last}}",
       "save": "Save and open bookings",
       "saving": "Saving…",
       "retry": "Retry",
@@ -2169,7 +2270,11 @@
         "legacy_closed_day": "A day of exactly 24 hours, or a service shorter than the 90-minute last-seating window, would show the venue as closed. Adjust the times.",
         "name_too_long": "Use 40 characters or fewer for the service name.",
         "overlap": "This service overlaps another one.",
-        "days_required": "Choose at least one day."
+        "days_required": "Choose at least one day.",
+        "days_required_service": "Choose at least one day for {{service}}.",
+        "block_days_required": "Choose at least one day for these hours.",
+        "days_outside_use": "These days are outside the days this schedule is used on. Choose days it runs on.",
+        "overlap_on": "{{service}} overlaps {{other}} on {{day}}."
       }
     },
     "migrationBanner": "Your hours were carried over. Nothing changed for guests.",
@@ -2245,7 +2350,8 @@
         "tonightBlockTables_other": "Tonight: {{count}} tables blocked",
         "tonightPacing_one": "Tonight: pacing lowered to {{count}} cover",
         "tonightPacing_other": "Tonight: pacing lowered to {{count}} covers",
-        "reverted": "Reverted: {{summary}}"
+        "reverted": "Reverted: {{summary}}",
+        "regularWeekChanged": "Changed regular week from {{from}}: {{days}}"
       }
     },
     "editor": {
@@ -2283,7 +2389,7 @@
         "date": "This date only",
         "weekday": "Every {{weekday}} from {{date}}",
         "schedule": "Everywhere “{{name}}” is used",
-        "regularWeek": "Your regular week"
+        "regularWeekday": "Every regular {{weekday}}"
       },
       "until": "Until",
       "noEnd": "No end",
@@ -2425,7 +2531,8 @@
       "suggestions": {
         "private": "Closed for a private event",
         "weather": "Closed due to weather",
-        "holiday": "Closed for the holiday"
+        "holiday": "Closed for the holiday",
+        "holidayNamed": "Closed for {{name}}"
       },
       "what": {
         "label": "What",
@@ -2703,7 +2810,7 @@
     },
     "venueTime": "Venue time ({{zone}})",
     "weekSummary": {
-      "line": "This week: {{open}} · {{closures}} · {{online}}",
+      "line": "This week: {{parts}}",
       "open_one": "open {{count}} day",
       "open_other": "open {{count}} days",
       "closures_one": "{{count}} closure",
@@ -2724,6 +2831,43 @@
       "booking": "Booking: {{channels}}",
       "tables": "Some tables",
       "doneAndStays": "{{done}}. {{stays}}"
+    },
+    "regularWeekLine": {
+      "line": "Regular week: {{services}}",
+      "upcoming": "From {{date}}: {{services}}",
+      "upcomingPeriod": "{{from}}–{{to}}: {{services}}",
+      "service": "{{name}} {{hours}} {{days}}",
+      "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
+      "hours": "{{open}}–{{close}}",
+      "closes": "{{days}} until {{close}}",
+      "different": "{{days}} {{hours}}",
+      "details": "Details",
+      "heading": "Regular week"
+    },
+    "bookingRules": {
+      "open": "Booking rules…",
+      "title": "Booking rules",
+      "description": "When guests can book online, whatever your hours.",
+      "daysAhead": "How far ahead guests can book (days)",
+      "noLimit": "No limit",
+      "daysAheadHint": "0 lets guests book today only.",
+      "noticeHours": "Minimum notice (hours)",
+      "noNotice": "None",
+      "noticeHoursHint": "Guests can't book a time sooner than this.",
+      "largestParty": "Largest party online",
+      "partyDefault": "{{count}}",
+      "largestPartyHint": "Larger parties are shown your phone number instead.",
+      "invalid": {
+        "daysAhead": "Use a whole number of days from 0 to 730.",
+        "noticeHours": "Use a whole number of hours from 0 to 720.",
+        "largestParty": "Use a whole number from 1 to 100."
+      },
+      "saved": "Booking rules saved",
+      "saveError": "Couldn't save booking rules"
+    },
+    "holidayNudge": {
+      "line": "{{name}} is {{date}} and isn't planned yet.",
+      "plan": "Plan holidays"
     }
   },
   "setup": {

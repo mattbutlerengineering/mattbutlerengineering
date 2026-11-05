@@ -1,5 +1,23 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.2
+
+### Patch Changes
+
+- [#8279](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8279) [`c45b0f1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c45b0f1025c8fa55df0c864e21e3c8627feee319) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A light theme island nested inside a dark ancestor keeps the light color tokens. Custom properties inherit, so a `data-theme="light"` scope previously painted with the surrounding dark palette.
+
+- [#8246](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8246) [`977915f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/977915f9153d1fd38445f6a7a22732070a87dd75) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Toasts move beside an open end-side Drawer on screens 1024px and wider, instead of covering its title and close button (top placement) or its actions (bottom placement). The Drawer panel carries `data-rialto-drawer="<side>-<size>"` for this.
+
+## 0.10.1
+
+### Patch Changes
+
+- [#8210](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8210) [`d2e9416`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/d2e9416c9a7a22136d54b9cb2f44c098e66f93d1) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav Home is current only on the marketing index when `currentPath` is passed, and DepartureBoard scales its flap row to the container instead of scrolling it.
+
+- [#8212](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8212) [`59a9cfa`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/59a9cfab5cde807ea4c410eb3156fb3d5aeb554f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DataList values wrap inside the row instead of painting past the card, including a run of letters with no soft-wrap opportunity. GlobalNav's mobile menu can be controlled so a page can close it when another overlay opens.
+
+- [#8219](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8219) [`3fb1235`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3fb1235d5b4ec630883d0497b2eb04d095bf226d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart day labels stay on the YYYY-MM-DD calendar day in every time zone, and the grid stops at the last dated column.
+
 ## 0.10.0
 
 ### Minor Changes

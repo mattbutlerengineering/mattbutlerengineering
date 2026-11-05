@@ -1,9 +1,11 @@
 import { addDays, serviceDayInstant } from "@mbe/availability";
-import type {
-  AvailabilityChangeEntry,
-  AvailabilityChangeOutcome,
-  AvailabilityChangesPage,
-  AvailabilityChangesParsed,
+import {
+  ScheduleServiceSchema,
+  type AvailabilityChangeEntry,
+  type AvailabilityChangeOutcome,
+  type AvailabilityChangesPage,
+  type AvailabilityChangesParsed,
+  type ScheduleService,
 } from "@mbe/types";
 import { Prisma, type PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
@@ -155,7 +157,11 @@ export type RevertOutcome =
 
 const refused = (reason: RevertRefusalReason) => ({ kind: "refused" as const, reason });
 
-/** Reads the stored inverse; `null` when it is not a version this code understands. */
+/**
+ * Reads the stored inverse; `null` when it is not a version this code understands. Its schedule
+ * service rows go through the row schema, so an entry saved before day scope (rows without
+ * `weekdays` and `dayHours`) restores as "no scope" instead of reaching the engine without them.
+ */
 function readInverse(value: unknown): ConfigInverse | null {
   if (typeof value !== "object" || value === null) return null;
   const v = value as Partial<ConfigInverse>;
@@ -165,7 +171,13 @@ function readInverse(value: unknown): ConfigInverse | null {
   const tables = CONFIG_TABLES.every(
     (t) => Array.isArray(v.restore?.[t]) && Array.isArray(v.remove?.[t])
   );
-  return tables ? (v as ConfigInverse) : null;
+  if (!tables) return null;
+  const rows = (v.restore.scheduleServices as unknown[]).map((r) =>
+    ScheduleServiceSchema.safeParse(r)
+  );
+  if (!rows.every((r) => r.success)) return null;
+  const scheduleServices = rows.flatMap((r): ScheduleService[] => (r.success ? [r.data] : []));
+  return { ...v, restore: { ...v.restore, scheduleServices } } as ConfigInverse;
 }
 
 export async function revertAvailabilityChange(

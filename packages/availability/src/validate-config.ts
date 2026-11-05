@@ -6,6 +6,7 @@ import {
 } from "@mbe/types";
 import { addDays, weekdayIndexOf } from "./civil-date.js";
 import { formatMinute } from "./format-minute.js";
+import { WEEK_ORDER, hoursSourceOn } from "./service-days.js";
 
 /**
  * The invariants the configuration layers must satisfy together (ADR-030).
@@ -16,6 +17,7 @@ import { formatMinute } from "./format-minute.js";
 export type ConfigIssueCode =
   | "invalid"
   | "overlap"
+  | "weekday_clash"
   | "close_before_open"
   | "last_seating_after_close"
   | "last_seating_before_open"
@@ -32,6 +34,10 @@ export interface ConfigIssue {
   path: string;
   code: ConfigIssueCode;
   message: string;
+  /** `overlap` on some weekdays only, `weekday_clash`: the weekday (0 = Sunday). */
+  weekday?: number;
+  /** `overlap`: the path of the other service's `opensAt`. */
+  otherPath?: string;
 }
 
 /** The hours fields a schedule service and a special-hours service share. */
@@ -110,14 +116,132 @@ function serviceListIssues(services: readonly PathedService[]): ConfigIssue[] {
   return [...services.flatMap(hoursIssues), ...overlapIssues(services)];
 }
 
+const WEEKDAY_NAMES = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+] as const;
+
+type ScheduleServiceRow = AvailabilityConfig["scheduleServices"][number];
+
+interface IndexedRow {
+  index: number;
+  row: ScheduleServiceRow;
+}
+
+/** The base hours and each set's hours of one row, each at its own path. */
+function rowHoursIssues({ index, row }: IndexedRow): ConfigIssue[] {
+  const path = `scheduleServices[${index}]`;
+  return [
+    ...hoursIssues({ path, hours: row }),
+    ...row.dayHours.sets.flatMap((set, j) =>
+      hoursIssues({ path: `${path}.dayHours.sets[${j}]`, hours: set })
+    ),
+  ];
+}
+
+/** A weekday claimed by two of a row's sets, or by a set and an explicit base, is reported at the later claimant. */
+function weekdayClashIssues({ index, row }: IndexedRow): ConfigIssue[] {
+  const claimed = new Set(row.weekdays);
+  return row.dayHours.sets.flatMap((set, j) =>
+    WEEK_ORDER.filter((d) => set.weekdays.includes(d)).flatMap((weekday) => {
+      const clash = claimed.has(weekday);
+      claimed.add(weekday);
+      return clash
+        ? [
+            {
+              ...issue(
+                `scheduleServices[${index}].dayHours.sets[${j}].weekdays`,
+                "weekday_clash",
+                `${WEEKDAY_NAMES[weekday]} can only have one set of hours.`
+              ),
+              weekday,
+            },
+          ]
+        : [];
+    })
+  );
+}
+
+interface DayOverlap {
+  later: string;
+  earlier: string;
+  /** The earlier hours, as "5:00 PM – 10:00 PM". */
+  range: string;
+  weekday: number;
+}
+
+/**
+ * Overlaps on one weekday, over the hours each row has that day. Rows that don't run that day
+ * are not in it. Like the all-days rule it replaces, rows whose venue service is gone still count.
+ */
+function overlapsOn(rows: readonly IndexedRow[], weekday: number): DayOverlap[] {
+  const running = rows.flatMap(({ index, row }) => {
+    const source = hoursSourceOn(row, weekday);
+    if (!source) return [];
+    const base = `scheduleServices[${index}]`;
+    const path = source.setIndex === null ? base : `${base}.dayHours.sets[${source.setIndex}]`;
+    return [{ path, hours: source.hours }];
+  });
+  const sorted = running
+    .filter(({ hours }) => hours.closesAt > hours.opensAt)
+    .sort((a, b) => a.hours.opensAt - b.hours.opensAt);
+  return sorted.flatMap((later, i) => {
+    const earlier = sorted.slice(0, i).find((e) => e.hours.closesAt > later.hours.opensAt);
+    return earlier
+      ? [
+          {
+            later: `${later.path}.opensAt`,
+            earlier: `${earlier.path}.opensAt`,
+            range: `${formatMinute(earlier.hours.opensAt)} – ${formatMinute(earlier.hours.closesAt)}`,
+            weekday,
+          },
+        ]
+      : [];
+  });
+}
+
+/**
+ * Per-weekday overlap, one issue per pair of hours however many days it holds. The weekday is
+ * named (the first in Monday-first order) only when the pair overlaps on some days and not all,
+ * so a legacy row pair that overlaps every day reads exactly as it always did.
+ */
+function overlapIssuesPerWeekday(rows: readonly IndexedRow[]): ConfigIssue[] {
+  const byPair = new Map<string, DayOverlap[]>();
+  for (const weekday of WEEK_ORDER) {
+    for (const overlap of overlapsOn(rows, weekday)) {
+      const key = `${overlap.later}|${overlap.earlier}`;
+      byPair.set(key, [...(byPair.get(key) ?? []), overlap]);
+    }
+  }
+  return [...byPair.values()].flatMap(([first, ...rest]) => {
+    if (!first) return [];
+    const allDays = rest.length + 1 === WEEK_ORDER.length;
+    return [
+      {
+        ...issue(first.later, "overlap", `Overlaps another service (${first.range}).`),
+        ...(allDays ? {} : { weekday: first.weekday }),
+        otherPath: first.earlier,
+      },
+    ];
+  });
+}
+
 function scheduleServiceIssues(config: AvailabilityConfig): ConfigIssue[] {
-  const pathed = config.scheduleServices.map((s, i) => ({
-    scheduleId: s.scheduleId,
-    path: `scheduleServices[${i}]`,
-    hours: s,
-  }));
-  const scheduleIds = [...new Set(pathed.map((s) => s.scheduleId))];
-  return scheduleIds.flatMap((id) => serviceListIssues(pathed.filter((s) => s.scheduleId === id)));
+  const rows = config.scheduleServices.map((row, index) => ({ index, row }));
+  const scheduleIds = [...new Set(rows.map(({ row }) => row.scheduleId))];
+  return scheduleIds.flatMap((id) => {
+    const own = rows.filter(({ row }) => row.scheduleId === id);
+    return [
+      ...own.flatMap(rowHoursIssues),
+      ...own.flatMap(weekdayClashIssues),
+      ...overlapIssuesPerWeekday(own),
+    ];
+  });
 }
 
 function specialHoursIssues(config: AvailabilityConfig): ConfigIssue[] {

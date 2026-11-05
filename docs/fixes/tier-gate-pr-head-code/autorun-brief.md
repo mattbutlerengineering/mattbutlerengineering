@@ -159,3 +159,40 @@ feedback to capture.
   file.
 - **Work in flight:** checked 2026-11-02. Nothing matches: no run directory,
   branch, worktree, open PR or open issue is already doing this work.
+
+## Resume, 2026-11-03
+
+Matt picked this run live in the resuming session (`autorun`, no new brief).
+Nothing above is changed.
+
+- **Resumed for the Ship write-back.** `release.md` records
+  `outcome: prepared`, `pending-merge:` #8183. `gh pr view 8183` →
+  `MERGED`, `mergedAt: 2026-11-04T03:46:25Z`, merged by
+  `mattbutlerengineering`, merge commit `be5751245`.
+- **Release authorization: unchanged.** Matt merged the gate change himself.
+  This pass does no merge, deploy, publish, tag, workflow dispatch or label
+  change. GitHub stays read-only apart from pushing the write-back branch and
+  opening its pull request.
+- **Not answered live (Ship logs it under `assumptions:`):** the write-back
+  lands the way #8206 landed venue-availability's. Branch
+  `docs/tier-gate-pr-head-code-ship-writeback`, cut from `origin/main` @
+  `106eaaf9c` with no upstream, in worktree
+  `.claude/worktrees/tier-gate-pr-head-code-writeback`; one docs-only pull
+  request that Matt merges. `fix/tier-gate-pr-head-code` is not reused: it
+  was squash-merged.
+- **Operate: still `skip`.** The run stays active after Ship.
+
+### Pre-flight record (2026-11-03)
+
+- **Open PRs:** two. Neither is green, and neither touches
+  `docs/fixes/tier-gate-pr-head-code/`.
+  - #8157: the chaos-agent synthetic bug, red by design
+    (`Test (Node 22, hospitality)`, `CI Gate`). Never to be merged;
+    surfaced to close.
+  - #8227: the gen e2e for #8199, red on `Gen E2E` (`toBeFocused` on the
+    history toggle times out at 600px, retry included). The drain session
+    handed it to the Owner (`needs-review`, 04:41Z: "Needs a human or a
+    session with creds"). Blocked on a product call, a focus-restore bug in
+    `useRestoreTriggerFocus` or a test-setup issue, that this run does not
+    own.
+- **Work in flight:** not re-run. Resuming an existing run starts nothing new.

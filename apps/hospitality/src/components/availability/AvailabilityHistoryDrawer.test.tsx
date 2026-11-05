@@ -103,6 +103,25 @@ describe("AvailabilityHistoryDrawer", () => {
     expect(rows[1]).toHaveTextContent(/by a teammate/i);
   });
 
+  it("words a Friday-only regular-week change with Fri and the start date, and shows the summary of an unknown code", () => {
+    loaded([
+      entry({
+        id: "chg-4",
+        summary: "Regular week changed on Fri from 2026-11-06: 0 added, 1 changed, 0 removed",
+        detail: { code: "regular_week_changed", startsOn: "2026-11-06", weekdays: [5] },
+      }),
+      entry({
+        id: "chg-3",
+        summary: "Something a newer server says",
+        detail: { code: "week_rearranged", startsOn: "2026-11-06", weekdays: [5] },
+      }),
+    ]);
+    renderDrawer();
+    const rows = within(screen.getByRole("dialog", { name: "History" })).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Changed regular week from Nov 6: Fri");
+    expect(rows[1]).toHaveTextContent("Something a newer server says");
+  });
+
   it("names the person when the server does, and keeps 'by you' for the viewer", () => {
     loaded([
       entry({ id: "mine", actorName: "Me Myself" }),

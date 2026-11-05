@@ -33,6 +33,8 @@ export interface DraftPreviewProps {
   readonly idle?: DraftIdle;
   /** False for a flow whose Save has no review step, so the moved-hours note does not promise one. */
   readonly reviewOnSave?: boolean;
+  /** The date to open on when the change reaches it (the weekday being edited); else the first. */
+  readonly focusDate?: string;
 }
 
 interface Kept {
@@ -54,7 +56,7 @@ interface Kept {
  */
 export function DraftPreview(props: DraftPreviewProps) {
   const { venueId, changes, scopeConflicts, dates, scope, baseVersion } = props;
-  const { held = false, idle = "untouched", reviewOnSave = true } = props;
+  const { held = false, idle = "untouched", reviewOnSave = true, focusDate } = props;
   const { t } = useTranslation();
   const [kept, setKept] = useState<Kept | null>(null);
   const active = changes !== null && dates.length > 0;
@@ -83,7 +85,9 @@ export function DraftPreview(props: DraftPreviewProps) {
           scopeConflicts={kept.scopeConflicts}
           dates={kept.dates}
           scope={kept.scope}
-          focusDate={kept.dates[0] as string}
+          focusDate={
+            focusDate && kept.dates.includes(focusDate) ? focusDate : (kept.dates[0] as string)
+          }
           baseVersion={baseVersion}
           paused={!active}
           reviewOnSave={reviewOnSave}

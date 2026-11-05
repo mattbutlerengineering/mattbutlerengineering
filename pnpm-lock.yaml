@@ -1248,6 +1248,9 @@ importers:
       '@mbe/auth':
         specifier: workspace:^
         version: link:../../packages/auth
+      '@mbe/availability':
+        specifier: workspace:^
+        version: link:../../packages/availability
       '@mbe/database':
         specifier: workspace:*
         version: link:../../packages/database

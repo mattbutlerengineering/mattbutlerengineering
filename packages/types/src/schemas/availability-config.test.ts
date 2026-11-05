@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AvailabilityConfigSchema,
+  DayHoursSchema,
   DateRuleSchema,
   ScheduleAssignmentSchema,
   ScheduleServiceSchema,
@@ -212,5 +213,45 @@ describe("AvailabilityConfigSchema", () => {
       0,
       "seating",
     ]);
+  });
+});
+
+describe("ScheduleServiceSchema day scope", () => {
+  const SET = {
+    weekdays: [5, 6],
+    opensAt: 1020,
+    lastSeatingAt: 1320,
+    closesAt: 1440,
+    seating: { version: 1, interval: 15 },
+    bookingTypes: ["online", "phone"],
+  };
+
+  it("reads a row without the two fields as no scope", () => {
+    const row = ScheduleServiceSchema.parse(DINNER);
+    expect(row.weekdays).toEqual([]);
+    expect(row.dayHours).toEqual({ version: 1, sets: [] });
+  });
+
+  it("keeps a row's own days and hour sets", () => {
+    const row = ScheduleServiceSchema.parse({
+      ...DINNER,
+      weekdays: [2, 3, 4],
+      dayHours: { version: 1, sets: [SET] },
+    });
+    expect(row.weekdays).toEqual([2, 3, 4]);
+    expect(row.dayHours.sets).toEqual([SET]);
+  });
+
+  it("rejects a dayHours version other than 1", () => {
+    expect(DayHoursSchema.safeParse({ version: 2, sets: [] }).success).toBe(false);
+    expect(
+      ScheduleServiceSchema.safeParse({ ...DINNER, dayHours: { version: 2, sets: [] } }).success
+    ).toBe(false);
+  });
+
+  it("rejects a set with no weekdays", () => {
+    expect(DayHoursSchema.safeParse({ version: 1, sets: [{ ...SET, weekdays: [] }] }).success).toBe(
+      false
+    );
   });
 });

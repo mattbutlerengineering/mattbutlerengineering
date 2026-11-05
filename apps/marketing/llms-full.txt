@@ -1226,6 +1226,38 @@
     }
   </file>
   </section>
+  <section priority="medium" role="pwa">
+  <file path="pwa/workbox-options.ts">
+    export interface ServiceWorkerRuntimeRoute {
+      readonly urlPattern: RegExp | string;
+      readonly handler:
+        "CacheFirst" | "CacheOnly" | "NetworkFirst" | "NetworkOnly" | "StaleWhileRevalidate";
+    }
+    export const workboxRuntimeCaching: readonly ServiceWorkerRuntimeRoute[] = [];
+    export const workboxPrecacheGlobPatterns: readonly string[] = [
+      "**/*.{js,css,ico,png,svg,woff,woff2}",
+    ];
+    export function isDocumentFontRequest(url: string): boolean {
+      try {
+        return DOCUMENT_FONT_HOSTS.has(new URL(url).hostname);
+      } catch {
+        return false;
+      }
+    }
+    export function routeListClaims(
+      routes: readonly ServiceWorkerRuntimeRoute[],
+      url: string
+    ): boolean {
+      return routes.some((route) => {
+        if (typeof route.urlPattern === "string") return url.includes(route.urlPattern);
+        return route.urlPattern.test(url);
+      });
+    }
+    export function serviceWorkerClaimsUrl(url: string): boolean {
+      return routeListClaims(workboxRuntimeCaching, url);
+    }
+  </file>
+  </section>
   <section priority="medium" role="utils">
   <file path="src/utils/formatters.ts">
     export interface ServiceStatus {

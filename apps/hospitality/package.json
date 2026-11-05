@@ -50,9 +50,9 @@
       "limit": "8 kB"
     },
     {
-      "name": "Close Dialog (shared by the availability page and the timeline's Tonight panel)",
-      "path": "dist/assets/CloseDialog-*.js",
-      "limit": "8.8 kB"
+      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving')",
+      "path": "dist/assets/CallListDialog-*.js",
+      "limit": "9.5 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
@@ -65,9 +65,9 @@
       "limit": "3.5 kB"
     },
     {
-      "name": "Availability day resolver (@mbe/availability resolve-day, shared by the availability page and the timeline's Tonight panel)",
-      "path": "dist/assets/resolve-day-*.js",
-      "limit": "2.7 kB"
+      "name": "Schedule changes (schedule-changes.ts, shared by the schedule editor, Change regular week and the Schedules tab)",
+      "path": "dist/assets/schedule-changes-*.js",
+      "limit": "3 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",

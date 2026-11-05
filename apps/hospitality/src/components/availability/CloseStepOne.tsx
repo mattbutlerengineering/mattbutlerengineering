@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -28,6 +29,7 @@ import {
   type CloseWhat,
   type CloseWhen,
 } from "./close-draft.js";
+import { useHolidayNames } from "./use-holidays.js";
 import styles from "./CloseDialog.module.css";
 
 const CHANNELS: readonly BookingChannel[] = ["online", "phone", "waitlist"];
@@ -102,6 +104,10 @@ export function CloseStepOne(props: CloseStepOneProps) {
   );
   const firstDate = firstDateOf(when, today);
   const guestDate = guestDateOf(when, today);
+  // One date on a holiday: the holiday chip names it ("Closed for Thanksgiving").
+  const oneDate = when.kind === "tonight" || when.kind === "date" ? firstDate : null;
+  const holidays = useHolidayNames(useMemo(() => (oneDate ? [oneDate] : []), [oneDate]));
+  const holiday = oneDate ? holidays.get(oneDate) : undefined;
 
   // What the guest reads on the calendar: a closure from a set time, or of one service, is not
   // "Closed" for the whole day.
@@ -302,7 +308,10 @@ export function CloseStepOne(props: CloseStepOneProps) {
       />
       <div className={styles.chips}>
         {SUGGESTIONS.map((key) => {
-          const text = t(`availability.close.suggestions.${key}`);
+          const text =
+            key === "holiday" && holiday
+              ? t("availability.close.suggestions.holidayNamed", { name: holiday })
+              : t(`availability.close.suggestions.${key}`);
           return (
             <Tag
               key={key}

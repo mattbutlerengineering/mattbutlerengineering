@@ -10,7 +10,7 @@ import {
   Tabs,
   Text,
 } from "@mattbutlerengineering/rialto";
-import type { ResolvedDay } from "@mbe/availability";
+import { weekdayIndexOf, type ResolvedDay } from "@mbe/availability";
 import {
   AvailabilityConfigProblemSchema,
   type AvailabilityChangeSummary,
@@ -192,7 +192,6 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const conflictMode: ScopeConflictMode =
     ruleScope || dates.length > 1 ? (edit?.mode ?? "keep") : "replace";
   const schedule = config.schedules.find((s) => s.id === day.scheduleId);
-  const scheduleCount = config.schedules.filter((s) => !s.archivedAt).length;
 
   const nameList = (names: readonly string[]) =>
     new Intl.ListFormat(format.locale, { type: "conjunction" }).format(names);
@@ -255,9 +254,11 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     const next: EditScope =
       kind === "weekday"
         ? { kind, from: date, until: null }
-        : kind === "schedule" && schedule
-          ? { kind, scheduleId: schedule.id }
-          : { kind: "date", date };
+        : kind === "regularWeekday" && schedule?.isRegular
+          ? { kind, weekday: weekdayIndexOf(date) }
+          : kind === "schedule" && schedule
+            ? { kind, scheduleId: schedule.id }
+            : { kind: "date", date };
     const seed = seedServices(config, day, next);
     // Before anything is edited the rows follow the scope. A draft is laid over the rows of the
     // scope it lands in, never carried across as it is: a save into the schedule removes every
@@ -422,19 +423,27 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         date: format.formatCalendarDate(date, { month: "short", day: "numeric" }),
       }),
     },
-    ...(schedule
+    // A day on the regular week: that weekday of it, in place. A superseded version (an older
+    // week a later one has replaced) is nobody's to edit from here.
+    ...(schedule?.isRegular
       ? [
           {
-            value: "schedule",
-            label:
-              scheduleCount > 1
-                ? t("availability.editor.scope.schedule", {
-                    name: scheduleNameText(schedule.name, t),
-                  })
-                : t("availability.editor.scope.regularWeek"),
+            value: "regularWeekday",
+            label: t("availability.editor.scope.regularWeekday", {
+              weekday: format.formatCalendarDate(date, { weekday: "long" }),
+            }),
           },
         ]
-      : []),
+      : schedule && schedule.kind !== "regular"
+        ? [
+            {
+              value: "schedule",
+              label: t("availability.editor.scope.schedule", {
+                name: scheduleNameText(schedule.name, t),
+              }),
+            },
+          ]
+        : []),
   ];
 
   const fields = (

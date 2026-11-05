@@ -116,7 +116,7 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
 
 ### F-UW: Change the regular week from a date (PRD 12, 9; scenario a)
 
-1. **Calendar → Change regular week…** opens the S1 editor pre-filled with the current regular week, plus **Starting [date]** and **Ending: [date] / No end — this becomes the new regular week**, and a name field (suggested from the dates, e.g. "Summer hours").
+1. **Calendar → Change regular week…** opens the S1 editor pre-filled with the current regular week, plus **Starting [date]** and **Ending: [date] / No end — this becomes the new regular week**, and a name field. Once a start date is chosen and the name is empty, a button under the field offers a name drawn from the dates ("Use “Summer hours”": the season for a period of up to about four months, otherwise "Hours from Jun 1" or "Hours Jan 1 – Dec 31"). It is a button, not a prefilled value, so an untouched form stays untouched and a typed name is never replaced. New schedule offers the same under its dates.
 2. The preview defaults to the start date. The stranded list covers every future booking from the start date to the end date (or onward, with no end).
 3. Save → the calendar shows a labelled band across the period ("Summer hours · Jun 1 – Sep 15"). The day before and the day after show the handover in their "Why this day".
 4. If the period overlaps another dated schedule: "Summer hours overlaps Patio season (Jul 1 – Aug 31). **Summer wins** / **Patio season wins** / **Adjust dates**".
@@ -208,7 +208,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 
 ### F-SER: Change one date of something that repeats (PRD 17; scenario e)
 
-1. Opening a date that belongs to a repeating closure or a dated schedule shows it in "Why this day", with **Edit** and **Remove**.
+1. Opening a date that belongs to a repeating closure or special hours shows it in "Why this day", with **Edit** and **Remove** (a Manager only, and not on a date that is over). Special hours: **Remove** is a destructive confirm that names the whole rule ("every Friday"), **Edit** asks which dates first when the rule repeats, then edits in the drawer's own editor. A closure: **Remove** is the Special dates reopen dialog; a repeating one also has **Edit dates…** (the series dialog, opened on this date). Both wait, with a reason, while an editor is open, and **Edit** on hours under an all-day closure is shut with the reason. Dated-schedule layers have no Edit or Remove yet.
 2. Either one asks first: "**Only Tue, Jan 13** / **This and following** / **All dates in the series**".
 3. **Only this date** → for a closure, choose **Skip this date** (bookable as usual) or **Edit this date** (for example, a different closure window). The series is untouched, and the date's "Why this day" shows "Skipped from: Mondays closed, Jan–Mar".
 4. Impact, stranded handling and Undo work as in F2 and F5.
@@ -219,9 +219,15 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 1. **Special dates** (S6b) lists every closure and special-hours date, upcoming first. Filters: Closures / Special hours / Repeating / Past.
    - Each row: date or range · what · message for guests · guests affected and outcome counts · actions (Edit, Remove, Call list).
    - **+ Add special date** opens a multi-date sheet. Each row has a date, **Closed / Special hours / Same as [day]**, and an optional message for guests (one shared message can be applied to every row). Special hours open the inline service editor. Every row that affects bookings then goes through **one** Step 2, which shows a separate choice for each group (see S7). Christmas Eve hours and Christmas Day closed are one sitting.
+   - **Upcoming holidays** (Managers, every filter but Past): the venue's country holidays and big restaurant days in the next 120 days that no date rule covers yet (country from the profile address, else the language's region; US, CA and MX are known). Each has **Plan…**, and **Plan all N…** opens the same sheet with one row per holiday, its legend naming it. Thanksgiving, Christmas Day and New Year's Day start Closed; every other holiday starts as Special hours from that weekday's usual hours (so saving Valentine's Day untouched cancels nothing); a weekday with no usual hours starts Closed ("Date 1: Thanksgiving"). A planned date drops out of the list. **Open as usual** drops one the venue keeps its regular hours on (remembered per venue on this browser, with **Undo** in the toast). The same holidays are named on the calendar beside the day number (month grid, week, and the phone agenda), planned or not. On the calendar (Managers, tablet and desktop), the summary row adds the nearest unplanned holiday within 30 days, "Thanksgiving is Thu, Nov 26 and isn't planned yet.", with **Plan holidays** to Special dates; Open as usual silences it. A one-date row on Special dates leads its detail with the holiday ("Christmas Eve · Closed · From 10:00 PM").
 2. **Reopen**: row → **Remove closure** → `ConfirmDialog`: "Reopen Thu, Dec 24? Guests can book again. The 14 reservations you cancelled stay cancelled." A checkbox, on by default, reads "Tell the 14 cancelled guests we've reopened (with a link to rebook)". Buttons: **Reopen** / **Keep closed**.
 3. Toast "Thu, Dec 24 reopened". Removing a change that told no guests offers **Undo**.
 4. **A date another closure also closes** stays closed, and the dialog and the toast say so, naming it: "Stays closed on Fri, Dec 25: Whole venue." When every date stays closed, nothing comes back: the description says guests can't book them yet, the notice checkbox is gone, the server asks no notice even if one is requested, and the toast reads "Closure removed: Fri, Dec 25. Not reopened."
+
+### F-RULES: Booking rules
+
+1. **More actions → Booking rules…** (Managers; the calendar's ⋯ menu, or More actions on a phone) opens a drawer with the three venue-wide limits onboarding asked once: **How far ahead guests can book (days)** (empty: no limit; 0: today only), **Minimum notice (hours)** (empty: none) and **Largest party online** (empty: 8; larger parties see the venue's phone).
+2. Whole numbers only (0–730 days, 0–720 hours, 1–100 guests); a bad value says why under its field and keeps **Save** off. Save writes them into the venue's settings, every other setting kept; a cleared field unsets its rule. Toast "Booking rules saved".
 
 ### F7: Tonight panel (PRD 26, 27, 28; scenarios b, c)
 

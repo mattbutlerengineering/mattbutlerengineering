@@ -26,7 +26,8 @@ export function periodLabel(
 
 /**
  * "This week: open 5 days · 1 closure · online booking on" for the anchor's week, from the days
- * already loaded. `null` until at least one day of that week has arrived.
+ * already loaded; with no closures that part is left out. `null` until at least one day of that
+ * week has arrived.
  */
 export function weekSummary(
   anchor: string,
@@ -43,9 +44,13 @@ export function weekSummary(
   const onlineOff = open.filter((d) => !d.bookingOpen.online).length;
   const online =
     onlineOff === open.length ? "onlineOff" : onlineOff === 0 ? "onlineOn" : "onlinePartial";
-  return t("availability.weekSummary.line", {
-    open: t("availability.weekSummary.open", { count: open.length }),
-    closures: t("availability.weekSummary.closures", { count: closures.size }),
-    online: t(`availability.weekSummary.${online}`),
-  });
+  const parts = [
+    t("availability.weekSummary.open", { count: open.length }),
+    // "0 closures" is a fact nobody needs: the line names closures only when there are some.
+    ...(closures.size > 0
+      ? [t("availability.weekSummary.closures", { count: closures.size })]
+      : []),
+    t(`availability.weekSummary.${online}`),
+  ];
+  return t("availability.weekSummary.line", { parts: parts.join(" · ") });
 }

@@ -67,7 +67,7 @@ export function QuickSetupHoursStep({ draft, errors, onChange }: QuickSetupHours
             </Text>
           )
       )}
-      <QuickSetupForm draft={draft} onChange={handleChange} issues={visible} />
+      <QuickSetupForm draft={draft} onChange={handleChange} issues={visible} local />
     </>
   );
 }

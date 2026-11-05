@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  AvailabilityChangeDetailSchema,
   AvailabilityChangesPageSchema,
   AvailabilityCheckBodySchema,
   ReopenClosureBodySchema,
@@ -17,6 +18,7 @@ import {
   ReopenResultSchema,
   SetTonightBodySchema,
 } from "./availability-config-api.js";
+import { ScheduleServiceSchema } from "./availability-config.js";
 
 describe("CreateClosureBodySchema", () => {
   const rule = { id: "r1", kind: "closure", targetKind: "venue", startsOn: "2026-12-24" };
@@ -484,5 +486,62 @@ describe("AvailabilityChangeSummarySchema.detail", () => {
 
   it("accepts a null detail, as a row stored before codes has", () => {
     expect(parse(null)?.detail).toBeNull();
+  });
+});
+
+describe("regular_week_changed detail and day scope on the wire", () => {
+  it("carries the changed weekdays beside startsOn", () => {
+    expect(
+      AvailabilityChangeDetailSchema.parse({
+        code: "regular_week_changed",
+        startsOn: "2026-11-06",
+        weekdays: [5],
+      })
+    ).toEqual({ code: "regular_week_changed", startsOn: "2026-11-06", weekdays: [5] });
+    expect(
+      AvailabilityChangeDetailSchema.safeParse({ code: "regular_week_changed", weekdays: [7] })
+        .success
+    ).toBe(false);
+  });
+
+  const oldRow = {
+    id: "ss-1",
+    scheduleId: "sch-1",
+    venueServiceId: "vs-1",
+    opensAt: 1020,
+    lastSeatingAt: 1260,
+    closesAt: 1380,
+    seating: { version: 1, interval: 15 },
+    bookingTypes: ["online"],
+  };
+
+  it("parses an old History inverse row (without the two fields) as no scope", () => {
+    expect(ScheduleServiceSchema.parse(oldRow)).toMatchObject({
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+    });
+  });
+
+  it("requires both new fields on a PUT body row, naming the missing one", () => {
+    const parse = (row: Record<string, unknown>) =>
+      PutAvailabilityConfigBodySchema.safeParse({
+        expectedVersion: 1,
+        changes: { upsert: { scheduleServices: [row] } },
+      });
+    const whole = { ...oldRow, weekdays: [1, 2], dayHours: { version: 1, sets: [] } };
+
+    expect(parse(whole).success).toBe(true);
+    for (const field of ["weekdays", "dayHours"]) {
+      const { [field]: _omitted, ...row } = whole as Record<string, unknown>;
+      const result = parse(row);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual([
+        "changes",
+        "upsert",
+        "scheduleServices",
+        0,
+        field,
+      ]);
+    }
   });
 });
