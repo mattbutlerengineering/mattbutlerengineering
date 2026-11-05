@@ -4892,6 +4892,7 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 1 skipped after max retries:
 
 - #8202 [Feature] shipped-features-freshness [1/3]: diagnose why the live collector reports zero features
+
 ## 2026-11-05
 
 **queueEfficiency:** composite 0.843 (baseline n/a) — healthy
