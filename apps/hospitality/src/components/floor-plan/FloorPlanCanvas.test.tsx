@@ -7,6 +7,7 @@ import type { FloorPlan, Table, TableDisplayStatus } from "@mbe/types";
 /* ── Mock react-konva ─────────────────────────────────────────── */
 
 const mockOnClick = vi.fn();
+const tableOnSelectSeen = vi.hoisted(() => [] as Array<(id: string) => void>);
 
 vi.mock("react-konva", () => ({
   Stage: ({
@@ -69,20 +70,23 @@ vi.mock("./TableShape.js", () => ({
     onDragStart: (id: string) => void;
     onDragEnd: (id: string, x: number, y: number) => void;
     status?: string;
-  }) => (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div
-      data-testid={`table-shape-${table.id}`}
-      data-selected={isSelected}
-      data-dragging={isDragging}
-      data-status={status}
-      onClick={() => onSelect(table.id)}
-      onMouseDown={() => onDragStart(table.id)}
-      onMouseUp={() => onDragEnd(table.id, 120, 240)}
-    >
-      {table.name}
-    </div>
-  ),
+  }) => {
+    tableOnSelectSeen.push(onSelect);
+    return (
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+      <div
+        data-testid={`table-shape-${table.id}`}
+        data-selected={isSelected}
+        data-dragging={isDragging}
+        data-status={status}
+        onClick={() => onSelect(table.id)}
+        onMouseDown={() => onDragStart(table.id)}
+        onMouseUp={() => onDragEnd(table.id, 120, 240)}
+      >
+        {table.name}
+      </div>
+    );
+  },
 }));
 
 vi.mock("./SectionZone.js", () => ({
@@ -285,6 +289,7 @@ describe("FloorPlanCanvas sections", () => {
 describe("FloorPlanCanvas", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    tableOnSelectSeen.length = 0;
 
     // Mock getBoundingClientRect so container resize logic works
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
@@ -302,6 +307,27 @@ describe("FloorPlanCanvas", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe("selection", () => {
+    it("keeps TableShape onSelect identity stable when only selectedTableId changes", () => {
+      const { rerender } = render(<FloorPlanCanvas {...defaultProps} selectedTableId={null} />);
+      const before = new Set(tableOnSelectSeen);
+      expect(before.size).toBe(1);
+      rerender(<FloorPlanCanvas {...defaultProps} selectedTableId="t1" />);
+      expect(new Set(tableOnSelectSeen).size).toBe(1);
+    });
+
+    it("deselects when the already-selected table is clicked again", () => {
+      const onTableSelect = vi.fn();
+      render(
+        <FloorPlanCanvas {...defaultProps} selectedTableId="t1" onTableSelect={onTableSelect} />
+      );
+      fireEvent.click(screen.getByTestId("table-shape-t1"));
+      expect(onTableSelect).toHaveBeenCalledWith(null);
+      fireEvent.click(screen.getByTestId("table-shape-t2"));
+      expect(onTableSelect).toHaveBeenCalledWith("t2");
+    });
   });
 
   describe("render", () => {
