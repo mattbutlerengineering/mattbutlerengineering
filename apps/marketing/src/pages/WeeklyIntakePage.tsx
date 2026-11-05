@@ -21,7 +21,9 @@ function ResourceCard({ resource }: { readonly resource: WeeklyResource }) {
       </div>
       <Text className={styles.description}>{resource.description}</Text>
       <div className={styles.meta}>
-        <time dateTime={resource.publishedAt}>{formatDate(resource.publishedAt)}</time>
+        <time className={styles.published} dateTime={resource.publishedAt}>
+          {formatDate(resource.publishedAt)}
+        </time>
         <div className={styles.tags}>
           {resource.tags.map((tag) => (
             <Badge key={tag} color="neutral" size="sm">
