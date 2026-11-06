@@ -157,6 +157,20 @@ describe("Drawer", () => {
     expect(document.body.style.overflow).toBe("");
   });
 
+  it("publishes its footer height for toasts while open, and clears it on close", () => {
+    const { style } = document.documentElement;
+    const footerSize = "--rialto-drawer-footer-block-size";
+    const drawer = (open: boolean) => (
+      <Drawer open={open} title="Test" onClose={vi.fn()} footer={<button>Save</button>}>
+        <p>Body</p>
+      </Drawer>
+    );
+    const { rerender } = render(drawer(true));
+    expect(style.getPropertyValue(footerSize)).toMatch(/^\d+(\.\d+)?px$/);
+    rerender(drawer(false));
+    expect(style.getPropertyValue(footerSize)).toBe("");
+  });
+
   it("focuses close button on open (focus trap initializes)", async () => {
     render(
       <Drawer open title="Test" onClose={vi.fn()}>
