@@ -117,9 +117,7 @@
       "advanceHint": "Si laissé vide, les clients peuvent réserver n’importe quelle date à venir",
       "advanceNoLimit": "Aucune limite",
       "errors": {
-        "durationInvalid": "La durée doit être un nombre positif",
-        "maxPartyInvalid": "La taille du groupe doit être un nombre positif",
-        "advanceInvalid": "Le nombre de jours à l’avance doit être un nombre positif"
+        "durationInvalid": "La durée doit être un nombre positif"
       }
     },
     "floorPlan": {
@@ -195,7 +193,8 @@
         "tables": "Tables",
         "activate": "Activation"
       },
-      "noLimit": "Aucune limite"
+      "noLimit": "Aucune limite",
+      "todayOnly": "Le jour même seulement"
     },
     "stagePanel": {
       "label": "Progression du lancement",

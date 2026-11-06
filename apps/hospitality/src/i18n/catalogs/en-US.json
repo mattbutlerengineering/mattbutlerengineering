@@ -117,9 +117,7 @@
       "advanceHint": "If left blank, guests can book any date ahead",
       "advanceNoLimit": "No limit",
       "errors": {
-        "durationInvalid": "Duration must be a positive number",
-        "maxPartyInvalid": "Party size must be a positive number",
-        "advanceInvalid": "Advance days must be a positive number"
+        "durationInvalid": "Duration must be a positive number"
       }
     },
     "floorPlan": {
@@ -189,7 +187,8 @@
         "tables": "Tables",
         "activate": "Activate"
       },
-      "noLimit": "No limit"
+      "noLimit": "No limit",
+      "todayOnly": "Today only"
     },
     "stagePanel": {
       "label": "Launch progress",

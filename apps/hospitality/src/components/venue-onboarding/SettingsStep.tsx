@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Stack, Input, Button } from "@mattbutlerengineering/rialto";
 import { localeRuntime } from "../../i18n/runtime.js";
+import { invalidBookingRules } from "../availability/booking-rules.js";
 import { SETTINGS_DEFAULTS as DEFAULTS } from "./settings-defaults.js";
 import styles from "./venue-onboarding.module.css";
 
@@ -31,7 +32,11 @@ interface SettingsStepProps {
   onAdvance: () => void;
 }
 
-/** Validate settings step data. All fields are optional; only rejects invalid non-blank values. */
+/**
+ * Validate settings step data. All fields are optional; only rejects invalid non-blank values.
+ * Largest party and days ahead follow Availability → Booking rules, which edits them later: whole
+ * numbers in the same ranges, 0 days meaning today only. Onboarding can't save what that refuses.
+ */
 export function validateSettings(
   data: SettingsData,
   t: TFunction = localeRuntime.i18n.t
@@ -45,18 +50,16 @@ export function validateSettings(
     }
   }
 
-  if (data.maxPartySize !== "") {
-    const val = Number(data.maxPartySize);
-    if (isNaN(val) || val <= 0) {
-      errors.maxPartySize = t("onboarding.settings.errors.maxPartyInvalid");
-    }
+  const invalid = invalidBookingRules({
+    daysAhead: data.advanceBookingDays,
+    noticeHours: "",
+    largestParty: data.maxPartySize,
+  });
+  if (invalid.includes("largestParty")) {
+    errors.maxPartySize = t("availability.bookingRules.invalid.largestParty");
   }
-
-  if (data.advanceBookingDays !== "") {
-    const val = Number(data.advanceBookingDays);
-    if (isNaN(val) || val <= 0) {
-      errors.advanceBookingDays = t("onboarding.settings.errors.advanceInvalid");
-    }
+  if (invalid.includes("daysAhead")) {
+    errors.advanceBookingDays = t("availability.bookingRules.invalid.daysAhead");
   }
 
   return errors;
