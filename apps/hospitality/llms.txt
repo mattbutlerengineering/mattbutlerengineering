@@ -733,6 +733,12 @@
     <item priority="medium">
       function liveRegularWeek(config: AvailabilityConfig) { /* ... */ }
     </item>
+    <item priority="high">
+      export function usualHours(
+        config: AvailabilityConfig,
+        venueServiceId: string
+      ): SeedService | undefined { /* ... */ }
+    </item>
     <item priority="medium">
       function regularWeekdayRows(
         config: AvailabilityConfig,
@@ -1202,7 +1208,7 @@
     <item priority="low">
       interface LineHours {
         opensAt: number;
-        closesAt: number;
+        lastSeatingAt: number;
       }
     </item>
     <item priority="low">

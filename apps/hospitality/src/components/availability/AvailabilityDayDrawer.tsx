@@ -157,11 +157,15 @@ function DayBody({
                 <Text as="span" variant="caption" color="secondary">
                   {layerEffectText(layer, t, format)}
                 </Text>
-                <Text as="span" variant="caption" color="secondary">
-                  {t("availability.drawer.ifRemoved", {
-                    result: removalText(day, layer, format, t),
-                  })}
-                </Text>
+                {/* The regular week is the floor every other layer sits on: nothing done on a
+                    date removes it, so "If removed" would describe an action that does not exist. */}
+                {!layer.regularWeek && (
+                  <Text as="span" variant="caption" color="secondary">
+                    {t("availability.drawer.ifRemoved", {
+                      result: removalText(day, layer, format, t),
+                    })}
+                  </Text>
+                )}
                 {noteOf(layer) && (
                   <Text as="span" variant="caption" color="secondary">
                     {t("availability.drawer.staffNote", { note: noteOf(layer) })}
@@ -319,7 +323,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
         {/* The day's other actions, one row of equals under its hours: none outweighs Edit. */}
         {viewerRole === "manager" && editing && !picked && (
           <div className={styles.dayActions}>
-            {editing.onCloseDay && (
+            {/* Nothing to close on a day already shut or over; the toolbar's Close… still reaches
+                ranges that start on one. */}
+            {editing.onCloseDay && date >= editing.today && day.services.length > 0 && (
               <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
                 {t("availability.close.open")}
               </Button>

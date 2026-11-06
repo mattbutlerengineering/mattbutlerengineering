@@ -23,7 +23,7 @@ test.describe("Availability quick setup (F1)", () => {
     await expect(mockedPage.getByText(/Last seating 9:15 PM, 45 min before close/)).toBeVisible();
     await mockedPage.getByRole("button", { name: "Save and open bookings" }).click();
 
-    await expect(mockedPage.getByText(/Bookings are open Mon, Tue/)).toBeVisible();
+    await expect(mockedPage.getByText("Bookings are open Mon–Fri")).toBeVisible();
     await expect(mockedPage.getByRole("grid")).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
 

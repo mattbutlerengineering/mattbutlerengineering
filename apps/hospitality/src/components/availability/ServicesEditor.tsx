@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { Button, Input, Select, Stack, Text, TimePicker } from "@mattbutlerengineering/rialto";
 import { MINUTES_PER_DAY, addDays } from "@mbe/availability";
-import type { Seating, VenueService } from "@mbe/types";
+import type { AvailabilityConfig, Seating, VenueService } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { closeFromClock, lastSeatingFromClock, openFromClock, toClock } from "./clock-minutes.js";
-import type { DraftService } from "./draft-changes.js";
+import { usualHours, type DraftService } from "./draft-changes.js";
 import { clockHour } from "../../utils/clock-hour.js";
 import { minuteText } from "./closure-band.js";
 import styles from "./ServicesEditor.module.css";
@@ -13,7 +13,7 @@ type BookingTypes = DraftService["bookingTypes"];
 
 const INTERVALS = [5, 10, 15, 20, 30, 60] as const;
 const NEW_SERVICE = "__new__";
-/** Hours a service added from the editor starts with; the Manager adjusts them. */
+/** Hours a service new to the venue starts with; the Manager adjusts them. */
 const NEW_SERVICE_HOURS = {
   opensAt: 1020,
   lastSeatingAt: 1260,
@@ -35,8 +35,8 @@ const bookingId = (types: BookingTypes): BookingId =>
 
 export interface ServicesEditorProps {
   readonly services: readonly DraftService[];
-  /** The venue's services, so one it has had before can be added back. */
-  readonly venueServices: readonly VenueService[];
+  /** The venue's config: its services, so one it has had before can be added back at its hours. */
+  readonly config: AvailabilityConfig;
   /** The date being looked at, for the "next day" hint. Omit it where the hours span many dates. */
   readonly date?: string;
   /** Offer "New service…" (default). Off where only the venue's existing services can be saved. */
@@ -173,16 +173,17 @@ function addableServices(
   return venueServices.filter((v) => !v.archivedAt && !used.has(v.id));
 }
 
-/** A row for one of the venue's services, or for a new one to name. */
+/** A row for one of the venue's services, at the hours it usually runs, or for a new one to name. */
 function serviceRow(
   services: readonly DraftService[],
-  venueServices: readonly VenueService[],
+  config: AvailabilityConfig,
   id: string
 ): DraftService {
-  const existing = venueServices.find((v) => v.id === id);
+  const existing = config.venueServices.find((v) => v.id === id);
   const created = id === NEW_SERVICE || !existing;
   return {
     ...NEW_SERVICE_HOURS,
+    ...(created ? undefined : usualHours(config, id)),
     key: created ? `new-${services.length}-${Date.now()}` : id,
     venueServiceId: created ? null : id,
     scheduleServiceId: null,
@@ -193,19 +194,19 @@ function serviceRow(
 /** "+ Add service" with nothing chosen yet: the first service the venue has spare, else a new one. */
 export function nextServiceRow(
   services: readonly DraftService[],
-  venueServices: readonly VenueService[]
+  config: AvailabilityConfig
 ): DraftService {
-  const [first] = addableServices(services, venueServices);
-  return serviceRow(services, venueServices, first?.id ?? NEW_SERVICE);
+  const [first] = addableServices(services, config.venueServices);
+  return serviceRow(services, config, first?.id ?? NEW_SERVICE);
 }
 
 /** The services of a draft: hours, seating and booking type per row, plus add and remove. */
 export function ServicesEditor(props: ServicesEditorProps) {
-  const { services, venueServices, date, onChange } = props;
+  const { services, config, date, onChange } = props;
   const { t } = useTranslation();
 
-  const addable = addableServices(services, venueServices);
-  const add = (id: string) => onChange([...services, serviceRow(services, venueServices, id)]);
+  const addable = addableServices(services, config.venueServices);
+  const add = (id: string) => onChange([...services, serviceRow(services, config, id)]);
 
   return (
     <Stack gap="md">

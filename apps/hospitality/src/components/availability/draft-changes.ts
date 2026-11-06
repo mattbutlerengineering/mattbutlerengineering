@@ -260,6 +260,23 @@ function liveRegularWeek(config: AvailabilityConfig) {
   };
 }
 
+/**
+ * The hours a venue service usually runs, for a row an editor adds: its row in the live regular
+ * week, else its row in another live schedule. `undefined` for a service no schedule runs.
+ */
+export function usualHours(
+  config: AvailabilityConfig,
+  venueServiceId: string
+): SeedService | undefined {
+  const live = new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
+  const row =
+    liveRegularWeek(config)?.rows.find((r) => r.venueServiceId === venueServiceId) ??
+    config.scheduleServices.find(
+      (r) => r.venueServiceId === venueServiceId && live.has(r.scheduleId)
+    );
+  return row ? hoursOf(row) : undefined;
+}
+
 const rowKey = (row: Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours>) =>
   JSON.stringify([
     row.opensAt,

@@ -16,9 +16,8 @@ import { draftToLegacyHours } from "./quick-setup-draft.js";
 describe("QuickSetupHoursStep", () => {
   it("renders the new controls and the strip's local mode, with no venue to ask", () => {
     render(<QuickSetupHoursStep draft={demoDraft()} onChange={vi.fn()} />);
-    expect(screen.getAllByRole("button", { name: "Different days for this service" })).toHaveLength(
-      3
-    );
+    // Every demo service has its own days.
+    expect(screen.getAllByRole("button", { name: "Use the shared days" })).toHaveLength(3);
     expect(screen.getAllByRole("button", { name: "Different hours on some days" })).toHaveLength(3);
 
     const strip = screen.getByRole("complementary", { name: "Guest preview" });

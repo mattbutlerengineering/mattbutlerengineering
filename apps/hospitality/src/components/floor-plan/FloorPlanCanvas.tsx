@@ -161,11 +161,17 @@ export function FloorPlanCanvas({
     [readOnly, onTableMove]
   );
 
+  // Stable identity so TableShape's memo holds when the selection changes: the
+  // current selection is read from a ref instead of closed over.
+  const selectedTableIdRef = useRef(selectedTableId);
+  useEffect(() => {
+    selectedTableIdRef.current = selectedTableId;
+  }, [selectedTableId]);
   const handleSelect = useCallback(
     (tableId: string) => {
-      onTableSelect(selectedTableId === tableId ? null : tableId);
+      onTableSelect(selectedTableIdRef.current === tableId ? null : tableId);
     },
-    [selectedTableId, onTableSelect]
+    [onTableSelect]
   );
 
   // Stable identity so WallShape's memo holds across canvas re-renders.

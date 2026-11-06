@@ -160,18 +160,9 @@ export function ServiceRow({
             })}
           </Text>
         )}
-        <div>
-          <Button
-            ref={daysButtonRef}
-            variant="ghost"
-            size="sm"
-            aria-expanded={ownDays}
-            onClick={() => setOwnDays(!ownDays)}
-          >
-            {t("availability.quickSetup.differentDays")}
-          </Button>
-        </div>
-        {service.days !== null && (
+        {/* One control at a time: the opener while the service follows the shared Days, and
+            "Use the shared days" once it has its own (ux.md F1 3). */}
+        {ownDays ? (
           <>
             <div>
               <Button variant="ghost" size="sm" onClick={() => setOwnDays(false)}>
@@ -188,6 +179,12 @@ export function ServiceRow({
               problems={issuesFor(issues, service.id, "days")}
             />
           </>
+        ) : (
+          <div>
+            <Button ref={daysButtonRef} variant="ghost" size="sm" onClick={() => setOwnDays(true)}>
+              {t("availability.quickSetup.differentDays")}
+            </Button>
+          </div>
         )}
         <div>
           <Button ref={hoursButtonRef} variant="ghost" size="sm" onClick={addHours}>

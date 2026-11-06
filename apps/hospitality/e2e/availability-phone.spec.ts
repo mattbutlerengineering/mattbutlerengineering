@@ -327,7 +327,7 @@ test.describe("375 px: nothing scrolls sideways", () => {
   test("History and the schedule drawers take the whole screen", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await page.route(`${base}/availability/changes*`, (route) =>
-      route.fulfill(json({ items: [], total: 0 }))
+      route.fulfill(json({ items: [], total: 0, offset: 0 }))
     );
     await open(page);
     for (const item of ["History", "Change regular week…"]) {
@@ -509,7 +509,7 @@ test.describe("keyboard and focus", () => {
   }) => {
     await mockAvailability(page);
     await page.route(`${base}/availability/changes*`, (route) =>
-      route.fulfill(json({ items: [], total: 0 }))
+      route.fulfill(json({ items: [], total: 0, offset: 0 }))
     );
     await open(page);
     await (await moreMenu(page)).getByRole("menuitem", { name: "History" }).click();
