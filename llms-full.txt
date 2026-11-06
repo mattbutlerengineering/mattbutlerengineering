@@ -7495,7 +7495,7 @@
   <file path="apps/hospitality/src/components/availability/regular-week-line.ts">
     export interface LineHours {
       readonly opensAt: number;
-      readonly closesAt: number;
+      readonly lastSeatingAt: number;
     }
     export interface HoursChange extends LineHours {
       readonly weekdays: readonly number[];
@@ -7549,13 +7549,16 @@
             venueServiceId: row.venueServiceId,
             name,
             opensAt: row.opensAt,
-            closesAt: row.closesAt,
+            lastSeatingAt: row.lastSeatingAt,
             days: WEEK_DISPLAY_ORDER.filter((day) => week.days[day] !== null),
-            changes: row.dayHours.sets.map((set) => ({
-              weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
-              opensAt: set.opensAt,
-              closesAt: set.closesAt,
-            })),
+            changes: row.dayHours.sets
+              // A set that moves only the closing books the same times: nothing to say on this line.
+              .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+              .map((set) => ({
+                weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
+                opensAt: set.opensAt,
+                lastSeatingAt: set.lastSeatingAt,
+              })),
           },
         ];
       });
