@@ -38,6 +38,20 @@ describe("sentry heartbeat target registry", () => {
     }
   });
 
+  // The backend trigger needs a 429 within MAX_PROVOKE_REQUESTS (150). Health
+  // routes allow 600/min since #8271, so 150 requests never trip them (#8330).
+  // An unmatched path under the service prefix answers 404 from the global
+  // 100/min limiter instead.
+  it("points every backend target at an unmatched path, not the 600/min health route", () => {
+    const backends = TARGETS.filter((target) => target.kind === "backend");
+    expect(backends).toHaveLength(3);
+    for (const target of backends) {
+      const { pathname } = new URL(target.url);
+      expect(pathname).not.toMatch(/\/(health|ready)$/);
+      expect(pathname).toMatch(/\/health\/sentry-heartbeat$/);
+    }
+  });
+
   it("points every target at an https URL", () => {
     for (const target of TARGETS) expect(target.url).toMatch(/^https:\/\//);
   });

@@ -29277,11 +29277,8 @@
     
       return { record, snapshot };
     }
-    function normalizeRoute(request: FastifyRequest): string {
-      // Use the route pattern (e.g., "/api/v1/users/:id") not the actual URL
-      const routeUrl =
-        (request.routeOptions as { url?: string })?.url ?? request.url.split("?")[0] ?? request.url;
-      return routeUrl;
+    function normalizeRoute(request: FastifyRequest): string | undefined {
+      return (request.routeOptions as { url?: string })?.url;
     }
     async function errorRatePlugin(fastify: FastifyInstance): Promise<void> {
       const tracker = createErrorRateTracker();
@@ -29289,8 +29286,8 @@
       fastify.addHook("onResponse", async (request: FastifyRequest, reply: FastifyReply) => {
         const route = normalizeRoute(request);
     
-        // Skip health/docs endpoints
-        if (IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
+        // Skip unmatched routes and health/docs endpoints
+        if (route === undefined || IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
     
         tracker.record(route, reply.statusCode);
       });

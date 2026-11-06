@@ -121,9 +121,9 @@ in the page is captured.
 
   | id                 | kind    | how it is reached                                                                                                                                     | expected project        | `app` tag     |
   | ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- | ------------- |
-  | `users-api`        | backend | `https://api.mattbutlerengineering.com/api/v1/users/health`                                                                                           | `users-api`             | —             |
-  | `reservations-api` | backend | `…/api/v1/reservations/health`                                                                                                                        | `reservations-api`      | —             |
-  | `agent-api`        | backend | `…/api/gen/health`                                                                                                                                    | `agent-api`             | —             |
+  | `users-api`        | backend | `https://api.mattbutlerengineering.com/api/v1/users/health/sentry-heartbeat`                                                                          | `users-api`             | —             |
+  | `reservations-api` | backend | `…/api/v1/reservations/health/sentry-heartbeat`                                                                                                       | `reservations-api`      | —             |
+  | `agent-api`        | backend | `…/api/gen/health/sentry-heartbeat`                                                                                                                   | `agent-api`             | —             |
   | `hospitality`      | browser | `https://mattbutlerengineering.com/hospitality/reservations/manage` (public, unauthenticated, no Auth0 redirect; Implement confirms with a live load) | `hospitality`           | `hospitality` |
   | `marketing`        | browser | `https://mattbutlerengineering.com/`                                                                                                                  | `mattbutlerengineering` | `marketing`   |
   | `rialto-web`       | browser | `https://mattbutlerengineering.com/rialto/`                                                                                                           | `mattbutlerengineering` | `rialto-web`  |
