@@ -145,11 +145,15 @@ function DayBody({
                 <Text as="span" variant="caption" color="secondary">
                   {layerEffectText(layer, t, format)}
                 </Text>
-                <Text as="span" variant="caption" color="secondary">
-                  {t("availability.drawer.ifRemoved", {
-                    result: removalText(day, layer, format, t),
-                  })}
-                </Text>
+                {/* The regular week is the floor every other layer sits on: nothing done on a
+                    date removes it, so "If removed" would describe an action that does not exist. */}
+                {!layer.regularWeek && (
+                  <Text as="span" variant="caption" color="secondary">
+                    {t("availability.drawer.ifRemoved", {
+                      result: removalText(day, layer, format, t),
+                    })}
+                  </Text>
+                )}
                 {layerActions?.(layer)}
               </li>
             ))}

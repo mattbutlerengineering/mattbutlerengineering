@@ -23318,10 +23318,10 @@
     <item priority="low">
       interface LayerDetail {
         scheduleName?: string;
+        regularWeek?: true;
         hours?: LayerHoursService[];
         target?: LayerTarget;
         window?: { from: number; to: number };
-        skippedFrom?: LayerSeries;
       }
     </item>
     <item priority="high">
