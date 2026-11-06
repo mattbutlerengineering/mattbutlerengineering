@@ -92,7 +92,7 @@ describe("AuthProvider", () => {
     expect(props.scope).toBe("openid profile email offline_access");
   });
 
-  it("disables oidc-client-ts automaticSilentRenew so useAccessToken is the only renewer", () => {
+  it("leaves oidc-client-ts automaticSilentRenew at its default (the single renewer)", () => {
     render(
       <AuthProvider config={baseConfig}>
         <div />
@@ -100,7 +100,19 @@ describe("AuthProvider", () => {
     );
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(props.automaticSilentRenew).toBe(false);
+    expect(props.automaticSilentRenew).not.toBe(false);
+  });
+
+  it("revokes only the refresh token on sign-out", () => {
+    render(
+      <AuthProvider config={baseConfig}>
+        <div />
+      </AuthProvider>
+    );
+
+    const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(props.revokeTokensOnSignout).toBe(true);
+    expect(props.revokeTokenTypes).toEqual(["refresh_token"]);
   });
 
   it("uses custom scope when provided", () => {
