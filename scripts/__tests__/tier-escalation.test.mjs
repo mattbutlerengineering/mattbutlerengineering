@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  classifyPaths,
   countReviewSurfaceAdditions,
   decideSizeEscalation,
   decideKeywordEscalation,
@@ -162,5 +163,59 @@ describe("docs/change-tiers.md agrees with the module", () => {
   it("names every excluded-from-size pattern", () => {
     const doc = readFileSync(resolve(ROOT, "docs/change-tiers.md"), "utf8");
     for (const pattern of EXCLUDED_FROM_SIZE) expect(doc).toContain("`" + pattern + "`");
+  });
+});
+
+// #8398: the unmatched-path T2 default used to fire only when NO file matched,
+// so a T1-matching file (llms.txt, .md) beside real source downgraded the PR.
+describe("classifyPaths: per-file unmatched default (#8398)", () => {
+  it("markdown + unmatched code -> T2", () => {
+    const { tier, reasons } = classifyPaths(["docs/notes.md", "tools/unknown/thing.rs"]);
+    expect(tier).toBe(2);
+    expect(reasons.join(" ")).toMatch(/unmatched paths default to T2: tools\/unknown\/thing\.rs/);
+  });
+
+  it("markdown-only -> T1", () => {
+    expect(classifyPaths(["docs/notes.md", "README.md"]).tier).toBe(1);
+  });
+
+  it("a matched higher rule wins over T1 and unmatched files", () => {
+    expect(classifyPaths(["docs/notes.md", "tools/x.rs", "services/a/src/routes/r.ts"]).tier).toBe(
+      3
+    );
+    expect(classifyPaths(["a.md", "prisma/schema.prisma"]).tier).toBe(4);
+  });
+
+  it("#8378's real file list is T2+, not T1", () => {
+    const { tier } = classifyPaths([
+      "llms-full.txt",
+      "packages/sentry/llms-full.txt",
+      "packages/sentry/src/react.test.ts",
+      "packages/sentry/src/react.ts",
+      "scripts/__tests__/sentry-heartbeat-browser.test.mjs",
+      "scripts/sentry-heartbeat.mjs",
+    ]);
+    expect(tier).toBeGreaterThanOrEqual(2);
+  });
+
+  it("package source and scripts are classified by rule, not the unmatched default", () => {
+    for (const p of ["packages/types/src/a.ts", "scripts/foo.mjs"]) {
+      const { tier, reasons } = classifyPaths([p]);
+      expect(tier).toBe(2);
+      expect(reasons.join(" ")).not.toMatch(/unmatched/);
+    }
+  });
+
+  it("test-only and generated-only PRs stay T1", () => {
+    expect(classifyPaths(["packages/types/src/a.test.ts", "llms.txt"]).tier).toBe(1);
+    // .test.mjs is not in the T1 test-only rule; it stays at its existing T2.
+    expect(classifyPaths(["scripts/__tests__/a.test.mjs"]).tier).toBe(2);
+  });
+
+  it("escapes displayed paths via the show callback and caps unmatched list", () => {
+    const { reasons } = classifyPaths(["a\nb.rs", "c.rs", "d.rs", "e.rs"], (p) =>
+      p.replace(/\n/g, "\\n")
+    );
+    expect(reasons[0]).toBe("unmatched paths default to T2: a\\nb.rs, c.rs, d.rs…");
   });
 });

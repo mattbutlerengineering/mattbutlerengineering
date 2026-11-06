@@ -1007,3 +1007,19 @@ describe("tier-classifier path rules: merge-gate files are T4", () => {
     expect(tier).toBe(expected);
   });
 });
+
+// #8398: end-to-end through the workflow script, not just the policy module.
+describe("tier-classifier workflow: one T1 file cannot downgrade unmatched code (#8398)", () => {
+  it("llms.txt + package source -> tier:standard", () => {
+    const { label, reasons } = runClassifier({
+      files: ["llms-full.txt", "packages/sentry/src/react.ts"],
+    });
+    expect(label).toBe("tier:standard");
+    expect(reasons).toMatch(/package source/);
+  });
+
+  it("markdown + unmatched path -> tier:standard; markdown-only -> tier:trivial", () => {
+    expect(runClassifier({ files: ["docs/a.md", "tools/x.rs"] }).label).toBe("tier:standard");
+    expect(runClassifier({ files: ["docs/a.md"] }).label).toBe("tier:trivial");
+  });
+});

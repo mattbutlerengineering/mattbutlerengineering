@@ -15,6 +15,8 @@ Risk classification for pull requests in this monorepo. Used by the `tier-classi
 
 The classifier assigns the **highest tier** any matched rule produces. T4 wins over T3 wins over T2 wins over T1.
 
+Classification is **per file**, then the PR takes the highest file tier. A file matching **no** rule is T2 (code the table has never heard of needs a human), so generated, test or markdown files in the same diff can never lower a PR below what its other files need. Before #8398 the T2 default applied only when _no_ file in the PR matched, so a single `llms.txt` or `.md` next to real source produced `tier:trivial` (#8378, #8360). `packages/*/src/**` and `scripts/**` (non-test, non-markdown) are explicit T2 rules. The rule table and `classifyPaths` live in `scripts/tier-escalation.mjs`, loaded from the base branch.
+
 ## Classification rules
 
 Rules are evaluated against the PR diff. Each rule maps a path glob (or a structural property) to a tier.
