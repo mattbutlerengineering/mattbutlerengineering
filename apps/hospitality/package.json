@@ -55,14 +55,19 @@
       "limit": "2.9 kB"
     },
     {
-      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving')",
+      "name": "Conflict problem parsing (shared by the availability page, timeline, waitlist and call list chunks)",
+      "path": "dist/assets/conflict-problem-*.js",
+      "limit": "3 kB"
+    },
+    {
+      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list)",
       "path": "dist/assets/CallListDialog-*.js",
-      "limit": "10 kB"
+      "limit": "13.5 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
       "path": "dist/assets/close-draft-*.js",
-      "limit": "2.6 kB"
+      "limit": "3 kB"
     },
     {
       "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",

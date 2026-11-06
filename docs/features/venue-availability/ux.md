@@ -135,7 +135,7 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
 
 2. A **selection bar** appears: "6 dates selected · **Edit hours** · **Close…** · **Use schedule / another day's hours** · **Clear changes** · ✕". The selection count is announced politely.
 3. **Edit hours** opens the drawer with "You're changing: 6 selected dates" fixed, and the same services editor, preview, keep/replace and stranded handling as F2.
-4. **Close…** opens F5 with those dates pre-filled.
+4. **Close…** (Managers) opens F5 on **Several dates** with those dates pre-filled, as chips that can be removed or added to. One date opens on One date. It is shown only to Managers, beside Edit hours.
 
 ### F3: Schedules (PRD 6, 7, 9, 11, 12)
 
@@ -173,7 +173,8 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 3. **When:**
    - Tonight
    - One date
-   - Several dates (from a selection or picked here)
+   - Several dates (from a selection or picked here): a date picker adds one date at a time to a list of removable chips, up to 20 dates ("Close up to 20 dates at once."). Each date is stored as **one single-date closure rule**, all sent as one command that saves all or none (Owner decision, #7981). Special dates lists one row per date, and Undo, History, edit and reopen work per date. What, the start time, the staff note and the guest message are shared by every date.
+     With several dates the live count adds up across them, "Already closed" and "has special hours" warnings cover every date, and Step 2 asks one question per date, as in Add special date.
    - Date range
    - Repeats (e.g. "Every Monday, Jan 1 – Mar 31")
    - Until I reopen
