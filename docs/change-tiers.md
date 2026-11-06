@@ -15,6 +15,8 @@ Risk classification for pull requests in this monorepo. Used by the `tier-classi
 
 The classifier assigns the **highest tier** any matched rule produces. T4 wins over T3 wins over T2 wins over T1.
 
+Classification is **per file**, then the PR takes the highest file tier. A file matching **no** rule is T2 (code the table has never heard of needs a human), so generated, test or markdown files in the same diff can never lower a PR below what its other files need. Before #8398 the T2 default applied only when _no_ file in the PR matched, so a single `llms.txt` or `.md` next to real source produced `tier:trivial` (#8378, #8360). `packages/*/src/**` and `scripts/**` (non-test, non-markdown) are explicit T2 rules. The rule table and `classifyPaths` live in `scripts/tier-escalation.mjs`, loaded from the base branch.
+
 ## Classification rules
 
 Rules are evaluated against the PR diff. Each rule maps a path glob (or a structural property) to a tier.
@@ -59,7 +61,7 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 
 - Documentation-only changes: `*.md` outside `docs/SECURITY-AI.md`, `docs/change-tiers.md`, `docs/review-criteria.md`, and active ADRs.
 - Comment changes, JSDoc updates, README typo fixes.
-- Test-only additions (no production code change in the diff).
+- Test-only additions (no production code change in the diff): `*.test.ts|tsx|js|jsx`. `*.test.mjs`/`.cjs` under `scripts/` are T2 (`repo script`) by design.
 - Changeset additions (`.changeset/*.md`) that don't modify code.
 - Editor config: `.editorconfig`, `.vscode/*`, `.cursorrules` updates.
 - `metrics/*.jsonl` appends (these are append-only logs).

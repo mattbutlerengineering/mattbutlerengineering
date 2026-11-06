@@ -212,11 +212,112 @@ export function findDeployWorkflows(workflowsDir) {
  * issue filed. Same never-a-glob rationale as `DEPLOY_WORKFLOW_FILES`.
  */
 export const MAIN_PUSH_WORKFLOW_FILES = [
+  "adr-check.yml",
   "apps-visual.yml",
   "e2e-screenshots.yml",
+  "instruction-regression.yml",
+  "post-merge.yml",
+  "release.yml",
   "rialto-visual.yml",
   "rialto-web-e2e.yml",
+  "secret-scan.yml",
+  "storybook.yml",
 ];
+
+/**
+ * Workflows that push to `main` but deliberately need no streak watch, each
+ * mapped to the reason. Membership here is the ONLY sanctioned way for a
+ * push-to-main workflow to be absent from `MAIN_PUSH_WORKFLOW_FILES` --
+ * `findUnwatchedMainPushWorkflows()` reports anything in neither set, so the
+ * exemption is a decision someone has to write down rather than an omission.
+ */
+export const MAIN_PUSH_WATCH_EXEMPT_FILES = {
+  "ci.yml":
+    "CI Gate is the sole required check on main, so a red CI Gate blocks every " +
+    "merge and cannot sit red unnoticed (gotchas.md, ADR-027).",
+};
+
+/**
+ * Pure: true when `source` declares a `push:` trigger that can fire on `main`.
+ * Reads the parsed triggers, so every YAML form (flow list, block list, scalar
+ * `on: push`) is handled identically.
+ *
+ * Fails CLOSED on an unfiltered push. `on: push` with no `branches` fires on
+ * every branch, `main` included, so it qualifies -- reading it as "not a
+ * main-push workflow" would leave it watched by nothing and reported by
+ * nothing, which is the exact silent gap this arm exists to close. Only an
+ * explicit filter that excludes `main` makes it false.
+ *
+ * Filters are read through `asList`, so a scalar (`branches: main`) and a
+ * sequence (`branches: [main]`) take the same path and cannot drift apart.
+ *
+ * @param {string} source
+ * @returns {boolean}
+ */
+export function hasMainPushTrigger(source) {
+  const { push } = parseWorkflow(source).on;
+  if (push == null) return false;
+
+  const branches = asList(push.branches);
+  if (branches.length > 0) return branches.includes("main");
+
+  const ignored = asList(push["branches-ignore"]);
+  if (ignored.length > 0) return !ignored.includes("main");
+
+  // A tag filter with no branch filter fires only for matching tags, never on
+  // a branch push -- so it is not a main-push workflow, and reporting it as
+  // one would make this guard cry wolf on the next tag-triggered workflow.
+  if (asList(push.tags).length > 0 || asList(push["tags-ignore"]).length > 0) return false;
+
+  return true;
+}
+
+/** A YAML field that may be written as a scalar or a sequence, as a list. */
+function asList(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+/**
+ * The completeness guard for the main-push arm (#7601).
+ *
+ * The three watch lists are explicit by design, but nothing asserted that
+ * every QUALIFYING workflow had joined one: `rialto-web-e2e.yml` was in none
+ * of them and sat red on `main` for 5d 8h across 28 runs while the same
+ * detector filed issues for its listed siblings. Fixing that by appending one
+ * file left the next new advisory workflow free to repeat it.
+ *
+ * Returns every workflow that pushes to `main`, carries no `schedule:`
+ * trigger, is not a deploy workflow, and is in neither
+ * `MAIN_PUSH_WORKFLOW_FILES` nor `MAIN_PUSH_WATCH_EXEMPT_FILES` -- i.e. every
+ * workflow that can currently stay red on `main` with no issue filed. A test
+ * asserts this is empty against the real `.github/workflows`, so a new
+ * advisory workflow fails CI until it is watched or exempted on purpose.
+ *
+ * @param {string} workflowsDir
+ * @returns {Array<{name: string, file: string, path: string}>}
+ */
+export function findUnwatchedMainPushWorkflows(workflowsDir) {
+  return readdirSync(workflowsDir)
+    .filter((file) => /\.ya?ml$/.test(file))
+    .filter(
+      (file) =>
+        !MAIN_PUSH_WORKFLOW_FILES.includes(file) &&
+        !DEPLOY_WORKFLOW_FILES.includes(file) &&
+        !(file in MAIN_PUSH_WATCH_EXEMPT_FILES)
+    )
+    .map((file) => ({ file, source: readFileSync(join(workflowsDir, file), "utf-8") }))
+    .filter(({ source }) => hasMainPushTrigger(source) && !hasScheduleTrigger(source))
+    .map(({ file, source }) => {
+      const nameMatch = WORKFLOW_NAME_PATTERN.exec(source);
+      return {
+        name: nameMatch ? nameMatch[1].trim() : file,
+        file,
+        path: `.github/workflows/${file}`,
+      };
+    })
+    .sort((a, b) => a.file.localeCompare(b.file));
+}
 
 /** Mirrors `findDeployWorkflows` for `MAIN_PUSH_WORKFLOW_FILES`. */
 export function findMainPushWorkflows(workflowsDir) {

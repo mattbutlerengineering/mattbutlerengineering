@@ -137,8 +137,10 @@ export function ConflictReviewPanel(props: {
   readonly onDiscard: () => void;
   /** Replaces the title for surfaces that span several schedules. */
   readonly title?: string;
+  /** Other schedules the Manager ticked in Also apply to, changed or removed by the winning save. */
+  readonly alsoApply?: { readonly changed: readonly string[]; readonly removed: readonly string[] };
 }) {
-  const { review, onReapply, onDiscard } = props;
+  const { review, onReapply, onDiscard, alsoApply } = props;
   const { loaded, changes, kind } = review;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -180,6 +182,12 @@ export function ConflictReviewPanel(props: {
       t("availabilitySchedules.conflictReview.removed", { names: list(changes.removed) }),
     changes.changed.length > 0 &&
       t("availabilitySchedules.conflictReview.changed", { names: list(changes.changed) }),
+    alsoApply !== undefined &&
+      alsoApply.changed.length > 0 &&
+      t("availabilitySchedules.conflictReview.alsoChanged", { names: list(alsoApply.changed) }),
+    alsoApply !== undefined &&
+      alsoApply.removed.length > 0 &&
+      t("availabilitySchedules.conflictReview.alsoRemoved", { names: list(alsoApply.removed) }),
   ].filter((line): line is string => line !== false);
 
   return (

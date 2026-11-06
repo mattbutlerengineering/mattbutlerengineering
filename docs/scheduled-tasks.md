@@ -14,7 +14,7 @@ than auto-merging.
 - Routines can be deleted via the API (`delete_trigger`) — see
   [Editing a routine](#editing-a-routine) below — or disabled in the web UI.
 
-All times below are **America/Los_Angeles (PT)**; cron expressions are stored in UTC.
+All times below are **America/Los_Angeles (PT)**. The `Cron (UTC)` column below is a plain-UTC conversion computed at doc-writing time, but at least `mbe-doc-rot`, `mbe-weekly-improve` and `mbe-morning` are now stored live as DST-aware `CRON_TZ=America/Los_Angeles` expressions (verified 2026-11-06, all three converted 2026-11-04) rather than plain UTC — so those `Cron (UTC)` values are off by an hour during PST (winter). The sub-hourly offset routines (`mbe-feature-drain`, `mbe-prune`) are unaffected since they don't depend on a timezone. See [#8411](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8411) for reconciling the rest of the table and the `docs/routines/*.md` frontmatter against live state.
 
 ## Recreated 2026-07-30 (account migration)
 

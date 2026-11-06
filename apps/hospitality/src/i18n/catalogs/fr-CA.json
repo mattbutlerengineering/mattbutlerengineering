@@ -1966,6 +1966,9 @@
     "impact_one": "S’applique à {{count}} date à venir",
     "impact_other": "S’applique à {{count}} dates à venir",
     "impact_many": "S’applique à {{count}} de dates à venir",
+    "alsoApply": {
+      "legend": "Appliquer aussi à {{service}} dans :"
+    },
     "ownChanges_one": "{{count}} date a déjà ses propres changements",
     "ownChanges_other": "{{count}} dates ont déjà leurs propres changements",
     "ownChanges_many": "{{count}} de dates ont déjà leurs propres changements",
@@ -1976,6 +1979,8 @@
       "title": "Abandonner vos modifications ?"
     },
     "conflictReview": {
+      "alsoChanged": "Appliquer aussi à : {{names}} a changé en premier",
+      "alsoRemoved": "Appliquer aussi à : {{names}} n’offre plus ce service",
       "title": "Quelqu’un a modifié cet horaire avant vous",
       "loading": "Chargement de la dernière version…",
       "gone": "Cet horaire a été supprimé; vos modifications ne peuvent pas être enregistrées. Abandonnez-les pour fermer.",
@@ -2638,6 +2643,12 @@
         "range": "Plage de dates",
         "repeats": "Se répète",
         "untilReopen": "Jusqu'à la réouverture",
+        "dates": "Plusieurs dates",
+        "addDateLabel": "Ajouter une date",
+        "picked": "Dates à fermer",
+        "datesHint": "Jusqu'à {{max}} dates, une fermeture par date.",
+        "datesRequired": "Choisissez au moins une date.",
+        "datesTooMany": "Fermez jusqu'à {{max}} dates à la fois.",
         "dateLabel": "Date",
         "startingLabel": "À partir du",
         "fromLabel": "Du",
@@ -2665,6 +2676,9 @@
       "guestsWillSeeMessage": "Les clients verront : {{date}} · {{status}} · « {{message}} »",
       "button": {
         "close": "Fermer le {{date}}",
+        "closeMany_one": "Fermer {{count}} date",
+        "closeMany_other": "Fermer {{count}} dates",
+        "closeMany_many": "Fermer {{count}} dates",
         "pause": "Suspendre les réservations en ligne",
         "cancel_one": "Fermer et annuler {{count}}",
         "cancel_other": "Fermer et annuler {{count}}",
@@ -2704,7 +2718,16 @@
         "bookingPaused": "Réservations en pause le {{date}}",
         "notified_one": "{{date}} fermé · {{count}} réservation avisée",
         "notified_other": "{{date}} fermé · {{count}} réservations avisées",
-        "notified_many": "{{date}} fermé · {{count}} réservations avisées"
+        "notified_many": "{{date}} fermé · {{count}} réservations avisées",
+        "many_one": "{{count}} date fermée",
+        "many_other": "{{count}} dates fermées",
+        "many_many": "{{count}} dates fermées",
+        "manyNotified_one": "{{count}} date fermée · {{notified}} réservation avisée",
+        "manyNotified_other": "{{count}} dates fermées · {{notified}} réservations avisées",
+        "manyNotified_many": "{{count}} dates fermées · {{notified}} réservations avisées",
+        "manyBookingPaused_one": "Réservations en pause pour {{count}} date",
+        "manyBookingPaused_other": "Réservations en pause pour {{count}} dates",
+        "manyBookingPaused_many": "Réservations en pause pour {{count}} dates"
       },
       "step2": {
         "urgent": "Urgent : les clients recevront un texto et un courriel",
@@ -2791,6 +2814,7 @@
       "count_other": "{{count}} dates sélectionnées",
       "count_many": "{{count}} dates sélectionnées",
       "editHours": "Modifier les heures",
+      "close": "Fermer…",
       "clear": "Effacer la sélection",
       "selectMenu": "Sélectionner…",
       "weekdayInMonth": "Chaque {{weekday}} de {{month}}",
