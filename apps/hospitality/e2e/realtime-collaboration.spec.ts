@@ -13,8 +13,8 @@
  *
  * This spec uses the SSE-event-injection variant:
  * - Context A performs a real walk-in via the existing dialog UI (API mock handles it).
- * - Context B's EventSource stub (injected by mockApi's addInitScript) is pre-configured
- *   via window.__fakeSSEConfig to dispatch a `reservation:created` event immediately after
+ * - Context B's mocked SSE stream is pre-configured
+ *   via mockApi's `sse.setEvents` to dispatch a `reservation:created` event immediately after
  *   onopen fires, simulating reception of the broadcast that would come from the server.
  * - Context B's reservations API is configured to return the updated list (with the
  *   new walk-in) so the `invalidateReservations()` refetch triggered by the SSE event
@@ -118,9 +118,9 @@ const test = base.extend<{
     const page = await contextB.newPage();
 
     // Apply standard API mocks first, then configure SSE event injection + reservations for Context B.
-    await mockApi(page);
+    const sse = await mockApi(page);
 
-    // Pre-configure the EventSource stub (set up by mockApi's addInitScript) to dispatch a
+    // Pre-configure the mocked SSE stream to dispatch a
     // reservation:created event immediately after onopen. This simulates the SSE broadcast
     // that would arrive from the server when Context A creates a walk-in.
     const ssePayload = {
@@ -129,9 +129,7 @@ const test = base.extend<{
       timestamp: new Date().toISOString(),
       data: WALKIN_RESERVATION,
     };
-    await page.addInitScript(
-      `window.__fakeSSEConfig = { events: [{ type: "reservation:created", data: ${JSON.stringify(ssePayload)} }] };`
-    );
+    sse.setEvents([{ type: "reservation:created", data: ssePayload }]);
 
     // Override reservations endpoint: return updated list (includes new walk-in)
     // so the query invalidation triggered by the SSE event fetches correct data.

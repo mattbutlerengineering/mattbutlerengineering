@@ -275,7 +275,6 @@ test.describe("Offline-first shell (#4189)", () => {
   }) => {
     await mockApi(page);
     await mockTableStatusesSuccess(page, "available");
-    await page.addInitScript(`window.__fakeSSEConfig = { events: [] };`);
 
     // ── Phase 1: online — prime both caches ──────────────────────────
     await page.goto("timeline");

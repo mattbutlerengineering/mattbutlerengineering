@@ -2481,8 +2481,14 @@
     <item priority="low">
       async function mockMenus(page: Page): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      type SseEventEntry = { type: string; data: unknown };
+    </item>
+    <item priority="low">
+      type SseMock = { setEvents: (events: readonly SseEventEntry[]) => void };
+    </item>
     <item priority="high">
-      export async function mockApi(page: Page): Promise<void> { /* ... */ }
+      export async function mockApi(page: Page): Promise<SseMock> { /* ... */ }
     </item>
     <item priority="medium">
       function buildAvailabilityConfigFixture() { /* ... */ }
