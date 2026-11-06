@@ -32,13 +32,20 @@ permissions:
   pull-requests: read
 
 concurrency:
-  group: nightly-compliance
+  # Split per event: scheduled-workflow-health counts this workflow's `cancelled`
+  # runs as timeouts (#8376), so a manual dispatch must never supersede the cron run.
+  group: nightly-compliance-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Measured (#8376): the two passing runs (10-27, 11-01) spent 12.4-15 min
+    # in "Lint, typecheck, test" and 3-4.5 min in the ACMM audit, ~17-21 min
+    # end to end on a cold cache, so 20 was a knife-edge and 11 of 12 nights
+    # were cancelled. The turbo caches below cut lint/typecheck; 35 leaves
+    # headroom for a cold night without hiding a genuine hang.
+    timeout-minutes: 35
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -58,6 +65,21 @@ jobs:
 
       - name: Install
         run: pnpm install --frozen-lockfile
+
+      # Same turbo cache wiring as ci.yml (#3388, #4504): this job ran every
+      # lint/typecheck/test task cold each night. Lint and typecheck replay
+      # from the CI jobs' main-branch cache; `test` is a different task from
+      # CI's `test:coverage`, so it still runs but benefits from cached builds.
+      - name: Cache for Turbo
+        uses: rharkor/caching-for-turbo@760158c05c47e7a764f78e9a22ca3b5a6ed8c52e # v2.5.2
+
+      - name: Restore turbo local cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo/cache
+          key: ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-${{ hashFiles('pnpm-lock.yaml') }}-
 
       - name: Lint, typecheck, test
         id: build

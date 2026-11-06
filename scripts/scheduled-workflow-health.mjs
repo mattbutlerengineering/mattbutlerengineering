@@ -48,6 +48,17 @@ export const DEFAULT_THRESHOLD = 3;
 const EXCLUDED_CONCLUSIONS = new Set(["cancelled", "skipped"]);
 
 /**
+ * Workflow files whose `cancelled` conclusion means "the job hit its
+ * `timeout-minutes`", not "superseded". GitHub reports a timed-out job as
+ * `cancelled`, which the streak detector otherwise ignores, so
+ * `nightly-compliance.yml` was cancelled on 11 of 12 nights with no issue
+ * filed (#8376). Only list a workflow here if nothing else cancels its
+ * scheduled runs: give it a per-event concurrency group so a dispatch never
+ * supersedes the scheduled run (pinned by nightly-compliance-workflow.test.mjs).
+ */
+export const CANCELLED_IS_FAILURE_WORKFLOW_FILES = ["nightly-compliance.yml"];
+
+/**
  * True when the workflow file changed after every failing run in the window —
  * i.e. the evidence predates the fix, so the streak says nothing about the
  * workflow's current state.
@@ -94,6 +105,7 @@ export function classifyScheduledWorkflowHealth({
   runs,
   threshold = DEFAULT_THRESHOLD,
   workflowModifiedAt,
+  cancelledCountsAsFailure = false,
 }) {
   // Every comparison against NaN is false, so an unvalidated threshold does not
   // fail loudly — it falls through to `slice(0, NaN)` → [] → `[].every(...)`,
@@ -103,14 +115,19 @@ export function classifyScheduledWorkflowHealth({
   const effectiveThreshold =
     Number.isInteger(threshold) && threshold > 0 ? threshold : DEFAULT_THRESHOLD;
 
-  const relevant = (runs ?? []).filter((run) => !EXCLUDED_CONCLUSIONS.has(run?.conclusion));
+  const isFailure = (run) =>
+    run.conclusion === "failure" || (cancelledCountsAsFailure && run.conclusion === "cancelled");
+  const relevant = (runs ?? []).filter(
+    (run) =>
+      !EXCLUDED_CONCLUSIONS.has(run?.conclusion) || (cancelledCountsAsFailure && isFailure(run))
+  );
 
   if (relevant.length < effectiveThreshold) {
     return { status: "insufficient-history", streak: relevant.length, failingRuns: [] };
   }
 
   const window = relevant.slice(0, effectiveThreshold);
-  const isFailingStreak = window.every((run) => run.conclusion === "failure");
+  const isFailingStreak = window.every(isFailure);
 
   if (!isFailingStreak) {
     return { status: "healthy", streak: 0, failingRuns: [] };
@@ -547,6 +564,7 @@ export function buildScheduledFailureBody({
   runs,
   workflowModifiedAt,
   kind = "scheduled",
+  cancelledCountsAsFailure = false,
 }) {
   const runLines = (runs ?? [])
     .map((run) => `- ${run.url ?? "(no url)"}${run.createdAt ? ` (${run.createdAt})` : ""}`)
@@ -565,13 +583,16 @@ export function buildScheduledFailureBody({
         ? "consecutive runs"
         : "consecutive scheduled runs";
   const workflowNoun = kind === "scheduled" ? "scheduled workflow" : "workflow";
+  const streakRule = cancelledCountsAsFailure
+    ? "For this workflow `cancelled` runs (job timeouts) count toward this streak; `skipped` runs are excluded"
+    : "Runs with conclusion `cancelled` or `skipped` are excluded from this streak";
 
   return `\`${workflowPath}\` has failed its last ${streak} ${runsNoun}.
 ${modifiedLine}
 ### Failing runs
 ${runLines}
 
-**Action Required:** investigate why this ${workflowNoun} is failing and fix the root cause. Runs with conclusion \`cancelled\` or \`skipped\` are excluded from this streak — see .claude/rules/gotchas.md.`;
+**Action Required:** investigate why this ${workflowNoun} is failing and fix the root cause. ${streakRule} — see .claude/rules/gotchas.md.`;
 }
 
 /** Pure: `buildScheduledFailureBody` with `kind: "deploy"` wording. */
@@ -611,7 +632,15 @@ export function runScheduledWorkflowHealthCheck({
   return workflows.map((workflow) => {
     const runs = getRuns(workflow.name);
     const workflowModifiedAt = getWorkflowModifiedAt(workflow.path);
-    const health = classifyScheduledWorkflowHealth({ runs, threshold, workflowModifiedAt });
+    const cancelledCountsAsFailure = CANCELLED_IS_FAILURE_WORKFLOW_FILES.some((file) =>
+      workflow.path?.endsWith(`/${file}`)
+    );
+    const health = classifyScheduledWorkflowHealth({
+      runs,
+      threshold,
+      workflowModifiedAt,
+      cancelledCountsAsFailure,
+    });
 
     if (health.status === "awaiting-rerun") {
       // Deliberately logged rather than silent: this is a suppressed
@@ -641,6 +670,7 @@ export function runScheduledWorkflowHealthCheck({
       runs: health.failingRuns,
       workflowModifiedAt,
       kind,
+      cancelledCountsAsFailure,
     });
     const labels = ["ci-fix", COORDINATION_LABELS.READY];
 
