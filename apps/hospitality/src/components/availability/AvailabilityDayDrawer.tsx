@@ -301,7 +301,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
         {/* The day's other actions, one row of equals under its hours: none outweighs Edit. */}
         {viewerRole === "manager" && editing && !picked && (
           <div className={styles.dayActions}>
-            {editing.onCloseDay && (
+            {/* Nothing to close on a day already shut or over; the toolbar's Close… still reaches
+                ranges that start on one. */}
+            {editing.onCloseDay && date >= editing.today && day.services.length > 0 && (
               <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
                 {t("availability.close.open")}
               </Button>
