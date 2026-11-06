@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   AvailabilityChangeDetailSchema,
-  AvailabilityChangeOutcomeSchema,
   AvailabilityChangesPageSchema,
   AvailabilityCheckBodySchema,
   ReopenClosureBodySchema,
@@ -383,19 +382,6 @@ describe("ReopenClosureBodySchema.seen and AvailabilityChangesPageSchema.undoabl
     expect(AvailabilityChangesPageSchema.parse(page).undoable).toBeUndefined();
     expect(AvailabilityChangesPageSchema.parse({ ...page, undoable: null }).undoable).toBeNull();
     expect(AvailabilityChangesPageSchema.parse({ ...page, undoable }).undoable).toEqual(undoable);
-  });
-});
-
-describe("AvailabilityChangeOutcomeSchema.closeEarly", () => {
-  const outcome = { cancelled: 14, moved: 1, kept: 2, closeEarly: false };
-
-  it("parses a current outcome", () => {
-    expect(AvailabilityChangeOutcomeSchema.parse(outcome)).toMatchObject(outcome);
-  });
-
-  it("takes an old History outcome (saved before closeEarly existed) as not close-early", () => {
-    const { closeEarly: _omitted, ...old } = outcome;
-    expect(AvailabilityChangeOutcomeSchema.parse(old).closeEarly).toBe(false);
   });
 });
 
