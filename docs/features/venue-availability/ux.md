@@ -90,7 +90,7 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
 
 1. **Availability → Calendar → Month** (S2). Each day cell shows its schedule name ("Weekend"), "Closed", or "Special hours", plus a closure band where part of the day is closed and a "3 services" count for busy venues.
    - Above the grid: a week summary for the visible week ("This week: open 5 days · 1 closure · online booking on"), prev/next/Today, Month | Week, a Services filter (venues with 2+ services) and **Change regular week…**.
-   - **Services filter** (only when the venue has 2+ active services): "All services" or one service. It narrows how days _read_, in the grid, the agenda and the week summary, and never changes what a date or the drawer holds. Each cell shows that service's name and times and only the closure bands that overlap its hours (a 10–11 PM closure shows under Dinner, not Lunch; a whole-day closure of the venue shows under every service, and a closure of one service, even a whole-day one, shows under that service only). A day the service does not run reads "No Dinner" in the closed style, a day closed for the whole venue still reads "Closed", and the week summary counts that service's open days and closures and names it ("This week, Dinner: open 4 days · online booking on"). Online booking on/off is the day's own and is not narrowed. The choice is a view, not saved: it resets to All when the venue changes or the page reloads.
+   - **Services filter** (only when the venue has 2+ active services): it sits beside the week summary it narrows, not in the button row, which has no width to spare at 1280; on a phone it has its own row under Month | Week. "All services" or one service. It narrows how days _read_, in the grid, the agenda and the week summary, and never changes what a date or the drawer holds. Each cell shows that service's name and times and only the closure bands that overlap its hours (a 10–11 PM closure shows under Dinner, not Lunch; a whole-day closure of the venue shows under every service, and a closure of one service, even a whole-day one, shows under that service only). A day the service does not run reads "No Dinner" in the closed style, a day closed for the whole venue still reads "Closed", and the week summary counts that service's open days and closures and names it ("This week, Dinner: open 4 days · online booking on"). Online booking on/off is the day's own and is not narrowed. The choice is a view, not saved: it resets to All when the venue changes or the page reloads.
    - "Venue time (Pacific)" appears when the device's time zone differs.
 2. Activating a day opens the **day drawer** (S3). It reads top to bottom:
    - **Plain summary.** "Open for lunch and dinner. One change from your regular Friday." When the day carries a message for guests, it follows in the Manager's words: "Message for guests: “Closed for a private event”". The booking widget shows that message only on a day with no online seatings left, so the drawer names it as the message, not as what guests see. A closure or special-hours layer below carries its staff note ("Staff note: Smith wedding"), for a Host as for a Manager.
@@ -408,8 +408,8 @@ After tapping [Dinner] and [Weekdays]:
 
 ```
 Availability   [Calendar] Special dates  Schedules*        ⋯ History · Go to date · Create another schedule
-This week: open 5 days · 1 closure · online booking on            Venue time (Pacific)
-[◂] October 2026 [▸] [Today]   (Month|Week)  Services [All ▾]  [Select… ▾] [Change regular week…] [Close…]
+This week: open 5 days · 1 closure · online booking on   [All services ▾]   Venue time (Pacific)
+[◂] October 2026 [▸] [Today]   (Month|Week)  [Select… ▾] [Change regular week…] [Close…]
 ┌ Mon ───── Tue ───── Wed ───── Thu ───── Fri ───── Sat ───── Sun ─────┐
 │ Closed    Weeknight Weeknight Weeknight Weekend   Weekend   Closed   │
 │           Special hrs                   ▬ part closed                │

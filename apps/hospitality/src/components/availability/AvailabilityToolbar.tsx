@@ -5,12 +5,12 @@ import {
   DropdownMenu,
   IconButton,
   SegmentedControl,
-  Select,
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { Viewport } from "../../hooks/useViewport.js";
 import type { CalendarView } from "./calendar-dates.js";
 import type { ServiceFilter } from "./service-filter.js";
+import { ServicesFilterSelect } from "./ServicesFilterSelect.js";
 import styles from "./AvailabilityToolbar.module.css";
 
 type MenuItems = ComponentProps<typeof DropdownMenu>["items"];
@@ -36,7 +36,7 @@ export interface AvailabilityToolbarProps {
   /** Absent as above: the schedule actions the page's controls hold on a wider screen. */
   readonly onChangeRegularWeek?: () => void;
   readonly onCreateSchedule?: () => void;
-  /** The services the Services filter offers; empty (or absent) hides it, for a venue with one. */
+  /** Phone only: the services the Services filter offers; empty (or absent) hides it. */
   readonly services?: readonly ServiceFilter[];
   /** The service the calendar reads for, or `null` for all. */
   readonly serviceFilterId?: string | null;
@@ -54,9 +54,6 @@ function afterMenuCloses(open: () => void) {
     requestAnimationFrame(open);
   };
 }
-
-/** The filter's "no filter" option; a service id never takes this shape. */
-const ALL_SERVICES = "all";
 
 const DIVIDER: MenuEntry = { type: "divider" };
 
@@ -83,20 +80,15 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
     : [];
 
   const { services = [], serviceFilterId = null, onServiceFilterChange } = props;
-  const serviceFilter =
-    services.length > 0 && onServiceFilterChange ? (
-      <div className={styles.serviceFilter}>
-        <Select
-          aria-label={t("availability.toolbar.servicesFilter")}
-          value={serviceFilterId ?? ALL_SERVICES}
-          options={[
-            { value: ALL_SERVICES, label: t("availability.toolbar.allServices") },
-            ...services.map((s) => ({ value: s.id, label: s.name })),
-          ]}
-          onChange={(id) => onServiceFilterChange(id === ALL_SERVICES ? null : id)}
-        />
-      </div>
-    ) : null;
+  // A phone's toolbar holds the filter on a row of its own; wider screens put it beside the week
+  // summary (AvailabilityPage), where the toolbar has no width to spare.
+  const serviceFilter = onServiceFilterChange ? (
+    <ServicesFilterSelect
+      services={services}
+      value={serviceFilterId}
+      onChange={onServiceFilterChange}
+    />
+  ) : null;
 
   const dateNavigation = (
     <div className={styles.group}>
@@ -209,7 +201,6 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
     <div className={styles.toolbar}>
       {dateNavigation}
       {viewSwitch}
-      {serviceFilter}
       <div className={styles.actions}>
         <DropdownMenu
           align="right"

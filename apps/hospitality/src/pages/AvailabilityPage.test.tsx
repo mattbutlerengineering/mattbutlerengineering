@@ -1203,6 +1203,43 @@ describe("AvailabilityPage Services filter (#7981)", () => {
     vi.useRealTimers();
   });
 
+  it("sits beside the week summary, not in the toolbar that has no width to spare", () => {
+    renderPage();
+    const filter = screen.getByRole("combobox", { name: "Services" });
+    const summary = screen.getByText(/This week: open/);
+    expect(summary.parentElement).toContainElement(filter);
+    expect(
+      screen.getByRole("radio", { name: "Week" }).closest("div")?.parentElement
+    ).not.toContainElement(filter);
+  });
+
+  describe("on a phone", () => {
+    beforeEach(() => {
+      window.matchMedia = vi.fn((query: string) => {
+        const max = /\(max-width:\s*(\d+)px\)/.exec(query);
+        return {
+          media: query,
+          matches: max ? 375 <= Number(max[1]) : false,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        };
+      }) as unknown as typeof window.matchMedia;
+    });
+
+    afterEach(() => {
+      Reflect.deleteProperty(window, "matchMedia");
+    });
+
+    it("sits in the toolbar, once", () => {
+      renderPage();
+      expect(screen.getAllByRole("combobox", { name: "Services" })).toHaveLength(1);
+      const summary = screen.getByText(/This week: open/);
+      expect(summary.parentElement).not.toContainElement(
+        screen.getByRole("combobox", { name: "Services" })
+      );
+    });
+  });
+
   it("is not offered to a venue with one service", () => {
     serviceList.value = [{ id: "vs1", name: "Dinner", position: 0 }];
     renderPage();
