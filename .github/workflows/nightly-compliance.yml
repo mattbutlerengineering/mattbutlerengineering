@@ -38,7 +38,7 @@ concurrency:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 50
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -86,9 +86,18 @@ jobs:
               # with the timeout landing on whichever package lost the CPU
               # race, `packages/rialto` on 09-10/09-11, `apps/rialto-web` for
               # the eight nights after, `packages/rialto` again on 09-20.
+              # Each command carries its own `timeout` (#8376). The job budget
+              # used to be the only bound: 11 of 12 nights hit the 20-minute
+              # job limit inside this step (a green night measured ~15 min),
+              # and a job-timeout kill concludes `cancelled`, which the
+              # scheduled-workflow health detector excludes from its streak,
+              # so the scan went dark for ~12 days unreported. A command that
+              # overruns now exits 124, lands as `✗ ... FAILED` below, and is
+              # filed as drift. 20m + 10m + 10m + gating/ACMM (~10m) fits the
+              # 50-minute job limit.
               case "$cmd" in
-                test) argv=(pnpm exec turbo run test --concurrency=2) ;;
-                *) argv=(pnpm "$cmd") ;;
+                test) argv=(timeout 20m pnpm exec turbo run test --concurrency=2) ;;
+                *) argv=(timeout 10m pnpm "$cmd") ;;
               esac
               if "${argv[@]}" > "/tmp/$cmd.out" 2>&1; then
                 echo "- ✓ \`pnpm $cmd\` passed"

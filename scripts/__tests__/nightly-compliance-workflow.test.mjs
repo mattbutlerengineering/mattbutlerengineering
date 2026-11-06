@@ -307,3 +307,31 @@ describe("nightly-compliance.yml Close superseded nightly-compliance issues step
     expect(closeStep.if).toMatch(/steps\.file-issue\.outputs\.issue-number != ''/);
   });
 });
+
+describe("nightly-compliance.yml timeout visibility (#8376)", () => {
+  // The scan was cancelled on 11 of 12 nights because the job-level timeout
+  // killed the whole job inside `Lint, typecheck, test`. A job-timeout
+  // conclusion is `cancelled`, which the failure-streak detector excludes, so
+  // nothing reported it. A per-command `timeout` turns a hang into an ordinary
+  // `✗ ... FAILED` line that the drift step files an issue for.
+  const step = stepNamed("Lint, typecheck, test").run;
+
+  it("bounds every lint/typecheck/test command with its own timeout", () => {
+    const argvLines = stripComments(step)
+      .split("\n")
+      .filter((l) => /^\s*(test\)|\*\))\s*argv=/.test(l));
+    expect(argvLines).toHaveLength(2);
+    for (const line of argvLines) expect(line).toMatch(/argv=\(timeout \d+m /);
+  });
+
+  it("gives the job more headroom than the 20 minutes that cancelled 11 of 12 nights", () => {
+    const job = Object.values(WORKFLOW.jobs)[0];
+    expect(job["timeout-minutes"]).toBeGreaterThanOrEqual(45);
+  });
+
+  it("is covered by the scheduled-workflow health detector", async () => {
+    const { findScheduledWorkflows } = await import("../scheduled-workflow-health.mjs");
+    const files = findScheduledWorkflows(resolve(ROOT, ".github/workflows")).map((w) => w.file);
+    expect(files).toContain("nightly-compliance.yml");
+  });
+});
