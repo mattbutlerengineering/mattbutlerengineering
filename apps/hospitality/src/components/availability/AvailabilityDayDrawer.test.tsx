@@ -91,14 +91,15 @@ describe("AvailabilityDayDrawer", () => {
     expect(within(dialog).getByText("3 changes from your regular Friday.")).toBeInTheDocument();
   });
 
-  it("lists the layer stack bottom-up, each with what removing it would do", () => {
+  it("lists the layer stack bottom-up, each change with what removing it would do", () => {
     renderDrawer();
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "Why this day" })).toBeInTheDocument();
     const layers = within(dialog).getAllByRole("listitem");
     expect(layers.map((l) => l.querySelector("[data-layer-label]")?.textContent)).toHaveLength(4);
     const removed = layers.map((l) => l.textContent ?? "");
-    expect(removed[0]).toContain("If removed: no change to this day");
+    // The regular week is the floor: nothing on a date removes it, so it says nothing of removal.
+    expect(removed[0]).not.toContain("If removed");
     expect(removed[1]).toContain(
       "If removed: Dinner back to 11:00 PM and Dinner last seating 9:00 PM"
     );

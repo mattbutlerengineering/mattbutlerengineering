@@ -35,6 +35,8 @@ export type LayerTonight =
 export interface LayerDetail {
   /** `schedule` and `use_schedule`: the schedule's name as stored. */
   scheduleName?: string;
+  /** `schedule`: the venue's regular week, which nothing done on a date removes. */
+  regularWeek?: true;
   /** `schedule`, `use_schedule` and `special_hours`: the services in force; empty means closed. */
   hours?: LayerHoursService[];
   /** `closure`: what it closes. */
