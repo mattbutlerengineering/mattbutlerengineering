@@ -17,7 +17,7 @@
  * `page.route()`'s `route.fulfill()` is a one-shot response, so the SSE
  * stream mock can't dynamically push a new event into an already-open
  * connection. This spec instead uses `page.reload()` to establish a fresh
- * connection whose `window.__fakeSSEConfig` (set via `addInitScript`, see
+ * connection whose events (set via `mockApi`'s `sse.setEvents`, see
  * `api-mocks.ts`'s `**\/api/v1/events/stream` handler) carries the
  * transition event — the "before" and "after" states are two connections
  * to the same table, not one continuous session.
@@ -101,9 +101,8 @@ test.describe("Floor plan: live table status colors (#3803)", () => {
   });
 
   test("table shape re-colors when a table-status:changed event fires", async ({ page }) => {
-    await mockApi(page);
+    const sse = await mockApi(page);
     await mockTableStatuses(page, "available");
-    await page.addInitScript(`window.__fakeSSEConfig = { events: [] };`);
 
     await page.goto("floor-plans/fp_e2e_001");
     await expect(page.getByRole("heading", { name: "Main Floor" })).toBeVisible();
@@ -137,9 +136,7 @@ test.describe("Floor plan: live table status colors (#3803)", () => {
       timestamp: new Date().toISOString(),
       data: [{ tableId: "tbl_e2e_001", status: "seated" }],
     };
-    await page.addInitScript(
-      `window.__fakeSSEConfig = { events: [{ type: "table-status:changed", data: ${JSON.stringify(sseEventPayload)} }] };`
-    );
+    sse.setEvents([{ type: "table-status:changed", data: sseEventPayload }]);
 
     await page.reload();
     await expect(page.getByRole("heading", { name: "Main Floor" })).toBeVisible();
