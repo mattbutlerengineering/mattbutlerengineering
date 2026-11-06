@@ -259,6 +259,9 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
             id: assignment.id,
             label: scheduleName(assignment.scheduleId),
             ...scheduleDetail(assignment.scheduleId),
+            ...(schedules.get(assignment.scheduleId)?.isRegular
+              ? { regularWeek: true as const }
+              : {}),
           },
         ]
       : []),

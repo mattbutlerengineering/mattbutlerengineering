@@ -14,6 +14,15 @@ const API_BASE = "https://api.mattbutlerengineering.com";
 const SITE_BASE = "https://mattbutlerengineering.com";
 
 /**
+ * Backend targets probe an unmatched path under each service's health route.
+ * It answers 404 from the global 100/min-per-IP limiter, so the trigger's
+ * 150 requests reach the 429 Sentry captures. The health route itself allows
+ * 600/min since #8271 and never answers 429 inside that budget (#8330).
+ * Measured 2026-11-05: all three answer 404 with `x-ratelimit-limit: 100`.
+ */
+const BACKEND_PROBE = "health/sentry-heartbeat";
+
+/**
  * @typedef {{ id: string, kind: "backend" | "browser", project: string, url: string, app?: string }} HeartbeatTarget
  */
 
@@ -24,15 +33,20 @@ export const TARGETS = Object.freeze(
       id: "users-api",
       kind: "backend",
       project: "users-api",
-      url: `${API_BASE}/api/v1/users/health`,
+      url: `${API_BASE}/api/v1/users/${BACKEND_PROBE}`,
     },
     {
       id: "reservations-api",
       kind: "backend",
       project: "reservations-api",
-      url: `${API_BASE}/api/v1/reservations/health`,
+      url: `${API_BASE}/api/v1/reservations/${BACKEND_PROBE}`,
     },
-    { id: "agent-api", kind: "backend", project: "agent-api", url: `${API_BASE}/api/gen/health` },
+    {
+      id: "agent-api",
+      kind: "backend",
+      project: "agent-api",
+      url: `${API_BASE}/api/gen/${BACKEND_PROBE}`,
+    },
     // Public and unauthenticated — measured 2026-10-01 to load with no Auth0
     // redirect (breakdown item 1).
     {

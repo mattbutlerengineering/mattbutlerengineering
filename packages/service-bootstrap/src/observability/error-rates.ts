@@ -94,11 +94,11 @@ function createErrorRateTracker() {
   return { record, snapshot };
 }
 
-function normalizeRoute(request: FastifyRequest): string {
-  // Use the route pattern (e.g., "/api/v1/users/:id") not the actual URL
-  const routeUrl =
-    (request.routeOptions as { url?: string })?.url ?? request.url.split("?")[0] ?? request.url;
-  return routeUrl;
+// The route pattern (e.g. "/api/v1/users/:id"), or undefined when the request
+// matched no route. Unmatched 404s (scanners, the Sentry heartbeat's probe) are
+// not an endpoint's error rate, so they must not mark the service degraded.
+function normalizeRoute(request: FastifyRequest): string | undefined {
+  return (request.routeOptions as { url?: string })?.url;
 }
 
 async function errorRatePlugin(fastify: FastifyInstance): Promise<void> {
@@ -107,8 +107,8 @@ async function errorRatePlugin(fastify: FastifyInstance): Promise<void> {
   fastify.addHook("onResponse", async (request: FastifyRequest, reply: FastifyReply) => {
     const route = normalizeRoute(request);
 
-    // Skip health/docs endpoints
-    if (IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
+    // Skip unmatched routes and health/docs endpoints
+    if (route === undefined || IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
 
     tracker.record(route, reply.statusCode);
   });

@@ -1167,13 +1167,13 @@ describe("AvailabilityDayEditor", () => {
           </main>
         </ToastProvider>
       );
-      // The button adds the venue's first spare service, Lunch.
+      // The button adds the venue's first spare service, Lunch, at the hours it usually runs.
       fireEvent.click(screen.getByRole("button", { name: "Add service" }));
+      expect(screen.getByLabelText("Opens")).toHaveValue("11:30 AM");
+      expect(screen.getByLabelText("Closes")).toHaveValue("3:00 PM");
       chooseScope(/Every regular Friday/);
-      // The regular week already has Lunch, so the hours just set are not the ones it keeps.
-      expect(screen.getByRole("status")).toHaveTextContent(
-        "Your hours for Lunch won’t be used: what you’re changing already has them."
-      );
+      // Those are the regular week's own Lunch hours, so nothing is overridden or set aside.
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Remove Dinner" })).toBeInTheDocument();
       // Nothing differs from the regular week yet, so there is nothing to save.
       expect(screen.getByRole("button", { name: /^Save/ })).toBeDisabled();

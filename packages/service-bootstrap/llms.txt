@@ -55,7 +55,7 @@
       function createErrorRateTracker() { /* ... */ }
     </item>
     <item priority="medium">
-      function normalizeRoute(request: FastifyRequest): string { /* ... */ }
+      function normalizeRoute(request: FastifyRequest): string | undefined { /* ... */ }
     </item>
     <item priority="low">
       async function errorRatePlugin(fastify: FastifyInstance): Promise<void> { /* ... */ }

@@ -1581,6 +1581,18 @@
         ],
       };
     }
+    export function usualHours(
+      config: AvailabilityConfig,
+      venueServiceId: string
+    ): SeedService | undefined {
+      const live = new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
+      const row =
+        liveRegularWeek(config)?.rows.find((r) => r.venueServiceId === venueServiceId) ??
+        config.scheduleServices.find(
+          (r) => r.venueServiceId === venueServiceId && live.has(r.scheduleId)
+        );
+      return row ? hoursOf(row) : undefined;
+    }
     function regularWeekdayRows(
       config: AvailabilityConfig,
       weekday: number,

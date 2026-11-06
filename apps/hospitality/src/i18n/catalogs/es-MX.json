@@ -1847,6 +1847,7 @@
       "sameAsDay": "Igual que el {{day}}",
       "sameEmpty": "La semana regular no tiene horario el {{day}}. Elige otro día o usa Cerrado.",
       "hoursInvalid": "Agrega al menos uno de los servicios existentes del local. Los servicios nuevos se agregan desde el editor del día.",
+      "hoursNeedDate": "Elige primero una fecha: su horario habitual aparece aquí para cambiarlo.",
       "removeRow": "Quitar la fecha {{n}}",
       "addRow": "Agregar otra fecha",
       "shareMessage": "Usar un solo mensaje para todas las fechas",
@@ -2826,7 +2827,8 @@
         "saved_many": "Se borraron los cambios de {{count}} fechas"
       },
       "selectDays": "Seleccionar días",
-      "selectingHint": "Toca los días que quieras"
+      "selectingHint": "Toca los días que quieras",
+      "selectingHintPointer": "Haz clic en los días que quieras o arrastra sobre ellos"
     },
     "tonight": {
       "title": "Esta noche",

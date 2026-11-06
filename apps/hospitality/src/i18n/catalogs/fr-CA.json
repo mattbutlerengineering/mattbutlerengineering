@@ -1847,6 +1847,7 @@
       "sameAsDay": "Comme le {{day}}",
       "sameEmpty": "La semaine habituelle n’a pas d’horaire le {{day}}. Choisissez un autre jour ou utilisez Fermé.",
       "hoursInvalid": "Ajoutez au moins un des services existants du lieu. Les nouveaux services s’ajoutent depuis l’éditeur de la journée.",
+      "hoursNeedDate": "Choisissez d’abord une date : ses heures habituelles s’affichent ici pour les modifier.",
       "removeRow": "Retirer la date {{n}}",
       "addRow": "Ajouter une autre date",
       "shareMessage": "Utiliser un seul message pour toutes les dates",
@@ -2826,7 +2827,8 @@
         "saved_many": "Modifications effacées pour {{count}} dates"
       },
       "selectDays": "Sélectionner des jours",
-      "selectingHint": "Touchez les jours voulus"
+      "selectingHint": "Touchez les jours voulus",
+      "selectingHintPointer": "Cliquez sur les jours voulus ou faites glisser dessus"
     },
     "tonight": {
       "title": "Ce soir",

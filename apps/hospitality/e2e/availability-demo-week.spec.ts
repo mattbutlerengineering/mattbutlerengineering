@@ -149,11 +149,7 @@ test.describe("The demo week (PRD: the demo runs as written)", () => {
 
     // 9. Save the week they already watched.
     await page.getByRole("button", { name: "Save and open bookings" }).click();
-    await expect(
-      page
-        .getByText("Bookings are open Mon, Tue, Wed, Thu, Fri, Sat, and Sun")
-        .or(page.getByText("Bookings are open Mon, Tue, Wed, Thu, Fri, Sat and Sun"))
-    ).toBeVisible();
+    await expect(page.getByText("Bookings are open every day")).toBeVisible();
     await expect(page.getByRole("grid")).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
 

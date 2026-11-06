@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { createErrorRateTracker, createErrorRateHealthCheck } from "./error-rates.js";
+import Fastify from "fastify";
+import {
+  createErrorRateTracker,
+  createErrorRateHealthCheck,
+  errorRatePlugin_,
+} from "./error-rates.js";
 
 describe("createErrorRateTracker", () => {
   beforeEach(() => {
@@ -291,5 +296,24 @@ describe("createErrorRateHealthCheck", () => {
     };
     const result = createErrorRateHealthCheck(snapshot);
     expect(result.status).toBe("ok");
+  });
+});
+
+describe("errorRatePlugin_", () => {
+  it("does not count requests that match no route, so a 404 burst cannot mark the service degraded", async () => {
+    const app = Fastify();
+    await app.register(errorRatePlugin_);
+    app.get("/things", async () => ({ ok: true }));
+    await app.ready();
+
+    for (let i = 0; i < 10; i += 1) {
+      await app.inject({ method: "GET", url: "/health/sentry-heartbeat" });
+    }
+    await app.inject({ method: "GET", url: "/things" });
+
+    const snapshot = app.getErrorRates();
+    expect(snapshot.degraded).toBe(false);
+    expect(snapshot.endpoints.map((e) => e.endpoint)).toEqual(["/things"]);
+    await app.close();
   });
 });

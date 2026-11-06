@@ -1811,6 +1811,7 @@
       "sameAsDay": "Same as {{day}}",
       "sameEmpty": "The regular week has no hours on {{day}}. Choose another day or use Closed.",
       "hoursInvalid": "Add at least one of the venue's existing services. New services are added from the day editor.",
+      "hoursNeedDate": "Choose a date first: its usual hours fill in here to change.",
       "removeRow": "Remove date {{n}}",
       "addRow": "Add another date",
       "shareMessage": "Use one message for every date",
@@ -2744,7 +2745,8 @@
         "saved_many": "Cleared changes on {{count}} dates"
       },
       "selectDays": "Select days",
-      "selectingHint": "Tap the days you want"
+      "selectingHint": "Tap the days you want",
+      "selectingHintPointer": "Click the days you want, or drag across them"
     },
     "tonight": {
       "title": "Tonight",
