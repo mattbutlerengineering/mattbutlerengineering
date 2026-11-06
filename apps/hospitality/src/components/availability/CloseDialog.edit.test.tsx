@@ -135,6 +135,16 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
     expect((asked.rule as DateRule).id).not.toBe("range-1");
   });
 
+  it("offers One date, Date range and Until I reopen, never Tonight or Repeats", () => {
+    renderEdit();
+    const dialog = screen.getByRole("dialog");
+    for (const name of ["One date", "Date range", "Until I reopen"]) {
+      expect(within(dialog).getByRole("radio", { name })).toBeInTheDocument();
+    }
+    expect(within(dialog).queryByRole("radio", { name: "Repeats" })).toBeNull();
+    expect(within(dialog).queryByRole("radio", { name: "Tonight" })).toBeNull();
+  });
+
   it("saves with nothing to decide, replacing the saved closure, and hands the change over for Undo", async () => {
     create.mockResolvedValue(saved(0));
     const { onClose, onSavedQuietly } = renderEdit();

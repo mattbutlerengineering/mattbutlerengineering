@@ -56071,6 +56071,12 @@
       if (draft.kind !== "closure" || draft.id === stored.id) {
         return refuse("alongside", "An edited closure is saved as a new closure.");
       }
+      if (draft.repeat != null) {
+        return refuse(
+          "rule.repeat",
+          "An edited closure is one date, a range or open-ended, not a repeat."
+        );
+      }
       if (alongside.upsert.length > 0 || alongside.remove.length !== 1) {
         return refuse("alongside", "Editing a closure replaces that closure and nothing else.");
       }

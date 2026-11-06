@@ -215,4 +215,11 @@ describe("checkAlongside — an edit of one plain closure (#7984)", () => {
       )
     ).toMatchObject({ code: "invalid_alongside" });
   });
+
+  it("saves it as one date, a range or open-ended, never a repeat", () => {
+    const weekly: DateRule = { ...edited, repeat: { version: 1, weekdays: [1] } };
+    expect(
+      checkAlongside(rows, weekly, { upsert: [], remove: ["range-1"], replaces: range })
+    ).toMatchObject({ path: "rule.repeat", code: "invalid_alongside" });
+  });
 });

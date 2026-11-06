@@ -390,6 +390,7 @@ export function CloseDialog(props: CloseDialogProps) {
               invalid={invalid}
               locked={props.hostLocked}
               dateLocked={series !== undefined}
+              closureEdit={editing !== undefined}
               startOptions={startOptions}
               startReset={startReset}
             />
