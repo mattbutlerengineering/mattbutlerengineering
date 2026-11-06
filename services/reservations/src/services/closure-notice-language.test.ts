@@ -77,11 +77,17 @@ function previewOf(o: NoticeOutcome) {
   });
 }
 
+/** Drops every tag, repeating until none is left so nested fragments cannot survive. */
+const stripTags = (line: string): string => {
+  const next = line.replace(/<[^>]*>/g, "");
+  return next === line ? next : stripTags(next);
+};
+
 /** The email body as a guest reads it: one line per paragraph, tags dropped. */
 const plain = (html: string): string =>
   html
     .split("\n")
-    .map((line) => line.replace(/<[^>]+>/g, ""))
+    .map(stripTags)
     .filter((line) => line.trim() !== "")
     .join("\n");
 
