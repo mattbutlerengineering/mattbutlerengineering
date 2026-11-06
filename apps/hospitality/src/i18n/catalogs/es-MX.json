@@ -2827,7 +2827,8 @@
         "saved_many": "Se borraron los cambios de {{count}} fechas"
       },
       "selectDays": "Seleccionar días",
-      "selectingHint": "Toca los días que quieras"
+      "selectingHint": "Toca los días que quieras",
+      "selectingHintPointer": "Haz clic en los días que quieras o arrastra sobre ellos"
     },
     "tonight": {
       "title": "Esta noche",

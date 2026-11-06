@@ -709,6 +709,18 @@ describe("AvailabilityPage", () => {
       expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
     });
 
+    it("offers Select days on the grid too, where a plain click then picks a day", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Select days" }));
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Click the days you want, or drag across them"
+      );
+      fireEvent.click(screen.getByRole("button", { name: /Friday, October 30/ }));
+      expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
+      expect(screen.queryByRole("dialog", { name: /Friday, October 30/ })).not.toBeInTheDocument();
+    });
+
     it("says so when a Ctrl-click on a past date selects nothing", () => {
       renderPage();
       pick(/Monday, October 26/);

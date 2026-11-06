@@ -307,17 +307,20 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   // On a phone these sit in More actions, with no Select… button to say what they do, so they
   // name the verb themselves ("Select every Thursday in November").
   const onPhone = viewport === "phone";
+  // Every date of a month already over is past, and past dates can't be picked.
+  const monthOver = anchor.slice(0, 7) < today.slice(0, 7);
   const selectItems = [
-    // The grid has Ctrl-click and drag; the agenda list has only this and a long press.
-    ...(viewport !== "desktop"
-      ? [
+    // Every size: the agenda list has only this and a long press, and on the grid it is the way
+    // in a Manager can find; its hint there names drag as the faster way.
+    ...(monthOver
+      ? []
+      : [
           {
             id: "select-days",
             label: t("availability.selection.selectDays"),
             onSelect: () => setSelecting(true),
           },
-        ]
-      : []),
+        ]),
     // An entry that would select nothing (a month already over) is not offered.
     ...(weekdayDates.length > 0
       ? [

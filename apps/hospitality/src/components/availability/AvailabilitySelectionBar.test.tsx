@@ -1,6 +1,11 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { axe } from "vitest-axe";
+import type { Viewport } from "../../hooks/useViewport.js";
+
+const viewport = vi.hoisted(() => ({ value: "desktop" as Viewport }));
+vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.value }));
+
 import { AvailabilitySelectionBar } from "./AvailabilitySelectionBar.js";
 
 const SIX = ["2026-10-26", "2026-10-27", "2026-10-28", "2026-10-29", "2026-10-30", "2026-10-31"];
@@ -30,12 +35,19 @@ describe("AvailabilitySelectionBar", () => {
     expect(status).toHaveAttribute("aria-live", "polite");
   });
 
-  it("while selecting with nothing picked, says what to do and offers a way out (#7980)", () => {
-    const { onClear } = renderBar({ selection: [], selecting: true });
-    expect(screen.getByRole("status")).toHaveTextContent("Tap the days you want");
-    fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
-    expect(onClear).toHaveBeenCalled();
-  });
+  it.each([
+    ["phone", "Tap the days you want"],
+    ["desktop", "Click the days you want, or drag across them"],
+  ] as const)(
+    "while selecting with nothing picked, says what to do on a %s and offers a way out (#7980)",
+    (size, hint) => {
+      viewport.value = size;
+      const { onClear } = renderBar({ selection: [], selecting: true });
+      expect(screen.getByRole("status")).toHaveTextContent(hint);
+      fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
+      expect(onClear).toHaveBeenCalled();
+    }
+  );
 
   it("uses the singular for one date", () => {
     renderBar({ selection: ["2026-10-30"] });
