@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -7,10 +7,11 @@ import {
   Dialog,
   Radio,
   RadioGroup,
+  Text,
 } from "@mattbutlerengineering/rialto";
 import type { TFunction } from "i18next";
 import type { Layer } from "@mbe/availability";
-import type { DateRule, ScheduleAssignment } from "@mbe/types";
+import type { AvailabilityConfig, DateRule, ScheduleAssignment } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { closedAllDay } from "./closed-all-day.js";
@@ -24,13 +25,21 @@ import { UseScheduleDialog } from "./UseScheduleDialog.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CloseDialog.module.css";
 
-/** The assignment behind a layer of a schedule that runs over dates, not the regular week. */
+/**
+ * The assignment behind a layer of a schedule that runs over dates, not the regular week. A
+ * superseded regular week (Change regular week with no end cuts it off the day before) is still
+ * part of the regular week: it is not offered here, since removing it would leave its dates shut.
+ */
 export function datedAssignmentOf(
-  assignments: readonly ScheduleAssignment[],
+  config: Pick<AvailabilityConfig, "assignments" | "schedules">,
   layer: Layer
 ): ScheduleAssignment | undefined {
   if (layer.kind !== "schedule" || layer.regularWeek) return undefined;
-  return assignments.find((a) => a.id === layer.id && (a.startsOn != null || a.endsOn != null));
+  const assignment = config.assignments.find(
+    (a) => a.id === layer.id && (a.startsOn != null || a.endsOn != null)
+  );
+  const schedule = config.schedules.find((x) => x.id === assignment?.scheduleId);
+  return schedule && schedule.kind !== "regular" ? assignment : undefined;
 }
 
 /** "Jun 1 – Sep 15", "from Jun 1" or "until Sep 15": the period a dated schedule runs. */
@@ -114,6 +123,8 @@ interface ScheduleActionsProps extends LayerRuleActionsProps {
   readonly edit: { readonly label: string; readonly run: () => void } | null;
   /** The scope question Edit asks first, when there is one. */
   readonly editScope?: { readonly name: string; readonly onChoose: (c: EditChoice) => void };
+  /** Edit is shut for this reason (the element with this id says it), though Remove is not. */
+  readonly editBlockedId?: string;
   readonly children?: ReactNode;
 }
 
@@ -124,6 +135,8 @@ function ScheduleActions(props: ScheduleActionsProps) {
   const offerUndo = useAvailabilityUndo();
   const rowSave = useScheduleSave(props.onStale, "availabilitySpecial.rowStranded");
   const [step, setStep] = useState<"scope" | "remove" | null>(null);
+  const editBlocked = props.editBlockedId !== undefined;
+  const editWaiting = waiting || editBlocked;
 
   const remove = async () => {
     setStep(null);
@@ -144,10 +157,10 @@ function ScheduleActions(props: ScheduleActionsProps) {
           variant="ghost"
           size="sm"
           {...skipInitialFocus}
-          {...waitingProps(waiting, reasonId)}
+          {...waitingProps(editWaiting, editBlocked ? props.editBlockedId : reasonId)}
           aria-label={edit.label}
           onClick={() => {
-            if (waiting) return;
+            if (editWaiting) return;
             if (editScope) setStep("scope");
             else edit.run();
           }}
@@ -254,6 +267,9 @@ export function UseScheduleRuleActions(props: LayerRuleActionsProps & { readonly
   const { t } = useTranslation();
   const format = useVenueFormat();
   const [changing, setChanging] = useState(false);
+  // The dialog writes hours rules, which surface only if an all-day closure goes.
+  const hidden = closedAllDay(props.day);
+  const closedId = useId();
   const dialogDates = useMemo(() => [date], [date]);
   const many = coversManyDates(rule);
   const label = layerLabelText(layer, t, format);
@@ -264,6 +280,7 @@ export function UseScheduleRuleActions(props: LayerRuleActionsProps & { readonly
   return (
     <ScheduleActions
       {...props}
+      editBlockedId={hidden ? closedId : undefined}
       target={{
         subject: many ? label : subject,
         remove: { dateRules: [rule.id] },
@@ -287,6 +304,11 @@ export function UseScheduleRuleActions(props: LayerRuleActionsProps & { readonly
             }
       }
     >
+      {hidden && (
+        <Text id={closedId} variant="caption" color="secondary">
+          {t("availability.drawer.useBlockedClosed")}
+        </Text>
+      )}
       {changing && (
         <UseScheduleDialog
           open

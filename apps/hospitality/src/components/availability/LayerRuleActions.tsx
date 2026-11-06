@@ -206,7 +206,7 @@ const isHours = (rule: DateRule | undefined): rule is SpecialDateRule =>
  * saves are the Special dates tab's own, so a rule changes the same way from either place.
  */
 export function LayerRuleActions(props: LayerRuleActionsProps) {
-  const assignment = datedAssignmentOf(props.state.config.assignments, props.layer);
+  const assignment = datedAssignmentOf(props.state.config, props.layer);
   if (assignment) return <DatedScheduleActions {...props} assignment={assignment} />;
   const rule = props.state.config.dateRules.find((r) => r.id === props.layer.id);
   if (!rule) return null;

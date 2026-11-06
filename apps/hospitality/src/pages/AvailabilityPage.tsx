@@ -178,7 +178,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       setTarget(next);
       if (next.date !== null && !next.fixedDates) setSelection([]);
       if (nextClosing) setClosing(nextClosing);
-      if (id) setEditingSchedule(id);
+      // The day drawer hands focus back to its calendar cell a frame after it closes, so the editor
+      // opens after that (two frames: the restore is queued once this move has rendered).
+      if (id) {
+        requestAnimationFrame(() => requestAnimationFrame(() => setEditingSchedule(id)));
+      }
     }
   );
   // Compare services' unsaved rows are lost when the Schedules tab goes, so leaving it asks first.

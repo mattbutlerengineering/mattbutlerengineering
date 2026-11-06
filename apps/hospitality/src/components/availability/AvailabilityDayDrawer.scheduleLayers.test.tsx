@@ -141,6 +141,42 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
     ).toBeInTheDocument();
   });
 
+  it("offers nothing for the superseded old week after Change regular week with no end", () => {
+    // F-UW: the old week is kind "regular", cut off the day before the new one starts.
+    const base = fixtureConfig();
+    const config: AvailabilityConfig = {
+      ...base,
+      schedules: [{ ...base.schedules[0]!, isRegular: false }],
+      assignments: [{ ...base.assignments[0]!, endsOn: "2026-11-30" }],
+    };
+    const state: AvailabilityConfigState = { version: 7, source: "rows", config };
+    render(
+      <ToastProvider>
+        <main>
+          <AvailabilityDayDrawer
+            date={FIXTURE_DATE}
+            day={resolveDay({ timezone: FIXTURE_TIMEZONE, config }, FIXTURE_DATE)}
+            isLoading={false}
+            error={null}
+            viewerRole="manager"
+            onClose={vi.fn()}
+            editing={{
+              venueId: "venue-1",
+              state,
+              timezone: FIXTURE_TIMEZONE,
+              today: "2026-10-28",
+              onDirtyChange: vi.fn(),
+              onFinished: vi.fn(),
+              onEditSchedule: vi.fn(),
+            }}
+          />
+        </main>
+      </ToastProvider>
+    );
+    expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Edit Weekend/ })).toBeNull();
+  });
+
   it("gives a schedule with no dates nothing to edit or remove here", () => {
     renderDrawer({ dated: false });
     expect(screen.queryByRole("button", { name: /Remove Summer hours/ })).toBeNull();
@@ -272,6 +308,15 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
       expect(
         screen.getByRole("dialog", { name: "Use a schedule on Friday, Oct 30" })
       ).toBeInTheDocument();
+    });
+
+    it("will not change the schedule under an all-day closure, and says why", () => {
+      renderDrawer({ rules: [USE_SUMMER, VENUE_CLOSURE], dated: false });
+      const change = screen.getByRole("button", { name: "Change the schedule for Fri, Oct 30" });
+      expect(change).toHaveAttribute("aria-disabled", "true");
+      expect(change).toHaveAccessibleDescription(/closed all day/i);
+      fireEvent.click(change);
+      expect(screen.queryByRole("dialog", { name: /Use a schedule/ })).toBeNull();
     });
 
     it("names the whole rule and offers no Edit when it covers many dates", () => {

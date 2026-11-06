@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { applyChanges, collapseDayNamedSchedules } from "@mbe/availability";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig, VenueTeam } from "@mbe/types";
@@ -329,14 +329,30 @@ describe("AvailabilityPage: Edit on a dated schedule's layer (#7981)", () => {
     read.config = withDatedSchedule();
   });
 
-  it("opens the schedule's editor over the page", () => {
+  it("opens the schedule's editor over the page", async () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /Friday, November 6/ }));
     fireEvent.click(screen.getByRole("button", { name: "Edit Summer hours" }));
     const ask = screen.getByRole("dialog", { name: "Edit Summer hours" });
     fireEvent.click(within(ask).getByRole("radio", { name: "All dates Summer hours covers" }));
     fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
-    const editor = screen.getByRole("dialog", { name: "Edit Summer hours" });
+    const editor = await screen.findByRole("dialog", { name: "Edit Summer hours" });
     expect(within(editor).getByLabelText(/Schedule name/)).toHaveValue("Summer hours");
+  });
+
+  it("leaves focus in the editor once the day drawer's focus restore has run", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /Friday, November 6/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Summer hours" }));
+    const ask = screen.getByRole("dialog", { name: "Edit Summer hours" });
+    fireEvent.click(within(ask).getByRole("radio", { name: "All dates Summer hours covers" }));
+    fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
+    // The restore and the deferred open both ride animation frames: let a handful pass.
+    for (let frame = 0; frame < 6; frame++) {
+      await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    }
+
+    const editor = screen.getByRole("dialog", { name: "Edit Summer hours" });
+    expect(editor).toContainElement(document.activeElement as HTMLElement);
   });
 });
