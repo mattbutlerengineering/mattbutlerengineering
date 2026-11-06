@@ -9,7 +9,7 @@ date: 2026-06-30
 
 ## Context
 
-The platform spans multiple deployment targets: static frontend apps (marketing, hospitality, rialto-web, gen), Fastify API services (users-api, reservations-api, agent-api), and a database migration service. Each target has different deployment requirements and lifecycle expectations. A clear, unified deployment topology document is needed to record the settled architecture and prevent operational confusion when onboarding new services or troubleshooting deploy issues.
+The platform spans multiple deployment targets: static frontend apps (marketing, hospitality, rialto-web, gen), Fastify API services (users-api, reservations-api, agent-api), and per-service database migration jobs. Each target has different deployment requirements and lifecycle expectations. A clear, unified deployment topology document is needed to record the settled architecture and prevent operational confusion when onboarding new services or troubleshooting deploy issues.
 
 ## Decision
 
@@ -27,11 +27,13 @@ The platform uses a **three-tier deployment strategy**:
 
 **2. API Services + Database Migration → DigitalOcean App Platform**
 
-- Services: `services/users`, `services/reservations`, `services/agent`, `infrastructure/migrate` (db-migrate)
+- Services: `services/users`, `services/reservations`, `services/agent`, `infrastructure/migrate` (image for the `db-migrate-<service>` jobs)
 - Deployment: Single atomic unit via `doctl apps create-deployment $DO_APP_ID --wait`
 - Mechanism: DO App Platform (containerized microservices, one app resource per environment)
 - Configuration: The DO App spec is defined by Pulumi's `digitalocean.App` resource in `infrastructure/pulumi/index.ts`; there is no checked-in `app.yaml` file — `deploy-services.yml` fetches the live spec at deploy time via `doctl apps spec get`, patches deploy metadata into it, and applies it via `doctl apps update`
-- Database: Migrations run as a separate `db-migrate` service in the same App Platform app
+- Database: Migrations run as one `PRE_DEPLOY` job per service, named `db-migrate-<service>`, in the same App Platform app. Each job is built from `infrastructure/migrate/Dockerfile` with a `SERVICE_NAME` env var. The `MIGRATED_SERVICES` list in `infrastructure/pulumi/index.ts` defines them: `users`, `reservations`, `agent` (`db-migrate-users`, `db-migrate-reservations`, `db-migrate-agent`). A failure in one service's migrations does not block unrelated services from deploying.
+
+_Amended 2026-11-06 (#8384)._ This section previously described a single `db-migrate` service; the implementation has always used the per-service jobs above.
 
 **3. Infrastructure & Secrets → Pulumi**
 
