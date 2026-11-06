@@ -223,6 +223,11 @@ export const floorPlanService = {
       });
 
       if (source.tables.length > 0) {
+        // Copies keep the source's flag only while the venue has an active
+        // plan. With none, every active table is bookable (#8276), so an
+        // active copy would double online capacity (#8255).
+        const venueHasActivePlan =
+          (await tx.floorPlan.count({ where: { venueId: source.venueId, isActive: true } })) > 0;
         const venueTables = await tx.table.findMany({
           where: { venueId: source.venueId },
           select: { name: true },
@@ -240,9 +245,7 @@ export const floorPlanService = {
             minCovers: t.minCovers,
             maxCovers: t.maxCovers,
             location: t.location,
-            // Copies keep the source's flag: bookability is plan-scoped
-            // (#8276), so the copy stays offline until its plan is activated.
-            isActive: t.isActive,
+            isActive: venueHasActivePlan && t.isActive,
             priority: t.priority,
             status: "AVAILABLE",
             venueId: t.venueId,
