@@ -422,17 +422,21 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
                   {t("availabilitySpecial.add.addRow")}
                 </Button>
               </div>
-              <Checkbox
-                label={t("availabilitySpecial.add.shareMessage")}
-                checked={form.shareMessage}
-                onCheckedChange={(shareMessage) =>
-                  editForm({
-                    ...form,
-                    shareMessage,
-                    sharedMessage: form.sharedMessage || previewMessage,
-                  })
-                }
-              />
+              {/* "Every date" means nothing with one date. Kept while on, so removing rows down to
+                  one never hides the only message field. */}
+              {(form.rows.length > 1 || form.shareMessage) && (
+                <Checkbox
+                  label={t("availabilitySpecial.add.shareMessage")}
+                  checked={form.shareMessage}
+                  onCheckedChange={(shareMessage) =>
+                    editForm({
+                      ...form,
+                      shareMessage,
+                      sharedMessage: form.sharedMessage || previewMessage,
+                    })
+                  }
+                />
+              )}
               {form.shareMessage && (
                 <TextArea
                   label={t("availabilitySpecial.add.sharedMessage")}

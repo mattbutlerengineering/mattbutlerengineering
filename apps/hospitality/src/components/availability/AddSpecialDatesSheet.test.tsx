@@ -641,10 +641,23 @@ describe("AddSpecialDatesSheet", () => {
 
   it("shows the character counter once per message field", () => {
     renderSheet();
-    expect(screen.getAllByText("0/200")).toHaveLength(1);
+    addRow();
+    expect(screen.getAllByText("0/200")).toHaveLength(2);
     fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
-    // The row's own message field goes away; the shared one takes its place.
+    // The rows' own message fields go away; the shared one takes their place.
     expect(screen.getAllByText(/^\d+\/200$/)).toHaveLength(1);
+  });
+
+  it("offers one message for every date only once there are two dates", () => {
+    renderSheet();
+    const share = () => screen.queryByRole("checkbox", { name: "Use one message for every date" });
+    expect(share()).toBeNull();
+    addRow();
+    fireEvent.click(share()!);
+    // Back to one date with it on: it stays, so the shared message is not hidden with no way back.
+    fireEvent.click(screen.getAllByRole("button", { name: /^Remove date/ })[1]!);
+    expect(share()).toBeChecked();
+    expect(screen.getByLabelText(/Message for guests \(every date\)/)).toBeInTheDocument();
   });
 
   it("moves focus to Copy hours from when the chosen weekday has no regular hours", async () => {
@@ -667,6 +680,7 @@ describe("AddSpecialDatesSheet", () => {
 
   it("explains an over-limit shared message", () => {
     renderSheet();
+    addRow();
     fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
     fireEvent.change(screen.getByLabelText(/Message for guests \(every date\)/), {
       target: { value: "x".repeat(201) },
@@ -676,6 +690,7 @@ describe("AddSpecialDatesSheet", () => {
 
   it("clears the shared-message error once the text is back under the limit", async () => {
     renderSheet();
+    addRow();
     await pickDate(0, "2026-12-24");
     fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
     const field = screen.getByLabelText(/Message for guests \(every date\)/);
@@ -695,6 +710,7 @@ describe("AddSpecialDatesSheet", () => {
 
   it("judges the shared message length trimmed, as Next does", () => {
     renderSheet();
+    addRow();
     fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
     fireEvent.change(screen.getByLabelText(/Message for guests \(every date\)/), {
       target: { value: `${"x".repeat(199)}  ` },
