@@ -4,7 +4,7 @@ import { esMX } from "./es-MX.js";
 import { frCA } from "./fr-CA.js";
 import type { ClosureCatalog } from "./types.js";
 
-export type { ClosureCatalog, DateParts, NoticeFacts } from "./types.js";
+export type { ClosureCatalog, DateParts } from "./types.js";
 
 const CATALOGS: Readonly<Record<GuestNoticeLocale, ClosureCatalog>> = {
   "en-US": enUS,
