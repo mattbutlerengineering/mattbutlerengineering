@@ -150,7 +150,7 @@ describe("AvailabilityQuickSetup", () => {
     fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
     fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Brunch" })[1]!);
-    fireEvent.click(screen.getAllByRole("button", { name: "Different days for this service" })[1]!);
+    fireEvent.click(screen.getByRole("button", { name: "Different days for this service" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Weekends" })[1]!);
     fireEvent.click(screen.getByRole("button", { name: "Save and open bookings" }));
     await waitFor(() =>
