@@ -1,11 +1,27 @@
 diff --git a/dist/src/vitest-test-runner.js b/dist/src/vitest-test-runner.js
-index 84f1ca026503b8e92b7adc952ec6c6a401943656..b9bd1645623c90a3dd0a0d20a6a41dd8ab421e1d 100644
 --- a/dist/src/vitest-test-runner.js
 +++ b/dist/src/vitest-test-runner.js
-@@ -142,21 +142,24 @@ export class VitestTestRunner {
+@@ -200,24 +200,24 @@ export class VitestTestRunner {
                  : undefined;
          let testFilesToRun = explicitTestFiles;
          if (testIds.length > 0) {
+-            const parsedTests = testIds.map(fromTestId);
+-            // Anchor the end of the pattern: it is matched against the full test name, so without it
+-            // a filter for "calc add" would also select "calc add negative". The start can't be anchored,
+-            // as vitest prefixes the name. Allow trailing whitespace: test ids have it trimmed, the full name doesn't.
+-            const regexTestNameFilter = parsedTests
+-                .map(({ test: name }) => escapeRegExp(name))
+-                .join('|');
+-            const regex = new RegExp(`(?:${regexTestNameFilter})\\s*$`);
+-            testFilesToRun = parsedTests.map(({ file }) => file);
+-            this.ctx.projects.forEach((project) => {
+-                project.config.testNamePattern = regex;
+-            });
+-        }
+-        else {
+-            this.ctx.projects.forEach((project) => {
+-                project.config.testNamePattern = undefined;
+-            });
 +            // PATCHED (mattbutlerengineering/mattbutlerengineering#5614): only use
 +            // testIds to narrow which FILES run, never build a testNamePattern
 +            // regex from them. Building `project.config.testNamePattern` from a
@@ -18,20 +34,8 @@ index 84f1ca026503b8e92b7adc952ec6c6a401943656..b9bd1645623c90a3dd0a0d20a6a41dd8
 +            // selection (still real time savings vs. running every spec) and
 +            // leaving testNamePattern unset lets every mutant run correctly
 +            // execute its covered test files' real tests.
-             const parsedTests = testIds.map(fromTestId);
--            const regexTestNameFilter = parsedTests
--                .map(({ test: name }) => escapeRegExp(name))
--                .join('|');
--            const regex = new RegExp(regexTestNameFilter);
-             testFilesToRun = parsedTests.map(({ file }) => file);
--            this.ctx.projects.forEach((project) => {
--                project.config.testNamePattern = regex;
--            });
--        }
--        else {
--            this.ctx.projects.forEach((project) => {
--                project.config.testNamePattern = undefined;
--            });
++            const parsedTests = testIds.map(fromTestId);
++            testFilesToRun = parsedTests.map(({ file }) => file);
          }
 +        this.ctx.projects.forEach((project) => {
 +            project.config.testNamePattern = undefined;
