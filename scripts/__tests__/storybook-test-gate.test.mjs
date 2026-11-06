@@ -5,7 +5,8 @@
  * that is not on the explicit quarantine list fails the gate, and so does a
  * quarantined story that starts passing (or vanishes), so the list cannot rot.
  * The workflow half pins the CI wiring text-level, like the other *-workflow
- * tests here: the job exists, installs Chromium, runs the gate script, and the
+ * tests here: the job lives in ci.yml as a CI Gate dependency (promoted from
+ * rialto-visual.yml in #8117), installs Chromium, runs the gate script, and the
  * workflow is not silenced with `continue-on-error`.
  */
 
@@ -21,6 +22,7 @@ import {
   summarizeVitestJson,
 } from "../storybook-test-gate.mjs";
 import UnhandledErrorsReporter from "../lib/storybook-gate-reporter.mjs";
+import { getJob, jobRunText, loadWorkflow } from "../lib/workflow.mjs";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -221,42 +223,51 @@ describe("quarantine list", () => {
   });
 });
 
-describe("rialto-visual.yml — storybook-tests job", () => {
-  const WORKFLOW = readFileSync(resolve(ROOT, ".github/workflows/rialto-visual.yml"), "utf8");
-  const match = WORKFLOW.match(/^ {2}storybook-tests:\n([\s\S]*?)(?=^ {2}[\w-]+:\n|(?![\s\S]))/m);
+describe("ci.yml — storybook-tests job (promoted from rialto-visual.yml, #8117)", () => {
+  const CI_PATH = resolve(ROOT, ".github/workflows/ci.yml");
+  const ci = loadWorkflow(CI_PATH);
+  const job = getJob(ci, "storybook-tests");
 
   it("defines the job", () => {
-    expect(match, "job storybook-tests is missing").not.toBeNull();
+    expect(job, "job storybook-tests is missing from ci.yml").not.toBeNull();
   });
 
-  const block = match?.[1] ?? "";
+  it("is a CI Gate dependency", () => {
+    expect(getJob(ci, "ci-gate").needs).toContain("storybook-tests");
+  });
 
   it("installs Chromium and runs the gate script, not bare test:storybook", () => {
-    expect(block).toContain("playwright install --with-deps chromium");
-    expect(block).toContain("node scripts/storybook-test-gate.mjs");
+    const run = jobRunText(job);
+    expect(run).toContain("playwright install --with-deps chromium");
+    expect(run).toContain("node scripts/storybook-test-gate.mjs");
   });
 
   it("is never silenced with continue-on-error", () => {
-    expect(WORKFLOW).not.toContain("continue-on-error");
+    expect(job["continue-on-error"]).toBeUndefined();
+    expect(job.steps.filter((step) => "continue-on-error" in step)).toEqual([]);
   });
 
-  it("triggers on the files that define the suite, on PRs and main", () => {
-    const triggers = WORKFLOW.slice(0, WORKFLOW.indexOf("\npermissions:"));
+  it("skips (which the gate counts as pass) unless rialto-relevant files changed", () => {
+    expect(job.needs).toContain("detect-changes");
+    expect(job.if).toContain("needs.detect-changes.outputs.has_rialto == 'true'");
+    expect(ci.jobs["detect-changes"].outputs).toHaveProperty("has_rialto");
+  });
+
+  it("detect-changes flags the files that define the suite", () => {
+    const run = jobRunText(ci.jobs["detect-changes"]);
     for (const path of [
-      "packages/rialto/vitest.config.storybook.ts",
-      "packages/rialto/storybook-quarantine.json",
-      "packages/rialto/package.json",
-      "pnpm-lock.yaml",
-      ".github/workflows/rialto-visual.yml",
+      "packages/rialto/",
       "scripts/storybook-test-gate.mjs",
       "scripts/lib/storybook-gate-reporter.mjs",
+      "pnpm-lock.yaml",
+      ".github/workflows/ci.yml",
     ]) {
-      expect(triggers.split(path).length - 1, `${path} in push+pull_request paths`).toBe(2);
+      expect(run, `${path} in the has_rialto filter`).toContain(path);
     }
   });
 
-  it("stays advisory: not a CI Gate dependency", () => {
-    const ci = readFileSync(resolve(ROOT, ".github/workflows/ci.yml"), "utf8");
-    expect(ci).not.toContain("storybook-tests");
+  it("no longer runs a second copy from rialto-visual.yml", () => {
+    const visual = loadWorkflow(resolve(ROOT, ".github/workflows/rialto-visual.yml"));
+    expect(visual.jobs).not.toHaveProperty("storybook-tests");
   });
 });
