@@ -153,7 +153,7 @@ Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
 - **2026-03-27** CDN-cache/Workers constraint → `gotchas.md § Deploy / static sites` ("Static sites must deploy as Cloudflare Workers...")
 - **2026-04-23** changesets push-ordering rule → `gotchas.md § Releases` ("Push before you version...")
 - **2026-04-25** zsh `$status` reserved-variable trap → `gotchas.md § Shell (zsh)` ("Never use `status` as a shell variable name...")
-- Rialto setState-in-useEffect ban → `gotchas.md § Pre-commit / lint` ("Rialto components must NOT call `setState`...")
+- Rialto setState-in-useEffect (advisory lint warn) → `gotchas.md § Pre-commit / lint` ("Rialto components should not call `setState`...")
 
 ### `.claude/reflections/` — Session Summaries and Root-Cause Analysis
 

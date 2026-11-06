@@ -59,11 +59,14 @@ real producers — the abstraction is earned rather than hypothetical.
   `reducedDataOverrides` (the compact spacing map) and
   `deriveReducedDataOverrides(device)` (returns that map when
   `device.saveData` is `true`, otherwise an empty no-op map).
-- `RialtoProvider` composes the two adapters plus the caller's explicit
+- `RialtoProvider` composes the three adapters (preset, reduced-data, and —
+  per the amendment below — reduced-motion) plus the caller's explicit
   overrides in a documented **low → high precedence** (later wins):
   1. `vibe` preset — the static design-language adapter;
   2. reduced-data overrides — the device-driven adapter;
-  3. explicit `vibeOverrides` — the caller's fine-tuning, always final say.
+  3. reduced-motion overrides — the second device-driven adapter (added after
+     this ADR's original two-adapter decision; see the amendment);
+  4. explicit `vibeOverrides` — the caller's fine-tuning, always final say.
 
   Reduced-data sits **above** the preset so a user's Save-Data preference
   tightens even a loose preset like `presenting`, but **below** explicit
@@ -76,6 +79,34 @@ real producers — the abstraction is earned rather than hypothetical.
   derivation (`saveData → overrides`) and the RialtoProvider composition
   (preset precedence, explicit-override precedence, no-op when off). The real
   `matchMedia → saveData` detection remains covered by `useDeviceContext.test.ts`.
+
+_Amended 2026-11-06 (#8385)._ A **third adapter** now exists:
+`packages/rialto/src/providers/reduced-motion.ts` exports
+`deriveReducedMotionOverrides(device)`, which collapses the duration scale
+(`--rialto-duration-fast`/`-standard`/`-slow` → `0s`) when
+`device.reducedMotion` is `true`, and `RialtoProvider.tsx` composes it inline.
+This crosses the Trade-offs bar this ADR originally set ("a third+ adapter would
+justify extracting an explicit adapter list / pipeline"). We re-decided the
+deferred question and **keep direct inline composition**:
+
+- The merge is one line,
+  `{ ...preset, ...reducedData, ...reducedMotion, ...vibeOverrides }`, and the
+  precedence order is exactly the object-spread order. Reading the provider
+  shows the whole pipeline; a list would add indirection without adding
+  behaviour.
+- The two device-driven adapters touch disjoint tokens (spacing vs. duration),
+  so their relative order does not matter; only "preset below device signals
+  below caller" does, and the spread expresses that directly.
+- Every adapter is a pure `device → VibeOverrides` function (the preset is a
+  lookup), so all share one signature and one `useMemo` dependency set; there
+  is no per-adapter lifecycle or ordering logic for a pipeline to manage.
+
+The "third+ adapter" trade-off is therefore no longer an open tripwire. The new
+trigger for extracting an explicit adapter list / pipeline is any of: a
+**fourth adapter**; an adapter that needs **ordering beyond spread precedence**
+(for example, one that must read another adapter's output); or an adapter with
+**its own lifecycle** (async or subscribed state not derivable from `device`).
+`RialtoProvider.tsx` is unchanged by this amendment.
 
 ## Consequences
 
@@ -94,9 +125,10 @@ real producers — the abstraction is earned rather than hypothetical.
 - `RialtoProvider`'s `style` memo now depends on `device`, so a Save-Data
   change re-computes the inline overrides (negligible — the same object
   identity is stable between media-query threshold crossings).
-- A third+ adapter would justify extracting an explicit adapter list /
-  pipeline; for two, direct composition in the provider is the simplest thing
-  that is honest about the seam. That generalisation is intentionally deferred.
+- Direct composition in the provider is the simplest thing that is honest
+  about the seam. Extracting an explicit adapter list / pipeline is deferred
+  until one of the triggers in the amendment above fires (originally "a third
+  adapter"; re-decided at three, see the amendment).
 
 ## Alternatives Considered
 
