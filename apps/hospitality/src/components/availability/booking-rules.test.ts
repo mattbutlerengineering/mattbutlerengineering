@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { invalidBookingRule, toBookingRulesForm, withBookingRules } from "./booking-rules.js";
+import { invalidBookingRules, toBookingRulesForm, withBookingRules } from "./booking-rules.js";
 
 const form = (daysAhead = "", noticeHours = "", largestParty = "") => ({
   daysAhead,
@@ -26,11 +26,15 @@ describe("booking rules", () => {
   });
 
   it("accepts today only and no notice, and refuses fractions, negatives and a party of 0", () => {
-    expect(invalidBookingRule(form("0", "0", "1"))).toBeNull();
-    expect(invalidBookingRule(form("1.5"))).toBe("daysAhead");
-    expect(invalidBookingRule(form("", "-1"))).toBe("noticeHours");
-    expect(invalidBookingRule(form("", "", "0"))).toBe("largestParty");
-    expect(invalidBookingRule(form("abc"))).toBe("daysAhead");
-    expect(invalidBookingRule(form("731"))).toBe("daysAhead");
+    expect(invalidBookingRules(form("0", "0", "1"))).toEqual([]);
+    expect(invalidBookingRules(form("1.5"))).toEqual(["daysAhead"]);
+    expect(invalidBookingRules(form("", "-1"))).toEqual(["noticeHours"]);
+    expect(invalidBookingRules(form("", "", "0"))).toEqual(["largestParty"]);
+    expect(invalidBookingRules(form("abc"))).toEqual(["daysAhead"]);
+    expect(invalidBookingRules(form("731"))).toEqual(["daysAhead"]);
+  });
+
+  it("names every bad field at once, not only the first", () => {
+    expect(invalidBookingRules(form("", "-3", "2.5"))).toEqual(["noticeHours", "largestParty"]);
   });
 });

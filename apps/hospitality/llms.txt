@@ -98,7 +98,7 @@
       export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm { /* ... */ }
     </item>
     <item priority="high">
-      export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null { /* ... */ }
+      export function invalidBookingRules(form: BookingRulesForm): readonly BookingRulesField[] { /* ... */ }
     </item>
     <item priority="high">
       export function withBookingRules(

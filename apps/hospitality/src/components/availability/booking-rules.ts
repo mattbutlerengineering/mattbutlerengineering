@@ -34,16 +34,15 @@ export function toBookingRulesForm(settings: VenueSettings | null | undefined): 
   };
 }
 
-/** The first field that is not a whole number in range, or `null`. Empty is allowed: "not set". */
-export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null {
-  for (const field of Object.keys(LIMITS) as BookingRulesField[]) {
+/** Every field that is not a whole number in range, in form order. Empty is allowed: "not set". */
+export function invalidBookingRules(form: BookingRulesForm): readonly BookingRulesField[] {
+  return (Object.keys(LIMITS) as BookingRulesField[]).filter((field) => {
     const raw = form[field].trim();
-    if (raw === "") continue;
+    if (raw === "") return false;
     const n = Number(raw);
     const { min, max } = LIMITS[field];
-    if (!Number.isInteger(n) || n < min || n > max) return field;
-  }
-  return null;
+    return !Number.isInteger(n) || n < min || n > max;
+  });
 }
 
 /**
