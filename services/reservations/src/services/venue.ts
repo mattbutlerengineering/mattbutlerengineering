@@ -641,9 +641,28 @@ export const venueService = {
     }
   },
 
+  /**
+   * Deletes a venue together with the floor plans, sections and tables
+   * onboarding leaves on every venue (the active plan can never be deleted on
+   * its own: `floorPlanService.delete` refuses it, #8254, so without this a
+   * venue that finished onboarding was undeletable, #8425).
+   *
+   * One transaction: the plan and table rows go first, then the venue. Any
+   * guest-facing data still pointing at them (a reservation or hold on a
+   * table, a guest, a menu) trips a RESTRICT foreign key, which rolls the whole
+   * transaction back and answers `has_dependents` with the plan intact.
+   */
   async delete(id: string): Promise<VenueDeleteOutcome> {
     try {
-      await prisma.venue.delete({ where: { id } });
+      await prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, id);
+        await tx.table.deleteMany({
+          where: { OR: [{ venueId: id }, { floorPlan: { venueId: id } }] },
+        });
+        await tx.floorPlanSection.deleteMany({ where: { venueId: id } });
+        await tx.floorPlan.deleteMany({ where: { venueId: id } });
+        await tx.venue.delete({ where: { id } });
+      });
       return "deleted";
     } catch (err: unknown) {
       if (isPrismaNotFound(err)) return "not_found";

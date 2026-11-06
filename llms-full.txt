@@ -46826,7 +46826,7 @@
             summary: "Delete a venue",
             operationId: "deleteVenue",
             description:
-              "Delete a venue. This will fail if the venue has tables or reservations. Requires authentication.",
+              "Delete a venue. Floor plans and tables with no bookings are deleted with it; this fails if a table has a reservation or hold, or the venue has guests or menus. Requires authentication.",
             tags: ["Venues"],
             security: [{ bearerAuth: [] }],
             params: {
@@ -46853,7 +46853,7 @@
                 $ref: "Error#",
               },
               409: {
-                description: "Venue has tables or reservations and cannot be deleted",
+                description: "Venue has bookings, guests or menus and cannot be deleted",
                 $ref: "Error#",
               },
             },
@@ -46873,7 +46873,7 @@
                 createProblemDetails(
                   409,
                   "Conflict",
-                  "Venue has tables or reservations and cannot be deleted"
+                  "Venue has bookings, guests or menus and cannot be deleted"
                 )
               );
           }
@@ -68328,9 +68328,28 @@
         }
       },
     
+      /**
+       * Deletes a venue together with the floor plans, sections and tables
+       * onboarding leaves on every venue (the active plan can never be deleted on
+       * its own: `floorPlanService.delete` refuses it, #8254, so without this a
+       * venue that finished onboarding was undeletable, #8425).
+       *
+       * One transaction: the plan and table rows go first, then the venue. Any
+       * guest-facing data still pointing at them (a reservation or hold on a
+       * table, a guest, a menu) trips a RESTRICT foreign key, which rolls the whole
+       * transaction back and answers `has_dependents` with the plan intact.
+       */
       async delete(id: string): Promise<VenueDeleteOutcome> {
         try {
-          await prisma.venue.delete({ where: { id } });
+          await prisma.$transaction(async (tx) => {
+            await setVenueContext(tx, id);
+            await tx.table.deleteMany({
+              where: { OR: [{ venueId: id }, { floorPlan: { venueId: id } }] },
+            });
+            await tx.floorPlanSection.deleteMany({ where: { venueId: id } });
+            await tx.floorPlan.deleteMany({ where: { venueId: id } });
+            await tx.venue.delete({ where: { id } });
+          });
           return "deleted";
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return "not_found";

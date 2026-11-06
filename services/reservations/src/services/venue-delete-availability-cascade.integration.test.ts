@@ -124,4 +124,84 @@ describe.skipIf(!DATABASE_URL)("venue delete vs. availability config rows (real 
       availabilityChanges: 0,
     });
   });
+
+  /** The floor plan, section and tables the launch sequence leaves on an onboarded venue. */
+  async function seedOnboardedFloorPlan(venueId: string) {
+    const floorPlanId = randomUUID();
+    const sectionId = randomUUID();
+    const tableId = randomUUID();
+    await inVenue(venueId, async (tx) => {
+      await tx.floorPlan.create({
+        data: { id: floorPlanId, venueId, name: "Main room", isActive: true, layoutJson: {} },
+      });
+      await tx.floorPlanSection.create({
+        data: { id: sectionId, venueId, floorPlanId, name: "Dining" },
+      });
+      await tx.table.create({
+        data: { id: tableId, venueId, floorPlanId, sectionId, name: "T1", capacity: 4 },
+      });
+    });
+    return { floorPlanId, tableId };
+  }
+
+  it("deletes a venue whose active onboarding floor plan, section and tables carry no bookings (#8425)", async () => {
+    const venueId = `venue-delete-floorplan-it-${randomUUID()}`;
+    await inVenue(venueId, (tx) =>
+      tx.venue.create({
+        data: { id: venueId, name: "Onboarded venue", slug: venueId, ianaTimezone: "UTC" },
+      })
+    );
+    await seedOnboardedFloorPlan(venueId);
+
+    const outcome = await runWithVenueContext(venueId, () => venueService.delete(venueId));
+    expect(outcome).toBe("deleted");
+
+    const left = await inVenue(venueId, async (tx) => ({
+      venue: await tx.venue.findUnique({ where: { id: venueId } }),
+      floorPlans: await tx.floorPlan.count({ where: { venueId } }),
+      sections: await tx.floorPlanSection.count({ where: { venueId } }),
+      tables: await tx.table.count({ where: { venueId } }),
+    }));
+    expect(left).toEqual({ venue: null, floorPlans: 0, sections: 0, tables: 0 });
+  });
+
+  it("still refuses with has_dependents, and keeps the floor plan, when a table has a booking (#8425)", async () => {
+    const venueId = `venue-delete-booked-it-${randomUUID()}`;
+    await inVenue(venueId, (tx) =>
+      tx.venue.create({
+        data: { id: venueId, name: "Booked venue", slug: venueId, ianaTimezone: "UTC" },
+      })
+    );
+    const { tableId } = await seedOnboardedFloorPlan(venueId);
+    await inVenue(venueId, (tx) =>
+      tx.reservation.create({
+        data: {
+          venueId,
+          tableId,
+          date: new Date("2030-01-01"),
+          startTime: new Date("2030-01-01T18:00:00Z"),
+          endTime: new Date("2030-01-01T19:30:00Z"),
+          partySize: 2,
+        },
+      })
+    );
+
+    const outcome = await runWithVenueContext(venueId, () => venueService.delete(venueId));
+    expect(outcome).toBe("has_dependents");
+
+    const left = await inVenue(venueId, async (tx) => ({
+      venue: await tx.venue.count({ where: { id: venueId } }),
+      floorPlans: await tx.floorPlan.count({ where: { venueId } }),
+      tables: await tx.table.count({ where: { venueId } }),
+    }));
+    expect(left).toEqual({ venue: 1, floorPlans: 1, tables: 1 });
+
+    // Leave nothing behind for the next run of the shared database.
+    await inVenue(venueId, async (tx) => {
+      await tx.reservation.deleteMany({ where: { venueId } });
+      await tx.table.deleteMany({ where: { venueId } });
+      await tx.floorPlan.deleteMany({ where: { venueId } });
+      await tx.venue.delete({ where: { id: venueId } });
+    });
+  });
 });

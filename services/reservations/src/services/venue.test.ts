@@ -1144,27 +1144,84 @@ describe("venueService", () => {
   });
 
   describe("delete", () => {
+    interface DeleteTx {
+      table: { deleteMany: Mock };
+      floorPlanSection: { deleteMany: Mock };
+      floorPlan: { deleteMany: Mock };
+      venue: { delete: Mock };
+      $executeRaw: Mock;
+      $executeRawUnsafe: Mock;
+    }
+
+    /** Runs delete() inside a fake interactive transaction and returns its spies in call order. */
+    function mockDeleteTransaction(venueDelete: Mock = vi.fn().mockResolvedValue(undefined)) {
+      const calls: string[] = [];
+      const record = (name: string) => vi.fn(async () => void calls.push(name));
+      const tx: DeleteTx = {
+        table: { deleteMany: record("tables") },
+        floorPlanSection: { deleteMany: record("sections") },
+        floorPlan: { deleteMany: record("floorPlans") },
+        venue: {
+          delete: vi.fn(async (args: unknown) => {
+            calls.push("venue");
+            return venueDelete(args);
+          }),
+        },
+        $executeRaw: makeTxExecuteRaw(),
+        $executeRawUnsafe: vi.fn().mockResolvedValue(0),
+      };
+      vi.mocked(prisma.$transaction).mockImplementationOnce((async (
+        fn: (tx: DeleteTx) => Promise<unknown>
+      ) => fn(tx)) as never);
+      return { tx, calls };
+    }
+
+    function mockDeleteTransactionRejecting(error: unknown): void {
+      vi.mocked(prisma.$transaction).mockRejectedValueOnce(error as never);
+    }
+
+    beforeEach(() => {
+      vi.mocked(prisma.$transaction).mockReset();
+    });
+
     it("returns 'deleted' on success", async () => {
-      vi.mocked(prisma.venue.delete).mockResolvedValueOnce(undefined as never);
+      mockDeleteTransaction();
 
       expect(await venueService.delete("venue-1")).toBe("deleted");
     });
 
+    it("removes the venue's tables, sections and floor plans before the venue itself (#8425)", async () => {
+      // The active onboarding floor plan cannot be deleted on its own, so the
+      // venue delete has to take it (and its tables) down, children first.
+      const { tx, calls } = mockDeleteTransaction();
+
+      await venueService.delete("venue-1");
+
+      expect(calls).toEqual(["tables", "sections", "floorPlans", "venue"]);
+      expect(tx.table.deleteMany).toHaveBeenCalledWith({
+        where: { OR: [{ venueId: "venue-1" }, { floorPlan: { venueId: "venue-1" } }] },
+      });
+      expect(tx.floorPlanSection.deleteMany).toHaveBeenCalledWith({
+        where: { venueId: "venue-1" },
+      });
+      expect(tx.floorPlan.deleteMany).toHaveBeenCalledWith({ where: { venueId: "venue-1" } });
+      expect(tx.venue.delete).toHaveBeenCalledWith({ where: { id: "venue-1" } });
+    });
+
     it("returns 'not_found' for P2025", async () => {
-      vi.mocked(prisma.venue.delete).mockRejectedValueOnce({ code: "P2025" } as never);
+      mockDeleteTransaction(vi.fn().mockRejectedValue({ code: "P2025" }));
 
       expect(await venueService.delete("missing")).toBe("not_found");
     });
 
-    it("returns 'has_dependents' for P2003 (FK constraint from Guest/FloorPlan/ReservationHold)", async () => {
-      vi.mocked(prisma.venue.delete).mockRejectedValueOnce({ code: "P2003" } as never);
+    it("returns 'has_dependents' for P2003 (a booked table, Guest or Menu still points at the venue)", async () => {
+      mockDeleteTransactionRejecting({ code: "P2003" });
 
       expect(await venueService.delete("venue-with-guests")).toBe("has_dependents");
     });
 
     it("rethrows any other error", async () => {
-      const unexpected = new Error("connection reset");
-      vi.mocked(prisma.venue.delete).mockRejectedValueOnce(unexpected as never);
+      mockDeleteTransactionRejecting(new Error("connection reset"));
 
       await expect(venueService.delete("venue-1")).rejects.toThrow("connection reset");
     });
