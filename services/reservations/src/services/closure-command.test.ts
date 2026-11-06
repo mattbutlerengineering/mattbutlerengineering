@@ -299,6 +299,12 @@ function fakeClient(w: World) {
           w.events = [...w.events, data];
         }
       ),
+      createMany: vi.fn(
+        async ({ data }: { data: { reservationId: string; kind: string; actorId: string }[] }) => {
+          w.events = [...w.events, ...data];
+          return { count: data.length };
+        }
+      ),
     },
     // Stripe is down for the whole suite: a deposit write would be a failure.
     deposit: { updateMany: vi.fn(async () => (w.deposits.writes++, { count: 0 })) },
