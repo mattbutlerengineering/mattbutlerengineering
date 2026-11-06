@@ -14,6 +14,7 @@ import {
 } from "@mbe/availability";
 import type { Table } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { bookableTableWhere } from "./bookable-tables.js";
 import {
   selectBestTable,
   filterSuitableTables,
@@ -227,7 +228,7 @@ async function findSuitableTables(venueId: string, partySize: number): Promise<T
   // place - @mbe/types' partyFitsTable - so it is applied here rather than
   // re-expressed as a Prisma `where`, where null maxCovers meant "unlimited".
   const tables = await prisma.table.findMany({
-    where: { venueId, isActive: true },
+    where: bookableTableWhere(venueId),
     orderBy: [{ priority: "desc" }, { capacity: "asc" }],
   });
   return filterSuitableTables(tables, partySize);

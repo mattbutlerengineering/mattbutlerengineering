@@ -33,6 +33,7 @@ vi.mock("./database.js", async () => {
 
 import { availabilityService, fetchConflictData } from "./availability.js";
 import { prisma } from "./database.js";
+import { bookableTableWhere } from "./bookable-tables.js";
 import { NOT_BOOKED_STATUSES, activeHoldWindow } from "./slot-rules.js";
 
 const VENUE_ID = "venue-1";
@@ -192,6 +193,19 @@ describe("availabilityService.generateTimeSlots", () => {
     const slots = await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-04", 2);
 
     expect(slots).toEqual([]);
+  });
+
+  it("loads only bookable tables: active, on the active floor plan (#8276)", async () => {
+    vi.mocked(prisma.venue.findUnique).mockResolvedValueOnce(makePrismaVenue() as never);
+    vi.mocked(prisma.table.findMany).mockResolvedValueOnce([makePrismaTable()] as never);
+    vi.mocked(prisma.reservation.findMany).mockResolvedValueOnce([] as never);
+    vi.mocked(prisma.reservationHold.findMany).mockResolvedValueOnce([] as never);
+
+    await availabilityService.generateTimeSlots(VENUE_ID, "2026-05-05", 2);
+
+    expect(prisma.table.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: bookableTableWhere(VENUE_ID) })
+    );
   });
 
   it("returns empty array when no suitable tables exist", async () => {
