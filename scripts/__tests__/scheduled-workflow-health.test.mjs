@@ -1350,6 +1350,18 @@ describe("main-push workflow arm (#6955)", () => {
     ]);
   });
 
+  // The sort is a documented contract ("sorted by file name for deterministic
+  // output"), and it takes two entries to exercise the comparator at all --
+  // with 0 or 1 result the ordering claim is untested.
+  it("returns multiple unwatched workflows sorted by file name", () => {
+    writeFileSync(join(dir, "zeta.yml"), "name: Zeta\non:\n  push:\n    branches: [main]\n");
+    writeFileSync(join(dir, "alpha.yml"), "name: Alpha\non:\n  push:\n    branches: [main]\n");
+    expect(findUnwatchedMainPushWorkflows(dir).map((w) => w.file)).toEqual([
+      "alpha.yml",
+      "zeta.yml",
+    ]);
+  });
+
   it("does not report scheduled, deploy, exempt, or already-listed workflows", () => {
     writeFileSync(
       join(dir, "cron.yml"),
