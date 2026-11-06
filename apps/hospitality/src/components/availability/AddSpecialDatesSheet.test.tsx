@@ -471,6 +471,26 @@ describe("AddSpecialDatesSheet", () => {
     expect(dinner.closesAt).toBe(1200);
   });
 
+  it("waits for a date before filling in special hours, then starts from that date's weekday", async () => {
+    preview.mockResolvedValue([impact("2026-12-26", 0)]);
+    create.mockResolvedValue({ version: 8, results: [result("a", 0, 0)] });
+    renderSheet(withSaturday());
+    // Before a date there is no weekday: no hours to start from, so none are guessed.
+    fireEvent.click(screen.getByRole("radio", { name: "Special hours" }));
+    expect(
+      screen.getByText("Choose a date first: its usual hours fill in here to change.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Remove / })).not.toBeInTheDocument();
+    await pickDate(0, "2026-12-26"); // a Saturday: dinner closes at 8:00 PM
+    fireEvent.click(primary());
+
+    await waitFor(() => expect(preview).toHaveBeenCalledTimes(1));
+    const dinner = preview.mock.calls[0]![0].rules[0].payload.services.find(
+      (service: { venueServiceId: string }) => service.venueServiceId === "vs-dinner"
+    );
+    expect(dinner.closesAt).toBe(1200);
+  });
+
   describe("a save whose response was lost (#7978)", () => {
     const lost = () => new TypeError("Failed to fetch");
     const conflict = () => problem(409, "version-conflict");

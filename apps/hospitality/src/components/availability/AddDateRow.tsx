@@ -70,7 +70,8 @@ export function AddDateRow(props: AddDateRowProps) {
     // Hours copied from another weekday (the date changed while the row was Closed) follow the
     // date too; hours the Manager edited carry no `seededFor` and stay theirs.
     const stale = row.seededFor !== undefined && row.seededFor !== weekday;
-    if (kind === "hours" && (row.services.length === 0 || stale)) {
+    // With no date yet there is no weekday to start from: the hours fill in when one is chosen.
+    if (kind === "hours" && row.date && (row.services.length === 0 || stale)) {
       return onChange({ ...row, kind, services: seed(weekday), seededFor: weekday });
     }
     onChange({ ...row, kind });
@@ -183,7 +184,12 @@ export function AddDateRow(props: AddDateRowProps) {
           )}
         </>
       )}
-      {row.kind === "hours" && (
+      {row.kind === "hours" && !row.date && row.services.length === 0 && (
+        <Text variant="caption" color="secondary">
+          {t("availabilitySpecial.add.hoursNeedDate")}
+        </Text>
+      )}
+      {row.kind === "hours" && (row.date || row.services.length > 0) && (
         <>
           <div id={rowFieldId(row.key, "hours")}>
             <ServicesEditor
