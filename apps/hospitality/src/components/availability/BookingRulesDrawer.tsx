@@ -6,7 +6,7 @@ import { useUpdateVenue } from "../../hooks/useVenues.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import {
-  invalidBookingRule,
+  invalidBookingRules,
   toBookingRulesForm,
   UNSET_LARGEST_PARTY,
   withBookingRules,
@@ -33,11 +33,11 @@ export function BookingRulesDrawer({ onClose }: BookingRulesDrawerProps) {
   const [initial] = useState(() => toBookingRulesForm(selectedVenue?.settings));
   const [form, setForm] = useState<BookingRulesForm>(initial);
   const [failure, setFailure] = useState<string | null>(null);
-  const invalid = invalidBookingRule(form);
+  const invalid = invalidBookingRules(form);
   const dirty = (Object.keys(form) as BookingRulesField[]).some((k) => form[k] !== initial[k]);
 
   const save = async () => {
-    if (!selectedVenueId || invalid) return;
+    if (!selectedVenueId || invalid.length > 0) return;
     setFailure(null);
     try {
       await update.mutateAsync({
@@ -58,8 +58,8 @@ export function BookingRulesDrawer({ onClose }: BookingRulesDrawerProps) {
       label={label}
       value={form[key]}
       placeholder={placeholder}
-      error={invalid === key}
-      hint={invalid === key ? t(`availability.bookingRules.invalid.${key}`) : hint}
+      error={invalid.includes(key)}
+      hint={invalid.includes(key) ? t(`availability.bookingRules.invalid.${key}`) : hint}
       showOptional
       onChange={(e) => setForm({ ...form, [key]: e.target.value })}
     />
@@ -79,7 +79,7 @@ export function BookingRulesDrawer({ onClose }: BookingRulesDrawerProps) {
           </Button>
           <Button
             variant="primary"
-            disabled={!dirty || invalid !== null}
+            disabled={!dirty || invalid.length > 0}
             isLoading={update.isPending}
             onClick={() => void save()}
           >
