@@ -47,6 +47,7 @@ import {
 } from "./closure-command-plan.js";
 import {
   checkAlongside,
+  isPlainClosure,
   ruleChangedSinceSeen,
   seriesChangedSinceRead,
 } from "./closure-alongside.js";
@@ -468,15 +469,15 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   const version = body.expectedVersion + 1;
   // A series that grows is saved under a new id: what the old one did follows it (#7984).
   const [replaced] = body.alongside?.remove ?? [];
-  const carried = replaced
-    ? await carryOutcomes(
-        tx,
-        venueId,
-        replaced,
-        rule.id,
-        plan.rows.map((r) => r.reservationId)
-      )
-    : null;
+  const deciding = plan.rows.map((r) => r.reservationId);
+  const replacedRule = state.stored.dateRules.find((r) => r.id === replaced);
+  // An edited closure keeps what it did to each guest on the dates it still closes; the dates it
+  // gave back keep theirs on the removed closure, as a reopen of those dates would.
+  const carried = !replaced
+    ? null
+    : replacedRule && isPlainClosure(replacedRule)
+      ? await carryByDate(tx, venueId, replaced, [rule], deciding)
+      : await carryOutcomes(tx, venueId, replaced, rule.id, deciding);
   const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
   const meta: ClosureMeta = {
     ruleId: rule.id,

@@ -392,6 +392,15 @@
       function whatOf(series: DateRule): CloseWhat { /* ... */ }
     </item>
     <item priority="high">
+      export function isEditableClosure(rule: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureForm(rule: DateRule): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editAlongside(rule: DateRule): ClosureAlongside { /* ... */ }
+    </item>
+    <item priority="high">
       export function seriesForm(series: DateRule, date: string): CloseForm { /* ... */ }
     </item>
     <item priority="high">

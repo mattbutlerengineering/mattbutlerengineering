@@ -5492,6 +5492,35 @@
       }
       return { kind: "venue" };
     }
+    export function isEditableClosure(rule: DateRule): boolean {
+      return (
+        rule.kind === "closure" &&
+        rule.repeat == null &&
+        rule.seriesId == null &&
+        (rule.targetKind === "venue" ||
+          (rule.targetKind === "service" && !!rule.venueServiceId) ||
+          (rule.targetKind === "booking" && !!rule.bookingTypes?.length)) &&
+        (rule.window == null || rule.window.to === END_OF_SERVICE_DAY)
+      );
+    }
+    export function closureForm(rule: DateRule): CloseForm {
+      const when: CloseWhen =
+        rule.endsOn == null
+          ? { kind: "until-reopen", from: rule.startsOn }
+          : rule.endsOn === rule.startsOn
+            ? { kind: "date", date: rule.startsOn }
+            : { kind: "range", from: rule.startsOn, to: rule.endsOn };
+      return {
+        what: whatOf(rule),
+        when,
+        fromMinute: rule.window?.from ?? null,
+        staffNote: rule.staffNote ?? "",
+        guestMessage: rule.guestMessage ?? "",
+      };
+    }
+    export function editAlongside(rule: DateRule): ClosureAlongside {
+      return { upsert: [], remove: [rule.id], replaces: rule };
+    }
     export function seriesForm(series: DateRule, date: string): CloseForm {
       return {
         what: whatOf(series),
@@ -21808,12 +21837,12 @@
   <file path="apps/hospitality/src/hooks/useClosures.ts">
     export const useClosureImpact = createQueryHook<
       ClosureImpact | null,
-      { venueId: string | null; rule: DateRule | null }
+      { venueId: string | null; rule: DateRule | null; alongside?: ClosureAlongside | undefined }
     >({
       key: CLOSURE_IMPACT_QUERY_KEY,
       fetcher: async (params, api) =>
         params?.venueId && params.rule
-          ? api.availability.getClosureImpact(params.venueId, params.rule)
+          ? api.availability.getClosureImpact(params.venueId, params.rule, params.alongside)
           : null,
       getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
     });
@@ -47903,6 +47932,8 @@
        * names the series, the closure command refuses with the version conflict if the stored series
        * is no longer this row (a teammate changed its message, weekdays or end date since). Optional
        * for clients from before this field: without it only the draft's other fields are compared.
+       * Required when `remove` names a one-date or range closure (an edit of it): the closure is then
+       * compared as a whole, and the edit is refused as invalid without it.
        */
       replaces: DateRuleSchema.optional(),
     });
@@ -56606,12 +56637,43 @@
         return !was || !same(was, c);
       });
     }
+    export const isPlainClosure = (r: DateRule): boolean =>
+      r.kind === "closure" && r.repeat == null && r.seriesId == null;
+    function checkClosureEdit(
+      stored: DateRule,
+      draft: DateRule,
+      alongside: ClosureAlongside
+    ): AlongsideIssue | null {
+      if (draft.kind !== "closure" || draft.id === stored.id) {
+        return refuse("alongside", "An edited closure is saved as a new closure.");
+      }
+      if (draft.repeat != null) {
+        return refuse(
+          "rule.repeat",
+          "An edited closure is one date, a range or open-ended, not a repeat."
+        );
+      }
+      if (alongside.upsert.length > 0 || alongside.remove.length !== 1) {
+        return refuse("alongside", "Editing a closure replaces that closure and nothing else.");
+      }
+      if (!alongside.replaces) {
+        return {
+          path: "alongside.replaces",
+          code: "replaces_required",
+          message: "Editing a closure needs the closure as you saw it.",
+        };
+      }
+      return null;
+    }
     export function checkAlongside(
       stored: readonly DateRule[],
       draft: DateRule,
       alongside: ClosureAlongside
     ): AlongsideIssue | null {
       const byId = new Map(stored.map((r) => [r.id, r]));
+      const [removed] = alongside.remove;
+      const plain = removed ? byId.get(removed) : undefined;
+      if (plain && isPlainClosure(plain)) return checkClosureEdit(plain, draft, alongside);
       const touched = new Set([
         ...alongside.remove,
         ...alongside.upsert
@@ -57458,15 +57520,15 @@
       const version = body.expectedVersion + 1;
       // A series that grows is saved under a new id: what the old one did follows it (#7984).
       const [replaced] = body.alongside?.remove ?? [];
-      const carried = replaced
-        ? await carryOutcomes(
-            tx,
-            venueId,
-            replaced,
-            rule.id,
-            plan.rows.map((r) => r.reservationId)
-          )
-        : null;
+      const deciding = plan.rows.map((r) => r.reservationId);
+      const replacedRule = state.stored.dateRules.find((r) => r.id === replaced);
+      // An edited closure keeps what it did to each guest on the dates it still closes; the dates it
+      // gave back keep theirs on the removed closure, as a reopen of those dates would.
+      const carried = !replaced
+        ? null
+        : replacedRule && isPlainClosure(replacedRule)
+          ? await carryByDate(tx, venueId, replaced, [rule], deciding)
+          : await carryOutcomes(tx, venueId, replaced, rule.id, deciding);
       const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
       const meta: ClosureMeta = {
         ruleId: rule.id,
@@ -59392,7 +59454,9 @@
       tx: Db,
       venueId: string,
       from: string,
-      parts: readonly DateRule[]
+      parts: readonly DateRule[],
+      /** Bookings the same save gives a new outcome of their own: one outcome per booking and rule. */
+      deciding: readonly string[] = []
     ): Promise<CarriedOutcomes | null> {
       const moved: string[] = [];
       for (const part of parts) {
@@ -59400,8 +59464,13 @@
           where: {
             venueId,
             dateRuleId: from,
+            ...(deciding.length > 0 ? { reservationId: { notIn: [...deciding] } } : {}),
             reservation: {
-              date: { gte: toDbDate(part.startsOn)!, lte: toDbDate(part.endsOn ?? part.startsOn)! },
+              // An open-ended part has no last date: every booking from its start on is its.
+              date: {
+                gte: toDbDate(part.startsOn)!,
+                ...(part.endsOn != null ? { lte: toDbDate(part.endsOn)! } : {}),
+              },
             },
           },
           select: { id: true },

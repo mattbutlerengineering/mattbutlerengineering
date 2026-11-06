@@ -1174,6 +1174,125 @@ describe("createClosure", () => {
     });
   });
 
+  describe("an edit of a one-date or range closure (#7984)", () => {
+    /** Dec 24 to 26 as stored: venue closed, no window. */
+    const storedRange = {
+      id: "c1",
+      venueId: "v",
+      kind: "closure",
+      targetKind: "venue",
+      venueServiceId: null,
+      bookingTypes: [],
+      startsOn: new Date("2026-12-24T00:00:00.000Z"),
+      endsOn: new Date("2026-12-26T00:00:00.000Z"),
+      repeat: null,
+      window: null,
+      payload: null,
+      useScheduleId: null,
+      seriesId: null,
+      guestMessage: null,
+      staffNote: null,
+      expiresAt: null,
+      deletedAt: null,
+      tables: [],
+    };
+    const readRange = closure({ id: "c1", startsOn: "2026-12-24", endsOn: "2026-12-26" });
+    /** The edit a client builds: the range grows to Dec 28, under a new id, replacing c1. */
+    const grow = (patch: Partial<CreateClosureBody> = {}): CreateClosureBody =>
+      body({
+        rule: closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-28" }),
+        alongside: { upsert: [], remove: ["c1"], replaces: readRange },
+        decisions: [],
+        ...patch,
+      });
+    const onDec = (id: string, date: string) => {
+      // 7 PM in Los Angeles, on `date`, is 3 AM UTC the next day.
+      const next = new Date(Date.parse(`${date}T03:00:00.000Z`) + 86_400_000).toISOString();
+      return res(id, date, next, next.replace("03:00", "04:30"));
+    };
+    const edited = (reservations: Res[] = []): World =>
+      world({ dateRules: [storedRange], reservations });
+
+    it("asks only about the booking on the date the edit adds, then saves the new closure", async () => {
+      const w = edited([onDec("kept-date", "2026-12-25"), onDec("new-date", "2026-12-27")]);
+
+      const first = await run(w, grow());
+      expect(first.outcome).toEqual({
+        kind: "decision_required",
+        groupKeys: ["2026-12-27:closed"],
+      });
+      expect(w.version).toBe(4);
+
+      const { outcome } = await run(
+        w,
+        grow({ decisions: [{ groupKey: "2026-12-27:closed", action: "cancel" }] })
+      );
+      expect(outcome).toMatchObject({
+        kind: "saved",
+        result: { ruleId: "c2", outcomes: { cancel: 1 } },
+      });
+      expect(w.reservations.map((r) => [r.id, r.status])).toEqual([
+        ["kept-date", "CONFIRMED"],
+        ["new-date", "CANCELLED"],
+      ]);
+    });
+
+    it("carries what the old closure did to each guest onto the edited one, and records it for Undo", async () => {
+      const w = edited([]);
+      w.outcomes = [{ id: "o-old", dateRuleId: "c1", reservationId: "gone", action: "cancel" }];
+      const { outcome } = await run(w, grow());
+
+      expect(outcome.kind).toBe("saved");
+      expect((w.changes[0]!.inverse as { closure: { carried: unknown } }).closure.carried).toEqual({
+        from: "c1",
+        outcomeIds: ["o-old"],
+      });
+    });
+
+    it("saves a shortened range with no question, since it only gives dates back", async () => {
+      const { outcome } = await run(
+        edited([onDec("a", "2026-12-25")]),
+        grow({ rule: closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-24" }) })
+      );
+      expect(outcome).toMatchObject({ kind: "saved", result: { outcomes: { cancel: 0 } } });
+    });
+
+    it("needs the closure as the client read it", async () => {
+      const { outcome } = await run(edited(), grow({ alongside: { upsert: [], remove: ["c1"] } }));
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: [{ code: "replaces_required" }],
+      });
+    });
+
+    it("answers a closure a teammate changed since with the version conflict, saving nothing", async () => {
+      const w = world({
+        dateRules: [{ ...storedRange, endsOn: new Date("2026-12-30T00:00:00.000Z") }],
+        reservations: [],
+      });
+      const { outcome, tx } = await run(w, grow());
+
+      expect(outcome.kind).toBe("version_conflict");
+      expect(w.version).toBe(4);
+      expect(tx.dateRule.create).not.toHaveBeenCalled();
+    });
+
+    it("is a Manager's change", async () => {
+      const { outcome } = await run(edited(), grow(), { caller: HOST });
+      expect(outcome).toEqual({ kind: "forbidden" });
+    });
+
+    it("replaces one closure and writes nothing else beside it", async () => {
+      const { outcome } = await run(
+        edited(),
+        grow({
+          alongside: { upsert: [closure({ id: "extra" })], remove: ["c1"], replaces: readRange },
+        })
+      );
+      expect(outcome).toMatchObject({ kind: "invalid" });
+    });
+  });
+
   describe("Host emergency limits", () => {
     const tonight = closure({ id: "dr-tonight", startsOn: "2026-10-25", endsOn: "2026-10-25" });
     const none = { reservations: [] };

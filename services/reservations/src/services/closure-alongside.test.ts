@@ -176,3 +176,50 @@ describe("checkAlongside — canonical comparison is order- and null-insensitive
     expect(checkAlongside(stored, draft, alongside)).toBeNull();
   });
 });
+
+describe("checkAlongside — an edit of one plain closure (#7984)", () => {
+  const range: DateRule = {
+    ...series,
+    id: "range-1",
+    startsOn: "2026-03-01",
+    endsOn: "2026-03-03",
+    repeat: null,
+  };
+  const edited: DateRule = { ...range, id: "range-2", endsOn: "2026-03-05" };
+  const rows: DateRule[] = [range, series, skip];
+
+  it("accepts the closure removed beside its edit when the row as the client read it is named", () => {
+    expect(
+      checkAlongside(rows, edited, { upsert: [], remove: ["range-1"], replaces: range })
+    ).toBeNull();
+  });
+
+  it("needs the closure as the client read it", () => {
+    expect(checkAlongside(rows, edited, { upsert: [], remove: ["range-1"] })).toMatchObject({
+      code: "replaces_required",
+    });
+  });
+
+  it("writes nothing else beside it", () => {
+    expect(
+      checkAlongside(rows, edited, { upsert: [skip], remove: ["range-1"], replaces: range })
+    ).toMatchObject({ code: "invalid_alongside" });
+  });
+
+  it("saves the edit under a new id, as a closure", () => {
+    expect(
+      checkAlongside(
+        rows,
+        { ...edited, id: "range-1" },
+        { upsert: [], remove: ["range-1"], replaces: range }
+      )
+    ).toMatchObject({ code: "invalid_alongside" });
+  });
+
+  it("saves it as one date, a range or open-ended, never a repeat", () => {
+    const weekly: DateRule = { ...edited, repeat: { version: 1, weekdays: [1] } };
+    expect(
+      checkAlongside(rows, weekly, { upsert: [], remove: ["range-1"], replaces: range })
+    ).toMatchObject({ path: "rule.repeat", code: "invalid_alongside" });
+  });
+});

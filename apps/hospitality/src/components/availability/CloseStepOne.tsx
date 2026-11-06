@@ -63,6 +63,8 @@ export interface CloseStepOneProps {
   readonly locked?: boolean;
   /** An edit of one date of a series: When is fixed to that single date (the engine applies it on its start only). */
   readonly dateLocked?: boolean;
+  /** An edit of a saved closure: it stays one date, a range or open-ended, so no Tonight, Several dates or Repeats. */
+  readonly closureEdit?: boolean;
   /** The start times "Starting at" offers, including after midnight on an overnight day. */
   readonly startOptions: readonly number[];
   /** The last edit turned a time before opening into All day. */
@@ -212,11 +214,17 @@ export function CloseStepOne(props: CloseStepOneProps) {
                   patch({ when: whenKindDefaults(kind as CloseWhen["kind"], firstDate || today) })
                 }
               >
-                <Radio value="tonight" label={t("availability.close.when.tonight")} />
+                {!props.closureEdit && (
+                  <Radio value="tonight" label={t("availability.close.when.tonight")} />
+                )}
                 <Radio value="date" label={t("availability.close.when.date")} />
-                <Radio value="dates" label={t("availability.close.when.dates")} />
+                {!props.closureEdit && (
+                  <Radio value="dates" label={t("availability.close.when.dates")} />
+                )}
                 <Radio value="range" label={t("availability.close.when.range")} />
-                <Radio value="repeats" label={t("availability.close.when.repeats")} />
+                {!props.closureEdit && (
+                  <Radio value="repeats" label={t("availability.close.when.repeats")} />
+                )}
                 <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
               </RadioGroup>
               <div className={styles.row} id={closeWhenId(when, false)}>

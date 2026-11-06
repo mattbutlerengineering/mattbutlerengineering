@@ -6,6 +6,7 @@ import {
   type AvailabilityChangeSummary,
   type AvailabilityConfigState,
   type ClosureImpact,
+  type ClosureResult,
   type DateRule,
 } from "@mbe/types";
 import {
@@ -21,7 +22,9 @@ import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
   buildCloseRules,
   closedDates,
+  closureForm,
   decisionsReady,
+  editAlongside,
   withoutChoicesFor,
   focusCloseField,
   inSeries,
@@ -49,6 +52,7 @@ import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
+import { sameRow } from "./series-edit.js";
 import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./CloseDialog.module.css";
 
@@ -69,6 +73,17 @@ export interface CloseDialogProps {
    * this date"): What and the window start as the series has them, and When is fixed to that date.
    */
   readonly series?: DateRule;
+  /**
+   * Makes the closure an edit of this saved one-date, range or open-ended closure (ux.md F6
+   * "Edit"): the form starts as the closure has it, Step 2 decides only on the bookings the new
+   * dates close, and the saved closure is replaced in the same save.
+   */
+  readonly editing?: DateRule;
+  /**
+   * Called instead of the toast when the save told no guest anything, with the saved change, so
+   * the caller can offer Undo for it.
+   */
+  readonly onSavedQuietly?: (saved: ClosureResult) => void;
   /** A Host's emergency close (ux.md F7): Whole venue and Tonight, shown as text and not editable. */
   readonly hostLocked?: boolean;
   readonly onClose: () => void;
@@ -77,7 +92,8 @@ export interface CloseDialogProps {
 }
 
 function initialForm(props: CloseDialogProps): CloseForm {
-  const { initialDate, initialDates, pauseOnline, hostLocked, series, today } = props;
+  const { initialDate, initialDates, pauseOnline, hostLocked, series, editing, today } = props;
+  if (editing) return closureForm(editing);
   if (series && initialDate) return seriesForm(series, initialDate);
   if (hostLocked) {
     return {
@@ -160,7 +176,21 @@ export function CloseDialog(props: CloseDialogProps) {
     attempts.setDirty(true);
   };
 
-  const { series } = props;
+  const { series, editing } = props;
+  const alongside = useMemo(() => (editing ? editAlongside(editing) : undefined), [editing]);
+  // The saved closure is being replaced: it is not "already closed" ground, and a teammate who
+  // changed or removed it since it was opened makes this edit void (the server refuses it too).
+  const liveRules = editing
+    ? state.config.dateRules.filter((r) => r.id !== editing.id)
+    : state.config.dateRules;
+  const liveRow = editing ? state.config.dateRules.find((r) => r.id === editing.id) : undefined;
+  const editState = !editing
+    ? null
+    : !liveRow
+      ? "gone"
+      : sameRow(liveRow, editing)
+        ? null
+        : "changed";
   // Several dates are one closure each; these answer "which rule is for this date" so that a retry
   // keeps its ids (`attempt` ids) and a preview keeps its own (below).
   const [attemptIds] = useState(() => new Map<string, string>());
@@ -184,7 +214,7 @@ export function CloseDialog(props: CloseDialogProps) {
     [form, previewId, today, series, several]
   );
   const impactRule = several ? null : (impactRules[0] ?? null);
-  const impactQuery = useClosureImpact({ venueId, rule: impactRule });
+  const impactQuery = useClosureImpact({ venueId, rule: impactRule, alongside });
   const impactsQuery = useClosureImpacts({ venueId, rules: several ? impactRules : [] });
   const perDate = impactsQuery.data;
   const combined = useMemo(() => (perDate ? combineImpacts(perDate) : undefined), [perDate]);
@@ -211,8 +241,7 @@ export function CloseDialog(props: CloseDialogProps) {
   // Special hours anywhere in the closure's dates (a range or a repeat too) are replaced by it.
   const replacedDate =
     form.what.kind !== "booking"
-      ? (rules.map((r) => replacedSpecialDate(state.config.dateRules, r)).find((d) => d !== null) ??
-        null)
+      ? (rules.map((r) => replacedSpecialDate(liveRules, r)).find((d) => d !== null) ?? null)
       : null;
   // Read every day the closure covers: a time must mean the same on all of them.
   const startOptions = startMinutes(
@@ -233,18 +262,19 @@ export function CloseDialog(props: CloseDialogProps) {
     else void save();
   };
 
-  const saveOne = async (only: DateRule) =>
-    (
-      await createOne.mutateAsync({
-        venueId,
-        idempotencyKey,
-        body: {
-          expectedVersion: state.version,
-          rule: only,
-          decisions: toDecisions(groups, choices),
-        },
-      })
-    ).outcomes;
+  const saveOne = async (only: DateRule) => {
+    const result = await createOne.mutateAsync({
+      venueId,
+      idempotencyKey,
+      body: {
+        expectedVersion: state.version,
+        rule: only,
+        ...(alongside ? { alongside } : {}),
+        decisions: toDecisions(groups, choices),
+      },
+    });
+    return { outcomes: result.outcomes, result };
+  };
 
   /** One command, one closure rule per date, each with the decisions of its own date's groups. */
   const saveMany = async () => {
@@ -263,7 +293,7 @@ export function CloseDialog(props: CloseDialogProps) {
         total[key] += r.outcomes[key];
       }
     }
-    return total;
+    return { outcomes: total, result: null };
   };
 
   const save = async () => {
@@ -276,8 +306,8 @@ export function CloseDialog(props: CloseDialogProps) {
       rules.map((r) => r.startsOn)
     );
     try {
-      const outcomes = several ? await saveMany() : await saveOne(rule);
-      const { cancel, move, keep_notify } = outcomes;
+      const saved = several ? await saveMany() : await saveOne(rule);
+      const { cancel, move, keep_notify } = saved.outcomes;
       const notified = cancel + move + keep_notify;
       // A repeat's From date may not be one of its days.
       const date = fullDate(closedDates(rule)[0] ?? startsOn);
@@ -298,7 +328,12 @@ export function CloseDialog(props: CloseDialogProps) {
               ? t("availability.close.toast.paused")
               : t("availability.close.toast.bookingPaused", { date })
             : t("availability.close.toast.closed", { date });
-      toast({ title, variant: "success" });
+      if (props.onSavedQuietly && saved.result && notified === 0) {
+        // A save that told no guest is one History can revert: the caller offers Undo.
+        props.onSavedQuietly(saved.result);
+      } else {
+        toast({ title, variant: "success" });
+      }
       props.onSaved?.();
       onClose();
     } catch (error) {
@@ -337,31 +372,34 @@ export function CloseDialog(props: CloseDialogProps) {
   // choices would read as complete.
   const primaryDisabled =
     savedEarlier ||
+    editState !== null ||
     (step === 2 ? !impact || !decisionsReady(groups, choices) : impactLoading || impactFailed);
   const label =
     step === 2
       ? outcomeLabel(counts, t)
       : groups.length > 0
         ? t("availability.close.next")
-        : form.what.kind === "booking"
-          ? pauseLabel(form.what.types, t)
-          : several
-            ? t("availability.close.button.closeMany", {
-                count: form.when.kind === "dates" ? form.when.dates.length : 0,
-              })
-            : t("availability.close.button.close", {
-                date:
-                  form.when.kind === "date" || form.when.kind === "tonight"
-                    ? fullDate(startsOn)
-                    : "",
-              }).trim();
+        : editing
+          ? t("availability.close.edit.save")
+          : form.what.kind === "booking"
+            ? pauseLabel(form.what.types, t)
+            : several
+              ? t("availability.close.button.closeMany", {
+                  count: form.when.kind === "dates" ? form.when.dates.length : 0,
+                })
+              : t("availability.close.button.close", {
+                  date:
+                    form.when.kind === "date" || form.when.kind === "tonight"
+                      ? fullDate(startsOn)
+                      : "",
+                }).trim();
 
   return (
     <>
       <Dialog
         open
         onClose={leave}
-        title={t("availability.close.title")}
+        title={editing ? t("availability.close.edit.title") : t("availability.close.title")}
         description={savedEarlier ? undefined : t("availability.close.step", { step })}
         footer={
           savedEarlier ? (
@@ -412,6 +450,9 @@ export function CloseDialog(props: CloseDialogProps) {
               : t("availability.close.savedEarlier.bodyPlain")}
           </Alert>
         )}
+        {!savedEarlier && editState && (
+          <Alert variant="warning">{t(`availability.close.edit.${editState}`)}</Alert>
+        )}
         {!savedEarlier && failure && (
           <Alert variant="error" title={t("availability.close.saveError")}>
             {failure}
@@ -420,7 +461,7 @@ export function CloseDialog(props: CloseDialogProps) {
         )}
         {!savedEarlier && step === 1 && (
           <AlreadyClosedNotice
-            rules={state.config.dateRules}
+            rules={liveRules}
             draft={several ? rules : rule}
             services={services}
             today={today}
@@ -442,6 +483,7 @@ export function CloseDialog(props: CloseDialogProps) {
               invalid={invalid}
               locked={props.hostLocked}
               dateLocked={series !== undefined}
+              closureEdit={editing !== undefined}
               startOptions={startOptions}
               startReset={startReset}
             />

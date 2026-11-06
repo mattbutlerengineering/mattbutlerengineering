@@ -1788,6 +1788,15 @@
       function whatOf(series: DateRule): CloseWhat { /* ... */ }
     </item>
     <item priority="high">
+      export function isEditableClosure(rule: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureForm(rule: DateRule): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editAlongside(rule: DateRule): ClosureAlongside { /* ... */ }
+    </item>
+    <item priority="high">
       export function seriesForm(series: DateRule, date: string): CloseForm { /* ... */ }
     </item>
     <item priority="high">
@@ -17125,6 +17134,16 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
+      export const isPlainClosure: unknown;
+    </item>
+    <item priority="medium">
+      function checkClosureEdit(
+        stored: DateRule,
+        draft: DateRule,
+        alongside: ClosureAlongside
+      ): AlongsideIssue | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function checkAlongside(
         stored: readonly DateRule[],
         draft: DateRule,
@@ -18163,7 +18182,9 @@
         tx: Db,
         venueId: string,
         from: string,
-        parts: readonly DateRule[]
+        parts: readonly DateRule[],
+        /** Bookings the same save gives a new outcome of their own: one outcome per booking and rule. */
+        deciding: readonly string[] = []
       ): Promise<CarriedOutcomes | null> { /* ... */ }
     </item>
   </file>

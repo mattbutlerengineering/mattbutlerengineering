@@ -1714,6 +1714,8 @@
     "callListFor": "Liste d'appels pour {{date}}",
     "remove": "Retirer",
     "removeClosureFor": "Retirer la fermeture pour {{date}}",
+    "editClosure": "Modifier",
+    "editClosureFor": "Modifier la fermeture pour {{date}}",
     "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Fermeture antérieure",
@@ -2603,6 +2605,13 @@
     "close": {
       "open": "Fermer…",
       "title": "Fermer",
+      "edit": {
+        "title": "Modifier la fermeture",
+        "save": "Enregistrer les modifications",
+        "toast": "Fermeture du {{date}} modifiée",
+        "gone": "Cette fermeture a été retirée. Fermez cette fenêtre et consultez l'onglet des dates spéciales.",
+        "changed": "Quelqu'un a modifié cette fermeture pendant que vous l'aviez ouverte. Fermez cette fenêtre et rouvrez-la pour voir sa modification."
+      },
       "step": "Étape {{step}} sur 2",
       "next": "Suivant",
       "back": "Retour",

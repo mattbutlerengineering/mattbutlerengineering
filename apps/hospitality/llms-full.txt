@@ -785,6 +785,35 @@
       }
       return { kind: "venue" };
     }
+    export function isEditableClosure(rule: DateRule): boolean {
+      return (
+        rule.kind === "closure" &&
+        rule.repeat == null &&
+        rule.seriesId == null &&
+        (rule.targetKind === "venue" ||
+          (rule.targetKind === "service" && !!rule.venueServiceId) ||
+          (rule.targetKind === "booking" && !!rule.bookingTypes?.length)) &&
+        (rule.window == null || rule.window.to === END_OF_SERVICE_DAY)
+      );
+    }
+    export function closureForm(rule: DateRule): CloseForm {
+      const when: CloseWhen =
+        rule.endsOn == null
+          ? { kind: "until-reopen", from: rule.startsOn }
+          : rule.endsOn === rule.startsOn
+            ? { kind: "date", date: rule.startsOn }
+            : { kind: "range", from: rule.startsOn, to: rule.endsOn };
+      return {
+        what: whatOf(rule),
+        when,
+        fromMinute: rule.window?.from ?? null,
+        staffNote: rule.staffNote ?? "",
+        guestMessage: rule.guestMessage ?? "",
+      };
+    }
+    export function editAlongside(rule: DateRule): ClosureAlongside {
+      return { upsert: [], remove: [rule.id], replaces: rule };
+    }
     export function seriesForm(series: DateRule, date: string): CloseForm {
       return {
         what: whatOf(series),
@@ -10493,12 +10522,12 @@
   <file path="src/hooks/useClosures.ts">
     export const useClosureImpact = createQueryHook<
       ClosureImpact | null,
-      { venueId: string | null; rule: DateRule | null }
+      { venueId: string | null; rule: DateRule | null; alongside?: ClosureAlongside | undefined }
     >({
       key: CLOSURE_IMPACT_QUERY_KEY,
       fetcher: async (params, api) =>
         params?.venueId && params.rule
-          ? api.availability.getClosureImpact(params.venueId, params.rule)
+          ? api.availability.getClosureImpact(params.venueId, params.rule, params.alongside)
           : null,
       getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
     });
