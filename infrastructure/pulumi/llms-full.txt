@@ -35,7 +35,10 @@
       refreshToken: {
         rotationType: "rotating",
         expirationType: "expiring",
-        leeway: 0,
+        // Reuse interval: every tab shares one stored refresh token and renews on its own timer, so
+        // two tabs can redeem it seconds apart. At 0 the second redemption reads as token reuse and
+        // Auth0 revokes the whole family, signing every tab out (#8339).
+        leeway: 30,
         tokenLifetime: 2592000, // 30 days
         infiniteIdleTokenLifetime: false,
         infiniteTokenLifetime: false,
