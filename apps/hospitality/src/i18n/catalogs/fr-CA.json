@@ -2182,6 +2182,27 @@
       "reloadHours": "Recharger les horaires",
       "ifRemoved": "Si retiré : {{result}}",
       "removalNone": "aucun changement pour ce jour",
+      "schedule": {
+        "spanRange": "{{from}} – {{to}}",
+        "spanFrom": "à partir du {{from}}",
+        "spanUntil": "jusqu’au {{to}}",
+        "subjectDated": "{{name}} ({{span}})",
+        "subjectRule": "« {{label}} » le {{date}}",
+        "editNamed": "Modifier {{name}}",
+        "changeFor": "Changer l’horaire du {{date}}",
+        "removeFor": "Retirer {{subject}}",
+        "removeTitle": "Retirer {{subject}} ?",
+        "removeDescriptionDated": "{{name}} cesse de s’appliquer à toutes les dates de cette période, pas seulement à celle-ci. Ces dates reviennent à votre semaine habituelle ou à un autre horaire qui les couvre. L’horaire reste dans l’onglet Horaires. Cela n’annule jamais de réservations.",
+        "removeDescriptionRule": "La date revient à l’horaire qui la couvre. Cela n’annule jamais de réservations.",
+        "removeDescriptionRuleMany": "Cela le retire de toutes les dates qu’il couvre, pas seulement d’une. Cela n’annule jamais de réservations.",
+        "keepSchedule": "Garder l’horaire",
+        "keep": "Garder",
+        "removedToast": "{{subject}} retiré",
+        "scope": {
+          "title": "Modifier {{name}}",
+          "all": "Toutes les dates que couvre {{name}}"
+        }
+      },
       "layer": {
         "tonight": "Ce soir",
         "allDay": "Toute la journée",

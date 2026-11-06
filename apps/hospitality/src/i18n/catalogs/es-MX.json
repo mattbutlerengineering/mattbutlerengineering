@@ -2182,6 +2182,27 @@
       "reloadHours": "Recargar horarios",
       "ifRemoved": "Si se quita: {{result}}",
       "removalNone": "sin cambios en este día",
+      "schedule": {
+        "spanRange": "{{from}} – {{to}}",
+        "spanFrom": "desde el {{from}}",
+        "spanUntil": "hasta el {{to}}",
+        "subjectDated": "{{name}} ({{span}})",
+        "subjectRule": "«{{label}}» el {{date}}",
+        "editNamed": "Editar {{name}}",
+        "changeFor": "Cambiar el horario del {{date}}",
+        "removeFor": "Quitar {{subject}}",
+        "removeTitle": "¿Quitar {{subject}}?",
+        "removeDescriptionDated": "{{name}} deja de aplicarse en todas las fechas de este periodo, no solo en esta. Esas fechas vuelven a su semana habitual o a otro horario que las cubra. El horario sigue en la pestaña Horarios. Esto nunca cancela reservaciones.",
+        "removeDescriptionRule": "La fecha vuelve al horario que la cubre. Esto nunca cancela reservaciones.",
+        "removeDescriptionRuleMany": "Esto lo quita de todas las fechas que cubre, no solo de una. Esto nunca cancela reservaciones.",
+        "keepSchedule": "Conservar horario",
+        "keep": "Conservar",
+        "removedToast": "{{subject}} quitado",
+        "scope": {
+          "title": "Editar {{name}}",
+          "all": "Todas las fechas que cubre {{name}}"
+        }
+      },
       "layer": {
         "tonight": "Esta noche",
         "allDay": "Todo el día",

@@ -2133,6 +2133,27 @@
       "reloadHours": "Reload hours",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
+      "schedule": {
+        "spanRange": "{{from}} – {{to}}",
+        "spanFrom": "from {{from}}",
+        "spanUntil": "until {{to}}",
+        "subjectDated": "{{name}} ({{span}})",
+        "subjectRule": "“{{label}}” on {{date}}",
+        "editNamed": "Edit {{name}}",
+        "changeFor": "Change the schedule for {{date}}",
+        "removeFor": "Remove {{subject}}",
+        "removeTitle": "Remove {{subject}}?",
+        "removeDescriptionDated": "{{name}} stops applying on every date of this period, not just this one. Those dates go back to your regular week, or to another schedule that covers them. The schedule stays on the Schedules tab. Bookings are never cancelled by this.",
+        "removeDescriptionRule": "The date goes back to the schedule that covers it. Bookings are never cancelled by this.",
+        "removeDescriptionRuleMany": "This removes it from every date it covers, not just one. Bookings are never cancelled by this.",
+        "keepSchedule": "Keep schedule",
+        "keep": "Keep",
+        "removedToast": "{{subject}} removed",
+        "scope": {
+          "title": "Edit {{name}}",
+          "all": "All dates {{name}} covers"
+        }
+      },
       "layer": {
         "tonight": "Tonight",
         "allDay": "All day",
