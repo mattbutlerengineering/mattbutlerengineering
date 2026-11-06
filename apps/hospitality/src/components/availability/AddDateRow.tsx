@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 import {
   Button,
   DatePicker,
+  Radio,
+  RadioGroup,
   SegmentedControl,
   Select,
   Tag,
@@ -11,6 +13,7 @@ import {
 import { addDays, weekdayIndexOf } from "@mbe/availability";
 import { GUEST_MESSAGE_MAX_LENGTH, type AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import {
   regularServices,
   rowFieldId,
@@ -47,6 +50,9 @@ export function AddDateRow(props: AddDateRowProps) {
   const { row, index, config, timezone, today, invalid, messageShared, onChange } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
+  // Three segments do not fit a phone's sheet ("Same as another day" ran off the edge), so a phone
+  // stacks them as radios, as the Close dialog's What and When do.
+  const onPhone = useViewport() === "phone";
   // Trimmed, like validateRows: what blocks Next is what the field flags.
   const messageError = row.message.trim().length > GUEST_MESSAGE_MAX_LENGTH;
   const seed = (weekday: number) => regularServices(config, timezone, weekday, today);
@@ -126,12 +132,25 @@ export function AddDateRow(props: AddDateRowProps) {
           )}
         </Text>
       )}
-      <SegmentedControl
-        aria-label={t("availabilitySpecial.add.kindLabel", { n: index + 1 })}
-        segments={KINDS.map((id) => ({ id, label: t(`availabilitySpecial.add.kind.${id}`) }))}
-        value={row.kind}
-        onChange={(id) => chooseKind(id as RowKind)}
-      />
+      {onPhone ? (
+        <RadioGroup
+          label={t("availabilitySpecial.add.kindLabel", { n: index + 1 })}
+          name={`add-date-kind-${row.key}`}
+          value={row.kind}
+          onChange={(id) => chooseKind(id as RowKind)}
+        >
+          {KINDS.map((id) => (
+            <Radio key={id} value={id} label={t(`availabilitySpecial.add.kind.${id}`)} />
+          ))}
+        </RadioGroup>
+      ) : (
+        <SegmentedControl
+          aria-label={t("availabilitySpecial.add.kindLabel", { n: index + 1 })}
+          segments={KINDS.map((id) => ({ id, label: t(`availabilitySpecial.add.kind.${id}`) }))}
+          value={row.kind}
+          onChange={(id) => chooseKind(id as RowKind)}
+        />
+      )}
       {row.kind === "same" && (
         <>
           <Select
