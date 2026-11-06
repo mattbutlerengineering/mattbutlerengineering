@@ -1,5 +1,5 @@
 import type { ClosureAction } from "@mbe/types";
-import type { PrismaClient } from "../generated/prisma/index.js";
+import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import {
   recordReservationEvent,
   staffActor,
@@ -56,13 +56,33 @@ interface Existing {
 const stateOf = (r: Existing, patch: Partial<Existing> = {}): EventState =>
   toEventState({ ...r, ...patch, tableId: patch.tableId ?? r.tableId ?? "" });
 
+type EventSink = Prisma.ReservationEventCreateManyInput[];
+
+/**
+ * A `recordReservationEvent`-compatible stand-in that collects its write into
+ * `sink` instead of issuing it, so `applyTransitions` can batch every
+ * reservation's event into one `createMany` after the loop rather than one
+ * `create` per reservation.
+ */
+function collectInto(sink: EventSink) {
+  return {
+    reservationEvent: {
+      create({ data }: { data: Prisma.ReservationEventCreateManyInput }) {
+        sink.push(data);
+        return Promise.resolve(data);
+      },
+    },
+  };
+}
+
 /** Cancel by the venue: the status CAS plus the event, no money moved. */
 async function cancelInTx(
   tx: Tx,
   venueId: string,
   actorId: string,
   r: Existing,
-  expectedStartTime: Date
+  expectedStartTime: Date,
+  events: EventSink
 ): Promise<ApplyResult> {
   try {
     transitionReservation(r.status as never, "CANCELLED");
@@ -83,7 +103,7 @@ async function cancelInTx(
   if (count === 0) {
     return { kind: "cannot_cancel", reservationId: r.id, detail: "Reservation changed meanwhile" };
   }
-  await recordReservationEvent(tx as never, {
+  await recordReservationEvent(collectInto(events) as never, {
     reservationId: r.id,
     venueId,
     kind: "cancelled",
@@ -139,7 +159,8 @@ async function moveInTx(
   actorId: string,
   r: Existing,
   startTime: Date,
-  expectedStartTime: Date
+  expectedStartTime: Date,
+  events: EventSink
 ): Promise<boolean> {
   const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
   if (r.tableId && (await targetTaken(tx, venueId, r, startTime, endTime))) return false;
@@ -148,7 +169,7 @@ async function moveInTx(
     data: { startTime, endTime },
   });
   if (count === 0) return false;
-  await recordReservationEvent(tx as never, {
+  await recordReservationEvent(collectInto(events) as never, {
     reservationId: r.id,
     venueId,
     kind: "moved",
@@ -185,15 +206,21 @@ export async function applyTransitions(
     (a, b) => Number(a.action === "move") - Number(b.action === "move")
   );
   const conflicts: string[] = [];
+  const events: EventSink = [];
   for (const p of ordered) {
     const r = byId.get(p.reservationId);
     if (!r) continue;
     if (p.action === "cancel") {
-      const result = await cancelInTx(tx, venueId, actorId, r, p.expectedStartTime);
+      const result = await cancelInTx(tx, venueId, actorId, r, p.expectedStartTime, events);
       if (result.kind !== "ok") return result;
-    } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date, p.expectedStartTime))) {
+    } else if (
+      !(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date, p.expectedStartTime, events))
+    ) {
       conflicts.push(r.id);
     }
+  }
+  if (events.length > 0) {
+    await tx.reservationEvent.createMany({ data: events });
   }
   return conflicts.length > 0
     ? { kind: "move_conflict", reservationIds: conflicts }

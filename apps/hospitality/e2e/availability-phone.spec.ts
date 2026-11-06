@@ -264,6 +264,39 @@ test.describe("375 px: nothing scrolls sideways", () => {
     });
   }
 
+  // Its three segments once ran "Same as another day" off the edge; a phone stacks them as radios.
+  for (const locale of ["en-US", "fr-CA"]) {
+    test(`Add special dates fits, with every kind of date on screen (${locale})`, async ({
+      mockedPage: page,
+    }) => {
+      await mockAvailability(page);
+      await setLocale(page, locale);
+      await open(page);
+      await page.getByRole("radiogroup").first().getByRole("radio").nth(1).click({ force: true });
+      await page.getByRole("combobox").first().waitFor();
+      await page
+        .getByRole("main")
+        .getByRole("button")
+        .filter({ hasText: /^(Add special date|Ajouter une date spéciale)$/ })
+        .click();
+      const sheet = page.getByRole("dialog").first();
+      const kinds = sheet.getByRole("radio");
+      await expect(kinds).toHaveCount(3);
+      // The sheet slides in from the right: measure once it has settled.
+      await expect
+        .poll(() =>
+          kinds.evaluateAll((inputs) =>
+            Math.max(
+              ...inputs.map(
+                (input) => (input.closest("label") ?? input).getBoundingClientRect().right
+              )
+            )
+          )
+        )
+        .toBeLessThanOrEqual(PHONE.width);
+    });
+  }
+
   test("every Special dates filter can be reached, Past included", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await open(page);

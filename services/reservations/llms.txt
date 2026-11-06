@@ -2980,13 +2980,20 @@
         startTime: Date;
       }
     </item>
+    <item priority="high">
+      type EventSink = Prisma.ReservationEventCreateManyInput[];
+    </item>
+    <item priority="medium">
+      function collectInto(sink: EventSink) { /* ... */ }
+    </item>
     <item priority="low">
       async function cancelInTx(
         tx: Tx,
         venueId: string,
         actorId: string,
         r: Existing,
-        expectedStartTime: Date
+        expectedStartTime: Date,
+        events: EventSink
       ): Promise<ApplyResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -3005,7 +3012,8 @@
         actorId: string,
         r: Existing,
         startTime: Date,
-        expectedStartTime: Date
+        expectedStartTime: Date,
+        events: EventSink
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
