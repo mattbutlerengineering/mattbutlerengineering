@@ -33,7 +33,7 @@ The platform uses a **three-tier deployment strategy**:
 - Configuration: The DO App spec is defined by Pulumi's `digitalocean.App` resource in `infrastructure/pulumi/index.ts`; there is no checked-in `app.yaml` file — `deploy-services.yml` fetches the live spec at deploy time via `doctl apps spec get`, patches deploy metadata into it, and applies it via `doctl apps update`
 - Database: Migrations run as one `PRE_DEPLOY` job per service, named `db-migrate-<service>`, in the same App Platform app. Each job is built from `infrastructure/migrate/Dockerfile` with a `SERVICE_NAME` env var. The `MIGRATED_SERVICES` list in `infrastructure/pulumi/index.ts` defines them: `users`, `reservations`, `agent` (`db-migrate-users`, `db-migrate-reservations`, `db-migrate-agent`). A failure in one service's migrations does not block unrelated services from deploying.
 
-_Amended 2026-11-06 (#8384)._ This section previously described a single `db-migrate` service; the implementation has always used the per-service jobs above.
+_Amended 2026-11-06 (#8384)._ This section previously described a single `db-migrate` service; the implementation has used the per-service jobs above since #491 (2026-04-06), before this ADR was written.
 
 **3. Infrastructure & Secrets → Pulumi**
 
