@@ -192,6 +192,17 @@ function throwHeartbeatInPage(marker) {
 }
 
 /** Runs INSIDE the page before any bundle code: records CSP refusals as text. */
+/**
+ * Runs in the page before any app script. Headless Playwright sets
+ * `navigator.webdriver = true`, and `initSentry` (@mbe/sentry/react) skips
+ * `Sentry.init` under WebDriver so local E2E runs stay out of Sentry (#8282).
+ * The heartbeat stands in for a real visitor, so it must read false here or
+ * every browser target would go not-found.
+ */
+export function presentAsRealVisitor() {
+  Object.defineProperty(globalThis.Navigator.prototype, "webdriver", { get: () => false });
+}
+
 function recordCspViolations() {
   globalThis.__mbeHeartbeatCsp = [];
   globalThis.document.addEventListener("securitypolicyviolation", (event) => {
@@ -251,6 +262,7 @@ export async function triggerBrowserTarget(target, marker, { chromium }) {
     page.on("console", (message) => {
       if (message.type() === "error") consoleErrors.push(message.text());
     });
+    await page.addInitScript(presentAsRealVisitor);
     await page.addInitScript(recordCspViolations);
     try {
       await page.goto(target.url, { waitUntil: "load", timeout: NAVIGATION_TIMEOUT_MS });

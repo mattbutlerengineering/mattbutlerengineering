@@ -84635,6 +84635,14 @@
         return;
       }
     
+      // Playwright and other WebDriver sessions set navigator.webdriver. Their
+      // deliberate failure-path mocks (e.g. "Server said no." 500s) are not
+      // production defects, so never report from them (#8282, #8281).
+      const nav = (globalThis as { navigator?: { webdriver?: boolean } }).navigator;
+      if (nav?.webdriver === true) {
+        return;
+      }
+    
       Sentry.init({
         dsn: config.dsn,
         environment: options.environment ?? config.environment,
