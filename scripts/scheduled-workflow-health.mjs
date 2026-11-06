@@ -248,26 +248,34 @@ export const MAIN_PUSH_WATCH_EXEMPT_FILES = {
  * nothing, which is the exact silent gap this arm exists to close. Only an
  * explicit filter that excludes `main` makes it false.
  *
+ * Filters are read through `asList`, so a scalar (`branches: main`) and a
+ * sequence (`branches: [main]`) take the same path and cannot drift apart.
+ *
  * @param {string} source
  * @returns {boolean}
  */
 export function hasMainPushTrigger(source) {
   const { push } = parseWorkflow(source).on;
   if (push == null) return false;
-  if (typeof push !== "object") return true;
 
-  if (Array.isArray(push.branches)) return push.branches.includes("main");
-  if (push.branches != null) return push.branches === "main";
+  const branches = asList(push.branches);
+  if (branches.length > 0) return branches.includes("main");
 
-  if (Array.isArray(push["branches-ignore"])) return !push["branches-ignore"].includes("main");
-  if (push["branches-ignore"] != null) return push["branches-ignore"] !== "main";
+  const ignored = asList(push["branches-ignore"]);
+  if (ignored.length > 0) return !ignored.includes("main");
 
   // A tag filter with no branch filter fires only for matching tags, never on
   // a branch push -- so it is not a main-push workflow, and reporting it as
   // one would make this guard cry wolf on the next tag-triggered workflow.
-  if (push.tags != null || push["tags-ignore"] != null) return false;
+  if (asList(push.tags).length > 0 || asList(push["tags-ignore"]).length > 0) return false;
 
   return true;
+}
+
+/** A YAML field that may be written as a scalar or a sequence, as a list. */
+function asList(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
 /**

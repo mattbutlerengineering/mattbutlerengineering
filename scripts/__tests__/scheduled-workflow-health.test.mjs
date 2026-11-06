@@ -1321,6 +1321,15 @@ describe("main-push workflow arm (#6955)", () => {
     expect(hasMainPushTrigger("on:\n  push:\n    paths:\n      - src/**\n")).toBe(true);
   });
 
+  // YAML allows a bare scalar where a sequence is expected. Pinned so the
+  // scalar and sequence forms cannot drift apart.
+  it("reads a scalar branch filter the same as a one-item list", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: main\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: release\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: main\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: docs\n")).toBe(true);
+  });
+
   // A tag-only push never fires on a branch, so it is not a main-push
   // workflow -- without this, the fail-closed default would report every
   // future tag-triggered workflow as unwatched.
