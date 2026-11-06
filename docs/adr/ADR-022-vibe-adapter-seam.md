@@ -127,7 +127,7 @@ trigger for extracting an explicit adapter list / pipeline is any of: a
   identity is stable between media-query threshold crossings).
 - Direct composition in the provider is the simplest thing that is honest
   about the seam. Extracting an explicit adapter list / pipeline is deferred
-  until one of the triggers in the amendment below fires (originally "a third
+  until one of the triggers in the amendment above fires (originally "a third
   adapter"; re-decided at three, see the amendment).
 
 ## Alternatives Considered
