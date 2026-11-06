@@ -19,6 +19,11 @@ import { skipInitialFocus, waitingProps } from "./draft-wait.js";
 import { DATE_FORMAT, hoursSubject } from "./rule-subjects.js";
 import type { SeriesScope } from "./series-edit.js";
 import { coversManyDates, type SpecialDateRule } from "./special-dates.js";
+import {
+  datedAssignmentOf,
+  DatedScheduleActions,
+  UseScheduleRuleActions,
+} from "./ScheduleLayerActions.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CloseDialog.module.css";
@@ -39,6 +44,8 @@ export interface LayerRuleActionsProps {
   readonly onStale: () => void;
   /** Edit special hours: focus the editor, for the whole rule or part of it when `scope` is set. */
   readonly onEditHours: (scope?: { ruleId: string; mode: SeriesScope }) => void;
+  /** Edit a dated schedule everywhere it runs: the Schedules tab's editor, over the page. */
+  readonly onEditSchedule?: (scheduleId: string) => void;
 }
 
 type HoursChoice = "only" | SeriesScope;
@@ -199,6 +206,8 @@ const isHours = (rule: DateRule | undefined): rule is SpecialDateRule =>
  * saves are the Special dates tab's own, so a rule changes the same way from either place.
  */
 export function LayerRuleActions(props: LayerRuleActionsProps) {
+  const assignment = datedAssignmentOf(props.state.config.assignments, props.layer);
+  if (assignment) return <DatedScheduleActions {...props} assignment={assignment} />;
   const rule = props.state.config.dateRules.find((r) => r.id === props.layer.id);
   if (!rule) return null;
   if (isHours(rule) && props.layer.kind === "special_hours") {
@@ -206,6 +215,9 @@ export function LayerRuleActions(props: LayerRuleActionsProps) {
   }
   if (rule.kind === "closure" && props.layer.kind === "closure") {
     return <ClosureLayerActions {...props} rule={rule} />;
+  }
+  if (rule.kind === "use_schedule" && props.layer.kind === "use_schedule") {
+    return <UseScheduleRuleActions {...props} rule={rule} />;
   }
   return null;
 }

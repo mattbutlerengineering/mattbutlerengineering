@@ -287,3 +287,56 @@ describe("AvailabilityPage on a migrated venue", () => {
     expect(screen.getByText(/Your hours were carried over/)).toBeInTheDocument();
   });
 });
+
+/** The demo week plus Summer hours: its services copied, run every day of November. */
+function withDatedSchedule(): AvailabilityConfig {
+  return {
+    ...DEMO_WEEK_CONFIG,
+    schedules: [
+      ...DEMO_WEEK_CONFIG.schedules,
+      { id: "summer", name: "Summer hours", kind: "alternate", isRegular: false },
+    ],
+    scheduleServices: [
+      ...DEMO_WEEK_CONFIG.scheduleServices,
+      ...DEMO_WEEK_CONFIG.scheduleServices.map((s) => ({
+        ...s,
+        id: `${s.id}-summer`,
+        scheduleId: "summer",
+      })),
+    ],
+    assignments: [
+      ...DEMO_WEEK_CONFIG.assignments,
+      {
+        id: "as-summer",
+        scheduleId: "summer",
+        weekdays: [0, 1, 2, 3, 4, 5, 6],
+        startsOn: "2026-11-01",
+        endsOn: "2026-11-30",
+        precedence: 1,
+      },
+    ],
+  };
+}
+
+describe("AvailabilityPage: Edit on a dated schedule's layer (#7981)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-04T20:00:00Z") });
+    read.source = "rows";
+    read.migrated = false;
+    team.value = { viewerRole: "manager" };
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    read.config = withDatedSchedule();
+  });
+
+  it("opens the schedule's editor over the page", () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /Friday, November 6/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Summer hours" }));
+    const ask = screen.getByRole("dialog", { name: "Edit Summer hours" });
+    fireEvent.click(within(ask).getByRole("radio", { name: "All dates Summer hours covers" }));
+    fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
+    const editor = screen.getByRole("dialog", { name: "Edit Summer hours" });
+    expect(within(editor).getByLabelText(/Schedule name/)).toHaveValue("Summer hours");
+  });
+});

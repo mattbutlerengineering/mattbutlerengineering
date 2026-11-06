@@ -11,7 +11,7 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
-import type { AvailabilityConfigState, DateRule, TeamRole } from "@mbe/types";
+import type { AvailabilityConfigState, DateRule, ScheduleAssignment, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
@@ -24,6 +24,7 @@ import { CopyDayAction } from "./CopyDayAction.js";
 import { UseDayHoursAction } from "./UseDayHoursAction.js";
 import { closedAllDay } from "./closed-all-day.js";
 import { LayerRuleActions } from "./LayerRuleActions.js";
+import { datedAssignmentOf } from "./ScheduleLayerActions.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
@@ -52,6 +53,8 @@ export interface DayEditing {
   readonly onStale?: () => void;
   /** "Close…" (F5): open the Close dialog for this date. */
   readonly onCloseDay?: (date: string) => void;
+  /** "Edit" on a dated schedule's layer: open that schedule's editor (the Schedules tab's). */
+  readonly onEditSchedule?: (scheduleId: string) => void;
   /**
    * With `fixedDates`: the picked dates do not all have the same hours, so the rows shown are
    * one date's and a save replaces the others' (said above the rows).
@@ -112,11 +115,14 @@ function DayBody({
   day,
   date,
   dateRules,
+  assignments,
   layerActions,
 }: {
   readonly day: ResolvedDay;
   readonly date: string;
   readonly dateRules?: readonly DateRule[];
+  /** With `layerActions`: a day under a dated schedule alone still shows its layer, to act on. */
+  readonly assignments?: readonly ScheduleAssignment[];
   /** Remove / Edit beside a layer that stands for a saved rule; a Host and a past date get none. */
   readonly layerActions?: (layer: Layer) => ReactNode;
 }) {
@@ -124,7 +130,13 @@ function DayBody({
   const format = useVenueFormat();
   const weekday = format.formatCalendarDate(date, { weekday: "long" });
   // The stack appears once a second layer exists; the regular week alone is just the summary.
-  const showStack = day.explanation.length >= 2;
+  // A Manager's day under one dated schedule shows it too: Remove and Edit have nowhere else to be.
+  const [only] = day.explanation;
+  const showStack =
+    day.explanation.length >= 2 ||
+    (layerActions !== undefined &&
+      only !== undefined &&
+      datedAssignmentOf(assignments ?? [], only) !== undefined);
   // A rule's note for staff ("Smith wedding"): why the day is the way it is, for whoever opens it.
   const noteOf = (layer: Layer) => dateRules?.find((rule) => rule.id === layer.id)?.staffNote;
 
@@ -265,6 +277,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             day={day}
             date={date}
             dateRules={dateRules ?? editing?.state.config.dateRules}
+            assignments={editing?.state.config.assignments}
             layerActions={
               viewerRole === "manager" && editing && date >= editing.today
                 ? (layer) => (
@@ -281,6 +294,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
                       onFinished={() => editing.onFinished(true)}
                       onStale={editing.onStale ?? noop}
                       onEditHours={editHours}
+                      onEditSchedule={editing.onEditSchedule}
                     />
                   )
                 : undefined

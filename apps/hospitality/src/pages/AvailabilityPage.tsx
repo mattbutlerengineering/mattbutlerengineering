@@ -25,6 +25,7 @@ import {
   AvailabilityScheduleControls,
   type AvailabilityTab,
 } from "../components/availability/AvailabilityScheduleControls.js";
+import { ScheduleEditorDrawer } from "../components/availability/ScheduleEditorDrawer.js";
 import { SchedulesTab } from "../components/availability/SchedulesTab.js";
 import { SpecialDatesTab } from "../components/availability/SpecialDatesTab.js";
 import {
@@ -75,6 +76,8 @@ interface OpenTarget {
   /** With `fixedDates`: the picked dates do not all have the hours of `date`. */
   readonly hoursDiffer?: boolean;
   readonly closing?: Closing;
+  /** The schedule whose editor opens once the guard lets the drawer go (Edit on a dated layer). */
+  readonly editingSchedule?: string;
 }
 const CLOSED: OpenTarget = { date: null };
 
@@ -117,6 +120,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const [target, setTarget] = useState<OpenTarget>(CLOSED);
   const openDate = target.date;
   const [closing, setClosing] = useState<Closing | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [bookingRulesOpen, setBookingRulesOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
@@ -169,11 +173,14 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const pastNotice = dropped && dropped.venueId === selectedVenueId ? dropped : null;
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
   // Opening a single day drops the selection, but only once the guard lets the move happen.
-  const guard = useDiscardGuard<OpenTarget>(({ closing: nextClosing, ...next }) => {
-    setTarget(next);
-    if (next.date !== null && !next.fixedDates) setSelection([]);
-    if (nextClosing) setClosing(nextClosing);
-  });
+  const guard = useDiscardGuard<OpenTarget>(
+    ({ closing: nextClosing, editingSchedule: id, ...next }) => {
+      setTarget(next);
+      if (next.date !== null && !next.fixedDates) setSelection([]);
+      if (nextClosing) setClosing(nextClosing);
+      if (id) setEditingSchedule(id);
+    }
+  );
   // Compare services' unsaved rows are lost when the Schedules tab goes, so leaving it asks first.
   const [schedulesDirty, setSchedulesDirty] = useState(false);
   const tabGuard = useDiscardGuard<AvailabilityTab>(
@@ -602,6 +609,8 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
                 onStale: () => void config.refetch(),
                 onCloseDay: (date: string) =>
                   guard.request({ date: null, closing: { date, pause: false } }),
+                onEditSchedule: (scheduleId: string) =>
+                  guard.request({ date: null, editingSchedule: scheduleId }),
               }
             : undefined
         }
@@ -636,6 +645,18 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           onStale={() => void config.refetch()}
           onClose={() => setChangingWeek(false)}
           onOpenSchedules={() => changeTab("schedules")}
+        />
+      )}
+      {editingSchedule && config.data && (
+        <ScheduleEditorDrawer
+          venueId={selectedVenueId}
+          state={config.data}
+          timezone={timeZone}
+          today={today}
+          mode="edit"
+          sourceScheduleId={editingSchedule}
+          onStale={() => void config.refetch()}
+          onClose={() => setEditingSchedule(null)}
         />
       )}
       {closing && config.data && (
