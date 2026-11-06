@@ -212,7 +212,11 @@ describe("Also apply to in the schedule editor (F-X step 4)", () => {
         <ScheduleEditorDrawer {...p} state={{ config: theirs, version: 8, source: "rows" }} />
       </main>
     );
-    expect(await screen.findByText("Hours changed: Weeknight")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Also applying to: Weeknight changed first")
+    ).toBeInTheDocument();
+    // Its own lines are about this schedule's services, not the ticked schedule.
+    expect(screen.queryByText(/^Hours changed:/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
@@ -238,5 +242,39 @@ describe("Also apply to in the schedule editor (F-X step 4)", () => {
     fireEvent.click(screen.getAllByLabelText("Closes")[1]!);
     fireEvent.click(screen.getByRole("option", { name: "11:00 PM" }));
     expect(screen.queryByRole("group", { name: /Also apply to/ })).not.toBeInTheDocument();
+  });
+
+  it("does not name a schedule that was ticked before its group went away", async () => {
+    const opened = threeSchedules();
+    save.mockRejectedValueOnce(conflict());
+    const p = props(opened);
+    const { rerender } = render(
+      <main>
+        <ScheduleEditorDrawer {...p} />
+      </main>
+    );
+    closeDinnerLater();
+    fireEvent.click(within(group()).getByRole("checkbox", { name: "Weeknight" }));
+    // Back to the stored time: the group goes, and the tick with it.
+    fireEvent.click(screen.getAllByLabelText("Closes")[1]!);
+    fireEvent.click(screen.getByRole("option", { name: "11:00 PM" }));
+    // Another change keeps Save on.
+    fireEvent.click(screen.getAllByLabelText("Closes")[0]!);
+    fireEvent.click(screen.getAllByRole("option", { name: "4:30 PM" })[0]!);
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(p.onStale).toHaveBeenCalledTimes(1));
+    const theirs: AvailabilityConfig = {
+      ...opened,
+      scheduleServices: opened.scheduleServices.map((s) =>
+        s.id === "ss-dinner-wk" ? { ...s, opensAt: 1000 } : s
+      ),
+    };
+    rerender(
+      <main>
+        <ScheduleEditorDrawer {...p} state={{ config: theirs, version: 8, source: "rows" }} />
+      </main>
+    );
+    expect(await screen.findByText("Someone changed this schedule first")).toBeInTheDocument();
+    expect(screen.queryByText(/Weeknight/)).not.toBeInTheDocument();
   });
 });

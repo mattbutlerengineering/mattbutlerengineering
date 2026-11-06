@@ -1979,6 +1979,8 @@
       "title": "Abandonner vos modifications ?"
     },
     "conflictReview": {
+      "alsoChanged": "Appliquer aussi à : {{names}} a changé en premier",
+      "alsoRemoved": "Appliquer aussi à : {{names}} n’offre plus ce service",
       "title": "Quelqu’un a modifié cet horaire avant vous",
       "loading": "Chargement de la dernière version…",
       "gone": "Cet horaire a été supprimé; vos modifications ne peuvent pas être enregistrées. Abandonnez-les pour fermer.",

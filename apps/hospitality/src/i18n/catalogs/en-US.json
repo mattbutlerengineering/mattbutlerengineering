@@ -1938,6 +1938,8 @@
       "title": "Discard your changes?"
     },
     "conflictReview": {
+      "alsoChanged": "Also applying to: {{names}} changed first",
+      "alsoRemoved": "Also applying to: {{names}} no longer runs this service",
       "title": "Someone changed this schedule first",
       "loading": "Loading the latest version…",
       "gone": "This schedule was deleted, so your changes can’t be saved. Discard them to close.",

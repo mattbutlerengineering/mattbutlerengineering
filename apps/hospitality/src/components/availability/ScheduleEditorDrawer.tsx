@@ -107,6 +107,9 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const [conflictMode, setConflictMode] = useState<ScopeConflictMode>("keep");
   // The other schedules the edited times also go to, per service (ux.md F-X step 4).
   const [picks, setPicks] = useState<AlsoApplyPicks>({});
+  // The picks the last save sent. A lost race blocks Save, which takes the options (and so the
+  // groups) away until the Manager answers, so the review names these, not what is offered now.
+  const [sent, setSent] = useState<AlsoApplyPicks>({});
   // Most schedules are the regular week with a few changes (summer hours, a holiday stretch), so a
   // New schedule can start from its services instead of retyping them: with no days, as a copy
   // starts, so it is used where the Manager says. Offered until the draft is touched.
@@ -291,6 +294,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         : edited;
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
+    setSent(pruneAlsoApply(alsoOptions, picks));
     const saved = await saver.save(
       venueId,
       { ...state, version: review.baselineVersion },
@@ -309,20 +313,11 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     onClose();
   };
 
-  // The picked schedules a colleague changed or removed belong in the review beside this one's own.
-  const conflictReview = useMemo(() => {
-    if (!review.review || !editing) return null;
-    const since = alsoApplyChangedSince(review.baseline, config, picks);
-    const { changes } = review.review;
-    return {
-      ...review.review,
-      changes: {
-        ...changes,
-        changed: [...changes.changed, ...since.changed],
-        removed: [...changes.removed, ...since.removed],
-      },
-    };
-  }, [review.review, review.baseline, editing, config, picks]);
+  // The picked schedules a colleague changed or removed, said apart from this schedule's own lines.
+  const alsoApplySince = useMemo(
+    () => (review.review && editing ? alsoApplyChangedSince(review.baseline, config, sent) : null),
+    [review.review, review.baseline, editing, config, sent]
+  );
 
   const title =
     mode === "edit"
@@ -359,7 +354,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         <Stack gap="md">
           {review.review ? (
             <ConflictReviewPanel
-              review={conflictReview ?? review.review}
+              review={review.review}
+              alsoApply={alsoApplySince ?? undefined}
               onReapply={review.reapply}
               onDiscard={review.discard}
             />
