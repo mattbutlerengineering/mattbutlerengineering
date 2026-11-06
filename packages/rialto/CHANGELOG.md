@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.4
+
+### Patch Changes
+
+- [#8340](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8340) [`0aea43b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0aea43b3304f54facf41d8992b5a729a39780131) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TextArea fills the width of its field, as Input does, instead of falling back to the browser's ~20-column default.
+
+- [#8365](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8365) [`1e42660`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1e42660ec90d8648ff5dcfd61f57e2af45307d91) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Below 1024px, toasts no longer cover an open side Drawer's title and close button: they move to the bottom and sit above the drawer's footer, so its actions stay reachable too.
+
 ## 0.10.3
 
 ### Patch Changes
