@@ -259,7 +259,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 
 ### F9: Guest books (PRD 31, 32, 33)
 
-1. **The date step uses rialto `Calendar`** (S10). Closed dates are disabled with accessible names that include the reason ("December 24, closed, private event"). When a closed date is focused, its guest message shows below the calendar. Dates beyond the booking window are disabled.
+1. **The date step uses rialto `Calendar`** (S10). Closed dates are disabled with accessible names that include the reason ("December 24, closed, private event"). When a closed date is focused or pressed, its guest message shows below the calendar (a tap in Safari or on a phone gives the day no focus, so the press counts too). Dates beyond the booking window are disabled.
 2. **Arriving on a closed date anyway** (deep link, gen-UI): the time step shows the closure message plus "See other dates".
 3. **Online booking paused:** "Online booking is paused right now. Call (555) 123-4567." The phone number appears only while phone booking is open; otherwise the guest message shows alone (or "Not taking reservations right now" if there is none).
 4. **Nothing configured:** "Not taking online bookings yet", with the phone if set. Never an empty picker.
