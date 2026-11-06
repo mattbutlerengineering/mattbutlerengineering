@@ -27,12 +27,12 @@ const CLOSURE_IMPACT_QUERY_KEY = "closureImpact" as const;
 /** Which future bookings a draft closure would affect (read-only; Manager). */
 export const useClosureImpact = createQueryHook<
   ClosureImpact | null,
-  { venueId: string | null; rule: DateRule | null }
+  { venueId: string | null; rule: DateRule | null; alongside?: ClosureAlongside | undefined }
 >({
   key: CLOSURE_IMPACT_QUERY_KEY,
   fetcher: async (params, api) =>
     params?.venueId && params.rule
-      ? api.availability.getClosureImpact(params.venueId, params.rule)
+      ? api.availability.getClosureImpact(params.venueId, params.rule, params.alongside)
       : null,
   getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
 });

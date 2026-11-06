@@ -363,8 +363,9 @@ export const AvailabilityDaySummarySchema = z.object({
 
 /**
  * Date-rule rows a closure replaces in the same save (ux.md F-SER: a series edit that closes new
- * dates). Applied to the config before the draft `rule` is added, in the preview and in the
- * closure command's one transaction; Manager only.
+ * dates; ux.md F6: an edit of a one-date or range closure, which removes the saved closure and
+ * names it in `replaces`). Applied to the config before the draft `rule` is added, in the preview
+ * and in the closure command's one transaction; Manager only.
  */
 export const ClosureAlongsideSchema = z.object({
   /** Rows to write: the ended original series, and skips or one-date edits re-pointed. */
@@ -376,6 +377,8 @@ export const ClosureAlongsideSchema = z.object({
    * names the series, the closure command refuses with the version conflict if the stored series
    * is no longer this row (a teammate changed its message, weekdays or end date since). Optional
    * for clients from before this field: without it only the draft's other fields are compared.
+   * Required when `remove` names a one-date or range closure (an edit of it): the closure is then
+   * compared as a whole, and the edit is refused as invalid without it.
    */
   replaces: DateRuleSchema.optional(),
 });

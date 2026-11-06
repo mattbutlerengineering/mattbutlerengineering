@@ -2955,6 +2955,16 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
+      export const isPlainClosure: unknown;
+    </item>
+    <item priority="medium">
+      function checkClosureEdit(
+        stored: DateRule,
+        draft: DateRule,
+        alongside: ClosureAlongside
+      ): AlongsideIssue | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function checkAlongside(
         stored: readonly DateRule[],
         draft: DateRule,
@@ -3993,7 +4003,9 @@
         tx: Db,
         venueId: string,
         from: string,
-        parts: readonly DateRule[]
+        parts: readonly DateRule[],
+        /** Bookings the same save gives a new outcome of their own: one outcome per booking and rule. */
+        deciding: readonly string[] = []
       ): Promise<CarriedOutcomes | null> { /* ... */ }
     </item>
   </file>

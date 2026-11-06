@@ -1682,6 +1682,8 @@
     "callListFor": "Call list for {{date}}",
     "remove": "Remove",
     "removeClosureFor": "Remove closure for {{date}}",
+    "editClosure": "Edit",
+    "editClosureFor": "Edit closure for {{date}}",
     "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Earlier closure",
@@ -2497,6 +2499,13 @@
     "close": {
       "open": "Close…",
       "title": "Close",
+      "edit": {
+        "title": "Edit closure",
+        "save": "Save changes",
+        "toast": "Closure on {{date}} changed",
+        "gone": "This closure was removed. Close this and check the Special dates tab.",
+        "changed": "Someone changed this closure while you had it open. Close this and open it again to see their change."
+      },
       "step": "Step {{step}} of 2",
       "next": "Next",
       "back": "Back",

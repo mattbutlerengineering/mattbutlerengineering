@@ -903,6 +903,8 @@
        * names the series, the closure command refuses with the version conflict if the stored series
        * is no longer this row (a teammate changed its message, weekdays or end date since). Optional
        * for clients from before this field: without it only the draft's other fields are compared.
+       * Required when `remove` names a one-date or range closure (an edit of it): the closure is then
+       * compared as a whole, and the edit is refused as invalid without it.
        */
       replaces: DateRuleSchema.optional(),
     });

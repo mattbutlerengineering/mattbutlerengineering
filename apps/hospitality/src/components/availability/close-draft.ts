@@ -8,6 +8,7 @@ import {
 import {
   GUEST_MESSAGE_MAX_LENGTH,
   type ClosureAction,
+  type ClosureAlongside,
   type ClosureDecision,
   type ClosureImpactGroup,
   type ClosureImpactReservation,
@@ -304,6 +305,48 @@ function whatOf(series: DateRule): CloseWhat {
     return { kind: "booking", types: [...series.bookingTypes] };
   }
   return { kind: "venue" };
+}
+
+/**
+ * Whether the Close form can describe a saved closure and rebuild it: a one-date, range or open-
+ * ended closure of the venue, a service or booking channels, all day or from a set time. A
+ * repeating closure is edited as a series, and anything the form cannot say is not offered.
+ */
+export function isEditableClosure(rule: DateRule): boolean {
+  return (
+    rule.kind === "closure" &&
+    rule.repeat == null &&
+    rule.seriesId == null &&
+    (rule.targetKind === "venue" ||
+      (rule.targetKind === "service" && !!rule.venueServiceId) ||
+      (rule.targetKind === "booking" && !!rule.bookingTypes?.length)) &&
+    (rule.window == null || rule.window.to === END_OF_SERVICE_DAY)
+  );
+}
+
+/** The form for editing the saved closure `rule`: everything it says, as the Manager set it. */
+export function closureForm(rule: DateRule): CloseForm {
+  const when: CloseWhen =
+    rule.endsOn == null
+      ? { kind: "until-reopen", from: rule.startsOn }
+      : rule.endsOn === rule.startsOn
+        ? { kind: "date", date: rule.startsOn }
+        : { kind: "range", from: rule.startsOn, to: rule.endsOn };
+  return {
+    what: whatOf(rule),
+    when,
+    fromMinute: rule.window?.from ?? null,
+    staffNote: rule.staffNote ?? "",
+    guestMessage: rule.guestMessage ?? "",
+  };
+}
+
+/**
+ * What an edit of the saved closure `rule` sends beside the edited closure: the saved one goes,
+ * and the row as it was read is named so a teammate's change since is refused, not overwritten.
+ */
+export function editAlongside(rule: DateRule): ClosureAlongside {
+  return { upsert: [], remove: [rule.id], replaces: rule };
 }
 
 /** The form for editing one date of `series`: the series' target and start time, on that date. */

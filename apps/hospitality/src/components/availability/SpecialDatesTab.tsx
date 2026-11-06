@@ -24,6 +24,8 @@ import { AddSpecialDatesSheet, type PlannedDate } from "./AddSpecialDatesSheet.j
 import { minuteText } from "./closure-band.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
+import { isEditableClosure } from "./close-draft.js";
+import { EditClosureDialog } from "./EditClosureDialog.js";
 import { UpcomingHolidays } from "./UpcomingHolidays.js";
 import { useHolidayNames } from "./use-holidays.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
@@ -109,6 +111,8 @@ interface RowProps {
   readonly ruleId: string;
   /** Present when the row can be reopened (a closure, not special hours). */
   readonly onRemove?: () => void;
+  /** Present on an upcoming one-date or range closure: Edit (ux.md F6). */
+  readonly onEdit?: () => void;
   /** Present on a repeating closure: Edit dates… (ux.md F-SER). */
   readonly onEditDates?: () => void;
   /** Skipped dates of a repeating closure, each with a Restore. */
@@ -190,6 +194,15 @@ function SpecialDateItem(props: RowProps) {
             {t("availabilitySpecial.retry")}
           </Button>
         )}
+        {isManager && props.onEdit && (
+          <Button
+            variant="ghost"
+            aria-label={t("availabilitySpecial.editClosureFor", { date: title })}
+            onClick={props.onEdit}
+          >
+            {t("availabilitySpecial.editClosure")}
+          </Button>
+        )}
         {isManager && props.onEditDates && (
           <Button variant="ghost" onClick={props.onEditDates}>
             {t("availabilitySpecial.series.editDates")}
@@ -259,6 +272,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [filter, setFilter] = useState<SpecialDatesFilter>("all");
   const [callListFor, setCallListFor] = useState<string | null>(null);
   const [reopening, setReopening] = useState<SpecialDateRule | null>(null);
+  const [editingClosure, setEditingClosure] = useState<DateRule | null>(null);
   const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
   const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
   // The dates Add special date opens with: `[]` for one empty row, `null` while it is shut.
@@ -444,6 +458,11 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               summary={summaryOf(rule.id)}
               retrying={retryingId === rule.id}
               onRemove={rule.kind === "closure" && !past ? () => setReopening(rule) : undefined}
+              onEdit={
+                rule.kind === "closure" && !past && isEditableClosure(rule)
+                  ? () => setEditingClosure(rule)
+                  : undefined
+              }
               onEditDates={isSeries(rule) ? () => setEditingSeries(rule) : undefined}
               skips={isSeries(rule) ? skipsOf(rule.id) : undefined}
               onRestore={(skipId) => void restoreSkip(skipId)}
@@ -511,6 +530,16 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
             setEditingDate({ series, date });
           }}
           onClose={() => setEditingSeries(null)}
+        />
+      )}
+      {editingClosure && (
+        <EditClosureDialog
+          venueId={venueId}
+          state={state}
+          timezone={timezone}
+          today={today}
+          rule={editingClosure}
+          onClose={() => setEditingClosure(null)}
         />
       )}
       {editingDate && (

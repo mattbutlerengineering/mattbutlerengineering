@@ -151,6 +151,31 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
         },
         client
       );
+    /** Edit `from` into `to` (a new rule): the replaced closure goes with it, `replaces` as read. */
+    const edit = async (from: DateRule, to: DateRule, caller: typeof CALLER = CALLER) => {
+      const alongside = { upsert: [], remove: [from.id], replaces: from };
+      const found = await getClosureImpact(venueId, to, NOW, client, alongside);
+      if (found.kind !== "ok") throw new Error(`impact ${found.kind}`);
+      return createClosure(
+        {
+          venueId,
+          caller,
+          idempotencyKey: randomUUID(),
+          now: NOW,
+          body: {
+            expectedVersion: await versionNow(),
+            rule: to,
+            alongside,
+            decisions: found.impact.groups.map((g) => ({
+              groupKey: g.groupKey,
+              action: "cancel" as const,
+              reservationIds: g.reservations.map((r) => r.id),
+            })),
+          },
+        },
+        client
+      );
+    };
     const ruleOfOutcome = async (reservationId: string) =>
       (await inVenue((tx) => tx.closureOutcome.findMany({ where: { venueId, reservationId } })))
         .map((o) => o.dateRuleId)
@@ -180,6 +205,7 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
       rangeOf,
       cancelAll,
       reopen,
+      edit,
       ruleOfOutcome,
       rules,
       activeRules,
@@ -263,6 +289,72 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
     expect((await w.activeRules()).map((r) => r.id)).toEqual([range.id]);
     for (const id of [mon, tue, wed]) expect(await w.ruleOfOutcome(id)).toEqual([range.id]);
     expect(await w.totalOf(range.id)).toBe(3);
+  });
+
+  describe("editing a range closure (#7984)", () => {
+    it("moves the range, asks about the date it adds, and each guest's outcome follows their date", async () => {
+      const w = await world();
+      const [mon, tue, wed, thu] = [
+        await w.book(DAYS[0]),
+        await w.book(DAYS[1]),
+        await w.book(DAYS[2]),
+        await w.book(DAYS[3]),
+      ];
+      const range = w.rangeOf(DAYS[0], DAYS[2]);
+      await w.cancelAll(range);
+
+      // Monday opens again, Thursday closes: Tue to Thu.
+      const moved = { ...w.rangeOf(DAYS[1], DAYS[3]), guestMessage: range.guestMessage };
+      const saved = await w.edit(range, moved);
+      if (saved.kind !== "saved") throw new Error(`edit ${saved.kind}`);
+      // Only Thursday's booking is decided: the others were already cancelled by the range.
+      expect(saved.result.outcomes.cancel).toBe(1);
+
+      expect((await w.activeRules()).map((r) => r.id)).toEqual([moved.id]);
+      expect(await w.ruleOfOutcome(tue)).toEqual([moved.id]);
+      expect(await w.ruleOfOutcome(wed)).toEqual([moved.id]);
+      expect(await w.ruleOfOutcome(thu)).toEqual([moved.id]);
+      // Monday's date is open again; what the range did to that guest stays on the removed range.
+      expect(await w.ruleOfOutcome(mon)).toEqual([range.id]);
+      expect(await w.totalOf(moved.id)).toBe(3);
+    });
+
+    it("gives dates back without asking, and Undo puts the range and each outcome back", async () => {
+      const w = await world();
+      const [mon, tue] = [await w.book(DAYS[0]), await w.book(DAYS[1])];
+      const range = w.rangeOf(DAYS[0], DAYS[1]);
+      await w.cancelAll(range);
+
+      const shorter = { ...w.rangeOf(DAYS[1], DAYS[1]), guestMessage: range.guestMessage };
+      const saved = await w.edit(range, shorter);
+      if (saved.kind !== "saved") throw new Error(`edit ${saved.kind}`);
+      expect(saved.result.outcomes.cancel).toBe(0);
+      expect(await w.ruleOfOutcome(tue)).toEqual([shorter.id]);
+      expect(await w.ruleOfOutcome(mon)).toEqual([range.id]);
+
+      // No guest was told by the edit itself, so History offers Undo.
+      const reverted = await w.revert(saved.result);
+      expect(reverted.kind).toBe("saved");
+      expect((await w.activeRules()).map((r) => r.id)).toEqual([range.id]);
+      for (const id of [mon, tue]) expect(await w.ruleOfOutcome(id)).toEqual([range.id]);
+    });
+
+    it("refuses an edit built from a range a teammate has since changed, and changes nothing", async () => {
+      const w = await world();
+      await w.book(DAYS[0]);
+      const range = w.rangeOf(DAYS[0], DAYS[2]);
+      await w.cancelAll(range);
+      await w.inVenue((tx) =>
+        tx.dateRule.update({
+          where: { id: range.id },
+          data: { endsOn: new Date(`${DAYS[1]}T00:00:00Z`) },
+        })
+      );
+
+      const saved = await w.edit(range, w.rangeOf(DAYS[0], DAYS[3]));
+      expect(saved.kind).toBe("version_conflict");
+      expect((await w.activeRules()).map((r) => r.id)).toEqual([range.id]);
+    });
   });
 
   it("trims an edge date and leaves one rule for the rest", async () => {

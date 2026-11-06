@@ -1714,6 +1714,8 @@
     "callListFor": "Lista de llamadas del {{date}}",
     "remove": "Quitar",
     "removeClosureFor": "Quitar el cierre del {{date}}",
+    "editClosure": "Editar",
+    "editClosureFor": "Editar el cierre del {{date}}",
     "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Cierre anterior",
@@ -2574,6 +2576,13 @@
     "close": {
       "open": "Cerrar…",
       "title": "Cerrar",
+      "edit": {
+        "title": "Editar cierre",
+        "save": "Guardar cambios",
+        "toast": "Se cambió el cierre del {{date}}",
+        "gone": "Este cierre se quitó. Cierra esta ventana y revisa la pestaña de fechas especiales.",
+        "changed": "Alguien cambió este cierre mientras lo tenías abierto. Cierra esta ventana y ábrelo de nuevo para ver su cambio."
+      },
       "step": "Paso {{step}} de 2",
       "next": "Siguiente",
       "back": "Atrás",
