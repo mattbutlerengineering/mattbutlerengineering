@@ -2214,6 +2214,17 @@
       export const USUALLY_CLOSED: ReadonlySet<HolidayId>;
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/layer-rule-actions-props.ts">
+    <item priority="low">
+      interface LayerRuleActionsProps {
+        layer: Layer;
+        date: string;
+        day: ResolvedDay;
+        venueId: string;
+        state: AvailabilityConfigState;
+      }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/layer-text.ts">
     <item priority="medium">
       function upperFirst(text: string, locale: string): string { /* ... */ }

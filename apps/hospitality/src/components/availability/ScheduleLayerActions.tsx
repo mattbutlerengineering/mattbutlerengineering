@@ -17,7 +17,7 @@ import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js"
 import { closedAllDay } from "./closed-all-day.js";
 import { skipInitialFocus, waitingProps } from "./draft-wait.js";
 import { layerLabelText } from "./layer-text.js";
-import type { LayerRuleActionsProps } from "./LayerRuleActions.js";
+import type { LayerRuleActionsProps } from "./layer-rule-actions-props.js";
 import { DATE_FORMAT } from "./rule-subjects.js";
 import { coversManyDates } from "./special-dates.js";
 import { StrandedBookings } from "./StrandedBookings.js";
