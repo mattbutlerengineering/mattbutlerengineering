@@ -572,6 +572,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         isLoading={config.isLoading}
         error={drawerFailure}
         viewerRole={team?.viewerRole}
+        dateRules={config.data?.config.dateRules}
         editing={
           config.data
             ? {

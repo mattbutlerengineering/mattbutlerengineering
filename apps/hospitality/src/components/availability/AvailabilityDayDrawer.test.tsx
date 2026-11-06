@@ -11,9 +11,37 @@ import {
   ONLINE_WINDOW,
   PARTY_CLOSURE,
   SKIP_WEEKLY,
+  VENUE_CLOSURE,
   WEEKLY_CLOSURE,
   resolveFixtureDay,
 } from "./resolved-day-fixtures.js";
+
+// A closure as a Manager saves one: a message for guests and a note for staff.
+const NOTED_CLOSURE = {
+  ...VENUE_CLOSURE,
+  guestMessage: "Closed for a private event",
+  staffNote: "Smith wedding",
+};
+
+describe("a closed day says what guests are told and why, to a Host as to a Manager", () => {
+  it.each(["manager", "host"] as const)("for a %s", (viewerRole) => {
+    render(
+      <main>
+        <AvailabilityDayDrawer
+          date="2026-10-30"
+          day={resolveFixtureDay(NOTED_CLOSURE)}
+          isLoading={false}
+          error={null}
+          viewerRole={viewerRole}
+          dateRules={[NOTED_CLOSURE]}
+          onClose={vi.fn()}
+        />
+      </main>
+    );
+    expect(screen.getByText("Guests see: “Closed for a private event”")).toBeInTheDocument();
+    expect(screen.getByText("Staff note: Smith wedding")).toBeInTheDocument();
+  });
+});
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
