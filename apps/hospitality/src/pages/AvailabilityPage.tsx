@@ -55,6 +55,7 @@ import { pickHoursSource } from "../components/availability/selection-hours.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { periodLabel, weekSummary } from "../components/availability/period.js";
+import { ServicesFilterSelect } from "../components/availability/ServicesFilterSelect.js";
 import {
   filterableServices,
   resolveServiceFilter,
@@ -502,18 +503,29 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       />
     ) : null;
 
+  // Beside the week summary it narrows; the toolbar is full at 1280 (a phone's holds it instead).
+  const beside =
+    !onPhone && filterServices.length > 0 ? (
+      <ServicesFilterSelect
+        services={filterServices}
+        value={serviceFilter?.id ?? null}
+        onChange={(id) => setChosenService({ venueId: selectedVenueId, id })}
+      />
+    ) : null;
+
   return (
     <Stack gap="md">
       <PageHeader title={t("availability.title")} description={t("availability.description")} />
       <div className={styles.controlsRow}>
         {scheduleControls}
-        {(summary || showVenueTime || nudge) && (
+        {(summary || showVenueTime || nudge || beside) && (
           <div className={styles.summaryRow}>
             {summary && (
               <Text variant="caption" color="secondary">
                 {summary}
               </Text>
             )}
+            {beside}
             {showVenueTime && (
               <Text variant="caption" color="secondary">
                 {t("availability.venueTime", {
@@ -534,7 +546,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onPrevious={() => moveTo(shiftAnchor(view, anchor, -1))}
         onNext={() => moveTo(shiftAnchor(view, anchor, 1))}
         onToday={() => moveTo(null)}
-        services={filterServices}
+        services={onPhone ? filterServices : []}
         serviceFilterId={serviceFilter?.id ?? null}
         onServiceFilterChange={(id) => setChosenService({ venueId: selectedVenueId, id })}
         onHistory={() => setHistoryOpen(true)}
