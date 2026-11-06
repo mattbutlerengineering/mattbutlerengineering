@@ -158,7 +158,7 @@
       "launch-editor@<2.14.2": "^2.14.2"
     },
     "patchedDependencies": {
-      "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator__vitest-runner@10.0.0.patch"
+      "@stryker-mutator/vitest-runner@10.1.1": "patches/@stryker-mutator__vitest-runner@10.1.1.patch"
     },
     "auditConfig": {
       "ignoreGhsas": [
