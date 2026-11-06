@@ -2654,6 +2654,8 @@
       "impact_many": "{{count}} de réservations · {{guests}} personnes sont réservées durant cette fermeture",
       "impactNone": "Aucune réservation durant cette fermeture.",
       "impactError": "Impossible de vérifier les réservations existantes. Modifiez un champ pour réessayer.",
+      "impactFailed": "Impossible de vérifier les réservations existantes.",
+      "checkAgain": "Vérifier de nouveau",
       "guestsWillSee": "Les clients verront : {{date}} · {{status}}",
       "guestsWillSeeMessage": "Les clients verront : {{date}} · {{status}} · « {{message}} »",
       "button": {

@@ -685,6 +685,17 @@ describe("CloseDialog", () => {
       expect(within(dialog).getByText(/Couldn't load the bookings/)).toBeTruthy();
     });
 
+    it("offers Check again on Step 1 when the bookings check failed, instead of a field to change", () => {
+      impactQuery.error = new Error("down");
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("Couldn't check existing reservations.")).toBeTruthy();
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      refetchImpact.mockReset();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
+      expect(refetchImpact).toHaveBeenCalledTimes(1);
+    });
+
     describe("when an earlier attempt turns out to have been saved", () => {
       const conflict = () =>
         new ApiClientError(

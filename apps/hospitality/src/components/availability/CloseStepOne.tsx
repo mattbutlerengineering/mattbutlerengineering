@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Button,
   Alert,
   Checkbox,
   DatePicker,
@@ -46,6 +47,8 @@ export interface CloseStepOneProps {
   /** `true` while the impact lookup is in flight. */
   readonly impactLoading: boolean;
   readonly impactFailed: boolean;
+  /** Asks the bookings check again after it failed; Close waits on its answer. */
+  readonly onRetryImpact?: () => void;
   readonly impact: ClosureImpact | null | undefined;
   /** Dates in the closure that already carry special hours. */
   readonly replacedDate: string | null;
@@ -341,9 +344,19 @@ export function CloseStepOne(props: CloseStepOneProps) {
         )}
         {impactLoading && <Skeleton variant="text" width="60%" />}
         {impactFailed && (
-          <Text variant="body" color="secondary">
-            {t("availability.close.impactError")}
-          </Text>
+          <Stack gap="xs">
+            <Text variant="body" color="secondary">
+              {t("availability.close.impactFailed")}
+            </Text>
+            {props.onRetryImpact && (
+              <div>
+                {/* Not `disabled` while asking: a disabled button drops the focus the click gave it. */}
+                <Button variant="secondary" size="sm" onClick={props.onRetryImpact}>
+                  {t("availability.close.checkAgain")}
+                </Button>
+              </div>
+            )}
+          </Stack>
         )}
         {impact && !impactLoading && (
           <Text variant="body" color="primary">

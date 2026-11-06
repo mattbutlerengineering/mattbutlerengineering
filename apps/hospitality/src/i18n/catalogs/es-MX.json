@@ -2654,6 +2654,8 @@
       "impact_many": "{{count}} de reservaciones · {{guests}} comensales tienen reserva en este cierre",
       "impactNone": "No hay reservaciones en este cierre.",
       "impactError": "No se pudieron revisar las reservaciones existentes. Cambia un campo para reintentar.",
+      "impactFailed": "No se pudieron revisar las reservaciones existentes.",
+      "checkAgain": "Revisar de nuevo",
       "guestsWillSee": "Los comensales verán: {{date}} · {{status}}",
       "guestsWillSeeMessage": "Los comensales verán: {{date}} · {{status}} · “{{message}}”",
       "button": {
