@@ -2109,12 +2109,15 @@
       "goToDate": "Ir a una fecha",
       "goToDateLabel": "Fecha",
       "goToDateSubmit": "Ir",
-      "goToDateCancel": "Cancelar"
+      "goToDateCancel": "Cancelar",
+      "servicesFilter": "Servicios",
+      "allServices": "Todos los servicios"
     },
     "calendar": {
       "label": "Calendario de disponibilidad",
       "cellName": "{{date}}: {{details}}",
       "loadingDay": "cargando",
+      "serviceNotRunning": "Sin {{name}}",
       "services_one": "{{count}} servicio",
       "services_other": "{{count}} servicios",
       "services_many": "{{count}} servicios",
@@ -2926,6 +2929,7 @@
     "venueTime": "Hora del local ({{zone}})",
     "weekSummary": {
       "line": "Esta semana: {{parts}}",
+      "lineForService": "Esta semana, {{service}}: {{parts}}",
       "open_one": "abierto {{count}} día",
       "open_other": "abierto {{count}} días",
       "open_many": "abierto {{count}} días",

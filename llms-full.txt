@@ -6101,11 +6101,17 @@
     }
     export function presentDay(
       date: string,
-      summary: AvailabilityDaySummary | undefined,
+      fullSummary: AvailabilityDaySummary | undefined,
       detailed: boolean,
       t: TFunction,
-      format: VenueFormat
+      format: VenueFormat,
+      service?: ServiceFilter | null
     ): DayPresentation {
+      const summary = fullSummary && service ? filterDaySummary(fullSummary, service.id) : fullSummary;
+      const notRunningName =
+        service && fullSummary && fullSummary.serviceCount > 0 && summary?.serviceCount === 0
+          ? service.name
+          : null;
       const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
       const services = detailed
         ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
@@ -6133,7 +6139,11 @@
       );
       const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
     
-      const label = summary ? dayLabelText(summary.label, t) : null;
+      const label = notRunningName
+        ? t("availability.calendar.serviceNotRunning", { name: notRunningName })
+        : summary
+          ? dayLabelText(summary.label, t)
+          : null;
       const parts = summary
         ? [
             label,
@@ -6154,7 +6164,7 @@
         label,
         // The service's own en-US labels, as dayLabelText reads them.
         tone:
-          summary?.label === "Closed"
+          notRunningName !== null || summary?.label === "Closed"
             ? "closed"
             : summary?.label === "Special hours"
               ? "special"
@@ -6936,10 +6946,11 @@
     export function weekSummary(
       anchor: string,
       days: readonly AvailabilityDaySummary[] | undefined,
-      t: TFunction
+      t: TFunction,
+      service?: ServiceFilter | null
     ): string | null {
       const week = new Set(visibleDates("week", anchor));
-      const loaded = (days ?? []).filter((d) => week.has(d.serviceDate));
+      const loaded = (filterDays(days, service ?? null) ?? []).filter((d) => week.has(d.serviceDate));
       if (loaded.length === 0) return null;
       // A whole-day venue closure already empties `serviceCount`; booking, service and tables
       // closures leave the day open.
@@ -6956,7 +6967,12 @@
           : []),
         t(`availability.weekSummary.${online}`),
       ];
-      return t("availability.weekSummary.line", { parts: parts.join(" · ") });
+      return service
+        ? t("availability.weekSummary.lineForService", {
+            service: service.name,
+            parts: parts.join(" · "),
+          })
+        : t("availability.weekSummary.line", { parts: parts.join(" · ") });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-demo.fixture.ts">
@@ -8957,6 +8973,47 @@
         .map((r) => ({ ...r, seriesId: created.id }));
       const ended: DateRule = { ...series, endsOn: addDays(date, -1) };
       return { upsert: { dateRules: [ended, created, ...moved] }, remove: {} };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/service-filter.ts">
+    export interface ServiceFilter {
+      readonly id: string;
+      readonly name: string;
+    }
+    export function filterableServices(config: AvailabilityConfig): readonly ServiceFilter[] {
+      const active = [...config.venueServices.filter((s) => !s.archivedAt)]
+        .sort((a, b) => a.position - b.position)
+        .map((s) => ({ id: s.id, name: s.name }));
+      return active.length >= 2 ? active : [];
+    }
+    export function resolveServiceFilter(
+      services: readonly ServiceFilter[],
+      chosenId: string | null
+    ): ServiceFilter | null {
+      return services.find((s) => s.id === chosenId) ?? null;
+    }
+    export function filterDaySummary(
+      summary: AvailabilityDaySummary,
+      serviceId: string
+    ): AvailabilityDaySummary {
+      if (summary.services === undefined) return summary;
+      const services = summary.services.filter((s) => s.venueServiceId === serviceId);
+      const closures = summary.closures.filter((c) => {
+        // A service closure names its service: it belongs to that one alone, even on a day it
+        // closes the service for good (the service is then gone from `services`).
+        if (c.targetKind === "service" && c.venueServiceId !== undefined) {
+          return c.venueServiceId === serviceId;
+        }
+        return services.some((s) => c.from < s.closesAt && c.to > s.opensAt);
+      });
+      return { ...summary, services, serviceCount: services.length, closures };
+    }
+    export function filterDays(
+      days: readonly AvailabilityDaySummary[] | undefined,
+      service: ServiceFilter | null
+    ): readonly AvailabilityDaySummary[] | undefined {
+      if (!days || !service) return days;
+      return days.map((d) => filterDaySummary(d, service.id));
     }
   </file>
   <file path="apps/hospitality/src/components/availability/special-dates.ts">
@@ -47496,6 +47553,8 @@
           to: z.number().int(),
           /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
           bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
+          /** The service a `service` closure is for; absent for other targets and from an older API. */
+          venueServiceId: z.string().optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -53836,13 +53895,16 @@
         label,
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
-        closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
-          ruleId,
-          targetKind,
-          from,
-          to,
-          ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
-        })),
+        closures: day.closures.map(
+          ({ ruleId, targetKind, from, to, bookingTypes, venueServiceId }) => ({
+            ruleId,
+            targetKind,
+            from,
+            to,
+            ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
+            ...(targetKind === "service" && venueServiceId ? { venueServiceId } : {}),
+          })
+        ),
         bookingOpen: day.bookingOpen,
         services: isDayClosed(day) ? [] : daySummaryServices(names, day),
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),

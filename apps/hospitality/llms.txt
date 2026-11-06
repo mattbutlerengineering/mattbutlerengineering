@@ -696,10 +696,11 @@
     <item priority="high">
       export function presentDay(
         date: string,
-        summary: AvailabilityDaySummary | undefined,
+        fullSummary: AvailabilityDaySummary | undefined,
         detailed: boolean,
         t: TFunction,
-        format: VenueFormat
+        format: VenueFormat,
+        service?: ServiceFilter | null
       ): DayPresentation { /* ... */ }
     </item>
   </file>
@@ -966,7 +967,8 @@
       export function weekSummary(
         anchor: string,
         days: readonly AvailabilityDaySummary[] | undefined,
-        t: TFunction
+        t: TFunction,
+        service?: ServiceFilter | null
       ): string | null { /* ... */ }
     </item>
   </file>
@@ -1813,6 +1815,35 @@
         edit: SeriesEdit,
         makeId: () => string
       ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/service-filter.ts">
+    <item priority="low">
+      interface ServiceFilter {
+        id: string;
+        name: string;
+      }
+    </item>
+    <item priority="high">
+      export function filterableServices(config: AvailabilityConfig): readonly ServiceFilter[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveServiceFilter(
+        services: readonly ServiceFilter[],
+        chosenId: string | null
+      ): ServiceFilter | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterDaySummary(
+        summary: AvailabilityDaySummary,
+        serviceId: string
+      ): AvailabilityDaySummary { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterDays(
+        days: readonly AvailabilityDaySummary[] | undefined,
+        service: ServiceFilter | null
+      ): readonly AvailabilityDaySummary[] | undefined { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/special-dates.ts">

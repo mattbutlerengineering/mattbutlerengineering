@@ -2060,12 +2060,15 @@
       "goToDate": "Go to date",
       "goToDateLabel": "Date",
       "goToDateSubmit": "Go",
-      "goToDateCancel": "Cancel"
+      "goToDateCancel": "Cancel",
+      "servicesFilter": "Services",
+      "allServices": "All services"
     },
     "calendar": {
       "label": "Availability calendar",
       "cellName": "{{date}}: {{details}}",
       "loadingDay": "loading",
+      "serviceNotRunning": "No {{name}}",
       "services_one": "{{count}} service",
       "services_other": "{{count}} services",
       "services_many": "{{count}} services",
@@ -2843,6 +2846,7 @@
     "venueTime": "Venue time ({{zone}})",
     "weekSummary": {
       "line": "This week: {{parts}}",
+      "lineForService": "This week, {{service}}: {{parts}}",
       "open_one": "open {{count}} day",
       "open_other": "open {{count}} days",
       "closures_one": "{{count}} closure",
