@@ -7,6 +7,7 @@ import {
 } from "@mbe/availability";
 import {
   GUEST_MESSAGE_MAX_LENGTH,
+  MAX_CLOSURE_BATCH,
   type ClosureAction,
   type ClosureAlongside,
   type ClosureDecision,
@@ -30,6 +31,8 @@ export type CloseWhat =
 export type CloseWhen =
   | { readonly kind: "tonight" }
   | { readonly kind: "date"; readonly date: string }
+  /** Several picked dates, ascending: stored as one single-date closure each (#7981). */
+  | { readonly kind: "dates"; readonly dates: readonly string[] }
   | { readonly kind: "range"; readonly from: string; readonly to: string }
   | {
       readonly kind: "repeats";
@@ -76,6 +79,8 @@ function spanOf(when: CloseWhen, today: string): Span {
       return { startsOn: today, endsOn: today };
     case "date":
       return { startsOn: when.date, endsOn: when.date };
+    case "dates":
+      return { startsOn: when.dates[0] ?? "", endsOn: when.dates.at(-1) ?? "" };
     case "range":
       return { startsOn: when.from, endsOn: when.to };
     case "repeats":
@@ -92,6 +97,7 @@ function whatIsComplete(what: CloseWhat): boolean {
 }
 
 function whenIsComplete(when: CloseWhen, today: string): boolean {
+  if (when.kind === "dates") return when.dates.length <= MAX_CLOSURE_BATCH && when.dates.length > 0;
   const span = spanOf(when, today);
   if (span.startsOn === "") return false;
   if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
@@ -145,9 +151,9 @@ function targetOf(what: CloseWhat) {
   }
 }
 
-/** The closure the form describes, or `null` while it is incomplete. */
+/** The closure the form describes, or `null` while it is incomplete. Several dates build one each: see `buildCloseRules`. */
 export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null {
-  if (validateClose(form, today) !== null) return null;
+  if (validateClose(form, today) !== null || form.when.kind === "dates") return null;
   const span = spanOf(form.when, today);
   const note = form.staffNote.trim();
   const message = form.guestMessage.trim();
@@ -165,6 +171,31 @@ export function buildCloseRule(form: CloseForm, id: string, today: string): Date
     ...(note ? { staffNote: note } : {}),
     ...(message ? { guestMessage: message } : {}),
   };
+}
+
+/**
+ * The closures the form describes, in date order, or none while it is incomplete. Several dates
+ * are one single-date closure each (Owner decision on #7981), so Undo, History, edit and reopen
+ * work per date; `idFor` names each date's rule.
+ */
+export function buildCloseRules(
+  form: CloseForm,
+  idFor: (date: string) => string,
+  today: string
+): readonly DateRule[] {
+  if (form.when.kind !== "dates") {
+    const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today);
+    return rule ? [rule] : [];
+  }
+  return form.when.dates.flatMap((date) => {
+    const rule = buildCloseRule({ ...form, when: { kind: "date", date } }, idFor(date), today);
+    return rule ? [rule] : [];
+  });
+}
+
+/** Picked dates with `date` added or removed, ascending, with no date twice. */
+export function toggleDate(dates: readonly string[], date: string): readonly string[] {
+  return dates.includes(date) ? dates.filter((d) => d !== date) : [...dates, date].sort();
 }
 
 const HALF_HOUR = 30;
@@ -288,12 +319,9 @@ export function settleStartMinute(
   if (!whenIsComplete(next.when, today)) return next;
   const { startsOn, endsOn, weekdays } = spanOf(next.when, today);
   const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
-  const [first = 0] = startMinutes(
-    config,
-    timezone,
-    closedDates({ startsOn, endsOn, repeat }),
-    null
-  );
+  const dates =
+    next.when.kind === "dates" ? next.when.dates : closedDates({ startsOn, endsOn, repeat });
+  const [first = 0] = startMinutes(config, timezone, dates, null);
   return next.fromMinute < first ? { ...next, fromMinute: null } : next;
 }
 

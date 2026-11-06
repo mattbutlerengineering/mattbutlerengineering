@@ -7,6 +7,8 @@ import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 const create = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
+  useCreateClosures: () => ({ mutateAsync: create, isPending: false }),
+  useClosureImpacts: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
   useClosureImpact: () => ({
     data: { reservations: 0, covers: 0, depositsHeld: 0, groups: [] },
     isLoading: false,
@@ -93,6 +95,12 @@ describe("closing a date that is already closed (#8006)", () => {
 
     fireEvent.click(screen.getByTestId("close-primary"));
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+  });
+
+  it("warns for the one date of several that is closed already, naming that date (#7981)", () => {
+    renderDialog([closure()], { initialDate: null, initialDates: ["2026-12-24", CHRISTMAS] });
+    expect(screen.getByText("Some dates are already closed")).toBeTruthy();
+    expect(screen.getByText("Already closed on Fri, Dec 25: Whole venue.")).toBeTruthy();
   });
 
   it("names a longer closure by its span", () => {

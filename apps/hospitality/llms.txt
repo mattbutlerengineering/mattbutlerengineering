@@ -80,6 +80,65 @@
       ): { dates: number; parts: { action: ClosureAction; count: number }[] } { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/also-apply.ts">
+    <item priority="low">
+      interface AlsoApplyTarget {
+        scheduleId: string;
+        scheduleName: string;
+      }
+    </item>
+    <item priority="low">
+      interface AlsoApplyOption {
+        venueServiceId: string;
+        serviceName: string;
+        targets: readonly AlsoApplyTarget[];
+      }
+    </item>
+    <item priority="low">
+      type AlsoApplyPicks = Readonly<Record<string, readonly string[]>>;
+    </item>
+    <item priority="medium">
+      function changedSourceRows(
+        config: AvailabilityConfig,
+        edit: AvailabilityConfigChanges,
+        sourceScheduleId: string
+      ): ScheduleService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alsoApplyOptions(
+        config: AvailabilityConfig,
+        edit: AvailabilityConfigChanges,
+        sourceScheduleId: string
+      ): AlsoApplyOption[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pruneAlsoApply(
+        options: readonly AlsoApplyOption[],
+        picks: AlsoApplyPicks
+      ): AlsoApplyPicks { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alsoApplyScheduleIds(
+        options: readonly AlsoApplyOption[],
+        picks: AlsoApplyPicks
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildAlsoApplyChanges(
+        config: AvailabilityConfig,
+        edit: AvailabilityConfigChanges,
+        sourceScheduleId: string,
+        picks: AlsoApplyPicks
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alsoApplyChangedSince(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        picks: AlsoApplyPicks
+      ): { changed: string[]; removed: string[] } { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/booking-rules.ts">
     <item priority="low">
       interface BookingRulesForm {
@@ -214,7 +273,7 @@
       type CloseWhat = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "booking"; re;
     </item>
     <item priority="low">
-      type CloseWhen = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | {
+      type CloseWhen = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "dates"; read | { readonly kind: "range"; read | {
             readonly kind: "repeat | { readonly kind: "until-reopen;
     </item>
     <item priority="low">
@@ -280,6 +339,16 @@
     </item>
     <item priority="high">
       export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildCloseRules(
+        form: CloseForm,
+        idFor: (date: string) => string,
+        today: string
+      ): readonly DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toggleDate(dates: readonly string[], date: string): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
       type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
@@ -636,10 +705,11 @@
     <item priority="high">
       export function presentDay(
         date: string,
-        summary: AvailabilityDaySummary | undefined,
+        fullSummary: AvailabilityDaySummary | undefined,
         detailed: boolean,
         t: TFunction,
-        format: VenueFormat
+        format: VenueFormat,
+        service?: ServiceFilter | null
       ): DayPresentation { /* ... */ }
     </item>
   </file>
@@ -827,6 +897,17 @@
       export const USUALLY_CLOSED: ReadonlySet<HolidayId>;
     </item>
   </file>
+  <file path="src/components/availability/layer-rule-actions-props.ts">
+    <item priority="low">
+      interface LayerRuleActionsProps {
+        layer: Layer;
+        date: string;
+        day: ResolvedDay;
+        venueId: string;
+        state: AvailabilityConfigState;
+      }
+    </item>
+  </file>
   <file path="src/components/availability/layer-text.ts">
     <item priority="medium">
       function upperFirst(text: string, locale: string): string { /* ... */ }
@@ -906,7 +987,8 @@
       export function weekSummary(
         anchor: string,
         days: readonly AvailabilityDaySummary[] | undefined,
-        t: TFunction
+        t: TFunction,
+        service?: ServiceFilter | null
       ): string | null { /* ... */ }
     </item>
   </file>
@@ -1753,6 +1835,35 @@
         edit: SeriesEdit,
         makeId: () => string
       ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/service-filter.ts">
+    <item priority="low">
+      interface ServiceFilter {
+        id: string;
+        name: string;
+      }
+    </item>
+    <item priority="high">
+      export function filterableServices(config: AvailabilityConfig): readonly ServiceFilter[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveServiceFilter(
+        services: readonly ServiceFilter[],
+        chosenId: string | null
+      ): ServiceFilter | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterDaySummary(
+        summary: AvailabilityDaySummary,
+        serviceId: string
+      ): AvailabilityDaySummary { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterDays(
+        days: readonly AvailabilityDaySummary[] | undefined,
+        service: ServiceFilter | null
+      ): readonly AvailabilityDaySummary[] | undefined { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/special-dates.ts">
@@ -3751,6 +3862,17 @@
   <file path="src/hooks/useClosures.ts">
     <item priority="high">
       export const useClosureImpact: unknown;
+    </item>
+    <item priority="high">
+      export function useClosureImpacts(params: {
+        readonly venueId: string | null;
+        readonly rules: readonly DateRule[];
+      }): {
+        data: ClosureImpact[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => Promise<unknown>;
+      } { /* ... */ }
     </item>
     <item priority="high">
       export const useClosureNoticePreview: unknown;

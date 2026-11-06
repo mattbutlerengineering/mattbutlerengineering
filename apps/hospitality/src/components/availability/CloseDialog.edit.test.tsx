@@ -9,6 +9,8 @@ const impactState = vi.hoisted(() => ({ value: null as unknown }));
 const asked = vi.hoisted(() => ({ rule: null as unknown, alongside: undefined as unknown }));
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
+  useClosureImpacts: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+  useCreateClosures: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useClosureNoticePreview: () => ({ data: undefined, isLoading: true, error: null }),
   useClosureImpact: (params: { rule: unknown; alongside?: unknown }) => {
     asked.rule = params.rule;
@@ -135,7 +137,7 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
     expect((asked.rule as DateRule).id).not.toBe("range-1");
   });
 
-  it("offers One date, Date range and Until I reopen, never Tonight or Repeats", () => {
+  it("offers One date, Date range and Until I reopen, never Tonight, Several dates or Repeats", () => {
     renderEdit();
     const dialog = screen.getByRole("dialog");
     for (const name of ["One date", "Date range", "Until I reopen"]) {
@@ -143,6 +145,7 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
     }
     expect(within(dialog).queryByRole("radio", { name: "Repeats" })).toBeNull();
     expect(within(dialog).queryByRole("radio", { name: "Tonight" })).toBeNull();
+    expect(within(dialog).queryByRole("radio", { name: "Several dates" })).toBeNull();
   });
 
   it("saves with nothing to decide, replacing the saved closure, and hands the change over for Undo", async () => {

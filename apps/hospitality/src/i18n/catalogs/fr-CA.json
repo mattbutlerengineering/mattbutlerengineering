@@ -1968,6 +1968,9 @@
     "impact_one": "S’applique à {{count}} date à venir",
     "impact_other": "S’applique à {{count}} dates à venir",
     "impact_many": "S’applique à {{count}} de dates à venir",
+    "alsoApply": {
+      "legend": "Appliquer aussi à {{service}} dans :"
+    },
     "ownChanges_one": "{{count}} date a déjà ses propres changements",
     "ownChanges_other": "{{count}} dates ont déjà leurs propres changements",
     "ownChanges_many": "{{count}} de dates ont déjà leurs propres changements",
@@ -1978,6 +1981,8 @@
       "title": "Abandonner vos modifications ?"
     },
     "conflictReview": {
+      "alsoChanged": "Appliquer aussi à : {{names}} a changé en premier",
+      "alsoRemoved": "Appliquer aussi à : {{names}} n’offre plus ce service",
       "title": "Quelqu’un a modifié cet horaire avant vous",
       "loading": "Chargement de la dernière version…",
       "gone": "Cet horaire a été supprimé; vos modifications ne peuvent pas être enregistrées. Abandonnez-les pour fermer.",
@@ -2106,12 +2111,15 @@
       "goToDate": "Aller à une date",
       "goToDateLabel": "Date",
       "goToDateSubmit": "Aller",
-      "goToDateCancel": "Annuler"
+      "goToDateCancel": "Annuler",
+      "servicesFilter": "Services",
+      "allServices": "Tous les services"
     },
     "calendar": {
       "label": "Calendrier de disponibilité",
       "cellName": "{{date}} : {{details}}",
       "loadingDay": "chargement",
+      "serviceNotRunning": "Pas de {{name}}",
       "services_one": "{{count}} service",
       "services_other": "{{count}} services",
       "services_many": "{{count}} services",
@@ -2176,6 +2184,27 @@
       "reloadHours": "Recharger les horaires",
       "ifRemoved": "Si retiré : {{result}}",
       "removalNone": "aucun changement pour ce jour",
+      "schedule": {
+        "spanRange": "{{from}} – {{to}}",
+        "spanFrom": "à partir du {{from}}",
+        "spanUntil": "jusqu’au {{to}}",
+        "subjectDated": "{{name}} ({{span}})",
+        "subjectRule": "« {{label}} » le {{date}}",
+        "editNamed": "Modifier {{name}}",
+        "changeFor": "Changer l’horaire du {{date}}",
+        "removeFor": "Retirer {{subject}}",
+        "removeTitle": "Retirer {{subject}} ?",
+        "removeDescriptionDated": "{{name}} cesse de s’appliquer à toutes les dates de cette période, pas seulement à celle-ci. Ces dates reviennent à votre semaine habituelle ou à un autre horaire qui les couvre. L’horaire reste dans l’onglet Horaires. Cela n’annule jamais de réservations.",
+        "removeDescriptionRule": "La date revient à l’horaire qui la couvre. Cela n’annule jamais de réservations.",
+        "removeDescriptionRuleMany": "Cela le retire de toutes les dates qu’il couvre, pas seulement d’une. Cela n’annule jamais de réservations.",
+        "keepSchedule": "Garder l’horaire",
+        "keep": "Garder",
+        "removedToast": "{{subject}} retiré",
+        "scope": {
+          "title": "Modifier {{name}}",
+          "all": "Toutes les dates que couvre {{name}}"
+        }
+      },
       "layer": {
         "tonight": "Ce soir",
         "allDay": "Toute la journée",
@@ -2644,6 +2673,12 @@
         "range": "Plage de dates",
         "repeats": "Se répète",
         "untilReopen": "Jusqu'à la réouverture",
+        "dates": "Plusieurs dates",
+        "addDateLabel": "Ajouter une date",
+        "picked": "Dates à fermer",
+        "datesHint": "Jusqu'à {{max}} dates, une fermeture par date.",
+        "datesRequired": "Choisissez au moins une date.",
+        "datesTooMany": "Fermez jusqu'à {{max}} dates à la fois.",
         "dateLabel": "Date",
         "startingLabel": "À partir du",
         "fromLabel": "Du",
@@ -2671,6 +2706,9 @@
       "guestsWillSeeMessage": "Les clients verront : {{date}} · {{status}} · « {{message}} »",
       "button": {
         "close": "Fermer le {{date}}",
+        "closeMany_one": "Fermer {{count}} date",
+        "closeMany_other": "Fermer {{count}} dates",
+        "closeMany_many": "Fermer {{count}} dates",
         "pause": "Suspendre les réservations en ligne",
         "cancel_one": "Fermer et annuler {{count}}",
         "cancel_other": "Fermer et annuler {{count}}",
@@ -2710,7 +2748,16 @@
         "bookingPaused": "Réservations en pause le {{date}}",
         "notified_one": "{{date}} fermé · {{count}} réservation avisée",
         "notified_other": "{{date}} fermé · {{count}} réservations avisées",
-        "notified_many": "{{date}} fermé · {{count}} réservations avisées"
+        "notified_many": "{{date}} fermé · {{count}} réservations avisées",
+        "many_one": "{{count}} date fermée",
+        "many_other": "{{count}} dates fermées",
+        "many_many": "{{count}} dates fermées",
+        "manyNotified_one": "{{count}} date fermée · {{notified}} réservation avisée",
+        "manyNotified_other": "{{count}} dates fermées · {{notified}} réservations avisées",
+        "manyNotified_many": "{{count}} dates fermées · {{notified}} réservations avisées",
+        "manyBookingPaused_one": "Réservations en pause pour {{count}} date",
+        "manyBookingPaused_other": "Réservations en pause pour {{count}} dates",
+        "manyBookingPaused_many": "Réservations en pause pour {{count}} dates"
       },
       "step2": {
         "urgent": "Urgent : les clients recevront un texto et un courriel",
@@ -2797,6 +2844,7 @@
       "count_other": "{{count}} dates sélectionnées",
       "count_many": "{{count}} dates sélectionnées",
       "editHours": "Modifier les heures",
+      "close": "Fermer…",
       "clear": "Effacer la sélection",
       "selectMenu": "Sélectionner…",
       "weekdayInMonth": "Chaque {{weekday}} de {{month}}",
@@ -2911,6 +2959,7 @@
     "venueTime": "Heure de l'établissement ({{zone}})",
     "weekSummary": {
       "line": "Cette semaine : {{parts}}",
+      "lineForService": "Cette semaine, {{service}} : {{parts}}",
       "open_one": "ouvert {{count}} jour",
       "open_other": "ouvert {{count}} jours",
       "open_many": "ouvert {{count}} jours",

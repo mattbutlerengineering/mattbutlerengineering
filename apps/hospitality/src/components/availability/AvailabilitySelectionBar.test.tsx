@@ -54,6 +54,16 @@ describe("AvailabilitySelectionBar", () => {
     expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
   });
 
+  it("opens Close with the selection when Close… is pressed, for Managers only (#7981)", () => {
+    const onCloseDates = vi.fn();
+    const { unmount } = renderBar({ onCloseDates });
+    fireEvent.click(screen.getByRole("button", { name: "Close…" }));
+    expect(onCloseDates).toHaveBeenCalledWith(SIX);
+    unmount();
+    renderBar({ onCloseDates, canEdit: false });
+    expect(screen.queryByRole("button", { name: "Close…" })).toBeNull();
+  });
+
   it("hands the selection to the drawer when Edit hours is pressed", () => {
     const { onEditHours } = renderBar();
     fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));

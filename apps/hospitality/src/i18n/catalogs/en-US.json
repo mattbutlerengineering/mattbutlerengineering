@@ -1929,6 +1929,9 @@
     "conflict": "Someone changed availability first. The latest version is loading. Check it, then try again.",
     "impact_one": "Applies to {{count}} future date",
     "impact_other": "Applies to {{count}} future dates",
+    "alsoApply": {
+      "legend": "Also apply to {{service}} in:"
+    },
     "ownChanges_one": "{{count}} date already has its own changes",
     "ownChanges_other": "{{count}} dates already have their own changes",
     "stranded_one": "{{count}} upcoming booking would fall outside the new hours.",
@@ -1937,6 +1940,8 @@
       "title": "Discard your changes?"
     },
     "conflictReview": {
+      "alsoChanged": "Also applying to: {{names}} changed first",
+      "alsoRemoved": "Also applying to: {{names}} no longer runs this service",
       "title": "Someone changed this schedule first",
       "loading": "Loading the latest version…",
       "gone": "This schedule was deleted, so your changes can’t be saved. Discard them to close.",
@@ -2057,12 +2062,15 @@
       "goToDate": "Go to date",
       "goToDateLabel": "Date",
       "goToDateSubmit": "Go",
-      "goToDateCancel": "Cancel"
+      "goToDateCancel": "Cancel",
+      "servicesFilter": "Services",
+      "allServices": "All services"
     },
     "calendar": {
       "label": "Availability calendar",
       "cellName": "{{date}}: {{details}}",
       "loadingDay": "loading",
+      "serviceNotRunning": "No {{name}}",
       "services_one": "{{count}} service",
       "services_other": "{{count}} services",
       "services_many": "{{count}} services",
@@ -2127,6 +2135,27 @@
       "reloadHours": "Reload hours",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
+      "schedule": {
+        "spanRange": "{{from}} – {{to}}",
+        "spanFrom": "from {{from}}",
+        "spanUntil": "until {{to}}",
+        "subjectDated": "{{name}} ({{span}})",
+        "subjectRule": "“{{label}}” on {{date}}",
+        "editNamed": "Edit {{name}}",
+        "changeFor": "Change the schedule for {{date}}",
+        "removeFor": "Remove {{subject}}",
+        "removeTitle": "Remove {{subject}}?",
+        "removeDescriptionDated": "{{name}} stops applying on every date of this period, not just this one. Those dates go back to your regular week, or to another schedule that covers them. The schedule stays on the Schedules tab. Bookings are never cancelled by this.",
+        "removeDescriptionRule": "The date goes back to the schedule that covers it. Bookings are never cancelled by this.",
+        "removeDescriptionRuleMany": "This removes it from every date it covers, not just one. Bookings are never cancelled by this.",
+        "keepSchedule": "Keep schedule",
+        "keep": "Keep",
+        "removedToast": "{{subject}} removed",
+        "scope": {
+          "title": "Edit {{name}}",
+          "all": "All dates {{name}} covers"
+        }
+      },
       "layer": {
         "tonight": "Tonight",
         "allDay": "All day",
@@ -2566,6 +2595,12 @@
         "range": "Date range",
         "repeats": "Repeats",
         "untilReopen": "Until I reopen",
+        "dates": "Several dates",
+        "addDateLabel": "Add a date",
+        "picked": "Dates to close",
+        "datesHint": "Up to {{max}} dates, one closure each.",
+        "datesRequired": "Pick at least one date.",
+        "datesTooMany": "Close up to {{max}} dates at once.",
         "dateLabel": "Date",
         "startingLabel": "Starting",
         "fromLabel": "From",
@@ -2593,6 +2628,9 @@
       "guestsWillSeeMessage": "Guests will see: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Close {{date}}",
+        "closeMany_one": "Close {{count}} date",
+        "closeMany_other": "Close {{count}} dates",
+        "closeMany_many": "Close {{count}} dates",
         "pause": "Pause online booking",
         "cancel_one": "Close and cancel {{count}}",
         "cancel_other": "Close and cancel {{count}}",
@@ -2632,7 +2670,16 @@
         "bookingPaused": "Booking paused on {{date}}",
         "notified_one": "{{date}} closed · {{count}} reservation notified",
         "notified_other": "{{date}} closed · {{count}} reservations notified",
-        "notified_many": "{{date}} closed · {{count}} reservations notified"
+        "notified_many": "{{date}} closed · {{count}} reservations notified",
+        "many_one": "{{count}} date closed",
+        "many_other": "{{count}} dates closed",
+        "many_many": "{{count}} dates closed",
+        "manyNotified_one": "{{count}} date closed · {{notified}} reservation notified",
+        "manyNotified_other": "{{count}} dates closed · {{notified}} reservations notified",
+        "manyNotified_many": "{{count}} dates closed · {{notified}} reservations notified",
+        "manyBookingPaused_one": "Booking paused on {{count}} date",
+        "manyBookingPaused_other": "Booking paused on {{count}} dates",
+        "manyBookingPaused_many": "Booking paused on {{count}} dates"
       },
       "step2": {
         "urgent": "Urgent: guests will get a text and an email",
@@ -2715,6 +2762,7 @@
       "count_other": "{{count}} dates selected",
       "count_many": "{{count}} dates selected",
       "editHours": "Edit hours",
+      "close": "Close…",
       "clear": "Clear selection",
       "selectMenu": "Select…",
       "weekdayInMonth": "Every {{weekday}} in {{month}}",
@@ -2828,6 +2876,7 @@
     "venueTime": "Venue time ({{zone}})",
     "weekSummary": {
       "line": "This week: {{parts}}",
+      "lineForService": "This week, {{service}}: {{parts}}",
       "open_one": "open {{count}} day",
       "open_other": "open {{count}} days",
       "closures_one": "{{count}} closure",

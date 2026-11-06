@@ -13,6 +13,9 @@ import {
   MAIN_PUSH_WORKFLOW_FILES,
   CANCELLED_IS_FAILURE_WORKFLOW_FILES,
   findMainPushWorkflows,
+  findUnwatchedMainPushWorkflows,
+  MAIN_PUSH_WATCH_EXEMPT_FILES,
+  hasMainPushTrigger,
   mainPushRunArgs,
   mainPushRateRunArgs,
   classifyScheduledWorkflowHealth,
@@ -1261,10 +1264,16 @@ describe("main-push workflow arm (#6955)", () => {
 
   it("pins the exact list of watched advisory workflows", () => {
     expect(MAIN_PUSH_WORKFLOW_FILES).toEqual([
+      "adr-check.yml",
       "apps-visual.yml",
       "e2e-screenshots.yml",
+      "instruction-regression.yml",
+      "post-merge.yml",
+      "release.yml",
       "rialto-visual.yml",
       "rialto-web-e2e.yml",
+      "secret-scan.yml",
+      "storybook.yml",
     ]);
   });
 
@@ -1276,6 +1285,98 @@ describe("main-push workflow arm (#6955)", () => {
       expect(on, file).not.toHaveProperty("schedule");
       expect(DEPLOY_WORKFLOW_FILES, file).not.toContain(file);
     }
+  });
+
+  // #7601: the completeness direction. The tests above only assert that every
+  // LISTED workflow qualifies; nothing asserted that every QUALIFYING workflow
+  // is listed. That is the gap rialto-web-e2e.yml fell through for 5d 8h, and
+  // fixing #7601 by appending one file left the next new advisory workflow
+  // free to repeat it. A qualifying workflow must be watched or explicitly
+  // exempt -- never silently neither.
+  it("watches or exempts every push-to-main advisory workflow (#7601)", () => {
+    const workflowsDir = join(import.meta.dirname, "..", "..", ".github", "workflows");
+    expect(findUnwatchedMainPushWorkflows(workflowsDir)).toEqual([]);
+  });
+
+  it("exempts only ci.yml, and states a reason for it", () => {
+    expect(Object.keys(MAIN_PUSH_WATCH_EXEMPT_FILES)).toEqual(["ci.yml"]);
+    expect(MAIN_PUSH_WATCH_EXEMPT_FILES["ci.yml"]).toMatch(/CI Gate/);
+  });
+
+  it("detects a push-to-main trigger in both YAML list forms", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: [main]\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches:\n      - main\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: [release]\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  pull_request:\n    branches: [main]\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  schedule:\n    - cron: '0 0 * * *'\n")).toBe(false);
+  });
+
+  // Fail closed on an unfiltered push: `on: push` with no `branches` fires on
+  // EVERY branch, main included, so it must qualify. Reading it as "not a
+  // main-push workflow" would reintroduce the silent gap this guard exists to
+  // close -- the workflow would be watched by nothing and flagged by nothing.
+  it("treats an unfiltered push trigger as pushing to main", () => {
+    expect(hasMainPushTrigger("on: push\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    paths:\n      - src/**\n")).toBe(true);
+  });
+
+  // YAML allows a bare scalar where a sequence is expected. Pinned so the
+  // scalar and sequence forms cannot drift apart.
+  it("reads a scalar branch filter the same as a one-item list", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: main\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: release\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: main\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: docs\n")).toBe(true);
+  });
+
+  // A tag-only push never fires on a branch, so it is not a main-push
+  // workflow -- without this, the fail-closed default would report every
+  // future tag-triggered workflow as unwatched.
+  it("does not treat a tag-only push as pushing to main", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    tags: ['v*']\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    tags: ['v*']\n    branches: [main]\n")).toBe(true);
+  });
+
+  it("honours branches-ignore", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: [main]\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: [docs]\n")).toBe(true);
+  });
+
+  it("reports a qualifying workflow that is listed in none of the sets", () => {
+    writeFileSync(join(dir, "stray.yml"), "name: Stray\non:\n  push:\n    branches: [main]\n");
+    expect(findUnwatchedMainPushWorkflows(dir)).toEqual([
+      { name: "Stray", file: "stray.yml", path: ".github/workflows/stray.yml" },
+    ]);
+  });
+
+  // The sort is a documented contract ("sorted by file name for deterministic
+  // output"), and it takes two entries to exercise the comparator at all --
+  // with 0 or 1 result the ordering claim is untested.
+  it("returns multiple unwatched workflows sorted by file name", () => {
+    writeFileSync(join(dir, "zeta.yml"), "name: Zeta\non:\n  push:\n    branches: [main]\n");
+    writeFileSync(join(dir, "alpha.yml"), "name: Alpha\non:\n  push:\n    branches: [main]\n");
+    expect(findUnwatchedMainPushWorkflows(dir).map((w) => w.file)).toEqual([
+      "alpha.yml",
+      "zeta.yml",
+    ]);
+  });
+
+  it("does not report scheduled, deploy, exempt, or already-listed workflows", () => {
+    writeFileSync(
+      join(dir, "cron.yml"),
+      "name: Cron\non:\n  push:\n    branches: [main]\n  schedule:\n    - cron: '0 0 * * *'\n"
+    );
+    writeFileSync(join(dir, "ci.yml"), "name: CI\non:\n  push:\n    branches: [main]\n");
+    writeFileSync(
+      join(dir, "deploy-static.yml"),
+      "name: Deploy Static\non:\n  push:\n    branches: [main]\n"
+    );
+    writeFileSync(
+      join(dir, "rialto-visual.yml"),
+      "name: Rialto Visual\non:\n  push:\n    branches: [main]\n"
+    );
+    expect(findUnwatchedMainPushWorkflows(dir)).toEqual([]);
   });
 
   it("every listed file exists in the real repo", () => {

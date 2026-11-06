@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import type { AvailabilityDaySummary, DaySummaryService } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
+import { filterDaySummary, type ServiceFilter } from "./service-filter.js";
 import { closureBandText, isWholeDay, minuteText, type ClosureBandText } from "./closure-band.js";
 
 export interface ServiceLineText {
@@ -73,14 +74,24 @@ function serviceLineText(
   return { key: service.venueServiceId, text };
 }
 
-/** What a calendar cell or agenda row shows for one day, and how it is spoken. */
+/**
+ * What a calendar cell or agenda row shows for one day, and how it is spoken. With a `service`
+ * filter the day reads for that service alone; a day it does not run says so ("No Dinner") unless
+ * the whole day is closed anyway.
+ */
 export function presentDay(
   date: string,
-  summary: AvailabilityDaySummary | undefined,
+  fullSummary: AvailabilityDaySummary | undefined,
   detailed: boolean,
   t: TFunction,
-  format: VenueFormat
+  format: VenueFormat,
+  service?: ServiceFilter | null
 ): DayPresentation {
+  const summary = fullSummary && service ? filterDaySummary(fullSummary, service.id) : fullSummary;
+  const notRunningName =
+    service && fullSummary && fullSummary.serviceCount > 0 && summary?.serviceCount === 0
+      ? service.name
+      : null;
   const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
   const services = detailed
     ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
@@ -108,7 +119,11 @@ export function presentDay(
   );
   const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
 
-  const label = summary ? dayLabelText(summary.label, t) : null;
+  const label = notRunningName
+    ? t("availability.calendar.serviceNotRunning", { name: notRunningName })
+    : summary
+      ? dayLabelText(summary.label, t)
+      : null;
   const parts = summary
     ? [
         label,
@@ -129,7 +144,7 @@ export function presentDay(
     label,
     // The service's own en-US labels, as dayLabelText reads them.
     tone:
-      summary?.label === "Closed"
+      notRunningName !== null || summary?.label === "Closed"
         ? "closed"
         : summary?.label === "Special hours"
           ? "special"

@@ -9,13 +9,18 @@ import {
   type ClosureResult,
   type DateRule,
 } from "@mbe/types";
-import { useClosureImpact, useCreateClosure } from "../../hooks/useClosures.js";
+import {
+  useClosureImpact,
+  useClosureImpacts,
+  useCreateClosure,
+  useCreateClosures,
+} from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
-  buildCloseRule,
+  buildCloseRules,
   closedDates,
   closureForm,
   decisionsReady,
@@ -39,6 +44,7 @@ import {
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
+import { combineImpacts, decisionsFor } from "./add-dates-draft.js";
 import { AlreadyClosedNotice } from "./AlreadyClosedNotice.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { useSaveAttempts } from "./use-save-attempts.js";
@@ -58,6 +64,8 @@ export interface CloseDialogProps {
   readonly today: string;
   /** Pre-filled "one date"; `null` starts on tonight. */
   readonly initialDate: string | null;
+  /** Pre-filled "Several dates" (the selection bar's Close…); wins over `initialDate`. */
+  readonly initialDates?: readonly string[];
   /** Start with "Booking only: online" and "Until I reopen" (pause online booking). */
   readonly pauseOnline?: boolean;
   /**
@@ -79,10 +87,12 @@ export interface CloseDialogProps {
   /** A Host's emergency close (ux.md F7): Whole venue and Tonight, shown as text and not editable. */
   readonly hostLocked?: boolean;
   readonly onClose: () => void;
+  /** The closure was saved; called just before `onClose`. */
+  readonly onSaved?: () => void;
 }
 
 function initialForm(props: CloseDialogProps): CloseForm {
-  const { initialDate, pauseOnline, hostLocked, series, editing, today } = props;
+  const { initialDate, initialDates, pauseOnline, hostLocked, series, editing, today } = props;
   if (editing) return closureForm(editing);
   if (series && initialDate) return seriesForm(series, initialDate);
   if (hostLocked) {
@@ -98,9 +108,13 @@ function initialForm(props: CloseDialogProps): CloseForm {
     what: pauseOnline ? { kind: "booking", types: ["online"] } : { kind: "venue" },
     when: pauseOnline
       ? { kind: "until-reopen", from: today }
-      : initialDate
-        ? { kind: "date", date: initialDate }
-        : { kind: "tonight" },
+      : initialDates && initialDates.length > 1
+        ? { kind: "dates", dates: [...initialDates].sort() }
+        : initialDates?.length === 1
+          ? { kind: "date", date: initialDates[0]! }
+          : initialDate
+            ? { kind: "date", date: initialDate }
+            : { kind: "tonight" },
     fromMinute: null,
     staffNote: "",
     guestMessage: "",
@@ -127,7 +141,9 @@ export function CloseDialog(props: CloseDialogProps) {
   const format = useVenueFormat();
   const { toast } = useToast();
   const now = useNow();
-  const { mutateAsync, isPending } = useCreateClosure();
+  const createOne = useCreateClosure();
+  const createMany = useCreateClosures();
+  const isPending = createOne.isPending || createMany.isPending;
   const refresh = useRefreshAvailability();
 
   const [form, setForm] = useState<CloseForm>(() => initialForm(props));
@@ -175,32 +191,63 @@ export function CloseDialog(props: CloseDialogProps) {
       : sameRow(liveRow, editing)
         ? null
         : "changed";
+  // Several dates are one closure each; these answer "which rule is for this date" so that a retry
+  // keeps its ids (`attempt` ids) and a preview keeps its own (below).
+  const [attemptIds] = useState(() => new Map<string, string>());
+  const [previewIds] = useState(() => new Map<string, string>());
+  const idIn = (ids: Map<string, string>, key: string) => {
+    if (!ids.has(key)) ids.set(key, crypto.randomUUID());
+    return ids.get(key)!;
+  };
+  const several = form.when.kind === "dates";
   // The preview has its own id, fixed for the dialog: a new attempt (new `ruleId`) must not be a
   // new impact query, or Step 2 would lose the bookings it is deciding on until it refetched.
   const [previewId] = useState(() => crypto.randomUUID());
-  const impactRule = useMemo(
+  const impactRules = useMemo(
     () =>
-      inSeries(
-        buildCloseRule({ ...form, staffNote: "", guestMessage: "" }, previewId, today),
-        series
-      ),
-    [form, previewId, today, series]
+      buildCloseRules(
+        { ...form, staffNote: "", guestMessage: "" },
+        (date) => (several ? idIn(previewIds, date) : previewId),
+        today
+      ).map((r) => inSeries(r, series)!),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the id maps never change
+    [form, previewId, today, series, several]
   );
+  const impactRule = several ? null : (impactRules[0] ?? null);
   const impactQuery = useClosureImpact({ venueId, rule: impactRule, alongside });
-  const impact: ClosureImpact | null | undefined = impactRule ? impactQuery.data : null;
+  const impactsQuery = useClosureImpacts({ venueId, rules: several ? impactRules : [] });
+  const perDate = impactsQuery.data;
+  const combined = useMemo(() => (perDate ? combineImpacts(perDate) : undefined), [perDate]);
+  const impact: ClosureImpact | null | undefined = several
+    ? impactRules.length > 0
+      ? combined
+      : null
+    : impactRule
+      ? impactQuery.data
+      : null;
+  const impactLoading = several ? impactsQuery.isLoading : impactQuery.isLoading;
+  const impactError = several ? impactsQuery.error : impactQuery.error;
+  const refetchImpact = () => void (several ? impactsQuery.refetch() : impactQuery.refetch());
   const groups = impact?.groups ?? [];
-  const rule = inSeries(buildCloseRule(form, ruleId, today), series);
+  const rules = buildCloseRules(
+    form,
+    (date) => (several ? idIn(attemptIds, `${ruleId}:${date}`) : ruleId),
+    today
+  ).map((r) => inSeries(r, series)!);
+  const rule = rules[0] ?? null;
   const services = state.config.venueServices.filter((s) => !s.archivedAt);
 
   const startsOn = rule?.startsOn ?? today;
   // Special hours anywhere in the closure's dates (a range or a repeat too) are replaced by it.
   const replacedDate =
-    rule && form.what.kind !== "booking" ? replacedSpecialDate(liveRules, rule) : null;
+    form.what.kind !== "booking"
+      ? (rules.map((r) => replacedSpecialDate(liveRules, r)).find((d) => d !== null) ?? null)
+      : null;
   // Read every day the closure covers: a time must mean the same on all of them.
   const startOptions = startMinutes(
     state.config,
     timezone,
-    rule ? closedDates(rule) : [startsOn],
+    rules.length > 0 ? rules.flatMap(closedDates) : [startsOn],
     form.fromMinute
   );
 
@@ -215,40 +262,79 @@ export function CloseDialog(props: CloseDialogProps) {
     else void save();
   };
 
+  const saveOne = async (only: DateRule) => {
+    const result = await createOne.mutateAsync({
+      venueId,
+      idempotencyKey,
+      body: {
+        expectedVersion: state.version,
+        rule: only,
+        ...(alongside ? { alongside } : {}),
+        decisions: toDecisions(groups, choices),
+      },
+    });
+    return { outcomes: result.outcomes, result };
+  };
+
+  /** One command, one closure rule per date, each with the decisions of its own date's groups. */
+  const saveMany = async () => {
+    const decisions = decisionsFor(perDate ?? [], choices);
+    const result = await createMany.mutateAsync({
+      venueId,
+      idempotencyKey,
+      body: {
+        expectedVersion: state.version,
+        items: rules.map((r, i) => ({ rule: r, decisions: decisions[i] ?? [] })),
+      },
+    });
+    const total = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 };
+    for (const r of result.results) {
+      for (const key of Object.keys(total) as (keyof typeof total)[]) {
+        total[key] += r.outcomes[key];
+      }
+    }
+    return { outcomes: total, result: null };
+  };
+
   const save = async () => {
     if (!rule) return;
     setFailure(null);
     setWinner(null);
-    attempts.record(outcomeSummary(outcomeCounts(groups, choices), t));
+    attempts.record(
+      outcomeSummary(outcomeCounts(groups, choices), t),
+      rules.map((r) => r.id),
+      rules.map((r) => r.startsOn)
+    );
     try {
-      const result = await mutateAsync({
-        venueId,
-        idempotencyKey,
-        body: {
-          expectedVersion: state.version,
-          rule,
-          ...(alongside ? { alongside } : {}),
-          decisions: toDecisions(groups, choices),
-        },
-      });
-      const { cancel, move, keep_notify } = result.outcomes;
+      const saved = several ? await saveMany() : await saveOne(rule);
+      const { cancel, move, keep_notify } = saved.outcomes;
       const notified = cancel + move + keep_notify;
       // A repeat's From date may not be one of its days.
       const date = fullDate(closedDates(rule)[0] ?? startsOn);
-      const title =
-        notified > 0
+      const count = rules.length;
+      const title = several
+        ? t(
+            notified > 0
+              ? "availability.close.toast.manyNotified"
+              : form.what.kind === "booking"
+                ? "availability.close.toast.manyBookingPaused"
+                : "availability.close.toast.many",
+            { count, notified }
+          )
+        : notified > 0
           ? t("availability.close.toast.notified", { date, count: notified })
           : form.what.kind === "booking"
             ? form.what.types.length === 1 && form.what.types[0] === "online"
               ? t("availability.close.toast.paused")
               : t("availability.close.toast.bookingPaused", { date })
             : t("availability.close.toast.closed", { date });
-      if (props.onSavedQuietly && notified === 0) {
+      if (props.onSavedQuietly && saved.result && notified === 0) {
         // A save that told no guest is one History can revert: the caller offers Undo.
-        props.onSavedQuietly(result);
+        props.onSavedQuietly(saved.result);
       } else {
         toast({ title, variant: "success" });
       }
+      props.onSaved?.();
       onClose();
     } catch (error) {
       const refused = refusalOf(error);
@@ -257,12 +343,12 @@ export function CloseDialog(props: CloseDialogProps) {
         // Nothing was saved. The groups holding those bookings need another choice.
         setChoices(withoutChoicesFor(groups, choices, refused.reservationIds));
         // What Step 2 proposed no longer matches what the save does: ask again before Move is offered.
-        void impactQuery.refetch();
+        refetchImpact();
       }
       if (refused.kind === "groups-changed") {
         // The group changed since the Manager chose: drop the stale choices and load the new one.
         setChoices({});
-        void impactQuery.refetch();
+        refetchImpact();
         return;
       }
       attempts.failed(refused);
@@ -281,15 +367,13 @@ export function CloseDialog(props: CloseDialogProps) {
     today,
     serviceMinuteOf(now, timezone, today)
   );
-  const impactFailed = impactRule !== null && impactQuery.error !== null;
+  const impactFailed = impactError !== null;
   // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
   // choices would read as complete.
   const primaryDisabled =
     savedEarlier ||
     editState !== null ||
-    (step === 2
-      ? !impact || !decisionsReady(groups, choices)
-      : impactQuery.isLoading || impactFailed);
+    (step === 2 ? !impact || !decisionsReady(groups, choices) : impactLoading || impactFailed);
   const label =
     step === 2
       ? outcomeLabel(counts, t)
@@ -299,12 +383,16 @@ export function CloseDialog(props: CloseDialogProps) {
           ? t("availability.close.edit.save")
           : form.what.kind === "booking"
             ? pauseLabel(form.what.types, t)
-            : t("availability.close.button.close", {
-                date:
-                  form.when.kind === "date" || form.when.kind === "tonight"
-                    ? fullDate(startsOn)
-                    : "",
-              }).trim();
+            : several
+              ? t("availability.close.button.closeMany", {
+                  count: form.when.kind === "dates" ? form.when.dates.length : 0,
+                })
+              : t("availability.close.button.close", {
+                  date:
+                    form.when.kind === "date" || form.when.kind === "tonight"
+                      ? fullDate(startsOn)
+                      : "",
+                }).trim();
 
   return (
     <>
@@ -372,7 +460,12 @@ export function CloseDialog(props: CloseDialogProps) {
           </Alert>
         )}
         {!savedEarlier && step === 1 && (
-          <AlreadyClosedNotice rules={liveRules} draft={rule} services={services} today={today} />
+          <AlreadyClosedNotice
+            rules={liveRules}
+            draft={several ? rules : rule}
+            services={services}
+            today={today}
+          />
         )}
         {/* A save in flight sends what was chosen: no control may change it meanwhile. */}
         <fieldset className={styles.lock} disabled={isPending} hidden={savedEarlier}>
@@ -383,9 +476,9 @@ export function CloseDialog(props: CloseDialogProps) {
               services={services}
               today={today}
               impact={impact}
-              impactLoading={impactQuery.isLoading}
-              impactFailed={impactQuery.error !== null}
-              onRetryImpact={() => void impactQuery.refetch()}
+              impactLoading={impactLoading}
+              impactFailed={impactFailed}
+              onRetryImpact={refetchImpact}
               replacedDate={replacedDate}
               invalid={invalid}
               locked={props.hostLocked}

@@ -16,6 +16,8 @@ vi.mock("../../hooks/useClosures.js", () => ({
     refetch: vi.fn(),
   }),
   useCreateClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useClosureImpacts: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+  useCreateClosures: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
 vi.mock("../../hooks/useAvailability.js", () => ({
