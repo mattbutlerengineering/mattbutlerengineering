@@ -1577,9 +1577,9 @@ describe("CloseDialog", () => {
         })
       );
       expect(within(dialog).getByText("Tue, Dec 22")).toBeTruthy();
-      await waitFor(() => expect(document.body).not.toBe(document.activeElement));
-      expect(within(dialog).getByRole("combobox", { name: "Add a date" })).toBe(
-        document.activeElement
+      // The popover hands focus back a frame after the pick; until then it sits on the day cell.
+      await waitFor(() =>
+        expect(within(dialog).getByRole("combobox", { name: "Add a date" })).toHaveFocus()
       );
     });
 
