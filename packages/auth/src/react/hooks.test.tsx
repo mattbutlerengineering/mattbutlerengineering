@@ -352,6 +352,65 @@ describe("useAccessToken", () => {
     expect(result.current.refreshError).toBe(error);
   });
 
+  describe("late failure from a racing renewer (#8339)", () => {
+    const silentError = (source: string) => Object.assign(new Error("invalid_grant"), { source });
+
+    it("ignores a silent error that lands after a renew already produced a fresh token", () => {
+      // Two renewers (library automaticSilentRenew + this hook) fire together; the
+      // loser's rotated-token failure dispatches ERROR AFTER the winner's USER_LOADED,
+      // so the context error outlives a perfectly healthy session.
+      const oidcUser = makeOIDCUser({ expires_at: Math.floor(Date.now() / 1000) + 3600 });
+      mockUseAuth.mockReturnValue(
+        makeOIDCAuth({
+          isAuthenticated: true,
+          user: oidcUser,
+          error: silentError("renewSilent"),
+        })
+      );
+
+      const { result } = renderHook(() => useAccessToken());
+
+      expect(result.current.refreshError).toBeNull();
+    });
+
+    it("still surfaces a silent error once the token is inside the refresh window", () => {
+      const error = silentError("renewSilent");
+      mockUseAuth.mockReturnValue(
+        makeOIDCAuth({
+          isAuthenticated: true,
+          user: makeOIDCUser({ expires_at: Math.floor(Date.now() / 1000) + 240 }),
+          error,
+        })
+      );
+      mockSigninSilent.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useAccessToken());
+
+      expect(result.current.refreshError).toBe(error);
+    });
+
+    it("surfaces a held-back silent error when the token later enters the refresh window", async () => {
+      const error = silentError("renewSilent");
+      mockUseAuth.mockReturnValue(
+        makeOIDCAuth({
+          isAuthenticated: true,
+          user: makeOIDCUser({ expires_at: Math.floor(Date.now() / 1000) + 30 * 60 }),
+          error,
+        })
+      );
+      mockSigninSilent.mockResolvedValue(null);
+
+      const { result } = renderHook(() => useAccessToken());
+      expect(result.current.refreshError).toBeNull();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(25 * 60 * 1000);
+      });
+
+      expect(result.current.refreshError).toBe(error);
+    });
+  });
+
   it("does not schedule a refresh when expiresAt is undefined", () => {
     const oidcUser = makeOIDCUser({ expires_at: undefined });
     mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
@@ -562,7 +621,11 @@ describe("useAccessToken — context-sourced refresh errors", () => {
     // derived from the context error, not only from a local catch.
     const silent = Object.assign(new Error("iframe timed out"), { source: "renewSilent" });
     mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: makeOIDCUser(), error: silent })
+      makeOIDCAuth({
+        isAuthenticated: true,
+        user: makeOIDCUser({ expires_at: Math.floor(Date.now() / 1000) + 120 }),
+        error: silent,
+      })
     );
 
     const { result } = renderHook(() => useAccessToken());

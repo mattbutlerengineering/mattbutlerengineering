@@ -32541,7 +32541,30 @@
       // dispatches ERROR with a silent `source`, and resolves null. So the real
       // failure signal is the context error; the local catch only matters for a
       // custom UserManager that throws.
-      const contextRefreshError = isSilentAuthError(auth.error) ? (auth.error ?? null) : null;
+      const silentError = isSilentAuthError(auth.error) ? (auth.error ?? null) : null;
+    
+      // Two renewers run per tab: oidc-client-ts's automaticSilentRenew (default on,
+      // raw userManager.signinSilent) and the proactive timer below. When both fire
+      // together (tab wake, clock skew) the loser reuses a rotated refresh token and
+      // fails — and its ERROR can land AFTER the winner's USER_LOADED (which is what
+      // clears the error), leaving a banner over a healthy session for a whole token
+      // lifetime (#8339). A token with more than REFRESH_LEAD_MS left was minted by a
+      // renew that worked, so the error is stale; hold it back until the token is
+      // inside the window, where a still-failing renewer is a real lapse.
+      const msUntilExpiry = expiresAt === undefined ? 0 : expiresAt * 1000 - Date.now();
+      const holdSilentError = silentError !== null && msUntilExpiry > REFRESH_LEAD_MS;
+      const contextRefreshError = holdSilentError ? null : silentError;
+      const [, setWindowTick] = useState(0);
+    
+      useEffect(() => {
+        if (!holdSilentError) return;
+        // Re-render when the held-back error becomes relevant.
+        const timer = setTimeout(
+          () => setWindowTick((tick) => tick + 1),
+          msUntilExpiry - REFRESH_LEAD_MS
+        );
+        return () => clearTimeout(timer);
+      }, [holdSilentError, msUntilExpiry]);
     
       useEffect(() => {
         if (!expiresAt) return;
