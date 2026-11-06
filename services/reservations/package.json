@@ -36,7 +36,7 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@prisma/client-runtime-utils": "^7.10.1",
-    "bullmq": "^6.5.2",
+    "bullmq": "^6.5.4",
     "fastify": "catalog:",
     "ioredis": "^6.0.0",
     "jose": "^6.2.14",
