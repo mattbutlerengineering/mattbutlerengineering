@@ -331,3 +331,13 @@ describe("nightly-compliance.yml Close superseded nightly-compliance issues step
     expect(closeStep.if).toMatch(/steps\.file-issue\.outputs\.issue-number != ''/);
   });
 });
+
+describe("nightly-compliance.yml concurrency (#8376)", () => {
+  it("never lets a manual dispatch cancel the scheduled run", () => {
+    // The health detector counts this workflow's `cancelled` runs as timeouts, so a
+    // superseded scheduled run must be impossible: the group is split per event.
+    const raw = readFileSync(resolve(ROOT, ".github/workflows/nightly-compliance.yml"), "utf8");
+    const group = raw.match(/^concurrency:\n(?:\s+#.*\n)*\s+group:\s*(.+)$/m)?.[1] ?? "";
+    expect(group).toContain("github.event_name");
+  });
+});

@@ -53,7 +53,8 @@ const EXCLUDED_CONCLUSIONS = new Set(["cancelled", "skipped"]);
  * `cancelled`, which the streak detector otherwise ignores, so
  * `nightly-compliance.yml` was cancelled on 11 of 12 nights with no issue
  * filed (#8376). Only list a workflow here if nothing else cancels its
- * scheduled runs (no cross-event concurrency group that supersedes them).
+ * scheduled runs: give it a per-event concurrency group so a dispatch never
+ * supersedes the scheduled run (pinned by nightly-compliance-workflow.test.mjs).
  */
 export const CANCELLED_IS_FAILURE_WORKFLOW_FILES = ["nightly-compliance.yml"];
 
@@ -563,6 +564,7 @@ export function buildScheduledFailureBody({
   runs,
   workflowModifiedAt,
   kind = "scheduled",
+  cancelledCountsAsFailure = false,
 }) {
   const runLines = (runs ?? [])
     .map((run) => `- ${run.url ?? "(no url)"}${run.createdAt ? ` (${run.createdAt})` : ""}`)
@@ -581,13 +583,16 @@ export function buildScheduledFailureBody({
         ? "consecutive runs"
         : "consecutive scheduled runs";
   const workflowNoun = kind === "scheduled" ? "scheduled workflow" : "workflow";
+  const streakRule = cancelledCountsAsFailure
+    ? "For this workflow `cancelled` runs (job timeouts) count toward this streak; `skipped` runs are excluded"
+    : "Runs with conclusion `cancelled` or `skipped` are excluded from this streak";
 
   return `\`${workflowPath}\` has failed its last ${streak} ${runsNoun}.
 ${modifiedLine}
 ### Failing runs
 ${runLines}
 
-**Action Required:** investigate why this ${workflowNoun} is failing and fix the root cause. Runs with conclusion \`cancelled\` or \`skipped\` are excluded from this streak — see .claude/rules/gotchas.md.`;
+**Action Required:** investigate why this ${workflowNoun} is failing and fix the root cause. ${streakRule} — see .claude/rules/gotchas.md.`;
 }
 
 /** Pure: `buildScheduledFailureBody` with `kind: "deploy"` wording. */
@@ -665,6 +670,7 @@ export function runScheduledWorkflowHealthCheck({
       runs: health.failingRuns,
       workflowModifiedAt,
       kind,
+      cancelledCountsAsFailure,
     });
     const labels = ["ci-fix", COORDINATION_LABELS.READY];
 

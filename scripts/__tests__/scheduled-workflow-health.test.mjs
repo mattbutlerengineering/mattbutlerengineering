@@ -335,6 +335,19 @@ describe("buildScheduledFailureBody", () => {
   });
 });
 
+describe("buildScheduledFailureBody with cancelled runs counted (#8376)", () => {
+  it("says the cancelled (timed-out) runs are the streak instead of claiming they were excluded", () => {
+    const body = buildScheduledFailureBody({
+      workflowPath: ".github/workflows/nightly-compliance.yml",
+      streak: 3,
+      runs: [{ url: "https://github.com/x/y/actions/runs/1" }],
+      cancelledCountsAsFailure: true,
+    });
+    expect(body).not.toContain("`cancelled` or `skipped` are excluded");
+    expect(body).toContain("`cancelled` runs (job timeouts) count toward this streak");
+  });
+});
+
 describe("runScheduledWorkflowHealthCheck", () => {
   it("files one ci-fix issue for a failing-streak workflow and skips a healthy one", () => {
     const workflows = [
