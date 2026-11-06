@@ -1,6 +1,1490 @@
 {
-  "generatedAt": "2026-10-16T22:38:05.000Z",
+  "generatedAt": "2026-11-05T06:41:47.000Z",
   "features": [
+    {
+      "slug": "gen-interaction-race-regression-coverage-8200",
+      "title": "gen interaction-race regression coverage",
+      "trackingIssue": 8200,
+      "proposalIssue": 7987,
+      "proposalEvidence": "`git log --oneline --since=\"30 days ago\" -- apps/gen` shows a cluster of point fixes to the same prompt→render interaction loop, each landed as a reactive bugfix with no accompanying regression test preventing the class of bug from recurring:",
+      "proposedAt": "2026-10-31T16:07:46.000Z",
+      "firstMergedAt": "2026-11-04T03:46:29.000Z",
+      "lastMergedAt": "2026-11-05T06:41:47.000Z",
+      "wallClockHours": 110.6,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 8197,
+          "title": "[Feature] gen-regression-coverage [1/3]: e2e spec pins the double-click-Generate guard (#7907)",
+          "prs": [
+            {
+              "number": 8207,
+              "title": "test(gen): e2e pins the double-click-Generate guard (mbe-feature-drain #8197)",
+              "mergedAt": "2026-11-04T03:46:29.000Z",
+              "mergeCommit": "2325f2e51a1e97054e490f9e2cc01b5a7d1bd546",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8198,
+          "title": "[Feature] gen-regression-coverage [2/3]: e2e spec pins nested-dialog-closes-one-at-a-time (#7883)",
+          "prs": [
+            {
+              "number": 8217,
+              "title": "test(gen): e2e pins nested-dialog-closes-one-at-a-time (#8198)",
+              "mergedAt": "2026-11-04T04:10:24.000Z",
+              "mergeCommit": "931b1c9abfa5a2d04a51e938dc3c31bbad82a757",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8199,
+          "title": "[Feature] gen-regression-coverage [3/3]: e2e spec pins Escape-dismisses-narrow-history-overlay (#7915)",
+          "prs": [
+            {
+              "number": 8227,
+              "title": "fix(gen): narrow history overlay returns focus to its toggle on Escape; e2e pins it (mbe-feature-drain #8199)",
+              "mergedAt": "2026-11-05T06:41:47.000Z",
+              "mergeCommit": "d6188b7ced5f79de3a2ce14848f1cce8131d9764",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "queueefficiency-sub-metric-trends-8188",
+      "title": "queueEfficiency sub-metric trends",
+      "trackingIssue": 8188,
+      "proposalIssue": 7986,
+      "proposalEvidence": "`metrics/process-metrics.jsonl`, the `queueEfficiency` sensor, three consecutive daily rows:",
+      "proposedAt": "2026-10-31T16:07:34.000Z",
+      "firstMergedAt": "2026-11-03T14:36:42.000Z",
+      "lastMergedAt": "2026-11-04T14:36:59.000Z",
+      "wallClockHours": 94.5,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 8184,
+          "title": "[Feature] queueEfficiency sub-metric trends [1/4]: detect sustained review_coverage decline",
+          "prs": [
+            {
+              "number": 8189,
+              "title": "feat(scripts): flag sustained review_coverage decline in queueEfficiency (mbe-feature-drain #8184)",
+              "mergedAt": "2026-11-03T16:08:52.000Z",
+              "mergeCommit": "892941ac308831d7fa2b76662d7e0a3cfbc46875",
+              "reviewVerdict": "pass",
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8185,
+          "title": "[Feature] queueEfficiency sub-metric trends [2/4]: pin the incident sequence as a fixture test",
+          "prs": [
+            {
+              "number": 8216,
+              "title": "test(scripts): pin queueEfficiency review_coverage incident sequence as fixture (#8185)",
+              "mergedAt": "2026-11-04T03:42:13.000Z",
+              "mergeCommit": "4b20f46e56f1a8221287ccf7044cad38a8ebc51f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8186,
+          "title": "[Feature] queueEfficiency sub-metric trends [3/4]: route review_coverage regressions through issue filing",
+          "prs": [
+            {
+              "number": 8232,
+              "title": "fix(scripts): route review_coverage_trend regressions through issue filing (mbe-feature-drain #8186)",
+              "mergedAt": "2026-11-04T14:36:59.000Z",
+              "mergeCommit": "b5a96f879a7305d0c69f680b8802a0e75648aacb",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 8187,
+          "title": "[Feature] queueEfficiency sub-metric trends [4/4]: document root cause of the review_coverage drop",
+          "prs": [
+            {
+              "number": 8196,
+              "title": "docs(queue-efficiency): root-cause the review_coverage drop (mbe-daily-issue #8187)",
+              "mergedAt": "2026-11-03T14:36:42.000Z",
+              "mergeCommit": "184efbac8c339ae2c44ac590e632886de0eb2edd",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "dress-rehearsal-7377",
+      "title": "Dress Rehearsal",
+      "trackingIssue": 7377,
+      "proposalIssue": 7221,
+      "proposalEvidence": "The hospitality product has no real venues, guests, or service history yet (per `docs/plans/2026-10-18-dress-rehearsal.md`). An empty account is the worst first impression: every screen (timeline, floor plan) is blank until real guests book. `TimelineGrid` already has an `emptyNight` empty state (`apps/hospitality/src/components/timeline/TimelineGrid.tsx:24-40`) that is a natural home for a call-to-action, but today it just says \"nothing booked.\"",
+      "proposedAt": "2026-10-21T16:12:06.000Z",
+      "firstMergedAt": "2026-10-24T11:22:55.000Z",
+      "lastMergedAt": "2026-10-31T14:12:17.000Z",
+      "wallClockHours": 238,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 7369,
+          "title": "[Feature] Dress Rehearsal [1/8]: Seeded PRNG + simulateService()",
+          "prs": [
+            {
+              "number": 7378,
+              "title": "feat(hospitality): seeded Dress Rehearsal service simulator (mbe-feature-drain #7369)",
+              "mergedAt": "2026-10-24T11:22:55.000Z",
+              "mergeCommit": "08222cd5c43642b11fcba7d7f512ba4503af397a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7370,
+          "title": "[Feature] Dress Rehearsal [2/8]: rehearsalStateAt(events, t) reducer",
+          "prs": [
+            {
+              "number": 7379,
+              "title": "feat(hospitality): rehearsalStateAt reducer for Dress Rehearsal (mbe-feature-drain #7370)",
+              "mergedAt": "2026-10-24T11:37:02.000Z",
+              "mergeCommit": "f3fef9c5650cd7cc9ca5c8bb545b97bd52c43648",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7371,
+          "title": "[Feature] Dress Rehearsal [3/8]: useRehearsalPlayback(events) hook",
+          "prs": [
+            {
+              "number": 7380,
+              "title": "feat(hospitality): add useRehearsalPlayback hook (mbe-feature-drain #7371)",
+              "mergedAt": "2026-10-24T12:21:01.000Z",
+              "mergeCommit": "49fba1172a242f241b2bb34dff213c9649ed05b3",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7372,
+          "title": "[Feature] Dress Rehearsal [4/8]: Timeline rehearsal mode + banner (read-only)",
+          "prs": [
+            {
+              "number": 7381,
+              "title": "feat(hospitality): timeline rehearsal mode with banner (mbe-feature-drain #7372)",
+              "mergedAt": "2026-10-24T12:50:53.000Z",
+              "mergeCommit": "b075b6c931ea3668a14c4d26e6e9e83365cc2e59",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7373,
+          "title": "[Feature] Dress Rehearsal [5/8]: Floor plan rehearsal mode",
+          "prs": [
+            {
+              "number": 7382,
+              "title": "feat(hospitality): floor plan rehearsal mode (mbe-feature-drain #7373)",
+              "mergedAt": "2026-10-24T13:11:56.000Z",
+              "mergeCommit": "5fab9ed089a47345231d95a500a2192b413c1af4",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7374,
+          "title": "[Feature] Dress Rehearsal [6/8]: Entry points: empty-night CTA, onboarding Launch step, settings link",
+          "prs": [
+            {
+              "number": 7384,
+              "title": "feat(hospitality): Run a Friday night rehearsal entry points (mbe-feature-drain #7374)",
+              "mergedAt": "2026-10-24T13:37:54.000Z",
+              "mergeCommit": "c96ee8a109dadc569151b1226688a9ad0b0d6e76",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7375,
+          "title": "[Feature] Dress Rehearsal [7/8]: Curtain-call summary card",
+          "prs": [
+            {
+              "number": 7383,
+              "title": "feat(hospitality): curtain-call summary card for rehearsal (mbe-feature-drain #7375)",
+              "mergedAt": "2026-10-24T13:25:15.000Z",
+              "mergeCommit": "9ce01cfa960123355fdb7e4df92f7cd9bdad177d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7376,
+          "title": "[Feature] Dress Rehearsal [8/8]: E2E: run a rehearsal end to end",
+          "prs": [
+            {
+              "number": 7958,
+              "title": "test(e2e): Dress Rehearsal end-to-end spec with zero-write route spy",
+              "mergedAt": "2026-10-31T14:12:17.000Z",
+              "mergeCommit": "9c3b363101352a412b91b39c0360691ac602f227",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "a11y-deferred-findings-7406",
+      "title": "A11y deferred findings",
+      "trackingIssue": 7406,
+      "proposalIssue": 7224,
+      "proposalEvidence": "`packages/rialto/docs/a11y-audit-loop.md` lines 297-300 and 318 name three findings Iteration 7 explicitly left open because each needs a component-level naming/token decision rather than a page change:",
+      "proposedAt": "2026-10-21T16:13:05.000Z",
+      "firstMergedAt": "2026-10-24T15:24:37.000Z",
+      "lastMergedAt": "2026-10-24T16:18:56.000Z",
+      "wallClockHours": 72.1,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 7402,
+          "title": "[Feature] A11y deferred findings [1/4]: TapeChart: per-bar accessible name that matches visible content",
+          "prs": [
+            {
+              "number": 7407,
+              "title": "fix(rialto): TapeChart bar accessible name contains its visible text (mbe-feature-drain #7402)",
+              "mergedAt": "2026-10-24T15:24:37.000Z",
+              "mergeCommit": "c67f64308d20e8f029901ebe0be210a0fc64a64f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7403,
+          "title": "[Feature] A11y deferred findings [2/4]: Kanban example: accessible name contains the ghost button's visible text",
+          "prs": [
+            {
+              "number": 7410,
+              "title": "fix(rialto-web): kanban move button name contains its visible text (mbe-feature-drain #7403)",
+              "mergedAt": "2026-10-24T15:34:27.000Z",
+              "mergeCommit": "77dcc856645482dc0e86af94768f6d121b90bda7",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7404,
+          "title": "[Feature] A11y deferred findings [3/4]: Tag `.selected` contrast >= 4.5:1 in light and dark",
+          "prs": [
+            {
+              "number": 7411,
+              "title": "fix(rialto): selected Tag text meets 4.5:1 contrast (mbe-feature-drain #7404)",
+              "mergedAt": "2026-10-24T15:47:10.000Z",
+              "mergeCommit": "996a9ab681b474138020f58754f222652a22d51d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7405,
+          "title": "[Feature] A11y deferred findings [4/4]: Widen a11y e2e coverage and mark the audit-loop queue empty",
+          "prs": [
+            {
+              "number": 7412,
+              "title": "test(rialto-web): audit kanban, timeline and visual-test pages for a11y (mbe-feature-drain #7405)",
+              "mergedAt": "2026-10-24T16:18:56.000Z",
+              "mergeCommit": "8281c24b7ccc82757e9bc60eb00d398be268ca2b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "revert-reopens-culprit-issues-7396",
+      "title": "Revert reopens culprit issues",
+      "trackingIssue": 7396,
+      "proposalIssue": 7223,
+      "proposalEvidence": "`.claude/reflections/RCA-PR-5949.md` (\"Why it became a revert instead of a re-run,\" item 2): \"The revert reopened nothing. #5826 stayed closed COMPLETED, so the original dependency-drift finding silently dropped out of the queue.\" The RCA's own prevention list named two fixes. The first — skip/downgrade a revert when the failing test paths don't intersect the culprit PR's changed files, or retry once before reverting — is **already implemented**: `scripts/revert-watchdog.mjs` now has `extractFailingTestPaths()`, `pathsAreDisjoint()` and `decideBaselineAction()` (lines 188-284), which return `\"issue-only\"` instead of `\"issue-and-revert\"` exactly on a path-disjoint or inconclusive-baseline break.",
+      "proposedAt": "2026-10-21T16:12:44.000Z",
+      "firstMergedAt": "2026-10-24T14:45:47.000Z",
+      "lastMergedAt": "2026-10-24T15:11:09.000Z",
+      "wallClockHours": 71,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 7392,
+          "title": "[Feature] Revert reopens culprit issues [1/4]: parse closing keywords from a PR body",
+          "prs": [
+            {
+              "number": 7397,
+              "title": "feat(scripts): extract closed issue numbers from a PR body (mbe-feature-drain #7392)",
+              "mergedAt": "2026-10-24T14:45:47.000Z",
+              "mergeCommit": "43185c7645008358b8fb0cdfeb5ce67583c6ed51",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7393,
+          "title": "[Feature] Revert reopens culprit issues [2/4]: reopen issues when the revert PR merges",
+          "prs": [
+            {
+              "number": 7399,
+              "title": "feat(scripts): reopen issues closed by a reverted PR (mbe-feature-drain #7393)",
+              "mergedAt": "2026-10-24T15:02:14.000Z",
+              "mergeCommit": "e2133ef77990a3fa3b2fd4bcecf062b4b3a71c73",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7394,
+          "title": "[Feature] Revert reopens culprit issues [3/4]: idempotency and workflow wiring tests",
+          "prs": [
+            {
+              "number": 7401,
+              "title": "test(scripts): scenario and workflow tests for revert-reopens-issues (mbe-feature-drain #7394)",
+              "mergedAt": "2026-10-24T15:11:09.000Z",
+              "mergeCommit": "3515c14d30ee2e25bbea50bf0e5b8c2ef1da19db",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7395,
+          "title": "[Feature] Revert reopens culprit issues [4/4]: record the fix in the RCA and gotchas",
+          "prs": [
+            {
+              "number": 7400,
+              "title": "docs(rca): record revert-reopens-issues as live (mbe-feature-drain #7395)",
+              "mergedAt": "2026-10-24T15:04:49.000Z",
+              "mergeCommit": "4ae4d767f201ad6c3587ad06a2f5742acf52488d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "marketing-ui-quality-findings-7390",
+      "title": "Marketing ui-quality findings",
+      "trackingIssue": 7390,
+      "proposalIssue": 7222,
+      "proposalEvidence": "`metrics/ui-quality-findings.json` carries 5 findings for `marketing`, every one `\"state\": \"open\"` with `\"issue\": null` (never filed) and `\"carrier\": \"seed\"`:",
+      "proposedAt": "2026-10-21T16:12:23.000Z",
+      "firstMergedAt": "2026-10-24T14:15:01.000Z",
+      "lastMergedAt": "2026-10-24T14:15:01.000Z",
+      "wallClockHours": 70,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 7385,
+          "title": "[Feature] Marketing ui-quality findings [1/5]: fix /status failed-request",
+          "prs": [
+            {
+              "number": 7391,
+              "title": "fix(marketing): answer /status probes in the ui-quality capture (mbe-feature-drain #7385)",
+              "mergedAt": "2026-10-24T14:15:01.000Z",
+              "mergeCommit": "00676540497885cf9a8997ef65cb3ae9232a15db",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "apps-gen-e2e-ci-wiring-7214",
+      "title": "apps/gen e2e CI wiring",
+      "trackingIssue": 7214,
+      "proposalIssue": 7063,
+      "proposalEvidence": "`apps/gen/e2e/` holds a real, assertion-bearing Playwright suite — `auth.spec.ts`, `playground.spec.ts`, `point-and-refine.spec.ts` (covering the flagship refine-loop feature shipped this week, tracking #6935), `shared-spec.spec.ts`, `a11y.test.ts`, plus `gen-api-mocks.ts` / `fixtures.ts` / `auth-helpers.ts` support files — but it has never once executed in CI:",
+      "proposedAt": "2026-10-18T16:12:35.000Z",
+      "firstMergedAt": "2026-10-21T12:51:59.000Z",
+      "lastMergedAt": "2026-10-21T13:13:13.000Z",
+      "wallClockHours": 69,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 7209,
+          "title": "[Feature] apps/gen e2e CI wiring [1/5]: add test:e2e script and triage the 4 specs",
+          "prs": [
+            {
+              "number": 7215,
+              "title": "fix(gen): add test:e2e script and repair stale e2e specs (mbe-feature-drain #7209)",
+              "mergedAt": "2026-10-21T12:51:59.000Z",
+              "mergeCommit": "dca8c708b51597e43d77a3af012e3f5c28e363db",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7210,
+          "title": "[Feature] apps/gen e2e CI wiring [2/5]: add gen-e2e job to e2e.yml",
+          "prs": [
+            {
+              "number": 7216,
+              "title": "ci(gen): run apps/gen Playwright suite in e2e.yml (mbe-feature-drain #7210)",
+              "mergedAt": "2026-10-21T12:58:52.000Z",
+              "mergeCommit": "36b11ac70b6143be9654516c3dfa953a70b1ed89",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7212,
+          "title": "[Feature] apps/gen e2e CI wiring [4/5]: coverage guard so unwired gen specs fail the gate",
+          "prs": [
+            {
+              "number": 7217,
+              "title": "test(gen): guard that every e2e spec is reachable by CI (mbe-feature-drain #7212)",
+              "mergedAt": "2026-10-21T13:04:17.000Z",
+              "mergeCommit": "852a974a9272f334c665b359fc1f487c93c0400b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7213,
+          "title": "[Feature] apps/gen e2e CI wiring [5/5]: document gen-e2e CI job in apps/gen/CLAUDE.md",
+          "prs": [
+            {
+              "number": 7218,
+              "title": "docs(gen): document test:e2e and the gen-e2e CI job (mbe-feature-drain #7213)",
+              "mergedAt": "2026-10-21T13:13:13.000Z",
+              "mergeCommit": "042fc95aa522368ae257fee770bd01489937d1ec",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ai-issue-feedback-real-accepted-detection-7202",
+      "title": "ai-issue-feedback real accepted detection",
+      "trackingIssue": 7202,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-21T11:39:47.000Z",
+      "lastMergedAt": "2026-10-21T12:36:12.000Z",
+      "wallClockHours": 1,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 7196,
+          "title": "[Feature] ai-issue-feedback real accepted detection [1/6]: investigate REST source for the merged PR that closed an issue",
+          "prs": [
+            {
+              "number": 7203,
+              "title": "docs(scripts): design for detecting merged closing PRs in ai-issue-feedback (mbe-feature-drain #7196)",
+              "mergedAt": "2026-10-21T11:39:47.000Z",
+              "mergeCommit": "6b24f457485cb5693bdabd092f4b827b4e7ba37f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7197,
+          "title": "[Feature] ai-issue-feedback real accepted detection [2/6]: classifyIssue consumes a real linked-PR list",
+          "prs": [
+            {
+              "number": 7204,
+              "title": "test(scripts): pin classifyIssue behaviour for real linked-PR lists (mbe-feature-drain #7197)",
+              "mergedAt": "2026-10-21T11:46:59.000Z",
+              "mergeCommit": "b00d053429041a38bdba93e321e048f7a0c79f3a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7198,
+          "title": "[Feature] ai-issue-feedback real accepted detection [3/6]: REST adapter fetching linked PRs per issue",
+          "prs": [
+            {
+              "number": 7205,
+              "title": "feat(scripts): REST adapter for merged closing PRs in ai-issue-feedback (mbe-feature-drain #7198)",
+              "mergedAt": "2026-10-21T11:53:17.000Z",
+              "mergeCommit": "52404fd8916f80b5734e78c3302f8b0fb1a6a0cc",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7199,
+          "title": "[Feature] ai-issue-feedback real accepted detection [4/6]: wire adapter into the daily collection, drop the linkedPrs stub",
+          "prs": [
+            {
+              "number": 7207,
+              "title": "feat(scripts): wire merged-PR adapter into ai-issue-feedback collector (mbe-feature-drain #7199)",
+              "mergedAt": "2026-10-21T12:28:11.000Z",
+              "mergeCommit": "185dee25ca37eed2bce5c9e7d8ce066840d7c51f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7201,
+          "title": "[Feature] ai-issue-feedback real accepted detection [6/6]: guard test: never report accepted 0 everywhere when merges exist",
+          "prs": [
+            {
+              "number": 7208,
+              "title": "feat(scripts): warn when ai-issue-feedback reports accepted 0 despite merged PRs (mbe-feature-drain #7201)",
+              "mergedAt": "2026-10-21T12:36:12.000Z",
+              "mergeCommit": "203772b97f752b5a57820324dd20058eff32ee5d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "a11y-iteration-7-7191",
+      "title": "A11y Iteration 7",
+      "trackingIssue": 7191,
+      "proposalIssue": 7061,
+      "proposalEvidence": "`packages/rialto/docs/a11y-audit-loop.md`'s own \"Queue for next iterations\" section names the next item explicitly: \"**Iteration 7**: the 14 remaining seed findings on `examples/*`, `demos/*` and standalone pages (`visual-test`, `privacy`), composition-level rather than per-component.\" Iterations 2 through 6 are all marked `~~Done~~` in that same list (form components, invasive wrapper refactors, non-overlay interactive, navigation, and axe-core verification against the 10 component showcase pages respectively) — each shipped as its own closed, un-vetoed proposal (#5775, #6314, #6436, #6596, #6715). This is the loop's own documented next step, not a freshly-invented idea.",
+      "proposedAt": "2026-10-18T16:12:07.000Z",
+      "firstMergedAt": "2026-10-21T11:14:22.000Z",
+      "lastMergedAt": "2026-10-21T12:21:24.000Z",
+      "wallClockHours": 68.2,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 7186,
+          "title": "[Feature] A11y Iteration 7 [1/5]: re-run axe against example/demo/standalone seed findings",
+          "prs": [
+            {
+              "number": 7193,
+              "title": "docs(rialto): a11y iteration 7 axe re-run on example/demo pages (mbe-feature-drain #7186)",
+              "mergedAt": "2026-10-21T11:14:22.000Z",
+              "mergeCommit": "d46c99ea1f7527ebcb7101ff34d046476aa13266",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7187,
+          "title": "[Feature] A11y Iteration 7 [2/5]: fix color-contrast findings on examples/demos/standalone pages",
+          "prs": [
+            {
+              "number": 7194,
+              "title": "fix(rialto-web): contrast on kanban column labels and state panels (mbe-feature-drain #7187)",
+              "mergedAt": "2026-10-21T11:24:53.000Z",
+              "mergeCommit": "63a4873e350e45a9d876283899582e4ab4a8f7ac",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7188,
+          "title": "[Feature] A11y Iteration 7 [3/5]: fix landmark/structural findings on examples/demos/standalone pages",
+          "prs": [
+            {
+              "number": 7195,
+              "title": "fix(rialto-web): landmark and heading structure on example and standalone pages (mbe-feature-drain #7188)",
+              "mergedAt": "2026-10-21T11:39:15.000Z",
+              "mergeCommit": "4711c23325a3dc96f7f6fcf2b9d4663cb6fb4542",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7190,
+          "title": "[Feature] A11y Iteration 7 [5/5]: e2e a11y coverage for example/demo/standalone pages",
+          "prs": [
+            {
+              "number": 7206,
+              "title": "test(rialto-web): e2e axe coverage for example, demo and standalone pages (mbe-feature-drain #7190)",
+              "mergedAt": "2026-10-21T12:21:24.000Z",
+              "mergeCommit": "93c5254e16ec74e9bbe7acaa390a149cfe85bb81",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "dashboard-widget-load-failures-7180",
+      "title": "Dashboard widget load failures",
+      "trackingIssue": 7180,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-21T08:57:16.000Z",
+      "lastMergedAt": "2026-10-21T09:14:13.000Z",
+      "wallClockHours": 0.6,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 7176,
+          "title": "[Feature] Dashboard widget load failures [2/5]: show error+retry when lapsing-guests query fails",
+          "prs": [
+            {
+              "number": 7181,
+              "title": "fix(hospitality): show error and retry when the lapsing-guests query fails (mbe-feature-drain #7176)",
+              "mergedAt": "2026-10-21T08:57:16.000Z",
+              "mergeCommit": "c3371b5fe6d0fcdc0fc39b5503b83ab651580b6c",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7179,
+          "title": "[Feature] Dashboard widget load failures [5/5]: regression tests for widget load-failure states",
+          "prs": [
+            {
+              "number": 7182,
+              "title": "test(hospitality): pin lapsing-guests error to retry-success transition (mbe-feature-drain #7179)",
+              "mergedAt": "2026-10-21T09:14:13.000Z",
+              "mergeCommit": "d2dd90990b60a1d5c46fb0731d8363aec57d41d6",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "package-consolidation-7107",
+      "title": "package consolidation",
+      "trackingIssue": 7107,
+      "proposalIssue": null,
+      "proposalEvidence": null,
+      "proposedAt": null,
+      "firstMergedAt": "2026-10-19T02:15:55.000Z",
+      "lastMergedAt": "2026-10-19T04:43:57.000Z",
+      "wallClockHours": 4,
+      "liveUrl": "/rialto/",
+      "children": [
+        {
+          "issue": 7098,
+          "title": "[Feature] package consolidation [1/9]: Delete @mbe/mcp-server and the `mbe mcp` command",
+          "prs": [
+            {
+              "number": 7111,
+              "title": "chore(packages): delete @mbe/mcp-server and the mbe mcp command",
+              "mergedAt": "2026-10-19T02:15:55.000Z",
+              "mergeCommit": "a46734c537f993a2e9fc95f72a15e5d2480d8c1e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7099,
+          "title": "[Feature] package consolidation [2/9]: Delete @mbe/supply-chain-scanner",
+          "prs": [
+            {
+              "number": 7109,
+              "title": "chore(packages): delete @mbe/supply-chain-scanner",
+              "mergedAt": "2026-10-19T02:51:33.000Z",
+              "mergeCommit": "e556c13beab3b395594322ec35b82a0144f8d969",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7100,
+          "title": "[Feature] package consolidation [3/9]: Fold @mbe/agent-test-utils into @mbe/agent-core as a ./testing subpath",
+          "prs": [
+            {
+              "number": 7112,
+              "title": "refactor(agent-core): fold @mbe/agent-test-utils into ./testing",
+              "mergedAt": "2026-10-19T02:27:13.000Z",
+              "mergeCommit": "e9ca789c64d3dc79419de635193ca3bb0624d747",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7101,
+          "title": "[Feature] package consolidation [4/9]: Split @mbe/test-fixtures: inline factories into services, rename the rest to @mbe/ui-quality-capture",
+          "prs": [
+            {
+              "number": 7113,
+              "title": "refactor(packages): inline test-fixtures factories, rename to @mbe/ui-quality-capture",
+              "mergedAt": "2026-10-19T03:06:53.000Z",
+              "mergeCommit": "34a68fc82b9bce752f23b446c85f0f02ca144230",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7102,
+          "title": "[Feature] package consolidation [5/9]: Cut rialto's dependency on @mbe/api-client: ChatPanel takes an injected stream adapter",
+          "prs": [
+            {
+              "number": 7115,
+              "title": "feat(rialto): ChatPanel takes an injected stream adapter; drop @mbe/api-client dependency",
+              "mergedAt": "2026-10-19T03:26:33.000Z",
+              "mergeCommit": "02dc7421767b6eec3c4d83b67bcec86fb44b2599",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7103,
+          "title": "[Feature] package consolidation [6/9]: Move @mbe/jobs into services/reservations and drop unused job types",
+          "prs": [
+            {
+              "number": 7116,
+              "title": "refactor(reservations): move @mbe/jobs into the service and drop unused job types",
+              "mergedAt": "2026-10-19T03:39:29.000Z",
+              "mergeCommit": "22f91d1a8013c49aa31ca99216e61614f7595572",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7104,
+          "title": "[Feature] package consolidation [7/9]: Move @mbe/notifications into services/reservations; stop importing api-client for retry",
+          "prs": [
+            {
+              "number": 7119,
+              "title": "refactor(reservations): move @mbe/notifications into the service",
+              "mergedAt": "2026-10-19T04:02:34.000Z",
+              "mergeCommit": "63ebdef3fcd15a9b3717948775efae0ee8523b0e",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7105,
+          "title": "[Feature] package consolidation [8/9]: Unify the duplicated Auth0 JWKS readiness check in one module",
+          "prs": [
+            {
+              "number": 7120,
+              "title": "refactor(observability): one Auth0 JWKS resolver and probe shared by /health and /ready",
+              "mergedAt": "2026-10-19T04:16:28.000Z",
+              "mergeCommit": "d60a2b7f1844e155d025cdc1a400c7183709a463",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 7106,
+          "title": "[Feature] package consolidation [9/9]: Fold @mbe/observability into @mbe/service-bootstrap",
+          "prs": [
+            {
+              "number": 7122,
+              "title": "refactor(service-bootstrap): fold @mbe/observability into the package",
+              "mergedAt": "2026-10-19T04:43:57.000Z",
+              "mergeCommit": "47b422d4d52e7e9733689880f5841a290a603c9b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "queue-telemetry-reconciler-6945",
+      "title": "queue-telemetry-reconciler",
+      "trackingIssue": 6945,
+      "proposalIssue": 6895,
+      "proposalEvidence": "- `metrics/queue-telemetry.jsonl` has 675 rows (2026-07-05 to 2026-10-16). **`cost_usd` is null on all 675.** `reviewer_verdict` is null on 202, `model_tier` on 181, `ci_first_pass` on 53 and `merged_at` on 48 (measured on `origin/main` 2026-10-17).\n- Because of this, `metrics/process-metrics.jsonl`'s `queueEfficiency` reports **`cost_per_issue_usd: 0`** every day (224 issues merged as of 2026-10-17). The loop is publishing a /bin/zsh cost-per-issue it never measured.\n- `review_coverage` in the same sensor fell 0.136 → 0.112 → 0.107 over the last three rows. With 30% of rows missing a verdict, nobody can tell whether review coverage really fell or the denominator just counts unrecorded reviews.\n- Conductor batches already record real per-run spend in `docs/factory/costs.jsonl`, so a cost source exists and isn't joined in.",
+      "proposedAt": "2026-10-17T01:52:57.000Z",
+      "firstMergedAt": "2026-10-17T09:41:51.000Z",
+      "lastMergedAt": "2026-10-17T16:22:53.000Z",
+      "wallClockHours": 14.5,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 6911,
+          "title": "[Feature] queue-telemetry-reconciler [1/8]: unknown-reason enum + pure reconcileTelemetryRow",
+          "prs": [
+            {
+              "number": 6986,
+              "title": "feat(scripts): telemetry unknown-reason vocabulary and pure row reconciler (mbe-feature-drain #6911)",
+              "mergedAt": "2026-10-17T09:41:51.000Z",
+              "mergeCommit": "a17975fff27017028541b8a4ae5dbcc24b63fe9b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6917,
+          "title": "[Feature] queue-telemetry-reconciler [2/8]: REST source adapter for merge state, CI Gate first-pass, reviewer verdict",
+          "prs": [
+            {
+              "number": 6988,
+              "title": "feat(scripts): REST-only GitHub source for queue-telemetry reconciler (mbe-feature-drain #6917)",
+              "mergedAt": "2026-10-17T09:49:11.000Z",
+              "mergeCommit": "ea0a901f9c8f4152b4d4ba4a552f65aaedd7c0e8",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6919,
+          "title": "[Feature] queue-telemetry-reconciler [3/8]: cost + model-tier source from factory and agent-spend ledgers",
+          "prs": [
+            {
+              "number": 6994,
+              "title": "feat(scripts): queue-telemetry cost and model-tier source (mbe-feature-drain #6919)",
+              "mergedAt": "2026-10-17T10:41:36.000Z",
+              "mergeCommit": "7befb4425e8e6d0991278f058229f9e7f2e50fbe",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6924,
+          "title": "[Feature] queue-telemetry-reconciler [4/8]: reconciler revisits incomplete rows via REST + cost sources",
+          "prs": [
+            {
+              "number": 6995,
+              "title": "feat(scripts): reconciler revisits incomplete telemetry rows (mbe-feature-drain #6924)",
+              "mergedAt": "2026-10-17T10:53:09.000Z",
+              "mergeCommit": "fbb18f6590f55a873c3c3796ab1b7003ffe39908",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6931,
+          "title": "[Feature] queue-telemetry-reconciler [5/8]: run the reconciler daily in metrics-collectors.yml",
+          "prs": [
+            {
+              "number": 7005,
+              "title": "feat(ci): reconcile queue telemetry in metrics-collectors (mbe-feature-drain #6931)",
+              "mergedAt": "2026-10-17T13:45:29.000Z",
+              "mergeCommit": "b92755389035483b04991e3b2853f4313db32123",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6941,
+          "title": "[Feature] queue-telemetry-reconciler [6/8]: queueEfficiency computes cost and review coverage over known rows, with coverage_n",
+          "prs": [
+            {
+              "number": 7007,
+              "title": "fix(scripts): queueEfficiency cost over known rows, honest review denominator (mbe-feature-drain #6941)",
+              "mergedAt": "2026-10-17T13:59:23.000Z",
+              "mergeCommit": "7d7cff3998ee0b1f44ad75911e3da1b12a31d714",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6943,
+          "title": "[Feature] queue-telemetry-reconciler [7/8]: field-coverage summary + completeness check that fails on silent nulls",
+          "prs": [
+            {
+              "number": 7009,
+              "title": "feat(scripts): queue-telemetry field coverage and completeness check (mbe-feature-drain #6943)",
+              "mergedAt": "2026-10-17T14:16:47.000Z",
+              "mergeCommit": "b51da0f762b19b3306ee09ab982e1c04a3b21043",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6944,
+          "title": "[Feature] queue-telemetry-reconciler [8/8]: backfill all historical rows + post before/after table",
+          "prs": [
+            {
+              "number": 7017,
+              "title": "chore(metrics): backfill queue-telemetry reconciliation (#6895)",
+              "mergedAt": "2026-10-17T16:22:53.000Z",
+              "mergeCommit": "5ab80e22c3296f67ae44085259cf4e54bd345d4a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "reservation-event-log-6942",
+      "title": "reservation-event-log",
+      "trackingIssue": 6942,
+      "proposalIssue": 6894,
+      "proposalEvidence": "- No model records what has happened to a reservation. `git grep 'model (ReservationEvent|ReservationHistory|AuditLog)'` across every `services/*/prisma/schema.prisma` returns nothing. A status change overwrites the previous state, and the \"who seated, moved or cancelled this, and when\" question has no answer.\n- The roadmap lists **Event sourcing (reservation_events)** as an unchecked Phase 5 item: `docs/plans/2026-01-31-hospitality-platform-roadmap.md`.\n- State-machine defects keep arriving with no trail to debug from. #6882 (a combined status + slot PATCH went through half-applied) was diagnosed by reading code, because no persisted transition history existed.\n- Charter theme (2), observability feeding the sensor loop: today the booking state machine emits nothing the loop can count.",
+      "proposedAt": "2026-10-17T01:52:55.000Z",
+      "firstMergedAt": "2026-10-17T02:16:28.000Z",
+      "lastMergedAt": "2026-10-17T14:21:17.000Z",
+      "wallClockHours": 12.5,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 6929,
+          "title": "[Feature] reservation-event-log [1/10]: Additive reservation_events migration + ReservationEvent model with FORCE RLS",
+          "prs": [
+            {
+              "number": 6947,
+              "title": "feat(reservations): add append-only reservation_events table with FORCE RLS (mbe-feature-drain #6929)",
+              "mergedAt": "2026-10-17T02:16:28.000Z",
+              "mergeCommit": "f861b3954c6e62fb9b2917b1921facccb4c05701",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6930,
+          "title": "[Feature] reservation-event-log [2/10]: recordReservationEvent(tx) helper, event kinds, actor and non-PII state snapshot",
+          "prs": [
+            {
+              "number": 6980,
+              "title": "feat(reservations): add recordReservationEvent helper (mbe-feature-drain #6930)",
+              "mergedAt": "2026-10-17T07:46:03.000Z",
+              "mergeCommit": "329a1993a7a59fc8c6d80c3a381fb040350abdce",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6932,
+          "title": "[Feature] reservation-event-log [3/10]: Record created events on every reservation create path",
+          "prs": [
+            {
+              "number": 6984,
+              "title": "feat(reservations): record a created event on every reservation create path (mbe-feature-drain #6932)",
+              "mergedAt": "2026-10-17T09:19:16.000Z",
+              "mergeCommit": "7d82dc60964e7a0f9280ce25f87d6c22d6ff64d2",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6933,
+          "title": "[Feature] reservation-event-log [4/10]: Record status, cancel, no-show, edit, move and rejected-transition events in reservation updates",
+          "prs": [
+            {
+              "number": 6985,
+              "title": "feat(reservations): record events on every reservation update path (mbe-feature-drain #6933)",
+              "mergedAt": "2026-10-17T09:34:37.000Z",
+              "mergeCommit": "c284be1e002017c964e8b763fdb707c8f4e5a8cf",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6934,
+          "title": "[Feature] reservation-event-log [5/10]: Thread the staff actor through transitions verbs and staff routes",
+          "prs": [
+            {
+              "number": 6989,
+              "title": "feat(reservations): thread the staff actor into reservation events (mbe-feature-drain #6934)",
+              "mergedAt": "2026-10-17T09:53:36.000Z",
+              "mergeCommit": "e6e28da3425515826e9b7b626a991109dbf17d62",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6936,
+          "title": "[Feature] reservation-event-log [6/10]: Thread guest and hold-confirm actors through public and manage-token routes",
+          "prs": [
+            {
+              "number": 6997,
+              "title": "feat(reservations): attribute guest and staff-confirm doors in the event log (mbe-feature-drain #6936)",
+              "mergedAt": "2026-10-17T11:50:08.000Z",
+              "mergeCommit": "22c158d2fbd9274fb0c21c6477bfa1d32df014ac",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6937,
+          "title": "[Feature] reservation-event-log [7/10]: Record deposit_transition events in every deposit status CAS",
+          "prs": [
+            {
+              "number": 7000,
+              "title": "feat(reservations): record deposit_transition events in every deposit status CAS (mbe-feature-drain #6937)",
+              "mergedAt": "2026-10-17T12:50:07.000Z",
+              "mergeCommit": "38e341d6c00a0d04ae6617c80e00c67029ee7c55",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6938,
+          "title": "[Feature] reservation-event-log [8/10]: Guard test: every reservation/deposit mutation writes an event or is allowlisted",
+          "prs": [
+            {
+              "number": 7002,
+              "title": "test(reservations): guard that every reservation/deposit mutation writes an event (mbe-feature-drain #6938)",
+              "mergedAt": "2026-10-17T12:58:17.000Z",
+              "mergeCommit": "ff39773d1eab4cc2caf6868abfd17580f4290046",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6939,
+          "title": "[Feature] reservation-event-log [9/10]: GET /api/v1/reservations/:id/events (venue-scoped, paginated)",
+          "prs": [
+            {
+              "number": 6998,
+              "title": "feat(reservations): list a reservation's event history over the API (mbe-feature-drain #6939)",
+              "mergedAt": "2026-10-17T12:02:40.000Z",
+              "mergeCommit": "ab815f9978a6aae772606408a4224ecccf574d55",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6940,
+          "title": "[Feature] reservation-event-log [10/10]: Daily per-kind and rejected-transition event counts in booking metrics",
+          "prs": [
+            {
+              "number": 7003,
+              "title": "feat(reservations): daily reservation-event counts in booking metrics (mbe-feature-drain #6940)",
+              "mergedAt": "2026-10-17T14:21:17.000Z",
+              "mergeCommit": "471d3b38eb0c49ffa71dab410419535d25d3399d",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gen-point-and-refine-6935",
+      "title": "gen-point-and-refine",
+      "trackingIssue": 6935,
+      "proposalIssue": 6897,
+      "proposalEvidence": "- Refinement in gen is all-or-nothing: a `refine` regenerates the whole spec. `apps/gen/src/components/HistoryPanel.tsx:341-345` disables replay for refinements because \"Refinements can't be replayed without their original spec\", which means refine history isn't even self-contained.\n- gen's momentum is the lowest of any app: **23 commits in 30 days**, all fixes and dependency bumps, with no new capability (`git log --since='30 days ago' -- apps/gen`). Its last four proposals were Template Gallery batches (#5108, #5441, #5774, and #6313, which was **vetoed**), so \"more templates\" is exhausted as a direction.\n- Charter theme (1) for gen is explicitly the refine loop, and the current loop makes users re-describe the whole UI to change one card.",
+      "proposedAt": "2026-10-17T01:52:59.000Z",
+      "firstMergedAt": "2026-10-17T02:43:44.000Z",
+      "lastMergedAt": "2026-10-17T11:22:31.000Z",
+      "wallClockHours": 9.5,
+      "liveUrl": null,
+      "children": [
+        {
+          "issue": 6902,
+          "title": "[Feature] gen-point-and-refine [1/9]: pure spec subtree + spec-diff helpers",
+          "prs": [
+            {
+              "number": 6952,
+              "title": "feat(gen): add pure spec subtree and spec-diff helpers (mbe-feature-drain #6902)",
+              "mergedAt": "2026-10-17T02:43:44.000Z",
+              "mergeCommit": "dadc41a0616a09b965ea249a874183c7825298a8",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6905,
+          "title": "[Feature] gen-point-and-refine [2/9]: subtree-scoped target mode on POST /api/gen/ui",
+          "prs": [
+            {
+              "number": 6959,
+              "title": "feat(agent): subtree-scoped target mode on POST /api/gen/ui",
+              "mergedAt": "2026-10-17T03:08:34.000Z",
+              "mergeCommit": "7d6105bf66b03c854c472e743d277831111a69ae",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6908,
+          "title": "[Feature] gen-point-and-refine [3/9]: stable node keys + keyboard-reachable selection overlay in the preview",
+          "prs": [
+            {
+              "number": 6966,
+              "title": "feat(gen): keyboard-reachable component selection in the preview (mbe-feature-drain #6908)",
+              "mergedAt": "2026-10-17T04:21:42.000Z",
+              "mergeCommit": "989453751aeb94f233c850566e1a48a341b177aa",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6910,
+          "title": "[Feature] gen-point-and-refine [4/9]: NodeInspector panel (catalog type, props, child count)",
+          "prs": [
+            {
+              "number": 6967,
+              "title": "feat(gen): NodeInspector panel for the selected component (mbe-feature-drain #6910)",
+              "mergedAt": "2026-10-17T04:34:32.000Z",
+              "mergeCommit": "7b4d0eafeb9cd38178300329542a546b48a14924",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6914,
+          "title": "[Feature] gen-point-and-refine [5/9]: refine selected node — subtree request, catalog validation, splice",
+          "prs": [
+            {
+              "number": 6977,
+              "title": "feat(gen): refine a selected node by regenerating only its subtree (mbe-feature-drain #6914)",
+              "mergedAt": "2026-10-17T07:16:47.000Z",
+              "mergeCommit": "7ed6e5921ab3bac65e266f35cf54510fbbda677f",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6921,
+          "title": "[Feature] gen-point-and-refine [6/9]: persist refinement spec-diff on stored_specs (agent service)",
+          "prs": [
+            {
+              "number": 6991,
+              "title": "feat(agent): store point-and-refine refinements on stored specs (mbe-feature-drain #6921)",
+              "mergedAt": "2026-10-17T10:17:16.000Z",
+              "mergeCommit": "2acf7cf6c38a3f071ccd304ee423674395a8b206",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6923,
+          "title": "[Feature] gen-point-and-refine [7/9]: store node refinements as spec diffs and enable refinement replay",
+          "prs": [
+            {
+              "number": 6992,
+              "title": "feat(gen): save node refinements as diffs and replay them (mbe-feature-drain #6923)",
+              "mergedAt": "2026-10-17T10:28:40.000Z",
+              "mergeCommit": "aa767ab2b4fd288f2f8019e51d913109abf94b48",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6925,
+          "title": "[Feature] gen-point-and-refine [8/9]: exact undo/redo over spec diffs + before/after highlight",
+          "prs": [
+            {
+              "number": 6993,
+              "title": "feat(gen): undo/redo node refinements and show the type delta (mbe-feature-drain #6925)",
+              "mergedAt": "2026-10-17T10:45:15.000Z",
+              "mergeCommit": "79d4ceaeb10f4daef95d7937584730e2b16ad44a",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6927,
+          "title": "[Feature] gen-point-and-refine [9/9]: E2E — select, refine subtree only, replay identically",
+          "prs": [
+            {
+              "number": 6996,
+              "title": "test(gen): e2e for point-and-refine select, refine, undo and replay (mbe-feature-drain #6927)",
+              "mergedAt": "2026-10-17T11:22:31.000Z",
+              "mergeCommit": "60ce01e324b25e24a71367c56ce26811b6aff854",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "guest-change-booking-6928",
+      "title": "guest-change-booking",
+      "trackingIssue": 6928,
+      "proposalIssue": 6893,
+      "proposalEvidence": "- A guest's only self-service action is **cancel**: `apps/hospitality/src/pages/ManageReservationPage.tsx:27` (`CANCELLABLE_STATUSES`) drives a cancel dialog and nothing else. To move a booking from 7pm to 8pm, the guest has to cancel and rebook, losing the table in between, or phone the venue.\n- The operator side already moves bookings safely. `updateWithConflictCheck` in `services/reservations/src/services/reservation.ts` handles table and time moves with conflict detection, and #6882 (fixed in #6889) just hardened that path against status changes sent together with slot moves. The engine is ready, but guests can't reach it.\n- The booking engine's hold mechanism (`POST/confirm` hold routes, 10-minute checkout) already gives a race-free way to reserve the new slot before the old one is released. See `docs/plans/2026-01-31-hospitality-platform-roadmap.md`, Phase 4 (all items checked).",
+      "proposedAt": "2026-10-17T01:52:53.000Z",
+      "firstMergedAt": "2026-10-17T03:08:50.000Z",
+      "lastMergedAt": "2026-10-17T08:44:46.000Z",
+      "wallClockHours": 6.9,
+      "liveUrl": "/hospitality/",
+      "children": [
+        {
+          "issue": 6903,
+          "title": "[Feature] guest-change-booking [1/7]: moveReservationToHold service — atomic hold-backed move",
+          "prs": [
+            {
+              "number": 6958,
+              "title": "feat(reservations): add moveReservationToHold atomic hold-backed move",
+              "mergedAt": "2026-10-17T03:08:50.000Z",
+              "mergeCommit": "b71a66a858a5455caa6b03c198e7dce43ceb3892",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6907,
+          "title": "[Feature] guest-change-booking [2/7]: venue policy — modification cutoff and max party-size change",
+          "prs": [
+            {
+              "number": 6964,
+              "title": "feat(reservations): venue limits on guest booking changes (mbe-feature-drain #6907)",
+              "mergedAt": "2026-10-17T03:20:36.000Z",
+              "mergeCommit": "3aea663d6bfeeff45a38084fdc6233fec1acfe97",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6913,
+          "title": "[Feature] guest-change-booking [3/7]: PATCH manage — require a held slot for time/party changes",
+          "prs": [
+            {
+              "number": 6971,
+              "title": "feat(reservations): require a held slot for guest date/time/party changes (mbe-feature-drain #6913)",
+              "mergedAt": "2026-10-17T05:40:41.000Z",
+              "mergeCommit": "9c690179dd5e2f6e9adfa5047f034f8be0111b14",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6916,
+          "title": "[Feature] guest-change-booking [4/7]: api-client modifyManaged + useChangeBooking hold-then-confirm hook",
+          "prs": [
+            {
+              "number": 6974,
+              "title": "feat(hospitality): add modifyManaged client call and useChangeBooking hook (mbe-feature-drain #6916)",
+              "mergedAt": "2026-10-17T06:27:02.000Z",
+              "mergeCommit": "758fdc02ae7bd63c3be14a45c8f2517b2768d1ef",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6920,
+          "title": "[Feature] guest-change-booking [5/7]: ChangeBookingDialog — date, party and slot pickers with live availability",
+          "prs": [
+            {
+              "number": 6975,
+              "title": "feat(hospitality): add ChangeBookingDialog for guest booking changes (mbe-feature-drain #6920)",
+              "mergedAt": "2026-10-17T06:57:31.000Z",
+              "mergeCommit": "546d1d44b99c08293c636c04d34fdfe34d10b2e2",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6922,
+          "title": "[Feature] guest-change-booking [6/7]: Change booking action on the manage page — cutoff, refetch, updated ICS",
+          "prs": [
+            {
+              "number": 6976,
+              "title": "feat(hospitality): add Change booking action to the guest manage page (mbe-feature-drain #6922)",
+              "mergedAt": "2026-10-17T07:08:34.000Z",
+              "mergeCommit": "53e882fdde13b518999e9fa1095649da849678df",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6926,
+          "title": "[Feature] guest-change-booking [7/7]: E2E — change booking happy path, race lost, abandon",
+          "prs": [
+            {
+              "number": 6983,
+              "title": "test(hospitality): e2e for guest change-booking flow (mbe-feature-drain #6926)",
+              "mergedAt": "2026-10-17T08:44:46.000Z",
+              "mergeCommit": "1bb58e90329733d2e405372b835c80ed5f634620",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "shipped-stories-6918",
+      "title": "shipped-stories",
+      "trackingIssue": 6918,
+      "proposalIssue": 6896,
+      "proposalEvidence": "- The factory has shipped **40+ multi-issue features** end to end (closed `tracking` issues, for example #5875 remembered-on-arrival, #5837 deposit-exposure dashboard, #4602 waitlist, #6631 localization Phase 1). `queueEfficiency` counts **224 issues merged** (`metrics/process-metrics.jsonl`, 2026-10-17), with a median time to merge of 0.3h.\n- None of this is visible as a story. `apps/marketing/src/pages/` has Home, AI-health, Metrics, ACMM, Status and Weekly Intake, all **aggregates**. A visitor can't follow a single idea from proposal to production, which is the most persuasive proof the site could offer. `git grep -i 'changelog|shipped|case.?stud' apps/marketing/src` finds one incidental hit in `MetricsPage.tsx`, and no page.\n- The raw material is already structured: ideation-batch → proposal → tracking → children → PRs → merge commits. Everything is in GitHub and readable by REST.",
+      "proposedAt": "2026-10-17T01:52:58.000Z",
+      "firstMergedAt": "2026-10-17T02:27:27.000Z",
+      "lastMergedAt": "2026-10-17T05:43:08.000Z",
+      "wallClockHours": 3.8,
+      "liveUrl": "/",
+      "children": [
+        {
+          "issue": 6899,
+          "title": "[Feature] shipped-stories [1/8]: snapshot schema, seed JSON and typed loader",
+          "prs": [
+            {
+              "number": 6950,
+              "title": "feat(marketing): add shipped-features snapshot schema, guard and loader (mbe-feature-drain #6899)",
+              "mergedAt": "2026-10-17T02:27:27.000Z",
+              "mergeCommit": "eb390a6fea8e0ab6a0c0caa85add8e067dee9b43",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6900,
+          "title": "[Feature] shipped-stories [2/8]: pure generator core (tracking issue → children → PRs)",
+          "prs": [
+            {
+              "number": 6951,
+              "title": "feat(scripts): add pure shipped-features derivation core (mbe-feature-drain #6900)",
+              "mergedAt": "2026-10-17T02:39:16.000Z",
+              "mergeCommit": "fdc0076df2da4baf10d862bcaca0bcc192489499",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6901,
+          "title": "[Feature] shipped-stories [3/8]: generator CLI over gh api REST + first committed snapshot",
+          "prs": [
+            {
+              "number": 6963,
+              "title": "feat(scripts): shipped-features generator CLI over gh api REST + first snapshot (#6901)",
+              "mergedAt": "2026-10-17T03:50:30.000Z",
+              "mergeCommit": "e1b65c9dca5ab769cb249406ebdccea7bb67271b",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6904,
+          "title": "[Feature] shipped-stories [4/8]: weekly snapshot workflow through the automation PR path",
+          "prs": [
+            {
+              "number": 6970,
+              "title": "feat(marketing): weekly shipped-features snapshot workflow (mbe-feature-drain #6904)",
+              "mergedAt": "2026-10-17T05:13:14.000Z",
+              "mergeCommit": "807bc993afab746183daecc59cc6803e45f0f819",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6906,
+          "title": "[Feature] shipped-stories [5/8]: /shipped index page",
+          "prs": [
+            {
+              "number": 6962,
+              "title": "feat(marketing): add /shipped index page",
+              "mergedAt": "2026-10-17T03:49:36.000Z",
+              "mergeCommit": "23f1b123e357545bb8bfabb33388901ec5814f48",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6909,
+          "title": "[Feature] shipped-stories [6/8]: /shipped/:slug story page (proposal → children → PR verdicts → see it live)",
+          "prs": [
+            {
+              "number": 6968,
+              "title": "feat(marketing): /shipped/:slug story page (mbe-feature-drain #6909)",
+              "mergedAt": "2026-10-17T04:49:56.000Z",
+              "mergeCommit": "4b720ec77c1eb05ff42be354ad5f4d3a10cd5517",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6912,
+          "title": "[Feature] shipped-stories [7/8]: homepage Factory section links to the three newest stories",
+          "prs": [
+            {
+              "number": 6969,
+              "title": "feat(marketing): link the three newest shipped stories from the Factory section (mbe-feature-drain #6912)",
+              "mergedAt": "2026-10-17T04:58:00.000Z",
+              "mergeCommit": "b7e2d90ba35e553beb6aef84b2e8439916e39b89",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        },
+        {
+          "issue": 6915,
+          "title": "[Feature] shipped-stories [8/8]: guard tests (schema, no runtime fetch, links resolve) + e2e coverage",
+          "prs": [
+            {
+              "number": 6972,
+              "title": "test(marketing): guard shipped-stories invariants and cover /shipped in e2e (mbe-feature-drain #6915)",
+              "mergedAt": "2026-10-17T05:43:08.000Z",
+              "mergeCommit": "26f30d3dfdc69c9df64f413c1f8abf3372b9b983",
+              "reviewVerdict": null,
+              "ciGate": "success"
+            }
+          ]
+        }
+      ]
+    },
     {
       "slug": "ideation-batch-2026-10-15-6717",
       "title": "[Ideation] Batch 2026-10-15",
