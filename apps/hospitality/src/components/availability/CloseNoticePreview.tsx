@@ -36,6 +36,7 @@ function noticeRequest(
       message: guestMessage.trim() === "" ? null : guestMessage.trim(),
       refund: action === "cancel" ? sample.deposit : null,
       originHost: sample.originHost ?? null,
+      locale: sample.locale,
     },
   };
 }

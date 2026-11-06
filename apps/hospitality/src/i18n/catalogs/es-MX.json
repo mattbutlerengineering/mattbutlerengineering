@@ -2748,7 +2748,7 @@
         "previewEmail": "Correo electrónico",
         "previewFrom": "De: {{from}}",
         "previewSms": "Mensaje de texto",
-        "previewNote": "Cada comensal recibe su propio enlace, y los horarios libres para reservar de nuevo se agregan al enviarlo. Los mensajes están en inglés.",
+        "previewNote": "Cada comensal recibe su propio enlace, y los horarios libres para reservar de nuevo se agregan al enviarlo. Cada mensaje está en el idioma en que reservó ese comensal.",
         "previewFailed": "No se pudo cargar el mensaje.",
         "previewRetry": "Inténtalo de nuevo",
         "loading": "Cargando las reservaciones…",

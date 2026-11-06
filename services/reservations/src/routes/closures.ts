@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import {
   availabilityConfigEndpoints,
   createProblemDetails,
+  DEFAULT_GUEST_NOTICE_LOCALE,
   type AvailabilityConfigProblem,
 } from "@mbe/types";
 import { requireAuth } from "@mbe/auth/fastify";
@@ -175,7 +176,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       if (!venue) {
         return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
       }
-      const { action, closureDate, startTime, partySize, guestName, message, refund } =
+      const { action, closureDate, startTime, partySize, guestName, message, refund, locale } =
         request.body;
       const brand = hostBrandFor(request.body.originHost ?? null);
       const preview = previewClosureNotice({
@@ -184,6 +185,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         startTime,
         partySize,
         guestName,
+        locale: locale ?? DEFAULT_GUEST_NOTICE_LOCALE,
         message,
         refund,
         venueName: venue.name,

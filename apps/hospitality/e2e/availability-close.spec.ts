@@ -335,7 +335,7 @@ test.describe("Availability close dialog (F5)", () => {
     await expect(region).toContainText("Rebook: https://example.com/m");
     await expect(region).toContainText("From: Matt Butler Engineering <reservations@example.com>");
     await expect(region).toContainText(/Example: Guest 1 at /);
-    await expect(region).toContainText("Messages are in English.");
+    await expect(region).toContainText("Each message is in the language that guest booked in.");
     expect(state.notices()).toEqual([
       expect.objectContaining({ action: "cancel", message: "Closed for a private event" }),
     ]);

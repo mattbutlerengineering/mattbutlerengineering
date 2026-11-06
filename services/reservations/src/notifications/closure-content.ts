@@ -1,10 +1,14 @@
+import type { GuestNoticeLocale } from "@mbe/types";
+import { closureCatalog, type ClosureCatalog, type DateParts } from "./closure-catalogs/index.js";
 import { escapeHtml, sanitizeUrl } from "./sanitize.js";
 import { toVenueLocalTime } from "./venue-time.js";
 
 /**
- * Closure notice copy (docs/features/venue-availability/ux.md F10): the one
- * place the cancelled / moved / kept / reopened email and SMS are worded.
- * Pure: the caller supplies the manage and rebook links already built.
+ * Closure notice builders (docs/features/venue-availability/ux.md F10): the one
+ * place the cancelled / moved / kept / reopened email and SMS are assembled.
+ * The wording lives in `./closure-catalogs`, one per guest language; the
+ * notice job and Step 2's preview both render through here, so they cannot
+ * drift. Pure: the caller supplies the manage and rebook links already built.
  */
 
 export type ClosureNoticeKind = "cancelled" | "moved" | "kept" | "reopened";
@@ -18,6 +22,8 @@ export interface ClosureOffer {
 
 export interface ClosureNoticeContent {
   kind: ClosureNoticeKind;
+  /** The language the guest booked in; the notice is worded, dated and priced in it. */
+  locale: GuestNoticeLocale;
   venueName: string;
   guestName: string | null;
   /** Venue-local service date the closure affects, "YYYY-MM-DD". */
@@ -64,6 +70,21 @@ function toGsm(text: string): string {
 
 const isGsm = (ch: string): boolean => GSM_BASIC.has(ch) || GSM_EXTENSION.has(ch);
 
+/**
+ * Accented letters GSM-7 lacks (á, ê, ç …) become their plain letters, so French and Spanish keep
+ * the 160/153-per-segment budget instead of flipping to UCS-2 (70/67). Characters with no plain
+ * form (an emoji) are left for the venue-name handling to drop.
+ */
+function foldToGsm(text: string): string {
+  return [...text]
+    .map((ch) => {
+      if (isGsm(ch)) return ch;
+      const base = ch.normalize("NFD").replace(/\p{M}/gu, "");
+      return [...base].every(isGsm) ? base : ch;
+    })
+    .join("");
+}
+
 /** Billable SMS segments for a body: GSM-7 (160/153) or UCS-2 (70/67). */
 export function smsSegments(body: string): number {
   let septets = 0;
@@ -81,10 +102,16 @@ export function smsSegments(body: string): number {
   return units <= single ? 1 : Math.ceil(units / multi);
 }
 
-function civilParts(date: string): { weekday: string; month: string; day: number } {
+/** The civil date's parts in the catalog's language, as plain, period-free text. */
+function civilParts(date: string, catalog: ClosureCatalog): DateParts {
   const instant = new Date(`${date}T12:00:00.000Z`);
   const part = (opts: Intl.DateTimeFormatOptions) =>
-    new Intl.DateTimeFormat("en-US", { timeZone: "UTC", ...opts }).format(instant);
+    plainSpaces(
+      // Abbreviations lose their period ("déc." → "déc"): a sentence's own period follows.
+      new Intl.DateTimeFormat(catalog.intl, { timeZone: "UTC", ...opts })
+        .format(instant)
+        .replace(/\./g, "")
+    );
   return {
     weekday: part({ weekday: "short" }),
     month: part({ month: "short" }),
@@ -92,41 +119,42 @@ function civilParts(date: string): { weekday: string; month: string; day: number
   };
 }
 
-/** "Thu Dec 24" */
-function shortDate(date: string): string {
-  const p = civilParts(date);
-  return `${p.weekday} ${p.month} ${p.day}`;
+/** No-break spaces are not GSM-7 and flip a whole SMS to UCS-2. */
+function plainSpaces(text: string): string {
+  return text.replace(/[\u00A0\u202F]/g, " ");
 }
 
-/** "Thu, Dec 24" */
-function emailDate(date: string): string {
-  const p = civilParts(date);
-  return `${p.weekday}, ${p.month} ${p.day}`;
+/** The venue-local clock time as this guest's language writes it. */
+function clockOf(instant: string, timezone: string, fallbackDate: string, catalog: ClosureCatalog) {
+  const [hour, minute] = toVenueLocalTime(instant, timezone, fallbackDate).time.split(":");
+  return catalog.clock(Number(hour), Number(minute));
 }
 
 /** "Wed 23 7:00 PM", for a rebook offer's slot start. */
-export function offerLabel(start: Date, timezone: string): string {
+export function offerLabel(start: Date, timezone: string, locale: GuestNoticeLocale): string {
+  const catalog = closureCatalog(locale);
   const when = toVenueLocalTime(start.toISOString(), timezone, "");
-  const p = civilParts(when.date);
-  return `${p.weekday} ${p.day} ${when.display}`;
+  return `${catalog.offerDay(civilParts(when.date, catalog))} ${clockOf(start.toISOString(), timezone, "", catalog)}`;
 }
 
 /** A refund of nothing is no refund: never worded as "$0 deposit will be refunded". */
 const promisesRefund = (c: ClosureNoticeContent): boolean =>
   c.refund !== null && c.refund.amountCents > 0;
 
-function money(refund: { amountCents: number; currency: string }): string {
+function money(refund: { amountCents: number; currency: string }, catalog: ClosureCatalog): string {
   const whole = refund.amountCents % 100 === 0;
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: refund.currency.toUpperCase(),
-    minimumFractionDigits: whole ? 0 : 2,
-    maximumFractionDigits: whole ? 0 : 2,
-  }).format(refund.amountCents / 100);
+  return plainSpaces(
+    new Intl.NumberFormat(catalog.intl, {
+      style: "currency",
+      currency: refund.currency.toUpperCase(),
+      minimumFractionDigits: whole ? 0 : 2,
+      maximumFractionDigits: whole ? 0 : 2,
+    }).format(refund.amountCents / 100)
+  );
 }
 
 function timeOf(c: ClosureNoticeContent): string {
-  return toVenueLocalTime(c.startTime, c.timezone, c.closureDate).display;
+  return clockOf(c.startTime, c.timezone, c.closureDate, closureCatalog(c.locale));
 }
 
 function firstName(name: string | null): string {
@@ -135,27 +163,51 @@ function firstName(name: string | null): string {
 
 // ── SMS ─────────────────────────────────────────────────────────────────────
 
+/** The date, time and party every wording of one notice states. */
+function facts(c: ClosureNoticeContent, catalog: ClosureCatalog) {
+  return {
+    venue: c.venueName,
+    date: catalog.shortDate(civilParts(c.closureDate, catalog)),
+    time: timeOf(c),
+    party: c.partySize,
+  };
+}
+
+function refundText(c: ClosureNoticeContent, catalog: ClosureCatalog): string | null {
+  return c.refund && promisesRefund(c) ? money(c.refund, catalog) : null;
+}
+
 function cancelledSms(c: ClosureNoticeContent, offers: readonly ClosureOffer[]): string {
-  const refund =
-    c.refund && promisesRefund(c) ? ` ${money(c.refund)} deposit will be refunded.` : "";
-  const head = `${c.venueName} is closed ${shortDate(c.closureDate)}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.${refund}`;
+  const catalog = closureCatalog(c.locale);
+  const head = catalog.sms.cancelled({ ...facts(c, catalog), refund: refundText(c, catalog) });
   const times = offers.map((o) => `${o.label} ${o.url}`);
-  if (times.length === 0) return `${head} Rebook: ${c.manageUrl}`;
-  if (times.length === 1) return `${head} Rebook ${times[0]}`;
-  return `${head} Rebook in one tap:\n${[...times, `Other times ${c.manageUrl}`].join("\n")}`;
+  if (times.length === 0) return `${head}${catalog.sms.rebookNone(c.manageUrl)}`;
+  if (times.length === 1) return `${head}${catalog.sms.rebookOne(times[0]!)}`;
+  return `${head}${catalog.sms.rebookMany(times, c.manageUrl)}`;
 }
 
 function movedSms(c: ClosureNoticeContent): string {
-  return `${c.venueName} has changed its hours on ${shortDate(c.closureDate)}. Your table for ${c.partySize} is now at ${timeOf(c)}. Can't make it? Cancel free: ${c.manageUrl}`;
+  const catalog = closureCatalog(c.locale);
+  return catalog.sms.moved({ ...facts(c, catalog), url: c.manageUrl });
 }
 
 function keptSms(c: ClosureNoticeContent, withMessage: boolean): string {
-  const note = withMessage && c.message ? `: ${c.message}` : "";
-  return `${c.venueName} has changed its hours on ${shortDate(c.closureDate)}${note}. Your ${timeOf(c)} table is still booked. Manage: ${c.manageUrl}`;
+  const catalog = closureCatalog(c.locale);
+  const { party: _party, ...rest } = facts(c, catalog);
+  return catalog.sms.kept({
+    ...rest,
+    note: withMessage && c.message ? c.message : null,
+    url: c.manageUrl,
+  });
 }
 
 function reopenedSms(c: ClosureNoticeContent): string {
-  return `We've reopened ${shortDate(c.closureDate)} at ${c.venueName}. Rebook: ${c.manageUrl}`;
+  const catalog = closureCatalog(c.locale);
+  return catalog.sms.reopened({
+    date: catalog.shortDate(civilParts(c.closureDate, catalog)),
+    venue: c.venueName,
+    url: c.manageUrl,
+  });
 }
 
 /** Candidate bodies, richest first; the first within 3 segments is sent. */
@@ -198,26 +250,17 @@ export function buildClosureSms(c: ClosureNoticeContent): string {
   );
   // Each richer form is tried with every name before a poorer form is.
   const candidates = perName[0]!.flatMap((_, i) => perName.map((bodies) => bodies[i]!));
-  return (
-    candidates.find((body) => smsSegments(body) <= MAX_SMS_SEGMENTS) ??
-    candidates[candidates.length - 1]!
-  );
+  const bodies = candidates.map(foldToGsm);
+  return bodies.find((body) => smsSegments(body) <= MAX_SMS_SEGMENTS) ?? bodies[bodies.length - 1]!;
 }
 
 // ── Email ───────────────────────────────────────────────────────────────────
 
 function emailSubject(c: ClosureNoticeContent): string {
-  const date = emailDate(c.closureDate);
-  switch (c.kind) {
-    case "cancelled":
-      return `Your reservation at ${c.venueName} on ${date} is cancelled`;
-    case "moved":
-      return `Your reservation at ${c.venueName} on ${date} has moved`;
-    case "kept":
-      return `Update about your reservation at ${c.venueName} on ${date}`;
-    case "reopened":
-      return `${c.venueName} has reopened on ${date}`;
-  }
+  const catalog = closureCatalog(c.locale);
+  const date = catalog.emailDate(civilParts(c.closureDate, catalog));
+  const subject = catalog.email.subject[c.kind];
+  return subject(c.venueName, date);
 }
 
 function link(url: string, text: string): string {
@@ -226,51 +269,54 @@ function link(url: string, text: string): string {
 }
 
 function emailLines(c: ClosureNoticeContent): string[] {
+  const catalog = closureCatalog(c.locale);
+  const copy = catalog.email;
   const venue = escapeHtml(c.venueName);
-  const date = emailDate(c.closureDate);
+  const date = catalog.emailDate(civilParts(c.closureDate, catalog));
+  const f = { venue, date, time: timeOf(c), party: c.partySize };
   const message = c.message ? [`<p>${escapeHtml(c.message)}</p>`] : [];
   switch (c.kind) {
     case "cancelled": {
-      const refund =
-        c.refund && promisesRefund(c)
-          ? [`<p>Your ${escapeHtml(money(c.refund))} deposit will be refunded.</p>`]
-          : [];
-      const offers = c.offers.map((o) => `<p>${link(o.url, `Rebook ${o.label}`)}</p>`);
+      const amount = refundText(c, catalog);
+      const refund = amount ? [`<p>${copy.cancelled.refund(escapeHtml(amount))}</p>`] : [];
+      const offers = c.offers.map((o) => `<p>${link(o.url, copy.cancelled.offer(o.label))}</p>`);
       return [
-        `<h1>Your reservation is cancelled</h1>`,
-        `<p>${venue} is closed on ${date}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.</p>`,
+        `<h1>${copy.cancelled.title}</h1>`,
+        `<p>${copy.cancelled.body(f)}</p>`,
         ...message,
         ...refund,
         ...offers,
-        `<p>${link(c.manageUrl, "Other dates and times")}</p>`,
+        `<p>${link(c.manageUrl, copy.cancelled.other)}</p>`,
       ];
     }
     case "moved":
       return [
-        `<h1>Your reservation has moved</h1>`,
-        `<p>${venue} has changed its hours on ${date}. Your table for ${c.partySize} is now at ${timeOf(c)}.</p>`,
+        `<h1>${copy.moved.title}</h1>`,
+        `<p>${copy.moved.body(f)}</p>`,
         ...message,
-        `<p>Can't make it? ${link(c.manageUrl, "Cancel free")}</p>`,
+        `<p>${copy.moved.cancel((text) => link(c.manageUrl, text))}</p>`,
       ];
     case "kept":
       return [
-        `<h1>Your reservation is still on</h1>`,
-        `<p>${venue} has changed its hours on ${date}. Your ${timeOf(c)} table is still booked.</p>`,
+        `<h1>${copy.kept.title}</h1>`,
+        `<p>${copy.kept.body(f)}</p>`,
         ...message,
-        `<p>${link(c.manageUrl, "Manage your reservation")}</p>`,
+        `<p>${link(c.manageUrl, copy.kept.manage)}</p>`,
       ];
     case "reopened":
       return [
-        `<h1>We've reopened</h1>`,
-        `<p>${venue} has reopened on ${date}.</p>`,
-        `<p>${link(c.manageUrl, "Rebook")}</p>`,
+        `<h1>${copy.reopened.title}</h1>`,
+        `<p>${copy.reopened.body(venue, date)}</p>`,
+        `<p>${link(c.manageUrl, copy.reopened.rebook)}</p>`,
       ];
   }
 }
 
 export function buildClosureEmail(c: ClosureNoticeContent): { subject: string; html: string } {
   const greeting = firstName(c.guestName);
-  const hello = greeting ? [`<p>Hi ${escapeHtml(greeting)},</p>`] : [];
+  const hello = greeting
+    ? [`<p>${closureCatalog(c.locale).email.hello(escapeHtml(greeting))}</p>`]
+    : [];
   return {
     subject: emailSubject(c),
     html: [...hello, ...emailLines(c)].join("\n"),

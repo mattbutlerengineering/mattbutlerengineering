@@ -539,7 +539,14 @@
       async confirmForVenue(
         slug: string,
         holdId: string,
-        details: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string }
+        details: {
+          guestName?: string;
+          guestEmail?: string;
+          guestPhone?: string;
+          notes?: string;
+          /** The guest's widget locale tag; later notices are written in it. */
+          locale?: string;
+        }
       ): Promise<{ reservation: Reservation; manageToken?: string }> {
         const response = await this.client.request<{ data: Reservation; manageToken?: string }>(
           `${publicHoldsPath(slug)}/${holdId}/confirm`,

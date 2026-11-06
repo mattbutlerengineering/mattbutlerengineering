@@ -127,6 +127,7 @@ export async function impactInTransaction(
       partySize: true,
       guestName: true,
       originHost: true,
+      locale: true,
       deposit: {
         select: {
           amountCents: true,

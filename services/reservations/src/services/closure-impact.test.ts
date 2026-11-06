@@ -106,6 +106,21 @@ describe("computeClosureImpact", () => {
     ]);
   });
 
+  it("carries the language each booking was made in, so its notice previews in it (#8388)", () => {
+    const result = impact(closure(), [
+      booking("fr", "2026-12-24", 19, 0, { locale: "fr-CA" }),
+      booking("es", "2026-12-24", 19, 15, { locale: "es-MX" }),
+      booking("odd", "2026-12-24", 19, 30, { locale: "tlh" }),
+      booking("none", "2026-12-24", 19, 45),
+    ]);
+    expect(result.groups[0]!.reservations.map((r) => [r.id, r.locale])).toEqual([
+      ["fr", "fr-CA"],
+      ["es", "es-MX"],
+      ["odd", "en-US"],
+      ["none", "en-US"],
+    ]);
+  });
+
   it("groups a shortened service's stranded bookings as shortened", () => {
     const shortened: DateRule = {
       id: "dr-new",
