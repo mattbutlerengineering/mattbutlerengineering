@@ -4973,3 +4973,49 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 1 skipped after max retries (unchanged from 2026-11-05):
 
 - #8202 [Feature] shipped-features-freshness [1/3]: diagnose why the live collector reports zero features
+
+## 2026-11-06 — mbe-weekly-improve
+
+**PR opened (step 2):** [#8393](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8393) — `fix(ci): weekly improve 2026-11-06 — pin main-push workflow watch completeness`. CI Gate green.
+
+`/improve` and `/improve-codebase-architecture` do not resolve (retired by PR #3323, per `docs/claude-reference.md`), so the analysis was the equivalent: `pnpm repo-audit`, `check:knip`, `metrics-freshness.mjs`, the AI-antipattern ratchet, `pnpm typecheck`, and a read-only live sweep of all 41 scheduled workflows plus every push-to-`main` workflow.
+
+### Findings (prioritised)
+
+| #   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Disposition                                                                                                 |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 1   | `scheduled-workflow-health.mjs` asserted every _listed_ advisory workflow qualifies, but never that every _qualifying_ workflow is listed — the #7601 gap. Six workflows were unwatched: `adr-check`, `instruction-regression`, `post-merge`, `release`, `secret-scan`, `storybook`. `release.yml` is cited in that module's own docstring as a 370-consecutive-failure incident and was itself unwatched.                                                                                                                                                                                                     | **Implemented** — #8393                                                                                     |
+| 2   | tier-classifier fails **open**: a file matching no rule contributes nothing to `highest`, so the `highest === 0` → T2 safety net fires only when _every_ file is unmatched. One T1-matching file (systematically the auto-staged `llms.txt`) pins a code PR at `tier:trivial`, which `docs/change-tiers.md` defines as "auto-mergeable when CI green / review: pre-commit hook only". Audited: of 12 recent merged `tier:trivial` PRs, **#8378 and #8360 changed production source with 0 recorded reviews**. `packages/*/src/**` is unmatched for every package except rialto; `scripts/**` except `check-*`. | Filed [#8398](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8398) `ready`           |
+| 3   | The instruction-budget guard cannot protect the files it budgets. Both budgeted files are markdown, and `ci.yml`'s `detect-changes` excludes `':!*.md'`, so a docs-only PR skips the Build/Test chain. #8391 pushed `gotchas.md` to 22088 bytes against a 22000 budget **with green CI**; it surfaced only when #8393 merged `main` in.                                                                                                                                                                                                                                                                        | Filed [#8396](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8396) `ready`           |
+| 4   | `api-failures.yml` has failed 100% of its runs (1/1) since #7545 — `CLOUDFLARE_API_TOKEN` renders empty. Deliberate: it needs Account Analytics · Read, which `MBE_CLOUDFLARE_API_TOKEN` must not be widened to carry, so repointing it at the canonical secret is the wrong fix. Its weekly cron keeps it below the 3-run streak threshold for ~3 weeks.                                                                                                                                                                                                                                                      | Filed [#8395](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8395) `ready-for-human` |
+| 5   | `DEPLOY_WORKFLOW_FILES` has neither guard the push arm now has: no real-repo existence test (all three `findDeployWorkflows` call sites use temp dirs), and no completeness check. Latent — no live gap today.                                                                                                                                                                                                                                                                                                                                                                                                 | Filed [#8394](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8394) `ready`           |
+
+### Verified healthy (not findings)
+
+`repo-audit` 34/35 — the single failure, `check-rialto-changeset`, is this shallow ephemeral clone failing closed on an unresolvable merge base, by design. `check:knip` exit 0. `metrics-freshness.mjs` PASS. AI-antipattern ratchet: all 8 patterns at baseline. `pnpm typecheck` 45/45. No 3-run failure streak among the 41 scheduled workflows. `auto-rollback.yml` is `skipped` across 3360 runs by design (`workflow_run`-gated, same shape as `revert-rca-loop.yml`) and correctly excluded via `EXCLUDED_CONCLUSIONS`.
+
+Not checkable here: the Dependabot alerts API is proxy-blocked (`403 Write access to this GitHub API path is not permitted`), so the 1 low-severity alert GitHub reports on push was not inspected.
+
+### Eval checkpoint (step 4)
+
+`node tools/cli/dist/index.js agent eval --adapter claude-cli` — **exit 0**, genuine scored run, ~32 min. Row committed unedited in [#8402](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8402) (`chore(metrics): eval baseline 2026-11-06`, `has-pr`).
+
+Tasks 5 · pass rate 80.0% · mean score 95.0% · mean turns 12.2 · failed-to-complete 0.
+
+`eval-dep-bump-js-yaml` scored 75% (the one miss). `eval-bugfix-party-size` scored 100% but its row carries a one-entry `sessionErrors` list — a scored failure row under exit 0, not a non-run, quoted as required:
+
+> `session errors: Verification failed: tests: stLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in 'fastify@6'.` … `[WARN] STRIPE_SECRET_KEY is not set. Set this for local Stripe CLI testing.`
+
+Both quoted strings look like deprecation/config noise rather than a real assertion failure, which suggests the verification step may be reading stderr as failure. Not diagnosed; flagged on #8402 because a task scoring 100% while reporting a verification failure is worth an eye, and would be invisible had the row not been committed.
+
+`costBasis` on the row is `api-equivalent` — CLI-reported, not billed. On the subscription this consumes plan quota, so the $0.43 mean is not money spent.
+
+### Notes on this run
+
+- Three of the five findings surfaced only because #8393's own CI went red. A green run would have hidden #8396 and #8398 entirely — worth remembering that the routine's analysis phase did not find them; its _own PR_ did.
+- #8393 needed two follow-up commits: `gotchas.md` was over budget via `main`, not via this change (`main` +228 from #8391, this branch +32), and the entry was compressed to 21902 bytes, which incidentally cleared `main`'s breach. That is a side effect, not a fix for #8396.
+- A `CI Gate: failure` on `1b692cb` was a superseded run — all 16 jobs `cancelled` by the next push. The mirror of the `gotchas.md` rule about workflow-level `success` on a skipped run; reading only the top-level conclusion would have meant chasing a phantom.
+- `turbo-task-inputs.test.mjs` failed once in a full local suite run and passes 15/15 in isolation: the eval was building worktrees concurrently, perturbing turbo hashing. Not reachable in CI.
+- #8393 carries `tier:trivial` from the #8398 defect. Flagged on the PR asking for T2 review. It cannot auto-merge (no `has-pr`, `mergeable_state: blocked`). #8402 _does_ carry `has-pr` as this routine's step 4 specifies, and a `metrics/**` append is legitimately T1, so it may auto-merge on green — the established path for metrics rows.
+
+**Nothing merged by this routine.**
