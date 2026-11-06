@@ -180,6 +180,13 @@ jobs:
       - name: Check .cursorrules drift
         run: node scripts/check-cursorrules-drift.mjs
 
+      # #8396: CLAUDE.md and gotchas.md are markdown, so a markdown-only PR is
+      # the one change that can breach their byte budget AND skips the Test job
+      # that runs instruction-budget.test.mjs (main sat 88 bytes over, green).
+      # Same limits as that test -- both import scripts/check-instruction-budget.mjs.
+      - name: Check instruction byte budget
+        run: node scripts/check-instruction-budget.mjs
+
   hadolint:
     name: Dockerfile Lint
     needs: [detect-changes]
