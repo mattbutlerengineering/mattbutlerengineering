@@ -1202,7 +1202,7 @@
     <item priority="low">
       interface LineHours {
         opensAt: number;
-        closesAt: number;
+        lastSeatingAt: number;
       }
     </item>
     <item priority="low">

@@ -89,7 +89,7 @@ describe("AvailabilityPage regular-week line", () => {
     renderPage();
     expect(
       screen.getByText(
-        "Regular week: Lunch 11:30 AM–3:00 PM Mon–Fri · Dinner 5:00 PM–11:00 PM Tue–Sun, Fri–Sat until 12:00 AM (next day) · Brunch 10:00 AM–2:00 PM Sat–Sun"
+        "Regular week: Lunch 11:30 AM–2:00 PM Mon–Fri · Dinner 5:00 PM–9:00 PM Tue–Sun, Fri–Sat until 10:00 PM · Brunch 10:00 AM–1:00 PM Sat–Sun"
       )
     ).toBeInTheDocument();
   });
@@ -123,7 +123,7 @@ describe("AvailabilityPage regular-week line", () => {
     };
     read.config = uniform;
     renderPage();
-    expect(screen.getByText("Regular week: Dinner 5:00 PM–11:00 PM every day")).toBeInTheDocument();
+    expect(screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM every day")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
   });
 
@@ -180,8 +180,8 @@ describe("AvailabilityPage regular-week line", () => {
       ],
     };
     renderPage();
-    expect(screen.getByText(/^Regular week: Lunch 11:30 AM–3:00 PM Mon–Fri/)).toBeInTheDocument();
-    expect(screen.getByText("From Dec 1: Dinner 5:00 PM–11:00 PM every day")).toBeInTheDocument();
+    expect(screen.getByText(/^Regular week: Lunch 11:30 AM–2:00 PM Mon–Fri/)).toBeInTheDocument();
+    expect(screen.getByText("From Dec 1: Dinner 5:00 PM–9:00 PM every day")).toBeInTheDocument();
   });
 });
 
@@ -251,7 +251,7 @@ describe("AvailabilityPage on a migrated venue", () => {
     read.config = collapsed();
     const { container } = renderPage();
     expect(
-      screen.getByText("Regular week: Dinner 5:00 PM–10:00 PM Mon–Fri, Thu–Fri until 11:00 PM")
+      screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM Mon–Fri, Thu–Fri until 10:00 PM")
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Thu–Fri hours/);
     expect(screen.queryByRole("radio", { name: "Schedules" })).not.toBeInTheDocument();
@@ -277,7 +277,7 @@ describe("AvailabilityPage on a migrated venue", () => {
     read.config = oldShapeMigrated();
     renderPage();
     expect(screen.getByRole("radio", { name: "Schedules" })).toBeInTheDocument();
-    expect(screen.getByText("Regular week: Dinner 5:00 PM–10:00 PM Mon–Wed")).toBeInTheDocument();
+    expect(screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM Mon–Wed")).toBeInTheDocument();
   });
 
   it("still tells a venue with rows and no change that its hours were carried over", () => {

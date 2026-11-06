@@ -8,10 +8,14 @@ import { WEEK_DISPLAY_ORDER } from "./quick-setup-draft.js";
  * the editors read them. Pure, no React. Weekdays are stored indexes (0 = Sunday), Monday first.
  */
 
-/** Service-day minutes, as the rows store them; a close past 24:00 is the next day. */
+/**
+ * Service-day minutes, as the rows store them; past 24:00 is the next day. The line, like the
+ * calendar's cells and Details beneath it, reads the first to the last time a guest can book
+ * (opening to last seating), not opening to closing: the day drawer is where closing is edited.
+ */
 export interface LineHours {
   readonly opensAt: number;
-  readonly closesAt: number;
+  readonly lastSeatingAt: number;
 }
 
 export interface HoursChange extends LineHours {
@@ -77,13 +81,16 @@ export function regularWeekLine(config: AvailabilityConfig, today: string): Regu
         venueServiceId: row.venueServiceId,
         name,
         opensAt: row.opensAt,
-        closesAt: row.closesAt,
+        lastSeatingAt: row.lastSeatingAt,
         days: WEEK_DISPLAY_ORDER.filter((day) => week.days[day] !== null),
-        changes: row.dayHours.sets.map((set) => ({
-          weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
-          opensAt: set.opensAt,
-          closesAt: set.closesAt,
-        })),
+        changes: row.dayHours.sets
+          // A set that moves only the closing books the same times: nothing to say on this line.
+          .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+          .map((set) => ({
+            weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
+            opensAt: set.opensAt,
+            lastSeatingAt: set.lastSeatingAt,
+          })),
       },
     ];
   });
