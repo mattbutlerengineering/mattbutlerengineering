@@ -572,7 +572,7 @@ enum ClosureRefundStatus {
 model Schedule {
   id          String       @id @default(cuid())
   venueId     String       @map("venue_id")
-  venue       Venue        @relation(fields: [venueId], references: [id])
+  venue       Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
   name        String
   kind        ScheduleKind
   isRegular   Boolean      @default(false) @map("is_regular")
@@ -593,7 +593,7 @@ model Schedule {
 model VenueService {
   id               String    @id @default(cuid())
   venueId          String    @map("venue_id")
-  venue            Venue     @relation(fields: [venueId], references: [id])
+  venue            Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   name             String
   position         Int       @default(0)
   archivedAt       DateTime? @map("archived_at")
@@ -607,7 +607,7 @@ model VenueService {
 model ScheduleService {
   id             String       @id @default(cuid())
   venueId        String       @map("venue_id")
-  venue          Venue        @relation(fields: [venueId], references: [id])
+  venue          Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
   scheduleId     String       @map("schedule_id")
   schedule       Schedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   venueServiceId String       @map("venue_service_id")
@@ -635,7 +635,7 @@ model ScheduleService {
 model ScheduleAssignment {
   id         String    @id @default(cuid())
   venueId    String    @map("venue_id")
-  venue      Venue     @relation(fields: [venueId], references: [id])
+  venue      Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   scheduleId String    @map("schedule_id")
   schedule   Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   /// 0 = Sunday.
@@ -655,7 +655,7 @@ model ScheduleAssignment {
 model DateRule {
   id             String             @id @default(cuid())
   venueId        String             @map("venue_id")
-  venue          Venue              @relation(fields: [venueId], references: [id])
+  venue          Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
   kind           DateRuleKind
   targetKind     DateRuleTargetKind @default(venue) @map("target_kind")
   venueServiceId String?            @map("venue_service_id")
@@ -704,7 +704,7 @@ model DateRuleTable {
   tableId    String   @map("table_id")
   table      Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
   venueId    String   @map("venue_id")
-  venue      Venue    @relation(fields: [venueId], references: [id])
+  venue      Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@id([dateRuleId, tableId])
   @@index([tableId])
@@ -719,7 +719,7 @@ model DateRuleTable {
 model AvailabilityChange {
   id             String    @id @default(cuid())
   venueId        String    @map("venue_id")
-  venue          Venue     @relation(fields: [venueId], references: [id])
+  venue          Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   actorId        String    @map("actor_id")
   /// The actor's display name when the change was made (never an email); null on older rows.
   actorName      String?   @map("actor_name")
