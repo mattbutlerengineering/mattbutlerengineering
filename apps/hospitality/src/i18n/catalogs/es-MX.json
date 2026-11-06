@@ -2165,7 +2165,7 @@
       "changes_other": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "changes_many": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "whyTitle": "Por qué este día",
-      "guestMessage": "Los clientes ven: “{{message}}”",
+      "guestMessage": "Mensaje para los comensales: “{{message}}”",
       "staffNote": "Nota para el personal: {{note}}",
       "refreshError": "No se pudo comprobar si hay horarios más recientes",
       "finishDraftFirst": "Guarda o descarta primero tus cambios de este día.",

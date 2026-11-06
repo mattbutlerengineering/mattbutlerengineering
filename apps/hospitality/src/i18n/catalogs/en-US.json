@@ -2116,7 +2116,7 @@
       "changes_other": "{{count}} changes from your regular {{weekday}}.",
       "changes_many": "{{count}} changes from your regular {{weekday}}.",
       "whyTitle": "Why this day",
-      "guestMessage": "Guests see: “{{message}}”",
+      "guestMessage": "Message for guests: “{{message}}”",
       "staffNote": "Staff note: {{note}}",
       "refreshError": "Couldn’t check for newer hours",
       "finishDraftFirst": "Save or discard your changes to this day first.",

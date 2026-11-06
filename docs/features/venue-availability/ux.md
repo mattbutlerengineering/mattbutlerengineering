@@ -92,7 +92,7 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
    - Above the grid: a week summary for the visible week ("This week: open 5 days · 1 closure · online booking on"), prev/next/Today, Month | Week, a Services filter (venues with 2+ services) and **Change regular week…**.
    - "Venue time (Pacific)" appears when the device's time zone differs.
 2. Activating a day opens the **day drawer** (S3). It reads top to bottom:
-   - **Plain summary.** "Open for lunch and dinner. One change from your regular Friday." When guests are told something about the day, it follows in the Manager's words: "Guests see: “Closed for a private event”". A closure or special-hours layer below carries its staff note ("Staff note: Smith wedding"), for a Host as for a Manager.
+   - **Plain summary.** "Open for lunch and dinner. One change from your regular Friday." When the day carries a message for guests, it follows in the Manager's words: "Message for guests: “Closed for a private event”". The booking widget shows that message only on a day with no online seatings left, so the drawer names it as the message, not as what guests see. A closure or special-hours layer below carries its staff note ("Staff note: Smith wedding"), for a Host as for a Manager.
    - **Why this day.** The active layers listed bottom-up, each with what removing it would do. A day made up of only the regular week shows just the plain summary; the stack appears once a second layer exists:
      - Regular week · Weekend · Lunch 11:30–2:30, Dinner 5:00–11:00
      - Summer hours (Jun 1 – Sep 15) · dinner until 11:30 · [Remove → back to 11:00]

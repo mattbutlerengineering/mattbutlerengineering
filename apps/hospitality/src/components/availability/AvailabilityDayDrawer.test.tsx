@@ -38,7 +38,7 @@ describe("a closed day says what guests are told and why, to a Host as to a Mana
         />
       </main>
     );
-    expect(screen.getByText("Guests see: “Closed for a private event”")).toBeInTheDocument();
+    expect(screen.getByText("Message for guests: “Closed for a private event”")).toBeInTheDocument();
     expect(screen.getByText("Staff note: Smith wedding")).toBeInTheDocument();
   });
 });

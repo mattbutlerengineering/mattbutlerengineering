@@ -2165,7 +2165,7 @@
       "changes_other": "{{count}} changements par rapport à votre {{weekday}} habituel.",
       "changes_many": "{{count}} changements par rapport à votre {{weekday}} habituel.",
       "whyTitle": "Pourquoi ce jour",
-      "guestMessage": "Les clients voient : « {{message}} »",
+      "guestMessage": "Message pour les clients : « {{message}} »",
       "staffNote": "Note pour le personnel : {{note}}",
       "refreshError": "Impossible de vérifier s’il y a des horaires plus récents",
       "finishDraftFirst": "Enregistrez ou annulez d’abord vos modifications de ce jour.",
