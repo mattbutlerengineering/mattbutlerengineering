@@ -1,7 +1,7 @@
 ---
 trigger_id: trig_01QYoHCMjUgJybAoXUvjjrWX
 environment_id: env_012GDG167Tpz55u8MEpDkL2y
-cron: "3 16 * * *"
+cron: "CRON_TZ=America/Los_Angeles 3 9 * * *"
 model: claude-sonnet-5
 cadence: Daily 9:03am PT
 ---
