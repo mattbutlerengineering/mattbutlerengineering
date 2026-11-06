@@ -4930,6 +4930,12 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **Skill proposals:** 0 (not Friday — session log analysis skipped)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.5 → 1.516, headroom). False-positive rate low across all issue-feedback categories (max 3% rejected, feature category; all others 0%) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 97 skipped-for-lack-of-data) — above 50% threshold, no review needed. AI issue-feedback budgets: all 7 categories at default budget=3 (no category >40% rejected).
 
+## 2026-11-06
+
+**queueEfficiency:** composite 0.865 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:24, size:xs:10, size:m:7, size:l:16, size:xl:17
+**Issues filed:** 0
+
 ## 2026-11-06 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
