@@ -1966,6 +1966,9 @@
     "impact_one": "Se aplica a {{count}} fecha futura",
     "impact_other": "Se aplica a {{count}} fechas futuras",
     "impact_many": "Se aplica a {{count}} de fechas futuras",
+    "alsoApply": {
+      "legend": "Aplicar también a {{service}} en:"
+    },
     "ownChanges_one": "{{count}} fecha ya tiene cambios propios",
     "ownChanges_other": "{{count}} fechas ya tienen cambios propios",
     "ownChanges_many": "{{count}} de fechas ya tienen cambios propios",
@@ -1976,6 +1979,8 @@
       "title": "¿Descartar tus cambios?"
     },
     "conflictReview": {
+      "alsoChanged": "Aplicar también a: {{names}} cambió primero",
+      "alsoRemoved": "Aplicar también a: {{names}} ya no ofrece este servicio",
       "title": "Alguien cambió este horario antes",
       "loading": "Cargando la última versión…",
       "gone": "Este horario se eliminó, así que no se pueden guardar tus cambios. Descártalos para cerrar.",
