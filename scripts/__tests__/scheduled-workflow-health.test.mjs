@@ -11,6 +11,7 @@ import {
   DEFAULT_FLAPPING_RATE_PCT,
   DEPLOY_WORKFLOW_FILES,
   MAIN_PUSH_WORKFLOW_FILES,
+  CANCELLED_IS_FAILURE_WORKFLOW_FILES,
   findMainPushWorkflows,
   mainPushRunArgs,
   mainPushRateRunArgs,
@@ -1654,5 +1655,68 @@ describe("runWorkflowFailureRateCheck", () => {
 
     expect(createCalled).toBe(false);
     expect(results).toEqual([{ workflow: "new.yml", status: "insufficient-sample" }]);
+  });
+});
+
+describe("cancelled-as-failure workflows (#8376)", () => {
+  const cancelledRuns = [
+    { conclusion: "cancelled", url: "u1" },
+    { conclusion: "cancelled", url: "u2" },
+    { conclusion: "cancelled", url: "u3" },
+  ];
+
+  it("by default still excludes cancelled runs from the streak", () => {
+    expect(classifyScheduledWorkflowHealth({ runs: cancelledRuns, threshold: 3 }).status).toBe(
+      "insufficient-history"
+    );
+  });
+
+  it("counts cancelled runs as failures when cancelledCountsAsFailure is set", () => {
+    const health = classifyScheduledWorkflowHealth({
+      runs: cancelledRuns,
+      threshold: 3,
+      cancelledCountsAsFailure: true,
+    });
+    expect(health.status).toBe("failing-streak");
+    expect(health.streak).toBe(3);
+  });
+
+  it("still excludes skipped runs when cancelledCountsAsFailure is set", () => {
+    const runs = [{ conclusion: "skipped" }, ...cancelledRuns];
+    const health = classifyScheduledWorkflowHealth({
+      runs,
+      threshold: 3,
+      cancelledCountsAsFailure: true,
+    });
+    expect(health.status).toBe("failing-streak");
+    expect(health.failingRuns).toHaveLength(3);
+  });
+
+  it("lists nightly-compliance.yml and the real workflow is scheduled", () => {
+    expect(CANCELLED_IS_FAILURE_WORKFLOW_FILES).toContain("nightly-compliance.yml");
+    const scheduled = findScheduledWorkflows(
+      join(import.meta.dirname, "..", "..", ".github", "workflows")
+    );
+    const entry = scheduled.find((w) => w.file === "nightly-compliance.yml");
+    expect(entry).toBeDefined();
+  });
+
+  it("files a ci-fix issue for a listed workflow whose runs all timed out", () => {
+    const created = [];
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [
+        { name: "nightly-compliance", path: ".github/workflows/nightly-compliance.yml" },
+        { name: "other", path: ".github/workflows/other.yml" },
+      ],
+      threshold: 3,
+      getRuns: () => cancelledRuns,
+      createIssue: (title) => {
+        created.push(title);
+        return 7;
+      },
+    });
+    expect(created).toEqual(["ci-fix: nightly-compliance has failed 3 consecutive scheduled runs"]);
+    expect(results[0].status).toBe("failing-streak");
+    expect(results[1].status).toBe("insufficient-history");
   });
 });
