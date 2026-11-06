@@ -3441,6 +3441,15 @@
       export function useDateSelection(options: DateSelectionOptions) { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/weekday-summary.ts">
+    <item priority="high">
+      export function weekdaySummary(
+        weekdays: readonly number[],
+        format: VenueFormat,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="apps/hospitality/src/components/booking-widget/effectiveDepositPolicy.ts">

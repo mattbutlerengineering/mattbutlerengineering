@@ -294,11 +294,7 @@
     ): string | null {
       const { startsOn, weekdays } = detail;
       if (!startsOn || !weekdays || weekdays.length === 0) return null;
-      const name = (day: number) =>
-        format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" });
-      const days = new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
-        weekdayRuns(weekdays).map(([a, b]) => (a === b ? name(a) : `${name(a)}–${name(b)}`))
-      );
+      const days = weekdaySummary(weekdays, format, t);
       return t("availability.history.summary.regularWeekChanged", {
         from: format.formatCalendarDate(startsOn, { month: "short", day: "numeric" }),
         days,
@@ -4991,6 +4987,20 @@
       });
     
       return { handlersFor, extendSelection, toggleSelected, pivot };
+    }
+  </file>
+  <file path="src/components/availability/weekday-summary.ts">
+    export function weekdaySummary(
+      weekdays: readonly number[],
+      format: VenueFormat,
+      t: TFunction
+    ): string {
+      if (weekdays.length === 7) return t("availabilitySchedules.everyDay");
+      const name = (day: number) =>
+        format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" });
+      return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
+        weekdayRuns(weekdays).map(([a, b]) => (a === b ? name(a) : `${name(a)}–${name(b)}`))
+      );
     }
   </file>
   </section>
