@@ -801,6 +801,16 @@ describe("closure routes", () => {
       expect(none.json().data.email.from).toBe(home.json().data.email.from);
     });
 
+    it("words the preview in the language the booking was made in (#8388)", async () => {
+      const fr = (await post({ ...body, locale: "fr-CA" })).json().data;
+      const none = (await post(body)).json().data;
+
+      expect(fr.email.subject).toContain("est annulée");
+      expect(fr.sms).toContain("[le lien propre au client]");
+      expect(none.email.subject).toContain("is cancelled");
+      expect((await post({ ...body, locale: "en-GB" })).statusCode).toBe(400);
+    });
+
     it("refuses a host outside the allowlist, and a currency Intl cannot format", async () => {
       expect((await post({ ...body, originHost: "evil.example" })).statusCode).toBe(400);
       expect(

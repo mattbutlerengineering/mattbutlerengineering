@@ -41,6 +41,7 @@ const outcome = {
   venueName: "Rialto",
   timezone: "America/Los_Angeles",
   originHost: null,
+  locale: "en-US",
 } satisfies NoticeOutcome;
 
 describe("loadRebookSlots", () => {
@@ -89,6 +90,7 @@ describe("loadNoticeOutcome", () => {
         guest: null,
         deposit: null,
         originHost: null,
+        locale: "en-US",
         ...reservationOverrides,
       },
     };
@@ -108,6 +110,20 @@ describe("loadNoticeOutcome", () => {
     const db = { closureOutcome: { findUnique: vi.fn().mockResolvedValue(makeRow()) } };
     const result = await loadNoticeOutcome("out_1", db as never);
     expect(result?.originHost).toBeNull();
+  });
+
+  // #8388: the notice is written in the language the guest booked in.
+  it.each([
+    ["fr-CA", "fr-CA"],
+    ["es-MX", "es-MX"],
+    ["en-US", "en-US"],
+    ["tlh", "en-US"],
+  ])("reads the reservation's locale %s as notice language %s", async (stored, expected) => {
+    const db = {
+      closureOutcome: { findUnique: vi.fn().mockResolvedValue(makeRow({ locale: stored })) },
+    };
+    const result = await loadNoticeOutcome("out_1", db as never);
+    expect(result?.locale).toBe(expected);
   });
 
   // #8131: the notice promises what the closure recorded it owed: the outcome's `refund` says

@@ -1,4 +1,5 @@
 import { addDays, rebookOffers } from "@mbe/availability";
+import { resolveGuestNoticeLocale } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { loadAvailabilitySnapshot } from "./availability-snapshot.js";
 import { civilDateIn } from "./availability-migration.js";
@@ -166,6 +167,7 @@ export async function loadNoticeOutcome(
             },
           },
           originHost: true,
+          locale: true,
         },
       },
     },
@@ -191,6 +193,7 @@ export async function loadNoticeOutcome(
     venueName: row.venue.name,
     timezone: row.venue.ianaTimezone,
     originHost: r.originHost,
+    locale: resolveGuestNoticeLocale(r.locale),
   };
 }
 

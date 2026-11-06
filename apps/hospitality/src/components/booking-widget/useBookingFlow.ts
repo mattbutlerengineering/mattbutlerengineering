@@ -726,6 +726,7 @@ export function useBookingFlow({
             guestEmail: details.email || undefined,
             guestPhone: details.phone || undefined,
             notes: details.notes || undefined,
+            locale: i18n.language,
           }
         );
         // `depositConfig` is the resolved output of effectiveDepositPolicy —

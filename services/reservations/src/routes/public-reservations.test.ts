@@ -196,6 +196,33 @@ describe("POST /public/v1/venues/:slug/reservations", () => {
     expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].originHost).toBe("eat-sheet.com");
   });
 
+  it.each([
+    ["fr-CA", "fr-CA"],
+    ["es-MX", "es-MX"],
+    ["en-GB", "en-US"],
+    [undefined, "en-US"],
+  ])("records the widget locale %s as notice language %s", async (sent, recorded) => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({
+      success: true,
+      reservation: mockReservation,
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/public/v1/venues/the-oak-table/reservations",
+      headers: SESSION_HEADERS,
+      payload: {
+        holdId: "hold_1",
+        guestName: "Jane Doe",
+        guestEmail: "jane@example.com",
+        locale: sent,
+      },
+    });
+
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].locale).toBe(recorded);
+  });
+
   it("resolves originHost to null when the Origin header is missing or unrecognized", async () => {
     vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
     vi.mocked(confirmHold).mockResolvedValueOnce({

@@ -351,6 +351,10 @@ model Reservation {
   /// (staff/walk-in) or whose Origin did not match a known host — those keep the
   /// mattbutlerengineering.com brand in guest emails, today's behavior.
   originHost         String?            @map("origin_host")
+  /// The guest's language (a notice locale: en-US, es-MX or fr-CA), from the booking widget's
+  /// locale when they booked. Closure notices are written in it. Rows from before it existed,
+  /// and bookings made outside the widget, are en-US.
+  locale             String             @default("en-US")
   /// Staff reason for booking past a soft availability limit (ADR-030 `judge`).
   overrideReason     String?            @map("override_reason")
   /// The soft limits that were overridden (after_last_seating, pacing, ...). NULL = none.

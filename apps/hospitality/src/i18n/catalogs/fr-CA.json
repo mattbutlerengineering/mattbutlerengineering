@@ -2795,7 +2795,7 @@
         "previewEmail": "Courriel",
         "previewFrom": "De : {{from}}",
         "previewSms": "Message texte",
-        "previewNote": "Chaque client reçoit son propre lien, et les heures libres pour réserver de nouveau sont ajoutées à l'envoi. Les messages sont en anglais.",
+        "previewNote": "Chaque client reçoit son propre lien, et les heures libres pour réserver de nouveau sont ajoutées à l'envoi. Chaque message est dans la langue dans laquelle ce client a réservé.",
         "previewFailed": "Impossible de charger le message.",
         "previewRetry": "Réessayer",
         "loading": "Chargement des réservations…",

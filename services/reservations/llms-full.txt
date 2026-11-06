@@ -154,6 +154,274 @@
     }
   </file>
   </section>
+  <section priority="medium" role="closure-catalogs">
+  <file path="src/notifications/closure-catalogs/en-US.ts">
+    export const enUS: ClosureCatalog = {
+      locale: "en-US",
+      intl: "en-US",
+      shortDate: (p) => `${p.weekday} ${p.month} ${p.day}`,
+      emailDate: (p) => `${p.weekday}, ${p.month} ${p.day}`,
+      offerDay: (p) => `${p.weekday} ${p.day}`,
+      clock: (hour, minute) => {
+        const suffix = hour >= 12 ? "PM" : "AM";
+        const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+        return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
+      },
+      previewLink: "[the guest's own link]",
+      sms: {
+        cancelled: (f) =>
+          `${f.venue} is closed ${f.date}. Your ${f.time} table for ${f.party} is cancelled.${
+            f.refund ? ` ${f.refund} deposit will be refunded.` : ""
+          }`,
+        rebookNone: (url) => ` Rebook: ${url}`,
+        rebookOne: (offer) => ` Rebook ${offer}`,
+        rebookMany: (offers, url) =>
+          ` Rebook in one tap:\n${[...offers, `Other times ${url}`].join("\n")}`,
+        moved: (f) =>
+          `${f.venue} has changed its hours on ${f.date}. Your table for ${f.party} is now at ${f.time}. Can't make it? Cancel free: ${f.url}`,
+        kept: (f) =>
+          `${f.venue} has changed its hours on ${f.date}${f.note ? `: ${f.note}` : ""}. Your ${f.time} table is still booked. Manage: ${f.url}`,
+        reopened: (f) => `We've reopened ${f.date} at ${f.venue}. Rebook: ${f.url}`,
+      },
+      email: {
+        subject: {
+          cancelled: (venue, date) => `Your reservation at ${venue} on ${date} is cancelled`,
+          moved: (venue, date) => `Your reservation at ${venue} on ${date} has moved`,
+          kept: (venue, date) => `Update about your reservation at ${venue} on ${date}`,
+          reopened: (venue, date) => `${venue} has reopened on ${date}`,
+        },
+        hello: (name) => `Hi ${name},`,
+        cancelled: {
+          title: "Your reservation is cancelled",
+          body: (f) =>
+            `${f.venue} is closed on ${f.date}. Your ${f.time} table for ${f.party} is cancelled.`,
+          refund: (amount) => `Your ${amount} deposit will be refunded.`,
+          offer: (label) => `Rebook ${label}`,
+          other: "Other dates and times",
+        },
+        moved: {
+          title: "Your reservation has moved",
+          body: (f) =>
+            `${f.venue} has changed its hours on ${f.date}. Your table for ${f.party} is now at ${f.time}.`,
+          cancel: (link) => `Can't make it? ${link("Cancel free")}`,
+        },
+        kept: {
+          title: "Your reservation is still on",
+          body: (f) =>
+            `${f.venue} has changed its hours on ${f.date}. Your ${f.time} table is still booked.`,
+          manage: "Manage your reservation",
+        },
+        reopened: {
+          title: "We've reopened",
+          body: (venue, date) => `${venue} has reopened on ${date}.`,
+          rebook: "Rebook",
+        },
+      },
+    };
+  </file>
+  <file path="src/notifications/closure-catalogs/es-MX.ts">
+    export const esMX: ClosureCatalog = {
+      locale: "es-MX",
+      intl: "es-MX",
+      shortDate: (p) => `${p.weekday} ${p.day} ${p.month}`,
+      emailDate: (p) => `${p.weekday} ${p.day} ${p.month}`,
+      offerDay: (p) => `${p.weekday} ${p.day}`,
+      clock: (hour, minute) => {
+        const suffix = hour >= 12 ? "pm" : "am";
+        const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+        return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
+      },
+      previewLink: "[el enlace propio del huésped]",
+      sms: {
+        cancelled: (f) =>
+          `${f.venue} estará cerrado el ${f.date}. Tu mesa de las ${f.time} para ${f.party} se canceló.${
+            f.refund ? ` Se reembolsará tu depósito de ${f.refund}.` : ""
+          }`,
+        rebookNone: (url) => ` Reserva de nuevo: ${url}`,
+        rebookOne: (offer) => ` Reserva de nuevo ${offer}`,
+        rebookMany: (offers, url) =>
+          ` Reserva de nuevo con un toque:\n${[...offers, `Otros horarios ${url}`].join("\n")}`,
+        moved: (f) =>
+          `${f.venue} cambió su horario el ${f.date}. Tu mesa para ${f.party} ahora es a las ${f.time}. ¿No puedes ir? Cancela gratis: ${f.url}`,
+        kept: (f) =>
+          `${f.venue} cambió su horario el ${f.date}${f.note ? `: ${f.note}` : ""}. Tu mesa de las ${f.time} sigue reservada. Administra: ${f.url}`,
+        reopened: (f) => `Reabrimos el ${f.date} en ${f.venue}. Reserva de nuevo: ${f.url}`,
+      },
+      email: {
+        subject: {
+          cancelled: (venue, date) => `Se canceló tu reservación en ${venue} el ${date}`,
+          moved: (venue, date) => `Tu reservación en ${venue} el ${date} cambió de horario`,
+          kept: (venue, date) => `Novedades sobre tu reservación en ${venue} el ${date}`,
+          reopened: (venue, date) => `${venue} reabrió el ${date}`,
+        },
+        hello: (name) => `Hola ${name}:`,
+        cancelled: {
+          title: "Se canceló tu reservación",
+          body: (f) =>
+            `${f.venue} estará cerrado el ${f.date}. Tu mesa de las ${f.time} para ${f.party} se canceló.`,
+          refund: (amount) => `Se reembolsará tu depósito de ${amount}.`,
+          offer: (label) => `Reserva de nuevo ${label}`,
+          other: "Otras fechas y horarios",
+        },
+        moved: {
+          title: "Tu reservación cambió de horario",
+          body: (f) =>
+            `${f.venue} cambió su horario el ${f.date}. Tu mesa para ${f.party} ahora es a las ${f.time}.`,
+          cancel: (link) => `¿No puedes ir? ${link("Cancela gratis")}`,
+        },
+        kept: {
+          title: "Tu reservación sigue en pie",
+          body: (f) =>
+            `${f.venue} cambió su horario el ${f.date}. Tu mesa de las ${f.time} sigue reservada.`,
+          manage: "Administra tu reservación",
+        },
+        reopened: {
+          title: "Reabrimos",
+          body: (venue, date) => `${venue} reabrió el ${date}.`,
+          rebook: "Reserva de nuevo",
+        },
+      },
+    };
+  </file>
+  <file path="src/notifications/closure-catalogs/fr-CA.ts">
+    export const frCA: ClosureCatalog = {
+      locale: "fr-CA",
+      intl: "fr-CA",
+      shortDate: (p) => `${p.weekday} ${p.day} ${p.month}`,
+      emailDate: (p) => `${p.weekday} ${p.day} ${p.month}`,
+      offerDay: (p) => `${p.weekday} ${p.day}`,
+      clock: (hour, minute) => `${hour} h ${String(minute).padStart(2, "0")}`,
+      previewLink: "[le lien propre au client]",
+      sms: {
+        cancelled: (f) =>
+          `${f.venue} sera fermé le ${f.date}. Votre table de ${f.time} pour ${f.party} est annulée.${
+            f.refund ? ` Votre dépôt de ${f.refund} sera remboursé.` : ""
+          }`,
+        rebookNone: (url) => ` Réservez à nouveau : ${url}`,
+        rebookOne: (offer) => ` Réservez à nouveau ${offer}`,
+        rebookMany: (offers, url) =>
+          ` Réservez à nouveau d'un clic :\n${[...offers, `Autres heures ${url}`].join("\n")}`,
+        moved: (f) =>
+          `${f.venue} a modifié ses heures le ${f.date}. Votre table pour ${f.party} est maintenant à ${f.time}. Un empêchement? Annulez sans frais : ${f.url}`,
+        kept: (f) =>
+          `${f.venue} a modifié ses heures le ${f.date}${f.note ? ` : ${f.note}` : ""}. Votre table de ${f.time} est toujours réservée. Gérez : ${f.url}`,
+        reopened: (f) =>
+          `Nous avons rouvert le ${f.date} chez ${f.venue}. Réservez à nouveau : ${f.url}`,
+      },
+      email: {
+        subject: {
+          cancelled: (venue, date) => `Votre réservation chez ${venue} le ${date} est annulée`,
+          moved: (venue, date) => `Votre réservation chez ${venue} le ${date} a été déplacée`,
+          kept: (venue, date) => `Mise à jour de votre réservation chez ${venue} le ${date}`,
+          reopened: (venue, date) => `${venue} a rouvert le ${date}`,
+        },
+        hello: (name) => `Bonjour ${name},`,
+        cancelled: {
+          title: "Votre réservation est annulée",
+          body: (f) =>
+            `${f.venue} sera fermé le ${f.date}. Votre table de ${f.time} pour ${f.party} est annulée.`,
+          refund: (amount) => `Votre dépôt de ${amount} sera remboursé.`,
+          offer: (label) => `Réservez à nouveau ${label}`,
+          other: "Autres dates et heures",
+        },
+        moved: {
+          title: "Votre réservation a été déplacée",
+          body: (f) =>
+            `${f.venue} a modifié ses heures le ${f.date}. Votre table pour ${f.party} est maintenant à ${f.time}.`,
+          cancel: (link) => `Un empêchement? ${link("Annulez sans frais")}`,
+        },
+        kept: {
+          title: "Votre réservation est maintenue",
+          body: (f) =>
+            `${f.venue} a modifié ses heures le ${f.date}. Votre table de ${f.time} est toujours réservée.`,
+          manage: "Gérer votre réservation",
+        },
+        reopened: {
+          title: "Nous avons rouvert",
+          body: (venue, date) => `${venue} a rouvert le ${date}.`,
+          rebook: "Réservez à nouveau",
+        },
+      },
+    };
+  </file>
+  <file path="src/notifications/closure-catalogs/index.ts">
+    export function closureCatalog(locale: GuestNoticeLocale): ClosureCatalog {
+      return CATALOGS[locale];
+    }
+  </file>
+  <file path="src/notifications/closure-catalogs/types.ts">
+    export interface DateParts {
+      weekday: string;
+      /** Month name, abbreviated. */
+      month: string;
+      day: number;
+    }
+    export interface NoticeFacts {
+      venue: string;
+      /** "Thu Dec 24" in this language; the email's date is {@link ClosureCatalog.emailDate}. */
+      date: string;
+      time: string;
+      party: number;
+    }
+    export interface ClosureCatalog {
+      readonly locale: GuestNoticeLocale;
+      /** `Intl` locale used for date and money formatting. */
+      readonly intl: string;
+      /** "Thu Dec 24" */
+      shortDate(p: DateParts): string;
+      /** "Thu, Dec 24" */
+      emailDate(p: DateParts): string;
+      /** "Wed 23", for a rebook offer's label; the clock follows. */
+      offerDay(p: DateParts): string;
+      /** Guest-facing clock time from venue-local 24h hour and minute, e.g. "7:00 PM". */
+      clock(hour: number, minute: number): string;
+      /** Stands where the guest's own link goes in a preview: the link is only made when a notice is sent. */
+      readonly previewLink: string;
+      readonly sms: {
+        cancelled(f: NoticeFacts & { refund: string | null }): string;
+        rebookNone(url: string): string;
+        rebookOne(offer: string): string;
+        rebookMany(offers: readonly string[], url: string): string;
+        moved(f: NoticeFacts & { url: string }): string;
+        kept(f: Omit<NoticeFacts, "party"> & { note: string | null; url: string }): string;
+        reopened(f: { date: string; venue: string; url: string }): string;
+      };
+      readonly email: {
+        subject: {
+          cancelled(venue: string, date: string): string;
+          moved(venue: string, date: string): string;
+          kept(venue: string, date: string): string;
+          reopened(venue: string, date: string): string;
+        };
+        /** "Hi Maria," */
+        hello(name: string): string;
+        readonly cancelled: {
+          title: string;
+          body(f: NoticeFacts): string;
+          refund(amount: string): string;
+          offer(label: string): string;
+          other: string;
+        };
+        readonly moved: {
+          title: string;
+          body(f: NoticeFacts): string;
+          /** Wraps the link; `link` is the anchor that says "Cancel free". */
+          cancel(link: (text: string) => string): string;
+        };
+        readonly kept: {
+          title: string;
+          body(f: NoticeFacts): string;
+          manage: string;
+        };
+        readonly reopened: {
+          title: string;
+          body(venue: string, date: string): string;
+          rebook: string;
+        };
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="config">
   <file path="src/config/host-brand.ts">
     export type OriginHost = "eat-sheet.com" | "mattbutlerengineering.com";
@@ -877,6 +1145,8 @@
     }
     export interface ClosureNoticeContent {
       kind: ClosureNoticeKind;
+      /** The language the guest booked in; the notice is worded, dated and priced in it. */
+      locale: GuestNoticeLocale;
       venueName: string;
       guestName: string | null;
       /** Venue-local service date the closure affects, "YYYY-MM-DD". */
@@ -895,6 +1165,15 @@
     function toGsm(text: string): string {
       return text.replace(LOOKALIKE, (ch) => GSM_LOOKALIKES[ch]!);
     }
+    function foldToGsm(text: string): string {
+      return [...text]
+        .map((ch) => {
+          if (isGsm(ch)) return ch;
+          const base = ch.normalize("NFD").replace(/\p{M}/gu, "");
+          return [...base].every(isGsm) ? base : ch;
+        })
+        .join("");
+    }
     export function smsSegments(body: string): number {
       let septets = 0;
       let gsm = true;
@@ -910,62 +1189,89 @@
       const [single, multi] = gsm ? [160, 153] : [70, 67];
       return units <= single ? 1 : Math.ceil(units / multi);
     }
-    function civilParts(date: string): { weekday: string; month: string; day: number } {
+    function civilParts(date: string, catalog: ClosureCatalog): DateParts {
       const instant = new Date(`${date}T12:00:00.000Z`);
       const part = (opts: Intl.DateTimeFormatOptions) =>
-        new Intl.DateTimeFormat("en-US", { timeZone: "UTC", ...opts }).format(instant);
+        plainSpaces(
+          // Abbreviations lose their period ("déc." → "déc"): a sentence's own period follows.
+          new Intl.DateTimeFormat(catalog.intl, { timeZone: "UTC", ...opts })
+            .format(instant)
+            .replace(/\./g, "")
+        );
       return {
         weekday: part({ weekday: "short" }),
         month: part({ month: "short" }),
         day: instant.getUTCDate(),
       };
     }
-    function shortDate(date: string): string {
-      const p = civilParts(date);
-      return `${p.weekday} ${p.month} ${p.day}`;
+    function plainSpaces(text: string): string {
+      return text.replace(/[\u00A0\u202F]/g, " ");
     }
-    function emailDate(date: string): string {
-      const p = civilParts(date);
-      return `${p.weekday}, ${p.month} ${p.day}`;
+    function clockOf(instant: string, timezone: string, fallbackDate: string, catalog: ClosureCatalog) {
+      const [hour, minute] = toVenueLocalTime(instant, timezone, fallbackDate).time.split(":");
+      return catalog.clock(Number(hour), Number(minute));
     }
-    export function offerLabel(start: Date, timezone: string): string {
+    export function offerLabel(start: Date, timezone: string, locale: GuestNoticeLocale): string {
+      const catalog = closureCatalog(locale);
       const when = toVenueLocalTime(start.toISOString(), timezone, "");
-      const p = civilParts(when.date);
-      return `${p.weekday} ${p.day} ${when.display}`;
+      return `${catalog.offerDay(civilParts(when.date, catalog))} ${clockOf(start.toISOString(), timezone, "", catalog)}`;
     }
-    function money(refund: { amountCents: number; currency: string }): string {
+    function money(refund: { amountCents: number; currency: string }, catalog: ClosureCatalog): string {
       const whole = refund.amountCents % 100 === 0;
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: refund.currency.toUpperCase(),
-        minimumFractionDigits: whole ? 0 : 2,
-        maximumFractionDigits: whole ? 0 : 2,
-      }).format(refund.amountCents / 100);
+      return plainSpaces(
+        new Intl.NumberFormat(catalog.intl, {
+          style: "currency",
+          currency: refund.currency.toUpperCase(),
+          minimumFractionDigits: whole ? 0 : 2,
+          maximumFractionDigits: whole ? 0 : 2,
+        }).format(refund.amountCents / 100)
+      );
     }
     function timeOf(c: ClosureNoticeContent): string {
-      return toVenueLocalTime(c.startTime, c.timezone, c.closureDate).display;
+      return clockOf(c.startTime, c.timezone, c.closureDate, closureCatalog(c.locale));
     }
     function firstName(name: string | null): string {
       return name?.trim().split(/\s+/)[0] ?? "";
     }
+    function facts(c: ClosureNoticeContent, catalog: ClosureCatalog) {
+      return {
+        venue: c.venueName,
+        date: catalog.shortDate(civilParts(c.closureDate, catalog)),
+        time: timeOf(c),
+        party: c.partySize,
+      };
+    }
+    function refundText(c: ClosureNoticeContent, catalog: ClosureCatalog): string | null {
+      return c.refund && promisesRefund(c) ? money(c.refund, catalog) : null;
+    }
     function cancelledSms(c: ClosureNoticeContent, offers: readonly ClosureOffer[]): string {
-      const refund =
-        c.refund && promisesRefund(c) ? ` ${money(c.refund)} deposit will be refunded.` : "";
-      const head = `${c.venueName} is closed ${shortDate(c.closureDate)}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.${refund}`;
+      const catalog = closureCatalog(c.locale);
+      const head = catalog.sms.cancelled({ ...facts(c, catalog), refund: refundText(c, catalog) });
       const times = offers.map((o) => `${o.label} ${o.url}`);
-      if (times.length === 0) return `${head} Rebook: ${c.manageUrl}`;
-      if (times.length === 1) return `${head} Rebook ${times[0]}`;
-      return `${head} Rebook in one tap:\n${[...times, `Other times ${c.manageUrl}`].join("\n")}`;
+      if (times.length === 0) return `${head}${catalog.sms.rebookNone(c.manageUrl)}`;
+      if (times.length === 1) return `${head}${catalog.sms.rebookOne(times[0]!)}`;
+      return `${head}${catalog.sms.rebookMany(times, c.manageUrl)}`;
     }
     function movedSms(c: ClosureNoticeContent): string {
-      return `${c.venueName} has changed its hours on ${shortDate(c.closureDate)}. Your table for ${c.partySize} is now at ${timeOf(c)}. Can't make it? Cancel free: ${c.manageUrl}`;
+      const catalog = closureCatalog(c.locale);
+      return catalog.sms.moved({ ...facts(c, catalog), url: c.manageUrl });
     }
     function keptSms(c: ClosureNoticeContent, withMessage: boolean): string {
-      const note = withMessage && c.message ? `: ${c.message}` : "";
-      return `${c.venueName} has changed its hours on ${shortDate(c.closureDate)}${note}. Your ${timeOf(c)} table is still booked. Manage: ${c.manageUrl}`;
+      const catalog = closureCatalog(c.locale);
+      const { party: _party, ...rest } = facts(c, catalog);
+      return catalog.sms.kept({
+        ...rest,
+        note: withMessage && c.message ? c.message : null,
+        url: c.manageUrl,
+      });
     }
     function reopenedSms(c: ClosureNoticeContent): string {
-      return `We've reopened ${shortDate(c.closureDate)} at ${c.venueName}. Rebook: ${c.manageUrl}`;
+      const catalog = closureCatalog(c.locale);
+      return catalog.sms.reopened({
+        date: catalog.shortDate(civilParts(c.closureDate, catalog)),
+        venue: c.venueName,
+        url: c.manageUrl,
+      });
     }
     function smsCandidates(c: ClosureNoticeContent): string[] {
       switch (c.kind) {
@@ -992,73 +1298,67 @@
       );
       // Each richer form is tried with every name before a poorer form is.
       const candidates = perName[0]!.flatMap((_, i) => perName.map((bodies) => bodies[i]!));
-      return (
-        candidates.find((body) => smsSegments(body) <= MAX_SMS_SEGMENTS) ??
-        candidates[candidates.length - 1]!
-      );
+      const bodies = candidates.map(foldToGsm);
+      return bodies.find((body) => smsSegments(body) <= MAX_SMS_SEGMENTS) ?? bodies[bodies.length - 1]!;
     }
     function emailSubject(c: ClosureNoticeContent): string {
-      const date = emailDate(c.closureDate);
-      switch (c.kind) {
-        case "cancelled":
-          return `Your reservation at ${c.venueName} on ${date} is cancelled`;
-        case "moved":
-          return `Your reservation at ${c.venueName} on ${date} has moved`;
-        case "kept":
-          return `Update about your reservation at ${c.venueName} on ${date}`;
-        case "reopened":
-          return `${c.venueName} has reopened on ${date}`;
-      }
+      const catalog = closureCatalog(c.locale);
+      const date = catalog.emailDate(civilParts(c.closureDate, catalog));
+      const subject = catalog.email.subject[c.kind];
+      return subject(c.venueName, date);
     }
     function link(url: string, text: string): string {
       const safe = sanitizeUrl(url);
       return safe ? `<a href="${escapeHtml(safe)}">${escapeHtml(text)}</a>` : "";
     }
     function emailLines(c: ClosureNoticeContent): string[] {
+      const catalog = closureCatalog(c.locale);
+      const copy = catalog.email;
       const venue = escapeHtml(c.venueName);
-      const date = emailDate(c.closureDate);
+      const date = catalog.emailDate(civilParts(c.closureDate, catalog));
+      const f = { venue, date, time: timeOf(c), party: c.partySize };
       const message = c.message ? [`<p>${escapeHtml(c.message)}</p>`] : [];
       switch (c.kind) {
         case "cancelled": {
-          const refund =
-            c.refund && promisesRefund(c)
-              ? [`<p>Your ${escapeHtml(money(c.refund))} deposit will be refunded.</p>`]
-              : [];
-          const offers = c.offers.map((o) => `<p>${link(o.url, `Rebook ${o.label}`)}</p>`);
+          const amount = refundText(c, catalog);
+          const refund = amount ? [`<p>${copy.cancelled.refund(escapeHtml(amount))}</p>`] : [];
+          const offers = c.offers.map((o) => `<p>${link(o.url, copy.cancelled.offer(o.label))}</p>`);
           return [
-            `<h1>Your reservation is cancelled</h1>`,
-            `<p>${venue} is closed on ${date}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.</p>`,
+            `<h1>${copy.cancelled.title}</h1>`,
+            `<p>${copy.cancelled.body(f)}</p>`,
             ...message,
             ...refund,
             ...offers,
-            `<p>${link(c.manageUrl, "Other dates and times")}</p>`,
+            `<p>${link(c.manageUrl, copy.cancelled.other)}</p>`,
           ];
         }
         case "moved":
           return [
-            `<h1>Your reservation has moved</h1>`,
-            `<p>${venue} has changed its hours on ${date}. Your table for ${c.partySize} is now at ${timeOf(c)}.</p>`,
+            `<h1>${copy.moved.title}</h1>`,
+            `<p>${copy.moved.body(f)}</p>`,
             ...message,
-            `<p>Can't make it? ${link(c.manageUrl, "Cancel free")}</p>`,
+            `<p>${copy.moved.cancel((text) => link(c.manageUrl, text))}</p>`,
           ];
         case "kept":
           return [
-            `<h1>Your reservation is still on</h1>`,
-            `<p>${venue} has changed its hours on ${date}. Your ${timeOf(c)} table is still booked.</p>`,
+            `<h1>${copy.kept.title}</h1>`,
+            `<p>${copy.kept.body(f)}</p>`,
             ...message,
-            `<p>${link(c.manageUrl, "Manage your reservation")}</p>`,
+            `<p>${link(c.manageUrl, copy.kept.manage)}</p>`,
           ];
         case "reopened":
           return [
-            `<h1>We've reopened</h1>`,
-            `<p>${venue} has reopened on ${date}.</p>`,
-            `<p>${link(c.manageUrl, "Rebook")}</p>`,
+            `<h1>${copy.reopened.title}</h1>`,
+            `<p>${copy.reopened.body(venue, date)}</p>`,
+            `<p>${link(c.manageUrl, copy.reopened.rebook)}</p>`,
           ];
       }
     }
     export function buildClosureEmail(c: ClosureNoticeContent): { subject: string; html: string } {
       const greeting = firstName(c.guestName);
-      const hello = greeting ? [`<p>Hi ${escapeHtml(greeting)},</p>`] : [];
+      const hello = greeting
+        ? [`<p>${closureCatalog(c.locale).email.hello(escapeHtml(greeting))}</p>`]
+        : [];
       return {
         subject: emailSubject(c),
         html: [...hello, ...emailLines(c)].join("\n"),
@@ -1067,7 +1367,6 @@
   </file>
   <file path="src/notifications/closure-preview.ts">
     export type PreviewAction = "cancel" | "move" | "keep_notify";
-    export const PREVIEW_LINK_TEXT = "[the guest's own link]";
     export interface ClosurePreviewInput {
       action: PreviewAction;
       venueName: string;
@@ -1078,6 +1377,8 @@
       startTime: string;
       partySize: number;
       guestName: string | null;
+      /** The language the guest booked in; the preview is worded in it, as the sent notice is. */
+      locale: GuestNoticeLocale;
       message: string | null;
       refund: { amountCents: number; currency: string } | null;
       /** The booking's origin host brand: where the link points. */
@@ -1115,6 +1416,7 @@
       const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
       const content = {
         kind: KIND_OF_ACTION[input.action],
+        locale: input.locale,
         venueName: input.venueName,
         guestName: input.guestName,
         closureDate: input.closureDate,
@@ -1130,7 +1432,7 @@
       const { subject, html } = buildClosureEmail(content);
       return {
         email: { from: input.from, subject, text: emailText(html) },
-        sms: buildClosureSms(content).split(manageUrl).join(PREVIEW_LINK_TEXT),
+        sms: buildClosureSms(content).split(manageUrl).join(closureCatalog(input.locale).previewLink),
       };
     }
   </file>
@@ -3396,7 +3698,7 @@
           if (!venue) {
             return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
           }
-          const { action, closureDate, startTime, partySize, guestName, message, refund } =
+          const { action, closureDate, startTime, partySize, guestName, message, refund, locale } =
             request.body;
           const brand = hostBrandFor(request.body.originHost ?? null);
           const preview = previewClosureNotice({
@@ -3405,6 +3707,7 @@
             startTime,
             partySize,
             guestName,
+            locale: locale ?? DEFAULT_GUEST_NOTICE_LOCALE,
             message,
             refund,
             venueName: venue.name,
@@ -6587,6 +6890,7 @@
           notes?: string;
           occasion?: Occasion;
           seatingPreference?: SeatingPreference;
+          locale?: string;
         };
         Reply:
           | (ApiResponse<Reservation> & { manageToken?: string })
@@ -6622,7 +6926,7 @@
             // Fastify leaves unknown properties on `request.body`, so spreading it
             // would let an anonymous caller smuggle a `guestId` and attach its
             // reservation to someone else's guest record.
-            const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
+            const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference, locale } =
               request.body;
             // Only mint a manage token when an email was actually supplied: a
             // phone-only booking is stored with `guestEmail: null`, and a token
@@ -6640,6 +6944,8 @@
                 actor: guestActor(null),
                 // Captured from the request so later guest emails brand by it (#7892).
                 originHost: resolveOriginHost(request.headers.origin),
+                // The widget's language, so later notices speak it; unsupported reads as en-US.
+                locale: resolveGuestNoticeLocale(locale),
               },
               {
                 door: "public-hold",
@@ -6802,6 +7108,7 @@
           guestEmail: string;
           guestPhone?: string;
           specialRequests?: string;
+          locale?: string;
         };
         Reply: ApiResponse<PublicReservationResponse> | ProblemDetails;
       }>(
@@ -6847,7 +7154,7 @@
           // this booking (guest-link lookup, hold confirmation) runs inside that
           // venue's RLS context.
           async (request, reply, { venueId }) => {
-            const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
+            const { holdId, guestName, guestEmail, guestPhone, specialRequests, locale } = request.body;
             const ip = request.ip;
             // Validated in `before`.
             const sessionId = request.headers[SESSION_ID_HEADER] as string;
@@ -6876,6 +7183,8 @@
                 actor: guestActor(link.ok ? link.guestId : null),
                 // Captured from the request so later guest emails brand by it (#7892).
                 originHost: resolveOriginHost(request.headers.origin),
+                // The widget's language, so later notices speak it; unsupported reads as en-US.
+                locale: resolveGuestNoticeLocale(locale),
               },
               {
                 door: "public-booking",
@@ -15496,6 +15805,7 @@
           partySize: true,
           guestName: true,
           originHost: true,
+          locale: true,
           deposit: {
             select: {
               amountCents: true,
@@ -15557,6 +15867,8 @@
       guestName: string | null;
       /** The host the guest booked on (#7892); anything but the allowlisted hosts reads as none. */
       originHost?: string | null;
+      /** The language the guest booked in (a notice locale); absent or unsupported reads as en-US. */
+      locale?: string | null;
       /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. `amountCents` is the estimate of what is still owed (the deposit less refunds already recorded; can be 0), not the deposit's amount. */
       heldDeposit: { amountCents: number; currency: string } | null;
     }
@@ -15668,6 +15980,7 @@
         deposit: booking.heldDeposit,
         runsIntoClosure: runsInto,
         originHost: BOOKING_ORIGIN_HOSTS.find((h) => h === booking.originHost) ?? null,
+        locale: resolveGuestNoticeLocale(booking.locale),
       };
     }
     export interface Occupancy {
@@ -16026,6 +16339,7 @@
                 },
               },
               originHost: true,
+              locale: true,
             },
           },
         },
@@ -16051,6 +16365,7 @@
         venueName: row.venue.name,
         timezone: row.venue.ianaTimezone,
         originHost: r.originHost,
+        locale: resolveGuestNoticeLocale(r.locale),
       };
     }
     export async function recordDeliveries(
@@ -16264,6 +16579,8 @@
       timezone: string;
       /** The host the guest booked on (#7892); null keeps the mattbutlerengineering.com brand. */
       originHost: string | null;
+      /** The language the guest booked in; their notice is written in it. */
+      locale: GuestNoticeLocale;
     }
     export interface ClosureNoticeDeps {
       load(outcomeId: string): Promise<NoticeOutcome | null>;
@@ -16301,6 +16618,7 @@
         kind,
         venueName: o.venueName,
         guestName: o.guestName,
+        locale: o.locale,
         closureDate: o.closureDate,
         startTime: o.startTime.toISOString(),
         timezone: o.timezone,
@@ -16309,7 +16627,7 @@
         refund: kind === "cancelled" ? o.refund : null,
         manageUrl: deps.manageUrl(o),
         offers: slots.map((s) => ({
-          label: offerLabel(s, o.timezone),
+          label: offerLabel(s, o.timezone, o.locale),
           url: deps.manageUrl(o, rebookOfferId(s)),
         })),
       };
@@ -17011,6 +17329,11 @@
        * non-public confirm paths or an unrecognized origin.
        */
       originHost?: string | null;
+      /**
+       * The guest's language, a supported notice locale resolved by the public route from the
+       * booking widget's locale. Closure notices are written in it; omitted keeps the column's en-US.
+       */
+      locale?: GuestNoticeLocale;
       /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
       actor?: ReservationEventActor;
       /**
@@ -17096,6 +17419,7 @@
               // The host the guest booked on (#7892); null for non-public confirm
               // paths or an unrecognized origin.
               originHost: input.originHost ?? null,
+              ...(input.locale ? { locale: input.locale } : {}),
               status: "CONFIRMED",
             },
             include: {

@@ -2715,7 +2715,7 @@
         "previewEmail": "Email",
         "previewFrom": "From: {{from}}",
         "previewSms": "Text message",
-        "previewNote": "Every guest gets their own link, and any open rebooking times are added when it is sent. Messages are in English.",
+        "previewNote": "Every guest gets their own link, and any open rebooking times are added when it is sent. Each message is in the language that guest booked in.",
         "previewFailed": "Couldn't load the message.",
         "previewRetry": "Try again",
         "loading": "Loading the bookings…",

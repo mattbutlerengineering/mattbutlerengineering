@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import i18n from "i18next";
+import { createElement } from "react";
+import { I18nextProvider } from "react-i18next";
 import type { TimeSlot, ReservationHold, Reservation, PublicVenueConfig } from "@mbe/types";
 import { addDays, venueDate } from "../../utils/service-day.js";
 import type { BookingWidgetApiClient } from "./PaymentStep.js";
@@ -430,11 +433,40 @@ describe("useBookingFlow", () => {
         guestEmail: guestDetails.email,
         guestPhone: undefined,
         notes: undefined,
+        locale: "en-US",
       });
       expect(result.current.data.reservation).toEqual(mockReservation);
       expect(result.current.state).toBe("confirmation");
       expect(result.current.data.confirmLoading).toBe(false);
       expect(result.current.data.confirmError).toBeNull();
+    });
+
+    it("confirmReservation records the guest's widget language on the booking (#8388)", async () => {
+      const fakeApi = makeFakeApi();
+      const french = i18n.createInstance();
+      await french.init({ lng: "fr-CA", resources: {} });
+      const { result } = renderHook(
+        () =>
+          useBookingFlow({
+            api: fakeApi as unknown as BookingWidgetApiClient,
+            venueSlug: DEFAULT_SLUG,
+          }),
+        { wrapper: ({ children }) => createElement(I18nextProvider, { i18n: french }, children) }
+      );
+
+      act(() => result.current.actions.setSelectedDate("2026-05-20"));
+      await act(async () => {
+        await result.current.actions.selectSlotAndHold(mockSlot);
+      });
+      await act(async () => {
+        await result.current.actions.confirmReservation(guestDetails);
+      });
+
+      expect(fakeApi.holds.confirmForVenue).toHaveBeenCalledWith(
+        DEFAULT_SLUG,
+        mockHold.id,
+        expect.objectContaining({ locale: "fr-CA" })
+      );
     });
 
     it("confirmReservation rejects: sets confirmError, stays on guest-details", async () => {

@@ -65,6 +65,7 @@ const SHORTENED: ClosureImpact = {
         booking("r1", "Rivera", "2026-12-25T03:30:00.000Z", "2026-12-25T02:00:00.000Z", {
           deposit: { amountCents: 4000, currency: "usd" },
           originHost: "eat-sheet.com",
+          locale: "fr-CA",
         }),
         booking("r2", "Chen", "2026-12-25T04:00:00.000Z", "2026-12-25T02:30:00.000Z"),
       ],
@@ -228,6 +229,8 @@ describe("CloseStepTwo: the guest message", () => {
         message: "Closed for a private event",
         refund: { amountCents: 4000, currency: "usd" },
         originHost: "eat-sheet.com",
+        // The guest's own language, so the preview reads as the notice they get (#8388).
+        locale: "fr-CA",
       },
     });
   });

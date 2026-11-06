@@ -253,6 +253,21 @@
       export const ClosureImpactKindSchema: unknown;
     </item>
     <item priority="high">
+      export const GUEST_NOTICE_LOCALES: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_GUEST_NOTICE_LOCALE: unknown;
+    </item>
+    <item priority="high">
+      export const GuestNoticeLocaleSchema: unknown;
+    </item>
+    <item priority="low">
+      type GuestNoticeLocale = z.infer<typeof GuestNoticeLocaleSchema>;
+    </item>
+    <item priority="high">
+      export function resolveGuestNoticeLocale(raw: unknown): GuestNoticeLocale { /* ... */ }
+    </item>
+    <item priority="high">
       export const ClosureImpactReservationSchema: unknown;
     </item>
     <item priority="high">

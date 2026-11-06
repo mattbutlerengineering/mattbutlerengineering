@@ -395,6 +395,17 @@ export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
 export const BOOKING_ORIGIN_HOSTS = ["eat-sheet.com", "mattbutlerengineering.com"] as const;
 export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
 
+/** The languages a guest's notices are written in; the booking widget's locale picks one at booking. */
+export const GUEST_NOTICE_LOCALES = ["en-US", "es-MX", "fr-CA"] as const;
+export const DEFAULT_GUEST_NOTICE_LOCALE = "en-US";
+export const GuestNoticeLocaleSchema = z.enum(GUEST_NOTICE_LOCALES);
+export type GuestNoticeLocale = z.infer<typeof GuestNoticeLocaleSchema>;
+
+/** A booking's recorded locale as a notice language; anything unsupported or absent reads as en-US. */
+export function resolveGuestNoticeLocale(raw: unknown): GuestNoticeLocale {
+  return GuestNoticeLocaleSchema.catch(DEFAULT_GUEST_NOTICE_LOCALE).parse(raw);
+}
+
 export const ClosureImpactReservationSchema = z.object({
   id: z.string(),
   startTime: z.string(),
@@ -407,6 +418,8 @@ export const ClosureImpactReservationSchema = z.object({
   runsIntoClosure: z.boolean(),
   /** The host the guest booked on; it picks the brand of the notice they are sent. */
   originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+  /** The language the guest booked in; their notice is written in it. Absent reads as en-US. */
+  locale: GuestNoticeLocaleSchema.optional(),
   /**
    * Only on a `shortened` group: the start "Move to the nearest open time" would give this booking,
    * from the logic the closure command moves with. `null`: no open time, so a move is refused.
@@ -458,6 +471,8 @@ export const ClosureNoticePreviewBodySchema = z.object({
     .nullable(),
   /** The booking's host: the notice is sent from, and links to, that host's brand. */
   originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+  /** The language the guest booked in; the notice is rendered in it. Absent reads as en-US. */
+  locale: GuestNoticeLocaleSchema.optional(),
 });
 
 export const ClosureNoticePreviewSchema = z.object({
