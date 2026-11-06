@@ -1,3 +1,4 @@
+-- DESTRUCTIVE: Drops and re-adds venue_id FK constraints to change ON DELETE RESTRICT to CASCADE for venue config/audit tables (schedules, venue_services, schedule_services, schedule_assignments, date_rules, date_rule_tables, availability_changes). No data is deleted by this migration itself -- it only changes what happens on a future venue delete.
 -- DropForeignKey
 ALTER TABLE "availability_changes" DROP CONSTRAINT "availability_changes_venue_id_fkey";
 
