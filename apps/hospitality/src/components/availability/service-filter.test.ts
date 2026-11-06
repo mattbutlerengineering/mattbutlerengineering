@@ -91,6 +91,22 @@ describe("filterDaySummary", () => {
     expect(filterDaySummary(input, "dinner").closures).toEqual([lateClosure]);
   });
 
+  it("gives a whole-day closure of one service to that service alone, though it is gone from the day", () => {
+    const closed = {
+      ruleId: "r4",
+      targetKind: "service" as const,
+      venueServiceId: "lunch",
+      from: 0,
+      to: 2880,
+    };
+    const input = day({ services: [DINNER], serviceCount: 1, closures: [closed] });
+    expect(filterDaySummary(input, "lunch").closures).toEqual([closed]);
+    expect(filterDaySummary(input, "dinner").closures).toEqual([]);
+    // Both still running: the id decides, not the overlap.
+    const both = day({ closures: [closed] });
+    expect(filterDaySummary(both, "dinner").closures).toEqual([]);
+  });
+
   it("keeps a whole-day closure on every service", () => {
     const whole = { ruleId: "r3", targetKind: "booking" as const, from: 0, to: 2880 };
     expect(filterDaySummary(day({ closures: [whole] }), "lunch").closures).toEqual([whole]);

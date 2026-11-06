@@ -1151,6 +1151,7 @@ describe("AvailabilityPage Services filter (#7981)", () => {
   });
 
   beforeEach(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
     vi.clearAllMocks();
     vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-28T20:00:00Z") });
     venue.selectedVenueId = "venue-1";

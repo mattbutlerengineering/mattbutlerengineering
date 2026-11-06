@@ -29,7 +29,7 @@ export function resolveServiceFilter(
  * One day as it reads for a single service: that service's line, a count of one (or none, when it
  * does not run that day) and only the closures that touch its hours. A closure counts when its
  * window overlaps the service's open-to-close window, so a 10–11 PM closure belongs to Dinner and
- * not Lunch, and a whole-day closure belongs to both. Online/phone/waitlist availability is the
+ * not Lunch, and a whole-day venue closure belongs to both, and a service closure to its own service. Online/phone/waitlist availability is the
  * day's own and does not change. A day from an older API, which sends no service lines, is returned as it is.
  */
 export function filterDaySummary(
@@ -38,9 +38,14 @@ export function filterDaySummary(
 ): AvailabilityDaySummary {
   if (summary.services === undefined) return summary;
   const services = summary.services.filter((s) => s.venueServiceId === serviceId);
-  const closures = summary.closures.filter((c) =>
-    services.some((s) => c.from < s.closesAt && c.to > s.opensAt)
-  );
+  const closures = summary.closures.filter((c) => {
+    // A service closure names its service: it belongs to that one alone, even on a day it
+    // closes the service for good (the service is then gone from `services`).
+    if (c.targetKind === "service" && c.venueServiceId !== undefined) {
+      return c.venueServiceId === serviceId;
+    }
+    return services.some((s) => c.from < s.closesAt && c.to > s.opensAt);
+  });
   return { ...summary, services, serviceCount: services.length, closures };
 }
 

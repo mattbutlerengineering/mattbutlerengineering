@@ -8856,9 +8856,14 @@
     ): AvailabilityDaySummary {
       if (summary.services === undefined) return summary;
       const services = summary.services.filter((s) => s.venueServiceId === serviceId);
-      const closures = summary.closures.filter((c) =>
-        services.some((s) => c.from < s.closesAt && c.to > s.opensAt)
-      );
+      const closures = summary.closures.filter((c) => {
+        // A service closure names its service: it belongs to that one alone, even on a day it
+        // closes the service for good (the service is then gone from `services`).
+        if (c.targetKind === "service" && c.venueServiceId !== undefined) {
+          return c.venueServiceId === serviceId;
+        }
+        return services.some((s) => c.from < s.closesAt && c.to > s.opensAt);
+      });
       return { ...summary, services, serviceCount: services.length, closures };
     }
     export function filterDays(
@@ -47380,6 +47385,8 @@
           to: z.number().int(),
           /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
           bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
+          /** The service a `service` closure is for; absent for other targets and from an older API. */
+          venueServiceId: z.string().optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -53720,13 +53727,16 @@
         label,
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
-        closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
-          ruleId,
-          targetKind,
-          from,
-          to,
-          ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
-        })),
+        closures: day.closures.map(
+          ({ ruleId, targetKind, from, to, bookingTypes, venueServiceId }) => ({
+            ruleId,
+            targetKind,
+            from,
+            to,
+            ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
+            ...(targetKind === "service" && venueServiceId ? { venueServiceId } : {}),
+          })
+        ),
         bookingOpen: day.bookingOpen,
         services: isDayClosed(day) ? [] : daySummaryServices(names, day),
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),

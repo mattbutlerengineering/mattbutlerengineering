@@ -4149,9 +4149,14 @@
     ): AvailabilityDaySummary {
       if (summary.services === undefined) return summary;
       const services = summary.services.filter((s) => s.venueServiceId === serviceId);
-      const closures = summary.closures.filter((c) =>
-        services.some((s) => c.from < s.closesAt && c.to > s.opensAt)
-      );
+      const closures = summary.closures.filter((c) => {
+        // A service closure names its service: it belongs to that one alone, even on a day it
+        // closes the service for good (the service is then gone from `services`).
+        if (c.targetKind === "service" && c.venueServiceId !== undefined) {
+          return c.venueServiceId === serviceId;
+        }
+        return services.some((s) => c.from < s.closesAt && c.to > s.opensAt);
+      });
       return { ...summary, services, serviceCount: services.length, closures };
     }
     export function filterDays(

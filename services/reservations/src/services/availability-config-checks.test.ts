@@ -167,6 +167,30 @@ describe("summarizeDay", () => {
     });
   });
 
+  it("names the service a service closure is for, so a client can tell which one it closes", () => {
+    const config: AvailabilityConfig = {
+      ...CONFIG,
+      dateRules: [
+        {
+          id: "dr-s",
+          kind: "closure",
+          targetKind: "service",
+          venueServiceId: "vs-dinner",
+          startsOn: "2026-11-06",
+          endsOn: "2026-11-06",
+        },
+      ],
+    };
+    const day = resolveDay({ timezone: TZ, config }, "2026-11-06");
+    expect(summarizeDay(config, day).closures).toEqual([
+      expect.objectContaining({
+        ruleId: "dr-s",
+        targetKind: "service",
+        venueServiceId: "vs-dinner",
+      }),
+    ]);
+  });
+
   it("labels a whole-day closure Closed, keeps its band and returns no services", () => {
     const config = closedOn("2026-11-06");
     const day = resolveDay({ timezone: TZ, config }, "2026-11-06");

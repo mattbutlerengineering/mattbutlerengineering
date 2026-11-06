@@ -131,4 +131,24 @@ describe("weekSummary with a Services filter (#7981)", () => {
       "This week, Dinner: open 7 days · 1 closure · online booking on"
     );
   });
+
+  it("counts a whole-day closure of one service under that service only", () => {
+    const base = Object.fromEntries(DATES.map((d) => [d, { services: [lunch, dinner] }]));
+    const days = week({
+      ...base,
+      "2026-10-30": {
+        services: [dinner],
+        serviceCount: 1,
+        closures: [
+          { ruleId: "r1", targetKind: "service", venueServiceId: "svc-1", from: 0, to: 2880 },
+        ],
+      },
+    });
+    expect(weekSummary("2026-10-28", days, defaultT, filter)).toBe(
+      "This week, Dinner: open 7 days · online booking on"
+    );
+    expect(weekSummary("2026-10-28", days, defaultT, { id: "svc-1", name: "Lunch" })).toBe(
+      "This week, Lunch: open 6 days · 1 closure · online booking on"
+    );
+  });
 });
