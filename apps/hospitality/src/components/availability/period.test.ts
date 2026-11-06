@@ -78,3 +78,57 @@ describe("weekSummary", () => {
     expect(summary(days)).toBe("This week: open 5 days · 1 closure · online booking on");
   });
 });
+
+describe("weekSummary with a Services filter (#7981)", () => {
+  const lunch = {
+    venueServiceId: "svc-1",
+    name: "Lunch",
+    opensAt: 660,
+    lastSeatingAt: 810,
+    closesAt: 840,
+  };
+  const dinner = {
+    venueServiceId: "svc-2",
+    name: "Dinner",
+    opensAt: 1080,
+    lastSeatingAt: 1290,
+    closesAt: 1320,
+  };
+  const filter = { id: "svc-2", name: "Dinner" };
+
+  it("counts only the days the service runs, and names it", () => {
+    const days = week({
+      "2026-10-26": { services: [lunch], serviceCount: 1 },
+      "2026-10-27": { services: [lunch], serviceCount: 1 },
+      "2026-10-28": { services: [lunch, dinner] },
+      "2026-10-29": { services: [lunch, dinner] },
+      "2026-10-30": { services: [lunch, dinner] },
+      "2026-10-31": { services: [lunch, dinner] },
+      "2026-11-01": { services: [lunch, dinner] },
+    });
+    expect(weekSummary("2026-10-28", days, defaultT, filter)).toBe(
+      "This week, Dinner: open 5 days · online booking on"
+    );
+    expect(weekSummary("2026-10-28", days, defaultT)).toBe(
+      "This week: open 7 days · online booking on"
+    );
+  });
+
+  it("counts only the closures that touch the service", () => {
+    const base = Object.fromEntries(DATES.map((d) => [d, { services: [lunch, dinner] }]));
+    const days = week({
+      ...base,
+      "2026-10-30": {
+        services: [lunch, dinner],
+        closures: [{ ruleId: "r1", targetKind: "service", from: 700, to: 800 }],
+      },
+      "2026-10-31": {
+        services: [lunch, dinner],
+        closures: [{ ruleId: "r2", targetKind: "service", from: 1100, to: 1200 }],
+      },
+    });
+    expect(weekSummary("2026-10-28", days, defaultT, filter)).toBe(
+      "This week, Dinner: open 7 days · 1 closure · online booking on"
+    );
+  });
+});

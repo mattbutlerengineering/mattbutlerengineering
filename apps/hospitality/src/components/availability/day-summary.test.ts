@@ -165,3 +165,54 @@ describe("presentDay", () => {
     expect(presentDay("2026-11-06", summary([]), false, t, weekFormat).onlineOff).toBe(true);
   });
 });
+
+describe("the Services filter (#7981)", () => {
+  const dinner = { id: "svc-2", name: "Dinner" };
+
+  it("reads a day for the one service: its name, its line, its count", () => {
+    const view = presentDay("2026-10-30", baseSummary, false, t, format, dinner);
+    expect(view.servicesSummary).toBe("Dinner");
+    const detailed = presentDay("2026-10-30", baseSummary, true, t, format, dinner);
+    expect(detailed.services.map((l) => l.key)).toEqual(["svc-2"]);
+    expect(detailed.accessibleDetails).not.toContain("Lunch");
+  });
+
+  it("keeps only the closure bands that touch the service", () => {
+    const withClosure: AvailabilityDaySummary = {
+      ...baseSummary,
+      closures: [{ ruleId: "r1", targetKind: "service", from: 1200, to: 1320 }],
+    };
+    expect(presentDay("2026-10-30", withClosure, false, t, format, dinner).bands).toHaveLength(1);
+    const lunch = { id: "svc-1", name: "Lunch" };
+    expect(presentDay("2026-10-30", withClosure, false, t, format, lunch).bands).toHaveLength(0);
+  });
+
+  it("says a day the service does not run has no such service, as closed", () => {
+    const lunchOnly: AvailabilityDaySummary = {
+      ...baseSummary,
+      serviceCount: 1,
+      services: baseSummary.services?.slice(0, 1),
+    };
+    const view = presentDay("2026-10-30", lunchOnly, false, t, format, dinner);
+    expect(view.label).toBe("availability.calendar.serviceNotRunning Dinner");
+    expect(view.tone).toBe("closed");
+    expect(view.servicesSummary).toBeNull();
+  });
+
+  it("leaves a closed day saying Closed, not No Dinner", () => {
+    const closed: AvailabilityDaySummary = {
+      ...baseSummary,
+      label: "Closed",
+      serviceCount: 0,
+      services: [],
+    };
+    const view = presentDay("2026-10-30", closed, false, t, format, dinner);
+    expect(view.label).toBe("availability.calendar.dayLabel.closed");
+  });
+
+  it("is the same as no filter when there is none", () => {
+    expect(presentDay("2026-10-30", baseSummary, false, t, format, null)).toEqual(
+      presentDay("2026-10-30", baseSummary, false, t, format)
+    );
+  });
+});

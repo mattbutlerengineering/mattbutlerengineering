@@ -33,6 +33,14 @@ const resolved = vi.hoisted(() => ({
   /** Hours for one date, where it differs from `services`. */
   byDate: {} as Record<string, unknown[]>,
 }));
+const serviceList = vi.hoisted(() => ({
+  value: [{ id: "vs1", name: "Dinner", position: 0 }] as Array<{
+    id: string;
+    name: string;
+    position: number;
+    archivedAt?: string | null;
+  }>,
+}));
 const venue = vi.hoisted(() => ({
   selectedVenueId: "venue-1" as string | null,
   selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -52,7 +60,7 @@ vi.mock("../hooks/useAvailability.js", () => ({
       data: {
         config: {
           schedules: [{ id: "s1", name: "Weeknight", kind: "regular", isRegular: true }],
-          venueServices: [{ id: "vs1", name: "Dinner", position: 0 }],
+          venueServices: serviceList.value,
           scheduleServices: [],
           assignments: [],
           dateRules: [],
@@ -190,6 +198,7 @@ describe("AvailabilityPage", () => {
     team.value = { viewerRole: "manager" };
     resolved.services = [];
     resolved.byDate = {};
+    serviceList.value = [{ id: "vs1", name: "Dinner", position: 0 }];
     daysQuery.value = {
       data: ["2026-10-29", "2026-10-30"].map(summaryFor),
       isLoading: false,
@@ -1113,5 +1122,99 @@ describe("AvailabilityPage", () => {
     vi.useRealTimers();
     const { container } = renderPage();
     expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);
+  });
+});
+
+describe("AvailabilityPage Services filter (#7981)", () => {
+  const lunch = {
+    venueServiceId: "vs0",
+    name: "Lunch",
+    opensAt: 690,
+    lastSeatingAt: 810,
+    closesAt: 870,
+  };
+  const dinner = {
+    venueServiceId: "vs1",
+    name: "Dinner",
+    opensAt: 1020,
+    lastSeatingAt: 1260,
+    closesAt: 1380,
+  };
+  const twoServices = [
+    { id: "vs1", name: "Dinner", position: 1 },
+    { id: "vs0", name: "Lunch", position: 0 },
+  ];
+  const day = (date: string, services: (typeof lunch)[]): AvailabilityDaySummary => ({
+    ...summaryFor(date),
+    serviceCount: services.length,
+    services,
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-28T20:00:00Z") });
+    venue.selectedVenueId = "venue-1";
+    configSource.value = "rows";
+    configError.value = null;
+    configAbsent.value = false;
+    teamError.value = null;
+    team.value = { viewerRole: "manager" };
+    resolved.services = [];
+    resolved.byDate = {};
+    serviceList.value = twoServices;
+    daysQuery.value = {
+      data: [
+        day("2026-10-26", [lunch]),
+        day("2026-10-27", [lunch, dinner]),
+        day("2026-10-28", [lunch, dinner]),
+        day("2026-10-29", [lunch, dinner]),
+      ],
+      isLoading: false,
+      error: null,
+    };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is not offered to a venue with one service", () => {
+    serviceList.value = [{ id: "vs1", name: "Dinner", position: 0 }];
+    renderPage();
+    expect(screen.queryByRole("combobox", { name: "Services" })).not.toBeInTheDocument();
+  });
+
+  it("narrows every cell and the week summary to the chosen service", () => {
+    renderPage();
+    const monday = () => screen.getByRole("button", { name: /Monday, October 26/ });
+    expect(monday()).toHaveTextContent("Lunch");
+    expect(screen.getByText(/This week: open 4 days/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Services" }));
+    fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
+
+    expect(monday()).toHaveTextContent("No Dinner");
+    expect(monday()).not.toHaveTextContent("Lunch");
+    expect(screen.getByText(/This week, Dinner: open 3 days/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Services" }));
+    fireEvent.click(screen.getByRole("option", { name: "All services" }));
+    expect(screen.getByText(/This week: open 4 days/)).toBeInTheDocument();
+  });
+
+  it("goes back to All on another venue", () => {
+    const view = renderPage();
+    fireEvent.click(screen.getByRole("combobox", { name: "Services" }));
+    fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
+    expect(screen.getByText(/This week, Dinner/)).toBeInTheDocument();
+    venue.selectedVenueId = "venue-2";
+    view.rerender(
+      <ToastProvider>
+        <main>
+          <AvailabilityPage />
+        </main>
+      </ToastProvider>
+    );
+    expect(screen.getByText(/This week: open/)).toBeInTheDocument();
   });
 });

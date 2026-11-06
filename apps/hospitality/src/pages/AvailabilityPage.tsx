@@ -54,6 +54,10 @@ import { pickHoursSource } from "../components/availability/selection-hours.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { periodLabel, weekSummary } from "../components/availability/period.js";
+import {
+  filterableServices,
+  resolveServiceFilter,
+} from "../components/availability/service-filter.js";
 import { deviceTimeZone, formatTimeZoneName, sameTimeZone } from "../utils/format.js";
 import styles from "./AvailabilityPage.module.css";
 
@@ -192,6 +196,20 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     to: dates.at(-1) ?? anchor,
   });
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
+  // The Services filter (2+ services only) is a view, not saved: it narrows how days read and
+  // belongs to one venue, so a venue switch derives "All" rather than carrying the id over.
+  const [chosenService, setChosenService] = useState<{
+    venueId: string | null;
+    id: string | null;
+  }>({ venueId: selectedVenueId, id: null });
+  const filterServices = useMemo(
+    () => (config.data ? filterableServices(config.data.config) : []),
+    [config.data]
+  );
+  const serviceFilter = resolveServiceFilter(
+    filterServices,
+    chosenService.venueId === selectedVenueId ? chosenService.id : null
+  );
   const source = config.data?.source;
   const wasEmpty = useRef(false);
 
@@ -453,7 +471,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;
 
-  const summary = weekSummary(anchor, days.data ?? undefined, t);
+  const summary = weekSummary(anchor, days.data ?? undefined, t, serviceFilter);
   const device = deviceTimeZone();
   const showVenueTime = timeZone !== "" && device !== "" && !sameTimeZone(device, timeZone);
 
@@ -501,6 +519,9 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onPrevious={() => moveTo(shiftAnchor(view, anchor, -1))}
         onNext={() => moveTo(shiftAnchor(view, anchor, 1))}
         onToday={() => moveTo(null)}
+        services={filterServices}
+        serviceFilterId={serviceFilter?.id ?? null}
+        onServiceFilterChange={(id) => setChosenService({ venueId: selectedVenueId, id })}
         onHistory={() => setHistoryOpen(true)}
         onBookingRules={canAct ? () => setBookingRulesOpen(true) : undefined}
         onGoToDate={() => setGoToOpen(true)}
@@ -574,6 +595,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onDragChange={(dragging) => setBarDuringDrag(dragging ? selection : null)}
         onOpenDay={openDay}
         onAnchorChange={moveTo}
+        serviceFilter={serviceFilter}
       />
       <AvailabilityDayDrawer
         date={openDate}
