@@ -201,6 +201,7 @@
         "check-hook-wiring.mjs",
         "check-hooks-active.mjs",
         "check-i18n-catalogs.mjs",
+        "check-instruction-budget.mjs",
         "check-issue-filing-seam.mjs",
         "check-large-files.mjs",
         "check-memory-refs.mjs",
