@@ -150,7 +150,11 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
 1. **Schedules → Compare services** shows a table-like grid. Rows are schedules; columns are one service's fields (opens, last seating, closes, interval, booking type, plus pacing and turn times from Phase 3). A service picker sits at the top ("Dinner").
 2. Edit any cell in place, or select rows and use **Set selected to…**.
 3. One combined impact line ("Changes 4 schedules · 118 future dates") and one combined stranded list, then **Save 4 schedules**. Undo works as in F2.
-4. When editing a service inside one schedule, **Also apply to Dinner in:** ☐ Weekend ☐ Summer hours ☐ Holiday prix-fixe offers the same change elsewhere without opening Compare.
+4. When editing a service inside one schedule (Edit schedule), **Also apply to Dinner in:** ☐ Weekend ☐ Summer hours ☐ Holiday prix-fixe offers the same change elsewhere without opening Compare.
+   - A group appears for each service whose opens, last seating or closes the edit changed, listing the other schedules that run it. Nothing is ticked by default. It is not offered in New schedule, Duplicate or Change regular week, which have no stored rows to match.
+   - Only the times the edit changed go across. The other schedule keeps its other times, seating, booking types, days and different hours.
+   - Ticking one makes the rest of the form multi-schedule: the impact line becomes "Changes 2 schedules · 118 future dates", the preview and the "dates already have their own changes" question cover every schedule written, and one Save is one change, so Undo and History treat it as one ("2 schedules updated").
+   - After a lost race the conflict review also names a ticked schedule a colleague changed or removed; reapplying lays the edited times on their version.
 
 ### F4: Copy a day (PRD 8)
 

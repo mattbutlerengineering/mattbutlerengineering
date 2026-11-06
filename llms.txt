@@ -1476,6 +1476,65 @@
       ): { dates: number; parts: { action: ClosureAction; count: number }[] } { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/also-apply.ts">
+    <item priority="low">
+      interface AlsoApplyTarget {
+        scheduleId: string;
+        scheduleName: string;
+      }
+    </item>
+    <item priority="low">
+      interface AlsoApplyOption {
+        venueServiceId: string;
+        serviceName: string;
+        targets: readonly AlsoApplyTarget[];
+      }
+    </item>
+    <item priority="low">
+      type AlsoApplyPicks = Readonly<Record<string, readonly string[]>>;
+    </item>
+    <item priority="medium">
+      function changedSourceRows(
+        config: AvailabilityConfig,
+        edit: AvailabilityConfigChanges,
+        sourceScheduleId: string
+      ): ScheduleService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alsoApplyOptions(
+        config: AvailabilityConfig,
+        edit: AvailabilityConfigChanges,
+        sourceScheduleId: string
+      ): AlsoApplyOption[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pruneAlsoApply(
+        options: readonly AlsoApplyOption[],
+        picks: AlsoApplyPicks
+      ): AlsoApplyPicks { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alsoApplyScheduleIds(
+        options: readonly AlsoApplyOption[],
+        picks: AlsoApplyPicks
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildAlsoApplyChanges(
+        config: AvailabilityConfig,
+        edit: AvailabilityConfigChanges,
+        sourceScheduleId: string,
+        picks: AlsoApplyPicks
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alsoApplyChangedSince(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        picks: AlsoApplyPicks
+      ): { changed: string[]; removed: string[] } { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/booking-rules.ts">
     <item priority="low">
       interface BookingRulesForm {

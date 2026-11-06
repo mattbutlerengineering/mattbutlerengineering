@@ -1927,6 +1927,9 @@
     "conflict": "Someone changed availability first. The latest version is loading. Check it, then try again.",
     "impact_one": "Applies to {{count}} future date",
     "impact_other": "Applies to {{count}} future dates",
+    "alsoApply": {
+      "legend": "Also apply to {{service}} in:"
+    },
     "ownChanges_one": "{{count}} date already has its own changes",
     "ownChanges_other": "{{count}} dates already have their own changes",
     "stranded_one": "{{count}} upcoming booking would fall outside the new hours.",

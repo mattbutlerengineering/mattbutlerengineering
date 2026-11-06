@@ -1966,6 +1966,9 @@
     "impact_one": "S’applique à {{count}} date à venir",
     "impact_other": "S’applique à {{count}} dates à venir",
     "impact_many": "S’applique à {{count}} de dates à venir",
+    "alsoApply": {
+      "legend": "Appliquer aussi à {{service}} dans :"
+    },
     "ownChanges_one": "{{count}} date a déjà ses propres changements",
     "ownChanges_other": "{{count}} dates ont déjà leurs propres changements",
     "ownChanges_many": "{{count}} de dates ont déjà leurs propres changements",
