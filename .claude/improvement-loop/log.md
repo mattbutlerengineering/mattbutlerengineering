@@ -5019,3 +5019,12 @@ Both quoted strings look like deprecation/config noise rather than a real assert
 - #8393 carries `tier:trivial` from the #8398 defect. Flagged on the PR asking for T2 review. It cannot auto-merge (no `has-pr`, `mergeable_state: blocked`). #8402 _does_ carry `has-pr` as this routine's step 4 specifies, and a `metrics/**` append is legitimately T1, so it may auto-merge on green — the established path for metrics rows.
 
 **Nothing merged by this routine.**
+
+## 2026-11-06 — mbe-learning-loop
+
+**Sensors:** 16/17 available (e2eStability not available) — ✅ Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed (reopened), 5 skipped (#8405/#8398 no CI runs to verify against; #8385/#8384/#8383 Lighthouse inventory not available — run a site audit first)
+**Sentry triage:** skipped — stored Sentry MCP access token rejected (authorization expired), no human available to re-authorize in this unattended run
+**Skill proposals:** 0 (Friday — checked `.claude/session-logs/*.json`: only 2 entries, both from today's startup hook with identical diff stats; below the 3-session repeated-workflow threshold, no novel pattern)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.516 → 1.521, headroom). False-positive rate 0% (0/30 sensor-labeled issues closed `not_planned`/duplicate in the last 30 days) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 102 skipped-for-lack-of-data) — above 50% threshold, no review needed; unchanged from 2026-11-05 since today's 5 new verifications were all skips. AI issue-feedback budgets: all 7 categories at default budget=3 (max rejection 3%, feature category).
