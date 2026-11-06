@@ -886,6 +886,8 @@
           to: z.number().int(),
           /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
           bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
+          /** The service a `service` closure is for; absent for other targets and from an older API. */
+          venueServiceId: z.string().optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),

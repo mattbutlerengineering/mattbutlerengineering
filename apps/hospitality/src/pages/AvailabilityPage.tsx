@@ -25,6 +25,7 @@ import {
   AvailabilityScheduleControls,
   type AvailabilityTab,
 } from "../components/availability/AvailabilityScheduleControls.js";
+import { ScheduleEditorDrawer } from "../components/availability/ScheduleEditorDrawer.js";
 import { SchedulesTab } from "../components/availability/SchedulesTab.js";
 import { SpecialDatesTab } from "../components/availability/SpecialDatesTab.js";
 import {
@@ -54,14 +55,22 @@ import { pickHoursSource } from "../components/availability/selection-hours.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { periodLabel, weekSummary } from "../components/availability/period.js";
+import {
+  filterableServices,
+  resolveServiceFilter,
+} from "../components/availability/service-filter.js";
 import { deviceTimeZone, formatTimeZoneName, sameTimeZone } from "../utils/format.js";
 import styles from "./AvailabilityPage.module.css";
 
 const EMPTY: string[] = [];
 
-/** The Close dialog (F5): `date` pre-fills "one date"; `pause` starts on pausing online booking. */
+/**
+ * The Close dialog (F5): `date` pre-fills "one date", `dates` (the selection bar's) "Several
+ * dates"; `pause` starts on pausing online booking.
+ */
 interface Closing {
   readonly date: string | null;
+  readonly dates?: readonly string[];
   readonly pause: boolean;
 }
 
@@ -75,6 +84,8 @@ interface OpenTarget {
   /** With `fixedDates`: the picked dates do not all have the hours of `date`. */
   readonly hoursDiffer?: boolean;
   readonly closing?: Closing;
+  /** The schedule whose editor opens once the guard lets the drawer go (Edit on a dated layer). */
+  readonly editingSchedule?: string;
 }
 const CLOSED: OpenTarget = { date: null };
 
@@ -117,6 +128,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const [target, setTarget] = useState<OpenTarget>(CLOSED);
   const openDate = target.date;
   const [closing, setClosing] = useState<Closing | null>(null);
+  const [editingSchedule, setEditingSchedule] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [bookingRulesOpen, setBookingRulesOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
@@ -169,11 +181,18 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const pastNotice = dropped && dropped.venueId === selectedVenueId ? dropped : null;
   // Moving off a day with an unsaved draft asks first (ux.md F2 step 6), selection actions included.
   // Opening a single day drops the selection, but only once the guard lets the move happen.
-  const guard = useDiscardGuard<OpenTarget>(({ closing: nextClosing, ...next }) => {
-    setTarget(next);
-    if (next.date !== null && !next.fixedDates) setSelection([]);
-    if (nextClosing) setClosing(nextClosing);
-  });
+  const guard = useDiscardGuard<OpenTarget>(
+    ({ closing: nextClosing, editingSchedule: id, ...next }) => {
+      setTarget(next);
+      if (next.date !== null && !next.fixedDates) setSelection([]);
+      if (nextClosing) setClosing(nextClosing);
+      // The day drawer hands focus back to its calendar cell a frame after it closes, so the editor
+      // opens after that (two frames: the restore is queued once this move has rendered).
+      if (id) {
+        requestAnimationFrame(() => requestAnimationFrame(() => setEditingSchedule(id)));
+      }
+    }
+  );
   // Compare services' unsaved rows are lost when the Schedules tab goes, so leaving it asks first.
   const [schedulesDirty, setSchedulesDirty] = useState(false);
   const tabGuard = useDiscardGuard<AvailabilityTab>(
@@ -192,6 +211,20 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     to: dates.at(-1) ?? anchor,
   });
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
+  // The Services filter (2+ services only) is a view, not saved: it narrows how days read and
+  // belongs to one venue, so a venue switch derives "All" rather than carrying the id over.
+  const [chosenService, setChosenService] = useState<{
+    venueId: string | null;
+    id: string | null;
+  }>({ venueId: selectedVenueId, id: null });
+  const filterServices = useMemo(
+    () => (config.data ? filterableServices(config.data.config) : []),
+    [config.data]
+  );
+  const serviceFilter = resolveServiceFilter(
+    filterServices,
+    chosenService.venueId === selectedVenueId ? chosenService.id : null
+  );
   const source = config.data?.source;
   const wasEmpty = useRef(false);
 
@@ -453,7 +486,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     : null;
   const drawerFailure = config.error ? describeApiError(config.error).detail : null;
 
-  const summary = weekSummary(anchor, days.data ?? undefined, t);
+  const summary = weekSummary(anchor, days.data ?? undefined, t, serviceFilter);
   const device = deviceTimeZone();
   const showVenueTime = timeZone !== "" && device !== "" && !sameTimeZone(device, timeZone);
 
@@ -501,6 +534,9 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onPrevious={() => moveTo(shiftAnchor(view, anchor, -1))}
         onNext={() => moveTo(shiftAnchor(view, anchor, 1))}
         onToday={() => moveTo(null)}
+        services={filterServices}
+        serviceFilterId={serviceFilter?.id ?? null}
+        onServiceFilterChange={(id) => setChosenService({ venueId: selectedVenueId, id })}
         onHistory={() => setHistoryOpen(true)}
         onBookingRules={canAct ? () => setBookingRulesOpen(true) : undefined}
         onGoToDate={() => setGoToOpen(true)}
@@ -530,6 +566,9 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         canEdit={canAct}
         onEditHours={editSelection}
         onClear={clearSelection}
+        onCloseDates={(dates) =>
+          guard.request({ date: null, closing: { date: null, dates, pause: false } })
+        }
         selecting={selecting}
         onUseSchedule={() => setSelectionAction("use")}
         multipleSchedules={activeScheduleCount > 1}
@@ -574,6 +613,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onDragChange={(dragging) => setBarDuringDrag(dragging ? selection : null)}
         onOpenDay={openDay}
         onAnchorChange={moveTo}
+        serviceFilter={serviceFilter}
       />
       <AvailabilityDayDrawer
         date={openDate}
@@ -602,6 +642,8 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
                 onStale: () => void config.refetch(),
                 onCloseDay: (date: string) =>
                   guard.request({ date: null, closing: { date, pause: false } }),
+                onEditSchedule: (scheduleId: string) =>
+                  guard.request({ date: null, editingSchedule: scheduleId }),
               }
             : undefined
         }
@@ -638,6 +680,18 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           onOpenSchedules={() => changeTab("schedules")}
         />
       )}
+      {editingSchedule && config.data && (
+        <ScheduleEditorDrawer
+          venueId={selectedVenueId}
+          state={config.data}
+          timezone={timeZone}
+          today={today}
+          mode="edit"
+          sourceScheduleId={editingSchedule}
+          onStale={() => void config.refetch()}
+          onClose={() => setEditingSchedule(null)}
+        />
+      )}
       {closing && config.data && (
         <CloseDialog
           venueId={selectedVenueId}
@@ -645,7 +699,9 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           timezone={timeZone}
           today={today}
           initialDate={closing.date}
+          initialDates={closing.dates}
           pauseOnline={closing.pause}
+          onSaved={closing.dates ? finishSelectionAction : undefined}
           onClose={() => setClosing(null)}
         />
       )}

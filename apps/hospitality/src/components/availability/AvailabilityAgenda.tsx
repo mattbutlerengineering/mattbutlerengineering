@@ -4,6 +4,7 @@ import { Skeleton } from "@mattbutlerengineering/rialto";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { presentDay } from "./day-summary.js";
+import type { ServiceFilter } from "./service-filter.js";
 import type { DateGestureHandlers } from "./useDateSelection.js";
 import styles from "./AvailabilityAgenda.module.css";
 
@@ -27,6 +28,8 @@ export interface AvailabilityAgendaProps {
   readonly onToggle: (date: string) => void;
   /** The holidays among the dates ("Thanksgiving"), by date; each shows under its date. */
   readonly holidays: ReadonlyMap<string, string>;
+  /** The one service every row reads for (the Services filter); `null` shows all. */
+  readonly serviceFilter: ServiceFilter | null;
 }
 
 /** Enter opens a row; Space picks it. Firefox clicks on Space's keyup, so that is stopped too. */
@@ -57,7 +60,7 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
     <ul className={styles.agenda} aria-label={props.label}>
       {dates.map((date) => {
         const summary = byDate.get(date);
-        const view = presentDay(date, summary, false, t, format);
+        const view = presentDay(date, summary, false, t, format, props.serviceFilter);
         const holiday = props.holidays.get(date);
         const shownDate = format.formatCalendarDate(date, {
           weekday: "short",

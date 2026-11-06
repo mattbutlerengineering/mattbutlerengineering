@@ -4877,6 +4877,129 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/also-apply.ts">
+    export interface AlsoApplyTarget {
+      readonly scheduleId: string;
+      readonly scheduleName: string;
+    }
+    export interface AlsoApplyOption {
+      readonly venueServiceId: string;
+      readonly serviceName: string;
+      readonly targets: readonly AlsoApplyTarget[];
+    }
+    export type AlsoApplyPicks = Readonly<Record<string, readonly string[]>>;
+    function changedSourceRows(
+      config: AvailabilityConfig,
+      edit: AvailabilityConfigChanges,
+      sourceScheduleId: string
+    ): ScheduleService[] {
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      return (edit.upsert.scheduleServices ?? []).filter((row) => {
+        const was = stored.get(row.id);
+        return (
+          row.scheduleId === sourceScheduleId &&
+          was !== undefined &&
+          was.scheduleId === sourceScheduleId &&
+          timesOf(was) !== timesOf(row)
+        );
+      });
+    }
+    export function alsoApplyOptions(
+      config: AvailabilityConfig,
+      edit: AvailabilityConfigChanges,
+      sourceScheduleId: string
+    ): AlsoApplyOption[] {
+      const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+      return changedSourceRows(config, edit, sourceScheduleId).flatMap((row) => {
+        const targets = compareRows(config, row.venueServiceId)
+          .filter((r) => r.scheduleId !== sourceScheduleId)
+          .map((r) => ({ scheduleId: r.scheduleId, scheduleName: r.scheduleName }));
+        return targets.length === 0
+          ? []
+          : [
+              {
+                venueServiceId: row.venueServiceId,
+                serviceName: names.get(row.venueServiceId) ?? row.venueServiceId,
+                targets,
+              },
+            ];
+      });
+    }
+    export function pruneAlsoApply(
+      options: readonly AlsoApplyOption[],
+      picks: AlsoApplyPicks
+    ): AlsoApplyPicks {
+      return Object.fromEntries(
+        options.flatMap((o) => {
+          const offered = new Set(o.targets.map((t) => t.scheduleId));
+          const kept = (picks[o.venueServiceId] ?? []).filter((id) => offered.has(id));
+          return kept.length > 0 ? [[o.venueServiceId, kept] as const] : [];
+        })
+      );
+    }
+    export function alsoApplyScheduleIds(
+      options: readonly AlsoApplyOption[],
+      picks: AlsoApplyPicks
+    ): string[] {
+      return [...new Set(Object.values(pruneAlsoApply(options, picks)).flat())];
+    }
+    export function buildAlsoApplyChanges(
+      config: AvailabilityConfig,
+      edit: AvailabilityConfigChanges,
+      sourceScheduleId: string,
+      picks: AlsoApplyPicks
+    ): AvailabilityConfigChanges {
+      const options = alsoApplyOptions(config, edit, sourceScheduleId);
+      const wanted = pruneAlsoApply(options, picks);
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      const source = new Map(
+        changedSourceRows(config, edit, sourceScheduleId).map((r) => [r.venueServiceId, r])
+      );
+      const extra = Object.entries(wanted).flatMap(([venueServiceId, scheduleIds]) => {
+        const to = source.get(venueServiceId);
+        const was = to ? stored.get(to.id) : undefined;
+        if (!to || !was) return [];
+        const moved = Object.fromEntries(
+          TIME_FIELDS.filter((f) => to[f] !== was[f]).map((f) => [f, to[f]])
+        );
+        return config.scheduleServices
+          .filter((s) => s.venueServiceId === venueServiceId && scheduleIds.includes(s.scheduleId))
+          .map((s) => ({ ...s, ...moved }));
+      });
+      if (extra.length === 0) return edit;
+      return {
+        ...edit,
+        upsert: {
+          ...edit.upsert,
+          scheduleServices: [...(edit.upsert.scheduleServices ?? []), ...extra],
+        },
+      };
+    }
+    export function alsoApplyChangedSince(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      picks: AlsoApplyPicks
+    ): { changed: string[]; removed: string[] } {
+      const rowOf = (config: AvailabilityConfig, vs: string, scheduleId: string) =>
+        config.scheduleServices.find((s) => s.venueServiceId === vs && s.scheduleId === scheduleId);
+      const live = (config: AvailabilityConfig, scheduleId: string) =>
+        config.schedules.find((s) => s.id === scheduleId && !s.archivedAt);
+      const changed: string[] = [];
+      const removed: string[] = [];
+      for (const [vs, scheduleIds] of Object.entries(picks)) {
+        for (const scheduleId of scheduleIds) {
+          const was = rowOf(before, vs, scheduleId);
+          const name = (live(before, scheduleId) ?? before.schedules.find((s) => s.id === scheduleId))
+            ?.name;
+          if (!was || name === undefined) continue;
+          const now = rowOf(after, vs, scheduleId);
+          if (!now || !live(after, scheduleId)) removed.push(name);
+          else if (JSON.stringify(was) !== JSON.stringify(now)) changed.push(name);
+        }
+      }
+      return { changed: [...new Set(changed)], removed: [...new Set(removed)] };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/booking-rules.ts">
     export interface BookingRulesForm {
       readonly daysAhead: string;
@@ -5149,6 +5272,8 @@
     export type CloseWhen =
       | { readonly kind: "tonight" }
       | { readonly kind: "date"; readonly date: string }
+      /** Several picked dates, ascending: stored as one single-date closure each (#7981). */
+      | { readonly kind: "dates"; readonly dates: readonly string[] }
       | { readonly kind: "range"; readonly from: string; readonly to: string }
       | {
           readonly kind: "repeats";
@@ -5183,6 +5308,8 @@
           return { startsOn: today, endsOn: today };
         case "date":
           return { startsOn: when.date, endsOn: when.date };
+        case "dates":
+          return { startsOn: when.dates[0] ?? "", endsOn: when.dates.at(-1) ?? "" };
         case "range":
           return { startsOn: when.from, endsOn: when.to };
         case "repeats":
@@ -5197,6 +5324,7 @@
       return true;
     }
     function whenIsComplete(when: CloseWhen, today: string): boolean {
+      if (when.kind === "dates") return when.dates.length <= MAX_CLOSURE_BATCH && when.dates.length > 0;
       const span = spanOf(when, today);
       if (span.startsOn === "") return false;
       if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
@@ -5234,7 +5362,7 @@
       }
     }
     export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null {
-      if (validateClose(form, today) !== null) return null;
+      if (validateClose(form, today) !== null || form.when.kind === "dates") return null;
       const span = spanOf(form.when, today);
       const note = form.staffNote.trim();
       const message = form.guestMessage.trim();
@@ -5252,6 +5380,23 @@
         ...(note ? { staffNote: note } : {}),
         ...(message ? { guestMessage: message } : {}),
       };
+    }
+    export function buildCloseRules(
+      form: CloseForm,
+      idFor: (date: string) => string,
+      today: string
+    ): readonly DateRule[] {
+      if (form.when.kind !== "dates") {
+        const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today);
+        return rule ? [rule] : [];
+      }
+      return form.when.dates.flatMap((date) => {
+        const rule = buildCloseRule({ ...form, when: { kind: "date", date } }, idFor(date), today);
+        return rule ? [rule] : [];
+      });
+    }
+    export function toggleDate(dates: readonly string[], date: string): readonly string[] {
+      return dates.includes(date) ? dates.filter((d) => d !== date) : [...dates, date].sort();
     }
     type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
     export function firstDateOf(when: CloseWhen, today: string): string {
@@ -5333,12 +5478,9 @@
       if (!whenIsComplete(next.when, today)) return next;
       const { startsOn, endsOn, weekdays } = spanOf(next.when, today);
       const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
-      const [first = 0] = startMinutes(
-        config,
-        timezone,
-        closedDates({ startsOn, endsOn, repeat }),
-        null
-      );
+      const dates =
+        next.when.kind === "dates" ? next.when.dates : closedDates({ startsOn, endsOn, repeat });
+      const [first = 0] = startMinutes(config, timezone, dates, null);
       return next.fromMinute < first ? { ...next, fromMinute: null } : next;
     }
     function whatOf(series: DateRule): CloseWhat {
@@ -5959,11 +6101,17 @@
     }
     export function presentDay(
       date: string,
-      summary: AvailabilityDaySummary | undefined,
+      fullSummary: AvailabilityDaySummary | undefined,
       detailed: boolean,
       t: TFunction,
-      format: VenueFormat
+      format: VenueFormat,
+      service?: ServiceFilter | null
     ): DayPresentation {
+      const summary = fullSummary && service ? filterDaySummary(fullSummary, service.id) : fullSummary;
+      const notRunningName =
+        service && fullSummary && fullSummary.serviceCount > 0 && summary?.serviceCount === 0
+          ? service.name
+          : null;
       const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
       const services = detailed
         ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
@@ -5991,7 +6139,11 @@
       );
       const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
     
-      const label = summary ? dayLabelText(summary.label, t) : null;
+      const label = notRunningName
+        ? t("availability.calendar.serviceNotRunning", { name: notRunningName })
+        : summary
+          ? dayLabelText(summary.label, t)
+          : null;
       const parts = summary
         ? [
             label,
@@ -6012,7 +6164,7 @@
         label,
         // The service's own en-US labels, as dayLabelText reads them.
         tone:
-          summary?.label === "Closed"
+          notRunningName !== null || summary?.label === "Closed"
             ? "closed"
             : summary?.label === "Special hours"
               ? "special"
@@ -6581,6 +6733,27 @@
       "newYearsDay",
     ]);
   </file>
+  <file path="apps/hospitality/src/components/availability/layer-rule-actions-props.ts">
+    export interface LayerRuleActionsProps {
+      readonly layer: Layer;
+      readonly date: string;
+      readonly day: ResolvedDay;
+      readonly venueId: string;
+      readonly state: AvailabilityConfigState;
+      readonly timezone: string;
+      readonly today: string;
+      /** An editor is open, or a reload is due: a save now would conflict with one of ours. */
+      readonly waiting: boolean;
+      readonly reasonId: string;
+      /** The rule was removed or its dates changed and saved; the drawer closes. */
+      readonly onFinished: () => void;
+      readonly onStale: () => void;
+      /** Edit special hours: focus the editor, for the whole rule or part of it when `scope` is set. */
+      readonly onEditHours: (scope?: { ruleId: string; mode: SeriesScope }) => void;
+      /** Edit a dated schedule everywhere it runs: the Schedules tab's editor, over the page. */
+      readonly onEditSchedule?: (scheduleId: string) => void;
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/layer-text.ts">
     function upperFirst(text: string, locale: string): string {
       return `${text.charAt(0).toLocaleUpperCase(locale)}${text.slice(1)}`;
@@ -6794,10 +6967,11 @@
     export function weekSummary(
       anchor: string,
       days: readonly AvailabilityDaySummary[] | undefined,
-      t: TFunction
+      t: TFunction,
+      service?: ServiceFilter | null
     ): string | null {
       const week = new Set(visibleDates("week", anchor));
-      const loaded = (days ?? []).filter((d) => week.has(d.serviceDate));
+      const loaded = (filterDays(days, service ?? null) ?? []).filter((d) => week.has(d.serviceDate));
       if (loaded.length === 0) return null;
       // A whole-day venue closure already empties `serviceCount`; booking, service and tables
       // closures leave the day open.
@@ -6814,7 +6988,12 @@
           : []),
         t(`availability.weekSummary.${online}`),
       ];
-      return t("availability.weekSummary.line", { parts: parts.join(" · ") });
+      return service
+        ? t("availability.weekSummary.lineForService", {
+            service: service.name,
+            parts: parts.join(" · "),
+          })
+        : t("availability.weekSummary.line", { parts: parts.join(" · ") });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-demo.fixture.ts">
@@ -8815,6 +8994,47 @@
         .map((r) => ({ ...r, seriesId: created.id }));
       const ended: DateRule = { ...series, endsOn: addDays(date, -1) };
       return { upsert: { dateRules: [ended, created, ...moved] }, remove: {} };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/service-filter.ts">
+    export interface ServiceFilter {
+      readonly id: string;
+      readonly name: string;
+    }
+    export function filterableServices(config: AvailabilityConfig): readonly ServiceFilter[] {
+      const active = [...config.venueServices.filter((s) => !s.archivedAt)]
+        .sort((a, b) => a.position - b.position)
+        .map((s) => ({ id: s.id, name: s.name }));
+      return active.length >= 2 ? active : [];
+    }
+    export function resolveServiceFilter(
+      services: readonly ServiceFilter[],
+      chosenId: string | null
+    ): ServiceFilter | null {
+      return services.find((s) => s.id === chosenId) ?? null;
+    }
+    export function filterDaySummary(
+      summary: AvailabilityDaySummary,
+      serviceId: string
+    ): AvailabilityDaySummary {
+      if (summary.services === undefined) return summary;
+      const services = summary.services.filter((s) => s.venueServiceId === serviceId);
+      const closures = summary.closures.filter((c) => {
+        // A service closure names its service: it belongs to that one alone, even on a day it
+        // closes the service for good (the service is then gone from `services`).
+        if (c.targetKind === "service" && c.venueServiceId !== undefined) {
+          return c.venueServiceId === serviceId;
+        }
+        return services.some((s) => c.from < s.closesAt && c.to > s.opensAt);
+      });
+      return { ...summary, services, serviceCount: services.length, closures };
+    }
+    export function filterDays(
+      days: readonly AvailabilityDaySummary[] | undefined,
+      service: ServiceFilter | null
+    ): readonly AvailabilityDaySummary[] | undefined {
+      if (!days || !service) return days;
+      return days.map((d) => filterDaySummary(d, service.id));
     }
   </file>
   <file path="apps/hospitality/src/components/availability/special-dates.ts">
@@ -21328,6 +21548,32 @@
           : null,
       getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
     });
+    export function useClosureImpacts(params: {
+      readonly venueId: string | null;
+      readonly rules: readonly DateRule[];
+    }): {
+      data: ClosureImpact[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => Promise<unknown>;
+    } {
+      const api = useApiClient();
+      const { venueId, rules } = params;
+      const queries = useQueries({
+        queries: rules.map((rule) => ({
+          queryKey: buildQueryKey(CLOSURE_IMPACT_QUERY_KEY, { venueId, rule }),
+          queryFn: () => api.availability.getClosureImpact(venueId!, rule),
+          enabled: venueId !== null,
+        })),
+      });
+      const answered = queries.length > 0 && queries.every((q) => q.data !== undefined);
+      return {
+        data: answered ? queries.map((q) => q.data!) : undefined,
+        isLoading: queries.some((q) => q.isLoading),
+        error: queries.find((q) => q.error)?.error ?? null,
+        refetch: () => Promise.all(queries.map((q) => q.refetch())),
+      };
+    }
     export const useClosureNoticePreview = createQueryHook<
       ClosureNoticePreview | null,
       { venueId: string; body: ClosureNoticePreviewBody }
@@ -47328,6 +47574,8 @@
           to: z.number().int(),
           /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
           bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
+          /** The service a `service` closure is for; absent for other targets and from an older API. */
+          venueServiceId: z.string().optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -53668,13 +53916,16 @@
         label,
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
-        closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
-          ruleId,
-          targetKind,
-          from,
-          to,
-          ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
-        })),
+        closures: day.closures.map(
+          ({ ruleId, targetKind, from, to, bookingTypes, venueServiceId }) => ({
+            ruleId,
+            targetKind,
+            from,
+            to,
+            ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
+            ...(targetKind === "service" && venueServiceId ? { venueServiceId } : {}),
+          })
+        ),
         bookingOpen: day.bookingOpen,
         services: isDayClosed(day) ? [] : daySummaryServices(names, day),
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
