@@ -117,9 +117,7 @@
       "advanceHint": "Si lo dejas en blanco, los invitados pueden reservar cualquier fecha futura",
       "advanceNoLimit": "Sin límite",
       "errors": {
-        "durationInvalid": "La duración debe ser un número positivo",
-        "maxPartyInvalid": "El tamaño del grupo debe ser un número positivo",
-        "advanceInvalid": "Los días de anticipación deben ser un número positivo"
+        "durationInvalid": "La duración debe ser un número positivo"
       }
     },
     "floorPlan": {
@@ -195,7 +193,8 @@
         "tables": "Mesas",
         "activate": "Activación"
       },
-      "noLimit": "Sin límite"
+      "noLimit": "Sin límite",
+      "todayOnly": "Solo el mismo día"
     },
     "stagePanel": {
       "label": "Progreso del lanzamiento",
@@ -2166,6 +2165,8 @@
       "changes_other": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "changes_many": "{{count}} cambios respecto a tu {{weekday}} habitual.",
       "whyTitle": "Por qué este día",
+      "guestMessage": "Mensaje para los comensales: “{{message}}”",
+      "staffNote": "Nota para el personal: {{note}}",
       "refreshError": "No se pudo comprobar si hay horarios más recientes",
       "finishDraftFirst": "Guarda o descarta primero tus cambios de este día.",
       "hoursDiffer": "Estas fechas tienen horarios distintos. Las filas de abajo son del {{date}}.",
@@ -2827,7 +2828,8 @@
         "saved_many": "Se borraron los cambios de {{count}} fechas"
       },
       "selectDays": "Seleccionar días",
-      "selectingHint": "Toca los días que quieras"
+      "selectingHint": "Toca los días que quieras",
+      "selectingHintPointer": "Haz clic en los días que quieras o arrastra sobre ellos"
     },
     "tonight": {
       "title": "Esta noche",

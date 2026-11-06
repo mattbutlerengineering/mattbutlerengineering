@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Button, IconButton } from "@mattbutlerengineering/rialto";
+import { useViewport } from "../../hooks/useViewport.js";
 import styles from "./AvailabilitySelectionBar.module.css";
 
 export interface AvailabilitySelectionBarProps {
@@ -34,6 +35,8 @@ export function AvailabilitySelectionBar(props: AvailabilitySelectionBarProps) {
   const { selection, canEdit, onEditHours, onClear, onUseSchedule, onClearChanges } = props;
   const { t } = useTranslation();
   const count = selection.length;
+  // The grid takes a click or a drag; the agenda list on a phone or tablet takes a tap.
+  const pointer = useViewport() === "desktop";
   const showing = count > 0 || props.selecting;
   const picking = canEdit && count > 0;
 
@@ -43,7 +46,11 @@ export function AvailabilitySelectionBar(props: AvailabilitySelectionBarProps) {
         {count > 0
           ? t("availability.selection.count", { count })
           : props.selecting
-            ? t("availability.selection.selectingHint")
+            ? t(
+                pointer
+                  ? "availability.selection.selectingHintPointer"
+                  : "availability.selection.selectingHint"
+              )
             : null}
         {props.notice && <span key={props.noticeKey}> {props.notice}</span>}
       </div>

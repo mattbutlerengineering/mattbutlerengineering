@@ -3,6 +3,7 @@ import { calculatePosition, estimateWaitMinutes, recalculatePositions } from "./
 import { Prisma } from "../generated/prisma/index.js";
 import type { WaitlistStatus } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
+import { bookableTableWhere } from "./bookable-tables.js";
 import { estimateWaitFromTurnover } from "./waitlist-estimate.js";
 import type { VenueSettings } from "@mbe/types";
 
@@ -45,7 +46,7 @@ async function loadEstimator(
 ): Promise<(position: number, partySize: number) => number | null> {
   const [venue, tables, reservations] = await Promise.all([
     prisma.venue.findUnique({ where: { id: venueId }, select: { settings: true } }),
-    prisma.table.findMany({ where: { venueId, isActive: true } }),
+    prisma.table.findMany({ where: bookableTableWhere(venueId) }),
     prisma.reservation.findMany({
       where: {
         venueId,

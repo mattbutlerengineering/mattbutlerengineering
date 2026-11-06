@@ -203,7 +203,11 @@ export function createWaitlistTools(
           const found = await findParty(api, venueId, guestName, partySize);
           if ("error" in found) return notExecuted(found);
           const { entry } = found;
-          const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+          const { data: tables } = await api.tables.list({
+            venueId,
+            limit: TABLES_LIMIT,
+            activeOnly: true,
+          });
           const resolved = resolveTable(tables, tableRef);
           if ("error" in resolved) return notExecuted(resolved);
           const { table } = resolved;

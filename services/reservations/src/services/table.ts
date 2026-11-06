@@ -8,6 +8,7 @@ import type {
 import { paginate, toPaginationMeta, isPrismaNotFound } from "@mbe/database";
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
+import { bookableTableWhere } from "./bookable-tables.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { getCurrentVenueId } from "./venue-context-store.js";
 import { recordTableEvent, staffTableActor } from "./table-events.js";
@@ -34,10 +35,13 @@ export const tableService = {
     activeOnly: boolean = false,
     venueId?: string
   ): Promise<PaginatedResponse<Table>> {
-    const where: Record<string, unknown> = activeOnly ? { isActive: true } : {};
-    if (venueId) {
-      where.venueId = venueId;
-    }
+    // activeOnly means "bookable" (#8276): active AND on the venue's active
+    // plan. Unfiltered lists still return every table so staff keep seeing
+    // bookings on tables of an inactive plan.
+    const where: Prisma.TableWhereInput =
+      activeOnly && venueId
+        ? bookableTableWhere(venueId)
+        : { ...(activeOnly ? { isActive: true } : {}), ...(venueId ? { venueId } : {}) };
 
     const [tables, total] = await Promise.all([
       prisma.table.findMany({

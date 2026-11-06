@@ -2839,6 +2839,14 @@
       ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/bookable-tables.ts">
+    <item priority="high">
+      export function onActivePlanWhere(): Prisma.TableWhereInput { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookableTableWhere(venueId: string): Prisma.TableWhereInput { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/booking-metrics.ts">
     <item priority="low">
       interface ReservationStatusCounts {

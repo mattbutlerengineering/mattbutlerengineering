@@ -206,6 +206,7 @@ describe("floorPlanService", () => {
             $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-2" }),
+              count: vi.fn().mockResolvedValue(1),
               findUnique: vi.fn().mockResolvedValue(cloned),
             },
             table: {
@@ -227,10 +228,10 @@ describe("floorPlanService", () => {
       });
     });
 
-    it("creates cloned tables inactive so a clone adds no bookable capacity", async () => {
-      // Every active table in a venue is bookable whatever its plan, and
-      // activating a plan does not touch tables — an active copy would double
-      // online capacity while the cloned plan is still inactive.
+    it.each([
+      { activePlans: 1, expected: true, label: "keeps the source isActive flag (active plan)" },
+      { activePlans: 0, expected: false, label: "creates copies inactive (no active plan, #8255)" },
+    ])("clone $label", async ({ activePlans, expected }) => {
       const createMany = vi.fn().mockResolvedValue({ count: 1 });
       const source = makePrismaFloorPlan();
       vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(source as never);
@@ -242,6 +243,7 @@ describe("floorPlanService", () => {
             $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-2" }),
+              count: vi.fn().mockResolvedValue(activePlans),
               findUnique: vi.fn().mockResolvedValue(makePrismaFloorPlan({ id: "fp-2" })),
             },
             table: { findMany: vi.fn().mockResolvedValue([]), createMany },
@@ -252,7 +254,7 @@ describe("floorPlanService", () => {
 
       const rows = createMany.mock.calls[0]![0].data as Array<{ isActive: boolean }>;
       expect(rows.length).toBeGreaterThan(0);
-      expect(rows.every((r) => r.isActive === false)).toBe(true);
+      expect(rows.every((r) => r.isActive === expected)).toBe(true);
     });
 
     it("handles name collisions by appending copy number", async () => {
@@ -276,6 +278,7 @@ describe("floorPlanService", () => {
             $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-3" }),
+              count: vi.fn().mockResolvedValue(1),
               findUnique: vi.fn().mockResolvedValue(cloned),
             },
             table: {

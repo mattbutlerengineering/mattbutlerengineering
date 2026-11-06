@@ -50,6 +50,11 @@
       "limit": "8 kB"
     },
     {
+      "name": "Weekday summary + schedule changes (one hoisted chunk, shared by the schedule editor, Change regular week, the Schedules tab, History and quick setup)",
+      "path": "dist/assets/weekday-summary-*.js",
+      "limit": "2.9 kB"
+    },
+    {
       "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving')",
       "path": "dist/assets/CallListDialog-*.js",
       "limit": "10 kB"
@@ -63,11 +68,6 @@
       "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",
       "path": "dist/assets/tonight-blocks-*.js",
       "limit": "3.5 kB"
-    },
-    {
-      "name": "Schedule changes (schedule-changes.ts, shared by the schedule editor, Change regular week and the Schedules tab)",
-      "path": "dist/assets/schedule-changes-*.js",
-      "limit": "3 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",

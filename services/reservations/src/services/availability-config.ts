@@ -45,6 +45,7 @@ import { civilDateIn, planVenueMigration } from "./availability-migration.js";
 import { planPreview, type PreviewPlan } from "./availability-preview.js";
 import type { ConfigState, LegacyNotes } from "./availability-config-state.js";
 import { prisma } from "./database.js";
+import { onActivePlanWhere } from "./bookable-tables.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
 /**
@@ -666,7 +667,7 @@ export async function previewAvailabilityConfig(
     const [bookings, tables] = await Promise.all([
       futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
       tx.table.findMany({
-        where: { venueId },
+        where: { venueId, ...onActivePlanWhere() },
         select: {
           id: true,
           name: true,

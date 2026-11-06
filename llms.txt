@@ -1494,7 +1494,7 @@
       export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm { /* ... */ }
     </item>
     <item priority="high">
-      export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null { /* ... */ }
+      export function invalidBookingRules(form: BookingRulesForm): readonly BookingRulesField[] { /* ... */ }
     </item>
     <item priority="high">
       export function withBookingRules(
@@ -3445,6 +3445,15 @@
     </item>
     <item priority="high">
       export function useDateSelection(options: DateSelectionOptions) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/weekday-summary.ts">
+    <item priority="high">
+      export function weekdaySummary(
+        weekdays: readonly number[],
+        format: VenueFormat,
+        t: TFunction
+      ): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -16798,6 +16807,14 @@
         intent: BookSlotIntent<unknown> & { venueId: string },
         gate: NonNullable<BookSlotIntent<unknown>["gate"]>
       ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/bookable-tables.ts">
+    <item priority="high">
+      export function onActivePlanWhere(): Prisma.TableWhereInput { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookableTableWhere(venueId: string): Prisma.TableWhereInput { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/booking-metrics.ts">

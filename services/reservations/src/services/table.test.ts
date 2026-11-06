@@ -19,6 +19,7 @@ vi.mock("./database.js", async () => {
 });
 
 import { tableService, TableConcurrentUpdateError } from "./table.js";
+import { bookableTableWhere } from "./bookable-tables.js";
 import { prisma } from "./database.js";
 
 const NOW = new Date("2026-05-01T12:00:00Z");
@@ -115,14 +116,14 @@ describe("tableService", () => {
       expect(prisma.table.count).toHaveBeenCalledWith({ where: { venueId: "venue-1" } });
     });
 
-    it("combines activeOnly and venueId filters", async () => {
+    it("activeOnly with a venue lists only bookable tables (#8276)", async () => {
       vi.mocked(prisma.table.findMany).mockResolvedValueOnce([] as never);
       vi.mocked(prisma.table.count).mockResolvedValueOnce(0 as never);
 
       await tableService.list(1, 10, true, "venue-1");
 
       expect(prisma.table.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { isActive: true, venueId: "venue-1" } })
+        expect.objectContaining({ where: bookableTableWhere("venue-1") })
       );
     });
   });

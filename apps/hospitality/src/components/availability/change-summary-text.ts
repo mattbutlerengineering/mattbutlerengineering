@@ -1,9 +1,8 @@
 import type { TFunction } from "i18next";
-import { addDays } from "@mbe/availability";
 import type { AvailabilityChangeDetail } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeChange, outcomeText, whenOf } from "./describe-change.js";
-import { weekdayRuns } from "./schedule-changes.js";
+import { weekdaySummary } from "./weekday-summary.js";
 
 /**
  * One change as a sentence in the viewer's language: the Conflict dialog's list and the History
@@ -69,10 +68,7 @@ function closureText(
   );
 }
 
-/** A Sunday: the calendar date that names stored weekday 0. */
-const SUNDAY = "2026-10-25";
-
-/** "Changed regular week from Nov 6: Fri–Sat"; null when the start date or the weekdays are missing. */
+/** "Changed regular week from Nov 6: Fri–Sat" (or "every day"); null when the start date or the weekdays are missing. */
 function regularWeekText(
   detail: AvailabilityChangeDetail,
   format: VenueFormat,
@@ -80,11 +76,7 @@ function regularWeekText(
 ): string | null {
   const { startsOn, weekdays } = detail;
   if (!startsOn || !weekdays || weekdays.length === 0) return null;
-  const name = (day: number) =>
-    format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" });
-  const days = new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
-    weekdayRuns(weekdays).map(([a, b]) => (a === b ? name(a) : `${name(a)}–${name(b)}`))
-  );
+  const days = weekdaySummary(weekdays, format, t);
   return t("availability.history.summary.regularWeekChanged", {
     from: format.formatCalendarDate(startsOn, { month: "short", day: "numeric" }),
     days,

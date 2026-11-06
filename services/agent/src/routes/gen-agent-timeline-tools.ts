@@ -101,7 +101,11 @@ export function createTimelineTools(
               error: `This booking is ${reservation.status.toLowerCase().replace(/_/g, " ")}, so it can't be seated.`,
             });
           }
-          const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+          const { data: tables } = await api.tables.list({
+            venueId,
+            limit: TABLES_LIMIT,
+            activeOnly: true,
+          });
           const chosen = tableRef ? resolveTable(tables, tableRef) : undefined;
           if (chosen && "error" in chosen) return notExecuted(chosen);
           const tableId = chosen?.table.id ?? reservation.tableId;

@@ -11,7 +11,7 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
-import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
+import type { AvailabilityConfigState, DateRule, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
@@ -69,6 +69,8 @@ export interface AvailabilityDayDrawerProps {
   /** `undefined` while the Team read is in flight. Only a Manager edits; a Host never sees a control. */
   readonly viewerRole: TeamRole | undefined;
   readonly editing?: DayEditing;
+  /** The venue's date rules, so a closure or special hours shows its staff note (Hosts too). */
+  readonly dateRules?: readonly DateRule[];
   readonly onClose: () => void;
 }
 
@@ -109,10 +111,12 @@ function summaryText(day: ResolvedDay, weekday: string, locale: string, t: TFunc
 function DayBody({
   day,
   date,
+  dateRules,
   layerActions,
 }: {
   readonly day: ResolvedDay;
   readonly date: string;
+  readonly dateRules?: readonly DateRule[];
   /** Remove / Edit beside a layer that stands for a saved rule; a Host and a past date get none. */
   readonly layerActions?: (layer: Layer) => ReactNode;
 }) {
@@ -121,6 +125,8 @@ function DayBody({
   const weekday = format.formatCalendarDate(date, { weekday: "long" });
   // The stack appears once a second layer exists; the regular week alone is just the summary.
   const showStack = day.explanation.length >= 2;
+  // A rule's note for staff ("Smith wedding"): why the day is the way it is, for whoever opens it.
+  const noteOf = (layer: Layer) => dateRules?.find((rule) => rule.id === layer.id)?.staffNote;
 
   return (
     <Stack gap="md">
@@ -130,6 +136,12 @@ function DayBody({
             {sentence}
           </Text>
         ))}
+        {/* What guests are told about this day, in the words the Manager wrote. */}
+        {day.guestMessage && (
+          <Text variant="caption" color="secondary">
+            {t("availability.drawer.guestMessage", { message: day.guestMessage })}
+          </Text>
+        )}
       </Stack>
       {showStack && (
         <section aria-labelledby="why-this-day">
@@ -154,6 +166,11 @@ function DayBody({
                     })}
                   </Text>
                 )}
+                {noteOf(layer) && (
+                  <Text as="span" variant="caption" color="secondary">
+                    {t("availability.drawer.staffNote", { note: noteOf(layer) })}
+                  </Text>
+                )}
                 {layerActions?.(layer)}
               </li>
             ))}
@@ -172,7 +189,7 @@ function DayBody({
  */
 export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   const viewport = useViewport();
-  const { date, day, isLoading, error, viewerRole, editing, onClose } = props;
+  const { date, day, isLoading, error, viewerRole, editing, dateRules, onClose } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
 
@@ -247,6 +264,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
           <DayBody
             day={day}
             date={date}
+            dateRules={dateRules ?? editing?.state.config.dateRules}
             layerActions={
               viewerRole === "manager" && editing && date >= editing.today
                 ? (layer) => (

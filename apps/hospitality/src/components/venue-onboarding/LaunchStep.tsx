@@ -220,9 +220,11 @@ export function LaunchStep({
             <div className={styles.reviewSection}>
               <Text className={styles.reviewLabel}>{t("onboarding.launch.advanceBooking")}</Text>
               <Text className={styles.reviewValue}>
-                {settings.advanceBookingDays
-                  ? t("onboarding.launch.days", { count: Number(settings.advanceBookingDays) })
-                  : t("onboarding.launch.noLimit")}
+                {settings.advanceBookingDays === ""
+                  ? t("onboarding.launch.noLimit")
+                  : Number(settings.advanceBookingDays) === 0
+                    ? t("onboarding.launch.todayOnly")
+                    : t("onboarding.launch.days", { count: Number(settings.advanceBookingDays) })}
                 {!settings.advanceBookingDays && (
                   <Text variant="caption" color="secondary">
                     {" "}

@@ -98,7 +98,7 @@
       export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm { /* ... */ }
     </item>
     <item priority="high">
-      export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null { /* ... */ }
+      export function invalidBookingRules(form: BookingRulesForm): readonly BookingRulesField[] { /* ... */ }
     </item>
     <item priority="high">
       export function withBookingRules(
@@ -2049,6 +2049,15 @@
     </item>
     <item priority="high">
       export function useDateSelection(options: DateSelectionOptions) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/weekday-summary.ts">
+    <item priority="high">
+      export function weekdaySummary(
+        weekdays: readonly number[],
+        format: VenueFormat,
+        t: TFunction
+      ): string { /* ... */ }
     </item>
   </file>
   </section>
