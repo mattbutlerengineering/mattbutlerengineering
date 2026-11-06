@@ -91,7 +91,7 @@ describe("AvailabilityQuickSetup", () => {
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: expect.stringMatching(/^Bookings are open Mon, Tue, Wed, Thu,? and Fri$/),
+          title: "Bookings are open Mon–Fri",
         })
       )
     );
@@ -156,9 +156,7 @@ describe("AvailabilityQuickSetup", () => {
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: expect.stringMatching(
-            /^Bookings are open Mon, Tue, Wed, Thu, Fri, Sat,? and Sun$/
-          ),
+          title: "Bookings are open every day",
         })
       )
     );
