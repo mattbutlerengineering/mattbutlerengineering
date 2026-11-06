@@ -32535,44 +32535,18 @@
       /** Current access token for API calls, or null when unauthenticated. */
       accessToken: string | null;
       /**
-       * Error from the most recent proactive silent refresh, or null when the last
-       * refresh succeeded (or none has run yet). Callers can surface a re-login prompt.
+       * Error from the most recent silent renew, or null when none has failed.
+       * Callers can surface a re-login prompt.
        */
       refreshError: Error | null;
     }
     export function useAccessToken(): AccessTokenState {
       const auth = useOIDCAuth();
-      const expiresAt = auth.user?.expires_at;
-      const signinSilent = auth.signinSilent;
-      const [localRefreshError, setLocalRefreshError] = useState<Error | null>(null);
-    
-      // The context-wrapped signinSilent never rejects: react-oidc-context catches,
-      // dispatches ERROR with a silent `source`, and resolves null. So the real
-      // failure signal is the context error; the local catch only matters for a
-      // custom UserManager that throws.
-      const contextRefreshError = isSilentAuthError(auth.error) ? (auth.error ?? null) : null;
-    
-      useEffect(() => {
-        if (!expiresAt) return;
-    
-        const msUntilExpiry = expiresAt * 1000 - Date.now();
-        // Refresh REFRESH_LEAD_MS before expiry; fire immediately if already inside the window.
-        const delay = Math.max(0, msUntilExpiry - REFRESH_LEAD_MS);
-    
-        const timer = setTimeout(() => {
-          signinSilent()
-            .then(() => setLocalRefreshError(null))
-            .catch((error: unknown) => {
-              setLocalRefreshError(error instanceof Error ? error : new Error(String(error)));
-            });
-        }, delay);
-    
-        return () => clearTimeout(timer);
-      }, [expiresAt, signinSilent]);
+      const refreshError = isSilentAuthError(auth.error) ? (auth.error ?? null) : null;
     
       return {
         accessToken: auth.user?.access_token ?? null,
-        refreshError: contextRefreshError ?? localRefreshError,
+        refreshError,
       };
     }
     export function useRequireAuth() {

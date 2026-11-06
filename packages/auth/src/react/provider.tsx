@@ -32,7 +32,15 @@ export function AuthProvider({ config, children, onSigninCallback }: AuthProvide
     client_id: config.clientId,
     redirect_uri: config.redirectUri,
     post_logout_redirect_uri: config.postLogoutRedirectUri ?? config.redirectUri,
-    scope: config.scope ?? "openid profile email",
+    // offline_access makes Auth0 issue a refresh token, so signinSilent uses the
+    // refresh_token grant (a fetch) instead of a prompt=none iframe, which the
+    // edge CSP (frame-src, frame-ancestors 'none') blocks.
+    scope: config.scope ?? "openid profile email offline_access",
+    // The refresh token lives in localStorage, so revoke it with the IdP on sign-out.
+    // automaticSilentRenew stays at the library default (true): the UserManager's
+    // renewer is the only one, and covers every app and route.
+    revokeTokensOnSignout: true,
+    revokeTokenTypes: ["refresh_token"],
     // For Auth0, we need to pass audience as extra query params
     extraQueryParams: config.audience ? { audience: config.audience } : undefined,
     // Use localStorage so Playwright's storageState captures the OIDC session.

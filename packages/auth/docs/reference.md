@@ -32,7 +32,7 @@ Wraps the app with OIDC context. Cleans callback params from URL after sign-in.
     clientId: "abc123",
     redirectUri: window.location.origin,
     audience: "https://api.example.com",
-    scope: "openid profile email", // default
+    scope: "openid profile email offline_access", // default
   }}
   onSigninCallback={() => navigate("/")}
 >
@@ -45,7 +45,7 @@ Wraps the app with OIDC context. Cleans callback params from URL after sign-in.
 | Hook                       | Returns                                                                                                                                                | Purpose                                                                                                                               |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `useAuth()`                | `{ isLoading, isAuthenticated, user, accessToken, signIn, signOut, signInSilent, error, activeNavigator, isRefreshing, sessionExpired, refreshError }` | Full auth state and methods                                                                                                           |
-| `useAccessToken()`         | `{ accessToken: string \| null, refreshError: Error \| null }`                                                                                         | Access token + proactive-refresh error                                                                                                |
+| `useAccessToken()`         | `{ accessToken: string \| null, refreshError: Error \| null }`                                                                                         | Access token + silent-renew error                                                                                                     |
 | `useRequireAuth()`         | Same as `useAuth()`                                                                                                                                    | Auto-redirects to login if unauthenticated                                                                                            |
 | `useSessionLifecycle()`    | `{ expired: boolean }`                                                                                                                                 | Raw token-expiry signal (used by `useAuth`)                                                                                           |
 | `hasAuthParams(location?)` | `boolean`                                                                                                                                              | react-oidc-context's own callback predicate, re-exported so an app's gate and the provider agree on whether a callback is in progress |
