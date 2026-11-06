@@ -61,7 +61,7 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 
 - Documentation-only changes: `*.md` outside `docs/SECURITY-AI.md`, `docs/change-tiers.md`, `docs/review-criteria.md`, and active ADRs.
 - Comment changes, JSDoc updates, README typo fixes.
-- Test-only additions (no production code change in the diff).
+- Test-only additions (no production code change in the diff): `*.test.ts|tsx|js|jsx`. `*.test.mjs`/`.cjs` under `scripts/` are T2 (`repo script`) by design.
 - Changeset additions (`.changeset/*.md`) that don't modify code.
 - Editor config: `.editorconfig`, `.vscode/*`, `.cursorrules` updates.
 - `metrics/*.jsonl` appends (these are append-only logs).
