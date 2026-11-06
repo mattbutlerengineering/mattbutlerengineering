@@ -32,7 +32,7 @@ Wraps the app with OIDC context. Cleans callback params from URL after sign-in.
     clientId: "abc123",
     redirectUri: window.location.origin,
     audience: "https://api.example.com",
-    scope: "openid profile email", // default
+    scope: "openid profile email offline_access", // default
   }}
   onSigninCallback={() => navigate("/")}
 >
