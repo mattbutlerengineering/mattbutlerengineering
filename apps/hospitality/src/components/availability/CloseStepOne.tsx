@@ -230,9 +230,7 @@ export function CloseStepOne(props: CloseStepOneProps) {
                   )}
                 {when.kind === "dates" && (
                   <Stack gap="xs">
-                    {/* Unset after each pick (`key`), so the next date is a fresh choice. */}
                     <DatePicker
-                      key={when.dates.length}
                       label={t("availability.close.when.addDateLabel")}
                       value={null}
                       min={today}

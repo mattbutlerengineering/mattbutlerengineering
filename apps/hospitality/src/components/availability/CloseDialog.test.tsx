@@ -1559,6 +1559,30 @@ describe("CloseDialog", () => {
       expect(within(picked).getByText("Thu, Dec 24")).toBeTruthy();
     });
 
+    it("keeps focus on the date picker after a pick", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-01T12:00:00"));
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Several dates" }));
+      const picker = within(dialog).getByRole("combobox", { name: "Add a date" });
+      // A real click focuses the trigger, which is where the popover hands focus back.
+      picker.focus();
+      fireEvent.click(picker);
+      fireEvent.click(
+        await waitFor(() => {
+          const cell = document.querySelector<HTMLElement>('[data-date="2026-12-22"]');
+          if (!cell) throw new Error("no day cell");
+          return cell;
+        })
+      );
+      expect(within(dialog).getByText("Tue, Dec 22")).toBeTruthy();
+      await waitFor(() => expect(document.body).not.toBe(document.activeElement));
+      expect(within(dialog).getByRole("combobox", { name: "Add a date" })).toBe(
+        document.activeElement
+      );
+    });
+
     it("asks one question per date in Step 2 and sends each date's decision with its own rule", async () => {
       impactByDate.value = {
         [DATE]: { reservations: 3, covers: 6, depositsHeld: 0, groups: [group(DATE, 3)] },
