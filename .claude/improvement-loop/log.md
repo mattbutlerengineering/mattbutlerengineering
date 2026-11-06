@@ -4935,6 +4935,7 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **queueEfficiency:** composite 0.865 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:24, size:xs:10, size:m:7, size:l:16, size:xl:17
 **Issues filed:** 0
+
 ## 2026-11-06 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
