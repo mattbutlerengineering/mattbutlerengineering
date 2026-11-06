@@ -2827,7 +2827,8 @@
         "saved_many": "Modifications effacées pour {{count}} dates"
       },
       "selectDays": "Sélectionner des jours",
-      "selectingHint": "Touchez les jours voulus"
+      "selectingHint": "Touchez les jours voulus",
+      "selectingHintPointer": "Cliquez sur les jours voulus ou faites glisser dessus"
     },
     "tonight": {
       "title": "Ce soir",
