@@ -307,8 +307,14 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   // On a phone these sit in More actions, with no Select… button to say what they do, so they
   // name the verb themselves ("Select every Thursday in November").
   const onPhone = viewport === "phone";
-  // Every date of a month already over is past, and past dates can't be picked.
-  const monthOver = anchor.slice(0, 7) < today.slice(0, 7);
+  // Past dates can't be picked, so Select days needs a shown date that is today or later. The
+  // phone and tablet month list shows only the anchor month; the grid and a week show `dates`
+  // (a straddling week or a padded grid row can reach past the anchor month).
+  const shownDates =
+    viewport !== "desktop" && view === "month"
+      ? dates.filter((d) => d.startsWith(anchor.slice(0, 7)))
+      : dates;
+  const monthOver = !shownDates.some((d) => d >= today);
   const selectItems = [
     // Every size: the agenda list has only this and a long press, and on the grid it is the way
     // in a Manager can find; its hint there names drag as the faster way.
