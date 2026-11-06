@@ -73,7 +73,9 @@ vi.mock("../hooks/useAvailability.js", () => ({
 }));
 vi.mock("../hooks/useClosures.js", () => ({
   useClosureImpact: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }),
+  useClosureImpacts: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
   useCreateClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCreateClosures: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useReopenClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
@@ -700,6 +702,28 @@ describe("AvailabilityPage", () => {
   describe("multi-select", () => {
     const pick = (re: RegExp) =>
       fireEvent.click(screen.getByRole("button", { name: re }), { ctrlKey: true });
+
+    it("opens Close from the selection bar on the selected dates, one closure each (#7981)", () => {
+      window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      renderPage();
+      pick(/Thursday, October 29/);
+      pick(/Friday, October 30/);
+      const bar = screen.getByRole("group", { name: "Selected dates" });
+      fireEvent.click(within(bar).getByRole("button", { name: "Close…" }));
+      const dialog = screen.getByRole("dialog", { name: "Close" });
+      expect(within(dialog).getByRole("radio", { name: "Several dates" })).toBeChecked();
+      expect(within(dialog).getByText("Thu, Oct 29")).toBeInTheDocument();
+      expect(within(dialog).getByText("Fri, Oct 30")).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Close 2 dates" })).toBeInTheDocument();
+    });
+
+    it("hides Close… from the selection bar for a Host", () => {
+      team.value = { viewerRole: "host" };
+      renderPage();
+      pick(/Thursday, October 29/);
+      const bar = screen.getByRole("group", { name: "Selected dates" });
+      expect(within(bar).queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
+    });
 
     it("selects the weekday's dates from the Select… menu, skipping the past ones", () => {
       renderPage();

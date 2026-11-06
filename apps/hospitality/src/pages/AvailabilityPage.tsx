@@ -59,9 +59,13 @@ import styles from "./AvailabilityPage.module.css";
 
 const EMPTY: string[] = [];
 
-/** The Close dialog (F5): `date` pre-fills "one date"; `pause` starts on pausing online booking. */
+/**
+ * The Close dialog (F5): `date` pre-fills "one date", `dates` (the selection bar's) "Several
+ * dates"; `pause` starts on pausing online booking.
+ */
 interface Closing {
   readonly date: string | null;
+  readonly dates?: readonly string[];
   readonly pause: boolean;
 }
 
@@ -530,6 +534,9 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         canEdit={canAct}
         onEditHours={editSelection}
         onClear={clearSelection}
+        onCloseDates={(dates) =>
+          guard.request({ date: null, closing: { date: null, dates, pause: false } })
+        }
         selecting={selecting}
         onUseSchedule={() => setSelectionAction("use")}
         multipleSchedules={activeScheduleCount > 1}
@@ -645,7 +652,9 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           timezone={timeZone}
           today={today}
           initialDate={closing.date}
+          initialDates={closing.dates}
           pauseOnline={closing.pause}
+          onSaved={closing.dates ? finishSelectionAction : undefined}
           onClose={() => setClosing(null)}
         />
       )}

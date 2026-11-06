@@ -6,6 +6,9 @@ import { ApiClientError } from "@mbe/api-client";
 import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
+const createMany = vi.hoisted(() => vi.fn());
+/** The impact per date for Close on several dates: each rule is answered by its own start date. */
+const impactByDate = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
 const saving = vi.hoisted(() => ({ value: false }));
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
 const refetchImpact = vi.hoisted(() => vi.fn());
@@ -21,6 +24,24 @@ const impactQuery = vi.hoisted(() => ({
 }));
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: saving.value }),
+  useCreateClosures: () => ({ mutateAsync: createMany, isPending: saving.value }),
+  useClosureImpacts: ({ rules }: { rules: readonly { startsOn: string }[] }) => ({
+    data:
+      rules.length > 0
+        ? rules.map(
+            (r) =>
+              impactByDate.value[r.startsOn] ?? {
+                reservations: 0,
+                covers: 0,
+                depositsHeld: 0,
+                groups: [],
+              }
+          )
+        : undefined,
+    isLoading: false,
+    error: null,
+    refetch: refetchImpact,
+  }),
   useClosureNoticePreview: () => ({ data: undefined, isLoading: true, error: null }),
   useClosureImpact: ({ rule }: { rule: unknown }) => {
     const key = JSON.stringify(rule);
@@ -117,6 +138,8 @@ describe("CloseDialog", () => {
   });
   beforeEach(() => {
     create.mockReset();
+    createMany.mockReset();
+    impactByDate.value = {};
     refresh.mockReset();
     saving.value = false;
     impactState.value = IMPACT;
@@ -1438,6 +1461,215 @@ describe("CloseDialog", () => {
       fireEvent.click(screen.getByRole("option", { name: "From 8:00 PM" }));
       expect(screen.queryByText(/Fri, Dec 25 · Closed$/)).toBeNull();
       expect(screen.getByText(/Fri, Dec 25 · Closed from 8:00 PM/)).toBeTruthy();
+    });
+  });
+
+  describe("several dates (#7981)", () => {
+    const DEC25 = "2026-12-25";
+    const group = (date: string, n: number) => ({
+      groupKey: `${date}:closed`,
+      date,
+      kind: "closed" as const,
+      covers: n * 2,
+      depositsHeld: 0,
+      reservations: Array.from({ length: n }, (_, i) => ({
+        id: `${date}-r${i}`,
+        startTime: `${date}T17:30:00Z`,
+        endTime: `${date}T19:00:00Z`,
+        partySize: 2,
+        guestName: `Guest ${date} ${i}`,
+        deposit: null,
+        runsIntoClosure: false,
+      })),
+    });
+    afterEach(() => vi.useRealTimers());
+    const outcomes = (cancel: number) => ({ cancel, move: 0, keep_notify: 0, keep_silent: 0 });
+
+    it("opens on the selected dates, closing one rule per date in one command", async () => {
+      createMany.mockResolvedValue({
+        version: 9,
+        results: [
+          { ruleId: "a", version: 8, changeId: "c1", outcomes: outcomes(0) },
+          { ruleId: "b", version: 9, changeId: "c2", outcomes: outcomes(0) },
+        ],
+      });
+      const onSaved = vi.fn();
+      const { onClose } = renderDialog({ initialDate: null, initialDates: [DEC25, DATE], onSaved });
+      const dialog = screen.getByRole("dialog");
+
+      expect(within(dialog).getByRole("radio", { name: "Several dates" })).toBeChecked();
+      expect(within(dialog).getByText("Thu, Dec 24")).toBeTruthy();
+      expect(within(dialog).getByText("Fri, Dec 25")).toBeTruthy();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Closed for the holiday" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close 2 dates" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(onSaved).toHaveBeenCalled();
+      expect(create).not.toHaveBeenCalled();
+      expect(createMany).toHaveBeenCalledTimes(1);
+      const { body } = createMany.mock.calls[0]![0] as {
+        body: { expectedVersion: number; items: { rule: DateRule; decisions: unknown[] }[] };
+      };
+      expect(body.expectedVersion).toBe(7);
+      // One single-date closure rule each, in date order, with distinct ids and the shared message.
+      expect(body.items.map((i) => [i.rule.startsOn, i.rule.endsOn])).toEqual([
+        [DATE, DATE],
+        [DEC25, DEC25],
+      ]);
+      expect(new Set(body.items.map((i) => i.rule.id)).size).toBe(2);
+      for (const { rule, decisions } of body.items) {
+        expect(rule).toMatchObject({
+          kind: "closure",
+          targetKind: "venue",
+          window: null,
+          guestMessage: "Closed for the holiday",
+        });
+        expect(rule.repeat).toBeUndefined();
+        expect(decisions).toEqual([]);
+      }
+      expect(await screen.findByText("2 dates closed")).toBeTruthy();
+    });
+
+    it("adds a date from the picker and removes one, keeping them in order", async () => {
+      // The calendar opens on the current month: pin it to December.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-01T12:00:00"));
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Several dates" }));
+      // Starts from the date the dialog was on.
+      expect(within(dialog).getByText("Thu, Dec 24")).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Add a date" }));
+      fireEvent.click(
+        await waitFor(() => {
+          const cell = document.querySelector<HTMLElement>('[data-date="2026-12-22"]');
+          if (!cell) throw new Error("no day cell");
+          return cell;
+        })
+      );
+      const picked = within(dialog).getByRole("list", { name: "Dates to close" });
+      expect(
+        within(picked)
+          .getAllByRole("listitem")
+          .map((li) => li.textContent)
+      ).toEqual(["Tue, Dec 22", "Thu, Dec 24"]);
+      fireEvent.click(within(picked).getAllByRole("button")[0]!);
+      expect(within(picked).getAllByRole("listitem")).toHaveLength(1);
+      expect(within(picked).getByText("Thu, Dec 24")).toBeTruthy();
+    });
+
+    it("asks one question per date in Step 2 and sends each date's decision with its own rule", async () => {
+      impactByDate.value = {
+        [DATE]: { reservations: 3, covers: 6, depositsHeld: 0, groups: [group(DATE, 3)] },
+        [DEC25]: { reservations: 2, covers: 4, depositsHeld: 0, groups: [group(DEC25, 2)] },
+      };
+      createMany.mockResolvedValue({
+        version: 9,
+        results: [
+          { ruleId: "a", version: 8, changeId: "c1", outcomes: outcomes(3) },
+          { ruleId: "b", version: 9, changeId: "c2", outcomes: outcomes(0) },
+        ],
+      });
+      const { onClose } = renderDialog({ initialDate: null, initialDates: [DATE, DEC25] });
+      const dialog = screen.getByRole("dialog");
+
+      // Impact adds up across the dates.
+      expect(
+        within(dialog).getByText("5 reservations · 10 guests are booked in this closure")
+      ).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      expect(within(dialog).getByText("Step 2 of 2")).toBeTruthy();
+      const primary = within(dialog).getByTestId("close-primary");
+      expect(primary).toBeDisabled();
+
+      // Each date is its own group with its own required choice.
+      const cancels = within(dialog).getAllByRole("radio", { name: /Cancel, notify & refund/ });
+      const keeps = within(dialog).getAllByRole("radio", { name: /Keep them and notify/ });
+      expect(cancels).toHaveLength(2);
+      fireEvent.click(cancels[0]!);
+      expect(primary).toBeDisabled();
+      fireEvent.click(keeps[1]!);
+      expect(primary).toBeEnabled();
+      fireEvent.click(primary);
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      const { body } = createMany.mock.calls[0]![0] as {
+        body: { items: { rule: DateRule; decisions: { groupKey: string; action: string }[] }[] };
+      };
+      expect(body.items.map((i) => i.rule.startsOn)).toEqual([DATE, DEC25]);
+      expect(body.items[0]!.decisions.map((d) => [d.groupKey, d.action])).toEqual([
+        [`${DATE}:closed`, "cancel"],
+      ]);
+      expect(body.items[1]!.decisions.map((d) => [d.groupKey, d.action])).toEqual([
+        [`${DEC25}:closed`, "keep_notify"],
+      ]);
+      // The toast counts the notified bookings across the dates.
+      expect(await screen.findByText("2 dates closed · 3 reservations notified")).toBeTruthy();
+    });
+
+    it("keeps its rule ids and key when a lost response is retried", async () => {
+      createMany.mockRejectedValueOnce(new Error("lost"));
+      createMany.mockResolvedValue({
+        version: 9,
+        results: [
+          { ruleId: "a", version: 8, changeId: "c1", outcomes: outcomes(0) },
+          { ruleId: "b", version: 9, changeId: "c2", outcomes: outcomes(0) },
+        ],
+      });
+      renderDialog({ initialDate: null, initialDates: [DATE, DEC25] });
+      fireEvent.click(screen.getByRole("button", { name: "Close 2 dates" }));
+      await waitFor(() => expect(createMany).toHaveBeenCalledTimes(1));
+      fireEvent.click(await screen.findByRole("button", { name: "Close 2 dates" }));
+      await waitFor(() => expect(createMany).toHaveBeenCalledTimes(2));
+      const [first, second] = createMany.mock.calls.map(
+        (c) => c[0] as { idempotencyKey: string; body: { items: { rule: { id: string } }[] } }
+      );
+      expect(second!.idempotencyKey).toBe(first!.idempotencyKey);
+      expect(second!.body.items.map((i) => i.rule.id)).toEqual(
+        first!.body.items.map((i) => i.rule.id)
+      );
+    });
+
+    it("warns about special hours on any of the dates, and about a date already closed", () => {
+      const state: AvailabilityConfigState = {
+        config: fixtureConfig({
+          id: "sp",
+          kind: "special_hours",
+          targetKind: "venue",
+          startsOn: DEC25,
+          endsOn: DEC25,
+          payload: { version: 1, services: [] },
+        }),
+        version: 7,
+        source: "rows",
+      };
+      renderDialog({ state, initialDate: null, initialDates: [DATE, DEC25] });
+      expect(screen.getByText(/Fri, Dec 25 has special hours/)).toBeTruthy();
+    });
+
+    it("refuses more dates than one command can hold, and none", () => {
+      const many = Array.from(
+        { length: 21 },
+        (_, i) => `2027-01-${String(i + 1).padStart(2, "0")}`
+      );
+      const { unmount } = renderDialog({ initialDate: null, initialDates: many });
+      fireEvent.click(screen.getByRole("button", { name: "Close 21 dates" }));
+      expect(screen.getByRole("alert")).toHaveTextContent("Close up to 20 dates at once.");
+      expect(createMany).not.toHaveBeenCalled();
+      unmount();
+      renderDialog();
+      fireEvent.click(screen.getByRole("radio", { name: "Several dates" }));
+      fireEvent.click(
+        within(screen.getByRole("list", { name: "Dates to close" })).getAllByRole("button")[0]!
+      );
+      fireEvent.click(screen.getByTestId("close-primary"));
+      expect(screen.getByRole("alert")).toHaveTextContent("Pick at least one date.");
+    });
+
+    it("treats one selected date as One date", () => {
+      renderDialog({ initialDate: null, initialDates: [DATE] });
+      expect(screen.getByRole("radio", { name: "One date" })).toBeChecked();
     });
   });
 

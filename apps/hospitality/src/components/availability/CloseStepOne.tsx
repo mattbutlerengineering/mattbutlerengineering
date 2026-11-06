@@ -15,7 +15,12 @@ import {
   Text,
   TextArea,
 } from "@mattbutlerengineering/rialto";
-import { GUEST_MESSAGE_MAX_LENGTH, type ClosureImpact, type VenueService } from "@mbe/types";
+import {
+  GUEST_MESSAGE_MAX_LENGTH,
+  MAX_CLOSURE_BATCH,
+  type ClosureImpact,
+  type VenueService,
+} from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays } from "../../utils/service-day.js";
 import { WEEK_STARTS_ON } from "./calendar-dates.js";
@@ -25,6 +30,7 @@ import {
   closeWhenId,
   firstDateOf,
   guestDateOf,
+  toggleDate,
   type BookingChannel,
   type CloseForm,
   type CloseWhat,
@@ -69,6 +75,8 @@ function whenKindDefaults(kind: CloseWhen["kind"], today: string): CloseWhen {
       return { kind };
     case "date":
       return { kind, date: today };
+    case "dates":
+      return { kind, dates: [today] };
     case "range":
       return { kind, from: today, to: addDays(today, 6) };
     case "repeats":
@@ -206,6 +214,7 @@ export function CloseStepOne(props: CloseStepOneProps) {
               >
                 <Radio value="tonight" label={t("availability.close.when.tonight")} />
                 <Radio value="date" label={t("availability.close.when.date")} />
+                <Radio value="dates" label={t("availability.close.when.dates")} />
                 <Radio value="range" label={t("availability.close.when.range")} />
                 <Radio value="repeats" label={t("availability.close.when.repeats")} />
                 <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
@@ -219,6 +228,47 @@ export function CloseStepOne(props: CloseStepOneProps) {
                   dateField(t("availability.close.when.startingLabel"), when.from, (from) =>
                     patch({ when: { kind: "until-reopen", from } })
                   )}
+                {when.kind === "dates" && (
+                  <Stack gap="xs">
+                    {/* Unset after each pick (`key`), so the next date is a fresh choice. */}
+                    <DatePicker
+                      key={when.dates.length}
+                      label={t("availability.close.when.addDateLabel")}
+                      value={null}
+                      min={today}
+                      locale={format.locale}
+                      weekStartsOn={WEEK_STARTS_ON}
+                      onChange={(v) =>
+                        v && !when.dates.includes(v)
+                          ? patch({ when: { kind: "dates", dates: toggleDate(when.dates, v) } })
+                          : undefined
+                      }
+                    />
+                    <div
+                      className={styles.chips}
+                      role="list"
+                      aria-label={t("availability.close.when.picked")}
+                    >
+                      {when.dates.map((date) => (
+                        <div role="listitem" key={date}>
+                          <Tag
+                            dismissible
+                            onDismiss={() =>
+                              patch({
+                                when: { kind: "dates", dates: toggleDate(when.dates, date) },
+                              })
+                            }
+                          >
+                            {fullDate(date)}
+                          </Tag>
+                        </div>
+                      ))}
+                    </div>
+                    <Text variant="caption" color="secondary">
+                      {t("availability.close.when.datesHint", { max: MAX_CLOSURE_BATCH })}
+                    </Text>
+                  </Stack>
+                )}
                 {(when.kind === "range" || when.kind === "repeats") && (
                   <>
                     {dateField(t("availability.close.when.fromLabel"), when.from, (from) =>
@@ -256,7 +306,14 @@ export function CloseStepOne(props: CloseStepOneProps) {
           )}
           {props.invalid === "when" && (
             <Text variant="caption" color="secondary" role="alert">
-              {t("availability.close.when.invalid")}
+              {when.kind === "dates"
+                ? t(
+                    when.dates.length === 0
+                      ? "availability.close.when.datesRequired"
+                      : "availability.close.when.datesTooMany",
+                    { max: MAX_CLOSURE_BATCH }
+                  )
+                : t("availability.close.when.invalid")}
             </Text>
           )}
         </>

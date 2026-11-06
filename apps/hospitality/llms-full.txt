@@ -442,6 +442,8 @@
     export type CloseWhen =
       | { readonly kind: "tonight" }
       | { readonly kind: "date"; readonly date: string }
+      /** Several picked dates, ascending: stored as one single-date closure each (#7981). */
+      | { readonly kind: "dates"; readonly dates: readonly string[] }
       | { readonly kind: "range"; readonly from: string; readonly to: string }
       | {
           readonly kind: "repeats";
@@ -476,6 +478,8 @@
           return { startsOn: today, endsOn: today };
         case "date":
           return { startsOn: when.date, endsOn: when.date };
+        case "dates":
+          return { startsOn: when.dates[0] ?? "", endsOn: when.dates.at(-1) ?? "" };
         case "range":
           return { startsOn: when.from, endsOn: when.to };
         case "repeats":
@@ -490,6 +494,7 @@
       return true;
     }
     function whenIsComplete(when: CloseWhen, today: string): boolean {
+      if (when.kind === "dates") return when.dates.length <= MAX_CLOSURE_BATCH && when.dates.length > 0;
       const span = spanOf(when, today);
       if (span.startsOn === "") return false;
       if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
@@ -527,7 +532,7 @@
       }
     }
     export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null {
-      if (validateClose(form, today) !== null) return null;
+      if (validateClose(form, today) !== null || form.when.kind === "dates") return null;
       const span = spanOf(form.when, today);
       const note = form.staffNote.trim();
       const message = form.guestMessage.trim();
@@ -545,6 +550,23 @@
         ...(note ? { staffNote: note } : {}),
         ...(message ? { guestMessage: message } : {}),
       };
+    }
+    export function buildCloseRules(
+      form: CloseForm,
+      idFor: (date: string) => string,
+      today: string
+    ): readonly DateRule[] {
+      if (form.when.kind !== "dates") {
+        const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today);
+        return rule ? [rule] : [];
+      }
+      return form.when.dates.flatMap((date) => {
+        const rule = buildCloseRule({ ...form, when: { kind: "date", date } }, idFor(date), today);
+        return rule ? [rule] : [];
+      });
+    }
+    export function toggleDate(dates: readonly string[], date: string): readonly string[] {
+      return dates.includes(date) ? dates.filter((d) => d !== date) : [...dates, date].sort();
     }
     type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
     export function firstDateOf(when: CloseWhen, today: string): string {
@@ -626,12 +648,9 @@
       if (!whenIsComplete(next.when, today)) return next;
       const { startsOn, endsOn, weekdays } = spanOf(next.when, today);
       const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
-      const [first = 0] = startMinutes(
-        config,
-        timezone,
-        closedDates({ startsOn, endsOn, repeat }),
-        null
-      );
+      const dates =
+        next.when.kind === "dates" ? next.when.dates : closedDates({ startsOn, endsOn, repeat });
+      const [first = 0] = startMinutes(config, timezone, dates, null);
       return next.fromMinute < first ? { ...next, fromMinute: null } : next;
     }
     function whatOf(series: DateRule): CloseWhat {
@@ -10281,6 +10300,32 @@
           : null,
       getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
     });
+    export function useClosureImpacts(params: {
+      readonly venueId: string | null;
+      readonly rules: readonly DateRule[];
+    }): {
+      data: ClosureImpact[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => Promise<unknown>;
+    } {
+      const api = useApiClient();
+      const { venueId, rules } = params;
+      const queries = useQueries({
+        queries: rules.map((rule) => ({
+          queryKey: buildQueryKey(CLOSURE_IMPACT_QUERY_KEY, { venueId, rule }),
+          queryFn: () => api.availability.getClosureImpact(venueId!, rule),
+          enabled: venueId !== null,
+        })),
+      });
+      const answered = queries.length > 0 && queries.every((q) => q.data !== undefined);
+      return {
+        data: answered ? queries.map((q) => q.data!) : undefined,
+        isLoading: queries.some((q) => q.isLoading),
+        error: queries.find((q) => q.error)?.error ?? null,
+        refetch: () => Promise.all(queries.map((q) => q.refetch())),
+      };
+    }
     export const useClosureNoticePreview = createQueryHook<
       ClosureNoticePreview | null,
       { venueId: string; body: ClosureNoticePreviewBody }
