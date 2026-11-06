@@ -85,6 +85,7 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
               onDirtyChange: vi.fn(),
               onFinished,
               onStale,
+              onCloseDay: vi.fn(),
             }}
           />
         </main>
@@ -236,5 +237,18 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
     renderDrawer({ rules: [PARTY_CLOSURE] });
     expect(screen.getByRole("button", { name: /Remove closure/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Edit dates/ })).toBeNull();
+  });
+
+  it("offers Close… on an open date that is not over", () => {
+    renderDrawer();
+    expect(screen.getByRole("button", { name: "Close…" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["already closed all day", { rules: [EARLY_DINNER, VENUE_CLOSURE] }],
+    ["over", { today: "2026-11-02" }],
+  ])("offers no Close… on a date that is %s", (_, opts) => {
+    renderDrawer(opts);
+    expect(screen.queryByRole("button", { name: "Close…" })).toBeNull();
   });
 });
