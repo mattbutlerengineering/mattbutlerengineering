@@ -15208,10 +15208,21 @@
       // via a second addInitScript call before navigation (e.g. for realtime-collaboration tests).
       type SseEventEntry = { type: string; data: unknown };
       await page.route("**/api/v1/events/stream**", async (route) => {
-        const cfg = await page.evaluate(
-          () =>
-            (window as unknown as { __fakeSSEConfig?: { events?: SseEventEntry[] } }).__fakeSSEConfig
-        );
+        // The app opens this stream on every load, so a test that navigates twice
+        // in a row (fixture goto, then its own) can destroy the frame's execution
+        // context while this handler is reading the config. The page that asked is
+        // gone, so a navigation is not a failure: serve the default frames (#8164).
+        const cfg = await page
+          .evaluate(
+            () =>
+              (window as unknown as { __fakeSSEConfig?: { events?: SseEventEntry[] } }).__fakeSSEConfig
+          )
+          .catch((error: unknown) => {
+            if (error instanceof Error && /Execution context was destroyed/.test(error.message)) {
+              return undefined;
+            }
+            throw error;
+          });
         const frames = [
           `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`,
           ...(cfg?.events ?? []).map(
