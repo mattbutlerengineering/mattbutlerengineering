@@ -240,10 +240,9 @@ export const floorPlanService = {
             minCovers: t.minCovers,
             maxCovers: t.maxCovers,
             location: t.location,
-            // Inactive until the owner turns them on: any active table is
-            // bookable whatever its plan, so an active copy would double
-            // online capacity (#8255; plan-scoped bookability is #8276).
-            isActive: false,
+            // Copies keep the source's flag: bookability is plan-scoped
+            // (#8276), so the copy stays offline until its plan is activated.
+            isActive: t.isActive,
             priority: t.priority,
             status: "AVAILABLE",
             venueId: t.venueId,

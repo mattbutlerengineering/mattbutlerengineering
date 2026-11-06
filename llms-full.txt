@@ -35047,7 +35047,11 @@
                   error: `This booking is ${reservation.status.toLowerCase().replace(/_/g, " ")}, so it can't be seated.`,
                 });
               }
-              const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+              const { data: tables } = await api.tables.list({
+                venueId,
+                limit: TABLES_LIMIT,
+                activeOnly: true,
+              });
               const chosen = tableRef ? resolveTable(tables, tableRef) : undefined;
               if (chosen && "error" in chosen) return notExecuted(chosen);
               const tableId = chosen?.table.id ?? reservation.tableId;
@@ -35852,7 +35856,11 @@
               const found = await findParty(api, venueId, guestName, partySize);
               if ("error" in found) return notExecuted(found);
               const { entry } = found;
-              const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+              const { data: tables } = await api.tables.list({
+                venueId,
+                limit: TABLES_LIMIT,
+                activeOnly: true,
+              });
               const resolved = resolveTable(tables, tableRef);
               if ("error" in resolved) return notExecuted(resolved);
               const { table } = resolved;
@@ -54649,7 +54657,7 @@
         const [bookings, tables] = await Promise.all([
           futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
           tx.table.findMany({
-            where: { venueId },
+            where: { venueId, ...onActivePlanWhere() },
             select: {
               id: true,
               name: true,
@@ -55310,7 +55318,7 @@
           include: { tables: { select: { tableId: true } } },
         }),
         db.table.findMany({
-          where: { venueId, isActive: true },
+          where: bookableTableWhere(venueId),
           orderBy: [{ priority: "desc" }, { capacity: "asc" }],
           select: {
             id: true,
@@ -55527,7 +55535,7 @@
       // place - @mbe/types' partyFitsTable - so it is applied here rather than
       // re-expressed as a Prisma `where`, where null maxCovers meant "unlimited".
       const tables = await prisma.table.findMany({
-        where: { venueId, isActive: true },
+        where: bookableTableWhere(venueId),
         orderBy: [{ priority: "desc" }, { capacity: "asc" }],
       });
       return filterSuitableTables(tables, partySize);
@@ -55747,6 +55755,20 @@
         };
       }
       return { overrideLimits: outcome.overrideLimits };
+    }
+  </file>
+  <file path="services/reservations/src/services/bookable-tables.ts">
+    export function onActivePlanWhere(): Prisma.TableWhereInput {
+      return {
+        OR: [
+          { floorPlanId: null },
+          { floorPlan: { isActive: true } },
+          { venue: { floorPlans: { none: { isActive: true } } } },
+        ],
+      };
+    }
+    export function bookableTableWhere(venueId: string): Prisma.TableWhereInput {
+      return { venueId, isActive: true, ...onActivePlanWhere() };
     }
   </file>
   <file path="services/reservations/src/services/booking-metrics.ts">
@@ -60724,10 +60746,9 @@
                 minCovers: t.minCovers,
                 maxCovers: t.maxCovers,
                 location: t.location,
-                // Inactive until the owner turns them on: any active table is
-                // bookable whatever its plan, so an active copy would double
-                // online capacity (#8255; plan-scoped bookability is #8276).
-                isActive: false,
+                // Copies keep the source's flag: bookability is plan-scoped
+                // (#8276), so the copy stays offline until its plan is activated.
+                isActive: t.isActive,
                 priority: t.priority,
                 status: "AVAILABLE",
                 venueId: t.venueId,
@@ -66357,10 +66378,13 @@
         activeOnly: boolean = false,
         venueId?: string
       ): Promise<PaginatedResponse<Table>> {
-        const where: Record<string, unknown> = activeOnly ? { isActive: true } : {};
-        if (venueId) {
-          where.venueId = venueId;
-        }
+        // activeOnly means "bookable" (#8276): active AND on the venue's active
+        // plan. Unfiltered lists still return every table so staff keep seeing
+        // bookings on tables of an inactive plan.
+        const where: Prisma.TableWhereInput =
+          activeOnly && venueId
+            ? bookableTableWhere(venueId)
+            : { ...(activeOnly ? { isActive: true } : {}), ...(venueId ? { venueId } : {}) };
     
         const [tables, total] = await Promise.all([
           prisma.table.findMany({
@@ -68002,7 +68026,7 @@
     ): Promise<(position: number, partySize: number) => number | null> {
       const [venue, tables, reservations] = await Promise.all([
         prisma.venue.findUnique({ where: { id: venueId }, select: { settings: true } }),
-        prisma.table.findMany({ where: { venueId, isActive: true } }),
+        prisma.table.findMany({ where: bookableTableWhere(venueId) }),
         prisma.reservation.findMany({
           where: {
             venueId,

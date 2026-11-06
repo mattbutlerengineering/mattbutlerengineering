@@ -227,10 +227,7 @@ describe("floorPlanService", () => {
       });
     });
 
-    it("creates cloned tables inactive so a clone adds no bookable capacity", async () => {
-      // Every active table in a venue is bookable whatever its plan, and
-      // activating a plan does not touch tables — an active copy would double
-      // online capacity while the cloned plan is still inactive.
+    it("keeps each cloned table's source isActive flag (bookability is plan-scoped, #8276)", async () => {
       const createMany = vi.fn().mockResolvedValue({ count: 1 });
       const source = makePrismaFloorPlan();
       vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(source as never);
@@ -252,7 +249,7 @@ describe("floorPlanService", () => {
 
       const rows = createMany.mock.calls[0]![0].data as Array<{ isActive: boolean }>;
       expect(rows.length).toBeGreaterThan(0);
-      expect(rows.every((r) => r.isActive === false)).toBe(true);
+      expect(rows.every((r) => r.isActive === true)).toBe(true);
     });
 
     it("handles name collisions by appending copy number", async () => {
