@@ -181,8 +181,8 @@ export const AvailabilityChangeOutcomeSchema = z.object({
   cancelled: z.number().int(),
   moved: z.number().int(),
   kept: z.number().int(),
-  /** A close-early (Tonight) rather than a closure. */
-  closeEarly: z.boolean(),
+  /** A close-early (Tonight) rather than a closure. Absent on rows saved before it existed. */
+  closeEarly: z.boolean().default(false),
   /** The saved rule's own first and last day; `endsOn` null means it has no end. Absent on older rows. */
   startsOn: ServiceDateSchema.optional(),
   endsOn: ServiceDateSchema.nullish(),
