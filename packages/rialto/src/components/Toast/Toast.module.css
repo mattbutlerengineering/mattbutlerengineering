@@ -205,3 +205,14 @@
     top: var(--rialto-space-sm);
   }
 }
+
+/* Narrower than 1024px an open side Drawer covers the toasts' corner, and at the top they would sit
+   over its title and close button. Put them at the bottom instead, lifted above the drawer's
+   footer (Drawer.tsx publishes its height) so its actions stay reachable too. */
+@media (max-width: 1023.98px) {
+  :global(body:has([data-rialto-drawer]:not([data-rialto-drawer^="bottom-"]))) .container {
+    top: auto;
+    bottom: calc(var(--rialto-drawer-footer-block-size, 0px) + var(--rialto-space-sm));
+    flex-direction: column-reverse;
+  }
+}
