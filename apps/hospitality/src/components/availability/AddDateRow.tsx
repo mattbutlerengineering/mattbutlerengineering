@@ -188,7 +188,7 @@ export function AddDateRow(props: AddDateRowProps) {
           <div id={rowFieldId(row.key, "hours")}>
             <ServicesEditor
               services={row.services}
-              venueServices={config.venueServices}
+              config={config}
               date={row.date || undefined}
               allowNew={false}
               onChange={(services) => onChange({ ...row, services, seededFor: undefined })}
