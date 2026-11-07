@@ -204,6 +204,86 @@ export function findDeployWorkflows(workflowsDir) {
   return findListedWorkflows(workflowsDir, DEPLOY_WORKFLOW_FILES);
 }
 
+const DEPLOY_COMMAND_PATTERN =
+  /\bdoctl\s+apps\s+create-deployment\b|\bwrangler(?:@[\w.-]+)?\s+deploy\b|\bpulumi(?:@[\w.-]+)?\s+up\b/;
+
+/**
+ * True when `step` executes a real deploy, by either signal the repo's actual
+ * deploy workflows use: a version-pinned shell command (`wrangler@3.114.17
+ * deploy`, `doctl apps create-deployment`) that a literal, unpinned command
+ * string never matches, or a `pulumi/actions` step whose `command` input is
+ * `up` — `preview` and `refresh` are read-only/state-only and must not match,
+ * which is why this reads the action's own command rather than its mere
+ * presence (`pulumi-preview.yml` uses the same action with `command: preview`).
+ */
+function stepPerformsDeploy(step) {
+  if (typeof step.run === "string" && DEPLOY_COMMAND_PATTERN.test(step.run)) return true;
+  if (typeof step.uses === "string" && /^pulumi\/actions(?:@|$)/.test(step.uses)) {
+    return step.with?.command === "up";
+  }
+  return false;
+}
+
+/**
+ * Pure: true when `source` (a workflow YAML file's raw text) performs a real
+ * deploy, by inspecting every job's steps rather than grepping the raw text
+ * for a literal, unpinned command string (#8394). Membership in the deploy
+ * arm cannot be derived from trigger shape — deploy workflows share
+ * `push`/`workflow_run`/`workflow_dispatch` with ordinary CI workflows — so
+ * the deploy *command* is the only discriminating signal, and it must
+ * tolerate both a version-pinned shell invocation and an action-based one.
+ *
+ * @param {string} source
+ * @returns {boolean}
+ */
+export function looksLikeDeployWorkflow(source) {
+  const { jobs } = parseWorkflow(source);
+  return Object.values(jobs).some((job) => job.steps.some(stepPerformsDeploy));
+}
+
+/**
+ * Workflows whose content matches `looksLikeDeployWorkflow()` but
+ * deliberately need no deploy-arm watch, each mapped to the written reason.
+ * Mirrors `MAIN_PUSH_WATCH_EXEMPT_FILES`'s role for the main-push arm (#8393):
+ * `findUnwatchedDeployWorkflows()` reports anything that performs a deploy
+ * and is in neither set, so the exemption is a decision someone has to write
+ * down rather than an omission.
+ */
+export const DEPLOY_WATCH_EXEMPT_FILES = {
+  "preview-deploy.yml":
+    "pull_request-triggered only -- deploys ephemeral PR preview workers, never runs on main.",
+};
+
+/**
+ * The completeness guard for the deploy arm (#8394). `DEPLOY_WORKFLOW_FILES`
+ * is explicit by design, but nothing asserted that every workflow performing
+ * a deploy had joined it or an exemption — the same gap #7601 closed for the
+ * main-push arm, closed here for the deploy arm. Returns every workflow
+ * whose content performs a deploy and is in neither `DEPLOY_WORKFLOW_FILES`
+ * nor `DEPLOY_WATCH_EXEMPT_FILES`. A test asserts this is empty against the
+ * real `.github/workflows`, so a new deploy workflow fails CI until it is
+ * watched or exempted on purpose.
+ *
+ * @param {string} workflowsDir
+ * @returns {Array<{name: string, file: string, path: string}>}
+ */
+export function findUnwatchedDeployWorkflows(workflowsDir) {
+  return readdirSync(workflowsDir)
+    .filter((file) => /\.ya?ml$/.test(file))
+    .filter((file) => !DEPLOY_WORKFLOW_FILES.includes(file) && !(file in DEPLOY_WATCH_EXEMPT_FILES))
+    .map((file) => ({ file, source: readFileSync(join(workflowsDir, file), "utf-8") }))
+    .filter(({ source }) => looksLikeDeployWorkflow(source))
+    .map(({ file, source }) => {
+      const nameMatch = WORKFLOW_NAME_PATTERN.exec(source);
+      return {
+        name: nameMatch ? nameMatch[1].trim() : file,
+        file,
+        path: `.github/workflows/${file}`,
+      };
+    })
+    .sort((a, b) => a.file.localeCompare(b.file));
+}
+
 /**
  * Explicit, never-a-glob list of push-triggered ADVISORY workflows on `main`
  * (#6955). They are not in `CI Gate`'s `needs`, so nothing blocks on them, and

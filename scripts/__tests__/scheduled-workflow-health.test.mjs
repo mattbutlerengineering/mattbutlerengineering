@@ -23,6 +23,9 @@ import {
   hasScheduleTrigger,
   findScheduledWorkflows,
   findDeployWorkflows,
+  findUnwatchedDeployWorkflows,
+  DEPLOY_WATCH_EXEMPT_FILES,
+  looksLikeDeployWorkflow,
   buildScheduledFailureTitle,
   buildDeployFailureTitle,
   extractWorkflowNameFromIssueTitle,
@@ -623,6 +626,130 @@ describe("findDeployWorkflows", () => {
       "deploy-static.yml",
       "pulumi-up.yml",
     ]);
+  });
+
+  // #8394: `findListedWorkflows()` filters to files that exist, so a renamed
+  // or deleted deploy workflow silently drops out of the watched set instead
+  // of failing anything — the same gap #7601 closed for the main-push arm.
+  it("every listed file exists in the real repo", () => {
+    const real = findDeployWorkflows(join(import.meta.dirname, "..", "..", ".github", "workflows"));
+    expect(real.map((w) => w.file)).toEqual([...DEPLOY_WORKFLOW_FILES].sort());
+  });
+});
+
+// #8394: deploy-arm completeness guard, mirroring `findUnwatchedMainPushWorkflows`
+// (#8393/#7601) for `DEPLOY_WORKFLOW_FILES`. Unlike the main-push arm, deploy-arm
+// membership cannot be derived from trigger shape (deploy workflows share
+// push/workflow_run/workflow_dispatch with ordinary CI workflows) -- the deploy
+// *command* is the only discriminating signal, and real deploy workflows never
+// spell it as a literal, unpinned string: `deploy-static.yml` invokes
+// `wrangler@3.114.17 deploy` (version-pinned), and `pulumi-up.yml` deploys
+// through `pulumi/actions` with `command: up`, not a shell `pulumi up`.
+describe("deploy workflow arm completeness (#8394)", () => {
+  let dir;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "deploy-watch-"));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("exempts only preview-deploy.yml, and states a reason for it", () => {
+    expect(Object.keys(DEPLOY_WATCH_EXEMPT_FILES)).toEqual(["preview-deploy.yml"]);
+    expect(DEPLOY_WATCH_EXEMPT_FILES["preview-deploy.yml"]).toMatch(/pull_request/);
+  });
+
+  it("recognizes a version-pinned wrangler deploy command", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\n    branches: [main]\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx wrangler@3.114.17 deploy --config apps/x/wrangler.toml\n"
+      )
+    ).toBe(true);
+  });
+
+  it("recognizes doctl apps create-deployment", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        'on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: doctl apps create-deployment "$APP_ID" --wait\n'
+      )
+    ).toBe(true);
+  });
+
+  it("recognizes a pulumi/actions step whose command is up", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: pulumi/actions@v7\n        with:\n          command: up\n"
+      )
+    ).toBe(true);
+  });
+
+  // pulumi-preview.yml and pulumi-r2-checksum-validation.yml both use
+  // `pulumi/actions`, but with `command: preview` or `refresh` -- neither
+  // mutates production, so neither must read as a deploy.
+  it("does not treat a pulumi/actions preview or refresh as a deploy", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: pulumi/actions@v7\n        with:\n          command: preview\n"
+      )
+    ).toBe(false);
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: pulumi/actions@v7\n        with:\n          command: refresh\n"
+      )
+    ).toBe(false);
+  });
+
+  it("does not treat a wrangler rollback as a deploy", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx wrangler@3.114.17 rollback --name x\n"
+      )
+    ).toBe(false);
+  });
+
+  it("does not treat an ordinary build/test workflow as a deploy", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm build\n      - run: pnpm test\n"
+      )
+    ).toBe(false);
+  });
+
+  it("reports a workflow that performs a deploy and is listed in neither set", () => {
+    writeFileSync(
+      join(dir, "stray-deploy.yml"),
+      "name: Stray Deploy\non:\n  push:\n    branches: [main]\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: doctl apps create-deployment stray --wait\n"
+    );
+    expect(findUnwatchedDeployWorkflows(dir)).toEqual([
+      {
+        name: "Stray Deploy",
+        file: "stray-deploy.yml",
+        path: ".github/workflows/stray-deploy.yml",
+      },
+    ]);
+  });
+
+  it("does not report listed, exempt, or non-deploy workflows", () => {
+    writeFileSync(
+      join(dir, "deploy-static.yml"),
+      "name: Deploy Static\non:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx wrangler@3.114.17 deploy\n"
+    );
+    writeFileSync(
+      join(dir, "preview-deploy.yml"),
+      "name: Preview Deploy\non:\n  pull_request:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx wrangler@3.114.17 deploy\n"
+    );
+    writeFileSync(
+      join(dir, "ci.yml"),
+      "name: CI\non:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n"
+    );
+    expect(findUnwatchedDeployWorkflows(dir)).toEqual([]);
+  });
+
+  it("watches or exempts every deploy workflow in the real repo (#8394)", () => {
+    const workflowsDir = join(import.meta.dirname, "..", "..", ".github", "workflows");
+    expect(findUnwatchedDeployWorkflows(workflowsDir)).toEqual([]);
   });
 });
 
