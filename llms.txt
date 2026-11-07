@@ -7887,6 +7887,20 @@
       export function useIsAdmin(): boolean { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useIsManager.ts">
+    <item priority="low">
+      interface ManagerAccess {
+        isManager: boolean;
+        isPending: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useManagerAccess(): ManagerAccess { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useIsManager(): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useMenus.ts">
     <item priority="high">
       export const useMenus: unknown;

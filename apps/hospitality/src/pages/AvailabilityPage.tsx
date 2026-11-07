@@ -7,6 +7,7 @@ import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailabi
 import { useNow } from "../hooks/useNow.js";
 import { minutesOfDayIn, venueDate } from "../utils/service-day.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
+import { useIsManager } from "../hooks/useIsManager.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
@@ -257,6 +258,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   });
   const teamRead = useVenueTeam({ venueId: selectedVenueId });
   const team = teamRead.data;
+  const isManager = useIsManager();
   // A read that has never answered. A refresh failing over data on hand is the drawer's to say.
   const failedReads = [
     days.error ? days : null,
@@ -297,7 +299,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     return (
       <Stack gap="md">
         <PageHeader title={t("availability.title")} description={t("availability.description")} />
-        {team?.viewerRole === "manager" ? (
+        {isManager ? (
           <AvailabilityQuickSetup
             venueId={selectedVenueId}
             state={config.data}
@@ -412,7 +414,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     team?.viewerRole && config.data ? (
       <AvailabilityScheduleControls
         venueId={selectedVenueId}
-        isManager={team.viewerRole === "manager"}
+        isManager={isManager}
         state={config.data}
         today={today}
         tab={tab}
@@ -459,13 +461,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           today={today}
           onStale={() => void config.refetch()}
           reloadError={config.error ? describeApiError(config.error).detail : null}
-          isManager={team?.viewerRole === "manager"}
+          isManager={isManager}
         />
       </Stack>
     );
   }
-
-  const isManager = team?.viewerRole === "manager";
   // Every Manager action below opens on the config: with none loaded it could open nothing.
   const canAct = isManager && !!config.data;
   const ownSchedules = config.data ? hasOwnSchedules(config.data.config) : false;

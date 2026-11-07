@@ -11496,6 +11496,24 @@
       );
     }
   </file>
+  <file path="src/hooks/useIsManager.ts">
+    export interface ManagerAccess {
+      readonly isManager: boolean;
+      /** True while the venue list or the team read has not answered yet, so the role is unknown. */
+      readonly isPending: boolean;
+    }
+    export function useManagerAccess(): ManagerAccess {
+      const { selectedVenueId, isLoading: venueLoading } = useVenue();
+      const team = useVenueTeam({ venueId: selectedVenueId });
+      return {
+        isManager: team.data?.viewerRole === "manager",
+        isPending: venueLoading || team.isLoading,
+      };
+    }
+    export function useIsManager(): boolean {
+      return useManagerAccess().isManager;
+    }
+  </file>
   <file path="src/hooks/useMenus.ts">
     export const useMenus = createQueryHook<Menu[], { venueId?: string | null }>({
       key: MENUS_QUERY_KEY,
