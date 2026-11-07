@@ -26,10 +26,11 @@
  * whether that job's failure is genuine evidence or is fully explained by a
  * poll-timeout skip. Only the "Playwright Smoke Tests" job (post-deploy-
  * check.yml) has this ambiguity — it alone contains a "Poll for deploy to
- * land" step gating a "Run smoke tests" step. The other two post-deploy jobs
- * ("Post-Deploy Smoke Test", "API Surface Invariants") have no such step, so
- * any failure reported there is treated as genuine, preserving the existing
- * rollback coverage for those checks.
+ * land" step gating a "Run smoke tests" step. "Post-Deploy Smoke Test" is
+ * decided on its own "Smoke test deployed sites" step, not the job conclusion
+ * (#8435: a failed PR-comment step must not look like a failed smoke test).
+ * "API Surface Invariants" has no poll step or reporting step, so any failure
+ * reported there is treated as genuine.
  *
  * Fails closed in both directions that matter for auto-rollback safety:
  *   - Ambiguous/malformed input (non-array, missing steps, an absent
@@ -79,6 +80,16 @@ const POLL_STEP_NAME = "Poll for deploy to land";
 const SMOKE_TEST_STEP_NAME = "Run smoke tests";
 
 /**
+ * The curl-based job's check step (#8435). Its conclusion -- not the job's --
+ * is the signal: the job also runs best-effort reporting steps ("Find most
+ * recent merged PR", "Post results to PR") whose transient `gh` failures made
+ * the job red on run 42296408462 while every smoke check passed (FAIL_COUNT=0),
+ * which opened false-positive revert #8429.
+ */
+const CURL_JOB_NAME = "Post-Deploy Smoke Test";
+const CURL_SMOKE_STEP_NAME = "Smoke test deployed sites";
+
+/**
  * @param {{ name?: string, conclusion?: string|null }[]|undefined} steps
  * @param {string} name
  * @returns {{ name?: string, conclusion?: string|null }|undefined}
@@ -93,6 +104,11 @@ function findStep(steps, name) {
  */
 function isGenuineJobFailure(job) {
   if (job?.conclusion !== "failure") return false;
+
+  if (job.name === CURL_JOB_NAME) {
+    // Decide on the check step itself; an absent step fails closed.
+    return findStep(job.steps, CURL_SMOKE_STEP_NAME)?.conclusion === "failure";
+  }
 
   const pollStep = findStep(job.steps, POLL_STEP_NAME);
   if (!pollStep) {
