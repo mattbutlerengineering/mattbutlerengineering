@@ -233,9 +233,11 @@ it had already altered.
 gh pr merge <N> --auto --squash --delete-branch
 ```
 
+Issue that line as the whole Bash call — nothing before or after it (no `cd`, `&&`, `;`, `|`, subshell or variable assignment). `Bash(gh pr *)` in `.claude/settings.json` approves the plain form before the auto-mode classifier runs; a compound form is classified and can be denied as `[Merge Without Review]`. Cloud routines, where `gh pr merge` answers 403, use the REST form the sibling rule `Bash(gh api -X PUT repos/mattbutlerengineering/mattbutlerengineering/pulls/*)` approves — see `docs/routines/mbe-feature-drain.md`.
+
 GitHub merges once CI Gate is green and the branch is up to date. The session does not wait — it moves to the next PR (or Phase 3). Do **not** re-check `tier:*` here; see [No tier hold](#no-tier-hold).
 
-**If the merge call itself is denied by the session runtime** (`denied, reason: [Merge Without Review]` — seen in Claude Code Remote sessions, #6125): do not retry it, via this or any other tool, for the rest of the session. Post the review verdict as a PR comment and record the PR as "reviewed, green, awaiting human merge" in the run summary, then continue with the remaining PRs' review gates. See [gotchas.md § Claude Code Remote](rules/gotchas.md#claude-code-remote--cloud-sessions).
+**If the plain merge call is still denied by the session runtime** (`denied, reason: [Merge Without Review]`, #6125 — the classifier was consulted, so first check the call matched the allow rule exactly): do not retry it, via this or any other tool, for the rest of the session. Post the review verdict as a PR comment and record the PR as "reviewed, green, awaiting human merge" in the run summary, then continue with the remaining PRs' review gates. See [gotchas.md § Claude Code Remote](rules/gotchas.md#claude-code-remote--cloud-sessions).
 
 **On `"flag"` verdict (Reviewer) or `block` (specialized reviewer):** apply the retry policy (default: one retry — dispatch a new worker session on the same branch with `--no-pr`; if retry also flags, label the linked issue `needs-review` and **do not enqueue**). See [Reviewer Contract](../docs/agents/reviewer-contract.md) for the full policy.
 

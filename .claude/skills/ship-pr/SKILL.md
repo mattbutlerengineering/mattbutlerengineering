@@ -116,9 +116,13 @@ step on anything but a clean pass.
    gh pr merge <N> --auto --squash --delete-branch
    ```
 
+   Issue it as the whole Bash call, nothing else on the line: `Bash(gh pr *)` in
+   `.claude/settings.json` approves the plain form before the auto-mode
+   classifier runs; a compound form is classified and can be denied.
+
    If GitHub reports the PR `CLEAN` and refuses `--auto`, merge directly
    with the same command minus `--auto` — this path, too, runs only after
-   the hold re-read above cleared. If the merge call itself is denied with
+   the hold re-read above cleared. If the plain merge call is still denied with
    `[Merge Without Review]` (Claude Code Remote sessions, gotchas § CCR
    #6125), do not retry through this or any other tool — report the PR as
    reviewed, green, and awaiting a human merge.

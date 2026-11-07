@@ -110,7 +110,7 @@ Project-specific traps that are **still live**. Read these before diving into pr
   - **Large MCP results land on disk, not in context.** An over-cap tool result is written to a file and the tool returns its path — read it with `jq` rather than re-running the query.
   - **Pin error-shape detectors to a string captured verbatim from a real log, never a plausible one** (#6312: the GraphQL fallback shipped dead). Also: `--search "label:a label:b"` ANDs labels (comma form ORs); REST `state_reason` is lowercase.
 
-- **A CCR session's permission classifier can deny every PR merge (`[Merge Without Review]`)** regardless of tier or review (#6125). On the first denial, stop calling merge for the session; leave the PR green and reviewed, and report it as awaiting a human merge.
+- **Auto mode's classifier denies PR merges (`[Merge Without Review]`, #6125) unless the call matches a `.claude/settings.json` allow rule:** one plain `gh api -X PUT repos/…/pulls/<N>/merge --input <json>` call, nothing else on the line. Still denied: stop merging.
 
 ## Deploy / static sites
 
