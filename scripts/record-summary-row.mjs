@@ -57,7 +57,15 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     // Needs agent-core's built dist; only this kind pays for the import.
     const { SURFACE_REGISTRY } = await import("@mbe/agent-core");
     row = buildAuditCoverageRow(parseSweepResults(text), meta, SURFACE_REGISTRY);
-    metric = "audit-coverage";
+    if (!row) {
+      console.error(`${kind}: the run produced no measurement; no row written.`);
+      process.exit(1);
+    }
+    // Literal name: metrics-store.test.mjs greps `append("<name>"` to prove
+    // every read metric has a producer.
+    append("audit-coverage", row);
+    console.log(`audit-coverage: appended row for ${meta.date}`);
+    process.exit(0);
   } else {
     console.error(
       "usage: record-summary-row.mjs <lighthouse|mutation|audit-coverage> <input> [--commit sha]"
@@ -69,9 +77,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error(`${kind}: the run produced no measurement; no row written.`);
     process.exit(1);
   }
-  // Literal name for the audit-coverage writer: metrics-store.test.mjs greps
-  // `append("<name>"` to prove every read metric has a producer.
-  if (metric === "audit-coverage") append("audit-coverage", row);
-  else append(metric, row);
+  append(metric, row);
   console.log(`${metric}: appended row for ${meta.date}`);
 }

@@ -78,11 +78,13 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup workspace
+        if: github.event.workflow_run.name == 'Weekly Audit Sweep'
         # record-summary-row.mjs imports @mbe/agent-core (the surface registry)
         # for the audit-coverage row; its dist must be built.
         uses: ./.github/actions/setup-workspace
 
       - name: Build agent-core
+        if: github.event.workflow_run.name == 'Weekly Audit Sweep'
         run: pnpm build --filter=@mbe/agent-core
 
       - name: Append summary row
