@@ -28,6 +28,22 @@ export interface ScoreEntry {
   readonly scores: LighthouseScores;
 }
 
+/**
+ * How the most recent check ended. `scored` = Lighthouse numbers recorded;
+ * `error` = the check failed outright (5xx, timeout, blocked); `auth-gated` =
+ * the surface sits behind auth0 and was checked via a public method (`detail`
+ * names it, e.g. "public login landing via Lighthouse"). Without this, a
+ * gated or failed surface never advances `lastChecked` and its zone reads as
+ * "never checked" forever (#8419).
+ */
+export type CheckStatus = "scored" | "error" | "auth-gated";
+
+export interface CheckOutcome {
+  readonly status: CheckStatus;
+  readonly detail: string | null;
+  readonly timestamp: string;
+}
+
 export interface AuditSurface {
   readonly id: string;
   readonly zone: Zone;
@@ -39,6 +55,7 @@ export interface AuditSurface {
   readonly lastScore: LighthouseScores | null;
   readonly checkHistory: readonly ScoreEntry[];
   readonly checkCount: number;
+  readonly lastOutcome?: CheckOutcome;
 }
 
 export interface AuditInventory {
@@ -525,6 +542,7 @@ export function mergeInventory(fresh: AuditInventory, existing: AuditInventory):
       lastScore: prev.lastScore,
       checkHistory: prev.checkHistory,
       checkCount: prev.checkCount,
+      ...(prev.lastOutcome ? { lastOutcome: prev.lastOutcome } : {}),
     };
   });
 

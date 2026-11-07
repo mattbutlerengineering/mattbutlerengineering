@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import {
   findStalestZone,
   updateSurfaceScore,
+  recordSurfaceOutcome,
   detectRegression,
 } from "../audit-regression-detector.js";
 import { ZONES } from "../audit-surface-registry.js";
@@ -94,6 +95,53 @@ describe("updateSurfaceScore", () => {
     updateSurfaceScore(original, scores);
     expect(original.lastChecked).toBeNull();
     expect(original.checkCount).toBe(0);
+  });
+});
+
+// ── recordSurfaceOutcome ────────────────────────────────────────────
+
+describe("recordSurfaceOutcome", () => {
+  const scores: LighthouseScores = {
+    performance: 0.9,
+    accessibility: 0.9,
+    bestPractices: 0.9,
+    seo: 0.9,
+  };
+
+  it("marks an auth-gated surface as checked even with no scores (#8419)", () => {
+    const surface = makeInventory().surfaces[1]!;
+    const updated = recordSurfaceOutcome(surface, "auth-gated", "public login landing");
+    expect(updated.lastChecked).toBeTruthy();
+    expect(updated.checkCount).toBe(1);
+    expect(updated.checkHistory).toHaveLength(0);
+    expect(updated.lastScore).toBeNull();
+    expect(updated.lastOutcome).toMatchObject({
+      status: "auth-gated",
+      detail: "public login landing",
+    });
+  });
+
+  it("appends scores to checkHistory when provided", () => {
+    const surface = makeInventory().surfaces[1]!;
+    const updated = recordSurfaceOutcome(surface, "auth-gated", "lighthouse", scores);
+    expect(updated.checkHistory).toHaveLength(1);
+    expect(updated.lastScore).toEqual(scores);
+    expect(updated.checkCount).toBe(1);
+    expect(updated.lastOutcome?.status).toBe("auth-gated");
+  });
+
+  it("makes a recorded-error zone stop reading as never-checked", () => {
+    const inv = makeInventory();
+    const checked = recordSurfaceOutcome(inv.surfaces[1]!, "error", "HTTP 000");
+    const next = { ...inv, surfaces: [inv.surfaces[0]!, checked] };
+    expect(findStalestZone(next)).toBe("marketing");
+  });
+
+  it("does not mutate the original surface", () => {
+    const original = makeInventory().surfaces[0]!;
+    recordSurfaceOutcome(original, "error", "x");
+    expect(original.checkCount).toBe(0);
+    expect(original.lastOutcome).toBeUndefined();
   });
 });
 

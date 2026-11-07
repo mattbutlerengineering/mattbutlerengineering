@@ -28,6 +28,21 @@ node scripts/record-audit-check.mjs --surface "$SURFACE_ID" \
 node scripts/record-audit-check.mjs --surface "$SURFACE_ID" --error "$ERROR_MESSAGE"
 ```
 
+**Auth0-gated surfaces (`hospitality`, `gen`) are never skipped silently.** An unrecorded
+surface keeps `lastChecked: null`, which makes `findStalestZone()` treat its zone as infinitely
+stale and ranks it after earlier never-checked zones forever (#8419). Check the public response
+(curl + Lighthouse on the login landing — no credentials), and record it with the method used:
+
+```bash
+node scripts/record-audit-check.mjs --surface gen:playground \
+  --auth-gated "public login landing via Lighthouse" \
+  --performance "$PERF" --accessibility "$A11Y" --best-practices "$BEST_PRACTICES" --seo "$SEO"
+# no scores available: still record that it was checked and how
+node scripts/record-audit-check.mjs --surface gen:playground --auth-gated "curl 200 on /gen, login landing"
+```
+
+Authenticated depth (E2E fixture) is separate; see [Auth](#auth-hospitality--gen).
+
 ## Environment Reachability (preflight — run FIRST, before any live check)
 
 The agent proxy gateway in remote (claude.ai/code) containers may reject CONNECT

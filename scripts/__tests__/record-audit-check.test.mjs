@@ -10,7 +10,12 @@
 
 import { describe, it, expect } from "vitest";
 
-import { parseArgs, isCompleteScores, applyScoreUpdate } from "../record-audit-check.mjs";
+import {
+  parseArgs,
+  isCompleteScores,
+  applyScoreUpdate,
+  resolveOutcome,
+} from "../record-audit-check.mjs";
 
 describe("parseArgs", () => {
   it("collects surface id and all four scores", () => {
@@ -30,6 +35,7 @@ describe("parseArgs", () => {
       surface: "marketing:home",
       scores: { performance: 0.95, accessibility: 0.92, bestPractices: 1, seo: 0.98 },
       error: null,
+      authGated: null,
     });
   });
 
@@ -39,7 +45,21 @@ describe("parseArgs", () => {
       surface: "api:users:health",
       scores: null,
       error: "connection refused",
+      authGated: null,
     });
+  });
+
+  it("collects --auth-gated with a method and scores", () => {
+    const args = parseArgs([
+      "--surface",
+      "gen:playground",
+      "--auth-gated",
+      "public login landing",
+      "--seo",
+      "1",
+    ]);
+    expect(args.authGated).toBe("public login landing");
+    expect(args.scores).toEqual({ seo: 1 });
   });
 });
 
@@ -113,5 +133,59 @@ describe("applyScoreUpdate", () => {
 
     expect(updated).toBe(false);
     expect(inventory).toBe(original);
+  });
+});
+
+describe("resolveOutcome", () => {
+  it("auth-gated wins over error; error over scored", () => {
+    expect(resolveOutcome({ error: "x", authGated: "m" })).toEqual({
+      status: "auth-gated",
+      detail: "m",
+    });
+    expect(resolveOutcome({ error: "x", authGated: null })).toEqual({
+      status: "error",
+      detail: "x",
+    });
+    expect(resolveOutcome({ error: null, authGated: null })).toEqual({
+      status: "scored",
+      detail: null,
+    });
+  });
+});
+
+describe("applyScoreUpdate outcomes (#8419)", () => {
+  const gen = {
+    id: "gen:playground",
+    zone: "gen",
+    type: "page",
+    url: "https://mattbutlerengineering.com/gen",
+    sourceFiles: [],
+    auth: "auth0",
+    lastChecked: null,
+    lastScore: null,
+    checkHistory: [],
+    checkCount: 0,
+  };
+  const inv = { surfaces: [gen], lastUpdated: "2026-01-01T00:00:00.000Z", version: 1 };
+
+  it("records an auth-gated check with no scores so the surface counts as checked", () => {
+    const { inventory, updated } = applyScoreUpdate(inv, "gen:playground", null, {
+      status: "auth-gated",
+      detail: "public login landing",
+    });
+    expect(updated).toBe(true);
+    const s = inventory.surfaces[0];
+    expect(s.checkCount).toBe(1);
+    expect(s.lastChecked).not.toBeNull();
+    expect(s.lastOutcome).toMatchObject({ status: "auth-gated", detail: "public login landing" });
+  });
+
+  it("records a failed check", () => {
+    const { inventory } = applyScoreUpdate(inv, "gen:playground", null, {
+      status: "error",
+      detail: "HTTP 000",
+    });
+    expect(inventory.surfaces[0].lastOutcome.status).toBe("error");
+    expect(inventory.surfaces[0].checkCount).toBe(1);
   });
 });

@@ -70042,6 +70042,22 @@
         checkCount: s.checkCount + 1,
       };
     }
+    export function recordSurfaceOutcome(
+      s: AuditSurface,
+      status: CheckStatus,
+      detail: string | null,
+      scores: LighthouseScores | null = null
+    ): AuditSurface {
+      const base: AuditSurface =
+        scores !== null
+          ? updateSurfaceScore(s, scores)
+          : { ...s, lastChecked: new Date().toISOString(), checkCount: s.checkCount + 1 };
+    
+      return {
+        ...base,
+        lastOutcome: { status, detail, timestamp: base.lastChecked ?? new Date().toISOString() },
+      };
+    }
     export function detectRegression(s: AuditSurface, newScores: LighthouseScores): Regression | null {
       if (!s.lastScore) return null;
     
@@ -70161,6 +70177,12 @@
       readonly timestamp: string;
       readonly scores: LighthouseScores;
     }
+    export type CheckStatus = "scored" | "error" | "auth-gated";
+    export interface CheckOutcome {
+      readonly status: CheckStatus;
+      readonly detail: string | null;
+      readonly timestamp: string;
+    }
     export interface AuditSurface {
       readonly id: string;
       readonly zone: Zone;
@@ -70172,6 +70194,7 @@
       readonly lastScore: LighthouseScores | null;
       readonly checkHistory: readonly ScoreEntry[];
       readonly checkCount: number;
+      readonly lastOutcome?: CheckOutcome;
     }
     export interface AuditInventory {
       readonly surfaces: readonly AuditSurface[];
@@ -70644,6 +70667,7 @@
           lastScore: prev.lastScore,
           checkHistory: prev.checkHistory,
           checkCount: prev.checkCount,
+          ...(prev.lastOutcome ? { lastOutcome: prev.lastOutcome } : {}),
         };
       });
     
