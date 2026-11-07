@@ -40,7 +40,7 @@ Build-time env vars (set in CI and `.env`):
 ## Key Components
 
 - `DashboardLayout` — Shell with sidebar nav (`GlobalNav` from Rialto)
-- `venue-onboarding/` — 6-step wizard: WelcomeStep → LocationTimeStep → OperatingHoursStep → SettingsStep → FloorPlanStep → LaunchStep
+- `venue-onboarding/` — 6-step wizard: WelcomeStep → LocationTimeStep → QuickSetupHoursStep → SettingsStep → FloorPlanStep → LaunchStep
 - `booking-widget/` — Embeddable reservation widget components
 - `floor-plan/` — Interactive drag-and-drop floor plan editor
 - `timeline/` — Time-grid reservation visualization

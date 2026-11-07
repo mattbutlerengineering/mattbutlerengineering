@@ -99,7 +99,7 @@ describe("createJourneyRecorder page-error capture", () => {
   });
 
   it("captures the leading alert when several are visible at once", async () => {
-    // OperatingHoursStep can mount three alerts simultaneously. Which one lands
+    // A step can mount several alerts simultaneously. Which one lands
     // in the report is `.first()`'s call, so pin it: DOM order wins, by design.
     // A wrong-alert capture is worse than no capture — it misdirects triage.
     const { page } = createFakePage(

@@ -13,7 +13,6 @@ import {
   type ServiceWeek,
 } from "@mbe/availability";
 import { localeRuntime } from "../../i18n/runtime.js";
-import type { OperatingHoursValidationErrors } from "../venue-onboarding/OperatingHoursStep.js";
 import type {
   AvailabilityConfig,
   AvailabilityConfigChanges,
@@ -722,6 +721,12 @@ export function draftToChanges(
       assignments: stored.assignments.filter((a) => a.scheduleId === scheduleId).map((a) => a.id),
     },
   };
+}
+
+/** What the wizard's hours gate reports: a step-level message and/or one per weekday. */
+export interface OperatingHoursValidationErrors {
+  readonly global?: string;
+  readonly days?: Readonly<Partial<Record<keyof OperatingHours, string>>>;
 }
 
 /**

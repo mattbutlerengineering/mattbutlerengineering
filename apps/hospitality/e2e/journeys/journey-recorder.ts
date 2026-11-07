@@ -62,7 +62,7 @@ const ALERT_READ_TIMEOUT_MS = 2_000;
  * leading match in DOM order and every other one is dropped. That holds for the
  * journey as written — the wizard mounts a single step at a time and Step 5
  * renders exactly one `[role="alert"]` — but a step that can show several at
- * once (OperatingHoursStep mounts up to three validation alerts) would report
+ * once (e.g. a step mounting several validation alerts) would report
  * only the leading one. Revisit the narrowing before pointing the journey at
  * such a step; a wrong-alert capture misdirects triage worse than none.
  *
