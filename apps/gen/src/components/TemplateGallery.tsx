@@ -127,10 +127,10 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: "help-center-page",
     title: "Help Center Page",
-    description: "Documentation article with a page header, body content, and inline callouts",
+    description: "Documentation article with a page header, body content, and inline help tooltips",
     category: "Marketing",
     prompt:
-      "Help center article page with a header showing the article title and category, body content with section headings, and Alert callouts next to technical terms explaining what they mean",
+      "Help center article page with a header showing the article title and category, body content with section headings, and small help Tooltips next to technical terms explaining what they mean",
   },
 
   // Data Display (continued)
@@ -173,21 +173,23 @@ export const TEMPLATES: readonly Template[] = [
   },
   {
     id: "loading-empty-states",
-    title: "Empty States",
-    description: "Friendly empty states shown when there's nothing to show",
+    title: "Loading & Empty States",
+    description:
+      "Content placeholders that transition into a friendly empty state when there's nothing to show",
     category: "Feedback",
     prompt:
-      "Content area showing an EmptyState with an icon and message when no results are found, next to an EmptyState for a first-run screen with a call-to-action Button",
+      "Content area showing Skeleton loading placeholders while data loads, then a friendly EmptyState with an icon and message when no results are found",
   },
 
   // Feedback (continued)
   {
     id: "settings-modal-flow",
     title: "Settings Modal Flow",
-    description: "Confirmation dialog for destructive actions and a Dialog for advanced options",
+    description:
+      "Confirmation dialog for destructive actions and a slide-out drawer for advanced options",
     category: "Feedback",
     prompt:
-      "Settings flow with a confirmation Dialog that appears before a destructive action, and a second Dialog with Toggles and Inputs for advanced configuration options",
+      "Settings flow with a confirmation Dialog that appears before a destructive action, and a slide-out Drawer with Toggles and Inputs for advanced configuration options",
   },
   {
     id: "capacity-monitor",
@@ -248,10 +250,10 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: "appointment-scheduler",
     title: "Appointment Scheduler",
-    description: "Day tabs, a date field, and time-slot selection",
+    description: "Day tabs, a date field, and a time-slot popover",
     category: "Forms",
     prompt:
-      "Appointment scheduling flow with Tabs for the available days, an Input for jumping directly to a specific date, and a Select that lists the available time slots for the chosen day",
+      "Appointment scheduling flow with Tabs for the available days, an Input for jumping directly to a specific date, and a Popover that shows available time slots when a day is selected",
   },
   {
     id: "compact-toolbar",
@@ -264,10 +266,10 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: "secure-verification",
     title: "Secure Verification",
-    description: "Two-factor sign-in step with a code entry field and a resend code link",
+    description: "Two-factor sign-in step with a 6-digit PIN entry and a resend code link",
     category: "Forms",
     prompt:
-      "Two-factor authentication verification screen with an Input for the 6-digit one-time passcode sent by SMS, plus a resend code Button and a Text countdown before it can be clicked again",
+      "Two-factor authentication verification screen with a 6-digit PinInput for entering the one-time passcode sent by SMS, plus a resend code Button and a Text countdown before it can be clicked again",
   },
 
   // Data Display (continued)
@@ -292,19 +294,19 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: "command-search-palette",
     title: "Command Search Palette",
-    description: "Command search with a combobox and explanations for unavailable commands",
+    description: "Command search with a combobox and tooltip explanations for unavailable commands",
     category: "Feedback",
     prompt:
-      "Command search Dialog for quickly jumping to actions and pages, with a Combobox of results, a Text description of each result, and a Badge plus note explaining why an unavailable command can't be run",
+      "Command search Dialog for quickly jumping to actions and pages, with a Combobox of results, a Text description of each result, and disabled-state Tooltips explaining why an unavailable command can't be run",
   },
   {
     id: "delete-confirmation-flow",
     title: "Delete Confirmation Flow",
     description:
-      "Delete button disabled until acknowledged, then a confirmation dialog before removal",
+      "Delete button disabled behind an explanatory tooltip until acknowledged, then a confirmation dialog before removal",
     category: "Feedback",
     prompt:
-      "Delete-item flow where the delete Button starts disabled with a Text hint explaining that you must check an acknowledgment Checkbox first, and once checked the button becomes enabled and opens a confirmation Dialog warning that the action is permanent before the item is actually removed",
+      "Delete-item flow where the delete Button starts disabled with a Tooltip explaining that you must check an acknowledgment Checkbox first, and once checked the button becomes enabled and opens a confirmation Dialog warning that the action is permanent before the item is actually removed",
   },
 
   // Data Display (continued)
@@ -321,22 +323,22 @@ export const TEMPLATES: readonly Template[] = [
   // Feedback (continued)
   {
     id: "integration-handshake",
-    title: "Integration Connection Status",
+    title: "Integration Handshake",
     description:
-      "Connection status for a multi-party exchange, showing each station and its result",
+      "Connection status for a multi-party exchange, showing each station and the credential moving between them",
     category: "Feedback",
     prompt:
-      "Third-party integration connection screen listing the browser, the identity provider, and the API as named stations in a DataList, each with a Badge showing negotiating, settled, or failed, and an Alert summarising the overall connection state",
+      "Third-party integration connection screen with a Handshake instrument tracking the exchange between the browser, the identity provider, and the API as named stations with a credential travelling along the active leg, showing a negotiating state while the exchange is in flight and a settled or failed state once it resolves, with a per-station result DataList underneath",
   },
 
   // Data Display (continued)
   {
     id: "row-actions-menu",
     title: "Row Actions Menu",
-    description: "Data table with a per-row actions column of buttons",
+    description: "Data table with a per-row overflow button opening a dropdown of row actions",
     category: "Data Display",
     prompt:
-      "Data table where each row has a trailing actions column of IconButtons for Edit, Duplicate, and Delete",
+      'Data table where each row has a trailing "..." overflow button that opens a DropdownMenu listing row actions like Edit, Duplicate, and Delete',
   },
   {
     id: "live-departures-board",
@@ -363,10 +365,11 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: "activity-log-panel",
     title: "Activity Log Panel",
-    description: "Activity feed in a card listing recent events with timestamps",
+    description:
+      "Scrollable activity feed inside a fixed-height panel that scrolls independently of the page",
     category: "Data Display",
     prompt:
-      "Activity log panel showing a feed of recent events inside a Card, each entry a Text line with a Badge for the event type and a timestamp",
+      "Activity log panel showing a long feed of recent events inside a fixed-height ScrollArea, so the feed scrolls independently without scrolling the page itself",
   },
 ] as const;
 

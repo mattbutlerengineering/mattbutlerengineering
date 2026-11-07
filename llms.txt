@@ -348,6 +348,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Drawer">
+  <file path="packages/rialto/src/components/Drawer/Drawer.catalog.ts">
+    <item priority="high">
+      export const drawerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="DropdownMenu">
+  <file path="packages/rialto/src/components/DropdownMenu/DropdownMenu.catalog.ts">
+    <item priority="high">
+      export const dropdownMenuCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="EmptyState">
   <file path="packages/rialto/src/components/EmptyState/EmptyState.catalog.ts">
     <item priority="high">
@@ -483,6 +497,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Handshake">
+  <file path="packages/rialto/src/components/Handshake/Handshake.catalog.ts">
+    <item priority="high">
+      export const handshakeCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="IconButton">
   <file path="packages/rialto/src/components/IconButton/IconButton.catalog.ts">
     <item priority="high">
@@ -544,10 +565,31 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="PinInput">
+  <file path="packages/rialto/src/components/PinInput/PinInput.catalog.ts">
+    <item priority="high">
+      export const pinInputCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Popover">
+  <file path="packages/rialto/src/components/Popover/Popover.catalog.ts">
+    <item priority="high">
+      export const popoverCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="ReservationList">
   <file path="packages/rialto/src/components/ReservationList/ReservationList.catalog.ts">
     <item priority="high">
       export const reservationListCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="ScrollArea">
+  <file path="packages/rialto/src/components/ScrollArea/ScrollArea.catalog.ts">
+    <item priority="high">
+      export const scrollAreaCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -624,6 +666,13 @@
     </item>
     <item priority="medium">
       function lerp(a: number, b: number, t: number): number { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Skeleton">
+  <file path="packages/rialto/src/components/Skeleton/Skeleton.catalog.ts">
+    <item priority="high">
+      export const skeletonCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -971,6 +1020,13 @@
   <file path="packages/rialto/src/components/Toggle/Toggle.catalog.ts">
     <item priority="high">
       export const toggleCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Tooltip">
+  <file path="packages/rialto/src/components/Tooltip/Tooltip.catalog.ts">
+    <item priority="high">
+      export const tooltipCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -9087,6 +9143,9 @@
         children?: string[];
         slots?: Record<string, string[]>;
       }
+    </item>
+    <item priority="medium">
+      function isOverlay(element: GenElement | undefined): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function elementsOf(spec: Spec | null): Record<string, GenElement> | null { /* ... */ }

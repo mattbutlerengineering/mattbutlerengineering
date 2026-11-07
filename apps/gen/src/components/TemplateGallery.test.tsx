@@ -206,7 +206,7 @@ describe("TemplateGallery", () => {
     expect(allButton.textContent).toBe(`All${cards.length}`);
   });
 
-  it("includes a Secure Verification template that elicits Input usage", () => {
+  it("includes a Secure Verification template that elicits PinInput usage", () => {
     const onSelect = vi.fn();
     render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
@@ -217,7 +217,7 @@ describe("TemplateGallery", () => {
     expect(card.textContent).toContain("Forms");
 
     fireEvent.click(card);
-    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/6-digit one-time passcode/));
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/6-digit PinInput/));
   });
 
   it("includes an App Shell template that elicits Accordion and AppBar usage", () => {
@@ -256,13 +256,13 @@ describe("TemplateGallery", () => {
     fireEvent.change(searchInput, { target: { value: "integration" } });
 
     const card = screen.getByRole("button", {
-      name: /use integration connection status template/i,
+      name: /use integration handshake template/i,
     });
     expect(card).toBeDefined();
     expect(card.textContent).toContain("Feedback");
 
     fireEvent.click(card);
-    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/identity provider/));
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/Handshake/));
   });
 
   it("includes a Modal Form Dialog template that elicits non-confirmation Dialog usage", () => {
@@ -283,7 +283,7 @@ describe("TemplateGallery", () => {
     expect(onSelect).not.toHaveBeenCalledWith(expect.stringMatching(/confirmation dialog/i));
   });
 
-  it("includes a Row Actions Menu template that elicits IconButton usage", () => {
+  it("includes a Row Actions Menu template that elicits DropdownMenu usage", () => {
     const onSelect = vi.fn();
     render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
@@ -294,7 +294,7 @@ describe("TemplateGallery", () => {
     expect(card.textContent).toContain("Data Display");
 
     fireEvent.click(card);
-    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/IconButtons/));
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/DropdownMenu/));
   });
 
   it("includes a Live Departures Board template that elicits DepartureBoard usage", () => {
@@ -311,7 +311,7 @@ describe("TemplateGallery", () => {
     expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/DepartureBoard/));
   });
 
-  it("includes an Activity Log Panel template that elicits Card usage", () => {
+  it("includes an Activity Log Panel template that elicits ScrollArea usage", () => {
     const onSelect = vi.fn();
     render(<TemplateGallery {...defaultProps} onSelect={onSelect} />);
     const searchInput = screen.getByRole("textbox", { name: /search templates/i });
@@ -322,7 +322,7 @@ describe("TemplateGallery", () => {
     expect(card.textContent).toContain("Data Display");
 
     fireEvent.click(card);
-    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/inside a Card/));
+    expect(onSelect).toHaveBeenCalledWith(expect.stringMatching(/ScrollArea/));
   });
 
   it("resets to All category and clears search when reopened", () => {

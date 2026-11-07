@@ -31,6 +31,11 @@ interface GenElement {
   slots?: Record<string, string[]>;
 }
 
+/** Overlays opened by a button and dismissed by Close / Esc: both only emit `"close"`. */
+function isOverlay(element: GenElement | undefined): boolean {
+  return element?.type === "Dialog" || element?.type === "Drawer";
+}
+
 const EMPTY: DialogPlan = { dialogs: {}, buttons: {} };
 
 function elementsOf(spec: Spec | null): Record<string, GenElement> | null {
@@ -67,11 +72,11 @@ function wantsOpen(label: string): boolean {
   return /\bopen\b/i.test(label);
 }
 
-/** First dialog at or under `key`, in tree order. */
+/** First dialog or drawer at or under `key`, in tree order. */
 function findDialog(elements: Record<string, GenElement>, key: string): string | null {
   const element = elements[key];
   if (!element) return null;
-  if (element.type === "Dialog") return key;
+  if (isOverlay(element)) return key;
   for (const child of childKeys(element)) {
     const found = findDialog(elements, child);
     if (found) return found;
@@ -96,7 +101,7 @@ export function planDialogControls(spec: Spec | null): DialogPlan {
   const nearestDialog = (key: string): string | null => {
     let current = parent.get(key);
     while (current) {
-      if (elements[current]?.type === "Dialog") return current;
+      if (isOverlay(elements[current])) return current;
       current = parent.get(current);
     }
     return null;
@@ -124,7 +129,7 @@ export function planDialogControls(spec: Spec | null): DialogPlan {
       }
     } else if (index >= 0) {
       const next = siblings[index + 1];
-      if (next && elements[next]?.type === "Dialog") target = next;
+      if (next && isOverlay(elements[next])) target = next;
     }
     if (target) {
       buttons[key] = { kind: "open", dialogKey: target };
@@ -134,7 +139,7 @@ export function planDialogControls(spec: Spec | null): DialogPlan {
 
   const dialogs: Record<string, DialogControl> = {};
   for (const [key, element] of Object.entries(elements)) {
-    if (element.type !== "Dialog") continue;
+    if (!isOverlay(element)) continue;
     const literalOpen = element.props?.open === true;
     dialogs[key] = { initialOpen: opened.has(key) ? false : literalOpen };
   }

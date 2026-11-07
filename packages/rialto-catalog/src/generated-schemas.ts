@@ -143,6 +143,20 @@ export const generatedSchemas = {
     accent: z.boolean().optional(),
     spacing: z.enum(["compact", "default", "spacious"]).optional(),
   }),
+  Drawer: z.object({
+    open: z.boolean(),
+    title: z.string().max(60).optional(),
+    description: z.string().max(120).optional(),
+    footer: z.string().optional(),
+    side: z.enum(["bottom", "left", "right"]).optional(),
+    size: z.enum(["compact", "default", "full", "wide"]).optional(),
+  }),
+  DropdownMenu: z.object({
+    trigger: z.string().max(40),
+    items: z.array(z.object({ type: z.enum(["item", "divider", "label"]).optional(), id: z.string().optional(), label: z.string().max(40).optional(), shortcut: z.string().max(12).optional(), disabled: z.boolean().optional(), destructive: z.boolean().optional() })),
+    align: z.enum(["left", "right"]).optional(),
+    side: z.enum(["bottom", "top"]).optional(),
+  }),
   EmptyState: z.object({
     icon: z.string().optional(),
     heading: z.string().max(50).optional(),
@@ -165,6 +179,14 @@ export const generatedSchemas = {
   }),
   GuestCards: z.object({
     guests: z.array(z.object({ name: z.string().nullish(), visits: z.union([z.number(), z.string()]).nullish(), risk: z.string().nullish(), tags: z.unknown().optional() })),
+  }),
+  Handshake: z.object({
+    "aria-label": z.string().max(80),
+    stations: z.array(z.string().max(24)).min(2),
+    state: z.enum(["failed", "idle", "negotiating", "settled"]).optional(),
+    lane: z.number().optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+    showLabels: z.boolean().optional(),
   }),
   IconButton: z.object({
     icon: z.string().optional(),
@@ -190,8 +212,31 @@ export const generatedSchemas = {
     flipInterval: z.number().optional(),
     cascadeDelay: z.number().optional(),
   }),
+  PinInput: z.object({
+    length: z.number().optional(),
+    mask: z.boolean().optional(),
+    type: z.enum(["alphanumeric", "numeric"]).optional(),
+    size: z.enum(["lg", "md", "sm"]).optional(),
+    label: z.string().max(40).optional(),
+    hint: z.string().max(120).optional(),
+    error: z.boolean().optional(),
+    required: z.boolean().optional(),
+    disabled: z.boolean().optional(),
+    disabledReason: z.string().max(120).optional(),
+    value: z.string().optional(),
+  }),
+  Popover: z.object({
+    trigger: z.string().max(40),
+    title: z.string().max(60).optional(),
+    placement: z.enum(["bottom", "left", "right", "top"]).optional(),
+    open: z.boolean().optional(),
+    solid: z.boolean().optional(),
+  }),
   ReservationList: z.object({
     reservations: z.array(z.object({ time: z.string().nullish(), guest: z.string().nullish(), partySize: z.union([z.number(), z.string()]).nullish(), status: z.string().nullish() })),
+  }),
+  ScrollArea: z.object({
+    maxHeight: z.union([z.number(), z.string().max(20)]).optional(),
   }),
   Select: z.object({
     options: z.array(z.object({ value: z.string(), label: z.string(), disabled: z.boolean().optional() })),
@@ -210,6 +255,13 @@ export const generatedSchemas = {
   Sidebar: z.object({
     items: z.array(z.union([z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() }), z.object({ label: z.string().optional(), items: z.array(z.object({ id: z.string(), label: z.string(), icon: z.string().optional(), href: z.string().optional(), active: z.boolean().optional(), disabled: z.boolean().optional() })) })])),
     collapsed: z.boolean().optional(),
+  }),
+  Skeleton: z.object({
+    variant: z.enum(["card", "circle", "heading", "rect", "text"]).optional(),
+    width: z.union([z.number(), z.string().max(20)]).optional(),
+    height: z.union([z.number(), z.string().max(20)]).optional(),
+    lines: z.number().optional(),
+    gap: z.union([z.number(), z.string().max(20)]).optional(),
   }),
   Stack: z.object({
     direction: z.enum(["column", "row"]).optional(),
@@ -284,5 +336,11 @@ export const generatedSchemas = {
     label: z.string().max(30).optional(),
     checked: z.boolean().optional(),
     disabledReason: z.string().optional(),
+  }),
+  Tooltip: z.object({
+    content: z.string().max(120).optional(),
+    placement: z.enum(["bottom", "left", "right", "top"]).optional(),
+    delay: z.number().optional(),
+    showOnFocus: z.boolean().optional(),
   }),
 } as const;

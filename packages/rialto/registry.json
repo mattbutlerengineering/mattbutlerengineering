@@ -1809,9 +1809,12 @@
       ],
       "characterLimits": [
         {
+          "prop": "description",
+          "max": 120
+        },
+        {
           "prop": "title",
-          "max": 60,
-          "reason": "Drawer heading; fits panel header"
+          "max": 60
         }
       ]
     },
@@ -2286,6 +2289,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "aria-label",
+          "max": 80
+        }
       ]
     },
     {
@@ -3353,9 +3362,16 @@
       "slots": [],
       "characterLimits": [
         {
+          "prop": "disabledReason",
+          "max": 120
+        },
+        {
+          "prop": "hint",
+          "max": 120
+        },
+        {
           "prop": "label",
-          "max": 40,
-          "reason": "Form field label; above pin cells"
+          "max": 40
         }
       ]
     },
@@ -3408,6 +3424,12 @@
       ],
       "slots": [
         "children"
+      ],
+      "characterLimits": [
+        {
+          "prop": "title",
+          "max": 60
+        }
       ]
     },
     {
@@ -5102,8 +5124,7 @@
       "characterLimits": [
         {
           "prop": "content",
-          "max": 80,
-          "reason": "Tooltip text; brief hint, no wrapping preferred"
+          "max": 120
         }
       ]
     },
