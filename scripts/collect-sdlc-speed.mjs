@@ -10,8 +10,9 @@
  * Pitfalls taken from .claude/rules/gotchas.md § CI (the ciHealth bullet):
  *  - CI runs are scoped to `event=pull_request` on ci.yml only, and
  *    cancelled/skipped/in-flight runs are dropped, not folded into a denominator.
- *  - The week-over-week baseline is the previous recorded row (our own
- *    timestamp), never a platform `updatedAt`.
+ *  - The week-over-week baseline is the latest recorded row (our own timestamp,
+ *    never a platform `updatedAt`) at least `--days` earlier, so compared windows
+ *    never overlap (#8418); see selectBaseline.
  *
  * Usage:
  *   node scripts/collect-sdlc-speed.mjs [--days 7] [--record] [--regressions]
@@ -193,6 +194,25 @@ export function detectSdlcRegressions(current, previous) {
   return proposals;
 }
 
+/**
+ * Baseline for the regression comparison (#8418): the latest recorded row whose
+ * window ends on or before today's window starts. Rows are one window apart at
+ * minimum, so a re-run a day later (11-05 -> 11-06, both 7-day windows sharing
+ * 6 days of PRs) is never read as week-over-week movement. Null = no honest
+ * baseline yet, which suppresses proposals.
+ */
+export function selectBaseline(rows, date, days) {
+  const windowStartMs = Date.parse(date) - days * 86_400_000;
+  let best = null;
+  for (const r of rows) {
+    if (r?.sensor !== SENSOR || r.available !== true) continue;
+    const endMs = Date.parse(r.date);
+    if (!Number.isFinite(endMs) || endMs > windowStartMs) continue;
+    if (best === null || r.date > best.date) best = r;
+  }
+  return best;
+}
+
 /** At most one proposal per run, and none whose title matches an open issue. */
 export function dedupeProposals(proposals, openTitles) {
   const open = new Set(openTitles);
@@ -356,9 +376,7 @@ function main(argv) {
     protection: fetchProtection(),
   });
   const path = resolvePath("process-metrics");
-  const prior = readRows(path)
-    .filter((r) => r.sensor === SENSOR && r.available === true && r.date < date)
-    .at(-1);
+  const prior = selectBaseline(readRows(path), date, days);
   const result = { date, days, ...summary };
   const record = argv.includes("--record");
   // A recorded row carries its proposals so the retro has them even where

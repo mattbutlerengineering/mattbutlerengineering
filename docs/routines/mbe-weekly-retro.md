@@ -54,7 +54,7 @@ Cite `mainStrict` as measured; do not assume it. Only when it is `true` is `gh p
 
 Still measure by hand what the sensor does not cover: how many PRs went red at least once before merging, and how many were reverted or needed a follow-up fix within 48h. Name the slowest PR and say why it was slow.
 
-Regressions: the `proposals` array (when run with `--regressions`) holds at most one issue, already de-duplicated against open `ready` issues by title. It is non-empty only when a class's p90 rose 50% or more week over week, or `ci.yml` p50 rose 30% or more, against the previous recorded `sdlcSpeed` row. File it, labeled `ready`, with the proposal's title and body unchanged. File nothing when `proposals` is empty.
+Regressions: the `proposals` array (when run with `--regressions`) holds at most one issue, already de-duplicated against open `ready` issues by title. It is non-empty only when a class's p90 rose 50% or more week over week, or `ci.yml` p50 rose 30% or more, against the latest recorded `sdlcSpeed` row whose window ended at least `--days` earlier (windows never overlap; an overlapping re-run, e.g. one day after the last row, is not a baseline, and with no non-overlapping row `proposals` is empty). File it, labeled `ready`, with the proposal's title and body unchanged. File nothing when `proposals` is empty.
 
 ## Pass 4 — recurring failure causes
 
