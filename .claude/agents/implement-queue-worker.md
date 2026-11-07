@@ -97,6 +97,15 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
 
    If `pnpm regen` changed any artifact (`docs/architecture/dependency-graph.md`, `llms.txt`/`llms-full.txt`, `registry.json`, `generated-schemas.ts`), stage **those specific files** alongside your change (never `git add -A`). Re-run `git status --short` and confirm it is clean of generated files before committing — do not push until it is.
 
+   **Then the two Build-job gates that otherwise only fail after a push** — dead exports and bundle budgets were the most frequent post-push CI fixes (#8397, #8406, #8441, #8459), each costing a full CI round. From the repo root:
+
+   ```bash
+   pnpm check:knip                                              # unused exports/files/deps (CI Lint job)
+   pnpm turbo run size:check --filter='...[origin/main]'        # changed packages AND their dependents; builds first
+   ```
+
+   The `...` prefix matters: a change in a shared package can overflow an app's budget (#8459 grew `rialto-catalog` and broke `apps/hospitality`'s chunk). On a knip hit, unexport or delete the dead code. On a size failure, first look for avoidable weight; raise a `size-limit` entry only when the growth is the feature itself, and put the before/after sizes in the commit message. A new chunk with no budget fails `check-chunk-coverage.mjs` — add a `size-limit` entry for it. The `perf-budget` skill has the detailed workflow.
+
 5. **Simplify** — Review your changes. Remove unnecessary complexity. If you added more than 20 lines, look for opportunities to simplify, then re-run gates.
 
 6. **Commit** — Stage only your changed files (never `git add -A`):
