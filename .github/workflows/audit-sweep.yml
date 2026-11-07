@@ -33,3 +33,13 @@ jobs:
         # CONNECT tunnel (curl 56 / HTTP 000), so a cloud RemoteTrigger can never
         # audit production. Files deduped `audit` issues for down surfaces.
         run: bash scripts/audit/live-sweep.sh
+
+      - name: Upload sweep results
+        # record-summary-rows.yml turns this into metrics/audit-coverage.jsonl
+        # so zone coverage is visible from tracked files (#8419).
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: audit-sweep-results
+          path: audit-sweep-results/results.tsv
+          if-no-files-found: ignore

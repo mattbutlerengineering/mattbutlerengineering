@@ -137,6 +137,11 @@ async function main() {
   }
 
   const scored = isCompleteScores(args.scores);
+  if (args.scores && !scored) {
+    console.error("FAIL: partial scores — provide all four or none");
+    process.exitCode = 1;
+    return;
+  }
   if (!scored && !args.error && !args.authGated) {
     console.error(
       "FAIL: provide all four scores (--performance --accessibility --best-practices --seo), --auth-gated <method>, or --error <message>"

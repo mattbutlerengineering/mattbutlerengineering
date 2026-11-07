@@ -41,6 +41,11 @@ node scripts/record-audit-check.mjs --surface gen:playground \
 node scripts/record-audit-check.mjs --surface gen:playground --auth-gated "curl 200 on /gen, login landing"
 ```
 
+The weekly `audit-sweep.yml` run records the same per-surface state automatically in the
+**tracked** `metrics/audit-coverage.jsonl` (auth0 surfaces reachable only at the login page are
+`auth-gated`, failures `error`, never-visited `unchecked`); the `auditCoverage` sensor and
+`/ideate` read that, not the gitignored inventory (#8419).
+
 Authenticated depth (E2E fixture) is separate; see [Auth](#auth-hospitality--gen).
 
 ## Environment Reachability (preflight — run FIRST, before any live check)

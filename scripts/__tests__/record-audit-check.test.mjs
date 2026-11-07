@@ -9,6 +9,8 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
 import {
   parseArgs,
@@ -187,5 +189,19 @@ describe("applyScoreUpdate outcomes (#8419)", () => {
     });
     expect(inventory.surfaces[0].lastOutcome.status).toBe("error");
     expect(inventory.surfaces[0].checkCount).toBe(1);
+  });
+});
+
+describe("CLI partial scores (#8419)", () => {
+  const script = fileURLToPath(new URL("../record-audit-check.mjs", import.meta.url));
+
+  it("fails instead of silently dropping a partial score set, even with --auth-gated", () => {
+    const run = spawnSync(
+      process.execPath,
+      [script, "--surface", "gen:playground", "--auth-gated", "login page", "--seo", "1"],
+      { encoding: "utf8" }
+    );
+    expect(run.status).toBe(1);
+    expect(run.stderr).toContain("partial scores");
   });
 });

@@ -98,10 +98,10 @@ describe("formatFinding", () => {
 });
 
 describe("GUARDED_CALLS coverage (live check, not a fixture)", () => {
-  it("guards both updateSurfaceScore and saveInventory", () => {
+  it("guards both recordSurfaceOutcome and saveInventory", () => {
     expect(GUARDED_CALLS.map((g) => g.name).sort()).toEqual([
+      "recordSurfaceOutcome",
       "saveInventory",
-      "updateSurfaceScore",
     ]);
   });
 });

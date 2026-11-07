@@ -4,6 +4,7 @@
  *
  *   node scripts/record-summary-row.mjs lighthouse <dir-with-lhr-json> [--commit sha]
  *   node scripts/record-summary-row.mjs mutation <path-to-mutation.json> [--commit sha]
+ *   node scripts/record-summary-row.mjs audit-coverage <path-to-sweep-results.tsv> [--commit sha]
  *
  * Writes nothing and exits 1 when the run measured nothing, so the workflow
  * step goes red and no hollow row can pass for a measurement.
@@ -12,6 +13,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildLighthouseRow, buildMutationRow } from "./metrics-summary-rows.mjs";
+import { buildAuditCoverageRow, parseSweepResults } from "./audit-coverage.mjs";
 import { append } from "./metrics-store.mjs";
 
 const readJson = (path) => {
@@ -19,6 +21,14 @@ const readJson = (path) => {
     return JSON.parse(readFileSync(path, "utf8"));
   } catch {
     return null;
+  }
+};
+
+const readText = (path) => {
+  try {
+    return readFileSync(path, "utf8");
+  } catch {
+    return "";
   }
 };
 
@@ -42,8 +52,16 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   } else if (kind === "mutation") {
     row = buildMutationRow(readJson(input), meta);
     metric = "mutation-score";
+  } else if (kind === "audit-coverage") {
+    const text = readText(input); // missing file = sweep produced nothing → no row
+    // Needs agent-core's built dist; only this kind pays for the import.
+    const { SURFACE_REGISTRY } = await import("@mbe/agent-core");
+    row = buildAuditCoverageRow(parseSweepResults(text), meta, SURFACE_REGISTRY);
+    metric = "audit-coverage";
   } else {
-    console.error("usage: record-summary-row.mjs <lighthouse|mutation> <input> [--commit sha]");
+    console.error(
+      "usage: record-summary-row.mjs <lighthouse|mutation|audit-coverage> <input> [--commit sha]"
+    );
     process.exit(2);
   }
 
@@ -51,6 +69,9 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error(`${kind}: the run produced no measurement; no row written.`);
     process.exit(1);
   }
-  append(metric, row);
+  // Literal name for the audit-coverage writer: metrics-store.test.mjs greps
+  // `append("<name>"` to prove every read metric has a producer.
+  if (metric === "audit-coverage") append("audit-coverage", row);
+  else append(metric, row);
   console.log(`${metric}: appended row for ${meta.date}`);
 }

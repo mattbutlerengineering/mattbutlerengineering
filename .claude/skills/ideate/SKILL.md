@@ -130,7 +130,9 @@ the charter, and stop.
 - `PRODUCT.md` — themes, non-goals, guardrails (mandatory).
 - Signals: `metrics/process-metrics.jsonl`, `metrics/last-audit.json`,
   `metrics/pr-acceptance.json`, `metrics/agent-perf.jsonl`,
-  `metrics/queue-telemetry.jsonl`, `.claude/acmm/state.json`,
+  `metrics/queue-telemetry.jsonl`,
+  `metrics/audit-coverage.jsonl` (per-surface sweep status; zones with no row are
+  "never recorded" — `.audit-state/` is gitignored and invisible to you), `.claude/acmm/state.json`,
   `docs/incidents/` (if present).
 - Open issues labeled `audit`, `sentry`, `ci-fix`, `enhancement` — these ARE
   the committed outputs of site-audit and sentry-triage.
