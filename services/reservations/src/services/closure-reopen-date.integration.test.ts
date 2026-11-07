@@ -381,8 +381,10 @@ describe.skipIf(!DATABASE_URL)("reopening one date of a range (real Postgres)", 
     const out = await w.reopen(range, DAYS[1], true);
     if (out.kind !== "reopened") throw new Error(`reopen ${out.kind}`);
     expect(out.result.notified).toBe(1);
+    // The command owes the reopen notice for the reopened date of the rule.
+    expect(out.notice).toEqual({ venueId: w.venueId, ruleId: range.id, date: DAYS[1] });
 
-    // The route enqueues notices for the reopened rule's id: that is Tuesday's guest alone.
+    // The notice goes out under the reopened rule's id: that is Tuesday's guest alone.
     const told = await w.inVenue((tx) => listNotifiable(w.venueId, range.id, "reopened", NOW, tx));
     const tuesdays = await w.inVenue((tx) =>
       tx.closureOutcome.findMany({ where: { venueId: w.venueId, reservationId: tue } })

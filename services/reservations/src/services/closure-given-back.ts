@@ -2,8 +2,6 @@ import { addDays, stillClosedAfterReopen } from "@mbe/availability";
 import type { DateRule } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { toDbDate } from "./availability-config.js";
-import { prisma } from "./database.js";
-import { runWithVenueContext } from "./venue-context-store.js";
 
 /**
  * Dates an edit of a closure gives back (ux.md F6 step 5, #8413). The edit saves the closure under
@@ -90,19 +88,3 @@ export async function givenBackGuests(
     from: from.toISOString().slice(0, 10),
   };
 }
-
-/**
- * The guests an edit told that their date is open again, read from the audit row that saved the
- * closure (as `carriedOutcomeIds` is), so a replay and a retried post-commit step agree. `null` for
- * any other save.
- */
-export const readGivenBack = (venueId: string, ruleId: string): Promise<GivenBackGuests | null> =>
-  runWithVenueContext(venueId, async () => {
-    const change = await prisma.availabilityChange.findFirst({
-      where: { venueId, kind: "closure", inverse: { path: ["closure", "ruleId"], equals: ruleId } },
-      select: { inverse: true },
-    });
-    const meta = change?.inverse as
-      { closure?: { givenBack?: GivenBackGuests } } | null | undefined;
-    return meta?.closure?.givenBack ?? null;
-  });

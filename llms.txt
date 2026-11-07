@@ -12645,45 +12645,35 @@
   </file>
   <file path="services/reservations/src/routes/closure-post-commit.ts">
     <item priority="high">
-      export async function publishClosureChanges(
-        fastify: FastifyInstance,
-        log: FastifyBaseLogger,
-        saved: { venueId: string; ruleId: string; carried?: readonly string[] }
-      ): Promise<void> { /* ... */ }
+      type NoticeEnqueue = FastifyInstance["services"]["closureNoticeService"]["enqu...;
     </item>
-    <item priority="high">
-      export async function enqueueNotices(
-        enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-        input: {
-          venueId: string;
-          ruleId: string;
-          carried?: readonly string[];
-          only?: readonly string[];
-          date?: string;
-        },
+    <item priority="low">
+      async function enqueueNotices(
+        enqueue: NoticeEnqueue,
+        input: Omit<Parameters<NoticeEnqueue>[0], "now">,
         log: FastifyBaseLogger
       ): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      async function publishClosureChanges(
+        fastify: FastifyInstance,
+        log: FastifyBaseLogger,
+        plan: ClosurePostCommit
+      ): Promise<void> { /* ... */ }
+    </item>
     <item priority="high">
-      export async function enqueueClosureJobs(
+      export async function runClosurePostCommit(
         fastify: FastifyInstance,
         log: FastifyBaseLogger,
-        saved: { venueId: string; ruleId: string; cancelled: number; givenBackNotified?: number }
+        plan: ClosurePostCommit
       ): Promise<void> { /* ... */ }
     </item>
-    <item priority="low">
-      async function enqueueGivenBackNotices(
+    <item priority="high">
+      export async function runReopenNotice(
         fastify: FastifyInstance,
         log: FastifyBaseLogger,
-        saved: { venueId: string; ruleId: string }
+        notice: ReopenNotice
       ): Promise<void> { /* ... */ }
-    </item>
-    <item priority="low">
-      async function carriedOutcomes(
-        log: FastifyBaseLogger,
-        venueId: string,
-        ruleId: string
-      ): Promise<string[]> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/closures.ts">
@@ -17319,16 +17309,6 @@
     <item priority="high">
       export async function returnCarriedOutcomes(tx: Db, inverse: unknown): Promise<void> { /* ... */ }
     </item>
-    <item priority="high">
-      export const readCarriedOutcomeIds: unknown;
-    </item>
-    <item priority="high">
-      export async function carriedOutcomeIds(
-        db: Pick<PrismaClient, "availabilityChange">,
-        venueId: string,
-        ruleId: string
-      ): Promise<string[]> { /* ... */ }
-    </item>
   </file>
   <file path="services/reservations/src/services/closure-changes.ts">
     <item priority="low">
@@ -17445,7 +17425,29 @@
       function strandedIssues(stranded: readonly StrandedReservation[], message: string): RefusalIssue[] { /* ... */ }
     </item>
     <item priority="low">
-      type CreateClosureOutcome = { kind: "saved"; result: Closu | { kind: "not_found" } | { kind: "forbidden" } | { kind: "too_long" } | { kind: "version_conflict"; wi | { kind: "key_reused" } | { kind: "closure_exists" } | { kind: "invalid"; issues: Ref | { kind: "decision_required"; g | { kind: "invalid_decision"; gr | { kind: "move_unavailable"; re;
+      interface ClosurePostCommit {
+        venueId: string;
+        ruleId: string;
+        carried: string[];
+        refunds: boolean;
+        givenBack: GivenBackGuests | null;
+      }
+    </item>
+    <item priority="low">
+      interface ReopenNotice {
+        venueId: string;
+        ruleId: string;
+        date?: string;
+      }
+    </item>
+    <item priority="high">
+      interface Saved {
+        result: ClosureResult;
+        postCommit: ClosurePostCommit | null;
+      }
+    </item>
+    <item priority="low">
+      type CreateClosureOutcome = ({ kind: "saved" } & Saved) | { kind: "not_found" } | { kind: "forbidden" } | { kind: "too_long" } | { kind: "version_conflict"; wi | { kind: "key_reused" } | { kind: "closure_exists" } | { kind: "invalid"; issues: Ref | { kind: "decision_required"; g | { kind: "invalid_decision"; gr | { kind: "move_unavailable"; re;
     </item>
     <item priority="high">
       type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
@@ -17498,12 +17500,20 @@
         key: string
       ): Promise<{ id: string; actorId: string; closure: ClosureMeta } | null> { /* ... */ }
     </item>
+    <item priority="medium">
+      function savedOf(
+        venueId: string,
+        closure: Pick<ClosureMeta, "ruleId" | "version" | "carried" | "givenBack">,
+        changeId: string,
+        counts: Record<ClosureAction, number>
+      ): Saved { /* ... */ }
+    </item>
     <item priority="low">
-      async function storedResult(
+      async function storedSave(
         tx: Pick<PrismaClient, "closureOutcome">,
         venueId: string,
         replay: { id: string; closure: ClosureMeta }
-      ): Promise<ClosureResult> { /* ... */ }
+      ): Promise<Saved> { /* ... */ }
     </item>
     <item priority="high">
       interface Plan {
@@ -17541,7 +17551,7 @@
         body: Cre...;
     </item>
     <item priority="low">
-      async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> { /* ... */ }
+      async function replayOf(tx: Db, input: CommitInput): Promise<Saved | null> { /* ... */ }
     </item>
     <item priority="low">
       async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> { /* ... */ }
@@ -17550,7 +17560,7 @@
       async function preflight(tx: Db, input: CommitInput): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> { /* ... */ }
+      async function commit(tx: Db, input: CommitInput): Promise<Saved> { /* ... */ }
     </item>
     <item priority="high">
       export async function createClosure(
@@ -17679,9 +17689,6 @@
           now: Date;
         }
       ): Promise<GivenBackGuests | null> { /* ... */ }
-    </item>
-    <item priority="high">
-      export const readGivenBack: unknown;
     </item>
   </file>
   <file path="services/reservations/src/services/closure-impact-store.ts">

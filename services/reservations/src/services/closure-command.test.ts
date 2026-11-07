@@ -419,6 +419,7 @@ describe("createClosure", () => {
         version: 5,
         outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 },
       },
+      postCommit: { venueId: "v", ruleId: "dr-new", carried: [], refunds: true, givenBack: null },
     });
     expect(w.reservations.map((r) => r.status)).toEqual(["CANCELLED", "CANCELLED"]);
     expect(w.events).toEqual([
@@ -454,6 +455,19 @@ describe("createClosure", () => {
     expect(outcome).toMatchObject({ kind: "saved", result: { outcomes: { keep_notify: 2 } } });
     expect(active(w)).toHaveLength(2);
     expect(w.events).toEqual([]);
+  });
+
+  it("owes refunds only for a save that cancelled a booking", async () => {
+    const { outcome } = await run(
+      world(),
+      body({ decisions: [{ groupKey: "2026-12-24:closed", action: "keep_notify" }] })
+    );
+    expect(outcome).toMatchObject({ kind: "saved", postCommit: { refunds: false } });
+  });
+
+  it("owes no post-commit work for a save that affected no booking", async () => {
+    const { outcome } = await run(world({ reservations: [] }), body({ decisions: [] }));
+    expect(outcome).toMatchObject({ kind: "saved", postCommit: null });
   });
 
   it("keeps silently only with the acknowledgement, recording who and notifying nobody", async () => {
@@ -695,13 +709,15 @@ describe("createClosure", () => {
     expect(w.outcomes).toHaveLength(0);
   });
 
-  it("replays the same key to the stored result, changing nothing", async () => {
+  it("replays the same key to the stored result and the same post-commit work, changing nothing", async () => {
     const w = world();
     const first = await run(w, body());
     const events = w.events.length;
     const second = await run(w, body());
 
+    // The same work again: a retry re-runs a post-commit step that failed the first time.
     expect(second.outcome).toEqual(first.outcome);
+    expect(second.outcome).toMatchObject({ postCommit: { ruleId: "dr-new", refunds: true } });
     expect(w.version).toBe(5);
     expect(w.dateRules).toHaveLength(1);
     expect(w.outcomes).toHaveLength(2);
@@ -1258,10 +1274,25 @@ describe("createClosure", () => {
       w.outcomes = [{ id: "o-old", dateRuleId: "c1", reservationId: "gone", action: "cancel" }];
       const { outcome } = await run(w, grow());
 
-      expect(outcome.kind).toBe("saved");
+      // Carried outcomes were decided, told and refunded by the save that made them.
+      expect(outcome).toMatchObject({ kind: "saved", postCommit: null });
       expect((w.changes[0]!.inverse as { closure: { carried: unknown } }).closure.carried).toEqual({
         from: "c1",
         outcomeIds: ["o-old"],
+      });
+    });
+
+    it("leaves the carried outcomes out of the work its own decisions owe", async () => {
+      const w = edited([onDec("new-date", "2026-12-27")]);
+      w.outcomes = [{ id: "o-old", dateRuleId: "c1", reservationId: "gone", action: "cancel" }];
+      const { outcome } = await run(
+        w,
+        grow({ decisions: [{ groupKey: "2026-12-27:closed", action: "cancel" }] })
+      );
+
+      expect(outcome).toMatchObject({
+        kind: "saved",
+        postCommit: { ruleId: "c2", carried: ["o-old"], refunds: true, givenBack: null },
       });
     });
 
@@ -1290,7 +1321,14 @@ describe("createClosure", () => {
         const w = withTold();
         const { outcome } = await run(w, shrink({ tellGivenBackGuests: true }));
 
-        expect(outcome).toMatchObject({ kind: "saved", result: { givenBackNotified: 1 } });
+        expect(outcome).toMatchObject({
+          kind: "saved",
+          result: { givenBackNotified: 1 },
+          postCommit: {
+            ruleId: "c2",
+            givenBack: { ruleId: "c1", outcomeIds: ["o-25"], from: "2026-12-25" },
+          },
+        });
         const change = w.changes[0]!;
         expect(change.notifiedGuests).toBe(true);
         expect((change.inverse as { closure: { givenBack: unknown } }).closure.givenBack).toEqual({
@@ -1304,8 +1342,9 @@ describe("createClosure", () => {
         const w = withTold();
         const { outcome } = await run(w, shrink({ tellGivenBackGuests: false }));
 
-        expect(outcome).toMatchObject({ kind: "saved" });
-        expect((outcome as { result: object }).result).not.toHaveProperty("givenBackNotified");
+        if (outcome.kind !== "saved") throw new Error(outcome.kind);
+        expect(outcome.postCommit?.givenBack ?? null).toBeNull();
+        expect(outcome.result).not.toHaveProperty("givenBackNotified");
         expect(w.changes[0]!.notifiedGuests).toBe(false);
         expect(w.changes[0]!.inverse).not.toHaveProperty("closure.givenBack");
       });
@@ -1319,11 +1358,12 @@ describe("createClosure", () => {
         expect(w.changes[0]!.notifiedGuests).toBe(false);
       });
 
-      it("answers a replay with the same count", async () => {
+      it("answers a replay with the same count and owes the same reopen notice", async () => {
         const w = withTold();
-        await run(w, shrink({ tellGivenBackGuests: true }));
+        const first = await run(w, shrink({ tellGivenBackGuests: true }));
         const again = await run(w, shrink({ tellGivenBackGuests: true }));
         expect(again.outcome).toMatchObject({ kind: "saved", result: { givenBackNotified: 1 } });
+        expect(again.outcome).toEqual(first.outcome);
       });
     });
 
@@ -1487,6 +1527,10 @@ describe("createClosures (several dates in one save)", () => {
           { ruleId: "dr-25", version: 6, outcomes: { keep_notify: 1 } },
         ],
       },
+      postCommit: [
+        { ruleId: "dr-new", refunds: true },
+        { ruleId: "dr-25", refunds: false },
+      ],
     });
     expect(w.dateRules).toHaveLength(2);
     expect(w.changes).toHaveLength(2);
@@ -1984,6 +2028,7 @@ describe("reopenClosure", () => {
             by: [{ ruleId: "other", targetKind: "venue", dates: ["2026-12-24"] }],
           },
         },
+        notice: null,
       });
       expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: false });
     });
@@ -2006,6 +2051,7 @@ describe("reopenClosure", () => {
           notified: 2,
           stillClosed: { everyDate: false, by: [{ ruleId: "other", dates: ["2026-12-24"] }] },
         },
+        notice: { venueId: "v", ruleId: "dr-new" },
       });
     });
 
@@ -2070,7 +2116,7 @@ describe("reopenClosure", () => {
         client
       );
 
-      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 0 } });
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 0 }, notice: null });
       expect(w.changes.at(-1)).toMatchObject({ notifiedGuests: false });
     });
   });

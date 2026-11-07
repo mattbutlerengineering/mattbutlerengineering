@@ -234,6 +234,8 @@ describe("setTonight", () => {
         expiresAt: MIDNIGHT_AFTER,
         outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
       },
+      // Only a close-early, through the closure command, owes post-commit work.
+      postCommit: null,
     });
     expect(w.dateRules).toHaveLength(1);
     expect(w.dateRules[0]).toMatchObject({
@@ -415,6 +417,13 @@ describe("setTonight", () => {
 
   it("routes a close-early through the closure command, as tonight's date, keyed by the ruleId and the change", async () => {
     const w = world();
+    const postCommit = {
+      venueId: "v",
+      ruleId: "t-new",
+      carried: [],
+      refunds: true,
+      givenBack: null,
+    };
     const createClosure = vi.fn(async (_input: Record<string, unknown>) => ({
       kind: "saved",
       result: {
@@ -423,6 +432,7 @@ describe("setTonight", () => {
         changeId: "chg-9",
         outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 },
       },
+      postCommit,
     }));
     const decisions = [{ groupKey: `${TODAY}:shortened`, action: "cancel" as const }];
 
@@ -433,6 +443,7 @@ describe("setTonight", () => {
     expect(outcome).toMatchObject({
       kind: "saved",
       result: { changeId: "chg-9", serviceDate: TODAY, expiresAt: MIDNIGHT_AFTER },
+      postCommit,
     });
     const call = createClosure.mock.calls[0]![0];
     expect(call).toMatchObject({
