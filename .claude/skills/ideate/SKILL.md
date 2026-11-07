@@ -157,7 +157,9 @@ unless a signal is overwhelming; every proposal cites ≥1 signal; sized to
 decompose into 3-10 child issues).
 
 Per proposal — title `[Proposal] <app>: <feature>`, label `feature-proposal`
-**only**, body:
+**only**, body (write it to a temp file and create with
+`gh issue create --body-file <path>`; an `@<path>` value given to `--body`
+is posted as the literal string, only `--body-file` reads a file):
 
 ```markdown
 ## Problem & Evidence
@@ -195,7 +197,8 @@ proposals are decomposed automatically after ~72h (first morning run past
 
 Title `[Ideation] Batch <YYYY-MM-DD>`, labels `ideation-batch` + `tracking`.
 Body: PRODUCT.md git SHA it was grounded on, a 3-5 line signal summary, then
-the task-list:
+the task-list (create with `gh issue create --body-file <path>`, never
+an `@<path>` `--body` value):
 
 ```markdown
 - [ ] #<n1> — <title>
