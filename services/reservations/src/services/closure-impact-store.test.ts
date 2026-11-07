@@ -64,6 +64,7 @@ const rows = () => ({
     })),
   },
   table: { findMany: vi.fn(async () => [{ id: "t-1" }]) },
+  floorPlanSection: { findMany: vi.fn(async () => []) },
   reservationHold: { findMany: vi.fn(async () => []) },
   reservation: {
     findMany: vi.fn(async () => [

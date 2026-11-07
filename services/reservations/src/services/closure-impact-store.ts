@@ -15,6 +15,7 @@ import {
   type Occupancy,
 } from "./closure-impact.js";
 import { prisma } from "./database.js";
+import { loadSectionIndex } from "./section-index.js";
 import { activeHoldWindow, NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
 /**
@@ -24,7 +25,10 @@ import { activeHoldWindow, NOT_BOOKED_STATUSES } from "./slot-rules.js";
  */
 
 type StoreClient = Pick<PrismaClient, "$transaction">;
-type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservationHold">;
+type ImpactDb = Pick<
+  PrismaClient,
+  "table" | "reservation" | "reservationHold" | "floorPlanSection"
+>;
 
 export type ClosureImpactOutcome =
   | { kind: "ok"; impact: ClosureImpact }
@@ -102,11 +106,14 @@ export async function impactInTransaction(
   now: Date,
   alongside?: ClosureAlongside
 ): Promise<ClosureImpactOutcome> {
-  const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+  const [tables, sections] = await Promise.all([
+    tx.table.findMany({ where: { venueId }, select: { id: true } }),
+    loadSectionIndex(tx, venueId),
+  ]);
   const next = withClosure(state.effective, rule, alongside);
   const issues = [
     ...validateConfig(next),
-    ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+    ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids),
   ];
   if (issues.length > 0) return { kind: "invalid", issues };
 

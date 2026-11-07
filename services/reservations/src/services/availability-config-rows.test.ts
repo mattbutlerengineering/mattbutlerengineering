@@ -3,7 +3,13 @@ import { Prisma } from "../generated/prisma/index.js";
 import type { ConfigDiff } from "./availability-config-plan.js";
 
 const { parseConfigRows } = vi.hoisted(() => ({ parseConfigRows: vi.fn() }));
-vi.mock("./availability-snapshot.js", () => ({ parseConfigRows }));
+vi.mock("./availability-snapshot.js", () => ({
+  parseConfigRows,
+  SECTION_RULE_INCLUDE: {
+    tables: { select: { tableId: true } },
+    section: { select: { tables: { select: { id: true } } } },
+  },
+}));
 
 import {
   ConfigRowConflict,
@@ -139,7 +145,11 @@ describe("readStoredConfig", () => {
     expect(db.dateRule.findMany).toHaveBeenCalledWith({
       where: { venueId: "venue-1", deletedAt: null },
       orderBy: { createdAt: "asc" },
-      include: { tables: { select: { tableId: true } } },
+      // A section closure is read with its section's tables, so its tableIds follow membership.
+      include: {
+        tables: { select: { tableId: true } },
+        section: { select: { tables: { select: { id: true } } } },
+      },
     });
     expect(parseConfigRows).toHaveBeenCalledWith(
       {
@@ -322,6 +332,48 @@ describe("date rule revive and rule tables", () => {
       data: [{ dateRuleId: "with", tableId: "t1", venueId: "venue-1" }],
     });
     expect(db.dateRuleTable.deleteMany).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("section closure rows (ADR-032)", () => {
+  const sectionRule = (id: string) =>
+    rule(id, { targetKind: "tables", sectionId: "sec-bar", tableIds: ["t1", "t2"] });
+
+  it("writes sectionId and no join rows when a section rule is created", async () => {
+    const db = makeDb();
+    const diff = emptyDiff();
+    diff.create.dateRules = [sectionRule("dr-bar")];
+
+    await writeConfigDiff(asDb(db), "venue-1", diff, ctx);
+
+    const data = (db.dateRule.create.mock.calls[0]![0] as { data: Record<string, unknown> }).data;
+    expect(data.sectionId).toBe("sec-bar");
+    expect(db.dateRuleTable.createMany).not.toHaveBeenCalled();
+  });
+
+  it("writes sectionId, clears old join rows and adds none on an update", async () => {
+    const db = makeDb();
+    const diff = emptyDiff();
+    diff.update.dateRules = [sectionRule("dr-bar")];
+
+    await writeConfigDiff(asDb(db), "venue-1", diff, ctx);
+
+    const data = (db.dateRule.update.mock.calls[0]![0] as { data: Record<string, unknown> }).data;
+    expect(data.sectionId).toBe("sec-bar");
+    expect(db.dateRuleTable.deleteMany).toHaveBeenCalledTimes(1);
+    expect(db.dateRuleTable.createMany).not.toHaveBeenCalled();
+  });
+
+  it("writes a null sectionId for a rule without one", async () => {
+    const db = makeDb();
+    const diff = emptyDiff();
+    diff.create.dateRules = [rule("dr-plain", { tableIds: ["t1"] })];
+
+    await writeConfigDiff(asDb(db), "venue-1", diff, ctx);
+
+    const data = (db.dateRule.create.mock.calls[0]![0] as { data: Record<string, unknown> }).data;
+    expect(data.sectionId).toBeNull();
+    expect(db.dateRuleTable.createMany).toHaveBeenCalledTimes(1);
   });
 });
 

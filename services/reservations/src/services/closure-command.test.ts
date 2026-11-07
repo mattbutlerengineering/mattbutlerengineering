@@ -289,6 +289,7 @@ function fakeClient(w: World) {
       }),
     },
     table: { findMany: vi.fn(async () => [{ id: "t-1" }]) },
+    floorPlanSection: { findMany: vi.fn(async () => []) },
     reservation: reservationDelegate(w),
     reservationHold: {
       // The impact's occupancy read: every unexpired hold on the tables asked about.

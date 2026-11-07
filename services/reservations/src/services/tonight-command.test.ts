@@ -156,6 +156,7 @@ function fakeClient(w: World) {
         return { availabilityVersion: w.version };
       }),
     },
+    floorPlanSection: { findMany: vi.fn(async () => []) },
     table: {
       findMany: vi.fn(async ({ where }: { where?: { isActive?: boolean } } = {}) =>
         [
