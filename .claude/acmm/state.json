@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-11-06T11:54:34.941Z",
+  "lastRun": "2026-11-07T10:57:37.203Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -172,7 +172,7 @@
     },
     "acmm:evidence-antipatterns": {
       "passed": true,
-      "evidence": "42 distinct issue/PR citations found in gotchas.md",
+      "evidence": "44 distinct issue/PR citations found in gotchas.md",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -340,7 +340,7 @@
     },
     "acmm:auto-issue-gen": {
       "passed": true,
-      "evidence": "133 automation-labeled issue(s) created in the last 30 days",
+      "evidence": "138 automation-labeled issue(s) created in the last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -550,7 +550,7 @@
     },
     "meta:threshold-tuning": {
       "passed": true,
-      "evidence": "20 threshold adjustment(s) in last 30 days",
+      "evidence": "21 threshold adjustment(s) in last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1197,6 +1197,12 @@
       "level": 5,
       "detected": 73,
       "total": 84
+    },
+    {
+      "date": "2026-11-07",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1390,7 +1396,7 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.025025025025025027,
+        "value": 0.024024024024024024,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
@@ -1403,20 +1409,20 @@
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9967845659163987,
+        "value": 0.9936305732484076,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 315
+        "sampleSize": 314
       },
       {
         "level": 5,
         "name": "auto-qa-tuning-history",
         "description": "Auto-QA tuning history must have more than 1 entry",
         "passed": true,
-        "value": 45,
+        "value": 46,
         "threshold": 1,
         "direction": "above",
         "strict": true,
@@ -1435,33 +1441,32 @@
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 315
+        "sampleSize": 314
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.016129032258064516,
+        "value": 0.016025641025641024,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 315
+        "sampleSize": 314
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.025025025025025027,
+      "rate_30d": 0.024024024024024024,
       "sample_size": 999,
       "flaky_shas": [
         "04830781a9bc4c96c510146e33f540a56043197a",
         "19b39178d7f04bfb702895a86a0bf2866f70c559",
         "29cdd03b0704d9a688c8c11a5f63d7627e316a31",
-        "2b2af184d05e2f27dd83bac1504abad173bda939",
         "2fae56f4b395055276cb1028092c613beed6185f",
         "4150f46c4085354805add0c707c7f3e1318d5cf5",
         "5073021f93908731e9b7bf31ac64549126754c59",
@@ -1485,22 +1490,100 @@
         "f465e3c44e88b65501b6b92ac293b7a8ad127576"
       ],
       "insufficient_data": false,
-      "oldest_record_at": "2026-10-12T01:56:39.000Z",
-      "measured_at": "2026-11-06T11:54:34.940Z"
+      "oldest_record_at": "2026-10-12T19:13:44.000Z",
+      "measured_at": "2026-11-07T10:57:37.201Z"
     },
     "agent_pr": {
-      "sample_size": 315,
-      "merged_count": 310,
-      "closed_unmerged_count": 1,
-      "open_count": 4,
-      "acceptance_rate_30d": 0.9967845659163987,
+      "sample_size": 314,
+      "merged_count": 312,
+      "closed_unmerged_count": 2,
+      "open_count": 0,
+      "acceptance_rate_30d": 0.9936305732484076,
       "revert_rate_30d": 0,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.22083333333333333,
-      "human_touch_ratio": 0.016129032258064516,
+      "median_time_to_merge_hours": 0.25402777777777774,
+      "human_touch_ratio": 0.016025641025641024,
       "insufficient_data": false,
-      "oldest_record_at": "2026-10-16T08:50:47.000Z",
+      "oldest_record_at": "2026-10-16T17:40:27.000Z",
       "recent_changes": [
+        {
+          "number": 8426,
+          "title": "fix(reservations): deleting an onboarded venue takes its floor plans and tables with it",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8426",
+          "mergedAt": "2026-11-06T20:54:32Z"
+        },
+        {
+          "number": 8410,
+          "title": "feat(availability): edit a one-date or range closure with a booking check",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8410",
+          "mergedAt": "2026-11-06T20:27:51Z"
+        },
+        {
+          "number": 8406,
+          "title": "feat(availability): send closure notices in the guest's language",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8406",
+          "mergedAt": "2026-11-06T20:20:18Z"
+        },
+        {
+          "number": 8400,
+          "title": "fix(ci): run instruction-budget check on the docs-only lane (mbe-feature-drain #8396)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8400",
+          "mergedAt": "2026-11-06T20:12:06Z"
+        },
+        {
+          "number": 8415,
+          "title": "docs: document CRON_TZ cron format; update verified routine crons (#8411)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8415",
+          "mergedAt": "2026-11-06T19:56:16Z"
+        },
+        {
+          "number": 8414,
+          "title": "fix(ci): tier-classifier applies unmatched-path T2 default per file",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8414",
+          "mergedAt": "2026-11-06T17:07:31Z"
+        },
+        {
+          "number": 8392,
+          "title": "fix(hooks): bootstrap cloud sessions via SessionStart hook",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8392",
+          "mergedAt": "2026-11-06T16:01:28Z"
+        },
+        {
+          "number": 8389,
+          "title": "docs(adr): ADR-014 describes per-service db-migrate-<service> jobs",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8389",
+          "mergedAt": "2026-11-06T15:15:38Z"
+        },
+        {
+          "number": 8390,
+          "title": "docs(adr): amend ADR-022 for third (reduced-motion) adapter",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8390",
+          "mergedAt": "2026-11-06T15:15:32Z"
+        },
+        {
+          "number": 8391,
+          "title": "docs(gotchas): setState-in-useEffect rule is lint warn, not enforced",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8391",
+          "mergedAt": "2026-11-06T15:13:51Z"
+        },
+        {
+          "number": 8380,
+          "title": "fix(ci): stop nightly-compliance timing out and report job timeouts",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8380",
+          "mergedAt": "2026-11-06T15:06:24Z"
+        },
+        {
+          "number": 8382,
+          "title": "test(hospitality): hold SSE mock config in Node, not window.__fakeSSEConfig",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8382",
+          "mergedAt": "2026-11-06T14:53:44Z"
+        },
+        {
+          "number": 8381,
+          "title": "ci: promote storybook-tests into CI Gate",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8381",
+          "mergedAt": "2026-11-06T14:52:14Z"
+        },
         {
           "number": 8378,
           "title": "fix(sentry): skip init in WebDriver sessions (mbe-feature-drain #8282)",
@@ -1542,92 +1625,32 @@
           "title": "fix(hospitality): give the phone History e2e mocks a valid changes page",
           "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8346",
           "mergedAt": "2026-11-06T02:34:05Z"
-        },
-        {
-          "number": 8347,
-          "title": "fix: cascade a venue's availability config on delete instead of 409",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8347",
-          "mergedAt": "2026-11-06T02:34:01Z"
-        },
-        {
-          "number": 8320,
-          "title": "perf(hospitality): stabilize FloorPlanCanvas handleSelect so TableShape memo holds (mbe-feature-drain #8317)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8320",
-          "mergedAt": "2026-11-06T02:18:39Z"
-        },
-        {
-          "number": 8321,
-          "title": "perf: re-baseline eroded size-limit budgets (mbe-feature-drain #8319)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8321",
-          "mergedAt": "2026-11-06T01:52:12Z"
-        },
-        {
-          "number": 8324,
-          "title": "perf(reservations): batch closure-apply's reservationEvent writes into one createMany (mbe-daily-issue #8318)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8324",
-          "mergedAt": "2026-11-06T01:51:55Z"
-        },
-        {
-          "number": 8227,
-          "title": "fix(gen): narrow history overlay returns focus to its toggle on Escape; e2e pins it (mbe-feature-drain #8199)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8227",
-          "mergedAt": "2026-11-05T06:41:47Z"
-        },
-        {
-          "number": 8299,
-          "title": "test(reservations): cover closure-carry-outcomes mutation path",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8299",
-          "mergedAt": "2026-11-05T05:30:13Z"
-        },
-        {
-          "number": 8302,
-          "title": "fix(hospitality): stop the availability/preview e2e mock from faking a 500",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8302",
-          "mergedAt": "2026-11-05T05:30:07Z"
-        },
-        {
-          "number": 8298,
-          "title": "test(agent): cover gen-agent-closure-support.ts business logic",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8298",
-          "mergedAt": "2026-11-05T01:41:20Z"
-        },
-        {
-          "number": 8242,
-          "title": "fix(hospitality): wire aria-invalid/aria-describedby on operating-hours time inputs (mbe-feature-drain #8235)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8242",
-          "mergedAt": "2026-11-04T23:59:59Z"
-        },
-        {
-          "number": 8240,
-          "title": "fix(hospitality): return focus after Manage-Reservation dialogs close (mbe-feature-drain #8234)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8240",
-          "mergedAt": "2026-11-04T23:59:55Z"
-        },
-        {
-          "number": 8241,
-          "title": "test(agent): cover gen-tool-support.ts exported helpers (mbe-daily-issue #8191)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8241",
-          "mergedAt": "2026-11-04T23:59:41Z"
-        },
-        {
-          "number": 8275,
-          "title": "fix(reservations): guest history 403, waitlist notify without Redis, availability config validation (#8256, #8257, #8259)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8275",
-          "mergedAt": "2026-11-04T23:44:53Z"
-        },
-        {
-          "number": 8272,
-          "title": "fix(floor-plans): delete and clone work for real floor plans (#8254, #8255)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8272",
-          "mergedAt": "2026-11-04T23:02:53Z"
         }
       ],
-      "measured_at": "2026-11-06T11:54:34.940Z"
+      "measured_at": "2026-11-07T10:57:37.201Z"
     },
-    "evals": null,
+    "evals": {
+      "n": 5,
+      "passRate": 0.8,
+      "medianScore": 1,
+      "medianCostUsd": 0.4409,
+      "medianTurns": 11,
+      "windowDays": 30,
+      "lastRun": "2026-11-06T15:50:10.877Z",
+      "perModel": {
+        "claude-cli": {
+          "n": 5,
+          "passRate": 0.8,
+          "medianScore": 1
+        }
+      },
+      "status": "green",
+      "freshness": "current",
+      "measured_at": "2026-11-07T10:57:37.201Z"
+    },
     "auto_qa_tuning": {
-      "history_count": 45,
-      "measured_at": "2026-11-06T11:54:34.940Z"
+      "history_count": 46,
+      "measured_at": "2026-11-07T10:57:37.201Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
