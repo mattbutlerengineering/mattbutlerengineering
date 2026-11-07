@@ -113,14 +113,16 @@
 
 /* ── Destructive variant ─────────────────────── */
 .destructive {
-  color: var(--rialto-error);
+  /* The dark-theme error hue is 4.26:1 on the elevated menu surface; mixing in
+     primary text keeps the hue and clears 4.5:1 in both themes. */
+  color: color-mix(in srgb, var(--rialto-error) 80%, var(--rialto-text-primary));
 }
 
 .destructive:hover,
 .destructive:focus-visible,
 .destructive[data-active="true"] {
   background: rgb(180 60 50 / 0.08);
-  color: var(--rialto-error);
+  color: color-mix(in srgb, var(--rialto-error) 80%, var(--rialto-text-primary));
 }
 
 /* ── Icon slot ───────────────────────────────── */
@@ -152,6 +154,13 @@
   font-family: var(--rialto-font-mono);
   color: var(--rialto-text-tertiary);
   letter-spacing: 0.02em;
+}
+
+/* Tertiary text is 4.4:1 on the recessed hover/active row; one tier darker. */
+.item:hover .shortcut,
+.item:focus-visible .shortcut,
+.item[data-active="true"] .shortcut {
+  color: var(--rialto-text-secondary);
 }
 
 /* ── Label (sub-section heading) ─────────────── */
