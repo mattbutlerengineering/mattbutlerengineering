@@ -254,6 +254,10 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
       // pre-check runs INSIDE the table's venue context (venueScoped), the way
       // `floor-plans.ts`'s `/tables/positions` route does, so both reads
       // succeed under FORCE instead of silently skipping this check.
+      // One read of the table serves both guards below.
+      const current =
+        floorPlanId || sectionId ? await tableService.getById(request.params.id) : null;
+
       if (floorPlanId) {
         // Venue scope only proves the caller belongs to the TABLE's own venue.
         // `floorPlanId` is a client-supplied id that the update connects with
@@ -263,10 +267,7 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
         // floor-plans.ts. Checked here rather than in the DB layer because
         // `Table` has no compound floorPlanId/venueId constraint, and ADR-026's
         // RLS does not apply to the app's own role.
-        const [current, floorPlan] = await Promise.all([
-          tableService.getById(request.params.id),
-          floorPlanService.getById(floorPlanId),
-        ]);
+        const floorPlan = await floorPlanService.getById(floorPlanId);
         // A missing table or floor plan is not a cross-venue reassignment —
         // fall through so the update below surfaces the existing 404. Note
         // (matching `floor-plans.ts`'s `/tables/positions` route): inside the
@@ -289,23 +290,25 @@ export const tableRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // `sectionId` is client-supplied and the update connects it with no venue
-      // awareness of its own, so resolve it among the TABLE's own venue's sections
-      // first. Another venue's section is indistinguishable from a missing one: 404.
-      if (sectionId) {
-        const current = await tableService.getById(request.params.id);
-        if (current?.venueId) {
-          const sections = await floorPlanSectionService.list(current.venueId);
-          if (!sections.some((section) => section.id === sectionId)) {
-            return reply
-              .code(404)
-              .send(
-                createProblemDetails(
-                  404,
-                  titleForStatus(404),
-                  "Floor plan section not found in this table's venue"
-                )
-              );
-          }
+      // awareness of its own, so it must be one of the sections of the floor plan the
+      // table ends up on: the body's `floorPlanId` when sent, else its current plan. A
+      // table with no plan has no valid section. Another plan's or venue's section is
+      // indistinguishable from a missing one: 404.
+      if (sectionId && current?.venueId) {
+        const targetPlanId = floorPlanId !== undefined ? floorPlanId : current.floorPlanId;
+        const sections = targetPlanId
+          ? await floorPlanSectionService.list(current.venueId, targetPlanId)
+          : [];
+        if (!sections.some((section) => section.id === sectionId)) {
+          return reply
+            .code(404)
+            .send(
+              createProblemDetails(
+                404,
+                titleForStatus(404),
+                "Floor plan section not found on this table's floor plan"
+              )
+            );
         }
       }
 

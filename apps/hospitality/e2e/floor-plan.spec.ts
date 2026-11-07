@@ -1,3 +1,4 @@
+import { loadFixture } from "./api-mocks.js";
 import { test, expect } from "./fixtures.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
@@ -48,15 +49,22 @@ test.describe("CF-4: Floor plan editor", () => {
           })
         : route.fallback()
     );
-    await mockedPage.route(/\/api\/v1\/floor-plans\/fp_e2e_001$/, async (route) => {
-      const response = await route.fetch();
-      const body = (await response.json()) as { data?: { tables?: Array<{ id: string }> } };
-      const plan = body.data ?? (body as { tables?: Array<{ id: string }> });
-      const tables = (plan.tables ?? []).map((table) =>
+    // Built from the fixture directly (not `route.fetch()`, which would bypass the shared
+    // mocks), with the assignment the PATCH below recorded.
+    await mockedPage.route(/\/api\/v1\/floor-plans\/fp_e2e_001$/, (route) => {
+      const fixture = JSON.parse(loadFixture("floor-plans-list")) as {
+        data: Array<{ tables: Array<{ id: string }> }>;
+      };
+      const plan = fixture.data[0];
+      if (!plan) return route.fallback();
+      const tables = plan.tables.map((table) =>
         table.id === "tbl_e2e_001" ? { ...table, sectionId } : table
       );
-      const next = body.data ? { ...body, data: { ...body.data, tables } } : { ...body, tables };
-      await route.fulfill({ response, json: next });
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { ...plan, tables } }),
+      });
     });
     await mockedPage.route(/\/api\/v1\/tables\/tbl_e2e_001$/, (route) => {
       if (route.request().method() !== "PATCH") return route.fallback();

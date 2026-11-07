@@ -798,6 +798,7 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
         ...mockTable,
         id: "table-own",
         venueId: "venue-own",
+        floorPlanId: "fp-1",
       });
       vi.mocked(tableService.update).mockResolvedValue({
         ...mockTable,
@@ -807,7 +808,9 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
       });
     });
 
-    it("returns 404 and writes nothing when the section is not in the table's venue", async () => {
+    it("returns 404 and writes nothing when the section is not on the table's floor plan", async () => {
+      // The plan-scoped lookup finds nothing: another venue's section, or a section of
+      // another plan in the same venue, both resolve to an empty list for this plan.
       vi.mocked(floorPlanSectionService.list).mockResolvedValue([]);
       app = await buildAppAsVenueOwnStaff();
 
@@ -815,15 +818,15 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
         method: "PATCH",
         url: TABLE_OWN_URL,
         headers: { authorization: "Bearer staff-token" },
-        payload: { sectionId: "section-foreign" },
+        payload: { sectionId: "section-other-plan" },
       });
 
       expect(response.statusCode).toBe(404);
-      expect(floorPlanSectionService.list).toHaveBeenCalledWith("venue-own");
+      expect(floorPlanSectionService.list).toHaveBeenCalledWith("venue-own", "fp-1");
       expect(tableService.update).not.toHaveBeenCalled();
     });
 
-    it("assigns a section of the table's own venue", async () => {
+    it("assigns a section of the table's current floor plan", async () => {
       vi.mocked(floorPlanSectionService.list).mockResolvedValue([SECTION]);
       app = await buildAppAsVenueOwnStaff();
 
@@ -835,7 +838,77 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
       });
 
       expect(response.statusCode).toBe(200);
+      expect(floorPlanSectionService.list).toHaveBeenCalledWith("venue-own", "fp-1");
       expect(tableService.update).toHaveBeenCalledWith("table-own", { sectionId: "section-own" });
+    });
+
+    it("checks the section against the body's floorPlanId when both are sent", async () => {
+      vi.mocked(floorPlanService.getById).mockResolvedValue({
+        ...mockFloorPlan,
+        id: "fp-2",
+        venueId: "venue-own",
+      });
+      vi.mocked(floorPlanSectionService.list).mockImplementation(async (_venueId, planId) =>
+        planId === "fp-2" ? [{ ...SECTION, floorPlanId: "fp-2" }] : []
+      );
+      app = await buildAppAsVenueOwnStaff();
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: TABLE_OWN_URL,
+        headers: { authorization: "Bearer staff-token" },
+        payload: { floorPlanId: "fp-2", sectionId: "section-own" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(floorPlanSectionService.list).toHaveBeenCalledWith("venue-own", "fp-2");
+      expect(tableService.update).toHaveBeenCalledWith("table-own", {
+        floorPlanId: "fp-2",
+        sectionId: "section-own",
+      });
+    });
+
+    it("rejects a section of the table's old plan when the body moves it to another plan", async () => {
+      vi.mocked(floorPlanService.getById).mockResolvedValue({
+        ...mockFloorPlan,
+        id: "fp-2",
+        venueId: "venue-own",
+      });
+      vi.mocked(floorPlanSectionService.list).mockImplementation(async (_venueId, planId) =>
+        planId === "fp-1" ? [SECTION] : []
+      );
+      app = await buildAppAsVenueOwnStaff();
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: TABLE_OWN_URL,
+        headers: { authorization: "Bearer staff-token" },
+        payload: { floorPlanId: "fp-2", sectionId: "section-own" },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(tableService.update).not.toHaveBeenCalled();
+    });
+
+    it("rejects a section for a table with no floor plan", async () => {
+      vi.mocked(tableService.getById).mockResolvedValue({
+        ...mockTable,
+        id: "table-own",
+        venueId: "venue-own",
+        floorPlanId: null,
+      });
+      app = await buildAppAsVenueOwnStaff();
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: TABLE_OWN_URL,
+        headers: { authorization: "Bearer staff-token" },
+        payload: { sectionId: "section-own" },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(floorPlanSectionService.list).not.toHaveBeenCalled();
+      expect(tableService.update).not.toHaveBeenCalled();
     });
 
     it("clears the section with null without looking sections up", async () => {
