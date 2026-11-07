@@ -85,7 +85,7 @@ const isGatePath = (file) => GATE_PATH_MATCHERS.some((g) => g.matches(file));
  *   classifier: null | {
  *     qualifiesForLowRiskFastPath: (files: readonly string[]) => boolean,
  *     reviewersForDiff: (files: readonly string[]) => string[],
- *      *   },
+ *   },
  * }} input
  * @returns {{fastPath: boolean, reviewers: string[], holdForHuman: boolean, reason: string}}
  */
