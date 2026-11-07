@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.5
+
+### Patch Changes
+
+- [#8442](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8442) [`e6dfac3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e6dfac34d1dc513587deb0a90abc7d6e8b7ee4d4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A11y audit iteration 9: fix two axe `color-contrast` failures in the open DropdownMenu. The destructive item text is now an error/primary-text mix (the dark-theme error hue was 4.26:1 on the elevated menu), and the shortcut hint on the hovered, focused or active row uses `--rialto-text-secondary` (tertiary was 4.07:1 on the recessed row).
+
 ## 0.10.4
 
 ### Patch Changes
