@@ -32,3 +32,14 @@
     min-width: 2.75rem;
   }
 }
+
+/* "Venue Setup" in the page header, shown when the page was opened from the setup hub. */
+.backLink {
+  color: var(--rialto-text-secondary);
+  font-size: var(--rialto-text-sm);
+  text-decoration: underline;
+}
+
+.backLink:hover {
+  color: var(--rialto-text-primary);
+}

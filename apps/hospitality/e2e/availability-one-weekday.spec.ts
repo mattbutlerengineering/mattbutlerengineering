@@ -7,8 +7,8 @@ import { localDay } from "./local-day.js";
 /**
  * One weekday of a regular week (PRD: Change regular week, one day). The demo week is entered in
  * quick setup; Change regular week then gives Lunch different hours on Wednesday only. The other
- * six weekdays must resolve as before, no schedule or assignment may appear (the Schedules tab
- * stays absent), and History must name Wednesday.
+ * six weekdays must resolve as before, no schedule or assignment may appear (the save writes only
+ * regular versions), and History must name Wednesday.
  *
  * The calendar's days and the History entry come from `mockEmptyVenue`: the days from the same
  * pure engine the service runs, the entry shaped as the service writes a `regular_week_changed`
@@ -55,8 +55,7 @@ test.describe("Change one weekday of the regular week", () => {
     }
 
     // No schedule of its own: the save writes the new regular version and end-dates the superseded
-    // one, both kind "regular" and named "Regular week", and no tab offers more.
-    await expect(page.getByRole("radio", { name: "Schedules" })).toHaveCount(0);
+    // one, both kind "regular" and named "Regular week".
     const saved = state.savedBody()?.changes as {
       upsert: { schedules?: Array<{ kind: string; name: string }> };
     };

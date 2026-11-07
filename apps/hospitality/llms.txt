@@ -139,6 +139,27 @@
       ): { changed: string[]; removed: string[] } { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/availability-entry.ts">
+    <item priority="high">
+      export const AVAILABILITY_TABS: unknown;
+    </item>
+    <item priority="low">
+      type AvailabilityTab = (typeof AVAILABILITY_TABS)[number];
+    </item>
+    <item priority="low">
+      interface AvailabilityEntry {
+        tab?: AvailabilityTab;
+        closeSection?: string;
+        from?: "setup";
+      }
+    </item>
+    <item priority="high">
+      export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry { /* ... */ }
+    </item>
+    <item priority="high">
+      export function availabilityPath(entry: AvailabilityEntry): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/booking-rules.ts">
     <item priority="low">
       interface BookingRulesForm {
