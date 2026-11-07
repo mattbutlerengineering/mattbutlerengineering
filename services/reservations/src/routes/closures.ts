@@ -156,6 +156,9 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         venueId,
         ruleId: outcome.result.ruleId,
         cancelled: outcome.result.outcomes.cancel,
+        ...(outcome.result.givenBackNotified
+          ? { givenBackNotified: outcome.result.givenBackNotified }
+          : {}),
       });
       return { data: outcome.result };
     }),

@@ -161,9 +161,25 @@ function outcomeDelegate(w: World) {
         ...data.map((d, i) => ({ id: `o-${w.outcomes.length + i}`, ...d })),
       ];
     }),
-    findMany: vi.fn(async ({ where }: { where: Where }) =>
-      w.outcomes.filter((o) => o.dateRuleId === where.dateRuleId)
-    ),
+    findMany: vi.fn(async ({ where }: { where: Where }) => {
+      const mine = w.outcomes.filter((o) => o.dateRuleId === where.dateRuleId);
+      // The given-back read names an action and the booking's dates; the carry read names neither.
+      if (!where.action) return mine;
+      const { startTime, date } = where.reservation as unknown as {
+        startTime: { gt: Date };
+        date: { gte: Date; lte?: Date };
+      };
+      return mine.flatMap((o) => {
+        const booking = w.reservations.find((r) => r.id === o.reservationId);
+        const inside =
+          o.action === where.action &&
+          booking !== undefined &&
+          booking.startTime > startTime.gt &&
+          booking.date >= date.gte &&
+          (date.lte === undefined || booking.date <= date.lte);
+        return inside ? [{ ...o, reservation: { date: booking.date } }] : [];
+      });
+    }),
   };
 }
 
@@ -1246,6 +1262,68 @@ describe("createClosure", () => {
       expect((w.changes[0]!.inverse as { closure: { carried: unknown } }).closure.carried).toEqual({
         from: "c1",
         outcomeIds: ["o-old"],
+      });
+    });
+
+    describe("a shortened range whose given-back dates hold cancelled guests (#8413)", () => {
+      /** Cancelled by the old closure on Dec 25 and 26; the edit keeps only Dec 24. */
+      const withTold = () => {
+        const w = edited([
+          onDec("kept", "2026-12-24"),
+          onDec("told-25", "2026-12-25"),
+          onDec("told-26", "2026-12-26"),
+        ]);
+        w.outcomes = [
+          { id: "o-kept", dateRuleId: "c1", reservationId: "kept", action: "cancel" },
+          { id: "o-25", dateRuleId: "c1", reservationId: "told-25", action: "cancel" },
+          { id: "o-26", dateRuleId: "c1", reservationId: "told-26", action: "keep_silent" },
+        ];
+        return w;
+      };
+      const shrink = (patch: Partial<CreateClosureBody> = {}): CreateClosureBody =>
+        grow({
+          rule: closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-24" }),
+          ...patch,
+        });
+
+      it("records the told guests in the change, so Undo is not offered", async () => {
+        const w = withTold();
+        const { outcome } = await run(w, shrink({ tellGivenBackGuests: true }));
+
+        expect(outcome).toMatchObject({ kind: "saved", result: { givenBackNotified: 1 } });
+        const change = w.changes[0]!;
+        expect(change.notifiedGuests).toBe(true);
+        expect((change.inverse as { closure: { givenBack: unknown } }).closure.givenBack).toEqual({
+          ruleId: "c1",
+          outcomeIds: ["o-25"],
+          from: "2026-12-25",
+        });
+      });
+
+      it("records nothing and leaves Undo offered when the Manager tells no one", async () => {
+        const w = withTold();
+        const { outcome } = await run(w, shrink({ tellGivenBackGuests: false }));
+
+        expect(outcome).toMatchObject({ kind: "saved" });
+        expect((outcome as { result: object }).result).not.toHaveProperty("givenBackNotified");
+        expect(w.changes[0]!.notifiedGuests).toBe(false);
+        expect(w.changes[0]!.inverse).not.toHaveProperty("closure.givenBack");
+      });
+
+      it("tells no one when no cancelled guest is on a given-back date", async () => {
+        const w = edited([onDec("kept", "2026-12-24")]);
+        w.outcomes = [{ id: "o-kept", dateRuleId: "c1", reservationId: "kept", action: "cancel" }];
+        const { outcome } = await run(w, shrink({ tellGivenBackGuests: true }));
+
+        expect(outcome).toMatchObject({ kind: "saved" });
+        expect(w.changes[0]!.notifiedGuests).toBe(false);
+      });
+
+      it("answers a replay with the same count", async () => {
+        const w = withTold();
+        await run(w, shrink({ tellGivenBackGuests: true }));
+        const again = await run(w, shrink({ tellGivenBackGuests: true }));
+        expect(again.outcome).toMatchObject({ kind: "saved", result: { givenBackNotified: 1 } });
       });
     });
 

@@ -425,3 +425,90 @@ describe("getClosureImpact and a booking that has already started", () => {
     expect(outcome).toMatchObject({ kind: "ok", impact: { reservations: 0, groups: [] } });
   });
 });
+
+describe("getClosureImpact for an edit that gives dates back (#8413)", () => {
+  const stored = {
+    id: "c1",
+    venueId: "venue-1",
+    kind: "closure",
+    targetKind: "venue",
+    venueServiceId: null,
+    bookingTypes: [],
+    startsOn: new Date("2026-12-24T00:00:00.000Z"),
+    endsOn: new Date("2026-12-26T00:00:00.000Z"),
+    repeat: null,
+    window: null,
+    payload: null,
+    useScheduleId: null,
+    seriesId: null,
+    guestMessage: null,
+    staffNote: null,
+    expiresAt: null,
+    deletedAt: null,
+    tables: [],
+  };
+  const read = closure({ id: "c1", startsOn: "2026-12-24", endsOn: "2026-12-26" });
+  const alongside = { upsert: [], remove: ["c1"], replaces: read };
+
+  /** Cancelled guests the old closure holds on the dates the edit gives back, as the query returns them. */
+  const withTold = (told: number) => ({
+    ...rows(),
+    reservation: { findMany: vi.fn(async () => []) },
+    dateRule: { findMany: vi.fn(async () => [stored]) },
+    closureOutcome: {
+      findMany: vi.fn(async () =>
+        Array.from({ length: told }, (_, i) => ({
+          id: `o${i}`,
+          reservation: { date: new Date("2026-12-26T00:00:00.000Z") },
+        }))
+      ),
+    },
+  });
+
+  it("counts the cancelled guests on the dates it gives back, so Step 2 can ask about them", async () => {
+    const { client } = fakeClient(withTold(2) as never);
+    const outcome = await getClosureImpact(
+      "venue-1",
+      closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-25" }),
+      NOW,
+      client,
+      alongside
+    );
+    expect(outcome).toMatchObject({ kind: "ok", impact: { givenBack: { guests: 2 } } });
+  });
+
+  it("asks nothing when no told guest is on a date it gives back", async () => {
+    const { client } = fakeClient(withTold(0) as never);
+    const outcome = await getClosureImpact(
+      "venue-1",
+      closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-25" }),
+      NOW,
+      client,
+      alongside
+    );
+    expect(outcome).toMatchObject({ kind: "ok" });
+    expect((outcome as { impact: object }).impact).not.toHaveProperty("givenBack");
+  });
+
+  it("asks nothing when it gives back no date", async () => {
+    const tx = withTold(2);
+    const { client } = fakeClient(tx as never);
+    const outcome = await getClosureImpact(
+      "venue-1",
+      closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-27" }),
+      NOW,
+      client,
+      alongside
+    );
+    expect((outcome as { impact: object }).impact).not.toHaveProperty("givenBack");
+    expect(tx.closureOutcome.findMany).not.toHaveBeenCalled();
+  });
+
+  it("asks nothing of a new closure, which replaces none", async () => {
+    const tx = withTold(2);
+    const { client } = fakeClient(tx as never);
+    const outcome = await getClosureImpact("venue-1", closure(), NOW, client);
+    expect((outcome as { impact: object }).impact).not.toHaveProperty("givenBack");
+    expect(tx.closureOutcome.findMany).not.toHaveBeenCalled();
+  });
+});

@@ -1,5 +1,6 @@
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
 import { readCarriedOutcomeIds } from "../services/closure-carry-outcomes.js";
+import { readGivenBack } from "../services/closure-given-back.js";
 import { loadClosureChanges } from "../services/closure-changes.js";
 
 /**
@@ -36,7 +37,13 @@ export async function publishClosureChanges(
 
 export async function enqueueNotices(
   enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-  input: { venueId: string; ruleId: string; carried?: readonly string[]; date?: string },
+  input: {
+    venueId: string;
+    ruleId: string;
+    carried?: readonly string[];
+    only?: readonly string[];
+    date?: string;
+  },
   log: FastifyBaseLogger
 ): Promise<void> {
   try {
@@ -49,7 +56,7 @@ export async function enqueueNotices(
 export async function enqueueClosureJobs(
   fastify: FastifyInstance,
   log: FastifyBaseLogger,
-  saved: { venueId: string; ruleId: string; cancelled: number }
+  saved: { venueId: string; ruleId: string; cancelled: number; givenBackNotified?: number }
 ): Promise<void> {
   const { venueId, ruleId, cancelled } = saved;
   const carried = await carriedOutcomes(log, venueId, ruleId);
@@ -66,6 +73,31 @@ export async function enqueueClosureJobs(
     { venueId, ruleId, carried },
     log
   );
+  if (saved.givenBackNotified) await enqueueGivenBackNotices(fastify, log, { venueId, ruleId });
+}
+
+/**
+ * An edit that gave dates back and chose to tell the guests there: the reopen notice, through the
+ * same path a reopen uses, to the guests on the removed closure the save recorded. The outcomes are
+ * read from the audit row, so a replay enqueues the same jobs under the same ids.
+ */
+async function enqueueGivenBackNotices(
+  fastify: FastifyInstance,
+  log: FastifyBaseLogger,
+  saved: { venueId: string; ruleId: string }
+): Promise<void> {
+  const { venueId, ruleId } = saved;
+  try {
+    const given = await readGivenBack(venueId, ruleId);
+    if (!given) return;
+    await enqueueNotices(
+      fastify.services.closureNoticeService.enqueueForReopen,
+      { venueId, ruleId: given.ruleId, only: given.outcomeIds, date: given.from },
+      log
+    );
+  } catch (err) {
+    log.error({ err, venueId, ruleId }, "given-back reopen notices were not enqueued");
+  }
 }
 
 /**

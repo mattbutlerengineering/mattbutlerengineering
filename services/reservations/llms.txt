@@ -963,7 +963,13 @@
     <item priority="high">
       export async function enqueueNotices(
         enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-        input: { venueId: string; ruleId: string; carried?: readonly string[]; date?: string },
+        input: {
+          venueId: string;
+          ruleId: string;
+          carried?: readonly string[];
+          only?: readonly string[];
+          date?: string;
+        },
         log: FastifyBaseLogger
       ): Promise<void> { /* ... */ }
     </item>
@@ -971,7 +977,14 @@
       export async function enqueueClosureJobs(
         fastify: FastifyInstance,
         log: FastifyBaseLogger,
-        saved: { venueId: string; ruleId: string; cancelled: number }
+        saved: { venueId: string; ruleId: string; cancelled: number; givenBackNotified?: number }
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function enqueueGivenBackNotices(
+        fastify: FastifyInstance,
+        log: FastifyBaseLogger,
+        saved: { venueId: string; ruleId: string }
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
@@ -3459,6 +3472,37 @@
       export function owesRefund(deposit: RefundableDeposit): boolean { /* ... */ }
     </item>
   </file>
+  <file path="src/services/closure-given-back.ts">
+    <item priority="high">
+      type Db = Pick<PrismaClient, "closureOutcome">;
+    </item>
+    <item priority="low">
+      interface GivenBackGuests {
+        ruleId: string;
+        outcomeIds: string[];
+        from: string;
+      }
+    </item>
+    <item priority="high">
+      export function givenBackPieces(replaced: DateRule, next: DateRule): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function givenBackGuests(
+        db: Db,
+        input: {
+          venueId: string;
+          stored: readonly DateRule[];
+          replaced: DateRule;
+          next: DateRule;
+          today: string;
+          now: Date;
+        }
+      ): Promise<GivenBackGuests | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const readGivenBack: unknown;
+    </item>
+  </file>
   <file path="src/services/closure-impact-store.ts">
     <item priority="high">
       type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -3490,6 +3534,9 @@
         now: Date,
         alongside?: ClosureAlongside
       ): Promise<ClosureImpactOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function editedClosure(state: ConfigState, alongside: ClosureAlongside): DateRule | undefined { /* ... */ }
     </item>
     <item priority="high">
       export async function getClosureImpact(
@@ -3632,7 +3679,7 @@
         ruleId: string;
         now: Date;
         carried?: readonly string[];
-        date?: string;
+        only?: readonly string[];
       }
     </item>
     <item priority="medium">

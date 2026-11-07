@@ -2533,7 +2533,14 @@
         "save": "Save changes",
         "toast": "Closure on {{date}} changed",
         "gone": "This closure was removed. Close this and check the Special dates tab.",
-        "changed": "Someone changed this closure while you had it open. Close this and open it again to see their change."
+        "changed": "Someone changed this closure while you had it open. Close this and open it again to see their change.",
+        "givenBackIntro": "This edit opens dates the closure had cancelled guests on.",
+        "tellGivenBack_one": "Tell the {{count}} guest we cancelled on a date this opens that it's open again, with a link to rebook",
+        "tellGivenBack_other": "Tell the {{count}} guests we cancelled on dates this opens that they're open again, with a link to rebook",
+        "tellGivenBack_many": "Tell the {{count}} guests we cancelled on dates this opens that they're open again, with a link to rebook",
+        "toastTold_one": "Closure on {{date}} changed · {{count}} guest told the date is open again",
+        "toastTold_other": "Closure on {{date}} changed · {{count}} guests told the dates are open again",
+        "toastTold_many": "Closure on {{date}} changed · {{count}} guests told the dates are open again"
       },
       "step": "Step {{step}} of 2",
       "next": "Next",

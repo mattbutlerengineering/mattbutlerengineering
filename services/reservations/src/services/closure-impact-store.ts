@@ -5,6 +5,8 @@ import { setVenueContext } from "../middleware/venue-context.js";
 import { referenceIssues, SCOPE_CONFLICT_HORIZON_DAYS } from "./availability-config-plan.js";
 import { loadConfigState, stillToServeWhere, type ConfigState } from "./availability-config.js";
 import { civilDateIn } from "./availability-migration.js";
+import { isPlainClosure } from "./closure-alongside.js";
+import { givenBackGuests } from "./closure-given-back.js";
 import { owesRefund, refundOwedCents } from "./closure-deposit.js";
 import {
   computeClosureImpact,
@@ -162,6 +164,12 @@ export async function impactInTransaction(
   return { kind: "ok", impact };
 }
 
+/** The saved one-date, range or open-ended closure an edit replaces, if that is what it replaces. */
+function editedClosure(state: ConfigState, alongside: ClosureAlongside): DateRule | undefined {
+  const saved = state.stored.dateRules.find((r) => r.id === alongside.remove[0]);
+  return saved && isPlainClosure(saved) ? saved : undefined;
+}
+
 export async function getClosureImpact(
   venueId: string,
   rule: DateRule,
@@ -173,7 +181,24 @@ export async function getClosureImpact(
     await setVenueContext(tx, venueId);
     const state = await loadConfigState(tx, venueId, now);
     if (!state) return { kind: "not_found" as const };
-    return impactInTransaction(tx, venueId, state, rule, now, alongside);
+    const found = await impactInTransaction(tx, venueId, state, rule, now, alongside);
+    if (found.kind !== "ok") return found;
+    // An edit that gives dates back also asks about the guests the closure cancelled on them.
+    const replaced = alongside?.remove.length === 1 ? editedClosure(state, alongside) : undefined;
+    const given =
+      replaced && rule.kind === "closure" && rule.repeat == null
+        ? await givenBackGuests(tx, {
+            venueId,
+            stored: state.stored.dateRules,
+            replaced,
+            next: rule,
+            today: civilDateIn(now, state.timezone),
+            now,
+          })
+        : null;
+    return given
+      ? { kind: "ok", impact: { ...found.impact, givenBack: { guests: given.outcomeIds.length } } }
+      : found;
   });
 }
 
