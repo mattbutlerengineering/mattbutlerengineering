@@ -59,8 +59,9 @@ describe("ProjectCard", () => {
     });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute("href", "/rialto/");
-    // The visible text inside the link is still "View live"
-    expect(link).toHaveTextContent("View live");
+    // The visible text names the destination too: several identical "View live"
+    // links on one page are the ui-quality vague-link-purpose tell.
+    expect(link).toHaveTextContent("View live: Test Project");
   });
 
   it("opens the link in a new tab with noopener noreferrer", () => {

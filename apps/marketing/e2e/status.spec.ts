@@ -163,6 +163,19 @@ test.describe("Status page", () => {
     const badge = page.locator('[class*="badge"]').first();
     await expect(badge).toBeVisible();
   });
+
+  test("degrades gracefully when the health probes fail", async ({ page }) => {
+    // A deploy with no backend (preview server, ui-quality capture) answers the
+    // probes with 502; the page must report the outage, not throw.
+    const pageErrors: string[] = [];
+    page.on("pageerror", (err) => pageErrors.push(err.message));
+    await page.route("**/api/**/health", (route) => route.fulfill({ status: 502, body: "" }));
+
+    await page.goto("/status");
+
+    await expect(page.locator("#main-content").getByText("Last checked")).toBeVisible();
+    expect(pageErrors).toEqual([]);
+  });
 });
 
 for (const theme of ["light", "dark"] as const) {
