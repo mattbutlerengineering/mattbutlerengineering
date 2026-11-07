@@ -960,7 +960,8 @@
       async function enqueueNotices(
         enqueue: NoticeEnqueue,
         input: Omit<Parameters<NoticeEnqueue>[0], "now">,
-        log: FastifyBaseLogger
+        log: FastifyBaseLogger,
+        failure = "closure notices were not enqueued"
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">

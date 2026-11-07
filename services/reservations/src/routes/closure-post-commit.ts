@@ -16,12 +16,13 @@ type NoticeEnqueue = FastifyInstance["services"]["closureNoticeService"]["enqueu
 async function enqueueNotices(
   enqueue: NoticeEnqueue,
   input: Omit<Parameters<NoticeEnqueue>[0], "now">,
-  log: FastifyBaseLogger
+  log: FastifyBaseLogger,
+  failure = "closure notices were not enqueued"
 ): Promise<void> {
   try {
     await enqueue({ ...input, now: new Date() });
   } catch (error) {
-    log.error({ err: error, ...input }, "closure notices were not enqueued");
+    log.error({ err: error, ...input }, failure);
   }
 }
 
@@ -69,7 +70,8 @@ export async function runClosurePostCommit(
     await enqueueNotices(
       notices.enqueueForReopen,
       { venueId, ruleId: givenBack.ruleId, only: givenBack.outcomeIds, date: givenBack.from },
-      log
+      log,
+      "given-back reopen notices were not enqueued"
     );
   }
 }
