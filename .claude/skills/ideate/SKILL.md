@@ -132,6 +132,9 @@ the charter, and stop.
   `metrics/pr-acceptance.json`, `metrics/agent-perf.jsonl`,
   `metrics/queue-telemetry.jsonl`, `.claude/acmm/state.json`,
   `docs/incidents/` (if present).
+- `metrics/ui-quality-findings.json` (if consulted): only records with
+  `state: "open"` are signals — a `closed` seed (`closed_at`, `state_reason`)
+  was re-audited and no longer observed, and a `declined` one was vetoed.
 - Open issues labeled `audit`, `sentry`, `ci-fix`, `enhancement` — these ARE
   the committed outputs of site-audit and sentry-triage.
 - `git log --oneline --since="30 days ago"` — momentum and recency per app.

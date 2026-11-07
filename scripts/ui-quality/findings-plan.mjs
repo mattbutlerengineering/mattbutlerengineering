@@ -371,6 +371,10 @@ function isFixCandidate(finding, record) {
  *   recurring finding under that key is skipped (never reopened) instead of
  *   going through `fileIssue()`, and a key no finding of this fire names is
  *   emitted as a `decline` action so `record` persists it
+ * @param {string[]} [input.audited]   `<app>|<route>` keys this fire audited
+ *   (captured and judged — `auditedRoutes`); an open seed on one of them whose
+ *   tell no finding of this fire names is emitted as a `close` action. Absent
+ *   means nothing was proven audited, so no seed closes.
  * @returns {{ actions: object[], seeds: object[], fix_pr_candidate: string|null, dropped: string[], reports: string[] }}
  */
 export function planFindings({
@@ -382,6 +386,7 @@ export function planFindings({
   backlogLines = [],
   adopted = [],
   declined = [],
+  audited = [],
 }) {
   const version = rubric.rubric_version;
   const tells = tellsById(rubric);
@@ -474,8 +479,17 @@ export function planFindings({
     });
   }
 
+  const closes = closedSeeds({
+    ledger,
+    observed: new Set(normalised.map(([k]) => k)),
+    audited: new Set(audited),
+    tells,
+    agentBuiltWithheld: calibrationStatus !== "pass",
+    version,
+  });
+
   return {
-    actions: [...actions, ...adoptions, ...declines].map((a) =>
+    actions: [...actions, ...adoptions, ...declines, ...closes].map((a) =>
       a === candidate ? { ...a, fix_pr_candidate: true } : a
     ),
     seeds,
@@ -483,6 +497,40 @@ export function planFindings({
     dropped,
     reports: ctx.reports,
   };
+}
+
+/**
+ * Open seeds whose route this fire audited and whose tell it did not observe.
+ * A seed is never closed on absence of evidence: its route must be in
+ * `audited` (captured and judged this fire), its tell must be one this fire
+ * could have found (an agent-built tell is withheld while calibration is not
+ * `pass`), and its key must be at the rubric's current version.
+ */
+function closedSeeds({ ledger, observed, audited, tells, agentBuiltWithheld, version }) {
+  return Object.entries(ledger)
+    .filter(([key, rec]) => {
+      const k = parseKey(key);
+      return (
+        rec.carrier === "seed" &&
+        rec.state === "open" &&
+        k !== null &&
+        k.version === version &&
+        tells.has(k.tell) &&
+        audited.has(`${k.app}|${k.route}`) &&
+        !observed.has(key) &&
+        !(agentBuiltWithheld && tells.get(k.tell).face === "agent-built")
+      );
+    })
+    .sort(([a], [b]) => byString(a, b))
+    .map(([key, rec]) => ({
+      key,
+      action: "close",
+      issue: null,
+      carrier: "seed",
+      severity: rec.severity,
+      state: "closed",
+      state_reason: "not_observed",
+    }));
 }
 
 const strip = ({ action, issue }) => ({ action, issue });
