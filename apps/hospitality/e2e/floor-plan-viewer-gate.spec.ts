@@ -38,7 +38,7 @@ test.describe("Viewer role gate on floor plans", () => {
     await mockedPage.goto("floor-plans/fp_e2e_001");
 
     await expect(mockedPage).toHaveURL(/\/setup$/);
-    await expect(mockedPage.getByRole("heading", { name: "Floor Plan Editor" })).toHaveCount(0);
+    await expect(mockedPage.getByRole("heading", { name: "Main Floor" })).toHaveCount(0);
   });
 
   test("a Manager still reaches /floor-plans and the editor", async ({ mockedPage }) => {

@@ -5,6 +5,7 @@ import { RequireManager } from "./RequireManager.js";
 import { useManagerAccess } from "../hooks/useIsManager.js";
 
 vi.mock("../hooks/useIsManager.js", () => ({ useManagerAccess: vi.fn() }));
+vi.mock("../pages/LoadingPage.js", () => ({ LoadingPage: () => <div>Loading Route</div> }));
 
 function renderGuarded(path: string) {
   return render(
@@ -57,9 +58,10 @@ describe("RequireManager", () => {
     expect(screen.getByText("Setup Hub")).toBeDefined();
   });
 
-  it("neither redirects nor renders children while the role is unknown", () => {
+  it("shows the loading page, and neither redirects nor renders children, while the role is unknown", () => {
     vi.mocked(useManagerAccess).mockReturnValue({ isManager: false, isPending: true });
     renderGuarded("/floor-plans");
+    expect(screen.getByText("Loading Route")).toBeDefined();
     expect(screen.queryByText("Floor Plans")).toBeNull();
     expect(screen.queryByText("Setup Hub")).toBeNull();
   });
