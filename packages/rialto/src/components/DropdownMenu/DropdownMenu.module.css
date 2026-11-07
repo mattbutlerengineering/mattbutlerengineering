@@ -156,7 +156,7 @@
   letter-spacing: 0.02em;
 }
 
-/* Tertiary text is 4.4:1 on the recessed hover/active row; one tier darker. */
+/* Tertiary text is 4.07:1 on the recessed hover/active row (light); one tier darker. */
 .item:hover .shortcut,
 .item:focus-visible .shortcut,
 .item[data-active="true"] .shortcut {
