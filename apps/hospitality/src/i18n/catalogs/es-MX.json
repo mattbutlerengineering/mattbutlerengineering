@@ -2897,7 +2897,8 @@
       "block": {
         "label": "Bloquear mesas",
         "all": "Todas las mesas",
-        "location": "Todas las mesas en {{location}}",
+        "section": "Sección: {{section}}",
+        "noSection": "Sin sección",
         "button": "Bloquear",
         "pick": "Elegir mesas…",
         "pickLabel": "Mesas a bloquear",

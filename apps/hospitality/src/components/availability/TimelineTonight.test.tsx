@@ -24,6 +24,9 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 vi.mock("../../hooks/useAvailability.js", () => ({ useAvailabilityConfig: () => hooks.config }));
 vi.mock("../../hooks/useVenueTeam.js", () => ({ useVenueTeam: () => hooks.team }));
+vi.mock("../../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({ data: [] }),
+}));
 vi.mock("../../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../../hooks/useNow.js", () => ({ useNow: () => new Date("2026-10-30T20:00:00Z") }));
 vi.mock("./TonightControl.js", () => ({ TonightControl: () => <div>Tonight panel</div> }));

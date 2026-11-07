@@ -5,7 +5,13 @@ import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
-import type { AvailabilityConfigState, ClosureImpact, DateRule, Table } from "@mbe/types";
+import type {
+  AvailabilityConfigState,
+  ClosureImpact,
+  DateRule,
+  FloorPlanSection,
+  Table,
+} from "@mbe/types";
 
 const setTonight = vi.hoisted(() => vi.fn());
 const endTonight = vi.hoisted(() => vi.fn());
@@ -65,11 +71,18 @@ const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 const TODAY = "2026-10-30"; // a Friday, the fixture's regular service day
 const NOW = new Date("2026-10-30T20:00:00Z");
 
+// Free-text `location` deliberately disagrees with the section: Tonight groups by section only.
 const TABLES = [
-  { id: "t1", name: "P1", location: "Patio", isActive: true },
-  { id: "t2", name: "P2", location: "Patio", isActive: true },
-  { id: "t3", name: "B1", location: "Bar", isActive: true },
+  { id: "t1", name: "P1", location: "Terrace", sectionId: "s-patio", isActive: true },
+  { id: "t2", name: "P2", location: "Terrace", sectionId: "s-patio", isActive: true },
+  { id: "t3", name: "B1", location: "Front", sectionId: "s-bar", isActive: true },
+  { id: "t4", name: "X1", location: "Garden", sectionId: null, isActive: true },
 ] as unknown as Table[];
+
+const SECTIONS = [
+  { id: "s-bar", name: "Bar" },
+  { id: "s-patio", name: "Patio" },
+] as unknown as FloorPlanSection[];
 
 const PAUSE_RULE = {
   id: "r-pause",
@@ -180,6 +193,7 @@ function controlElement(props: Partial<TonightControlProps> = {}) {
             viewerRole="manager"
             hostEmergencyClose={false}
             tables={TABLES}
+            sections={SECTIONS}
             {...props}
           />
         </main>
@@ -277,11 +291,11 @@ describe("TonightControl", () => {
       );
     });
 
-    it("blocks every table in a location", async () => {
+    it("blocks every table in a section", async () => {
       renderControl();
       open();
       fireEvent.click(screen.getByRole("combobox", { name: "Block tables" }));
-      fireEvent.click(screen.getByRole("option", { name: "All tables in Patio" }));
+      fireEvent.click(screen.getByRole("option", { name: "Section: Patio" }));
       fireEvent.click(screen.getByRole("button", { name: "Block" }));
       await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
       expect(setTonight.mock.calls[0]![0].body.change).toEqual({
@@ -289,6 +303,59 @@ describe("TonightControl", () => {
         tableIds: ["t1", "t2"],
         from: 780,
       });
+    });
+
+    it("offers sections by name and no free-text location option", () => {
+      renderControl();
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Block tables" }));
+      const names = screen.getAllByRole("option").map((o) => o.textContent);
+      expect(names).toEqual(
+        expect.arrayContaining(["All tables", "Section: Bar", "Section: Patio", "Choose tables…"])
+      );
+      expect(names.some((n) => /Terrace|Front|Garden|All tables in/.test(n ?? ""))).toBe(false);
+    });
+
+    it("groups the picker by section with a No section group and no location text", () => {
+      renderControl();
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Block tables" }));
+      fireEvent.click(screen.getByRole("option", { name: "Choose tables…" }));
+      const patio = screen.getByRole("group", { name: "Patio" });
+      expect(
+        within(patio)
+          .getAllByRole("checkbox")
+          .map((c) => c.getAttribute("aria-label") ?? c.closest("label")?.textContent)
+      ).toEqual(["P1", "P2"]);
+      expect(
+        within(screen.getByRole("group", { name: "Bar" })).getByRole("checkbox", { name: "B1" })
+      ).toBeInTheDocument();
+      expect(
+        within(screen.getByRole("group", { name: "No section" })).getByRole("checkbox", {
+          name: "X1",
+        })
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Terrace|Front|Garden/)).toBeNull();
+    });
+
+    it("blocks a table picked from the No section group", async () => {
+      renderControl();
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Block tables" }));
+      fireEvent.click(screen.getByRole("option", { name: "Choose tables…" }));
+      fireEvent.click(screen.getByRole("checkbox", { name: "X1" }));
+      fireEvent.click(screen.getByRole("button", { name: "Block" }));
+      await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
+      expect(setTonight.mock.calls[0]![0].body.change).toMatchObject({ tableIds: ["t4"] });
+    });
+
+    it("shows only No section when the venue has no sections", () => {
+      renderControl({ sections: [] });
+      open();
+      fireEvent.click(screen.getByRole("combobox", { name: "Block tables" }));
+      expect(screen.queryByRole("option", { name: /^Section:/ })).toBeNull();
+      fireEvent.click(screen.getByRole("option", { name: "Choose tables…" }));
+      expect(screen.getByRole("group", { name: "No section" })).toBeInTheDocument();
     });
 
     it("blocks the individual tables picked", async () => {
@@ -329,7 +396,7 @@ describe("TonightControl", () => {
       await waitFor(() => expect(setTonight).toHaveBeenCalledOnce());
       expect(setTonight.mock.calls[0]![0].body.change).toEqual({
         type: "block_tables",
-        tableIds: ["t1", "t2", "t3"],
+        tableIds: ["t1", "t2", "t3", "t4"],
         from: 1410,
         to: 1500,
       });

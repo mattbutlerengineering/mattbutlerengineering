@@ -21,6 +21,7 @@ import {
   type AvailabilityConfigState,
   type ClosureDecision,
   type DateRule,
+  type FloorPlanSection,
   type Table,
 } from "@mbe/types";
 import { useEndTonight, useSetTonight, type SetTonightRequest } from "../../hooks/useTonight.js";
@@ -53,6 +54,8 @@ export interface TonightControlProps {
   /** `Venue.hostEmergencyClose`: whether a Host may close the whole venue for tonight. */
   readonly hostEmergencyClose: boolean;
   readonly tables: readonly Table[];
+  /** The venue's floor-plan sections: the grouping for the block-tables list. */
+  readonly sections: readonly FloorPlanSection[];
 }
 
 type TonightBody = SetTonightRequest["change"];
@@ -62,7 +65,7 @@ const MAX_MINUTE = 2880;
 const ALL_TABLES = "all";
 const PICK_TABLES = "pick";
 const UNSET = "unset";
-const LOCATION_PREFIX = "location:";
+const SECTION_PREFIX = "section:";
 const DEFAULT_PACING = 10;
 
 function chipText(change: TonightChange, t: TFunction, format: VenueFormat): string {
@@ -130,10 +133,42 @@ function tableTargets(
 ): readonly string[] {
   if (target === PICK_TABLES) return picked;
   const active = tables.filter((table) => table.isActive);
-  const chosen = target.startsWith(LOCATION_PREFIX)
-    ? active.filter((table) => table.location === target.slice(LOCATION_PREFIX.length))
+  const chosen = target.startsWith(SECTION_PREFIX)
+    ? active.filter((table) => table.sectionId === target.slice(SECTION_PREFIX.length))
     : active;
   return chosen.map((table) => table.id);
+}
+
+interface TableGroup {
+  readonly key: string;
+  /** The section's name, or null for the "No section" group (named by the caller's copy). */
+  readonly name: string | null;
+  readonly tables: readonly Table[];
+}
+
+/**
+ * Active tables grouped by `sectionId`, in the sections' order, with tables that have no section
+ * (or a section this venue no longer lists) last. Empty groups are dropped.
+ */
+function groupBySection(
+  tables: readonly Table[],
+  sections: readonly FloorPlanSection[]
+): readonly TableGroup[] {
+  const active = tables.filter((table) => table.isActive);
+  const known = new Set(sections.map((section) => section.id));
+  const groups: readonly TableGroup[] = [
+    ...sections.map((section) => ({
+      key: section.id,
+      name: section.name,
+      tables: active.filter((table) => table.sectionId === section.id),
+    })),
+    {
+      key: "none",
+      name: null,
+      tables: active.filter((table) => !table.sectionId || !known.has(table.sectionId)),
+    },
+  ];
+  return groups.filter((group) => group.tables.length > 0);
 }
 
 /**
@@ -142,7 +177,7 @@ function tableTargets(
  * When locked; a Host without it sees why not, as text.
  */
 export function TonightControl(props: TonightControlProps) {
-  const { venueId, state, timezone, now, viewerRole, hostEmergencyClose, tables } = props;
+  const { venueId, state, timezone, now, viewerRole, hostEmergencyClose, tables, sections } = props;
   // Tonight is the service day, which stays on yesterday's date until a late service closes.
   const today = currentServiceDate(state.config, timezone, now);
   const { t } = useTranslation();
@@ -188,19 +223,21 @@ export function TonightControl(props: TonightControlProps) {
   const canEmergencyClose = viewerRole === "manager" || hostEmergencyClose;
   const isSheet = viewport === "phone";
 
-  const locations = useMemo(
-    () => [...new Set(tables.filter((tb) => tb.isActive && tb.location).map((tb) => tb.location!))],
-    [tables]
-  );
+  const tableGroups = useMemo(() => groupBySection(tables, sections), [tables, sections]);
   const blockOptions = [
     { value: ALL_TABLES, label: t("availability.tonight.block.all") },
-    ...locations.map((location) => ({
-      value: `${LOCATION_PREFIX}${location}`,
-      label: t("availability.tonight.block.location", { location }),
-    })),
+    ...tableGroups.flatMap((group) =>
+      group.name === null
+        ? []
+        : [
+            {
+              value: `${SECTION_PREFIX}${group.key}`,
+              label: t("availability.tonight.block.section", { section: group.name }),
+            },
+          ]
+    ),
     { value: PICK_TABLES, label: t("availability.tonight.block.pick") },
   ];
-  const activeTables = tables.filter((tb) => tb.isActive);
   const blockIds = tableTargets(tables, blockTarget, pickedTables);
   // "Now" is the current minute of the service day; past midnight on the same service day it is 1440+.
   const nowServiceMinute = serviceMinuteOf(now, timezone, today);
@@ -401,15 +438,30 @@ export function TonightControl(props: TonightControlProps) {
             aria-label={t("availability.tonight.block.pickLabel")}
             className={styles.tablePicker}
           >
-            {activeTables.map((table) => (
-              <Checkbox
-                key={table.id}
-                label={table.location ? `${table.name} · ${table.location}` : table.name}
-                checked={pickedTables.includes(table.id)}
-                disabled={busy !== null}
-                onCheckedChange={(on) => togglePicked(table.id, on)}
-              />
-            ))}
+            {tableGroups.map((group) => {
+              const groupName = group.name ?? t("availability.tonight.block.noSection");
+              return (
+                <div
+                  key={group.key}
+                  role="group"
+                  aria-label={groupName}
+                  className={styles.tableGroup}
+                >
+                  <Text as="span" variant="caption" color="secondary" aria-hidden="true">
+                    {groupName}
+                  </Text>
+                  {group.tables.map((table) => (
+                    <Checkbox
+                      key={table.id}
+                      label={table.name}
+                      checked={pickedTables.includes(table.id)}
+                      disabled={busy !== null}
+                      onCheckedChange={(on) => togglePicked(table.id, on)}
+                    />
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
         <div className={styles.row}>
