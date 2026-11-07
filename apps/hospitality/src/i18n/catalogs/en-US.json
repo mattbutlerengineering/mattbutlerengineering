@@ -430,6 +430,8 @@
       "maxCovers": "Max Covers",
       "tableNumberPlaceholder": "e.g. 12",
       "locationPlaceholder": "e.g. Window",
+      "section": "Section",
+      "noSection": "No section",
       "activeDescription": "Inactive tables stay on the floor plan but cannot be booked.",
       "nameRequired": "Table name is required.",
       "capacityMin": "Capacity must be at least 1.",

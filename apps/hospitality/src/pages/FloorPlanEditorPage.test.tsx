@@ -28,6 +28,8 @@ const mockSectionsList = vi.fn();
 const mockSectionsUpdate = vi.fn();
 const mockTablesCreate = vi.fn();
 const mockTablesDelete = vi.fn();
+const mockTablesUpdate = vi.fn();
+const mockTeamGet = vi.fn();
 
 vi.mock("../hooks/useApiClient.js", () => ({
   useApiClient: vi.fn(() => ({
@@ -41,7 +43,9 @@ vi.mock("../hooks/useApiClient.js", () => ({
     tables: {
       create: mockTablesCreate,
       delete: mockTablesDelete,
+      update: mockTablesUpdate,
     },
+    venueTeam: { get: mockTeamGet },
   })),
 }));
 
@@ -223,6 +227,28 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
       {label}
       <input {...rest} />
       {hint && <span>{hint}</span>}
+    </label>
+  ),
+  Select: ({
+    label,
+    options,
+    value,
+    onChange,
+  }: {
+    label: string;
+    options: { value: string; label: string }[];
+    value?: string;
+    onChange?: (value: string) => void;
+  }) => (
+    <label>
+      {label}
+      <select value={value} onChange={(e) => onChange?.(e.target.value)}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
     </label>
   ),
   Checkbox: ({
@@ -586,6 +612,63 @@ describe("FloorPlanEditorPage", () => {
       fireEvent.click(screen.getByText("A1"));
 
       expect(await screen.findByText(/x: 100, y: 200/)).toBeDefined();
+    });
+
+    describe("table section (#8478)", () => {
+      const SECTIONS = [
+        { id: "section-main", name: "Main Dining" },
+        { id: "section-bar", name: "Bar" },
+      ];
+
+      beforeEach(() => {
+        mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+        mockSectionsList.mockResolvedValue(SECTIONS);
+        mockTablesUpdate.mockResolvedValue({ ...TABLE_A, sectionId: "section-bar" });
+      });
+
+      it("lets a Manager move the table into a section", async () => {
+        mockTeamGet.mockResolvedValue({ viewerRole: "manager" });
+        renderPage();
+
+        await waitFor(() => screen.getByText("A1"));
+        fireEvent.click(screen.getByText("A1"));
+
+        const select = await screen.findByLabelText("Section");
+        expect(Array.from(select.querySelectorAll("option")).map((o) => o.textContent)).toEqual([
+          "No section",
+          "Main Dining",
+          "Bar",
+        ]);
+        fireEvent.change(select, { target: { value: "section-bar" } });
+        fireEvent.click(screen.getByRole("button", { name: "Save Table" }));
+
+        await waitFor(() =>
+          expect(mockTablesUpdate).toHaveBeenCalledWith("table-a", { sectionId: "section-bar" })
+        );
+      });
+
+      it("hides the Section field from a Host", async () => {
+        mockTeamGet.mockResolvedValue({ viewerRole: "host" });
+        renderPage();
+
+        await waitFor(() => screen.getByText("A1"));
+        fireEvent.click(screen.getByText("A1"));
+        await screen.findByDisplayValue("Window");
+        await waitFor(() => expect(mockTeamGet).toHaveBeenCalled());
+
+        expect(screen.queryByLabelText("Section")).toBeNull();
+      });
+
+      it("hides the Section field until the role has loaded", async () => {
+        mockTeamGet.mockReturnValue(new Promise(() => {}));
+        renderPage();
+
+        await waitFor(() => screen.getByText("A1"));
+        fireEvent.click(screen.getByText("A1"));
+        await screen.findByDisplayValue("Window");
+
+        expect(screen.queryByLabelText("Section")).toBeNull();
+      });
     });
 
     it("seeds an empty location field when location is null", async () => {

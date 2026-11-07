@@ -9360,7 +9360,7 @@
       // Resolve domain services from the buildApp seam (issue #3357) rather than
       // importing the sibling singleton directly — tests inject fakes via
       // buildApp({ services }).
-      const { tableService, floorPlanService } = fastify.services;
+      const { tableService, floorPlanService, floorPlanSectionService } = fastify.services;
     
       // List tables
       fastify.get<{
@@ -9558,7 +9558,7 @@
           },
         },
         venueScoped(tableVenue, async (request, reply) => {
-          const { floorPlanId } = request.body;
+          const { floorPlanId, sectionId } = request.body;
     
           // ADR-026 §3.3 item 5 / #5369 PR 7: the floor-plan reassignment
           // pre-check runs INSIDE the table's venue context (venueScoped), the way
@@ -9595,6 +9595,27 @@
                     "The requested floor plan does not belong to this table's venue"
                   )
                 );
+            }
+          }
+    
+          // `sectionId` is client-supplied and the update connects it with no venue
+          // awareness of its own, so resolve it among the TABLE's own venue's sections
+          // first. Another venue's section is indistinguishable from a missing one: 404.
+          if (sectionId) {
+            const current = await tableService.getById(request.params.id);
+            if (current?.venueId) {
+              const sections = await floorPlanSectionService.list(current.venueId);
+              if (!sections.some((section) => section.id === sectionId)) {
+                return reply
+                  .code(404)
+                  .send(
+                    createProblemDetails(
+                      404,
+                      titleForStatus(404),
+                      "Floor plan section not found in this table's venue"
+                    )
+                  );
+              }
             }
           }
     
@@ -25130,6 +25151,11 @@
           if (data.floorPlanId !== undefined) {
             updateData.floorPlan = data.floorPlanId
               ? { connect: { id: data.floorPlanId } }
+              : { disconnect: true };
+          }
+          if (data.sectionId !== undefined) {
+            updateData.section = data.sectionId
+              ? { connect: { id: data.sectionId } }
               : { disconnect: true };
           }
           if (data.shapeMetadata !== undefined) {

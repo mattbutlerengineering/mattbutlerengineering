@@ -438,6 +438,8 @@
       "maxCovers": "Comensales máximos",
       "tableNumberPlaceholder": "p. ej. 12",
       "locationPlaceholder": "p. ej. Ventana",
+      "section": "Sección",
+      "noSection": "Sin sección",
       "activeDescription": "Las mesas inactivas permanecen en el plano pero no se pueden reservar.",
       "nameRequired": "El nombre de la mesa es obligatorio.",
       "capacityMin": "La capacidad debe ser al menos 1.",

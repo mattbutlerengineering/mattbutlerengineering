@@ -111,6 +111,11 @@ export const tableService = {
           ? { connect: { id: data.floorPlanId } }
           : { disconnect: true };
       }
+      if (data.sectionId !== undefined) {
+        updateData.section = data.sectionId
+          ? { connect: { id: data.sectionId } }
+          : { disconnect: true };
+      }
       if (data.shapeMetadata !== undefined) {
         updateData.shapeMetadata = data.shapeMetadata
           ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)

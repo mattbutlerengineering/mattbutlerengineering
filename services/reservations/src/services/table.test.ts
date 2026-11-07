@@ -222,6 +222,39 @@ describe("tableService", () => {
       expect(result!.name).toBe("New Name");
     });
 
+    it("connects the section when sectionId is a string", async () => {
+      vi.mocked(prisma.table.update).mockResolvedValueOnce(makePrismaTable() as never);
+
+      await tableService.update("table-1", { sectionId: "section-1" });
+
+      expect(prisma.table.update).toHaveBeenCalledWith({
+        where: { id: "table-1" },
+        data: { section: { connect: { id: "section-1" } } },
+      });
+    });
+
+    it("disconnects the section when sectionId is null", async () => {
+      vi.mocked(prisma.table.update).mockResolvedValueOnce(makePrismaTable() as never);
+
+      await tableService.update("table-1", { sectionId: null });
+
+      expect(prisma.table.update).toHaveBeenCalledWith({
+        where: { id: "table-1" },
+        data: { section: { disconnect: true } },
+      });
+    });
+
+    it("leaves the section alone when sectionId is absent", async () => {
+      vi.mocked(prisma.table.update).mockResolvedValueOnce(makePrismaTable() as never);
+
+      await tableService.update("table-1", { name: "X" });
+
+      expect(prisma.table.update).toHaveBeenCalledWith({
+        where: { id: "table-1" },
+        data: { name: "X" },
+      });
+    });
+
     it("returns null for P2025 (not found)", async () => {
       vi.mocked(prisma.table.update).mockRejectedValueOnce({ code: "P2025" } as never);
 

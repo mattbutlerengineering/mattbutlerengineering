@@ -20,6 +20,7 @@ describe("UpdateTableBodySchema (#7319)", () => {
     isActive: true,
     priority: 3,
     floorPlanId: "fp-1",
+    sectionId: "section-1",
     shapeMetadata: { x: 10, y: 20, width: 80, height: 60, shape: "rectangle" },
   };
 
@@ -28,9 +29,14 @@ describe("UpdateTableBodySchema (#7319)", () => {
     expect(parsed).toEqual(FULL_PAYLOAD);
   });
 
-  it("accepts the nullable clears the service supports (floorPlanId, shapeMetadata)", () => {
-    const parsed = UpdateTableBodySchema.parse({ floorPlanId: null, shapeMetadata: null });
+  it("accepts the nullable clears the service supports (floorPlanId, sectionId, shapeMetadata)", () => {
+    const parsed = UpdateTableBodySchema.parse({
+      floorPlanId: null,
+      sectionId: null,
+      shapeMetadata: null,
+    });
     expect(parsed.floorPlanId).toBeNull();
+    expect(parsed.sectionId).toBeNull();
     expect(parsed.shapeMetadata).toBeNull();
   });
 

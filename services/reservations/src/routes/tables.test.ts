@@ -39,6 +39,11 @@ const floorPlanService = {
   removeTableFromFloorPlan: vi.fn(),
 } as unknown as DomainServices["floorPlanService"];
 
+// PATCH /v1/tables/:id with a `sectionId` resolves the section inside the table's venue.
+const floorPlanSectionService = {
+  list: vi.fn(),
+} as unknown as DomainServices["floorPlanSectionService"];
+
 // Mock the database (needed for health check registration)
 vi.mock("../services/database.js", async () => {
   const { createMockDatabaseService } = await import("@mbe/database/testing");
@@ -660,6 +665,7 @@ describe("Table Routes — venue-scoped staff authorization (#4865)", () => {
 // those, authenticating through a real (mocked jose) JWT with an injected
 // membership lookup rather than the admin-minting x-auth-bypass header.
 describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
+  const TABLE_OWN_URL = "/api/v1/tables/table-own";
   let app: FastifyInstance;
   const originalEnv = process.env;
 
@@ -697,7 +703,7 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
       .mockImplementation(async (_sub, venueId) => venueId === "venue-own");
     const built = await buildApp({
       logger: false,
-      services: { tableService, floorPlanService },
+      services: { tableService, floorPlanService, floorPlanSectionService },
       venueMembershipLookup: lookup,
     });
     await built.ready();
@@ -731,7 +737,7 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
 
     const response = await app.inject({
       method: "PATCH",
-      url: "/api/v1/tables/table-own",
+      url: TABLE_OWN_URL,
       headers: { authorization: "Bearer staff-token" },
       payload: { floorPlanId: "floor-plan-other-venue" },
     });
@@ -763,7 +769,7 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
 
     const response = await app.inject({
       method: "PATCH",
-      url: "/api/v1/tables/table-own",
+      url: TABLE_OWN_URL,
       headers: { authorization: "Bearer staff-token" },
       payload: { floorPlanId: "floor-plan-own-venue" },
     });
@@ -771,6 +777,80 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
     expect(response.statusCode).toBe(200);
     expect(tableService.update).toHaveBeenCalledWith("table-own", {
       floorPlanId: "floor-plan-own-venue",
+    });
+  });
+
+  describe("sectionId", () => {
+    const SECTION = {
+      id: "section-own",
+      venueId: "venue-own",
+      floorPlanId: "fp-1",
+      name: "Bar",
+      color: "#fff",
+      displayOrder: 0,
+      floorMaterial: null,
+      createdAt: "2025-01-01T00:00:00Z",
+      updatedAt: "2025-01-01T00:00:00Z",
+    };
+
+    beforeEach(() => {
+      vi.mocked(tableService.getById).mockResolvedValue({
+        ...mockTable,
+        id: "table-own",
+        venueId: "venue-own",
+      });
+      vi.mocked(tableService.update).mockResolvedValue({
+        ...mockTable,
+        id: "table-own",
+        venueId: "venue-own",
+        sectionId: "section-own",
+      });
+    });
+
+    it("returns 404 and writes nothing when the section is not in the table's venue", async () => {
+      vi.mocked(floorPlanSectionService.list).mockResolvedValue([]);
+      app = await buildAppAsVenueOwnStaff();
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: TABLE_OWN_URL,
+        headers: { authorization: "Bearer staff-token" },
+        payload: { sectionId: "section-foreign" },
+      });
+
+      expect(response.statusCode).toBe(404);
+      expect(floorPlanSectionService.list).toHaveBeenCalledWith("venue-own");
+      expect(tableService.update).not.toHaveBeenCalled();
+    });
+
+    it("assigns a section of the table's own venue", async () => {
+      vi.mocked(floorPlanSectionService.list).mockResolvedValue([SECTION]);
+      app = await buildAppAsVenueOwnStaff();
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: TABLE_OWN_URL,
+        headers: { authorization: "Bearer staff-token" },
+        payload: { sectionId: "section-own" },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(tableService.update).toHaveBeenCalledWith("table-own", { sectionId: "section-own" });
+    });
+
+    it("clears the section with null without looking sections up", async () => {
+      app = await buildAppAsVenueOwnStaff();
+
+      const response = await app.inject({
+        method: "PATCH",
+        url: TABLE_OWN_URL,
+        headers: { authorization: "Bearer staff-token" },
+        payload: { sectionId: null },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(floorPlanSectionService.list).not.toHaveBeenCalled();
+      expect(tableService.update).toHaveBeenCalledWith("table-own", { sectionId: null });
     });
   });
 
@@ -788,7 +868,7 @@ describe("Table Routes — cross-venue floor-plan reassignment (#5514)", () => {
 
     const response = await app.inject({
       method: "PATCH",
-      url: "/api/v1/tables/table-own",
+      url: TABLE_OWN_URL,
       headers: { authorization: "Bearer staff-token" },
       payload: { floorPlanId: "floor-plan-missing" },
     });
