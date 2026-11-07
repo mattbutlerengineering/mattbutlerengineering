@@ -338,7 +338,7 @@ export const generatedSchemas = {
     disabledReason: z.string().optional(),
   }),
   Tooltip: z.object({
-    content: z.string().max(120).optional(),
+    content: z.string().max(80).optional(),
     placement: z.enum(["bottom", "left", "right", "top"]).optional(),
     delay: z.number().optional(),
     showOnFocus: z.boolean().optional(),

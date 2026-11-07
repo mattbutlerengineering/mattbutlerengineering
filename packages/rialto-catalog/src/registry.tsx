@@ -140,13 +140,13 @@ type MenuEntries = ComponentProps<typeof DropdownMenu>["items"];
 
 /** Spec entries as menu entries; an item with a blank label reads as missing and is dropped. */
 function toMenuEntries(entries: readonly MenuEntrySpec[], onSelect: () => void): MenuEntries {
-  return entries.flatMap((entry): MenuEntries => {
+  return entries.flatMap((entry, index): MenuEntries => {
     if (entry.type === "divider") return [{ type: "divider" }];
     if (!isFilled(entry.label)) return [];
     if (entry.type === "label") return [{ type: "label", label: entry.label }];
     return [
       {
-        id: entry.id ?? entry.label,
+        id: entry.id ?? `${entry.label}-${index}`,
         label: entry.label,
         shortcut: entry.shortcut,
         disabled: entry.disabled,
@@ -643,6 +643,10 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         )
       ),
 
+      // Popover's `open` and Tooltip's `showOnFocus` are in the generated schemas (they are
+      // props of the components) but are deliberately NOT forwarded: a spec has no state store
+      // to own `open` (it opens from its trigger, uncontrolled), and Tooltip keeps its
+      // accessible default of showing on focus as well as hover.
       // Popover and DropdownMenu take a trigger *element*. A JSON spec carries a
       // label, so the adapter renders that label as the trigger Button.
       Popover: typed(

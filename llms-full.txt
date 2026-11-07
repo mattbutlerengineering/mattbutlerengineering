@@ -1457,7 +1457,7 @@
     export const popoverCatalogMeta = {
       name: "Popover",
       description:
-        "Click-to-open floating panel anchored to a trigger button. Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
+        "Click-to-open floating panel anchored to a trigger button; it opens from that trigger (there is no open prop to set). Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
       slots: ["default"],
       propSchemas: {
         trigger: "z.string().max(40)",
@@ -2553,7 +2553,7 @@
         "Short hover/focus hint attached to one trigger element. Put the element being explained (a Button, IconButton, Badge, or Text) as the single child and the hint in content (one short sentence). Use for brief explanations of terms or icon-only controls; never for essential information, long text, or interactive content. placement is top (default), bottom, left or right.",
       slots: ["default"],
       charLimits: {
-        content: 120,
+        content: 80,
       },
     } satisfies CatalogMeta;
   </file>
@@ -51230,12 +51230,6 @@
         reason: "Form field label; above input",
       },
       {
-        component: "PinInput",
-        prop: "label",
-        max: 40,
-        reason: "Form field label; above pin cells",
-      },
-      {
         component: "Slider",
         prop: "label",
         max: 40,
@@ -51264,18 +51258,6 @@
         prop: "confirmLabel",
         max: 20,
         reason: "Confirm button text; concise verb",
-      },
-      {
-        component: "Drawer",
-        prop: "title",
-        max: 60,
-        reason: "Drawer heading; fits panel header",
-      },
-      {
-        component: "Tooltip",
-        prop: "content",
-        max: 80,
-        reason: "Tooltip text; brief hint, no wrapping preferred",
       },
     ];
     export interface CharacterLimitInfo {
@@ -85009,7 +84991,7 @@
       Popover: {
         name: "Popover",
         description:
-          "Click-to-open floating panel anchored to a trigger button. Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
+          "Click-to-open floating panel anchored to a trigger button; it opens from that trigger (there is no open prop to set). Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
         slots: ["default"],
         charLimits: { title: 60 },
       },
@@ -85119,7 +85101,7 @@
         description:
           "Short hover/focus hint attached to one trigger element. Put the element being explained (a Button, IconButton, Badge, or Text) as the single child and the hint in content (one short sentence). Use for brief explanations of terms or icon-only controls; never for essential information, long text, or interactive content. placement is top (default), bottom, left or right.",
         slots: ["default"],
-        charLimits: { content: 120 },
+        charLimits: { content: 80 },
       },
     };
   </file>
@@ -85461,7 +85443,7 @@
         disabledReason: z.string().optional(),
       }),
       Tooltip: z.object({
-        content: z.string().max(120).optional(),
+        content: z.string().max(80).optional(),
         placement: z.enum(["bottom", "left", "right", "top"]).optional(),
         delay: z.number().optional(),
         showOnFocus: z.boolean().optional(),

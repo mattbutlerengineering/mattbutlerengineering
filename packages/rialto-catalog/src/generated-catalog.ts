@@ -212,7 +212,7 @@ export const catalogMeta: Record<string, CatalogMeta> = {
   Popover: {
     name: "Popover",
     description:
-      "Click-to-open floating panel anchored to a trigger button. Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
+      "Click-to-open floating panel anchored to a trigger button; it opens from that trigger (there is no open prop to set). Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
     slots: ["default"],
     charLimits: { title: 60 },
   },
@@ -322,6 +322,6 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Short hover/focus hint attached to one trigger element. Put the element being explained (a Button, IconButton, Badge, or Text) as the single child and the hint in content (one short sentence). Use for brief explanations of terms or icon-only controls; never for essential information, long text, or interactive content. placement is top (default), bottom, left or right.",
     slots: ["default"],
-    charLimits: { content: 120 },
+    charLimits: { content: 80 },
   },
 };

@@ -4,7 +4,7 @@
  * element in rialto (Popover, DropdownMenu) take a label here and render it as a Button.
  */
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent, screen } from "@testing-library/react";
 import { Renderer, JSONUIProvider } from "@json-render/react";
 import { registry } from "../registry.js";
@@ -136,6 +136,26 @@ describe("DropdownMenu", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Actions" }));
     expect(screen.getAllByRole("menuitem").map((n) => n.textContent)).toEqual(["Edit", "Delete"]);
+  });
+});
+
+describe("DropdownMenu duplicate labels", () => {
+  it("renders id-less items with the same label without duplicate-key warnings", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    renderSpec({
+      root: "m",
+      elements: {
+        m: {
+          type: "DropdownMenu",
+          props: { trigger: "Actions", items: [{ label: "Copy" }, { label: "Copy" }] },
+        },
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Actions" }));
+    expect(screen.getAllByRole("menuitem")).toHaveLength(2);
+    const keyWarnings = error.mock.calls.filter((c) => String(c[0]).includes("same key"));
+    error.mockRestore();
+    expect(keyWarnings).toEqual([]);
   });
 });
 
