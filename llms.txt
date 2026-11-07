@@ -2714,6 +2714,12 @@
         newId: () => string
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
+    <item priority="low">
+      interface OperatingHoursValidationErrors {
+        global?: string;
+        days?: Readonly<Partial<Record<keyof OperatingHours, string>>>;
+      }
+    </item>
     <item priority="high">
       export function validateQuickSetupHours(
         hours: OperatingHours,
