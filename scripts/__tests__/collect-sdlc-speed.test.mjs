@@ -309,12 +309,12 @@ describe("selectBaseline (#8418: non-overlapping windows only)", () => {
     expect(selectBaseline(rows, "2026-11-06", 7)).toBeNull();
   });
 
-  it("treats a row without `days` as a 7-day window", () => {
+  it("ignores the baseline row's own `days` (legacy rows without it work)", () => {
     const { days: _d, ...legacy } = row("2026-10-30");
     expect(selectBaseline([legacy], "2026-11-06", 7)?.date).toBe("2026-10-30");
   });
 
-  it("requires the gap to cover the larger of the two windows", () => {
+  it("only the prior row's end date matters, not its length", () => {
     // prior covered 14 days ending 11-02 (starts 10-19); current 7-day window starts 10-30.
     // Non-overlap only needs prior end <= current start, so a longer prior window is fine.
     expect(selectBaseline([row("2026-10-30", { days: 14 })], "2026-11-06", 7)?.date).toBe(
