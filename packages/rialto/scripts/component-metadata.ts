@@ -172,12 +172,6 @@ export const characterLimits: CharacterLimit[] = [
     reason: "Form field label; above input",
   },
   {
-    component: "PinInput",
-    prop: "label",
-    max: 40,
-    reason: "Form field label; above pin cells",
-  },
-  {
     component: "Slider",
     prop: "label",
     max: 40,
@@ -206,18 +200,6 @@ export const characterLimits: CharacterLimit[] = [
     prop: "confirmLabel",
     max: 20,
     reason: "Confirm button text; concise verb",
-  },
-  {
-    component: "Drawer",
-    prop: "title",
-    max: 60,
-    reason: "Drawer heading; fits panel header",
-  },
-  {
-    component: "Tooltip",
-    prop: "content",
-    max: 80,
-    reason: "Tooltip text; brief hint, no wrapping preferred",
   },
 ];
 

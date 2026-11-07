@@ -42,16 +42,23 @@ import {
   DepartureBoard,
   Dialog,
   Divider,
+  Drawer,
+  DropdownMenu,
   EmptyState,
   Footer,
   GuestCards,
+  Handshake,
   IconButton,
   Input,
   NavigationMenu,
   Odometer,
+  PinInput,
+  Popover,
   ReservationList,
+  ScrollArea,
   Select,
   Sidebar,
+  Skeleton,
   Stack,
   Stat,
   StatusLED,
@@ -62,6 +69,7 @@ import {
   Timeline,
   TimeSlots,
   Toggle,
+  Tooltip,
 } from "@mattbutlerengineering/rialto";
 import type {
   DepartureBoardProps,
@@ -75,7 +83,7 @@ import type {
 import { catalog } from "./catalog.js";
 import { catalogMeta } from "./generated-catalog.js";
 import { generatedSchemas } from "./generated-schemas.js";
-import { Children, type CSSProperties, type ReactNode } from "react";
+import { Children, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 
 const TIMELINE_STATUSES: ReadonlySet<string> = new Set([
   "completed",
@@ -126,6 +134,81 @@ function usableGuests(cards: readonly Record<string, unknown>[]): GuestCard[] {
 /** A slot's child elements when there are some, else the element's own words (F24). */
 function slotOr(children: ReactNode, words: unknown): ReactNode {
   return Children.count(children) > 0 ? children : (words as ReactNode);
+}
+
+type MenuEntries = ComponentProps<typeof DropdownMenu>["items"];
+
+/** Spec entries as menu entries; an item with a blank label reads as missing and is dropped. */
+function toMenuEntries(entries: readonly MenuEntrySpec[], onSelect: () => void): MenuEntries {
+  return entries.flatMap((entry, index): MenuEntries => {
+    if (entry.type === "divider") return [{ type: "divider" }];
+    if (!isFilled(entry.label)) return [];
+    if (entry.type === "label") return [{ type: "label", label: entry.label }];
+    return [
+      {
+        id: entry.id ?? `${entry.label}-${index}`,
+        label: entry.label,
+        shortcut: entry.shortcut,
+        disabled: entry.disabled,
+        destructive: entry.destructive,
+        onSelect,
+      },
+    ];
+  });
+}
+
+/** What a json-render adapter receives; `P` is the element's validated props. */
+interface AdapterArgs<P> {
+  props: P;
+  children?: ReactNode;
+  emit: (event: string) => void;
+}
+
+/** Narrow an adapter to its element's validated props (the seam has already checked them). */
+function typed<P>(render: (args: AdapterArgs<P>) => ReactNode): AdapterFn {
+  return (context) => render({ ...context, props: context.props as P });
+}
+
+interface PinInputSpecProps {
+  length?: number;
+  mask?: boolean;
+  type?: "numeric" | "alphanumeric";
+  size?: "sm" | "md" | "lg";
+  label?: string;
+  hint?: string;
+  error?: boolean;
+  required?: boolean;
+  disabled?: boolean;
+  disabledReason?: string;
+  value?: string;
+}
+
+/**
+ * PinInput is fully controlled (`value` defaults to ""), so a JSON spec — which
+ * carries no state store — needs the typed digits held here or the cells never fill.
+ */
+function PinInputAdapter({ props, emit }: AdapterArgs<PinInputSpecProps>) {
+  const [value, setValue] = useState<string>(props.value ?? "");
+  return (
+    <PinInput
+      {...props}
+      value={value}
+      onChange={(next) => {
+        setValue(next);
+        emit("change");
+      }}
+      onComplete={() => emit("complete")}
+    />
+  );
+}
+
+interface MenuEntrySpec {
+  type?: "item" | "divider" | "label";
+  id?: string;
+  label?: string;
+  shortcut?: string;
+  disabled?: boolean;
+  destructive?: boolean;
 }
 
 // Toast is intentionally omitted from this registry.
@@ -531,9 +614,135 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
         </Dialog>
       ),
 
+      // Drawer mirrors Dialog: `open` is supplied by the host (apps/gen plans it
+      // alongside Dialog) and Esc / the close button only emit "close".
+      Drawer: typed(
+        ({
+          props,
+          children,
+          emit,
+        }: AdapterArgs<{
+          open?: boolean;
+          title?: string;
+          description?: string;
+          footer?: string;
+          side?: "right" | "left" | "bottom";
+          size?: "default" | "wide" | "full" | "compact";
+        }>) => (
+          <Drawer
+            open={props.open ?? false}
+            onClose={() => emit("close")}
+            title={props.title}
+            description={props.description}
+            footer={props.footer}
+            side={props.side}
+            size={props.size}
+          >
+            {children}
+          </Drawer>
+        )
+      ),
+
+      // Popover's `open` and Tooltip's `showOnFocus` are in the generated schemas (they are
+      // props of the components) but are deliberately NOT forwarded: a spec has no state store
+      // to own `open` (it opens from its trigger, uncontrolled), and Tooltip keeps its
+      // accessible default of showing on focus as well as hover.
+      // Popover and DropdownMenu take a trigger *element*. A JSON spec carries a
+      // label, so the adapter renders that label as the trigger Button.
+      Popover: typed(
+        ({
+          props,
+          children,
+        }: AdapterArgs<{
+          trigger: string;
+          title?: string;
+          placement?: "top" | "bottom" | "left" | "right";
+          solid?: boolean;
+        }>) => (
+          <Popover
+            trigger={<Button variant="secondary">{props.trigger}</Button>}
+            title={props.title}
+            placement={props.placement}
+            solid={props.solid}
+          >
+            {children}
+          </Popover>
+        )
+      ),
+
+      DropdownMenu: typed(
+        ({
+          props,
+          emit,
+        }: AdapterArgs<{
+          trigger: string;
+          items: MenuEntrySpec[];
+          align?: "left" | "right";
+          side?: "bottom" | "top";
+        }>) => (
+          <DropdownMenu
+            trigger={<Button variant="secondary">{props.trigger}</Button>}
+            items={toMenuEntries(props.items, () => emit("select"))}
+            align={props.align}
+            side={props.side}
+          />
+        )
+      ),
+
+      Tooltip: typed(
+        ({
+          props,
+          children,
+        }: AdapterArgs<{
+          content?: string;
+          placement?: "top" | "bottom" | "left" | "right";
+          delay?: number;
+        }>) => (
+          <Tooltip content={props.content} placement={props.placement} delay={props.delay}>
+            {children}
+          </Tooltip>
+        )
+      ),
+
       // Toast is excluded — see comment at top of file.
 
       // ── Data Display ──────────────────────────────────────────────
+      Skeleton: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          variant?: "rect" | "text" | "circle" | "heading" | "card";
+          width?: string | number;
+          height?: string | number;
+          lines?: number;
+          gap?: string | number;
+        }>) => <Skeleton {...props} />
+      ),
+
+      ScrollArea: typed(({ props, children }: AdapterArgs<{ maxHeight?: string | number }>) => (
+        <ScrollArea maxHeight={props.maxHeight}>{children}</ScrollArea>
+      )),
+
+      Handshake: typed(
+        ({
+          props,
+        }: AdapterArgs<{
+          "aria-label": string;
+          stations: string[];
+          state?: "idle" | "negotiating" | "settled" | "failed";
+          lane?: number;
+          size?: "sm" | "md" | "lg";
+          showLabels?: boolean;
+        }>) => {
+          const [first = "", second = "", ...rest] = props.stations;
+          return <Handshake {...props} stations={[first, second, ...rest]} />;
+        }
+      ),
+
+      PinInput: typed(({ props, emit }: AdapterArgs<PinInputSpecProps>) => (
+        <PinInputAdapter props={props} emit={emit} />
+      )),
+
       Table: ({ props }: any) => (
         <Table
           columns={props.columns}

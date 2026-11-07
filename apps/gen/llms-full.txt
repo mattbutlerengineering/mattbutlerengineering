@@ -930,6 +930,9 @@
       children?: string[];
       slots?: Record<string, string[]>;
     }
+    function isOverlay(element: GenElement | undefined): boolean {
+      return element?.type === "Dialog" || element?.type === "Drawer";
+    }
     function elementsOf(spec: Spec | null): Record<string, GenElement> | null {
       if (!spec?.root || !spec.elements) return null;
       return spec.elements as Record<string, GenElement>;
@@ -961,7 +964,7 @@
     function findDialog(elements: Record<string, GenElement>, key: string): string | null {
       const element = elements[key];
       if (!element) return null;
-      if (element.type === "Dialog") return key;
+      if (isOverlay(element)) return key;
       for (const child of childKeys(element)) {
         const found = findDialog(elements, child);
         if (found) return found;
@@ -985,7 +988,7 @@
       const nearestDialog = (key: string): string | null => {
         let current = parent.get(key);
         while (current) {
-          if (elements[current]?.type === "Dialog") return current;
+          if (isOverlay(elements[current])) return current;
           current = parent.get(current);
         }
         return null;
@@ -1013,7 +1016,7 @@
           }
         } else if (index >= 0) {
           const next = siblings[index + 1];
-          if (next && elements[next]?.type === "Dialog") target = next;
+          if (next && isOverlay(elements[next])) target = next;
         }
         if (target) {
           buttons[key] = { kind: "open", dialogKey: target };
@@ -1023,7 +1026,7 @@
     
       const dialogs: Record<string, DialogControl> = {};
       for (const [key, element] of Object.entries(elements)) {
-        if (element.type !== "Dialog") continue;
+        if (!isOverlay(element)) continue;
         const literalOpen = element.props?.open === true;
         dialogs[key] = { initialOpen: opened.has(key) ? false : literalOpen };
       }
