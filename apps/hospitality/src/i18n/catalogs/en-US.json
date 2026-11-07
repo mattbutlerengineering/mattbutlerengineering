@@ -84,27 +84,7 @@
     "hours": {
       "heading": "Operating Hours",
       "intro": "So guests know when you're open.",
-      "instructions": "Toggle each day to set opening and closing times. Days left off will be marked as closed.",
-      "closed": "Closed",
-      "to": "to",
-      "openingTime": "{{day}} opening time",
-      "closingTime": "{{day}} closing time",
-      "closeAfterOpen": "Closing time must be after opening time",
-      "timesRequired": "Enter both an opening and a closing time",
-      "atLeastOne": "At least one day must be open",
-      "closeDayTitle": "Close {{day}}?",
-      "closeDayDescription": "This will clear the custom opening and closing times you set for this day.",
-      "closeDayConfirm": "Close Day",
-      "closeDayCancel": "Keep Open"
-    },
-    "days": {
-      "monday": "monday",
-      "tuesday": "tuesday",
-      "wednesday": "wednesday",
-      "thursday": "thursday",
-      "friday": "friday",
-      "saturday": "saturday",
-      "sunday": "sunday"
+      "atLeastOne": "At least one day must be open"
     },
     "settings": {
       "heading": "Venue Settings",

@@ -84,27 +84,7 @@
     "hours": {
       "heading": "Horario de atención",
       "intro": "Para que tus invitados sepan cuándo abres.",
-      "instructions": "Activa cada día para fijar la hora de apertura y cierre. Los días sin activar se marcarán como cerrados.",
-      "closed": "Cerrado",
-      "to": "a",
-      "openingTime": "Hora de apertura del {{day}}",
-      "closingTime": "Hora de cierre del {{day}}",
-      "closeAfterOpen": "La hora de cierre debe ser posterior a la de apertura",
-      "timesRequired": "Ingresa una hora de apertura y una de cierre",
-      "atLeastOne": "Al menos un día debe estar abierto",
-      "closeDayTitle": "¿Cerrar el {{day}}?",
-      "closeDayDescription": "Esto borrará los horarios de apertura y cierre personalizados que fijaste para este día.",
-      "closeDayConfirm": "Cerrar día",
-      "closeDayCancel": "Mantener abierto"
-    },
-    "days": {
-      "monday": "lunes",
-      "tuesday": "martes",
-      "wednesday": "miércoles",
-      "thursday": "jueves",
-      "friday": "viernes",
-      "saturday": "sábado",
-      "sunday": "domingo"
+      "atLeastOne": "Al menos un día debe estar abierto"
     },
     "settings": {
       "heading": "Ajustes del local",
