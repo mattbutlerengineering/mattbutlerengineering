@@ -143,3 +143,36 @@ for (const scheme of ["light", "dark"] as const) {
     });
   }
 }
+
+// Iteration 9 (#8416): the closed-state audit above is blind to what the
+// ledger's seed findings were about on the overlay pages (the loop captures
+// them closed too). Open the first trigger on each, wait for the panel, and
+// run the full rule set against the live overlay in both themes.
+const ITERATION_9_OVERLAYS = [
+  { slug: "dialog", trigger: "Open Dialog", panel: '[role="dialog"]' },
+  { slug: "drawer", trigger: "Right (default)", panel: '[role="dialog"]' },
+  { slug: "dropdown-menu", trigger: "Actions", panel: '[role="menu"]' },
+];
+
+for (const scheme of ["light", "dark"] as const) {
+  for (const { slug, trigger, panel } of ITERATION_9_OVERLAYS) {
+    test(`a11y: ${slug} page has zero axe violations with the overlay open (${scheme})`, async ({
+      page,
+    }) => {
+      await page.emulateMedia({ reducedMotion: "reduce", colorScheme: scheme });
+      await page.goto(`components/${slug}`);
+      await page.waitForLoadState("networkidle");
+      await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
+
+      await page.getByRole("button", { name: trigger }).first().click();
+      await expect(page.locator(panel).first()).toBeVisible();
+
+      const { violations } = await new AxeBuilder({ page }).analyze();
+
+      expect(
+        violations,
+        `${slug} open (${scheme}) has ${violations.length} axe violations:\n${violations.map((v) => `  - ${v.id} [${v.impact}] (${v.nodes.length} instances: ${v.nodes.map((n) => n.target.join(" ")).join(", ")})`).join("\n")}`
+      ).toHaveLength(0);
+    });
+  }
+}
