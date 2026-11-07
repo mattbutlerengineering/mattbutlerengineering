@@ -23607,6 +23607,14 @@
       ): DayDiff[] { /* ... */ }
     </item>
   </file>
+  <file path="packages/availability/src/expand-section-rules.ts">
+    <item priority="high">
+      export function expandSectionRules(
+        rules: readonly DateRule[],
+        membership: ReadonlyMap<string, readonly string[]>
+      ): DateRule[] { /* ... */ }
+    </item>
+  </file>
   <file path="packages/availability/src/first-occurrence.ts">
     <item priority="low">
       interface OccurrenceRule {
@@ -23968,7 +23976,7 @@
         targetKind: DateRule["targetKind"];
         venueServiceId?: string;
         tableIds?: string[];
-        bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
+        sectionId?: string;
       }
     </item>
     <item priority="low">
@@ -24385,7 +24393,7 @@
   </file>
   <file path="packages/availability/src/validate-config.ts">
     <item priority="low">
-      type ConfigIssueCode = "invalid" | "overlap" | "weekday_clash" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start" | "booking_types_required";
+      type ConfigIssueCode = "invalid" | "overlap" | "weekday_clash" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start" | "booking_types_required" | "section_closure_only";
     </item>
     <item priority="low">
       interface ConfigIssue {
@@ -24487,6 +24495,9 @@
     </item>
     <item priority="medium">
       function bookingTypesIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sectionClosureIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
     </item>
     <item priority="high">
       export function validateConfig(input: unknown): ConfigIssue[] { /* ... */ }

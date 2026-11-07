@@ -48059,6 +48059,8 @@
           bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
           /** The service a `service` closure is for; absent for other targets and from an older API. */
           venueServiceId: z.string().optional(),
+          /** The section a section closure is for; absent for other targets and from an older API. */
+          sectionId: z.string().optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -54415,13 +54417,14 @@
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
         closures: day.closures.map(
-          ({ ruleId, targetKind, from, to, bookingTypes, venueServiceId }) => ({
+          ({ ruleId, targetKind, from, to, bookingTypes, venueServiceId, sectionId }) => ({
             ruleId,
             targetKind,
             from,
             to,
             ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
             ...(targetKind === "service" && venueServiceId ? { venueServiceId } : {}),
+            ...(targetKind === "tables" && sectionId ? { sectionId } : {}),
           })
         ),
         bookingOpen: day.bookingOpen,
@@ -80823,6 +80826,18 @@
       });
     }
   </file>
+  <file path="packages/availability/src/expand-section-rules.ts">
+    export function expandSectionRules(
+      rules: readonly DateRule[],
+      membership: ReadonlyMap<string, readonly string[]>
+    ): DateRule[] {
+      return rules.map((rule) =>
+        rule.sectionId == null
+          ? rule
+          : { ...rule, tableIds: [...(membership.get(rule.sectionId) ?? [])] }
+      );
+    }
+  </file>
   <file path="packages/availability/src/first-occurrence.ts">
     export interface OccurrenceRule {
       readonly startsOn: ServiceDate;
@@ -81597,6 +81612,8 @@
       targetKind: DateRule["targetKind"];
       venueServiceId?: string;
       tableIds?: string[];
+      /** The section a section closure names (ADR-032); `tableIds` is its live membership. */
+      sectionId?: string;
       bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
       from: number;
       to: number;
@@ -81661,6 +81678,7 @@
           ? { venueServiceId: rule.venueServiceId }
           : {}),
         ...(rule.targetKind === "tables" && rule.tableIds ? { tableIds: rule.tableIds } : {}),
+        ...(rule.targetKind === "tables" && rule.sectionId ? { sectionId: rule.sectionId } : {}),
         ...(rule.targetKind === "booking" && rule.bookingTypes
           ? { bookingTypes: rule.bookingTypes }
           : {}),
@@ -82472,7 +82490,8 @@
       | "ends_before_start"
       | "seating_outside_service"
       | "window_ends_before_start"
-      | "booking_types_required";
+      | "booking_types_required"
+      | "section_closure_only";
     export interface ConfigIssue {
       /** e.g. `scheduleServices[1].lastSeatingAt`; `""` is the whole config. */
       path: string;
@@ -82759,6 +82778,19 @@
           : []
       );
     }
+    function sectionClosureIssues(config: AvailabilityConfig): ConfigIssue[] {
+      return config.dateRules.flatMap((rule, i) =>
+        rule.sectionId != null && !(rule.kind === "closure" && rule.targetKind === "tables")
+          ? [
+              issue(
+                `dateRules[${i}].sectionId`,
+                "section_closure_only",
+                "Only a table closure can name a section."
+              ),
+            ]
+          : []
+      );
+    }
     export function validateConfig(input: unknown): ConfigIssue[] {
       const parsed = AvailabilityConfigSchema.safeParse(input);
       if (!parsed.success) {
@@ -82773,6 +82805,7 @@
         ...precedenceIssues(config),
         ...windowIssues(config),
         ...bookingTypesIssues(config),
+        ...sectionClosureIssues(config),
       ];
     }
   </file>
