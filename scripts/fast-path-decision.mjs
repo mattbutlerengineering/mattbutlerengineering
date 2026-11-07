@@ -57,6 +57,25 @@ export const ALL_SPECIALIST_REVIEWERS = Object.freeze([
 ]);
 
 /**
+ * Mirror of `GATE_PATHS` in `packages/agent-core/src/pr-risk-classifier.ts`
+ * (ADR-0087 human-merge paths). Dist-independent on purpose: `holdForHuman`
+ * must stay correct when the dist is stale, missing or unloadable, so it is
+ * never read from the classifier. Pinned to the source's `pattern:` entries
+ * (same patterns, same order) by `scripts/__tests__/fast-path-decision.test.mjs`.
+ */
+export const GATE_PATH_MATCHERS = Object.freeze([
+  { pattern: "docs/adr/**", matches: (f) => f.startsWith("docs/adr/") },
+  { pattern: "docs/design/**", matches: (f) => f.startsWith("docs/design/") },
+  { pattern: "**/prd.md", matches: (f) => f === "prd.md" || f.endsWith("/prd.md") },
+  {
+    pattern: "**/architecture.md",
+    matches: (f) => f === "architecture.md" || f.endsWith("/architecture.md"),
+  },
+]);
+
+const isGatePath = (file) => GATE_PATH_MATCHERS.some((g) => g.matches(file));
+
+/**
  * Pure decision, in strict precedence order.
  *
  * @param {{
@@ -66,18 +85,16 @@ export const ALL_SPECIALIST_REVIEWERS = Object.freeze([
  *   classifier: null | {
  *     qualifiesForLowRiskFastPath: (files: readonly string[]) => boolean,
  *     reviewersForDiff: (files: readonly string[]) => string[],
- *     matchesGatePath: (file: string) => boolean,
- *   },
+ *      *   },
  * }} input
  * @returns {{fastPath: boolean, reviewers: string[], holdForHuman: boolean, reason: string}}
  */
 export function decideFastPath({ files, labels, freshness, classifier }) {
+  const holdForHuman = files.some(isGatePath);
   const failClosed = (reason) => ({
     fastPath: false,
     reviewers: [...ALL_SPECIALIST_REVIEWERS],
-    // Gate paths are only knowable through the classifier; with none loaded,
-    // the merge-command hook's own gate-path check still applies.
-    holdForHuman: classifier ? files.some(classifier.matchesGatePath) : false,
+    holdForHuman,
     reason,
   });
 
@@ -102,7 +119,7 @@ export function decideFastPath({ files, labels, freshness, classifier }) {
       reason: "no changed files — failing closed: no fast path",
     };
   }
-  if (files.some(classifier.matchesGatePath)) {
+  if (holdForHuman) {
     return {
       fastPath: false,
       reviewers,
@@ -114,7 +131,7 @@ export function decideFastPath({ files, labels, freshness, classifier }) {
     return {
       fastPath: false,
       reviewers,
-      holdForHuman: false,
+      holdForHuman,
       reason: `PR carries the ${NEEDS_REVIEW_LABEL} label — fast path off-limits`,
     };
   }
@@ -130,7 +147,7 @@ export function decideFastPath({ files, labels, freshness, classifier }) {
   return {
     fastPath: false,
     reviewers,
-    holdForHuman: false,
+    holdForHuman,
     reason:
       reviewers.length > 0
         ? `specialist reviewer(s) matched: ${reviewers.join(", ")}`
@@ -223,11 +240,9 @@ const gh = (args) => execFileSync("gh", args, { encoding: "utf-8" });
 async function loadDistClassifier() {
   try {
     const mod = await import(pathToFileURL(DIST_ENTRY).href);
-    const { qualifiesForLowRiskFastPath, reviewersForDiff, matchesGatePath } = mod;
-    return [qualifiesForLowRiskFastPath, reviewersForDiff, matchesGatePath].every(
-      (fn) => typeof fn === "function"
-    )
-      ? { qualifiesForLowRiskFastPath, reviewersForDiff, matchesGatePath }
+    const { qualifiesForLowRiskFastPath, reviewersForDiff } = mod;
+    return [qualifiesForLowRiskFastPath, reviewersForDiff].every((fn) => typeof fn === "function")
+      ? { qualifiesForLowRiskFastPath, reviewersForDiff }
       : null;
   } catch {
     return null;

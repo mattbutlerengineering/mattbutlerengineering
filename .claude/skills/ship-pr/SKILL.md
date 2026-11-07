@@ -107,7 +107,7 @@ step on anything but a clean pass.
 
    - a label in the profile's `hold_labels` on the PR or a linked issue — report
      `held — <label>`;
-   - a changed file matching a gate path (`GATE_PATHS` in `@mbe/agent-core`)
+   - step 2's `holdForHuman: true` (a changed file matches a gate path)
      — report `held for human merge — gate path`.
 
    Otherwise follow `.claude/implement-queue.md` § merge-command:

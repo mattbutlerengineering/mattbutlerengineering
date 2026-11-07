@@ -14,7 +14,7 @@ skill. The skill is the loop; every section below is a **hook** it reads by
 name. The frontmatter is the Owner's standing consent to auto-merge
 (`merge: auto`, skills ADR-0087): a PR merges only with `CI Gate` present and
 green, every reviewer passing, no `needs-review` label, and no gate-path file
-(gate paths are `GATE_PATHS` in `@mbe/agent-core`; `qualifiesForLowRiskFastPath` already returns false for them).
+(gate paths surface as `holdForHuman` in `scripts/fast-path-decision.mjs`'s output; `qualifiesForLowRiskFastPath` already returns false for them).
 
 Cloud routines and GitHub Actions cannot load the plugin (#6332), so they clone
 the public skills repo and follow `skills/implement-queue/SKILL.md` by path,
@@ -66,7 +66,7 @@ node scripts/worktree-base-freshness.mjs check
 # exit 1 -> "unrelated" | "stale" | "unknown", all fail closed
 ```
 
-On exit 1, remediate before dispatching — for a worker starting fresh work the fix is `git fetch origin && git reset --hard origin/main`, which is also exactly what the worker's own step 0 re-runs in its worktree. This is the same fail-closed posture as `scripts/agent-core-build-freshness.mjs check` in the worker→train boundary below, on a different input: `unrelated` (#5296 — no common ancestor, so `git merge` answers `fatal: refusing to merge unrelated histories` and `gh pr update-branch` cannot repair it) must never be softened into `stale`, and an undeterminable base is never read as usable.
+On exit 1, remediate before dispatching — for a worker starting fresh work the fix is `git fetch origin && git reset --hard origin/main`, which is also exactly what the worker's own step 0 re-runs in its worktree. This is the same fail-closed posture as the build-freshness check inside `scripts/fast-path-decision.mjs` (§ fast-path), on a different input: `unrelated` (#5296 — no common ancestor, so `git merge` answers `fatal: refusing to merge unrelated histories` and `gh pr update-branch` cannot repair it) must never be softened into `stale`, and an undeterminable base is never read as usable.
 
 ## model
 
@@ -139,7 +139,7 @@ node scripts/ci-gate-status.mjs check --pr <N>   # → {"state": "green"|"failed
 
 ## fast-path
 
-**Low-risk fast path.** `tier:*` labels do **not** gate implement-queue's merges — see [No tier hold](#no-tier-hold) below. One command makes the whole "may this PR merge without review?" decision, including the specialist set the `reviewers` hook dispatches:
+**Low-risk fast path.** `tier:*` labels do **not** gate implement-queue's merges — see [No tier hold](#no-tier-hold) below. The `needs-review` label still holds a PR (the command reads it). One command makes the whole "may this PR merge without review?" decision, including the specialist set the `reviewers` hook dispatches:
 
 ```bash
 node scripts/fast-path-decision.mjs check --pr <N>
@@ -154,7 +154,7 @@ It always exits 0 with a decision (2 = usage error; 1 = `gh` could not fetch the
   gh pr merge <N> --auto --squash --delete-branch
   ```
 
-- `holdForHuman: true` → a changed file matches a gate path (`GATE_PATHS` in `@mbe/agent-core`: ADRs, design docs, PRDs, architecture docs). These always hold for a human merge (ADR-0087); the PR is still reviewed, then held.
+- `holdForHuman: true` → a changed file matches a gate path (`GATE_PATH_MATCHERS` in the script, pinned to `GATE_PATHS` in `@mbe/agent-core`, and independent of the dist so it holds even when the dist cannot be trusted: ADRs, design docs, PRDs, architecture docs). These always hold for a human merge (ADR-0087); the PR is still reviewed, then held.
 - otherwise → fall through to the `reviewers` hook, dispatching the universal reviewer plus every name in `reviewers`.
 
 The command encodes the ordering, in this precedence: dist untrusted or unloadable → no fast path and **every** specialist reviewer; empty diff → no fast path; gate path → hold for human; `needs-review` label → no fast path (reviewers still computed); else `qualifiesForLowRiskFastPath(files)` and `reviewersForDiff(files)`.
@@ -227,7 +227,7 @@ it had already altered.
 
 ## merge-command
 
-**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (see `GATE_PATHS` in `@mbe/agent-core`), which holds the PR for a human merge:
+**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (`holdForHuman` in the `fast-path` hook's `node scripts/fast-path-decision.mjs check --pr <N>` JSON), which holds the PR for a human merge:
 
 ```bash
 gh pr merge <N> --auto --squash --delete-branch

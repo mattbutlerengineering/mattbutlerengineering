@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   ALL_SPECIALIST_REVIEWERS,
+  GATE_PATH_MATCHERS,
   decideFastPath,
   main,
   parseArgs,
@@ -19,7 +20,6 @@ const STALE = { trusted: false, state: "stale", reason: "src newer than dist" };
 
 /** Fake classifier: gate = docs/adr/**, low-risk = *.test.ts only, one specialist for migrations. */
 const classifier = {
-  matchesGatePath: (f) => f.startsWith("docs/adr/"),
   reviewersForDiff: (files) =>
     files.some((f) => f.includes("migrations/")) ? ["migration-reviewer"] : [],
   qualifiesForLowRiskFastPath: (files) =>
@@ -42,6 +42,23 @@ describe("decideFastPath precedence", () => {
     expect(d).toMatchObject({ fastPath: false, holdForHuman: false });
     expect(d.reviewers).toEqual([...ALL_SPECIALIST_REVIEWERS]);
     expect(d.reason).toMatch(/could not be loaded/);
+  });
+
+  test.each(["docs/adr/x.md", "docs/features/x/prd.md", "docs/design/y.md", "a/architecture.md"])(
+    "gate path %s still holds for a human with a null classifier or a stale dist",
+    (file) => {
+      const missing = { trusted: false, state: "missing", reason: "no build" };
+      expect(decide({ files: [file], classifier: null, freshness: missing }).holdForHuman).toBe(
+        true
+      );
+      expect(decide({ files: [file], freshness: STALE }).holdForHuman).toBe(true);
+      expect(decide({ files: [file], classifier: null }).holdForHuman).toBe(true);
+    }
+  );
+
+  test("holdForHuman never reads gate paths from the (untrusted) classifier", () => {
+    const lying = { ...classifier, qualifiesForLowRiskFastPath: () => true };
+    expect(decide({ files: ["docs/adr/x.md"], classifier: lying }).holdForHuman).toBe(true);
   });
 
   test("freshness failure outranks a gate path and the needs-review label", () => {
@@ -204,5 +221,35 @@ describe("main", () => {
     expect(await main(["check", "--pr", "7"], deps)).toBe(1);
     expect(out).toEqual([]);
     expect(err.join("")).toContain("gh: not found");
+  });
+});
+
+describe("GATE_PATH_MATCHERS single-source pin", () => {
+  const src = readFileSync(resolve(ROOT, "packages/agent-core/src/pr-risk-classifier.ts"), "utf8");
+  const start = src.indexOf("export const GATE_PATHS");
+  const end = src.indexOf("export function matchesGatePath");
+  const registered = [...src.slice(start, end).matchAll(/pattern: "([^"]+)"/g)].map((m) => m[1]);
+
+  test("anchors found in the classifier source", () => {
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(registered.length).toBeGreaterThan(0);
+  });
+
+  test("equals the patterns registered in GATE_PATHS, in order", () => {
+    expect(GATE_PATH_MATCHERS.map((g) => g.pattern)).toEqual(registered);
+  });
+
+  test("matchers agree with each pattern's meaning", () => {
+    const hit = {
+      "docs/adr/**": ["docs/adr/x.md"],
+      "docs/design/**": ["docs/design/x.md"],
+      "**/prd.md": ["prd.md", "docs/features/x/prd.md"],
+      "**/architecture.md": ["architecture.md", "docs/features/x/architecture.md"],
+    };
+    for (const g of GATE_PATH_MATCHERS) {
+      for (const f of hit[g.pattern]) expect(g.matches(f), `${g.pattern} ${f}`).toBe(true);
+      expect(g.matches("src/app.ts")).toBe(false);
+    }
   });
 });
