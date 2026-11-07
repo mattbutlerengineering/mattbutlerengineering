@@ -27,7 +27,6 @@ const MIGRATED_WORKFLOWS = [
   "post-deploy-check.yml",
   "production-feedback.yml",
   "reflection-review.yml",
-  "revert-rca-detection.yml",
   "synthetic-monitoring.yml",
 ];
 

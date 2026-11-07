@@ -396,17 +396,6 @@ export type {
 export { BUG_CATALOG, injectBug } from "./synthetic-bug-seeder.js";
 export type { BugType, BugInjector, InjectBugResult } from "./synthetic-bug-seeder.js";
 
-// Revert detection (revert-rca-loop)
-export {
-  detectRecentReverts,
-  detectAiAuthorReverts,
-  isPrAiAuthor,
-  extractPrNumberFromMessage,
-  getCommitDetails,
-  formatRevertForIssue,
-} from "./revert-detector.js";
-export type { RevertCommit, RevertedPR } from "./revert-detector.js";
-
 // Quality gate interface, runner, and built-in gate implementations
 export { GateRunner } from "./gate-runner.js";
 export type { GateRunResult, QualityGate } from "./gate-runner.js";
