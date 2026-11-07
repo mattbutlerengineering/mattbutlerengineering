@@ -2930,6 +2930,10 @@
         },
       };
     }
+    export interface OperatingHoursValidationErrors {
+      readonly global?: string;
+      readonly days?: Readonly<Partial<Record<keyof OperatingHours, string>>>;
+    }
     export function validateQuickSetupHours(
       hours: OperatingHours,
       t: TFunction = localeRuntime.i18n.t

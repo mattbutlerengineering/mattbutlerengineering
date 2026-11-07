@@ -84,27 +84,7 @@
     "hours": {
       "heading": "Heures d’ouverture",
       "intro": "Pour que vos clients sachent quand vous êtes ouvert.",
-      "instructions": "Activez chaque jour pour fixer les heures d’ouverture et de fermeture. Les jours non activés seront marqués comme fermés.",
-      "closed": "Fermé",
-      "to": "à",
-      "openingTime": "Heure d’ouverture du {{day}}",
-      "closingTime": "Heure de fermeture du {{day}}",
-      "closeAfterOpen": "L’heure de fermeture doit être postérieure à l’heure d’ouverture",
-      "timesRequired": "Entrez une heure d’ouverture et une heure de fermeture",
-      "atLeastOne": "Au moins un jour doit être ouvert",
-      "closeDayTitle": "Fermer le {{day}} ?",
-      "closeDayDescription": "Cela effacera les heures d’ouverture et de fermeture personnalisées que vous avez définies pour ce jour.",
-      "closeDayConfirm": "Fermer le jour",
-      "closeDayCancel": "Garder ouvert"
-    },
-    "days": {
-      "monday": "lundi",
-      "tuesday": "mardi",
-      "wednesday": "mercredi",
-      "thursday": "jeudi",
-      "friday": "vendredi",
-      "saturday": "samedi",
-      "sunday": "dimanche"
+      "atLeastOne": "Au moins un jour doit être ouvert"
     },
     "settings": {
       "heading": "Paramètres de l’établissement",

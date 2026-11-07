@@ -1,8 +1,12 @@
 import { useState } from "react";
 import { Text } from "@mattbutlerengineering/rialto";
-import type { OperatingHoursValidationErrors } from "../venue-onboarding/OperatingHoursStep.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
-import { validateDraft, type QuickSetupDraft, type QuickSetupIssue } from "./quick-setup-draft.js";
+import {
+  validateDraft,
+  type OperatingHoursValidationErrors,
+  type QuickSetupDraft,
+  type QuickSetupIssue,
+} from "./quick-setup-draft.js";
 
 interface QuickSetupHoursStepProps {
   /** Owned by the wizard so Back/Next remounts this step without dropping names. */
