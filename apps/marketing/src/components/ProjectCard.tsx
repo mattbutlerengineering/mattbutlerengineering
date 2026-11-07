@@ -32,7 +32,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
                 rel="noopener noreferrer"
                 aria-label={`View live: ${project.title} (opens in new tab)`}
               >
-                View live
+                View live: {project.title}
               </a>
             </div>
           )}
