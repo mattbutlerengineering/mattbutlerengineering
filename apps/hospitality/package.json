@@ -75,6 +75,11 @@
       "limit": "3.5 kB"
     },
     {
+      "name": "Data layer (react-query + api-client + venue context, one hoisted chunk shared by the app entry and the lazy pages; split out once the RequireManager route guard in the entry began reading the venue team)",
+      "path": "dist/assets/venue-context-object-*.js",
+      "limit": "16 kB"
+    },
+    {
       "name": "Venue Onboarding (lazy chunk)",
       "path": "dist/assets/VenueOnboardingPage-*.js",
       "limit": "7.5 kB"
