@@ -7,7 +7,7 @@ import type { CatalogMeta } from "../catalog-meta";
 export const dropdownMenuCatalogMeta = {
   name: "DropdownMenu",
   description:
-    'Click-to-open menu of actions, such as a per-row overflow or an account menu. Set trigger to the trigger button label (e.g. "Actions") and items to the entries: items have id and label (optional shortcut, disabled, destructive=true for dangerous actions like Delete); use type=divider to separate groups and type=label for a section heading. Use align=right when the trigger sits at the right edge.',
+    "Click-to-open menu of actions, such as a per-row overflow or an account menu. Set trigger to the trigger button label (e.g. 'Actions') and items to the entries: items have id and label (optional shortcut, disabled, destructive=true for dangerous actions like Delete); use type=divider to separate groups and type=label for a section heading. Use align=right when the trigger sits at the right edge.",
   propSchemas: {
     trigger: "z.string().max(40)",
     items:

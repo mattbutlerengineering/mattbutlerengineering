@@ -1099,14 +1099,14 @@
       Drawer: {
         name: "Drawer",
         description:
-          'Slide-out panel anchored to an edge for secondary tasks such as advanced settings, filters, or record details, without leaving the page. Provide open state and onClose handler, a title, and body content as children. Use side=right (default), left or bottom; size=compact, default, wide or full. Put action Buttons at the end of the body. A Button labelled "Open ..." placed before the Drawer opens it; a Button labelled "Close" inside closes it.',
+          "Slide-out panel anchored to an edge for secondary tasks such as advanced settings, filters, or record details, without leaving the page. Provide open state and onClose handler, a title, and body content as children. Use side=right (default), left or bottom; size=compact, default, wide or full. Put action Buttons at the end of the body. A Button labelled 'Open ...' placed before the Drawer opens it; a Button labelled 'Close' inside closes it.",
         slots: ["default"],
         charLimits: { title: 60, description: 120 },
       },
       DropdownMenu: {
         name: "DropdownMenu",
         description:
-          'Click-to-open menu of actions, such as a per-row overflow or an account menu. Set trigger to the trigger button label (e.g. "Actions") and items to the entries: items have id and label (optional shortcut, disabled, destructive=true for dangerous actions like Delete); use type=divider to separate groups and type=label for a section heading. Use align=right when the trigger sits at the right edge.',
+          "Click-to-open menu of actions, such as a per-row overflow or an account menu. Set trigger to the trigger button label (e.g. 'Actions') and items to the entries: items have id and label (optional shortcut, disabled, destructive=true for dangerous actions like Delete); use type=divider to separate groups and type=label for a section heading. Use align=right when the trigger sits at the right edge.",
       },
       EmptyState: {
         name: "EmptyState",
@@ -1143,7 +1143,7 @@
       Handshake: {
         name: "Handshake",
         description:
-          'Instrument showing a multi-party exchange such as an OIDC sign-in, webhook confirmation, or device pairing: named stations joined by legs with a credential pulse travelling along the active one. Set stations to 2+ unique short names in order, state=idle, negotiating (default), settled or failed, and lane to the index of the active leg (0 = first to second station). aria-label is required and names the exchange (e.g. "Verifying your sign-in"). Pair it with Text, Badge or DataList for per-station results.',
+          "Instrument showing a multi-party exchange such as an OIDC sign-in, webhook confirmation, or device pairing: named stations joined by legs with a credential pulse travelling along the active one. Set stations to 2+ unique short names in order, state=idle, negotiating (default), settled or failed, and lane to the index of the active leg (0 = first to second station). aria-label is required and names the exchange (e.g. 'Verifying your sign-in'). Pair it with Text, Badge or DataList for per-station results.",
         charLimits: { "aria-label": 80 },
       },
       IconButton: {
@@ -1177,7 +1177,7 @@
       Popover: {
         name: "Popover",
         description:
-          'Click-to-open floating panel anchored to a trigger button. Set trigger to the trigger button label (e.g. "Pick a time") and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.',
+          "Click-to-open floating panel anchored to a trigger button. Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
         slots: ["default"],
         charLimits: { title: 60 },
       },
@@ -1189,7 +1189,7 @@
       ScrollArea: {
         name: "ScrollArea",
         description:
-          'Fixed-height region whose content scrolls independently of the page. Set maxHeight (CSS value, e.g. "320px") and put the long content — a feed, list, or log — as children. Use when a long list must stay inside a panel or Card instead of lengthening the page.',
+          "Fixed-height region whose content scrolls independently of the page. Set maxHeight (CSS value, e.g. '320px') and put the long content — a feed, list, or log — as children. Use when a long list must stay inside a panel or Card instead of lengthening the page.",
         slots: ["default"],
       },
       Select: {
@@ -1206,7 +1206,7 @@
       Skeleton: {
         name: "Skeleton",
         description:
-          'Pulsing placeholder shape shown while content loads. Use variant=text or heading with lines=3 for a paragraph, variant=circle for an avatar, variant=card or rect for images and cards. Set width and height as CSS values (e.g. "100%", "48px"). Put Skeletons where the real content will appear, not as decoration.',
+          "Pulsing placeholder shape shown while content loads. Use variant=text or heading with lines=3 for a paragraph, variant=circle for an avatar, variant=card or rect for images and cards. Set width and height as CSS values (e.g. '100%', '48px'). Put Skeletons where the real content will appear, not as decoration.",
       },
       Stack: {
         name: "Stack",
