@@ -1,4 +1,4 @@
-import { addDays, validateConfig } from "@mbe/availability";
+import { addDays, expandSectionRules, validateConfig } from "@mbe/availability";
 import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
@@ -102,14 +102,21 @@ export async function impactInTransaction(
   tx: ImpactDb,
   venueId: string,
   state: ConfigState,
-  rule: DateRule,
+  draft: DateRule,
   now: Date,
-  alongside?: ClosureAlongside
+  draftAlongside?: ClosureAlongside
 ): Promise<ClosureImpactOutcome> {
   const [tables, sections] = await Promise.all([
     tx.table.findMany({ where: { venueId }, select: { id: true } }),
     loadSectionIndex(tx, venueId),
   ]);
+  // A section closure blocks its section's tables now, whatever tableIds the client sent (ADR-032).
+  const [expandedRule] = expandSectionRules([draft], sections.membership);
+  const rule = expandedRule ?? draft;
+  const alongside = draftAlongside && {
+    ...draftAlongside,
+    upsert: expandSectionRules(draftAlongside.upsert, sections.membership),
+  };
   const next = withClosure(state.effective, rule, alongside);
   const issues = [
     ...validateConfig(next),

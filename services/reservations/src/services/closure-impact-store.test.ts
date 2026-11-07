@@ -64,7 +64,7 @@ const rows = () => ({
     })),
   },
   table: { findMany: vi.fn(async () => [{ id: "t-1" }]) },
-  floorPlanSection: { findMany: vi.fn(async () => []) },
+  floorPlanSection: { findMany: vi.fn(async (): Promise<unknown[]> => []) },
   reservationHold: { findMany: vi.fn(async () => []) },
   reservation: {
     findMany: vi.fn(async () => [
@@ -145,6 +145,21 @@ describe("getClosureImpact", () => {
         }),
       })
     );
+  });
+
+  it("counts a section closure against the section's live tables, not the client's list", async () => {
+    const tx = rows();
+    tx.floorPlanSection.findMany.mockResolvedValue([{ id: "sec-1", tables: [{ id: "t-1" }] }]);
+    const { client } = fakeClient(tx);
+
+    const outcome = await getClosureImpact(
+      "venue-1",
+      closure({ targetKind: "tables", sectionId: "sec-1", tableIds: ["t-stale"] }),
+      NOW,
+      client
+    );
+
+    expect(outcome).toMatchObject({ kind: "ok", impact: { reservations: 2, covers: 6 } });
   });
 
   it("reads the bookings and unexpired holds on the affected tables, for the move check", async () => {

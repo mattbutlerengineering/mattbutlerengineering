@@ -3546,9 +3546,9 @@
         tx: ImpactDb,
         venueId: string,
         state: ConfigState,
-        rule: DateRule,
+        draft: DateRule,
         now: Date,
-        alongside?: ClosureAlongside
+        draftAlongside?: ClosureAlongside
       ): Promise<ClosureImpactOutcome> { /* ... */ }
     </item>
     <item priority="medium">
