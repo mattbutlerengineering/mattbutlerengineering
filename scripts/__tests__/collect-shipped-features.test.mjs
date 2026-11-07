@@ -1,9 +1,12 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   parseTaskList,
   extractProposalIssue,
   slugFor,
   liveUrlFor,
+  HOSPITALITY_ROUTES,
+  loadRialtoIds,
   deriveShippedFeatures,
   runCli,
 } from "../collect-shipped-features.mjs";
@@ -47,17 +50,78 @@ describe("slugFor", () => {
 });
 
 describe("liveUrlFor", () => {
-  it("maps the surface with the most files", () => {
+  const rialtoIds = new Set(["button", "split-flap", "date-picker"]);
+  it("deep-links a rialto component to its showcase page", () => {
     expect(
-      liveUrlFor(["apps/hospitality/a.ts", "apps/hospitality/b.ts", "packages/rialto/x.tsx"])
-    ).toBe("/hospitality/");
-    expect(liveUrlFor(["apps/rialto-web/a.tsx", "packages/rialto/b.tsx"])).toBe("/rialto/");
-    expect(liveUrlFor(["apps/marketing/a.tsx"])).toBe("/");
+      liveUrlFor(
+        ["packages/rialto/src/components/SplitFlap/SplitFlap.tsx", "packages/rialto/src/x.ts"],
+        { rialtoIds }
+      )
+    ).toBe("/rialto/components/split-flap");
+    expect(liveUrlFor(["apps/rialto-web/src/pages/forms/ButtonPage.tsx"], { rialtoIds })).toBe(
+      "/rialto/components/button"
+    );
   });
-  it("returns null for docs-only or scripts-only changes", () => {
+  it("picks the most-touched component route", () => {
+    expect(
+      liveUrlFor(
+        [
+          "packages/rialto/src/components/Button/a.tsx",
+          "packages/rialto/src/components/DatePicker/a.tsx",
+          "packages/rialto/src/components/DatePicker/b.tsx",
+        ],
+        { rialtoIds }
+      )
+    ).toBe("/rialto/components/date-picker");
+  });
+  it("returns null for rialto changes with no resolvable showcase page", () => {
+    expect(liveUrlFor(["packages/rialto/src/components/Unknown/a.tsx"], { rialtoIds })).toBeNull();
+    expect(liveUrlFor(["apps/rialto-web/src/main.tsx"], { rialtoIds })).toBeNull();
+  });
+  it("deep-links hospitality feature directories and pages", () => {
+    expect(liveUrlFor(["apps/hospitality/src/components/floor-plan/a.tsx"])).toBe(
+      "/hospitality/floor-plans"
+    );
+    expect(liveUrlFor(["apps/hospitality/src/pages/WaitlistPage.tsx"])).toBe(
+      "/hospitality/waitlist"
+    );
+    expect(liveUrlFor(["apps/hospitality/src/components/dashboard/Revpash.tsx"])).toBe(
+      "/hospitality/dashboard"
+    );
+  });
+  it("returns null for hospitality changes with no confident route", () => {
+    expect(liveUrlFor(["apps/hospitality/a.ts", "apps/hospitality/b.ts"])).toBeNull();
+    expect(liveUrlFor(["apps/hospitality/src/lib/x.ts"])).toBeNull();
+  });
+  it("the dominant surface decides; a specific route only comes from that surface", () => {
+    expect(
+      liveUrlFor(
+        [
+          "apps/hospitality/a.ts",
+          "apps/hospitality/b.ts",
+          "packages/rialto/src/components/Button/a.tsx",
+        ],
+        { rialtoIds }
+      )
+    ).toBeNull();
+  });
+  it("keeps the marketing root and returns null for docs-only, scripts-only or gen changes", () => {
+    expect(liveUrlFor(["apps/marketing/a.tsx"])).toBe("/");
     expect(liveUrlFor(["docs/a.md", "scripts/b.mjs"])).toBeNull();
+    expect(liveUrlFor(["apps/gen/src/App.tsx"])).toBeNull();
     expect(liveUrlFor([])).toBeNull();
     expect(liveUrlFor(null)).toBeNull();
+  });
+  it("only emits hospitality routes that exist in main.tsx and rialto ids in the real registry", () => {
+    const root = new URL("../../apps/", import.meta.url);
+    const main = readFileSync(new URL("hospitality/src/main.tsx", root), "utf8");
+    const routes = new Set([...main.matchAll(/path: "([^"]+)"/g)].map((m) => m[1]));
+    for (const url of HOSPITALITY_ROUTES) {
+      expect(routes.has(url.replace("/hospitality/", ""))).toBe(true);
+    }
+    const reg = loadRialtoIds();
+    expect(reg.has("button")).toBe(true);
+    expect(reg.size).toBeGreaterThan(50);
   });
 });
 
@@ -116,7 +180,7 @@ describe("deriveShippedFeatures", () => {
       firstMergedAt: "2026-10-05T12:00:00.000Z",
       lastMergedAt: "2026-10-06T00:00:00.000Z",
       wallClockHours: 120,
-      liveUrl: "/hospitality/",
+      liveUrl: null,
     });
     expect(f.children.map((c) => c.issue)).toEqual([101, 102]);
     expect(f.children[0].prs[0]).toEqual({

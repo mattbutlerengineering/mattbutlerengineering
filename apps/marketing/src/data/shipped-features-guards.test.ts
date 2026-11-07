@@ -50,6 +50,56 @@ describe("shipped pages stay static", () => {
   }
 });
 
+const APPS = join(SRC, "..", "..");
+const readApp = (relative: string) => readFileSync(join(APPS, relative), "utf-8");
+
+/** Real hospitality routes, from the router the collector's mapping targets. */
+const hospitalityRoutes = new Set(
+  [...readApp("hospitality/src/main.tsx").matchAll(/path: "([^"]+)"/g)].map((m) => m[1])
+);
+/** Real rialto showcase component ids, from the page registry the collector reads. */
+const rialtoComponentIds = new Set(
+  [...readApp("rialto-web/src/data/page-registry.ts").matchAll(/\{\s*id:\s*"([^"]+)"[^}]*\}/g)]
+    .filter((m) => !/category:\s*"Examples"/.test(m[0]) && !/comingSoon/.test(m[0]))
+    .map((m) => m[1])
+);
+
+/** An app root, or a deep link to a route/page that really exists in its app. */
+function isResolvableLiveUrl(url: string): boolean {
+  if (url === "/" || url === "/hospitality/" || url === "/rialto/") return true;
+  const hospitality = /^\/hospitality\/([a-z0-9-]+(?:\/[a-z0-9-]+)*)$/.exec(url);
+  if (hospitality) return hospitalityRoutes.has(hospitality[1]!);
+  const rialto = /^\/rialto\/components\/([a-z0-9-]+)$/.exec(url);
+  if (rialto) return rialtoComponentIds.has(rialto[1]!);
+  return false;
+}
+
+describe("isResolvableLiveUrl", () => {
+  it("accepts app roots and real deep links", () => {
+    for (const url of [
+      "/",
+      "/hospitality/",
+      "/rialto/",
+      "/hospitality/dashboard",
+      "/rialto/components/button",
+    ]) {
+      expect(isResolvableLiveUrl(url), url).toBe(true);
+    }
+  });
+
+  it("rejects guessed or off-site routes", () => {
+    for (const url of [
+      "/hospitality/no-such-page",
+      "/rialto/components/no-such-component",
+      "/gen/",
+      "https://example.com/",
+      "/hospitality/dashboard/",
+    ]) {
+      expect(isResolvableLiveUrl(url), url).toBe(false);
+    }
+  });
+});
+
 describe("shipped links resolve", () => {
   const appSource = read("App.tsx");
   const KNOWN_SURFACES = ["/", "/hospitality/", "/rialto/"];
@@ -65,12 +115,12 @@ describe("shipped links resolve", () => {
     }
   });
 
-  it("every liveUrl is null or a known surface", () => {
+  it("every liveUrl is null, an app root, or a deep link to a real route", () => {
     for (const feature of SHIPPED_FEATURES) {
       if (feature.liveUrl === null) continue;
       expect(
-        KNOWN_SURFACES.includes(feature.liveUrl),
-        `${feature.slug} liveUrl ${feature.liveUrl} is off-site or unrouted`
+        isResolvableLiveUrl(feature.liveUrl),
+        `${feature.slug} liveUrl ${feature.liveUrl} is off-site, unrouted, or a guessed route`
       ).toBe(true);
     }
   });
