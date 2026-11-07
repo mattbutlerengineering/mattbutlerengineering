@@ -12202,6 +12202,12 @@
       }
       return JSON.stringify(value);
     }
+    function withoutDerived(row: unknown): unknown {
+      if (row === null || typeof row !== "object" || !("sectionId" in row) || row.sectionId == null) {
+        return row;
+      }
+      return Object.fromEntries(Object.entries(row).filter(([key]) => key !== "tableIds"));
+    }
     function coversDate(rule: DateRule, date: string): boolean {
       return (
         rule.startsOn <= date &&
@@ -12409,7 +12415,8 @@
     }
     export function referenceIssues(
       config: AvailabilityConfig,
-      venueTableIds: ReadonlySet<string>
+      venueTableIds: ReadonlySet<string>,
+      venueSectionIds: ReadonlySet<string>
     ): ReferenceIssue[] {
       const schedules = new Set(config.schedules.map((s) => s.id));
       const services = new Set(config.venueServices.map((s) => s.id));
@@ -12442,7 +12449,9 @@
                 )
               )
             : []),
-          ...(r.tableIds ?? []).flatMap((t, k) =>
+          ...(r.sectionId ? check(`dateRules[${i}].sectionId`, r.sectionId, venueSectionIds) : []),
+          // A section rule's tableIds are derived from the section, not taken from the request.
+          ...(r.sectionId ? [] : (r.tableIds ?? [])).flatMap((t, k) =>
             check(`dateRules[${i}].tableIds[${k}]`, t, venueTableIds)
           ),
         ]),
@@ -12459,6 +12468,8 @@
        */
       exact?: boolean;
       tableIds: ReadonlySet<string>;
+      /** The venue's sections; absent means none, so any section closure is refused. */
+      sections?: SectionIndex;
       now: Date;
       today: string;
       newId: () => string;
@@ -12474,9 +12485,11 @@
             input.newId,
             input.today
           );
+      const sections = input.sections ?? NO_SECTIONS;
       return {
-        next,
-        issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],
+        // A section closure's tables are the section's now, whatever list the draft carried.
+        next: { ...next, dateRules: expandSectionRules(next.dateRules, sections.membership) },
+        issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds, sections.ids)],
       };
     }
   </file>
@@ -12502,7 +12515,7 @@
         db.dateRule.findMany({
           where: { venueId, deletedAt: null },
           orderBy: { createdAt: "asc" },
-          include: { tables: { select: { tableId: true } } },
+          include: SECTION_RULE_INCLUDE,
         }),
       ]);
       const warnings: SnapshotWarning[] = [];
@@ -12513,7 +12526,8 @@
       return { config, warnings };
     }
     async function writeRuleTables(db: ConfigRowDb, venueId: string, rule: DateRule): Promise<void> {
-      const tableIds = rule.tableIds ?? [];
+      // A section closure keeps no join rows: its tables are the section's, read live (ADR-032).
+      const tableIds = rule.sectionId ? [] : (rule.tableIds ?? []);
       if (tableIds.length === 0) return;
       await db.dateRuleTable.createMany({
         data: tableIds.map((tableId) => ({ dateRuleId: rule.id, tableId, venueId })),
@@ -12662,7 +12676,13 @@
     export type StoreDb = ConfigRowDb &
       Pick<
         PrismaClient,
-        "venue" | "reservation" | "availabilityChange" | "table" | "closureOutcome" | "$executeRaw"
+        | "venue"
+        | "reservation"
+        | "availabilityChange"
+        | "table"
+        | "floorPlanSection"
+        | "closureOutcome"
+        | "$executeRaw"
       >;
     export type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
@@ -12812,6 +12832,7 @@
       bookings: readonly BookedReservation[];
       /** Every table of the venue, active or not: a date rule may only block these. */
       tableIds: ReadonlySet<string>;
+      sections?: SectionIndex;
       now: Date;
       newId?: () => string;
       /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
@@ -12826,6 +12847,7 @@
         scopeConflicts: body.scopeConflicts,
         ...(input.exact ? { exact: true } : {}),
         tableIds: input.tableIds,
+        ...(input.sections ? { sections: input.sections } : {}),
         now,
         today: civilDateIn(now, state.timezone),
         newId: input.newId ?? randomUUID,
@@ -13064,9 +13086,10 @@
       if (!state) throw new SaveRefused({ kind: "not_found" });
       const request = await resolve(state);
       const today = civilDateIn(now, state.timezone);
-      const [bookings, tables] = await Promise.all([
+      const [bookings, tables, sections] = await Promise.all([
         futureBookings(tx, venueId, today, now),
         tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        loadSectionIndex(tx, venueId),
       ]);
       const tableIds = new Set(tables.map((t) => t.id));
       const plan = planSave({
@@ -13074,6 +13097,7 @@
         body: { expectedVersion, changes: request.changes, scopeConflicts: request.scopeConflicts },
         bookings,
         tableIds,
+        sections,
         now,
         ...(request.allowNoHours ? { allowNoHours: true } : {}),
         ...(request.exact ? { exact: true } : {}),
@@ -13150,7 +13174,7 @@
         await setVenueContext(tx, venueId);
         const state = await loadConfigState(tx, venueId, now);
         if (!state) return { kind: "not_found" };
-        const [bookings, tables] = await Promise.all([
+        const [bookings, tables, sections] = await Promise.all([
           futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
           tx.table.findMany({
             where: { venueId, ...onActivePlanWhere() },
@@ -13164,12 +13188,14 @@
               priority: true,
             },
           }),
+          loadSectionIndex(tx, venueId),
         ]);
         return planPreview({
           state,
           body,
           bookings,
           tableIds: new Set(tables.map((t) => t.id)),
+          sections,
           tables,
           now,
         });
@@ -13444,6 +13470,7 @@
       /** Future, still-booked reservations, each with its service date. */
       bookings: readonly BookedReservation[];
       tableIds: ReadonlySet<string>;
+      sections?: SectionIndex;
       /** The venue's tables, so a party size narrows the times to those a table fits. */
       tables?: readonly EngineTable[];
       now: Date;
@@ -13464,6 +13491,7 @@
         changes: draft.changes,
         scopeConflicts: draft.scopeConflicts,
         tableIds: input.tableIds,
+        ...(input.sections ? { sections: input.sections } : {}),
         now,
         today: civilDateIn(now, state.timezone),
         newId: input.newId ?? randomUUID,
@@ -13610,11 +13638,18 @@
         guestMessage: row.guestMessage,
       };
     }
+    export const SECTION_RULE_INCLUDE = {
+      tables: { select: { tableId: true } },
+      section: { select: { tables: { select: { id: true } } } },
+    } as const;
     export interface DateRuleRow {
       id: string;
       kind: string;
       targetKind: string;
       venueServiceId: string | null;
+      sectionId: string | null;
+      /** The section a section closure names, with its tables as of this read. */
+      section?: { tables: { id: string }[] } | null;
       bookingTypes: string[];
       startsOn: Date;
       endsOn: Date | null;
@@ -13642,6 +13677,7 @@
         targetKind: row.targetKind,
         venueServiceId: row.venueServiceId,
         bookingTypes,
+        sectionId: row.sectionId,
         tableIds: row.tables.map((t) => t.tableId),
         startsOn: toServiceDate(row.startsOn),
         endsOn: row.endsOn ? toServiceDate(row.endsOn) : null,
@@ -13715,6 +13751,13 @@
       assignments: ScheduleAssignmentRow[];
       dateRules: DateRuleRow[];
     }
+    function sectionMembership(rows: readonly DateRuleRow[]): Map<string, string[]> {
+      return new Map(
+        rows.flatMap((r) =>
+          r.sectionId && r.section ? [[r.sectionId, r.section.tables.map((t) => t.id)] as const] : []
+        )
+      );
+    }
     export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig {
       const { schedules, venueServices, scheduleServices, assignments, dateRules } = rows;
       return {
@@ -13755,15 +13798,18 @@
           })),
           warnings
         ),
-        dateRules: parseRows<DateRule>(
-          "date_rules",
-          DateRuleSchema,
-          dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
-          warnings,
-          (id) => {
-            const row = dateRules.find((r) => r.id === id);
-            return row ? failClosedRule(row) : null;
-          }
+        dateRules: expandSectionRules(
+          parseRows<DateRule>(
+            "date_rules",
+            DateRuleSchema,
+            dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
+            warnings,
+            (id) => {
+              const row = dateRules.find((r) => r.id === id);
+              return row ? failClosedRule(row) : null;
+            }
+          ),
+          sectionMembership(dateRules)
         ),
       };
     }
@@ -13811,7 +13857,7 @@
             startsOn: { lte: windowEnd },
             OR: [{ endsOn: null }, { endsOn: { gte: windowStart } }],
           },
-          include: { tables: { select: { tableId: true } } },
+          include: SECTION_RULE_INCLUDE,
         }),
         db.table.findMany({
           where: bookableTableWhere(venueId),
@@ -15886,7 +15932,10 @@
   </file>
   <file path="src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
-    type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservationHold">;
+    type ImpactDb = Pick<
+      PrismaClient,
+      "table" | "reservation" | "reservationHold" | "floorPlanSection"
+    >;
     export type ClosureImpactOutcome =
       | { kind: "ok"; impact: ClosureImpact }
       | { kind: "not_found" }
@@ -15941,11 +15990,14 @@
       now: Date,
       alongside?: ClosureAlongside
     ): Promise<ClosureImpactOutcome> {
-      const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+      const [tables, sections] = await Promise.all([
+        tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        loadSectionIndex(tx, venueId),
+      ]);
       const next = withClosure(state.effective, rule, alongside);
       const issues = [
         ...validateConfig(next),
-        ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+        ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids),
       ];
       if (issues.length > 0) return { kind: "invalid", issues };
     
@@ -19150,12 +19202,20 @@
         return section ? mapSection(section) : null;
       },
     
-      /** Its tables are kept and become unassigned (`ON DELETE SET NULL`). */
-      async delete(venueId: string, sectionId: string): Promise<boolean> {
-        const { count } = await prisma.floorPlanSection.deleteMany({
-          where: { id: sectionId, venueId },
+      /**
+       * Its tables are kept and become unassigned (`ON DELETE SET NULL`). A live section closure keeps
+       * blocking the section's tables as a plain tables closure (ADR-032), in the same transaction.
+       */
+      async delete(venueId: string, sectionId: string, now: Date = new Date()): Promise<boolean> {
+        // Explicit transaction: bypasses the per-call auto-wrap, so set the venue ourselves.
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const owned = await tx.floorPlanSection.count({ where: { id: sectionId, venueId } });
+          if (owned === 0) return false;
+          await materialiseSectionClosures(tx, venueId, [sectionId], now);
+          const { count } = await tx.floorPlanSection.deleteMany({ where: { id: sectionId, venueId } });
+          return count > 0;
         });
-        return count > 0;
       },
     
       /**
@@ -19519,6 +19579,18 @@
             ]);
     
             if (reservations + holds === 0) {
+              // The plan's sections go with it (ON DELETE CASCADE): a live section closure becomes a
+              // plain tables closure first (ADR-032), as when a section is deleted on its own.
+              const sections = await tx.floorPlanSection.findMany({
+                where: { floorPlanId: id },
+                select: { id: true },
+              });
+              await materialiseSectionClosures(
+                tx,
+                venueId,
+                sections.map((s) => s.id),
+                new Date()
+              );
               await tx.table.deleteMany({ where: { floorPlanId: id } });
               await tx.floorPlan.delete({ where: { id } });
               return "deleted" as const;
@@ -24001,6 +24073,73 @@
       return [...new Set([...unaccounted, ...stale, ...closed])].sort();
     }
   </file>
+  <file path="src/services/section-closure-materialise.ts">
+    export type MaterialiseDb = Pick<PrismaClient, "venue" | "dateRule" | "dateRuleTable" | "table">;
+    export async function materialiseSectionClosures(
+      db: MaterialiseDb,
+      venueId: string,
+      sectionIds: readonly string[],
+      now: Date
+    ): Promise<number> {
+      if (sectionIds.length === 0) return 0;
+      const venue = await db.venue.findUnique({
+        where: { id: venueId },
+        select: { ianaTimezone: true },
+      });
+      if (!venue) return 0;
+      const today = new Date(`${civilDateIn(now, venue.ianaTimezone)}T00:00:00.000Z`);
+      const rules = await db.dateRule.findMany({
+        where: {
+          venueId,
+          sectionId: { in: [...sectionIds] },
+          deletedAt: null,
+          OR: [{ endsOn: null }, { endsOn: { gte: today } }],
+        },
+        select: { id: true, sectionId: true },
+      });
+      if (rules.length === 0) return 0;
+    
+      const tables = await db.table.findMany({
+        where: { venueId, sectionId: { in: [...sectionIds] } },
+        select: { id: true, sectionId: true },
+      });
+      const data = rules.flatMap((rule) =>
+        tables
+          .filter((table) => table.sectionId === rule.sectionId)
+          .map((table) => ({ dateRuleId: rule.id, tableId: table.id, venueId }))
+      );
+      if (data.length > 0) await db.dateRuleTable.createMany({ data, skipDuplicates: true });
+      await db.dateRule.updateMany({
+        where: { id: { in: rules.map((r) => r.id) }, venueId },
+        data: { sectionId: null },
+      });
+      await db.venue.updateMany({
+        where: { id: venueId },
+        data: { availabilityVersion: { increment: 1 } },
+      });
+      return rules.length;
+    }
+  </file>
+  <file path="src/services/section-index.ts">
+    export interface SectionIndex {
+      ids: ReadonlySet<string>;
+      membership: ReadonlyMap<string, readonly string[]>;
+    }
+    export const NO_SECTIONS: SectionIndex = { ids: new Set(), membership: new Map() };
+    export async function loadSectionIndex(
+      db: Pick<PrismaClient, "floorPlanSection">,
+      venueId: string
+    ): Promise<SectionIndex> {
+      const sections = await db.floorPlanSection.findMany({
+        where: { venueId },
+        select: { id: true, tables: { select: { id: true } } },
+      });
+      return {
+        ids: new Set(sections.map((s) => s.id)),
+        membership: new Map(sections.map((s) => [s.id, s.tables.map((t) => t.id)])),
+      };
+    }
+  </file>
   <file path="src/services/serializers.ts">
     export interface PrismaTableRow {
       id: string;
@@ -25353,10 +25492,13 @@
         ...state.effective,
         dateRules: [...state.effective.dateRules.filter((r) => r.id !== rule.id), rule],
       };
-      const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+      const [tables, sections] = await Promise.all([
+        tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        loadSectionIndex(tx, venueId),
+      ]);
       const issues = [
         ...validateConfig(next),
-        ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+        ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids),
       ];
       if (issues.length > 0) throw new Refused({ kind: "invalid", issues });
       return next;

@@ -2206,6 +2206,9 @@
       function canonical(value: unknown): string { /* ... */ }
     </item>
     <item priority="medium">
+      function withoutDerived(row: unknown): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
       function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
     </item>
     <item priority="medium">
@@ -2285,7 +2288,8 @@
     <item priority="high">
       export function referenceIssues(
         config: AvailabilityConfig,
-        venueTableIds: ReadonlySet<string>
+        venueTableIds: ReadonlySet<string>,
+        venueSectionIds: ReadonlySet<string>
       ): ReferenceIssue[] { /* ... */ }
     </item>
     <item priority="high">
@@ -2300,6 +2304,8 @@
          */
         exact?: boolean;
         tableIds: ReadonlySet<string>;
+        /** The venue's sections; absent means none, so any section closure is refused. */
+        sections?: SectionIndex;
         now: Date;
         today: string;
         newId: () => string;
@@ -2374,7 +2380,8 @@
       type StoreDb = ConfigRowDb &
         Pick<
           PrismaClient,
-          "venue" | "re...;
+          | "venue"
+         ...;
     </item>
     <item priority="low">
       type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -2436,6 +2443,7 @@
         bookings: readonly BookedReservation[];
         /** Every table of the venue, active or not: a date rule may only block these. */
         tableIds: ReadonlySet<string>;
+        sections?: SectionIndex;
         now: Date;
         newId?: () => string;
         /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
@@ -2649,7 +2657,7 @@
         body: PreviewAvailabilityParsed;
         bookings: readonly BookedReservation[];
         tableIds: ReadonlySet<string>;
-        tables?: readonly EngineTable[];
+        sections?: SectionIndex;
       }
     </item>
     <item priority="low">
@@ -2727,13 +2735,16 @@
     <item priority="medium">
       function failClosedRule(row: DateRuleRow): DateRule { /* ... */ }
     </item>
+    <item priority="high">
+      export const SECTION_RULE_INCLUDE: unknown;
+    </item>
     <item priority="low">
       interface DateRuleRow {
         id: string;
         kind: string;
         targetKind: string;
         venueServiceId: string | null;
-        bookingTypes: string[];
+        sectionId: string | null;
       }
     </item>
     <item priority="medium">
@@ -2766,6 +2777,9 @@
         assignments: ScheduleAssignmentRow[];
         dateRules: DateRuleRow[];
       }
+    </item>
+    <item priority="medium">
+      function sectionMembership(rows: readonly DateRuleRow[]): Map<string, string[]> { /* ... */ }
     </item>
     <item priority="high">
       export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig { /* ... */ }
@@ -3508,7 +3522,9 @@
       type StoreClient = Pick<PrismaClient, "$transaction">;
     </item>
     <item priority="high">
-      type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservation...;
+      type ImpactDb = Pick<
+        PrismaClient,
+        "table" | "reservation" | "reserv...;
     </item>
     <item priority="low">
       type ClosureImpactOutcome = { kind: "ok"; impact: ClosureI | { kind: "not_found" } | { kind: "too_long" } | { kind: "invalid"; issues: { p;
@@ -5251,6 +5267,36 @@
         declarations: RlsDeclarations,
         pending: readonly string[]
       ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/section-closure-materialise.ts">
+    <item priority="low">
+      type MaterialiseDb = Pick<PrismaClient, "venue" | "dateRule" | "dateRuleTable"...;
+    </item>
+    <item priority="high">
+      export async function materialiseSectionClosures(
+        db: MaterialiseDb,
+        venueId: string,
+        sectionIds: readonly string[],
+        now: Date
+      ): Promise<number> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/section-index.ts">
+    <item priority="low">
+      interface SectionIndex {
+        ids: ReadonlySet<string>;
+        membership: ReadonlyMap<string, readonly string[]>;
+      }
+    </item>
+    <item priority="high">
+      export const NO_SECTIONS: SectionIndex;
+    </item>
+    <item priority="high">
+      export async function loadSectionIndex(
+        db: Pick<PrismaClient, "floorPlanSection">,
+        venueId: string
+      ): Promise<SectionIndex> { /* ... */ }
     </item>
   </file>
   <file path="src/services/serializers.ts">
