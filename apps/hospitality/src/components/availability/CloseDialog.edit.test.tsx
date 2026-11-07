@@ -216,6 +216,21 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
       expect(onSavedQuietly).toHaveBeenCalledWith(saved(0));
     });
 
+    it("describes the primary button by the note only while the note is shown", () => {
+      impactState.value = GIVES_BACK;
+      renderEdit();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      const save = within(dialog).getByRole("button", { name: "Save changes" });
+      expect(save).toHaveAttribute("aria-describedby", "close-step-two-note");
+      expect(document.getElementById("close-step-two-note")).not.toBeNull();
+
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: /Tell the 2 guests/ }));
+      expect(save).not.toHaveAttribute("aria-describedby");
+      expect(document.getElementById("close-step-two-note")).toBeNull();
+    });
+
     it("offers no Undo once the save told a given-back guest", async () => {
       impactState.value = GIVES_BACK;
       create.mockResolvedValue({ ...saved(0), givenBackNotified: 2 });

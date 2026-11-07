@@ -379,6 +379,8 @@ export function CloseDialog(props: CloseDialogProps) {
     today,
     serviceMinuteOf(now, timezone, today)
   );
+  // Guests are only told right away when something tells them: a booking group or the given-back choice.
+  const showStepTwoNote = step === 2 && (groups.length > 0 || (givenBack && tellGivenBack));
   const impactFailed = impactError !== null;
   // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
   // choices would read as complete.
@@ -424,7 +426,7 @@ export function CloseDialog(props: CloseDialogProps) {
             </div>
           ) : (
             <div className={styles.footer}>
-              {step === 2 && (groups.length > 0 || (givenBack && tellGivenBack)) && (
+              {showStepTwoNote && (
                 <Text
                   id={stepTwoNoteId}
                   variant="caption"
@@ -444,7 +446,7 @@ export function CloseDialog(props: CloseDialogProps) {
               <Button
                 variant="primary"
                 data-testid="close-primary"
-                aria-describedby={step === 2 ? stepTwoNoteId : undefined}
+                aria-describedby={showStepTwoNote ? stepTwoNoteId : undefined}
                 onClick={step === 2 ? () => void save() : next}
                 isLoading={isPending}
                 disabled={primaryDisabled}
