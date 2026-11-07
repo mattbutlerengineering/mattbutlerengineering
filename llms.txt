@@ -20570,6 +20570,14 @@
       export function updateSurfaceScore(s: AuditSurface, scores: LighthouseScores): AuditSurface { /* ... */ }
     </item>
     <item priority="high">
+      export function recordSurfaceOutcome(
+        s: AuditSurface,
+        status: CheckStatus,
+        detail: string | null,
+        scores: LighthouseScores | null = null
+      ): AuditSurface { /* ... */ }
+    </item>
+    <item priority="high">
       export function detectRegression(s: AuditSurface, newScores: LighthouseScores): Regression | null { /* ... */ }
     </item>
   </file>
@@ -20609,6 +20617,16 @@
       interface ScoreEntry {
         timestamp: string;
         scores: LighthouseScores;
+      }
+    </item>
+    <item priority="low">
+      type CheckStatus = "scored" | "error" | "auth-gated";
+    </item>
+    <item priority="low">
+      interface CheckOutcome {
+        status: CheckStatus;
+        detail: string | null;
+        timestamp: string;
       }
     </item>
     <item priority="low">

@@ -124,6 +124,14 @@ export const FRESHNESS_POLICY = [
     producer: ".github/workflows/lighthouse.yml (scripts/record-summary-row.mjs)",
   },
   {
+    // Weekly (audit-sweep.yml, Monday, recorded by record-summary-rows.yml);
+    // same tolerance as lighthouse (#8419).
+    metric: "audit-coverage",
+    timestampField: "date",
+    maxAgeDays: 21,
+    producer: ".github/workflows/audit-sweep.yml (scripts/record-summary-row.mjs)",
+  },
+  {
     // Weekly (mutation-testing.yml, Monday); same tolerance as lighthouse.
     metric: "mutation-score",
     timestampField: "date",

@@ -41,6 +41,7 @@ import {
   readMergedAiPrsPaged,
 } from "./collect-queue-efficiency.mjs";
 import { read, lastEntry } from "./metrics-store.mjs";
+import { neverRecordedZones } from "./audit-coverage.mjs";
 import {
   assessFreshness,
   readWatched,
@@ -903,6 +904,27 @@ export const SENSORS = [
       }
       return [];
     },
+  },
+  {
+    id: "auditCoverage",
+    category: "quality",
+    collect: ({ root }) => {
+      // Rows of metrics/audit-coverage.jsonl, committed from the weekly
+      // audit-sweep.yml run. `.audit-state/inventory.json` is gitignored and
+      // invisible to scheduled checkouts, so "zone never recorded" is derived
+      // here instead (#8419).
+      const rows = safe(() => read("audit-coverage", { root })) ?? [];
+      const latest = rows[rows.length - 1];
+      if (!latest?.zones) return { available: false, reason: "summary_missing" };
+      return {
+        available: true,
+        last_run: latest.date,
+        zones: latest.zones,
+        zones_never_recorded: neverRecordedZones(rows),
+      };
+    },
+    format: (data, name) =>
+      `${name}: ${data.zones_never_recorded.length === 0 ? "every zone recorded" : `never recorded: ${data.zones_never_recorded.join(", ")}`}`,
   },
   {
     id: "mutationScore",
