@@ -11,7 +11,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { extractClosedIssue } from "./collect-queue-telemetry-from-github.mjs";
@@ -19,14 +19,98 @@ import { extractClosedIssue } from "./collect-queue-telemetry-from-github.mjs";
 const TASK_LINE_RE = /^\s*[-*]\s+\[[ xX]\]\s+#(\d+)\b/;
 const PROPOSAL_RE = /\bproposal(?:\s+issue)?\s+#(\d+)/i;
 
-/** Demo surfaces, in tie-break order. */
+const HOSPITALITY_PREFIX = "apps/hospitality/src/";
+/** Hospitality feature directory (under components/) -> staff route. Unlisted directories stay unlinked. */
+const HOSPITALITY_DIR_ROUTES = {
+  availability: "availability",
+  "booking-widget": "booking-widget",
+  crm: "guests",
+  dashboard: "dashboard",
+  "floor-plan": "floor-plans",
+  menus: "menus",
+  reservations: "reservations",
+  timeline: "timeline",
+  "venue-profile": "profile",
+  waitlist: "waitlist",
+};
+/** Hospitality page module (pages/<Name>.tsx) -> staff route. */
+const HOSPITALITY_PAGE_ROUTES = {
+  AdminPage: "admin",
+  AvailabilityPage: "availability",
+  BookingWidgetDemoPage: "booking-widget",
+  BriefingPage: "briefing",
+  ChatPage: "chat",
+  FloorPlanEditorPage: "floor-plans",
+  FloorPlansPage: "floor-plans",
+  GuestsPage: "guests",
+  MenusPage: "menus",
+  ProfilePage: "profile",
+  ReservationsPage: "reservations",
+  SettingsPage: "settings",
+  TimelinePage: "timeline",
+  WaitlistPage: "waitlist",
+};
+export const HOSPITALITY_ROUTES = [
+  ...new Set([...Object.values(HOSPITALITY_DIR_ROUTES), ...Object.values(HOSPITALITY_PAGE_ROUTES)]),
+].map((r) => `/hospitality/${r}`);
+
+const kebab = (name) =>
+  name
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1-$2")
+    .toLowerCase();
+
+/** Showcase component ids (non-"coming soon", non-example) declared in the rialto-web page registry. */
+export function loadRialtoIds(
+  registryPath = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    "../apps/rialto-web/src/data/page-registry.ts"
+  )
+) {
+  const ids = new Set();
+  for (const m of readFileSync(registryPath, "utf8").matchAll(/\{\s*id:\s*"([^"]+)"[^}]*\}/g)) {
+    if (/category:\s*"Examples"/.test(m[0]) || /comingSoon/.test(m[0])) continue;
+    ids.add(m[1]);
+  }
+  return ids;
+}
+
+function hospitalityRoute(p) {
+  if (!p.startsWith(HOSPITALITY_PREFIX)) return null;
+  const rest = p.slice(HOSPITALITY_PREFIX.length).split("/");
+  let route;
+  if (rest[0] === "components" && rest.length > 2) route = HOSPITALITY_DIR_ROUTES[rest[1]];
+  else if (rest[0] === "pages" && rest.length === 2)
+    route =
+      HOSPITALITY_PAGE_ROUTES[rest[1].replace(/(\.[a-z]+)+$/, "").replace(/\.(test|a11y)$/, "")];
+  return route ? `/hospitality/${route}` : null;
+}
+
+function rialtoRoute(p, ids) {
+  let name = null;
+  const lib = /^packages\/rialto\/src\/components\/([^/]+)\/./.exec(p);
+  const page = /^apps\/rialto-web\/src\/pages\/[^/]+\/([A-Za-z0-9]+)Page\.tsx$/.exec(p);
+  if (lib) name = lib[1];
+  else if (page) name = page[1];
+  const id = name ? kebab(name) : null;
+  return id && ids.has(id) ? `/rialto/components/${id}` : null;
+}
+
+/**
+ * Demo surfaces, in tie-break order. `route(path, ctx)` resolves a changed file
+ * to a specific deep link or null; `root` is only used where the app root is
+ * itself the honest destination (the marketing site).
+ */
 const SURFACES = [
-  { url: "/hospitality/", matches: (p) => p.startsWith("apps/hospitality/") },
   {
-    url: "/rialto/",
-    matches: (p) => p.startsWith("apps/rialto-web/") || p.startsWith("packages/rialto/"),
+    matches: (p) => p.startsWith("apps/hospitality/"),
+    route: (p) => hospitalityRoute(p),
   },
-  { url: "/", matches: (p) => p.startsWith("apps/marketing/") },
+  {
+    matches: (p) => p.startsWith("apps/rialto-web/") || p.startsWith("packages/rialto/"),
+    route: (p, ctx) => rialtoRoute(p, ctx.rialtoIds()),
+  },
+  { matches: (p) => p.startsWith("apps/marketing/"), route: () => "/" },
 ];
 
 const isObj = (v) => typeof v === "object" && v !== null && !Array.isArray(v);
@@ -71,16 +155,40 @@ export function slugFor(issue) {
   return base ? `${base}-${issue.number}` : String(issue.number);
 }
 
-/** Site-relative demo surface with the most changed files; null when none match. @param {unknown} changedPaths */
-export function liveUrlFor(changedPaths) {
+/**
+ * Site-relative deep link on the demo surface with the most changed files: the
+ * route most changed files resolve to within it. Null when no route resolves
+ * with confidence (an app root would imply more than it delivers).
+ * @param {unknown} changedPaths
+ * @param {{ rialtoIds?: Set<string> }} [opts] showcase ids; read from the rialto-web registry when omitted
+ */
+export function liveUrlFor(changedPaths, opts = {}) {
   if (!Array.isArray(changedPaths)) return null;
-  let best = null;
+  let rialtoIds = opts.rialtoIds;
+  const ctx = { rialtoIds: () => (rialtoIds ??= loadRialtoIds()) };
+  const paths = changedPaths.filter((p) => typeof p === "string");
+  let dominant = null;
   let bestCount = 0;
   for (const surface of SURFACES) {
-    const count = changedPaths.filter((p) => typeof p === "string" && surface.matches(p)).length;
+    const count = paths.filter(surface.matches).length;
     if (count > bestCount) {
-      best = surface.url;
+      dominant = surface;
       bestCount = count;
+    }
+  }
+  if (!dominant) return null;
+  const tally = new Map();
+  for (const p of paths) {
+    if (!dominant.matches(p)) continue;
+    const url = dominant.route(p, ctx);
+    if (url) tally.set(url, (tally.get(url) ?? 0) + 1);
+  }
+  let best = null;
+  let top = 0;
+  for (const [url, n] of tally) {
+    if (n > top) {
+      best = url;
+      top = n;
     }
   }
   return best;
