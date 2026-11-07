@@ -15,6 +15,7 @@
       "Bash(gh pr *)",
       "Bash(gh run *)",
       "Bash(gh issue *)",
+      "Bash(gh api -X PUT repos/mattbutlerengineering/mattbutlerengineering/pulls/*)",
       "Bash(git log *)",
       "Bash(git diff *)",
       "Bash(git status *)",
