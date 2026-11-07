@@ -43,6 +43,11 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
 
+      # Artifacts come from other (schedule/dispatch) runs and are consumed in
+      # this privileged workflow_run job: download them OUTSIDE the checkout
+      # (runner.temp, never the workspace) and pass the path explicitly, so a
+      # poisoned artifact cannot overwrite repo files. Parsers are strict
+      # (regex-validated rows only; CodeQL artifact-poisoning, #8419).
       - name: Download Lighthouse reports
         if: github.event.workflow_run.name == 'Lighthouse Score Tracking'
         id: lh-download
@@ -50,7 +55,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: lighthouse-lhr-*
-          path: lhr
+          path: ${{ runner.temp }}/lhr
           merge-multiple: true
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -62,7 +67,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: mutation-report
-          path: mutation-report
+          path: ${{ runner.temp }}/mutation-report
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -73,7 +78,7 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: audit-sweep-results
-          path: audit-sweep-results
+          path: ${{ runner.temp }}/audit-sweep-results
           run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -94,11 +99,11 @@ jobs:
         run: |
           set -o pipefail
           if [ "$RUN_NAME" = "Lighthouse Score Tracking" ]; then
-            node scripts/record-summary-row.mjs lighthouse lhr --commit "$RUN_SHA"
+            node scripts/record-summary-row.mjs lighthouse "$RUNNER_TEMP/lhr" --commit "$RUN_SHA"
           elif [ "$RUN_NAME" = "Weekly Audit Sweep" ]; then
-            node scripts/record-summary-row.mjs audit-coverage audit-sweep-results/results.tsv --commit "$RUN_SHA"
+            node scripts/record-summary-row.mjs audit-coverage "$RUNNER_TEMP/audit-sweep-results/results.tsv" --commit "$RUN_SHA"
           else
-            node scripts/record-summary-row.mjs mutation mutation-report/mutation.json --commit "$RUN_SHA"
+            node scripts/record-summary-row.mjs mutation "$RUNNER_TEMP/mutation-report/mutation.json" --commit "$RUN_SHA"
           fi
 
       - name: Open PR with the summary row

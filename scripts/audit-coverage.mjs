@@ -18,9 +18,6 @@
 // scheduled checkouts where agent-core's dist is not built. Callers that have
 // the registry (record-summary-row.mjs) pass it in.
 
-/** Statuses that count as a recorded check (everything except `unchecked`). */
-export const RECORDED_STATUSES = ["available", "auth-gated", "error"];
-
 /**
  * @param {{ code: string|number }} result
  * @param {{ auth: "none"|"auth0" }} surface
