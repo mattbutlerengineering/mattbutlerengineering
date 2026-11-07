@@ -69,6 +69,29 @@ describe("smokeTestsRanAndFailed", () => {
     expect(smokeTestsRanAndFailed(jobs)).toBe(true);
   });
 
+  it("returns false when the smoke step succeeded but a reporting step failed (run 42296408462, #8435)", () => {
+    const jobs = [
+      {
+        name: "Post-Deploy Smoke Test",
+        conclusion: "failure",
+        steps: [
+          { name: "Set up job", conclusion: "success" },
+          { name: "Smoke test deployed sites", conclusion: "success" },
+          { name: "Find most recent merged PR", conclusion: "success" },
+          { name: "Post results to PR", conclusion: "failure" },
+        ],
+      },
+    ];
+    expect(smokeTestsRanAndFailed(jobs)).toBe(false);
+    const previous = [{ name: "Post-Deploy Smoke Test", conclusion: "success", steps: [] }];
+    expect(shouldAutoRevert(jobs, previous)).toBe(false);
+  });
+
+  it("returns false when the curl job failed but its smoke step is absent — fails closed", () => {
+    const jobs = [{ name: "Post-Deploy Smoke Test", conclusion: "failure", steps: [] }];
+    expect(smokeTestsRanAndFailed(jobs)).toBe(false);
+  });
+
   it("returns true when the API Surface Invariants job fails (no poll step exists there)", () => {
     const jobs = [
       {
@@ -175,7 +198,11 @@ describe("isRegressionTransition", () => {
   it("one newly-red job is enough even when another was already red", () => {
     const current = [
       apiSurfaceFailure,
-      { name: "Post-Deploy Smoke Test", conclusion: "failure", steps: [] },
+      {
+        name: "Post-Deploy Smoke Test",
+        conclusion: "failure",
+        steps: [{ name: "Smoke test deployed sites", conclusion: "failure" }],
+      },
     ];
     const previous = [
       { name: "API Surface Invariants", conclusion: "failure", steps: [] },
