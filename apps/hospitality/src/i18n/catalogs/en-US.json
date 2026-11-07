@@ -2835,7 +2835,8 @@
       "block": {
         "label": "Block tables",
         "all": "All tables",
-        "location": "All tables in {{location}}",
+        "section": "Section: {{section}}",
+        "noSection": "No section",
         "button": "Block",
         "pick": "Choose tables…",
         "pickLabel": "Tables to block",

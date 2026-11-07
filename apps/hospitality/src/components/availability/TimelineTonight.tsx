@@ -3,6 +3,7 @@ import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useVenue } from "../../contexts/VenueContext.js";
 import { useAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useNow } from "../../hooks/useNow.js";
+import { useVenueFloorPlanSections } from "../../hooks/useFloorPlans.js";
 import { useTables } from "../../hooks/useTables.js";
 import { useVenueTeam } from "../../hooks/useVenueTeam.js";
 import { TonightControl } from "./TonightControl.js";
@@ -19,6 +20,7 @@ export function TimelineTonight() {
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
   const team = useVenueTeam({ venueId: selectedVenueId });
   const tables = useTables({ venueId: selectedVenueId ?? undefined, activeOnly: true });
+  const sections = useVenueFloorPlanSections({ venueId: selectedVenueId });
   if (!selectedVenueId || !selectedVenue) return null;
   const failed = [config, team].filter((read) => !read.data && read.error);
   if (failed.length > 0) {
@@ -47,6 +49,7 @@ export function TimelineTonight() {
       viewerRole={team.data.viewerRole}
       hostEmergencyClose={team.data.hostEmergencyClose}
       tables={tables.data ?? []}
+      sections={sections.data ?? []}
     />
   );
 }

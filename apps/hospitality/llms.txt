@@ -4093,6 +4093,9 @@
       export const useFloorPlanSections: unknown;
     </item>
     <item priority="high">
+      export const useVenueFloorPlanSections: unknown;
+    </item>
+    <item priority="high">
       export const useUpdateFloorPlanSection: unknown;
     </item>
   </file>

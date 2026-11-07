@@ -10999,6 +10999,14 @@
       fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
       getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
     });
+    export const useVenueFloorPlanSections = createQueryHook<
+      FloorPlanSection[],
+      { venueId?: string | null }
+    >({
+      key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!),
+      getEnabled: (params) => !!params?.venueId,
+    });
     export const useUpdateFloorPlanSection = createMutationHook<
       { venueId: string; sectionId: string; data: UpdateFloorPlanSectionRequest },
       FloorPlanSection

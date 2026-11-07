@@ -2917,7 +2917,8 @@
       "block": {
         "label": "Bloquer des tables",
         "all": "Toutes les tables",
-        "location": "Toutes les tables : {{location}}",
+        "section": "Section : {{section}}",
+        "noSection": "Sans section",
         "button": "Bloquer",
         "pick": "Choisir des tables…",
         "pickLabel": "Tables à bloquer",
