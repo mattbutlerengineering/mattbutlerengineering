@@ -2610,7 +2610,14 @@
         "save": "Guardar cambios",
         "toast": "Se cambió el cierre del {{date}}",
         "gone": "Este cierre se quitó. Cierra esta ventana y revisa la pestaña de fechas especiales.",
-        "changed": "Alguien cambió este cierre mientras lo tenías abierto. Cierra esta ventana y ábrelo de nuevo para ver su cambio."
+        "changed": "Alguien cambió este cierre mientras lo tenías abierto. Cierra esta ventana y ábrelo de nuevo para ver su cambio.",
+        "givenBackIntro": "Este cambio abre fechas en las que el cierre había cancelado reservaciones.",
+        "tellGivenBack_one": "Avisar al cliente ({{count}}) cuya reservación cancelamos en una fecha que se abre que ya está abierta, con un enlace para volver a reservar",
+        "tellGivenBack_other": "Avisar a los clientes ({{count}}) cuya reservación cancelamos en fechas que se abren que ya están abiertas, con un enlace para volver a reservar",
+        "tellGivenBack_many": "Avisar a los clientes ({{count}}) cuya reservación cancelamos en fechas que se abren que ya están abiertas, con un enlace para volver a reservar",
+        "toastTold_one": "Se cambió el cierre del {{date}} · {{count}} cliente avisado de que la fecha está abierta",
+        "toastTold_other": "Se cambió el cierre del {{date}} · {{count}} clientes avisados de que las fechas están abiertas",
+        "toastTold_many": "Se cambió el cierre del {{date}} · {{count}} clientes avisados de que las fechas están abiertas"
       },
       "step": "Paso {{step}} de 2",
       "next": "Siguiente",

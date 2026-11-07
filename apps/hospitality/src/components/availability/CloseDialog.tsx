@@ -51,6 +51,7 @@ import { useSaveAttempts } from "./use-save-attempts.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
+import { GivenBackChoice } from "./GivenBackChoice.js";
 import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
 import { sameRow } from "./series-edit.js";
 import { refusalOf, refusalText } from "./step-two-refusal.js";
@@ -149,6 +150,8 @@ export function CloseDialog(props: CloseDialogProps) {
   const [form, setForm] = useState<CloseForm>(() => initialForm(props));
   const [step, setStep] = useState<1 | 2>(1);
   const [choices, setChoices] = useState<ChoiceMap>({});
+  // Asked only when an edit gives back dates holding cancelled guests; like a Reopen, told by default.
+  const [tellGivenBack, setTellGivenBack] = useState(true);
   const [invalid, setInvalid] = useState<CloseField | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   // Set on a 409 version conflict: the change that won, `null` when none is recorded.
@@ -229,6 +232,7 @@ export function CloseDialog(props: CloseDialogProps) {
   const impactError = several ? impactsQuery.error : impactQuery.error;
   const refetchImpact = () => void (several ? impactsQuery.refetch() : impactQuery.refetch());
   const groups = impact?.groups ?? [];
+  const givenBack = editing ? impact?.givenBack : undefined;
   const rules = buildCloseRules(
     form,
     (date) => (several ? idIn(attemptIds, `${ruleId}:${date}`) : ruleId),
@@ -258,7 +262,7 @@ export function CloseDialog(props: CloseDialogProps) {
     const problem = validateClose(form, today);
     setInvalid(problem);
     if (problem) return focusCloseField(problem);
-    if (groups.length > 0) setStep(2);
+    if (groups.length > 0 || givenBack) setStep(2);
     else void save();
   };
 
@@ -271,6 +275,7 @@ export function CloseDialog(props: CloseDialogProps) {
         rule: only,
         ...(alongside ? { alongside } : {}),
         decisions: toDecisions(groups, choices),
+        ...(givenBack ? { tellGivenBackGuests: tellGivenBack } : {}),
       },
     });
     return { outcomes: result.outcomes, result };
@@ -309,6 +314,7 @@ export function CloseDialog(props: CloseDialogProps) {
       const saved = several ? await saveMany() : await saveOne(rule);
       const { cancel, move, keep_notify } = saved.outcomes;
       const notified = cancel + move + keep_notify;
+      const givenBackTold = saved.result?.givenBackNotified ?? 0;
       // A repeat's From date may not be one of its days.
       const date = fullDate(closedDates(rule)[0] ?? startsOn);
       const count = rules.length;
@@ -328,11 +334,17 @@ export function CloseDialog(props: CloseDialogProps) {
               ? t("availability.close.toast.paused")
               : t("availability.close.toast.bookingPaused", { date })
             : t("availability.close.toast.closed", { date });
-      if (props.onSavedQuietly && saved.result && notified === 0) {
+      if (props.onSavedQuietly && saved.result && notified === 0 && givenBackTold === 0) {
         // A save that told no guest is one History can revert: the caller offers Undo.
         props.onSavedQuietly(saved.result);
       } else {
-        toast({ title, variant: "success" });
+        toast({
+          title:
+            notified === 0 && givenBackTold > 0
+              ? t("availability.close.edit.toastTold", { date, count: givenBackTold })
+              : title,
+          variant: "success",
+        });
       }
       props.onSaved?.();
       onClose();
@@ -367,6 +379,8 @@ export function CloseDialog(props: CloseDialogProps) {
     today,
     serviceMinuteOf(now, timezone, today)
   );
+  // Guests are only told right away when something tells them: a booking group or the given-back choice.
+  const showStepTwoNote = step === 2 && (groups.length > 0 || (givenBack && tellGivenBack));
   const impactFailed = impactError !== null;
   // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
   // choices would read as complete.
@@ -376,8 +390,10 @@ export function CloseDialog(props: CloseDialogProps) {
     (step === 2 ? !impact || !decisionsReady(groups, choices) : impactLoading || impactFailed);
   const label =
     step === 2
-      ? outcomeLabel(counts, t)
-      : groups.length > 0
+      ? groups.length === 0
+        ? t("availability.close.edit.save")
+        : outcomeLabel(counts, t)
+      : groups.length > 0 || givenBack
         ? t("availability.close.next")
         : editing
           ? t("availability.close.edit.save")
@@ -410,7 +426,7 @@ export function CloseDialog(props: CloseDialogProps) {
             </div>
           ) : (
             <div className={styles.footer}>
-              {step === 2 && (
+              {showStepTwoNote && (
                 <Text
                   id={stepTwoNoteId}
                   variant="caption"
@@ -430,7 +446,7 @@ export function CloseDialog(props: CloseDialogProps) {
               <Button
                 variant="primary"
                 data-testid="close-primary"
-                aria-describedby={step === 2 ? stepTwoNoteId : undefined}
+                aria-describedby={showStepTwoNote ? stepTwoNoteId : undefined}
                 onClick={step === 2 ? () => void save() : next}
                 isLoading={isPending}
                 disabled={primaryDisabled}
@@ -489,7 +505,7 @@ export function CloseDialog(props: CloseDialogProps) {
             />
           ) : (
             <>
-              {impact && (
+              {impact && groups.length > 0 && (
                 <CloseStepTwo
                   venueId={venueId}
                   impact={impact}
@@ -499,6 +515,17 @@ export function CloseDialog(props: CloseDialogProps) {
                   onChoose={(key, choice) => {
                     attempts.edited(choices[key], choice);
                     setChoices({ ...choices, [key]: choice });
+                    attempts.setDirty(true);
+                  }}
+                />
+              )}
+              {givenBack && (
+                <GivenBackChoice
+                  guests={givenBack.guests}
+                  tell={tellGivenBack}
+                  onChange={(tell) => {
+                    attempts.edited(tellGivenBack, tell);
+                    setTellGivenBack(tell);
                     attempts.setDirty(true);
                   }}
                 />

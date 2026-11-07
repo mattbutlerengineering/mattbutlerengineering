@@ -39498,7 +39498,13 @@
     }
     export async function enqueueNotices(
       enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-      input: { venueId: string; ruleId: string; carried?: readonly string[]; date?: string },
+      input: {
+        venueId: string;
+        ruleId: string;
+        carried?: readonly string[];
+        only?: readonly string[];
+        date?: string;
+      },
       log: FastifyBaseLogger
     ): Promise<void> {
       try {
@@ -39510,7 +39516,7 @@
     export async function enqueueClosureJobs(
       fastify: FastifyInstance,
       log: FastifyBaseLogger,
-      saved: { venueId: string; ruleId: string; cancelled: number }
+      saved: { venueId: string; ruleId: string; cancelled: number; givenBackNotified?: number }
     ): Promise<void> {
       const { venueId, ruleId, cancelled } = saved;
       const carried = await carriedOutcomes(log, venueId, ruleId);
@@ -39527,6 +39533,25 @@
         { venueId, ruleId, carried },
         log
       );
+      if (saved.givenBackNotified) await enqueueGivenBackNotices(fastify, log, { venueId, ruleId });
+    }
+    async function enqueueGivenBackNotices(
+      fastify: FastifyInstance,
+      log: FastifyBaseLogger,
+      saved: { venueId: string; ruleId: string }
+    ): Promise<void> {
+      const { venueId, ruleId } = saved;
+      try {
+        const given = await readGivenBack(venueId, ruleId);
+        if (!given) return;
+        await enqueueNotices(
+          fastify.services.closureNoticeService.enqueueForReopen,
+          { venueId, ruleId: given.ruleId, only: given.outcomeIds, date: given.from },
+          log
+        );
+      } catch (err) {
+        log.error({ err, venueId, ruleId }, "given-back reopen notices were not enqueued");
+      }
     }
     async function carriedOutcomes(
       log: FastifyBaseLogger,
@@ -39660,6 +39685,9 @@
             venueId,
             ruleId: outcome.result.ruleId,
             cancelled: outcome.result.outcomes.cancel,
+            ...(outcome.result.givenBackNotified
+              ? { givenBackNotified: outcome.result.givenBackNotified }
+              : {}),
           });
           return { data: outcome.result };
         }),
@@ -47987,6 +48015,12 @@
       depositsHeld: z.number().int(),
       /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
       groups: z.array(ClosureImpactGroupSchema),
+      /**
+       * An edit of a saved closure that gives dates back (ux.md F6 step 5): the guests it cancelled on
+       * those dates whose booking has not started, whom a reopen notice can still reach. Absent when
+       * none, and for anything but an edit.
+       */
+      givenBack: z.object({ guests: z.number().int().min(1) }).optional(),
     });
     export const CLOSURE_NOTICE_ACTIONS = ["cancel", "move", "keep_notify"] as const;
     export const ClosureNoticePreviewBodySchema = z.object({
@@ -48133,6 +48167,11 @@
       rule: DateRuleSchema,
       alongside: ClosureAlongsideSchema.optional(),
       decisions: z.array(ClosureDecisionSchema).default([]),
+      /**
+       * An edit that gives dates back: tell the guests the closure cancelled on those dates that they
+       * are open again, as a reopen's notice does. Ignored when the edit gives back no such guest.
+       */
+      tellGivenBackGuests: z.boolean().optional(),
     });
     export const MAX_CLOSURE_BATCH = 20;
     export const CreateClosuresBodySchema = z.object({
@@ -48165,6 +48204,11 @@
       version: z.number().int(),
       changeId: z.string(),
       outcomes: ClosureOutcomeCountsSchema,
+      /**
+       * Guests an edit's reopen notice was requested for on the dates it gave back. Absent when the
+       * edit gave back none, told none, and from an older API.
+       */
+      givenBackNotified: z.number().int().min(1).optional(),
     });
     export const ClosuresResultSchema = z.object({
       /** `Venue.availabilityVersion` after the last item. */
@@ -57233,6 +57277,12 @@
       batch?: BatchShape;
       /** A series edit's old rule outcomes that moved onto this rule, for Undo to return. */
       carried?: CarriedOutcomes;
+      /**
+       * An edit that gave dates back and told the guests the closure cancelled on them that the date is
+       * open again (#8413): the outcomes on the removed closure the reopen notice was requested for.
+       * Absent when none were told, so Undo is offered only when no guest was.
+       */
+      givenBack?: GivenBackGuests;
       /** What the save decided, per action: `outcome` merges the two keeps. Absent on older rows. */
       counts?: Record<ClosureAction, number>;
     }
@@ -57335,6 +57385,7 @@
         version: closure.version,
         changeId: replay.id,
         outcomes: closure.counts ?? countActions(rows.map((r) => r.action)),
+        ...(closure.givenBack ? { givenBackNotified: closure.givenBack.outcomeIds.length } : {}),
       };
     }
     interface Plan {
@@ -57524,12 +57575,25 @@
       const replacedRule = state.stored.dateRules.find((r) => r.id === replaced);
       // An edited closure keeps what it did to each guest on the dates it still closes; the dates it
       // gave back keep theirs on the removed closure, as a reopen of those dates would.
+      const today = civilDateIn(now, state.timezone);
+      // Guests the edit gave their date back to, when the Manager chose to tell them (as a reopen does).
+      const givenBack =
+        body.tellGivenBackGuests && replacedRule && isPlainClosure(replacedRule)
+          ? await givenBackGuests(tx, {
+              venueId,
+              stored: state.stored.dateRules,
+              replaced: replacedRule,
+              next: rule,
+              today,
+              now,
+            })
+          : null;
       const carried = !replaced
         ? null
         : replacedRule && isPlainClosure(replacedRule)
           ? await carryByDate(tx, venueId, replaced, [rule], deciding)
           : await carryOutcomes(tx, venueId, replaced, rule.id, deciding);
-      const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+      const range = affectedRange(state.stored, diff, today);
       const meta: ClosureMeta = {
         ruleId: rule.id,
         idempotencyKey: key,
@@ -57544,6 +57608,7 @@
         },
         ...(input.batch ? { batch: input.batch } : {}),
         ...(carried ? { carried } : {}),
+        ...(givenBack ? { givenBack } : {}),
         counts: plan.counts,
       };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
@@ -57559,7 +57624,7 @@
           affectedFrom: toDbDate(range.from),
           affectedTo: toDbDate(range.to),
           inverse: inverse as unknown as Prisma.InputJsonValue,
-          notifiedGuests: plan.notifiedGuests,
+          notifiedGuests: plan.notifiedGuests || givenBack !== null,
           version,
         },
         select: { id: true },
@@ -57595,7 +57660,13 @@
           ],
         });
       }
-      return { ruleId: rule.id, version, changeId: change.id, outcomes: plan.counts };
+      return {
+        ruleId: rule.id,
+        version,
+        changeId: change.id,
+        outcomes: plan.counts,
+        ...(givenBack ? { givenBackNotified: givenBack.outcomeIds.length } : {}),
+      };
     }
     export async function createClosure(
       input: {
@@ -57890,6 +57961,82 @@
       );
     }
   </file>
+  <file path="services/reservations/src/services/closure-given-back.ts">
+    type Db = Pick<PrismaClient, "closureOutcome">;
+    export interface GivenBackGuests {
+      /** The removed closure the outcomes sit on. */
+      ruleId: string;
+      outcomeIds: string[];
+      /** The earliest date among them, which the notice's urgency is judged from. */
+      from: string;
+    }
+    export function givenBackPieces(replaced: DateRule, next: DateRule): DateRule[] {
+      const pieces: DateRule[] = [];
+      if (replaced.startsOn < next.startsOn) {
+        const last = addDays(next.startsOn, -1);
+        const endsOn = replaced.endsOn != null && replaced.endsOn < last ? replaced.endsOn : last;
+        pieces.push({ ...replaced, endsOn });
+      }
+      if (next.endsOn != null && (replaced.endsOn == null || replaced.endsOn > next.endsOn)) {
+        const first = addDays(next.endsOn, 1);
+        pieces.push({
+          ...replaced,
+          startsOn: replaced.startsOn > first ? replaced.startsOn : first,
+        });
+      }
+      return pieces;
+    }
+    export async function givenBackGuests(
+      db: Db,
+      input: {
+        venueId: string;
+        stored: readonly DateRule[];
+        replaced: DateRule;
+        next: DateRule;
+        today: string;
+        now: Date;
+      }
+    ): Promise<GivenBackGuests | null> {
+      const { venueId, stored, replaced, next, today, now } = input;
+      const found: { id: string; date: Date }[] = [];
+      for (const piece of givenBackPieces(replaced, next)) {
+        if (stillClosedAfterReopen(stored, piece, today).everyDate) continue;
+        const rows = await db.closureOutcome.findMany({
+          where: {
+            venueId,
+            dateRuleId: replaced.id,
+            action: "cancel",
+            reservation: {
+              startTime: { gt: now },
+              date: {
+                gte: toDbDate(piece.startsOn)!,
+                ...(piece.endsOn != null ? { lte: toDbDate(piece.endsOn)! } : {}),
+              },
+            },
+          },
+          select: { id: true, reservation: { select: { date: true } } },
+        });
+        found.push(...rows.map((r) => ({ id: r.id, date: r.reservation.date })));
+      }
+      if (found.length === 0) return null;
+      const from = found.reduce((a, b) => (b.date < a ? b.date : a), found[0]!.date);
+      return {
+        ruleId: replaced.id,
+        outcomeIds: found.map((f) => f.id),
+        from: from.toISOString().slice(0, 10),
+      };
+    }
+    export const readGivenBack = (venueId: string, ruleId: string): Promise<GivenBackGuests | null> =>
+      runWithVenueContext(venueId, async () => {
+        const change = await prisma.availabilityChange.findFirst({
+          where: { venueId, kind: "closure", inverse: { path: ["closure", "ruleId"], equals: ruleId } },
+          select: { inverse: true },
+        });
+        const meta = change?.inverse as
+          { closure?: { givenBack?: GivenBackGuests } } | null | undefined;
+        return meta?.closure?.givenBack ?? null;
+      });
+  </file>
   <file path="services/reservations/src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
     type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservationHold">;
@@ -58008,6 +58155,10 @@
       });
       return { kind: "ok", impact };
     }
+    function editedClosure(state: ConfigState, alongside: ClosureAlongside): DateRule | undefined {
+      const saved = state.stored.dateRules.find((r) => r.id === alongside.remove[0]);
+      return saved && isPlainClosure(saved) ? saved : undefined;
+    }
     export async function getClosureImpact(
       venueId: string,
       rule: DateRule,
@@ -58019,7 +58170,24 @@
         await setVenueContext(tx, venueId);
         const state = await loadConfigState(tx, venueId, now);
         if (!state) return { kind: "not_found" as const };
-        return impactInTransaction(tx, venueId, state, rule, now, alongside);
+        const found = await impactInTransaction(tx, venueId, state, rule, now, alongside);
+        if (found.kind !== "ok") return found;
+        // An edit that gives dates back also asks about the guests the closure cancelled on them.
+        const replaced = alongside?.remove.length === 1 ? editedClosure(state, alongside) : undefined;
+        const given =
+          replaced && rule.kind === "closure" && rule.repeat == null
+            ? await givenBackGuests(tx, {
+                venueId,
+                stored: state.stored.dateRules,
+                replaced,
+                next: rule,
+                today: civilDateIn(now, state.timezone),
+                now,
+              })
+            : null;
+        return given
+          ? { kind: "ok", impact: { ...found.impact, givenBack: { guests: given.outcomeIds.length } } }
+          : found;
       });
     }
     export const closureImpactService = { impact: getClosureImpact };
@@ -58312,6 +58480,8 @@
       now: Date;
       /** Outcomes moved in from a replaced series: told when they were decided, not again. */
       carried?: readonly string[];
+      /** Only these outcomes: an edit's reopen notice reaches the guests on the dates it gave back. */
+      only?: readonly string[];
       /** A reopen of this one date of a range: urgency is that date's, not the removed range's. */
       date?: string;
     }
@@ -58349,9 +58519,10 @@
     
       async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
         const carried = new Set(input.carried);
+        const only = input.only ? new Set(input.only) : null;
         const outcomes = (
           await store.listNotifiable(input.venueId, input.ruleId, variant, input.now)
-        ).filter((o) => !carried.has(o.outcomeId));
+        ).filter((o) => !carried.has(o.outcomeId) && (only === null || only.has(o.outcomeId)));
         if (outcomes.length === 0) return 0;
         const urgent = await isUrgent(store, input);
         await Promise.all(

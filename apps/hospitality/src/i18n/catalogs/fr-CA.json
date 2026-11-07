@@ -2610,7 +2610,14 @@
         "save": "Enregistrer les modifications",
         "toast": "Fermeture du {{date}} modifiée",
         "gone": "Cette fermeture a été retirée. Fermez cette fenêtre et consultez l'onglet des dates spéciales.",
-        "changed": "Quelqu'un a modifié cette fermeture pendant que vous l'aviez ouverte. Fermez cette fenêtre et rouvrez-la pour voir sa modification."
+        "changed": "Quelqu'un a modifié cette fermeture pendant que vous l'aviez ouverte. Fermez cette fenêtre et rouvrez-la pour voir sa modification.",
+        "givenBackIntro": "Cette modification rouvre des dates où la fermeture avait annulé des réservations.",
+        "tellGivenBack_one": "Aviser le client ({{count}}) dont nous avons annulé la réservation à une date rouverte que la date est de nouveau ouverte, avec un lien pour réserver à nouveau",
+        "tellGivenBack_other": "Aviser les clients ({{count}}) dont nous avons annulé la réservation à des dates rouvertes que les dates sont de nouveau ouvertes, avec un lien pour réserver à nouveau",
+        "tellGivenBack_many": "Aviser les clients ({{count}}) dont nous avons annulé la réservation à des dates rouvertes que les dates sont de nouveau ouvertes, avec un lien pour réserver à nouveau",
+        "toastTold_one": "Fermeture du {{date}} modifiée · {{count}} client avisé que la date est de nouveau ouverte",
+        "toastTold_other": "Fermeture du {{date}} modifiée · {{count}} clients avisés que les dates sont de nouveau ouvertes",
+        "toastTold_many": "Fermeture du {{date}} modifiée · {{count}} clients avisés que les dates sont de nouveau ouvertes"
       },
       "step": "Étape {{step}} sur 2",
       "next": "Suivant",

@@ -448,6 +448,12 @@ export const ClosureImpactSchema = z.object({
   depositsHeld: z.number().int(),
   /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
   groups: z.array(ClosureImpactGroupSchema),
+  /**
+   * An edit of a saved closure that gives dates back (ux.md F6 step 5): the guests it cancelled on
+   * those dates whose booking has not started, whom a reopen notice can still reach. Absent when
+   * none, and for anything but an edit.
+   */
+  givenBack: z.object({ guests: z.number().int().min(1) }).optional(),
 });
 
 /** What a Step 2 outcome tells a guest; a kept-silent booking is told nothing. */
@@ -641,6 +647,11 @@ export const CreateClosureBodySchema = z.object({
   rule: DateRuleSchema,
   alongside: ClosureAlongsideSchema.optional(),
   decisions: z.array(ClosureDecisionSchema).default([]),
+  /**
+   * An edit that gives dates back: tell the guests the closure cancelled on those dates that they
+   * are open again, as a reopen's notice does. Ignored when the edit gives back no such guest.
+   */
+  tellGivenBackGuests: z.boolean().optional(),
 });
 
 /** Most closures one batch save carries (the Add special date sheet's rows). */
@@ -697,6 +708,11 @@ export const ClosureResultSchema = z.object({
   version: z.number().int(),
   changeId: z.string(),
   outcomes: ClosureOutcomeCountsSchema,
+  /**
+   * Guests an edit's reopen notice was requested for on the dates it gave back. Absent when the
+   * edit gave back none, told none, and from an older API.
+   */
+  givenBackNotified: z.number().int().min(1).optional(),
 });
 
 export const ClosuresResultSchema = z.object({

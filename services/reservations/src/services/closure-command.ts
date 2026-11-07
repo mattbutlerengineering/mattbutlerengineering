@@ -20,6 +20,7 @@ import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
 import { carryOutcomes, type CarriedOutcomes } from "./closure-carry-outcomes.js";
+import { givenBackGuests, type GivenBackGuests } from "./closure-given-back.js";
 import { carryByDate, rangeAround, splitIssues } from "./closure-reopen-date.js";
 import { findStrandedReservations } from "./availability-config-checks.js";
 import {
@@ -144,6 +145,12 @@ interface ClosureMeta {
   batch?: BatchShape;
   /** A series edit's old rule outcomes that moved onto this rule, for Undo to return. */
   carried?: CarriedOutcomes;
+  /**
+   * An edit that gave dates back and told the guests the closure cancelled on them that the date is
+   * open again (#8413): the outcomes on the removed closure the reopen notice was requested for.
+   * Absent when none were told, so Undo is offered only when no guest was.
+   */
+  givenBack?: GivenBackGuests;
   /** What the save decided, per action: `outcome` merges the two keeps. Absent on older rows. */
   counts?: Record<ClosureAction, number>;
 }
@@ -260,6 +267,7 @@ async function storedResult(
     version: closure.version,
     changeId: replay.id,
     outcomes: closure.counts ?? countActions(rows.map((r) => r.action)),
+    ...(closure.givenBack ? { givenBackNotified: closure.givenBack.outcomeIds.length } : {}),
   };
 }
 
@@ -473,12 +481,25 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   const replacedRule = state.stored.dateRules.find((r) => r.id === replaced);
   // An edited closure keeps what it did to each guest on the dates it still closes; the dates it
   // gave back keep theirs on the removed closure, as a reopen of those dates would.
+  const today = civilDateIn(now, state.timezone);
+  // Guests the edit gave their date back to, when the Manager chose to tell them (as a reopen does).
+  const givenBack =
+    body.tellGivenBackGuests && replacedRule && isPlainClosure(replacedRule)
+      ? await givenBackGuests(tx, {
+          venueId,
+          stored: state.stored.dateRules,
+          replaced: replacedRule,
+          next: rule,
+          today,
+          now,
+        })
+      : null;
   const carried = !replaced
     ? null
     : replacedRule && isPlainClosure(replacedRule)
       ? await carryByDate(tx, venueId, replaced, [rule], deciding)
       : await carryOutcomes(tx, venueId, replaced, rule.id, deciding);
-  const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+  const range = affectedRange(state.stored, diff, today);
   const meta: ClosureMeta = {
     ruleId: rule.id,
     idempotencyKey: key,
@@ -493,6 +514,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     },
     ...(input.batch ? { batch: input.batch } : {}),
     ...(carried ? { carried } : {}),
+    ...(givenBack ? { givenBack } : {}),
     counts: plan.counts,
   };
   const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
@@ -508,7 +530,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       affectedFrom: toDbDate(range.from),
       affectedTo: toDbDate(range.to),
       inverse: inverse as unknown as Prisma.InputJsonValue,
-      notifiedGuests: plan.notifiedGuests,
+      notifiedGuests: plan.notifiedGuests || givenBack !== null,
       version,
     },
     select: { id: true },
@@ -544,7 +566,13 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       ],
     });
   }
-  return { ruleId: rule.id, version, changeId: change.id, outcomes: plan.counts };
+  return {
+    ruleId: rule.id,
+    version,
+    changeId: change.id,
+    outcomes: plan.counts,
+    ...(givenBack ? { givenBackNotified: givenBack.outcomeIds.length } : {}),
+  };
 }
 
 export async function createClosure(

@@ -181,6 +181,99 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
     expect(onSavedQuietly).not.toHaveBeenCalled();
   });
 
+  describe("an edit that gives dates back to cancelled guests (#8413)", () => {
+    const GIVES_BACK: ClosureImpact = { ...NONE, givenBack: { guests: 2 } };
+
+    it("asks about them in Step 2, told by default, and sends the choice with the save", async () => {
+      impactState.value = GIVES_BACK;
+      create.mockResolvedValue(saved(0));
+      const { onClose } = renderEdit();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      const tell = within(dialog).getByRole("checkbox", { name: /Tell the 2 guests we cancelled/ });
+      expect(tell).toBeChecked();
+      expect(within(dialog).getByText(/Guests are told right away/)).toBeInTheDocument();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(create.mock.calls[0]![0].body).toMatchObject({ tellGivenBackGuests: true });
+    });
+
+    it("tells no one, and still offers Undo, when the Manager unticks it", async () => {
+      impactState.value = GIVES_BACK;
+      create.mockResolvedValue(saved(0));
+      const { onClose, onSavedQuietly } = renderEdit();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: /Tell the 2 guests/ }));
+      expect(within(dialog).queryByText(/Guests are told right away/)).toBeNull();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(create.mock.calls[0]![0].body).toMatchObject({ tellGivenBackGuests: false });
+      expect(onSavedQuietly).toHaveBeenCalledWith(saved(0));
+    });
+
+    it("describes the primary button by the note only while the note is shown", () => {
+      impactState.value = GIVES_BACK;
+      renderEdit();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      const save = within(dialog).getByRole("button", { name: "Save changes" });
+      expect(save).toHaveAttribute("aria-describedby", "close-step-two-note");
+      expect(document.getElementById("close-step-two-note")).not.toBeNull();
+
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: /Tell the 2 guests/ }));
+      expect(save).not.toHaveAttribute("aria-describedby");
+      expect(document.getElementById("close-step-two-note")).toBeNull();
+    });
+
+    it("offers no Undo once the save told a given-back guest", async () => {
+      impactState.value = GIVES_BACK;
+      create.mockResolvedValue({ ...saved(0), givenBackNotified: 2 });
+      const { onClose, onSavedQuietly } = renderEdit();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(onSavedQuietly).not.toHaveBeenCalled();
+    });
+
+    it("decides the new dates' bookings and the given-back guests in the same Step 2", async () => {
+      impactState.value = { ...NEW_DATE, givenBack: { guests: 1 } };
+      create.mockResolvedValue(saved(1));
+      const { onClose } = renderEdit();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      expect(within(dialog).getByText(/closed · 1 booking/)).toBeInTheDocument();
+      expect(
+        within(dialog).getByRole("checkbox", { name: /Tell the 1 guest we cancelled/ })
+      ).toBeChecked();
+      fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 1" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(create.mock.calls[0]![0].body).toMatchObject({ tellGivenBackGuests: true });
+    });
+
+    it("asks nothing when the edit gives back no told guest", async () => {
+      impactState.value = NONE;
+      create.mockResolvedValue(saved(0));
+      const { onClose } = renderEdit();
+
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(create.mock.calls[0]![0].body).not.toHaveProperty("tellGivenBackGuests");
+    });
+  });
+
   it("will not save over a closure a teammate changed while it was open", () => {
     renderEdit({ live: { ...RANGE, endsOn: "2026-12-30" } });
     expect(screen.getByText(/Someone changed this closure/)).toBeInTheDocument();
