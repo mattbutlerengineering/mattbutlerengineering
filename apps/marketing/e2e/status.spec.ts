@@ -174,6 +174,8 @@ test.describe("Status page", () => {
     await page.goto("/status");
 
     await expect(page.locator("#main-content").getByText("Last checked")).toBeVisible();
+    // One "Down" badge per API card, plus the overall badge in the header.
+    await expect(page.locator("#main-content").getByText("Down", { exact: true })).toHaveCount(4);
     expect(pageErrors).toEqual([]);
   });
 });
