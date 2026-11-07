@@ -2,7 +2,17 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { NO_VENUE, refusalOf, resolveTable, type ApiClient } from "./gen-tool-support.js";
+import {
+  NO_REPLAY,
+  NO_VENUE,
+  failedBeforeWrite,
+  failureLog,
+  notExecuted,
+  refusalOf,
+  resolveTable,
+  saveUnsure,
+  type ApiClient,
+} from "./gen-tool-support.js";
 
 /**
  * Chat tools for the timeline's booking actions (#7925): seat a booked party,
@@ -24,14 +34,21 @@ type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
 /**
  * A refused or failed booking write, in words the model can pass on. `saved` names
  * what an earlier step already wrote, so the model never says nothing changed when
- * something did.
+ * something did. `unsure` is set once a write is on its way: until then a failure
+ * can't have changed anything.
  */
-function bookingWriteFailure(err: unknown, action: string, saved?: string) {
+export function bookingWriteFailure(
+  err: unknown,
+  action: string,
+  unsure: string | undefined,
+  saved?: string
+) {
   const outcome = saved
     ? `${saved} was already saved; check the timeline before trying again.`
     : "Nothing was changed.";
   const refusal = refusalOf(err);
   if (!refusal) {
+    if (unsure) return { error: saved ? `${saved} was already saved. ${unsure}` : unsure };
     return { error: `Couldn't ${action} right now. ${outcome} Ask the user to try again shortly.` };
   }
   if (refusal.status === 403) {
@@ -71,36 +88,44 @@ export function createTimelineTools(
           .describe("Seat at this table instead, by its name or number; omit for the booked table"),
       }),
       execute: async ({ reservationId, table: tableRef }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, reservationId, tableRef }, "seat_reservation tool called");
         let saved: string | undefined;
+        let unsure: string | undefined;
         try {
           const found = await venueReservation(api, venueId, reservationId);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           const { reservation } = found;
           if (!SEATABLE_STATUSES.has(reservation.status)) {
-            return {
+            return notExecuted({
               error: `This booking is ${reservation.status.toLowerCase().replace(/_/g, " ")}, so it can't be seated.`,
-            };
+            });
           }
-          const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+          const { data: tables } = await api.tables.list({
+            venueId,
+            limit: TABLES_LIMIT,
+            activeOnly: true,
+          });
           const chosen = tableRef ? resolveTable(tables, tableRef) : undefined;
-          if (chosen && "error" in chosen) return chosen;
+          if (chosen && "error" in chosen) return notExecuted(chosen);
           const tableId = chosen?.table.id ?? reservation.tableId;
           if (!tableId) {
-            return { error: "This booking has no table. Ask which table to seat them at." };
+            return notExecuted({
+              error: "This booking has no table. Ask which table to seat them at.",
+            });
           }
           const target = tables.find((t) => t.id === tableId);
           const tableLabel = target?.name ?? target?.tableNumber ?? tableId;
           // Only an AVAILABLE table can be seated: check before writing anything.
           if (target && target.status !== "AVAILABLE") {
-            return {
+            return notExecuted({
               error: `Table ${tableLabel} is ${target.status.toLowerCase()}, so the party can't be seated there. Nothing was changed.`,
-            };
+            });
           }
           // The server has no CONFIRMED -> CONFIRMED edge, so only a pending booking changes
           // status; and it refuses a status change combined with a table change, so they go
           // as separate requests.
+          unsure = saveUnsure("lookup_reservation and get_table_status");
           if (reservation.status === "PENDING") {
             await api.reservations.update(reservationId, { status: "CONFIRMED" });
             saved = "Confirming the booking";
@@ -114,8 +139,11 @@ export function createTimelineTools(
           await api.tables.updateStatus(tableId, "OCCUPIED");
           return { seated: true, table: tableLabel };
         } catch (err) {
-          log.error({ err, venueId, reservationId }, "seat_reservation failed");
-          return bookingWriteFailure(err, "seat the party", saved);
+          log.error({ ...failureLog(err), venueId, reservationId }, "seat_reservation failed");
+          return failedBeforeWrite(
+            unsure,
+            bookingWriteFailure(err, "seat the party", unsure, saved)
+          );
         }
       },
     }),
@@ -124,16 +152,18 @@ export function createTimelineTools(
       description: "Mark a booking as a no-show: the party never arrived. Requires confirmation.",
       inputSchema: z.object({ reservationId: ReservationIdSchema }),
       execute: async ({ reservationId }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, reservationId }, "mark_no_show tool called");
+        let unsure: string | undefined;
         try {
           const found = await venueReservation(api, venueId, reservationId);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
+          unsure = saveUnsure("lookup_reservation");
           const { warning } = await api.reservations.markNoShow(reservationId);
           return { noShow: true, ...(warning ? { warning } : {}) };
         } catch (err) {
-          log.error({ err, venueId, reservationId }, "mark_no_show failed");
-          return bookingWriteFailure(err, "mark the no-show");
+          log.error({ ...failureLog(err), venueId, reservationId }, "mark_no_show failed");
+          return failedBeforeWrite(unsure, bookingWriteFailure(err, "mark the no-show", unsure));
         }
       },
     }),
@@ -152,13 +182,13 @@ export function createTimelineTools(
         note: z.string().max(500).optional().describe("A note on the cancellation"),
       }),
       execute: async ({ reservationId, reason, note }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ reservationId, reason }, "cancel_reservation tool called");
         try {
           if (!reservationId) {
-            return {
+            return notExecuted({
               error: "Reservation ID is required to cancel. Please look up the reservation first.",
-            };
+            });
           }
           const reservation =
             reason || note
@@ -166,11 +196,16 @@ export function createTimelineTools(
                   ...(reason ? { cancellationReason: reason } : {}),
                   ...(note ? { cancellationNote: note } : {}),
                 })
-              : await api.reservations.cancel(reservationId);
+              : await api.reservations.cancel(reservationId, NO_REPLAY);
           return { reservation };
         } catch (err) {
-          log.error({ err, reservationId }, "cancel_reservation failed");
-          return { error: "Failed to cancel reservation. Please try again." };
+          log.error({ ...failureLog(err), reservationId }, "cancel_reservation failed");
+          // The write is the tool's first call, so any failure may have saved.
+          return bookingWriteFailure(
+            err,
+            "cancel the reservation",
+            saveUnsure("lookup_reservation")
+          );
         }
       },
     }),

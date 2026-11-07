@@ -3,11 +3,22 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import type { AvailabilityConfig, DateRule, TonightChange } from "@mbe/types";
+import { servicesOn, weekdayIndexOf } from "@mbe/availability";
+import type {
+  AvailabilityChangesPage,
+  AvailabilityConfig,
+  DateRule,
+  TonightChange,
+} from "@mbe/types";
 import {
+  NO_REPLAY,
   NO_VENUE,
+  failedBeforeWrite,
+  failureLog,
   localTimeIn,
+  notExecuted,
   refusalOf,
+  saveUnsure,
   resolveTable,
   todayIn,
   type ApiClient,
@@ -35,10 +46,10 @@ const MINUTES_IN_TWO_DAYS = 2880;
 /** The reservations API's page-size ceiling; a venue's tables fit in one page. */
 const TABLES_LIMIT = 100;
 
-const AVAILABILITY_PAGE =
+export const AVAILABILITY_PAGE =
   "Tell the user to make this change on the Availability page in the dashboard.";
 
-const ClockSchema = z
+export const ClockSchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a 24-hour venue-local time as HH:MM");
 
@@ -106,7 +117,7 @@ const ChangeTonightInputSchema = z
 type ChangeTonightInput = z.infer<typeof ChangeTonightInputSchema>;
 type TonightRule = Extract<DateRule, { kind: "tonight" }>;
 
-function clockToMinute(clock: string): number {
+export function clockToMinute(clock: string): number {
   const [hours, minutes] = clock.split(":").map(Number);
   return hours! * 60 + minutes!;
 }
@@ -116,14 +127,20 @@ function clockToMinute(clock: string): number {
  * venue's earliest opening belongs to the night that started the day before
  * (01:00 after a late dinner is minute 1500).
  */
-function serviceDayMinute(clock: string, config: AvailabilityConfig): number {
+function serviceDayMinute(clock: string, config: AvailabilityConfig, date: string): number {
   const minute = clockToMinute(clock);
-  const opens = config.scheduleServices.map((s) => s.opensAt);
+  // Every schedule's rows that run on `date`'s weekday, each with that weekday's hours, over all
+  // venue services (archived ones too): not only the schedule that covers `date`. Pre-existing; a
+  // holiday schedule opening earlier than the regular day moves the cutoff for every date.
+  const venueServices = new Map(config.venueServices.map((v) => [v.id, v]));
+  const opens = servicesOn(config.scheduleServices, venueServices, weekdayIndexOf(date)).map(
+    (s) => s.opensAt
+  );
   const earliest = opens.length ? Math.min(...opens) : 0;
   return minute < earliest ? minute + MINUTES_IN_DAY : minute;
 }
 
-function minuteToClock(minute: number): string {
+export function minuteToClock(minute: number): string {
   const wall = minute % MINUTES_IN_DAY;
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(Math.floor(wall / 60))}:${pad(wall % 60)}`;
@@ -175,7 +192,7 @@ function describeRule(
 }
 
 /** `service` as a venue service id, by exact then case-insensitive name. */
-function resolveService(
+export function resolveService(
   config: AvailabilityConfig,
   name: string
 ): { id: string } | { error: string } {
@@ -214,9 +231,10 @@ async function buildChange(
   input: ChangeTonightInput,
   config: AvailabilityConfig,
   api: ApiClient,
-  venueId: string
+  venueId: string,
+  today: string
 ): Promise<{ change: TonightChange } | { error: string }> {
-  const minute = (clock: string) => serviceDayMinute(clock, config);
+  const minute = (clock: string) => serviceDayMinute(clock, config, today);
   const window =
     input.from && input.to ? { from: minute(input.from), to: minute(input.to) } : undefined;
   if (window && window.to <= window.from) {
@@ -257,11 +275,30 @@ async function buildChange(
   }
 }
 
-/** A refused availability write, in words the model can pass on. */
-function availabilityWriteFailure(err: unknown, action: string) {
+const TONIGHT_SAVE_UNSURE = saveUnsure("list_tonight_changes");
+
+/**
+ * The change Undo is offered on. The server names it (`undoable`), because the newest row of a
+ * one-row page is the newest by time, which after a lock-wait race is not the last change. An
+ * older API sends no field, so its newest row stands in.
+ */
+function undoableOf(
+  page: AvailabilityChangesPage
+): { id: string; summary: string; at: string } | null {
+  if (page.undoable !== undefined) return page.undoable;
+  const newest = page.items[0];
+  return newest?.revertible ? newest : null;
+}
+
+/**
+ * A refused availability write, in words the model can pass on. `unsure` is set
+ * once the write is on its way: until then a failure can't have changed anything.
+ */
+function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) {
   const refusal = refusalOf(err);
-  if (!refusal)
-    return { error: `Couldn't ${action} right now. Ask the user to try again shortly.` };
+  if (!refusal) {
+    return { error: unsure ?? `Couldn't ${action} right now. Ask the user to try again shortly.` };
+  }
   const base = { refused: true, ...(refusal.code ? { code: refusal.code } : {}) };
   switch (refusal.code ?? (refusal.status === 403 ? "forbidden" : undefined)) {
     case "decision-required":
@@ -328,14 +365,13 @@ export function createAvailabilityTools(
             const table = tables.find((t) => t.id === id);
             return table?.name ?? table?.tableNumber ?? id;
           };
-          const page = await api.availability.listChanges(venueId, { limit: 1 });
-          const newest = page.items[0];
+          const undoable = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
           return {
             changes: rules.map((rule) => describeRule(rule, serviceName, tableName)),
-            undoable: newest?.revertible ? { summary: newest.summary, at: newest.at } : null,
+            undoable: undoable ? { summary: undoable.summary, at: undoable.at } : null,
           };
         } catch (err) {
-          log.error({ err, venueId }, "list_tonight_changes failed");
+          log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
           return { error: "Couldn't read tonight's availability. Ask the user to try again." };
         }
       },
@@ -347,12 +383,14 @@ export function createAvailabilityTools(
         "Make one Tonight change for the venue's current service day; it ends on its own when the day does. Requires confirmation. For a closure, special hours or a schedule change on another day, point the user to the Availability page instead.",
       inputSchema: ChangeTonightInputSchema,
       execute: async (input) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, change: input.change }, "change_tonight_availability tool called");
+        let unsure: string | undefined;
         try {
           const state = await api.availability.getConfig(venueId);
-          const built = await buildChange(input, state.config, api, venueId);
-          if ("error" in built) return built;
+          const built = await buildChange(input, state.config, api, venueId, todayIn(timeZone));
+          if ("error" in built) return notExecuted(built);
+          unsure = TONIGHT_SAVE_UNSURE;
           const result = await api.availability.setTonight(venueId, {
             expectedVersion: state.version,
             ruleId: randomUUID(),
@@ -365,8 +403,14 @@ export function createAvailabilityTools(
             ...(until ? { until } : {}),
           };
         } catch (err) {
-          log.error({ err, venueId, change: input.change }, "change_tonight_availability failed");
-          return availabilityWriteFailure(err, "make the change");
+          log.error(
+            { ...failureLog(err), venueId, change: input.change },
+            "change_tonight_availability failed"
+          );
+          return failedBeforeWrite(
+            unsure,
+            availabilityWriteFailure(err, "make the change", unsure)
+          );
         }
       },
     }),
@@ -381,8 +425,9 @@ export function createAvailabilityTools(
         ),
       }),
       execute: async ({ change, from }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, change }, "end_tonight_change tool called");
+        let unsure: string | undefined;
         try {
           const { rules } = await readTonight();
           const ofKind = rules.filter((rule) => changeTypeOf(rule) === change);
@@ -392,18 +437,21 @@ export function createAvailabilityTools(
               )
             : ofKind;
           if (matches.length === 0) {
-            return { error: `No ${change.replace(/_/g, " ")} change is in force tonight.` };
+            return notExecuted({
+              error: `No ${change.replace(/_/g, " ")} change is in force tonight.`,
+            });
           }
           if (matches.length > 1) {
-            return {
+            return notExecuted({
               error: `More than one ${change.replace(/_/g, " ")} change is in force. Ask which one, by its start time.`,
-            };
+            });
           }
-          await api.availability.endTonight(venueId, matches[0]!.id);
+          unsure = TONIGHT_SAVE_UNSURE;
+          await api.availability.endTonight(venueId, matches[0]!.id, NO_REPLAY);
           return { ended: true, change };
         } catch (err) {
-          log.error({ err, venueId, change }, "end_tonight_change failed");
-          return availabilityWriteFailure(err, "end the change");
+          log.error({ ...failureLog(err), venueId, change }, "end_tonight_change failed");
+          return failedBeforeWrite(unsure, availabilityWriteFailure(err, "end the change", unsure));
         }
       },
     }),
@@ -415,28 +463,32 @@ export function createAvailabilityTools(
         summary: z.string().min(1).describe("The undoable change's summary, copied exactly"),
       }),
       execute: async ({ summary }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "undo_availability_change tool called");
+        let unsure: string | undefined;
         try {
-          const page = await api.availability.listChanges(venueId, { limit: 1 });
-          const newest = page.items[0];
-          if (!newest?.revertible) {
-            return {
+          const newest = undoableOf(await api.availability.listChanges(venueId, { limit: 1 }));
+          if (!newest) {
+            return notExecuted({
               error: "No availability change can be undone right now. Nothing was changed.",
-            };
+            });
           }
           // The user confirmed this summary: undo only that change, never whatever is newest now.
           if (newest.summary !== summary) {
-            return {
+            return notExecuted({
               error: `The newest change is now "${newest.summary}", not the one confirmed. Nothing was changed; ask the user again.`,
-            };
+            });
           }
           const { version } = await api.availability.getConfig(venueId);
+          unsure = TONIGHT_SAVE_UNSURE;
           await api.availability.revertChange(venueId, newest.id, version);
           return { undone: true, summary };
         } catch (err) {
-          log.error({ err, venueId }, "undo_availability_change failed");
-          return availabilityWriteFailure(err, "undo the change");
+          log.error({ ...failureLog(err), venueId }, "undo_availability_change failed");
+          return failedBeforeWrite(
+            unsure,
+            availabilityWriteFailure(err, "undo the change", unsure)
+          );
         }
       },
     }),

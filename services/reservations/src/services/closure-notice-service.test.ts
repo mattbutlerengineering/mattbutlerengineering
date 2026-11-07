@@ -114,6 +114,40 @@ describe("closure notice service: enqueue", () => {
     expect(scheduler.jobs.map((j) => j.payload.urgent)).toEqual([true, true]);
   });
 
+  describe("a reopen of one date of a range (#7984)", () => {
+    // The removed range runs from today to two weeks out; today is NOW's date in UTC.
+    const range = { startsOn: "2026-12-24", endsOn: "2027-01-07", weekdays: null, from: null };
+    const urgentFor = async (date: string | undefined) => {
+      const scheduler = fakeScheduler();
+      const service = createClosureNoticeService({
+        scheduler: scheduler as never,
+        store: {
+          loadClosureWindow: async () => ({ ...range, timezone: "UTC" }),
+          listNotifiable: async () => [{ outcomeId: "o0" }],
+        } as never,
+      });
+      await service.enqueueForReopen({
+        venueId: "v1",
+        ruleId: "r1",
+        now: new Date("2026-12-24T20:00:00.000Z"),
+        ...(date ? { date } : {}),
+      });
+      return scheduler.jobs[0]!.payload.urgent;
+    };
+
+    it("judges urgency by the reopened date, not by the range it was cut from", async () => {
+      expect(await urgentFor("2027-01-02")).toBe(false);
+    });
+
+    it("still judges a reopen of the whole range by its first date", async () => {
+      expect(await urgentFor(undefined)).toBe(true);
+    });
+
+    it("is urgent when the reopened date is today", async () => {
+      expect(await urgentFor("2026-12-24")).toBe(true);
+    });
+  });
+
   describe("a repeating closure that started in the past", () => {
     // NOW is Thursday 2026-12-24 15:00 UTC.
     const urgentFor = async (weekdays: number[], from: number | null) => {
@@ -291,6 +325,8 @@ describe("closure notices settle within 2 minutes (time-advanced)", () => {
     timezone: "UTC",
     venueId: "v1",
     reservationId: `res-${id}`,
+    originHost: null,
+    locale: "en-US",
   });
 
   /** A worker honouring the queue's attempts + exponential backoff against the fake clock. */

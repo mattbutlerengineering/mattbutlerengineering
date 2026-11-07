@@ -1,8 +1,17 @@
 import { describe, it, expect, vi } from "vitest";
 import { ApiClientError } from "@mbe/api-client";
-import type { CreateVenueRequest, Venue, FloorPlan, FloorPlanSection, Table } from "@mbe/types";
+import type {
+  AvailabilityConfig,
+  CreateVenueRequest,
+  Venue,
+  FloorPlan,
+  FloorPlanSection,
+  Table,
+} from "@mbe/types";
 import type { DraftTable, FloorPlanDraft } from "./floor-plan-draft.js";
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from "../floor-plan/floor-plan-geometry.js";
+import { draftService } from "../availability/quick-setup-demo.fixture.js";
+import type { QuickSetupDraft } from "../availability/quick-setup-draft.js";
 import {
   DEFAULT_LAYOUT,
   INITIAL_LAUNCH_PROGRESS,
@@ -14,6 +23,41 @@ import {
   runLaunchSequence,
 } from "./launch-sequence.js";
 import type { LaunchApi, LaunchProgress, LaunchStageId } from "./launch-sequence.js";
+
+/** The hours step's answer: Dinner Mon–Fri, last seating 9:15 PM, closing at 10. */
+const HOURS: QuickSetupDraft = {
+  days: [1, 2, 3, 4, 5],
+  services: [draftService("onboarding-service-1", "Dinner", ["17:00", "21:15", "22:00"])],
+};
+
+/** What a venue created with the legacy projection of HOURS serves on its first read. */
+const DERIVED_CONFIG: AvailabilityConfig = {
+  schedules: [{ id: "venue-1-legacy-2", name: "Regular week", kind: "regular", isRegular: true }],
+  venueServices: [{ id: "venue-1-legacy-1", name: "Service", position: 0 }],
+  scheduleServices: [
+    {
+      id: "venue-1-legacy-3",
+      scheduleId: "venue-1-legacy-2",
+      venueServiceId: "venue-1-legacy-1",
+      opensAt: 1020,
+      lastSeatingAt: 1230,
+      closesAt: 1320,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+    },
+  ],
+  assignments: [
+    {
+      id: "venue-1-legacy-4",
+      scheduleId: "venue-1-legacy-2",
+      weekdays: [1, 2, 3, 4, 5],
+      precedence: 0,
+    },
+  ],
+  dateRules: [],
+};
 
 const DUPLICATE_DETAIL = "A table with this name already exists";
 
@@ -168,6 +212,16 @@ function makeFakeApi(callLog: string[] = []): LaunchApi & { callLog: string[] } 
         return makeVenue();
       }),
     },
+    availability: {
+      getConfig: vi.fn(async () => {
+        callLog.push("availability.getConfig");
+        return { config: DERIVED_CONFIG, version: 0, source: "legacy" as const };
+      }),
+      saveConfig: vi.fn(async () => {
+        callLog.push("availability.saveConfig");
+        return { version: 1, changeId: "change-1" };
+      }),
+    },
     floorPlans: {
       create: vi.fn(async () => {
         callLog.push("floorPlans.create");
@@ -250,12 +304,17 @@ describe("launch-sequence", () => {
   });
 
   describe("stagesFor", () => {
-    it("returns all four stages for a non-empty draft", () => {
-      expect(stagesFor(makeDraft())).toEqual(["venue", "floorPlan", "tables", "activate"]);
+    it("returns all five stages for a non-empty draft", () => {
+      expect(stagesFor(makeDraft())).toEqual(["venue", "hours", "floorPlan", "tables", "activate"]);
     });
 
     it("omits tables at N = 0", () => {
-      expect(stagesFor(makeDraft({ tables: [] }))).toEqual(["venue", "floorPlan", "activate"]);
+      expect(stagesFor(makeDraft({ tables: [] }))).toEqual([
+        "venue",
+        "hours",
+        "floorPlan",
+        "activate",
+      ]);
     });
   });
 
@@ -264,9 +323,12 @@ describe("launch-sequence", () => {
       expect(nextStage(INITIAL_LAUNCH_PROGRESS, makeDraft())).toBe("venue");
     });
 
-    it("returns null once every stage is complete", () => {
+    it("returns hours once the venue exists, and null once every stage is complete", () => {
+      const created: LaunchProgress = { ...INITIAL_LAUNCH_PROGRESS, venueId: "v1" };
+      expect(nextStage(created, makeDraft())).toBe("hours");
       const done: LaunchProgress = {
         venueId: "v1",
+        hoursSaved: true,
         floorPlanId: "fp1",
         sectionsDone: true,
         createdTableNames: ["T1", "T2", "T3"],
@@ -282,6 +344,7 @@ describe("launch-sequence", () => {
       const afterFloorPlan: LaunchProgress = {
         ...INITIAL_LAUNCH_PROGRESS,
         venueId: "v1",
+        hoursSaved: true,
         floorPlanId: "fp1",
         sectionsDone: true,
       };
@@ -325,21 +388,24 @@ describe("launch-sequence", () => {
       expect(stageStateOf(progress, "tables")).not.toBe("failed");
     });
 
-    it("is done per the completion table for venue/floorPlan/activate", () => {
+    it("is done per the completion table for venue/hours/floorPlan/activate", () => {
       const progress: LaunchProgress = {
         ...INITIAL_LAUNCH_PROGRESS,
         venueId: "v1",
+        hoursSaved: true,
         floorPlanId: "fp1",
         sectionsDone: true,
         activated: true,
       };
       expect(stageStateOf(progress, "venue")).toBe("done");
+      expect(stageStateOf(progress, "hours")).toBe("done");
       expect(stageStateOf(progress, "floorPlan")).toBe("done");
       expect(stageStateOf(progress, "activate")).toBe("done");
     });
 
     it("is pending otherwise", () => {
       expect(stageStateOf(INITIAL_LAUNCH_PROGRESS, "venue")).toBe("pending");
+      expect(stageStateOf(INITIAL_LAUNCH_PROGRESS, "hours")).toBe("pending");
       expect(stageStateOf(INITIAL_LAUNCH_PROGRESS, "floorPlan")).toBe("pending");
       expect(stageStateOf(INITIAL_LAUNCH_PROGRESS, "tables")).toBe("pending");
       expect(stageStateOf(INITIAL_LAUNCH_PROGRESS, "activate")).toBe("pending");
@@ -399,11 +465,14 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        onProgress
+        onProgress,
+        HOURS
       );
 
       expect(api.callLog).toEqual([
         "venues.create",
+        "availability.getConfig",
+        "availability.saveConfig",
         "floorPlans.create",
         "tables.create:T1",
         "tables.create:T2",
@@ -434,7 +503,8 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        onProgress
+        onProgress,
+        HOURS
       );
 
       // Flush the microtask queue without resolving api.venues.create — the
@@ -453,7 +523,7 @@ describe("launch-sequence", () => {
       const api = makeFakeApi();
       const draft = makeDraft({ planName: "Patio" });
 
-      await runLaunchSequence(api, draft, VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn());
+      await runLaunchSequence(api, draft, VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn(), HOURS);
 
       expect(api.floorPlans.create).toHaveBeenCalledWith({
         venueId: "venue-1",
@@ -465,7 +535,14 @@ describe("launch-sequence", () => {
     it("makes no section calls at all for a draft that names no zones", async () => {
       const api = makeFakeApi();
 
-      await runLaunchSequence(api, makeDraft(), VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn());
+      await runLaunchSequence(
+        api,
+        makeDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn(),
+        HOURS
+      );
 
       expect(api.floorPlanSections.list).not.toHaveBeenCalled();
       expect(api.floorPlanSections.create).not.toHaveBeenCalled();
@@ -481,7 +558,8 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(api.tables.create).not.toHaveBeenCalled();
@@ -499,7 +577,8 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(result.failedStage).toBe("venue");
@@ -518,7 +597,8 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(result.failedStage).toBe("floorPlan");
@@ -542,7 +622,8 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(result.failedStage).toBe("tables");
@@ -561,7 +642,8 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(result.failedStage).toBe("activate");
@@ -589,7 +671,8 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(result.failedStage).toBeNull();
@@ -612,12 +695,13 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
       expect(first.failedStage).toBe("venue");
       expect(first.venueId).toBeNull();
 
-      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn());
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn(), HOURS);
 
       expect(venuesCreateMock).toHaveBeenCalledTimes(2);
       expect(second.failedStage).toBeNull();
@@ -640,17 +724,98 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
       expect(first.failedStage).toBe("floorPlan");
       expect(first.venueId).toBe("venue-1");
 
-      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn());
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn(), HOURS);
 
       expect(api.venues.create).toHaveBeenCalledTimes(1);
       expect(floorPlansCreateMock).toHaveBeenCalledTimes(2);
       expect(second.failedStage).toBeNull();
       expect(second.floorPlanId).toBe("floor-plan-1");
+    });
+
+    // The hours step's services, saved over the one-window projection the venue was created
+    // with: the Manager typed "Dinner" with its own last seating, and that is what launches.
+    it("saves the hours step's services as the regular week, against the version it read", async () => {
+      const api = makeFakeApi();
+
+      const result = await runLaunchSequence(
+        api,
+        makeDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn(),
+        HOURS
+      );
+
+      expect(result.hoursSaved).toBe(true);
+      expect(api.availability.getConfig).toHaveBeenCalledWith("venue-1");
+      const [venueId, body] = vi.mocked(api.availability.saveConfig).mock.calls[0]!;
+      expect(venueId).toBe("venue-1");
+      expect(body.expectedVersion).toBe(0);
+      const rows = body.changes.upsert.scheduleServices ?? [];
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toMatchObject({
+        scheduleId: "venue-1-legacy-2",
+        opensAt: 17 * 60,
+        lastSeatingAt: 21 * 60 + 15,
+        closesAt: 22 * 60,
+      });
+      expect(body.changes.upsert.venueServices?.map((s) => s.name)).toEqual(["Dinner"]);
+      expect(body.changes.remove.scheduleServices).toEqual(["venue-1-legacy-3"]);
+      expect(body.changes.remove.venueServices).toEqual(["venue-1-legacy-1"]);
+    });
+
+    it("stops at an hours failure after the venue exists, before the floor plan", async () => {
+      const api = makeFakeApi();
+      api.availability.saveConfig = vi.fn().mockRejectedValue(new Error("Could not reach service"));
+
+      const result = await runLaunchSequence(
+        api,
+        makeDraft(),
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn(),
+        HOURS
+      );
+
+      expect(result.failedStage).toBe("hours");
+      expect(result.errorMessage).toBe("Could not reach service");
+      expect(result.venueId).toBe("venue-1");
+      expect(result.hoursSaved).toBeUndefined();
+      expect(api.floorPlans.create).not.toHaveBeenCalled();
+    });
+
+    it("resumes from an hours failure by reading the config again, without re-posting the venue", async () => {
+      const api = makeFakeApi();
+      api.availability.saveConfig = vi
+        .fn()
+        .mockRejectedValueOnce(new Error("Timed out"))
+        .mockResolvedValueOnce({ version: 1, changeId: "change-1" });
+      const draft = makeDraft();
+
+      const first = await runLaunchSequence(
+        api,
+        draft,
+        VENUE_PAYLOAD,
+        INITIAL_LAUNCH_PROGRESS,
+        vi.fn(),
+        HOURS
+      );
+      expect(first.failedStage).toBe("hours");
+
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn(), HOURS);
+
+      expect(api.venues.create).toHaveBeenCalledTimes(1);
+      expect(api.availability.getConfig).toHaveBeenCalledTimes(2);
+      expect(api.availability.saveConfig).toHaveBeenCalledTimes(2);
+      expect(second.hoursSaved).toBe(true);
+      expect(second.failedStage).toBeNull();
+      expect(second.activated).toBe(true);
     });
 
     it("resumes from a table failure starting at the first uncreated table", async () => {
@@ -669,7 +834,8 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
       expect(first.failedStage).toBe("tables");
       expect(first.createdTableNames).toEqual(["T1"]);
@@ -679,7 +845,7 @@ describe("launch-sequence", () => {
         return makeTable(data.name);
       });
 
-      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn());
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn(), HOURS);
 
       expect(api.tables.create).toHaveBeenCalledTimes(2);
       expect(api.tables.create).toHaveBeenNthCalledWith(1, expect.objectContaining({ name: "T2" }));
@@ -698,11 +864,12 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
       expect(first.failedStage).toBe("activate");
 
-      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn());
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn(), HOURS);
 
       expect(api.venues.create).toHaveBeenCalledTimes(1);
       expect(api.floorPlans.create).toHaveBeenCalledTimes(1);
@@ -721,7 +888,7 @@ describe("launch-sequence", () => {
       const api = makeFakeApi();
       const draft = makeRoomDraft({ planName: "Dining Room" });
 
-      await runLaunchSequence(api, draft, VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn());
+      await runLaunchSequence(api, draft, VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn(), HOURS);
 
       expect(api.floorPlans.create).toHaveBeenCalledWith({
         venueId: "venue-1",
@@ -740,7 +907,7 @@ describe("launch-sequence", () => {
       const api = makeFakeApi();
       const draft = makeRoomDraft();
 
-      await runLaunchSequence(api, draft, VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn());
+      await runLaunchSequence(api, draft, VENUE_PAYLOAD, INITIAL_LAUNCH_PROGRESS, vi.fn(), HOURS);
 
       expect(api.floorPlanSections.create).toHaveBeenCalledTimes(2);
       expect(api.floorPlanSections.create).toHaveBeenNthCalledWith(1, "venue-1", {
@@ -773,11 +940,14 @@ describe("launch-sequence", () => {
         makeRoomDraft(),
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(api.callLog).toEqual([
         "venues.create",
+        "availability.getConfig",
+        "availability.saveConfig",
         "floorPlans.create",
         "floorPlanSections.list",
         "floorPlanSections.create:Main Dining",
@@ -801,7 +971,8 @@ describe("launch-sequence", () => {
         makeRoomDraft(),
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(progress.failedStage).toBe("floorPlan");
@@ -830,9 +1001,10 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
-      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn());
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn(), HOURS);
 
       expect(api.floorPlans.create).toHaveBeenCalledTimes(1);
       expect(second.sectionsDone).toBe(true);
@@ -849,7 +1021,8 @@ describe("launch-sequence", () => {
         makeRoomDraft(),
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(api.floorPlanSections.create).toHaveBeenCalledTimes(1);
@@ -880,7 +1053,8 @@ describe("launch-sequence", () => {
         makeMemberDraft(),
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(api.floorPlanSections.assignTables).toHaveBeenCalledTimes(2);
@@ -906,7 +1080,8 @@ describe("launch-sequence", () => {
         makeRoomDraft(),
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
 
       expect(api.tables.list).not.toHaveBeenCalled();
@@ -933,12 +1108,13 @@ describe("launch-sequence", () => {
         draft,
         VENUE_PAYLOAD,
         INITIAL_LAUNCH_PROGRESS,
-        vi.fn()
+        vi.fn(),
+        HOURS
       );
       expect(first.failedStage).toBe("tables");
       expect(nextStage(first, draft)).toBe("tables");
 
-      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn());
+      const second = await runLaunchSequence(api, draft, VENUE_PAYLOAD, first, vi.fn(), HOURS);
 
       expect(second.failedStage).toBeNull();
       expect(second.activated).toBe(true);

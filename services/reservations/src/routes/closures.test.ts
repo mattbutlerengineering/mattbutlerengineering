@@ -3,12 +3,16 @@ import type { FastifyInstance } from "fastify";
 import {
   AVAILABILITY_CONFIG_PREFIX,
   AvailabilityConfigProblemSchema,
+  ClosureNoticePreviewSchema,
   ClosureResultSchema,
   ClosuresResultSchema,
   ClosureSummariesSchema,
   ReopenResultSchema,
+  type CreateClosureBody,
+  type DateRule,
 } from "@mbe/types";
 import { buildApp } from "../app.js";
+import { checkAlongside, seriesChangedSinceRead } from "../services/closure-alongside.js";
 import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
 import { jwtVerify } from "jose";
 
@@ -103,6 +107,61 @@ describe("closure routes", () => {
       );
     });
 
+    describe("a series edit of rows with no guest message or staff note (#8028)", () => {
+      // GET answers these as null; Ajv coerces a null in the body to "", so the stored row and the
+      // row the command receives must still compare equal.
+      const text = { guestMessage: null, staffNote: null };
+      const series = {
+        id: "s1",
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: "2026-12-01",
+        endsOn: null,
+        repeat: { version: 1, weekdays: [4] },
+        ...text,
+      };
+      const skip = {
+        id: "k1",
+        kind: "skip",
+        targetKind: "venue",
+        startsOn: "2026-12-03",
+        endsOn: "2026-12-03",
+        seriesId: "s1",
+        ...text,
+      };
+      const draft = { ...series, id: "s2", repeat: { version: 1, weekdays: [4, 5] } };
+      const stored = [series, skip] as DateRule[];
+
+      /** What the command receives after the route's real validation. */
+      const received = async (alongside: unknown) => {
+        commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+        const res = await post({ expectedVersion: 4, rule: draft, alongside, decisions: [] });
+        expect(res.statusCode).toBe(200);
+        return commandSvc.create.mock.calls[0]![0].body as CreateClosureBody;
+      };
+      const moved = { ...skip, seriesId: "s2" };
+
+      it.each([
+        ["names the series it replaces", { replaces: series }],
+        ["is from an older client that names none", {}],
+      ])("accepts a remove-path edit that %s", async (_name, extra) => {
+        const body = await received({ upsert: [moved], remove: ["s1"], ...extra });
+        expect(seriesChangedSinceRead(stored, body.rule, body.alongside!)).toBe(false);
+        expect(checkAlongside(stored, body.rule, body.alongside!)).toBeNull();
+      });
+
+      it("accepts a this-and-following edit, which ends the series", async () => {
+        const ended = { ...series, endsOn: "2026-12-09" };
+        const body = await received({ upsert: [ended, moved], remove: [] });
+        expect(checkAlongside(stored, body.rule, body.alongside!)).toBeNull();
+      });
+
+      it("accepts moving a skip beside a series that is removed", async () => {
+        const body = await received({ upsert: [moved], remove: ["s1"] });
+        expect(checkAlongside(stored, body.rule, body.alongside!)).toBeNull();
+      });
+    });
+
     it("enqueues the notices for the saved closure, replays included", async () => {
       commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
       await post();
@@ -132,7 +191,7 @@ describe("closure routes", () => {
 
       await post();
 
-      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new");
+      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new", []);
     });
 
     it("still answers 200 when enqueueing fails; the outcomes stay pending for a retry", async () => {
@@ -230,7 +289,7 @@ describe("closure routes", () => {
       );
       // Only the item that cancelled bookings owes a refund job.
       expect(closureRefunds.enqueue).toHaveBeenCalledTimes(1);
-      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new");
+      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new", []);
     });
 
     it("enqueues nothing for a refusal", async () => {
@@ -402,6 +461,143 @@ describe("closure routes", () => {
       );
     });
 
+    describe("one date of a range (#7984)", () => {
+      it("hands the date to the store through Ajv, and refuses one that is not a date", async () => {
+        commandSvc.reopen.mockResolvedValue({
+          kind: "reopened",
+          result: { version: 6, changeId: "chg-2" },
+        });
+        const seen = { rule, children: [] };
+
+        await del({ tellCancelledGuests: false, seen, date: "2026-12-26" });
+        expect(commandSvc.reopen).toHaveBeenLastCalledWith(
+          expect.objectContaining({ date: "2026-12-26", seen })
+        );
+
+        commandSvc.reopen.mockClear();
+        const bad = await del({ tellCancelledGuests: false, seen, date: "Dec 26" });
+        expect(bad.statusCode).toBe(400);
+        expect(commandSvc.reopen).not.toHaveBeenCalled();
+        commandSvc.reopen.mockReset();
+      });
+
+      it("tells the notice step which date was reopened, so urgency is that date's", async () => {
+        noticeSvc.enqueueForReopen.mockClear();
+        commandSvc.reopen.mockResolvedValueOnce({
+          kind: "reopened",
+          result: { version: 6, changeId: "chg-2" },
+        });
+        await del({
+          tellCancelledGuests: true,
+          seen: { rule, children: [] },
+          date: "2026-12-26",
+        });
+        expect(noticeSvc.enqueueForReopen).toHaveBeenCalledWith(
+          expect.objectContaining({ ruleId: "dr-new", date: "2026-12-26" })
+        );
+      });
+
+      it("hands an impossible date through Ajv to the store, which refuses it", async () => {
+        commandSvc.reopen.mockResolvedValueOnce({
+          kind: "invalid",
+          issues: [{ path: "date", code: "invalid_date", message: "Not on the calendar." }],
+        });
+        const res = await del({
+          tellCancelledGuests: false,
+          seen: { rule, children: [] },
+          date: "2027-02-31",
+        });
+        // The date schema is a pattern, so Ajv cannot tell: the store is the one that refuses.
+        expect(commandSvc.reopen).toHaveBeenLastCalledWith(
+          expect.objectContaining({ date: "2027-02-31" })
+        );
+        expect(res.statusCode).toBe(422);
+      });
+
+      it("answers an invalid split as 422 invalid-config naming the issue", async () => {
+        commandSvc.reopen.mockResolvedValueOnce({
+          kind: "invalid",
+          issues: [{ path: "date", code: "invalid_date", message: "Not one of its dates." }],
+        });
+        const res = await del({
+          tellCancelledGuests: false,
+          seen: { rule, children: [] },
+          date: "2027-01-02",
+        });
+        expect(res.statusCode).toBe(422);
+        expect(res.json()).toMatchObject({
+          code: "invalid-config",
+          issues: [{ path: "date", code: "invalid_date" }],
+        });
+      });
+    });
+
+    describe("what the caller saw of the rule (#8121)", () => {
+      const seen = { rule, children: [] };
+
+      it("hands the rule and children it saw to the store, and nothing when it sent none", async () => {
+        commandSvc.reopen.mockResolvedValue({
+          kind: "reopened",
+          result: { version: 6, changeId: "chg-2" },
+        });
+
+        await del({ tellCancelledGuests: false, seen });
+        expect(commandSvc.reopen).toHaveBeenLastCalledWith(expect.objectContaining({ seen }));
+
+        await del({ tellCancelledGuests: false });
+        expect(commandSvc.reopen.mock.lastCall?.[0].seen).toBeUndefined();
+        commandSvc.reopen.mockReset();
+      });
+
+      it("accepts null messages through Ajv, which hands them on as empty strings", async () => {
+        commandSvc.reopen.mockResolvedValueOnce({
+          kind: "reopened",
+          result: { version: 6, changeId: "chg-2" },
+        });
+
+        const response = await del({
+          tellCancelledGuests: false,
+          seen: { rule: { ...rule, guestMessage: null, staffNote: null }, children: [] },
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(commandSvc.reopen.mock.lastCall?.[0].seen.rule).toMatchObject({
+          guestMessage: "",
+          staffNote: "",
+        });
+      });
+
+      it("refuses a seen that is not a rule row, before the store", async () => {
+        commandSvc.reopen.mockClear();
+
+        const response = await del({ tellCancelledGuests: false, seen: { rule: { id: "x" } } });
+
+        expect(response.statusCode).toBe(400);
+        expect(commandSvc.reopen).not.toHaveBeenCalled();
+      });
+
+      it("409s a changed rule as a version conflict naming the change, and tells no guest", async () => {
+        noticeSvc.enqueueForReopen.mockClear();
+        const winningChange = {
+          id: "chg-9",
+          actorId: "auth0|ana",
+          at: "2026-11-01T12:00:00.000Z",
+          kind: "closure",
+          summary: "Closure extended",
+        };
+        commandSvc.reopen.mockResolvedValueOnce({ kind: "version_conflict", winningChange });
+
+        const response = await del({ tellCancelledGuests: true, seen });
+
+        expect(response.statusCode).toBe(409);
+        expect(AvailabilityConfigProblemSchema.parse(response.json())).toMatchObject({
+          code: "version-conflict",
+          winningChange,
+        });
+        expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
+      });
+    });
+
     it("enqueues reopen notices only when the Manager chose to tell cancelled guests", async () => {
       const reopened = { kind: "reopened", result: { version: 6, changeId: "chg-2" } };
       commandSvc.reopen.mockResolvedValueOnce(reopened);
@@ -415,6 +611,31 @@ describe("closure routes", () => {
       expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
     });
 
+    it("tells no guest to rebook when another closure keeps every date closed (#8006)", async () => {
+      noticeSvc.enqueueForReopen.mockClear();
+      const stillClosed = {
+        everyDate: true,
+        by: [
+          {
+            ruleId: "other",
+            targetKind: "venue",
+            startsOn: "2026-12-24",
+            endsOn: "2026-12-24",
+            dates: ["2026-12-24"],
+          },
+        ],
+      };
+      commandSvc.reopen.mockResolvedValueOnce({
+        kind: "reopened",
+        result: { version: 6, changeId: "chg-2", notified: 0, stillClosed },
+      });
+
+      const response = await del({ tellCancelledGuests: true });
+
+      expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
+      expect(response.json().data.stillClosed).toEqual(stillClosed);
+    });
+
     it("404s an unknown closure and 403s a Host outside the limits", async () => {
       commandSvc.reopen.mockResolvedValueOnce({ kind: "not_found" });
       expect((await del()).statusCode).toBe(404);
@@ -422,8 +643,203 @@ describe("closure routes", () => {
       expect((await del()).statusCode).toBe(403);
     });
 
+    it("422s a reopen that would leave bookings without service, and sends no notices (#7975)", async () => {
+      commandSvc.reopen.mockResolvedValueOnce({
+        kind: "invalid",
+        issues: [{ path: "reservations.r1", code: "strands_booking", message: "no service" }],
+      });
+      noticeSvc.enqueueForReopen.mockClear();
+
+      const res = await del();
+
+      expect(res.statusCode).toBe(422);
+      expect(res.json()).toMatchObject({
+        code: "invalid-config",
+        issues: [{ path: "reservations.r1", code: "strands_booking" }],
+      });
+      expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
+    });
+
+    it("sends each stranded booking on its issue, and no guest name reaches a log (#8043)", async () => {
+      const lines: string[] = [];
+      const logged = await buildApp({
+        logger: { level: "trace", stream: { write: (line: string) => void lines.push(line) } },
+        services: {
+          closureCommandService: commandSvc as never,
+          closureNoticeService: noticeSvc as never,
+        },
+        closureRefunds,
+      });
+      await logged.ready();
+      const reservation = {
+        id: "r1",
+        startTime: "2026-12-25T03:00:00.000Z",
+        partySize: 4,
+        reason: "closed",
+        guestName: "Okafor-Zielinski",
+        serviceDate: "2026-12-24",
+      };
+      commandSvc.reopen.mockResolvedValueOnce({
+        kind: "invalid",
+        issues: [
+          { path: "reservations.r1", code: "strands_booking", message: "no service", reservation },
+        ],
+      });
+
+      const res = await logged.inject({
+        method: "DELETE",
+        url: `${URL}/dr-1`,
+        headers: ADMIN,
+        payload: { tellCancelledGuests: false },
+      });
+      await logged.close();
+
+      expect(res.statusCode).toBe(422);
+      expect(AvailabilityConfigProblemSchema.parse(res.json()).issues?.[0]?.reservation).toEqual(
+        reservation
+      );
+      expect(lines.length).toBeGreaterThan(0);
+      expect(lines.join("")).not.toContain("Okafor-Zielinski");
+    });
+
     it("rejects a body without tellCancelledGuests", async () => {
       expect((await del({})).statusCode).toBe(400);
+    });
+  });
+
+  describe("POST /closures/notice-preview", () => {
+    const venueSvc = { getById: vi.fn() };
+    const PREVIEW = `${URL}/notice-preview`;
+    const body = {
+      action: "cancel",
+      closureDate: "2026-12-24",
+      startTime: "2026-12-25T02:30:00.000Z",
+      partySize: 4,
+      guestName: "Okafor-Zielinski",
+      message: "Closed for a private event",
+      refund: { amountCents: 4000, currency: "usd" },
+    };
+    let previewApp: FastifyInstance;
+    const lines: string[] = [];
+
+    beforeEach(async () => {
+      lines.length = 0;
+      venueSvc.getById.mockResolvedValue({
+        name: "Rivera Bistro",
+        ianaTimezone: "America/Los_Angeles",
+      });
+      previewApp = await buildApp({
+        logger: { level: "trace", stream: { write: (line: string) => void lines.push(line) } },
+        services: {
+          closureCommandService: commandSvc as never,
+          closureNoticeService: noticeSvc as never,
+          venueService: venueSvc as never,
+        },
+        closureRefunds,
+      });
+      await previewApp.ready();
+    });
+
+    afterEach(async () => {
+      await previewApp.close();
+    });
+
+    const post = (payload: unknown = body) =>
+      previewApp.inject({
+        method: "POST",
+        url: PREVIEW,
+        headers: ADMIN,
+        payload: payload as object,
+      });
+
+    it("answers with the notice the job would send, in the venue's name and zone", async () => {
+      const res = await post();
+
+      expect(res.statusCode).toBe(200);
+      const data = ClosureNoticePreviewSchema.parse(res.json().data);
+      expect(data.sms).toContain("Rivera Bistro is closed Thu Dec 24");
+      expect(data.sms).toContain("6:30 PM table for 4 is cancelled");
+      expect(data.email.text).toContain("Hi Okafor-Zielinski,");
+      expect(data.email.text).toContain("Closed for a private event");
+      expect(venueSvc.getById).toHaveBeenCalledWith("venue-1");
+    });
+
+    it("takes a booking with no name, no message and no deposit (null survives Ajv)", async () => {
+      const res = await post({ ...body, guestName: null, message: null, refund: null });
+
+      expect(res.statusCode).toBe(200);
+      const text = res.json().data.email.text as string;
+      expect(text).not.toContain("Hi ");
+      expect(text).not.toContain("deposit");
+    });
+
+    // #8131: the impact's deposit is the estimate of what is still owed and can be 0 (a refund
+    // already made in the Stripe dashboard). The preview must say nothing of a refund then, as the
+    // notice the job sends does.
+    it("says nothing of a refund when the estimate is 0, as the notice does", async () => {
+      const res = await post({ ...body, refund: { amountCents: 0, currency: "usd" } });
+
+      expect(res.statusCode).toBe(200);
+      const data = ClosureNoticePreviewSchema.parse(res.json().data);
+      expect(data.email.text).not.toContain("deposit");
+      expect(data.email.text).not.toContain("$0");
+      expect(data.sms).not.toContain("deposit");
+      expect(data.sms).not.toContain("$0");
+      const withRefund = await post();
+      expect(withRefund.json().data.sms).toContain("$40 deposit will be refunded");
+    });
+
+    it("sends from, and links to, the brand of the host the booking came from (#8013)", async () => {
+      const eat = await post({ ...body, originHost: "eat-sheet.com" });
+      const home = await post({ ...body, originHost: null });
+      const none = await post(body);
+
+      expect(eat.statusCode).toBe(200);
+      expect(eat.json().data.email.from).toMatch(/^eat-sheet <.+@.+>$/);
+      expect(home.json().data.email.from).toMatch(/^Matt Butler Engineering|^[^<]+@/);
+      expect(home.json().data.email.from).not.toContain("eat-sheet");
+      expect(none.json().data.email.from).toBe(home.json().data.email.from);
+    });
+
+    it("words the preview in the language the booking was made in (#8388)", async () => {
+      const fr = (await post({ ...body, locale: "fr-CA" })).json().data;
+      const none = (await post(body)).json().data;
+
+      expect(fr.email.subject).toContain("est annulée");
+      expect(fr.sms).toContain("[le lien propre au client]");
+      expect(none.email.subject).toContain("is cancelled");
+      expect((await post({ ...body, locale: "en-GB" })).statusCode).toBe(400);
+    });
+
+    it("refuses a host outside the allowlist, and a currency Intl cannot format", async () => {
+      expect((await post({ ...body, originHost: "evil.example" })).statusCode).toBe(400);
+      expect(
+        (await post({ ...body, refund: { amountCents: 4000, currency: "$$$" } })).statusCode
+      ).toBe(400);
+      expect(
+        (await post({ ...body, refund: { amountCents: 4000, currency: "us" } })).statusCode
+      ).toBe(400);
+    });
+
+    it("drops a long venue message from a kept notice's text as the real, longer link makes it (#7983)", async () => {
+      const message = "m".repeat(150);
+      const res = await post({ ...body, action: "keep_notify", refund: null, message });
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data.sms).not.toContain(message);
+      expect(res.json().data.sms).toContain("[the guest's own link]");
+    });
+
+    it("404s an unknown venue and 400s an unknown action", async () => {
+      venueSvc.getById.mockResolvedValueOnce(null);
+      expect((await post()).statusCode).toBe(404);
+      expect((await post({ ...body, action: "keep_silent" })).statusCode).toBe(400);
+    });
+
+    it("keeps the guest's name out of every log line (#8099)", async () => {
+      await post();
+      expect(lines.length).toBeGreaterThan(0);
+      expect(lines.join("")).not.toContain("Okafor-Zielinski");
     });
   });
 });

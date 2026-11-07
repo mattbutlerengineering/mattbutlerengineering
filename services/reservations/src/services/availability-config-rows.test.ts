@@ -89,6 +89,8 @@ const ssvc = (id: string) =>
     closesAt: "23:00",
     seating: { a: 1 },
     bookingTypes: [],
+    weekdays: [],
+    dayHours: { version: 1, sets: [] },
   }) as never;
 const asg = (id: string) =>
   ({ id, scheduleId: "s", weekdays: [1], startsOn: null, endsOn: null, precedence: 0 }) as never;
@@ -194,6 +196,34 @@ describe("writeConfigDiff ordering", () => {
       "dateRule.update",
       "dateRuleTable.deleteMany",
     ]);
+  });
+
+  it("writes the day scope columns on create and update", async () => {
+    const db = makeDb();
+    const diff = emptyDiff();
+    const sets = [
+      {
+        weekdays: [4, 5],
+        opensAt: "17:00",
+        lastSeatingAt: "22:00",
+        closesAt: "24:00",
+        seating: { a: 1 },
+        bookingTypes: [],
+      },
+    ];
+    const scoped = {
+      ...(ssvc("scoped") as object),
+      weekdays: [1, 2, 3, 4, 5],
+      dayHours: { version: 1, sets },
+    } as never;
+    diff.create.scheduleServices = [scoped];
+    diff.update.scheduleServices = [scoped];
+
+    await writeConfigDiff(asDb(db), "venue-1", diff, ctx);
+
+    const expected = { weekdays: [1, 2, 3, 4, 5], dayHours: { version: 1, sets } };
+    expect(db.scheduleService.create.mock.calls[0]![0]).toMatchObject({ data: expected });
+    expect(db.scheduleService.update.mock.calls[0]![0]).toMatchObject({ data: expected });
   });
 
   it("applies schedule demotions before promotions", async () => {

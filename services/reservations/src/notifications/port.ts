@@ -19,12 +19,19 @@ export interface BookingNotificationInput {
   updatedAt?: string;
   /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
   sequence?: number;
+  /**
+   * The host the guest booked on (#7892) — `null`/absent keeps the
+   * mattbutlerengineering.com brand and from-address.
+   */
+  originHost?: string | null;
 }
 
 export interface WinBackNotificationInput {
   guestName: string;
   guestEmail: string;
   venueName: string;
+  /** Sent to the provider so a retried call for the same claim delivers once. */
+  idempotencyKey?: string;
 }
 
 export interface ThankYouEmailInput {
@@ -40,6 +47,8 @@ export interface ClosureEmailInput {
   to: string;
   subject: string;
   html: string;
+  /** The host the guest booked on (#7892) — `null`/absent keeps the mattbutlerengineering.com brand. */
+  originHost?: string | null;
 }
 
 export interface NotificationPort {

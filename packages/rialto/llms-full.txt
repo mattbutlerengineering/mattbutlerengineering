@@ -694,6 +694,9 @@
       },
     } satisfies CatalogMeta;
   </file>
+  <file path="src/components/Dialog/DialogLayerContext.ts">
+    export const DialogLayerContext = createContext<HTMLElement | null>(null);
+  </file>
   </section>
   <section priority="medium" role="Divider">
   <file path="src/components/Divider/Divider.catalog.ts">
@@ -877,7 +880,7 @@
         autoStart = true,
       } = options;
     
-      const empty = createEmptyMatrix(rows, cols);
+      const empty = useMemo(() => createEmptyMatrix(rows, cols), [rows, cols]);
       const [matrix, setMatrix] = useState<readonly (readonly boolean[])[]>(empty);
       const [isPlaying, setIsPlaying] = useState(false);
     
@@ -1000,11 +1003,23 @@
         stepRef.current += 1;
       }, [mode, cols, loop, frames, empty, sliceColumns, clearTimer]);
     
+      // The interval must call the latest tick without listing `tick` as an
+      // effect dependency. `empty` used to be a new array every render, so
+      // `tick` changed every commit, the effect cleared the interval, and
+      // autoStart reset the step — the marquee stayed blank and the typewriter
+      // stayed on its first column, with Restart/Replay disabled.
+      const tickRef = useRef(tick);
+      useEffect(() => {
+        tickRef.current = tick;
+      }, [tick]);
+    
       const start = useCallback(() => {
         clearTimer();
         setIsPlaying(true);
-        intervalRef.current = setInterval(tick, speed);
-      }, [clearTimer, tick, speed]);
+        intervalRef.current = setInterval(() => {
+          tickRef.current();
+        }, speed);
+      }, [clearTimer, speed]);
     
       const pause = useCallback(() => {
         clearTimer();
@@ -1024,10 +1039,12 @@
           stepRef.current = 0;
           // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional mount sync
           setIsPlaying(true);
-          intervalRef.current = setInterval(tick, speed);
+          intervalRef.current = setInterval(() => {
+            tickRef.current();
+          }, speed);
         }
         return clearTimer;
-      }, [autoStart, tick, speed, clearTimer]);
+      }, [autoStart, speed, clearTimer]);
     
       return { matrix, start, pause, reset, isPlaying };
     }
@@ -1156,6 +1173,11 @@
       readonly submitAttempted: boolean;
       /** Current error message per field name, populated after a failed submit. */
       readonly errors: Readonly<Record<string, string>>;
+      /**
+       * True when the Form renders its own assertive error summary. Fields inside
+       * it then leave announcing to the summary so one error is read out once.
+       */
+      readonly announcesErrors: boolean;
       /** Registers (or replaces) a field's validator under `name`. */
       registerField: (name: string, validate: (() => string | undefined) | undefined) => void;
       /** Removes a field's validator, e.g. on unmount. */
@@ -1717,6 +1739,7 @@
         ...labels,
         errorRetryLabel: messages.tryAgain,
         moveCancelLabel: messages.cancel,
+        reservationCountLabel: messages.reservationCount,
         reservationAriaTemplate: ariaTemplateFor(messages),
       };
     }
@@ -1736,6 +1759,7 @@
         reservationAriaTemplate: overrides.reservationAriaTemplate ?? defaults.reservationAriaTemplate,
         nightsLabel: overrides.nightsLabel ?? defaults.nightsLabel,
         partySizeLabel: overrides.partySizeLabel ?? defaults.partySizeLabel,
+        reservationCountLabel: overrides.reservationCountLabel ?? defaults.reservationCountLabel,
       };
     }
   </file>
@@ -1811,6 +1835,12 @@
       reservationAriaTemplate?: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
       nightsLabel?: (count: number) => string;
       partySizeLabel?: (count: number) => string;
+      /**
+       * Noun after a separately formatted reservation count, capitalized
+       * ("Reservation" / "Reservations"). The stat chips and the mobile day
+       * cards both use it; the mobile card lowercases the result.
+       */
+      reservationCountLabel?: (count: number) => string;
     }
     export interface TapeChartMovePayload {
       id: string;
@@ -1828,7 +1858,11 @@
       /** ISO date (exclusive). */
       endDate: string;
       locale?: string;
-      /** IANA time zone (e.g. "America/Los_Angeles"). Defaults to the runtime zone. */
+      /**
+       * IANA time zone used to decide which calendar day is "today"
+       * (e.g. "America/Los_Angeles"). Defaults to the runtime zone.
+       * Day labels stay on the YYYY-MM-DD calendar day and do not shift with this zone.
+       */
       timeZone?: string;
       /** ISO 4217 code used for rate display when reservations don't carry their own. */
       currency?: string;
@@ -1922,25 +1956,31 @@
         locale ?? (typeof navigator !== "undefined" ? navigator.language : "en-US");
     
       return useMemo(() => {
+        // A YYYY-MM-DD value is a calendar day, parsed at UTC midnight. Formatting
+        // that instant in any other zone (the runtime zone, or an explicit
+        // America/Los_Angeles) lands on the previous evening, so headers and bar
+        // labels read one day earlier than the date string. Labels always use UTC.
+        // `timeZone` still chooses which calendar day is "today".
+        const civilTimeZone = "UTC";
         const weekdayShort = new Intl.DateTimeFormat(effectiveLocale, {
           weekday: "short",
-          timeZone,
+          timeZone: civilTimeZone,
         });
         const dayNumeric = new Intl.DateTimeFormat(effectiveLocale, {
           day: "2-digit",
-          timeZone,
+          timeZone: civilTimeZone,
         });
         const dayLong = new Intl.DateTimeFormat(effectiveLocale, {
           weekday: "long",
           year: "numeric",
           month: "long",
           day: "numeric",
-          timeZone,
+          timeZone: civilTimeZone,
         });
         const monthYearLong = new Intl.DateTimeFormat(effectiveLocale, {
           month: "long",
           year: "numeric",
-          timeZone,
+          timeZone: civilTimeZone,
         });
         const todayParts = new Intl.DateTimeFormat("en-CA", {
           year: "numeric",
@@ -2411,6 +2451,64 @@
   </file>
   </section>
   <section priority="medium" role="hooks">
+  <file path="src/hooks/floating-position.ts">
+    export interface FloatingStyle {
+      left: string;
+      top: string;
+      bottom: string;
+      right: string;
+      maxHeight: string;
+    }
+    export function placeHorizontal(
+      desired: number,
+      panelWidth: number,
+      viewportWidth: number
+    ): number {
+      const max = Math.max(FLOAT_MARGIN, viewportWidth - panelWidth - FLOAT_MARGIN);
+      return clamp(desired, FLOAT_MARGIN, max);
+    }
+    export function placeVertical(
+      anchor: DOMRect,
+      panelHeight: number,
+      side: "top" | "bottom",
+      gap: number,
+      viewportHeight: number
+    ): Pick<FloatingStyle, "top" | "bottom" | "maxHeight"> {
+      const below = viewportHeight - anchor.bottom - gap;
+      const above = anchor.top - gap;
+      const fitsPreferred = panelHeight <= (side === "bottom" ? below : above);
+      const useBottom = fitsPreferred ? side === "bottom" : below >= above;
+      const room = Math.floor(useBottom ? below : above);
+      const maxHeight = panelHeight > room ? `${Math.max(room, 0)}px` : "";
+      return useBottom
+        ? { top: `${anchor.bottom + gap}px`, bottom: "auto", maxHeight }
+        : { top: "auto", bottom: `${viewportHeight - anchor.top + gap}px`, maxHeight };
+    }
+    export function placeBeside(
+      anchor: DOMRect,
+      side: "left" | "right",
+      panel: { width: number; height: number },
+      gap: number,
+      viewportWidth: number,
+      viewportHeight: number
+    ): FloatingStyle {
+      const desired = side === "left" ? anchor.left - gap - panel.width : anchor.right + gap;
+      const room = viewportHeight - 2 * FLOAT_MARGIN;
+      const height = Math.min(panel.height, room);
+      const top = clamp(
+        anchor.top + anchor.height / 2 - height / 2,
+        FLOAT_MARGIN,
+        Math.max(FLOAT_MARGIN, viewportHeight - height - FLOAT_MARGIN)
+      );
+      return {
+        left: `${placeHorizontal(desired, panel.width, viewportWidth)}px`,
+        right: "auto",
+        top: `${top}px`,
+        bottom: "auto",
+        maxHeight: panel.height > room ? `${room}px` : "",
+      };
+    }
+  </file>
   <file path="src/hooks/useBoop.ts">
     export function useBoop(): {
       style: MotionStyle;
@@ -2863,8 +2961,9 @@
     }
     export interface FieldErrorProps {
       readonly id: string | undefined;
-      readonly role: "alert";
-      readonly "aria-atomic": true;
+      /** Undefined inside a `Form` whose error summary already announces (#8115). */
+      readonly role: "alert" | undefined;
+      readonly "aria-atomic": true | undefined;
     }
     export interface FieldControlProps {
       id: string;
@@ -2929,13 +3028,30 @@
     
       const showRequired = !!required;
     
+      // A field announces its own error unless the enclosing Form's assertive
+      // summary already carries this exact message: only a submit fills the
+      // summary, so a server-set or blur error, or one after a valid submit, still
+      // needs its own alert (#8115).
+      const form = useContext(FormContext);
+      const summaryCarriesError =
+        !!form?.announcesErrors &&
+        form.submitAttempted &&
+        !!error &&
+        hint !== undefined &&
+        Object.values(form.errors).includes(hint);
+      const announces = !summaryCarriesError;
+    
       return {
         id,
         labelProps: { htmlFor: id },
         descriptionProps: { id: hintId },
         // errorProps.id is only exposed when error=true so callers know the
         // element should receive role="alert" / be identified as the error region.
-        errorProps: { id: error ? hintId : undefined, role: "alert", "aria-atomic": true },
+        errorProps: {
+          id: error ? hintId : undefined,
+          role: announces ? "alert" : undefined,
+          "aria-atomic": announces ? true : undefined,
+        },
         controlProps: {
           id,
           required: required || undefined,
@@ -3046,6 +3162,97 @@
       }, [enabled, panelRef, initialFocus]);
     }
   </file>
+  <file path="src/hooks/useLayerFloating.ts">
+    type Place = (anchor: DOMRect, panel: HTMLElement) => Partial<FloatingStyle>;
+    export function useLayerFloating(
+      active: boolean,
+      anchorRef: RefObject<HTMLElement | null>,
+      panelRef: RefObject<HTMLElement | null>,
+      place: Place
+    ): void {
+      useLayoutEffect(() => {
+        const anchor = anchorRef.current;
+        const panel = panelRef.current;
+        if (!active || !anchor || !panel) return;
+        const update = () => Object.assign(panel.style, place(anchor.getBoundingClientRect(), panel));
+        update();
+        window.addEventListener("resize", update);
+        window.addEventListener("scroll", update, true);
+        const mutations = new MutationObserver(update);
+        mutations.observe(panel, { childList: true, subtree: true, characterData: true });
+        // Deferred a frame: re-capping resizes the panel, and doing that inside the
+        // observer callback raises "ResizeObserver loop completed".
+        let frame = 0;
+        const resizes =
+          typeof ResizeObserver === "undefined"
+            ? null
+            : new ResizeObserver(() => {
+                cancelAnimationFrame(frame);
+                frame = requestAnimationFrame(update);
+              });
+        resizes?.observe(panel);
+        // The anchor moves the panel too: a multi-select control that wraps its
+        // chips grows downward under an open list.
+        resizes?.observe(anchor);
+        return () => {
+          cancelAnimationFrame(frame);
+          window.removeEventListener("resize", update);
+          window.removeEventListener("scroll", update, true);
+          mutations.disconnect();
+          resizes?.disconnect();
+        };
+      }, [active, anchorRef, panelRef, place]);
+    }
+    export const placeListbox: Place = (anchor, panel) => {
+      const { height } = viewportSize();
+      // Width first: long labels wrap at the field's width, which sets scrollHeight.
+      panel.style.width = `${anchor.width}px`;
+      return {
+        ...placeVertical(
+          anchor,
+          Math.min(panel.scrollHeight, LISTBOX_MAX_HEIGHT),
+          "bottom",
+          LIST_GAP,
+          height
+        ),
+        left: `${anchor.left}px`,
+        right: "auto",
+      };
+    };
+    export function placeMenu(align: "left" | "right", side: "top" | "bottom"): Place {
+      return (anchor, panel) => {
+        const { width, height } = viewportSize();
+        // Measure at the viewport's start so the width is not squeezed by `left`.
+        panel.style.left = "0px";
+        panel.style.right = "auto";
+        const rtl = getComputedStyle(panel).direction === "rtl";
+        const alignsRight = (align === "right") !== rtl;
+        const desired = alignsRight ? anchor.right - panel.offsetWidth : anchor.left;
+        return {
+          ...placeVertical(anchor, panel.scrollHeight, side, LIST_GAP, height),
+          left: `${placeHorizontal(desired, panel.offsetWidth, width)}px`,
+          right: "auto",
+        };
+      };
+    }
+    export function placePopover(placement: "top" | "bottom" | "left" | "right", gap = 8): Place {
+      return (anchor, panel) => {
+        const { width, height } = viewportSize();
+        panel.style.left = "0px";
+        panel.style.right = "auto";
+        const size = { width: panel.offsetWidth, height: panel.scrollHeight };
+        if (placement === "left" || placement === "right") {
+          return placeBeside(anchor, placement, size, gap, width, height);
+        }
+        const centred = anchor.left + anchor.width / 2 - size.width / 2;
+        return {
+          ...placeVertical(anchor, size.height, placement, gap, height),
+          left: `${placeHorizontal(centred, size.width, width)}px`,
+          right: "auto",
+        };
+      };
+    }
+  </file>
   <file path="src/hooks/usePointerActivation.ts">
     export interface UsePointerActivationResult {
       /** Whether the pointer has moved past the threshold since the last (re)baseline. */
@@ -3100,9 +3307,18 @@
         skipRef.current = true;
       }, []);
     
+      const pendingRef = useRef<{ frame: number; trigger: Element | null } | null>(null);
+    
       useLayoutEffect(() => {
         if (!open) return;
-        triggerRef.current = document.activeElement;
+        // An effect that re-runs before its restore frame (StrictMode replaying a mount) is the same
+        // opening, not a new one: cancel the restore and keep the original trigger. Capturing again
+        // would record the element the overlay just focused, and the stale restore would pull focus
+        // out of the overlay.
+        const pending = pendingRef.current;
+        pendingRef.current = null;
+        if (pending) cancelAnimationFrame(pending.frame);
+        triggerRef.current = pending ? pending.trigger : document.activeElement;
     
         // Cleanup runs both when `open` transitions to `false` and on unmount
         // while `open` is still `true` — so restoring focus here covers both.
@@ -3112,9 +3328,11 @@
           const skip = skipRef.current;
           skipRef.current = false;
           if (skip) return;
-          requestAnimationFrame(() => {
+          const frame = requestAnimationFrame(() => {
+            pendingRef.current = null;
             (captured as HTMLElement | null)?.focus();
           });
+          pendingRef.current = { frame, trigger: captured };
         };
       }, [open]);
     
@@ -3450,8 +3668,6 @@
       readonly scrollableContent: string;
       /** Accessible name of a SkeletonGroup. */
       readonly loadingContent: string;
-      /** Fallback accessible name of the ImageUpload tile. */
-      readonly uploadImage: string;
       /** Fallback alt text of an uploaded ImageUpload preview. */
       readonly uploadedImage: string;
       /** ImageUpload progress bar name. */
@@ -3636,7 +3852,6 @@
       closeMenu: "Close menu",
       scrollableContent: "Scrollable content",
       loadingContent: "Loading content",
-      uploadImage: "Upload image",
       uploadedImage: "Uploaded image",
       uploadProgress: "Upload progress",
       uploadComplete: "Upload complete",
@@ -3853,7 +4068,6 @@
       closeMenu: "Cerrar menú",
       scrollableContent: "Contenido desplazable",
       loadingContent: "Cargando contenido",
-      uploadImage: "Subir imagen",
       uploadedImage: "Imagen subida",
       uploadProgress: "Progreso de carga",
       uploadComplete: "Carga completa",
@@ -4017,7 +4231,6 @@
       closeMenu: "Fermer le menu",
       scrollableContent: "Contenu défilable",
       loadingContent: "Chargement du contenu",
-      uploadImage: "Téléverser une image",
       uploadedImage: "Image téléversée",
       uploadProgress: "Progression du téléversement",
       uploadComplete: "Téléversement terminé",
@@ -5104,6 +5317,12 @@
         ...(typeof darkPreamble === "string" ? wrapComment(darkPreamble) : []),
         renderBlock('[data-theme="dark"]', dark, "color-scheme: dark;"),
         "",
+        "/* ── Nested light scope ──────────────────────── */",
+        ...wrapComment(
+          "Custom properties inherit, and :root does not match an element. A light island inside a dark ancestor would otherwise keep the dark palette. Re-declare the light tokens on that island. This rule follows the dark block so a parser that takes the first dark-attribute rule still reads the dark palette."
+        ),
+        renderBlock('[data-theme="dark"] [data-theme="light"]', light, "color-scheme: light;"),
+        "",
       ];
     
       const outPath = path.join(tokensDir, "colors.css");
@@ -5111,7 +5330,7 @@
     
       const tokenCount = walkTokens(light).length;
       console.info(
-        `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens × 2 themes`
+        `Generated ${path.relative(process.cwd(), outPath)}: ${tokenCount} tokens, dark override plus nested light scope`
       );
     }
   </file>

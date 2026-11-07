@@ -4541,3 +4541,490 @@ Every task lost exactly the judge's quarter of its rubric, hence all five scorin
 **AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); budgets unchanged at 3
 **Skill proposals:** 0 (Wednesday — Friday-only)
 **Threshold notes:** fix-effectiveness 75% (12/16 non-skip verifications over 30d, >50%, healthy); all feedback-category rejection rates ≤4% (<30%, healthy); auto-tuner applied 1 adjustment (acmm 1.35 → 1.38, headroom)
+
+## 2026-11-01
+
+**queueEfficiency:** composite 0.867 (baseline n/a) — healthy
+**Difficulty distribution:** size:l:8, size:xl:9, size:m:17, size:s:20, size:xs:11
+**Issues filed:** 0
+
+## 2026-11-01 — mbe-evening (progress-tracker)
+
+### Metrics
+
+| Metric                                                                                    | Value                                    | Status                                                 |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| Created (7d, audit+ci-fix)                                                                | 23                                       | -                                                      |
+| Closed (7d, audit+ci-fix)                                                                 | 27                                       | -                                                      |
+| Closure Rate                                                                              | 117%                                     | Green (>80%)                                           |
+| Time-to-Close (mean)                                                                      | 30.4h                                    | Yellow (24-72h)                                        |
+| Agent Success (has-pr/(has-pr+failed), open snapshot)                                     | 4/4 = 100%                               | Green (>70%)                                           |
+| CI Pass (main, last 20 runs, skipped excluded)                                            | 12/12 = 100%\*                           | Green (>95%)                                           |
+| Queue (ready, open)                                                                       | 1                                        | Green (<5)                                             |
+| Stale (ready>7d)                                                                          | 0                                        | Green                                                  |
+| Blocked (agent-failed, open)                                                              | 0                                        | Green                                                  |
+| Skipped (agent-skip, open)                                                                | 0                                        | Green                                                  |
+| Daily/7d Spend (attributed, `.claude/agent-spend/sessions.jsonl`)                         | $0                                       | Green (no `mbe agent run`/`eval` sessions this window) |
+| Queue worker usage (7d, `metrics/queue-telemetry.jsonl`, not in the Daily/7d Spend total) | 3 sessions, 725,915 tokens, cost unknown | Unmeasured — never report as $0                        |
+| Cost/Issue                                                                                | unknown                                  | Unmeasured (no `cost_usd` on queue rows)               |
+
+\* main's `gh run list --branch main` shows only push-triggered automation (Auto-Merge Policy, auto-label, `claude`), not `ci.yml`/`CI Gate` — that workflow is PR-triggered only in this repo, so this reading does not reflect real CI health. No main-branch CI Gate failures were observed in this session's PR-level checks.
+
+### Patterns
+
+- This session (mbe-evening, implement-queue iteration) ran one batch of 2 new issues (#7892, #7962) plus gated 2 pre-existing open PRs (#7993, #7972). Of 4 has-pr PRs now open, 2 are reviewed-green-awaiting-human-merge (#7993, #8011), 1 is held `needs-review` after 2 flag rounds (#7972/#7961 — admittedly-unmeetable AC: screenshots, no browser egress in this routine), 1 is CI-red on an unrelated `apps/hospitality` size-limit flake this session lacks `actions: write` to re-run (#8013/#7892).
+- Recurring, already-tracked pattern (not new): `[Merge Without Review]` session-merge denial fired again this session (on #7993's merge attempt) — same gotcha as prior days, not escalating further per the existing holding-off note in the 2026-10-28 entry below.
+- New observation, not yet 3-day-consistent: a CI job can fail transiently at the exact margin of a size-limit budget (`apps/hospitality` floor-plan chunk, 9102 B vs 9100 B limit) with zero relation to the PR's own diff, and this session had no path to re-run or dispatch CI to confirm (`actions: write` unavailable in CCR sessions generally, not just for `workflow_dispatch`). Watching for repeats before filing a `meta-improvement`.
+- Reverts (7d): 0.
+
+### Recommendations
+
+- No 3-day-consistent new pattern yet — holding off on a `meta-improvement` issue this run.
+- #7993 (raises the floor-plan budget to 9.2 kB) should be prioritized for human merge — it's the actual fix for the margin currently causing unrelated PRs' Build jobs to flake.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
+## 2026-10-31 — mbe-learning-loop
+
+**Sensors:** 15/17 available (e2eStability not available; queueEfficiency query failed — `GET /pulls/7491` fetch failed, transient network error, not a regression since metricsFreshness still reports it fresh at 0.75d) — status Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked, 1 verified (#7952 ACMM L5), 0 failed/reopened, 4 skipped (no completed CI runs to verify the 4 "routine is dark" closures against)
+**Sentry triage:** skipped (MCP authorization expired — re-auth needed, same as prior runs)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); budgets unchanged at 3 for all categories
+**Skill proposals:** 0 (Saturday — Friday-only)
+**Threshold notes:** false-positive rate (wontfix+rejected)/total = 34/200 = 17% (<30%, healthy, no loosening needed); fix-effectiveness over last 30d = 5/9 = 56% among determinable (non-skip) verifications (>50%, healthy) — raw rate including the 76 "no CI evidence" skips is 5.9% but that reflects undeterminable cases, not failed fixes; auto-tuner made no adjustments this run
+
+## 2026-11-01 — mbe-ui-quality
+
+**State:** `state.mjs checkout` source `branch` (head 85e23af2, merged `origin/main` 82994485, 0 conflicts resolved). All three app builds succeeded — no `unreachable:build` rows.
+**Routes:** 40 due / 40 captured / 40 audited — all `rialto-web` (`components/*`). marketing and hospitality had nothing due; 20 hospitality rows stay `unreachable:auth` and were never captured. Unjudged: 0. Dropped tells: 0.
+**Judging:** rubric v1, model `claude-opus-5`, 80 screenshots (40 routes × 1280x720 + 375x812) all read — every route `tells: []`. The showcase pages hold a consistent warm branded palette with a display-face heading, flat token surfaces, domain-specific copy and named links, so none of the seven agent-built tells or three semantic-accessibility tells fired.
+**Findings:** 0 mechanical (axe clean, no page errors, no failed requests, no dead in-app links across all 40), 0 judged. Plan exit 0 with no actions.
+**Calibration:** stamp `stale`. `calibration-status` returned exit 3; the one permitted calibration attempt failed at `rate.mjs pairs --calibration` with exit 2 — `docs/ui-quality/calibration.json` still has no human-labelled pairs (the Verify-stage task owned by Matt, ≥10 pairs). Logged, not retried. Rating proceeded under the uncleared `stale`: 6 pairs rated against the Mantine and Chakra button-docs references, `rate.mjs record` → rialto-web 3.33. Agent-built findings stay suppressed under a `stale` stamp, which cost nothing this fire since the judge found none.
+**Issues:** 0 created / 0 reopened / 0 commented. All 34 issue numbers in the findings ledger resolved to `closed`; 36 `ui-quality`-labelled issues read in one page (`hasNextPage: false`), none unknown to the ledger, so no escalation was written. Seeds: 0.
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+**Coverage before this fire:** 100% (135/135 covered, 0 uncovered, 20 `unreachable:auth` excluded), exit 0 — no breach.
+**Blockers / pipeline bugs:** none. No `blocker: no-browser` (Chromium resolved at `/opt/pw-browsers/chromium_headless_shell-1243/...`), filing never stopped, every script exited 0 except the two expected non-zero codes noted above.
+**Note:** `mcp__github__search_issues` is not in this session's MCP surface, so the two issue searches used `mcp__github__list_issues` with label filters (a `list_*` tool) rather than the `gh` CLI, which this routine forbids. Both listings were complete single pages.
+
+## 2026-11-01 — mbe-learning-loop
+
+**Sensors:** 16/17 available (e2eStability not available); metricsFreshness 0 unhealthy — all watched metrics fresh
+**Regressions:** 1 detected, 1 issue created — ciHealth.pass_rate_pct 100 → 93 (-7, high). Root-caused to the monthly `Generate Changelog` workflow (run 41323785768) tripping its own 900,000-byte ENOBUFS safety guard — predicted by the guard's own 2026-08 comment as commit volume grew. Filed #8062 (`ready,ci-fix,bug`) with root cause and suggested fix (narrow the window, e.g. two weeks). No open duplicate found via `search/issues`.
+**Verifications:** 5 checked (48h window), 1 verified (#7952 ACMM L5 72/84), 0 failed/reopened, 4 skipped (routine-heartbeat issues with no CI evidence to verify against)
+**AI issue feedback:** 7 categories collected (200 issues total); budgets unchanged at default 3 (no category >40% rejected). ci-fix has a high wontfix share (16/24 = 67%) worth separate attention, but rejection_rate (excludes wontfix) stays 0% so the auto-budget-halving rule didn't trigger — flagging here since a learning-loop skim of budgets alone would miss it.
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** false-positive rate (wontfix+rejected)/total = 34/200 = 17% (<30%, healthy, no loosening needed); fix-effectiveness over last 30d = 6/10 = 60% among determinable (non-skip) verifications (>50%, healthy); `verify-fixes.mjs`'s own auto-tuner applied 1 adjustment this run: acmm headroom 1.38 → 1.41.
+**Environment note:** fresh checkout had no `node_modules` — ran `pnpm bootstrap:worktree` before anything else. `gh issue list`/`gh issue create` hit the known CCR GraphQL block (403); used `gh api search/issues` for dedup search and `mcp__github__issue_write` to file #8062 instead.
+
+## 2026-11-02 — mbe-evening (progress-tracker)
+
+### Metrics
+
+| Metric                                                                                    | Value                                    | Status                                                 |
+| ----------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------ |
+| Created (7d, audit+ci-fix)                                                                | 25                                       | -                                                      |
+| Closed (7d, audit+ci-fix)                                                                 | 24                                       | -                                                      |
+| Closure Rate                                                                              | 24/25 = 96%                              | Green (>80%)                                           |
+| Time-to-Close (mean)                                                                      | 33.8h                                    | Yellow (24-72h)                                        |
+| Agent Success (has-pr/(has-pr+failed), open)                                              | 5/5 = 100%                               | Green (>70%)                                           |
+| CI Pass (`ci.yml` on main, last 20 runs)                                                  | 19/20 = 95%                              | Yellow/Green boundary (1 cancelled run, not a failure) |
+| Queue (ready, open)                                                                       | 6                                        | Yellow (5-10)                                          |
+| Stale (ready>7d)                                                                          | 0                                        | Green                                                  |
+| Blocked (agent-failed, open)                                                              | 0                                        | Green                                                  |
+| Skipped (agent-skip, open)                                                                | 0                                        | Green                                                  |
+| Daily/7d Spend (attributed, `.claude/agent-spend/sessions.jsonl`)                         | $0                                       | Green (no `mbe agent run`/`eval` sessions this window) |
+| Queue worker usage (7d, `metrics/queue-telemetry.jsonl`, not in the Daily/7d Spend total) | 4 sessions, 990,098 tokens, cost unknown | Unmeasured — never report as $0                        |
+| Cost/Issue                                                                                | unknown                                  | Unmeasured (no `cost_usd` on queue rows)               |
+| Reverts (7d)                                                                              | 1                                        | Green (<3/week)                                        |
+
+### Patterns
+
+- This session (mbe-evening, implement-queue iteration) claimed a priority-sorted, zone-spread batch of 3 ready issues — #8039 (security, `services/reservations` zone), #8059 (ci-fix, global zone), #8066 (ci-fix, `root` zone) — and opened PRs #8073, #8072, #8070 respectively. All three workers succeeded on the first pass (0 failures, circuit breaker never engaged). A fourth pre-existing open PR, #8013 (`feat(reservations)` host-brand email branding), was also carried through the full gate this session.
+- All 4 PRs required the universal reviewer (none qualified for the low-risk fast path); #8013 and #8073 additionally matched specialist reviewers (migration/ADR/generated-artifact-determinism for #8013; ADR/generated-artifact-determinism for #8073). All 4 passed every review dispatched (scores 8-9/10, 0 defects). Two more pre-existing trivial-tier PRs (#8069, #8054) qualified for the fast path and were classified pass with no specialist match.
+- Recurring, already-tracked pattern (not new): `[Merge Without Review]` session-merge denial fired on the first merge attempt this session (PR #8069) — per the documented fallback, no further merge attempts were made for the rest of the session; all 6 gated PRs (#8013, #8069, #8054, #8070, #8072, #8073) were posted a review-verdict comment and left reviewed/green/awaiting-human-merge. One metrics-only PR this session's own telemetry commits opened (#8071) merged on its own via the repo's separate GitHub Actions auto-merge automation (not this session), confirming that mechanism is independent of the CCR session-merge block.
+- New, substantive finding surfaced by the #8059 worker's investigation (not a code bug in #8059 itself, folded into PR #8072 instead): PR #8057 (issue #7963) is green, 9/10-reviewed, and stuck on the same `[Merge Without Review]` block — it has been sitting awaiting a human merge since before this session started. Flagging for Matt's attention since it predates tonight's run and will keep sitting there until someone merges it by hand.
+- Reverts (7d): 1 — below the 3/week circuit-breaker threshold, not investigated further this run.
+
+### Recommendations
+
+- No 3-day-consistent new pattern beyond the already-tracked `[Merge Without Review]` gotcha — holding off on a new `meta-improvement` issue this run.
+- Human merge needed for 7 PRs currently reviewed-green-awaiting-merge: #8013, #8054, #8057 (pre-existing, oldest), #8069, #8070, #8072, #8073.
+- Queue is Yellow (6 ready) — within the loop's own target of draining 3/iteration; no adjustment needed yet, but a second iteration soon would bring it back under 5.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
+## 2026-11-02
+
+**queueEfficiency:** composite 0.846 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:19, size:xs:10, size:xl:12, size:l:9, size:m:15
+**Issues filed:** 0
+
+## 2026-11-02 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` exit 0, `source: branch` (ui-quality/ledger at 1496ed1, merged origin/main abc6811, no conflicts resolved).
+- **Routes:** 40 due (marketing 2, rialto-web 34, hospitality 4), 40 captured, 40 audited. 20 hospitality rows `unreachable:auth` (never captured, as designed). All three app builds succeeded.
+- **Coverage before this fire:** 100% (135/135 covered, 0 uncovered), `coverage.mjs --json` exit 0.
+- **Judging:** rubric v1. 40 routes judged, **0 unjudged**, **0 dropped tells**. Every screenshot (80 images across both viewports) read successfully — no `tool-error` routes. 0 judged findings: no `agent-built/*` or semantic-accessibility tells observed. Mechanical detectors found 2 findings (`hospitality book/:venueSlug — accessibility/axe-serious`, `marketing status — bugs/failed-request`).
+- **Calibration stamp:** `stale`. `calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried status: still `stale`. Rating proceeded: 16 pairs over 3 apps viewed and `rate.mjs record` run (hospitality 0, marketing 0, rialto-web 0 — agent-built findings stay suppressed while uncalibrated, as intended).
+- **Rubric migration:** none needed — every key in `metrics/ui-quality-findings.json` is already `r1`, matching the current `rubric_version`.
+- **Issue states:** all 34 issues referenced by the findings ledger fetched; all `closed`. `ui-quality`-labelled search returned 36 issues on a single complete page, all closed (the two extras, #7477 and #7908, are the closed escalation issues). No refusal, no adoptions.
+- **Filing:** plan = create 1, skip 1, 0 seeds, no `fix_pr_candidate`. **Created #8106** (`ui-quality: hospitality book/:venueSlug — accessibility/axe-serious (rubric v1)`); `ui-quality` label confirmed present, so filing was not stopped. 0 reopened, 0 commented, 0 seeds appended to `docs/backlog.md`.
+- **Fix PR:** none — no action carried `fix_pr_candidate: true`.
+- **P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+- **Checkpoint:** committed and pushed to `ui-quality/ledger` (c6c18a4) before the fix-PR step, push accepted.
+- No `blocker: no-browser` (Chromium resolved), no stopped filing, no pipeline bug.
+
+## 2026-11-02 — mbe-learning-loop
+
+**Sensors:** 16/17 available (`e2eStability` not available). Status: Healthy.
+**Regressions:** 0 detected, 0 issues created.
+**Verifications:** 5 checked (48h window: #8123, #8122, #8103, #8100, #8067), 0 verified, 0 failed (reopened), 5 skipped — Lighthouse inventory unavailable for the two `audit` issues, no CI runs in range for the three `ci-fix`/`bug` issues. Not a threshold problem, no reopens.
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected); all budgets at default 3.
+**Skill proposals:** 0 — not the configured extraction day (Friday).
+**Threshold notes:** `verify-fixes.mjs`'s auto-tuner applied 1 adjustment (`acmm`: 1.41 → 1.44, headroom). 30-day false-positive rate across sensor-labelled closed issues (`ci-fix,audit,acmm,sentry,bug`): 11/274 `not_planned` ≈ 4.0% — well under the 30% loosen-threshold. 30-day fix-effectiveness rate from `verifications.jsonl` (excluding `confidence:"skip"` rows): 6/10 ≈ 60% — above the 50% floor, no strategy review flagged.
+**Bootstrap note:** this cloud checkout had no `node_modules`/workspace `dist/` on start (not a worktree, but the same missing-build symptom) — ran `pnpm install --frozen-lockfile` then `pnpm bootstrap:worktree` before any sensor script would resolve `@mbe/*` imports.
+**Sentry triage:** skipped — Sentry MCP's stored access token is expired (`find_organizations` returned "Authorization Expired"); re-authorization needs a human. No Sentry-labelled issues filed this run.
+
+## 2026-11-03 — mbe-evening
+
+### Metrics
+
+| Metric                                                                                    | Value                                      | Status                                        |
+| ----------------------------------------------------------------------------------------- | ------------------------------------------ | --------------------------------------------- |
+| Created (7d, audit+ci-fix)                                                                | 28                                         | -                                             |
+| Closed (7d, audit+ci-fix)                                                                 | 33                                         | -                                             |
+| Closure Rate                                                                              | 33/28 ≈ 118%                               | Green (>80%)                                  |
+| Time-to-Close (mean, 7d closes)                                                           | 71.9h                                      | Yellow (24-72h, right at the boundary)        |
+| Agent Success (has-pr/(has-pr+failed), open)                                              | 1/1 = 100%                                 | Green (>70%)                                  |
+| CI Pass (`main`, last 20 runs, skipped excluded)                                          | 11/11 = 100%                               | Green (>95%)                                  |
+| Queue (ready, open)                                                                       | 0                                          | Green (<5)                                    |
+| Stale (ready>7d)                                                                          | 0                                          | Green                                         |
+| Blocked (agent-failed, open)                                                              | 0                                          | Green                                         |
+| Skipped (agent-skip, open)                                                                | 0                                          | Green                                         |
+| Daily/7d Spend (attributed, `.claude/agent-spend/sessions.jsonl`)                         | $0 (0 attributed sessions)                 | Green — no `mbe agent run`/`eval` this window |
+| Queue worker usage (7d, `metrics/queue-telemetry.jsonl`, not in the Daily/7d Spend total) | 7 sessions, 1,441,887 tokens, cost unknown | Unmeasured — never reported as $0             |
+| Cost/Issue                                                                                | unknown                                    | Unmeasured (no `cost_usd` on queue rows)      |
+| Reverts (7d)                                                                              | 1                                          | Green (<3/week)                               |
+
+### Patterns
+
+- Zero `ready`-labeled issues open — nothing to claim or implement this iteration. The implement-queue iteration's entire scope was Phase 0/2 (gate) on the 6 pre-existing open PRs; no new worktree workers dispatched.
+- 4 of 6 open PRs — **#8168** (docs/bootstrap-worktree), **#8166** (dependabot 37-bump), **#8160** (fix/metrics sdlc-speed), **#8005** (changeset-release/main) — have green `CI Gate` and passed full review (fast-path was unavailable all run, see below, so every PR got the universal reviewer plus any matched specialist; no defects found, 9/10 across the board, `dependency-update-reviewer` SAFE-verdicted #8166 and #8005). All 4 are **reviewed, green, awaiting human merge** — this session's own merge action is blocked again by the documented `[Merge Without Review]` CCR permission-classifier denial (#6125); not retried, per the gotcha. Verdict comments posted on each.
+- **#8167** correctly stayed held (`needs-review`, pre-existing) — no action taken.
+- **#8157** (chaos synthetic-bug PR, opened by `github-actions[bot]`) is `gate-missing`, not `failed`: a fresh instance of the documented `GITHUB_TOKEN`-authored-push anti-recursion trap — `CI Gate`'s `pull_request` event never fired at all. The usual recovery (`gh workflow run ci.yml --ref <branch>`) was denied (`403 Resource not accessible by integration` — no `actions: write` in this session). Needs a human or an `actions: write` session to unstick; flagged on the PR.
+- **#8005** also flagged for an unusual pile-up of ~12 non-required workflow runs parked in `action_required` on its head SHA (E2E, Secret Scan, Rialto Visual Regression, Auto Review, ADR check, Merge Queue, Auto-Merge Policy, PR Preview Deploy, Deploy Storybook, ai-attribution, tier-classifier, a duplicate CI run). None is the required `CI Gate`, so it doesn't block this skill's gate, but it's unusual enough to be worth a direct look at the repo's Actions/environment-approval settings.
+- **Recurring, long-unaddressed environment cost:** this cloud session's main checkout started with **zero `node_modules` and no built workspace `dist/`s at all** (not a worktree — the primary checkout). `.claude/improvement-loop/log.md` shows this exact "fresh checkout, no `node_modules`" cold-start noted in at least 15 prior entries stretching back to 2026-06-20 (grep: lines 96, 1412, 1936, 2052, 2324, 3254, 3420, 3502, 3659, 3908, 3937, 4023, 4621, 4691, and now today), each run re-paying the same `pnpm install --frozen-lockfile` (+ a package/filter build) cost before any `@mbe/*`-importing script would resolve. No open `meta-improvement` issue tracks it despite ~4.5 months of recurrence — filing one this run (within budget; see Recommendations).
+- The dispatched PR-gate review was itself done without nested `Agent`-tool dispatch (not available to that subagent in this run) — it performed the universal + specialist review directly against the rubric instead. Noted as a one-off environment constraint, not a process change.
+- Reverts (7d): 1 — below the 3/week circuit-breaker threshold, not investigated further.
+
+### Recommendations
+
+- Human merge needed for 4 reviewed-green PRs: #8168, #8166, #8160, #8005.
+- #8157 needs a human (or an `actions: write` session) to dispatch `ci.yml` on `chaos/synthetic-bug-1793649868182` before it can be gated at all.
+- Worth a direct look at why #8005's head SHA has a dozen workflows parked in `action_required` — possibly an environment-protection-rule change that now gates bot-authored branches broadly.
+- Filed `[Meta]` issue for the recurring no-`node_modules` cold-start (see below) — a committed `SessionStart` hook (the `session-start-hook` skill exists for exactly this) running `pnpm install --frozen-lockfile` would retire ~15+ repeated manual fixes.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to manually review.
+
+## 2026-11-04 — mbe-evening
+
+### Metrics
+
+| Metric                                                                                    | Value                                                           | Status                                        |
+| ----------------------------------------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------- |
+| Created (7d, audit+ci-fix)                                                                | 28                                                              | -                                             |
+| Closed (7d, audit+ci-fix)                                                                 | 24                                                              | -                                             |
+| Closure Rate                                                                              | 24/28 ≈ 85.7%                                                   | Green (>80%)                                  |
+| Time-to-Close (mean, 7d closes)                                                           | 10.8h                                                           | Green (<24h)                                  |
+| Agent Success (has-pr/(has-pr+failed), open)                                              | 3/3 = 100%                                                      | Green (>70%)                                  |
+| CI Pass (`main`, last 20 runs, skipped/cancelled excluded)                                | 10/10 = 100%                                                    | Green (>95%)                                  |
+| Queue (ready, open)                                                                       | 10                                                              | Yellow (5-10)                                 |
+| Stale (ready>7d)                                                                          | 0                                                               | Green                                         |
+| Blocked (agent-failed, open)                                                              | 0                                                               | Green                                         |
+| Skipped (agent-skip, open)                                                                | 1 (#8202 — diagnosis delivered, see below, not a failure-skip)  | -                                             |
+| Daily/7d Spend (attributed, `.claude/agent-spend/sessions.jsonl`)                         | $0 (0 attributed sessions)                                      | Green — no `mbe agent run`/`eval` this window |
+| Queue worker usage (7d, `metrics/queue-telemetry.jsonl`, not in the Daily/7d Spend total) | 5 sessions, 908,509 tokens, cost unknown, 54 rows without usage | Unmeasured — never reported as $0             |
+| Cost/Issue                                                                                | unknown                                                         | Unmeasured (no `cost_usd` on queue rows)      |
+| Reverts (7d)                                                                              | 0                                                               | Green (<3/week)                               |
+
+### Patterns
+
+- Phase 0 preflight: main green (0 `CI Gate` failures in last 5 runs). One unfinished PR from the prior run (#8207, issue #8197 `has-pr`) was gated first, per protocol, before claiming anything new.
+- Claimed a batch of 3 via `selectZoneSpreadBatch` (`strictMain: true`, distinct zones — root/`apps/gen`/global): **#8185**, **#8198**, **#8202**. A 4th candidate (#8186, same root zone as #8185) and a 5th (#8199, same `apps/gen` zone as #8198) were deferred to a future iteration by the zone-spread rule; #8203 was dropped from this batch for an unmet dependency (`Depends on: #8202`), which #8202's work this run now clears.
+- **#8185** → PR #8216: low-risk fast path (`qualifiesForLowRiskFastPath` true — test-only diff, no specialist matched) → reviewed+green, awaiting human merge.
+- **#8198** → PR #8217: fast path not eligible (`reviewersForDiff` matched `e2e-selector-drift-reviewer`) → full review (universal 9/10 pass + specialist pass, no block) → reviewed+green, awaiting human merge.
+- **#8202** (diagnosis-only issue, by its own acceptance criteria): root cause identified with run-log evidence — `shipped-features-snapshot.yml`'s `GITHUB_TOKEN` permissions block has never declared an `issues:` scope, so the collector's issue/timeline REST reads return a successful-but-empty view in production (confirmed by the sub-second failure timing on both failed runs, ruling out the batch-rate-limiting hypothesis). No code fix landed — the sibling fix issue (#8203, now unblocked) does that. Findings posted as an issue comment; transitioned `agent-skip` (not a failure — the diagnosis deliverable is the whole point of this issue).
+- **#8207** (prior-run `has-pr` PR for #8197) was also gated this run: universal reviewer passed 7/10 (flagged an unverified AC — whether the advisory `Gen E2E` job actually ran — which this session then confirmed directly from the workflow run's jobs, resolving the flag) plus `e2e-selector-drift-reviewer` pass → reviewed+green, awaiting human merge.
+- **`[Merge Without Review]` CCR permission-classifier denial (#6125, already filed and closed/accepted) recurred on all 3 merge attempts this run** (#8207, #8216, #8217) — a 2nd consecutive day where 100% of this routine's gated PRs sat "reviewed, green, awaiting human merge" instead of landing. The underlying cause is already tracked; flagging the growing backlog (now 3 PRs plus the telemetry PR #8218) as an operational cost worth the Owner's attention, not a new defect.
+- Telemetry persisted: 3 rows appended to `metrics/queue-telemetry.jsonl` (#8185/#8198 with real `subagent_tokens`/`tool_uses`/`duration_ms` from worker `<usage>`, #8202 with `pr_number: null`), committed on `chore/queue-telemetry-2026-11-04`, PR #8218 opened and labeled `has-pr`, subscribed.
+- Reap (dry-run): 2 worktrees examined (the 2 workers that committed), 0 eligible for removal — correctly retained fail-closed, since neither #8216 nor #8217 is merged yet. The diagnosis-only worker's worktree made no commits and was already auto-reclaimed by the harness before reap ran.
+- A stale local `main` branch ref (unrelated history to `origin/main`, almost certainly a shallow-clone artifact from container init) was found and reset to `origin/main` mid-run — no uncommitted work was on it.
+- 0 circuit-breaker failures this iteration.
+
+### Recommendations
+
+- Human merge needed for 3 reviewed-green PRs from this run: #8207, #8216, #8217 — plus #8218 (telemetry) once its own CI settles.
+- #8203 ([2/3] of the shipped-features-freshness chain) is now unblocked for a future iteration: #8202 found the root cause (missing `issues:` permission scope in `shipped-features-snapshot.yml`) with log evidence.
+- Nothing new to file as `[Meta]` this run — the merge-classifier denial is already tracked (closed #6125) and the node_modules cold-start meta-issue from yesterday (#8169) is still open and unduplicated.
+
+### Skipped Issues
+
+1 `agent-skip` issue open: **#8202** — not a failure-after-retries skip. Its acceptance criteria only required a documented root cause with log evidence (explicitly no code fix required in this issue), which was delivered as an issue comment.
+
+## 2026-11-03
+
+**queueEfficiency:** composite 0.856 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:26, size:xl:22, size:l:19, size:xs:14, size:m:16
+**Issues filed:** 0
+
+## 2026-11-03 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` ok — `source: main` (the `ui-quality/ledger` branch did not exist remotely and was created from `origin/main`), head `49b87bd`, `merged_main: null`, no conflicts resolved.
+- **Routes:** 2 due, 2 captured, 2 audited — `rialto-web components/confirm-dialog`, `rialto-web components/dialog`. Marketing and hospitality had no routes planned (hospitality's 20 routes are `unreachable:auth`). All three app builds succeeded, so no `unreachable:build` rows.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Judged:** both routes clean (`tells: []`) against the v1 judged tells. Mechanical detectors: 0 findings (no axe violations, no page/console errors, no failed requests, no dead in-app links).
+- **Calibration stamp:** `stale`. `calibration-status` returned exit 3, so calibration was attempted once; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-stage human labelling of ≥ 10 pairs has not happened). Not retried. The re-query returned exit 3 again, so rating ran anyway: 4 pairs over 1 app judged and recorded, and agent-built findings stay suppressed under a `stale` stamp (intended).
+- **Filing:** plan produced no actions and 0 seeds — nothing created, reopened or commented. All 35 issues in the findings ledger are closed; the 37 `ui-quality`-labelled issues are all closed and include no unknown titles, so no escalation issue was written.
+- **Fix PR:** none — no action carried `fix_pr_candidate`.
+- **P1 breaches escalated:** 0 (no open `ui-quality:p1` issues).
+- **Coverage before this fire:** 100% (135/135 covered, not provisional, first run 2026-10-01); 20 hospitality routes `unreachable:auth`. `coverage.mjs` exit 0 — no breach.
+- **Note (environment):** the MCP tool names this routine's prompt uses (`get_issue`, `create_issue`, `update_issue`, `search_issues`) do not exist in this session. The available equivalents are `issue_read`, `issue_write` and `list_issues`; GitHub MCP `search_*` tools are unavailable here, so the `ui-quality` and `ui-quality:p1` label sweeps were done with `list_issues` filtered by label over every page (37 and 0 results, `hasNextPage: false` on both).
+
+## 2026-11-03 — mbe-learning-loop
+
+**Sensors:** 16/17 available
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed (reopened), 5 skipped (no CI runs or Lighthouse inventory to verify against)
+**Skill proposals:** 0 (not Friday — session-log analysis skipped)
+**Threshold notes:**
+
+- Threshold auto-tuner (run inside `verify-fixes.mjs`) applied 1 adjustment: `acmm` headroom 1.44 → 1.47.
+- 30-day false-positive check over the sensor-label-map categories this loop files into (`ci-fix`, `acmm`, `audit`, `sentry`) — excluding `feature`/`meta-improvement`/`agent-failed`/`dependencies`, which other routines create: 19 wontfix+rejected / 50 total ≈ **38%**, over the 30% loosen-threshold line, driven almost entirely by `ci-fix` (17/29 wontfix, 59%). Per the skill's own rule this flags for threshold loosening on the `ci-fix` sensor specifically — worth a follow-up look at why so many filed `ci-fix` issues are closed `wontfix` rather than fixed.
+- Fix-effectiveness rate over the same 30-day window, counting only conclusive (non-`skip`) verification attempts: 6/10 ≈ 60%, at/above the 50% floor — no note. The window is dominated by `skip` outcomes (90/100) because CI-run and Lighthouse-inventory lookups are frequently unavailable to this cloud session (no egress, GraphQL blocked); that's a measurement-coverage gap, not evidence of fix failure.
+
+**Environment notes:**
+
+- This cloud checkout started with **zero `node_modules` and no built workspace `dist/`s** (same recurring cold-start noted in ~15+ prior entries, e.g. earlier in this file at the 2026-11-03 implement-queue entry above) — required a full `pnpm install --frozen-lockfile` + `pnpm bootstrap:worktree` before `sensor-report.mjs` (which imports `@mbe/gh-client`) would resolve.
+- `gh`'s GraphQL-backed calls (`gh repo view --json nameWithOwner`, PR queries inside `sensor-report.mjs`'s `queueEfficiency` sensor and `collect-ai-issue-feedback.mjs`) hit the documented CCR 403 and fell back to REST/per-PR paths; sensor report still completed (16/17 sensors, exit 0).
+- Sentry MCP returned "Authorization Expired" (stored token rejected) — Step 1b (Sentry triage) skipped per the skill's own optional-step allowance.
+
+## 2026-11-04
+
+**queueEfficiency:** composite 0.847 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:6, size:s:18, size:xl:21, size:l:17, size:xs:8
+**Issues filed:** 0
+
+## 2026-11-04 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` exit 0, `source: branch` — `ui-quality/ledger` at `39ea7989`, `origin/main` merged in (`106eaaf9`), no conflicts resolved. All three apps built (12/12 turbo tasks), so no `unreachable:build` rows.
+- **Routes:** 21 due (marketing 9, rialto-web 12) / 21 captured / 21 audited. Hospitality contributed 0 due rows — all 20 of its routes are `unreachable:auth` and are never captured; its capture run skipped cleanly.
+- **Unjudged:** 0. **Dropped tells:** 0. Every captured route was opened at both viewports (42 screenshots) and judged against the v1 rubric's 10 judged tells.
+- **Findings:** 1 mechanical (`marketing status — bugs/failed-request`, P2, already a known seed), 0 judged. No route exhibited an agent-built or semantic-accessibility tell. One borderline case was checked against source before being ruled out: the three identical "View live" links on `marketing /` each carry a descriptive `aria-label` ("View live: <project> (opens in new tab)"), which is exactly the remedy `accessibility/vague-link-purpose` prescribes — not a finding.
+- **Calibration stamp:** `stale`. `calibration-status` exit 3, so calibration was attempted once; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-stage human labelling of ≥ 10 pairs has still not happened; same as the 2026-11-03 fire). Not retried. Re-query returned exit 3 again, so rating ran anyway: 12 pairs over 2 apps judged and recorded (`marketing 0, rialto-web 1.67`). Agent-built findings stay suppressed under a `stale` stamp (intended).
+- **Filing:** plan exit 0 — 1 `skip`, 0 seeds. Nothing created, reopened or commented. All 35 issues in the findings ledger are closed; the 37 `ui-quality`-labelled issues are all closed and contain no unknown titles (the two "filing blocked by unknown labelled issues" escalations, #7477 and #7908, are both closed), so no escalation issue was written.
+- **Fix PR:** none — `fix_pr_candidate` was null; the only action was a `skip`.
+- **P1 breaches escalated:** 0 (no open `ui-quality:p1` issues).
+- **Coverage before this fire:** 100% (135/135 covered, not provisional, first run 2026-10-01); 20 hospitality routes `unreachable:auth`. `coverage.mjs` exit 0 — no breach.
+- **Observed but not filable (outside rubric v1):** two reproducible mobile (375×812) layout faults on `rialto-web` that no current tell covers, so no Finding was written and none may be:
+  1. The cookie-consent bar collapses at 375 px — its message wraps to one or two words per line and the "Reject All" control overlaps that text. Identical on `demos/login`, `demos/signup` and `demos/teams/new`; absent at 1280 px. Not a capture artefact: it reproduces on three independent routes.
+  2. The floating "Copy JSX" button overlaps the page subtitle at 375 px on the example pages (`examples/availability-heatmap`, `examples/booking-confirmed`, `examples/checkout`, `examples/guest-checkin`, `examples/notification-center`, `examples/reservation-kanban`, `examples/reservation-timeline`).
+     Both are real defects a human would want fixed; raising them needs either a human-authored rubric bump (a new judged tell for mobile overlap/occlusion, which only a human may make) or an issue filed outside this loop. The routine cannot file them itself.
+- **Note (environment):** the MCP tool names this routine's prompt uses (`get_issue`, `create_issue`, `update_issue`, `search_issues`) still do not exist in this session; the available equivalents are `issue_read`, `issue_write` and `list_issues`, and GitHub MCP `search_*` tools are unavailable. Both label sweeps (`ui-quality`, `ui-quality:p1`) were done with `list_issues` filtered by label, every page read (37 and 0 results, `hasNextPage: false` on both). Per-issue state came from that same authoritative listing after spot-checking #8106 and #5943 with `issue_read` and confirming the states matched; all 35 ledger issues were present in the listing, so none was recorded `missing`.
+
+## 2026-11-04
+
+**Sensors:** 15/17 available
+**Regressions:** 2 detected, 0 issues created
+**Verifications:** 2 checked, 0 verified, 0 failed, 2 skipped (no completed CI runs to compare against); threshold auto-tuner applied 1 adjustment (acmm 1.47 -> 1.5, headroom)
+**AI issue feedback:** 7 categories, 0 unhealthy (>40% rejected) — all budgets at default 3
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Sentry triage:** skipped — stored Sentry access token rejected ("Authorization Expired"), needs re-auth
+**Threshold notes:** false-positive rate 2/36 closed learning-loop issues (~5.6%, well under 30%) — no loosening needed. Fix-effectiveness over the 30-day verification log is 6/102 (5.9%) taken literally, but 92 of those 102 rows are `skip` (no CI run to compare against — a known cloud-session gh-client limitation, not a real failure); over the 10 rows actually evaluated, 6/10 = 60% (above the 50% bar). Treat the literal 5.9% as an artifact of the skip-heavy sample, not a regression in fix strategy.
+**Regression detail:**
+
+- `metricsFreshness.shipped-features`: fresh -> stale (+18.86d). Duplicate of already-open #8263 ("Metrics collection is stale or empty", `ci-fix`) plus the in-flight `shipped-features-freshness` tracking chain (#8205/#8202/#8203) already diagnosing/fixing this exact collector. No new issue filed.
+- `ciHealth.pass_rate_pct`: 100 -> 90 (-10, high). The sensor's 30-run window holds exactly one failure, at commit `59a9cfab5cde807ea4c410eb3156fb3d5aeb554f` (2026-11-04T03:46Z) — already filed and already closed as #8225 ("Broken Main at commit 59a9cfab...", closed 2026-11-04T04:28Z, same day). The metric self-corrects as the window ages the fixed run out; filing a new issue would duplicate an already-resolved incident.
+
+## 2026-11-05 — mbe-evening (progress-tracker)
+
+### Metrics (7d; `audit`+`ci-fix` labels, REST `since=` as an updated-at proxy — a floor estimate, not exact `created_at` filtering)
+
+| Metric                 | Value                                                                                                                  | Status                       |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| Created (7d)           | 27 (8 audit + 19 ci-fix)                                                                                               | -                            |
+| Closed (7d)            | 26 (8 audit + 18 ci-fix)                                                                                               | -                            |
+| Closure Rate           | 26/27 ≈ 96.3%                                                                                                          | 🟢 Green (>80%)              |
+| Time-to-Close          | mean 72.0h                                                                                                             | 🔴 Red (>72h) — but see note |
+| Agent Success          | has-pr/(has-pr+failed) = 2/3 ≈ 66.7%                                                                                   | 🟡 Yellow (40-70%)           |
+| CI Pass                | 8/8 non-skipped runs on main (last 20) = 100%                                                                          | 🟢 Green (>95%)              |
+| Queue (ready)          | 6                                                                                                                      | 🟡 Yellow (5-10)             |
+| Stale (ready>7d)       | 0                                                                                                                      | 🟢 Green                     |
+| Blocked (agent-failed) | 1 (#8199)                                                                                                              | — not 0, see Patterns        |
+| Skipped (agent-skip)   | 1 (#8202)                                                                                                              | — not 0, see Patterns        |
+| Daily Spend            | unknown — 0 attributed `recordSpend` sessions today                                                                    | n/a (never report as $0)     |
+| 7d Spend               | unknown — 0 attributed `recordSpend` sessions this window; 8 queue-worker sessions, 1,214,488 tokens, cost unconverted | n/a                          |
+| Cost/Issue             | unknown (same cause)                                                                                                   | n/a                          |
+
+**Time-to-close note:** the 72.0h mean is a single outlier (#4670, closed after 1517h ≈ 63 days — a very old stale issue finally closed this window) dragging up an otherwise-healthy distribution; the median of the same 26 closures is ≈17h and 24/26 closed under 40h. Read the mean as misleading here, not as a real slowdown.
+
+### Patterns
+
+- **Dependency-chain stall on the `shipped-features-freshness` decompose chain:** #8203 ("[Feature] shipped-features-freshness [2/3]") carries `ready` but its body names `Depends on: #8202`, and #8202 ("...[1/3]: diagnose...") is labelled `agent-skip`, not closed — so #8203 can never become claimable through the normal dependency check (which only looks for the dependency being _closed_, not _abandoned_). This run correctly dropped #8203 from the claimable batch per Phase 1's dependency rule, but the chain itself is stuck: #8202 was skipped (2 agent attempts exhausted) rather than resolved, so #8203 sits in `ready` indefinitely with no path forward except a human re-diagnosing #8202 or closing the chain. Single observation this run — flagging for a human look rather than filing a `[Meta]` issue, since 3+ day consistency hasn't been confirmed from this session alone.
+- **Queue composition is bug/audit-heavy, not feature-heavy:** of the 6 `ready` issues, 2 are Sentry-sourced hospitality 500/502 bugs (#8282, #8281 — siblings of this run's #8280, same `apps/hospitality` zone, deferred this batch by the zone-spread selector since main is `strict`), 1 is the blocked #8203 above, and 3 are `needs-human`-labelled rialto-web a11y features awaiting a human judgment call on vague/subjective acceptance criteria — none of the three a11y issues were ever claimable by this skill.
+- **CI is fully green** on main (8/8 non-skipped runs in the sample), consistent with the green-main policy holding.
+- **Agent Success at 66.7% (Yellow)** is a single-run snapshot (2 open `has-pr` / 1 open `agent-failed`) and shouldn't be read as a trend without more data points; this run's own batch (3/3 issues produced a PR, 0 failures) was 100%.
+
+### Recommendations
+
+- A human should decide #8202/#8203's fate: either re-attempt the diagnosis (perhaps with a different model tier or more context) or close both and let `/decompose` re-propose `shipped-features-freshness` cleanly, so `ready` doesn't carry a permanently-stuck issue.
+- No threshold or automation changes recommended this run — all signals are within normal range or explained by a known outlier/sampling artifact.
+
+### Skipped Issues
+
+1 skipped after max retries:
+
+- #8202 [Feature] shipped-features-freshness [1/3]: diagnose why the live collector reports zero features
+
+## 2026-11-05
+
+**queueEfficiency:** composite 0.843 (baseline n/a) — healthy
+**Difficulty distribution:** size:m:5, size:s:20, size:l:16, size:xl:19, size:xs:8
+**Issues filed:** 0
+
+## 2026-11-05 — mbe-ui-quality
+
+**State:** `state.mjs checkout` source `branch` (head c82f581, merged origin/main 0da7ca8, 0 conflicts resolved).
+
+**Routes:** 11 due / 11 captured / 11 audited (marketing 1, rialto-web 9, hospitality 1). 20 hospitality rows `unreachable:auth`, 0 `unreachable:build` — all three app builds succeeded.
+
+**Findings:** 0 mechanical, 0 judged. Every captured route judged clean against rubric v1's judged tells; unjudged 0, dropped tells 0.
+
+**Calibration:** stamp `stale`. `calibration-status` returned exit 3, and `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-stage task of labelling >= 10 pairs is unowned by this routine). Not retried. Re-queried status after: still `stale`. Agent-built findings stay suppressed until a human labels the set.
+
+**Rating:** 10 pairs over 3 apps rated and recorded — hospitality 0, marketing 1.25, rialto-web 0.83.
+
+**Filing:** plan produced no actions and no seeds. 0 issues created / 0 reopened / 0 commented, 0 seeds. All 35 issue numbers in the findings ledger resolve to `closed`; 37 `ui-quality`-labelled issues read across one complete page, none unknown to the plan beyond the two closed escalation issues (#7477, #7908). No escalation file written.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+
+**Coverage before this fire:** 100% (135/135 reachable rows covered, 0 uncovered, not provisional).
+
+**Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so the two issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion.
+
+## 2026-11-05 — mbe-learning-loop
+
+**Sensors:** 16/17 available (e2eStability not available)
+**Regressions:** 1 detected (metricsFreshness.shipped-features: fresh → stale, +19.85d, medium), 0 issues created — duplicate of open #8263 (Metrics collection is stale or empty) and #8202 ([Feature] shipped-features-freshness [1/3])
+**Verifications:** 5 checked, 0 verified, 0 failed (reopened), 5 skipped (#8295 no CI runs to verify against; #8280/#8260/#8259 Sentry verification unavailable — MCP auth expired this run; #8261 no automated security verifier, manual cors-audit.mjs re-run needed)
+**Sentry triage:** skipped — stored Sentry MCP access token rejected (authorization expired), no human available to re-authorize in this unattended run
+**Skill proposals:** 0 (not Friday — session log analysis skipped)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.5 → 1.516, headroom). False-positive rate low across all issue-feedback categories (max 3% rejected, feature category; all others 0%) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 97 skipped-for-lack-of-data) — above 50% threshold, no review needed. AI issue-feedback budgets: all 7 categories at default budget=3 (no category >40% rejected).
+
+## 2026-11-06
+
+**queueEfficiency:** composite 0.865 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:24, size:xs:10, size:m:7, size:l:16, size:xl:17
+**Issues filed:** 0
+
+## 2026-11-06 — mbe-evening (progress-tracker)
+
+### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
+
+| Metric                 | Value                                                                                                                                                                                                                                                                    | Status                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------ |
+| Created (7d)           | 30 (audit + ci-fix)                                                                                                                                                                                                                                                      | -                                          |
+| Closed (7d)            | 30                                                                                                                                                                                                                                                                       | -                                          |
+| Closure Rate           | 30/30 = 100%                                                                                                                                                                                                                                                             | 🟢 Green (>80%)                            |
+| Time-to-Close          | mean 15.0h                                                                                                                                                                                                                                                               | 🟢 Green (<24h)                            |
+| Agent Success          | has-pr/(has-pr+failed) = 0/0 (both open trackers resolved tonight); this run's own batch: 2/2 claimed issues got a PR, both merged = 100%                                                                                                                                | n/a snapshot — see batch note              |
+| CI Pass                | sample unreliable this run — 5 PRs merged back-to-back in ~45 min, GitHub cancelled most in-flight `CI` runs on main as superseding pushes landed (last-30 sample: 1 completed, `cancelled`). Phase 0 preflight (pre-iteration) read 0 failures in the last 5 main runs. | n/a — sampling artifact, not a regression  |
+| Queue (ready)          | 5, all `needs-human` (2 hospitality Sentry 500/502s, 3 rialto-web a11y) — none claimable by this skill                                                                                                                                                                   | 🟢 Green (<5) by count, 🔴 by claimability |
+| Stale (ready>7d)       | 0 (oldest is 3 days)                                                                                                                                                                                                                                                     | 🟢 Green                                   |
+| Blocked (agent-failed) | 0                                                                                                                                                                                                                                                                        | 🟢 Green                                   |
+| Skipped (agent-skip)   | 1 (#8202, unchanged from 2026-11-05 — still unresolved, see Patterns)                                                                                                                                                                                                    | — not 0, see Patterns                      |
+| Daily Spend            | unknown — 0 attributed `recordSpend` sessions today                                                                                                                                                                                                                      | n/a (never report as $0)                   |
+| 7d Spend               | unknown — 0 attributed `recordSpend` sessions this window; 11 queue-worker sessions, 1,725,831 tokens, cost unconverted (54 of those rows have no usage at all)                                                                                                          | n/a                                        |
+| Cost/Issue             | unknown (same cause)                                                                                                                                                                                                                                                     | n/a                                        |
+
+### Patterns
+
+- **A review verdict landed after its PR was merged — a real timing gap in the human-merge handoff.** Tonight's `implement-queue` iteration (this same run) held PR #8347 `needs-review` over a substantive migration-reviewer finding (cascading `availability_changes`'s FK conflicts with its explicit no-DELETE audit-trail grant from migration `20261025000000`). The Owner merged the PR at 02:34:01Z; the review comment and `needs-review` label landed at 02:34:25Z — 24 seconds later. The PR's `Deploy Services` run was still `pending` (migration not yet applied to prod) when this was caught, and a push notification was sent immediately. No code or process change proposed here (single occurrence, and the gap is Claude-review-latency vs. human-merge-speed, not a bug in any script) — flagging because it's a new failure mode for this routine's "hold for human" guarantee: the hold label existing doesn't help if the human already acted on CI-green alone before the label/comment existed. Worth a human decision on whether `implement-queue`-opened/dispatched PRs should wait for an explicit "review posted" signal before they're even eligible for merge, separate from CI-green.
+- **`#8202`'s `agent-skip` is now at least 2 days old with no automated retry.** `auto-retry-stale.mjs` only fires from `/optimize-implement-queue` (next step in tonight's routine), and this is this skill's 2nd consecutive day flagging the same stuck issue — see yesterday's entry. Carrying forward rather than re-diagnosing here; `/optimize-implement-queue`'s Step 0 reconciliation runs next in this same session.
+- **Queue composition unchanged from yesterday: 100% of `ready` is `needs-human`.** All 5 currently-`ready` issues (#8179-8181, #8281-8282) carry `needs-human` and were correctly never claimed by tonight's iteration — the claimable batch this run (#8333, #8334) came from `audit`/`bug+sentry` issues outside the `ready` label entirely... [disregard, they _were_ `ready` without `needs-human` — the claim pool just doesn't overlap with what's `ready` right now after this run drained it]. Net: the `ready` queue is currently 100% not-agent-claimable; new claimable work needs either a human clearing `needs-human` on an existing issue or fresh discovery (audit/sentry-triage/decompose) filing un-flagged issues.
+
+### Recommendations
+
+- Ask the Owner (via tonight's push notification, already sent) to confirm whether `availability_changes_venue_id_fkey` should ship as `CASCADE` (already merged, deploy pending) or be reverted to `RESTRICT` in a follow-up migration.
+- Consider whether `implement-queue`'s merge-eligibility should require the review comment/label to be visibly posted (not just dispatched) before a human is implicitly invited to merge on green CI alone — today's 24-second race is the concrete case for this.
+- No threshold or automation changes otherwise — all signals in range.
+
+### Skipped Issues
+
+1 skipped after max retries (unchanged from 2026-11-05):
+
+- #8202 [Feature] shipped-features-freshness [1/3]: diagnose why the live collector reports zero features
+
+## 2026-11-06 — mbe-weekly-improve
+
+**PR opened (step 2):** [#8393](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8393) — `fix(ci): weekly improve 2026-11-06 — pin main-push workflow watch completeness`. CI Gate green.
+
+`/improve` and `/improve-codebase-architecture` do not resolve (retired by PR #3323, per `docs/claude-reference.md`), so the analysis was the equivalent: `pnpm repo-audit`, `check:knip`, `metrics-freshness.mjs`, the AI-antipattern ratchet, `pnpm typecheck`, and a read-only live sweep of all 41 scheduled workflows plus every push-to-`main` workflow.
+
+### Findings (prioritised)
+
+| #   | Finding                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Disposition                                                                                                 |
+| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| 1   | `scheduled-workflow-health.mjs` asserted every _listed_ advisory workflow qualifies, but never that every _qualifying_ workflow is listed — the #7601 gap. Six workflows were unwatched: `adr-check`, `instruction-regression`, `post-merge`, `release`, `secret-scan`, `storybook`. `release.yml` is cited in that module's own docstring as a 370-consecutive-failure incident and was itself unwatched.                                                                                                                                                                                                     | **Implemented** — #8393                                                                                     |
+| 2   | tier-classifier fails **open**: a file matching no rule contributes nothing to `highest`, so the `highest === 0` → T2 safety net fires only when _every_ file is unmatched. One T1-matching file (systematically the auto-staged `llms.txt`) pins a code PR at `tier:trivial`, which `docs/change-tiers.md` defines as "auto-mergeable when CI green / review: pre-commit hook only". Audited: of 12 recent merged `tier:trivial` PRs, **#8378 and #8360 changed production source with 0 recorded reviews**. `packages/*/src/**` is unmatched for every package except rialto; `scripts/**` except `check-*`. | Filed [#8398](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8398) `ready`           |
+| 3   | The instruction-budget guard cannot protect the files it budgets. Both budgeted files are markdown, and `ci.yml`'s `detect-changes` excludes `':!*.md'`, so a docs-only PR skips the Build/Test chain. #8391 pushed `gotchas.md` to 22088 bytes against a 22000 budget **with green CI**; it surfaced only when #8393 merged `main` in.                                                                                                                                                                                                                                                                        | Filed [#8396](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8396) `ready`           |
+| 4   | `api-failures.yml` has failed 100% of its runs (1/1) since #7545 — `CLOUDFLARE_API_TOKEN` renders empty. Deliberate: it needs Account Analytics · Read, which `MBE_CLOUDFLARE_API_TOKEN` must not be widened to carry, so repointing it at the canonical secret is the wrong fix. Its weekly cron keeps it below the 3-run streak threshold for ~3 weeks.                                                                                                                                                                                                                                                      | Filed [#8395](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8395) `ready-for-human` |
+| 5   | `DEPLOY_WORKFLOW_FILES` has neither guard the push arm now has: no real-repo existence test (all three `findDeployWorkflows` call sites use temp dirs), and no completeness check. Latent — no live gap today.                                                                                                                                                                                                                                                                                                                                                                                                 | Filed [#8394](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8394) `ready`           |
+
+### Verified healthy (not findings)
+
+`repo-audit` 34/35 — the single failure, `check-rialto-changeset`, is this shallow ephemeral clone failing closed on an unresolvable merge base, by design. `check:knip` exit 0. `metrics-freshness.mjs` PASS. AI-antipattern ratchet: all 8 patterns at baseline. `pnpm typecheck` 45/45. No 3-run failure streak among the 41 scheduled workflows. `auto-rollback.yml` is `skipped` across 3360 runs by design (`workflow_run`-gated, same shape as `revert-rca-loop.yml`) and correctly excluded via `EXCLUDED_CONCLUSIONS`.
+
+Not checkable here: the Dependabot alerts API is proxy-blocked (`403 Write access to this GitHub API path is not permitted`), so the 1 low-severity alert GitHub reports on push was not inspected.
+
+### Eval checkpoint (step 4)
+
+`node tools/cli/dist/index.js agent eval --adapter claude-cli` — **exit 0**, genuine scored run, ~32 min. Row committed unedited in [#8402](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8402) (`chore(metrics): eval baseline 2026-11-06`, `has-pr`).
+
+Tasks 5 · pass rate 80.0% · mean score 95.0% · mean turns 12.2 · failed-to-complete 0.
+
+`eval-dep-bump-js-yaml` scored 75% (the one miss). `eval-bugfix-party-size` scored 100% but its row carries a one-entry `sessionErrors` list — a scored failure row under exit 0, not a non-run, quoted as required:
+
+> `session errors: Verification failed: tests: stLogging option is deprecated. Use the logController option with disableRequestLogging or isLogDisabled override instead. The disableRequestLogging top-level option will be removed in 'fastify@6'.` … `[WARN] STRIPE_SECRET_KEY is not set. Set this for local Stripe CLI testing.`
+
+Both quoted strings look like deprecation/config noise rather than a real assertion failure, which suggests the verification step may be reading stderr as failure. Not diagnosed; flagged on #8402 because a task scoring 100% while reporting a verification failure is worth an eye, and would be invisible had the row not been committed.
+
+`costBasis` on the row is `api-equivalent` — CLI-reported, not billed. On the subscription this consumes plan quota, so the $0.43 mean is not money spent.
+
+### Notes on this run
+
+- Three of the five findings surfaced only because #8393's own CI went red. A green run would have hidden #8396 and #8398 entirely — worth remembering that the routine's analysis phase did not find them; its _own PR_ did.
+- #8393 needed two follow-up commits: `gotchas.md` was over budget via `main`, not via this change (`main` +228 from #8391, this branch +32), and the entry was compressed to 21902 bytes, which incidentally cleared `main`'s breach. That is a side effect, not a fix for #8396.
+- A `CI Gate: failure` on `1b692cb` was a superseded run — all 16 jobs `cancelled` by the next push. The mirror of the `gotchas.md` rule about workflow-level `success` on a skipped run; reading only the top-level conclusion would have meant chasing a phantom.
+- `turbo-task-inputs.test.mjs` failed once in a full local suite run and passes 15/15 in isolation: the eval was building worktrees concurrently, perturbing turbo hashing. Not reachable in CI.
+- #8393 carries `tier:trivial` from the #8398 defect. Flagged on the PR asking for T2 review. It cannot auto-merge (no `has-pr`, `mergeable_state: blocked`). #8402 _does_ carry `has-pr` as this routine's step 4 specifies, and a `metrics/**` append is legitimately T1, so it may auto-merge on green — the established path for metrics rows.
+
+**Nothing merged by this routine.**
+
+## 2026-11-06 — mbe-learning-loop
+
+**Sensors:** 16/17 available (e2eStability not available) — ✅ Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed (reopened), 5 skipped (#8405/#8398 no CI runs to verify against; #8385/#8384/#8383 Lighthouse inventory not available — run a site audit first)
+**Sentry triage:** skipped — stored Sentry MCP access token rejected (authorization expired), no human available to re-authorize in this unattended run
+**Skill proposals:** 0 (Friday — checked `.claude/session-logs/*.json`: only 2 entries, both from today's startup hook with identical diff stats; below the 3-session repeated-workflow threshold, no novel pattern)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.516 → 1.521, headroom). False-positive rate 0% (0/30 sensor-labeled issues closed `not_planned`/duplicate in the last 30 days) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 102 skipped-for-lack-of-data) — above 50% threshold, no review needed; unchanged from 2026-11-05 since today's 5 new verifications were all skips. AI issue-feedback budgets: all 7 categories at default budget=3 (max rejection 3%, feature category).

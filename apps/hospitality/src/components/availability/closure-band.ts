@@ -22,6 +22,17 @@ export function minuteText(minute: number, t: TFunction, format: VenueFormat): s
   return minute >= MINUTES_PER_DAY ? t("availability.calendar.nextDay", { time }) : time;
 }
 
+/**
+ * Where a closure window ends. A closure from a set time is stored as running to the two-day
+ * maximum: it ends when the service day does, which reads "close", not "12:00 AM (next day)".
+ * The calendar, the day drawer's layers and its removal lines all say it this way.
+ */
+export function closureEndText(minute: number, t: TFunction, format: VenueFormat): string {
+  return minute >= 2 * MINUTES_PER_DAY
+    ? t("availability.calendar.untilClose")
+    : minuteText(minute, t, format);
+}
+
 /** A whole-day closure is stored as 0 to two days of minutes (ADR-029). */
 export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean {
   return closure.from === 0 && closure.to >= 2 * MINUTES_PER_DAY;
@@ -105,7 +116,7 @@ export function closureBandText(
   }
   const [text, name] = copy.band(t, {
     from: minuteText(closure.from, t, format),
-    to: minuteText(closure.to, t, format),
+    to: closureEndText(closure.to, t, format),
   });
   return { key: closure.ruleId, text, name };
 }

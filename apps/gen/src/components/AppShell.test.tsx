@@ -52,9 +52,15 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
     </div>
   ),
   Badge: ({ children }: { children?: React.ReactNode }) => <span>{children}</span>,
-  Text: ({ children, ...props }: { children?: React.ReactNode; [key: string]: unknown }) => (
-    <span {...(props as React.HTMLAttributes<HTMLSpanElement>)}>{children}</span>
-  ),
+  Text: ({
+    as: Tag = "span",
+    children,
+    ...props
+  }: {
+    as?: "span" | "h1";
+    children?: React.ReactNode;
+    [key: string]: unknown;
+  }) => <Tag {...(props as React.HTMLAttributes<HTMLElement>)}>{children}</Tag>,
 }));
 
 vi.mock("@mbe/auth/react", () => ({
@@ -193,6 +199,26 @@ describe("AppShell", () => {
     render(<AppShell onLogoClick={onLogoClick}>{child}</AppShell>);
     fireEvent.click(screen.getByRole("button", { name: /return to empty state/i }));
     expect(onLogoClick).toHaveBeenCalledTimes(1);
+  });
+
+  // Browser audit #7463: axe landmark-one-main / region / page-has-heading-one /
+  // label-content-name-mismatch fired on the signed-in playground.
+  it("wraps the content in the main landmark the skip link targets", () => {
+    render(<AppShell>{child}</AppShell>);
+    const main = screen.getByRole("main");
+    expect(main.id).toBe("main-content");
+    expect(within(main).getByTestId("child-content")).toBeDefined();
+  });
+
+  it("gives the page one h1 that names it", () => {
+    render(<AppShell>{child}</AppShell>);
+    expect(screen.getByRole("heading", { level: 1, name: "Gen Playground" })).toBeDefined();
+  });
+
+  it("keeps the visible logo text inside the logo button's accessible name", () => {
+    render(<AppShell>{child}</AppShell>);
+    const logo = screen.getByRole("button", { name: /return to empty state/i });
+    expect(logo.getAttribute("aria-label")).toContain("Gen Playground");
   });
 });
 
@@ -343,10 +369,11 @@ describe("AppShell overlay panels", () => {
     expect(document.activeElement).toBe(toggle);
   });
 
-  it("does not yank focus back to the toggle while the overlay is open (StrictMode)", async () => {
+  it("restores focus to the toggle after close, and not before, under StrictMode", async () => {
     panelLayoutState = { ...panelLayoutState, historyVisible: false, breakpoint: "mobile" };
     const { rerender } = render(<StrictMode>{shellTree("history")}</StrictMode>);
-    screen.getByRole("button", { name: /toggle history panel/i }).focus();
+    const toggle = screen.getByRole("button", { name: /toggle history panel/i });
+    toggle.focus();
 
     panelLayoutState = { ...panelLayoutState, historyVisible: true, breakpoint: "mobile" };
     rerender(<StrictMode>{shellTree("history")}</StrictMode>);
@@ -355,6 +382,14 @@ describe("AppShell overlay panels", () => {
     expect(document.activeElement).toBe(all);
     await flushFocusRestore();
     expect(document.activeElement).toBe(all);
+
+    // StrictMode replays the overlay's effects after it has already taken
+    // focus; the replay must not re-capture a panel button as the trigger.
+    pressEscape();
+    panelLayoutState = { ...panelLayoutState, historyVisible: false };
+    rerender(<StrictMode>{shellTree("history")}</StrictMode>);
+    await flushFocusRestore();
+    expect(document.activeElement).toBe(toggle);
   });
 
   it("closes a tablet history overlay from the backdrop as well as Escape", () => {
@@ -420,6 +455,23 @@ describe("AppShell overlay panels", () => {
           <button type="button">All</button>
         </AppShell.HistoryRegion>
         <OtherDialog />
+      </AppShell>
+    );
+    const escape = pressEscape();
+    expect(mockCloseOverlays).not.toHaveBeenCalled();
+    expect(escape.defaultPrevented).toBe(false);
+  });
+
+  it("leaves Escape to an alertdialog that is already open above the overlay", () => {
+    panelLayoutState = { ...panelLayoutState, breakpoint: "mobile" };
+    render(
+      <AppShell>
+        <AppShell.HistoryRegion>
+          <button type="button">All</button>
+        </AppShell.HistoryRegion>
+        <div role="alertdialog" aria-modal="true" aria-label="Sure?">
+          <button type="button">Keep</button>
+        </div>
       </AppShell>
     );
     const escape = pressEscape();

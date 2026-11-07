@@ -33,6 +33,7 @@
           venueAddress: null,
           manageToken,
           updatedAt: reservation.updatedAt,
+          originHost: reservation.originHost ?? null,
         });
       }
     
@@ -64,6 +65,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: reservation.updatedAt,
+              originHost: reservation.originHost ?? null,
             },
             preference
           );
@@ -99,6 +101,7 @@
               venueAddress: null,
               manageToken,
               updatedAt: updated.updatedAt,
+              originHost: updated.originHost ?? null,
             },
             preference
           );
@@ -151,12 +154,352 @@
     }
   </file>
   </section>
+  <section priority="medium" role="closure-catalogs">
+  <file path="src/notifications/closure-catalogs/en-US.ts">
+    export const enUS: ClosureCatalog = {
+      locale: "en-US",
+      intl: "en-US",
+      shortDate: (p) => `${p.weekday} ${p.month} ${p.day}`,
+      emailDate: (p) => `${p.weekday}, ${p.month} ${p.day}`,
+      offerDay: (p) => `${p.weekday} ${p.day}`,
+      clock: (hour, minute) => {
+        const suffix = hour >= 12 ? "PM" : "AM";
+        const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+        return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
+      },
+      previewLink: "[the guest's own link]",
+      sms: {
+        cancelled: (f) =>
+          `${f.venue} is closed ${f.date}. Your ${f.time} table for ${f.party} is cancelled.${
+            f.refund ? ` ${f.refund} deposit will be refunded.` : ""
+          }`,
+        rebookNone: (url) => ` Rebook: ${url}`,
+        rebookOne: (offer) => ` Rebook ${offer}`,
+        rebookMany: (offers, url) =>
+          ` Rebook in one tap:\n${[...offers, `Other times ${url}`].join("\n")}`,
+        moved: (f) =>
+          `${f.venue} has changed its hours on ${f.date}. Your table for ${f.party} is now at ${f.time}. Can't make it? Cancel free: ${f.url}`,
+        kept: (f) =>
+          `${f.venue} has changed its hours on ${f.date}${f.note ? `: ${f.note}` : ""}. Your ${f.time} table is still booked. Manage: ${f.url}`,
+        reopened: (f) => `We've reopened ${f.date} at ${f.venue}. Rebook: ${f.url}`,
+      },
+      email: {
+        subject: {
+          cancelled: (venue, date) => `Your reservation at ${venue} on ${date} is cancelled`,
+          moved: (venue, date) => `Your reservation at ${venue} on ${date} has moved`,
+          kept: (venue, date) => `Update about your reservation at ${venue} on ${date}`,
+          reopened: (venue, date) => `${venue} has reopened on ${date}`,
+        },
+        hello: (name) => `Hi ${name},`,
+        cancelled: {
+          title: "Your reservation is cancelled",
+          body: (f) =>
+            `${f.venue} is closed on ${f.date}. Your ${f.time} table for ${f.party} is cancelled.`,
+          refund: (amount) => `Your ${amount} deposit will be refunded.`,
+          offer: (label) => `Rebook ${label}`,
+          other: "Other dates and times",
+        },
+        moved: {
+          title: "Your reservation has moved",
+          body: (f) =>
+            `${f.venue} has changed its hours on ${f.date}. Your table for ${f.party} is now at ${f.time}.`,
+          cancel: (link) => `Can't make it? ${link("Cancel free")}`,
+        },
+        kept: {
+          title: "Your reservation is still on",
+          body: (f) =>
+            `${f.venue} has changed its hours on ${f.date}. Your ${f.time} table is still booked.`,
+          manage: "Manage your reservation",
+        },
+        reopened: {
+          title: "We've reopened",
+          body: (venue, date) => `${venue} has reopened on ${date}.`,
+          rebook: "Rebook",
+        },
+      },
+    };
+  </file>
+  <file path="src/notifications/closure-catalogs/es-MX.ts">
+    export const esMX: ClosureCatalog = {
+      locale: "es-MX",
+      intl: "es-MX",
+      shortDate: (p) => `${p.weekday} ${p.day} ${p.month}`,
+      emailDate: (p) => `${p.weekday} ${p.day} ${p.month}`,
+      offerDay: (p) => `${p.weekday} ${p.day}`,
+      clock: (hour, minute) => {
+        const suffix = hour >= 12 ? "pm" : "am";
+        const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+        return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
+      },
+      previewLink: "[el enlace propio del huésped]",
+      sms: {
+        cancelled: (f) =>
+          `${f.venue} estará cerrado el ${f.date}. Tu mesa de las ${f.time} para ${f.party} se canceló.${
+            f.refund ? ` Se reembolsará tu depósito de ${f.refund}.` : ""
+          }`,
+        rebookNone: (url) => ` Reserva de nuevo: ${url}`,
+        rebookOne: (offer) => ` Reserva de nuevo ${offer}`,
+        rebookMany: (offers, url) =>
+          ` Reserva de nuevo con un toque:\n${[...offers, `Otros horarios ${url}`].join("\n")}`,
+        moved: (f) =>
+          `${f.venue} cambió su horario el ${f.date}. Tu mesa para ${f.party} ahora es a las ${f.time}. ¿No puedes ir? Cancela gratis: ${f.url}`,
+        kept: (f) =>
+          `${f.venue} cambió su horario el ${f.date}${f.note ? `: ${f.note}` : ""}. Tu mesa de las ${f.time} sigue reservada. Administra: ${f.url}`,
+        reopened: (f) => `Reabrimos el ${f.date} en ${f.venue}. Reserva de nuevo: ${f.url}`,
+      },
+      email: {
+        subject: {
+          cancelled: (venue, date) => `Se canceló tu reservación en ${venue} el ${date}`,
+          moved: (venue, date) => `Tu reservación en ${venue} el ${date} cambió de horario`,
+          kept: (venue, date) => `Novedades sobre tu reservación en ${venue} el ${date}`,
+          reopened: (venue, date) => `${venue} reabrió el ${date}`,
+        },
+        hello: (name) => `Hola ${name}:`,
+        cancelled: {
+          title: "Se canceló tu reservación",
+          body: (f) =>
+            `${f.venue} estará cerrado el ${f.date}. Tu mesa de las ${f.time} para ${f.party} se canceló.`,
+          refund: (amount) => `Se reembolsará tu depósito de ${amount}.`,
+          offer: (label) => `Reserva de nuevo ${label}`,
+          other: "Otras fechas y horarios",
+        },
+        moved: {
+          title: "Tu reservación cambió de horario",
+          body: (f) =>
+            `${f.venue} cambió su horario el ${f.date}. Tu mesa para ${f.party} ahora es a las ${f.time}.`,
+          cancel: (link) => `¿No puedes ir? ${link("Cancela gratis")}`,
+        },
+        kept: {
+          title: "Tu reservación sigue en pie",
+          body: (f) =>
+            `${f.venue} cambió su horario el ${f.date}. Tu mesa de las ${f.time} sigue reservada.`,
+          manage: "Administra tu reservación",
+        },
+        reopened: {
+          title: "Reabrimos",
+          body: (venue, date) => `${venue} reabrió el ${date}.`,
+          rebook: "Reserva de nuevo",
+        },
+      },
+    };
+  </file>
+  <file path="src/notifications/closure-catalogs/fr-CA.ts">
+    export const frCA: ClosureCatalog = {
+      locale: "fr-CA",
+      intl: "fr-CA",
+      shortDate: (p) => `${p.weekday} ${p.day} ${p.month}`,
+      emailDate: (p) => `${p.weekday} ${p.day} ${p.month}`,
+      offerDay: (p) => `${p.weekday} ${p.day}`,
+      clock: (hour, minute) => `${hour} h ${String(minute).padStart(2, "0")}`,
+      previewLink: "[le lien propre au client]",
+      sms: {
+        cancelled: (f) =>
+          `${f.venue} sera fermé le ${f.date}. Votre table de ${f.time} pour ${f.party} est annulée.${
+            f.refund ? ` Votre dépôt de ${f.refund} sera remboursé.` : ""
+          }`,
+        rebookNone: (url) => ` Réservez à nouveau : ${url}`,
+        rebookOne: (offer) => ` Réservez à nouveau ${offer}`,
+        rebookMany: (offers, url) =>
+          ` Réservez à nouveau d'un clic :\n${[...offers, `Autres heures ${url}`].join("\n")}`,
+        moved: (f) =>
+          `${f.venue} a modifié ses heures le ${f.date}. Votre table pour ${f.party} est maintenant à ${f.time}. Un empêchement? Annulez sans frais : ${f.url}`,
+        kept: (f) =>
+          `${f.venue} a modifié ses heures le ${f.date}${f.note ? ` : ${f.note}` : ""}. Votre table de ${f.time} est toujours réservée. Gérez : ${f.url}`,
+        reopened: (f) =>
+          `Nous avons rouvert le ${f.date} chez ${f.venue}. Réservez à nouveau : ${f.url}`,
+      },
+      email: {
+        subject: {
+          cancelled: (venue, date) => `Votre réservation chez ${venue} le ${date} est annulée`,
+          moved: (venue, date) => `Votre réservation chez ${venue} le ${date} a été déplacée`,
+          kept: (venue, date) => `Mise à jour de votre réservation chez ${venue} le ${date}`,
+          reopened: (venue, date) => `${venue} a rouvert le ${date}`,
+        },
+        hello: (name) => `Bonjour ${name},`,
+        cancelled: {
+          title: "Votre réservation est annulée",
+          body: (f) =>
+            `${f.venue} sera fermé le ${f.date}. Votre table de ${f.time} pour ${f.party} est annulée.`,
+          refund: (amount) => `Votre dépôt de ${amount} sera remboursé.`,
+          offer: (label) => `Réservez à nouveau ${label}`,
+          other: "Autres dates et heures",
+        },
+        moved: {
+          title: "Votre réservation a été déplacée",
+          body: (f) =>
+            `${f.venue} a modifié ses heures le ${f.date}. Votre table pour ${f.party} est maintenant à ${f.time}.`,
+          cancel: (link) => `Un empêchement? ${link("Annulez sans frais")}`,
+        },
+        kept: {
+          title: "Votre réservation est maintenue",
+          body: (f) =>
+            `${f.venue} a modifié ses heures le ${f.date}. Votre table de ${f.time} est toujours réservée.`,
+          manage: "Gérer votre réservation",
+        },
+        reopened: {
+          title: "Nous avons rouvert",
+          body: (venue, date) => `${venue} a rouvert le ${date}.`,
+          rebook: "Réservez à nouveau",
+        },
+      },
+    };
+  </file>
+  <file path="src/notifications/closure-catalogs/index.ts">
+    export function closureCatalog(locale: GuestNoticeLocale): ClosureCatalog {
+      return CATALOGS[locale];
+    }
+  </file>
+  <file path="src/notifications/closure-catalogs/types.ts">
+    export interface DateParts {
+      weekday: string;
+      /** Month name, abbreviated. */
+      month: string;
+      day: number;
+    }
+    export interface NoticeFacts {
+      venue: string;
+      /** "Thu Dec 24" in this language; the email's date is {@link ClosureCatalog.emailDate}. */
+      date: string;
+      time: string;
+      party: number;
+    }
+    export interface ClosureCatalog {
+      readonly locale: GuestNoticeLocale;
+      /** `Intl` locale used for date and money formatting. */
+      readonly intl: string;
+      /** "Thu Dec 24" */
+      shortDate(p: DateParts): string;
+      /** "Thu, Dec 24" */
+      emailDate(p: DateParts): string;
+      /** "Wed 23", for a rebook offer's label; the clock follows. */
+      offerDay(p: DateParts): string;
+      /** Guest-facing clock time from venue-local 24h hour and minute, e.g. "7:00 PM". */
+      clock(hour: number, minute: number): string;
+      /** Stands where the guest's own link goes in a preview: the link is only made when a notice is sent. */
+      readonly previewLink: string;
+      readonly sms: {
+        cancelled(f: NoticeFacts & { refund: string | null }): string;
+        rebookNone(url: string): string;
+        rebookOne(offer: string): string;
+        rebookMany(offers: readonly string[], url: string): string;
+        moved(f: NoticeFacts & { url: string }): string;
+        kept(f: Omit<NoticeFacts, "party"> & { note: string | null; url: string }): string;
+        reopened(f: { date: string; venue: string; url: string }): string;
+      };
+      readonly email: {
+        subject: {
+          cancelled(venue: string, date: string): string;
+          moved(venue: string, date: string): string;
+          kept(venue: string, date: string): string;
+          reopened(venue: string, date: string): string;
+        };
+        /** "Hi Maria," */
+        hello(name: string): string;
+        readonly cancelled: {
+          title: string;
+          body(f: NoticeFacts): string;
+          refund(amount: string): string;
+          offer(label: string): string;
+          other: string;
+        };
+        readonly moved: {
+          title: string;
+          body(f: NoticeFacts): string;
+          /** Wraps the link; `link` is the anchor that says "Cancel free". */
+          cancel(link: (text: string) => string): string;
+        };
+        readonly kept: {
+          title: string;
+          body(f: NoticeFacts): string;
+          manage: string;
+        };
+        readonly reopened: {
+          title: string;
+          body(venue: string, date: string): string;
+          rebook: string;
+        };
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="config">
+  <file path="src/config/host-brand.ts">
+    export type OriginHost = "eat-sheet.com" | "mattbutlerengineering.com";
+    export function resolveOriginHost(
+      origin: string | readonly string[] | undefined | null
+    ): OriginHost | null {
+      const value = Array.isArray(origin) ? origin[0] : origin;
+      if (!value) return null;
+    
+      let hostname: string;
+      try {
+        hostname = new URL(value).hostname.toLowerCase();
+      } catch {
+        return null;
+      }
+    
+      if (EAT_SHEET_HOSTNAMES.has(hostname)) return "eat-sheet.com";
+      if (MBE_HOSTNAMES.has(hostname)) return "mattbutlerengineering.com";
+      return null;
+    }
+    export interface ReservationHostBrand {
+      readonly brandName: string;
+      readonly fromAddress: string;
+      readonly manageBaseUrl: string;
+    }
+    export interface HostBrandEnv {
+      /**
+       * The verified Resend sending domain's address. Never varies by host:
+       * eat-sheet.com is not (yet) a verified sending domain, so the envelope
+       * from-address always stays here — only the display name changes (#7892).
+       */
+      readonly verifiedFromAddress: string;
+      readonly mbeManageBaseUrl: string;
+      readonly eatSheetManageBaseUrl: string;
+    }
+    function withDisplayName(name: string, address: string): string {
+      const email = address.match(/<([^>]+)>/)?.[1] ?? address;
+      return `${name} <${email}>`;
+    }
+    export function hostBrandFor(originHost: string | null, env: HostBrandEnv): ReservationHostBrand {
+      if (originHost === "eat-sheet.com") {
+        return {
+          brandName: EAT_SHEET_BRAND_NAME,
+          fromAddress: withDisplayName(EAT_SHEET_BRAND_NAME, env.verifiedFromAddress),
+          manageBaseUrl: env.eatSheetManageBaseUrl,
+        };
+      }
+      return {
+        brandName: MBE_BRAND_NAME,
+        fromAddress: env.verifiedFromAddress,
+        manageBaseUrl: env.mbeManageBaseUrl,
+      };
+    }
+    export function createHostBrandResolver(env: {
+      EMAIL_FROM?: string | undefined;
+      MANAGE_BASE_URL?: string | undefined;
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): (originHost: string | null) => ReservationHostBrand {
+      const brandEnv: HostBrandEnv = {
+        verifiedFromAddress: env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+        mbeManageBaseUrl: resolveManageBaseUrl(env),
+        eatSheetManageBaseUrl: resolveEatSheetManageBaseUrl(env),
+      };
+      return (originHost) => hostBrandFor(originHost, brandEnv);
+    }
+  </file>
   <file path="src/config/manage-base-url.ts">
     export const DEFAULT_MANAGE_BASE_URL = "https://mattbutlerengineering.com";
     export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string {
       const raw = (env.MANAGE_BASE_URL ?? "").trim();
       return raw === "" ? DEFAULT_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
+    }
+    export const DEFAULT_EAT_SHEET_MANAGE_BASE_URL = "https://eat-sheet.com";
+    export function resolveEatSheetManageBaseUrl(env: {
+      EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+    }): string {
+      const raw = (env.EAT_SHEET_MANAGE_BASE_URL ?? "").trim();
+      return raw === "" ? DEFAULT_EAT_SHEET_MANAGE_BASE_URL : raw.replace(/\/+$/, "");
     }
   </file>
   <file path="src/config/manage-token.ts">
@@ -802,6 +1145,8 @@
     }
     export interface ClosureNoticeContent {
       kind: ClosureNoticeKind;
+      /** The language the guest booked in; the notice is worded, dated and priced in it. */
+      locale: GuestNoticeLocale;
       venueName: string;
       guestName: string | null;
       /** Venue-local service date the closure affects, "YYYY-MM-DD". */
@@ -820,6 +1165,15 @@
     function toGsm(text: string): string {
       return text.replace(LOOKALIKE, (ch) => GSM_LOOKALIKES[ch]!);
     }
+    function foldToGsm(text: string): string {
+      return [...text]
+        .map((ch) => {
+          if (isGsm(ch)) return ch;
+          const base = ch.normalize("NFD").replace(/\p{M}/gu, "");
+          return [...base].every(isGsm) ? base : ch;
+        })
+        .join("");
+    }
     export function smsSegments(body: string): number {
       let septets = 0;
       let gsm = true;
@@ -835,61 +1189,89 @@
       const [single, multi] = gsm ? [160, 153] : [70, 67];
       return units <= single ? 1 : Math.ceil(units / multi);
     }
-    function civilParts(date: string): { weekday: string; month: string; day: number } {
+    function civilParts(date: string, catalog: ClosureCatalog): DateParts {
       const instant = new Date(`${date}T12:00:00.000Z`);
       const part = (opts: Intl.DateTimeFormatOptions) =>
-        new Intl.DateTimeFormat("en-US", { timeZone: "UTC", ...opts }).format(instant);
+        plainSpaces(
+          // Abbreviations lose their period ("déc." → "déc"): a sentence's own period follows.
+          new Intl.DateTimeFormat(catalog.intl, { timeZone: "UTC", ...opts })
+            .format(instant)
+            .replace(/\./g, "")
+        );
       return {
         weekday: part({ weekday: "short" }),
         month: part({ month: "short" }),
         day: instant.getUTCDate(),
       };
     }
-    function shortDate(date: string): string {
-      const p = civilParts(date);
-      return `${p.weekday} ${p.month} ${p.day}`;
+    function plainSpaces(text: string): string {
+      return text.replace(/[\u00A0\u202F]/g, " ");
     }
-    function emailDate(date: string): string {
-      const p = civilParts(date);
-      return `${p.weekday}, ${p.month} ${p.day}`;
+    function clockOf(instant: string, timezone: string, fallbackDate: string, catalog: ClosureCatalog) {
+      const [hour, minute] = toVenueLocalTime(instant, timezone, fallbackDate).time.split(":");
+      return catalog.clock(Number(hour), Number(minute));
     }
-    export function offerLabel(start: Date, timezone: string): string {
+    export function offerLabel(start: Date, timezone: string, locale: GuestNoticeLocale): string {
+      const catalog = closureCatalog(locale);
       const when = toVenueLocalTime(start.toISOString(), timezone, "");
-      const p = civilParts(when.date);
-      return `${p.weekday} ${p.day} ${when.display}`;
+      return `${catalog.offerDay(civilParts(when.date, catalog))} ${clockOf(start.toISOString(), timezone, "", catalog)}`;
     }
-    function money(refund: { amountCents: number; currency: string }): string {
+    function money(refund: { amountCents: number; currency: string }, catalog: ClosureCatalog): string {
       const whole = refund.amountCents % 100 === 0;
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: refund.currency.toUpperCase(),
-        minimumFractionDigits: whole ? 0 : 2,
-        maximumFractionDigits: whole ? 0 : 2,
-      }).format(refund.amountCents / 100);
+      return plainSpaces(
+        new Intl.NumberFormat(catalog.intl, {
+          style: "currency",
+          currency: refund.currency.toUpperCase(),
+          minimumFractionDigits: whole ? 0 : 2,
+          maximumFractionDigits: whole ? 0 : 2,
+        }).format(refund.amountCents / 100)
+      );
     }
     function timeOf(c: ClosureNoticeContent): string {
-      return toVenueLocalTime(c.startTime, c.timezone, c.closureDate).display;
+      return clockOf(c.startTime, c.timezone, c.closureDate, closureCatalog(c.locale));
     }
     function firstName(name: string | null): string {
       return name?.trim().split(/\s+/)[0] ?? "";
     }
+    function facts(c: ClosureNoticeContent, catalog: ClosureCatalog) {
+      return {
+        venue: c.venueName,
+        date: catalog.shortDate(civilParts(c.closureDate, catalog)),
+        time: timeOf(c),
+        party: c.partySize,
+      };
+    }
+    function refundText(c: ClosureNoticeContent, catalog: ClosureCatalog): string | null {
+      return c.refund && promisesRefund(c) ? money(c.refund, catalog) : null;
+    }
     function cancelledSms(c: ClosureNoticeContent, offers: readonly ClosureOffer[]): string {
-      const refund = c.refund ? ` ${money(c.refund)} deposit will be refunded.` : "";
-      const head = `${c.venueName} is closed ${shortDate(c.closureDate)}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.${refund}`;
+      const catalog = closureCatalog(c.locale);
+      const head = catalog.sms.cancelled({ ...facts(c, catalog), refund: refundText(c, catalog) });
       const times = offers.map((o) => `${o.label} ${o.url}`);
-      if (times.length === 0) return `${head} Rebook: ${c.manageUrl}`;
-      if (times.length === 1) return `${head} Rebook ${times[0]}`;
-      return `${head} Rebook in one tap:\n${[...times, `Other times ${c.manageUrl}`].join("\n")}`;
+      if (times.length === 0) return `${head}${catalog.sms.rebookNone(c.manageUrl)}`;
+      if (times.length === 1) return `${head}${catalog.sms.rebookOne(times[0]!)}`;
+      return `${head}${catalog.sms.rebookMany(times, c.manageUrl)}`;
     }
     function movedSms(c: ClosureNoticeContent): string {
-      return `${c.venueName} has changed its hours on ${shortDate(c.closureDate)}. Your table for ${c.partySize} is now at ${timeOf(c)}. Can't make it? Cancel free: ${c.manageUrl}`;
+      const catalog = closureCatalog(c.locale);
+      return catalog.sms.moved({ ...facts(c, catalog), url: c.manageUrl });
     }
     function keptSms(c: ClosureNoticeContent, withMessage: boolean): string {
-      const note = withMessage && c.message ? `: ${c.message}` : "";
-      return `${c.venueName} has changed its hours on ${shortDate(c.closureDate)}${note}. Your ${timeOf(c)} table is still booked. Manage: ${c.manageUrl}`;
+      const catalog = closureCatalog(c.locale);
+      const { party: _party, ...rest } = facts(c, catalog);
+      return catalog.sms.kept({
+        ...rest,
+        note: withMessage && c.message ? c.message : null,
+        url: c.manageUrl,
+      });
     }
     function reopenedSms(c: ClosureNoticeContent): string {
-      return `We've reopened ${shortDate(c.closureDate)} at ${c.venueName}. Rebook: ${c.manageUrl}`;
+      const catalog = closureCatalog(c.locale);
+      return catalog.sms.reopened({
+        date: catalog.shortDate(civilParts(c.closureDate, catalog)),
+        venue: c.venueName,
+        url: c.manageUrl,
+      });
     }
     function smsCandidates(c: ClosureNoticeContent): string[] {
       switch (c.kind) {
@@ -916,75 +1298,141 @@
       );
       // Each richer form is tried with every name before a poorer form is.
       const candidates = perName[0]!.flatMap((_, i) => perName.map((bodies) => bodies[i]!));
-      return (
-        candidates.find((body) => smsSegments(body) <= MAX_SMS_SEGMENTS) ??
-        candidates[candidates.length - 1]!
-      );
+      const bodies = candidates.map(foldToGsm);
+      return bodies.find((body) => smsSegments(body) <= MAX_SMS_SEGMENTS) ?? bodies[bodies.length - 1]!;
     }
     function emailSubject(c: ClosureNoticeContent): string {
-      const date = emailDate(c.closureDate);
-      switch (c.kind) {
-        case "cancelled":
-          return `Your reservation at ${c.venueName} on ${date} is cancelled`;
-        case "moved":
-          return `Your reservation at ${c.venueName} on ${date} has moved`;
-        case "kept":
-          return `Update about your reservation at ${c.venueName} on ${date}`;
-        case "reopened":
-          return `${c.venueName} has reopened on ${date}`;
-      }
+      const catalog = closureCatalog(c.locale);
+      const date = catalog.emailDate(civilParts(c.closureDate, catalog));
+      const subject = catalog.email.subject[c.kind];
+      return subject(c.venueName, date);
     }
     function link(url: string, text: string): string {
       const safe = sanitizeUrl(url);
       return safe ? `<a href="${escapeHtml(safe)}">${escapeHtml(text)}</a>` : "";
     }
     function emailLines(c: ClosureNoticeContent): string[] {
+      const catalog = closureCatalog(c.locale);
+      const copy = catalog.email;
       const venue = escapeHtml(c.venueName);
-      const date = emailDate(c.closureDate);
+      const date = catalog.emailDate(civilParts(c.closureDate, catalog));
+      const f = { venue, date, time: timeOf(c), party: c.partySize };
       const message = c.message ? [`<p>${escapeHtml(c.message)}</p>`] : [];
       switch (c.kind) {
         case "cancelled": {
-          const refund = c.refund
-            ? [`<p>Your ${escapeHtml(money(c.refund))} deposit will be refunded.</p>`]
-            : [];
-          const offers = c.offers.map((o) => `<p>${link(o.url, `Rebook ${o.label}`)}</p>`);
+          const amount = refundText(c, catalog);
+          const refund = amount ? [`<p>${copy.cancelled.refund(escapeHtml(amount))}</p>`] : [];
+          const offers = c.offers.map((o) => `<p>${link(o.url, copy.cancelled.offer(o.label))}</p>`);
           return [
-            `<h1>Your reservation is cancelled</h1>`,
-            `<p>${venue} is closed on ${date}. Your ${timeOf(c)} table for ${c.partySize} is cancelled.</p>`,
+            `<h1>${copy.cancelled.title}</h1>`,
+            `<p>${copy.cancelled.body(f)}</p>`,
             ...message,
             ...refund,
             ...offers,
-            `<p>${link(c.manageUrl, "Other dates and times")}</p>`,
+            `<p>${link(c.manageUrl, copy.cancelled.other)}</p>`,
           ];
         }
         case "moved":
           return [
-            `<h1>Your reservation has moved</h1>`,
-            `<p>${venue} has changed its hours on ${date}. Your table for ${c.partySize} is now at ${timeOf(c)}.</p>`,
+            `<h1>${copy.moved.title}</h1>`,
+            `<p>${copy.moved.body(f)}</p>`,
             ...message,
-            `<p>Can't make it? ${link(c.manageUrl, "Cancel free")}</p>`,
+            `<p>${copy.moved.cancel((text) => link(c.manageUrl, text))}</p>`,
           ];
         case "kept":
           return [
-            `<h1>Your reservation is still on</h1>`,
-            `<p>${venue} has changed its hours on ${date}. Your ${timeOf(c)} table is still booked.</p>`,
+            `<h1>${copy.kept.title}</h1>`,
+            `<p>${copy.kept.body(f)}</p>`,
             ...message,
-            `<p>${link(c.manageUrl, "Manage your reservation")}</p>`,
+            `<p>${link(c.manageUrl, copy.kept.manage)}</p>`,
           ];
         case "reopened":
           return [
-            `<h1>We've reopened</h1>`,
-            `<p>${venue} has reopened on ${date}.</p>`,
-            `<p>${link(c.manageUrl, "Rebook")}</p>`,
+            `<h1>${copy.reopened.title}</h1>`,
+            `<p>${copy.reopened.body(venue, date)}</p>`,
+            `<p>${link(c.manageUrl, copy.reopened.rebook)}</p>`,
           ];
       }
     }
     export function buildClosureEmail(c: ClosureNoticeContent): { subject: string; html: string } {
       const greeting = firstName(c.guestName);
-      const hello = greeting ? [`<p>Hi ${escapeHtml(greeting)},</p>`] : [];
+      const hello = greeting
+        ? [`<p>${closureCatalog(c.locale).email.hello(escapeHtml(greeting))}</p>`]
+        : [];
       return {
         subject: emailSubject(c),
         html: [...hello, ...emailLines(c)].join("\n"),
+      };
+    }
+  </file>
+  <file path="src/notifications/closure-preview.ts">
+    export type PreviewAction = "cancel" | "move" | "keep_notify";
+    export interface ClosurePreviewInput {
+      action: PreviewAction;
+      venueName: string;
+      timezone: string;
+      /** Venue-local service date the closure affects, "YYYY-MM-DD". */
+      closureDate: string;
+      /** The booking's start as the notice states it: the new time, for a move. */
+      startTime: string;
+      partySize: number;
+      guestName: string | null;
+      /** The language the guest booked in; the preview is worded in it, as the sent notice is. */
+      locale: GuestNoticeLocale;
+      message: string | null;
+      refund: { amountCents: number; currency: string } | null;
+      /** The booking's origin host brand: where the link points. */
+      manageBaseUrl: string;
+      /**
+       * A token as long as a real signed one. `buildClosureSms` picks its body by segment count, so a
+       * short stand-in would keep a venue message the real, longer link makes it drop.
+       */
+      manageToken: string;
+      /** The sender, display name included, as the guest's mail client shows it. */
+      from: string;
+    }
+    export interface ClosurePreview {
+      email: { from: string; subject: string; text: string };
+      sms: string;
+    }
+    function withoutTags(line: string): string {
+      let text = "";
+      let inTag = false;
+      for (const ch of line) {
+        if (ch === "<") inTag = true;
+        else if (ch === ">" && inTag) inTag = false;
+        else if (!inTag) text += ch;
+      }
+      return text;
+    }
+    function emailText(html: string): string {
+      return html
+        .split("\n")
+        .map((line) => withoutTags(line).replace(/&(?:amp|lt|gt|quot|#39);/g, (e) => ENTITIES[e] ?? e))
+        .filter((line) => line.trim() !== "")
+        .join("\n");
+    }
+    export function previewClosureNotice(input: ClosurePreviewInput): ClosurePreview {
+      const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
+      const content = {
+        kind: KIND_OF_ACTION[input.action],
+        locale: input.locale,
+        venueName: input.venueName,
+        guestName: input.guestName,
+        closureDate: input.closureDate,
+        startTime: input.startTime,
+        timezone: input.timezone,
+        partySize: input.partySize,
+        message: input.message?.trim() ? input.message.trim() : null,
+        refund: input.action === "cancel" ? input.refund : null,
+        manageUrl,
+        // Open rebook times are looked up when the notice is sent, so they are still open then.
+        offers: [],
+      };
+      const { subject, html } = buildClosureEmail(content);
+      return {
+        email: { from: input.from, subject, text: emailText(html) },
+        sms: buildClosureSms(content).split(manageUrl).join(closureCatalog(input.locale).previewLink),
       };
     }
   </file>
@@ -1158,10 +1606,19 @@
   </file>
   <file path="src/notifications/manage-url.ts">
     export const MANAGE_PATH = "/hospitality/reservations/manage";
+    function managePathFor(origin: string): string {
+      try {
+        return EAT_SHEET_HOSTNAMES.has(new URL(origin).hostname.toLowerCase())
+          ? EAT_SHEET_MANAGE_PATH
+          : MANAGE_PATH;
+      } catch {
+        return MANAGE_PATH;
+      }
+    }
     export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string {
       const origin = baseUrl.replace(/\/+$/, "");
       const rebookParam = rebook === undefined ? "" : `&rebook=${encodeURIComponent(rebook)}`;
-      return `${origin}${MANAGE_PATH}?token=${encodeURIComponent(token)}${rebookParam}`;
+      return `${origin}${managePathFor(origin)}?token=${encodeURIComponent(token)}${rebookParam}`;
     }
   </file>
   <file path="src/notifications/notification-dispatcher.ts">
@@ -1370,11 +1827,18 @@
       updatedAt?: string;
       /** Explicit SEQUENCE override; takes precedence over `updatedAt`. */
       sequence?: number;
+      /**
+       * The host the guest booked on (#7892) — `null`/absent keeps the
+       * mattbutlerengineering.com brand and from-address.
+       */
+      originHost?: string | null;
     }
     export interface WinBackNotificationInput {
       guestName: string;
       guestEmail: string;
       venueName: string;
+      /** Sent to the provider so a retried call for the same claim delivers once. */
+      idempotencyKey?: string;
     }
     export interface ThankYouEmailInput {
       guestEmail: string;
@@ -1388,6 +1852,8 @@
       to: string;
       subject: string;
       html: string;
+      /** The host the guest booked on (#7892) — `null`/absent keeps the mattbutlerengineering.com brand. */
+      originHost?: string | null;
     }
     export interface NotificationPort {
       /** A closure notice, already rendered (see closure-content.ts). */
@@ -1400,14 +1866,43 @@
       sendThankYouEmail(input: ThankYouEmailInput): Promise<void>;
     }
   </file>
+  <file path="src/notifications/provider-rejected-error.ts">
+    export class ProviderRejectedError extends Error {
+      constructor(message: string) {
+        super(message);
+        this.name = "ProviderRejectedError";
+      }
+    }
+    export class EmailNotConfiguredError extends Error {
+      constructor() {
+        super("Email sending is not configured");
+        this.name = "EmailNotConfiguredError";
+      }
+    }
+  </file>
   <file path="src/notifications/resend-adapter.ts">
-    interface ResendClient {
+    export interface ResendClient {
       emails: {
-        // The SDK resolves `{ data, error }` on API failures rather than throwing.
+        // The SDK resolves `{ data, error }` on EVERY failure rather than throwing: a network
+        // failure is `statusCode: null`, an HTTP failure carries the response's status.
         send(
-          payload: Record<string, unknown>
-        ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
+          payload: Record<string, unknown>,
+          options?: { idempotencyKey: string }
+        ): Promise<{
+          data?: unknown;
+          error?: { name?: string; message: string; statusCode?: number | null } | null;
+        }>;
       };
+    }
+    function isDefiniteRejection(error: { name?: string; statusCode?: number | null }): boolean {
+      const status = error.statusCode;
+      return (
+        typeof status === "number" &&
+        status >= 400 &&
+        status <= 499 &&
+        !AMBIGUOUS_CLIENT_STATUSES.has(status) &&
+        error.name !== IN_FLIGHT_ERROR_NAME
+      );
     }
     export interface ResendAdapterConfig {
       resend: ResendClient | null;
@@ -1430,37 +1925,57 @@
        * sent with a link built from a guessed host.
        */
       publicApiBaseUrl: string | null;
+      /**
+       * Resolves the from-address and manage-link base for a booking's origin
+       * host (#7892) — e.g. eat-sheet.com's booking emails get that brand's
+       * display name and manage link. Omitted (or an unrecognized host) keeps
+       * `fromAddress` / `manageBaseUrl` above for every send, today's behavior.
+       */
+      brandFor?(originHost: string | null): { fromAddress: string; manageBaseUrl: string };
     }
     export class ResendNotificationAdapter implements NotificationPort {
       private readonly resend: ResendClient | null;
       private readonly fromAddress: string;
       private readonly manageBaseUrl: string;
       private readonly publicApiBaseUrl: string | null;
+      private readonly brandFor: (originHost: string | null) => {
+        fromAddress: string;
+        manageBaseUrl: string;
+      };
     
       constructor(config: ResendAdapterConfig) {
         this.resend = config.resend;
         this.fromAddress = config.fromAddress;
         this.manageBaseUrl = config.manageBaseUrl;
         this.publicApiBaseUrl = config.publicApiBaseUrl;
+        this.brandFor =
+          config.brandFor ??
+          (() => ({ fromAddress: this.fromAddress, manageBaseUrl: this.manageBaseUrl }));
       }
     
       /**
        * Single send path: converts the SDK's `{ error }` result into a rejection so
        * the dispatcher, retry policy and failure log see a failed email as failed.
        */
-      private async send(payload: Record<string, unknown>): Promise<void> {
+      private async send(
+        payload: Record<string, unknown>,
+        options?: { idempotencyKey: string }
+      ): Promise<void> {
         if (!this.resend) return;
-        const { error } = await this.resend.emails.send(payload);
+        const { error } = options
+          ? await this.resend.emails.send(payload, options)
+          : await this.resend.emails.send(payload);
         if (error) {
-          throw new Error(
-            `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`
-          );
+          const message = `Resend send failed${error.name ? ` (${error.name})` : ""}: ${error.message}`;
+          // Only a proven refusal is a ProviderRejectedError; callers may retry after one (win-back).
+          throw isDefiniteRejection(error) ? new ProviderRejectedError(message) : new Error(message);
         }
       }
     
       async sendClosureNotice(input: ClosureEmailInput): Promise<void> {
+        const brand = this.brandFor(input.originHost ?? null);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.to,
           subject: input.subject,
           html: input.html,
@@ -1469,9 +1984,10 @@
     
       async sendBookingConfirmation(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "confirmation", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "confirmation", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -1487,9 +2003,10 @@
     
       async sendBookingReminder(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "reminder", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "reminder", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -1498,9 +2015,10 @@
     
       async sendBookingModified(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "modified", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "modified", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -1516,9 +2034,10 @@
     
       async sendBookingCancelled(input: BookingNotificationInput): Promise<void> {
         if (!this.resend) return;
-        const content = buildBookingEmailContent(input, "cancelled", this.manageBaseUrl);
+        const brand = this.brandFor(input.originHost ?? null);
+        const content = buildBookingEmailContent(input, "cancelled", brand.manageBaseUrl);
         await this.send({
-          from: this.fromAddress,
+          from: brand.fromAddress,
           to: input.guestEmail,
           subject: content.subject,
           html: content.html,
@@ -1533,15 +2052,20 @@
       }
     
       async sendWinBack(input: WinBackNotificationInput): Promise<void> {
-        if (!this.resend) return;
+        // Unlike the other senders, win-back must not report "sent" for an email that never left:
+        // the caller records the send and starts a cooldown on it.
+        if (!this.resend) throw new EmailNotConfiguredError();
         const safeGuestName = escapeHtml(input.guestName);
         const safeVenueName = escapeHtml(input.venueName);
-        await this.send({
-          from: this.fromAddress,
-          to: input.guestEmail,
-          subject: `We miss you, ${input.guestName}!`,
-          html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
-        });
+        await this.send(
+          {
+            from: this.fromAddress,
+            to: input.guestEmail,
+            subject: `We miss you, ${input.guestName}!`,
+            html: `<p>Hi ${safeGuestName},</p><p>It&apos;s been a while since we&apos;ve seen you at ${safeVenueName}. We&apos;d love to welcome you back — book your next visit any time.</p>`,
+          },
+          input.idempotencyKey ? { idempotencyKey: input.idempotencyKey } : undefined
+        );
       }
     
       async sendThankYouEmail(input: ThankYouEmailInput): Promise<void> {
@@ -2394,6 +2918,8 @@
             configProblem(409, "Conflict", "Availability changed since you loaded it.", {
               code: "version-conflict",
               winningChange: outcome.winningChange,
+              currentVersion: outcome.currentVersion,
+              ...(outcome.changesSince ? { changesSince: outcome.changesSince } : {}),
             })
           );
         case "invalid":
@@ -2976,18 +3502,21 @@
     export async function publishClosureChanges(
       fastify: FastifyInstance,
       log: FastifyBaseLogger,
-      saved: { venueId: string; ruleId: string }
+      saved: { venueId: string; ruleId: string; carried?: readonly string[] }
     ): Promise<void> {
-      const { venueId, ruleId } = saved;
+      const { venueId, ruleId, carried } = saved;
       try {
-        await fastify.transitions.settleClosure(venueId, await loadClosureChanges(venueId, ruleId));
+        await fastify.transitions.settleClosure(
+          venueId,
+          await loadClosureChanges(venueId, ruleId, carried)
+        );
       } catch (err) {
         log.error({ err, venueId, ruleId }, "closure SSE events were not published");
       }
     }
     export async function enqueueNotices(
       enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-      input: { venueId: string; ruleId: string },
+      input: { venueId: string; ruleId: string; carried?: readonly string[]; date?: string },
       log: FastifyBaseLogger
     ): Promise<void> {
       try {
@@ -3002,19 +3531,32 @@
       saved: { venueId: string; ruleId: string; cancelled: number }
     ): Promise<void> {
       const { venueId, ruleId, cancelled } = saved;
-      await publishClosureChanges(fastify, log, { venueId, ruleId });
+      const carried = await carriedOutcomes(log, venueId, ruleId);
+      await publishClosureChanges(fastify, log, { venueId, ruleId, carried });
       if (cancelled > 0) {
         try {
-          await fastify.closureRefunds.enqueue(venueId, ruleId);
+          await fastify.closureRefunds.enqueue(venueId, ruleId, carried);
         } catch (err) {
           log.error({ err, venueId, ruleId }, "Failed to enqueue closure refund jobs");
         }
       }
       await enqueueNotices(
         fastify.services.closureNoticeService.enqueueForClosure,
-        { venueId, ruleId },
+        { venueId, ruleId, carried },
         log
       );
+    }
+    async function carriedOutcomes(
+      log: FastifyBaseLogger,
+      venueId: string,
+      ruleId: string
+    ): Promise<string[]> {
+      try {
+        return await readCarriedOutcomeIds(venueId, ruleId);
+      } catch (err) {
+        log.error({ err, venueId, ruleId }, "carried closure outcomes were not read");
+        return [];
+      }
     }
   </file>
   <file path="src/routes/closures.ts">
@@ -3103,6 +3645,7 @@
     }
     export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       const { closureCommandService, closureNoticeService } = fastify.services;
+      const hostBrandFor = createHostBrandResolver(process.env);
     
       registerEndpoint(fastify, availabilityConfigEndpoints.createClosure, {
         docs: {
@@ -3137,6 +3680,43 @@
             cancelled: outcome.result.outcomes.cancel,
           });
           return { data: outcome.result };
+        }),
+      });
+    
+      registerEndpoint(fastify, availabilityConfigEndpoints.closureNoticePreview, {
+        docs: {
+          summary: "Preview the notice a guest would be sent for a Step 2 outcome",
+          operationId: "previewClosureNotice",
+          description:
+            "Read-only. Renders one booking's email and SMS with the same builders the CLOSURE_NOTICE job sends with, in the venue's name and time zone. The email body is returned as the plain text a guest reads. The guest's own manage link and any open rebooking times are only made when a notice is really sent, so the preview shows neither. The body names the guest it is for; nothing here logs it. Any venue member (a Host's emergency close shows it too).",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId }) => {
+          const venue = await fastify.services.venueService.getById(venueId);
+          if (!venue) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          }
+          const { action, closureDate, startTime, partySize, guestName, message, refund, locale } =
+            request.body;
+          const brand = hostBrandFor(request.body.originHost ?? null);
+          const preview = previewClosureNotice({
+            action,
+            closureDate,
+            startTime,
+            partySize,
+            guestName,
+            locale: locale ?? DEFAULT_GUEST_NOTICE_LOCALE,
+            message,
+            refund,
+            venueName: venue.name,
+            timezone: venue.ianaTimezone,
+            manageBaseUrl: brand.manageBaseUrl,
+            manageToken: generateManageToken(SAMPLE_BOOKING_ID, SAMPLE_GUEST_EMAIL),
+            from: brand.fromAddress,
+          });
+          return { data: preview };
         }),
       });
     
@@ -3248,7 +3828,7 @@
           summary: "Reopen a closure",
           operationId: "reopenClosure",
           description:
-            "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
+            "Removes a closure (or special hours) saved through `POST …/closures` so its slots return. Guests it cancelled stay cancelled. Takes no `expectedVersion`: a save to anything else never stops a reopen. Optional `seen` is the rule and its skips and one-date edits as the caller read them (they are deleted together): if they differ now (a teammate extended or edited the rule), nothing is changed and the answer is 409 `version-conflict` naming the latest change, so the caller refreshes. A caller that sends no `seen` (an older client) reopens the rule as it is now, whatever changed since it read it; an already-removed rule answers 404. Optional `date` (Manager, needs `seen`) reopens only that date of a bounded, non-repeating range: the range is removed and its other dates are saved as new rules, each cancelled guest's outcome follows their date to the rule that still closes it, and the reopen notice reaches only guests on the reopened date. Undo of a reopen that told no guest puts the range and its outcomes back exactly. Manager, or a Host for the emergency close they made themselves on the current service day when the venue grants it.",
           tags: ["Availability"],
           security: [{ bearerAuth: [] }],
         },
@@ -3260,13 +3840,20 @@
             ruleId: request.params.ruleId,
             caller,
             tellCancelledGuests: request.body.tellCancelledGuests,
+            seen: request.body.seen,
+            date: request.body.date,
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
-            if (request.body.tellCancelledGuests) {
+            // The same call the command counted: no notice to rebook a date that stays closed (#8006).
+            if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
               await enqueueNotices(
                 closureNoticeService.enqueueForReopen,
-                { venueId, ruleId: request.params.ruleId },
+                {
+                  venueId,
+                  ruleId: request.params.ruleId,
+                  ...(request.body.date ? { date: request.body.date } : {}),
+                },
                 request.log
               );
             }
@@ -4246,6 +4833,9 @@
           preHandler: requireAuth,
           schema: {
             summary: "Delete floor plan",
+            description:
+              "Deletes a floor plan that is not active. A plan whose tables have any " +
+              "reservation or hold is archived instead, so booking history keeps its table.",
             params: {
               type: "object",
               properties: {
@@ -4255,16 +4845,50 @@
           },
         },
         venueScoped({ venue: floorPlanVenue }, async (request, reply) => {
-          const success = await floorPlanService.delete(request.params.id);
-          if (!success) {
+          const outcome = await floorPlanService.delete(request.params.id);
+          if (outcome === "not_found") {
             return reply.code(404).send(createProblemDetails(404, "Not Found", FLOOR_PLAN_NOT_FOUND));
           }
+          if (outcome === "active" || outcome === "has_upcoming" || outcome === "in_use") {
+            return reply
+              .code(409)
+              .send(createProblemDetails(409, titleForStatus(409), DELETE_REFUSED[outcome]));
+          }
+          // "deleted" or "archived": either way the plan is gone for the caller.
           return reply.code(204).send();
         })
       );
     };
   </file>
   <file path="src/routes/guests.ts">
+    function winBackProblem(
+      result: WinBackResult,
+      guestName: string,
+      timeZone: string
+    ): { status: 409 | 424; title: string; detail: string } | null {
+      switch (result.status) {
+        case "cooldown":
+          return {
+            status: 409,
+            title: "Conflict",
+            detail: cooldownDetail(guestName, result, timeZone),
+          };
+        case "failed":
+          return {
+            status: 424,
+            title: "Failed Dependency",
+            detail: `The email provider rejected the win-back message to ${guestName}. Nothing was sent. You can try again.`,
+          };
+        case "unavailable":
+          return {
+            status: 424,
+            title: "Failed Dependency",
+            detail: `Email sending isn't set up here, so the win-back message to ${guestName} was not sent. Nothing was sent.`,
+          };
+        default:
+          return null;
+      }
+    }
     export const guestRoutes: FastifyPluginAsync = async (fastify) => {
       const { guestService, venueService } = fastify.services;
     
@@ -4474,7 +5098,18 @@
           const lapsing = await guestService.scanLapsedGuests(venueId, (vid, guests) =>
             fastify.reservationEvents.emitLapsingGuests(vid, guests)
           );
-          return { data: lapsing };
+          const status = await winBackStatusFor(
+            venueId,
+            lapsing.map((g) => g.guestId)
+          );
+          return {
+            data: lapsing.map((g) => ({
+              ...g,
+              // Only a send the provider accepted; an unconfirmed claim is reported apart.
+              lastWinBackAt: status.get(g.guestId)?.sentAt?.toISOString() ?? null,
+              winBackAttemptedAt: status.get(g.guestId)?.attemptedAt?.toISOString() ?? null,
+            })),
+          };
         }),
       });
     
@@ -4498,14 +5133,27 @@
                 const guest = await guestService.getById(id);
                 if (!guest) return null;
                 const venue = await venueService.getById(guest.venueId);
-                return { guest, venueName: venue?.name ?? guest.venueId };
+                return {
+                  guest,
+                  venueName: venue?.name ?? guest.venueId,
+                  timeZone: venue?.ianaTimezone ?? "UTC",
+                };
               },
               notFound: GUEST_NOT_FOUND,
             },
           },
-          async (_request, _reply, { entity }) => {
-            const sent = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName);
-            return { data: { sent } };
+          async (request, reply, { entity }) => {
+            const result = await sendWinBack(entity.guest, fastify.notificationPort, entity.venueName, {
+              ...defaultWinBackDeps,
+              log: request.log,
+            });
+            const problem = winBackProblem(result, entity.guest.name, entity.timeZone);
+            if (problem) {
+              return reply
+                .code(problem.status)
+                .send(createProblemDetails(problem.status, problem.title, problem.detail));
+            }
+            return { data: { sent: result.status === "sent" } };
           }
         ),
       });
@@ -6164,22 +6812,29 @@
             tags: ["Public"],
           },
         },
-        async (request, reply) => {
-          const { holdId } = request.params;
-          const ip = request.ip;
+        publicVenueScoped(
+          {
+            slug: (request) => request.params.slug,
+            notFound: venueNotFound,
+            // Session-id ownership check — see readSessionId's doc comment for why
+            // the hold id itself is not proof of ownership. Answers 401 before the
+            // slug lookup, as it always did.
+            before: (request, reply) =>
+              readSessionId(request, reply, "release") === null ? reply : undefined,
+          },
+          async (request, reply) => {
+            const { holdId } = request.params;
+            const ip = request.ip;
+            const sessionId = sessionIdOf(request);
     
-          // Session-id ownership check — see readSessionId's doc comment for why
-          // the hold id itself is not proof of ownership.
-          const sessionId = readSessionId(request, reply, "release");
-          if (sessionId === null) return reply;
+            const released = await holdService.release(holdId, sessionId);
+            if (released) {
+              decrementHoldCount(ip);
+            }
     
-          const released = await holdService.release(holdId, sessionId);
-          if (released) {
-            decrementHoldCount(ip);
+            return reply.status(204).send();
           }
-    
-          return reply.status(204).send();
-        }
+        )
       );
     
       // GET the hold's status. The staff counterpart (/api/v1/holds/:id) is
@@ -6235,6 +6890,7 @@
           notes?: string;
           occasion?: Occasion;
           seatingPreference?: SeatingPreference;
+          locale?: string;
         };
         Reply:
           | (ApiResponse<Reservation> & { manageToken?: string })
@@ -6270,7 +6926,7 @@
             // Fastify leaves unknown properties on `request.body`, so spreading it
             // would let an anonymous caller smuggle a `guestId` and attach its
             // reservation to someone else's guest record.
-            const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
+            const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference, locale } =
               request.body;
             // Only mint a manage token when an email was actually supplied: a
             // phone-only booking is stored with `guestEmail: null`, and a token
@@ -6286,6 +6942,10 @@
                 guestDetails: { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference },
                 // No guest record exists yet, so the guest actor carries no id.
                 actor: guestActor(null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
+                // The widget's language, so later notices speak it; unsupported reads as en-US.
+                locale: resolveGuestNoticeLocale(locale),
               },
               {
                 door: "public-hold",
@@ -6448,6 +7108,7 @@
           guestEmail: string;
           guestPhone?: string;
           specialRequests?: string;
+          locale?: string;
         };
         Reply: ApiResponse<PublicReservationResponse> | ProblemDetails;
       }>(
@@ -6493,7 +7154,7 @@
           // this booking (guest-link lookup, hold confirmation) runs inside that
           // venue's RLS context.
           async (request, reply, { venueId }) => {
-            const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
+            const { holdId, guestName, guestEmail, guestPhone, specialRequests, locale } = request.body;
             const ip = request.ip;
             // Validated in `before`.
             const sessionId = request.headers[SESSION_ID_HEADER] as string;
@@ -6520,6 +7181,10 @@
                   guestId: link.ok ? (link.guestId ?? undefined) : undefined,
                 },
                 actor: guestActor(link.ok ? link.guestId : null),
+                // Captured from the request so later guest emails brand by it (#7892).
+                originHost: resolveOriginHost(request.headers.origin),
+                // The widget's language, so later notices speak it; unsupported reads as en-US.
+                locale: resolveGuestNoticeLocale(locale),
               },
               {
                 door: "public-booking",
@@ -7046,8 +7711,7 @@
   </file>
   <file path="src/routes/reservations.ts">
     export const reservationRoutes: FastifyPluginAsync = async (fastify) => {
-      const { reservationService, guestService } = fastify.services;
-      const listVenueId = resolveReservationsListVenueId(guestService);
+      const { reservationService } = fastify.services;
       const ownerScope = reservationOwnerScope(reservationService);
     
       /**
@@ -7104,7 +7768,10 @@
       }>(
         "/",
         {
-          preHandler: [requireAuth, requireVenueAccess(fastify.venueMembershipLookup, listVenueId)],
+          preHandler: [
+            requireAuth,
+            requireVenueAccess(fastify.venueMembershipLookup, reservationsListVenueId),
+          ],
           schema: {
             summary: "List reservations",
             operationId: "listReservations",
@@ -7126,16 +7793,25 @@
         },
         async (request, _reply) => {
           const { page, limit } = parsePaginationQuery(request.query);
-          // Context only for a named venue; a guestId-only list runs without one.
-          return inNamedVenueContext(request.query.venueId, () =>
+          const { guestId } = request.query;
+          // A guest-filtered list always runs in a venue's context (the named one,
+          // else the guest's). Only an admin's unfiltered list may name none.
+          const venueId =
+            (guestId ? await resolveListVenueId(request.query) : request.query.venueId) ?? undefined;
+          if (guestId && !venueId) {
+            // Only an admin reaches here (the guard denied everyone else): an
+            // unknown guest has no reservations.
+            return buildPaginatedResponse<Reservation>([], page, limit, 0);
+          }
+          return inNamedVenueContext(venueId, () =>
             reservationService.list({
               page,
               limit,
               date: request.query.date,
               status: request.query.status,
               tableId: request.query.tableId,
-              venueId: request.query.venueId,
-              guestId: request.query.guestId,
+              venueId,
+              guestId,
             })
           );
         }
@@ -8127,6 +8803,18 @@
       });
       return extractId(res);
     }
+    async function createDisposableEmailedGuest(ctx: SweepContext, venueId: string): Promise<string> {
+      const res = await asAdmin(ctx, {
+        method: "POST",
+        url: "/api/v1/guests",
+        payload: {
+          venueId,
+          name: `RLS Sweep Win-back Guest ${randomUUID()}`,
+          email: `sweep-${randomUUID()}@example.invalid`,
+        },
+      });
+      return extractId(res);
+    }
     async function createDisposableFloorPlan(ctx: SweepContext, venueId: string): Promise<string> {
       const res = await asAdmin(ctx, {
         method: "POST",
@@ -8255,6 +8943,8 @@
               closesAt: 1320,
               seating: { version: 1, interval: 15 },
               bookingTypes: ["online", "phone"],
+              weekdays: [],
+              dayHours: { version: 1, sets: [] },
             },
           ],
           assignments: [
@@ -9066,7 +9756,7 @@
           summary: "End a Tonight change early",
           operationId: "endTonight",
           description:
-            "Removes a Tonight change before its service day ends so its slots and tables return. Bookings a close-early cancelled stay cancelled. Host or Manager.",
+            "Removes a Tonight change before its service day ends so its slots and tables return. Bookings a close-early cancelled stay cancelled. Takes no `expectedVersion`: a Host in live service is never refused for a version they could not know. It acts on the rule named, against the current state (it takes the venue lock before reading it), so a change saved while it waited is kept; an already-ended rule answers 404. Host or Manager.",
           tags: ["Availability"],
           security: [{ bearerAuth: [] }],
         },
@@ -10154,7 +10844,7 @@
             summary: "Delete a venue",
             operationId: "deleteVenue",
             description:
-              "Delete a venue. This will fail if the venue has tables or reservations. Requires authentication.",
+              "Delete a venue. Floor plans and tables with no bookings are deleted with it; this fails if a table has a reservation or hold, or the venue has guests or menus. Requires authentication.",
             tags: ["Venues"],
             security: [{ bearerAuth: [] }],
             params: {
@@ -10181,7 +10871,7 @@
                 $ref: "Error#",
               },
               409: {
-                description: "Venue has tables or reservations and cannot be deleted",
+                description: "Venue has bookings, guests or menus and cannot be deleted",
                 $ref: "Error#",
               },
             },
@@ -10201,7 +10891,7 @@
                 createProblemDetails(
                   409,
                   "Conflict",
-                  "Venue has tables or reservations and cannot be deleted"
+                  "Venue has bookings, guests or menus and cannot be deleted"
                 )
               );
           }
@@ -10587,6 +11277,143 @@
       }
     }
   </file>
+  <file path="src/scripts/collapse-day-named-schedules.ts">
+    export interface ReplacedRows {
+      schedules: unknown[];
+      scheduleServices: unknown[];
+      assignments: unknown[];
+    }
+    export interface CreatedRows {
+      schedules: string[];
+      scheduleServices: string[];
+      assignments: string[];
+    }
+    export type CollapseOutcome =
+      | {
+          venueId: string;
+          outcome: "would_collapse" | "collapsed";
+          replaced: ReplacedRows;
+          created: CreatedRows;
+        }
+      | { venueId: string; outcome: "nothing_to_collapse" | "raced" | "not_found" }
+      | { venueId: string; outcome: "refused"; issues: string[] };
+    export interface CollapseSummary {
+      apply: boolean;
+      venues: number;
+      counts: Record<string, number>;
+      errors: { venueId: string; message: string }[];
+    }
+    type Log = (line: string) => void;
+    function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows {
+      const pick = <T extends keyof ReplacedRows>(table: T) => {
+        const touched = new Set([
+          ...(diff.update[table] as { id: string }[]).map((r) => r.id),
+          ...diff.remove[table],
+        ]);
+        return (config[table] as { id: string }[]).filter((r) => touched.has(r.id));
+      };
+      return {
+        schedules: pick("schedules"),
+        scheduleServices: pick("scheduleServices"),
+        assignments: pick("assignments"),
+      };
+    }
+    export function introducedIssues(
+      before: readonly ConfigIssue[],
+      after: readonly ConfigIssue[]
+    ): ConfigIssue[] {
+      const key = (i: ConfigIssue) => `${i.code}|${i.path}|${i.weekday ?? ""}`;
+      const had = new Set(before.map(key));
+      return after.filter((i) => !had.has(key(i)));
+    }
+    function createdBy(diff: ConfigDiff): CreatedRows {
+      const ids = (table: keyof CreatedRows) => diff.create[table].map((r) => r.id);
+      return {
+        schedules: ids("schedules"),
+        scheduleServices: ids("scheduleServices"),
+        assignments: ids("assignments"),
+      };
+    }
+    export async function collapseVenue(
+      prisma: PrismaClient,
+      venueId: string,
+      options: { apply: boolean; now?: Date }
+    ): Promise<CollapseOutcome> {
+      const now = options.now ?? new Date();
+      return prisma.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const venue = await tx.venue.findUnique({
+          where: { id: venueId },
+          select: { availabilityVersion: true },
+        });
+        if (!venue) return { venueId, outcome: "not_found" as const };
+    
+        // The version is read before the rows: a save landing in between moves it, so the
+        // compare-and-set below misses instead of writing over a config this plan never saw.
+        const { config } = await readStoredConfig(tx, venueId);
+        const changes = collapseDayNamedSchedules(config, randomUUID);
+        if (!changes) return { venueId, outcome: "nothing_to_collapse" as const };
+    
+        const next = applyChanges(config, changes, now.toISOString());
+        const issues = validateConfig(next);
+        if (introducedIssues(validateConfig(config), issues).length > 0) {
+          return {
+            venueId,
+            outcome: "refused" as const,
+            issues: issues.map((i) => `${i.code}: ${i.message}`),
+          };
+        }
+        const diff = diffConfig(config, next);
+        const replaced = replacedBy(config, diff);
+        const created = createdBy(diff);
+        if (!options.apply) return { venueId, outcome: "would_collapse" as const, replaced, created };
+    
+        const cas = await tx.venue.updateMany({
+          where: { id: venueId, availabilityVersion: venue.availabilityVersion },
+          data: { availabilityVersion: { increment: 1 } },
+        });
+        if (cas.count === 0) return { venueId, outcome: "raced" as const };
+    
+        await writeConfigDiff(tx, venueId, diff, { actorId: COLLAPSE_ACTOR, now });
+        return { venueId, outcome: "collapsed" as const, replaced, created };
+      });
+    }
+    export async function runCollapse(
+      prisma: PrismaClient,
+      options: { apply: boolean },
+      log: Log
+    ): Promise<CollapseSummary> {
+      const venueIds = await getAllVenueIds(prisma);
+      const counts: Record<string, number> = {};
+      const errors: CollapseSummary["errors"] = [];
+    
+      for (const venueId of venueIds) {
+        try {
+          const outcome = await collapseVenue(prisma, venueId, options);
+          counts[outcome.outcome] = (counts[outcome.outcome] ?? 0) + 1;
+          log(JSON.stringify(outcome));
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          errors.push({ venueId, message });
+          log(JSON.stringify({ venueId, outcome: "error", message }));
+        }
+      }
+      return { apply: options.apply, venues: venueIds.length, counts, errors };
+    }
+    async function main(): Promise<void> {
+      const apply = process.argv.includes("--apply");
+      const prisma = db.prisma as unknown as PrismaClient;
+      try {
+        const summary = await runCollapse(prisma, { apply }, (line) =>
+          process.stdout.write(`${line}\n`)
+        );
+        process.stdout.write(`${JSON.stringify({ summary })}\n`);
+        process.exitCode = summary.errors.length > 0 ? 1 : 0;
+      } finally {
+        await prisma.$disconnect();
+      }
+    }
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="src/services/actor-name.ts">
@@ -10904,6 +11731,106 @@
       await tx.$executeRawUnsafe(appRoleSetStatement());
     }
   </file>
+  <file path="src/services/availability-change-detail.ts">
+    function regularWeek(config: AvailabilityConfig) {
+      const schedule = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+      if (!schedule) return { signatures: new Array<string>(7).fill("[]"), assignments: [] };
+      const assignments = config.assignments.filter((a) => a.scheduleId === schedule.id);
+      const live = new Set(config.venueServices.filter((v) => !v.archivedAt).map((v) => v.id));
+      const rows = config.scheduleServices.filter(
+        (r) => r.scheduleId === schedule.id && live.has(r.venueServiceId)
+      );
+      const week = decodeWeek(rows, [...new Set(assignments.flatMap((a) => a.weekdays))]);
+      const signatures = Array.from({ length: 7 }, (_, day) =>
+        JSON.stringify(
+          week
+            .flatMap((s) => {
+              const h = s.days[day];
+              return h
+                ? [
+                    [
+                      s.venueServiceId,
+                      h.opensAt,
+                      h.lastSeatingAt,
+                      h.closesAt,
+                      h.seating,
+                      [...h.bookingTypes].sort(),
+                    ],
+                  ]
+                : [];
+            })
+            .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+        )
+      );
+      return { signatures, assignments };
+    }
+    export function configSavedDetail(
+      diff: ConfigDiff,
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      today: string
+    ): AvailabilityChangeDetail {
+      const rows = {
+        added: count(diff.create),
+        changed: count(diff.update),
+        removed: count(diff.remove),
+      };
+      const was = regularWeek(before);
+      const now = regularWeek(after);
+      const weekdays = [0, 1, 2, 3, 4, 5, 6].filter((d) => was.signatures[d] !== now.signatures[d]);
+      if (weekdays.length === 0) return { code: "config_saved", ...rows };
+    
+      // An assignment with no start date, or one already started, takes effect with this save.
+      const starts = now.assignments
+        .filter((a) => a.weekdays.some((d) => weekdays.includes(d)))
+        .map((a) => (a.startsOn && a.startsOn > today ? a.startsOn : today));
+      const startsOn = starts.reduce((first, s) => (s < first ? s : first), starts[0] ?? today);
+      return { code: "regular_week_changed", startsOn, weekdays, ...rows };
+    }
+    export function closureDetail(
+      rule: Pick<DateRule, "kind" | "startsOn" | "endsOn">,
+      counts: Record<ClosureAction, number>
+    ): AvailabilityChangeDetail {
+      return {
+        code: rule.kind === "tonight" ? "close_early_saved" : "closure_saved",
+        startsOn: rule.startsOn,
+        endsOn: rule.endsOn ?? null,
+        cancelled: counts.cancel,
+        moved: counts.move,
+        kept: counts.keep_notify + counts.keep_silent,
+      };
+    }
+    export const reopenedDetail = (
+      rule: Pick<DateRule, "startsOn" | "endsOn">
+    ): AvailabilityChangeDetail => ({
+      code: "closure_reopened",
+      startsOn: rule.startsOn,
+      endsOn: rule.endsOn ?? null,
+    });
+    export function tonightDetail(change: TonightChange): AvailabilityChangeDetail {
+      switch (change.type) {
+        case "pause_online":
+          return { code: "tonight_pause_online" };
+        case "close_early":
+          return { code: "tonight_close_early" };
+        case "stop_window":
+          return { code: "tonight_stop_window" };
+        case "block_tables":
+          return { code: "tonight_block_tables", tables: change.tableIds.length };
+        case "pacing":
+          return { code: "tonight_pacing", covers: change.covers };
+      }
+    }
+    export const tonightEndedDetail = (): AvailabilityChangeDetail => ({ code: "tonight_ended" });
+    export function readDetail(value: unknown): AvailabilityChangeDetail | null {
+      const parsed = AvailabilityChangeDetailSchema.safeParse(value);
+      return parsed.success ? parsed.data : null;
+    }
+    export function revertedDetail(original: unknown): AvailabilityChangeDetail | null {
+      const detail = readDetail(original);
+      return detail ? { ...detail, reverted: true } : null;
+    }
+  </file>
   <file path="src/services/availability-changes.ts">
     function dayStart(d: string, timezone: string): Date {
       return (
@@ -10939,8 +11866,16 @@
     function newestInForce(db: Pick<StoreTx, "availabilityChange">, venueId: string) {
       return db.availabilityChange.findFirst({
         where: { venueId, revertedById: null, kind: { not: REVERT_KIND } },
-        orderBy: [{ at: "desc" }, { id: "desc" }],
-        select: { id: true },
+        orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
+        select: {
+          id: true,
+          actorId: true,
+          at: true,
+          kind: true,
+          summary: true,
+          summaryDetail: true,
+          notifiedGuests: true,
+        },
       });
     }
     type StoreTx = Pick<PrismaClient, "venue" | "availabilityChange">;
@@ -10969,12 +11904,8 @@
           newestInForce(db, venueId),
         ]);
         const items: AvailabilityChangeEntry[] = rows.map((r) => ({
-          id: r.id,
-          actorId: r.actorId,
+          ...toSummary(r),
           actorName: r.actorName ?? null,
-          at: r.at.toISOString(),
-          kind: r.kind,
-          summary: r.summary,
           affectedFrom: toDay(r.affectedFrom),
           affectedTo: toDay(r.affectedTo),
           notifiedGuests: r.notifiedGuests,
@@ -10986,7 +11917,10 @@
             r.revertedById == null &&
             r.kind !== REVERT_KIND,
         }));
-        return { total, offset: query.offset, items };
+        // The change Undo is on, whatever this page holds: a caller reading one row (the agent) would
+        // otherwise see the newest by `at`, which after a lock-wait race is not the one in force.
+        const undoable = newest && !newest.notifiedGuests ? toSummary(newest) : null;
+        return { total, offset: query.offset, items, undoable };
       });
     }
     export type RevertRefusalReason =
@@ -11002,7 +11936,13 @@
       const tables = CONFIG_TABLES.every(
         (t) => Array.isArray(v.restore?.[t]) && Array.isArray(v.remove?.[t])
       );
-      return tables ? (v as ConfigInverse) : null;
+      if (!tables) return null;
+      const rows = (v.restore.scheduleServices as unknown[]).map((r) =>
+        ScheduleServiceSchema.safeParse(r)
+      );
+      if (!rows.every((r) => r.success)) return null;
+      const scheduleServices = rows.flatMap((r): ScheduleService[] => (r.success ? [r.data] : []));
+      return { ...v, restore: { ...v.restore, scheduleServices } } as ConfigInverse;
     }
     export async function revertAvailabilityChange(
       input: {
@@ -11037,6 +11977,7 @@
             exact: true,
             kind: REVERT_KIND,
             summary: `Reverted: ${change.summary}`,
+            detail: revertedDetail(change.summaryDetail),
             // The column exactly as it was (null included), so undoing a venue's first
             // save puts its hours back rather than projecting an empty week over them.
             operatingHours: inverse.operatingHours == null ? Prisma.DbNull : inverse.operatingHours,
@@ -11047,6 +11988,8 @@
                 where: { id: changeId },
                 data: { revertedById: revertId },
               });
+              // A growth that moved the old series' outcomes onto its new id gives them back.
+              await returnCarriedOutcomes(db, change.inverse);
             },
           };
         })
@@ -11109,6 +12052,8 @@
       partySize: number;
       /** The service date it belongs to; set where a scope needs it. */
       date?: Date;
+      /** Who it is for; a refusal lists it so the Manager can find the booking. */
+      guestName?: string | null;
     }
     type StrandReason = StrandedReservation["reason"];
     export function strandReason(
@@ -11152,6 +12097,8 @@
             startTime: booking.startTime.toISOString(),
             partySize: booking.partySize,
             reason,
+            ...(booking.guestName ? { guestName: booking.guestName } : {}),
+            ...(booking.date ? { serviceDate: booking.date.toISOString().slice(0, 10) } : {}),
           },
         ];
       });
@@ -11187,13 +12134,16 @@
         label,
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
-        closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
-          ruleId,
-          targetKind,
-          from,
-          to,
-          ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
-        })),
+        closures: day.closures.map(
+          ({ ruleId, targetKind, from, to, bookingTypes, venueServiceId }) => ({
+            ruleId,
+            targetKind,
+            from,
+            to,
+            ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
+            ...(targetKind === "service" && venueServiceId ? { venueServiceId } : {}),
+          })
+        ),
         bookingOpen: day.bookingOpen,
         services: isDayClosed(day) ? [] : daySummaryServices(names, day),
         ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),
@@ -11681,7 +12631,10 @@
   </file>
   <file path="src/services/availability-config.ts">
     export type StoreDb = ConfigRowDb &
-      Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
+      Pick<
+        PrismaClient,
+        "venue" | "reservation" | "availabilityChange" | "table" | "closureOutcome" | "$executeRaw"
+      >;
     export type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
       return {
@@ -11816,11 +12769,13 @@
           inverse: ConfigInverse;
           range: { from: string | null; to: string | null };
           summary: string;
+          detail: AvailabilityChangeDetail;
         };
-    function describeDiff(diff: ConfigDiff): string {
-      const count = (part: Record<string, unknown[]>) =>
-        Object.values(part).reduce((n, rows) => n + rows.length, 0);
-      return `Availability updated: ${count(diff.create)} added, ${count(diff.update)} changed, ${count(diff.remove)} removed`;
+    function describeDiff(detail: AvailabilityChangeDetail): string {
+      const rows = `${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+      if (detail.code !== "regular_week_changed") return `Availability updated: ${rows}`;
+      const days = (detail.weekdays ?? []).map((d) => WEEKDAY_NAMES[d]).join(", ");
+      return `Regular week changed on ${days} from ${detail.startsOn}: ${rows}`;
     }
     export function planSave(input: {
       state: ConfigState;
@@ -11861,18 +12816,27 @@
       if (reservations.length > 0) return { kind: "stranded", reservations };
     
       const diff = diffConfig(state.stored, next);
+      const detail = configSavedDetail(diff, state.stored, next, civilDateIn(now, state.timezone));
       return {
         kind: "write",
         next,
         diff,
         inverse: inverseOf(state.stored, diff, state.operatingHours),
         range: affectedRange(state.stored, diff, civilDateIn(now, state.timezone)),
-        summary: describeDiff(diff),
+        summary: describeDiff(detail),
+        detail,
       };
     }
     export type SaveOutcome =
       | { kind: "saved"; version: number; changeId: string }
-      | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
+      | {
+          kind: "version_conflict";
+          winningChange: AvailabilityChangeSummary | null;
+          /** The version read before `winningChange`, so a later save can only make the winner newer. */
+          currentVersion: number;
+          /** Every change since the draft's version: the newest few and the true count. */
+          changesSince?: ConflictChangesSince;
+        }
       | { kind: "not_found" }
       | Exclude<SavePlan, { kind: "write" }>;
     class SaveRefused extends Error {
@@ -11908,20 +12872,83 @@
           ...stillToServeWhere(now),
           status: { notIn: [...NOT_BOOKED_STATUSES] },
         },
-        select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
+        select: {
+          id: true,
+          tableId: true,
+          startTime: true,
+          partySize: true,
+          date: true,
+          guestName: true,
+        },
       });
     }
-    export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
-      const exists = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
-      if (!exists) return { kind: "not_found" };
-      const winner = await db.availabilityChange.findFirst({
-        where: { venueId },
-        orderBy: { at: "desc" },
-        select: { id: true, actorId: true, at: true, kind: true, summary: true },
+    export const toSummary = (row: {
+      id: string;
+      actorId: string;
+      at: Date;
+      kind: string;
+      summary: string;
+      summaryDetail?: unknown;
+    }): AvailabilityChangeSummary => {
+      const detail = readDetail(row.summaryDetail);
+      return {
+        id: row.id,
+        actorId: row.actorId,
+        at: row.at.toISOString(),
+        kind: row.kind,
+        summary: row.summary,
+        ...(detail ? { detail } : {}),
+      };
+    };
+    export async function refuseStale(
+      db: StoreDb,
+      venueId: string,
+      expectedVersion: number
+    ): Promise<SaveOutcome> {
+      const exists = await db.venue.findUnique({
+        where: { id: venueId },
+        select: { id: true, availabilityVersion: true },
       });
+      if (!exists) return { kind: "not_found" };
+      const currentVersion = exists.availabilityVersion;
+      // Read before the changes: a save landing between the two reads makes the newest change newer than
+      // this version, so an Overwrite against it is refused again, never applied over a change unnamed.
+      // Bounded by `take`, on the (venue, version) index, however far behind the draft is.
+      const since = await db.availabilityChange.findMany({
+        where: { venueId, version: { gt: expectedVersion } },
+        orderBy: { version: "desc" },
+        take: CONFLICT_CHANGES_MAX,
+        select: CHANGE_SUMMARY_SELECT,
+      });
+      // Rows from before changes recorded their version cannot be placed after the draft; the newest by
+      // `at` still names a winner, and `total` below still counts them.
+      const winner = since[0] ?? (await newestChange(db, venueId));
+      const total = currentVersion - expectedVersion;
       return {
         kind: "version_conflict",
-        winningChange: winner && { ...winner, at: winner.at.toISOString() },
+        currentVersion,
+        winningChange: winner && toSummary(winner),
+        // A draft ahead of the venue (`total < 1`) has nothing to name.
+        ...(total >= 1 ? { changesSince: { total, changes: since.map(toSummary) } } : {}),
+      };
+    }
+    function newestChange(db: StoreDb, venueId: string) {
+      return db.availabilityChange.findFirst({
+        where: { venueId },
+        orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }],
+        select: CHANGE_SUMMARY_SELECT,
+      });
+    }
+    export async function refuseSeriesChanged(
+      db: StoreDb,
+      venueId: string,
+      committedVersion: number
+    ): Promise<SaveOutcome> {
+      const winner = await newestChange(db, venueId);
+      return {
+        kind: "version_conflict",
+        currentVersion: committedVersion,
+        winningChange: winner && toSummary(winner),
       };
     }
     export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome {
@@ -11945,6 +12972,8 @@
     }
     export const toDbDate = (d: string | null): Date | null =>
       d ? new Date(`${d}T00:00:00.000Z`) : null;
+    export const detailData = (detail: AvailabilityChangeDetail | null) =>
+      detail ? { summaryDetail: detail as unknown as Prisma.InputJsonValue } : {};
     export interface SaveRequest {
       changes: PutAvailabilityConfigBody["changes"];
       scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
@@ -11952,6 +12981,8 @@
       kind: string;
       /** Replaces the generated summary. */
       summary?: string;
+      /** Replaces the generated code and data; `null` for none (a revert of a change that had none). */
+      detail?: AvailabilityChangeDetail | null;
       /** Written to `Venue.operatingHours` in place of the projection of the next config. */
       operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
       /** Permit the result to have no live schedule (an undone first save). */
@@ -11998,7 +13029,7 @@
         where: { id: venueId, availabilityVersion: expectedVersion },
         data: { availabilityVersion: { increment: 1 } },
       });
-      if (cas.count === 0) return refuseStale(tx, venueId);
+      if (cas.count === 0) return refuseStale(tx, venueId, expectedVersion);
     
       const state = await loadConfigState(tx, venueId, now);
       if (!state) throw new SaveRefused({ kind: "not_found" });
@@ -12037,9 +13068,11 @@
           at: now,
           kind: request.kind,
           summary: request.summary ?? plan.summary,
+          ...detailData(request.detail === undefined ? plan.detail : request.detail),
           affectedFrom: toDbDate(plan.range.from),
           affectedTo: toDbDate(plan.range.to),
           inverse: plan.inverse as unknown as Prisma.InputJsonValue,
+          version: expectedVersion + 1,
         },
         select: { id: true },
       });
@@ -12091,7 +13124,7 @@
         const [bookings, tables] = await Promise.all([
           futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
           tx.table.findMany({
-            where: { venueId },
+            where: { venueId, ...onActivePlanWhere() },
             select: {
               id: true,
               name: true,
@@ -12250,6 +13283,8 @@
           closesAt: s.closesAt,
           seating: s.seating,
           bookingTypes: s.bookingTypes,
+          weekdays: s.weekdays,
+          dayHours: s.dayHours,
         })),
       });
       await tx.scheduleAssignment.createMany({
@@ -12750,7 +13785,7 @@
           include: { tables: { select: { tableId: true } } },
         }),
         db.table.findMany({
-          where: { venueId, isActive: true },
+          where: bookableTableWhere(venueId),
           orderBy: [{ priority: "desc" }, { capacity: "asc" }],
           select: {
             id: true,
@@ -12967,7 +14002,7 @@
       // place - @mbe/types' partyFitsTable - so it is applied here rather than
       // re-expressed as a Prisma `where`, where null maxCovers meant "unlimited".
       const tables = await prisma.table.findMany({
-        where: { venueId, isActive: true },
+        where: bookableTableWhere(venueId),
         orderBy: [{ priority: "desc" }, { capacity: "asc" }],
       });
       return filterSuitableTables(tables, partySize);
@@ -13189,6 +14224,20 @@
       return { overrideLimits: outcome.overrideLimits };
     }
   </file>
+  <file path="src/services/bookable-tables.ts">
+    export function onActivePlanWhere(): Prisma.TableWhereInput {
+      return {
+        OR: [
+          { floorPlanId: null },
+          { floorPlan: { isActive: true } },
+          { venue: { floorPlans: { none: { isActive: true } } } },
+        ],
+      };
+    }
+    export function bookableTableWhere(venueId: string): Prisma.TableWhereInput {
+      return { venueId, isActive: true, ...onActivePlanWhere() };
+    }
+  </file>
   <file path="src/services/booking-metrics.ts">
     export interface ReservationStatusCounts {
       pending: number;
@@ -13399,7 +14448,10 @@
       if (value === null || typeof value !== "object") return value;
       return Object.fromEntries(
         Object.entries(value)
-          .filter(([, v]) => v != null && !(Array.isArray(v) && v.length === 0))
+          .filter(
+            ([k, v]) =>
+              v != null && !(Array.isArray(v) && v.length === 0) && !(OPTIONAL_TEXT.has(k) && v === "")
+          )
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([k, v]) => [k, canonical(v)])
       );
@@ -13418,12 +14470,72 @@
         same({ ...edited, seriesId: stored.seriesId }, stored)
       );
     }
+    export function seriesChangedSinceRead(
+      stored: readonly DateRule[],
+      draft: DateRule,
+      alongside: ClosureAlongside
+    ): boolean {
+      const [seriesId] = alongside.remove;
+      const series = stored.find((r) => r.id === seriesId);
+      if (!series) return false;
+      const moved = new Set(alongside.upsert.map((r) => r.id));
+      if (stored.some((r) => r.seriesId === series.id && !moved.has(r.id))) return true;
+      if (alongside.replaces) return !same(alongside.replaces, series);
+      const { id, startsOn, endsOn, repeat } = series;
+      return !same({ ...draft, id, startsOn, endsOn, repeat }, series);
+    }
+    export function ruleChangedSinceSeen(
+      stored: readonly DateRule[],
+      ruleId: string,
+      seen: ReopenSeen
+    ): boolean {
+      const rule = stored.find((r) => r.id === ruleId);
+      if (!rule || !same(seen.rule, rule)) return true;
+      const children = stored.filter((r) => r.seriesId === ruleId);
+      if (children.length !== seen.children.length) return true;
+      const seenById = new Map(seen.children.map((c) => [c.id, c]));
+      return children.some((c) => {
+        const was = seenById.get(c.id);
+        return !was || !same(was, c);
+      });
+    }
+    export const isPlainClosure = (r: DateRule): boolean =>
+      r.kind === "closure" && r.repeat == null && r.seriesId == null;
+    function checkClosureEdit(
+      stored: DateRule,
+      draft: DateRule,
+      alongside: ClosureAlongside
+    ): AlongsideIssue | null {
+      if (draft.kind !== "closure" || draft.id === stored.id) {
+        return refuse("alongside", "An edited closure is saved as a new closure.");
+      }
+      if (draft.repeat != null) {
+        return refuse(
+          "rule.repeat",
+          "An edited closure is one date, a range or open-ended, not a repeat."
+        );
+      }
+      if (alongside.upsert.length > 0 || alongside.remove.length !== 1) {
+        return refuse("alongside", "Editing a closure replaces that closure and nothing else.");
+      }
+      if (!alongside.replaces) {
+        return {
+          path: "alongside.replaces",
+          code: "replaces_required",
+          message: "Editing a closure needs the closure as you saw it.",
+        };
+      }
+      return null;
+    }
     export function checkAlongside(
       stored: readonly DateRule[],
       draft: DateRule,
       alongside: ClosureAlongside
     ): AlongsideIssue | null {
       const byId = new Map(stored.map((r) => [r.id, r]));
+      const [removed] = alongside.remove;
+      const plain = removed ? byId.get(removed) : undefined;
+      if (plain && isPlainClosure(plain)) return checkClosureEdit(plain, draft, alongside);
       const touched = new Set([
         ...alongside.remove,
         ...alongside.upsert
@@ -13478,12 +14590,24 @@
       endTime: Date;
       partySize: number;
     }
+    type EventSink = Prisma.ReservationEventCreateManyInput[];
+    function collectInto(sink: EventSink) {
+      return {
+        reservationEvent: {
+          create({ data }: { data: Prisma.ReservationEventCreateManyInput }) {
+            sink.push(data);
+            return Promise.resolve(data);
+          },
+        },
+      };
+    }
     async function cancelInTx(
       tx: Tx,
       venueId: string,
       actorId: string,
       r: Existing,
-      expectedStartTime: Date
+      expectedStartTime: Date,
+      events: EventSink
     ): Promise<ApplyResult> {
       try {
         transitionReservation(r.status as never, "CANCELLED");
@@ -13504,7 +14628,7 @@
       if (count === 0) {
         return { kind: "cannot_cancel", reservationId: r.id, detail: "Reservation changed meanwhile" };
       }
-      await recordReservationEvent(tx as never, {
+      await recordReservationEvent(collectInto(events) as never, {
         reservationId: r.id,
         venueId,
         kind: "cancelled",
@@ -13551,7 +14675,8 @@
       actorId: string,
       r: Existing,
       startTime: Date,
-      expectedStartTime: Date
+      expectedStartTime: Date,
+      events: EventSink
     ): Promise<boolean> {
       const endTime = new Date(startTime.getTime() + (r.endTime.getTime() - r.startTime.getTime()));
       if (r.tableId && (await targetTaken(tx, venueId, r, startTime, endTime))) return false;
@@ -13560,7 +14685,7 @@
         data: { startTime, endTime },
       });
       if (count === 0) return false;
-      await recordReservationEvent(tx as never, {
+      await recordReservationEvent(collectInto(events) as never, {
         reservationId: r.id,
         venueId,
         kind: "moved",
@@ -13595,19 +14720,71 @@
         (a, b) => Number(a.action === "move") - Number(b.action === "move")
       );
       const conflicts: string[] = [];
+      const events: EventSink = [];
       for (const p of ordered) {
         const r = byId.get(p.reservationId);
         if (!r) continue;
         if (p.action === "cancel") {
-          const result = await cancelInTx(tx, venueId, actorId, r, p.expectedStartTime);
+          const result = await cancelInTx(tx, venueId, actorId, r, p.expectedStartTime, events);
           if (result.kind !== "ok") return result;
-        } else if (!(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date, p.expectedStartTime))) {
+        } else if (
+          !(await moveInTx(tx, venueId, actorId, r, p.movedTo as Date, p.expectedStartTime, events))
+        ) {
           conflicts.push(r.id);
         }
+      }
+      if (events.length > 0) {
+        await tx.reservationEvent.createMany({ data: events });
       }
       return conflicts.length > 0
         ? { kind: "move_conflict", reservationIds: conflicts }
         : { kind: "ok" };
+    }
+  </file>
+  <file path="src/services/closure-carry-outcomes.ts">
+    type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
+    export interface CarriedOutcomes {
+      from: string;
+      outcomeIds: string[];
+    }
+    export async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) {
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        const chunk = ids.slice(i, i + CHUNK);
+        await tx.$executeRaw`UPDATE closure_outcomes SET date_rule_id = ${ruleId} WHERE id IN (${Prisma.join(chunk)})`;
+      }
+    }
+    export async function carryOutcomes(
+      tx: Db,
+      venueId: string,
+      from: string,
+      to: string,
+      deciding: readonly string[]
+    ): Promise<CarriedOutcomes | null> {
+      const moving = await tx.closureOutcome.findMany({
+        where: { venueId, dateRuleId: from, reservationId: { notIn: [...deciding] } },
+        select: { id: true },
+      });
+      if (moving.length === 0) return null;
+      const outcomeIds = moving.map((o) => o.id);
+      await rekey(tx, outcomeIds, to);
+      return { from, outcomeIds };
+    }
+    export async function returnCarriedOutcomes(tx: Db, inverse: unknown): Promise<void> {
+      const carried = carriedOf(inverse);
+      if (carried) await rekey(tx, carried.outcomeIds, carried.from);
+    }
+    export const readCarriedOutcomeIds = (venueId: string, ruleId: string): Promise<string[]> =>
+      runWithVenueContext(venueId, () => carriedOutcomeIds(prisma, venueId, ruleId));
+    export async function carriedOutcomeIds(
+      db: Pick<PrismaClient, "availabilityChange">,
+      venueId: string,
+      ruleId: string
+    ): Promise<string[]> {
+      const change = await db.availabilityChange.findFirst({
+        where: { venueId, kind: "closure", inverse: { path: ["closure", "ruleId"], equals: ruleId } },
+        select: { inverse: true },
+      });
+      return carriedOf(change?.inverse)?.outcomeIds ?? [];
     }
   </file>
   <file path="src/services/closure-changes.ts">
@@ -13615,10 +14792,20 @@
       cancelled: Reservation[];
       moved: Reservation[];
     }
-    export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> {
+    export async function loadClosureChanges(
+      venueId: string,
+      ruleId: string,
+      /** Outcomes the save carried in from a series it replaced: not its changes to announce. */
+      carried: readonly string[] = []
+    ): Promise<ClosureChanges> {
       const outcomes = await runWithVenueContext(venueId, () =>
         prisma.closureOutcome.findMany({
-          where: { venueId, dateRuleId: ruleId, action: { in: ["cancel", "move"] } },
+          where: {
+            venueId,
+            dateRuleId: ruleId,
+            action: { in: ["cancel", "move"] },
+            id: { notIn: [...carried] },
+          },
           select: { action: true, reservation: { include: { table: true } } },
         })
       );
@@ -13862,6 +15049,24 @@
       /** Display name snapshotted on the audit row; absent or `null` when the token has none. */
       actorName?: string | null;
     }
+    export interface RefusalIssue {
+      path: string;
+      code: string;
+      message: string;
+      reservation?: StrandedReservation;
+    }
+    function strandedIssues(stranded: readonly StrandedReservation[], message: string): RefusalIssue[] {
+      // The database returns bookings in no order; the soonest are the ones to name, the same ones on a retry.
+      const soonestFirst = [...stranded].sort(
+        (a, b) => a.startTime.localeCompare(b.startTime) || a.id.localeCompare(b.id)
+      );
+      return soonestFirst.map((r, i) => ({
+        path: `reservations.${r.id}`,
+        code: "strands_booking",
+        message,
+        ...(i < STRANDED_ISSUE_DETAIL_MAX ? { reservation: r } : {}),
+      }));
+    }
     export type CreateClosureOutcome =
       | { kind: "saved"; result: ClosureResult }
       | { kind: "not_found" }
@@ -13870,7 +15075,7 @@
       | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
       | { kind: "key_reused" }
       | { kind: "closure_exists" }
-      | { kind: "invalid"; issues: { path: string; code: string; message: string }[] }
+      | { kind: "invalid"; issues: RefusalIssue[] }
       | { kind: "decision_required"; groupKeys: string[] }
       | { kind: "invalid_decision"; groupKeys: string[] }
       | { kind: "move_unavailable"; reservationIds: string[] };
@@ -13888,6 +15093,10 @@
       outcome?: AvailabilityChangeOutcome;
       /** Set on every item of a batch save: what the whole batch was, so a reused key can be told apart. */
       batch?: BatchShape;
+      /** A series edit's old rule outcomes that moved onto this rule, for Undo to return. */
+      carried?: CarriedOutcomes;
+      /** What the save decided, per action: `outcome` merges the two keeps. Absent on older rows. */
+      counts?: Record<ClosureAction, number>;
     }
     interface BatchShape {
       count: number;
@@ -13970,15 +15179,24 @@
       venueId: string,
       replay: { id: string; closure: ClosureMeta }
     ): Promise<ClosureResult> {
-      const rows = await tx.closureOutcome.findMany({
-        where: { venueId, dateRuleId: replay.closure.ruleId },
-        select: { action: true },
-      });
+      const { closure } = replay;
+      // What the save decided, as stored with it: the rule's rows can since have moved to a later
+      // growth, and the ones it carried in were never its own.
+      const rows = closure.counts
+        ? []
+        : await tx.closureOutcome.findMany({
+            where: {
+              venueId,
+              dateRuleId: closure.ruleId,
+              id: { notIn: closure.carried?.outcomeIds ?? [] },
+            },
+            select: { action: true },
+          });
       return {
-        ruleId: replay.closure.ruleId,
-        version: replay.closure.version,
+        ruleId: closure.ruleId,
+        version: closure.version,
         changeId: replay.id,
-        outcomes: countActions(rows.map((r) => r.action)),
+        outcomes: closure.counts ?? countActions(rows.map((r) => r.action)),
       };
     }
     interface Plan {
@@ -14015,6 +15233,9 @@
             action,
             movedTo: target?.startTime ?? null,
             refund: action === "cancel" && r.deposit ? "pending" : "none",
+            // `r.deposit` is what the cancel still owes (closure-impact-store), kept so the notice
+            // promises the same amount before and after the refund job runs.
+            refundCents: action === "cancel" && r.deposit ? r.deposit.amountCents : null,
             acknowledgedBy: action === "keep_silent" ? actorId : null,
           });
         }
@@ -14068,6 +15289,12 @@
       if (!caller.isManager) throw new Refused({ kind: "forbidden" });
       const issue = checkAlongside(state.stored.dateRules, rule, alongside);
       if (issue) throw new Refused({ kind: "invalid", issues: [issue] });
+      // The version matched, yet the series is not the one this edit was built from: answer as a stale
+      // version, so the Manager gets the same recovery and the winner's change is named.
+      if (seriesChangedSinceRead(state.stored.dateRules, rule, alongside)) {
+        // After this transaction's own bump, which rolls back: answer against the version it matched.
+        throw new Refused((await refuseSeriesChanged(tx, venueId, body.expectedVersion)) as Refusal);
+      }
       const today = civilDateIn(now, state.timezone);
       const stranded = findStrandedReservations(
         { timezone: state.timezone, config: state.effective },
@@ -14077,11 +15304,10 @@
       if (stranded.length > 0) {
         throw new Refused({
           kind: "invalid",
-          issues: stranded.map((r) => ({
-            path: `reservations.${r.id}`,
-            code: "strands_booking",
-            message: "The rows replaced beside the closure would leave this booking without service.",
-          })),
+          issues: strandedIssues(
+            stranded,
+            "The rows replaced beside the closure would leave this booking without service."
+          ),
         });
       }
     }
@@ -14116,7 +15342,8 @@
         where: { id: venueId, availabilityVersion: body.expectedVersion },
         data: { availabilityVersion: { increment: 1 } },
       });
-      if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+      if (cas.count === 0)
+        throw new Refused((await refuseStale(tx, venueId, body.expectedVersion)) as Refusal);
     
       const state = await loadConfigState(tx, venueId, now);
       if (!state) throw new Refused({ kind: "not_found" });
@@ -14153,6 +15380,17 @@
         throw e instanceof ConfigRowConflict ? new Refused(conflictIssue(e, next) as Refusal) : e;
       });
       const version = body.expectedVersion + 1;
+      // A series that grows is saved under a new id: what the old one did follows it (#7984).
+      const [replaced] = body.alongside?.remove ?? [];
+      const deciding = plan.rows.map((r) => r.reservationId);
+      const replacedRule = state.stored.dateRules.find((r) => r.id === replaced);
+      // An edited closure keeps what it did to each guest on the dates it still closes; the dates it
+      // gave back keep theirs on the removed closure, as a reopen of those dates would.
+      const carried = !replaced
+        ? null
+        : replacedRule && isPlainClosure(replacedRule)
+          ? await carryByDate(tx, venueId, replaced, [rule], deciding)
+          : await carryOutcomes(tx, venueId, replaced, rule.id, deciding);
       const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
       const meta: ClosureMeta = {
         ruleId: rule.id,
@@ -14167,6 +15405,8 @@
           endsOn: rule.endsOn ?? null,
         },
         ...(input.batch ? { batch: input.batch } : {}),
+        ...(carried ? { carried } : {}),
+        counts: plan.counts,
       };
       const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
       const change = await tx.availabilityChange.create({
@@ -14177,10 +15417,12 @@
           at: now,
           kind: "closure",
           summary: describe(rule, plan.counts),
+          ...detailData(closureDetail(rule, plan.counts)),
           affectedFrom: toDbDate(range.from),
           affectedTo: toDbDate(range.to),
           inverse: inverse as unknown as Prisma.InputJsonValue,
           notifiedGuests: plan.notifiedGuests,
+          version,
         },
         select: { id: true },
       });
@@ -14306,7 +15548,67 @@
       if (saved?.actorId !== actorId) throw new Refused({ kind: "forbidden" });
     }
     export type ReopenOutcome =
-      { kind: "reopened"; result: ReopenResult } | { kind: "not_found" } | { kind: "forbidden" };
+      | { kind: "reopened"; result: ReopenResult }
+      | { kind: "not_found" }
+      | { kind: "forbidden" }
+      | Extract<Refusal, { kind: "invalid" | "version_conflict" }>;
+    async function refuseStrandingReopen(
+      tx: Db,
+      venueId: string,
+      state: ConfigState,
+      next: ConfigState["stored"],
+      now: Date
+    ): Promise<void> {
+      const removed = new Set(state.stored.dateRules.map((r) => r.id));
+      for (const r of next.dateRules) removed.delete(r.id);
+      // The dates a one-date reopen keeps closed are new rules, which the effective config lacks.
+      const added = next.dateRules.filter((r) => !state.stored.dateRules.some((s) => s.id === r.id));
+      const after = {
+        ...state.effective,
+        dateRules: [...state.effective.dateRules.filter((r) => !removed.has(r.id)), ...added],
+      };
+      const stranded = findStrandedReservations(
+        { timezone: state.timezone, config: state.effective },
+        { timezone: state.timezone, config: after },
+        await futureBookings(tx, venueId, civilDateIn(now, state.timezone), now)
+      );
+      if (stranded.length === 0) return;
+      throw new Refused({
+        kind: "invalid",
+        issues: strandedIssues(stranded, "Removing this would leave this booking without service."),
+      });
+    }
+    function splitFor(
+      input: { caller: ClosureCaller; seen?: ReopenSeen | undefined },
+      rule: DateRule,
+      date: string,
+      stored: readonly DateRule[]
+    ): DateRule[] {
+      if (!input.caller.isManager) throw new Refused({ kind: "forbidden" });
+      if (!input.seen) {
+        throw refuseReopen(
+          "seen_required",
+          "seen",
+          "Reopening one date needs the closure as you saw it."
+        );
+      }
+      if (stored.some((r) => r.seriesId === rule.id)) {
+        throw refuseReopen("has_edits", "date", "This closure has edited dates; reopen all of it.");
+      }
+      const split = rangeAround(rule, date, randomUUID);
+      if (split.kind === "invalid") throw refuseReopen("invalid_date", "date", split.message);
+      return split.parts;
+    }
+    function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> {
+      return db.closureOutcome.count({
+        where: {
+          venueId,
+          dateRuleId: ruleId,
+          action: "cancel",
+          reservation: { startTime: { gt: now } },
+        },
+      });
+    }
     export async function reopenClosure(
       input: {
         venueId: string;
@@ -14314,6 +15616,9 @@
         caller: ClosureCaller;
         tellCancelledGuests: boolean;
         now: Date;
+        seen?: ReopenSeen | undefined;
+        /** Reopen only this date of a bounded range; the range's other dates stay closed. */
+        date?: string | undefined;
       },
       client: StoreClient = prisma
     ): Promise<ReopenOutcome> {
@@ -14322,6 +15627,14 @@
         return await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
           const db = tx as unknown as Db;
+          // Take the venue row first, as `commit` does: an in-flight booking holds it FOR SHARE, so
+          // this waits for that commit and the stranded scan below sees the booking (book-slot.ts).
+          // A refusal rolls the bump back with the rest of the transaction.
+          const bumped = await db.venue.update({
+            where: { id: venueId },
+            data: { availabilityVersion: { increment: 1 } },
+            select: { availabilityVersion: true },
+          });
           const state = await loadConfigState(db, venueId, now);
           const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
           if (!state || !rule || !CLOSURE_RULE_KINDS.has(rule.kind)) {
@@ -14329,23 +15642,53 @@
           }
           await guard(db, { venueId, caller, rule, now });
           if (!caller.isManager) await requireAuthor(db, venueId, ruleId, caller.actorId);
+          if (input.seen && ruleChangedSinceSeen(state.stored.dateRules, ruleId, input.seen)) {
+            // The venue is on the version before this transaction's own bump, which is rolled back.
+            const current = bumped.availabilityVersion - 1;
+            throw new Refused((await refuseSeriesChanged(db, venueId, current)) as Refusal);
+          }
     
+          const keep = input.date ? splitFor(input, rule, input.date, state.stored.dateRules) : [];
+          // What is reopened: the one date, or the whole rule.
+          const reopened = input.date ? { ...rule, startsOn: input.date, endsOn: input.date } : rule;
           const next = {
             ...state.stored,
             // Reopening a series also removes its skips and one-date edits (#7685).
-            dateRules: state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
+            dateRules: [
+              ...state.stored.dateRules.filter((r) => r.id !== ruleId && r.seriesId !== ruleId),
+              ...keep,
+            ],
           };
+          // This path skips the save's validation. Only the rules the split creates are checked: a
+          // venue already holding some other invalid rule must still be able to reopen.
+          const bad = splitIssues(next, keep);
+          if (bad.length > 0) throw new Refused({ kind: "invalid", issues: bad });
+          await refuseStrandingReopen(db, venueId, state, next, now);
           const diff = diffConfig(state.stored, next);
           await writeConfigDiff(db, venueId, diff, { actorId: caller.actorId, now });
-          const bumped = await db.venue.update({
+          // Each guest follows their date to the rule that still closes it; the reopened date's stay.
+          const carried = await carryByDate(db, venueId, ruleId, keep);
+          await db.venue.update({
             where: { id: venueId },
-            data: {
-              availabilityVersion: { increment: 1 },
-              operatingHours: projectLegacyOperatingHours(next),
-            },
-            select: { availabilityVersion: true },
+            data: { operatingHours: projectLegacyOperatingHours(next) },
+            select: { id: true },
           });
-          const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          // A one-date reopen links to its day in History, not to the range it was cut from.
+          const range = input.date
+            ? { from: input.date, to: input.date }
+            : affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+          const stillClosed = stillClosedAfterReopen(
+            state.stored.dateRules,
+            reopened,
+            civilDateIn(now, state.timezone)
+          );
+          // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
+          // row, Undo and the caller's count must agree with who it actually reaches. With every date
+          // still closed by another closure there is nothing to rebook, so nobody is told to (#8006).
+          const notified =
+            input.tellCancelledGuests && !stillClosed.everyDate
+              ? await upcomingCancelled(db, venueId, ruleId, now)
+              : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -14353,21 +15696,23 @@
               actorName: caller.actorName ?? null,
               at: now,
               kind: "reopen",
-              summary: `Closure reopened (${rule.startsOn})`,
+              summary: `Closure reopened (${reopened.startsOn})`,
+              ...detailData(reopenedDetail(reopened)),
               affectedFrom: toDbDate(range.from),
               affectedTo: toDbDate(range.to),
-              inverse: inverseOf(
-                state.stored,
-                diff,
-                state.operatingHours
-              ) as unknown as Prisma.InputJsonValue,
-              notifiedGuests: input.tellCancelledGuests,
+              inverse: {
+                ...inverseOf(state.stored, diff, state.operatingHours),
+                // Undo returns the guests this moved (offered only when the reopen told none).
+                ...(carried ? { closure: { carried } } : {}),
+              } as unknown as Prisma.InputJsonValue,
+              notifiedGuests: notified > 0,
+              version: bumped.availabilityVersion,
             },
             select: { id: true },
           });
           return {
             kind: "reopened" as const,
-            result: { version: bumped.availabilityVersion, changeId: change.id },
+            result: { version: bumped.availabilityVersion, changeId: change.id, notified, stillClosed },
           };
         });
       } catch (error) {
@@ -14382,9 +15727,34 @@
       mayClose,
     };
   </file>
+  <file path="src/services/closure-deposit.ts">
+    export interface RefundableDeposit {
+      amountCents: number;
+      status: string;
+      stripePaymentIntentId: string | null;
+      refundAmountCents?: number | null;
+      postCaptureRefundCents?: number | null;
+    }
+    export function refundOwedCents(
+      deposit: Pick<
+        RefundableDeposit,
+        "amountCents" | "status" | "refundAmountCents" | "postCaptureRefundCents"
+      >
+    ): number {
+      const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
+      return Math.max(0, deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0));
+    }
+    export function owesRefund(deposit: RefundableDeposit): boolean {
+      if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return false;
+      return (
+        LIVE_DEPOSIT_STATUSES.has(deposit.status) ||
+        (CAPTURED_DEPOSIT_STATUSES.has(deposit.status) && Boolean(deposit.stripePaymentIntentId))
+      );
+    }
+  </file>
   <file path="src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
-    type ImpactDb = Pick<PrismaClient, "table" | "reservation">;
+    type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservationHold">;
     export type ClosureImpactOutcome =
       | { kind: "ok"; impact: ClosureImpact }
       | { kind: "not_found" }
@@ -14397,6 +15767,39 @@
       // ago (an "All dates" edit keeps its start) is not "too long".
       if (rule.endsOn && rule.endsOn > addDays(from, SCOPE_CONFLICT_HORIZON_DAYS)) return null;
       return { from, to: rule.endsOn ?? addDays(from, SCOPE_CONFLICT_HORIZON_DAYS) };
+    }
+    async function loadOccupancy(
+      tx: ImpactDb,
+      venueId: string,
+      tableIds: readonly string[],
+      range: { from: string; to: string },
+      now: Date
+    ): Promise<Occupancy> {
+      if (tableIds.length === 0) return { reservations: [], holds: [] };
+      const date = { gte: toDbDate(addDays(range.from, -1)), lte: toDbDate(addDays(range.to, 1)) };
+      const [reservations, holds] = await Promise.all([
+        tx.reservation.findMany({
+          where: {
+            venueId,
+            tableId: { in: [...tableIds] },
+            date,
+            status: { notIn: [...NOT_BOOKED_STATUSES] },
+          },
+          select: { id: true, tableId: true, startTime: true, endTime: true, partySize: true },
+        }),
+        tx.reservationHold.findMany({
+          where: { venueId, tableId: { in: [...tableIds] }, date, expiresAt: activeHoldWindow(now) },
+          select: {
+            id: true,
+            tableId: true,
+            startTime: true,
+            endTime: true,
+            partySize: true,
+            expiresAt: true,
+          },
+        }),
+      ]);
+      return { reservations, holds };
     }
     export async function impactInTransaction(
       tx: ImpactDb,
@@ -14432,29 +15835,38 @@
           endTime: true,
           partySize: true,
           guestName: true,
+          originHost: true,
+          locale: true,
           deposit: {
             select: {
               amountCents: true,
               currency: true,
               status: true,
               stripePaymentIntentId: true,
+              refundAmountCents: true,
+              postCaptureRefundCents: true,
             },
           },
         },
       });
+      // `owesRefund` alone puts a deposit in the plan, so the refund job runs for it. The amount is
+      // only the estimate of what is still owed (it can be 0); the command stores it for the notice.
       const bookings: ImpactBooking[] = rows.map(({ deposit, ...row }) => ({
         ...row,
         heldDeposit:
           deposit && owesRefund(deposit)
-            ? { amountCents: deposit.amountCents, currency: deposit.currency }
+            ? { amountCents: refundOwedCents(deposit), currency: deposit.currency }
             : null,
       }));
+      const tableIds = [...new Set(bookings.flatMap((b) => (b.tableId ? [b.tableId] : [])))];
       const impact = computeClosureImpact({
         timezone: state.timezone,
         config: state.effective,
         rule,
         alongside,
         bookings,
+        now,
+        occupancy: await loadOccupancy(tx, venueId, tableIds, range, now),
       });
       return { kind: "ok", impact };
     }
@@ -14484,7 +15896,11 @@
       endTime: Date;
       partySize: number;
       guestName: string | null;
-      /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. Named for the common case. */
+      /** The host the guest booked on (#7892); anything but the allowlisted hosts reads as none. */
+      originHost?: string | null;
+      /** The language the guest booked in (a notice locale); absent or unsupported reads as en-US. */
+      locale?: string | null;
+      /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. `amountCents` is the estimate of what is still owed (the deposit less refunds already recorded; can be 0), not the deposit's amount. */
       heldDeposit: { amountCents: number; currency: string } | null;
     }
     function kindOf(rule: DateRule): ClosureImpactKind {
@@ -14594,7 +16010,53 @@
         guestName: booking.guestName,
         deposit: booking.heldDeposit,
         runsIntoClosure: runsInto,
+        originHost: BOOKING_ORIGIN_HOSTS.find((h) => h === booking.originHost) ?? null,
+        locale: resolveGuestNoticeLocale(booking.locale),
       };
+    }
+    export interface Occupancy {
+      reservations: readonly ReservationSlim[];
+      holds: readonly HoldSlim[];
+    }
+    function withProposedStarts(
+      after: AvailabilitySnapshot,
+      group: ClosureImpactGroup,
+      tableOf: ReadonlyMap<string, string | null>,
+      occupancy: Occupancy,
+      now: Date
+    ): { group: ClosureImpactGroup; standing: readonly ReservationSlim[] } {
+      const placed = group.reservations.reduce(
+        (acc, r) => {
+          const target = moveTarget(after, group.date, r, now);
+          const tableId = tableOf.get(r.id) ?? null;
+          const taken =
+            target !== null &&
+            tableId !== null &&
+            checkTableConflict(
+              tableId,
+              target.startTime,
+              target.endTime,
+              acc.standing.filter((s) => s.id !== r.id),
+              occupancy.holds,
+              now
+            );
+          const landed = taken ? null : target;
+          const standing = landed
+            ? acc.standing.map((s) =>
+                s.id === r.id ? { ...s, startTime: landed.startTime, endTime: landed.endTime } : s
+              )
+            : acc.standing;
+          return {
+            standing,
+            reservations: [
+              ...acc.reservations,
+              { ...r, proposedStart: landed?.startTime.toISOString() ?? null },
+            ],
+          };
+        },
+        { standing: occupancy.reservations, reservations: [] as ClosureImpactReservation[] }
+      );
+      return { group: { ...group, reservations: placed.reservations }, standing: placed.standing };
     }
     function toGroup(
       date: string,
@@ -14617,8 +16079,14 @@
       rule: DateRule;
       alongside?: ClosureAlongside;
       bookings: readonly ImpactBooking[];
+      /** For the proposed move times: a move never lands before now. */
+      now: Date;
+      /** Who else holds the tables a move lands on; absent, no table is taken. */
+      occupancy?: Occupancy;
     }): ClosureImpact {
-      const { timezone, config, rule, bookings, alongside } = input;
+      const { timezone, config, rule, bookings, alongside, now } = input;
+      const occupancy = input.occupancy ?? { reservations: [], holds: [] };
+      const tableOf = new Map(bookings.map((b) => [b.id, b.tableId] as const));
       const before = { timezone, config };
       const after = { timezone, config: withClosure(config, rule, alongside) };
       const kind = kindOf(rule);
@@ -14635,9 +16103,22 @@
         byDate.set(date, [...(byDate.get(date) ?? []), toReservation(booking, verdict.runsInto)]);
       }
     
-      const groups = [...byDate.entries()]
+      const unmoved = [...byDate.entries()]
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([date, reservations]) => toGroup(date, kind, reservations));
+      const groups =
+        kind === "shortened"
+          ? unmoved.reduce(
+              (acc, g) => {
+                const next = withProposedStarts(after, g, tableOf, acc.occupancy, now);
+                return {
+                  groups: [...acc.groups, next.group],
+                  occupancy: { ...acc.occupancy, reservations: next.standing },
+                };
+              },
+              { groups: [] as ClosureImpactGroup[], occupancy }
+            ).groups
+          : unmoved;
       return {
         reservations: groups.reduce((n, g) => n + g.reservations.length, 0),
         covers: groups.reduce((n, g) => n + g.covers, 0),
@@ -14651,17 +16132,24 @@
       dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
       generateManageToken(reservationId: string, guestEmail: string): string;
       manageBaseUrl: string;
+      /**
+       * Resolves the manage-link base for an outcome's origin host (#7892) — a
+       * closure notice for an eat-sheet.com booking links back to eat-sheet.com.
+       * Omitted keeps `manageBaseUrl` above for every outcome, today's behavior.
+       */
+      hostBrand?: (originHost: string | null) => { manageBaseUrl: string };
       logger: ClosureNoticeDeps["logger"];
       now?: () => Date;
     }): ClosureNoticeDeps {
       const now = input.now ?? (() => new Date());
+      const hostBrand = input.hostBrand ?? (() => ({ manageBaseUrl: input.manageBaseUrl }));
       return {
         load: loadNoticeOutcome,
         offers: (o) => loadRebookSlots(o, now()),
         // The signed email is checked on the manage page; a phone-only guest has none.
         manageUrl: (o, rebook) =>
           buildManageUrl(
-            input.manageBaseUrl,
+            hostBrand(o.originHost).manageBaseUrl,
             input.generateManageToken(o.reservationId, o.guestEmail ?? ""),
             rebook
           ),
@@ -14684,6 +16172,10 @@
       venueId: string;
       ruleId: string;
       now: Date;
+      /** Outcomes moved in from a replaced series: told when they were decided, not again. */
+      carried?: readonly string[];
+      /** A reopen of this one date of a range: urgency is that date's, not the removed range's. */
+      date?: string;
     }
     function nextClosureDate(w: ClosureWindow, now: Date): string | null {
       return firstOccurrenceOnOrAfter(
@@ -14705,8 +16197,11 @@
         : `closure-notice_${outcomeId}`;
     }
     async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
-      const w = await store.loadClosureWindow(input.venueId, input.ruleId);
-      if (!w) return true;
+      const stored = await store.loadClosureWindow(input.venueId, input.ruleId);
+      if (!stored) return true;
+      const w = input.date
+        ? { ...stored, startsOn: input.date, endsOn: input.date, weekdays: null }
+        : stored;
       if (nextClosureDate(w, input.now) === null) return false;
       const startsAt = closureStartsAt(w, input.now);
       return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;
@@ -14715,7 +16210,10 @@
       const store = deps.store ?? defaultStore;
     
       async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
-        const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant);
+        const carried = new Set(input.carried);
+        const outcomes = (
+          await store.listNotifiable(input.venueId, input.ruleId, variant, input.now)
+        ).filter((o) => !carried.has(o.outcomeId));
         if (outcomes.length === 0) return 0;
         const urgent = await isUrgent(store, input);
         await Promise.all(
@@ -14803,17 +16301,37 @@
       venueId: string,
       ruleId: string,
       variant: NoticeVariant,
+      now: Date,
       db: Db = prisma
     ): Promise<NotifiableOutcome[]> {
       const rows = await db.closureOutcome.findMany({
-        where: {
-          venueId,
-          dateRuleId: ruleId,
-          action: variant === "reopened" ? "cancel" : { not: "keep_silent" },
-        },
+        where:
+          variant === "reopened"
+            ? { venueId, dateRuleId: ruleId, action: "cancel", reservation: { startTime: { gt: now } } }
+            : { venueId, dateRuleId: ruleId, action: { not: "keep_silent" } },
         select: { id: true },
       });
       return rows.map((r) => ({ outcomeId: r.id }));
+    }
+    function promisedRefund(
+      refund: string,
+      refundCents: number | null,
+      deposit: {
+        amountCents: number;
+        currency: string;
+        status: string;
+        stripePaymentIntentId: string | null;
+        refundAmountCents: number | null;
+        postCaptureRefundCents: number | null;
+      } | null
+    ): NoticeOutcome["refund"] {
+      if (!deposit || refund === "none") return null;
+      if (deposit.status === "pending" && !deposit.stripePaymentIntentId) return null;
+      // A row from before `refundCents` existed: once the job is done the closure's own refund is
+      // already off the row (it would compute 0), so promise the deposit; before that, estimate.
+      const amountCents =
+        refundCents ?? (refund === "done" ? deposit.amountCents : refundOwedCents(deposit));
+      return amountCents > 0 ? { amountCents, currency: deposit.currency } : null;
     }
     export async function loadNoticeOutcome(
       outcomeId: string,
@@ -14828,6 +16346,8 @@
           action: true,
           deliveries: true,
           rebookedReservationId: true,
+          refund: true,
+          refundCents: true,
           dateRule: { select: { guestMessage: true } },
           venue: { select: { name: true, ianaTimezone: true } },
           reservation: {
@@ -14839,7 +16359,18 @@
               guestEmail: true,
               guestPhone: true,
               guest: { select: { communicationPreference: true } },
-              deposit: { select: { amountCents: true, currency: true } },
+              deposit: {
+                select: {
+                  amountCents: true,
+                  currency: true,
+                  status: true,
+                  stripePaymentIntentId: true,
+                  refundAmountCents: true,
+                  postCaptureRefundCents: true,
+                },
+              },
+              originHost: true,
+              locale: true,
             },
           },
         },
@@ -14861,9 +16392,11 @@
         guestEmail: r.guestEmail,
         guestPhone: r.guestPhone,
         preference: r.guest?.communicationPreference ?? null,
-        refund: r.deposit ? { amountCents: r.deposit.amountCents, currency: r.deposit.currency } : null,
+        refund: promisedRefund(row.refund, row.refundCents, r.deposit),
         venueName: row.venue.name,
         timezone: row.venue.ianaTimezone,
+        originHost: r.originHost,
+        locale: resolveGuestNoticeLocale(r.locale),
       };
     }
     export async function recordDeliveries(
@@ -14950,6 +16483,8 @@
       id: string;
       reservation: {
         guestName: string | null;
+        /** Only the summaries listing reads when the booking starts. */
+        startTime?: Date;
         deposit: {
           amountCents: number;
           currency: string;
@@ -14963,17 +16498,16 @@
       deliveries: unknown;
       rebookedReservationId: string | null;
       refund: string;
-    }
-    function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number {
-      const ownLeg = deposit.status === "partial_refunded" ? (deposit.refundAmountCents ?? 0) : 0;
-      return Math.max(0, deposit.amountCents - ownLeg - (deposit.postCaptureRefundCents ?? 0));
+      /** What the guest was promised, as stored with the outcome; null on rows from before it. */
+      refundCents?: number | null;
     }
     function refundFailureOf(row: SummaryRow): RefundFailure {
       const { guestName, deposit } = row.reservation;
       return {
         outcomeId: row.id,
         guestName,
-        amountCents: deposit ? refundOwedCents(deposit) : null,
+        // What the guest was promised, from the outcome; the live deposit only for older rows.
+        amountCents: deposit ? (row.refundCents ?? refundOwedCents(deposit)) : null,
         currency: deposit?.currency ?? null,
       };
     }
@@ -15002,7 +16536,11 @@
       }
       return [...byRule.values()];
     }
-    export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> {
+    export async function listSummaries(
+      venueId: string,
+      now: Date = new Date(),
+      db: Db = prisma
+    ): Promise<ClosureSummary[]> {
       const rows = await db.closureOutcome.findMany({
         where: { venueId },
         orderBy: { createdAt: "asc" },
@@ -15013,9 +16551,11 @@
           deliveries: true,
           rebookedReservationId: true,
           refund: true,
+          refundCents: true,
           reservation: {
             select: {
               guestName: true,
+              startTime: true,
               deposit: {
                 select: {
                   amountCents: true,
@@ -15029,7 +16569,18 @@
           },
         },
       });
-      return summarizeOutcomes(rows);
+      // A reopen notice goes only to cancelled guests whose booking has not started
+      // (`listNotifiable`), so that is the count the Reopen dialog may promise.
+      const upcoming = new Map<string, number>();
+      for (const row of rows) {
+        if (row.action !== "cancel" || !row.reservation.startTime) continue;
+        if (row.reservation.startTime.getTime() <= now.getTime()) continue;
+        upcoming.set(row.dateRuleId, (upcoming.get(row.dateRuleId) ?? 0) + 1);
+      }
+      return summarizeOutcomes(rows).map((s) => ({
+        ...s,
+        upcomingCancelled: upcoming.get(s.ruleId) ?? 0,
+      }));
     }
   </file>
   <file path="src/services/closure-notice.ts">
@@ -15057,6 +16608,10 @@
       refund: { amountCents: number; currency: string } | null;
       venueName: string;
       timezone: string;
+      /** The host the guest booked on (#7892); null keeps the mattbutlerengineering.com brand. */
+      originHost: string | null;
+      /** The language the guest booked in; their notice is written in it. */
+      locale: GuestNoticeLocale;
     }
     export interface ClosureNoticeDeps {
       load(outcomeId: string): Promise<NoticeOutcome | null>;
@@ -15094,6 +16649,7 @@
         kind,
         venueName: o.venueName,
         guestName: o.guestName,
+        locale: o.locale,
         closureDate: o.closureDate,
         startTime: o.startTime.toISOString(),
         timezone: o.timezone,
@@ -15102,7 +16658,7 @@
         refund: kind === "cancelled" ? o.refund : null,
         manageUrl: deps.manageUrl(o),
         offers: slots.map((s) => ({
-          label: offerLabel(s, o.timezone),
+          label: offerLabel(s, o.timezone, o.locale),
           url: deps.manageUrl(o, rebookOfferId(s)),
         })),
       };
@@ -15115,7 +16671,7 @@
     ): Promise<void> {
       if (channel === "email") {
         const { subject, html } = buildClosureEmail(content);
-        return deps.sendEmail({ to: o.guestEmail!, subject, html });
+        return deps.sendEmail({ to: o.guestEmail!, subject, html, originHost: o.originHost });
       }
       return deps.sendSms({ to: o.guestPhone!, body: buildClosureSms(content) });
     }
@@ -15674,9 +17230,12 @@
       venueId: string,
       ruleId: string,
       statuses: readonly ClosureRefundStatus[],
-      opts: { retry?: boolean; now?: () => number } = {}
+      opts: { retry?: boolean; now?: () => number; carried?: readonly string[] } = {}
     ): Promise<number> {
-      const outcomes = await deps.store.listByRule(venueId, ruleId, statuses);
+      const carried = new Set(opts.carried);
+      const outcomes = (await deps.store.listByRule(venueId, ruleId, statuses)).filter(
+        (o) => !carried.has(o.id)
+      );
       let enqueued = 0;
       for (const outcome of outcomes) {
         const base = closureRefundJobId(ruleId, outcome.reservationId);
@@ -15706,7 +17265,8 @@
       return enqueued;
     }
     export interface ClosureRefunds {
-      enqueue(venueId: string, ruleId: string): Promise<number>;
+      /** `carried`: outcomes moved in from a replaced series, whose refunds are not this save's. */
+      enqueue(venueId: string, ruleId: string, carried?: readonly string[]): Promise<number>;
       retry(venueId: string, ruleId: string): Promise<number>;
     }
     export function createClosureRefunds(deps: {
@@ -15715,10 +17275,73 @@
       log?: RefundLogger;
     }): ClosureRefunds {
       return {
-        enqueue: (venueId, ruleId) => enqueueClosureRefunds(deps, venueId, ruleId, ["pending"]),
+        enqueue: (venueId, ruleId, carried) =>
+          enqueueClosureRefunds(deps, venueId, ruleId, ["pending"], { carried }),
         retry: (venueId, ruleId) =>
           enqueueClosureRefunds(deps, venueId, ruleId, ["failed", "pending"], { retry: true }),
       };
+    }
+  </file>
+  <file path="src/services/closure-reopen-date.ts">
+    export type RangeParts =
+      { kind: "parts"; parts: DateRule[] } | { kind: "invalid"; message: string };
+    export function rangeAround(rule: DateRule, date: string, newId: () => string): RangeParts {
+      if (rule.repeat != null) return invalid("A repeating closure skips a date instead.");
+      if (rule.endsOn == null) return invalid("An open-ended closure has no last date to split at.");
+      // The date schema is a pattern only: "2027-02-31" matches it, and Date rolls it into March.
+      if (addDays(date, 0) !== date) return invalid("That date is not on the calendar.");
+      if (date < rule.startsOn || date > rule.endsOn) {
+        return invalid("That date is not one of the closure's dates.");
+      }
+      const parts: DateRule[] = [];
+      if (date > rule.startsOn) {
+        parts.push({ ...rule, id: newId(), endsOn: addDays(date, -1) });
+      }
+      if (date < rule.endsOn) {
+        parts.push({ ...rule, id: newId(), startsOn: addDays(date, 1) });
+      }
+      return { kind: "parts", parts };
+    }
+    export function splitIssues(next: AvailabilityConfig, created: readonly DateRule[]): ConfigIssue[] {
+      const indexes = new Set(
+        created.map((c) => next.dateRules.findIndex((r) => r.id === c.id)).filter((i) => i >= 0)
+      );
+      return validateConfig(next).filter((issue) => {
+        const at = /^dateRules\[(\d+)\]/.exec(issue.path);
+        return at !== null && indexes.has(Number(at[1]));
+      });
+    }
+    type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
+    export async function carryByDate(
+      tx: Db,
+      venueId: string,
+      from: string,
+      parts: readonly DateRule[],
+      /** Bookings the same save gives a new outcome of their own: one outcome per booking and rule. */
+      deciding: readonly string[] = []
+    ): Promise<CarriedOutcomes | null> {
+      const moved: string[] = [];
+      for (const part of parts) {
+        const rows = await tx.closureOutcome.findMany({
+          where: {
+            venueId,
+            dateRuleId: from,
+            ...(deciding.length > 0 ? { reservationId: { notIn: [...deciding] } } : {}),
+            reservation: {
+              // An open-ended part has no last date: every booking from its start on is its.
+              date: {
+                gte: toDbDate(part.startsOn)!,
+                ...(part.endsOn != null ? { lte: toDbDate(part.endsOn)! } : {}),
+              },
+            },
+          },
+          select: { id: true },
+        });
+        const ids = rows.map((r) => r.id);
+        if (ids.length > 0) await rekey(tx, ids, part.id);
+        moved.push(...ids);
+      }
+      return moved.length > 0 ? { from, outcomeIds: moved } : null;
     }
   </file>
   <file path="src/services/confirm-hold.ts">
@@ -15737,6 +17360,18 @@
        * Checked in the same lookup as the session id, before any write.
        */
       venueId?: string;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com"), resolved by the
+       * calling public route from the request's Origin header (#7892). Stored on
+       * the reservation so later guest emails brand by it. Undefined/null for
+       * non-public confirm paths or an unrecognized origin.
+       */
+      originHost?: string | null;
+      /**
+       * The guest's language, a supported notice locale resolved by the public route from the
+       * booking widget's locale. Closure notices are written in it; omitted keeps the column's en-US.
+       */
+      locale?: GuestNoticeLocale;
       /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
       actor?: ReservationEventActor;
       /**
@@ -15819,6 +17454,10 @@
               userId: userId ?? null,
               // Ownership proof for the public deposit route (#6304).
               originSessionId: hold.sessionId,
+              // The host the guest booked on (#7892); null for non-public confirm
+              // paths or an unrecognized origin.
+              originHost: input.originHost ?? null,
+              ...(input.locale ? { locale: input.locale } : {}),
               status: "CONFIRMED",
             },
             include: {
@@ -17467,9 +19106,24 @@
         updatedAt: floorPlan.updatedAt.toISOString(),
       };
     }
+    function venueUniqueNames(
+      desired: readonly string[],
+      taken: readonly string[],
+      candidate: (name: string, n: number) => string
+    ): string[] {
+      const used = new Set(taken);
+      return desired.map((name) => {
+        let pick = used.has(name) ? candidate(name, 2) : name;
+        for (let n = 3; used.has(pick); n += 1) pick = candidate(name, n);
+        used.add(pick);
+        return pick;
+      });
+    }
+    export type FloorPlanDeleteOutcome =
+      "deleted" | "archived" | "active" | "has_upcoming" | "in_use" | "not_found";
     export const floorPlanService = {
       async list(page: number, limit: number, venueId?: string): Promise<PaginatedResponse<FloorPlan>> {
-        const where = venueId ? { venueId } : {};
+        const where = { archivedAt: null, ...(venueId ? { venueId } : {}) };
     
         const [floorPlans, total] = await Promise.all([
           prisma.floorPlan.findMany({
@@ -17500,6 +19154,7 @@
         venueId?: string
       ): Promise<PaginatedResponse<FloorPlan>> {
         const where: Prisma.FloorPlanWhereInput = {
+          archivedAt: null,
           venue: { memberships: { some: { userSub } } },
           ...(venueId ? { venueId } : {}),
         };
@@ -17521,8 +19176,8 @@
       },
     
       async getById(id: string): Promise<FloorPlan | null> {
-        const floorPlan = await prisma.floorPlan.findUnique({
-          where: { id },
+        const floorPlan = await prisma.floorPlan.findFirst({
+          where: { id, archivedAt: null },
           include: { tables: true },
         });
         return floorPlan ? mapPrismaFloorPlan(floorPlan) : null;
@@ -17550,19 +19205,19 @@
       },
     
       async clone(id: string): Promise<FloorPlan | null> {
-        const source = await prisma.floorPlan.findUnique({
-          where: { id },
+        const source = await prisma.floorPlan.findFirst({
+          where: { id, archivedAt: null },
           include: { tables: true },
         });
         if (!source) return null;
     
         // Handle name collisions: find next available copy name
         const baseName = source.name;
+        // Every plan name in the venue: the first copy's `Copy of …` does not start
+        // with `baseName`, so a `startsWith` filter missed it and a second clone
+        // reused the same name.
         const existingNames = await prisma.floorPlan.findMany({
-          where: {
-            venueId: source.venueId,
-            name: { startsWith: baseName },
-          },
+          where: { venueId: source.venueId },
           select: { name: true },
         });
         const existingNameSet = new Set(existingNames.map((n) => n.name));
@@ -17594,15 +19249,29 @@
           });
     
           if (source.tables.length > 0) {
+            // Copies keep the source's flag only while the venue has an active
+            // plan. With none, every active table is bookable (#8276), so an
+            // active copy would double online capacity (#8255).
+            const venueHasActivePlan =
+              (await tx.floorPlan.count({ where: { venueId: source.venueId, isActive: true } })) > 0;
+            const venueTables = await tx.table.findMany({
+              where: { venueId: source.venueId },
+              select: { name: true },
+            });
+            const copyNames = venueUniqueNames(
+              source.tables.map((t) => t.name),
+              venueTables.map((t) => t.name),
+              (name, n) => `${name}-${n}`
+            );
             await tx.table.createMany({
-              data: source.tables.map((t) => ({
-                name: t.name,
+              data: source.tables.map((t, i) => ({
+                name: copyNames[i]!,
                 tableNumber: t.tableNumber,
                 capacity: t.capacity,
                 minCovers: t.minCovers,
                 maxCovers: t.maxCovers,
                 location: t.location,
-                isActive: t.isActive,
+                isActive: venueHasActivePlan && t.isActive,
                 priority: t.priority,
                 status: "AVAILABLE",
                 venueId: t.venueId,
@@ -17633,7 +19302,7 @@
           }
     
           const floorPlan = await prisma.floorPlan.update({
-            where: { id },
+            where: { id, archivedAt: null },
             data: updateData,
             include: { tables: true },
           });
@@ -17644,15 +19313,81 @@
         }
       },
     
-      async delete(id: string): Promise<boolean> {
+      /**
+       * Deletes a floor plan in one transaction (#8254). Reservations and holds
+       * reference tables with ON DELETE RESTRICT and are never deleted, so a plan
+       * whose tables carry any (even cancelled or expired) history is archived
+       * instead: hidden from every read, its tables taken out of service and
+       * renamed so the venue can reuse their names. The active plan is refused —
+       * the venue must never be left without one — and so is a plan with a booking
+       * still to come, which would otherwise sit on a table no longer shown.
+       */
+      async delete(id: string): Promise<FloorPlanDeleteOutcome> {
+        // Read through the venue-scoped client first: the explicit transaction
+        // below must set app.venue_id itself (ADR-026 part 6), so it needs the venue.
+        const found = await prisma.floorPlan.findFirst({
+          where: { id, archivedAt: null },
+          select: { venueId: true },
+        });
+        if (!found) return "not_found";
+        const { venueId } = found;
+    
         try {
-          await prisma.table.deleteMany({
-            where: { floorPlanId: id },
+          return await prisma.$transaction(async (tx) => {
+            await setVenueContext(tx, venueId);
+            // Lock the plan row so a concurrent activate cannot slip in between
+            // the active check and the delete.
+            const [plan] = await tx.$queryRaw<Array<{ isActive: boolean; archivedAt: Date | null }>>`
+              SELECT is_active AS "isActive", archived_at AS "archivedAt"
+              FROM floor_plans WHERE id = ${id} FOR UPDATE
+            `;
+            if (!plan || plan.archivedAt) return "not_found" as const;
+            if (plan.isActive) return "active" as const;
+    
+            const tables = await tx.table.findMany({
+              where: { floorPlanId: id },
+              select: { id: true, name: true },
+            });
+            const tableIds = tables.map((t) => t.id);
+            const upcoming = await tx.reservation.count({
+              where: {
+                tableId: { in: tableIds },
+                status: { notIn: [...SETTLED_STATUSES] },
+                endTime: { gt: new Date() },
+              },
+            });
+            if (upcoming > 0) return "has_upcoming" as const;
+            const [reservations, holds] = await Promise.all([
+              tx.reservation.count({ where: { tableId: { in: tableIds } } }),
+              tx.reservationHold.count({ where: { tableId: { in: tableIds } } }),
+            ]);
+    
+            if (reservations + holds === 0) {
+              await tx.table.deleteMany({ where: { floorPlanId: id } });
+              await tx.floorPlan.delete({ where: { id } });
+              return "deleted" as const;
+            }
+    
+            const ownNames = new Set(tables.map((t) => t.name));
+            const venueTables = await tx.table.findMany({ where: { venueId }, select: { name: true } });
+            const archivedNames = venueUniqueNames(
+              tables.map((t) => `${t.name} (archived)`),
+              venueTables.map((t) => t.name).filter((name) => !ownNames.has(name)),
+              (name, n) => `${name.slice(0, -")".length)} ${n})`
+            );
+            for (const [i, table] of tables.entries()) {
+              await tx.table.update({
+                where: { id: table.id },
+                data: { name: archivedNames[i]!, isActive: false },
+              });
+            }
+            await tx.floorPlan.update({ where: { id }, data: { archivedAt: new Date() } });
+            return "archived" as const;
           });
-          await prisma.floorPlan.delete({ where: { id } });
-          return true;
         } catch (err: unknown) {
-          if (isPrismaNotFound(err)) return false;
+          // A booking or hold committed on one of the tables after the history
+          // check: the RESTRICT FK refuses the delete. Never surface the raw error.
+          if (isPrismaForeignKeyViolation(err)) return "in_use";
           throw err;
         }
       },
@@ -17670,7 +19405,7 @@
             });
     
             return tx.floorPlan.update({
-              where: { id },
+              where: { id, archivedAt: null },
               data: { isActive: true },
               include: { tables: true },
             });
@@ -18820,6 +20555,7 @@
             venueAddress: null,
             updatedAt: reservation.updatedAt,
             manageToken: deps.generateManageToken(reservation.id, reservation.guestEmail),
+            originHost: reservation.originHost ?? null,
           };
     
           // Dispatcher failures propagate so BullMQ retries per the queue policy.
@@ -19806,6 +21542,14 @@
   </file>
   <file path="src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
+    export class JobQueueUnavailableError extends Error {
+      constructor() {
+        super(
+          "Cannot schedule/cancel notification jobs: REDIS_URL is not configured in production (see #3763)."
+        );
+        this.name = "JobQueueUnavailableError";
+      }
+    }
     export interface NotifierRuntime {
       /**
        * Redis URL — the single source for the scheduler AND the in-process worker.
@@ -19866,9 +21610,7 @@
       function connect(): JobScheduler {
         if (!redisUrl) {
           // Never connect to redis://localhost:6379 as a blind guess (#4172).
-          throw new Error(
-            "Cannot schedule/cancel notification jobs: REDIS_URL is not configured in production (see #3763)."
-          );
+          throw new JobQueueUnavailableError();
         }
         if (!scheduler) scheduler = new JobScheduler({ redisUrl });
         return scheduler;
@@ -22141,6 +23883,8 @@
       userId: string | null;
       /** Staff override reason; selected rows predating the column or partial selects omit it. */
       overrideReason?: string | null;
+      /** The host the guest booked on (#7892); selected rows predating the column omit it. */
+      originHost?: string | null;
       tableId: string;
       table?: PrismaTableRow | null;
       guest?: {
@@ -22218,6 +23962,7 @@
         guestId: row.guestId,
         userId: row.userId,
         overrideReason: row.overrideReason ?? null,
+        originHost: row.originHost ?? null,
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
@@ -23156,10 +24901,13 @@
         activeOnly: boolean = false,
         venueId?: string
       ): Promise<PaginatedResponse<Table>> {
-        const where: Record<string, unknown> = activeOnly ? { isActive: true } : {};
-        if (venueId) {
-          where.venueId = venueId;
-        }
+        // activeOnly means "bookable" (#8276): active AND on the venue's active
+        // plan. Unfiltered lists still return every table so staff keep seeing
+        // bookings on tables of an inactive plan.
+        const where: Prisma.TableWhereInput =
+          activeOnly && venueId
+            ? bookableTableWhere(venueId)
+            : { ...(activeOnly ? { isActive: true } : {}), ...(venueId ? { venueId } : {}) };
     
         const [tables, total] = await Promise.all([
           prisma.table.findMany({
@@ -23474,7 +25222,8 @@
         where: { id: venueId, availabilityVersion: body.expectedVersion },
         data: { availabilityVersion: { increment: 1 } },
       });
-      if (cas.count === 0) throw new Refused((await refuseStale(tx, venueId)) as Refusal);
+      if (cas.count === 0)
+        throw new Refused((await refuseStale(tx, venueId, body.expectedVersion)) as Refusal);
     
       const next = await checkRule(tx, venueId, state, rule);
       const diff = diffConfig(state.stored, next);
@@ -23492,12 +25241,14 @@
           at: now,
           kind: "tonight",
           summary: describeChange(body.change),
+          ...detailData(tonightDetail(body.change)),
           affectedFrom: toDbDate(range.from),
           affectedTo: toDbDate(range.to),
           inverse: {
             ...inverseOf(state.stored, diff, state.operatingHours),
             tonight: meta,
           } as unknown as Prisma.InputJsonValue,
+          version,
         },
         select: { id: true },
       });
@@ -23585,11 +25336,38 @@
       client: StoreClient = prisma
     ): Promise<EndTonightOutcome> {
       const { venueId, ruleId, caller, now } = input;
+      try {
+        return await endTonightIn(client, { venueId, ruleId, caller, now });
+      } catch (error) {
+        if (error instanceof Refused) return error.outcome as EndTonightOutcome;
+        throw error;
+      }
+    }
+    async function endTonightIn(
+      client: StoreClient,
+      input: {
+        venueId: string;
+        ruleId: string;
+        caller: Pick<ClosureCaller, "actorId" | "actorName">;
+        now: Date;
+      }
+    ): Promise<EndTonightOutcome> {
+      const { venueId, ruleId, caller, now } = input;
       return client.$transaction(async (tx): Promise<EndTonightOutcome> => {
         await setVenueContext(tx, venueId);
+        // Take the venue row first, as `reopenClosure` does: the state read below, the diff and the
+        // inverse are then the current ones, never a save's that committed while this waited. No
+        // expectedVersion is asked for: ending is by rule id, idempotent in effect, and a Host ending
+        // Tonight in live service must not be refused for a version they could not know (#8121). A
+        // refusal below rolls the bump back with the rest of the transaction.
+        await tx.venue.update({
+          where: { id: venueId },
+          data: { availabilityVersion: { increment: 1 } },
+          select: { id: true },
+        });
         const state = await loadConfigState(tx, venueId, now);
         const rule = state?.stored.dateRules.find((r) => r.id === ruleId);
-        if (!state || !rule || rule.kind !== "tonight") return { kind: "not_found" };
+        if (!state || !rule || rule.kind !== "tonight") throw new Refused({ kind: "not_found" });
     
         const next = {
           ...state.stored,
@@ -23599,10 +25377,7 @@
         await writeConfigDiff(tx, venueId, diff, { actorId: caller.actorId, now });
         const bumped = await tx.venue.update({
           where: { id: venueId },
-          data: {
-            availabilityVersion: { increment: 1 },
-            operatingHours: projectLegacyOperatingHours(next),
-          },
+          data: { operatingHours: projectLegacyOperatingHours(next) },
           select: { availabilityVersion: true },
         });
         const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
@@ -23614,6 +25389,7 @@
             at: now,
             kind: "tonight_end",
             summary: "Tonight change ended",
+            ...detailData(tonightEndedDetail()),
             affectedFrom: toDbDate(range.from),
             affectedTo: toDbDate(range.to),
             inverse: inverseOf(
@@ -23621,6 +25397,7 @@
               diff,
               state.operatingHours
             ) as unknown as Prisma.InputJsonValue,
+            version: bumped.availabilityVersion,
           },
           select: { id: true },
         });
@@ -23686,6 +25463,7 @@
       "dateRuleTable",
       "availabilityChange",
       "closureOutcome",
+      "guestWinBack",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -24412,9 +26190,28 @@
         }
       },
     
+      /**
+       * Deletes a venue together with the floor plans, sections and tables
+       * onboarding leaves on every venue (the active plan can never be deleted on
+       * its own: `floorPlanService.delete` refuses it, #8254, so without this a
+       * venue that finished onboarding was undeletable, #8425).
+       *
+       * One transaction: the plan and table rows go first, then the venue. Any
+       * guest-facing data still pointing at them (a reservation or hold on a
+       * table, a guest, a menu) trips a RESTRICT foreign key, which rolls the whole
+       * transaction back and answers `has_dependents` with the plan intact.
+       */
       async delete(id: string): Promise<VenueDeleteOutcome> {
         try {
-          await prisma.venue.delete({ where: { id } });
+          await prisma.$transaction(async (tx) => {
+            await setVenueContext(tx, id);
+            await tx.table.deleteMany({
+              where: { OR: [{ venueId: id }, { floorPlan: { venueId: id } }] },
+            });
+            await tx.floorPlanSection.deleteMany({ where: { venueId: id } });
+            await tx.floorPlan.deleteMany({ where: { venueId: id } });
+            await tx.venue.delete({ where: { id } });
+          });
           return "deleted";
         } catch (err: unknown) {
           if (isPrismaNotFound(err)) return "not_found";
@@ -24475,6 +26272,7 @@
   <file path="src/services/waitlist-notifier.ts">
     export interface WaitlistNotifierLogger {
       error(obj: Record<string, unknown>, msg: string): void;
+      warn(obj: Record<string, unknown>, msg: string): void;
       info(obj: Record<string, unknown>, msg: string): void;
     }
     export interface WaitlistEntryRef {
@@ -24615,6 +26413,11 @@
         // Always schedule expiry regardless of SMS outcome. If scheduling fails the
         // row would stay notified forever (host can't retry, next guest never
         // notified), so roll it back to waiting and surface the error.
+        //
+        // Exception (#8257): with no job queue configured at all (production has
+        // no Redis, #3763) the row stays notified — the guest has been texted and
+        // `expiresAt` already records the claim deadline — and only the automatic
+        // expiry is skipped; the host expires or seats the party by hand.
         try {
           await scheduler.schedule(
             JOB_TYPES.WAITLIST_EXPIRY,
@@ -24623,8 +26426,14 @@
             `${JOB_TYPES.WAITLIST_EXPIRY}:${input.id}`
           );
         } catch (err) {
-          await revertNotified(input.id);
-          throw err;
+          if (!(err instanceof JobQueueUnavailableError)) {
+            await revertNotified(input.id);
+            throw err;
+          }
+          logger.warn(
+            { err, waitlistEntryId: input.id, venueId: input.venueId },
+            "waitlist expiry job not scheduled: job queue unavailable; the party stays notified until a host expires or seats it"
+          );
         }
     
         // Queue positions are final only now that the notified state stuck.
@@ -24759,7 +26568,7 @@
     ): Promise<(position: number, partySize: number) => number | null> {
       const [venue, tables, reservations] = await Promise.all([
         prisma.venue.findUnique({ where: { id: venueId }, select: { settings: true } }),
-        prisma.table.findMany({ where: { venueId, isActive: true } }),
+        prisma.table.findMany({ where: bookableTableWhere(venueId) }),
         prisma.reservation.findMany({
           where: {
             venueId,
@@ -25018,12 +26827,157 @@
       },
     };
   </file>
+  <file path="src/services/win-back-store.ts">
+    type Db = Pick<PrismaClient, "guestWinBack">;
+    export const WIN_BACK_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+    export type WinBackClaim =
+      /** `previousClaimedAt` is what the row held (null = never or released); a release restores it. */
+      | { claimed: true; previousClaimedAt: Date | null }
+      | { claimed: false; claimedAt: Date | null; sentAt: Date | null };
+    function isUniqueViolation(err: unknown): boolean {
+      return err !== null && typeof err === "object" && (err as { code?: unknown }).code === "P2002";
+    }
+    async function refusal(venueId: string, guestId: string, now: Date, db: Db): Promise<WinBackClaim> {
+      const existing = await db.guestWinBack.findFirst({
+        where: { venueId, guestId },
+        select: { claimedAt: true, sentAt: true },
+      });
+      // Present: a refusal is only reached once a row exists. Absent only if it was deleted
+      // in between, which nothing does (guest delete cascades, then no send).
+      return {
+        claimed: false,
+        claimedAt: existing?.claimedAt ?? now,
+        sentAt: existing?.sentAt ?? null,
+      };
+    }
+    export async function claimWinBack(
+      venueId: string,
+      guestId: string,
+      now: Date,
+      db: Db = prisma
+    ): Promise<WinBackClaim> {
+      const cutoff = new Date(now.getTime() - WIN_BACK_COOLDOWN_MS);
+      const existing = await db.guestWinBack.findFirst({
+        where: { venueId, guestId },
+        select: { claimedAt: true },
+      });
+      if (existing) {
+        const previousClaimedAt = existing.claimedAt;
+        if (previousClaimedAt !== null && previousClaimedAt.getTime() > cutoff.getTime()) {
+          return refusal(venueId, guestId, now, db);
+        }
+        const renewed = await db.guestWinBack.updateMany({
+          where: { venueId, guestId, claimedAt: previousClaimedAt },
+          data: { claimedAt: now },
+        });
+        return renewed.count === 1
+          ? { claimed: true, previousClaimedAt }
+          : refusal(venueId, guestId, now, db);
+      }
+      try {
+        await db.guestWinBack.create({ data: { venueId, guestId, claimedAt: now } });
+        return { claimed: true, previousClaimedAt: null };
+      } catch (err) {
+        if (!isUniqueViolation(err)) throw err;
+        return refusal(venueId, guestId, now, db);
+      }
+    }
+    export async function markWinBackSent(
+      venueId: string,
+      guestId: string,
+      claimedAt: Date,
+      sentAt: Date,
+      db: Db = prisma
+    ): Promise<void> {
+      await db.guestWinBack.updateMany({
+        where: { venueId, guestId, claimedAt },
+        data: { sentAt },
+      });
+    }
+    export async function releaseWinBackClaim(
+      venueId: string,
+      guestId: string,
+      claimedAt: Date,
+      previousClaimedAt: Date | null,
+      db: Db = prisma
+    ): Promise<void> {
+      await db.guestWinBack.updateMany({
+        where: { venueId, guestId, claimedAt },
+        data: { claimedAt: previousClaimedAt },
+      });
+    }
+    export interface WinBackStatus {
+      /** When the provider last accepted a send; null = never confirmed. */
+      sentAt: Date | null;
+      /** When a claim newer than `sentAt` was made (send unconfirmed); null = none outstanding. */
+      attemptedAt: Date | null;
+    }
+    export function isUnconfirmed(claimedAt: Date | null, sentAt: Date | null): claimedAt is Date {
+      return claimedAt !== null && (sentAt === null || sentAt.getTime() < claimedAt.getTime());
+    }
+    export async function winBackStatusFor(
+      venueId: string,
+      guestIds: readonly string[],
+      db: Db = prisma
+    ): Promise<Map<string, WinBackStatus>> {
+      if (guestIds.length === 0) return new Map();
+      const rows = await db.guestWinBack.findMany({
+        where: { venueId, guestId: { in: [...guestIds] } },
+        select: { guestId: true, claimedAt: true, sentAt: true },
+      });
+      return new Map(
+        rows.map((r) => [
+          r.guestId,
+          {
+            sentAt: r.sentAt,
+            attemptedAt: isUnconfirmed(r.claimedAt, r.sentAt) ? r.claimedAt : null,
+          },
+        ])
+      );
+    }
+  </file>
   <file path="src/services/win-back.ts">
+    export interface WinBackCooldown {
+      /** When the refusing claim was made. */
+      claimedAt: Date;
+      /** When the provider last accepted a send; may predate `claimedAt`. */
+      sentAt: Date | null;
+      /** The earliest time another send is allowed. */
+      retryAfter: Date;
+    }
+    export type WinBackResult =
+      | { status: "sent" }
+      | { status: "skipped" }
+      | { status: "failed" }
+      | { status: "unavailable" }
+      | ({ status: "cooldown" } & WinBackCooldown);
+    export interface WinBackDeps {
+      claim(venueId: string, guestId: string, now: Date): Promise<WinBackClaim>;
+      markSent(venueId: string, guestId: string, claimedAt: Date, sentAt: Date): Promise<void>;
+      release(
+        venueId: string,
+        guestId: string,
+        claimedAt: Date,
+        previousClaimedAt: Date | null
+      ): Promise<void>;
+      now(): Date;
+      /** Where a rejection is logged (the request logger). Never given guest contact details. */
+      log?: { error(fields: object, message: string): void };
+    }
+    export const defaultWinBackDeps: WinBackDeps = {
+      claim: (venueId, guestId, now) => claimWinBack(venueId, guestId, now),
+      markSent: (venueId, guestId, claimedAt, sentAt) =>
+        markWinBackSent(venueId, guestId, claimedAt, sentAt),
+      release: (venueId, guestId, claimedAt, previousClaimedAt) =>
+        releaseWinBackClaim(venueId, guestId, claimedAt, previousClaimedAt),
+      now: () => new Date(),
+    };
     export async function sendWinBack(
       guest: Guest,
       notificationPort: NotificationDispatcher,
-      venueName: string
-    ): Promise<boolean> {
+      venueName: string,
+      deps: WinBackDeps = defaultWinBackDeps
+    ): Promise<WinBackResult> {
       if (
         !canContact(
           {
@@ -25033,7 +26987,7 @@
           "marketing"
         )
       ) {
-        return false;
+        return { status: "skipped" };
       }
     
       const channel = resolveChannel(guest.communicationPreference);
@@ -25041,19 +26995,73 @@
       // Win-back is email-only; skip guests who opted into SMS-only
       // communication or have no email address on file.
       if (channel === "sms_only" || !guest.email) {
-        return false;
+        return { status: "skipped" };
       }
     
-      await notificationPort.sendWinBack(
-        {
-          guestName: guest.name,
-          guestEmail: guest.email,
-          venueName,
-        },
-        channel
-      );
+      const claimedAt = deps.now();
+      const claim = await deps.claim(guest.venueId, guest.id, claimedAt);
+      if (!claim.claimed) {
+        const refusedAt = claim.claimedAt ?? claimedAt;
+        return {
+          status: "cooldown",
+          claimedAt: refusedAt,
+          sentAt: claim.sentAt,
+          retryAfter: new Date(refusedAt.getTime() + WIN_BACK_COOLDOWN_MS),
+        };
+      }
     
-      return true;
+      try {
+        await notificationPort.sendWinBack(
+          {
+            guestName: guest.name,
+            guestEmail: guest.email,
+            venueName,
+            idempotencyKey: `win-back/${guest.id}/${claimedAt.toISOString()}`,
+          },
+          channel
+        );
+      } catch (err) {
+        if (!(err instanceof ProviderRejectedError) && !(err instanceof EmailNotConfiguredError)) {
+          throw err;
+        }
+        // Nothing was sent: put the previous claim back so a retry is allowed. The reason is
+        // logged (name and message only) so a revoked key or missing config is visible to operators.
+        deps.log?.error(
+          { err: { name: err.name, message: err.message }, venueId: guest.venueId, guestId: guest.id },
+          "win-back not sent"
+        );
+        await deps.release(guest.venueId, guest.id, claimedAt, claim.previousClaimedAt);
+        return { status: err instanceof EmailNotConfiguredError ? "unavailable" : "failed" };
+      }
+    
+      await deps.markSent(guest.venueId, guest.id, claimedAt, deps.now());
+      return { status: "sent" };
+    }
+    export function cooldownDetail(guestName: string, c: WinBackCooldown, timeZone: string): string {
+      const at = (d: Date) => formatInZone(d, timeZone);
+      const next = `Another can be sent after ${at(c.retryAfter)}.`;
+      if (c.sentAt !== null && !isUnconfirmed(c.claimedAt, c.sentAt)) {
+        return `${guestName} was sent a win-back message on ${at(c.sentAt)}. Nothing was sent now. ${next}`;
+      }
+      return `A win-back message to ${guestName} was attempted on ${at(c.claimedAt)} and may not have gone out. Nothing was sent now. ${next}`;
+    }
+    function formatInZone(date: Date, timeZone: string): string {
+      const options: Intl.DateTimeFormatOptions = {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      };
+      let text: string;
+      try {
+        text = new Intl.DateTimeFormat("en-US", { ...options, timeZone }).format(date);
+      } catch {
+        // An unrecognised stored timezone must not turn a refusal into a 500.
+        text = new Intl.DateTimeFormat("en-US", { ...options, timeZone: "UTC" }).format(date);
+      }
+      return text.replace(/\u202f/g, " ");
     }
   </file>
   </section>
@@ -25356,6 +27364,8 @@
                 dispatcher: notificationPort,
                 generateManageToken,
                 manageBaseUrl: resolveManageBaseUrl(process.env),
+                // Closure-notice manage links follow the booking's origin host (#7892).
+                hostBrand: createHostBrandResolver(process.env),
                 logger: fastify.log,
               }),
               handleWaitlistExpiry: (input) => waitlistNotifier.handleExpiry(input),
@@ -25394,13 +27404,7 @@
   <file path="src/notifications.ts">
     export function createResendAdapter(): ResendNotificationAdapter {
       const resendClient = process.env.RESEND_API_KEY
-        ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-            emails: {
-              send(
-                payload: Record<string, unknown>
-              ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
-            };
-          })
+        ? (new Resend(process.env.RESEND_API_KEY) as unknown as ResendClient)
         : null;
     
       const { baseUrl: publicApiBaseUrl } = getPublicApiBaseUrlConfig({
@@ -25413,6 +27417,9 @@
         fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
         manageBaseUrl: resolveManageBaseUrl(process.env),
         publicApiBaseUrl,
+        // Brands confirmation/reminder/modified/cancelled/closure emails by the
+        // booking's origin host (#7892), always on the verified sending domain.
+        brandFor: createHostBrandResolver(process.env),
       });
     }
     export function createNotificationPort(): NotificationDispatcher {

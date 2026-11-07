@@ -3,9 +3,10 @@ import { useEffect, useState } from "react";
 /**
  * How long before token expiry the session counts as "refreshing soon".
  *
- * Mirrors `REFRESH_LEAD_MS` in `packages/auth/src/react/hooks.ts` (the
- * proactive silent-refresh lead). That constant is an auth-package internal,
- * so it is duplicated here on purpose — keep the two in sync by hand.
+ * A UI heads-up window only. Renewal itself is oidc-client-ts's
+ * `automaticSilentRenew`, which fires 60 s before expiry by default (no longer
+ * a 5-minute `useAccessToken` timer), so this window is wider than the real
+ * renew lead.
  */
 export const REFRESH_WINDOW_MS = 5 * 60 * 1000;
 

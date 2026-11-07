@@ -32,18 +32,26 @@
 
 .resourceGrid {
   display: grid;
-  grid-template-columns: 1fr;
+  /* `1fr` is minmax(auto, 1fr). The presenting vibe sets --rialto-space-lg to
+     32px, so a 320px viewport leaves a 256px content box, but a nowrap row of
+     date + badges (the "javascript" tags) has a min-content around 281px. The
+     track grows to that, the cards cross the right padding (right edge ~313px,
+     content edge 288px) and scrollWidth stays equal to the viewport, so there
+     is no horizontal scrollbar. A shorter tag set fits, which is why a single
+     source filter looks centred. minmax(0, 1fr) keeps the track in the box. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--rialto-space-lg);
 }
 
 @media (min-width: 768px) {
   .resourceGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 .card {
   padding: var(--rialto-space-lg);
+  min-width: 0;
 }
 
 .cardHeader {
@@ -61,6 +69,7 @@
 
 .link {
   color: var(--rialto-text-primary);
+  min-width: 0;
   text-decoration: none;
 }
 
@@ -76,13 +85,23 @@
 
 .meta {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  column-gap: var(--rialto-space-sm);
+  row-gap: var(--rialto-space-xs);
+  min-width: 0;
   font-size: var(--rialto-text-xs);
   color: var(--rialto-text-tertiary);
 }
 
+.published {
+  white-space: nowrap;
+}
+
 .tags {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--rialto-space-xs);
+  min-width: 0;
 }

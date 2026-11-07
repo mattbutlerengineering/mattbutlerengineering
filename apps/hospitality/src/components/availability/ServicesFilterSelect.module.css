@@ -1,0 +1,10 @@
+.filter {
+  min-inline-size: 11rem;
+}
+
+/* On a phone it has a row to itself, under the view switch. */
+@media (max-width: 767px) {
+  .filter {
+    inline-size: 100%;
+  }
+}

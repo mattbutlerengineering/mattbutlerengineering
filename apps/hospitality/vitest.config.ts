@@ -28,6 +28,8 @@ export default defineVitestConfig({
       },
     },
     test: {
+      // Cold jsdom + rialto renders pass 5 s under load (gotchas.md, cold-cache test timeouts).
+      testTimeout: 15000,
       setupFiles: ["./src/test/setup.ts"],
       css: {
         modules: {

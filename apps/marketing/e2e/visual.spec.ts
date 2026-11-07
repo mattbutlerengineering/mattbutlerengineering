@@ -25,11 +25,19 @@
  * `scroll-behavior: smooth`, and waits for the top, no running animation and
  * loaded fonts — without that the shot landed mid-scroll (re-review N5).
  *
+ * The web fonts (index.html loads DM Sans, DM Mono and Bricolage Grotesque from
+ * Google Fonts) are answered from frozen copies in `e2e/fixtures/visual/fonts/`
+ * too. Fetched live, the same page rendered with fractionally different text
+ * advances from one capture to the next — `MBE` 41.484 vs 41.500 px wide,
+ * `shipped @ 375` 13512 vs 13535 px tall on two Linux runners — which no pixel
+ * budget can absorb. Served locally, 12 captures of each of six probed pages
+ * under CPU load were byte-identical.
+ *
  * Baselines live in e2e/screenshots/ and are Linux-only: committed from the
  * noise-floor workflow's `visual-actuals-replica-a` artifact, never from macOS.
  * Run only through playwright.visual.config.ts.
  */
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { test as base, expect } from "@playwright/test";
 import { revealLazyContent } from "@mbe/ui-quality-capture";
 
@@ -64,6 +72,19 @@ const FROZEN_JSON: Record<string, string> = Object.fromEntries(
   )
 );
 
+/**
+ * Frozen copy of the Google Fonts stylesheet and of every font file the app's
+ * routes request from it (the other unicode-range subsets it lists are never
+ * requested). Refresh them with the baselines, and only then.
+ */
+const FONT_DIR = new URL("fonts/", FROZEN_DATA);
+const FONT_CSS = readFileSync(new URL("fonts.css", FONT_DIR), "utf8");
+const FONT_FILES: Record<string, Buffer> = Object.fromEntries(
+  readdirSync(FONT_DIR)
+    .filter((name) => name.endsWith(".woff2"))
+    .map((name) => [name, readFileSync(new URL(name, FONT_DIR))])
+);
+
 /** StatusPage's SERVICES, answered the way a healthy service answers. */
 // Joined from segments: scripts/check-ai-antipatterns.mjs counts quoted /api/ route literals.
 const HEALTHY_SERVICES = ["v1/users", "v1/reservations", "gen"].map((svc) =>
@@ -74,6 +95,10 @@ const HEALTHY_SERVICES = ["v1/users", "v1/reservations", "gen"].map((svc) =>
 const isAppData = (url: URL) =>
   url.hostname === "localhost" &&
   (/^\/(api|public)\//.test(url.pathname) || /\.json$/.test(url.pathname));
+
+/** Google Fonts' stylesheet host and font-file host. */
+const isFontRequest = (url: URL) =>
+  url.hostname === "fonts.googleapis.com" || url.hostname === "fonts.gstatic.com";
 
 const test = base.extend<{ unmockedApi: string[] }>({
   // eslint-disable-next-line no-empty-pattern -- Playwright's fixture signature
@@ -91,6 +116,18 @@ const test = base.extend<{ unmockedApi: string[] }>({
         return route.fulfill({ status: 200, contentType: "application/json", body: frozen });
       }
       unmockedApi.push(`${route.request().method()} ${url.pathname}${url.search}`);
+      return route.fulfill({ status: 599, contentType: "text/plain", body: "unmocked" });
+    });
+    await page.route(isFontRequest, (route) => {
+      const url = new URL(route.request().url());
+      if (url.hostname === "fonts.googleapis.com") {
+        return route.fulfill({ status: 200, contentType: "text/css", body: FONT_CSS });
+      }
+      const font = FONT_FILES[url.pathname.split("/").pop() ?? ""];
+      if (font !== undefined) {
+        return route.fulfill({ status: 200, contentType: "font/woff2", body: font });
+      }
+      unmockedApi.push(`${route.request().method()} ${url.host}${url.pathname}`);
       return route.fulfill({ status: 599, contentType: "text/plain", body: "unmocked" });
     });
     await use(page);

@@ -20,6 +20,8 @@ import {
   ClosureSummariesSchema,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
+  ClosureNoticePreviewBodySchema,
+  ClosureNoticePreviewSchema,
   ClosureResultSchema,
   ClosuresResultSchema,
   CreateClosureBodySchema,
@@ -113,6 +115,21 @@ export const availabilityConfigEndpoints = {
         description: "`invalid-config`: the draft rule does not validate against the config",
         body: AvailabilityConfigProblemSchema,
       },
+    },
+  }),
+  closureNoticePreview: defineEndpoint({
+    method: "POST",
+    path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/notice-preview`,
+    params: VenueParamsSchema,
+    body: ClosureNoticePreviewBodySchema,
+    responses: {
+      200: {
+        description: "The email and SMS a guest would be sent for the outcome (read-only)",
+        body: z.object({ data: ClosureNoticePreviewSchema }),
+      },
+      401: authRequired,
+      403: notMember,
+      404: venueNotFound,
     },
   }),
   createClosure: defineEndpoint({
@@ -254,6 +271,16 @@ export const availabilityConfigEndpoints = {
       401: authRequired,
       403: notClosureCaller,
       404: problem("Venue or closure not found"),
+      409: {
+        description:
+          "`version-conflict`: the body's `seen` rule (or its skips and one-date edits) differs from the stored one, so it changed since the caller read it. Nothing is changed; `winningChange` names the latest change. Only possible when `seen` is sent",
+        body: AvailabilityConfigProblemSchema,
+      },
+      422: {
+        description:
+          "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Each issue carries its `reservation` (guest, date, time, party) for the first 50; the issue count is the true count. Nothing is changed",
+        body: AvailabilityConfigProblemSchema,
+      },
     },
   }),
   setTonight: defineEndpoint({

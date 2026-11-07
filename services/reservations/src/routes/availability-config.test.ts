@@ -107,6 +107,106 @@ describe("availability config routes", () => {
       expect(svc.get).toHaveBeenCalledWith("venue-1", expect.any(Date));
     });
 
+    // #8259 (Sentry HOSPITALITY-H, release 37de61b8b): the client rejected
+    // `dateRules[0].payload` — a tonight rule that reached it as `{ version: 1 }`.
+    // The response serializer chose the first union branch (pacing) for every
+    // payload because toResponseJsonSchema stripped `required`; fixed by #7736.
+    // This pins it at the route: every rule kind survives serialization and
+    // parses with the client's schema. Fails 4 tonight cases with #7736 reverted.
+    it.each([
+      ["tonight pacing", { kind: "tonight", payload: { version: 1, pacing: { covers: 8 } } }],
+      ["tonight close early", { kind: "tonight", payload: { version: 1, closeAt: 1260 } }],
+      [
+        "tonight stop",
+        { kind: "tonight", payload: { version: 1, stop: { from: 1140, to: 1200 } } },
+      ],
+      [
+        "special hours",
+        {
+          kind: "special_hours",
+          payload: {
+            version: 1,
+            services: [
+              {
+                venueServiceId: "vs-1",
+                opensAt: 1020,
+                lastSeatingAt: 1260,
+                closesAt: 1320,
+                seating: { version: 1, interval: 30 },
+                bookingTypes: ["online"],
+              },
+            ],
+          },
+        },
+      ],
+      [
+        "tonight block tables (as stored)",
+        {
+          kind: "tonight",
+          targetKind: "tables",
+          tableIds: ["t-1"],
+          venueServiceId: null,
+          bookingTypes: [],
+          repeat: null,
+          window: null,
+          seriesId: null,
+          guestMessage: null,
+          staffNote: null,
+          expiresAt: "2026-10-27T07:00:00.000Z",
+          payload: { version: 1, stop: { from: 0, to: 1439 } },
+        },
+      ],
+      [
+        "tonight pause online (as stored)",
+        {
+          kind: "tonight",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          expiresAt: null,
+          payload: { version: 1, stop: { from: 0, to: 1439 } },
+        },
+      ],
+      [
+        "special hours with fixed seatings",
+        {
+          kind: "special_hours",
+          payload: {
+            version: 1,
+            services: [
+              {
+                venueServiceId: "vs-1",
+                opensAt: 1020,
+                lastSeatingAt: 1260,
+                closesAt: 1320,
+                seating: { version: 1, fixed: [1080, 1200] },
+                bookingTypes: ["online"],
+              },
+            ],
+          },
+        },
+      ],
+      ["closure", { kind: "closure" }],
+      ["skip", { kind: "skip" }],
+      ["use schedule", { kind: "use_schedule", useScheduleId: "sch-1" }],
+    ])("serializes a %s date rule so the client schema accepts it (#8259)", async (_l, rule) => {
+      const dateRule = {
+        id: "rule-1",
+        targetKind: "venue",
+        startsOn: "2026-10-26",
+        endsOn: "2026-10-26",
+        ...rule,
+      };
+      const config = { ...CONFIG, dateRules: [dateRule] };
+      svc.get.mockResolvedValueOnce({ config, version: 3, source: "rows" });
+
+      const res = await app.inject({ method: "GET", url: `${BASE}/config`, headers: ADMIN });
+
+      expect(res.statusCode).toBe(200);
+      const parsed = AvailabilityConfigStateSchema.safeParse(res.json().data);
+      expect(parsed.error?.issues).toBeUndefined();
+      expect(parsed.data?.config.dateRules[0]).toMatchObject(rule);
+    });
+
     it("404s for an unknown venue", async () => {
       svc.get.mockResolvedValueOnce(null);
       const res = await app.inject({ method: "GET", url: `${BASE}/config`, headers: ADMIN });
@@ -139,6 +239,97 @@ describe("availability config routes", () => {
       );
     });
 
+    const ROW = {
+      id: "ss-1",
+      scheduleId: "sch-1",
+      venueServiceId: "vs-dinner",
+      opensAt: 1020,
+      lastSeatingAt: 1260,
+      closesAt: 1320,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online", "phone"],
+    };
+    const savedRow = () => svc.save.mock.calls[0]![0].body.changes.upsert.scheduleServices[0];
+
+    it("saves a varied week and hands the store the days and hour sets as sent", async () => {
+      svc.save.mockResolvedValueOnce({ kind: "saved", version: 3, changeId: "chg-2" });
+      const varied = {
+        ...ROW,
+        weekdays: [1, 2, 3, 4],
+        dayHours: {
+          version: 1,
+          sets: [{ ...ROW, weekdays: [5], closesAt: 1380, lastSeatingAt: 1320 }],
+        },
+      };
+      const payload = {
+        ...PUT_BODY,
+        changes: { upsert: { scheduleServices: [varied] }, remove: {} },
+      };
+
+      const res = await put(app, payload);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.json().data).toEqual({ version: 3, changeId: "chg-2" });
+      expect(savedRow()).toEqual(varied);
+    });
+
+    it("refuses a row that omits the two fields, so a stale client cannot erase a varied week", async () => {
+      // A client loaded at the current version (a varied week is stored) builds a fresh
+      // row without `weekdays` and `dayHours`: defaulting them would erase the week.
+      const payload = { ...PUT_BODY, changes: { upsert: { scheduleServices: [ROW] }, remove: {} } };
+
+      const res = await put(app, payload);
+
+      expect(res.statusCode).toBe(400);
+      expect(res.json()).toMatchObject({ status: 400, title: expect.any(String) });
+      expect(res.json().detail).toContain("scheduleServices/0");
+      expect(res.json().detail).toContain("weekdays");
+      expect(svc.save).not.toHaveBeenCalled();
+    });
+
+    it.each(["weekdays", "dayHours"])("refuses a row that omits only %s", async (field) => {
+      const row = { ...ROW, weekdays: [], dayHours: { version: 1, sets: [] } } as Record<
+        string,
+        unknown
+      >;
+      delete row[field];
+      const payload = { ...PUT_BODY, changes: { upsert: { scheduleServices: [row] }, remove: {} } };
+
+      const res = await put(app, payload);
+
+      expect(res.statusCode).toBe(400);
+      expect(JSON.stringify(res.json())).toContain(field);
+      expect(svc.save).not.toHaveBeenCalled();
+    });
+
+    it("answers a weekday_clash with 422 invalid-config and the issue paths", async () => {
+      svc.save.mockResolvedValueOnce({
+        kind: "invalid",
+        issues: [
+          {
+            code: "weekday_clash",
+            path: "scheduleServices[0].dayHours.sets[0].weekdays",
+            message: "Tuesday is claimed twice.",
+            weekday: 1,
+          },
+        ],
+      });
+
+      const res = await put(app);
+
+      expect(res.statusCode).toBe(422);
+      const problem = AvailabilityConfigProblemSchema.parse(res.json());
+      expect(problem).toMatchObject({
+        code: "invalid-config",
+        issues: [
+          expect.objectContaining({
+            code: "weekday_clash",
+            path: "scheduleServices[0].dayHours.sets[0].weekdays",
+          }),
+        ],
+      });
+    });
+
     it("answers a stale version with 409 version-conflict naming the winning change", async () => {
       const winningChange = {
         id: "chg-9",
@@ -147,14 +338,57 @@ describe("availability config routes", () => {
         kind: "config",
         summary: "Availability updated: 1 added, 0 changed, 0 removed",
       };
-      svc.save.mockResolvedValueOnce({ kind: "version_conflict", winningChange });
+      svc.save.mockResolvedValueOnce({
+        kind: "version_conflict",
+        winningChange,
+        currentVersion: 6,
+      });
 
       const res = await put(app);
 
       expect(res.statusCode).toBe(409);
       const problem = AvailabilityConfigProblemSchema.parse(res.json());
       expect(problem.code).toBe("version-conflict");
+      expect(problem.currentVersion).toBe(6);
       expect(problem.winningChange).toEqual(winningChange);
+    });
+
+    it("sends every change since the draft's version through response validation", async () => {
+      const change = (id: string, minute: number) => ({
+        id,
+        actorId: `auth0|${id}`,
+        at: `2026-10-25T18:0${minute}:00.000Z`,
+        kind: "config",
+        summary: "Availability updated: 1 added, 0 changed, 0 removed",
+      });
+      svc.save.mockResolvedValueOnce({
+        kind: "version_conflict",
+        winningChange: change("B", 2),
+        currentVersion: 6,
+        changesSince: { total: 3, changes: [change("B", 2), change("A", 1)] },
+      });
+
+      const res = await put(app, { ...PUT_BODY, expectedVersion: 3 });
+
+      expect(res.statusCode).toBe(409);
+      const problem = AvailabilityConfigProblemSchema.parse(res.json());
+      expect(problem.changesSince).toEqual({
+        total: 3,
+        changes: [change("B", 2), change("A", 1)],
+      });
+    });
+
+    it("omits changesSince when the service sends none (an older conflict shape)", async () => {
+      svc.save.mockResolvedValueOnce({
+        kind: "version_conflict",
+        winningChange: null,
+        currentVersion: 6,
+      });
+
+      const res = await put(app);
+
+      expect(res.statusCode).toBe(409);
+      expect(res.json()).not.toHaveProperty("changesSince");
     });
 
     it("answers an invalid config with 422 and the issue paths", async () => {
@@ -175,7 +409,14 @@ describe("availability config routes", () => {
 
     it("answers a change that strands bookings with 409 stranded-bookings", async () => {
       const reservations = [
-        { id: "res-1", startTime: "2026-11-07T03:00:00.000Z", partySize: 4, reason: "closed" },
+        {
+          id: "res-1",
+          startTime: "2026-11-07T03:00:00.000Z",
+          partySize: 4,
+          reason: "closed",
+          guestName: "Okafor",
+          serviceDate: "2026-11-06",
+        },
       ];
       svc.save.mockResolvedValueOnce({ kind: "stranded", reservations });
 
@@ -277,6 +518,46 @@ describe("availability config routes", () => {
       });
 
     beforeEach(() => commandSvc.mayClose.mockResolvedValue(true));
+
+    it("sends each booking's proposed move start, and a null one, through the response schema", async () => {
+      const reservation = {
+        id: "r1",
+        startTime: "2026-12-25T04:00:00.000Z",
+        endTime: "2026-12-25T05:30:00.000Z",
+        partySize: 4,
+        guestName: "Rivera",
+        deposit: null,
+        runsIntoClosure: false,
+      };
+      const impact = {
+        reservations: 2,
+        covers: 8,
+        depositsHeld: 0,
+        groups: [
+          {
+            groupKey: "2026-12-24:shortened",
+            date: "2026-12-24",
+            kind: "shortened",
+            covers: 8,
+            depositsHeld: 0,
+            reservations: [
+              { ...reservation, proposedStart: "2026-12-25T02:00:00.000Z" },
+              { ...reservation, id: "r2", proposedStart: null },
+            ],
+          },
+        ],
+      };
+      impactSvc.impact.mockResolvedValueOnce({ kind: "ok", impact });
+
+      const res = await post(app);
+
+      expect(res.statusCode).toBe(200);
+      const sent = ClosureImpactSchema.parse(res.json().data);
+      expect(sent.groups[0]!.reservations.map((r) => r.proposedStart)).toEqual([
+        "2026-12-25T02:00:00.000Z",
+        null,
+      ]);
+    });
 
     it("returns the affected bookings", async () => {
       const impact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };

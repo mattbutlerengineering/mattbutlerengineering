@@ -1,7 +1,9 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-import { Stack, Text, Input, Button } from "@mattbutlerengineering/rialto";
+import { Stack, Input, Button } from "@mattbutlerengineering/rialto";
 import { localeRuntime } from "../../i18n/runtime.js";
+import { invalidBookingRules } from "../availability/booking-rules.js";
+import { SETTINGS_DEFAULTS as DEFAULTS } from "./settings-defaults.js";
 import styles from "./venue-onboarding.module.css";
 
 export interface SettingsData {
@@ -9,13 +11,6 @@ export interface SettingsData {
   maxPartySize: string;
   advanceBookingDays: string;
 }
-
-/** Default values used by the backend when no explicit value is set. */
-const DEFAULTS = {
-  defaultReservationDuration: 90,
-  maxPartySize: 8,
-  advanceBookingDays: 30,
-} as const;
 
 /**
  * Recommended settings for the "Use recommended settings" one-click action and
@@ -37,7 +32,11 @@ interface SettingsStepProps {
   onAdvance: () => void;
 }
 
-/** Validate settings step data. All fields are optional; only rejects invalid non-blank values. */
+/**
+ * Validate settings step data. All fields are optional; only rejects invalid non-blank values.
+ * Largest party and days ahead follow Availability → Booking rules, which edits them later: whole
+ * numbers in the same ranges, 0 days meaning today only. Onboarding can't save what that refuses.
+ */
 export function validateSettings(
   data: SettingsData,
   t: TFunction = localeRuntime.i18n.t
@@ -51,18 +50,16 @@ export function validateSettings(
     }
   }
 
-  if (data.maxPartySize !== "") {
-    const val = Number(data.maxPartySize);
-    if (isNaN(val) || val <= 0) {
-      errors.maxPartySize = t("onboarding.settings.errors.maxPartyInvalid");
-    }
+  const invalid = invalidBookingRules({
+    daysAhead: data.advanceBookingDays,
+    noticeHours: "",
+    largestParty: data.maxPartySize,
+  });
+  if (invalid.includes("largestParty")) {
+    errors.maxPartySize = t("availability.bookingRules.invalid.largestParty");
   }
-
-  if (data.advanceBookingDays !== "") {
-    const val = Number(data.advanceBookingDays);
-    if (isNaN(val) || val <= 0) {
-      errors.advanceBookingDays = t("onboarding.settings.errors.advanceInvalid");
-    }
+  if (invalid.includes("daysAhead")) {
+    errors.advanceBookingDays = t("availability.bookingRules.invalid.daysAhead");
   }
 
   return errors;
@@ -77,14 +74,9 @@ export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: 
 
   return (
     <div className={styles.stepContainer}>
-      <Text variant="caption" color="secondary">
-        {t("onboarding.settings.stepIntro")}
-      </Text>
-
       <Button variant="primary" onClick={handleUseRecommended}>
         {t("onboarding.settings.useRecommended")}
       </Button>
-
       <Stack gap="md">
         <Input
           label={t("onboarding.settings.durationLabel")}
@@ -104,7 +96,7 @@ export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: 
         />
 
         <Input
-          label={t("onboarding.settings.maxPartyLabel")}
+          label={t("availability.bookingRules.largestParty")}
           type="number"
           value={data.maxPartySize}
           onChange={(e) => onChange({ ...data, maxPartySize: e.target.value })}
@@ -121,19 +113,15 @@ export function SettingsStep({ data, errors, onChange, onValidate, onAdvance }: 
         />
 
         <Input
-          label={t("onboarding.settings.advanceLabel")}
+          label={t("availability.bookingRules.daysAhead")}
           type="number"
           value={data.advanceBookingDays}
           onChange={(e) => onChange({ ...data, advanceBookingDays: e.target.value })}
           onBlur={onValidate}
-          placeholder={t("onboarding.settings.defaultPlaceholder", {
-            value: DEFAULTS.advanceBookingDays,
-          })}
+          // Blank sets no window: the service then lets guests book any date ahead.
+          placeholder={t("onboarding.settings.advanceNoLimit")}
           error={errors.advanceBookingDays !== undefined}
-          hint={
-            errors.advanceBookingDays ??
-            t("onboarding.settings.advanceHint", { value: DEFAULTS.advanceBookingDays })
-          }
+          hint={errors.advanceBookingDays ?? t("onboarding.settings.advanceHint")}
           showOptional
         />
       </Stack>

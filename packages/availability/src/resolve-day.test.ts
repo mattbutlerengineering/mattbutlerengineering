@@ -20,6 +20,8 @@ const service = (
   closesAt,
   seating: { version: 1, interval: 15 },
   bookingTypes: ["online", "phone"],
+  weekdays: [],
+  dayHours: { version: 1, sets: [] },
 });
 
 const assignment = (
@@ -153,6 +155,15 @@ describe("resolveDay — assignments", () => {
     });
     expect(resolveDay(openEnded, "2026-12-25").scheduleId).toBe("regular");
     expect(resolveDay(openEnded, "2030-01-04").scheduleId).toBe("summer");
+  });
+
+  it("marks the schedule layer as the regular week only when the regular week is in force", () => {
+    const layer = (date: string) =>
+      resolveDay(s, date).explanation.find((l) => l.kind === "schedule");
+    expect(layer("2027-07-04")).toMatchObject({ scheduleName: "Regular", regularWeek: true }); // Sunday
+    const summerLayer = layer("2027-07-02"); // Friday, summer wins
+    expect(summerLayer).toMatchObject({ scheduleName: "Summer" });
+    expect(summerLayer).not.toHaveProperty("regularWeek");
   });
 });
 

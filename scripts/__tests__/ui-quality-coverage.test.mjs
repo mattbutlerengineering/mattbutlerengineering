@@ -163,10 +163,13 @@ describe("coverage.mjs", () => {
   });
 
   it("prints a provisional figure and exits 0 on the committed ledger", () => {
-    const out = execFileSync(process.execPath, [join(REPO, "scripts/ui-quality/coverage.mjs")], {
-      cwd: REPO,
-      encoding: "utf8",
-    });
+    // Pinned inside the window that opened with the first runs row (2026-10-01):
+    // on the wall clock this test stopped holding when the check became binding.
+    const out = execFileSync(
+      process.execPath,
+      [join(REPO, "scripts/ui-quality/coverage.mjs"), "--now", "2026-10-02T00:00:00Z"],
+      { cwd: REPO, encoding: "utf8" }
+    );
     expect(out).toMatch(/provisional/i);
   });
 });

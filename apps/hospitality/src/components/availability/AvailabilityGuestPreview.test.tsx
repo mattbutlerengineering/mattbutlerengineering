@@ -66,7 +66,7 @@ function timeout() {
 
 let client: QueryClient;
 
-function tree(changes: AvailabilityConfigChanges, dates: string[] = [FOCUS]) {
+function tree(changes: AvailabilityConfigChanges, dates: string[] = [FOCUS], baseVersion?: number) {
   return (
     <QueryClientProvider client={client}>
       <main>
@@ -76,6 +76,7 @@ function tree(changes: AvailabilityConfigChanges, dates: string[] = [FOCUS]) {
           scopeConflicts="keep"
           dates={dates}
           focusDate={FOCUS}
+          baseVersion={baseVersion}
         />
       </main>
     </QueryClientProvider>
@@ -103,6 +104,29 @@ describe("AvailabilityGuestPreview", () => {
     previewConfig.mockResolvedValue(result());
   });
 
+  it("prints the first and last time a guest can book, not the close", async () => {
+    previewConfig.mockResolvedValue(
+      result({
+        focusDay: {
+          ...result().focusDay,
+          services: [
+            {
+              venueServiceId: "vs-dinner",
+              name: "Dinner",
+              opensAt: 1020,
+              lastSeatingAt: 1275,
+              closesAt: 1320,
+            },
+          ],
+        },
+      })
+    );
+    render(tree(CHANGES_A, [FOCUS]));
+    await settle();
+    expect(await screen.findByText("Dinner 5:00 PM – 9:15 PM")).toBeInTheDocument();
+    expect(screen.queryByText(/10:00 PM/)).not.toBeInTheDocument();
+  });
+
   it("sends the draft, scope and focus date after the debounce and shows what changes", async () => {
     render(tree(CHANGES_A, [FOCUS, "2026-11-06"]));
     expect(previewConfig).not.toHaveBeenCalled();
@@ -117,7 +141,7 @@ describe("AvailabilityGuestPreview", () => {
       strandedOffset: 0,
     });
     expect(await screen.findByText("3 times added · 2 removed")).toBeInTheDocument();
-    expect(await screen.findByText("Dinner 5:00 PM – 11:00 PM")).toBeInTheDocument();
+    expect(await screen.findByText("Dinner 5:00 PM – 9:00 PM")).toBeInTheDocument();
     // Marks carry text, not just a sign.
     expect(await screen.findByText("7:45 PM added")).toBeInTheDocument();
     expect(await screen.findByText("10:30 PM removed")).toBeInTheDocument();
@@ -135,6 +159,74 @@ describe("AvailabilityGuestPreview", () => {
     expect(previewConfig).toHaveBeenCalledTimes(2);
     expect(await screen.findByText("0 times added · 1 removed")).toBeInTheDocument();
     expect(screen.queryByText("7:45 PM added")).not.toBeInTheDocument();
+  });
+
+  it("never lets a slow answer for an older draft overwrite the newer draft's result", async () => {
+    let answerOlder: (value: PreviewResult) => void = () => {};
+    previewConfig.mockImplementationOnce(
+      () => new Promise<PreviewResult>((resolve) => (answerOlder = resolve))
+    );
+    const { rerender } = render(tree(CHANGES_A));
+    await settle();
+    previewConfig.mockResolvedValue(
+      result({ days: [{ serviceDate: FOCUS, added: [], removed: [1350] }] })
+    );
+    rerender(tree(CHANGES_B));
+    await settle();
+    expect(await screen.findByText("0 times added · 1 removed")).toBeInTheDocument();
+    await act(async () => answerOlder(result()));
+    expect(screen.getByText("0 times added · 1 removed")).toBeInTheDocument();
+    expect(screen.queryByText("3 times added · 2 removed")).not.toBeInTheDocument();
+  });
+
+  describe("the version the draft started on", () => {
+    it("says the hours moved on only when the result is for a later version than the draft's", async () => {
+      previewConfig.mockResolvedValue(result({ version: 9 }));
+      render(tree(CHANGES_A, [FOCUS], 7));
+      await settle();
+      expect(await screen.findByText(/The hours changed since you started/)).toBeInTheDocument();
+    });
+
+    it("says nothing about a result for an older version than the draft's", async () => {
+      previewConfig.mockResolvedValue(result({ version: 7 }));
+      render(tree(CHANGES_A, [FOCUS], 8));
+      await settle();
+      await screen.findByText("3 times added · 2 removed");
+      expect(screen.queryByText(/hours changed since you started/)).not.toBeInTheDocument();
+    });
+
+    it("asks again when the draft's version moves, even for the same draft", async () => {
+      const { rerender } = render(tree(CHANGES_A, [FOCUS], 7));
+      await settle();
+      await screen.findByText("3 times added · 2 removed");
+      expect(previewConfig).toHaveBeenCalledTimes(1);
+      previewConfig.mockResolvedValue(result({ version: 8 }));
+      rerender(tree(CHANGES_A, [FOCUS], 8));
+      await settle();
+      expect(previewConfig).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not promise a review where the flow has none", async () => {
+      previewConfig.mockResolvedValue(result({ version: 9 }));
+      render(
+        <QueryClientProvider client={client}>
+          <main>
+            <AvailabilityGuestPreview
+              venueId="venue-1"
+              changes={CHANGES_A}
+              scopeConflicts="keep"
+              dates={[FOCUS]}
+              focusDate={FOCUS}
+              baseVersion={7}
+              reviewOnSave={false}
+            />
+          </main>
+        </QueryClientProvider>
+      );
+      await settle();
+      expect(await screen.findByText(/The hours changed since you started/)).toBeInTheDocument();
+      expect(screen.queryByText(/ask you to review/)).not.toBeInTheDocument();
+    });
   });
 
   it("keeps the last good result on a 503 and says the preview is slow, with a retry", async () => {

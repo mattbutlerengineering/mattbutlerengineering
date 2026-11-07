@@ -22,9 +22,19 @@ interface World {
   bookingTypes: string[];
   dateRules: Record<string, unknown>[];
   ruleTables: { dateRuleId: string; tableId: string }[];
-  changes: { id: string; actorId: string; kind: string; summary: string; inverse: unknown }[];
+  changes: {
+    id: string;
+    actorId: string;
+    kind: string;
+    summary: string;
+    inverse: unknown;
+    /** The venue version the change produced. */
+    version?: number;
+  }[];
   /** Counts writes to the schedule tables: Tonight must never touch them. */
   scheduleWrites: number;
+  /** Replaces the single Dinner row and venue service (a varied week). */
+  variedWeek?: { venueServices: Record<string, unknown>[]; rows: Record<string, unknown>[] };
 }
 
 const world = (): World => ({
@@ -56,24 +66,30 @@ function fakeClient(w: World) {
       update: vi.fn(async () => void w.scheduleWrites++),
     },
     venueService: {
-      findMany: vi.fn(async () => [
-        { id: "vs-dinner", venueId: "v", name: "Dinner", position: 0, archivedAt: null },
-      ]),
+      findMany: vi.fn(async () =>
+        w.variedWeek
+          ? w.variedWeek.venueServices
+          : [{ id: "vs-dinner", venueId: "v", name: "Dinner", position: 0, archivedAt: null }]
+      ),
     },
     scheduleService: {
-      findMany: vi.fn(async () => [
-        {
-          id: "ss-1",
-          venueId: "v",
-          scheduleId: "sch-1",
-          venueServiceId: "vs-dinner",
-          opensAt: 1020,
-          lastSeatingAt: 1260,
-          closesAt: 1380,
-          seating: { version: 1, interval: 15 },
-          bookingTypes: w.bookingTypes,
-        },
-      ]),
+      findMany: vi.fn(async () =>
+        w.variedWeek
+          ? w.variedWeek.rows
+          : [
+              {
+                id: "ss-1",
+                venueId: "v",
+                scheduleId: "sch-1",
+                venueServiceId: "vs-dinner",
+                opensAt: 1020,
+                lastSeatingAt: 1260,
+                closesAt: 1380,
+                seating: { version: 1, interval: 15 },
+                bookingTypes: w.bookingTypes,
+              },
+            ]
+      ),
       create: vi.fn(async () => void w.scheduleWrites++),
       update: vi.fn(async () => void w.scheduleWrites++),
       deleteMany: vi.fn(async () => void w.scheduleWrites++),
@@ -159,7 +175,14 @@ function fakeClient(w: World) {
           ) ?? null
         );
       }),
-
+      findMany: vi.fn(
+        async ({ where, take }: { where: { version: { gt: number } }; take: number }) =>
+          w.changes
+            .filter((c) => (c.version ?? 0) > where.version.gt)
+            .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))
+            .slice(0, take)
+            .map((c) => ({ ...c, at: new Date(0) }))
+      ),
       create: vi.fn(async ({ data }: { data: World["changes"][number] }) => {
         const change = { ...data, id: `chg-${w.changes.length + 1}` };
         w.changes = [...w.changes, change];
@@ -223,7 +246,11 @@ describe("setTonight", () => {
       expiresAt: new Date(MIDNIGHT_AFTER),
       createdBy: "host-1",
     });
-    expect(w.changes[0]).toMatchObject({ kind: "tonight", actorId: "host-1" });
+    expect(w.changes[0]).toMatchObject({ kind: "tonight", actorId: "host-1", version: 5 });
+    expect(w.changes[0]).toMatchObject({
+      summary: "Tonight: online booking paused",
+      summaryDetail: { code: "tonight_pause_online" },
+    });
   });
 
   it("blocks tables for the rest of tonight through DateRuleTable", async () => {
@@ -572,6 +599,104 @@ describe("Tonight at the service-day boundary (SC Night-of expiry)", () => {
   });
 });
 
+describe("Tonight on a varied week", () => {
+  const MONDAY_NOON = new Date("2026-10-26T19:00:00.000Z"); // Mon Oct 26, noon in Los Angeles
+  const ROW = {
+    venueId: "v",
+    scheduleId: "sch-1",
+    seating: { version: 1, interval: 15 },
+  };
+  /**
+   * Dinner every day, but online-only on Sundays (a day set); Brunch Monday to Friday only.
+   * Today (Sunday) therefore has Dinner alone, and Monday has Brunch and Dinner.
+   */
+  const varied = (): World => ({
+    ...world(),
+    variedWeek: {
+      venueServices: [
+        { id: "vs-brunch", venueId: "v", name: "Brunch", position: 0, archivedAt: null },
+        { id: "vs-dinner", venueId: "v", name: "Dinner", position: 1, archivedAt: null },
+      ],
+      rows: [
+        {
+          ...ROW,
+          id: "ss-brunch",
+          venueServiceId: "vs-brunch",
+          opensAt: 660,
+          lastSeatingAt: 780,
+          closesAt: 840,
+          bookingTypes: ["online", "phone"],
+          weekdays: [1, 2, 3, 4, 5],
+          dayHours: { version: 1, sets: [] },
+        },
+        {
+          ...ROW,
+          id: "ss-dinner",
+          venueServiceId: "vs-dinner",
+          opensAt: 1020,
+          lastSeatingAt: 1260,
+          closesAt: 1380,
+          bookingTypes: ["online", "phone"],
+          weekdays: [1, 2, 3, 4, 5, 6],
+          dayHours: {
+            version: 1,
+            sets: [
+              {
+                weekdays: [0],
+                opensAt: 1020,
+                lastSeatingAt: 1260,
+                closesAt: 1380,
+                seating: { version: 1, interval: 15 },
+                bookingTypes: ["online"],
+              },
+            ],
+          },
+        },
+      ],
+    },
+  });
+  const configOf = async (w: World) =>
+    (await getAvailabilityConfig("v", NOW, fakeClient(w).client))!.config;
+
+  it("judges a Host's pause against the weekday's own hours: Sunday's online-only Dinner is the close", async () => {
+    const w = varied();
+    expect(await run(w, body({ type: "pause_online" }))).toEqual({ kind: "forbidden" });
+    expect(w.dateRules).toEqual([]);
+  });
+
+  it("lets a Host pause online on the weekday that still takes phone bookings", async () => {
+    const w = varied();
+    const outcome = await run(w, body({ type: "pause_online" }), { now: MONDAY_NOON });
+    expect(outcome).toMatchObject({ kind: "saved", result: { serviceDate: "2026-10-26" } });
+    const monday = resolveDay({ timezone: TZ, config: await configOf(w) }, "2026-10-26");
+    expect(monday.services.map((s) => s.venueServiceId)).toEqual(["vs-brunch", "vs-dinner"]);
+    expect(monday.bookingOpen).toEqual({ online: false, phone: true, waitlist: true });
+  });
+
+  it("still lets a Host stop a window that leaves the varied day bookable", async () => {
+    const w = varied();
+    expect((await run(w, body({ type: "stop_window", from: 1170, to: 1200 }))).kind).toBe("saved");
+  });
+
+  it("is gone the next service day, leaving the varied week's schedule untouched", async () => {
+    const w = varied();
+    expect((await run(w, body({ type: "pause_online" }), { caller: MANAGER })).kind).toBe("saved");
+    const snapshot = { timezone: TZ, config: await configOf(w) };
+
+    const tonight = resolveDay(snapshot, TODAY);
+    expect(tonight.services.map((s) => s.venueServiceId)).toEqual(["vs-dinner"]);
+    expect(tonight.bookingOpen.online).toBe(false);
+
+    const nextDay = currentServiceDate(snapshot, new Date(Date.parse(MIDNIGHT_AFTER) + 60_000));
+    expect(nextDay).toBe("2026-10-26");
+    const tomorrow = resolveDay(snapshot, nextDay);
+    expect(tomorrow.closures).toEqual([]);
+    expect(tomorrow.bookingOpen).toEqual({ online: true, phone: true, waitlist: true });
+    expect(tomorrow.services.map((s) => s.venueServiceId)).toEqual(["vs-brunch", "vs-dinner"]);
+    expect(w.scheduleWrites).toBe(0);
+  });
+});
+
 describe("endTonight", () => {
   it("ends a Tonight change and bumps the version", async () => {
     const w = world();
@@ -585,7 +710,39 @@ describe("endTonight", () => {
 
     expect(outcome).toMatchObject({ kind: "ended", result: { version: 6 } });
     expect(w.dateRules).toEqual([]);
-    expect(w.changes.at(-1)).toMatchObject({ kind: "tonight_end", actorId: "host-1" });
+    expect(w.changes.at(-1)).toMatchObject({
+      kind: "tonight_end",
+      actorId: "host-1",
+      version: 6,
+      summary: "Tonight change ended",
+      summaryDetail: { code: "tonight_ended" },
+    });
+  });
+
+  it("takes the venue row lock before it reads the config, so what it ends is the current state", async () => {
+    const w = world();
+    await run(w, body({ type: "pause_online" }));
+    const { client, tx } = fakeClient(w);
+
+    await endTonight({ venueId: "v", ruleId: "t-new", caller: HOST, now: NOW }, client);
+
+    const lock = tx.venue.update.mock.invocationCallOrder[0]!;
+    const read = tx.schedule.findMany.mock.invocationCallOrder[0]!;
+    expect(lock).toBeLessThan(read);
+    expect(w.changes.at(-1)).toMatchObject({ kind: "tonight_end", version: 6 });
+  });
+
+  it("rolls the lock's version bump back when the rule is not found", async () => {
+    const w = world();
+    const { client } = fakeClient(w);
+
+    const outcome = await endTonight(
+      { venueId: "v", ruleId: "gone", caller: HOST, now: NOW },
+      client
+    );
+
+    expect(outcome.kind).toBe("not_found");
+    expect(w.version).toBe(4);
   });
 
   it("does not find a rule that is not a Tonight change", async () => {

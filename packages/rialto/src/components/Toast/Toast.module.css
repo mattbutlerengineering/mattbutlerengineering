@@ -3,13 +3,19 @@
   position: fixed;
   bottom: var(--rialto-space-lg);
   inset-inline-end: var(--rialto-space-lg);
-  z-index: 200;
+  z-index: 10003;
   display: flex;
   flex-direction: column-reverse;
   gap: var(--rialto-space-xs);
   pointer-events: none;
   max-width: 380px;
   width: 100%;
+}
+
+.container[data-placement="top-end"] {
+  bottom: auto;
+  top: var(--rialto-space-lg);
+  flex-direction: column;
 }
 
 /* ── Individual toast ────────────────────────── */
@@ -165,6 +171,23 @@
   transform-origin: right;
 }
 
+/* An open end-side Drawer would sit under the toasts: they would cover its title and close button
+   (top) or its actions (bottom). Move them beside it. Widths are Drawer.module.css's panel widths;
+   from 1024px every size leaves room for a 380px toast. Narrower, the toasts keep their corner. */
+@media (min-width: 1024px) {
+  :global(body:has([data-rialto-drawer="right-compact"])) .container {
+    inset-inline-end: calc(320px + var(--rialto-space-lg));
+  }
+
+  :global(body:has([data-rialto-drawer="right-default"])) .container {
+    inset-inline-end: calc(400px + var(--rialto-space-lg));
+  }
+
+  :global(body:has([data-rialto-drawer="right-wide"])) .container {
+    inset-inline-end: calc(560px + var(--rialto-space-lg));
+  }
+}
+
 @media (max-width: 480px) {
   .container {
     inset-inline-start: var(--rialto-space-sm);
@@ -175,5 +198,26 @@
        base rule's width: 100% over-constrains the fixed box (insets lose to
        width) and pushes it inset-inline-start px past the viewport edge. */
     width: auto;
+  }
+
+  .container[data-placement="top-end"] {
+    bottom: auto;
+    top: var(--rialto-space-sm);
+  }
+}
+
+/* Drawer.tsx sets this on <html> while an open drawer has a footer; 0px until then. */
+:root {
+  --rialto-drawer-footer-block-size: 0px;
+}
+
+/* Narrower than 1024px an open side Drawer covers the toasts' corner, and at the top they would sit
+   over its title and close button. Put them at the bottom instead, lifted above the drawer's
+   footer (Drawer.tsx publishes its height) so its actions stay reachable too. */
+@media (max-width: 1023.98px) {
+  :global(body:has([data-rialto-drawer]:not([data-rialto-drawer^="bottom-"]))) .container {
+    top: auto;
+    bottom: calc(var(--rialto-drawer-footer-block-size) + var(--rialto-space-sm));
+    flex-direction: column-reverse;
   }
 }

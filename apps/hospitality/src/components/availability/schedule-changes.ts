@@ -5,7 +5,12 @@ import type {
   Schedule,
   ScheduleAssignment,
 } from "@mbe/types";
-import { buildDraftChanges, type DraftService } from "./draft-changes.js";
+import {
+  coveredDays,
+  draftToConfig,
+  scheduleDays,
+  type QuickSetupDraft,
+} from "./quick-setup-draft.js";
 import { SCOPE_HORIZON_DAYS } from "./scope-dates.js";
 
 /**
@@ -46,6 +51,14 @@ export function weekdayRuns(weekdays: readonly number[]): [number, number][] {
 const liveSchedules = (config: AvailabilityConfig): Schedule[] =>
   config.schedules.filter((s) => !s.archivedAt);
 
+/**
+ * The Schedules tab exists only while a live schedule is not a regular week (ux.md F-UW): a venue
+ * with one regular week, or with superseded versions of it, has nothing to manage there.
+ */
+export function hasOwnSchedules(config: AvailabilityConfig): boolean {
+  return liveSchedules(config).some((s) => s.kind !== "regular");
+}
+
 /** A schedule can be deleted only when nothing assigns it and no date rule points at it. */
 export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
   const schedule = config.schedules.find((s) => s.id === scheduleId);
@@ -58,6 +71,75 @@ export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string)
 
 export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges {
   return { upsert: {}, remove: { schedules: [scheduleId] } };
+}
+
+/** What stops a schedule draft being saved; `availabilitySchedules.blocked.<code>` says it. */
+export type ScheduleSaveBlock =
+  | "conflict"
+  | "startRequired"
+  | "endBeforeStart"
+  | "nameRequired"
+  | "servicesRequired"
+  | "serviceNameRequired"
+  | "replacesRegularWeek";
+
+/** The first problem, in form order, or `null` when the draft can be saved. */
+export function scheduleSaveBlock(draft: {
+  readonly conflicted: boolean;
+  readonly name: string;
+  /** A draft whose rows are quick-setup services has no `venueServiceId`; its own issues name them. */
+  readonly services: readonly { readonly name: string; readonly venueServiceId?: string | null }[];
+  readonly startsOn: string | null;
+  readonly endsOn: string | null;
+  readonly startRequired?: boolean;
+  /** False for a change with no end date: it is the regular week itself and is named by nothing. */
+  readonly nameRequired?: boolean;
+  /** A new schedule would take the regular week over for good (`replacesRegularWeek`). */
+  readonly replacesRegularWeek?: boolean;
+}): ScheduleSaveBlock | null {
+  const { startsOn, endsOn, services } = draft;
+  if (draft.conflicted) return "conflict";
+  if (draft.startRequired && !startsOn) return "startRequired";
+  if (startsOn && endsOn && endsOn < startsOn) return "endBeforeStart";
+  if (draft.nameRequired !== false && draft.name.trim() === "") return "nameRequired";
+  if (services.length === 0) return "servicesRequired";
+  if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
+    return "serviceNameRequired";
+  }
+  if (draft.replacesRegularWeek) return "replacesRegularWeek";
+  return null;
+}
+
+/** The weekdays the regular week still runs on from `today`; a superseded version has ended. */
+function regularWeekdays(config: AvailabilityConfig, today: string): number[] {
+  const regular = new Set(
+    liveSchedules(config)
+      .filter((s) => s.kind === "regular")
+      .map((s) => s.id)
+  );
+  return [
+    ...new Set(
+      config.assignments
+        .filter((a) => regular.has(a.scheduleId) && (a.endsOn == null || a.endsOn >= today))
+        .flatMap((a) => a.weekdays)
+    ),
+  ];
+}
+
+/**
+ * A new schedule with no end date that runs on every day the regular week still does takes the
+ * week over for good: the regular week always gives way (`overlappingSchedules`), so nothing
+ * changed in it afterwards would reach a date. Changing the whole week from a date on is Change
+ * regular week's job; a schedule needs an end, or days the regular week keeps.
+ */
+export function replacesRegularWeek(
+  config: AvailabilityConfig,
+  useOn: UseOn,
+  today: string
+): boolean {
+  if (useOn.endsOn != null || useOn.weekdays.length === 0) return false;
+  const days = regularWeekdays(config, today);
+  return days.length > 0 && days.every((day) => useOn.weekdays.includes(day));
 }
 
 /** Do the two uses cover at least one common date? */
@@ -156,8 +238,8 @@ function mergeChanges(
 interface NewScheduleInput {
   readonly config: AvailabilityConfig;
   readonly name: string;
-  /** Rows for the new schedule; a copy's rows must have `scheduleServiceId: null`. */
-  readonly services: readonly DraftService[];
+  /** The new schedule's services as the editor holds them; a copy is seeded from the source. */
+  readonly draft: QuickSetupDraft;
   readonly useOn: UseOn;
   readonly winner: Winner;
   readonly makeId: () => string;
@@ -168,10 +250,11 @@ export function buildNewScheduleChanges(input: NewScheduleInput): AvailabilityCo
   const { config, name, useOn, winner, makeId } = input;
   const scheduleId = makeId();
   const schedule: Schedule = { id: scheduleId, name, kind: "alternate", isRegular: false };
-  const rows = buildDraftChanges({
+  const rows = scheduleRowChanges({
     config,
-    scope: { kind: "schedule", scheduleId },
-    services: freshRows(input.services),
+    draft: input.draft,
+    scheduleId,
+    covered: coveredDays(input.draft),
     makeId,
   });
   const assignments =
@@ -195,36 +278,58 @@ export function buildNewScheduleChanges(input: NewScheduleInput): AvailabilityCo
   });
 }
 
-interface RegularWeekInput extends Omit<NewScheduleInput, "useOn"> {
+interface RegularWeekInput {
+  readonly config: AvailabilityConfig;
+  /** The period's name; a change with no end is the regular week itself and is named by nothing. */
+  readonly name: string;
+  /** The week as the editor holds it: services with their days and different-hours blocks. */
+  readonly draft: QuickSetupDraft;
   readonly startsOn: string;
   readonly endsOn: string | null;
+  readonly winner: Winner;
+  readonly makeId: () => string;
 }
 
-const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
-
 /**
- * F-UW. With an end date the period is a dated schedule and the regular week returns by itself
- * after it. With none the new week takes over as the regular week from the start date: the old
- * regular week's assignments end the day before.
+ * F-UW. The draft is encoded into one regular schedule's rows (`draftToConfig`) and its one
+ * assignment covers the union of the days any service runs, so the days follow the editor: a
+ * closed weekday can be opened, and one no service runs on loses its hours. With an end date the
+ * period is a dated schedule and the regular week returns by itself after it, other days keeping
+ * their hours. With none the new week takes over as the regular week from the start date: it is
+ * named "Regular week", the old assignments end the day before, and the superseded schedule stays
+ * `kind: "regular"` (it is still part of the regular week, so nothing new appears on Schedules).
  */
 export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityConfigChanges {
-  const { config, startsOn, endsOn } = input;
-  if (endsOn !== null) {
-    return buildNewScheduleChanges({
-      ...input,
-      useOn: { weekdays: EVERY_DAY, startsOn, endsOn },
-    });
-  }
-  const scheduleId = input.makeId();
-  const schedule: Schedule = { id: scheduleId, name: input.name, kind: "regular", isRegular: true };
-  const rows = buildDraftChanges({
-    config,
-    scope: { kind: "schedule", scheduleId },
-    services: freshRows(input.services),
-    makeId: input.makeId,
+  const { config, draft, startsOn, endsOn, makeId } = input;
+  const venueServiceIds = Object.fromEntries(
+    config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+  );
+  const live = liveSchedules(config).find((s) => s.isRegular);
+  const week = draftToConfig(draft, makeId, {
+    venueServiceIds,
+    keptOf: keptOf(config, live?.id),
   });
-  const old = liveSchedules(config).find((s) => s.isRegular);
-  const oldAssignments = config.assignments.filter((a) => a.scheduleId === old?.id);
+  const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
+  const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
+  const [built] = week.schedules;
+  const [covering] = week.assignments;
+  if (!built || !covering) return { upsert: {}, remove: {} };
+  const { scheduleServices } = week;
+  const rows = {
+    upsert: {
+      ...(created.length > 0 ? { venueServices: created } : {}),
+      scheduleServices,
+    },
+    remove: {},
+  };
+
+  if (endsOn !== null) {
+    const schedule: Schedule = { ...built, name: input.name, kind: "alternate", isRegular: false };
+    const assignments = placeAssignment(config, { ...covering, startsOn, endsOn }, input.winner);
+    return mergeChanges(rows, { upsert: { schedules: [schedule], assignments }, remove: {} });
+  }
+
+  const oldAssignments = config.assignments.filter((a) => a.scheduleId === live?.id);
   const dropped = oldAssignments.filter((a) => a.startsOn != null && a.startsOn >= startsOn);
   const truncated = oldAssignments
     .filter((a) => !dropped.includes(a) && (a.endsOn == null || a.endsOn >= startsOn))
@@ -236,22 +341,8 @@ export function buildRegularWeekChanges(input: RegularWeekInput): AvailabilityCo
     .filter((a) => a.precedence !== config.assignments.find((x) => x.id === a.id)?.precedence);
   return mergeChanges(rows, {
     upsert: {
-      schedules: [
-        schedule,
-        ...(old ? [{ ...old, isRegular: false, kind: "alternate" as const }] : []),
-      ],
-      assignments: [
-        {
-          id: input.makeId(),
-          scheduleId,
-          weekdays: EVERY_DAY,
-          startsOn,
-          endsOn: null,
-          precedence: 0,
-        },
-        ...truncated,
-        ...renumbered,
-      ],
+      schedules: [built, ...(live ? [{ ...live, isRegular: false }] : [])],
+      assignments: [{ ...covering, startsOn, endsOn: null }, ...truncated, ...renumbered],
     },
     remove: { assignments: dropped.map((a) => a.id) },
   });
@@ -262,24 +353,85 @@ export function buildEditScheduleChanges(input: {
   readonly config: AvailabilityConfig;
   readonly scheduleId: string;
   readonly name: string;
-  readonly services: readonly DraftService[];
+  /** The schedule's services as the editor holds them: days and different-hours blocks. */
+  readonly draft: QuickSetupDraft;
   readonly makeId: () => string;
+  /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
+  readonly baseline: AvailabilityConfig;
 }): AvailabilityConfigChanges {
   const { config, scheduleId, name, makeId } = input;
-  const rows = buildDraftChanges({
+  // An edit keeps the schedule's use, so its rows are encoded over the days it is assigned to.
+  const rows = scheduleRowChanges({
     config,
-    scope: { kind: "schedule", scheduleId },
-    services: input.services,
+    draft: input.draft,
+    scheduleId,
+    covered: scheduleDays(config, scheduleId, true),
     makeId,
+    baseline: input.baseline,
   });
   const stored = config.schedules.find((s) => s.id === scheduleId);
   const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
   return mergeChanges(rows, { upsert: rename, remove: {} });
 }
 
-/** A new schedule gets rows of its own; rows seeded from another schedule must not overwrite it. */
-function freshRows(services: readonly DraftService[]): DraftService[] {
-  return services.map((s) => ({ ...s, scheduleServiceId: null }));
+/**
+ * The seating and booking types each service of a schedule keeps, from its stored base row: what
+ * hours the editor made (a new block) take, since the editor has no controls for them. Hours that
+ * came from a stored row carry their own (`HoursBlock.kept`).
+ */
+function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) {
+  return Object.fromEntries(
+    config.scheduleServices
+      .filter((s) => s.scheduleId === scheduleId)
+      .map((s) => [s.venueServiceId, { seating: s.seating, bookingTypes: s.bookingTypes }])
+  );
+}
+
+/**
+ * The rows of one schedule from the editor's draft, encoded over `covered` (`draftToConfig`).
+ * Same-named venue services are reused and a service the schedule already ran keeps its row id,
+ * and its seating and booking types (the editor has no controls for those; each hour set's own
+ * ride in the draft). With `baseline`, a service the Manager saw and dropped loses its row; a row only a colleague added is left alone.
+ */
+function scheduleRowChanges(input: {
+  readonly config: AvailabilityConfig;
+  readonly draft: QuickSetupDraft;
+  readonly scheduleId: string;
+  readonly covered: readonly number[];
+  readonly makeId: () => string;
+  readonly baseline?: AvailabilityConfig;
+}): AvailabilityConfigChanges {
+  const { config, draft, scheduleId, covered, makeId } = input;
+  const venueServiceIds = Object.fromEntries(
+    config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.name.toLowerCase(), s.id])
+  );
+  const stored = config.scheduleServices.filter((s) => s.scheduleId === scheduleId);
+  const week = draftToConfig(draft, makeId, {
+    venueServiceIds,
+    coveredDays: covered,
+    keptOf: keptOf(config, scheduleId),
+  });
+  const storedServiceIds = new Set(config.venueServices.map((s) => s.id));
+  const created = week.venueServices.filter((s) => !storedServiceIds.has(s.id));
+  const was = new Map(stored.map((s) => [s.venueServiceId, s]));
+  const scheduleServices = week.scheduleServices.map((row) => ({
+    ...row,
+    scheduleId,
+    id: was.get(row.venueServiceId)?.id ?? row.id,
+  }));
+  const kept = new Set(scheduleServices.map((s) => s.venueServiceId));
+  const stillStored = new Set(stored.map((s) => s.id));
+  const seen = (input.baseline?.scheduleServices ?? stored).filter(
+    (s) => s.scheduleId === scheduleId && stillStored.has(s.id)
+  );
+  const removed = seen.filter((s) => !kept.has(s.venueServiceId)).map((s) => s.id);
+  return {
+    upsert: {
+      ...(created.length > 0 ? { venueServices: created } : {}),
+      scheduleServices,
+    },
+    remove: removed.length > 0 ? { scheduleServices: removed } : {},
+  };
 }
 
 /** The future service dates a use covers (today onward, one year at most). */

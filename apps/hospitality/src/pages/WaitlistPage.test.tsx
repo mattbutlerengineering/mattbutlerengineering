@@ -55,6 +55,10 @@ vi.mock("../hooks/useApiClient.js", () => ({ useApiClient: vi.fn() }));
 vi.mock("../hooks/useStaffTonight.js", () => ({ useStaffTonight: vi.fn() }));
 vi.mock("../hooks/useVenueTeam.js", () => ({ useVenueTeam: vi.fn() }));
 vi.mock("../hooks/useClosures.js", () => ({ useReopenClosure: vi.fn() }));
+const mockRefresh = vi.hoisted(() => vi.fn());
+vi.mock("../hooks/useRefreshAvailability.js", () => ({
+  useRefreshAvailability: () => mockRefresh,
+}));
 
 vi.mock("../components/PageHeader", () => ({
   // tabIndex={-1} like the real one: useFocusAfter's pageHeading target lands here.
@@ -389,6 +393,7 @@ function mockMutationHooks(
 describe("WaitlistPage", () => {
   beforeEach(() => {
     mockToast.mockClear();
+    mockRefresh.mockClear();
     mockNavigate.mockClear();
     mockUseGuestLookup.mockReset();
     mockUseGuestLookup.mockReturnValue(idleLookup);
@@ -496,8 +501,63 @@ describe("WaitlistPage", () => {
           venueId: "venue-abc",
           ruleId: "rule-wl",
           tellCancelledGuests: false,
+          seen: { rule: closedTonight.rules[0], children: [] },
         });
       });
+    });
+
+    it("sends the closure's skips and edits as it read them, so a teammate's change is caught", async () => {
+      const child = { id: "skip-1", kind: "skip", seriesId: "rule-wl" } as DateRule;
+      const withChild = { ...closedTonight, rules: [...closedTonight.rules, child] };
+      vi.mocked(useStaffTonight).mockReturnValue(withChild);
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: "Reopen waitlist" }));
+
+      await waitFor(() => {
+        expect(reopenMock.mutateAsync).toHaveBeenLastCalledWith(
+          expect.objectContaining({ seen: { rule: closedTonight.rules[0], children: [child] } })
+        );
+      });
+    });
+
+    it("refreshes and says a teammate changed the closure when the reopen is refused as a conflict", async () => {
+      const conflict = Object.assign(new Error("conflict"), {
+        problemDetails: {
+          type: "about:blank",
+          title: "Conflict",
+          status: 409,
+          code: "version-conflict",
+          detail: "changed",
+        },
+      });
+      vi.mocked(reopenMock.mutateAsync).mockRejectedValueOnce(conflict);
+      vi.mocked(useStaffTonight).mockReturnValue(closedTonight);
+      vi.mocked(useWaitlist).mockReturnValue({
+        data: [],
+        isLoading: false,
+        error: null,
+        refetch: vi.fn(),
+      });
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: "Reopen waitlist" }));
+
+      await waitFor(() => {
+        expect(mockRefresh).toHaveBeenCalledTimes(1);
+      });
+      expect(mockToast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: expect.stringContaining("A teammate changed this closure"),
+          variant: "error",
+        })
+      );
     });
 
     it("does not offer Reopen waitlist to a Host", () => {

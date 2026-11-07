@@ -139,6 +139,7 @@ model Venue {
   dateRuleTables            DateRuleTable[]
   availabilityChanges       AvailabilityChange[]
   closureOutcomes           ClosureOutcome[]
+  guestWinBacks             GuestWinBack[]
   /// Per-venue compare-and-set counter for availability config saves (ADR-030).
   availabilityVersion       Int               @default(0) @map("availability_version")
   /// Host "stop all online bookings" switch.
@@ -218,6 +219,9 @@ model FloorPlan {
   name       String
   isActive   Boolean  @default(false) @map("is_active")
   layoutJson Json     @map("layout_json")
+  /// Set when a plan whose tables carry booking history is deleted (#8254):
+  /// the rows stay so reservations keep their table, but every read skips it.
+  archivedAt DateTime? @map("archived_at")
   tables     Table[]
   sections   FloorPlanSection[]
   createdAt  DateTime @default(now()) @map("created_at")
@@ -300,6 +304,7 @@ model Guest {
   stripeCustomerId        String?                 @unique @map("stripe_customer_id")
   unsubscribed            Boolean                 @default(false)
   reservations            Reservation[]
+  winBack                 GuestWinBack?
   createdAt               DateTime                @default(now()) @map("created_at")
   updatedAt               DateTime                @updatedAt @map("updated_at")
 
@@ -340,6 +345,16 @@ model Reservation {
   /// reservation. Proof of ownership for the public deposit route (#6304).
   /// Null for reservations created outside the widget.
   originSessionId    String?            @map("origin_session_id")
+  /// The host the guest booked on (e.g. "eat-sheet.com", "mattbutlerengineering.com"),
+  /// captured from the public booking request's Origin header when the reservation is
+  /// created (#7892). NULL for reservations created outside the public booking page
+  /// (staff/walk-in) or whose Origin did not match a known host — those keep the
+  /// mattbutlerengineering.com brand in guest emails, today's behavior.
+  originHost         String?            @map("origin_host")
+  /// The guest's language (a notice locale: en-US, es-MX or fr-CA), from the booking widget's
+  /// locale when they booked. Closure notices are written in it. Rows from before it existed,
+  /// and bookings made outside the widget, are en-US.
+  locale             String             @default("en-US")
   /// Staff reason for booking past a soft availability limit (ADR-030 `judge`).
   overrideReason     String?            @map("override_reason")
   /// The soft limits that were overridden (after_last_seating, pacing, ...). NULL = none.
@@ -561,7 +576,7 @@ enum ClosureRefundStatus {
 model Schedule {
   id          String       @id @default(cuid())
   venueId     String       @map("venue_id")
-  venue       Venue        @relation(fields: [venueId], references: [id])
+  venue       Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
   name        String
   kind        ScheduleKind
   isRegular   Boolean      @default(false) @map("is_regular")
@@ -582,7 +597,7 @@ model Schedule {
 model VenueService {
   id               String    @id @default(cuid())
   venueId          String    @map("venue_id")
-  venue            Venue     @relation(fields: [venueId], references: [id])
+  venue            Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   name             String
   position         Int       @default(0)
   archivedAt       DateTime? @map("archived_at")
@@ -596,7 +611,7 @@ model VenueService {
 model ScheduleService {
   id             String       @id @default(cuid())
   venueId        String       @map("venue_id")
-  venue          Venue        @relation(fields: [venueId], references: [id])
+  venue          Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
   scheduleId     String       @map("schedule_id")
   schedule       Schedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   venueServiceId String       @map("venue_service_id")
@@ -610,6 +625,10 @@ model ScheduleService {
   bookingTypes   String[]     @default([]) @map("booking_types")
   /// Versioned value bundle (P3 turn times, pacing, party limits, windows).
   rules          Json         @default("{}")
+  /// Days the base hours apply on; empty = every day the assignment covers (less the days a set claims).
+  weekdays       Int[]        @default([])
+  /// Versioned value bundle: other hours on some weekdays. {version:1, sets:[{weekdays, ...hours}]}.
+  dayHours       Json         @default("{\"version\":1,\"sets\":[]}") @map("day_hours")
 
   @@unique([scheduleId, venueServiceId])
   @@index([venueId])
@@ -620,7 +639,7 @@ model ScheduleService {
 model ScheduleAssignment {
   id         String    @id @default(cuid())
   venueId    String    @map("venue_id")
-  venue      Venue     @relation(fields: [venueId], references: [id])
+  venue      Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   scheduleId String    @map("schedule_id")
   schedule   Schedule  @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   /// 0 = Sunday.
@@ -640,7 +659,7 @@ model ScheduleAssignment {
 model DateRule {
   id             String             @id @default(cuid())
   venueId        String             @map("venue_id")
-  venue          Venue              @relation(fields: [venueId], references: [id])
+  venue          Venue              @relation(fields: [venueId], references: [id], onDelete: Cascade)
   kind           DateRuleKind
   targetKind     DateRuleTargetKind @default(venue) @map("target_kind")
   venueServiceId String?            @map("venue_service_id")
@@ -689,7 +708,7 @@ model DateRuleTable {
   tableId    String   @map("table_id")
   table      Table    @relation(fields: [tableId], references: [id], onDelete: Cascade)
   venueId    String   @map("venue_id")
-  venue      Venue    @relation(fields: [venueId], references: [id])
+  venue      Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
 
   @@id([dateRuleId, tableId])
   @@index([tableId])
@@ -704,13 +723,16 @@ model DateRuleTable {
 model AvailabilityChange {
   id             String    @id @default(cuid())
   venueId        String    @map("venue_id")
-  venue          Venue     @relation(fields: [venueId], references: [id])
+  venue          Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
   actorId        String    @map("actor_id")
   /// The actor's display name when the change was made (never an email); null on older rows.
   actorName      String?   @map("actor_name")
   at             DateTime  @default(now())
   kind           String
   summary        String
+  /// The same change as a stable code plus data (`AvailabilityChangeDetail`), for a client to word
+  /// in its own language. `summary` stays the English text. Null on rows written before it existed.
+  summaryDetail  Json?     @map("summary_detail")
   affectedFrom   DateTime? @map("affected_from") @db.Date
   affectedTo     DateTime? @map("affected_to") @db.Date
   /// Rows to restore/delete to undo this change.
@@ -721,7 +743,12 @@ model AvailabilityChange {
   revertedBy     AvailabilityChange?  @relation("AvailabilityChangeRevert", fields: [revertedById], references: [id], onDelete: Restrict)
   reverts        AvailabilityChange[] @relation("AvailabilityChangeRevert")
 
+  /// The `Venue.availabilityVersion` this change produced; orders changes exactly, which `at` (stamped
+  /// before the venue row lock) does not. Null on rows written before it existed.
+  version        Int?
+
   @@index([venueId, at])
+  @@index([venueId, version])
   @@index([revertedById])
   @@map("availability_changes")
 }
@@ -740,6 +767,10 @@ model ClosureOutcome {
   /// {email: sent|failed|skipped, sms: ...}
   deliveries             Json                @default("{}")
   refund                 ClosureRefundStatus @default(none)
+  /// The closure's estimate of what the cancel owes the guest (cents), written once with the
+  /// row. It decides only what the notice says; the refund job settles against Stripe whatever
+  /// it is, including 0. Null = no deposit, or a row from before this column.
+  refundCents            Int?                @map("refund_cents")
   rebookedReservationId  String?             @map("rebooked_reservation_id")
   rebookedReservation    Reservation?        @relation("ClosureOutcomeRebooked", fields: [rebookedReservationId], references: [id], onDelete: SetNull)
   /// keep_silent: who acknowledged the guest would not be told.
@@ -752,4 +783,24 @@ model ClosureOutcome {
   @@index([reservationId])
   @@index([rebookedReservationId])
   @@map("closure_outcomes")
+}
+
+/// One row per guest. `claimedAt` is when a send was claimed, written BEFORE the provider call;
+/// `guestId` is UNIQUE, so two simultaneous sends cannot both claim the guest. `claimedAt` is
+/// null once a definite provider rejection released the claim. `sentAt` is written only after
+/// the provider call returned success: a claim without a matching `sentAt` is an UNCONFIRMED
+/// attempt (the provider may or may not have delivered).
+model GuestWinBack {
+  id        String    @id @default(cuid())
+  venueId   String    @map("venue_id")
+  venue     Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  guestId   String    @unique @map("guest_id")
+  guest     Guest     @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  claimedAt DateTime? @map("claimed_at") @db.Timestamptz(3)
+  sentAt    DateTime? @map("sent_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([venueId])
+  @@map("guest_win_backs")
 }

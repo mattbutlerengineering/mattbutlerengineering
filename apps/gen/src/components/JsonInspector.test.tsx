@@ -64,6 +64,12 @@ describe("JsonInspector", () => {
     expect(key.closest("[class*=lineRow]")).toBe(value.closest("[class*=lineRow]"));
   });
 
+  // Browser audit #7463: two unlabeled <aside>s tripped axe landmark-unique.
+  it("names its complementary landmark so it is distinct from the history panel", () => {
+    render(<JsonInspector rawLines={[]} isStreaming={false} />);
+    expect(screen.getByRole("complementary", { name: "JSON inspector" })).toBeDefined();
+  });
+
   it("shows a distinct loading state while streaming with no lines yet (#7463)", () => {
     render(<JsonInspector rawLines={[]} isStreaming={true} />);
     expect(screen.getByText("Generating…")).toBeDefined();

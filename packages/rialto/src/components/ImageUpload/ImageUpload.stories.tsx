@@ -17,7 +17,7 @@ export const Default: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText(/drop/i)).toBeInTheDocument();
+    await expect(canvas.getByText(/add image/i)).toBeInTheDocument();
   },
 };
 
@@ -25,6 +25,19 @@ export const WithProgress: Story = {
   args: {
     onChange: () => {},
     progress: 45,
+  },
+};
+
+export const WithLabelAndError: Story = {
+  args: {
+    onChange: () => {},
+    label: "Logo",
+    error: "Too big",
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: "Add image Logo" })).toBeInTheDocument();
+    await expect(canvas.getByRole("alert")).toHaveTextContent("Too big");
   },
 };
 

@@ -191,6 +191,18 @@
         return response.data;
       }
     
+      /** The email and SMS a guest would be sent for one Step 2 outcome, rendered by the server. */
+      async getClosureNoticePreview(
+        venueId: string,
+        body: ClosureNoticePreviewBody
+      ): Promise<ClosureNoticePreview> {
+        const response = await this.client.call(availabilityConfigEndpoints.closureNoticePreview, {
+          params: { id: venueId },
+          body,
+        });
+        return response.data;
+      }
+    
       /**
        * Saves a closure (or special hours / Tonight change) with one decision per
        * affected group. `idempotencyKey` makes a retry safe: a replay returns the
@@ -301,16 +313,28 @@
         return response.data;
       }
     
-      /** Reopens a closure; guests it cancelled stay cancelled. */
+      /**
+       * Reopens a closure; guests it cancelled stay cancelled. `seen` is the rule and its skips and
+       * one-date edits as this caller read them: if they differ now the server answers 409
+       * `version-conflict` and changes nothing. Without it the rule is reopened as it is. `date`
+       * (Manager, with `seen`) reopens only that date of a bounded range.
+       */
       async reopenClosure(
         venueId: string,
         ruleId: string,
-        tellCancelledGuests: boolean
+        tellCancelledGuests: boolean,
+        override?: PerRequestOptions,
+        seen?: ReopenSeen,
+        date?: string
       ): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
-          params: { id: venueId, ruleId },
-          body: { tellCancelledGuests },
-        });
+        const response = await this.client.call(
+          availabilityConfigEndpoints.reopenClosure,
+          {
+            params: { id: venueId, ruleId },
+            body: { tellCancelledGuests, ...(seen ? { seen } : {}), ...(date ? { date } : {}) },
+          },
+          override
+        );
         return response.data;
       }
     
@@ -331,10 +355,16 @@
       }
     
       /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
-      async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
-        const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
-          params: { id: venueId, ruleId },
-        });
+      async endTonight(
+        venueId: string,
+        ruleId: string,
+        override?: PerRequestOptions
+      ): Promise<ReopenResult> {
+        const response = await this.client.call(
+          availabilityConfigEndpoints.endTonight,
+          { params: { id: venueId, ruleId } },
+          override
+        );
         return response.data;
       }
     
@@ -509,7 +539,14 @@
       async confirmForVenue(
         slug: string,
         holdId: string,
-        details: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string }
+        details: {
+          guestName?: string;
+          guestEmail?: string;
+          guestPhone?: string;
+          notes?: string;
+          /** The guest's widget locale tag; later notices are written in it. */
+          locale?: string;
+        }
       ): Promise<{ reservation: Reservation; manageToken?: string }> {
         const response = await this.client.request<{ data: Reservation; manageToken?: string }>(
           `${publicHoldsPath(slug)}/${holdId}/confirm`,
@@ -619,6 +656,14 @@
     export interface ClientConfig {
       baseUrl: string;
       getAccessToken?: () => string | null | Promise<string | null>;
+      /**
+       * Fetch a fresh access token, bypassing any cached one. Called at most once
+       * per request, and only when a request that carried the `getAccessToken`
+       * token answers 401 (an expired session, #8258). A non-null result replays
+       * that request exactly once with the new token; null or a throw surfaces
+       * the original 401. Concurrent 401s share one refresh.
+       */
+      refreshAccessToken?: () => Promise<string | null>;
       timeout?: number;
       maxRetries?: number;
       onError?: (error: ApiClientError) => void;
@@ -648,6 +693,7 @@
     export class ApiClient {
       private readonly timeout: number;
       private readonly maxRetries: number;
+      private refreshInFlight: Promise<string | null> | null = null;
     
       constructor(private config: ClientConfig) {
         this.timeout = config.timeout ?? DEFAULT_TIMEOUT_MS;
@@ -670,28 +716,39 @@
           ...override?.headers,
         };
     
-        if (getAccessToken && !hasHeader(headers, "authorization")) {
-          const token = await getAccessToken();
-          if (token) {
-            headers.Authorization = `Bearer ${token}`;
-          }
-        }
+        // Only a token this client attached is eligible for refresh-on-401 — an
+        // explicit per-call Authorization (e.g. a manage token) is the caller's.
+        const usesClientToken = Boolean(getAccessToken) && !hasHeader(headers, "authorization");
+        const token = usesClientToken ? await getAccessToken?.() : null;
     
         const effectiveTimeout = override?.timeout ?? this.timeout;
         const effectiveMaxRetries = override?.maxRetries ?? this.maxRetries;
         const idempotentRetry = override?.idempotentRetry ?? false;
     
-        const combinedSignal = createCombinedSignal(effectiveTimeout, options.signal);
-    
-        const fetchOptions: RequestInit = {
-          ...options,
-          headers,
-          signal: combinedSignal,
-        };
-    
         const url = `${baseUrl}${path}`;
         const canRetry = SAFE_RETRY_METHODS.has(method) || idempotentRetry;
-        const response = await fetchWithRetry(url, fetchOptions, canRetry ? effectiveMaxRetries : 0);
+        const send = (bearer: string | null | undefined) =>
+          fetchWithRetry(
+            url,
+            {
+              ...options,
+              headers: bearer ? { ...headers, Authorization: `Bearer ${bearer}` } : headers,
+              signal: createCombinedSignal(effectiveTimeout, options.signal),
+            },
+            canRetry ? effectiveMaxRetries : 0
+          );
+    
+        let response = await send(token);
+    
+        // A 401 is the origin refusing the bearer before running the handler, so
+        // replaying once — even a POST/PATCH — cannot duplicate a side effect.
+        if (response.status === 401 && token) {
+          const freshToken = await this.refreshToken();
+          if (freshToken) {
+            await response.body?.cancel().catch(() => undefined);
+            response = await send(freshToken);
+          }
+        }
     
         if (!response.ok) {
           const raw = await response.json().catch(() => null);
@@ -720,6 +777,18 @@
         }
     
         return data as T;
+      }
+    
+      /** One shared refresh for concurrent 401s; null when unavailable or failed. */
+      private refreshToken(): Promise<string | null> {
+        const { refreshAccessToken } = this.config;
+        if (!refreshAccessToken) return Promise.resolve(null);
+        this.refreshInFlight ??= refreshAccessToken()
+          .catch(() => null)
+          .finally(() => {
+            this.refreshInFlight = null;
+          });
+        return this.refreshInFlight;
       }
     
       /**
@@ -1357,6 +1426,7 @@
     export function createApiClient(config: {
       baseUrl?: string;
       getAccessToken?: () => string | null | Promise<string | null>;
+      refreshAccessToken?: () => Promise<string | null>;
       timeout?: number;
       maxRetries?: number;
       onError?: (error: ApiClientError) => void;
@@ -1364,6 +1434,7 @@
       const client = new ApiClient({
         baseUrl: config.baseUrl ?? "",
         getAccessToken: config.getAccessToken,
+        refreshAccessToken: config.refreshAccessToken,
         timeout: config.timeout,
         maxRetries: config.maxRetries,
         onError: config.onError,
@@ -1796,8 +1867,12 @@
       /**
        * Cancel a reservation
        */
-      async cancel(id: string): Promise<Reservation> {
-        return this.client.deleteOne<Reservation>(`${RESERVATION_BASE_PATH}/${id}`, ReservationSchema);
+      async cancel(id: string, override?: PerRequestOptions): Promise<Reservation> {
+        return this.client.deleteOne<Reservation>(
+          `${RESERVATION_BASE_PATH}/${id}`,
+          ReservationSchema,
+          override
+        );
       }
     
       /**

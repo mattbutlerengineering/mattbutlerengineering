@@ -8,6 +8,10 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
+// The preview has its own tests (ScheduleFlowPreview.test.tsx); here it never answers.
+vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
+  useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
+}));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
     selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -59,10 +63,12 @@ const common = {
   onStale: vi.fn(),
 };
 
+// At file level: the suites may run in any order, and rialto's Select scrolls in both.
+beforeAll(() => {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+});
+
 describe("SchedulesTab", () => {
-  beforeAll(() => {
-    window.HTMLElement.prototype.scrollIntoView = vi.fn();
-  });
   beforeEach(() => {
     vi.clearAllMocks();
     save.mockResolvedValue({ version: 8, changeId: "chg" });
@@ -73,6 +79,27 @@ describe("SchedulesTab", () => {
     expect(screen.getByText("Regular week")).toBeInTheDocument();
     expect(screen.getByText("Mon–Thu")).toBeInTheDocument();
     expect(screen.getByText("Not used yet")).toBeInTheDocument();
+  });
+
+  it("does not repeat 'Regular week' as a tag on a regular week still named that", () => {
+    const named = state();
+    const config = {
+      ...named.config,
+      schedules: named.config.schedules.map((s) =>
+        s.isRegular ? { ...s, name: "Regular week" } : s
+      ),
+    };
+    renderWith(<SchedulesTab {...common} state={{ ...named, config }} />);
+    expect(screen.getAllByText("Regular week")).toHaveLength(1);
+  });
+
+  it("shows short actions and keeps the schedule's name in what is spoken (#7980)", () => {
+    renderWith(<SchedulesTab {...common} state={state()} />);
+    expect(screen.getByRole("button", { name: "Edit Weeknight" })).toHaveTextContent(/^Edit$/);
+    expect(screen.getByRole("button", { name: "Duplicate Weeknight" })).toHaveTextContent(
+      /^Duplicate$/
+    );
+    expect(screen.getByRole("button", { name: "Delete Spare" })).toHaveTextContent(/^Delete$/);
   });
 
   it("offers delete only where nothing uses the schedule", () => {
@@ -99,12 +126,25 @@ describe("SchedulesTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Duplicate Weeknight" }));
     expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("Weeknight (copy)");
   });
+
+  it("opens on the New schedule editor when asked to (Create another schedule…)", () => {
+    renderWith(<SchedulesTab {...common} state={state()} startNew />);
+    expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
 });
 
 describe("CompareServices", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     save.mockResolvedValue({ version: 8, changeId: "chg" });
+  });
+
+  it("ties why Save is off to the button, so a screen reader hears it there (#7979)", () => {
+    renderWith(<CompareServices {...common} state={state()} />);
+    const save = screen.getByRole("button", { name: /^Save 0 schedules$/ });
+    expect(save).toBeDisabled();
+    expect(save).toHaveAccessibleDescription("Change a row to save.");
   });
 
   it("saves every selected schedule in one change with one impact line", async () => {

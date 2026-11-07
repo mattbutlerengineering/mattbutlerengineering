@@ -5,7 +5,9 @@
  * Key assertion: the error message MUST be programmatically associated with
  * the control via aria-describedby when error=true.
  */
+import { createElement, type ReactNode } from "react";
 import { render, renderHook } from "@testing-library/react";
+import { FormContext } from "../components/Form/FormContext";
 import { useField } from "./useField";
 
 describe("useField", () => {
@@ -96,6 +98,55 @@ describe("useField", () => {
     // always a fresh insertion. See #4833.
     it("errorProps.role is always alert", () => {
       const { result } = renderHook(() => useField({ error: true }));
+      expect(result.current.errorProps.role).toBe("alert");
+    });
+
+    // The Form summary is the live region only for an error it actually
+    // carries: submitted, and the same message is in its errors (#8115).
+    function inForm(state: {
+      submitAttempted: boolean;
+      errors: Record<string, string>;
+      announcesErrors?: boolean;
+    }) {
+      const value = {
+        announcesErrors: true,
+        registerField: () => {},
+        unregisterField: () => {},
+        ...state,
+      };
+      function FormWrapper({ children }: { children: ReactNode }) {
+        return createElement(FormContext.Provider, { value }, children);
+      }
+      return FormWrapper;
+    }
+
+    it("errorProps is not a live region for an error the Form summary carries", () => {
+      const wrapper = inForm({ submitAttempted: true, errors: { email: "bad" } });
+      const { result } = renderHook(() => useField({ hint: "bad", error: true }), { wrapper });
+      expect(result.current.errorProps.role).toBeUndefined();
+      expect(result.current.errorProps["aria-atomic"]).toBeUndefined();
+      expect(result.current.errorProps.id).toBe(result.current.descriptionProps.id);
+    });
+
+    it("keeps role=alert for an error raised before any submit (server-set, blur)", () => {
+      const wrapper = inForm({ submitAttempted: false, errors: {} });
+      const { result } = renderHook(() => useField({ hint: "taken", error: true }), { wrapper });
+      expect(result.current.errorProps.role).toBe("alert");
+    });
+
+    it("keeps role=alert for an error the summary does not carry after a submit", () => {
+      const wrapper = inForm({ submitAttempted: true, errors: {} });
+      const { result } = renderHook(() => useField({ hint: "409", error: true }), { wrapper });
+      expect(result.current.errorProps.role).toBe("alert");
+    });
+
+    it("keeps role=alert when the Form has no summary", () => {
+      const wrapper = inForm({
+        submitAttempted: true,
+        errors: { email: "bad" },
+        announcesErrors: false,
+      });
+      const { result } = renderHook(() => useField({ hint: "bad", error: true }), { wrapper });
       expect(result.current.errorProps.role).toBe("alert");
     });
 

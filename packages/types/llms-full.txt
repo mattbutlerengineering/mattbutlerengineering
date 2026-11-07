@@ -62,6 +62,21 @@
           },
         },
       }),
+      closureNoticePreview: defineEndpoint({
+        method: "POST",
+        path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures/notice-preview`,
+        params: VenueParamsSchema,
+        body: ClosureNoticePreviewBodySchema,
+        responses: {
+          200: {
+            description: "The email and SMS a guest would be sent for the outcome (read-only)",
+            body: z.object({ data: ClosureNoticePreviewSchema }),
+          },
+          401: authRequired,
+          403: notMember,
+          404: venueNotFound,
+        },
+      }),
       createClosure: defineEndpoint({
         method: "POST",
         path: `${AVAILABILITY_CONFIG_PREFIX}/:id/closures`,
@@ -201,6 +216,16 @@
           401: authRequired,
           403: notClosureCaller,
           404: problem("Venue or closure not found"),
+          409: {
+            description:
+              "`version-conflict`: the body's `seen` rule (or its skips and one-date edits) differs from the stored one, so it changed since the caller read it. Nothing is changed; `winningChange` names the latest change. Only possible when `seen` is sent",
+            body: AvailabilityConfigProblemSchema,
+          },
+          422: {
+            description:
+              "`invalid-config` with a `strands_booking` issue per booking: removing a one-date edit hands its date back to the series, which would leave these bookings without service. Each issue carries its `reservation` (guest, date, time, party) for the first 50; the issue count is the true count. Nothing is changed",
+            body: AvailabilityConfigProblemSchema,
+          },
         },
       }),
       setTonight: defineEndpoint({
@@ -531,6 +556,12 @@
           200: { description: "Win-back result", body: z.object({ data: WinBackResultSchema }) },
           401: problem(),
           404: problem(),
+          409: problem(
+            "A win-back was already sent or attempted within the cooldown; nothing was sent. `detail` says which, and when another is allowed."
+          ),
+          424: problem(
+            "The email provider rejected the message, or email isn't configured; nothing was sent and the guest can be tried again."
+          ),
         },
       }),
       delete: defineEndpoint({
@@ -610,12 +641,16 @@
       .catchall(z.unknown());
   </file>
   <file path="src/schemas/availability-config-api.ts">
+    export const ScheduleServiceRequestSchema = ScheduleServiceSchema.extend({
+      weekdays: ScheduleServiceSchema.shape.weekdays.removeDefault(),
+      dayHours: ScheduleServiceSchema.shape.dayHours.removeDefault(),
+    });
     export const AvailabilityConfigChangesSchema = z.object({
       upsert: z
         .object({
           schedules: z.array(ScheduleSchema).optional(),
           venueServices: z.array(VenueServiceSchema).optional(),
-          scheduleServices: z.array(ScheduleServiceSchema).optional(),
+          scheduleServices: z.array(ScheduleServiceRequestSchema).optional(),
           assignments: z.array(ScheduleAssignmentSchema).optional(),
           dateRules: z.array(DateRuleSchema).optional(),
         })
@@ -658,12 +693,47 @@
       version: z.number().int(),
       changeId: z.string(),
     });
+    export const AvailabilityChangeDetailSchema = z.object({
+      code: z.string(),
+      /** The change undid the one the code names (`Reverted: …`). */
+      reverted: z.boolean().optional(),
+      /** `regular_week_changed`: the weekdays whose hours changed (with `startsOn`). */
+      weekdays: z.array(z.number().int().min(0).max(6)).optional(),
+      /** `config_saved`: rows added, changed and removed. */
+      added: z.number().int().optional(),
+      changed: z.number().int().optional(),
+      removed: z.number().int().optional(),
+      /** `closure_saved`, `close_early_saved`, `closure_reopened`: the rule's first and last day. */
+      startsOn: ServiceDateSchema.optional(),
+      endsOn: ServiceDateSchema.nullish(),
+      /** `closure_saved`, `close_early_saved`: what happened to the bookings it touched. */
+      cancelled: z.number().int().optional(),
+      moved: z.number().int().optional(),
+      kept: z.number().int().optional(),
+      /** `tonight_block_tables`: how many tables. */
+      tables: z.number().int().optional(),
+      /** `tonight_pacing`: the cover limit. */
+      covers: z.number().int().optional(),
+    });
     export const AvailabilityChangeSummarySchema = z.object({
       id: z.string(),
       actorId: z.string(),
       at: z.string(),
       kind: z.string(),
+      /** English, kept for older clients and for rows stored before `detail`. */
       summary: z.string(),
+      /**
+       * The same change as a stable code plus data, for a client to word in its own language. Absent
+       * or `null` on older servers and on rows stored before it; the client then shows `summary`.
+       */
+      detail: AvailabilityChangeDetailSchema.nullish(),
+    });
+    export const CONFLICT_CHANGES_MAX = 10;
+    export const ConflictChangesSinceSchema = z.object({
+      /** How many versions passed since the draft's: the true count, named or not. */
+      total: z.number().int().min(1),
+      /** The newest changes among them, newest first, at most `CONFLICT_CHANGES_MAX`. */
+      changes: z.array(AvailabilityChangeSummarySchema).max(CONFLICT_CHANGES_MAX),
     });
     export const AvailabilityChangeOutcomeSchema = z.object({
       cancelled: z.number().int(),
@@ -713,6 +783,12 @@
       offset: z.number().int(),
       /** Newest first. */
       items: z.array(AvailabilityChangeEntrySchema),
+      /**
+       * The change Undo is offered on now: the newest still in force, when it told no guest; `null`
+       * when there is none. Independent of the filters, `limit` and `offset`, so a one-row page can
+       * still name it. Absent from an older API, whose caller falls back to the page's `revertible`.
+       */
+      undoable: AvailabilityChangeSummarySchema.nullish(),
     });
     export const RevertAvailabilityChangeBodySchema = z.object({
       expectedVersion: z.number().int().min(0),
@@ -722,7 +798,12 @@
       startTime: z.string(),
       partySize: z.number().int(),
       reason: z.enum(["closed", "outside_service", "table_blocked"]),
+      /** Who it is for; absent when the booking has no name. */
+      guestName: z.string().optional(),
+      /** The service date it belongs to, where a past-midnight booking's start time would mislead. */
+      serviceDate: ServiceDateSchema.optional(),
     });
+    export const STRANDED_ISSUE_DETAIL_MAX = 50;
     export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
       "version-conflict",
       "invalid-config",
@@ -746,8 +827,32 @@
       code: z.enum(AVAILABILITY_CONFIG_PROBLEM_CODES),
       /** version-conflict: the latest change; `null` when none is recorded. */
       winningChange: AvailabilityChangeSummarySchema.nullable().optional(),
+      /**
+       * version-conflict on a config save: the version read just before `winningChange`. An Overwrite
+       * sent against it is refused again if anyone saved after. Absent from an older server.
+       */
+      currentVersion: z.number().int().optional(),
+      /**
+       * version-conflict on a config save: every change between the draft's version and
+       * `currentVersion` (the newest few plus the true count). Absent from an older server, which
+       * names only `winningChange`.
+       */
+      changesSince: ConflictChangesSinceSchema.optional(),
       /** invalid-config: `validateConfig` issues, path-addressed into the next config. */
-      issues: z.array(z.object({ path: z.string(), code: z.string(), message: z.string() })).optional(),
+      issues: z
+        .array(
+          z.object({
+            path: z.string(),
+            code: z.string(),
+            message: z.string(),
+            /**
+             * `strands_booking`: the booking, for the first `STRANDED_ISSUE_DETAIL_MAX` issues. Never
+             * repeated in `message`, which an agent passes to a model.
+             */
+            reservation: StrandedReservationSchema.optional(),
+          })
+        )
+        .optional(),
       /** stranded-bookings: future reservations the change would leave outside service. */
       reservations: z.array(StrandedReservationSchema).optional(),
       /** decision-required / invalid-decision: the impact groups at fault. */
@@ -781,6 +886,8 @@
           to: z.number().int(),
           /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
           bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
+          /** The service a `service` closure is for; absent for other targets and from an older API. */
+          venueServiceId: z.string().optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -793,23 +900,49 @@
       upsert: z.array(DateRuleSchema).default([]),
       /** Rule ids to remove (soft delete): the series the draft replaces. */
       remove: IdListSchema.default([]),
+      /**
+       * The series being replaced, exactly as the client read it when it built the draft. When `remove`
+       * names the series, the closure command refuses with the version conflict if the stored series
+       * is no longer this row (a teammate changed its message, weekdays or end date since). Optional
+       * for clients from before this field: without it only the draft's other fields are compared.
+       * Required when `remove` names a one-date or range closure (an edit of it): the closure is then
+       * compared as a whole, and the edit is refused as invalid without it.
+       */
+      replaces: DateRuleSchema.optional(),
     });
     export const ClosureImpactBodySchema = z.object({
       rule: DateRuleSchema,
       alongside: ClosureAlongsideSchema.optional(),
     });
     export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
+    export const BOOKING_ORIGIN_HOSTS = ["eat-sheet.com", "mattbutlerengineering.com"] as const;
     export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
+    export const GUEST_NOTICE_LOCALES = ["en-US", "es-MX", "fr-CA"] as const;
+    export const DEFAULT_GUEST_NOTICE_LOCALE = "en-US";
+    export const GuestNoticeLocaleSchema = z.enum(GUEST_NOTICE_LOCALES);
+    export type GuestNoticeLocale = z.infer<typeof GuestNoticeLocaleSchema>;
+    export function resolveGuestNoticeLocale(raw: unknown): GuestNoticeLocale {
+      return GuestNoticeLocaleSchema.catch(DEFAULT_GUEST_NOTICE_LOCALE).parse(raw);
+    }
     export const ClosureImpactReservationSchema = z.object({
       id: z.string(),
       startTime: z.string(),
       endTime: z.string(),
       partySize: z.number().int(),
       guestName: z.string().nullable(),
-      /** The deposit held against this booking, if any. */
+      /** The deposit a cancel owes the guest a refund or void on, if any; the amount is an estimate of what is still owed. */
       deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
       /** Starts before the closure and runs into it. */
       runsIntoClosure: z.boolean(),
+      /** The host the guest booked on; it picks the brand of the notice they are sent. */
+      originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+      /** The language the guest booked in; their notice is written in it. Absent reads as en-US. */
+      locale: GuestNoticeLocaleSchema.optional(),
+      /**
+       * Only on a `shortened` group: the start "Move to the nearest open time" would give this booking,
+       * from the logic the closure command moves with. `null`: no open time, so a move is refused.
+       */
+      proposedStart: z.string().nullable().optional(),
     });
     export const ClosureImpactGroupSchema = z.object({
       /** `<date>:<kind>`; the closure command's decisions are keyed by it. */
@@ -828,6 +961,33 @@
       /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
       groups: z.array(ClosureImpactGroupSchema),
     });
+    export const CLOSURE_NOTICE_ACTIONS = ["cancel", "move", "keep_notify"] as const;
+    export const ClosureNoticePreviewBodySchema = z.object({
+      action: z.enum(CLOSURE_NOTICE_ACTIONS),
+      closureDate: ServiceDateSchema,
+      /** The booking's start as the notice states it: the proposed new start, for a move. */
+      startTime: z.string().datetime(),
+      partySize: z.number().int().min(1),
+      guestName: z.string().max(200).nullable(),
+      message: z.string().max(GUEST_MESSAGE_MAX_LENGTH).nullable(),
+      /** The deposit a cancel refunds. `currency` goes to `Intl.NumberFormat`, which throws on anything else. */
+      refund: z
+        .object({
+          amountCents: z.number().int().min(0),
+          currency: z.string().regex(/^[A-Za-z]{3}$/),
+        })
+        .nullable(),
+      /** The booking's host: the notice is sent from, and links to, that host's brand. */
+      originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+      /** The language the guest booked in; the notice is rendered in it. Absent reads as en-US. */
+      locale: GuestNoticeLocaleSchema.optional(),
+    });
+    export const ClosureNoticePreviewSchema = z.object({
+      email: z.object({ from: z.string(), subject: z.string(), text: z.string() }),
+      sms: z.string(),
+    });
+    export type ClosureNoticePreviewBody = z.infer<typeof ClosureNoticePreviewBodySchema>;
+    export type ClosureNoticePreview = z.infer<typeof ClosureNoticePreviewSchema>;
     export type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
     export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
     export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
@@ -917,6 +1077,8 @@
     export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
     export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
     export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+    export type AvailabilityChangeDetail = z.infer<typeof AvailabilityChangeDetailSchema>;
+    export type ConflictChangesSince = z.infer<typeof ConflictChangesSinceSchema>;
     export type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
     export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
     export type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
@@ -955,7 +1117,15 @@
         .min(1)
         .max(MAX_CLOSURE_BATCH),
     });
-    export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
+    export const ReopenSeenSchema = z.object({
+      rule: DateRuleSchema,
+      children: z.array(DateRuleSchema),
+    });
+    export const ReopenClosureBodySchema = z.object({
+      tellCancelledGuests: z.boolean(),
+      seen: ReopenSeenSchema.optional(),
+      date: ServiceDateSchema.optional(),
+    });
     export const ClosureOutcomeCountsSchema = z.object({
       cancel: z.number().int(),
       move: z.number().int(),
@@ -975,7 +1145,38 @@
       /** One result per item, in the order sent. */
       results: z.array(ClosureResultSchema),
     });
-    export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+    export const ClosedByRuleSchema = z.object({
+      ruleId: z.string(),
+      targetKind: DateRuleTargetKindSchema,
+      venueServiceId: z.string().nullish(),
+      bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).nullish(),
+      startsOn: ServiceDateSchema,
+      endsOn: ServiceDateSchema.nullish(),
+      repeat: RepeatSchema.nullish(),
+      window: WindowSchema.nullish(),
+      /** The dates in question it closes, in order: not all of its own. */
+      dates: z.array(ServiceDateSchema),
+    });
+    export const ClosureOverlapSchema = z.object({
+      /** Every date in question stays shut, so nothing the reopen names comes back to guests. */
+      everyDate: z.boolean(),
+      by: z.array(ClosedByRuleSchema),
+    });
+    export const ReopenResultSchema = z.object({
+      version: z.number().int(),
+      changeId: z.string(),
+      /**
+       * Guests a reopen notice was requested for: cancelled guests whose booking had not started,
+       * `0` when none were asked. Absent from an older API (and from ending Tonight); read it as
+       * `notified ?? null`.
+       */
+      notified: z.number().int().nonnegative().nullable().optional(),
+      /**
+       * Other closures that still close the reopened rule's dates, as stored when it committed. Absent
+       * from an older API and from ending Tonight.
+       */
+      stillClosed: ClosureOverlapSchema.optional(),
+    });
     export const RefundFailureSchema = z.object({
       outcomeId: z.string(),
       /** The guest's name as booked; no email or phone travels here. */
@@ -990,6 +1191,11 @@
       total: z.number().int(),
       /** Bookings the closure cancelled (the guests a reopen notice would go to). */
       cancelled: z.number().int(),
+      /**
+       * Of those, the guests a reopen notice can still reach: their booking has not started.
+       * Absent from an older API; read it as `upcomingCancelled ?? cancelled`.
+       */
+      upcomingCancelled: z.number().int().nonnegative().nullable().optional(),
       /** Guests with a confirmed email or SMS delivery. */
       sent: z.number().int(),
       /** Guests who rebooked after the cancel. */
@@ -1051,9 +1257,12 @@
     export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
     export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
     export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+    export type ReopenSeen = z.infer<typeof ReopenSeenSchema>;
     export type ClosureResult = z.infer<typeof ClosureResultSchema>;
     export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
     export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+    export type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+    export type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
     export type ReopenResult = z.infer<typeof ReopenResultSchema>;
     export type RefundFailure = z.infer<typeof RefundFailureSchema>;
     export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;
@@ -1099,6 +1308,14 @@
       version: z.literal(1),
       weekdays: z.array(WeekdayIndexSchema).min(1),
     });
+    export const DayHoursSetSchema = z.object({
+      weekdays: z.array(WeekdayIndexSchema).min(1),
+      ...ServiceHoursFields,
+    });
+    export const DayHoursSchema = z.object({
+      version: z.literal(1),
+      sets: z.array(DayHoursSetSchema),
+    });
     export const SpecialHoursServiceSchema = z.object({
       venueServiceId: IdSchema,
       ...ServiceHoursFields,
@@ -1136,6 +1353,10 @@
       scheduleId: IdSchema,
       venueServiceId: IdSchema,
       ...ServiceHoursFields,
+      /** Days the base hours apply on; [] = every day the assignment covers, less the days a set claims. */
+      weekdays: z.array(WeekdayIndexSchema).default([]),
+      /** Other hours on some weekdays; absent reads as no sets, so stored rows and old inverses parse. */
+      dayHours: DayHoursSchema.default({ version: 1, sets: [] }),
     });
     export const ScheduleAssignmentSchema = z.object({
       id: IdSchema,
@@ -1167,6 +1388,8 @@
       assignments: z.array(ScheduleAssignmentSchema),
       dateRules: z.array(DateRuleSchema),
     });
+    export type DayHoursSet = z.infer<typeof DayHoursSetSchema>;
+    export type DayHours = z.infer<typeof DayHoursSchema>;
     export type Seating = z.infer<typeof SeatingSchema>;
     export type AvailabilityWindow = z.infer<typeof WindowSchema>;
     export type Repeat = z.infer<typeof RepeatSchema>;
@@ -1431,6 +1654,10 @@
       avgFrequencyDays: z.number(),
       daysSinceLastVisit: z.number(),
       daysOverdue: z.number(),
+      /** ISO time the email provider last accepted a win-back for this guest; `null` = none confirmed. Set by the route, absent on the SSE push. */
+      lastWinBackAt: z.string().nullable().optional(),
+      /** ISO time of a send attempt that was never confirmed (it may or may not have gone out); `null` = none outstanding. */
+      winBackAttemptedAt: z.string().nullable().optional(),
     });
     export const WinBackResultSchema = z.object({ sent: z.boolean() });
   </file>
@@ -2192,6 +2419,8 @@
       notes: z.string().describe("Special requests or notes").optional(),
       occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
       seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+      /** The booking widget's locale tag; stored as the language of the guest's later notices. Unsupported tags read as en-US. */
+      locale: z.string().max(35).optional(),
     });
     export const PublicReservationBodySchema = z.object({
       holdId: z.string().min(1),
@@ -2199,6 +2428,8 @@
       guestEmail: z.string().min(1),
       guestPhone: z.string().optional(),
       specialRequests: z.string().max(500).optional(),
+      /** The booking widget's locale tag; stored as the language of the guest's later notices. Unsupported tags read as en-US. */
+      locale: z.string().max(35).optional(),
     });
     export const ModifyReservationBodySchema = z
       .object({
@@ -2274,6 +2505,8 @@
       userId: z.string().nullable(),
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason: z.string().nullable().optional(),
+      /** The host the guest booked on (#7892); absent or null for a staff/walk-in booking. */
+      originHost: z.string().nullable().optional(),
       tableId: z.string(),
       table: TableSchema.optional(),
       guest: z
@@ -2963,6 +3196,13 @@
       seatingPreference: SeatingPreference | null;
       /** Why staff booked past a soft availability limit; absent or null for an ordinary booking. */
       overrideReason?: string | null;
+      /**
+       * The host the guest booked on (e.g. "eat-sheet.com",
+       * "mattbutlerengineering.com"), captured from the public booking page's
+       * request at creation time (#7892). Null for staff/walk-in bookings or an
+       * unrecognized origin — those keep the mattbutlerengineering.com brand.
+       */
+      originHost?: string | null;
       tableId: string;
       table?: Table;
       guest?: {

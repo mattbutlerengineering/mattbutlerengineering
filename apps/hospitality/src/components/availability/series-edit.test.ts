@@ -14,6 +14,7 @@ import {
   editHoursRule,
   editSeriesDates,
   growsSeries,
+  growthAttempt,
   growthClosure,
   isSeries,
   nextOccurrence,
@@ -175,6 +176,24 @@ describe("growsSeries", () => {
   });
 });
 
+describe("growthAttempt", () => {
+  it("renames the draft and the rows that moved onto it, and nothing else", () => {
+    const moved = { id: "skip-1", kind: "skip", seriesId: "draft" } as DateRule;
+    const other = { id: "kept", kind: "closure", seriesId: "older" } as DateRule;
+    const rule = { id: "draft", kind: "closure" } as DateRule;
+
+    const attempt = growthAttempt(
+      { rule, alongside: { upsert: [moved, other], remove: ["s"] } },
+      "n"
+    );
+
+    expect(attempt.rule.id).toBe("n");
+    expect(attempt.alongside.upsert).toEqual([{ ...moved, seriesId: "n" }, other]);
+    expect(attempt.alongside.remove).toEqual(["s"]);
+    expect(rule.id).toBe("draft");
+  });
+});
+
 describe("growthClosure", () => {
   const SERIES: DateRule = { ...WEEKLY_CLOSURE, repeat: { version: 1, weekdays: [5] } };
   const apply = (config: AvailabilityConfig, plan: ReturnType<typeof growthClosure>) =>
@@ -237,12 +256,34 @@ describe("growthClosure", () => {
     );
 
     expect(plan.alongside.remove).toEqual([SERIES.id]);
+    // The server refuses the save if the stored series is no longer the row this was built from.
+    expect(plan.alongside.replaces).toEqual(SERIES);
     expect(plan.rule).toMatchObject({ startsOn: SERIES.startsOn, endsOn: "2026-12-31" });
     expect(plan.alongside.upsert).toEqual([{ ...early, seriesId: plan.rule.id }]);
     const after = apply(config, plan);
     expect(after.dateRules.find((r) => r.id === SERIES.id)).toBeUndefined();
     expect(closuresOn(after, FIXTURE_DATE)).toHaveLength(0);
     expect(closuresOn(after, "2026-10-03")).toHaveLength(1);
+  });
+
+  it("all dates: moves every skip of the series, even one dated before it starts (#8028)", () => {
+    // The server refuses a removal that leaves a skip pointing at the removed series.
+    const before = {
+      ...skipDate(SERIES, "2026-09-24", makeId).upsert.dateRules![0]!,
+      startsOn: "2026-09-24",
+    };
+    const config = fixtureConfig(SERIES, before);
+    const plan = growthClosure(
+      config,
+      SERIES,
+      "all",
+      NEXT_FRIDAY,
+      { weekdays: [5, 6], endsOn: null },
+      makeId
+    );
+
+    expect(plan.alongside.remove).toEqual([SERIES.id]);
+    expect(plan.alongside.upsert).toEqual([{ ...before, seriesId: plan.rule.id }]);
   });
 });
 

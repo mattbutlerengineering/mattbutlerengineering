@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import { Check, Eye, EyeOff, Minus } from "lucide-react";
 import {
@@ -16,6 +16,7 @@ import type { HandshakeState } from "@mattbutlerengineering/rialto";
 import { AuthLayout } from "./AuthLayout";
 import { DEMO_ROUTES } from "../../data/demo-routes";
 import { isValidEmail } from "./auth-validation";
+import { useInvalidSubmitFocus } from "./use-invalid-submit-focus";
 import {
   scorePassword,
   meterVariantForScore,
@@ -118,6 +119,10 @@ export function SignUp() {
   const [confirmTouched, setConfirmTouched] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [agreedError, setAgreedError] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  // The terms checkbox blocks submit but does not set aria-invalid; it is
+  // the focus target only when no field is already marked invalid.
+  const focusFirstInvalid = useInvalidSubmitFocus(formRef, "input[type='checkbox']");
 
   const isLoading = phase === "submitting";
   const controlsDisabled = isLoading || phase === "created";
@@ -143,6 +148,7 @@ export function SignUp() {
     setAgreedError(agreedInvalid);
 
     if (fullNameInvalid || emailInvalid || passwordInvalid || confirmInvalid || agreedInvalid) {
+      focusFirstInvalid();
       return;
     }
 
@@ -179,7 +185,7 @@ export function SignUp() {
       </div>
       {/* noValidate: the page owns validation so its error affordances render,
           instead of the browser's native bubble pre-empting them. */}
-      <form onSubmit={handleSubmit} className={styles.form} noValidate>
+      <form ref={formRef} onSubmit={handleSubmit} className={styles.form} noValidate>
         <Input
           label="Full name"
           type="text"

@@ -85,9 +85,9 @@
         "src/components/*/*.catalog.ts",
         "src/showcase/main.tsx",
       ],
-      // axe-core: peer of the Storybook a11y addon. eslint-plugin-storybook:
-      // loaded from eslint.config.js (ignored above).
-      "ignoreDependencies": ["axe-core", "eslint-plugin-storybook"],
+      // eslint-plugin-storybook: loaded from eslint.config.js (ignored above).
+      // axe-core is imported by Dialog.overlays.stories.tsx.
+      "ignoreDependencies": ["eslint-plugin-storybook"],
     },
     "packages/rialto-plugin": {
       "entry": ["hooks/*.mjs"],
@@ -201,6 +201,7 @@
         "check-hook-wiring.mjs",
         "check-hooks-active.mjs",
         "check-i18n-catalogs.mjs",
+        "check-instruction-budget.mjs",
         "check-issue-filing-seam.mjs",
         "check-large-files.mjs",
         "check-memory-refs.mjs",
@@ -248,6 +249,7 @@
         "lib/issue-filing.mjs",
         "lib/nightly-compliance-signature.mjs",
         "lib/nightly-compliance-sweep.mjs",
+        "lib/storybook-gate-reporter.mjs",
         "load-test-summary.mjs",
         "log-agent-cost.js",
         "main-strictness.mjs",
@@ -297,6 +299,7 @@
         "sentry-triage-dedup.mjs",
         "stale-human-blocked-latest.mjs",
         "stale-human-blocked.mjs",
+        "storybook-test-gate.mjs",
         "summarize-task-failure.mjs",
         "sweep-nightly-compliance.mjs",
         "threshold-tuner.mjs",

@@ -7,6 +7,7 @@ import type {
   PutAvailabilityConfigBody,
   ScopeConflictMode,
 } from "@mbe/types";
+import { trackOwnSave } from "../components/availability/use-reload-hold.js";
 import { createMutationHook } from "./create-mutation-hook.js";
 import { createQueryHook } from "./create-query-hook.js";
 import { VENUES_QUERY_KEY } from "./useVenues.js";
@@ -14,6 +15,8 @@ import { VENUES_QUERY_KEY } from "./useVenues.js";
 export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
 export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
 const AVAILABILITY_CHANGES_QUERY_KEY = "availabilityChanges" as const;
+/** Here rather than in `useClosures`, which imports this file. */
+export const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
 
 /** Calendar cells: one summary per service date from `from` to `to` (<= 62 days). */
 export const useAvailabilityDays = createQueryHook<
@@ -45,13 +48,11 @@ export type SaveAvailabilityConfigVariables = {
   body: Omit<PutAvailabilityConfigBody, "scopeConflicts"> & {
     scopeConflicts?: ScopeConflictMode;
   };
-  /** Save against the version the server holds now, not the one the draft was made on. */
-  overwrite?: boolean;
 };
 
 /**
- * Saves a config change (Manager only). `overwrite` is the Manager's answer to "someone changed
- * this meanwhile". Venue readiness reads the legacy hours the server projects from the regular
+ * Saves a config change (Manager only), against the `expectedVersion` the caller names; it never
+ * re-reads one, so an overwrite cannot land on a change its Manager did not see. Venue readiness reads the legacy hours the server projects from the regular
  * week, so the venues list refreshes with the config and the days.
  */
 export const useSaveAvailabilityConfig = createMutationHook<
@@ -64,12 +65,8 @@ export const useSaveAvailabilityConfig = createMutationHook<
     AVAILABILITY_CHANGES_QUERY_KEY,
     VENUES_QUERY_KEY,
   ],
-  mutationFn: async (api, { venueId, body, overwrite }) => {
-    const expectedVersion = overwrite
-      ? (await api.availability.getConfig(venueId)).version
-      : body.expectedVersion;
-    return api.availability.saveConfig(venueId, { ...body, expectedVersion });
-  },
+  mutationFn: (api, { venueId, body }) =>
+    trackOwnSave(venueId, () => api.availability.saveConfig(venueId, body)),
 });
 
 /** The History drawer (F12): who changed availability, newest first. */
@@ -95,8 +92,10 @@ export const useRevertAvailabilityChange = createMutationHook<
     AVAILABILITY_CONFIG_QUERY_KEY,
     AVAILABILITY_DAYS_QUERY_KEY,
     AVAILABILITY_CHANGES_QUERY_KEY,
+    // Undo of a series growth moves its carried outcomes back to the rule they came from.
+    CLOSURE_SUMMARIES_QUERY_KEY,
     VENUES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, changeId, expectedVersion }) =>
-    api.availability.revertChange(venueId, changeId, expectedVersion),
+    trackOwnSave(venueId, () => api.availability.revertChange(venueId, changeId, expectedVersion)),
 });

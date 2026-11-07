@@ -1,12 +1,15 @@
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Dialog, Select, Stack } from "@mattbutlerengineering/rialto";
 import { resolveDay } from "@mbe/availability";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { scheduleNameText } from "./day-summary.js";
+import { DraftPreview, previewIds } from "./DraftPreview.js";
 import { seedServices } from "./draft-changes.js";
 import { buildUseDayHoursChanges, buildUseScheduleChanges } from "./selection-actions.js";
-import { SaveFailure } from "./ScheduleFormParts.js";
+import { BlockedReason, SaveFailure } from "./ScheduleFormParts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./ScheduleFormParts.module.css";
 
@@ -29,6 +32,8 @@ export interface UseScheduleDialogProps {
 export function UseScheduleDialog(props: UseScheduleDialogProps) {
   const { open, venueId, state, timezone, dates, onClose, onFinished, onStale } = props;
   const { t } = useTranslation();
+  const format = useVenueFormat();
+  const blockedId = useId();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
   const schedules = useMemo(
@@ -46,7 +51,43 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
     return seedServices(state.config, day, { kind: "date", date: sourceDate });
   }, [byDay, sourceDate, timezone, state.config]);
 
-  const ready = byDay ? sourceServices.length > 0 : scheduleId !== null;
+  // One date copied onto itself would write a rule that changes nothing.
+  const sameDay = byDay && dates.length === 1 && sourceDate === dates[0];
+  const ready = byDay ? sourceServices.length > 0 && !sameDay : scheduleId !== null;
+  const blockedKey = sameDay
+    ? "availability.selection.use.blockedSame"
+    : sourceDate
+      ? "availability.selection.use.blockedClosed"
+      : "availability.selection.use.blockedDay";
+  // A single date (the day drawer) is named; a selection is counted.
+  const oneDate = dates.length === 1 && dates[0] ? dates[0] : null;
+  const title = oneDate
+    ? t(
+        byDay
+          ? "availability.selection.use.titleDayOne"
+          : "availability.selection.use.titleScheduleOne",
+        {
+          date: format.formatCalendarDate(oneDate, {
+            weekday: "long",
+            month: "short",
+            day: "numeric",
+          }),
+        }
+      )
+    : t(byDay ? "availability.selection.use.titleDay" : "availability.selection.use.titleSchedule");
+
+  const previewChanges = useMemo(() => {
+    if (!open || !ready) return null;
+    const makeId = previewIds();
+    return byDay
+      ? buildUseDayHoursChanges({
+          config: state.config,
+          services: sourceServices,
+          dates,
+          makeId,
+        })
+      : buildUseScheduleChanges(state.config, dates, scheduleId ?? "", makeId);
+  }, [open, ready, byDay, state.config, sourceServices, dates, scheduleId]);
 
   const close = () => {
     saver.clearFailure();
@@ -76,17 +117,17 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
     <Dialog
       open={open}
       onClose={close}
-      title={t(
-        byDay ? "availability.selection.use.titleDay" : "availability.selection.use.titleSchedule"
-      )}
+      title={title}
       footer={
         <div className={styles.footer}>
+          <BlockedReason id={blockedId} reason={ready ? null : t(blockedKey)} />
           <Button variant="secondary" onClick={close}>
             {t("availability.selection.use.cancel")}
           </Button>
           <Button
             variant="primary"
             disabled={!ready}
+            aria-describedby={ready ? undefined : blockedId}
             isLoading={saver.isPending}
             onClick={() => void submit()}
           >
@@ -96,7 +137,7 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
       }
     >
       <Stack gap="md">
-        <SaveFailure messages={saver.failure} />
+        <SaveFailure messages={saver.failure} stranded={saver.stranded} />
         {byDay ? (
           <DatePicker
             label={t("availability.selection.use.from")}
@@ -106,11 +147,20 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
         ) : (
           <Select
             label={t("availability.selection.use.schedule")}
-            options={schedules.map((s) => ({ value: s.id, label: s.name }))}
+            options={schedules.map((s) => ({ value: s.id, label: scheduleNameText(s.name, t) }))}
             value={scheduleId ?? ""}
             onChange={setChosenSchedule}
           />
         )}
+        <DraftPreview
+          venueId={venueId}
+          changes={previewChanges}
+          scopeConflicts="replace"
+          dates={dates}
+          baseVersion={state.version}
+          idle={ready ? "untouched" : "fields"}
+          reviewOnSave={false}
+        />
       </Stack>
     </Dialog>
   );

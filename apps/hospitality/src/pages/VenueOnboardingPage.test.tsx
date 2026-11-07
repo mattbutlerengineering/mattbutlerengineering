@@ -7,6 +7,11 @@ import { VenueOnboardingPage } from "./VenueOnboardingPage";
 import { OnboardingWizardProvider } from "../components/venue-onboarding/OnboardingWizardContext";
 import { generateSlug } from "../components/venue-onboarding/generate-slug";
 
+// The hours step's local strip makes no tables read; no query client is mounted here.
+vi.mock("../hooks/useTables.js", () => ({
+  useTables: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+}));
+
 // Mock dependencies
 const mockNavigate = vi.fn();
 vi.mock("react-router", async () => {
@@ -27,6 +32,8 @@ vi.mock("@mbe/auth/react", () => ({
 
 const mockVenuesCreate = vi.fn();
 const mockGetBySlug = vi.fn();
+const mockGetConfig = vi.fn();
+const mockSaveConfig = vi.fn();
 const mockFloorPlansCreate = vi.fn();
 const mockFloorPlansSetActive = vi.fn();
 const mockTablesCreate = vi.fn();
@@ -34,6 +41,7 @@ const mockTablesCreate = vi.fn();
 // which only recomputes when the access token changes.
 const mockApiClient = {
   venues: { create: mockVenuesCreate, getBySlug: mockGetBySlug },
+  availability: { getConfig: mockGetConfig, saveConfig: mockSaveConfig },
   floorPlans: { create: mockFloorPlansCreate, setActive: mockFloorPlansSetActive },
   tables: { create: mockTablesCreate },
 };
@@ -517,6 +525,19 @@ describe("VenueOnboardingPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockVenuesFixture = [];
+    // The hours stage reads the new venue's (legacy-derived) config and saves the typed week over it.
+    mockGetConfig.mockResolvedValue({
+      config: {
+        schedules: [],
+        venueServices: [],
+        scheduleServices: [],
+        assignments: [],
+        dateRules: [],
+      },
+      version: 0,
+      source: "empty",
+    });
+    mockSaveConfig.mockResolvedValue({ version: 1, changeId: "change-1" });
   });
 
   it("should render step 1 (Welcome + Basic Info) by default", () => {
@@ -808,6 +829,10 @@ describe("VenueOnboardingPage", () => {
       order.push("venue");
       return makeVenue("venue-1");
     });
+    mockSaveConfig.mockImplementation(async () => {
+      order.push("hours");
+      return { version: 1, changeId: "change-1" };
+    });
     mockFloorPlansCreate.mockImplementation(async () => {
       order.push("floorPlan");
       return makeFloorPlan("plan-1", "venue-1");
@@ -834,7 +859,14 @@ describe("VenueOnboardingPage", () => {
       expect(mockFloorPlansSetActive).toHaveBeenCalledOnce();
     });
 
-    expect(order).toEqual(["venue", "floorPlan", "table:Table A", "table:Table B", "activate"]);
+    expect(order).toEqual([
+      "venue",
+      "hours",
+      "floorPlan",
+      "table:Table A",
+      "table:Table B",
+      "activate",
+    ]);
     expect(mockVenuesCreate).toHaveBeenCalledOnce();
     expect(mockFloorPlansCreate).toHaveBeenCalledOnce();
   });
@@ -1094,7 +1126,7 @@ describe("VenueOnboardingPage", () => {
       "Default Reservation Duration (minutes)"
     ) as HTMLInputElement;
     fireEvent.change(durationInput, { target: { value: "60" } });
-    const partyInput = screen.getByLabelText("Maximum Party Size") as HTMLInputElement;
+    const partyInput = screen.getByLabelText("Largest party online") as HTMLInputElement;
     fireEvent.change(partyInput, { target: { value: "8" } });
     fireEvent.click(screen.getByText("Next"));
 

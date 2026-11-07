@@ -48,6 +48,17 @@ export const DEFAULT_THRESHOLD = 3;
 const EXCLUDED_CONCLUSIONS = new Set(["cancelled", "skipped"]);
 
 /**
+ * Workflow files whose `cancelled` conclusion means "the job hit its
+ * `timeout-minutes`", not "superseded". GitHub reports a timed-out job as
+ * `cancelled`, which the streak detector otherwise ignores, so
+ * `nightly-compliance.yml` was cancelled on 11 of 12 nights with no issue
+ * filed (#8376). Only list a workflow here if nothing else cancels its
+ * scheduled runs: give it a per-event concurrency group so a dispatch never
+ * supersedes the scheduled run (pinned by nightly-compliance-workflow.test.mjs).
+ */
+export const CANCELLED_IS_FAILURE_WORKFLOW_FILES = ["nightly-compliance.yml"];
+
+/**
  * True when the workflow file changed after every failing run in the window —
  * i.e. the evidence predates the fix, so the streak says nothing about the
  * workflow's current state.
@@ -94,6 +105,7 @@ export function classifyScheduledWorkflowHealth({
   runs,
   threshold = DEFAULT_THRESHOLD,
   workflowModifiedAt,
+  cancelledCountsAsFailure = false,
 }) {
   // Every comparison against NaN is false, so an unvalidated threshold does not
   // fail loudly — it falls through to `slice(0, NaN)` → [] → `[].every(...)`,
@@ -103,14 +115,19 @@ export function classifyScheduledWorkflowHealth({
   const effectiveThreshold =
     Number.isInteger(threshold) && threshold > 0 ? threshold : DEFAULT_THRESHOLD;
 
-  const relevant = (runs ?? []).filter((run) => !EXCLUDED_CONCLUSIONS.has(run?.conclusion));
+  const isFailure = (run) =>
+    run.conclusion === "failure" || (cancelledCountsAsFailure && run.conclusion === "cancelled");
+  const relevant = (runs ?? []).filter(
+    (run) =>
+      !EXCLUDED_CONCLUSIONS.has(run?.conclusion) || (cancelledCountsAsFailure && isFailure(run))
+  );
 
   if (relevant.length < effectiveThreshold) {
     return { status: "insufficient-history", streak: relevant.length, failingRuns: [] };
   }
 
   const window = relevant.slice(0, effectiveThreshold);
-  const isFailingStreak = window.every((run) => run.conclusion === "failure");
+  const isFailingStreak = window.every(isFailure);
 
   if (!isFailingStreak) {
     return { status: "healthy", streak: 0, failingRuns: [] };
@@ -275,11 +292,112 @@ export function findUnwatchedDeployWorkflows(workflowsDir) {
  * issue filed. Same never-a-glob rationale as `DEPLOY_WORKFLOW_FILES`.
  */
 export const MAIN_PUSH_WORKFLOW_FILES = [
+  "adr-check.yml",
   "apps-visual.yml",
   "e2e-screenshots.yml",
+  "instruction-regression.yml",
+  "post-merge.yml",
+  "release.yml",
   "rialto-visual.yml",
   "rialto-web-e2e.yml",
+  "secret-scan.yml",
+  "storybook.yml",
 ];
+
+/**
+ * Workflows that push to `main` but deliberately need no streak watch, each
+ * mapped to the reason. Membership here is the ONLY sanctioned way for a
+ * push-to-main workflow to be absent from `MAIN_PUSH_WORKFLOW_FILES` --
+ * `findUnwatchedMainPushWorkflows()` reports anything in neither set, so the
+ * exemption is a decision someone has to write down rather than an omission.
+ */
+export const MAIN_PUSH_WATCH_EXEMPT_FILES = {
+  "ci.yml":
+    "CI Gate is the sole required check on main, so a red CI Gate blocks every " +
+    "merge and cannot sit red unnoticed (gotchas.md, ADR-027).",
+};
+
+/**
+ * Pure: true when `source` declares a `push:` trigger that can fire on `main`.
+ * Reads the parsed triggers, so every YAML form (flow list, block list, scalar
+ * `on: push`) is handled identically.
+ *
+ * Fails CLOSED on an unfiltered push. `on: push` with no `branches` fires on
+ * every branch, `main` included, so it qualifies -- reading it as "not a
+ * main-push workflow" would leave it watched by nothing and reported by
+ * nothing, which is the exact silent gap this arm exists to close. Only an
+ * explicit filter that excludes `main` makes it false.
+ *
+ * Filters are read through `asList`, so a scalar (`branches: main`) and a
+ * sequence (`branches: [main]`) take the same path and cannot drift apart.
+ *
+ * @param {string} source
+ * @returns {boolean}
+ */
+export function hasMainPushTrigger(source) {
+  const { push } = parseWorkflow(source).on;
+  if (push == null) return false;
+
+  const branches = asList(push.branches);
+  if (branches.length > 0) return branches.includes("main");
+
+  const ignored = asList(push["branches-ignore"]);
+  if (ignored.length > 0) return !ignored.includes("main");
+
+  // A tag filter with no branch filter fires only for matching tags, never on
+  // a branch push -- so it is not a main-push workflow, and reporting it as
+  // one would make this guard cry wolf on the next tag-triggered workflow.
+  if (asList(push.tags).length > 0 || asList(push["tags-ignore"]).length > 0) return false;
+
+  return true;
+}
+
+/** A YAML field that may be written as a scalar or a sequence, as a list. */
+function asList(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+/**
+ * The completeness guard for the main-push arm (#7601).
+ *
+ * The three watch lists are explicit by design, but nothing asserted that
+ * every QUALIFYING workflow had joined one: `rialto-web-e2e.yml` was in none
+ * of them and sat red on `main` for 5d 8h across 28 runs while the same
+ * detector filed issues for its listed siblings. Fixing that by appending one
+ * file left the next new advisory workflow free to repeat it.
+ *
+ * Returns every workflow that pushes to `main`, carries no `schedule:`
+ * trigger, is not a deploy workflow, and is in neither
+ * `MAIN_PUSH_WORKFLOW_FILES` nor `MAIN_PUSH_WATCH_EXEMPT_FILES` -- i.e. every
+ * workflow that can currently stay red on `main` with no issue filed. A test
+ * asserts this is empty against the real `.github/workflows`, so a new
+ * advisory workflow fails CI until it is watched or exempted on purpose.
+ *
+ * @param {string} workflowsDir
+ * @returns {Array<{name: string, file: string, path: string}>}
+ */
+export function findUnwatchedMainPushWorkflows(workflowsDir) {
+  return readdirSync(workflowsDir)
+    .filter((file) => /\.ya?ml$/.test(file))
+    .filter(
+      (file) =>
+        !MAIN_PUSH_WORKFLOW_FILES.includes(file) &&
+        !DEPLOY_WORKFLOW_FILES.includes(file) &&
+        !(file in MAIN_PUSH_WATCH_EXEMPT_FILES)
+    )
+    .map((file) => ({ file, source: readFileSync(join(workflowsDir, file), "utf-8") }))
+    .filter(({ source }) => hasMainPushTrigger(source) && !hasScheduleTrigger(source))
+    .map(({ file, source }) => {
+      const nameMatch = WORKFLOW_NAME_PATTERN.exec(source);
+      return {
+        name: nameMatch ? nameMatch[1].trim() : file,
+        file,
+        path: `.github/workflows/${file}`,
+      };
+    })
+    .sort((a, b) => a.file.localeCompare(b.file));
+}
 
 /** Mirrors `findDeployWorkflows` for `MAIN_PUSH_WORKFLOW_FILES`. */
 export function findMainPushWorkflows(workflowsDir) {
@@ -627,6 +745,7 @@ export function buildScheduledFailureBody({
   runs,
   workflowModifiedAt,
   kind = "scheduled",
+  cancelledCountsAsFailure = false,
 }) {
   const runLines = (runs ?? [])
     .map((run) => `- ${run.url ?? "(no url)"}${run.createdAt ? ` (${run.createdAt})` : ""}`)
@@ -645,13 +764,16 @@ export function buildScheduledFailureBody({
         ? "consecutive runs"
         : "consecutive scheduled runs";
   const workflowNoun = kind === "scheduled" ? "scheduled workflow" : "workflow";
+  const streakRule = cancelledCountsAsFailure
+    ? "For this workflow `cancelled` runs (job timeouts) count toward this streak; `skipped` runs are excluded"
+    : "Runs with conclusion `cancelled` or `skipped` are excluded from this streak";
 
   return `\`${workflowPath}\` has failed its last ${streak} ${runsNoun}.
 ${modifiedLine}
 ### Failing runs
 ${runLines}
 
-**Action Required:** investigate why this ${workflowNoun} is failing and fix the root cause. Runs with conclusion \`cancelled\` or \`skipped\` are excluded from this streak — see .claude/rules/gotchas.md.`;
+**Action Required:** investigate why this ${workflowNoun} is failing and fix the root cause. ${streakRule} — see .claude/rules/gotchas.md.`;
 }
 
 /** Pure: `buildScheduledFailureBody` with `kind: "deploy"` wording. */
@@ -691,7 +813,15 @@ export function runScheduledWorkflowHealthCheck({
   return workflows.map((workflow) => {
     const runs = getRuns(workflow.name);
     const workflowModifiedAt = getWorkflowModifiedAt(workflow.path);
-    const health = classifyScheduledWorkflowHealth({ runs, threshold, workflowModifiedAt });
+    const cancelledCountsAsFailure = CANCELLED_IS_FAILURE_WORKFLOW_FILES.some((file) =>
+      workflow.path?.endsWith(`/${file}`)
+    );
+    const health = classifyScheduledWorkflowHealth({
+      runs,
+      threshold,
+      workflowModifiedAt,
+      cancelledCountsAsFailure,
+    });
 
     if (health.status === "awaiting-rerun") {
       // Deliberately logged rather than silent: this is a suppressed
@@ -721,6 +851,7 @@ export function runScheduledWorkflowHealthCheck({
       runs: health.failingRuns,
       workflowModifiedAt,
       kind,
+      cancelledCountsAsFailure,
     });
     const labels = ["ci-fix", COORDINATION_LABELS.READY];
 
@@ -751,6 +882,216 @@ export function runScheduledWorkflowHealthCheck({
     return {
       workflow: workflow.name,
       status: health.status,
+      action: result.action,
+      issueNumber: result.issueNumber,
+    };
+  });
+}
+
+/**
+ * ## Failure-rate axis (#8066)
+ *
+ * `classifyScheduledWorkflowHealth()` above only ever asks "are the last
+ * `threshold` runs all failures?" — a workflow that flaps (red, red, green,
+ * red, red, red, green, ...) almost never presents a uniform window at the
+ * exact moment the daily detector samples, so it reads `healthy` no matter
+ * how red it actually is. `apps-visual.yml` sat 56% red on `main` for a week
+ * (87/156 runs) with zero issues filed this way. This is the structural
+ * sibling of #5815 (recency): the streak axis cannot see a workflow that
+ * never settles into a streak, exactly as it cannot see one that never ran.
+ * Kept fully separate from the streak machinery above: distinct status
+ * enum, distinct title pattern, distinct dedupe key namespace, and a
+ * separate orchestrator so neither can be conflated with the other.
+ */
+
+/** Minimum usable (non-excluded) runs required before a rate can be trusted. */
+export const DEFAULT_FLAPPING_MIN_SAMPLE = 20;
+
+/** Failure-rate percentage, at or above which a workflow is "flapping". */
+export const DEFAULT_FLAPPING_RATE_PCT = 40;
+
+/**
+ * Pure, network-free: classifies a workflow's health from the *failure
+ * rate* over a (typically wide) sample of its runs, independent of whether
+ * the most recent runs form a streak. Runs with conclusion `cancelled` or
+ * `skipped` are excluded from the denominator entirely (#4538/#4685), same
+ * as the streak classifier above. A run with no usable `conclusion` at all
+ * (missing/undefined/empty) is also excluded rather than guessed at — it is
+ * neither a success nor a failure this classifier can count.
+ *
+ * Fails closed to `insufficient-sample` — never `healthy` — on an empty run
+ * list or a usable sample below `minSample`: a noisy detection is
+ * recoverable, a silently suppressed one is not (same convention as
+ * `insufficient-history` above and `classifyRunRecency`'s
+ * `undeterminable`).
+ *
+ * @param {{runs: Array<{conclusion?: string|null}>, minSample?: number, ratePct?: number}} args
+ * @returns {{status: "healthy"|"flapping"|"insufficient-sample", failureRatePct: number|null, sample: number, failureCount: number}}
+ */
+export function classifyFailureRate({
+  runs,
+  minSample = DEFAULT_FLAPPING_MIN_SAMPLE,
+  ratePct = DEFAULT_FLAPPING_RATE_PCT,
+}) {
+  const effectiveMinSample =
+    Number.isInteger(minSample) && minSample > 0 ? minSample : DEFAULT_FLAPPING_MIN_SAMPLE;
+  const effectiveRatePct =
+    Number.isFinite(ratePct) && ratePct > 0 ? ratePct : DEFAULT_FLAPPING_RATE_PCT;
+
+  const usable = (runs ?? []).filter(
+    (run) => !EXCLUDED_CONCLUSIONS.has(run?.conclusion) && Boolean(run?.conclusion)
+  );
+
+  if (usable.length < effectiveMinSample) {
+    return {
+      status: "insufficient-sample",
+      failureRatePct: null,
+      sample: usable.length,
+      failureCount: 0,
+    };
+  }
+
+  const failureCount = usable.filter((run) => run.conclusion === "failure").length;
+  const failureRatePct = Math.round((failureCount / usable.length) * 1000) / 10;
+
+  return {
+    status: failureRatePct >= effectiveRatePct ? "flapping" : "healthy",
+    failureRatePct,
+    sample: usable.length,
+    failureCount,
+  };
+}
+
+/**
+ * Pure: same as `mainPushRunArgs`, but for the failure-rate arm, which needs
+ * a wider sample than the streak arm's `threshold + 5` to make a rate
+ * meaningful (apps-visual.yml's real episode spans 156 runs over a week).
+ */
+export function mainPushRateRunArgs(workflowName, minSample) {
+  return [
+    "--workflow",
+    workflowName,
+    "--branch",
+    "main",
+    "--event",
+    "push",
+    "--limit",
+    String(minSample * 5),
+    "--json",
+    "conclusion,url,createdAt",
+  ];
+}
+
+/**
+ * Pure: builds the deterministic flapping-rate ci-fix title so re-runs
+ * dedupe by title match. Deliberately worded "is flapping at N% failures" —
+ * never "has failed N consecutive runs" — so the title stays honest about
+ * what was actually detected, and so it can never be confused with (or
+ * dedupe against) a streak-filed issue for the same workflow.
+ */
+export function buildFlappingFailureTitle(workflowName, failureRatePct) {
+  return `ci-fix: ${workflowName} is flapping at ${failureRatePct}% failures`;
+}
+
+const FLAPPING_FAILURE_TITLE_PATTERN = /^ci-fix: (.+) is flapping at [\d.]+% failures$/;
+
+/**
+ * Pure: extracts the workflow name a flapping-rate issue was filed for, from
+ * its title. Deliberately a separate pattern/function from
+ * `extractWorkflowNameFromIssueTitle` and
+ * `extractWorkflowNameFromMissedRunTitle` — each finding kind must dedupe
+ * independently, never against another kind's ledger entry.
+ */
+export function extractWorkflowNameFromFlappingTitle(issue) {
+  const match = FLAPPING_FAILURE_TITLE_PATTERN.exec(issue?.title ?? "");
+  return match ? match[1] : null;
+}
+
+/** Pure: builds the issue body for a flapping-rate finding. */
+export function buildFlappingFailureBody({ workflowPath, failureRatePct, sample, failureCount }) {
+  return `\`${workflowPath}\` has failed ${failureCount} of its last ${sample} sampled runs — a ${failureRatePct}% failure rate.
+
+This workflow never presented a long enough consecutive-failure streak to trip the streak detector, but is red often enough that it should not be reported healthy.
+
+**Action Required:** investigate why this workflow fails so often and fix the root cause. Runs with conclusion \`cancelled\` or \`skipped\` are excluded from this rate — see .claude/rules/gotchas.md.`;
+}
+
+/**
+ * Orchestrates the failure-rate check across a set of workflows, with
+ * injected GitHub operations (testable without the network). For each
+ * workflow: classify its failure rate, and on `flapping`, file (or dedupe
+ * against) one `ci-fix` issue via the shared `fileIssue()` seam — kept
+ * fully independent of `runScheduledWorkflowHealthCheck`'s streak-based
+ * decision for the same workflow.
+ *
+ * @param {{
+ *   workflows: Array<{name: string, path: string}>,
+ *   getRuns: (workflowName: string) => Array<{conclusion?: string|null}>,
+ *   minSample?: number,
+ *   ratePct?: number,
+ *   searchCiFixIssues?: () => Array<{number: number, title: string}>,
+ *   getIssueState?: (issueNumber: number) => "open"|"closed"|"missing",
+ *   createIssue: (title: string, body: string, labels: string[]) => number,
+ *   reopenIssue?: (issueNumber: number) => void,
+ *   log?: (msg: string) => void,
+ * }} deps
+ * @returns {Array<{workflow: string, status: string, action?: string, issueNumber?: number}>}
+ */
+export function runWorkflowFailureRateCheck({
+  workflows,
+  getRuns,
+  minSample = DEFAULT_FLAPPING_MIN_SAMPLE,
+  ratePct = DEFAULT_FLAPPING_RATE_PCT,
+  searchCiFixIssues = () => [],
+  getIssueState = () => "missing",
+  createIssue,
+  reopenIssue = () => {},
+  log = () => {},
+}) {
+  return workflows.map((workflow) => {
+    const runs = getRuns(workflow.name);
+    const rate = classifyFailureRate({ runs, minSample, ratePct });
+
+    if (rate.status !== "flapping") {
+      return { workflow: workflow.name, status: rate.status };
+    }
+
+    const title = buildFlappingFailureTitle(workflow.name, rate.failureRatePct);
+    const body = buildFlappingFailureBody({
+      workflowPath: workflow.path,
+      failureRatePct: rate.failureRatePct,
+      sample: rate.sample,
+      failureCount: rate.failureCount,
+    });
+    const labels = ["ci-fix", COORDINATION_LABELS.READY];
+
+    // A failed search fails open: it must not swallow a genuine flapping rate.
+    const result = fileIssueBySearch(
+      { title, body, labels, dedupeKey: workflow.name },
+      {
+        search: searchCiFixIssues,
+        match: (issue) => extractWorkflowNameFromFlappingTitle(issue) === workflow.name,
+        onSearchError: (err) =>
+          log(
+            `search for a prior flapping-rate issue failed, proceeding as no-match: ${err.message}`
+          ),
+      },
+      { getIssueState, createIssue, reopenIssue }
+    );
+
+    log(
+      result.action === "skipped-error"
+        ? `Could not read state of issue #${result.issueNumber} for ${workflow.name}'s flapping rate — not filing.`
+        : result.action === "skip"
+          ? `Issue #${result.issueNumber} already tracks ${workflow.name}'s flapping rate — skipping.`
+          : result.action === "reopen"
+            ? `Reopened issue #${result.issueNumber} for ${workflow.name}'s flapping rate.`
+            : `Created issue #${result.issueNumber} for ${workflow.name}'s flapping rate.`
+    );
+
+    return {
+      workflow: workflow.name,
+      status: rate.status,
       action: result.action,
       issueNumber: result.issueNumber,
     };
@@ -895,6 +1236,18 @@ function main() {
 
   const results = [...scheduledResults, ...deployResults, ...mainPushResults];
 
+  // Failure-rate axis (#8066), main-push arm only: apps-visual.yml's 56%
+  // red week is the measured case this axis exists for, and
+  // mainPushRateRunArgs already fetches a wide-enough sample. A workflow
+  // can be both `failing-streak` AND `flapping` at once — this is a fully
+  // independent orchestrator/result set, never merged into `results`.
+  const rateResults = runWorkflowFailureRateCheck({
+    ...commonDeps,
+    workflows: mainPushWorkflows,
+    getRuns: (name) =>
+      ghClient.workflow.runs(mainPushRateRunArgs(name, DEFAULT_FLAPPING_MIN_SAMPLE)),
+  });
+
   const failing = results.filter((r) => r.status === "failing-streak");
   if (failing.length > 0) {
     console.error(`${failing.length} workflow(s) failing ${threshold}+ consecutive runs.`);
@@ -905,11 +1258,19 @@ function main() {
     console.error(`${overdue.length} workflow(s) missed a scheduled run.`);
   }
 
-  // A separate top-level key, not merged into `results`: `results` entries
+  const flapping = rateResults.filter((r) => r.status === "flapping");
+  if (flapping.length > 0) {
+    console.error(`${flapping.length} workflow(s) flapping at a high failure rate.`);
+  }
+
+  // Separate top-level keys, not merged into `results`: `results` entries
   // use the failing-streak status enum, `recency` entries use a disjoint one
-  // (fresh/overdue/never-ran/undeterminable) — keeping them apart prevents
-  // any consumer from accidentally treating one status set as the other.
-  process.stdout.write(`${JSON.stringify({ results, recency: recencyResults }, null, 2)}\n`);
+  // (fresh/overdue/never-ran/undeterminable), and `rate` entries use its own
+  // (healthy/flapping/insufficient-sample) — keeping them apart prevents any
+  // consumer from accidentally treating one status set as another.
+  process.stdout.write(
+    `${JSON.stringify({ results, recency: recencyResults, rate: rateResults }, null, 2)}\n`
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

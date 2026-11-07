@@ -6,6 +6,12 @@
   gap: var(--rialto-space-xs);
 }
 
+/* Positions the error overlay over the tile without nesting it inside it. */
+.frame {
+  position: relative;
+  display: inline-flex;
+}
+
 /* ── Tile ────────────────────────────────────── */
 .tile {
   composes: focusRing from "../../styles/surfaces.module.css";
@@ -177,6 +183,7 @@
 .errorOverlay {
   position: absolute;
   inset: 0;
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: center;

@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
@@ -189,5 +191,19 @@ describe("Navbar", () => {
       expect(ids.every(Boolean)).toBe(true);
       expect(new Set(ids).size).toBe(ids.length);
     });
+  });
+
+  it("fills its frame and scrolls the link list so the footer stays put", () => {
+    const css = readFileSync(resolve(import.meta.dirname, "./Navbar.module.css"), "utf8");
+    const navbar = /\.navbar\s*\{([^}]*)\}/.exec(css)?.[1];
+    const links = /\.links\s*\{([^}]*)\}/.exec(css)?.[1];
+    const footer = /\.footer\s*\{([^}]*)\}/.exec(css)?.[1];
+    expect(navbar).toBeDefined();
+    expect(navbar).toMatch(/height:\s*100%/);
+    expect(navbar).toMatch(/min-height:\s*0/);
+    expect(navbar).not.toMatch(/100vh/);
+    expect(links).toMatch(/min-height:\s*0/);
+    expect(links).toMatch(/overflow-y:\s*auto/);
+    expect(footer).toMatch(/flex-shrink:\s*0/);
   });
 });

@@ -1,32 +1,88 @@
+import { useQueries } from "@tanstack/react-query";
 import type {
   ClosureAlongside,
   ClosureCallListEntry,
   ClosureImpact,
+  ClosureNoticePreview,
+  ClosureNoticePreviewBody,
   ClosureResult,
   ClosuresResult,
   ClosureSummary,
   DateRule,
   ReopenResult,
+  ReopenSeen,
   RetryRefundsResult,
 } from "@mbe/types";
 import type { AvailabilityClient } from "@mbe/api-client";
-import { AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY } from "./useAvailability.js";
+import {
+  AVAILABILITY_CONFIG_QUERY_KEY,
+  AVAILABILITY_DAYS_QUERY_KEY,
+  CLOSURE_SUMMARIES_QUERY_KEY,
+} from "./useAvailability.js";
+import { trackOwnSave } from "../components/availability/use-reload-hold.js";
 import { createMutationHook } from "./create-mutation-hook.js";
-import { createQueryHook } from "./create-query-hook.js";
+import { buildQueryKey, createQueryHook } from "./create-query-hook.js";
+import { useApiClient } from "./useApiClient.js";
 
 const CLOSURE_IMPACT_QUERY_KEY = "closureImpact" as const;
 
 /** Which future bookings a draft closure would affect (read-only; Manager). */
 export const useClosureImpact = createQueryHook<
   ClosureImpact | null,
-  { venueId: string | null; rule: DateRule | null }
+  { venueId: string | null; rule: DateRule | null; alongside?: ClosureAlongside | undefined }
 >({
   key: CLOSURE_IMPACT_QUERY_KEY,
   fetcher: async (params, api) =>
     params?.venueId && params.rule
-      ? api.availability.getClosureImpact(params.venueId, params.rule)
+      ? api.availability.getClosureImpact(params.venueId, params.rule, params.alongside)
       : null,
   getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
+});
+
+/**
+ * Which future bookings each of several draft closures would affect, one lookup per rule (Close
+ * on several dates stores a closure per date). Each shares its cache entry with `useClosureImpact`.
+ * `data` is in the order of `rules`, once every lookup has answered.
+ */
+export function useClosureImpacts(params: {
+  readonly venueId: string | null;
+  readonly rules: readonly DateRule[];
+}): {
+  data: ClosureImpact[] | undefined;
+  isLoading: boolean;
+  error: Error | null;
+  refetch: () => Promise<unknown>;
+} {
+  const api = useApiClient();
+  const { venueId, rules } = params;
+  const queries = useQueries({
+    queries: rules.map((rule) => ({
+      queryKey: buildQueryKey(CLOSURE_IMPACT_QUERY_KEY, { venueId, rule }),
+      queryFn: () => api.availability.getClosureImpact(venueId!, rule),
+      enabled: venueId !== null,
+    })),
+  });
+  const answered = queries.length > 0 && queries.every((q) => q.data !== undefined);
+  return {
+    data: answered ? queries.map((q) => q.data!) : undefined,
+    isLoading: queries.some((q) => q.isLoading),
+    error: queries.find((q) => q.error)?.error ?? null,
+    refetch: () => Promise.all(queries.map((q) => q.refetch())),
+  };
+}
+
+/**
+ * The email and text a guest would be sent for one Step 2 outcome, rendered by the server. Asked
+ * only once a Manager opens the preview, and cached by the booking it was asked about.
+ */
+export const useClosureNoticePreview = createQueryHook<
+  ClosureNoticePreview | null,
+  { venueId: string; body: ClosureNoticePreviewBody }
+>({
+  key: "closureNoticePreview",
+  fetcher: async (params, api) =>
+    params ? api.availability.getClosureNoticePreview(params.venueId, params.body) : null,
+  getEnabled: (params) => !!params?.venueId && params.enabled !== false,
 });
 
 export type PreviewClosureImpactVariables = {
@@ -59,12 +115,15 @@ export type CreateClosureVariables = {
 
 /** Saves a closure with one decision per affected group. */
 export const useCreateClosure = createMutationHook<CreateClosureVariables, ClosureResult>({
-  invalidateKeys: [AVAILABILITY_CONFIG_QUERY_KEY, AVAILABILITY_DAYS_QUERY_KEY],
+  invalidateKeys: [
+    AVAILABILITY_CONFIG_QUERY_KEY,
+    AVAILABILITY_DAYS_QUERY_KEY,
+    CLOSURE_SUMMARIES_QUERY_KEY,
+  ],
   mutationFn: (api, { venueId, body, idempotencyKey }) =>
-    api.availability.createClosure(venueId, body, idempotencyKey),
+    trackOwnSave(venueId, () => api.availability.createClosure(venueId, body, idempotencyKey)),
 });
 
-const CLOSURE_SUMMARIES_QUERY_KEY = "closureSummaries" as const;
 const CLOSURE_CALL_LIST_QUERY_KEY = "closureCallList" as const;
 
 /** Sent / Rebooked / Unreachable and refund counts per closure (Special dates tab). */
@@ -106,6 +165,10 @@ export type ReopenClosureVariables = {
   venueId: string;
   ruleId: string;
   tellCancelledGuests: boolean;
+  /** The rule and its skips and one-date edits as the screen read them; a change since is refused. */
+  seen?: ReopenSeen;
+  /** Reopen only this date of a bounded range. */
+  date?: string;
 };
 
 /** Reopens a closure (Resume on the paused-online banner; Remove on Special dates). */
@@ -115,8 +178,10 @@ export const useReopenClosure = createMutationHook<ReopenClosureVariables, Reope
     AVAILABILITY_DAYS_QUERY_KEY,
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
-  mutationFn: (api, { venueId, ruleId, tellCancelledGuests }) =>
-    api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests),
+  mutationFn: (api, { venueId, ruleId, tellCancelledGuests, seen, date }) =>
+    trackOwnSave(venueId, () =>
+      api.availability.reopenClosure(venueId, ruleId, tellCancelledGuests, undefined, seen, date)
+    ),
 });
 
 export type PreviewClosureImpactsVariables = {
@@ -155,5 +220,5 @@ export const useCreateClosures = createMutationHook<CreateClosuresVariables, Clo
     CLOSURE_SUMMARIES_QUERY_KEY,
   ],
   mutationFn: (api, { venueId, body, idempotencyKey }) =>
-    api.availability.createClosures(venueId, body, idempotencyKey),
+    trackOwnSave(venueId, () => api.availability.createClosures(venueId, body, idempotencyKey)),
 });

@@ -11,8 +11,7 @@ import { ErrorRetryBanner } from "./ErrorRetryBanner.js";
  * (`@axe-core/playwright` only runs in E2E), so the structural contract is asserted directly.
  */
 describe("ErrorRetryBanner (real rialto render)", () => {
-  const detail =
-    "The reservations service hit a snag — nothing was changed. Try again in a moment.";
+  const detail = "The reservations service hit a snag. Try again in a moment.";
   const rawLine = "POST /api/v1/reservations/walk-in failed: 500 Internal Server Error";
 
   it("is one alert announcing title then detail, with Retry, Show details and Dismiss as named buttons", () => {

@@ -25,6 +25,7 @@ import type {
 } from "../generated/prisma/index.js";
 import { planVenueMigration } from "./availability-migration.js";
 import { prisma } from "./database.js";
+import { bookableTableWhere } from "./bookable-tables.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
 /**
@@ -379,7 +380,7 @@ export async function loadAvailabilitySnapshot(
       include: { tables: { select: { tableId: true } } },
     }),
     db.table.findMany({
-      where: { venueId, isActive: true },
+      where: bookableTableWhere(venueId),
       orderBy: [{ priority: "desc" }, { capacity: "asc" }],
       select: {
         id: true,

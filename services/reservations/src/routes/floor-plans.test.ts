@@ -662,7 +662,7 @@ describe("Floor Plan Routes", () => {
         payload: mockJWTPayload,
         protectedHeader: { alg: "RS256" },
       } as never);
-      vi.mocked(floorPlanService.delete).mockResolvedValueOnce(true);
+      vi.mocked(floorPlanService.delete).mockResolvedValueOnce("deleted");
 
       const response = await app.inject({
         method: "DELETE",
@@ -681,7 +681,7 @@ describe("Floor Plan Routes", () => {
         payload: mockJWTPayload,
         protectedHeader: { alg: "RS256" },
       } as never);
-      vi.mocked(floorPlanService.delete).mockResolvedValueOnce(false);
+      vi.mocked(floorPlanService.delete).mockResolvedValueOnce("not_found");
 
       const response = await app.inject({
         method: "DELETE",
@@ -692,6 +692,68 @@ describe("Floor Plan Routes", () => {
       });
 
       expect(response.statusCode).toBe(404);
+    });
+
+    it("returns 204 when a plan with booking history is archived", async () => {
+      vi.mocked(floorPlanService.delete).mockResolvedValueOnce("archived");
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/floor-plans/floor-plan-123",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(204);
+    });
+
+    it("refuses the active plan with a friendly 409", async () => {
+      vi.mocked(floorPlanService.delete).mockResolvedValueOnce("active");
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/floor-plans/floor-plan-123",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json()).toEqual(
+        expect.objectContaining({
+          status: 409,
+          detail: "Activate another floor plan before deleting this one",
+        })
+      );
+      expect(response.json()).not.toHaveProperty("prismaMeta");
+    });
+
+    it("refuses a plan with upcoming bookings with a friendly 409", async () => {
+      vi.mocked(floorPlanService.delete).mockResolvedValueOnce("has_upcoming");
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/floor-plans/floor-plan-123",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json().detail).toBe(
+        "Move or cancel the upcoming reservations on this floor plan's tables before deleting it"
+      );
+    });
+
+    it("answers a booking that lands mid-delete with a friendly 409", async () => {
+      vi.mocked(floorPlanService.delete).mockResolvedValueOnce("in_use");
+
+      const response = await app.inject({
+        method: "DELETE",
+        url: "/api/v1/floor-plans/floor-plan-123",
+        headers: { "x-auth-bypass": "true" },
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json().detail).toBe(
+        "A table on this floor plan was just booked. Try deleting it again."
+      );
+      expect(response.json()).not.toHaveProperty("prismaMeta");
     });
   });
 

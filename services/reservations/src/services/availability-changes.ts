@@ -1,9 +1,11 @@
 import { addDays, serviceDayInstant } from "@mbe/availability";
-import type {
-  AvailabilityChangeEntry,
-  AvailabilityChangeOutcome,
-  AvailabilityChangesPage,
-  AvailabilityChangesParsed,
+import {
+  ScheduleServiceSchema,
+  type AvailabilityChangeEntry,
+  type AvailabilityChangeOutcome,
+  type AvailabilityChangesPage,
+  type AvailabilityChangesParsed,
+  type ScheduleService,
 } from "@mbe/types";
 import { Prisma, type PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
@@ -11,9 +13,12 @@ import {
   commitSave,
   inSaveTransaction,
   refuseSave,
+  toSummary,
   type SaveOutcome,
   type StoreClient,
 } from "./availability-config.js";
+import { revertedDetail } from "./availability-change-detail.js";
+import { returnCarriedOutcomes } from "./closure-carry-outcomes.js";
 import { CONFIG_TABLES, type ConfigInverse } from "./availability-config-plan.js";
 import { prisma } from "./database.js";
 
@@ -74,12 +79,26 @@ function whereOf(
   };
 }
 
-/** The newest change that is still in force: unreverted and not itself a revert. */
+/**
+ * The newest change that is still in force: unreverted and not itself a revert. "Newest" is the
+ * version a change produced, never `at`: `at` is stamped before the venue row lock is taken, so a
+ * change that waited on the lock commits a higher version with an older `at`, and its inverse is the
+ * one exact against the current state. Rows from before the version was recorded (NULL) are older
+ * than every versioned row, and keep their order among themselves by `at`.
+ */
 function newestInForce(db: Pick<StoreTx, "availabilityChange">, venueId: string) {
   return db.availabilityChange.findFirst({
     where: { venueId, revertedById: null, kind: { not: REVERT_KIND } },
-    orderBy: [{ at: "desc" }, { id: "desc" }],
-    select: { id: true },
+    orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
+    select: {
+      id: true,
+      actorId: true,
+      at: true,
+      kind: true,
+      summary: true,
+      summaryDetail: true,
+      notifiedGuests: true,
+    },
   });
 }
 
@@ -110,12 +129,8 @@ export async function listAvailabilityChanges(
       newestInForce(db, venueId),
     ]);
     const items: AvailabilityChangeEntry[] = rows.map((r) => ({
-      id: r.id,
-      actorId: r.actorId,
+      ...toSummary(r),
       actorName: r.actorName ?? null,
-      at: r.at.toISOString(),
-      kind: r.kind,
-      summary: r.summary,
       affectedFrom: toDay(r.affectedFrom),
       affectedTo: toDay(r.affectedTo),
       notifiedGuests: r.notifiedGuests,
@@ -127,7 +142,10 @@ export async function listAvailabilityChanges(
         r.revertedById == null &&
         r.kind !== REVERT_KIND,
     }));
-    return { total, offset: query.offset, items };
+    // The change Undo is on, whatever this page holds: a caller reading one row (the agent) would
+    // otherwise see the newest by `at`, which after a lock-wait race is not the one in force.
+    const undoable = newest && !newest.notifiedGuests ? toSummary(newest) : null;
+    return { total, offset: query.offset, items, undoable };
   });
 }
 
@@ -139,7 +157,11 @@ export type RevertOutcome =
 
 const refused = (reason: RevertRefusalReason) => ({ kind: "refused" as const, reason });
 
-/** Reads the stored inverse; `null` when it is not a version this code understands. */
+/**
+ * Reads the stored inverse; `null` when it is not a version this code understands. Its schedule
+ * service rows go through the row schema, so an entry saved before day scope (rows without
+ * `weekdays` and `dayHours`) restores as "no scope" instead of reaching the engine without them.
+ */
 function readInverse(value: unknown): ConfigInverse | null {
   if (typeof value !== "object" || value === null) return null;
   const v = value as Partial<ConfigInverse>;
@@ -149,7 +171,13 @@ function readInverse(value: unknown): ConfigInverse | null {
   const tables = CONFIG_TABLES.every(
     (t) => Array.isArray(v.restore?.[t]) && Array.isArray(v.remove?.[t])
   );
-  return tables ? (v as ConfigInverse) : null;
+  if (!tables) return null;
+  const rows = (v.restore.scheduleServices as unknown[]).map((r) =>
+    ScheduleServiceSchema.safeParse(r)
+  );
+  if (!rows.every((r) => r.success)) return null;
+  const scheduleServices = rows.flatMap((r): ScheduleService[] => (r.success ? [r.data] : []));
+  return { ...v, restore: { ...v.restore, scheduleServices } } as ConfigInverse;
 }
 
 export async function revertAvailabilityChange(
@@ -185,6 +213,7 @@ export async function revertAvailabilityChange(
         exact: true,
         kind: REVERT_KIND,
         summary: `Reverted: ${change.summary}`,
+        detail: revertedDetail(change.summaryDetail),
         // The column exactly as it was (null included), so undoing a venue's first
         // save puts its hours back rather than projecting an empty week over them.
         operatingHours: inverse.operatingHours == null ? Prisma.DbNull : inverse.operatingHours,
@@ -195,6 +224,8 @@ export async function revertAvailabilityChange(
             where: { id: changeId },
             data: { revertedById: revertId },
           });
+          // A growth that moved the old series' outcomes onto its new id gives them back.
+          await returnCarriedOutcomes(db, change.inverse);
         },
       };
     })

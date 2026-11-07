@@ -41,19 +41,26 @@ jobs:
           # denominator. The 2026-W34 audit reported "Total PRs merged | 30"
           # against a real 170 — exactly the default, inflating the ratio ~5.7x.
           #
-          # Redirected to a file rather than captured through
-          # `$(... || echo "[]")`: a gh failure that writes to stdout AND exits
-          # non-zero concatenates both, producing a string that is neither valid
-          # JSON nor the fallback.
-          gh pr list \
-            --repo "$GITHUB_REPOSITORY" \
-            --state merged \
-            --limit 500 \
-            --json number,title,author,mergedAt,labels,additions,deletions,headRefName \
-            --jq "[.[] | select(.mergedAt >= \"${SINCE}\")]" > /tmp/merged-prs.json 2>/dev/null || true
-          if ! jq -e 'type == "array"' /tmp/merged-prs.json >/dev/null 2>&1; then
-            echo "[]" > /tmp/merged-prs.json
-          fi
+          # Redirected to a file rather than captured through `$(...)`: a gh
+          # failure that writes to stdout AND exits non-zero would concatenate
+          # both. A query that keeps failing fails this job, with gh's stderr
+          # visible. W44 (#7952) hid the error and published "0 of 408 merged
+          # PRs" as a clean audit, which reads as reassurance.
+          for attempt in 1 2 3; do
+            if gh pr list \
+              --repo "$GITHUB_REPOSITORY" \
+              --state merged \
+              --limit 500 \
+              --json number,title,author,mergedAt,labels,additions,deletions,headRefName \
+              --jq "[.[] | select(.mergedAt >= \"${SINCE}\")]" > /tmp/merged-prs.json; then
+              break
+            fi
+            if [ "$attempt" = 3 ]; then
+              echo "::error::Merged-PR query failed 3 times; refusing to publish an empty audit"
+              exit 1
+            fi
+            sleep 30
+          done
 
           # The AI split uses the repo's one canonical predicate (`isAgentPr` in
           # plugins/acmm/scripts/agent-pr.js, #6380) via a node script rather
@@ -88,23 +95,26 @@ jobs:
           AUDIT_ISSUES=$(gh issue list \
             --repo "$GITHUB_REPOSITORY" \
             --state all \
+            --limit 500 \
             --label "audit" \
             --json number,title,state,createdAt \
-            --jq "[.[] | select(.createdAt >= \"${SINCE}\")]" 2>/dev/null || echo "[]")
+            --jq "[.[] | select(.createdAt >= \"${SINCE}\")]")
 
           ACMM_ISSUES=$(gh issue list \
             --repo "$GITHUB_REPOSITORY" \
             --state all \
+            --limit 500 \
             --label "acmm" \
             --json number,title,state,createdAt \
-            --jq "[.[] | select(.createdAt >= \"${SINCE}\")]" 2>/dev/null || echo "[]")
+            --jq "[.[] | select(.createdAt >= \"${SINCE}\")]")
 
           AGENT_FAILED=$(gh issue list \
             --repo "$GITHUB_REPOSITORY" \
             --state all \
+            --limit 500 \
             --label "agent-failed" \
             --json number,title,state,createdAt \
-            --jq "[.[] | select(.createdAt >= \"${SINCE}\")]" 2>/dev/null || echo "[]")
+            --jq "[.[] | select(.createdAt >= \"${SINCE}\")]")
 
           AUDIT_COUNT=$(echo "$AUDIT_ISSUES" | jq 'length')
           ACMM_COUNT=$(echo "$ACMM_ISSUES" | jq 'length')

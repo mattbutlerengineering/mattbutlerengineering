@@ -47,6 +47,13 @@ describe("Telemetry HUD", () => {
     expect(screen.getByRole("region", { name: "Event feed" })).toBeInTheDocument();
   });
 
+  it("hands the event ticker a start-aligned board class", () => {
+    renderRoute("?frozen=1");
+
+    const feed = screen.getByRole("region", { name: "Event feed" });
+    expect(feed.querySelector(".tickerBoard")).not.toBeNull();
+  });
+
   it("marks the current zone, and only that zone", () => {
     renderRoute("?frozen=1");
 

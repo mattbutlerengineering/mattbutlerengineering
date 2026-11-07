@@ -56,6 +56,19 @@ describe("buildCspDirectives", () => {
     expect(buildCspDirectives(nonce)).toContain("font-src 'self' https://fonts.gstatic.com");
   });
 
+  it("does not grant Google Fonts hosts on connect-src", () => {
+    // style-src and font-src already allow the stylesheet and the font files.
+    // connect-src is what a service worker fetch() is checked against. Adding
+    // these hosts would let any script on the origin fetch them; the worker
+    // must not intercept the font requests instead.
+    const connect = buildCspDirectives(nonce)
+      .split("; ")
+      .find((directive) => directive.startsWith("connect-src "));
+    expect(connect).toBeDefined();
+    expect(connect).not.toContain("fonts.googleapis.com");
+    expect(connect).not.toContain("fonts.gstatic.com");
+  });
+
   it("includes frame-ancestors 'none'", () => {
     expect(buildCspDirectives(nonce)).toContain("frame-ancestors 'none'");
   });

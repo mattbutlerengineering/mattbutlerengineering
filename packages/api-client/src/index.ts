@@ -78,6 +78,7 @@ import { HealthClient } from "./health.js";
 export function createApiClient(config: {
   baseUrl?: string;
   getAccessToken?: () => string | null | Promise<string | null>;
+  refreshAccessToken?: () => Promise<string | null>;
   timeout?: number;
   maxRetries?: number;
   onError?: (error: ApiClientError) => void;
@@ -85,6 +86,7 @@ export function createApiClient(config: {
   const client = new ApiClient({
     baseUrl: config.baseUrl ?? "",
     getAccessToken: config.getAccessToken,
+    refreshAccessToken: config.refreshAccessToken,
     timeout: config.timeout,
     maxRetries: config.maxRetries,
     onError: config.onError,

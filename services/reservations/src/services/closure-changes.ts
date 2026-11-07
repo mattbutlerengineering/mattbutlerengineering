@@ -13,10 +13,20 @@ export interface ClosureChanges {
  * Read from the outcome rows in the venue's context. A cancel that did not stick, or a
  * moved booking cancelled since, is left out: it is not a change to announce.
  */
-export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> {
+export async function loadClosureChanges(
+  venueId: string,
+  ruleId: string,
+  /** Outcomes the save carried in from a series it replaced: not its changes to announce. */
+  carried: readonly string[] = []
+): Promise<ClosureChanges> {
   const outcomes = await runWithVenueContext(venueId, () =>
     prisma.closureOutcome.findMany({
-      where: { venueId, dateRuleId: ruleId, action: { in: ["cancel", "move"] } },
+      where: {
+        venueId,
+        dateRuleId: ruleId,
+        action: { in: ["cancel", "move"] },
+        id: { notIn: [...carried] },
+      },
       select: { action: true, reservation: { include: { table: true } } },
     })
   );

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import {
   Alert,
   Button,
@@ -11,20 +10,23 @@ import {
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
+import { weekdayIndexOf } from "@mbe/availability";
 import {
-  AvailabilityConfigProblemSchema,
   GUEST_MESSAGE_MAX_LENGTH,
+  type AvailabilityConfig,
   type AvailabilityConfigState,
   type ClosureImpact,
 } from "@mbe/types";
 import { useCreateClosures, usePreviewClosureImpacts } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
-import { describeApiError } from "../../lib/describe-api-error.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { minutesOfDayIn } from "../../utils/service-day.js";
 import {
   combineImpacts,
   decisionsFor,
   emptyRow,
+  regularServices,
   ruleItems,
   saveLabelParts,
   rowFieldId,
@@ -34,8 +36,20 @@ import {
   type DateRow,
 } from "./add-dates-draft.js";
 import { AddDateRow } from "./AddDateRow.js";
-import { decisionsReady, isUrgent, outcomeCounts, type ChoiceMap } from "./close-draft.js";
+import {
+  decisionsReady,
+  withoutChoicesFor,
+  isUrgent,
+  outcomeCounts,
+  stepTwoNote,
+  stepTwoNoteId,
+  type ChoiceMap,
+} from "./close-draft.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
+import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
+import { outcomeSummary } from "./outcome-label.js";
+import { refusalOf, refusalText } from "./step-two-refusal.js";
+import { useSaveAttempts } from "./use-save-attempts.js";
 import styles from "./AddSpecialDatesSheet.module.css";
 
 export interface AddSpecialDatesSheetProps {
@@ -46,21 +60,36 @@ export interface AddSpecialDatesSheetProps {
   readonly today: string;
   readonly onStale: () => void;
   readonly onClose: () => void;
+  /** One Closed row per date to start from (the holidays offered on Special dates); else one empty row. */
+  readonly initialRows?: readonly PlannedDate[];
+}
+
+/** A date the sheet opens on, and what it is ("Thanksgiving"), shown in its row's legend. */
+export interface PlannedDate {
+  readonly date: string;
+  readonly name: string;
+  /**
+   * How the row starts. "hours" starts from the weekday's usual hours, so saving it untouched
+   * cancels nothing: the safe start for a day most venues open (Valentine's Day, Mother's Day).
+   */
+  readonly kind: "closed" | "hours";
+}
+
+function plannedRow(
+  planned: PlannedDate,
+  config: AvailabilityConfig,
+  timezone: string,
+  today: string
+): DateRow {
+  const row = emptyRow(crypto.randomUUID(), planned.date, planned.name);
+  if (planned.kind === "closed") return row;
+  const weekday = weekdayIndexOf(planned.date);
+  const services = regularServices(config, timezone, weekday, today);
+  // A weekday with no usual hours has nothing to start from: the row stays Closed.
+  return services.length === 0 ? row : { ...row, kind: "hours", services, seededFor: weekday };
 }
 
 const SHARED_MESSAGE_ID = "add-dates-shared-message";
-
-function isVersionConflict(error: unknown): boolean {
-  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-  const problem = AvailabilityConfigProblemSchema.safeParse(details);
-  return problem.success && problem.data.code === "version-conflict";
-}
-
-function closureFailure(error: unknown, t: TFunction): string {
-  return isVersionConflict(error)
-    ? t("availability.close.versionConflict")
-    : describeApiError(error).detail;
-}
 
 /**
  * + Add special date (ux.md F6, S7 "Several dates"): rows of Closed, Special hours or Same as a
@@ -69,26 +98,37 @@ function closureFailure(error: unknown, t: TFunction): string {
  * for one date while another fails. Manager only.
  */
 export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
-  const { venueId, state, timezone, today, onStale, onClose } = props;
+  const viewport = useViewport();
+  const { venueId, state, timezone, today, onStale, onClose, initialRows } = props;
   const { t } = useTranslation();
+  const format = useVenueFormat();
   const { toast } = useToast();
   const now = useNow();
   const previewImpacts = usePreviewClosureImpacts();
   const createClosures = useCreateClosures();
 
-  const [form, setForm] = useState<AddDatesForm>({
-    rows: [emptyRow(crypto.randomUUID(), "")],
+  const [form, setForm] = useState<AddDatesForm>(() => ({
+    rows:
+      initialRows && initialRows.length > 0
+        ? initialRows.map((r) => plannedRow(r, state.config, timezone, today))
+        : [emptyRow(crypto.randomUUID(), "")],
     shareMessage: false,
     sharedMessage: "",
-  });
+  }));
   const [step, setStep] = useState<1 | 2>(1);
   const [impacts, setImpacts] = useState<readonly ClosureImpact[]>([]);
   const [choices, setChoices] = useState<ChoiceMap>({});
   const [invalid, setInvalid] = useState<{ key: string; field: RowField } | null>(null);
   const [failure, setFailure] = useState<readonly string[]>([]);
-  // One rule id per row and one key per sheet: a retried save never creates a rule twice.
+  // This sheet's key already committed (a lost response): nothing more is sent from it.
+  const [savedEarlier, setSavedEarlier] = useState(false);
+  // A save with no answer may have committed: from then on "nothing was cancelled" can be false.
+  const [outcomeUnknown, setOutcomeUnknown] = useState(false);
+  const attempts = useSaveAttempts(state.config.dateRules, { reload: onStale, onLeave: onClose });
+  const { idempotencyKey, earlier } = attempts;
+  // One rule id per row per attempt: a retried save never creates a rule twice, and a changed one
+  // (a new key) is never taken for the first.
   const [ruleIds] = useState(() => new Map<string, string>());
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
 
   // Set by a handler that wants focus moved once the render it causes has committed.
   const pendingFocusRef = useRef<string | null>(null);
@@ -103,7 +143,8 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     control?.focus();
   }, [form.rows, invalid]);
 
-  const idFor = (key: string) => {
+  const idFor = (rowKey: string) => {
+    const key = `${idempotencyKey}:${rowKey}`;
     if (!ruleIds.has(key)) ruleIds.set(key, crypto.randomUUID());
     return ruleIds.get(key)!;
   };
@@ -120,17 +161,33 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const sharedMessageError = form.sharedMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH;
   const busy = previewImpacts.isPending || createClosures.isPending;
 
+  // After a failed save, any edit is a new attempt: see `useSaveAttempts`.
+  const editForm = (next: AddDatesForm) => {
+    attempts.edited(form, next);
+    setForm(next);
+  };
   const patchRow = (next: DateRow) => {
-    setForm({ ...form, rows: form.rows.map((r) => (r.key === next.key ? next : r)) });
+    editForm({ ...form, rows: form.rows.map((r) => (r.key === next.key ? next : r)) });
     setInvalid(null);
   };
-  // The preview shows the message every closure shares; rows with different messages show none.
+  // The message each group's guests get is its own row's. `impacts[i]` was asked for `items[i]`.
   const messages = new Set(items.map((i) => i.rule.guestMessage ?? ""));
   const previewMessage = messages.size === 1 ? [...messages][0]! : "";
+  const messageByGroup = new Map(
+    impacts.flatMap((impact, i) =>
+      impact.groups.map((g) => [g.groupKey, items[i]?.rule.guestMessage ?? ""] as const)
+    )
+  );
+  const messageFor = (groupKey: string): string => messageByGroup.get(groupKey) ?? "";
 
   const save = async (found: readonly ClosureImpact[]) => {
     setFailure([]);
     const decisions = decisionsFor(found, choices);
+    attempts.record(
+      outcomeSummary(outcomeCounts(combineImpacts(found).groups, choices), t),
+      items.map((item) => item.rule.id),
+      items.map((item) => item.rule.startsOn)
+    );
     try {
       const result = await createClosures.mutateAsync({
         venueId,
@@ -153,8 +210,52 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
       });
       onClose();
     } catch (error) {
-      setFailure([closureFailure(error, t), t("availabilitySpecial.add.nothingCancelled")]);
-      if (isVersionConflict(error)) {
+      const refused = refusalOf(error);
+      const text = refusalText(refused, t, { groups: combined.groups, format });
+      let reloadFailed = false;
+      if (refused.kind === "move-unavailable") {
+        setChoices(withoutChoicesFor(combined.groups, choices, refused.reservationIds));
+        // What Step 2 proposed no longer matches what the save does: ask again.
+        try {
+          setImpacts(
+            await previewImpacts.mutateAsync({ venueId, rules: items.map((i) => i.rule) })
+          );
+        } catch {
+          reloadFailed = true;
+        }
+      }
+      if (refused.kind === "groups-changed") {
+        // A group changed since the Manager chose: drop the choices and ask again on the new one.
+        setChoices({});
+        setFailure([text]);
+        try {
+          setImpacts(
+            await previewImpacts.mutateAsync({ venueId, rules: items.map((i) => i.rule) })
+          );
+        } catch {
+          setFailure([text, t("availability.close.impactError")]);
+        }
+        return;
+      }
+      attempts.failed(refused);
+      if (refused.kind === "closure-exists") {
+        onStale();
+        setSavedEarlier(true);
+        setFailure([text]);
+        return;
+      }
+      const unknown = outcomeUnknown || (refused.kind === "other" && refused.outcomeUnknown);
+      setOutcomeUnknown(unknown);
+      setFailure(
+        unknown
+          ? [t("availabilitySpecial.add.maybeSaved")]
+          : [
+              text,
+              t("availabilitySpecial.add.nothingCancelled"),
+              ...(reloadFailed ? [t("availability.close.impactError")] : []),
+            ]
+      );
+      if (refused.kind === "version-conflict") {
         // Reload the config, and ask again from it: the impact and the version are both stale.
         onStale();
         setStep(1);
@@ -212,114 +313,166 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     });
   })();
 
+  if (earlier) {
+    // Named: the form may show other dates by now, and the notice is about these.
+    const dates = earlier.dates
+      .map((d) => format.formatCalendarDate(d, { month: "short", day: "numeric" }))
+      .join(", ");
+    return (
+      <Drawer
+        open
+        onClose={attempts.finish}
+        title={t("availabilitySpecial.add.title")}
+        size={viewport === "phone" ? "full" : "wide"}
+        footer={
+          <div className={styles.footer}>
+            <Button variant="primary" onClick={attempts.finish}>
+              {t("availability.close.savedEarlier.done")}
+            </Button>
+          </div>
+        }
+      >
+        {/* The first attempt's choices are what applied; never invite a retry. */}
+        <Alert variant="info" title={t("availabilitySpecial.add.savedEarlier.title")}>
+          {earlier.summary
+            ? t("availabilitySpecial.add.savedEarlier.body", { dates, summary: earlier.summary })
+            : t("availabilitySpecial.add.savedEarlier.bodyPlain", { dates })}
+        </Alert>
+      </Drawer>
+    );
+  }
+
   return (
-    <Drawer
-      open
-      onClose={onClose}
-      title={t("availabilitySpecial.add.title")}
-      size="wide"
-      footer={
-        <div className={styles.footer}>
-          {step === 2 && (
-            <Text variant="caption" color="secondary" className={styles.footerNote}>
-              {t("availability.close.step2.irreversible")}
-            </Text>
-          )}
-          <Button variant="secondary" onClick={step === 2 ? () => setStep(1) : onClose}>
-            {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
-          </Button>
-          <Button
-            variant="primary"
-            data-testid="add-dates-primary"
-            isLoading={busy}
-            disabled={step === 2 ? !decisionsReady(combined.groups, choices) : false}
-            onClick={() => void (step === 2 ? save(impacts) : next())}
-          >
-            {label}
-          </Button>
-        </div>
-      }
-    >
-      <Stack gap="md">
-        <Text variant="caption" color="secondary">
-          {t("availability.close.step", { step })}
-        </Text>
-        {failure.length > 0 && (
-          <Alert variant="error" title={t("availability.close.saveError")}>
-            {failure.map((message) => (
-              <div key={message}>{message}</div>
-            ))}
-          </Alert>
-        )}
-        {step === 1 ? (
-          <>
-            {form.rows.map((row, index) => (
-              <AddDateRow
-                key={row.key}
-                row={row}
-                index={index}
-                config={state.config}
-                timezone={timezone}
-                today={today}
-                invalid={invalid?.key === row.key ? invalid.field : null}
-                canRemove={form.rows.length > 1}
-                messageShared={form.shareMessage}
-                onChange={patchRow}
-                onRemove={() => setForm({ ...form, rows: form.rows.filter((r) => r !== row) })}
-              />
-            ))}
-            <div>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  const added = emptyRow(crypto.randomUUID(), "");
-                  pendingFocusRef.current = rowFieldId(added.key, "date");
-                  setForm({ ...form, rows: [...form.rows, added] });
-                }}
+    <>
+      <Drawer
+        open
+        onClose={() => attempts.leave(busy)}
+        title={t("availabilitySpecial.add.title")}
+        size={viewport === "phone" ? "full" : "wide"}
+        footer={
+          <div className={styles.footer}>
+            {step === 2 && (
+              <Text
+                id={stepTwoNoteId}
+                variant="caption"
+                color="secondary"
+                className={styles.footerNote}
               >
-                {t("availabilitySpecial.add.addRow")}
-              </Button>
-            </div>
-            <Checkbox
-              label={t("availabilitySpecial.add.shareMessage")}
-              checked={form.shareMessage}
-              onCheckedChange={(shareMessage) =>
-                setForm({
-                  ...form,
-                  shareMessage,
-                  sharedMessage: form.sharedMessage || previewMessage,
-                })
-              }
-            />
-            {form.shareMessage && (
-              <TextArea
-                label={t("availabilitySpecial.add.sharedMessage")}
-                id={SHARED_MESSAGE_ID}
-                value={form.sharedMessage}
-                maxLength={GUEST_MESSAGE_MAX_LENGTH}
-                error={sharedMessageError}
-                hint={
-                  sharedMessageError
-                    ? t("availability.close.guestMessageTooLong", {
-                        max: GUEST_MESSAGE_MAX_LENGTH,
-                      })
-                    : undefined
-                }
-                showOptional
-                onChange={(e) => setForm({ ...form, sharedMessage: e.target.value })}
-              />
+                {stepTwoNote(decisionsReady(combined.groups, choices), t)}
+              </Text>
             )}
-          </>
-        ) : (
-          <CloseStepTwo
-            impact={combined}
-            choices={choices}
-            urgent={urgent}
-            guestMessage={form.shareMessage ? form.sharedMessage : previewMessage}
-            onChoose={(key, choice) => setChoices({ ...choices, [key]: choice })}
-          />
-        )}
-      </Stack>
-    </Drawer>
+            <Button
+              variant="secondary"
+              onClick={step === 2 ? () => setStep(1) : () => attempts.leave(busy)}
+            >
+              {step === 2 ? t("availability.close.back") : t("availability.close.cancel")}
+            </Button>
+            <Button
+              variant="primary"
+              data-testid="add-dates-primary"
+              aria-describedby={step === 2 ? stepTwoNoteId : undefined}
+              isLoading={busy}
+              disabled={
+                savedEarlier || (step === 2 ? !decisionsReady(combined.groups, choices) : false)
+              }
+              onClick={() => void (step === 2 ? save(impacts) : next())}
+            >
+              {label}
+            </Button>
+          </div>
+        }
+      >
+        <Stack gap="md">
+          <Text variant="caption" color="secondary">
+            {t("availability.close.step", { step })}
+          </Text>
+          {failure.length > 0 && (
+            <Alert variant="error" title={t("availability.close.saveError")}>
+              {failure.map((message) => (
+                <div key={message}>{message}</div>
+              ))}
+            </Alert>
+          )}
+          {step === 1 ? (
+            <>
+              {form.rows.map((row, index) => (
+                <AddDateRow
+                  key={row.key}
+                  row={row}
+                  index={index}
+                  config={state.config}
+                  timezone={timezone}
+                  today={today}
+                  invalid={invalid?.key === row.key ? invalid.field : null}
+                  canRemove={form.rows.length > 1}
+                  messageShared={form.shareMessage}
+                  onChange={patchRow}
+                  onRemove={() => editForm({ ...form, rows: form.rows.filter((r) => r !== row) })}
+                />
+              ))}
+              <div>
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    const added = emptyRow(crypto.randomUUID(), "");
+                    pendingFocusRef.current = rowFieldId(added.key, "date");
+                    editForm({ ...form, rows: [...form.rows, added] });
+                  }}
+                >
+                  {t("availabilitySpecial.add.addRow")}
+                </Button>
+              </div>
+              {/* "Every date" means nothing with one date. Kept while on, so removing rows down to
+                  one never hides the only message field. */}
+              {(form.rows.length > 1 || form.shareMessage) && (
+                <Checkbox
+                  label={t("availabilitySpecial.add.shareMessage")}
+                  checked={form.shareMessage}
+                  onCheckedChange={(shareMessage) =>
+                    editForm({
+                      ...form,
+                      shareMessage,
+                      sharedMessage: form.sharedMessage || previewMessage,
+                    })
+                  }
+                />
+              )}
+              {form.shareMessage && (
+                <TextArea
+                  label={t("availabilitySpecial.add.sharedMessage")}
+                  id={SHARED_MESSAGE_ID}
+                  value={form.sharedMessage}
+                  maxLength={GUEST_MESSAGE_MAX_LENGTH}
+                  error={sharedMessageError}
+                  hint={
+                    sharedMessageError
+                      ? t("availability.close.guestMessageTooLong", {
+                          max: GUEST_MESSAGE_MAX_LENGTH,
+                        })
+                      : undefined
+                  }
+                  showOptional
+                  onChange={(e) => editForm({ ...form, sharedMessage: e.target.value })}
+                />
+              )}
+            </>
+          ) : (
+            <CloseStepTwo
+              venueId={venueId}
+              impact={combined}
+              choices={choices}
+              urgent={urgent}
+              guestMessage=""
+              messageFor={messageFor}
+              onChoose={(key, choice) => {
+                attempts.edited(choices[key], choice);
+                setChoices({ ...choices, [key]: choice });
+              }}
+            />
+          )}
+        </Stack>
+      </Drawer>
+      <LeaveSaveDialog attempts={attempts} />
+    </>
   );
 }

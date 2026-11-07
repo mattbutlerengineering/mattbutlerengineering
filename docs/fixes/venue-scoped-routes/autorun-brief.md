@@ -89,3 +89,43 @@ Must STOP and surface to Matt:
 
 - anything touching credentials or secrets;
 - any non-additive Prisma migration.
+
+## Resume — 2026-11-02 (Matt present, in-session answers)
+
+All six run PRs are merged on origin/main: #6132, #6193, #6224, #6323, #6363
+(PR 5) and #6365 (PR 6). The only unchecked breakdown items are the PR 5 and
+PR 6 gates, so orientation is Implement (31/33). This resume drives Implement
+(gate bookkeeping) → Verify → Review → Ship. There is no stop line.
+
+- **Worktree / branch (supersedes `refactor/venue-scoped-routes` above):**
+  `.claude/worktrees/venue-scoped-routes-autorun`, branch
+  `docs/venue-scoped-routes-autorun`, cut from `origin/main` @ `77f84aca5`.
+  It carries run artifacts only. Stage commits land here, and the branch ends
+  in one pull request.
+- **Prior uncommitted close-out (found 2026-11-02):**
+  `.claude/worktrees/venue-scoped-routes-close`, branch
+  `docs/venue-scoped-routes-close` @ `f3d4f7602` (689 commits behind
+  origin/main). It was never committed or pushed and has no PR. It holds a
+  2026-10-17 `breakdown.md` edit that ticks the PR 5 and PR 6 gates with
+  GitHub-API evidence and a Notes entry, plus an untracked `verification.md`
+  (11 PASS, 0 FAIL, 1 RETIRED, measured on `f3d4f7602`). Matt's decision:
+  - Implement adopts the two gate ticks and their evidence notes, after
+    re-confirming each fact against GitHub.
+  - Verify re-runs on current origin/main. It uses the old `verification.md`
+    only as its criteria template and never copies its evidence.
+  - Leave that worktree and its branch untouched; Matt cleans them up.
+- **Open-PR pre-flight:** ran 2026-11-02. Open: #8005, #8157 (a chaos-agent
+  synthetic bug, never to be merged), #8160, #8166, #8167 and #8168. None is
+  approved, and Matt declined to merge or close any this session. None
+  blocks this run.
+- **Release authorization for this resume:** prepare and stop. This matches
+  the run's own "STOP before merging any PR" rule above. Ship opens one
+  artifact pull request and writes `outcome: prepared` with `pending-merge:`
+  naming it. No merge, deploy, publish or tag. The code already reached main
+  through the six merged PRs; Ship records that and does not re-release it.
+- **Tracker:** still none.
+
+## Operate
+
+operate: skip — no retro this run; the run stays active until someone has
+feedback to capture.

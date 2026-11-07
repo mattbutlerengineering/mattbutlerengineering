@@ -21,8 +21,9 @@ import type { Reservation } from "@mbe/types";
 
 const h = vi.hoisted(() => ({
   prisma: {
-    floorPlan: { findUnique: vi.fn(), findMany: vi.fn() },
+    floorPlan: { findUnique: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
     guest: { findMany: vi.fn() },
+    guestWinBack: { findMany: vi.fn() },
     // The staff hold routes resolve the hold's venue for requireVenueAccess
     // and the confirm's venue context (holdService.getVenueId).
     reservationHold: { findUnique: vi.fn() },
@@ -818,7 +819,7 @@ describe("reservation transitions — effects per entry point", () => {
         tables: [],
       };
       const clone = { ...source, id: "fp-2", name: "Copy of Main", isActive: false };
-      h.prisma.floorPlan.findUnique.mockResolvedValue(source);
+      h.prisma.floorPlan.findFirst.mockResolvedValue(source);
       h.prisma.floorPlan.findMany.mockResolvedValue([]);
       h.prisma.$transaction.mockImplementation(async (fn: (tx: unknown) => unknown) =>
         fn({
@@ -854,6 +855,7 @@ describe("reservation transitions — effects per entry point", () => {
           reservations: [visit(130), visit(120), visit(110), visit(100)],
         },
       ]);
+      h.prisma.guestWinBack.findMany.mockResolvedValue([]);
       const response = await send({
         method: "GET",
         url: `${API_V1}/guests/lapsing?venueId=venue-1`,

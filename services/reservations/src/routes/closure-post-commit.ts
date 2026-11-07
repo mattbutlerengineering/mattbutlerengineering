@@ -1,4 +1,5 @@
 import type { FastifyBaseLogger, FastifyInstance } from "fastify";
+import { readCarriedOutcomeIds } from "../services/closure-carry-outcomes.js";
 import { loadClosureChanges } from "../services/closure-changes.js";
 
 /**
@@ -20,11 +21,14 @@ import { loadClosureChanges } from "../services/closure-changes.js";
 export async function publishClosureChanges(
   fastify: FastifyInstance,
   log: FastifyBaseLogger,
-  saved: { venueId: string; ruleId: string }
+  saved: { venueId: string; ruleId: string; carried?: readonly string[] }
 ): Promise<void> {
-  const { venueId, ruleId } = saved;
+  const { venueId, ruleId, carried } = saved;
   try {
-    await fastify.transitions.settleClosure(venueId, await loadClosureChanges(venueId, ruleId));
+    await fastify.transitions.settleClosure(
+      venueId,
+      await loadClosureChanges(venueId, ruleId, carried)
+    );
   } catch (err) {
     log.error({ err, venueId, ruleId }, "closure SSE events were not published");
   }
@@ -32,7 +36,7 @@ export async function publishClosureChanges(
 
 export async function enqueueNotices(
   enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-  input: { venueId: string; ruleId: string },
+  input: { venueId: string; ruleId: string; carried?: readonly string[]; date?: string },
   log: FastifyBaseLogger
 ): Promise<void> {
   try {
@@ -48,17 +52,36 @@ export async function enqueueClosureJobs(
   saved: { venueId: string; ruleId: string; cancelled: number }
 ): Promise<void> {
   const { venueId, ruleId, cancelled } = saved;
-  await publishClosureChanges(fastify, log, { venueId, ruleId });
+  const carried = await carriedOutcomes(log, venueId, ruleId);
+  await publishClosureChanges(fastify, log, { venueId, ruleId, carried });
   if (cancelled > 0) {
     try {
-      await fastify.closureRefunds.enqueue(venueId, ruleId);
+      await fastify.closureRefunds.enqueue(venueId, ruleId, carried);
     } catch (err) {
       log.error({ err, venueId, ruleId }, "Failed to enqueue closure refund jobs");
     }
   }
   await enqueueNotices(
     fastify.services.closureNoticeService.enqueueForClosure,
-    { venueId, ruleId },
+    { venueId, ruleId, carried },
     log
   );
+}
+
+/**
+ * The outcomes a series edit carried in from the series it replaced: they were decided, told and
+ * refunded by that earlier save, so this one's post-commit work leaves them out. A failed read
+ * answers `[]`, which is the work as it was before outcomes could be carried.
+ */
+async function carriedOutcomes(
+  log: FastifyBaseLogger,
+  venueId: string,
+  ruleId: string
+): Promise<string[]> {
+  try {
+    return await readCarriedOutcomeIds(venueId, ruleId);
+  } catch (err) {
+    log.error({ err, venueId, ruleId }, "carried closure outcomes were not read");
+    return [];
+  }
 }

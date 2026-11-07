@@ -3,6 +3,7 @@ import type { AvailabilityConfig, DateRule } from "@mbe/types";
 import { computeClosureImpact, type ImpactBooking } from "./closure-impact.js";
 
 const TZ = "America/Los_Angeles";
+const NOW = new Date("2026-12-01T20:00:00.000Z");
 
 const CONFIG: AvailabilityConfig = {
   schedules: [{ id: "sch-1", name: "Regular", kind: "regular", isRegular: true }],
@@ -17,6 +18,8 @@ const CONFIG: AvailabilityConfig = {
       closesAt: 1380, // 11:00 PM
       seating: { version: 1, interval: 15 },
       bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1 as const, sets: [] },
     },
   ],
   assignments: [
@@ -58,7 +61,7 @@ const closure = (patch: Partial<DateRule> = {}): DateRule =>
   }) as DateRule;
 
 const impact = (rule: DateRule, bookings: ImpactBooking[]) =>
-  computeClosureImpact({ timezone: TZ, config: CONFIG, rule, bookings });
+  computeClosureImpact({ timezone: TZ, config: CONFIG, rule, bookings, now: NOW });
 
 describe("computeClosureImpact", () => {
   it("groups a whole-day closure's bookings as closed, with covers and held deposits", () => {
@@ -86,6 +89,36 @@ describe("computeClosureImpact", () => {
       currency: "usd",
     });
     expect(result.groups[0]!.reservations.every((r) => !r.runsIntoClosure)).toBe(true);
+  });
+
+  it("carries the host each booking came from, allowlisted, so its notice previews in that brand (#8013)", () => {
+    const result = impact(closure(), [
+      booking("eat", "2026-12-24", 19, 0, { originHost: "eat-sheet.com" }),
+      booking("home", "2026-12-24", 19, 15, { originHost: "mattbutlerengineering.com" }),
+      booking("odd", "2026-12-24", 19, 30, { originHost: "evil.example" }),
+      booking("none", "2026-12-24", 19, 45),
+    ]);
+    expect(result.groups[0]!.reservations.map((r) => [r.id, r.originHost])).toEqual([
+      ["eat", "eat-sheet.com"],
+      ["home", "mattbutlerengineering.com"],
+      ["odd", null],
+      ["none", null],
+    ]);
+  });
+
+  it("carries the language each booking was made in, so its notice previews in it (#8388)", () => {
+    const result = impact(closure(), [
+      booking("fr", "2026-12-24", 19, 0, { locale: "fr-CA" }),
+      booking("es", "2026-12-24", 19, 15, { locale: "es-MX" }),
+      booking("odd", "2026-12-24", 19, 30, { locale: "tlh" }),
+      booking("none", "2026-12-24", 19, 45),
+    ]);
+    expect(result.groups[0]!.reservations.map((r) => [r.id, r.locale])).toEqual([
+      ["fr", "fr-CA"],
+      ["es", "es-MX"],
+      ["odd", "en-US"],
+      ["none", "en-US"],
+    ]);
   });
 
   it("groups a shortened service's stranded bookings as shortened", () => {
@@ -118,6 +151,124 @@ describe("computeClosureImpact", () => {
     expect(result.groups.map((g) => [g.groupKey, g.reservations.map((r) => r.id)])).toEqual([
       ["2026-12-24:shortened", ["late"]],
     ]);
+  });
+
+  describe("the start a move would give each booking", () => {
+    const shortened: DateRule = {
+      id: "dr-new",
+      kind: "special_hours",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      payload: {
+        version: 1,
+        services: [
+          {
+            venueServiceId: "vs-dinner",
+            opensAt: 960,
+            lastSeatingAt: 1080,
+            closesAt: 1200,
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ],
+      },
+    };
+
+    it("is the nearest open start from the logic the closure command moves with", () => {
+      const result = impact(shortened, [booking("late", "2026-12-24", 20, 0)]);
+      // 8:00 PM cannot seat after 6:00 PM last seating: 6:00 PM PST is 02:00Z the next day.
+      expect(result.groups[0]!.reservations[0]!.proposedStart).toBe("2026-12-25T02:00:00.000Z");
+    });
+
+    it("is null for a booking too long for any open service, so a move is refused", () => {
+      const long = booking("long", "2026-12-24", 20, 0);
+      const stuck = { ...long, endTime: new Date(long.startTime.getTime() + 300 * 60_000) };
+      const result = impact(shortened, [stuck]);
+      expect(result.groups[0]!.reservations[0]!.proposedStart).toBeNull();
+    });
+
+    describe("the tables the move lands on (closure-apply's targetTaken)", () => {
+      /** An hour-long booking on a table, `hh:mm` PST on Dec 24. */
+      const hour = (id: string, tableId: string, hh: number, mm = 0): ImpactBooking => {
+        const b = booking(id, "2026-12-24", hh, mm, { tableId });
+        return { ...b, endTime: new Date(b.startTime.getTime() + 60 * 60_000) };
+      };
+      const slim = (b: ImpactBooking) => ({
+        id: b.id,
+        tableId: b.tableId as string,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        partySize: b.partySize,
+      });
+      const proposals = (
+        bookings: ImpactBooking[],
+        occupancy: Parameters<typeof computeClosureImpact>[0]["occupancy"]
+      ) =>
+        Object.fromEntries(
+          computeClosureImpact({
+            timezone: TZ,
+            config: CONFIG,
+            rule: shortened,
+            bookings,
+            now: NOW,
+            occupancy,
+          }).groups[0]!.reservations.map((r) => [r.id, r.proposedStart])
+        );
+
+      const a = hour("a", "t1", 20);
+      const b = hour("b", "t1", 21);
+      const c = hour("c", "t2", 21);
+      const SIX_PM = "2026-12-25T02:00:00.000Z";
+
+      it("proposes a table's second booking nothing when the first has already taken the slot", () => {
+        // All three would go to 6:00 PM; a gets there first, so b (same table) cannot, c (other table) can.
+        expect(proposals([a, b, c], { reservations: [a, b, c].map(slim), holds: [] })).toEqual({
+          a: SIX_PM,
+          b: null,
+          c: SIX_PM,
+        });
+      });
+
+      it("is null when an unaffected booking sits in the target window", () => {
+        const kept = hour("kept", "t1", 17, 30); // 5:30-6:30 PM, inside the new hours
+        expect(proposals([a], { reservations: [slim(a), slim(kept)], holds: [] })).toEqual({
+          a: null,
+        });
+      });
+
+      it("is null under an active hold, and not under an expired one", () => {
+        const hold = (expiresAt: Date) => ({
+          id: "h1",
+          tableId: "t1",
+          startTime: new Date(SIX_PM),
+          endTime: new Date(Date.parse(SIX_PM) + 60 * 60_000),
+          partySize: 2,
+          expiresAt,
+        });
+        const live = new Date(NOW.getTime() + 60_000);
+        const dead = new Date(NOW.getTime() - 60_000);
+        expect(proposals([a], { reservations: [slim(a)], holds: [hold(live)] })).toEqual({
+          a: null,
+        });
+        expect(proposals([a], { reservations: [slim(a)], holds: [hold(dead)] })).toEqual({
+          a: SIX_PM,
+        });
+      });
+
+      it("does not collide with itself, and leaves a booking with no table unchecked", () => {
+        const loose = { ...hour("loose", "t1", 20), tableId: null };
+        expect(proposals([a, loose], { reservations: [slim(a)], holds: [] })).toEqual({
+          a: SIX_PM,
+          loose: SIX_PM,
+        });
+      });
+    });
+
+    it("is absent on a closed day, where a move is not offered", () => {
+      const result = impact(closure(), [booking("a", "2026-12-24", 19, 0)]);
+      expect(result.groups[0]!.reservations[0]!.proposedStart).toBeUndefined();
+    });
   });
 
   it("has no groups for a booking-only closure", () => {
@@ -170,6 +321,7 @@ describe("computeClosureImpact", () => {
       ],
     };
     const result = computeClosureImpact({
+      now: NOW,
       timezone: TZ,
       config: base,
       rule: closure({ id: "dr-new" }),
@@ -201,6 +353,7 @@ describe("computeClosureImpact", () => {
     const config = { ...CONFIG, dateRules: [series, skip] };
 
     const result = computeClosureImpact({
+      now: NOW,
       timezone: TZ,
       config,
       rule: edited,
@@ -219,6 +372,7 @@ describe("computeClosureImpact", () => {
       window: { version: 1, from: 1290, to: 1440 }, // closed from 9:30 PM
     });
     const result = computeClosureImpact({
+      now: NOW,
       timezone: TZ,
       config: { ...CONFIG, dateRules: [existing] },
       rule: closure({ id: "c2", window: { version: 1, from: 1260, to: 1440 } }), // from 9:00 PM
@@ -241,6 +395,7 @@ describe("computeClosureImpact", () => {
     const edited: DateRule = { ...series, id: "s2", repeat: { version: 1, weekdays: [4, 5] } };
 
     const result = computeClosureImpact({
+      now: NOW,
       timezone: TZ,
       config: { ...CONFIG, dateRules: [series] },
       rule: edited,

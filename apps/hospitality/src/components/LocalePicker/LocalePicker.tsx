@@ -49,7 +49,11 @@ export function LocalePicker({
 
   const currentEndonym = endonymOf(current);
   const currentLocale = SUPPORTED_LOCALES.find((l) => l.tag === current);
-  const triggerName = t("localePicker.triggerName", { locale: currentEndonym });
+  const localizedName = t("localePicker.triggerName", { locale: currentEndonym });
+  // WCAG 2.5.3 (axe label-content-name-mismatch): the compact trigger's visible text is the
+  // short code, so the accessible name must start with it.
+  const triggerName =
+    variant === "compact" ? `${current.toUpperCase()}, ${localizedName}` : localizedName;
 
   return (
     <div className={styles.root} data-variant={variant} aria-busy={pending !== null || undefined}>

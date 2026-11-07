@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -30,33 +30,66 @@ describe("tier-classifier.yml workflow_dispatch", () => {
     expect(TIER_CLASSIFIER_WORKFLOW).toMatch(/workflow_dispatch:\s*\n\s*inputs:\s*\n\s*pr:/);
     const inputsBlock = TIER_CLASSIFIER_WORKFLOW.slice(
       TIER_CLASSIFIER_WORKFLOW.indexOf("workflow_dispatch:")
-    ).slice(0, 600);
+    ).slice(0, 1500);
     expect(inputsBlock).toMatch(/required:\s*true/);
   });
 
-  it("still declares the original pull_request trigger", () => {
+  it("triggers on pull_request_target (base-side workflow file), same types", () => {
     expect(TIER_CLASSIFIER_WORKFLOW).toMatch(
-      /pull_request:\s*\n\s*types:\s*\[opened, synchronize, reopened\]/
+      /pull_request_target:\s*\n\s*types:\s*\[opened, synchronize, reopened\]/
     );
   });
 });
 
 const PRODUCERS = [
-  { file: ".github/workflows/production-feedback.yml", branch: "automation/production-feedback" },
-  { file: ".github/workflows/drift-fix.yml", branch: "automation/drift-fix" },
-  { file: ".github/workflows/pr-metrics.yml", branch: "automation/pr-acceptance-metrics" },
-  { file: ".github/workflows/acmm-regression.yml", branch: "automation/acmm-regression" },
-];
+  "acmm-regression",
+  "docs-audit",
+  "drift-fix",
+  "metrics-collectors",
+  "pr-metrics",
+  "production-feedback",
+  "record-summary-rows",
+  "shipped-features-snapshot",
+  "stale-human-blocked",
+  "visual-baseline-regen",
+].map((name) => ({ file: `.github/workflows/${name}.yml` }));
 
-describe.each(PRODUCERS)("$file dispatches tier-classifier", ({ file, branch }) => {
-  const workflow = readFileSync(resolve(ROOT, file), "utf8");
+/**
+ * A dispatch runs the workflow file as it exists at the dispatched ref, so a
+ * `--ref <PR branch>` would run a PR-authored classifier. The classifier fails
+ * closed off the default branch; every producer must therefore dispatch it
+ * with no `--ref`.
+ */
+describe("every workflow dispatches tier-classifier from the default branch", () => {
+  const workflowDir = resolve(ROOT, ".github/workflows");
+  const dispatchLines = (text) =>
+    text.split("\n").filter((l) => /gh workflow run tier-classifier\.yml/.test(l));
 
-  it("dispatches tier-classifier.yml on its own automation branch, gated on the PR having been created", () => {
-    const dispatchRe = new RegExp(
-      `gh workflow run tier-classifier\\.yml --ref ${branch.replace("/", "\\/")} -f pr=`
-    );
-    expect(workflow).toMatch(dispatchRe);
+  it("no `gh workflow run tier-classifier.yml` line passes --ref", () => {
+    const offenders = readdirSync(workflowDir)
+      .filter((f) => f.endsWith(".yml"))
+      .filter((f) =>
+        dispatchLines(readFileSync(resolve(workflowDir, f), "utf8")).some((l) => /--ref\b/.test(l))
+      );
+    expect(offenders).toEqual([]);
   });
+
+  it("each of the ten producers still contains a dispatch (cannot pass by finding nothing)", () => {
+    const missing = PRODUCERS.filter(
+      ({ file }) => dispatchLines(readFileSync(resolve(ROOT, file), "utf8")).length === 0
+    ).map(({ file }) => file);
+    expect(missing).toEqual([]);
+  });
+});
+
+// The four `auto-merge`-labeled producers also wait for the label and then arm
+// auto-merge; the other six only dispatch (covered above).
+const AUTO_MERGE_PRODUCERS = PRODUCERS.filter(({ file }) =>
+  /\/(production-feedback|drift-fix|pr-metrics|acmm-regression)\.yml$/.test(file)
+);
+
+describe.each(AUTO_MERGE_PRODUCERS)("$file dispatches tier-classifier", ({ file }) => {
+  const workflow = readFileSync(resolve(ROOT, file), "utf8");
 
   it("waits for the tier label before the Enable auto-merge step reads it", () => {
     expect(workflow).toMatch(/node scripts\/wait-for-tier-label\.mjs --pr/);
@@ -64,7 +97,7 @@ describe.each(PRODUCERS)("$file dispatches tier-classifier", ({ file, branch }) 
 
   it("orders: Dispatch CI -> Dispatch tier-classifier -> Wait for tier label -> Enable auto-merge", () => {
     const ciDispatchAt = workflow.indexOf("gh workflow run ci.yml --ref");
-    const tierDispatchAt = workflow.indexOf("gh workflow run tier-classifier.yml --ref");
+    const tierDispatchAt = workflow.indexOf("gh workflow run tier-classifier.yml");
     const waitAt = workflow.indexOf("node scripts/wait-for-tier-label.mjs");
     const enableAutoMergeAt = workflow.indexOf("name: Enable auto-merge");
 

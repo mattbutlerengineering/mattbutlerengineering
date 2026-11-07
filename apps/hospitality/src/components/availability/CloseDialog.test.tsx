@@ -1,4 +1,4 @@
-import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
@@ -6,20 +6,63 @@ import { ApiClientError } from "@mbe/api-client";
 import type { AvailabilityConfigState, ClosureImpact, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
+const createMany = vi.hoisted(() => vi.fn());
+/** The impact per date for Close on several dates: each rule is answered by its own start date. */
+const impactByDate = vi.hoisted(() => ({ value: {} as Record<string, unknown> }));
+const saving = vi.hoisted(() => ({ value: false }));
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
 const refetchImpact = vi.hoisted(() => vi.fn());
+/**
+ * How the impact query answers. By default it always has data. `keyed` models react-query: only
+ * the first rule it saw has cached data, so a rule that changes (a new id included) starts empty.
+ */
+const impactQuery = vi.hoisted(() => ({
+  keyed: false,
+  firstKey: null as string | null,
+  loading: false,
+  error: null as unknown,
+}));
 vi.mock("../../hooks/useClosures.js", () => ({
-  useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
-  useClosureImpact: () => ({
-    data: impactState.value,
+  useCreateClosure: () => ({ mutateAsync: create, isPending: saving.value }),
+  useCreateClosures: () => ({ mutateAsync: createMany, isPending: saving.value }),
+  useClosureImpacts: ({ rules }: { rules: readonly { startsOn: string }[] }) => ({
+    data:
+      rules.length > 0
+        ? rules.map(
+            (r) =>
+              impactByDate.value[r.startsOn] ?? {
+                reservations: 0,
+                covers: 0,
+                depositsHeld: 0,
+                groups: [],
+              }
+          )
+        : undefined,
     isLoading: false,
     error: null,
     refetch: refetchImpact,
   }),
+  useClosureNoticePreview: () => ({ data: undefined, isLoading: true, error: null }),
+  useClosureImpact: ({ rule }: { rule: unknown }) => {
+    const key = JSON.stringify(rule);
+    if (impactQuery.keyed && impactQuery.firstKey === null) impactQuery.firstKey = key;
+    const absent = impactQuery.loading || (impactQuery.keyed && key !== impactQuery.firstKey);
+    return {
+      data: absent ? undefined : impactState.value,
+      isLoading: absent && impactQuery.error === null,
+      error: impactQuery.error,
+      refetch: refetchImpact,
+    };
+  },
 }));
 const refresh = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => refresh }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
+vi.mock("../../contexts/venue-context-object.js", () => ({
+  useOptionalVenue: () => ({
+    selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
+  }),
+}));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
     selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -27,7 +70,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { CloseDialog } from "./CloseDialog.js";
-import { fixtureConfig } from "./resolved-day-fixtures.js";
+import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 const DATE = "2026-12-24";
@@ -95,13 +138,27 @@ describe("CloseDialog", () => {
   });
   beforeEach(() => {
     create.mockReset();
+    createMany.mockReset();
+    impactByDate.value = {};
     refresh.mockReset();
+    saving.value = false;
     impactState.value = IMPACT;
+    Object.assign(impactQuery, { keyed: false, firstKey: null, loading: false, error: null });
   });
 
   it("shows the guest-message character counter once", () => {
     renderDialog();
     expect(screen.getAllByText("0/200")).toHaveLength(1);
+  });
+
+  it("names the holiday in the holiday message on a holiday, and keeps it generic otherwise", () => {
+    const { unmount } = renderDialog();
+    fireEvent.click(screen.getByText("Closed for Christmas Eve"));
+    expect(screen.getByLabelText(/Message for guests/)).toHaveValue("Closed for Christmas Eve");
+    unmount();
+    renderDialog({ initialDate: "2026-12-02" });
+    expect(screen.getByText("Closed for the holiday")).toBeInTheDocument();
+    expect(screen.queryByText(/Closed for Christmas/)).not.toBeInTheDocument();
   });
 
   it("explains an over-limit guest message", () => {
@@ -187,6 +244,7 @@ describe("CloseDialog", () => {
     const primary = within(dialog).getByTestId("close-primary");
     expect(primary).toHaveTextContent(/^Choose for each group$/);
     expect(primary).toBeDisabled();
+    expect(primary).toHaveAccessibleDescription(/each group/i);
 
     fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
@@ -211,6 +269,81 @@ describe("CloseDialog", () => {
         reservationIds: IMPACT.groups[0]!.reservations.map((r) => r.id),
       },
     ]);
+  });
+
+  it("lists proposed move times, and names the bookings a refused move could not make", async () => {
+    const shortened: ClosureImpact = {
+      reservations: 2,
+      covers: 8,
+      depositsHeld: 0,
+      groups: [
+        {
+          groupKey: `${DATE}:shortened`,
+          date: DATE,
+          kind: "shortened",
+          covers: 8,
+          depositsHeld: 0,
+          reservations: [
+            {
+              id: "m1",
+              startTime: `${DATE}T20:00:00Z`,
+              endTime: `${DATE}T21:30:00Z`,
+              partySize: 4,
+              guestName: "Rivera",
+              deposit: null,
+              runsIntoClosure: false,
+              proposedStart: `${DATE}T18:00:00Z`,
+            },
+            {
+              id: "m2",
+              startTime: `${DATE}T20:30:00Z`,
+              endTime: `${DATE}T22:00:00Z`,
+              partySize: 2,
+              guestName: "Chen",
+              deposit: null,
+              runsIntoClosure: false,
+              proposedStart: `${DATE}T18:30:00Z`,
+            },
+          ],
+        },
+      ],
+    };
+    impactState.value = shortened;
+    refetchImpact.mockReset();
+    create.mockRejectedValue(
+      new ApiClientError(
+        {
+          type: "about:blank",
+          title: "Unprocessable Entity",
+          status: 422,
+          detail: "Some bookings have no open time to move to; choose another outcome.",
+          code: "move-unavailable",
+          reservationIds: ["m2"],
+        } as never,
+        "POST",
+        "closures"
+      )
+    );
+    renderDialog();
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /Move to the nearest open time/ }));
+
+    const rows = within(dialog).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent(/Rivera.*moves to 10:00 AM/);
+    expect(rows[1]).toHaveTextContent(/Chen.*moves to 10:30 AM/);
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Close and move 2" }));
+
+    const alert = await within(dialog).findByText(/Couldn't move Chen, Thu, Dec 24 at 12:30 PM/);
+    expect(alert.textContent).toContain("Nothing was saved, no guest was told");
+    // The choice is void: the Manager must decide again before anything can be sent.
+    expect(
+      within(dialog).getByRole("radio", { name: /Move to the nearest open time/ })
+    ).not.toBeChecked();
+    expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+    // The proposals are asked for again: what was shown no longer matches what the save does.
+    expect(refetchImpact).toHaveBeenCalledTimes(1);
   });
 
   it("refetches the impact and asks again when the group changed before the save", async () => {
@@ -296,6 +429,21 @@ describe("CloseDialog", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText("Online booking paused")).toBeTruthy();
     expect(screen.queryByText(/closed$/)).toBeNull();
+  });
+
+  it("names the channels the button pauses, not always online (#7978)", () => {
+    impactState.value = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+    renderDialog({ initialDate: null, pauseOnline: true });
+    const dialog = screen.getByRole("dialog");
+    const primary = () => within(dialog).getByTestId("close-primary").textContent;
+    expect(primary()).toBe("Pause online booking");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Phone" }));
+    expect(primary()).toBe("Pause booking");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Online" }));
+    expect(primary()).toBe("Pause phone booking");
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Phone" }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Waitlist" }));
+    expect(primary()).toBe("Pause waitlist");
   });
 
   it("does not claim online booking paused when only another channel was paused", async () => {
@@ -398,6 +546,1154 @@ describe("CloseDialog", () => {
       targetKind: "venue",
       startsOn: "2026-12-01",
       endsOn: "2026-12-01",
+    });
+  });
+
+  describe("a retried or interrupted close (#7975)", () => {
+    const RESULT = {
+      ruleId: "rule",
+      version: 8,
+      changeId: "c",
+      outcomes: { cancel: 14, move: 0, keep_notify: 0, keep_silent: 0 },
+    };
+    const toStepTwo = (dialog: HTMLElement) => {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+    };
+    type Call = { idempotencyKey: string; body: { rule: { id: string }; decisions: unknown } };
+
+    it("retries a lost response under the same key and rule id, then reports success", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      expect(await within(dialog).findByText("Couldn't close")).toBeTruthy();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).toBe(first!.body.rule.id);
+      expect(await screen.findByText("Thu, Dec 24 closed · 14 reservations notified")).toBeTruthy();
+    });
+
+    it("starts a new attempt when the Manager changes the request after a failure", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Tonight" }));
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).not.toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).not.toBe(first!.body.rule.id);
+    });
+
+    // A lost response may still have committed. A retry under the same key would replay it and
+    // hide that the Manager's later edit was ignored, so an edit after a failed save is a new
+    // attempt: the stale expected version then gets an honest conflict.
+    const failFirstSave = async (dialog: HTMLElement) => {
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+    };
+
+    it("starts a new attempt, keeping the decisions, when the guest message changes after a failed save", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      await failFirstSave(dialog);
+
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).not.toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).not.toBe(first!.body.rule.id);
+      expect(second!.body.decisions).toEqual(first!.body.decisions);
+    });
+
+    it("starts a new attempt when a decision changes after a failed save", async () => {
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const [first, second] = create.mock.calls.map((c) => c[0] as Call);
+      expect(second!.idempotencyKey).not.toBe(first!.idempotencyKey);
+      expect(second!.body.rule.id).not.toBe(first!.body.rule.id);
+    });
+
+    const dialogElement = (state: AvailabilityConfigState, onClose: () => void = vi.fn()) => (
+      <ToastProvider>
+        <main>
+          <CloseDialog
+            venueId="venue-1"
+            state={state}
+            timezone="America/Los_Angeles"
+            today="2026-12-01"
+            initialDate={DATE}
+            onClose={onClose}
+          />
+        </main>
+      </ToastProvider>
+    );
+    const STATE: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
+
+    it("keeps Step 2 and the choice when a decision changes after a failed save", async () => {
+      impactQuery.keyed = true; // a new rule id would be a new query, with no data yet
+      create.mockRejectedValueOnce(new Error("lost")).mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+      await within(dialog).findByText("Couldn't close");
+
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+
+      expect(within(dialog).getByRole("radio", { name: "Keep them and notify" })).toBeChecked();
+      const primary = within(dialog).getByTestId("close-primary");
+      expect(primary).toBeEnabled();
+      fireEvent.click(primary);
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+      const second = create.mock.calls[1]![0] as Call;
+      expect(second.body.decisions).toEqual([
+        expect.objectContaining({ groupKey: `${DATE}:closed`, action: "keep_notify" }),
+      ]);
+    });
+
+    it("waits on Step 2, saving nothing, while the bookings to decide on are loading", () => {
+      const view = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+
+      impactQuery.loading = true;
+      view.rerender(dialogElement(STATE));
+
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      expect(within(dialog).getByText("Loading the bookings…")).toBeTruthy();
+      expect(create).not.toHaveBeenCalled();
+    });
+
+    it("says so on Step 2, with the save disabled, when the bookings could not be read", () => {
+      const view = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+
+      impactQuery.error = new Error("down");
+      impactQuery.loading = true;
+      view.rerender(dialogElement(STATE));
+
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      expect(within(dialog).getByText(/Couldn't load the bookings/)).toBeTruthy();
+    });
+
+    it("offers Check again on Step 1 when the bookings check failed, instead of a field to change", () => {
+      impactQuery.error = new Error("down");
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("Couldn't check existing reservations.")).toBeTruthy();
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      refetchImpact.mockReset();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Check again" }));
+      expect(refetchImpact).toHaveBeenCalledTimes(1);
+    });
+
+    describe("when an earlier attempt turns out to have been saved", () => {
+      const conflict = () =>
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "Conflict",
+            status: 409,
+            detail: "Availability changed since you loaded it.",
+            code: "version-conflict",
+          } as never,
+          "POST",
+          "closures"
+        );
+      /** Attempt 1 cancels and loses its response; attempt 2 keeps and gets a 409. */
+      const savedThenChanged = async () => {
+        create.mockRejectedValueOnce(new Error("lost")).mockRejectedValueOnce(conflict());
+        const onClose = vi.fn();
+        const view = renderDialog({ onClose });
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText("Couldn't close");
+        // The first response was lost but it committed; the Manager now picks the other choice.
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+        await waitFor(() => expect(refresh).toHaveBeenCalled());
+        return { view, dialog, onClose };
+      };
+      const withFirstRule = () => {
+        const firstRuleId = (create.mock.calls[0]![0] as Call).body.rule.id;
+        const base = fixtureConfig();
+        return {
+          config: {
+            ...base,
+            dateRules: [
+              ...base.dateRules,
+              {
+                id: firstRuleId,
+                kind: "closure",
+                targetKind: "venue",
+                startsOn: DATE,
+                endsOn: DATE,
+              },
+            ],
+          } as AvailabilityConfigState["config"],
+          version: 8,
+          source: "rows" as const,
+        };
+      };
+
+      it("reports the first attempt's outcome, not a failure, and never says to try again", async () => {
+        const { view, dialog, onClose } = await savedThenChanged();
+        view.rerender(dialogElement(withFirstRule(), onClose));
+
+        expect(within(dialog).getByText("Already closed")).toBeTruthy();
+        expect(within(dialog).getByText(/cancel 14/)).toBeTruthy();
+        expect(within(dialog).getByText(/did not apply/)).toBeTruthy();
+        // No failure alert, and nothing that invites another save.
+        expect(within(dialog).queryByText("Couldn't close")).toBeNull();
+        expect(within(dialog).queryByText(/try again/i)).toBeNull();
+        expect(within(dialog).queryByText(/changed first by a teammate/i)).toBeNull();
+        // The Step 2 form, still showing the second choice, is gone.
+        expect(within(dialog).queryAllByRole("radio")).toHaveLength(0);
+        expect(within(dialog).queryByRole("button", { name: /Close and/ })).toBeNull();
+      });
+
+      it("names the choices of the send that committed, not of an earlier send of the same rule id", async () => {
+        const decisionRequired = new ApiClientError(
+          {
+            type: "about:blank",
+            title: "decision-required",
+            status: 422,
+            detail: "Every affected group needs a choice.",
+            code: "decision-required",
+            groupKeys: [`${DATE}:closed`],
+          } as never,
+          "POST",
+          "closures"
+        );
+        create
+          .mockRejectedValueOnce(decisionRequired) // send 1: cancel, rolled back
+          .mockRejectedValueOnce(new Error("lost")) // send 2: keep, same id, committed
+          .mockRejectedValueOnce(conflict()); // send 3: a later edit
+        const onClose = vi.fn();
+        const view = renderDialog({ onClose });
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/bookings changed while you were deciding/i);
+
+        // The choices were cleared and the rule id kept: the Manager now keeps the guests.
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and keep 14" }));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(2));
+        expect((create.mock.calls[1]![0] as Call).body.rule.id).toBe(
+          (create.mock.calls[0]![0] as Call).body.rule.id
+        );
+        await within(dialog).findByText("Couldn't close");
+
+        // Send 2 committed with its response lost; an edit is sent, and gets a 409.
+        fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(3));
+        await waitFor(() => expect(refresh).toHaveBeenCalled());
+
+        const committedId = (create.mock.calls[1]![0] as Call).body.rule.id;
+        const base = fixtureConfig();
+        view.rerender(
+          dialogElement(
+            {
+              config: {
+                ...base,
+                dateRules: [
+                  ...base.dateRules,
+                  {
+                    id: committedId,
+                    kind: "closure",
+                    targetKind: "venue",
+                    startsOn: DATE,
+                    endsOn: DATE,
+                  },
+                ],
+              } as AvailabilityConfigState["config"],
+              version: 8,
+              source: "rows",
+            },
+            onClose
+          )
+        );
+
+        expect(within(dialog).getByText(/keep 14/)).toBeTruthy();
+        expect(within(dialog).queryByText(/cancel 14/)).toBeNull();
+      });
+
+      it("saves nothing more and closes, refreshing the calendar, on Done", async () => {
+        const { view, dialog, onClose } = await savedThenChanged();
+        view.rerender(dialogElement(withFirstRule(), onClose));
+        refresh.mockClear();
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Done" }));
+
+        expect(create).toHaveBeenCalledTimes(2);
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(refresh).toHaveBeenCalled();
+      });
+
+      it("leaves at once on Escape, without asking to discard, and refreshes", async () => {
+        const { view, onClose } = await savedThenChanged();
+        view.rerender(dialogElement(withFirstRule(), onClose));
+        refresh.mockClear();
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        expect(screen.queryByRole("alertdialog", { name: /Discard|Leave/ })).toBeNull();
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(refresh).toHaveBeenCalled();
+      });
+    });
+
+    it("says on a 409 to save again, which works, not to close and lose the edit (#8032)", async () => {
+      create.mockRejectedValueOnce(
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "Conflict",
+            status: 409,
+            detail: "Availability changed since you loaded it.",
+            code: "version-conflict",
+          } as never,
+          "POST",
+          "closures"
+        )
+      );
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      // Loading, not loaded: the reload can fail, and then this sentence is all that is left.
+      expect(await within(dialog).findByText(/loading the latest.*save again/)).toBeTruthy();
+      expect(within(dialog).queryByText(/Close this dialog/)).toBeNull();
+      expect(within(dialog).getByRole("button", { name: "Close and cancel 14" })).toBeEnabled();
+    });
+
+    it("says a lost response may have gone through (#8032)", async () => {
+      create.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      expect(await within(dialog).findByText(/may have gone through/)).toBeTruthy();
+      expect(within(dialog).queryByText(/Can't reach/)).toBeNull();
+    });
+
+    it("does not promise nothing changed on a 502, which may have committed (#7978)", async () => {
+      create.mockRejectedValueOnce(
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "Bad Gateway",
+            status: 502,
+            detail: "Bad gateway",
+            code: "bad-gateway",
+          } as never,
+          "POST",
+          "closures"
+        )
+      );
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+
+      expect(await within(dialog).findByText(/may have gone through/)).toBeTruthy();
+      expect(within(dialog).queryByText(/nothing was changed/)).toBeNull();
+    });
+
+    describe("leaving after a save that may have gone through", () => {
+      const decisionRequired = () =>
+        new ApiClientError(
+          {
+            type: "about:blank",
+            title: "decision-required",
+            status: 422,
+            detail: "Refused.",
+            code: "decision-required",
+          } as never,
+          "POST",
+          "closures"
+        );
+
+      it("says nothing was closed after a refusal that decided nothing (#7978)", async () => {
+        create.mockRejectedValueOnce(decisionRequired());
+        renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/bookings changed while you were deciding/i);
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        const ask = screen.getByRole("alertdialog", { name: "Discard this closure?" });
+        expect(within(ask).getByText(/Nothing has been closed/)).toBeTruthy();
+      });
+
+      it("keeps the warning when a lost response came before that refusal (#7978)", async () => {
+        create.mockRejectedValueOnce(new Error("lost")).mockRejectedValueOnce(decisionRequired());
+        renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText("Couldn't close");
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText(/bookings changed while you were deciding/i);
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        const ask = screen.getByRole("alertdialog", { name: "Leave this closure?" });
+        expect(within(ask).getByText(/may have gone through/)).toBeTruthy();
+      });
+
+      it("asks in words that say it may have saved, then refreshes the calendar on leaving", async () => {
+        create.mockRejectedValueOnce(new Error("lost"));
+        const { onClose } = renderDialog();
+        const dialog = screen.getByRole("dialog");
+        toStepTwo(dialog);
+        fireEvent.click(within(dialog).getByRole("button", { name: "Close and cancel 14" }));
+        await within(dialog).findByText("Couldn't close");
+        refresh.mockClear();
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        expect(screen.queryByText("Nothing has been closed.", { exact: false })).toBeNull();
+        const ask = screen.getByRole("alertdialog", { name: "Leave this closure?" });
+        expect(within(ask).getByText(/may have gone through/)).toBeTruthy();
+        expect(onClose).not.toHaveBeenCalled();
+        fireEvent.click(within(ask).getByRole("button", { name: "Leave" }));
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(refresh).toHaveBeenCalled();
+      });
+
+      it("asks even when nothing was edited, since a save was attempted", async () => {
+        impactState.value = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+        create.mockRejectedValueOnce(new Error("lost"));
+        const { onClose } = renderDialog();
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await within(dialog).findByText("Couldn't close");
+
+        fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+        expect(screen.getByRole("alertdialog", { name: "Leave this closure?" })).toBeTruthy();
+        expect(onClose).not.toHaveBeenCalled();
+      });
+
+      it("does not refresh when the Manager never saved", () => {
+        const { onClose } = renderDialog();
+        refresh.mockClear();
+
+        fireEvent.keyDown(document, { key: "Escape" });
+
+        expect(onClose).toHaveBeenCalledTimes(1);
+        expect(refresh).not.toHaveBeenCalled();
+      });
+    });
+
+    it("keeps one attempt across edits made before the first save", async () => {
+      create.mockResolvedValueOnce(RESULT);
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Keep them and notify" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: /Cancel, notify & refund/ }));
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+      expect((create.mock.calls[0]![0] as Call).body.rule.id).toBeTruthy();
+    });
+
+    it("keeps the decisions when only the guest message changes", () => {
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        /^Close and cancel 14$/
+      );
+    });
+
+    it("clears the decisions when what or when changes", () => {
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back" }));
+
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Tonight" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        /^Choose for each group$/
+      );
+    });
+
+    it("asks before Escape throws away an edited draft", () => {
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+
+      fireEvent.keyDown(document, { key: "Escape" });
+
+      expect(onClose).not.toHaveBeenCalled();
+      const ask = screen.getByRole("alertdialog", { name: "Discard this closure?" });
+      fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+      expect(onClose).not.toHaveBeenCalled();
+      expect(screen.getByRole("dialog", { name: "Close" })).toBeTruthy();
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      fireEvent.click(
+        within(screen.getByRole("alertdialog", { name: "Discard this closure?" })).getByRole(
+          "button",
+          {
+            name: "Discard",
+          }
+        )
+      );
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("closes straight away on Escape when nothing was edited", () => {
+      const { onClose } = renderDialog();
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("locks Escape, Cancel and Back while the save is in flight", () => {
+      saving.value = true;
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.keyDown(document, { key: "Escape" });
+      expect(onClose).not.toHaveBeenCalled();
+      expect(within(dialog).getByRole("button", { name: "Cancel" })).toBeDisabled();
+
+      saving.value = false;
+    });
+
+    it("routes the backdrop and the X through the discard guard", () => {
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.change(within(dialog).getByLabelText(/Message for guests/), {
+        target: { value: "Closed for the holiday" },
+      });
+
+      fireEvent.click(dialog.parentElement!);
+      expect(screen.getByRole("alertdialog", { name: "Discard this closure?" })).toBeTruthy();
+      expect(onClose).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close dialog" }));
+      expect(screen.getByRole("alertdialog", { name: "Discard this closure?" })).toBeTruthy();
+      expect(onClose).not.toHaveBeenCalled();
+    });
+
+    it("ignores the backdrop and the X while the save is in flight", () => {
+      saving.value = true;
+      const { onClose } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+
+      fireEvent.click(dialog.parentElement!);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close dialog" }));
+
+      expect(onClose).not.toHaveBeenCalled();
+      saving.value = false;
+    });
+
+    it("locks What and When on step 1 while the save is in flight", () => {
+      saving.value = true;
+      renderDialog();
+
+      expect(
+        within(screen.getByRole("dialog")).getByRole("radio", { name: "Tonight" })
+      ).toBeDisabled();
+      saving.value = false;
+    });
+
+    it("locks the decisions on step 2 while the save is in flight", () => {
+      const view = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      saving.value = true;
+      view.rerender(
+        <ToastProvider>
+          <main>
+            <CloseDialog
+              venueId="venue-1"
+              state={{ config: fixtureConfig(), version: 7, source: "rows" }}
+              timezone="America/Los_Angeles"
+              today="2026-12-01"
+              initialDate={DATE}
+              onClose={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+
+      for (const radio of within(dialog).getAllByRole("radio")) expect(radio).toBeDisabled();
+      saving.value = false;
+    });
+
+    it("disables Back while the save is in flight on step 2", () => {
+      const { rerender } = renderDialog();
+      const dialog = screen.getByRole("dialog");
+      toStepTwo(dialog);
+      saving.value = true;
+      rerender(
+        <ToastProvider>
+          <main>
+            <CloseDialog
+              venueId="venue-1"
+              state={{ config: fixtureConfig(), version: 7, source: "rows" }}
+              timezone="America/Los_Angeles"
+              today="2026-12-01"
+              initialDate={DATE}
+              onClose={vi.fn()}
+            />
+          </main>
+        </ToastProvider>
+      );
+      expect(within(dialog).getByRole("button", { name: "Back" })).toBeDisabled();
+    });
+  });
+
+  describe("validation moves focus to the first problem (ux.md S6, #7979)", () => {
+    const next = () => fireEvent.click(screen.getByTestId("close-primary"));
+    const pick = (name: RegExp) => fireEvent.click(screen.getByRole("radio", { name }));
+
+    it("goes to the channels when none is chosen, and goes back on a second Next", () => {
+      renderDialog({ pauseOnline: true });
+      fireEvent.click(screen.getByRole("checkbox", { name: "Online" }));
+      next();
+      expect(screen.getByRole("checkbox", { name: "Online" })).toHaveFocus();
+      expect(screen.getByRole("alert")).toHaveTextContent(/at least one/i);
+      screen.getByRole("button", { name: /^Cancel/ }).focus();
+      next();
+      expect(screen.getByRole("checkbox", { name: "Online" })).toHaveFocus();
+    });
+
+    it("goes to the weekdays when a repeat has dates but no day", () => {
+      renderDialog();
+      pick(/^Repeats/);
+      next();
+      expect(screen.getAllByRole("checkbox")[0]).toHaveFocus();
+    });
+  });
+
+  describe("wording and options (#7978)", () => {
+    const FRIDAY = "2026-12-25";
+    const NO_BOOKINGS: ClosureImpact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+
+    /** The fixture week with its dinner running to 2:00 AM (minute 1560 of the service day). */
+    function overnightState(...rules: DateRule[]): AvailabilityConfigState {
+      const base = fixtureConfig(...rules);
+      return {
+        config: {
+          ...base,
+          scheduleServices: base.scheduleServices.map((s) => ({ ...s, closesAt: 1560 })),
+        },
+        version: 7,
+        source: "rows",
+      };
+    }
+
+    it("offers start times after midnight on a day that runs past it, and sends them", async () => {
+      impactState.value = NO_BOOKINGS;
+      create.mockResolvedValue({
+        ruleId: "r",
+        version: 8,
+        changeId: "c",
+        outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+      });
+      renderDialog({ state: overnightState(), initialDate: FRIDAY });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("option", { name: "From 1:00 AM (next day)" }));
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+      await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+      expect(create.mock.calls[0]![0].body.rule.window).toEqual({
+        version: 1,
+        from: 1500,
+        to: 2880,
+      });
+    });
+
+    it("offers them from the closure's first real date, not the From date of a repeat (#7978)", () => {
+      // 2026-12-21 is a Monday, with no service; the repeat first falls on Friday the 25th.
+      renderDialog({ state: overnightState(), initialDate: "2026-12-21" });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      expect(screen.getByRole("option", { name: "From 1:30 AM (next day)" })).toBeTruthy();
+    });
+
+    describe("Step 2 at 01:05 on Friday's service (#7978)", () => {
+      beforeEach(() => {
+        vi.useFakeTimers({ toFake: ["Date"] });
+        vi.setSystemTime(new Date("2026-12-26T09:05:00Z")); // 1:05 AM Saturday in Los Angeles
+      });
+      afterEach(() => {
+        vi.useRealTimers();
+      });
+
+      it("shows the Urgent notice for a start later that night", () => {
+        renderDialog({ state: overnightState(), today: FRIDAY, initialDate: FRIDAY });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+        fireEvent.click(screen.getByRole("option", { name: "From 1:30 AM (next day)" }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(within(dialog).getByText(/^Urgent/)).toBeTruthy();
+      });
+    });
+
+    describe("a closure whose days do not all run past midnight (#7978)", () => {
+      /** Friday, dinner to 2:00 AM; every other day, dinner to 11:00 PM. */
+      function fridayRunsLate(): AvailabilityConfigState {
+        const base = overnightState().config;
+        const dinner = fixtureConfig().scheduleServices.find(
+          (s) => s.venueServiceId === "vs-dinner"
+        )!;
+        return {
+          config: {
+            ...base,
+            schedules: [
+              ...base.schedules,
+              { id: "week", name: "Week", kind: "regular", isRegular: false },
+            ],
+            scheduleServices: [
+              ...base.scheduleServices,
+              { ...dinner, id: "ss-week", scheduleId: "week" },
+            ],
+            assignments: [
+              ...base.assignments,
+              { id: "as-week", scheduleId: "week", weekdays: [0, 1, 2, 3, 4, 6], precedence: 1 },
+            ],
+          },
+          version: 7,
+          source: "rows",
+        };
+      }
+      const fridayOptions = (dialog: HTMLElement) => {
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+        return {
+          afterMidnight: screen.queryByRole("option", { name: "From 1:00 AM (next day)" }),
+          morning: screen.queryByRole("option", { name: "From 1:00 AM" }),
+        };
+      };
+      // 2026-12-21 is a Monday.
+      const MONDAY = "2026-12-21";
+
+      it("reads a date range's Friday, not only its Monday", () => {
+        renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Date range" }));
+        const { afterMidnight, morning } = fridayOptions(dialog);
+        expect(afterMidnight).toBeTruthy();
+        expect(morning).toBeNull();
+      });
+
+      it("does not keep a time before opening once a covered day runs past midnight (#8032)", async () => {
+        impactState.value = NO_BOOKINGS;
+        create.mockResolvedValue({
+          ruleId: "r",
+          version: 8,
+          changeId: "c",
+          outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+        });
+        renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+        fireEvent.click(screen.getByRole("option", { name: "From 1:00 AM" }));
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Date range" }));
+
+        expect(within(dialog).getByRole("combobox", { name: "Starting at" })).toHaveTextContent(
+          "All day"
+        );
+        expect(within(dialog).getByText(/comes before opening/)).toBeTruthy();
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+        expect(create.mock.calls[0]![0].body.rule.window).toBeNull();
+      });
+
+      it("reads a repeat's Friday, not only its first Monday", () => {
+        renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Mon" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
+        const { afterMidnight, morning } = fridayOptions(dialog);
+        expect(afterMidnight).toBeTruthy();
+        expect(morning).toBeNull();
+      });
+    });
+
+    describe("Guests will see, on a repeat (#7978)", () => {
+      // 2026-12-21 is a Monday; Friday is the 25th.
+      const repeatFrom = (date: string) => {
+        renderDialog({ initialDate: date });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+        return dialog;
+      };
+
+      it("names the first date it really closes, not its From date", () => {
+        const dialog = repeatFrom("2026-12-21");
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
+        expect(within(dialog).getByText(/Guests will see: Fri, Dec 25/)).toBeTruthy();
+        expect(within(dialog).queryByText(/Mon, Dec 21/)).toBeNull();
+      });
+
+      it("names no date before a day is picked", () => {
+        const dialog = repeatFrom("2026-12-21");
+        expect(within(dialog).queryByText(/Guests will see/)).toBeNull();
+      });
+    });
+
+    describe("the toast on a repeat that does not fall on its From date (#8032)", () => {
+      const fridays = (outcomes = { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 }) => {
+        create.mockResolvedValue({ ruleId: "r", version: 8, changeId: "c", outcomes });
+        impactState.value = NO_BOOKINGS;
+        // 2026-12-21 is a Monday; the repeat first falls on Friday the 25th.
+        renderDialog({ initialDate: "2026-12-21" });
+        const dialog = screen.getByRole("dialog");
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
+        return dialog;
+      };
+
+      it("names the first date it closes", async () => {
+        const dialog = fridays();
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(await screen.findByText("Fri, Dec 25 closed")).toBeTruthy();
+      });
+
+      it("names it when guests were notified", async () => {
+        const dialog = fridays({ cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 });
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(
+          await screen.findByText("Fri, Dec 25 closed · 2 reservations notified")
+        ).toBeTruthy();
+      });
+
+      it("names it when a booking channel was paused", async () => {
+        const dialog = fridays();
+        fireEvent.click(within(dialog).getByRole("radio", { name: "Booking only" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Phone" }));
+        fireEvent.click(within(dialog).getByRole("checkbox", { name: "Online" }));
+        fireEvent.click(within(dialog).getByTestId("close-primary"));
+        expect(await screen.findByText("Booking paused on Fri, Dec 25")).toBeTruthy();
+      });
+    });
+
+    it("offers none on a day that closes before midnight", () => {
+      renderDialog({ initialDate: FRIDAY });
+      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
+      expect(screen.queryByRole("option", { name: /next day/ })).toBeNull();
+    });
+
+    it("warns that a range replaces the special hours inside it, not only on its first day", () => {
+      const special: DateRule = { ...EARLY_DINNER, id: "sh", startsOn: FRIDAY, endsOn: FRIDAY };
+      renderDialog({ state: overnightState(special), initialDate: "2026-12-24" });
+      expect(screen.queryByText(/has special hours/)).toBeNull();
+      fireEvent.click(screen.getByRole("radio", { name: "Date range" }));
+      expect(screen.getByText(/Fri, Dec 25 has special hours/)).toBeTruthy();
+    });
+
+    it("says a Host's emergency close is all day, with no start time to pick", () => {
+      renderDialog({ hostLocked: true, initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).queryByRole("combobox", { name: "Starting at" })).toBeNull();
+      expect(within(dialog).getByText("All day")).toBeTruthy();
+    });
+
+    it("does not say the guest sees the whole day closed when only the evening is", () => {
+      renderDialog({ initialDate: FRIDAY });
+      expect(screen.getByText(/Fri, Dec 25 · Closed$/)).toBeTruthy();
+      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("option", { name: "From 8:00 PM" }));
+      expect(screen.queryByText(/Fri, Dec 25 · Closed$/)).toBeNull();
+      expect(screen.getByText(/Fri, Dec 25 · Closed from 8:00 PM/)).toBeTruthy();
+    });
+  });
+
+  describe("several dates (#7981)", () => {
+    const DEC25 = "2026-12-25";
+    const group = (date: string, n: number) => ({
+      groupKey: `${date}:closed`,
+      date,
+      kind: "closed" as const,
+      covers: n * 2,
+      depositsHeld: 0,
+      reservations: Array.from({ length: n }, (_, i) => ({
+        id: `${date}-r${i}`,
+        startTime: `${date}T17:30:00Z`,
+        endTime: `${date}T19:00:00Z`,
+        partySize: 2,
+        guestName: `Guest ${date} ${i}`,
+        deposit: null,
+        runsIntoClosure: false,
+      })),
+    });
+    afterEach(() => vi.useRealTimers());
+    const outcomes = (cancel: number) => ({ cancel, move: 0, keep_notify: 0, keep_silent: 0 });
+
+    it("opens on the selected dates, closing one rule per date in one command", async () => {
+      createMany.mockResolvedValue({
+        version: 9,
+        results: [
+          { ruleId: "a", version: 8, changeId: "c1", outcomes: outcomes(0) },
+          { ruleId: "b", version: 9, changeId: "c2", outcomes: outcomes(0) },
+        ],
+      });
+      const onSaved = vi.fn();
+      const { onClose } = renderDialog({ initialDate: null, initialDates: [DEC25, DATE], onSaved });
+      const dialog = screen.getByRole("dialog");
+
+      expect(within(dialog).getByRole("radio", { name: "Several dates" })).toBeChecked();
+      expect(within(dialog).getByText("Thu, Dec 24")).toBeTruthy();
+      expect(within(dialog).getByText("Fri, Dec 25")).toBeTruthy();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Closed for the holiday" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close 2 dates" }));
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(onSaved).toHaveBeenCalled();
+      expect(create).not.toHaveBeenCalled();
+      expect(createMany).toHaveBeenCalledTimes(1);
+      const { body } = createMany.mock.calls[0]![0] as {
+        body: { expectedVersion: number; items: { rule: DateRule; decisions: unknown[] }[] };
+      };
+      expect(body.expectedVersion).toBe(7);
+      // One single-date closure rule each, in date order, with distinct ids and the shared message.
+      expect(body.items.map((i) => [i.rule.startsOn, i.rule.endsOn])).toEqual([
+        [DATE, DATE],
+        [DEC25, DEC25],
+      ]);
+      expect(new Set(body.items.map((i) => i.rule.id)).size).toBe(2);
+      for (const { rule, decisions } of body.items) {
+        expect(rule).toMatchObject({
+          kind: "closure",
+          targetKind: "venue",
+          window: null,
+          guestMessage: "Closed for the holiday",
+        });
+        expect(rule.repeat).toBeUndefined();
+        expect(decisions).toEqual([]);
+      }
+      expect(await screen.findByText("2 dates closed")).toBeTruthy();
+    });
+
+    it("adds a date from the picker and removes one, keeping them in order", async () => {
+      // The calendar opens on the current month: pin it to December.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-01T12:00:00"));
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Several dates" }));
+      // Starts from the date the dialog was on.
+      expect(within(dialog).getByText("Thu, Dec 24")).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Add a date" }));
+      fireEvent.click(
+        await waitFor(() => {
+          const cell = document.querySelector<HTMLElement>('[data-date="2026-12-22"]');
+          if (!cell) throw new Error("no day cell");
+          return cell;
+        })
+      );
+      const picked = within(dialog).getByRole("list", { name: "Dates to close" });
+      expect(
+        within(picked)
+          .getAllByRole("listitem")
+          .map((li) => li.textContent)
+      ).toEqual(["Tue, Dec 22", "Thu, Dec 24"]);
+      fireEvent.click(within(picked).getAllByRole("button")[0]!);
+      expect(within(picked).getAllByRole("listitem")).toHaveLength(1);
+      expect(within(picked).getByText("Thu, Dec 24")).toBeTruthy();
+    });
+
+    it("keeps focus on the date picker after a pick", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-01T12:00:00"));
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Several dates" }));
+      const picker = within(dialog).getByRole("combobox", { name: "Add a date" });
+      // A real click focuses the trigger, which is where the popover hands focus back.
+      picker.focus();
+      fireEvent.click(picker);
+      fireEvent.click(
+        await waitFor(() => {
+          const cell = document.querySelector<HTMLElement>('[data-date="2026-12-22"]');
+          if (!cell) throw new Error("no day cell");
+          return cell;
+        })
+      );
+      expect(within(dialog).getByText("Tue, Dec 22")).toBeTruthy();
+      // The popover hands focus back a frame after the pick; until then it sits on the day cell.
+      await waitFor(() =>
+        expect(within(dialog).getByRole("combobox", { name: "Add a date" })).toHaveFocus()
+      );
+    });
+
+    it("asks one question per date in Step 2 and sends each date's decision with its own rule", async () => {
+      impactByDate.value = {
+        [DATE]: { reservations: 3, covers: 6, depositsHeld: 0, groups: [group(DATE, 3)] },
+        [DEC25]: { reservations: 2, covers: 4, depositsHeld: 0, groups: [group(DEC25, 2)] },
+      };
+      createMany.mockResolvedValue({
+        version: 9,
+        results: [
+          { ruleId: "a", version: 8, changeId: "c1", outcomes: outcomes(3) },
+          { ruleId: "b", version: 9, changeId: "c2", outcomes: outcomes(0) },
+        ],
+      });
+      const { onClose } = renderDialog({ initialDate: null, initialDates: [DATE, DEC25] });
+      const dialog = screen.getByRole("dialog");
+
+      // Impact adds up across the dates.
+      expect(
+        within(dialog).getByText("5 reservations · 10 guests are booked in this closure")
+      ).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      expect(within(dialog).getByText("Step 2 of 2")).toBeTruthy();
+      const primary = within(dialog).getByTestId("close-primary");
+      expect(primary).toBeDisabled();
+
+      // Each date is its own group with its own required choice.
+      const cancels = within(dialog).getAllByRole("radio", { name: /Cancel, notify & refund/ });
+      const keeps = within(dialog).getAllByRole("radio", { name: /Keep them and notify/ });
+      expect(cancels).toHaveLength(2);
+      fireEvent.click(cancels[0]!);
+      expect(primary).toBeDisabled();
+      fireEvent.click(keeps[1]!);
+      expect(primary).toBeEnabled();
+      fireEvent.click(primary);
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      const { body } = createMany.mock.calls[0]![0] as {
+        body: { items: { rule: DateRule; decisions: { groupKey: string; action: string }[] }[] };
+      };
+      expect(body.items.map((i) => i.rule.startsOn)).toEqual([DATE, DEC25]);
+      expect(body.items[0]!.decisions.map((d) => [d.groupKey, d.action])).toEqual([
+        [`${DATE}:closed`, "cancel"],
+      ]);
+      expect(body.items[1]!.decisions.map((d) => [d.groupKey, d.action])).toEqual([
+        [`${DEC25}:closed`, "keep_notify"],
+      ]);
+      // The toast counts the notified bookings across the dates.
+      expect(await screen.findByText("2 dates closed · 3 reservations notified")).toBeTruthy();
+    });
+
+    it("keeps its rule ids and key when a lost response is retried", async () => {
+      createMany.mockRejectedValueOnce(new Error("lost"));
+      createMany.mockResolvedValue({
+        version: 9,
+        results: [
+          { ruleId: "a", version: 8, changeId: "c1", outcomes: outcomes(0) },
+          { ruleId: "b", version: 9, changeId: "c2", outcomes: outcomes(0) },
+        ],
+      });
+      renderDialog({ initialDate: null, initialDates: [DATE, DEC25] });
+      fireEvent.click(screen.getByRole("button", { name: "Close 2 dates" }));
+      await waitFor(() => expect(createMany).toHaveBeenCalledTimes(1));
+      fireEvent.click(await screen.findByRole("button", { name: "Close 2 dates" }));
+      await waitFor(() => expect(createMany).toHaveBeenCalledTimes(2));
+      const [first, second] = createMany.mock.calls.map(
+        (c) => c[0] as { idempotencyKey: string; body: { items: { rule: { id: string } }[] } }
+      );
+      expect(second!.idempotencyKey).toBe(first!.idempotencyKey);
+      expect(second!.body.items.map((i) => i.rule.id)).toEqual(
+        first!.body.items.map((i) => i.rule.id)
+      );
+    });
+
+    it("warns about special hours on any of the dates, and about a date already closed", () => {
+      const state: AvailabilityConfigState = {
+        config: fixtureConfig({
+          id: "sp",
+          kind: "special_hours",
+          targetKind: "venue",
+          startsOn: DEC25,
+          endsOn: DEC25,
+          payload: { version: 1, services: [] },
+        }),
+        version: 7,
+        source: "rows",
+      };
+      renderDialog({ state, initialDate: null, initialDates: [DATE, DEC25] });
+      expect(screen.getByText(/Fri, Dec 25 has special hours/)).toBeTruthy();
+    });
+
+    it("refuses more dates than one command can hold, and none", () => {
+      const many = Array.from(
+        { length: 21 },
+        (_, i) => `2027-01-${String(i + 1).padStart(2, "0")}`
+      );
+      const { unmount } = renderDialog({ initialDate: null, initialDates: many });
+      fireEvent.click(screen.getByRole("button", { name: "Close 21 dates" }));
+      expect(screen.getByRole("alert")).toHaveTextContent("Close up to 20 dates at once.");
+      expect(createMany).not.toHaveBeenCalled();
+      unmount();
+      renderDialog();
+      fireEvent.click(screen.getByRole("radio", { name: "Several dates" }));
+      fireEvent.click(
+        within(screen.getByRole("list", { name: "Dates to close" })).getAllByRole("button")[0]!
+      );
+      fireEvent.click(screen.getByTestId("close-primary"));
+      expect(screen.getByRole("alert")).toHaveTextContent("Pick at least one date.");
+    });
+
+    it("treats one selected date as One date", () => {
+      renderDialog({ initialDate: null, initialDates: [DATE] });
+      expect(screen.getByRole("radio", { name: "One date" })).toBeChecked();
     });
   });
 

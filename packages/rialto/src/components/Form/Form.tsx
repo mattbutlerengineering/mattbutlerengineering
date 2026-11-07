@@ -23,7 +23,11 @@ export interface FormProps extends Omit<FormHTMLAttributes<HTMLFormElement>, "on
 /**
  * Owns submit-time validation across its `FormField` descendants: collects
  * each field's error, blocks submission while any field is invalid, and
- * announces failures through an assertive error summary.
+ * announces submit failures through an assertive error summary. A field error
+ * the summary carries stays visible and linked via `aria-describedby` but is
+ * not announced a second time. An error the summary does not carry (set by the
+ * server, raised on blur, or after a valid submit) is still announced by the
+ * field itself, as is every field error when `showErrorSummary` is false.
  *
  * @example
  * <Form onValidSubmit={handleSubmit}>
@@ -71,8 +75,14 @@ export function Form({
   };
 
   const contextValue = useMemo(
-    () => ({ submitAttempted, errors, registerField, unregisterField }),
-    [submitAttempted, errors, registerField, unregisterField]
+    () => ({
+      submitAttempted,
+      errors,
+      announcesErrors: showErrorSummary,
+      registerField,
+      unregisterField,
+    }),
+    [submitAttempted, errors, showErrorSummary, registerField, unregisterField]
   );
 
   const errorEntries = submitAttempted ? Object.entries(errors) : [];

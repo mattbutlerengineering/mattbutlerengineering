@@ -1,6 +1,8 @@
 .row {
   display: flex;
   flex-direction: column;
+  /* A fieldset grows to its widest child by default; it must fit the sheet instead. */
+  min-width: 0;
   gap: var(--rialto-space-sm);
   margin: 0;
   padding: var(--rialto-space-md);
@@ -38,4 +40,11 @@
 
 .footerNote {
   margin-right: auto;
+}
+
+/* A row's message suggestion, as in the Close dialog's chips. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
 }

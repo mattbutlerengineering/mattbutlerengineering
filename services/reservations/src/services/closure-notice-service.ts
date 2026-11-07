@@ -17,6 +17,10 @@ interface EnqueueInput {
   venueId: string;
   ruleId: string;
   now: Date;
+  /** Outcomes moved in from a replaced series: told when they were decided, not again. */
+  carried?: readonly string[];
+  /** A reopen of this one date of a range: urgency is that date's, not the removed range's. */
+  date?: string;
 }
 
 /** The closure's earliest covered service date on or after today in venue time, or `null` when none is left. */
@@ -60,8 +64,11 @@ export function closureNoticeJobId(outcomeId: string, variant: NoticeVariant): s
  * imminent to be urgent about.
  */
 async function isUrgent(store: Store, input: EnqueueInput): Promise<boolean> {
-  const w = await store.loadClosureWindow(input.venueId, input.ruleId);
-  if (!w) return true;
+  const stored = await store.loadClosureWindow(input.venueId, input.ruleId);
+  if (!stored) return true;
+  const w = input.date
+    ? { ...stored, startsOn: input.date, endsOn: input.date, weekdays: null }
+    : stored;
   if (nextClosureDate(w, input.now) === null) return false;
   const startsAt = closureStartsAt(w, input.now);
   return startsAt === null || startsAt.getTime() - input.now.getTime() <= URGENT_WINDOW_MS;
@@ -77,7 +84,10 @@ export function createClosureNoticeService(deps: { scheduler: Scheduler; store?:
   const store = deps.store ?? defaultStore;
 
   async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
-    const outcomes = await store.listNotifiable(input.venueId, input.ruleId, variant);
+    const carried = new Set(input.carried);
+    const outcomes = (
+      await store.listNotifiable(input.venueId, input.ruleId, variant, input.now)
+    ).filter((o) => !carried.has(o.outcomeId));
     if (outcomes.length === 0) return 0;
     const urgent = await isUrgent(store, input);
     await Promise.all(

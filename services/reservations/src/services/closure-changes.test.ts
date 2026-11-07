@@ -36,7 +36,12 @@ describe("loadClosureChanges", () => {
 
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { venueId: "venue-1", dateRuleId: "dr-1", action: { in: ["cancel", "move"] } },
+        where: {
+          venueId: "venue-1",
+          dateRuleId: "dr-1",
+          action: { in: ["cancel", "move"] },
+          id: { notIn: [] },
+        },
       })
     );
     expect(changes.cancelled.map((r) => r.id)).toEqual(["r1", "r2"]);

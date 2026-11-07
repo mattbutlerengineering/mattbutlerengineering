@@ -24,6 +24,8 @@ export interface BookedReservation {
   partySize: number;
   /** The service date it belongs to; set where a scope needs it. */
   date?: Date;
+  /** Who it is for; a refusal lists it so the Manager can find the booking. */
+  guestName?: string | null;
 }
 
 type StrandReason = StrandedReservation["reason"];
@@ -77,6 +79,8 @@ export function findStrandedReservations(
         startTime: booking.startTime.toISOString(),
         partySize: booking.partySize,
         reason,
+        ...(booking.guestName ? { guestName: booking.guestName } : {}),
+        ...(booking.date ? { serviceDate: booking.date.toISOString().slice(0, 10) } : {}),
       },
     ];
   });
@@ -120,13 +124,16 @@ export function summarizeDay(config: AvailabilityConfig, day: ResolvedDay): Avai
     label,
     scheduleId: day.scheduleId,
     serviceCount: day.services.length,
-    closures: day.closures.map(({ ruleId, targetKind, from, to, bookingTypes }) => ({
-      ruleId,
-      targetKind,
-      from,
-      to,
-      ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
-    })),
+    closures: day.closures.map(
+      ({ ruleId, targetKind, from, to, bookingTypes, venueServiceId }) => ({
+        ruleId,
+        targetKind,
+        from,
+        to,
+        ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
+        ...(targetKind === "service" && venueServiceId ? { venueServiceId } : {}),
+      })
+    ),
     bookingOpen: day.bookingOpen,
     services: isDayClosed(day) ? [] : daySummaryServices(names, day),
     ...(day.guestMessage ? { guestMessage: day.guestMessage } : {}),

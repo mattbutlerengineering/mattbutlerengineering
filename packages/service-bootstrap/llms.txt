@@ -55,7 +55,7 @@
       function createErrorRateTracker() { /* ... */ }
     </item>
     <item priority="medium">
-      function normalizeRoute(request: FastifyRequest): string { /* ... */ }
+      function normalizeRoute(request: FastifyRequest): string | undefined { /* ... */ }
     </item>
     <item priority="low">
       async function errorRatePlugin(fastify: FastifyInstance): Promise<void> { /* ... */ }
@@ -373,6 +373,9 @@
         routes: readonly HealthRouteConfig[];
         checkAuth0?: () => Promise<Auth0CheckResult>;
       }
+    </item>
+    <item priority="high">
+      export const HEALTH_RATE_LIMIT: unknown;
     </item>
     <item priority="high">
       export const registerHealthRoutes: unknown;

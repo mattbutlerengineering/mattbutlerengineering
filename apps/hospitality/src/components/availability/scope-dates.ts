@@ -32,7 +32,8 @@ export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
   if (scope.kind === "weekday") {
     const horizon = addDays(scope.from, SCOPE_HORIZON_DAYS - 1);
     const last = scope.until !== null && scope.until < horizon ? scope.until : horizon;
-    return eachDate(scope.from, last, 7);
+    // A past Friday is history, not part of the edit: count from the venue's today.
+    return eachDate(scope.from, last, 7).filter((d) => d >= context.today);
   }
   if (scope.kind === "rule") {
     const rule = context.config.dateRules.find((r) => r.id === scope.ruleId);
@@ -47,9 +48,39 @@ export function scopeDates(scope: EditScope, context: ScopeContext): string[] {
     timezone: context.timezone,
     config: { ...context.config, dateRules: [] },
   };
+  if (scope.kind === "regularWeekday") {
+    // The dates the live regular week runs on that weekday: later versions and schedules of the
+    // Manager's own keep their dates, which this edit does not reach.
+    const live = context.config.schedules.find((s) => s.isRegular && !s.archivedAt)?.id;
+    const first = Array.from({ length: 7 }, (_, i) => addDays(context.today, i)).find(
+      (d) => weekdayIndexOf(d) === scope.weekday
+    )!;
+    return eachDate(first, addDays(context.today, SCOPE_HORIZON_DAYS - 1), 7).filter(
+      (d) => live !== undefined && resolveDay(week, d).scheduleId === live
+    );
+  }
   return eachDate(context.today, addDays(context.today, SCOPE_HORIZON_DAYS - 1), 1).filter(
     (d) => resolveDay(week, d).scheduleId === scope.scheduleId
   );
+}
+
+/**
+ * Every date from today that runs `scheduleId`: the dates its week reaches (`scopeDates`) plus
+ * the ones a `use_schedule` rule sends to it, which the week read with date rules set aside
+ * cannot see. What an edit of the schedule changes, and what a preview of it should show.
+ */
+export function scheduleReach(scheduleId: string, context: ScopeContext): string[] {
+  const horizon = addDays(context.today, SCOPE_HORIZON_DAYS - 1);
+  const viaRules = context.config.dateRules
+    .filter((r) => r.kind === "use_schedule" && r.useScheduleId === scheduleId)
+    .flatMap((rule) => {
+      const last = rule.endsOn != null && rule.endsOn < horizon ? rule.endsOn : horizon;
+      return eachDate(maxDate(rule.startsOn, context.today), last, 1).filter((d) =>
+        coversDate(rule, d)
+      );
+    });
+  const all = [...scopeDates({ kind: "schedule", scheduleId }, context), ...viaRules];
+  return [...new Set(all)].sort();
 }
 
 const isHoursRule = (rule: DateRule): boolean =>

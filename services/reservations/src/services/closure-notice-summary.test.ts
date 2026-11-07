@@ -92,6 +92,26 @@ describe("summarizeOutcomes", () => {
     expect(summary?.refundFailures.map((f) => f.amountCents)).toEqual([2000, 3500, 0]);
   });
 
+  it("reports the stored amount the guest was promised, not what the live deposit computes now", () => {
+    // The closure's own refund has since lifted postCaptureRefundCents to the whole deposit.
+    const live = {
+      guestName: "Rivera",
+      deposit: {
+        amountCents: 4000,
+        currency: "usd",
+        status: "applied",
+        refundAmountCents: null,
+        postCaptureRefundCents: 4000,
+      },
+    };
+    const [summary] = summarizeOutcomes([
+      row({ refund: "failed", id: "o-1", refundCents: 2500, reservation: live }),
+      row({ refund: "failed", id: "o-2", reservation: live }),
+    ]);
+
+    expect(summary?.refundFailures.map((f) => f.amountCents)).toEqual([2500, 0]);
+  });
+
   it("names each failed refund with the guest and the amount in minor units, and no contact details", () => {
     const [summary] = summarizeOutcomes([
       row({ refund: "failed", id: "o-1" }),

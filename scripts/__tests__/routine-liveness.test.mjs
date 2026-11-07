@@ -216,6 +216,13 @@ describe("buildRoutineFindingTitle / extractRoutineNameFromIssueTitle", () => {
     expect(extractRoutineNameFromIssueTitle({ title })).toBe("mbe-daily-issue");
   });
 
+  it("round-trips a blocked finding's status through its title (#8067)", () => {
+    const title = buildRoutineFindingTitle("mbe-daily-issue", "blocked");
+    expect(title).not.toContain("is dark");
+    expect(extractRoutineFindingStatusFromTitle({ title })).toBe("blocked");
+    expect(extractRoutineNameFromIssueTitle({ title })).toBe("mbe-daily-issue");
+  });
+
   it("returns null for a title that isn't a routine-liveness finding", () => {
     expect(extractRoutineNameFromIssueTitle({ title: "ci-fix: something unrelated" })).toBe(null);
   });
@@ -250,6 +257,31 @@ describe("buildRoutineFindingBody / buildRoutineFindingCreateArgs", () => {
     expect(body).toContain("mbe-weekly-improve");
     expect(body).toContain("trig_01G12wULcCweXSb2jmVkChPW");
     expect(body).toContain("Action Required");
+  });
+
+  it("formats a heartbeat-type matched artifact's state/note instead of the empty-array literal from a missing title/labels (#8059)", () => {
+    const body = buildRoutineFindingBody({
+      name: "mbe-daily-issue",
+      triggerId: "trig_01Df3XFeJnGYeH33NeqE1Mp3",
+      status: "dark",
+      periodDays: 1,
+      reason: undefined,
+      matched: {
+        type: "heartbeat",
+        state: "error",
+        note: "PR #8057 green/reviewed (9/10) for #7963 but CCR merge-permission classifier denied squash-merge (known #6125) — awaiting human merge",
+        observedAt: "2026-11-01T14:55:06Z",
+      },
+    });
+    expect(body).not.toContain("**Most recent matching artifact:** []");
+    expect(body).toContain("error");
+    expect(body).toContain("awaiting human merge");
+  });
+
+  it("a blocked finding is labelled ready-for-human, never ready (#8067)", () => {
+    const args = buildRoutineFindingCreateArgs("title", "body", "blocked");
+    expect(args).toContain("ready-for-human");
+    expect(args).not.toContain(COORDINATION_LABELS.READY);
   });
 
   it("builds create args carrying the ci-fix and ready labels", () => {
@@ -1096,6 +1128,19 @@ describe("buildRoutineRecoveryComment", () => {
     });
     expect(comment).toContain("mbe-evening");
   });
+
+  // #8059: same fallback bug as buildRoutineFindingBody — a heartbeat
+  // artifact has no title/labels, so the old `title ?? labels` fallback
+  // rendered the empty-array literal `[]` instead of the heartbeat's state.
+  it("describes a heartbeat-type matched artifact by state, not an empty-array literal", () => {
+    const comment = buildRoutineRecoveryComment({
+      name: "mbe-daily-issue",
+      runId: "36323989915",
+      matched: { type: "heartbeat", state: "ok", observedAt: "2026-11-02T14:00:00Z" },
+    });
+    expect(comment).not.toContain("Observed artifact: [] ");
+    expect(comment).toContain("ok");
+  });
 });
 
 describe("runRoutineLivenessCheck — closing a recovered routine's tracking issue (#5817)", () => {
@@ -1551,8 +1596,16 @@ describe("heartbeat classification (#6190)", () => {
     expect(classify([beat("throttled", "2026-10-10T09:40:00Z")]).status).toBe("throttled");
   });
 
-  it("error is dark", () => {
-    expect(classify([beat("error", "2026-10-10T09:40:00Z")]).status).toBe("dark");
+  it("a fresh error heartbeat is blocked, not dark (#8067)", () => {
+    expect(
+      classify([beat("error", "2026-11-01T14:55:06Z")], { now: new Date("2026-11-01T15:02:38Z") })
+        .status
+    ).toBe("blocked");
+    expect(classify([beat("error", "2026-10-10T09:40:00Z")]).status).toBe("blocked");
+  });
+
+  it("an error heartbeat older than 2 periods is still dark (#8067)", () => {
+    expect(classify([beat("error", "2026-10-05T09:40:00Z")]).status).toBe("dark");
   });
 
   it("the newest heartbeat wins over an older one", () => {
@@ -1561,7 +1614,7 @@ describe("heartbeat classification (#6190)", () => {
     ).toBe("alive");
     expect(
       classify([beat("ok", "2026-10-09T09:40:00Z"), beat("error", "2026-10-10T09:40:00Z")]).status
-    ).toBe("dark");
+    ).toBe("blocked");
   });
 
   it("a stale heartbeat is dark", () => {
@@ -1641,8 +1694,35 @@ describe("fetchObservedArtifactsViaGhClient — heartbeat", () => {
     const out = fetchObservedArtifactsViaGhClient(ghClient, entry);
     expect(calls).toEqual([[HEARTBEAT_ISSUE_NUMBER, ["--json", "comments"]]]);
     expect(out).toEqual([
-      { type: "heartbeat", state: "ok", observedAt: "2026-10-09T09:40:00Z" },
-      { type: "heartbeat", state: "noop", observedAt: "2026-10-10T09:40:00Z" },
+      { type: "heartbeat", state: "ok", note: "", observedAt: "2026-10-09T09:40:00Z" },
+      { type: "heartbeat", state: "noop", note: "", observedAt: "2026-10-10T09:40:00Z" },
+    ]);
+  });
+
+  // #8059: an "error" heartbeat's note (why the routine's daily goal wasn't
+  // reached) must survive into the observed artifact, so a filed dark issue
+  // can show it instead of an empty-array literal.
+  it("carries the heartbeat's note through to the observed artifact", () => {
+    const ghClient = {
+      issue: {
+        view: () => ({
+          comments: [
+            {
+              body: "heartbeat: mbe-daily-issue 2026-11-01 error PR #8057 awaiting human merge (known #6125)",
+              createdAt: "2026-11-01T14:55:06Z",
+            },
+          ],
+        }),
+      },
+    };
+    const entry = { name: "mbe-daily-issue", signature: { type: "heartbeat" } };
+    expect(fetchObservedArtifactsViaGhClient(ghClient, entry)).toEqual([
+      {
+        type: "heartbeat",
+        state: "error",
+        note: "PR #8057 awaiting human merge (known #6125)",
+        observedAt: "2026-11-01T14:55:06Z",
+      },
     ]);
   });
 });

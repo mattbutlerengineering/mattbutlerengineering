@@ -6,6 +6,11 @@ vi.mock("../services/closure-changes.js", () => ({
   loadClosureChanges: (...args: unknown[]) => loadClosureChanges(...args),
 }));
 
+const carriedOutcomeIds = vi.fn();
+vi.mock("../services/closure-carry-outcomes.js", () => ({
+  readCarriedOutcomeIds: (...args: unknown[]) => carriedOutcomeIds(...args),
+}));
+
 import { enqueueClosureJobs, publishClosureChanges } from "./closure-post-commit.js";
 
 const settleClosure = vi.fn();
@@ -28,7 +33,7 @@ describe("publishClosureChanges", () => {
 
     await publishClosureChanges(fastify, log, saved);
 
-    expect(loadClosureChanges).toHaveBeenCalledWith("venue-1", "dr-1");
+    expect(loadClosureChanges).toHaveBeenCalledWith("venue-1", "dr-1", undefined);
     expect(settleClosure).toHaveBeenCalledWith("venue-1", changes);
   });
 
@@ -43,7 +48,10 @@ describe("publishClosureChanges", () => {
 });
 
 describe("enqueueClosureJobs", () => {
-  beforeEach(() => vi.resetAllMocks());
+  beforeEach(() => {
+    vi.resetAllMocks();
+    carriedOutcomeIds.mockResolvedValue([]);
+  });
 
   it("publishes the closure's SSE events alongside the refund and notice jobs", async () => {
     loadClosureChanges.mockResolvedValueOnce(changes);
@@ -51,8 +59,31 @@ describe("enqueueClosureJobs", () => {
     await enqueueClosureJobs(fastify, log, { ...saved, cancelled: 1 });
 
     expect(settleClosure).toHaveBeenCalledTimes(1);
-    expect(enqueueRefunds).toHaveBeenCalledWith("venue-1", "dr-1");
+    expect(enqueueRefunds).toHaveBeenCalledWith("venue-1", "dr-1", []);
     expect(enqueueForClosure).toHaveBeenCalled();
+  });
+
+  it("leaves the outcomes a series edit carried in out of the SSE, refund and notice steps (#7984)", async () => {
+    carriedOutcomeIds.mockResolvedValueOnce(["o-old"]);
+    loadClosureChanges.mockResolvedValueOnce(changes);
+
+    await enqueueClosureJobs(fastify, log, { ...saved, cancelled: 1 });
+
+    expect(loadClosureChanges).toHaveBeenCalledWith("venue-1", "dr-1", ["o-old"]);
+    expect(enqueueRefunds).toHaveBeenCalledWith("venue-1", "dr-1", ["o-old"]);
+    expect(enqueueForClosure).toHaveBeenCalledWith(
+      expect.objectContaining({ ruleId: "dr-1", carried: ["o-old"] })
+    );
+  });
+
+  it("falls back to every outcome of the rule, and says so, when the carried ones cannot be read", async () => {
+    carriedOutcomeIds.mockRejectedValueOnce(new Error("db down"));
+    loadClosureChanges.mockResolvedValueOnce(changes);
+
+    await enqueueClosureJobs(fastify, log, { ...saved, cancelled: 1 });
+
+    expect(log.error).toHaveBeenCalled();
+    expect(enqueueRefunds).toHaveBeenCalledWith("venue-1", "dr-1", []);
   });
 
   it("still enqueues refunds and notices when publishing fails", async () => {

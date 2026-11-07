@@ -1,5 +1,6 @@
 import type { TFunction } from "i18next";
 import { defaultT } from "../i18n/default-t.js";
+import { clockHourOfClock } from "./clock-hour.js";
 import { formatLocalTime } from "./format.js";
 import type { VenueOpenState } from "./venueOpenState.js";
 
@@ -15,15 +16,25 @@ export function formatVenueOpenLabel(
 ): string {
   switch (s.state) {
     case "open":
-      return t("home.openSign.open", { time: formatClock(s.closesAt) });
+      return t("home.openSign.open", {
+        time: formatClock(s.closesAt),
+        count: clockHourOfClock(s.closesAt),
+      });
     case "opening-soon":
-      return t("home.openSign.openingSoon", { time: formatClock(s.opensAt) });
+      return t("home.openSign.openingSoon", {
+        time: formatClock(s.opensAt),
+        count: clockHourOfClock(s.opensAt),
+      });
     case "closed":
       return s.opensOn === null
-        ? t("home.openSign.closedToday", { time: formatClock(s.opensAt) })
+        ? t("home.openSign.closedToday", {
+            time: formatClock(s.opensAt),
+            count: clockHourOfClock(s.opensAt),
+          })
         : t("home.openSign.closedOn", {
             weekday: t(`home.openSign.weekdays.${s.opensOn}`),
             time: formatClock(s.opensAt),
+            count: clockHourOfClock(s.opensAt),
           });
     case "unset":
       return t("home.openSign.unset");

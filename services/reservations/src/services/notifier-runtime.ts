@@ -14,6 +14,21 @@ import type { SmsPort } from "../notifications/index.js";
 export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
 
 /**
+ * Thrown by the runtime scheduler when no job queue is configured (production
+ * with REDIS_URL unset, #3763). Distinct from a transient Redis failure so a
+ * caller on a user-facing path can degrade — do the immediate work, skip the
+ * delayed job — instead of failing the request (#8257).
+ */
+export class JobQueueUnavailableError extends Error {
+  constructor() {
+    super(
+      "Cannot schedule/cancel notification jobs: REDIS_URL is not configured in production (see #3763)."
+    );
+    this.name = "JobQueueUnavailableError";
+  }
+}
+
+/**
  * Single owner of the reservations notifier infrastructure. Reads the env vars
  * the notifiers used to each re-read (Twilio, REDIS_URL) once and hands out a
  * TYPED scheduler whose Redis connection is opened lazily. Replaces the
@@ -85,9 +100,7 @@ export function createNotifierRuntime(): NotifierRuntime {
   function connect(): JobScheduler {
     if (!redisUrl) {
       // Never connect to redis://localhost:6379 as a blind guess (#4172).
-      throw new Error(
-        "Cannot schedule/cancel notification jobs: REDIS_URL is not configured in production (see #3763)."
-      );
+      throw new JobQueueUnavailableError();
     }
     if (!scheduler) scheduler = new JobScheduler({ redisUrl });
     return scheduler;

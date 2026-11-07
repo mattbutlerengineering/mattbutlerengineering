@@ -15,6 +15,8 @@ import type {
   AvailabilityDaySummary,
   ClosureAlongside,
   ClosureImpact,
+  ClosureNoticePreview,
+  ClosureNoticePreviewBody,
   ClosureResult,
   ClosuresResult,
   ClosureSummary,
@@ -24,6 +26,7 @@ import type {
   CreateClosuresBodySchema,
   DateRule,
   ReopenResult,
+  ReopenSeen,
   SetTonightBodySchema,
   TonightResult,
   AvailabilityCheckBody,
@@ -33,7 +36,7 @@ import type {
   PutAvailabilityConfigBodySchema,
 } from "@mbe/types";
 import { availabilityConfigEndpoints } from "@mbe/types";
-import type { ApiClient, QueryParams } from "./client.js";
+import type { ApiClient, PerRequestOptions, QueryParams } from "./client.js";
 
 export interface GetTimeSlotsParams {
   venueId: string;
@@ -175,6 +178,18 @@ export class AvailabilityClient {
     return response.data;
   }
 
+  /** The email and SMS a guest would be sent for one Step 2 outcome, rendered by the server. */
+  async getClosureNoticePreview(
+    venueId: string,
+    body: ClosureNoticePreviewBody
+  ): Promise<ClosureNoticePreview> {
+    const response = await this.client.call(availabilityConfigEndpoints.closureNoticePreview, {
+      params: { id: venueId },
+      body,
+    });
+    return response.data;
+  }
+
   /**
    * Saves a closure (or special hours / Tonight change) with one decision per
    * affected group. `idempotencyKey` makes a retry safe: a replay returns the
@@ -285,16 +300,28 @@ export class AvailabilityClient {
     return response.data;
   }
 
-  /** Reopens a closure; guests it cancelled stay cancelled. */
+  /**
+   * Reopens a closure; guests it cancelled stay cancelled. `seen` is the rule and its skips and
+   * one-date edits as this caller read them: if they differ now the server answers 409
+   * `version-conflict` and changes nothing. Without it the rule is reopened as it is. `date`
+   * (Manager, with `seen`) reopens only that date of a bounded range.
+   */
   async reopenClosure(
     venueId: string,
     ruleId: string,
-    tellCancelledGuests: boolean
+    tellCancelledGuests: boolean,
+    override?: PerRequestOptions,
+    seen?: ReopenSeen,
+    date?: string
   ): Promise<ReopenResult> {
-    const response = await this.client.call(availabilityConfigEndpoints.reopenClosure, {
-      params: { id: venueId, ruleId },
-      body: { tellCancelledGuests },
-    });
+    const response = await this.client.call(
+      availabilityConfigEndpoints.reopenClosure,
+      {
+        params: { id: venueId, ruleId },
+        body: { tellCancelledGuests, ...(seen ? { seen } : {}), ...(date ? { date } : {}) },
+      },
+      override
+    );
     return response.data;
   }
 
@@ -315,10 +342,16 @@ export class AvailabilityClient {
   }
 
   /** Ends a Tonight change early; bookings a close-early cancelled stay cancelled. */
-  async endTonight(venueId: string, ruleId: string): Promise<ReopenResult> {
-    const response = await this.client.call(availabilityConfigEndpoints.endTonight, {
-      params: { id: venueId, ruleId },
-    });
+  async endTonight(
+    venueId: string,
+    ruleId: string,
+    override?: PerRequestOptions
+  ): Promise<ReopenResult> {
+    const response = await this.client.call(
+      availabilityConfigEndpoints.endTonight,
+      { params: { id: venueId, ruleId } },
+      override
+    );
     return response.data;
   }
 
@@ -494,7 +527,14 @@ export class HoldsClient {
   async confirmForVenue(
     slug: string,
     holdId: string,
-    details: { guestName?: string; guestEmail?: string; guestPhone?: string; notes?: string }
+    details: {
+      guestName?: string;
+      guestEmail?: string;
+      guestPhone?: string;
+      notes?: string;
+      /** The guest's widget locale tag; later notices are written in it. */
+      locale?: string;
+    }
   ): Promise<{ reservation: Reservation; manageToken?: string }> {
     const response = await this.client.request<{ data: Reservation; manageToken?: string }>(
       `${publicHoldsPath(slug)}/${holdId}/confirm`,

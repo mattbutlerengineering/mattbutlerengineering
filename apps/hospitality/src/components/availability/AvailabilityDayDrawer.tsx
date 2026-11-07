@@ -1,3 +1,4 @@
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -10,14 +11,25 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
-import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
+import type { AvailabilityConfig, AvailabilityConfigState, DateRule, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
+import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
+import { useEditorOpen } from "./editor-open.js";
+import { useHeldFor } from "./use-held-for.js";
+import { useHoldFocus } from "./use-hold-focus.js";
+import { useReloadHold } from "./use-reload-hold.js";
 import { CopyDayAction } from "./CopyDayAction.js";
+import { UseDayHoursAction } from "./UseDayHoursAction.js";
+import { closedAllDay } from "./closed-all-day.js";
+import { LayerRuleActions } from "./LayerRuleActions.js";
+import { datedAssignmentOf } from "./ScheduleLayerActions.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
+import { layerEffectText, layerLabelText } from "./layer-text.js";
+import { useHolidayNames } from "./use-holidays.js";
 import styles from "./AvailabilityDayDrawer.module.css";
 
 /** What a Manager needs to change the day; without it the drawer is read-only. */
@@ -29,7 +41,7 @@ export interface DayEditing {
   readonly today: string;
   readonly onDirtyChange: (dirty: boolean) => void;
   /** The draft was saved or discarded; close without asking. */
-  readonly onFinished: () => void;
+  readonly onFinished: (saved: boolean) => void;
   /**
    * Set when the drawer was opened from the multi-select bar: the dates the edit applies to.
    * It replaces the scope choice ("Applies to 6 dates") and the editor writes exactly these.
@@ -41,6 +53,13 @@ export interface DayEditing {
   readonly onStale?: () => void;
   /** "Close…" (F5): open the Close dialog for this date. */
   readonly onCloseDay?: (date: string) => void;
+  /** "Edit" on a dated schedule's layer: open that schedule's editor (the Schedules tab's). */
+  readonly onEditSchedule?: (scheduleId: string) => void;
+  /**
+   * With `fixedDates`: the picked dates do not all have the same hours, so the rows shown are
+   * one date's and a save replaces the others' (said above the rows).
+   */
+  readonly hoursDiffer?: boolean;
 }
 
 export interface AvailabilityDayDrawerProps {
@@ -53,10 +72,15 @@ export interface AvailabilityDayDrawerProps {
   /** `undefined` while the Team read is in flight. Only a Manager edits; a Host never sees a control. */
   readonly viewerRole: TeamRole | undefined;
   readonly editing?: DayEditing;
+  /** The venue's date rules, so a closure or special hours shows its staff note (Hosts too). */
+  readonly dateRules?: readonly DateRule[];
   readonly onClose: () => void;
 }
 
+type SeriesRuleScope = { readonly ruleId: string; readonly mode: SeriesScope };
+
 const noop = () => undefined;
+const RELOAD_OFFER_AFTER_MS = 2000;
 
 function serviceNames(day: ResolvedDaySummary, locale: string): string {
   return new Intl.ListFormat(locale, { type: "conjunction" }).format(
@@ -87,12 +111,35 @@ function summaryText(day: ResolvedDay, weekday: string, locale: string, t: TFunc
   ];
 }
 
-function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: string }) {
+function DayBody({
+  day,
+  date,
+  dateRules,
+  config,
+  layerActions,
+}: {
+  readonly day: ResolvedDay;
+  readonly date: string;
+  readonly dateRules?: readonly DateRule[];
+  /** With `layerActions`: a day under a dated schedule alone still shows its layer, to act on. */
+  readonly config?: Pick<AvailabilityConfig, "assignments" | "schedules">;
+  /** Remove / Edit beside a layer that stands for a saved rule; a Host and a past date get none. */
+  readonly layerActions?: (layer: Layer) => ReactNode;
+}) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const weekday = format.formatCalendarDate(date, { weekday: "long" });
   // The stack appears once a second layer exists; the regular week alone is just the summary.
-  const showStack = day.explanation.length >= 2;
+  // A Manager's day under one dated schedule shows it too: Remove and Edit have nowhere else to be.
+  const [only] = day.explanation;
+  const showStack =
+    day.explanation.length >= 2 ||
+    (layerActions !== undefined &&
+      config !== undefined &&
+      only !== undefined &&
+      datedAssignmentOf(config, only) !== undefined);
+  // A rule's note for staff ("Smith wedding"): why the day is the way it is, for whoever opens it.
+  const noteOf = (layer: Layer) => dateRules?.find((rule) => rule.id === layer.id)?.staffNote;
 
   return (
     <Stack gap="md">
@@ -102,6 +149,12 @@ function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: stri
             {sentence}
           </Text>
         ))}
+        {/* What guests are told about this day, in the words the Manager wrote. */}
+        {day.guestMessage && (
+          <Text variant="caption" color="secondary">
+            {t("availability.drawer.guestMessage", { message: day.guestMessage })}
+          </Text>
+        )}
       </Stack>
       {showStack && (
         <section aria-labelledby="why-this-day">
@@ -112,16 +165,26 @@ function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: stri
             {day.explanation.map((layer) => (
               <li key={layer.id} className={styles.layer}>
                 <Text as="span" variant="body" color="primary" data-layer-label>
-                  {layer.label}
+                  {layerLabelText(layer, t, format)}
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
-                  {layer.effect}
+                  {layerEffectText(layer, t, format)}
                 </Text>
-                <Text as="span" variant="caption" color="secondary">
-                  {t("availability.drawer.ifRemoved", {
-                    result: removalText(day, layer, format, t),
-                  })}
-                </Text>
+                {/* The regular week is the floor every other layer sits on: nothing done on a
+                    date removes it, so "If removed" would describe an action that does not exist. */}
+                {!layer.regularWeek && (
+                  <Text as="span" variant="caption" color="secondary">
+                    {t("availability.drawer.ifRemoved", {
+                      result: removalText(day, layer, format, t),
+                    })}
+                  </Text>
+                )}
+                {noteOf(layer) && (
+                  <Text as="span" variant="caption" color="secondary">
+                    {t("availability.drawer.staffNote", { note: noteOf(layer) })}
+                  </Text>
+                )}
+                {layerActions?.(layer)}
               </li>
             ))}
           </ol>
@@ -139,14 +202,57 @@ function DayBody({ day, date }: { readonly day: ResolvedDay; readonly date: stri
  */
 export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   const viewport = useViewport();
-  const { date, day, isLoading, error, viewerRole, editing, onClose } = props;
+  const { date, day, isLoading, error, viewerRole, editing, dateRules, onClose } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
+
+  // Several picked dates: the first date's summary, Close… and Copy would describe or act on one.
+  const picked = editing?.fixedDates && editing.fixedDates.length > 1 ? editing.fixedDates : null;
+  // A holiday's name under the date ("Thanksgiving"), as the calendar cell shows it.
+  const holidays = useHolidayNames(useMemo(() => (date ? [date] : []), [date]));
+  const holiday = date && !picked ? holidays.get(date) : undefined;
+  // Any open editor, even one with no change yet, has pinned the version it will save against.
+  const editorOpen = useEditorOpen();
+  // Past the Manager's own save, the config on hand is behind it: a draft made on it would conflict.
+  const { behind, reloadDue } = useReloadHold(editing?.venueId, editing?.state.version);
+  const waiting = editorOpen || behind;
+  const reasonId = useId();
+  const reason = editorOpen
+    ? picked
+      ? null
+      : t("availability.drawer.finishDraftFirst")
+    : behind
+      ? t("availability.drawer.waitForReload")
+      : null;
+  // A normal reload ends within this; only one that has not is worth a button of its own.
+  const offerReload = useHeldFor(reloadDue, RELOAD_OFFER_AFTER_MS);
+
+  const { editorRef, bannerRef, reloadRef, track } = useHoldFocus(
+    error ? "banner" : offerReload ? "reload" : null
+  );
+
+  // "Edit" on a layer: the scope the Manager chose first (F-SER), and the editor takes focus.
+  const [chosen, setChosen] = useState<{ date: string; scope: SeriesRuleScope } | null>(null);
+  // The choice belongs to one opening of one date: once the drawer closes or moves on, drop it, so
+  // reopening that date cannot re-apply "All dates" to a later, unrelated edit.
+  if (chosen !== null && chosen.date !== date) setChosen(null);
+  const [focusEditor, setFocusEditor] = useState(0);
+  const ruleScope = (chosen?.date === date ? chosen.scope : undefined) ?? editing?.ruleScope;
+  const editHours = (scope?: SeriesRuleScope) => {
+    setChosen(date !== null && scope ? { date, scope } : null);
+    setFocusEditor((n) => n + 1);
+  };
+  useEffect(() => {
+    if (focusEditor === 0) return;
+    // After the scope dialog's own restore frame, which would otherwise take focus back.
+    const frame = requestAnimationFrame(() => editorRef.current?.querySelector("button")?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [focusEditor, editorRef]);
 
   let body;
   if (date === null) {
     body = null;
-  } else if (error) {
+  } else if (error && !day) {
     body = (
       <Alert variant="error" title={t("availability.drawer.loadError")}>
         {error}
@@ -157,46 +263,144 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   } else {
     body = (
       <>
-        <DayBody day={day} date={date} />
-        {viewerRole === "manager" && editing && (
-          <AvailabilityDayEditor
-            // A new date, or a new pick for the same date, is a new draft.
-            key={`${date}|${editing.fixedDates?.join(",") ?? ""}`}
-            venueId={editing.venueId}
-            state={editing.state}
-            timezone={editing.timezone}
-            today={editing.today}
-            onDirtyChange={editing.onDirtyChange}
-            onFinished={editing.onFinished}
-            fixedDates={editing.fixedDates}
-            ruleScope={editing.ruleScope}
-            date={date}
+        {/* A failed refresh must not unmount an open draft; the error sits above it. */}
+        {error && (
+          <div ref={bannerRef} {...track}>
+            <ErrorRetryBanner
+              title={t("availability.drawer.refreshError")}
+              error={error}
+              onRetry={editing?.onStale}
+            />
+          </div>
+        )}
+        {!picked && (
+          <DayBody
             day={day}
-            onCancel={onClose}
+            date={date}
+            dateRules={dateRules ?? editing?.state.config.dateRules}
+            config={editing?.state.config}
+            layerActions={
+              viewerRole === "manager" && editing && date >= editing.today
+                ? (layer) => (
+                    <LayerRuleActions
+                      layer={layer}
+                      date={date}
+                      day={day}
+                      venueId={editing.venueId}
+                      state={editing.state}
+                      timezone={editing.timezone}
+                      today={editing.today}
+                      waiting={waiting}
+                      reasonId={reasonId}
+                      onFinished={() => editing.onFinished(true)}
+                      onStale={editing.onStale ?? noop}
+                      onEditHours={editHours}
+                      onEditSchedule={editing.onEditSchedule}
+                    />
+                  )
+                : undefined
+            }
           />
         )}
-        {viewerRole === "manager" && editing?.onCloseDay && (
-          <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
-            {t("availability.close.open")}
-          </Button>
+        {picked && editing?.hoursDiffer && (
+          <Text variant="body" color="primary">
+            {t("availability.drawer.hoursDiffer", {
+              date: format.formatCalendarDate(date, {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              }),
+            })}
+          </Text>
         )}
         {viewerRole === "manager" && editing && (
-          <>
+          <div ref={editorRef}>
+            <AvailabilityDayEditor
+              held={behind}
+              heldReasonId={reasonId}
+              // A new date, or a new pick for the same date, is a new draft.
+              key={`${date}|${editing.fixedDates?.join(",") ?? ""}|${ruleScope?.ruleId ?? ""}|${ruleScope?.mode ?? ""}`}
+              venueId={editing.venueId}
+              state={editing.state}
+              timezone={editing.timezone}
+              today={editing.today}
+              onDirtyChange={editing.onDirtyChange}
+              onFinished={editing.onFinished}
+              fixedDates={editing.fixedDates}
+              ruleScope={ruleScope}
+              onStale={editing.onStale}
+              date={date}
+              day={day}
+              onCancel={onClose}
+            />
+          </div>
+        )}
+        {/* The day's other actions, one row of equals under its hours: none outweighs Edit. */}
+        {viewerRole === "manager" && editing && !picked && (
+          <div className={styles.dayActions}>
+            {/* Nothing to close on a day already shut or over; the toolbar's Close… still reaches
+                ranges that start on one. */}
+            {editing.onCloseDay && date >= editing.today && day.services.length > 0 && (
+              <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
+                {t("availability.close.open")}
+              </Button>
+            )}
+            {date >= editing.today && (
+              <UseDayHoursAction
+                waiting={waiting}
+                reasonId={reasonId}
+                venueId={editing.venueId}
+                state={editing.state}
+                timezone={editing.timezone}
+                date={date}
+                closedReason={closedAllDay(day) ? t("availability.drawer.useBlockedClosed") : null}
+                onFinished={() => editing.onFinished(true)}
+                onStale={editing.onStale ?? noop}
+              />
+            )}
             <CopyDayAction
+              waiting={waiting}
+              reasonId={reasonId}
+              today={editing.today}
               venueId={editing.venueId}
               state={editing.state}
               date={date}
               day={day}
               onStale={editing.onStale ?? noop}
             />
-            <ScheduleNudge
-              venueId={editing.venueId}
-              state={editing.state}
-              date={date}
-              day={day}
-              onStale={editing.onStale ?? noop}
-            />
-          </>
+          </div>
+        )}
+        {viewerRole === "manager" && editing && !picked && (
+          <ScheduleNudge
+            waiting={waiting}
+            reasonId={reasonId}
+            venueId={editing.venueId}
+            state={editing.state}
+            date={date}
+            day={day}
+            onStale={editing.onStale ?? noop}
+          />
+        )}
+        {/* Below Copy and the nudge, so what a reload brings and takes away never moves a control
+            under a pointer. */}
+        {viewerRole === "manager" && editing && (
+          // Always mounted, so the reason is announced when it appears.
+          <div aria-live="polite">
+            {reason && (
+              <Text id={reasonId} variant="caption" color="secondary">
+                {reason}
+              </Text>
+            )}
+          </div>
+        )}
+        {/* Beside a failure the banner's Retry is the way out; otherwise this is, so a read older
+            than the save (which nothing else would refresh) cannot lock Edit. */}
+        {viewerRole === "manager" && offerReload && !error && editing?.onStale && (
+          <div ref={reloadRef} {...track}>
+            <Button variant="ghost" size="sm" onClick={() => editing.onStale?.()}>
+              {t("availability.drawer.reloadHours")}
+            </Button>
+          </div>
         )}
       </>
     );
@@ -210,8 +414,11 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
       title={
         date === null
           ? undefined
-          : format.formatCalendarDate(date, { weekday: "long", month: "long", day: "numeric" })
+          : picked
+            ? t("availability.selection.count", { count: picked.length })
+            : format.formatCalendarDate(date, { weekday: "long", month: "long", day: "numeric" })
       }
+      description={holiday}
     >
       <Stack gap="md">
         {body}

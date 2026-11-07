@@ -1,6 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { AvailabilityConfigState } from "@mbe/types";
+import { addDays } from "@mbe/availability";
+import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
 const revert = vi.hoisted(() => vi.fn());
@@ -9,6 +10,10 @@ const toast = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: revert }),
+}));
+// The preview has its own tests (ScheduleFlowPreview.test.tsx); here it never answers.
+vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
+  useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
 }));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
@@ -32,7 +37,15 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import { CompareServices } from "./CompareServices.js";
 import { CopyDayAction } from "./CopyDayAction.js";
-import { FIXTURE_DATE, fixtureConfig, resolveFixtureDay } from "./resolved-day-fixtures.js";
+import { ScheduleEditorDrawer } from "./ScheduleEditorDrawer.js";
+import { ScheduleNudge } from "./ScheduleNudge.js";
+import { SchedulesTab } from "./SchedulesTab.js";
+import {
+  EARLY_DINNER,
+  FIXTURE_DATE,
+  fixtureConfig,
+  resolveFixtureDay,
+} from "./resolved-day-fixtures.js";
 
 const state: AvailabilityConfigState = { config: fixtureConfig(), version: 7, source: "rows" };
 
@@ -85,7 +98,6 @@ describe("Undo after a schedule save", () => {
       </main>
     );
     fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
-    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
     fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
     (await undoOffered())();
     await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
@@ -99,6 +111,7 @@ describe("Undo after a schedule save", () => {
           state={state}
           date={FIXTURE_DATE}
           day={resolveFixtureDay()}
+          today="2026-10-28"
           onStale={vi.fn()}
         />
       </main>
@@ -128,6 +141,85 @@ describe("Undo after a schedule save", () => {
     fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply to 1 selected" }));
     fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    (await undoOffered())();
+    await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
+  });
+
+  it.each(["edit", "duplicate"] as const)(
+    "offers Undo after a schedule %s, reverting that save",
+    async (mode) => {
+      render(
+        <main>
+          <ScheduleEditorDrawer
+            venueId="venue-1"
+            state={state}
+            timezone="America/Los_Angeles"
+            today="2026-10-25"
+            mode={mode}
+            sourceScheduleId="regular"
+            onStale={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </main>
+      );
+      // A copy is used where the Manager says, so it needs days before it can save, and an end
+      // so it does not take the regular week (Fridays here) over for good.
+      if (mode === "duplicate") {
+        fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+        fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
+      }
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      (await undoOffered())();
+      await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
+    }
+  );
+
+  it("offers Undo after deleting a schedule, reverting that save", async () => {
+    render(
+      <main>
+        <SchedulesTab
+          venueId="venue-1"
+          state={{
+            ...state,
+            config: {
+              ...state.config,
+              schedules: [
+                ...state.config.schedules,
+                { id: "spare", name: "Spare", kind: "alternate", isRegular: false },
+              ],
+            },
+          }}
+          timezone="America/Los_Angeles"
+          today="2026-10-25"
+          onStale={vi.fn()}
+        />
+      </main>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete Spare" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    (await undoOffered())();
+    await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
+  });
+
+  it("offers Undo after the nudge makes a schedule, reverting that save", async () => {
+    const singleDates = [1, 2, 3].map((week): DateRule => ({
+      ...EARLY_DINNER,
+      id: `single-${week}`,
+      startsOn: addDays(FIXTURE_DATE, week * 7),
+      endsOn: addDays(FIXTURE_DATE, week * 7),
+    }));
+    render(
+      <main>
+        <ScheduleNudge
+          venueId="venue-1"
+          state={{ ...state, config: fixtureConfig(...singleDates) }}
+          date={FIXTURE_DATE}
+          day={resolveFixtureDay(...singleDates)}
+          onStale={vi.fn()}
+        />
+      </main>
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Make these .* regular hours/ }));
     (await undoOffered())();
     await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
   });

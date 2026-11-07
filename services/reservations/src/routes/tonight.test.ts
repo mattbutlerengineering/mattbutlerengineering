@@ -94,7 +94,7 @@ describe("tonight routes", () => {
 
         expect((await post(CLOSE_BODY)).statusCode).toBe(200);
 
-        expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "t-new");
+        expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "t-new", []);
         expect(noticeSvc.enqueueForClosure).toHaveBeenCalledWith(
           expect.objectContaining({ venueId: "venue-1", ruleId: "t-new" })
         );

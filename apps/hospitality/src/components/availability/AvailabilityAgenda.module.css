@@ -44,6 +44,23 @@
   text-decoration: underline;
 }
 
+/* As in the month grid (AvailabilityCalendar.module.css): closed is flat and outlined, special
+   hours carry an accent rule. Before .selected and .picked, which win over them. */
+.closed {
+  border: 1px dashed var(--rialto-border-strong);
+  background: transparent;
+  box-shadow: none;
+}
+
+.special {
+  border-inline-start: 3px solid var(--rialto-accent);
+}
+
+.closed .label,
+.special .label {
+  font-weight: var(--rialto-weight-medium);
+}
+
 .selected {
   outline: 2px solid var(--rialto-accent);
 }
@@ -58,6 +75,12 @@
   flex: 0 0 6.5rem;
   font-size: var(--rialto-text-sm);
   color: var(--rialto-text-secondary);
+}
+
+/* A holiday's name under the date. Inline-block, so today's underline stops at the date. */
+.holiday {
+  display: inline-block;
+  font-size: var(--rialto-text-xs);
 }
 
 .details {

@@ -126,6 +126,18 @@
 
 /* ── Content area ─────────────────────── */
 
+/* The page's h1 for assistive tech; the header already shows the product name. */
+.visuallyHidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .content {
   flex: 1;
   display: flex;
@@ -133,11 +145,12 @@
   overflow: hidden;
 }
 
-/* ── Responsive: phones keep only the header controls that fit ── */
+/* ── Responsive: phones drop the keyboard-shortcut hint (no touch
+   affordance) but keep the product name — a lone diamond with no brand
+   next to it reads as a rendering bug, not a logo (#7962) ── */
 
 @media (max-width: 767px) {
-  .shortcutHint,
-  .logoText {
+  .shortcutHint {
     display: none;
   }
 }

@@ -18,6 +18,8 @@
   composes: recessed from "../../styles/surfaces.module.css";
   composes: focusRing from "../../styles/surfaces.module.css";
 
+  /* As wide as its field, like Input: unsized, a textarea falls back to its ~20-column default. */
+  width: 100%;
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);
   font-family: var(--rialto-font-sans);

@@ -191,6 +191,20 @@ describe("mergeStrings", () => {
     expect(merged.partySizeLabel(3)).toBe("3p");
   });
 
+  it("falls back to default partySizeLabel when not overridden", () => {
+    const merged = mergeStrings({ todayLabel: "Today" });
+    expect(merged.partySizeLabel(1)).toBe(DEFAULT_STRINGS.partySizeLabel(1));
+  });
+
+  it("uses custom reservationCountLabel when provided and keeps the default otherwise", () => {
+    expect(DEFAULT_STRINGS.reservationCountLabel(1)).toBe("Reservation");
+    expect(DEFAULT_STRINGS.reservationCountLabel(69)).toBe("Reservations");
+    const reservationCountLabel = (n: number) => (n === 1 ? "Reservierung" : "Reservierungen");
+    const merged = mergeStrings({ reservationCountLabel });
+    expect(merged.reservationCountLabel(69)).toBe("Reservierungen");
+    expect(mergeStrings({ todayLabel: "Hoy" }).reservationCountLabel(2)).toBe("Reservations");
+  });
+
   it("uses custom reservationAriaTemplate when provided", () => {
     const template = () => "custom aria";
     const merged = mergeStrings({ reservationAriaTemplate: template });

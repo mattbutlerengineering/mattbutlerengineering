@@ -202,7 +202,7 @@ async function main() {
   const baseUrl = readFlag(argv, "--base-url");
   const org = readFlag(argv, "--org") ?? process.env.SENTRY_ORG;
   const project = readFlag(argv, "--project") ?? process.env.SENTRY_PROJECT;
-  const path = readFlag(argv, "--path") ?? "/api/v1/users/health";
+  const path = readFlag(argv, "--path") ?? "/api/v1/users/health/sentry-heartbeat";
   const timeoutMs = Number(readFlag(argv, "--timeout-ms") ?? 120_000);
   const token = process.env.SENTRY_AUTH_TOKEN;
 

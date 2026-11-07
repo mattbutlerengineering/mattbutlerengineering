@@ -8,12 +8,18 @@ on:
       - "packages/rialto/.storybook/**"
       - "packages/rialto/playwright.visual.config.ts"
       - "packages/rialto/src/test/visual/**"
+      - "packages/rialto/package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/rialto-visual.yml"
   pull_request:
     paths:
       - "packages/rialto/src/**"
       - "packages/rialto/.storybook/**"
       - "packages/rialto/playwright.visual.config.ts"
       - "packages/rialto/src/test/visual/**"
+      - "packages/rialto/package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/rialto-visual.yml"
 
 permissions:
   contents: read

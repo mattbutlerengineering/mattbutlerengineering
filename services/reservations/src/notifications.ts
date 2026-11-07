@@ -4,8 +4,10 @@ import {
   TwilioSmsAdapter,
   NotificationDispatcher,
 } from "./notifications/index.js";
+import type { ResendClient } from "./notifications/resend-adapter.js";
 import { getPublicApiBaseUrlConfig } from "./config/public-api-base-url.js";
 import { resolveManageBaseUrl } from "./config/manage-base-url.js";
+import { createHostBrandResolver } from "./config/host-brand.js";
 
 /**
  * Reads Resend env vars once and constructs a ResendNotificationAdapter.
@@ -22,13 +24,7 @@ import { resolveManageBaseUrl } from "./config/manage-base-url.js";
  */
 export function createResendAdapter(): ResendNotificationAdapter {
   const resendClient = process.env.RESEND_API_KEY
-    ? (new Resend(process.env.RESEND_API_KEY) as unknown as {
-        emails: {
-          send(
-            payload: Record<string, unknown>
-          ): Promise<{ data?: unknown; error?: { name?: string; message: string } | null }>;
-        };
-      })
+    ? (new Resend(process.env.RESEND_API_KEY) as unknown as ResendClient)
     : null;
 
   const { baseUrl: publicApiBaseUrl } = getPublicApiBaseUrlConfig({
@@ -41,6 +37,9 @@ export function createResendAdapter(): ResendNotificationAdapter {
     fromAddress: process.env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
     manageBaseUrl: resolveManageBaseUrl(process.env),
     publicApiBaseUrl,
+    // Brands confirmation/reminder/modified/cancelled/closure emails by the
+    // booking's origin host (#7892), always on the verified sending domain.
+    brandFor: createHostBrandResolver(process.env),
   });
 }
 

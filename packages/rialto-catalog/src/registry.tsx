@@ -525,6 +525,7 @@ export const { registry, handlers, executeAction } = defineRegistry(catalog, {
           onClose={() => emit("close")}
           title={props.title}
           description={props.description}
+          role={props.role}
         >
           {children}
         </Dialog>

@@ -1,11 +1,12 @@
 import { useTranslation } from "react-i18next";
-import { Button, Text, useToast } from "@mattbutlerengineering/rialto";
+import { Button, Text } from "@mattbutlerengineering/rialto";
 import { weekdayIndexOf, type ResolvedDay } from "@mbe/availability";
 import type { AvailabilityConfigState } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { NUDGE_THRESHOLD, singleDateChangeCount } from "./copy-day.js";
-import { seedServices } from "./draft-changes.js";
-import { buildNewScheduleChanges } from "./schedule-changes.js";
+import { buildDraftChanges, seedServices } from "./draft-changes.js";
+import { waitingProps } from "./draft-wait.js";
 import { SaveFailure } from "./ScheduleFormParts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 
@@ -15,19 +16,23 @@ export interface ScheduleNudgeProps {
   readonly date: string;
   readonly day: ResolvedDay;
   readonly onStale: () => void;
+  /** An editor is open, or a reload is due: the nudge's save would conflict with a save of ours. */
+  readonly waiting?: boolean;
+  /** The element that says why the nudge is waiting. */
+  readonly reasonId?: string;
 }
 
 /**
  * The discovery nudge (ux.md F2 step 7): once the same weekday has been changed for single
- * dates three times, offer one tap that makes a schedule of this day's hours for that weekday.
- * Shown only while the day still follows the regular week; a weekday that already has its own
- * schedule needs no suggestion.
+ * dates three times, offer one tap that writes this day's hours into the regular week as that
+ * weekday's hours (the same in-place change as "Every regular Friday"). Shown only while the day
+ * still follows the regular week.
  */
 export function ScheduleNudge(props: ScheduleNudgeProps) {
-  const { venueId, state, date, day, onStale } = props;
+  const { venueId, state, date, day, onStale, waiting = false, reasonId } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
 
   const weekday = weekdayIndexOf(date);
@@ -37,17 +42,18 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
 
   const weekdayName = format.formatCalendarDate(date, { weekday: "long" });
   const make = async () => {
-    const changes = buildNewScheduleChanges({
+    if (waiting) return;
+    const changes = buildDraftChanges({
       config: state.config,
-      name: weekdayName,
+      scope: { kind: "regularWeekday", weekday },
       services: seedServices(state.config, day, { kind: "date", date }),
-      useOn: { weekdays: [weekday], startsOn: null, endsOn: null },
-      winner: "new",
       makeId: () => crypto.randomUUID(),
     });
-    if (await saver.save(venueId, state, changes, "keep")) {
-      toast({
-        variant: "success",
+    const saved = await saver.save(venueId, state, changes, "keep");
+    if (saved) {
+      offerUndo({
+        venueId,
+        saved,
         title: t("availabilitySchedules.nudge.created", { weekday: weekdayName }),
       });
     }
@@ -58,8 +64,14 @@ export function ScheduleNudge(props: ScheduleNudgeProps) {
       <Text variant="body" color="primary">
         {t("availabilitySchedules.nudge.text", { weekday: weekdayName, count })}
       </Text>
-      <SaveFailure messages={saver.failure} />
-      <Button variant="secondary" size="sm" isLoading={saver.isPending} onClick={() => void make()}>
+      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
+      <Button
+        variant="secondary"
+        size="sm"
+        {...waitingProps(waiting, reasonId)}
+        isLoading={saver.isPending}
+        onClick={() => void make()}
+      >
         {t("availabilitySchedules.nudge.make", { weekday: weekdayName })}
       </Button>
     </aside>

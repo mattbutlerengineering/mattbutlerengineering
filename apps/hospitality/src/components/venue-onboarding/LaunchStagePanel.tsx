@@ -1,5 +1,5 @@
 /**
- * The four-stage Launch readout. Presentational only: derives every row's
+ * The five-stage Launch readout. Presentational only: derives every row's
  * state from `progress` via `stagesFor` / `stageStateOf` (#4754) — it holds
  * no state of its own and decides nothing about the sequence itself.
  *
@@ -56,6 +56,12 @@ function detailFor(
     if (state === "in-flight") return t("onboarding.stagePanel.creating", { name: ctx.venueName });
     if (state === "done") return t("onboarding.stagePanel.created", { name: ctx.venueName });
     return t("onboarding.stagePanel.venueFailed");
+  }
+  if (stage === "hours") {
+    if (state === "pending") return EM_DASH;
+    if (state === "in-flight") return t("onboarding.stagePanel.savingHours");
+    if (state === "done") return t("onboarding.stagePanel.hoursSaved");
+    return t("onboarding.stagePanel.hoursFailed");
   }
   if (stage === "floorPlan") {
     if (state === "pending") return EM_DASH;

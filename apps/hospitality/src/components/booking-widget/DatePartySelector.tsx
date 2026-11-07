@@ -114,6 +114,12 @@ export function DatePartySelector({
                 : format.formatLongDate(iso)
             }
             onFocus={(e) => setFocusedDate(e.target.getAttribute("data-date"))}
+            // A tap or click names the day too: Safari and touch give a pressed day no focus, so a
+            // closed day's note would otherwise only ever reach keyboard users.
+            onClick={(e) => {
+              const day = (e.target as HTMLElement).closest("[data-date]");
+              if (day) setFocusedDate(day.getAttribute("data-date"));
+            }}
             onBlur={(e) => {
               // Focus moving to another day keeps the note; the next onFocus replaces it.
               if (!e.currentTarget.contains(e.relatedTarget)) setFocusedDate(null);

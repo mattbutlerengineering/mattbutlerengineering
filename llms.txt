@@ -335,6 +335,11 @@
       export const dialogCatalogMeta: unknown;
     </item>
   </file>
+  <file path="packages/rialto/src/components/Dialog/DialogLayerContext.ts">
+    <item priority="high">
+      export const DialogLayerContext: unknown;
+    </item>
+  </file>
   </section>
   <section priority="medium" role="Divider">
   <file path="packages/rialto/src/components/Divider/Divider.catalog.ts">
@@ -451,6 +456,7 @@
       interface FormContextValue {
         submitAttempted: boolean;
         errors: Readonly<Record<string, string>>;
+        announcesErrors: boolean;
         registerField: (name: string, validate: (() => string | undefined) | und...;
         unregisterField: (name: string) => void;
       }
@@ -1387,6 +1393,14 @@
       export function meterVariantForScore(score: number): "error" | "default" | "success" { /* ... */ }
     </item>
   </file>
+  <file path="apps/rialto-web/src/pages/auth/use-invalid-submit-focus.ts">
+    <item priority="high">
+      export function useInvalidSubmitFocus(
+        formRef: RefObject<HTMLFormElement | null>,
+        fallbackSelector?: string
+      ): () => void { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="availability">
   <file path="apps/hospitality/src/components/availability/add-dates-draft.ts">
@@ -1462,6 +1476,92 @@
       ): { dates: number; parts: { action: ClosureAction; count: number }[] } { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/also-apply.ts">
+    <item priority="low">
+      interface AlsoApplyTarget {
+        scheduleId: string;
+        scheduleName: string;
+      }
+    </item>
+    <item priority="low">
+      interface AlsoApplyOption {
+        venueServiceId: string;
+        serviceName: string;
+        targets: readonly AlsoApplyTarget[];
+      }
+    </item>
+    <item priority="low">
+      type AlsoApplyPicks = Readonly<Record<string, readonly string[]>>;
+    </item>
+    <item priority="medium">
+      function changedSourceRows(
+        config: AvailabilityConfig,
+        edit: AvailabilityConfigChanges,
+        sourceScheduleId: string
+      ): ScheduleService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alsoApplyOptions(
+        config: AvailabilityConfig,
+        edit: AvailabilityConfigChanges,
+        sourceScheduleId: string
+      ): AlsoApplyOption[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pruneAlsoApply(
+        options: readonly AlsoApplyOption[],
+        picks: AlsoApplyPicks
+      ): AlsoApplyPicks { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alsoApplyScheduleIds(
+        options: readonly AlsoApplyOption[],
+        picks: AlsoApplyPicks
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildAlsoApplyChanges(
+        config: AvailabilityConfig,
+        edit: AvailabilityConfigChanges,
+        sourceScheduleId: string,
+        picks: AlsoApplyPicks
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alsoApplyChangedSince(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        picks: AlsoApplyPicks
+      ): { changed: string[]; removed: string[] } { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/booking-rules.ts">
+    <item priority="low">
+      interface BookingRulesForm {
+        daysAhead: string;
+        noticeHours: string;
+        largestParty: string;
+      }
+    </item>
+    <item priority="low">
+      type BookingRulesField = keyof BookingRulesForm;
+    </item>
+    <item priority="high">
+      export const UNSET_LARGEST_PARTY: unknown;
+    </item>
+    <item priority="high">
+      export function toBookingRulesForm(settings: VenueSettings | null | undefined): BookingRulesForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function invalidBookingRules(form: BookingRulesForm): readonly BookingRulesField[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withBookingRules(
+        settings: VenueSettings | null | undefined,
+        form: BookingRulesForm
+      ): VenueSettings { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
     <item priority="low">
       type CalendarView = "month" | "week";
@@ -1480,6 +1580,71 @@
     </item>
     <item priority="high">
       export function shiftAnchor(view: CalendarView, anchor: string, direction: 1 | -1): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/change-summary-text.ts">
+    <item priority="high">
+      type Change = Parameters<typeof describeChange>[0];
+    </item>
+    <item priority="medium">
+      function tonightText(detail: AvailabilityChangeDetail, t: TFunction): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureText(
+        detail: AvailabilityChangeDetail,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularWeekText(
+        detail: AvailabilityChangeDetail,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detailText(
+        detail: AvailabilityChangeDetail,
+        format: VenueFormat,
+        t: TFunction
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function changeSummaryText(change: Change, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/change-week-draft.ts">
+    <item priority="medium">
+      function serviceKey(service: ServiceDraft) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekKey(draft: QuickSetupDraft): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function daySignatures(draft: QuickSetupDraft): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editedWeekday(before: QuickSetupDraft, after: QuickSetupDraft): number | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ReapplyInput {
+        base: QuickSetupDraft;
+        draft: QuickSetupDraft;
+        latest: QuickSetupDraft;
+      }
+    </item>
+    <item priority="high">
+      export function reapplyWeek({ base, draft, latest }: ReapplyInput): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      interface OutsideSchedule {
+        name: string;
+        weekdays: readonly number[];
+      }
+    </item>
+    <item priority="high">
+      export function outsideSchedules(config: AvailabilityConfig): OutsideSchedule[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/clock-minutes.ts">
@@ -1504,7 +1669,7 @@
       type CloseWhat = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "booking"; re;
     </item>
     <item priority="low">
-      type CloseWhen = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | {
+      type CloseWhen = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "dates"; read | { readonly kind: "range"; read | {
             readonly kind: "repeat | { readonly kind: "until-reopen;
     </item>
     <item priority="low">
@@ -1550,6 +1715,21 @@
     <item priority="high">
       export function validateClose(form: CloseForm, today: string): CloseField | null { /* ... */ }
     </item>
+    <item priority="high">
+      export const closeFieldId: unknown;
+    </item>
+    <item priority="high">
+      export const closeWhenId: unknown;
+    </item>
+    <item priority="high">
+      export function focusCloseField(field: CloseField) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const stepTwoNoteId: unknown;
+    </item>
+    <item priority="high">
+      export function stepTwoNote(ready: boolean, t: TFunction): string { /* ... */ }
+    </item>
     <item priority="medium">
       function targetOf(what: CloseWhat) { /* ... */ }
     </item>
@@ -1557,10 +1737,89 @@
       export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
     </item>
     <item priority="high">
+      export function buildCloseRules(
+        form: CloseForm,
+        idFor: (date: string) => string,
+        today: string
+      ): readonly DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toggleDate(dates: readonly string[], date: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
+    </item>
+    <item priority="high">
+      export function firstDateOf(when: CloseWhen, today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function guestDateOf(when: CloseWhen, today: string): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closedDates(closure: ClosureSpan): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replacedSpecialDate(
+        rules: readonly DateRule[],
+        closure: ClosureSpan
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function distinctDays(config: AvailabilityConfig, dates: readonly string[]): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function startMinutes(
+        config: AvailabilityConfig,
+        timezone: string,
+        dates: readonly string[],
+        keep: number | null
+      ): readonly number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function settleStartMinute(
+        prev: CloseForm,
+        next: CloseForm,
+        config: AvailabilityConfig,
+        timezone: string,
+        today: string
+      ): CloseForm { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatOf(series: DateRule): CloseWhat { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isEditableClosure(rule: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureForm(rule: DateRule): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function editAlongside(rule: DateRule): ClosureAlongside { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seriesForm(series: DateRule, date: string): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function inSeries(rule: DateRule | null, series: DateRule | undefined): DateRule | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sameRequest(a: CloseForm, b: CloseForm): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function actionsFor(kind: ClosureImpactKind): readonly ClosureAction[] { /* ... */ }
     </item>
     <item priority="high">
+      export function unmovable(group: ClosureImpactGroup): ClosureImpactReservation[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function decisionsReady(groups: readonly ClosureImpactGroup[], choices: ChoiceMap): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function withoutChoicesFor(
+        groups: readonly ClosureImpactGroup[],
+        choices: ChoiceMap,
+        reservationIds: readonly string[]
+      ): ChoiceMap { /* ... */ }
     </item>
     <item priority="high">
       export function toDecisions(
@@ -1587,11 +1846,26 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function activeOnlinePause(
-        rules: readonly DateRule[],
+      export function isPauseInForce(
+        rule: DateRule,
+        config: AvailabilityConfig,
+        timezone: string,
+        today: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function shownOnlinePause(
+        config: AvailabilityConfig,
+        timezone: string,
         today: string,
         nowMinute: number
       ): DateRule | null { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/closed-all-day.ts">
+    <item priority="high">
+      export const closedAllDay: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/closure-band.ts">
@@ -1607,6 +1881,9 @@
     </item>
     <item priority="high">
       export function minuteText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureEndText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
     </item>
     <item priority="high">
       export function isWholeDay(closure: Pick<Closure, "from" | "to">): boolean { /* ... */ }
@@ -1634,6 +1911,34 @@
       ): ClosureBandText { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/closure-overlap-text.ts">
+    <item priority="medium">
+      function targetText(by: ClosedByRule, services: readonly VenueService[], t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function spanText(by: ClosedByRule, t: TFunction, format: VenueFormat): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureText(
+        by: ClosedByRule,
+        services: readonly VenueService[],
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function datesText(dates: readonly string[], t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function overlapLines(
+        overlap: ClosureOverlap,
+        kind: "already" | "stays",
+        services: readonly VenueService[],
+        t: TFunction,
+        format: VenueFormat
+      ): readonly string[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/compare-changes.ts">
     <item priority="high">
       type Hours = Pick<
@@ -1645,7 +1950,11 @@
         scheduleServiceId: string;
         scheduleId: string;
         scheduleName: string;
+        different: boolean;
       }
+    </item>
+    <item priority="medium">
+      function runs(config: AvailabilityConfig, row: ScheduleService): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function compareServiceOptions(config: AvailabilityConfig) { /* ... */ }
@@ -1655,6 +1964,29 @@
     </item>
     <item priority="high">
       export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rowsChangedSince(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        edits: readonly CompareRow[]
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rowsRemovedSince(
+        after: AvailabilityConfig,
+        edits: readonly CompareRow[]
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function reapplyEdits(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        edits: readonly CompareRow[]
+      ): Record<string, CompareRow> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> { /* ... */ }
     </item>
     <item priority="high">
       export function buildCompareChanges(
@@ -1674,12 +2006,45 @@
       export function conflictOf(error: unknown): Conflict | null { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/conflict-review.ts">
+    <item priority="low">
+      interface ScheduleChangeSince {
+        gone: boolean;
+        replacedBy: string | null;
+        renamedTo: string | null;
+        added: readonly string[];
+        removed: readonly string[];
+      }
+    </item>
+    <item priority="medium">
+      function rowsByService(config: AvailabilityConfig, scheduleId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scheduleChangesSince(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        scheduleId: string,
+        latestId: string = scheduleId
+      ): ScheduleChangeSince { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ReapplyInput {
+        base: readonly DraftService[];
+        draft: readonly DraftService[];
+        latest: readonly DraftService[];
+      }
+    </item>
+    <item priority="high">
+      export function reapplyDraft({ base, draft, latest }: ReapplyInput): DraftService[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/copy-day.ts">
     <item priority="low">
       interface CopyTarget {
         weekdays: readonly number[];
         from: string;
         until: string | null;
+        today?: string;
       }
     </item>
     <item priority="high">
@@ -1708,13 +2073,22 @@
         text: string;
       }
     </item>
+    <item priority="high">
+      export function scheduleNameText(name: string, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dayLabelText(label: string, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="low">
+      type DayTone = "closed" | "special";
+    </item>
     <item priority="low">
       interface DayPresentation {
+        label: string | null;
+        tone: DayTone | null;
         bands: readonly ClosureBandText[];
-        count: string | null;
+        servicesSummary: string | null;
         services: readonly ServiceLineText[];
-        onlineOff: boolean;
-        accessibleDetails: string;
       }
     </item>
     <item priority="medium">
@@ -1727,28 +2101,34 @@
     <item priority="high">
       export function presentDay(
         date: string,
-        summary: AvailabilityDaySummary | undefined,
+        fullSummary: AvailabilityDaySummary | undefined,
         detailed: boolean,
         t: TFunction,
-        format: VenueFormat
+        format: VenueFormat,
+        service?: ServiceFilter | null
       ): DayPresentation { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/describe-change.ts">
-    <item priority="medium">
-      function whenOf(
+    <item priority="high">
+      export function whenOf(
         from: string | null | undefined,
         to: string | null | undefined,
         format: VenueFormat,
         t: TFunction
       ): string | null { /* ... */ }
     </item>
-    <item priority="medium">
-      function outcomeText(outcome: AvailabilityChangeOutcome, format: VenueFormat, t: TFunction) { /* ... */ }
+    <item priority="high">
+      export function outcomeText(
+        outcome: Pick<AvailabilityChangeOutcome, "cancelled" | "moved" | "kept">,
+        format: VenueFormat,
+        t: TFunction
+      ) { /* ... */ }
     </item>
     <item priority="high">
       export function describeChange(
-        entry: AvailabilityChangeEntry,
+        entry: AvailabilityChangeSummary &
+          Partial<Pick<AvailabilityChangeEntry, "outcome" | "affectedFrom" | "affectedTo">>,
         format: VenueFormat,
         t: TFunction
       ): string | null { /* ... */ }
@@ -1756,8 +2136,15 @@
   </file>
   <file path="apps/hospitality/src/components/availability/draft-changes.ts">
     <item priority="low">
-      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "dates"; read | {
+      type EditScope = { readonly kind: "date"; reado | { readonly kind: "weekday"; re | { readonly kind: "schedule"; r | { readonly kind: "regularWeekd | { readonly kind: "dates"; read | {
             readonly kind: "rule";;
+    </item>
+    <item priority="high">
+      export function overnightHintDate(
+        scope: EditScope,
+        date: string,
+        dates: readonly string[]
+      ): string | undefined { /* ... */ }
     </item>
     <item priority="low">
       interface DraftService {
@@ -1814,6 +2201,24 @@
         config: AvailabilityConfig,
         scheduleId: string,
         services: readonly (DraftService & { venueServiceId: string })[],
+        makeId: () => string,
+        baseline?: AvailabilityConfig
+      ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function liveRegularWeek(config: AvailabilityConfig) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function usualHours(
+        config: AvailabilityConfig,
+        venueServiceId: string
+      ): SeedService | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularWeekdayRows(
+        config: AvailabilityConfig,
+        weekday: number,
+        services: readonly (DraftService & { venueServiceId: string })[],
         makeId: () => string
       ): { upsert: ScheduleService[]; removed: string[] } { /* ... */ }
     </item>
@@ -1821,7 +2226,146 @@
       export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/draft-wait.ts">
+    <item priority="high">
+      export const skipInitialFocus: unknown;
+    </item>
+    <item priority="high">
+      export function waitingProps(waiting: boolean, reasonId: string | undefined) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/editor-open.ts">
+    <item priority="medium">
+      function emit() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function markEditorOpen(): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const isEditorOpen: unknown;
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useEditorOpen: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/holidays.ts">
+    <item priority="low">
+      type HolidayCountry = "US" | "CA" | "MX";
+    </item>
+    <item priority="low">
+      type HolidayId = "newYearsDay" | "constitutionDay" | "valentinesDay" | "benitoJuarez" | "holyThursday" | "goodFriday" | "easter" | "workersDay" | "mothersDay" | "fathersDay" | "juneteenth" | "victoriaDay" | "memorialDay" | "canadaDay" | "independenceDay" | "laborDay" | "thanksgiving" | "dayOfTheDead" | "revolutionDay" | "christmasEve" | "christmasDay" | "boxingDay" | "newYearsEve";
+    </item>
+    <item priority="low">
+      interface Holiday {
+        id: HolidayId;
+        date: string;
+      }
+    </item>
+    <item priority="medium">
+      function nthWeekday(year: number, month: number, weekday: number, n: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function easterSunday(year: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidaysIn(country: HolidayCountry, year: number): Holiday[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isPlanned(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function upcomingHolidays(
+        country: HolidayCountry,
+        today: string,
+        config: AvailabilityConfig
+      ): Holiday[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidayCountry(
+        addressCountry: string | undefined,
+        locale: string
+      ): HolidayCountry | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export const USUALLY_CLOSED: ReadonlySet<HolidayId>;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/layer-rule-actions-props.ts">
+    <item priority="low">
+      interface LayerRuleActionsProps {
+        layer: Layer;
+        date: string;
+        day: ResolvedDay;
+        venueId: string;
+        state: AvailabilityConfigState;
+      }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/layer-text.ts">
+    <item priority="medium">
+      function upperFirst(text: string, locale: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingTypesText(
+        types: NonNullable<LayerTarget["bookingTypes"]>,
+        t: TFunction,
+        locale: string
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seriesText(series: LayerSeries, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightText(
+        tonight: NonNullable<Layer["tonight"]>,
+        t: TFunction,
+        format: VenueFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layerEffectText(layer: Layer, t: TFunction, format: VenueFormat): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/online-seatings.ts">
+    <item priority="medium">
+      function seatingMinutes({ opensAt, lastSeatingAt, closesAt, seating }: ResolvedService): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closesOnline(band: ResolvedClosure, minute: number, venueServiceId: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function onlineSeatingLeft(
+        config: AvailabilityConfig,
+        timezone: string,
+        date: string,
+        nowMinute: number
+      ): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/open-as-usual.ts">
+    <item priority="high">
+      export function readOpenAsUsual(venueId: string): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
+    <item priority="high">
+      export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
     <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
     </item>
@@ -1839,18 +2383,59 @@
       export function weekSummary(
         anchor: string,
         days: readonly AvailabilityDaySummary[] | undefined,
-        t: TFunction
+        t: TFunction,
+        service?: ServiceFilter | null
       ): string | null { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-demo.fixture.ts">
+    <item priority="high">
+      export const EVERY_DAY: unknown;
+    </item>
+    <item priority="high">
+      export function draftService(
+        id: string,
+        name: string,
+        times: readonly [string, string, string],
+        extra: Partial<ServiceDraft> = {}
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftBlock(
+        id: string,
+        days: number[],
+        times: readonly [string, string, string]
+      ): HoursBlock { /* ... */ }
+    </item>
+    <item priority="high">
+      export function demoDraft(): QuickSetupDraft { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
     <item priority="low">
-      interface ServiceDraft {
-        id: string;
-        name: string;
+      type KeptHours = Pick<ServiceHours, "seating" | "bookingTypes">;
+    </item>
+    <item priority="low">
+      interface DraftTimes {
         opens: string | null;
         lastSeating: string | null;
         closes: string | null;
+        lastSeatingLinked: boolean;
+        kept?: KeptHours;
+      }
+    </item>
+    <item priority="low">
+      interface HoursBlock {
+        id: string;
+        days: readonly number[];
+      }
+    </item>
+    <item priority="low">
+      interface ServiceDraft {
+        id: string;
+        name: string;
+        days: readonly number[] | null;
+        blocks: readonly HoursBlock[];
       }
     </item>
     <item priority="low">
@@ -1893,35 +2478,76 @@
       function toClock(minutes: number): string { /* ... */ }
     </item>
     <item priority="high">
-      export function autoLastSeating(closes: string): string { /* ... */ }
+      export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
     </item>
     <item priority="high">
       export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) { /* ... */ }
     </item>
     <item priority="high">
-      export function setServiceTime(
-        service: ServiceDraft,
+      export function setServiceTime<T extends DraftTimes>(
+        service: T,
         field: "opens" | "lastSeating" | "closes",
         value: string | null
-      ): ServiceDraft { /* ... */ }
+      ): T { /* ... */ }
     </item>
     <item priority="high">
       export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft { /* ... */ }
     </item>
     <item priority="high">
-      export function toggleDay(draft: QuickSetupDraft, day: number): QuickSetupDraft { /* ... */ }
+      export function toggleDayIn(days: readonly number[], day: number): readonly number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function keepDays<T extends { readonly days: readonly number[] }>(
+        blocks: readonly T[],
+        allowed: readonly number[]
+      ): T[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setServiceDays(
+        service: ServiceDraft,
+        days: readonly number[] | null,
+        sharedDays: readonly number[]
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setSharedDays(draft: QuickSetupDraft, days: readonly number[]): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function addBlock(service: ServiceDraft, id: string): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replaceBlock(service: ServiceDraft, next: HoursBlock): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function removeBlock(service: ServiceDraft, blockId: string): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      interface BlockDayToggle {
+        service: ServiceDraft;
+        moved: boolean;
+        removed: readonly HoursBlock[];
+      }
+    </item>
+    <item priority="high">
+      export function toggleBlockDay(
+        service: ServiceDraft,
+        blockId: string,
+        day: number
+      ): BlockDayToggle { /* ... */ }
     </item>
     <item priority="low">
       type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
     </item>
     <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required";
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required" | "block_days_required" | "days_outside_use";
     </item>
     <item priority="low">
       interface QuickSetupIssue {
         serviceId: string | null;
+        blockId?: string;
         field: QuickSetupField | "days";
         code: QuickSetupIssueCode;
+        weekday?: number;
       }
     </item>
     <item priority="high">
@@ -1932,19 +2558,44 @@
       }
     </item>
     <item priority="medium">
-      function minutesOf(service: ServiceDraft): ServiceMinutes | null { /* ... */ }
+      function minutesOf(
+        service: Pick<DraftTimes, "opens" | "lastSeating" | "closes">
+      ): ServiceMinutes | null { /* ... */ }
+    </item>
+    <item priority="high">
+      interface IssueOwner {
+        serviceId: string;
+        blockId?: string;
+      }
+    </item>
+    <item priority="medium">
+      function missingTimes(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
       function completenessIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="medium">
-      function orderIssues(service: ServiceDraft, m: ServiceMinutes): QuickSetupIssue[] { /* ... */ }
+      function orderIssues(times: DraftTimes, m: ServiceMinutes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function timesIssues(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function serviceIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">
       export function validateDraft(
         draft: QuickSetupDraft,
-        options: { readonly legacyReader?: boolean } = {}
+        options: { readonly legacyReader?: boolean; readonly within?: readonly number[] } = {}
       ): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueMessage(
+        issue: QuickSetupIssue,
+        draft: QuickSetupDraft,
+        t: TFunction,
+        weekdayName: (weekday: number) => string
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
       function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
@@ -1953,11 +2604,52 @@
       function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean { /* ... */ }
     </item>
     <item priority="high">
+      export function effectiveDays(draft: QuickSetupDraft, service: ServiceDraft): readonly number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function coveredDays(draft: QuickSetupDraft): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekOf(
+        draft: QuickSetupDraft,
+        service: ServiceDraft,
+        m: ServiceMinutes,
+        keptOf: KeptHours | undefined
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
       export function draftToConfig(
         draft: QuickSetupDraft,
         newId: () => string,
-        existing?: { regularScheduleId?: string; venueServiceIds?: Readonly<Record<string, string>> }
+        existing?: {
+          regularScheduleId?: string;
+          venueServiceIds?: Readonly<Record<string, string>>;
+          /** The days the rows are encoded over, when the schedule's use is fixed apart from the draft. */
+          coveredDays?: readonly number[];
+          /** Per venue service id, the seating and booking types hours the draft carries none for take. */
+          keptOf?: Readonly<Record<string, KeptHours>>;
+        }
       ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="medium">
+      function clockTimes(hours: ServiceHours): DraftTimes { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scheduleDays(
+        config: AvailabilityConfig,
+        scheduleId: string,
+        anyDay = false
+      ): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function draftFromConfig(
+        config: AvailabilityConfig,
+        newId: () => string,
+        scheduleId?: string
+      ): QuickSetupDraft { /* ... */ }
     </item>
     <item priority="high">
       export function draftToChanges(
@@ -1977,6 +2669,72 @@
     </item>
     <item priority="high">
       export function draftFromLegacyHours(hours: OperatingHours, serviceId: string): QuickSetupDraft { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-field-helpers.ts">
+    <item priority="high">
+      export function quickSetupFieldId(
+        serviceId: string | null,
+        field: QuickSetupField | "days",
+        blockId?: string
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issuesFor(
+        issues: readonly QuickSetupIssue[],
+        serviceId: string | null,
+        field: string,
+        blockId?: string
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useWeekdayName() { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/regular-week-line.ts">
+    <item priority="low">
+      interface LineHours {
+        opensAt: number;
+        lastSeatingAt: number;
+      }
+    </item>
+    <item priority="low">
+      interface HoursChange {
+        weekdays: readonly number[];
+      }
+    </item>
+    <item priority="low">
+      interface RegularWeekLineService {
+        venueServiceId: string;
+        name: string;
+        days: readonly number[];
+        changes: readonly HoursChange[];
+      }
+    </item>
+    <item priority="low">
+      interface RegularWeekLine {
+        services: readonly RegularWeekLineService[];
+        uniform: boolean;
+      }
+    </item>
+    <item priority="medium">
+      function inForce(config: AvailabilityConfig, today: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function regularWeekLine(config: AvailabilityConfig, today: string): RegularWeekLine { /* ... */ }
+    </item>
+    <item priority="low">
+      interface UpcomingRegularWeek {
+        startsOn: string;
+        endsOn: string | null;
+        line: RegularWeekLine;
+      }
+    </item>
+    <item priority="high">
+      export function upcomingRegularWeek(
+        config: AvailabilityConfig,
+        today: string
+      ): UpcomingRegularWeek | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/removal-diff.ts">
@@ -2084,6 +2842,23 @@
       export function revertErrorText(error: unknown, t: TFunction): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/rule-subjects.ts">
+    <item priority="high">
+      export const DATE_FORMAT: unknown;
+    </item>
+    <item priority="high">
+      export function rangeLabel(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdayList(rule: SpecialDateRule, format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/schedule-changes.ts">
     <item priority="low">
       interface UseOn {
@@ -2099,10 +2874,41 @@
       export function weekdayRuns(weekdays: readonly number[]): [number, number][] { /* ... */ }
     </item>
     <item priority="high">
+      export function hasOwnSchedules(config: AvailabilityConfig): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function buildDeleteScheduleChanges(scheduleId: string): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="low">
+      type ScheduleSaveBlock = "conflict" | "startRequired" | "endBeforeStart" | "nameRequired" | "servicesRequired" | "serviceNameRequired" | "replacesRegularWeek";
+    </item>
+    <item priority="high">
+      export function scheduleSaveBlock(draft: {
+        readonly conflicted: boolean;
+        readonly name: string;
+        /** A draft whose rows are quick-setup services has no `venueServiceId`; its own issues name them. */
+        readonly services: readonly { readonly name: string; readonly venueServiceId?: string | null }[];
+        readonly startsOn: string | null;
+        readonly endsOn: string | null;
+        readonly startRequired?: boolean;
+        /** False for a change with no end date: it is the regular week itself and is named by nothing. */
+        readonly nameRequired?: boolean;
+        /** A new schedule would take the regular week over for good (`replacesRegularWeek`). */
+        readonly replacesRegularWeek?: boolean;
+      }): ScheduleSaveBlock | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularWeekdays(config: AvailabilityConfig, today: string): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function replacesRegularWeek(
+        config: AvailabilityConfig,
+        useOn: UseOn,
+        today: string
+      ): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function meets(a: UseOn, b: UseOn): boolean { /* ... */ }
@@ -2137,7 +2943,7 @@
       interface NewScheduleInput {
         config: AvailabilityConfig;
         name: string;
-        services: readonly DraftService[];
+        draft: QuickSetupDraft;
         useOn: UseOn;
         winner: Winner;
       }
@@ -2147,6 +2953,9 @@
     </item>
     <item priority="high">
       interface RegularWeekInput {
+        config: AvailabilityConfig;
+        name: string;
+        draft: QuickSetupDraft;
         startsOn: string;
         endsOn: string | null;
       }
@@ -2159,12 +2968,25 @@
         readonly config: AvailabilityConfig;
         readonly scheduleId: string;
         readonly name: string;
-        readonly services: readonly DraftService[];
+        /** The schedule's services as the editor holds them: days and different-hours blocks. */
+        readonly draft: QuickSetupDraft;
         readonly makeId: () => string;
+        /** The config the drawer was seeded from, so a save removes only rows the Manager saw. */
+        readonly baseline: AvailabilityConfig;
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="medium">
-      function freshRows(services: readonly DraftService[]): DraftService[] { /* ... */ }
+      function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleRowChanges(input: {
+        readonly config: AvailabilityConfig;
+        readonly draft: QuickSetupDraft;
+        readonly scheduleId: string;
+        readonly covered: readonly number[];
+        readonly makeId: () => string;
+        readonly baseline?: AvailabilityConfig;
+      }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
       export function datesOfUse(useOn: UseOn, today: string): string[] { /* ... */ }
@@ -2188,6 +3010,9 @@
       export function scopeDates(scope: EditScope, context: ScopeContext): string[] { /* ... */ }
     </item>
     <item priority="high">
+      export function scheduleReach(scheduleId: string, context: ScopeContext): string[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -2196,6 +3021,56 @@
         dates: readonly string[],
         ignoreRuleId: string | null
       ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/scope-switch.ts">
+    <item priority="low">
+      type ParkedEdit = { readonly base: DraftService; | { readonly base: null; readonl;
+    </item>
+    <item priority="high">
+      interface SwitchInput {
+        baseline: readonly DraftService[];
+        services: readonly DraftService[];
+        parked: readonly ParkedEdit[];
+        seed: DraftService[];
+      }
+    </item>
+    <item priority="low">
+      interface Switched {
+        services: DraftService[];
+        baseline: DraftService[];
+        parked: ParkedEdit[];
+        unsaved: string[];
+        overridden: string[];
+      }
+    </item>
+    <item priority="high">
+      export const parkedName: unknown;
+    </item>
+    <item priority="high">
+      export function keepParked(
+        parked: readonly ParkedEdit[],
+        services: readonly DraftService[],
+        baseline: readonly DraftService[]
+      ): ParkedEdit[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function untouched(p: ParkedEdit, input: SwitchInput) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function restorable(p: ParkedEdit, seed: readonly DraftService[]) { /* ... */ }
+    </item>
+    <item priority="high">
+      type HeldLine = "overridden" | "unsaved" | null;
+    </item>
+    <item priority="medium">
+      function heldLine(p: ParkedEdit, seed: readonly DraftService[]): HeldLine { /* ... */ }
+    </item>
+    <item priority="medium">
+      function restoreHolds(input: SwitchInput, restored: readonly ParkedEdit[]) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function switchScope(input: SwitchInput): Switched { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/selection-actions.ts">
@@ -2228,12 +3103,26 @@
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/selection-hours.ts">
+    <item priority="medium">
+      function hoursSignature(day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pickHoursSource(
+        dates: readonly string[],
+        resolve: (date: string) => ResolvedDay
+      ): { readonly date: string | null; readonly differs: boolean } { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/selection.ts">
     <item priority="high">
       export function normalizeDates(dates: readonly string[]): string[] { /* ... */ }
     </item>
     <item priority="high">
       export function dateRange(a: string, b: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function futureDates(dates: readonly string[], today: string): string[] { /* ... */ }
     </item>
     <item priority="high">
       export function toggleDate(selection: readonly string[], date: string): string[] { /* ... */ }
@@ -2279,6 +3168,9 @@
       export function nextOccurrence(series: DateRule, from: string): string { /* ... */ }
     </item>
     <item priority="high">
+      export function sameRow(a: DateRule, b: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="high">
       export function dateOverride(
         rules: readonly DateRule[],
         seriesId: string,
@@ -2315,6 +3207,12 @@
       ): { rule: DateRule; alongside: ClosureAlongside } { /* ... */ }
     </item>
     <item priority="high">
+      export function growthAttempt(
+        plan: { readonly rule: DateRule; readonly alongside: ClosureAlongside },
+        ruleId: string
+      ): { rule: DateRule; alongside: ClosureAlongside } { /* ... */ }
+    </item>
+    <item priority="high">
       export function editHoursRule(
         rule: SpecialHoursRule,
         scope: SeriesScope,
@@ -2333,6 +3231,35 @@
         edit: SeriesEdit,
         makeId: () => string
       ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/service-filter.ts">
+    <item priority="low">
+      interface ServiceFilter {
+        id: string;
+        name: string;
+      }
+    </item>
+    <item priority="high">
+      export function filterableServices(config: AvailabilityConfig): readonly ServiceFilter[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resolveServiceFilter(
+        services: readonly ServiceFilter[],
+        chosenId: string | null
+      ): ServiceFilter | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterDaySummary(
+        summary: AvailabilityDaySummary,
+        serviceId: string
+      ): AvailabilityDaySummary { /* ... */ }
+    </item>
+    <item priority="high">
+      export function filterDays(
+        days: readonly AvailabilityDaySummary[] | undefined,
+        service: ServiceFilter | null
+      ): readonly AvailabilityDaySummary[] | undefined { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/special-dates.ts">
@@ -2375,6 +3302,83 @@
       ): ClosureSummary[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/step-two-refusal.ts">
+    <item priority="low">
+      type Refusal = { readonly kind: "groups-chang | { readonly kind: "version-conf | { readonly kind: "move-unavail | { readonly kind: "closure-exis | {
+            readonly kind: "other";
+    </item>
+    <item priority="medium">
+      function moveUnavailableIds(error: unknown): readonly string[] | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refusalOf(error: unknown): Refusal { /* ... */ }
+    </item>
+    <item priority="high">
+      export function mayHaveSaved(refusal: Refusal): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      interface RefusalContext {
+        groups: readonly ClosureImpactGroup[];
+        format: Pick<VenueFormat, "formatTime" | "formatCalendarDate" | "...;
+      }
+    </item>
+    <item priority="medium">
+      function moveUnavailableText(
+        ids: readonly string[],
+        t: TFunction,
+        context: RefusalContext | undefined
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function refusalText(refusal: Refusal, t: TFunction, context?: RefusalContext): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/stranded-revert.ts">
+    <item priority="medium">
+      function emit() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function registerStrandedRevertHost(venueId: string): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dismissStrandedRevert() { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useStrandedRevert: unknown;
+    </item>
+    <item priority="medium">
+      function strandedReservations(error: unknown): readonly StrandedReservation[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ToastInput {
+        title: string;
+        variant: "error";
+        duration: number;
+      }
+    </item>
+    <item priority="high">
+      export function reportRevertFailure(
+        error: unknown,
+        t: TFunction,
+        toast: (input: ToastInput) => unknown,
+        venueId: string
+      ) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/suggest-name.ts">
+    <item priority="low">
+      type Season = "spring" | "summer" | "autumn" | "winter";
+    </item>
+    <item priority="low">
+      type NameSuggestion = { readonly kind: "season"; rea | { readonly kind: "from"; reado | { readonly kind: "range"; read;
+    </item>
+    <item priority="high">
+      export function suggestName(startsOn: string | null, endsOn: string | null): NameSuggestion | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/tonight-state.ts">
     <item priority="low">
       type TonightChange = { readonly ruleId: string; rea | { readonly ruleId: string; rea | {
@@ -2415,9 +3419,107 @@
       ): readonly TonightChange[] { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/use-conflict-review.ts">
+    <item priority="high">
+      interface Baseline {
+        config: AvailabilityConfig;
+        version: number;
+        scheduleId: string | undefined;
+      }
+    </item>
+    <item priority="low">
+      type ConflictReviewKind = "edit" | "regularWeek" | "draft";
+    </item>
+    <item priority="low">
+      interface ConflictReview {
+        kind: ConflictReviewKind;
+        loaded: boolean;
+        changes: ScheduleChangeSince;
+      }
+    </item>
+    <item priority="high">
+      interface Input {
+        kind: ConflictReviewKind;
+        state: AvailabilityConfigState;
+        scheduleId: string | undefined;
+        services: readonly DraftService[];
+        name: string | null;
+      }
+    </item>
+    <item priority="high">
+      export function useConflictReview(input: Input) { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/use-discard-guard.ts">
     <item priority="high">
-      export function useDiscardGuard<T>(apply: (next: T) => void) { /* ... */ }
+      export function useDiscardGuard<T>(apply: (next: T) => void, derivedDirty?: boolean) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-held-for.ts">
+    <item priority="high">
+      export function useHeldFor(active: boolean, ms: number): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-hold-focus.ts">
+    <item priority="low">
+      type HoldWayOut = "banner" | "reload" | null;
+    </item>
+    <item priority="high">
+      export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-holidays.ts">
+    <item priority="medium">
+      function addressCountry(profile: unknown): string | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayCountry(): HolidayCountry | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
+    <item priority="medium">
+      function emit() { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addSaveUnderWay(venueId: string, by: 1 | -1) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function trackOwnSave<T extends { readonly version: number }>(
+        venueId: string,
+        run: () => Promise<T>
+      ): Promise<T> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function subscribe(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useReloadHold(venueId: string | undefined, version: number | undefined) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-save-attempts.ts">
+    <item priority="low">
+      interface TriedAttempt {
+        key: string;
+        ruleIds: readonly string[];
+        dates: readonly string[];
+        summary: string;
+      }
+    </item>
+    <item priority="low">
+      interface SaveAttemptsOptions {
+        firstRuleId?: string;
+        reload: () => void;
+        onLeave: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useSaveAttempts(rules: readonly DateRule[], options: SaveAttemptsOptions) { /* ... */ }
+    </item>
+    <item priority="low">
+      type SaveAttempts = ReturnType<typeof useSaveAttempts>;
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
@@ -2433,6 +3535,12 @@
   </file>
   <file path="apps/hospitality/src/components/availability/use-winning-change-text.ts">
     <item priority="high">
+      type ChangeSummaryText = typeof changeSummaryText;
+    </item>
+    <item priority="medium">
+      function useChangeSummaryText(coded: boolean): ChangeSummaryText | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function useWinningChangeText(winningChange: AvailabilityChangeSummary | null): string { /* ... */ }
     </item>
   </file>
@@ -2442,19 +3550,30 @@
         selection: readonly string[];
         onSelectionChange: (dates: string[]) => void;
         onOpenDay: (date: string) => void;
+        selecting?: boolean;
+        onDragChange?: (dragging: boolean) => void;
       }
     </item>
     <item priority="low">
       interface DateGestureHandlers {
         onClick: (event: MouseEvent) => void;
         onMouseDown: (event: MouseEvent) => void;
-        onMouseEnter: () => void;
+        onMouseEnter: (event: MouseEvent) => void;
         onTouchStart: () => void;
         onTouchMove: () => void;
       }
     </item>
     <item priority="high">
       export function useDateSelection(options: DateSelectionOptions) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/weekday-summary.ts">
+    <item priority="high">
+      export function weekdaySummary(
+        weekdays: readonly number[],
+        format: VenueFormat,
+        t: TFunction
+      ): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -2605,6 +3724,57 @@
         onHoldChange,
         venueTimezone,
       }: UseBookingFlowDeps): BookingFlowResult { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="closure-catalogs">
+  <file path="services/reservations/src/notifications/closure-catalogs/en-US.ts">
+    <item priority="high">
+      export const enUS: ClosureCatalog;
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/closure-catalogs/es-MX.ts">
+    <item priority="high">
+      export const esMX: ClosureCatalog;
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/closure-catalogs/fr-CA.ts">
+    <item priority="high">
+      export const frCA: ClosureCatalog;
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/closure-catalogs/index.ts">
+    <item priority="high">
+      export function closureCatalog(locale: GuestNoticeLocale): ClosureCatalog { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/closure-catalogs/types.ts">
+    <item priority="low">
+      interface DateParts {
+        weekday: string;
+        month: string;
+        day: number;
+      }
+    </item>
+    <item priority="low">
+      interface NoticeFacts {
+        venue: string;
+        date: string;
+        time: string;
+        party: number;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureCatalog {
+        locale: GuestNoticeLocale;
+        intl: string;
+        previewLink: string;
+        sms: {
+          cancelled(f: NoticeFacts & { refund: string | null ...;
+        email: {
+          subject: {
+            cancelled(venue: string, date: str...;
+      }
     </item>
   </file>
   </section>
@@ -2901,12 +4071,57 @@
   </file>
   </section>
   <section priority="medium" role="config">
+  <file path="services/reservations/src/config/host-brand.ts">
+    <item priority="low">
+      type OriginHost = "eat-sheet.com" | "mattbutlerengineering.com";
+    </item>
+    <item priority="high">
+      export function resolveOriginHost(
+        origin: string | readonly string[] | undefined | null
+      ): OriginHost | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ReservationHostBrand {
+        brandName: string;
+        fromAddress: string;
+        manageBaseUrl: string;
+      }
+    </item>
+    <item priority="low">
+      interface HostBrandEnv {
+        verifiedFromAddress: string;
+        mbeManageBaseUrl: string;
+        eatSheetManageBaseUrl: string;
+      }
+    </item>
+    <item priority="medium">
+      function withDisplayName(name: string, address: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hostBrandFor(originHost: string | null, env: HostBrandEnv): ReservationHostBrand { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createHostBrandResolver(env: {
+        EMAIL_FROM?: string | undefined;
+        MANAGE_BASE_URL?: string | undefined;
+        EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+      }): (originHost: string | null) => ReservationHostBrand { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/config/manage-base-url.ts">
     <item priority="high">
       export const DEFAULT_MANAGE_BASE_URL: unknown;
     </item>
     <item priority="high">
       export function resolveManageBaseUrl(env: { MANAGE_BASE_URL?: string | undefined }): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEFAULT_EAT_SHEET_MANAGE_BASE_URL: unknown;
+    </item>
+    <item priority="high">
+      export function resolveEatSheetManageBaseUrl(env: {
+        EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
+      }): string { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/config/manage-token.ts">
@@ -3053,7 +4268,7 @@
       export function useChatSuggestions(): readonly string[] { /* ... */ }
     </item>
     <item priority="high">
-      type ChatActionKey = `chat.actions.${(typeof ACTION | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof ;
+      type ChatActionKey = `chat.actions.${(typeof ACTION | (typeof YES_NO)[keyof typeof Y | (typeof SCOPES)[keyof typeof S | (typeof OPEN_END)[keyof typeof | `chat.actions.fields.${(typeof | (typeof TABLE_STATUSES)[keyof  | (typeof TONIGHT_CHANGES)[keyof | (typeof CANCEL_REASONS)[keyof  | (typeof MENU_AVAILABILITY)[key;
     </item>
     <item priority="high">
       type Translate = (key: ChatActionKey) => string;
@@ -3062,7 +4277,7 @@
       function formatWhen(key: string, value: string, locale?: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function lookup<T extends Record<string, string>>(map: T, key: string): T[keyof T] | undefined { /* ... */ }
+      function valueKey(key: string, value: string): ChatActionKey | undefined { /* ... */ }
     </item>
     <item priority="high">
       export function describeChatAction(
@@ -3921,8 +5136,14 @@
     <item priority="low">
       async function mockMenus(page: Page): Promise<void> { /* ... */ }
     </item>
+    <item priority="low">
+      type SseEventEntry = { type: string; data: unknown };
+    </item>
+    <item priority="low">
+      type SseMock = { setEvents: (events: readonly SseEventEntry[]) => void };
+    </item>
     <item priority="high">
-      export async function mockApi(page: Page): Promise<void> { /* ... */ }
+      export async function mockApi(page: Page): Promise<SseMock> { /* ... */ }
     </item>
     <item priority="medium">
       function buildAvailabilityConfigFixture() { /* ... */ }
@@ -3988,6 +5209,41 @@
     </item>
     <item priority="high">
       export async function injectAuth0Session(page: Page): Promise<void> { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/availability-draft-mock.ts">
+    <item priority="low">
+      interface PutBody {
+        expectedVersion: number;
+        changes?: { upsert?: { dateRules?: Array<{ id: string; startsOn?: s...;
+      }
+    </item>
+    <item priority="low">
+      interface PutRecord {
+        expected: number;
+        status: number;
+      }
+    </item>
+    <item priority="low">
+      interface AvailabilityMock {
+        version: number;
+        configReads: number;
+        failReads: boolean;
+        readVersion: number | null;
+        bodies: PutBody[];
+      }
+    </item>
+    <item priority="medium">
+      function between(from: string, to: string): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function addDays(date: string, n: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockAvailability(
+        page: Page,
+        options: { weekdays?: number[]; rules?: unknown[] } = {}
+      ): Promise<AvailabilityMock> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/booking-date.ts">
@@ -4444,8 +5700,11 @@
     <item priority="high">
       export function validateGuest(state: BookingWizardState): FieldErrors { /* ... */ }
     </item>
+    <item priority="medium">
+      function isCardExpiryPast(expiry: string, now: Date): boolean { /* ... */ }
+    </item>
     <item priority="high">
-      export function validatePayment(state: BookingWizardState): FieldErrors { /* ... */ }
+      export function validatePayment(state: BookingWizardState, now: Date = new Date()): FieldErrors { /* ... */ }
     </item>
     <item priority="high">
       export function validateStep(stepIndex: number, state: BookingWizardState): FieldErrors { /* ... */ }
@@ -5086,6 +6345,12 @@
       export const SEAT_NAME: unknown;
     </item>
     <item priority="high">
+      export const DRAG_SHADOW_NAME: unknown;
+    </item>
+    <item priority="high">
+      export const FURNITURE_GROUP_NAME: unknown;
+    </item>
+    <item priority="high">
       export const FURNITURE_PALETTE: unknown;
     </item>
     <item priority="low">
@@ -5463,6 +6728,106 @@
         async shouldSkip(): Promise<unknown>;
         async evaluate(): Promise<unknown>;
       }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="helpers">
+  <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
+    <item priority="medium">
+      function changedWeekdays(
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        timezone: string,
+        from: string
+      ): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockEmptyVenue(
+        page: Page,
+        options: { derive?: boolean; config?: AvailabilityConfig } = {}
+      ) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/helpers/engine-days-mock.ts">
+    <item priority="medium">
+      function isDayClosed(day: ResolvedDay): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayLabel(config: AvailabilityConfig, day: ResolvedDay): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function summarize(config: AvailabilityConfig, day: ResolvedDay): AvailabilityDaySummary { /* ... */ }
+    </item>
+    <item priority="medium">
+      function between(from: string, to: string): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SavedConfig {
+        config: AvailabilityConfig;
+        version: number;
+      }
+    </item>
+    <item priority="high">
+      export async function serveDaysAndPreview(
+        page: Page,
+        venueBase: string,
+        timezone: string,
+        current: () => SavedConfig
+      ) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/helpers/interaction-counter.ts">
+    <item priority="low">
+      interface InteractionCounter {
+        page: Page;
+        count: () => number;
+      }
+    </item>
+    <item priority="high">
+      export function countInteractions(page: Page): InteractionCounter { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/helpers/quick-setup-scenarios.ts">
+    <item priority="high">
+      export const UNIFORM_BISTRO_BASELINE: unknown;
+    </item>
+    <item priority="high">
+      export const LARGE_SETUP_BASELINE: unknown;
+    </item>
+    <item priority="low">
+      async function chooseTime(page: Page, serviceIndex: number, label: string, time: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setUniformBistroWeek(page: Page) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setLargeSetup(page: Page) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function setDemoWeek(page: Page, scope: Page | Locator = page) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEMO_WEEK_VIA_SCHEDULES_COUNT: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/helpers/week-dates.ts">
+    <item priority="high">
+      export const WEEKDAYS: unknown;
+    </item>
+    <item priority="medium">
+      function utc(iso: string): Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export function plusDays(iso: string, days: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextMonday(today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function serviceLines(scope: Locator): Promise<string[]> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function calendarWeek(page: Page, monday: string): Promise<Record<string, string[]>> { /* ... */ }
     </item>
   </file>
   </section>
@@ -5873,6 +7238,9 @@
       export const AVAILABILITY_CONFIG_QUERY_KEY: unknown;
     </item>
     <item priority="high">
+      export const CLOSURE_SUMMARIES_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
       export const useAvailabilityDays: unknown;
     </item>
     <item priority="high">
@@ -5905,11 +7273,20 @@
     <item priority="high">
       export function useAvailabilityPreview(
         venueId: string,
-        body: PreviewAvailabilityBody | null
+        body: PreviewAvailabilityBody | null,
+        /**
+         * The config version the draft is built on. It is part of the request's identity: the same body
+         * over a different base is a different question, so a reload that moves the base asks again
+         * rather than replaying an answer cached for the old one.
+         */
+        baseVersion?: number
       ): AvailabilityPreviewState { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
+    <item priority="medium">
+      function focusOffToast(offeredFrom: Element | null) { /* ... */ }
+    </item>
     <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
     </item>
@@ -6019,6 +7396,20 @@
   <file path="apps/hospitality/src/hooks/useClosures.ts">
     <item priority="high">
       export const useClosureImpact: unknown;
+    </item>
+    <item priority="high">
+      export function useClosureImpacts(params: {
+        readonly venueId: string | null;
+        readonly rules: readonly DateRule[];
+      }): {
+        data: ClosureImpact[] | undefined;
+        isLoading: boolean;
+        error: Error | null;
+        refetch: () => Promise<unknown>;
+      } { /* ... */ }
+    </item>
+    <item priority="high">
+      export const useClosureNoticePreview: unknown;
     </item>
     <item priority="low">
       type PreviewClosureImpactVariables = {
@@ -6202,6 +7593,9 @@
     <item priority="high">
       export const useActivateFloorPlan: unknown;
     </item>
+    <item priority="high">
+      export const useDeleteFloorPlan: unknown;
+    </item>
     <item priority="low">
       interface BulkUpdatePositionsPayload {
         floorPlanId: string;
@@ -6246,15 +7640,26 @@
   </file>
   <file path="apps/hospitality/src/hooks/useFocusAfter.ts">
     <item priority="low">
-      type FocusTarget = { readonly kind: "element"; re | { readonly kind: "testId"; rea | { readonly kind: "pageHeading";
+      type FocusTarget = { readonly kind: "element"; re | { readonly kind: "testId"; rea | { readonly kind: "firstIn"; re | { readonly kind: "pageHeading";
+    </item>
+    <item priority="low">
+      interface FocusOptions {
+        unlessCovered?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export const UNLESS_COVERED: FocusOptions;
     </item>
     <item priority="low">
       interface FocusAfterApi {
-        focusAfter: (target: FocusTarget) => void;
+        focusAfter: (target: FocusTarget, options?: FocusOptions) => void;
       }
     </item>
     <item priority="medium">
       function resolveTarget(target: FocusTarget): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isCoveredByDialog(element: Element | null): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function useFocusAfter(): FocusAfterApi { /* ... */ }
@@ -6987,6 +8392,43 @@
       export function useTextures(): UseTexturesResult { /* ... */ }
     </item>
   </file>
+  <file path="packages/rialto/src/hooks/floating-position.ts">
+    <item priority="low">
+      interface FloatingStyle {
+        left: string;
+        top: string;
+        bottom: string;
+        right: string;
+        maxHeight: string;
+      }
+    </item>
+    <item priority="high">
+      export function placeHorizontal(
+        desired: number,
+        panelWidth: number,
+        viewportWidth: number
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function placeVertical(
+        anchor: DOMRect,
+        panelHeight: number,
+        side: "top" | "bottom",
+        gap: number,
+        viewportHeight: number
+      ): Pick<FloatingStyle, "top" | "bottom" | "maxHeight"> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function placeBeside(
+        anchor: DOMRect,
+        side: "left" | "right",
+        panel: { width: number; height: number },
+        gap: number,
+        viewportWidth: number,
+        viewportHeight: number
+      ): FloatingStyle { /* ... */ }
+    </item>
+  </file>
   <file path="packages/rialto/src/hooks/useBoop.ts">
     <item priority="high">
       export function useBoop(): {
@@ -7089,8 +8531,8 @@
     <item priority="low">
       interface FieldErrorProps {
         id: string | undefined;
-        role: "alert";
-        "aria-atomic": true;
+        role: "alert" | undefined;
+        "aria-atomic": true | undefined;
       }
     </item>
     <item priority="low">
@@ -7156,6 +8598,28 @@
         enabled: boolean,
         options?: UseFocusTrapOptions
       ): void { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/rialto/src/hooks/useLayerFloating.ts">
+    <item priority="high">
+      type Place = (anchor: DOMRect, panel: HTMLElement) => Partial<Floating...;
+    </item>
+    <item priority="high">
+      export function useLayerFloating(
+        active: boolean,
+        anchorRef: RefObject<HTMLElement | null>,
+        panelRef: RefObject<HTMLElement | null>,
+        place: Place
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export const placeListbox: Place;
+    </item>
+    <item priority="high">
+      export function placeMenu(align: "left" | "right", side: "top" | "bottom"): Place { /* ... */ }
+    </item>
+    <item priority="high">
+      export function placePopover(placement: "top" | "bottom" | "left" | "right", gap = 8): Place { /* ... */ }
     </item>
   </file>
   <file path="packages/rialto/src/hooks/usePointerActivation.ts">
@@ -7921,10 +9385,15 @@
       function humanProblemDetail(problemDetails: ApiClientErrorLike["problemDetails"]): string | null { /* ... */ }
     </item>
     <item priority="medium">
-      function describe(category: ApiErrorCategory, raw: string, detail?: string): ApiErrorDescription { /* ... */ }
+      function describe(
+        category: ApiErrorCategory,
+        raw: string,
+        t: TFunction,
+        detail?: string
+      ): ApiErrorDescription { /* ... */ }
     </item>
     <item priority="high">
-      export function describeApiError(error: unknown): ApiErrorDescription { /* ... */ }
+      export function describeApiError(error: unknown, t: TFunction = defaultT): ApiErrorDescription { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/lib/describe-auth-error.ts">
@@ -8404,38 +9873,47 @@
     <item priority="low">
       interface ClosureNoticeContent {
         kind: ClosureNoticeKind;
+        locale: GuestNoticeLocale;
         venueName: string;
         guestName: string | null;
         closureDate: string;
-        startTime: string;
       }
     </item>
     <item priority="medium">
       function toGsm(text: string): string { /* ... */ }
     </item>
+    <item priority="medium">
+      function foldToGsm(text: string): string { /* ... */ }
+    </item>
     <item priority="high">
       export function smsSegments(body: string): number { /* ... */ }
     </item>
     <item priority="medium">
-      function civilParts(date: string): { weekday: string; month: string; day: number } { /* ... */ }
+      function civilParts(date: string, catalog: ClosureCatalog): DateParts { /* ... */ }
     </item>
     <item priority="medium">
-      function shortDate(date: string): string { /* ... */ }
+      function plainSpaces(text: string): string { /* ... */ }
     </item>
     <item priority="medium">
-      function emailDate(date: string): string { /* ... */ }
+      function clockOf(instant: string, timezone: string, fallbackDate: string, catalog: ClosureCatalog) { /* ... */ }
     </item>
     <item priority="high">
-      export function offerLabel(start: Date, timezone: string): string { /* ... */ }
+      export function offerLabel(start: Date, timezone: string, locale: GuestNoticeLocale): string { /* ... */ }
     </item>
     <item priority="medium">
-      function money(refund: { amountCents: number; currency: string }): string { /* ... */ }
+      function money(refund: { amountCents: number; currency: string }, catalog: ClosureCatalog): string { /* ... */ }
     </item>
     <item priority="medium">
       function timeOf(c: ClosureNoticeContent): string { /* ... */ }
     </item>
     <item priority="medium">
       function firstName(name: string | null): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function facts(c: ClosureNoticeContent, catalog: ClosureCatalog) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function refundText(c: ClosureNoticeContent, catalog: ClosureCatalog): string | null { /* ... */ }
     </item>
     <item priority="medium">
       function cancelledSms(c: ClosureNoticeContent, offers: readonly ClosureOffer[]): string { /* ... */ }
@@ -8469,6 +9947,35 @@
     </item>
     <item priority="high">
       export function buildClosureEmail(c: ClosureNoticeContent): { subject: string; html: string } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/closure-preview.ts">
+    <item priority="low">
+      type PreviewAction = "cancel" | "move" | "keep_notify";
+    </item>
+    <item priority="low">
+      interface ClosurePreviewInput {
+        action: PreviewAction;
+        venueName: string;
+        timezone: string;
+        closureDate: string;
+        startTime: string;
+      }
+    </item>
+    <item priority="low">
+      interface ClosurePreview {
+        email: { from: string; subject: string; text: string };
+        sms: string;
+      }
+    </item>
+    <item priority="medium">
+      function withoutTags(line: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function emailText(html: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function previewClosureNotice(input: ClosurePreviewInput): ClosurePreview { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/notifications/email-content.ts">
@@ -8544,6 +10051,9 @@
     <item priority="high">
       export const MANAGE_PATH: unknown;
     </item>
+    <item priority="medium">
+      function managePathFor(origin: string): string { /* ... */ }
+    </item>
     <item priority="high">
       export function buildManageUrl(baseUrl: string, token: string, rebook?: string): string { /* ... */ }
     </item>
@@ -8592,6 +10102,7 @@
         guestName: string;
         guestEmail: string;
         venueName: string;
+        idempotencyKey?: string;
       }
     </item>
     <item priority="low">
@@ -8608,6 +10119,7 @@
         to: string;
         subject: string;
         html: string;
+        originHost?: string | null;
       }
     </item>
     <item priority="low">
@@ -8616,12 +10128,27 @@
       }
     </item>
   </file>
-  <file path="services/reservations/src/notifications/resend-adapter.ts">
+  <file path="services/reservations/src/notifications/provider-rejected-error.ts">
     <item priority="high">
+      class ProviderRejectedError {
+        
+      }
+    </item>
+    <item priority="high">
+      class EmailNotConfiguredError {
+        
+      }
+    </item>
+  </file>
+  <file path="services/reservations/src/notifications/resend-adapter.ts">
+    <item priority="low">
       interface ResendClient {
         emails: {
-          // The SDK resolves `{ data, error }` on API failur...;
+          // The SDK resolves `{ data, error }` on EVERY fail...;
       }
+    </item>
+    <item priority="medium">
+      function isDefiniteRejection(error: { name?: string; statusCode?: number | null }): boolean { /* ... */ }
     </item>
     <item priority="low">
       interface ResendAdapterConfig {
@@ -8637,6 +10164,8 @@
         fromAddress: string;
         manageBaseUrl: string;
         publicApiBaseUrl: string | null;
+        brandFor: (originHost: string | null) => {
+          fromAddress: string;...;
       }
     </item>
   </file>
@@ -8845,7 +10374,7 @@
       function createErrorRateTracker() { /* ... */ }
     </item>
     <item priority="medium">
-      function normalizeRoute(request: FastifyRequest): string { /* ... */ }
+      function normalizeRoute(request: FastifyRequest): string | undefined { /* ... */ }
     </item>
     <item priority="low">
       async function errorRatePlugin(fastify: FastifyInstance): Promise<void> { /* ... */ }
@@ -9079,6 +10608,120 @@
     </item>
     <item priority="high">
       export function usePlaygroundState(): PlaygroundState { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/pages/timeline-focus.ts">
+    <item priority="high">
+      export const DETAILS_SURFACE_TEST_ID: unknown;
+    </item>
+    <item priority="high">
+      export const DETAILS_SIDEBAR_TEST_ID: unknown;
+    </item>
+    <item priority="high">
+      export function blockTarget(reservationId: string): FocusTarget { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SurfaceState {
+        openId: string | null;
+        modal: boolean;
+        changingForm: boolean;
+        dialogEpoch: number;
+      }
+    </item>
+    <item priority="medium">
+      function insideSurface(element: HTMLElement): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function returnFocusTarget(
+        surface: SurfaceState,
+        opener: HTMLElement | null,
+        fallback: FocusTarget | null
+      ): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function walkInFocusTarget(viewport: Viewport, reservationId: string): FocusTarget { /* ... */ }
+    </item>
+    <item priority="high">
+      export function captureOpener(clicked?: HTMLElement): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatedFocusTarget(
+        surface: SurfaceState,
+        reservationId: string
+      ): FocusTarget | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useCloseHoldingFocus(): (close: () => void) => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useBlockAfterRestore(): (reservationId: string) => void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useOnChange<T>(value: T, onChange: () => void): void { /* ... */ }
+    </item>
+    <item priority="high">
+      interface DetailsSurfaceInput {
+        viewport: Viewport;
+        selectedId: string | null;
+        selectedReservation: Reservation | null;
+        dialogOpen: boolean;
+        dialogEpoch: number;
+      }
+    </item>
+    <item priority="high">
+      interface DetailsSurface {
+        surfaceViewport: Viewport;
+        sheetReservation: Reservation | null;
+        surfaceRef: RefObject<SurfaceState>;
+      }
+    </item>
+    <item priority="high">
+      export function useDetailsSurface({
+        viewport,
+        selectedId,
+        selectedReservation,
+        dialogOpen,
+        dialogEpoch,
+      }: DetailsSurfaceInput): DetailsSurface { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/pages/timeline-sentences.ts">
+    <item priority="high">
+      export function walkInSentence(
+        created: Reservation,
+        tableName: string | undefined,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatedSentence(
+        reservation: Reservation,
+        tableName: string | undefined,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function cancelledSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function noShowSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seatNotFinishedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function notAppliedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function savedSentence(reservation: Reservation, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function loadedSentence(
+        date: string,
+        todayStr: string,
+        locale: string,
+        t: TFunction
+      ): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -9551,6 +11194,34 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="pwa">
+  <file path="apps/marketing/pwa/workbox-options.ts">
+    <item priority="low">
+      interface ServiceWorkerRuntimeRoute {
+        urlPattern: RegExp | string;
+        handler: "CacheFirst" | "CacheOnly" | "NetworkFirst" | "NetworkOnl...;
+      }
+    </item>
+    <item priority="high">
+      export const workboxRuntimeCaching: readonly ServiceWorkerRuntimeRoute[];
+    </item>
+    <item priority="high">
+      export const workboxPrecacheGlobPatterns: readonly string[];
+    </item>
+    <item priority="high">
+      export function isDocumentFontRequest(url: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function routeListClaims(
+        routes: readonly ServiceWorkerRuntimeRoute[],
+        url: string
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceWorkerClaimsUrl(url: string): boolean { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="react">
   <file path="packages/auth/src/react/auth-error.ts">
     <item priority="high">
@@ -9862,6 +11533,12 @@
       type TonightChangeType = (typeof TONIGHT_CHANGE_TYPES)[number];
     </item>
     <item priority="high">
+      export const AVAILABILITY_PAGE: unknown;
+    </item>
+    <item priority="high">
+      export const ClockSchema: unknown;
+    </item>
+    <item priority="high">
       type ChangeField = "closeAt" | "from" | "to" | "service" | "tables" | "covers";
     </item>
     <item priority="high">
@@ -9870,14 +11547,14 @@
     <item priority="high">
       type TonightRule = Extract<DateRule, { kind: "tonight" }>;
     </item>
-    <item priority="medium">
-      function clockToMinute(clock: string): number { /* ... */ }
+    <item priority="high">
+      export function clockToMinute(clock: string): number { /* ... */ }
     </item>
     <item priority="medium">
-      function serviceDayMinute(clock: string, config: AvailabilityConfig): number { /* ... */ }
+      function serviceDayMinute(clock: string, config: AvailabilityConfig, date: string): number { /* ... */ }
     </item>
-    <item priority="medium">
-      function minuteToClock(minute: number): string { /* ... */ }
+    <item priority="high">
+      export function minuteToClock(minute: number): string { /* ... */ }
     </item>
     <item priority="medium">
       function activeTonightRules(config: AvailabilityConfig, today: string, now: Date): TonightRule[] { /* ... */ }
@@ -9895,8 +11572,8 @@
         tableName: (id: string) => string
       ) { /* ... */ }
     </item>
-    <item priority="medium">
-      function resolveService(
+    <item priority="high">
+      export function resolveService(
         config: AvailabilityConfig,
         name: string
       ): { id: string } | { error: string } { /* ... */ }
@@ -9913,11 +11590,17 @@
         input: ChangeTonightInput,
         config: AvailabilityConfig,
         api: ApiClient,
-        venueId: string
+        venueId: string,
+        today: string
       ): Promise<{ change: TonightChange } | { error: string }> { /* ... */ }
     </item>
     <item priority="medium">
-      function availabilityWriteFailure(err: unknown, action: string) { /* ... */ }
+      function undoableOf(
+        page: AvailabilityChangesPage
+      ): { id: string; summary: string; at: string } | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function availabilityWriteFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="high">
       export function createAvailabilityTools(
@@ -9930,6 +11613,247 @@
       ): ToolSet { /* ... */ }
     </item>
   </file>
+  <file path="services/agent/src/routes/gen-agent-briefing-tools.ts">
+    <item priority="high">
+      type BriefingEntry = Awaited<ReturnType<ApiClient["briefing"]["list"]>>[number];
+    </item>
+    <item priority="medium">
+      function isRealDate(date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seatingOf(entry: BriefingEntry, timeZone: string | undefined) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readFailure(err: unknown) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createBriefingTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId, timeZone }: { readonly venueId?: string | undefined; readonly timeZone?: string }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-agent-closure-support.ts">
+    <item priority="low">
+      type SpecialHoursRule = Extract<DateRule, { kind: "special_hours" }>;
+    </item>
+    <item priority="low">
+      type ClosureRule = Extract<DateRule, { kind: "closure" }>;
+    </item>
+    <item priority="low">
+      type DatedRule = ClosureRule | SpecialHoursRule;
+    </item>
+    <item priority="low">
+      type Impact = Awaited<ReturnType<ApiClient["availability"]["getClosureI...;
+    </item>
+    <item priority="high">
+      export const WEEKDAYS: unknown;
+    </item>
+    <item priority="high">
+      export const UNTIL_REOPENED: unknown;
+    </item>
+    <item priority="high">
+      export const UNREADABLE_SPAN_DATE: unknown;
+    </item>
+    <item priority="high">
+      export const CHECK_FAILED: unknown;
+    </item>
+    <item priority="high">
+      export const SAVE_UNSURE: unknown;
+    </item>
+    <item priority="high">
+      export const NO_REGULAR_HOURS: unknown;
+    </item>
+    <item priority="high">
+      export function dayNumber(date: string): number | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdayOf(date: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkSpan(
+        date: string,
+        endDate: string | undefined,
+        today: string
+      ): { from: string; to: string } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function coversDate(rule: DatedRule, date: string, config: AvailabilityConfig): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function spanOf(rule: DatedRule) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function spanText(rule: Pick<DatedRule, "startsOn" | "endsOn">): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const isDated: unknown;
+    </item>
+    <item priority="high">
+      export function serviceName(config: AvailabilityConfig, id: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function scopeOf(
+        rule: Pick<DatedRule, "targetKind" | "venueServiceId" | "bookingTypes">,
+        config: AvailabilityConfig
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function plural(count: number, noun: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function affectedResult(impact: Pick<Impact, "reservations" | "covers" | "groups">) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function issueMessages(err: unknown): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureFailure(err: unknown, unsure: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const SCOPES: unknown;
+    </item>
+    <item priority="high">
+      export function scopeNeedsService(
+        input: { readonly scope: (typeof SCOPES)[number]; readonly service?: string | undefined },
+        ctx: z.RefinementCtx
+      ): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closedDays(
+        config: AvailabilityConfig,
+        serviceId: string | undefined,
+        from: string,
+        to: string
+      ): { date: string; rule: ClosureRule }[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureOnDay(
+        config: AvailabilityConfig,
+        serviceId: string | undefined,
+        date: string
+      ): ClosureRule | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hasSpecialHours(config: AvailabilityConfig, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function findReopenable(
+        config: AvailabilityConfig,
+        want: {
+          readonly from: string;
+          readonly to: string | null;
+          readonly scope: (typeof SCOPES)[number];
+          readonly serviceId?: string | undefined;
+        }
+      ): { rule: ClosureRule } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function stableJson(value: unknown): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const childrenOf: unknown;
+    </item>
+    <item priority="high">
+      export function closureReadToken(rule: DateRule, children: readonly DateRule[]): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenableOnly(rule: DatedRule): { rule: ClosureRule } | { error: string } { /* ... */ }
+    </item>
+    <item priority="low">
+      interface HoursInput {
+        opensAt: string;
+        lastSeating: string;
+        closesAt: string;
+      }
+    </item>
+    <item priority="high">
+      export function checkHours(
+        input: HoursInput
+      ): { opensAt: number; lastSeatingAt: number; closesAt: number } | { error: string } { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-agent-closure-tools.ts">
+    <item priority="low">
+      async function saveIfNoBookings(
+        api: ApiClient,
+        venueId: string,
+        rule: DateRule,
+        expectedVersion: number
+      ): Promise<{ saved: true } | Record<string, unknown>> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function specialServices(
+        api: ApiClient,
+        venueId: string,
+        config: AvailabilityConfig,
+        date: string,
+        serviceId: string,
+        hours: { opensAt: number; lastSeatingAt: number; closesAt: number }
+      ): Promise<{ services: SpecialHoursService[] } | { error: string }> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describeRule(rule: DatedRule, config: AvailabilityConfig, cancelled: number | undefined) { /* ... */ }
+    </item>
+    <item priority="high">
+      type ToolContext = {
+        readonly log: FastifyBaseLogger;
+        readonly api: ApiC...;
+    </item>
+    <item priority="medium">
+      function closeDates({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setSpecialHours({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenNote(cancelled: number, notified: number, datesPassed: boolean): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function stillClosedFields(saved: ReopenResult, config: AvailabilityConfig) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reopenClosure({ log, api, venueId }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listClosures({ log, api, venueId, timeZone }: ToolContext) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createClosureTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        {
+          venueId,
+          timeZone,
+        }: { readonly venueId?: string | undefined; readonly timeZone?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-agent-floor-plan-tools.ts">
+    <item priority="high">
+      type FloorPlan = Awaited<ReturnType<ApiClient["floorPlans"]["list"]>>["dat...;
+    </item>
+    <item priority="medium">
+      function findPlan(
+        plans: readonly FloorPlan[],
+        ref: string
+      ): { plan: FloorPlan } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readFailure(err: unknown) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function writeFailure(err: unknown, unsure: string | undefined) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createFloorPlanTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId }: { readonly venueId?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/routes/gen-agent-guest-tools.ts">
     <item priority="high">
       type Guest = Awaited<ReturnType<ApiClient["guests"]["get"]>>;
@@ -9938,7 +11862,10 @@
       function shown(guest: Guest) { /* ... */ }
     </item>
     <item priority="medium">
-      function guestFailure(err: unknown, action: string) { /* ... */ }
+      function winBackUnsure(name: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function guestFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="low">
       async function findGuest(
@@ -9954,6 +11881,58 @@
         api: ApiClient,
         { venueId }: { readonly venueId?: string | undefined }
       ): ToolSet { /* ... */ }
+    </item>
+  </file>
+  <file path="services/agent/src/routes/gen-agent-menu-tools.ts">
+    <item priority="high">
+      type Menu = Awaited<ReturnType<ApiClient["menus"]["list"]>>[number];
+    </item>
+    <item priority="high">
+      type MenuDetail = Awaited<ReturnType<ApiClient["menus"]["getById"]>>;
+    </item>
+    <item priority="high">
+      type MenuSection = MenuDetail["sections"][number];
+    </item>
+    <item priority="high">
+      type MenuItem = MenuSection["items"][number];
+    </item>
+    <item priority="medium">
+      function formatPrice(cents: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function priceToCents(price: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function menuFailure(err: unknown, unsure: string | undefined) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findMenu(menus: readonly Menu[], ref: string): { menu: Menu } | { error: string } { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findItem(
+        menu: MenuDetail,
+        itemRef: string,
+        sectionRef: string | undefined
+      ): { section: MenuSection; item: MenuItem } | { error: string } { /* ... */ }
+    </item>
+    <item priority="low">
+      async function resolveTarget(
+        api: ApiClient,
+        venueId: string,
+        menuRef: string,
+        itemRef: string,
+        sectionRef: string | undefined
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function createMenuTools(
+        log: FastifyBaseLogger,
+        api: ApiClient,
+        { venueId }: { readonly venueId?: string | undefined }
+      ): ToolSet { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readFailure(err: unknown) { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent-prompt.ts">
@@ -10001,8 +11980,13 @@
     <item priority="high">
       type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
     </item>
-    <item priority="medium">
-      function bookingWriteFailure(err: unknown, action: string, saved?: string) { /* ... */ }
+    <item priority="high">
+      export function bookingWriteFailure(
+        err: unknown,
+        action: string,
+        unsure: string | undefined,
+        saved?: string
+      ) { /* ... */ }
     </item>
     <item priority="low">
       async function venueReservation(
@@ -10085,6 +12069,9 @@
       ) { /* ... */ }
     </item>
     <item priority="medium">
+      function releaseIfNotExecuted(result: unknown, release: () => void): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
       function gateWriteTools(
         tools: ToolSet,
         log: FastifyBaseLogger,
@@ -10104,7 +12091,7 @@
       type WaitlistEntry = Awaited<ReturnType<ApiClient["waitlist"]["list"]>>[number];
     </item>
     <item priority="medium">
-      function waitlistFailure(err: unknown, action: string) { /* ... */ }
+      function waitlistFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="low">
       async function findParty(
@@ -10305,6 +12292,9 @@
     <item priority="high">
       export function localTimeIn(iso: unknown, timeZone: string | undefined): string | undefined { /* ... */ }
     </item>
+    <item priority="high">
+      export function failureLog(err: unknown) { /* ... */ }
+    </item>
     <item priority="low">
       interface Refusal {
         status: number;
@@ -10315,6 +12305,21 @@
     </item>
     <item priority="high">
       export function refusalOf(err: unknown): Refusal | undefined { /* ... */ }
+    </item>
+    <item priority="high">
+      export function saveUnsure(read: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export const NO_REPLAY: unknown;
+    </item>
+    <item priority="high">
+      export const NOT_EXECUTED: unknown;
+    </item>
+    <item priority="high">
+      export function notExecuted<T extends object>(result: T): T & { readonly notExecuted: true } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function failedBeforeWrite<T extends object>(unsure: string | undefined, result: T) { /* ... */ }
     </item>
     <item priority="low">
       interface NamedTable {
@@ -10584,13 +12589,13 @@
       export async function publishClosureChanges(
         fastify: FastifyInstance,
         log: FastifyBaseLogger,
-        saved: { venueId: string; ruleId: string }
+        saved: { venueId: string; ruleId: string; carried?: readonly string[] }
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="high">
       export async function enqueueNotices(
         enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-        input: { venueId: string; ruleId: string },
+        input: { venueId: string; ruleId: string; carried?: readonly string[]; date?: string },
         log: FastifyBaseLogger
       ): Promise<void> { /* ... */ }
     </item>
@@ -10600,6 +12605,13 @@
         log: FastifyBaseLogger,
         saved: { venueId: string; ruleId: string; cancelled: number }
       ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function carriedOutcomes(
+        log: FastifyBaseLogger,
+        venueId: string,
+        ruleId: string
+      ): Promise<string[]> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/routes/closures.ts">
@@ -10682,6 +12694,13 @@
     </item>
   </file>
   <file path="services/reservations/src/routes/guests.ts">
+    <item priority="medium">
+      function winBackProblem(
+        result: WinBackResult,
+        guestName: string,
+        timeZone: string
+      ): { status: 409 | 424; title: string; detail: string } | null { /* ... */ }
+    </item>
     <item priority="high">
       export const guestRoutes: FastifyPluginAsync;
     </item>
@@ -11135,6 +13154,9 @@
       async function createDisposableGuest(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
     </item>
     <item priority="low">
+      async function createDisposableEmailedGuest(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
+    </item>
+    <item priority="low">
       async function createDisposableFloorPlan(ctx: SweepContext, venueId: string): Promise<string> { /* ... */ }
     </item>
     <item priority="low">
@@ -11440,6 +13462,9 @@
   </file>
   <file path="packages/types/src/schemas/availability-config-api.ts">
     <item priority="high">
+      export const ScheduleServiceRequestSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityConfigChangesSchema: unknown;
     </item>
     <item priority="high">
@@ -11464,7 +13489,16 @@
       export const AvailabilityConfigSaveResultSchema: unknown;
     </item>
     <item priority="high">
+      export const AvailabilityChangeDetailSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityChangeSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CONFLICT_CHANGES_MAX: unknown;
+    </item>
+    <item priority="high">
+      export const ConflictChangesSinceSchema: unknown;
     </item>
     <item priority="high">
       export const AvailabilityChangeOutcomeSchema: unknown;
@@ -11486,6 +13520,9 @@
     </item>
     <item priority="high">
       export const StrandedReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const STRANDED_ISSUE_DETAIL_MAX: unknown;
     </item>
     <item priority="high">
       export const AVAILABILITY_CONFIG_PROBLEM_CODES: unknown;
@@ -11515,7 +13552,25 @@
       export const CLOSURE_IMPACT_KINDS: unknown;
     </item>
     <item priority="high">
+      export const BOOKING_ORIGIN_HOSTS: unknown;
+    </item>
+    <item priority="high">
       export const ClosureImpactKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GUEST_NOTICE_LOCALES: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_GUEST_NOTICE_LOCALE: unknown;
+    </item>
+    <item priority="high">
+      export const GuestNoticeLocaleSchema: unknown;
+    </item>
+    <item priority="low">
+      type GuestNoticeLocale = z.infer<typeof GuestNoticeLocaleSchema>;
+    </item>
+    <item priority="high">
+      export function resolveGuestNoticeLocale(raw: unknown): GuestNoticeLocale { /* ... */ }
     </item>
     <item priority="high">
       export const ClosureImpactReservationSchema: unknown;
@@ -11525,6 +13580,21 @@
     </item>
     <item priority="high">
       export const ClosureImpactSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_NOTICE_ACTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureNoticePreviewBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureNoticePreviewSchema: unknown;
+    </item>
+    <item priority="low">
+      type ClosureNoticePreviewBody = z.infer<typeof ClosureNoticePreviewBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureNoticePreview = z.infer<typeof ClosureNoticePreviewSchema>;
     </item>
     <item priority="low">
       type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
@@ -11632,6 +13702,12 @@
       type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
     </item>
     <item priority="low">
+      type AvailabilityChangeDetail = z.infer<typeof AvailabilityChangeDetailSchema>;
+    </item>
+    <item priority="low">
+      type ConflictChangesSince = z.infer<typeof ConflictChangesSinceSchema>;
+    </item>
+    <item priority="low">
       type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
     </item>
     <item priority="low">
@@ -11674,6 +13750,9 @@
       export const CreateClosuresBodySchema: unknown;
     </item>
     <item priority="high">
+      export const ReopenSeenSchema: unknown;
+    </item>
+    <item priority="high">
       export const ReopenClosureBodySchema: unknown;
     </item>
     <item priority="high">
@@ -11684,6 +13763,12 @@
     </item>
     <item priority="high">
       export const ClosuresResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosedByRuleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureOverlapSchema: unknown;
     </item>
     <item priority="high">
       export const ReopenResultSchema: unknown;
@@ -11731,6 +13816,9 @@
       type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
     </item>
     <item priority="low">
+      type ReopenSeen = z.infer<typeof ReopenSeenSchema>;
+    </item>
+    <item priority="low">
       type ClosureResult = z.infer<typeof ClosureResultSchema>;
     </item>
     <item priority="low">
@@ -11738,6 +13826,12 @@
     </item>
     <item priority="low">
       type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+    </item>
+    <item priority="low">
+      type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;
@@ -11823,6 +13917,12 @@
       export const RepeatSchema: unknown;
     </item>
     <item priority="high">
+      export const DayHoursSetSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DayHoursSchema: unknown;
+    </item>
+    <item priority="high">
       export const SpecialHoursServiceSchema: unknown;
     </item>
     <item priority="high">
@@ -11848,6 +13948,12 @@
     </item>
     <item priority="high">
       export const AvailabilityConfigSchema: unknown;
+    </item>
+    <item priority="low">
+      type DayHoursSet = z.infer<typeof DayHoursSetSchema>;
+    </item>
+    <item priority="low">
+      type DayHours = z.infer<typeof DayHoursSchema>;
     </item>
     <item priority="low">
       type Seating = z.infer<typeof SeatingSchema>;
@@ -13552,6 +15658,67 @@
       async function main(): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/scripts/collapse-day-named-schedules.ts">
+    <item priority="low">
+      interface ReplacedRows {
+        schedules: unknown[];
+        scheduleServices: unknown[];
+        assignments: unknown[];
+      }
+    </item>
+    <item priority="low">
+      interface CreatedRows {
+        schedules: string[];
+        scheduleServices: string[];
+        assignments: string[];
+      }
+    </item>
+    <item priority="low">
+      type CollapseOutcome = {
+            venueId: string;
+            | { venueId: string; outcome: "n | { venueId: string; outcome: "r;
+    </item>
+    <item priority="low">
+      interface CollapseSummary {
+        apply: boolean;
+        venues: number;
+        counts: Record<string, number>;
+        errors: { venueId: string; message: string }[];
+      }
+    </item>
+    <item priority="high">
+      type Log = (line: string) => void;
+    </item>
+    <item priority="medium">
+      function replacedBy(config: AvailabilityConfig, diff: ConfigDiff): ReplacedRows { /* ... */ }
+    </item>
+    <item priority="high">
+      export function introducedIssues(
+        before: readonly ConfigIssue[],
+        after: readonly ConfigIssue[]
+      ): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function createdBy(diff: ConfigDiff): CreatedRows { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function collapseVenue(
+        prisma: PrismaClient,
+        venueId: string,
+        options: { apply: boolean; now?: Date }
+      ): Promise<CollapseOutcome> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runCollapse(
+        prisma: PrismaClient,
+        options: { apply: boolean },
+        log: Log
+      ): Promise<CollapseSummary> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function main(): Promise<void> { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="services">
   <file path="services/agent/src/services/database.ts">
@@ -13984,6 +16151,40 @@
       export async function assumeAppRole(tx: AppRoleClient): Promise<void> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/availability-change-detail.ts">
+    <item priority="medium">
+      function regularWeek(config: AvailabilityConfig) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function configSavedDetail(
+        diff: ConfigDiff,
+        before: AvailabilityConfig,
+        after: AvailabilityConfig,
+        today: string
+      ): AvailabilityChangeDetail { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closureDetail(
+        rule: Pick<DateRule, "kind" | "startsOn" | "endsOn">,
+        counts: Record<ClosureAction, number>
+      ): AvailabilityChangeDetail { /* ... */ }
+    </item>
+    <item priority="high">
+      export const reopenedDetail: unknown;
+    </item>
+    <item priority="high">
+      export function tonightDetail(change: TonightChange): AvailabilityChangeDetail { /* ... */ }
+    </item>
+    <item priority="high">
+      export const tonightEndedDetail: unknown;
+    </item>
+    <item priority="high">
+      export function readDetail(value: unknown): AvailabilityChangeDetail | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function revertedDetail(original: unknown): AvailabilityChangeDetail | null { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/availability-changes.ts">
     <item priority="medium">
       function dayStart(d: string, timezone: string): Date { /* ... */ }
@@ -14280,7 +16481,9 @@
   <file path="services/reservations/src/services/availability-config.ts">
     <item priority="low">
       type StoreDb = ConfigRowDb &
-        Pick<PrismaClient, "venue" | "reservation...;
+        Pick<
+          PrismaClient,
+          "venue" | "re...;
     </item>
     <item priority="low">
       type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -14333,7 +16536,7 @@
             n;
     </item>
     <item priority="medium">
-      function describeDiff(diff: ConfigDiff): string { /* ... */ }
+      function describeDiff(detail: AvailabilityChangeDetail): string { /* ... */ }
     </item>
     <item priority="high">
       export function planSave(input: {
@@ -14351,7 +16554,8 @@
       }): SavePlan { /* ... */ }
     </item>
     <item priority="low">
-      type SaveOutcome = { kind: "saved"; version: numb | { kind: "version_conflict"; wi | { kind: "not_found" } | Exclude<SavePlan, { kind: "wri;
+      type SaveOutcome = { kind: "saved"; version: numb | {
+            kind: "version_conflic | { kind: "not_found" } | Exclude<SavePlan, { kind: "wri;
     </item>
     <item priority="medium">
       class SaveRefused {
@@ -14370,7 +16574,24 @@
       ): Promise<BookedReservation[]> { /* ... */ }
     </item>
     <item priority="high">
-      export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> { /* ... */ }
+      export const toSummary: unknown;
+    </item>
+    <item priority="high">
+      export async function refuseStale(
+        db: StoreDb,
+        venueId: string,
+        expectedVersion: number
+      ): Promise<SaveOutcome> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function newestChange(db: StoreDb, venueId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function refuseSeriesChanged(
+        db: StoreDb,
+        venueId: string,
+        committedVersion: number
+      ): Promise<SaveOutcome> { /* ... */ }
     </item>
     <item priority="high">
       export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig): SaveOutcome { /* ... */ }
@@ -14378,13 +16599,16 @@
     <item priority="high">
       export const toDbDate: unknown;
     </item>
+    <item priority="high">
+      export const detailData: unknown;
+    </item>
     <item priority="low">
       interface SaveRequest {
         changes: PutAvailabilityConfigBody["changes"];
         scopeConflicts: PutAvailabilityConfigBody["scopeConflicts"];
         kind: string;
         summary?: string;
-        operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
+        detail?: AvailabilityChangeDetail | null;
       }
     </item>
     <item priority="high">
@@ -14794,6 +17018,14 @@
       ): Promise<{ conflict?: SlotConflict; overrideLimits?: SoftLimit[] }> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/bookable-tables.ts">
+    <item priority="high">
+      export function onActivePlanWhere(): Prisma.TableWhereInput { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookableTableWhere(venueId: string): Prisma.TableWhereInput { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/booking-metrics.ts">
     <item priority="low">
       interface ReservationStatusCounts {
@@ -14888,6 +17120,30 @@
       function onlyMoved(edited: DateRule, stored: DateRule, seriesId: string, draftId: string) { /* ... */ }
     </item>
     <item priority="high">
+      export function seriesChangedSinceRead(
+        stored: readonly DateRule[],
+        draft: DateRule,
+        alongside: ClosureAlongside
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function ruleChangedSinceSeen(
+        stored: readonly DateRule[],
+        ruleId: string,
+        seen: ReopenSeen
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export const isPlainClosure: unknown;
+    </item>
+    <item priority="medium">
+      function checkClosureEdit(
+        stored: DateRule,
+        draft: DateRule,
+        alongside: ClosureAlongside
+      ): AlongsideIssue | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function checkAlongside(
         stored: readonly DateRule[],
         draft: DateRule,
@@ -14921,13 +17177,20 @@
         startTime: Date;
       }
     </item>
+    <item priority="high">
+      type EventSink = Prisma.ReservationEventCreateManyInput[];
+    </item>
+    <item priority="medium">
+      function collectInto(sink: EventSink) { /* ... */ }
+    </item>
     <item priority="low">
       async function cancelInTx(
         tx: Tx,
         venueId: string,
         actorId: string,
         r: Existing,
-        expectedStartTime: Date
+        expectedStartTime: Date,
+        events: EventSink
       ): Promise<ApplyResult> { /* ... */ }
     </item>
     <item priority="low">
@@ -14946,7 +17209,8 @@
         actorId: string,
         r: Existing,
         startTime: Date,
-        expectedStartTime: Date
+        expectedStartTime: Date,
+        events: EventSink
       ): Promise<boolean> { /* ... */ }
     </item>
     <item priority="high">
@@ -14958,6 +17222,42 @@
       ): Promise<ApplyResult> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/closure-carry-outcomes.ts">
+    <item priority="high">
+      type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
+    </item>
+    <item priority="low">
+      interface CarriedOutcomes {
+        from: string;
+        outcomeIds: string[];
+      }
+    </item>
+    <item priority="high">
+      export async function rekey(tx: Pick<Db, "$executeRaw">, ids: readonly string[], ruleId: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function carryOutcomes(
+        tx: Db,
+        venueId: string,
+        from: string,
+        to: string,
+        deciding: readonly string[]
+      ): Promise<CarriedOutcomes | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function returnCarriedOutcomes(tx: Db, inverse: unknown): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const readCarriedOutcomeIds: unknown;
+    </item>
+    <item priority="high">
+      export async function carriedOutcomeIds(
+        db: Pick<PrismaClient, "availabilityChange">,
+        venueId: string,
+        ruleId: string
+      ): Promise<string[]> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/closure-changes.ts">
     <item priority="low">
       interface ClosureChanges {
@@ -14966,7 +17266,12 @@
       }
     </item>
     <item priority="high">
-      export async function loadClosureChanges(venueId: string, ruleId: string): Promise<ClosureChanges> { /* ... */ }
+      export async function loadClosureChanges(
+        venueId: string,
+        ruleId: string,
+        /** Outcomes the save carried in from a series it replaced: not its changes to announce. */
+        carried: readonly string[] = []
+      ): Promise<ClosureChanges> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-command-plan.ts">
@@ -15057,7 +17362,18 @@
       }
     </item>
     <item priority="low">
-      type CreateClosureOutcome = { kind: "saved"; result: Closu | { kind: "not_found" } | { kind: "forbidden" } | { kind: "too_long" } | { kind: "version_conflict"; wi | { kind: "key_reused" } | { kind: "closure_exists" } | { kind: "invalid"; issues: { p | { kind: "decision_required"; g | { kind: "invalid_decision"; gr | { kind: "move_unavailable"; re;
+      interface RefusalIssue {
+        path: string;
+        code: string;
+        message: string;
+        reservation?: StrandedReservation;
+      }
+    </item>
+    <item priority="medium">
+      function strandedIssues(stranded: readonly StrandedReservation[], message: string): RefusalIssue[] { /* ... */ }
+    </item>
+    <item priority="low">
+      type CreateClosureOutcome = { kind: "saved"; result: Closu | { kind: "not_found" } | { kind: "forbidden" } | { kind: "too_long" } | { kind: "version_conflict"; wi | { kind: "key_reused" } | { kind: "closure_exists" } | { kind: "invalid"; issues: Ref | { kind: "decision_required"; g | { kind: "invalid_decision"; gr | { kind: "move_unavailable"; re;
     </item>
     <item priority="high">
       type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
@@ -15202,7 +17518,27 @@
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      type ReopenOutcome = { kind: "reopened"; result: Re | { kind: "not_found" } | { kind: "forbidden" };
+      type ReopenOutcome = { kind: "reopened"; result: Re | { kind: "not_found" } | { kind: "forbidden" } | Extract<Refusal, { kind: "inva;
+    </item>
+    <item priority="low">
+      async function refuseStrandingReopen(
+        tx: Db,
+        venueId: string,
+        state: ConfigState,
+        next: ConfigState["stored"],
+        now: Date
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function splitFor(
+        input: { caller: ClosureCaller; seen?: ReopenSeen | undefined },
+        rule: DateRule,
+        date: string,
+        stored: readonly DateRule[]
+      ): DateRule[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function upcomingCancelled(db: Db, venueId: string, ruleId: string, now: Date): Promise<number> { /* ... */ }
     </item>
     <item priority="high">
       export async function reopenClosure(
@@ -15212,6 +17548,9 @@
           caller: ClosureCaller;
           tellCancelledGuests: boolean;
           now: Date;
+          seen?: ReopenSeen | undefined;
+          /** Reopen only this date of a bounded range; the range's other dates stay closed. */
+          date?: string | undefined;
         },
         client: StoreClient = prisma
       ): Promise<ReopenOutcome> { /* ... */ }
@@ -15220,18 +17559,49 @@
       export const closureCommandService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/closure-deposit.ts">
+    <item priority="low">
+      interface RefundableDeposit {
+        amountCents: number;
+        status: string;
+        stripePaymentIntentId: string | null;
+        refundAmountCents?: number | null;
+        postCaptureRefundCents?: number | null;
+      }
+    </item>
+    <item priority="high">
+      export function refundOwedCents(
+        deposit: Pick<
+          RefundableDeposit,
+          "amountCents" | "status" | "refundAmountCents" | "postCaptureRefundCents"
+        >
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function owesRefund(deposit: RefundableDeposit): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/closure-impact-store.ts">
     <item priority="high">
       type StoreClient = Pick<PrismaClient, "$transaction">;
     </item>
     <item priority="high">
-      type ImpactDb = Pick<PrismaClient, "table" | "reservation">;
+      type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservation...;
     </item>
     <item priority="low">
       type ClosureImpactOutcome = { kind: "ok"; impact: ClosureI | { kind: "not_found" } | { kind: "too_long" } | { kind: "invalid"; issues: { p;
     </item>
     <item priority="medium">
       function scanRange(rule: DateRule, today: string): { from: string; to: string } | null { /* ... */ }
+    </item>
+    <item priority="low">
+      async function loadOccupancy(
+        tx: ImpactDb,
+        venueId: string,
+        tableIds: readonly string[],
+        range: { from: string; to: string },
+        now: Date
+      ): Promise<Occupancy> { /* ... */ }
     </item>
     <item priority="high">
       export async function impactInTransaction(
@@ -15313,6 +17683,21 @@
     <item priority="medium">
       function toReservation(booking: ImpactBooking, runsInto: boolean): ClosureImpactReservation { /* ... */ }
     </item>
+    <item priority="low">
+      interface Occupancy {
+        reservations: readonly ReservationSlim[];
+        holds: readonly HoldSlim[];
+      }
+    </item>
+    <item priority="medium">
+      function withProposedStarts(
+        after: AvailabilitySnapshot,
+        group: ClosureImpactGroup,
+        tableOf: ReadonlyMap<string, string | null>,
+        occupancy: Occupancy,
+        now: Date
+      ): { group: ClosureImpactGroup; standing: readonly ReservationSlim[] } { /* ... */ }
+    </item>
     <item priority="medium">
       function toGroup(
         date: string,
@@ -15327,6 +17712,10 @@
         rule: DateRule;
         alongside?: ClosureAlongside;
         bookings: readonly ImpactBooking[];
+        /** For the proposed move times: a move never lands before now. */
+        now: Date;
+        /** Who else holds the tables a move lands on; absent, no table is taken. */
+        occupancy?: Occupancy;
       }): ClosureImpact { /* ... */ }
     </item>
   </file>
@@ -15336,6 +17725,12 @@
         dispatcher: Pick<NotificationDispatcher, "sendClosureEmail" | "sendClosureSms" | "smsEnabled">;
         generateManageToken(reservationId: string, guestEmail: string): string;
         manageBaseUrl: string;
+        /**
+         * Resolves the manage-link base for an outcome's origin host (#7892) — a
+         * closure notice for an eat-sheet.com booking links back to eat-sheet.com.
+         * Omitted keeps `manageBaseUrl` above for every outcome, today's behavior.
+         */
+        hostBrand?: (originHost: string | null) => { manageBaseUrl: string };
         logger: ClosureNoticeDeps["logger"];
         now?: () => Date;
       }): ClosureNoticeDeps { /* ... */ }
@@ -15358,6 +17753,8 @@
         venueId: string;
         ruleId: string;
         now: Date;
+        carried?: readonly string[];
+        date?: string;
       }
     </item>
     <item priority="medium">
@@ -15421,8 +17818,23 @@
         venueId: string,
         ruleId: string,
         variant: NoticeVariant,
+        now: Date,
         db: Db = prisma
       ): Promise<NotifiableOutcome[]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function promisedRefund(
+        refund: string,
+        refundCents: number | null,
+        deposit: {
+          amountCents: number;
+          currency: string;
+          status: string;
+          stripePaymentIntentId: string | null;
+          refundAmountCents: number | null;
+          postCaptureRefundCents: number | null;
+        } | null
+      ): NoticeOutcome["refund"] { /* ... */ }
     </item>
     <item priority="high">
       export async function loadNoticeOutcome(
@@ -15478,15 +17890,11 @@
         id: string;
         reservation: {
           guestName: string | null;
-          deposit: {
-            amou...;
+          /** Only the summarie...;
         dateRuleId: string;
         action: NoticeOutcome["action"];
         deliveries: unknown;
       }
-    </item>
-    <item priority="medium">
-      function refundOwedCents(deposit: NonNullable<SummaryRow["reservation"]["deposit"]>): number { /* ... */ }
     </item>
     <item priority="medium">
       function refundFailureOf(row: SummaryRow): RefundFailure { /* ... */ }
@@ -15495,7 +17903,11 @@
       export function summarizeOutcomes(rows: readonly SummaryRow[]): ClosureSummary[] { /* ... */ }
     </item>
     <item priority="high">
-      export async function listSummaries(venueId: string, db: Db = prisma): Promise<ClosureSummary[]> { /* ... */ }
+      export async function listSummaries(
+        venueId: string,
+        now: Date = new Date(),
+        db: Db = prisma
+      ): Promise<ClosureSummary[]> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/closure-notice.ts">
@@ -15736,7 +18148,7 @@
         venueId: string,
         ruleId: string,
         statuses: readonly ClosureRefundStatus[],
-        opts: { retry?: boolean; now?: () => number } = {}
+        opts: { retry?: boolean; now?: () => number; carried?: readonly string[] } = {}
       ): Promise<number> { /* ... */ }
     </item>
     <item priority="low">
@@ -15750,6 +18162,30 @@
         jobs: Pick<JobScheduler, "schedule">;
         log?: RefundLogger;
       }): ClosureRefunds { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/closure-reopen-date.ts">
+    <item priority="low">
+      type RangeParts = { kind: "parts"; parts: DateRu | { kind: "invalid"; message: st;
+    </item>
+    <item priority="high">
+      export function rangeAround(rule: DateRule, date: string, newId: () => string): RangeParts { /* ... */ }
+    </item>
+    <item priority="high">
+      export function splitIssues(next: AvailabilityConfig, created: readonly DateRule[]): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
+    </item>
+    <item priority="high">
+      export async function carryByDate(
+        tx: Db,
+        venueId: string,
+        from: string,
+        parts: readonly DateRule[],
+        /** Bookings the same save gives a new outcome of their own: one outcome per booking and rule. */
+        deciding: readonly string[] = []
+      ): Promise<CarriedOutcomes | null> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/confirm-hold.ts">
@@ -15968,6 +18404,16 @@
     </item>
     <item priority="medium">
       function mapPrismaFloorPlan(floorPlan: PrismaFloorPlan): FloorPlan { /* ... */ }
+    </item>
+    <item priority="medium">
+      function venueUniqueNames(
+        desired: readonly string[],
+        taken: readonly string[],
+        candidate: (name: string, n: number) => string
+      ): string[] { /* ... */ }
+    </item>
+    <item priority="low">
+      type FloorPlanDeleteOutcome = "deleted" | "archived" | "active" | "has_upcoming" | "in_use" | "not_found";
     </item>
     <item priority="high">
       export const floorPlanService: unknown;
@@ -16409,6 +18855,11 @@
   <file path="services/reservations/src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
+    </item>
+    <item priority="high">
+      class JobQueueUnavailableError {
+        
+      }
     </item>
     <item priority="low">
       interface NotifierRuntime {
@@ -17348,6 +19799,17 @@
         client: StoreClient = prisma
       ): Promise<EndTonightOutcome> { /* ... */ }
     </item>
+    <item priority="low">
+      async function endTonightIn(
+        client: StoreClient,
+        input: {
+          venueId: string;
+          ruleId: string;
+          caller: Pick<ClosureCaller, "actorId" | "actorName">;
+          now: Date;
+        }
+      ): Promise<EndTonightOutcome> { /* ... */ }
+    </item>
     <item priority="high">
       export const tonightCommandService: unknown;
     </item>
@@ -17689,13 +20151,97 @@
       export const waitlistService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/win-back-store.ts">
+    <item priority="high">
+      type Db = Pick<PrismaClient, "guestWinBack">;
+    </item>
+    <item priority="high">
+      export const WIN_BACK_COOLDOWN_MS: unknown;
+    </item>
+    <item priority="low">
+      type WinBackClaim = { claimed: true; previousClaim | { claimed: false; claimedAt: D;
+    </item>
+    <item priority="medium">
+      function isUniqueViolation(err: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="low">
+      async function refusal(venueId: string, guestId: string, now: Date, db: Db): Promise<WinBackClaim> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function claimWinBack(
+        venueId: string,
+        guestId: string,
+        now: Date,
+        db: Db = prisma
+      ): Promise<WinBackClaim> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function markWinBackSent(
+        venueId: string,
+        guestId: string,
+        claimedAt: Date,
+        sentAt: Date,
+        db: Db = prisma
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function releaseWinBackClaim(
+        venueId: string,
+        guestId: string,
+        claimedAt: Date,
+        previousClaimedAt: Date | null,
+        db: Db = prisma
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface WinBackStatus {
+        sentAt: Date | null;
+        attemptedAt: Date | null;
+      }
+    </item>
+    <item priority="high">
+      export function isUnconfirmed(claimedAt: Date | null, sentAt: Date | null): claimedAt is Date { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function winBackStatusFor(
+        venueId: string,
+        guestIds: readonly string[],
+        db: Db = prisma
+      ): Promise<Map<string, WinBackStatus>> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/win-back.ts">
+    <item priority="low">
+      interface WinBackCooldown {
+        claimedAt: Date;
+        sentAt: Date | null;
+        retryAfter: Date;
+      }
+    </item>
+    <item priority="low">
+      type WinBackResult = { status: "sent" } | { status: "skipped" } | { status: "failed" } | { status: "unavailable" } | ({ status: "cooldown" } & WinB;
+    </item>
+    <item priority="low">
+      interface WinBackDeps {
+        log?: { error(fields: object, message: string): void };
+      }
+    </item>
+    <item priority="high">
+      export const defaultWinBackDeps: WinBackDeps;
+    </item>
     <item priority="high">
       export async function sendWinBack(
         guest: Guest,
         notificationPort: NotificationDispatcher,
-        venueName: string
-      ): Promise<boolean> { /* ... */ }
+        venueName: string,
+        deps: WinBackDeps = defaultWinBackDeps
+      ): Promise<WinBackResult> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function cooldownDetail(guestName: string, c: WinBackCooldown, timeZone: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatInZone(date: Date, timeZone: string): string { /* ... */ }
     </item>
   </file>
   <file path="services/users/src/services/database.ts">
@@ -20394,9 +22940,9 @@
       interface ClientConfig {
         baseUrl: string;
         getAccessToken?: () => string | null | Promise<string | null>;
+        refreshAccessToken?: () => Promise<string | null>;
         timeout?: number;
         maxRetries?: number;
-        onError?: (error: ApiClientError) => void;
       }
     </item>
     <item priority="low">
@@ -20416,8 +22962,8 @@
       class ApiClient {
         timeout: number;
         maxRetries: number;
+        refreshInFlight: Promise<string | null> | null;
         async request(): Promise<unknown>;
-        async call(): Promise<unknown>;
       }
     </item>
     <item priority="low">
@@ -20537,6 +23083,7 @@
       export function createApiClient(config: {
         baseUrl?: string;
         getAccessToken?: () => string | null | Promise<string | null>;
+        refreshAccessToken?: () => Promise<string | null>;
         timeout?: number;
         maxRetries?: number;
         onError?: (error: ApiClientError) => void;
@@ -20823,6 +23370,43 @@
       export function weekdayIndexOf(date: ServiceDate): number { /* ... */ }
     </item>
   </file>
+  <file path="packages/availability/src/closure-overlap.ts">
+    <item priority="high">
+      type Closure = RuleOf<"closure">;
+    </item>
+    <item priority="medium">
+      function datesOf(rule: DateRule, from: ServiceDate): ServiceDate[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function targetCovers(wide: DateRule, narrow: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function windowCovers(wide: DateRule, narrow: DateRule): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closedBy(rule: Closure, dates: readonly ServiceDate[]): ClosedByRule { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overlap(
+        found: readonly { readonly date: ServiceDate; readonly rules: readonly Closure[] }[],
+        everyDate: boolean
+      ): ClosureOverlap { /* ... */ }
+    </item>
+    <item priority="high">
+      export function alreadyClosed(
+        rules: readonly DateRule[],
+        draft: DateRule,
+        from: ServiceDate
+      ): ClosureOverlap { /* ... */ }
+    </item>
+    <item priority="high">
+      export function stillClosedAfterReopen(
+        rules: readonly DateRule[],
+        rule: DateRule,
+        from: ServiceDate
+      ): ClosureOverlap { /* ... */ }
+    </item>
+  </file>
   <file path="packages/availability/src/date-rules.ts">
     <item priority="low">
       type RuleOf = Extract<DateRule, { kind: K }>;
@@ -20861,6 +23445,17 @@
       export function hoursEffect(
         services: readonly { name: string; opensAt: number; closesAt: number }[]
       ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/day-named-schedules.ts">
+    <item priority="high">
+      export function weekdayRangeLabel(storedDays: readonly number[]): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function collapseDayNamedSchedules(
+        config: AvailabilityConfig,
+        newId: () => string
+      ): AvailabilityConfigChanges | null { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/diff-days.ts">
@@ -20936,6 +23531,58 @@
     </item>
     <item priority="high">
       export function localDateTimeOf(instant: Date, tz: string): { date: ServiceDate; minute: number } { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/layer-detail.ts">
+    <item priority="low">
+      interface LayerTarget {
+        kind: DateRule["targetKind"];
+        serviceName?: string;
+        bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
+      }
+    </item>
+    <item priority="low">
+      interface LayerHoursService {
+        name: string;
+        opensAt: number;
+        closesAt: number;
+      }
+    </item>
+    <item priority="low">
+      interface LayerSeries {
+        target: LayerTarget;
+        weekdays?: number[];
+        startsOn: string;
+        endsOn?: string;
+      }
+    </item>
+    <item priority="low">
+      type LayerTonight = { closeAt: number } | { stop: { from: number; to: nu | { pacingCovers: number };
+    </item>
+    <item priority="low">
+      interface LayerDetail {
+        scheduleName?: string;
+        regularWeek?: true;
+        hours?: LayerHoursService[];
+        target?: LayerTarget;
+        window?: { from: number; to: number };
+      }
+    </item>
+    <item priority="high">
+      export function targetOf(rule: DateRule, serviceName: string | undefined): LayerTarget { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hoursOf(
+        services: readonly { name: string; opensAt: number; closesAt: number }[]
+      ): LayerHoursService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function seriesOf(rule: DateRule, serviceName: string | undefined): LayerSeries { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tonightOf(
+        payload: Extract<DateRule, { kind: "tonight" }>["payload"]
+      ): LayerTonight { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/legacy-hours.ts">
@@ -21093,9 +23740,6 @@
       function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] { /* ... */ }
     </item>
     <item priority="medium">
-      function weekdayRangeLabel(storedDays: readonly number[]): string { /* ... */ }
-    </item>
-    <item priority="medium">
       function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] { /* ... */ }
     </item>
     <item priority="medium">
@@ -21195,12 +23839,6 @@
       }
     </item>
     <item priority="low">
-      interface ResolvedService {
-        scheduleServiceId: string | null;
-        name: string;
-      }
-    </item>
-    <item priority="low">
       interface ResolvedClosure {
         ruleId: string;
         targetKind: DateRule["targetKind"];
@@ -21257,18 +23895,6 @@
       ): ScheduleAssignment | null { /* ... */ }
     </item>
     <item priority="medium">
-      function toResolved(
-        service: ScheduleService | SpecialHoursService,
-        venueService: VenueService
-      ): ResolvedService { /* ... */ }
-    </item>
-    <item priority="medium">
-      function liveServices(
-        services: readonly (ScheduleService | SpecialHoursService)[],
-        venueServices: ReadonlyMap<string, VenueService>
-      ): ResolvedService[] { /* ... */ }
-    </item>
-    <item priority="medium">
       function closureOf(rule: DateRule, band: { from: number; to: number }): ResolvedClosure { /* ... */ }
     </item>
     <item priority="medium">
@@ -21294,6 +23920,90 @@
     </item>
     <item priority="high">
       export function resolveDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate): ResolvedDay { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/service-days.ts">
+    <item priority="low">
+      type ServiceHours = Pick<
+        ScheduleService,
+        "opensAt" | "lastSeatingAt" | ...;
+    </item>
+    <item priority="medium">
+      function hoursFields(hours: ServiceHours): ServiceHours { /* ... */ }
+    </item>
+    <item priority="low">
+      interface HoursSource {
+        hours: ServiceHours;
+        setIndex: number | null;
+      }
+    </item>
+    <item priority="high">
+      type DayScopedRow = Pick<ScheduleService, "weekdays" | "dayHours" | keyof Ser...;
+    </item>
+    <item priority="high">
+      export function hoursSourceOn(row: DayScopedRow, weekday: number): HoursSource | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hoursOn(row: DayScopedRow, weekday: number): ServiceHours | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toResolved(
+        service: ScheduleService | SpecialHoursService,
+        venueService: VenueService
+      ): ResolvedService { /* ... */ }
+    </item>
+    <item priority="high">
+      export function liveServices(
+        services: readonly (ScheduleService | SpecialHoursService)[],
+        venueServices: ReadonlyMap<string, VenueService>
+      ): ResolvedService[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function servicesOn(
+        rows: readonly ScheduleService[],
+        venueServices: ReadonlyMap<string, VenueService>,
+        weekday: number
+      ): ResolvedService[] { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ServiceWeek {
+        venueServiceId: string;
+        days: readonly (ServiceHours | null)[];
+      }
+    </item>
+    <item priority="low">
+      type Week = readonly ServiceWeek[];
+    </item>
+    <item priority="low">
+      type EncodedRow = Pick<
+        ScheduleService,
+        "venueServiceId" | "weekdays" ...;
+    </item>
+    <item priority="high">
+      export const WEEK_ORDER: readonly number[];
+    </item>
+    <item priority="medium">
+      function hoursKey(h: ServiceHours): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface HoursGroup {
+        hours: ServiceHours;
+        days: number[];
+      }
+    </item>
+    <item priority="medium">
+      function groupByHours(week: ServiceWeek, coveredDays: ReadonlySet<number>): HoursGroup[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function encodeWeek(week: Week, coveredDays: readonly number[]): EncodedRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function decodeWeek(
+        rows: readonly (Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours> & {
+          venueServiceId: string;
+        })[],
+        coveredDays: readonly number[]
+      ): Week { /* ... */ }
     </item>
   </file>
   <file path="packages/availability/src/slot-rules.ts">
@@ -21533,6 +24243,12 @@
     <item priority="low">
       type ServiceDate = string;
     </item>
+    <item priority="low">
+      interface ResolvedService {
+        scheduleServiceId: string | null;
+        name: string;
+      }
+    </item>
     <item priority="high">
       export const WEEKDAYS: unknown;
     </item>
@@ -21545,13 +24261,15 @@
   </file>
   <file path="packages/availability/src/validate-config.ts">
     <item priority="low">
-      type ConfigIssueCode = "invalid" | "overlap" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start" | "booking_types_required";
+      type ConfigIssueCode = "invalid" | "overlap" | "weekday_clash" | "close_before_open" | "last_seating_after_close" | "last_seating_before_open" | "multiple_regular_schedules" | "no_regular_schedule" | "precedence_tie" | "ends_before_start" | "seating_outside_service" | "window_ends_before_start" | "booking_types_required";
     </item>
     <item priority="low">
       interface ConfigIssue {
         path: string;
         code: ConfigIssueCode;
         message: string;
+        weekday?: number;
+        otherPath?: string;
       }
     </item>
     <item priority="high">
@@ -21580,6 +24298,35 @@
     </item>
     <item priority="medium">
       function serviceListIssues(services: readonly PathedService[]): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      type ScheduleServiceRow = AvailabilityConfig["scheduleServices"][number];
+    </item>
+    <item priority="high">
+      interface IndexedRow {
+        index: number;
+        row: ScheduleServiceRow;
+      }
+    </item>
+    <item priority="medium">
+      function rowHoursIssues({ index, row }: IndexedRow): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdayClashIssues({ index, row }: IndexedRow): ConfigIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface DayOverlap {
+        later: string;
+        earlier: string;
+        range: string;
+        weekday: number;
+      }
+    </item>
+    <item priority="medium">
+      function overlapsOn(rows: readonly IndexedRow[], weekday: number): DayOverlap[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overlapIssuesPerWeekday(rows: readonly IndexedRow[]): ConfigIssue[] { /* ... */ }
     </item>
     <item priority="medium">
       function scheduleServiceIssues(config: AvailabilityConfig): ConfigIssue[] { /* ... */ }
@@ -21619,6 +24366,37 @@
     </item>
     <item priority="high">
       export function validateConfig(input: unknown): ConfigIssue[] { /* ... */ }
+    </item>
+  </file>
+  <file path="packages/availability/src/week-spans.ts">
+    <item priority="high">
+      export function regularWeekView(config: AvailabilityConfig): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="low">
+      interface WeekSpansOptions {
+        timezone: string;
+        from: ServiceDate;
+        partySize: number;
+        tables: readonly EngineTable[];
+        now: Date;
+      }
+    </item>
+    <item priority="low">
+      interface ServiceSpan {
+        venueServiceId: string;
+        firstAt: number;
+        lastAt: number;
+        noTableFits: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface DaySpans {
+        serviceDate: ServiceDate;
+        services: ServiceSpan[];
+      }
+    </item>
+    <item priority="high">
+      export function weekSpans(config: AvailabilityConfig, options: WeekSpansOptions): DaySpans[] { /* ... */ }
     </item>
   </file>
   <file path="packages/cancellation-policy/src/cancellation-policy.ts">
@@ -22825,6 +25603,9 @@
         routes: readonly HealthRouteConfig[];
         checkAuth0?: () => Promise<Auth0CheckResult>;
       }
+    </item>
+    <item priority="high">
+      export const HEALTH_RATE_LIMIT: unknown;
     </item>
     <item priority="high">
       export const registerHealthRoutes: unknown;
@@ -24992,6 +27773,9 @@
   </file>
   <file path="apps/hospitality/src/components/timeline/seat-guest.ts">
     <item priority="high">
+      export const RESERVATION_EDIT_TEST_ID: unknown;
+    </item>
+    <item priority="high">
       export function findReservationTable(
         reservation: Reservation,
         tables: readonly Table[]
@@ -25019,8 +27803,30 @@
         seat: () => Promise<void>;
       }
     </item>
+    <item priority="low">
+      interface SeatFlights {
+        seating: (reservationId: string) => boolean;
+        failure: (reservationId: string) => ApiErrorDescription | null;
+        run: (reservationId: string, send: () => Promise<void>) => Pro...;
+      }
+    </item>
     <item priority="high">
-      export function useSeatGuest(onSeat: () => Promise<void>): SeatGuestState { /* ... */ }
+      export function useSeatFlights(currentId: string | null): SeatFlights { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SeatGuestState {
+        seating: boolean;
+        failure: ApiErrorDescription | null;
+        seatRef: RefObject<HTMLButtonElement | null>;
+        seat: () => Promise<void>;
+      }
+    </item>
+    <item priority="high">
+      export function useSeatGuest(
+        reservationId: string,
+        onSeat: () => Promise<void>,
+        shared?: SeatFlights
+      ): SeatGuestState { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/timeline/sheet-size.ts">
@@ -25724,6 +28530,20 @@
       ): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/clock-hour.ts">
+    <item priority="high">
+      export function clockHour(minute: number): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clockHourOfInstant(
+        at: string | number | Date,
+        format: Pick<VenueFormat, "formatInstant">
+      ): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function clockHourOfClock(hhmm: string): number { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/current-service-date.ts">
     <item priority="high">
       export function currentServiceDate(
@@ -25731,6 +28551,17 @@
         timeZone: string,
         now: Date
       ): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/demo-week.fixture.ts">
+    <item priority="high">
+      export const DEMO_WEEK_CONFIG: AvailabilityConfig;
+    </item>
+    <item priority="high">
+      export const DEMO_WEEK_TZ: unknown;
+    </item>
+    <item priority="high">
+      export const DEMO_WEEK_MONDAY: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/utils/dinner-config.fixture.ts">
@@ -25986,6 +28817,9 @@
     </item>
     <item priority="high">
       export function minutesOfDayIn(instant: Date, timeZone?: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceMinuteOf(instant: Date, timeZone: string, serviceDate: string): number { /* ... */ }
     </item>
     <item priority="high">
       export function venueWallClock(timeZone: string, now: Date): VenueWallClock | null { /* ... */ }
@@ -26329,9 +29163,18 @@
       export function generateSlug(name: string): string { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/venue-onboarding/launch-hours.ts">
+    <item priority="high">
+      export function launchHoursChanges(
+        draft: QuickSetupDraft,
+        derived: AvailabilityConfig,
+        newId: () => string
+      ): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/venue-onboarding/launch-sequence.ts">
     <item priority="low">
-      type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
+      type LaunchStageId = "venue" | "hours" | "floorPlan" | "tables" | "activate";
     </item>
     <item priority="low">
       type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
@@ -26339,10 +29182,10 @@
     <item priority="low">
       interface LaunchProgress {
         venueId: string | null;
+        hoursSaved?: boolean;
         floorPlanId: string | null;
         sectionsDone: boolean;
         createdTableNames: readonly string[];
-        membershipDone?: boolean;
       }
     </item>
     <item priority="high">
@@ -26382,6 +29225,8 @@
     <item priority="low">
       interface LaunchApi {
         venues: { create(data: CreateVenueRequest): Promise<Venue> };
+        availability: {
+          getConfig(venueId: string): Promise<AvailabilityCon...;
         floorPlans: {
           create(data: CreateFloorPlanRequest): Promise<Floor...;
         floorPlanSections: {
@@ -26398,6 +29243,14 @@
       async function runVenueStage(
         api: LaunchApi,
         venuePayload: CreateVenueRequest,
+        progress: LaunchProgress,
+        onProgress: (next: LaunchProgress) => void
+      ): Promise<LaunchProgress> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function runHoursStage(
+        api: LaunchApi,
+        hours: QuickSetupDraft,
         progress: LaunchProgress,
         onProgress: (next: LaunchProgress) => void
       ): Promise<LaunchProgress> { /* ... */ }
@@ -26452,6 +29305,7 @@
         stage: LaunchStageId,
         draft: FloorPlanDraft,
         venuePayload: CreateVenueRequest,
+        hours: QuickSetupDraft,
         progress: LaunchProgress,
         onProgress: (next: LaunchProgress) => void
       ): Promise<LaunchProgress> { /* ... */ }
@@ -26462,7 +29316,8 @@
         draft: FloorPlanDraft,
         venuePayload: CreateVenueRequest,
         progress: LaunchProgress,
-        onProgress: (next: LaunchProgress) => void
+        onProgress: (next: LaunchProgress) => void,
+        hours: QuickSetupDraft
       ): Promise<LaunchProgress> { /* ... */ }
     </item>
   </file>
@@ -26477,6 +29332,11 @@
     </item>
     <item priority="high">
       export const ONBOARDING_STEPS: readonly OnboardingStep[];
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/venue-onboarding/settings-defaults.ts">
+    <item priority="high">
+      export const SETTINGS_DEFAULTS: unknown;
     </item>
   </file>
   <file path="apps/hospitality/src/components/venue-onboarding/useOnboardingWizard.ts">

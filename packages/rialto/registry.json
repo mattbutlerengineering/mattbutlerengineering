@@ -1,5 +1,5 @@
 {
-  "version": "0.9.5",
+  "version": "0.10.4",
   "components": [
     {
       "name": "Accordion",
@@ -1157,7 +1157,7 @@
     },
     {
       "name": "ConfirmDialog",
-      "description": "A purpose-built confirmation dialog with confirm/cancel actions and an icon.\nWhen `variant` is `\"destructive\"`, the cancel button receives initial focus\nto prevent accidental confirmations.",
+      "description": "A purpose-built confirmation dialog with confirm/cancel actions and an icon.\nWhen `variant` is `\"destructive\"`, the cancel button receives initial focus\nto prevent accidental confirmations, and the panel is `role=\"alertdialog\"`.\nThe default variant is a plain `role=\"dialog\"`.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -1667,6 +1667,12 @@
           "description": "Content rendered below the body in a fixed footer area"
         },
         {
+          "name": "role",
+          "type": "\"alertdialog\" | \"dialog\" | undefined",
+          "required": false,
+          "description": "ARIA role of the panel. Use `\"alertdialog\"` for an interruption that needs\nan immediate response (e.g. a destructive confirmation). Default `\"dialog\"`."
+        },
+        {
           "name": "className",
           "type": "string | undefined",
           "required": false
@@ -2105,7 +2111,7 @@
     },
     {
       "name": "Form",
-      "description": "Owns submit-time validation across its `FormField` descendants: collects\neach field's error, blocks submission while any field is invalid, and\nannounces failures through an assertive error summary.",
+      "description": "Owns submit-time validation across its `FormField` descendants: collects\neach field's error, blocks submission while any field is invalid, and\nannounces submit failures through an assertive error summary. A field error\nthe summary carries stays visible and linked via `aria-describedby` but is\nnot announced a second time. An error the summary does not carry (set by the\nserver, raised on blur, or after a valid submit) is still announced by the\nfield itself, as is every field error when `showErrorSummary` is false.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -2170,6 +2176,12 @@
           "description": "Which app is currently active — drives the active link indicator.\n`\"gen\"` is a sibling app with no nav link of its own, so no link is marked active."
         },
         {
+          "name": "currentPath",
+          "type": "string | undefined",
+          "required": false,
+          "description": "Path within the current app. Home is the marketing index, so when this is\nset Home is current only for `\"/\"`. Omit it and `currentApp=\"marketing\"`\nkeeps marking Home current."
+        },
+        {
           "name": "theme",
           "type": "\"light\" | \"dark\" | undefined",
           "required": false,
@@ -2192,6 +2204,18 @@
           "type": "GlobalNavMenu | undefined",
           "required": false,
           "description": "Optional dropdown after the app links. The trigger is marked current when any item is."
+        },
+        {
+          "name": "mobileMenuOpen",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Mobile menu open state. Omit it and GlobalNav owns the menu.\nPass it with `onMobileMenuOpenChange` so a page can close this menu\nwhen another overlay opens."
+        },
+        {
+          "name": "onMobileMenuOpenChange",
+          "type": "((open: boolean) => void) | undefined",
+          "required": false,
+          "description": "Called with the next open state when the hamburger or Escape toggles the menu."
         }
       ],
       "slots": []
@@ -3374,6 +3398,12 @@
           "name": "className",
           "type": "string | undefined",
           "required": false
+        },
+        {
+          "name": "solid",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Paint the opaque elevated surface instead of translucent glass. For a panel of form controls\nover a busy page (a timeline grid), where the page showing through hurts reading the fields."
         }
       ],
       "slots": [
@@ -4523,7 +4553,7 @@
           "name": "timeZone",
           "type": "string | undefined",
           "required": false,
-          "description": "IANA time zone (e.g. \"America/Los_Angeles\"). Defaults to the runtime zone."
+          "description": "IANA time zone used to decide which calendar day is \"today\"\n(e.g. \"America/Los_Angeles\"). Defaults to the runtime zone.\nDay labels stay on the YYYY-MM-DD calendar day and do not shift with this zone."
         },
         {
           "name": "currency",

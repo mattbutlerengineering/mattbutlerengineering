@@ -118,11 +118,8 @@
     
       return { record, snapshot };
     }
-    function normalizeRoute(request: FastifyRequest): string {
-      // Use the route pattern (e.g., "/api/v1/users/:id") not the actual URL
-      const routeUrl =
-        (request.routeOptions as { url?: string })?.url ?? request.url.split("?")[0] ?? request.url;
-      return routeUrl;
+    function normalizeRoute(request: FastifyRequest): string | undefined {
+      return (request.routeOptions as { url?: string })?.url;
     }
     async function errorRatePlugin(fastify: FastifyInstance): Promise<void> {
       const tracker = createErrorRateTracker();
@@ -130,8 +127,8 @@
       fastify.addHook("onResponse", async (request: FastifyRequest, reply: FastifyReply) => {
         const route = normalizeRoute(request);
     
-        // Skip health/docs endpoints
-        if (IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
+        // Skip unmatched routes and health/docs endpoints
+        if (route === undefined || IGNORED_PATHS.has(route) || route.startsWith("/docs")) return;
     
         tracker.record(route, reply.statusCode);
       });
@@ -664,25 +661,16 @@
     function classifyPrismaError(e: CustomError): ErrorClassification {
       const prismaCode = e.code || "";
       const extensions: Record<string, unknown> = { prismaCode };
-      if (e.meta) {
-        extensions.prismaMeta = e.meta;
-      }
     
       if (prismaCode === "P2025") {
-        return {
-          status: 404,
-          title: "Not Found",
-          detail: (e.meta?.cause as string) || e.message || "Record not found",
-          extensions,
-        };
+        return { status: 404, title: "Not Found", detail: "Record not found", extensions };
       }
     
       if (prismaCode === "P2002") {
-        const target = Array.isArray(e.meta?.target) ? e.meta.target.join(", ") : "field";
         return {
           status: 409,
           title: "Conflict",
-          detail: `Unique constraint failed: ${target}`,
+          detail: "A record with these details already exists",
           extensions,
         };
       }
@@ -691,7 +679,7 @@
         return {
           status: 409,
           title: "Conflict",
-          detail: `Foreign key constraint failed on field: ${(e.meta?.field_name as string) || "field"}`,
+          detail: "This item is still in use by other records",
           extensions,
         };
       }
@@ -1110,6 +1098,7 @@
        */
       readonly checkAuth0?: () => Promise<Auth0CheckResult>;
     }
+    export const HEALTH_RATE_LIMIT = { max: 600, timeWindow: "1 minute" } as const;
     export const registerHealthRoutes = fp(healthRoutesPlugin, {
       name: "health-routes",
       fastify: "5.x",

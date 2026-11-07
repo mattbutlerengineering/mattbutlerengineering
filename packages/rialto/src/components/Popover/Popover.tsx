@@ -2,21 +2,26 @@ import {
   useState,
   useRef,
   useCallback,
+  useContext,
   useId,
+  useMemo,
   forwardRef,
   cloneElement,
   type ForwardedRef,
   type ReactNode,
   type ReactElement,
 } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useFocusTrap } from "../../hooks/useFocusTrap";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useDismiss } from "../../hooks/useDismiss";
+import { useLayerFloating, placePopover } from "../../hooks/useLayerFloating";
 import { cn } from "../../utils/class-composer";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
+import { DialogLayerContext } from "../Dialog/DialogLayerContext";
 import styles from "./Popover.module.css";
 
 /* ── Types ───────────────────────────────────── */
@@ -49,6 +54,11 @@ export interface PopoverProps {
   /** Called with the requested next state on every open/close attempt (trigger, Escape, outside click, close button). */
   onOpenChange?: (open: boolean) => void;
   className?: string;
+  /**
+   * Paint the opaque elevated surface instead of translucent glass. For a panel of form controls
+   * over a busy page (a timeline grid), where the page showing through hurts reading the fields.
+   */
+  solid?: boolean;
 }
 
 /* ── Motion origins per placement ────────────── */
@@ -74,7 +84,16 @@ function mergeRefs<T>(...refs: (ForwardedRef<T> | React.RefObject<T | null>)[]) 
 
 /* ── Component ──────────────────────────────── */
 export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover(
-  { trigger, title, children, placement = "bottom", open: openProp, onOpenChange, className = "" },
+  {
+    trigger,
+    title,
+    children,
+    placement = "bottom",
+    open: openProp,
+    onOpenChange,
+    className = "",
+    solid = false,
+  },
   ref
 ) {
   const [internalOpen, setInternalOpen] = useState(false);
@@ -112,6 +131,62 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
 
   const origin = motionOrigin[placement];
 
+  // Inside a Dialog the panel would be clipped by the dialog's scrolling body
+  // (position: absolute is trapped by any overflow ancestor). Lift it into the
+  // dialog's layer, beside the panel, and place it by the wrapper's viewport
+  // rect, as Select does. Outside a Dialog nothing changes. Imperative style
+  // writes (no setState), re-run on resize, on any scroll (including the dialog
+  // body's) and when the panel's content grows, so the panel tracks its trigger.
+  const dialogLayer = useContext(DialogLayerContext);
+  const place = useMemo(() => placePopover(placement), [placement]);
+  useLayerFloating(open && dialogLayer !== null, wrapperRef, panelRef, place);
+
+  const panelNode = (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={panelRef}
+          id={panelId}
+          className={cn(styles.panel, styles[placement], (dialogLayer || solid) && styles.floating)}
+          role="dialog"
+          aria-modal="true"
+          aria-label={title ?? messages.popover}
+          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
+          animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
+          exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
+          transition={motionPreset.springGentle}
+        >
+          {title && (
+            <div className={styles.header}>
+              <span className={styles.title}>{title}</span>
+              <button
+                type="button"
+                className={styles.close}
+                onClick={close}
+                aria-label={messages.close}
+                data-focus-trap-skip-initial="true"
+              >
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  aria-hidden="true"
+                >
+                  <path d="M1 1l8 8M9 1l-8 8" />
+                </svg>
+              </button>
+            </div>
+          )}
+          <div className={styles.body}>{children}</div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     <div
       role="presentation"
@@ -145,49 +220,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
       </div>
 
       {/* Panel */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            ref={panelRef}
-            id={panelId}
-            className={cn(styles.panel, styles[placement])}
-            role="dialog"
-            aria-modal="true"
-            aria-label={title ?? messages.popover}
-            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
-            animate={{ opacity: 1, y: 0, x: 0, scale: 1 }}
-            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, ...origin }}
-            transition={motionPreset.springGentle}
-          >
-            {title && (
-              <div className={styles.header}>
-                <span className={styles.title}>{title}</span>
-                <button
-                  type="button"
-                  className={styles.close}
-                  onClick={close}
-                  aria-label={messages.close}
-                  data-focus-trap-skip-initial="true"
-                >
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M1 1l8 8M9 1l-8 8" />
-                  </svg>
-                </button>
-              </div>
-            )}
-            <div className={styles.body}>{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {dialogLayer ? createPortal(panelNode, dialogLayer) : panelNode}
     </div>
   );
 });

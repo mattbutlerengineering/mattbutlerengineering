@@ -6,6 +6,10 @@
   justify-content: space-between;
 }
 
+.filterSelect {
+  flex: 1 1 100%;
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -13,6 +17,55 @@
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* Upcoming holidays: a quiet panel above the list, one row per holiday. */
+.holidays {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+  border: 1px dashed var(--rialto-border-strong);
+  border-radius: var(--rialto-radius-default);
+}
+
+.holidaysHead {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.holiday {
+  display: grid;
+  grid-template-columns: minmax(0, 16rem) minmax(0, 1fr) auto;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+}
+
+.holidayActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  justify-content: flex-end;
+}
+
+/* A phone: the name and date share a line, the two actions go under them. */
+@media (max-width: 767px) {
+  .holiday {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .holidayActions {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+}
+
+/* Holds focus after Open as usual removes a row; it is not a control, so no ring. */
+.holidays:focus {
+  outline: none;
 }
 
 .item {
@@ -49,6 +102,51 @@
 .callList td {
   padding: var(--rialto-space-xs) var(--rialto-space-sm);
   text-align: start;
+}
+
+/*
+ * A phone's call list: five columns cannot fit, so each guest stacks as name, phone, then the
+ * rest on one line. Screen only: the print copy keeps its columns on any paper.
+ */
+@media screen and (max-width: 767px) {
+  .callList,
+  .callList tbody {
+    display: block;
+  }
+
+  .callList thead {
+    display: none;
+  }
+
+  .callList tr {
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--rialto-space-sm);
+    padding-block: var(--rialto-space-xs);
+  }
+
+  .callList td {
+    padding: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .callList td:first-child {
+    flex-basis: 100%;
+    order: -2;
+  }
+
+  .callList td:last-child {
+    flex-basis: 100%;
+    order: -1;
+  }
+
+  .callList td[data-label] {
+    order: 1;
+  }
+
+  .callList td[data-label]::before {
+    content: attr(data-label) ": ";
+  }
 }
 
 /* The print copy of the call list (CallListDialog): hidden on screen. */

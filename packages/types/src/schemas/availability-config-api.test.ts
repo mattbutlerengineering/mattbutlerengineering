@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  AvailabilityChangeDetailSchema,
+  AvailabilityChangesPageSchema,
   AvailabilityCheckBodySchema,
+  ReopenClosureBodySchema,
   AvailabilityCheckResultSchema,
   AvailabilityConfigProblemSchema,
   AvailabilityDaySummarySchema,
+  CONFLICT_CHANGES_MAX,
   ClosureImpactBodySchema,
   ClosureImpactSchema,
   CreateClosureBodySchema,
@@ -11,8 +15,10 @@ import {
   PreviewAvailabilityBodySchema,
   PreviewResultSchema,
   PutAvailabilityConfigBodySchema,
+  ReopenResultSchema,
   SetTonightBodySchema,
 } from "./availability-config-api.js";
+import { ScheduleServiceSchema } from "./availability-config.js";
 
 describe("CreateClosureBodySchema", () => {
   const rule = { id: "r1", kind: "closure", targetKind: "venue", startsOn: "2026-12-24" };
@@ -63,6 +69,19 @@ describe("alongside (series growth edits)", () => {
     });
     expect(body.alongside?.remove).toEqual(["r0"]);
   });
+
+  it("carries the series being replaced as the client read it, and keeps it optional (#8028)", () => {
+    const series = { ...rule, id: "r0", repeat: { version: 1, weekdays: [4] } };
+    const body = CreateClosureBodySchema.parse({
+      expectedVersion: 0,
+      rule,
+      alongside: { upsert: [], remove: ["r0"], replaces: series },
+    });
+    expect(body.alongside?.replaces).toEqual(series);
+    expect(ClosureImpactBodySchema.parse({ rule, alongside: {} }).alongside?.replaces).toBe(
+      undefined
+    );
+  });
 });
 
 describe("ClosureImpactSchema", () => {
@@ -111,6 +130,36 @@ describe("AvailabilityConfigProblemSchema", () => {
         winningChange: null,
       }).success
     ).toBe(true);
+  });
+});
+
+describe("AvailabilityConfigProblemSchema strands_booking issues", () => {
+  const problem = {
+    type: "about:blank",
+    title: "Unprocessable",
+    status: 422,
+    detail: "x",
+    code: "invalid-config",
+  };
+  const reservation = {
+    id: "r1",
+    startTime: "2026-12-25T03:00:00.000Z",
+    partySize: 4,
+    reason: "closed",
+    guestName: "Okafor",
+    serviceDate: "2026-12-24",
+  };
+
+  it("carries the booking on an issue, and still parses an issue without one", () => {
+    const parsed = AvailabilityConfigProblemSchema.parse({
+      ...problem,
+      issues: [
+        { path: "reservations.r1", code: "strands_booking", message: "m", reservation },
+        { path: "reservations.r2", code: "strands_booking", message: "m" },
+      ],
+    });
+    expect(parsed.issues?.[0]?.reservation).toEqual(reservation);
+    expect(parsed.issues?.[1]?.reservation).toBeUndefined();
   });
 });
 
@@ -303,5 +352,196 @@ describe("SetTonightBodySchema", () => {
     expect(parse({ type: "close_venue" })).toBe(false);
     expect(parse({ type: "block_tables", tableIds: [] })).toBe(false);
     expect(parse({ type: "pause_online", closeAt: 5 })).toBe(false);
+  });
+});
+
+describe("ReopenClosureBodySchema.seen and AvailabilityChangesPageSchema.undoable", () => {
+  const rule = { id: "r1", kind: "closure", targetKind: "venue", startsOn: "2026-12-24" };
+
+  it("takes the body of an older client, with no `seen`", () => {
+    expect(ReopenClosureBodySchema.parse({ tellCancelledGuests: true }).seen).toBeUndefined();
+  });
+
+  it("takes the rule and children the caller saw, and refuses a half of them", () => {
+    const seen = { rule, children: [{ ...rule, id: "k1", kind: "skip", seriesId: "r1" }] };
+    expect(ReopenClosureBodySchema.parse({ tellCancelledGuests: false, seen }).seen).toEqual(seen);
+    expect(
+      ReopenClosureBodySchema.safeParse({ tellCancelledGuests: false, seen: { rule } }).success
+    ).toBe(false);
+  });
+
+  it("names the undoable change, null for none, and is absent from an older API", () => {
+    const page = { total: 0, offset: 0, items: [] };
+    const undoable = {
+      id: "c",
+      actorId: "a",
+      at: "2026-11-01T00:00:00.000Z",
+      kind: "k",
+      summary: "s",
+    };
+    expect(AvailabilityChangesPageSchema.parse(page).undoable).toBeUndefined();
+    expect(AvailabilityChangesPageSchema.parse({ ...page, undoable: null }).undoable).toBeNull();
+    expect(AvailabilityChangesPageSchema.parse({ ...page, undoable }).undoable).toEqual(undoable);
+  });
+});
+
+describe("ReopenResultSchema.stillClosed", () => {
+  const result = { version: 8, changeId: "c" };
+  const by = {
+    ruleId: "other",
+    targetKind: "venue",
+    startsOn: "2026-12-25",
+    endsOn: "2026-12-25",
+    dates: ["2026-12-25"],
+  };
+
+  it("is absent from an older API, and from ending Tonight", () => {
+    expect(ReopenResultSchema.parse(result).stillClosed).toBeUndefined();
+  });
+
+  it("carries which closure keeps which dates closed, and whether every date stays closed", () => {
+    const stillClosed = { everyDate: true, by: [by] };
+    expect(ReopenResultSchema.parse({ ...result, stillClosed }).stillClosed).toEqual(stillClosed);
+  });
+
+  it("accepts nothing staying closed", () => {
+    const stillClosed = { everyDate: false, by: [] };
+    expect(ReopenResultSchema.parse({ ...result, stillClosed }).stillClosed).toEqual(stillClosed);
+  });
+
+  it("refuses a date that is not a service date", () => {
+    const stillClosed = { everyDate: false, by: [{ ...by, dates: ["Dec 25"] }] };
+    expect(ReopenResultSchema.safeParse({ ...result, stillClosed }).success).toBe(false);
+  });
+});
+
+describe("AvailabilityConfigProblemSchema: changesSince", () => {
+  const change = (n: number) => ({
+    id: `chg-${n}`,
+    actorId: "auth0|ana",
+    at: "2026-10-25T18:00:00.000Z",
+    kind: "config",
+    summary: "s",
+  });
+  const conflict = (changesSince?: unknown) => ({
+    type: "about:blank",
+    title: "Conflict",
+    status: 409,
+    detail: "d",
+    code: "version-conflict",
+    currentVersion: 6,
+    ...(changesSince ? { changesSince } : {}),
+  });
+
+  it("accepts a conflict from an older server, with no list", () => {
+    expect(AvailabilityConfigProblemSchema.safeParse(conflict()).success).toBe(true);
+  });
+
+  it("accepts the newest changes with the true total", () => {
+    const parsed = AvailabilityConfigProblemSchema.parse(
+      conflict({ total: 25, changes: [change(2), change(1)] })
+    );
+    expect(parsed.changesSince?.total).toBe(25);
+  });
+
+  it("refuses a list longer than the bound", () => {
+    const tooMany = Array.from({ length: CONFLICT_CHANGES_MAX + 1 }, (_, i) => change(i));
+    expect(
+      AvailabilityConfigProblemSchema.safeParse(conflict({ total: 99, changes: tooMany })).success
+    ).toBe(false);
+  });
+});
+
+describe("AvailabilityChangeSummarySchema.detail", () => {
+  const base = {
+    id: "chg-1",
+    actorId: "auth0|ana",
+    at: "2026-10-25T18:00:00.000Z",
+    kind: "config",
+    summary: "Availability updated: 1 added, 0 changed, 0 removed",
+  };
+  const parse = (detail?: unknown) =>
+    AvailabilityConfigProblemSchema.parse({
+      type: "about:blank",
+      title: "Conflict",
+      status: 409,
+      detail: "d",
+      code: "version-conflict",
+      winningChange: { ...base, ...(detail === undefined ? {} : { detail }) },
+    }).winningChange;
+
+  it("keeps the stable code and its data beside the English summary", () => {
+    expect(parse({ code: "config_saved", added: 1, changed: 0, removed: 0 })?.detail).toEqual({
+      code: "config_saved",
+      added: 1,
+      changed: 0,
+      removed: 0,
+    });
+  });
+
+  it("accepts a row with no detail, and a code from a newer server", () => {
+    expect(parse()?.detail).toBeUndefined();
+    expect(parse({ code: "from_the_future" })?.detail?.code).toBe("from_the_future");
+  });
+
+  it("accepts a null detail, as a row stored before codes has", () => {
+    expect(parse(null)?.detail).toBeNull();
+  });
+});
+
+describe("regular_week_changed detail and day scope on the wire", () => {
+  it("carries the changed weekdays beside startsOn", () => {
+    expect(
+      AvailabilityChangeDetailSchema.parse({
+        code: "regular_week_changed",
+        startsOn: "2026-11-06",
+        weekdays: [5],
+      })
+    ).toEqual({ code: "regular_week_changed", startsOn: "2026-11-06", weekdays: [5] });
+    expect(
+      AvailabilityChangeDetailSchema.safeParse({ code: "regular_week_changed", weekdays: [7] })
+        .success
+    ).toBe(false);
+  });
+
+  const oldRow = {
+    id: "ss-1",
+    scheduleId: "sch-1",
+    venueServiceId: "vs-1",
+    opensAt: 1020,
+    lastSeatingAt: 1260,
+    closesAt: 1380,
+    seating: { version: 1, interval: 15 },
+    bookingTypes: ["online"],
+  };
+
+  it("parses an old History inverse row (without the two fields) as no scope", () => {
+    expect(ScheduleServiceSchema.parse(oldRow)).toMatchObject({
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+    });
+  });
+
+  it("requires both new fields on a PUT body row, naming the missing one", () => {
+    const parse = (row: Record<string, unknown>) =>
+      PutAvailabilityConfigBodySchema.safeParse({
+        expectedVersion: 1,
+        changes: { upsert: { scheduleServices: [row] } },
+      });
+    const whole = { ...oldRow, weekdays: [1, 2], dayHours: { version: 1, sets: [] } };
+
+    expect(parse(whole).success).toBe(true);
+    for (const field of ["weekdays", "dayHours"]) {
+      const { [field]: _omitted, ...row } = whole as Record<string, unknown>;
+      const result = parse(row);
+      expect(result.success).toBe(false);
+      expect(result.error?.issues[0]?.path).toEqual([
+        "changes",
+        "upsert",
+        "scheduleServices",
+        0,
+        field,
+      ]);
+    }
   });
 });

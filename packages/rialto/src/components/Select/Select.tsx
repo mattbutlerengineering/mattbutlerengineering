@@ -69,6 +69,13 @@ export interface SelectProps {
   "aria-labelledby"?: string;
 }
 
+/** Gap between trigger and list, px. */
+const LIST_GAP = 4;
+/** Minimum clearance kept between the list and the viewport edge, px. */
+const VIEWPORT_MARGIN = 8;
+/** Matches `max-height` of `.dropdown` in Select.module.css. */
+const LIST_MAX_HEIGHT = 240;
+
 /* ── Component ───────────────────────────────── */
 export const Select = forwardRef<HTMLDivElement, SelectProps>(
   (
@@ -147,10 +154,21 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
 
       const updatePosition = () => {
         const rect = trigger.getBoundingClientRect();
+        // Width first: long labels wrap at the trigger's width, which sets scrollHeight.
         list.style.position = "fixed";
-        list.style.top = `${rect.bottom + 4}px`;
         list.style.left = `${rect.left}px`;
         list.style.width = `${rect.width}px`;
+
+        const below = window.innerHeight - rect.bottom - LIST_GAP - VIEWPORT_MARGIN;
+        const above = rect.top - LIST_GAP - VIEWPORT_MARGIN;
+        const natural = Math.min(list.scrollHeight, LIST_MAX_HEIGHT);
+        // Open downward unless the list does not fit there and there is more room above.
+        const flip = natural > below && above > below;
+        const available = Math.max(flip ? above : below, 0);
+
+        list.style.top = flip ? "" : `${rect.bottom + LIST_GAP}px`;
+        list.style.bottom = flip ? `${window.innerHeight - rect.top + LIST_GAP}px` : "";
+        list.style.maxHeight = `${Math.min(LIST_MAX_HEIGHT, available)}px`;
       };
 
       updatePosition();

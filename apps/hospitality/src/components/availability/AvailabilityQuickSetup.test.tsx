@@ -11,6 +11,9 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync }),
   useRevertAvailabilityChange: () => ({ mutateAsync: revertAsync }),
 }));
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+}));
 import type * as Rialto from "@mattbutlerengineering/rialto";
 vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
   ...(await importOriginal<typeof Rialto>()),
@@ -57,6 +60,22 @@ describe("AvailabilityQuickSetup", () => {
     vi.clearAllMocks();
   });
 
+  it("warns before the tab closes once hours are typed, and not before", () => {
+    render(
+      <main>
+        <AvailabilityQuickSetup venueId="venue-1" state={EMPTY} onStale={vi.fn()} />
+      </main>
+    );
+    const leave = () => {
+      const event = new Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(leave()).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+    expect(leave()).toBe(true);
+  });
+
   it("saves the regular week against the version it read and toasts the open days", async () => {
     mutateAsync.mockResolvedValue({ version: 5, changeId: "c1" });
     setup();
@@ -72,7 +91,7 @@ describe("AvailabilityQuickSetup", () => {
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
         expect.objectContaining({
-          title: expect.stringMatching(/^Bookings are open Mon, Tue, Wed, Thu,? and Fri$/),
+          title: "Bookings are open Mon–Fri",
         })
       )
     );
@@ -117,5 +136,29 @@ describe("AvailabilityQuickSetup", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(/reservations service hit a snag/);
     expect(toast).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("toasts the union of the days any service runs", async () => {
+    mutateAsync.mockResolvedValue({ version: 5, changeId: "c1" });
+    render(
+      <main>
+        <AvailabilityQuickSetup venueId="venue-1" state={EMPTY} onStale={vi.fn()} />
+      </main>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Different days for this service" }));
+    fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Brunch" })[1]!);
+    fireEvent.click(screen.getByRole("button", { name: "Different days for this service" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Weekends" })[1]!);
+    fireEvent.click(screen.getByRole("button", { name: "Save and open bookings" }));
+    await waitFor(() =>
+      expect(toast).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Bookings are open every day",
+        })
+      )
+    );
   });
 });

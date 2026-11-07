@@ -30,3 +30,21 @@
   align-items: center;
   justify-content: space-between;
 }
+
+.held {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.held:disabled {
+  pointer-events: none;
+}
+
+.different {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+}

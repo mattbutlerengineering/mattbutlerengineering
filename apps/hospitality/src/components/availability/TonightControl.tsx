@@ -14,6 +14,7 @@ import {
   Tag,
   Text,
   Toggle,
+  useToast,
 } from "@mattbutlerengineering/rialto";
 import {
   AvailabilityConfigProblemSchema,
@@ -26,9 +27,11 @@ import { useEndTonight, useSetTonight, type SetTonightRequest } from "../../hook
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { conflictOf, type Conflict } from "./conflict-problem.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
+import { clockHour } from "../../utils/clock-hour.js";
 import { minuteText } from "./closure-band.js";
 import { TonightDecisionsDialog } from "./TonightDecisionsDialog.js";
 import {
@@ -38,7 +41,7 @@ import {
   type TonightChange,
 } from "./tonight-state.js";
 import { currentServiceDate } from "../../utils/current-service-date.js";
-import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
+import { serviceMinuteOf } from "../../utils/service-day.js";
 import styles from "./TonightControl.module.css";
 
 export interface TonightControlProps {
@@ -56,7 +59,6 @@ type TonightBody = SetTonightRequest["change"];
 
 /**`MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
 const MAX_MINUTE = 2880;
-const MINUTES_PER_DAY = 1440;
 const ALL_TABLES = "all";
 const PICK_TABLES = "pick";
 const UNSET = "unset";
@@ -149,6 +151,7 @@ export function TonightControl(props: TonightControlProps) {
   const setTonight = useSetTonight();
   const endTonight = useEndTonight();
   const refresh = useRefreshAvailability();
+  const { toast } = useToast();
 
   const [open, setOpen] = useState(false);
   const [closing, setClosing] = useState(false);
@@ -156,6 +159,7 @@ export function TonightControl(props: TonightControlProps) {
     readonly ruleId: string;
     readonly closeAt: number;
   } | null>(null);
+  const [callListFor, setCallListFor] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [conflict, setConflict] = useState<Conflict | null>(null);
@@ -199,8 +203,7 @@ export function TonightControl(props: TonightControlProps) {
   const activeTables = tables.filter((tb) => tb.isActive);
   const blockIds = tableTargets(tables, blockTarget, pickedTables);
   // "Now" is the current minute of the service day; past midnight on the same service day it is 1440+.
-  const nowServiceMinute =
-    minutesOfDayIn(now, timezone) + (venueDate(now, timezone) > today ? MINUTES_PER_DAY : 0);
+  const nowServiceMinute = serviceMinuteOf(now, timezone, today);
   const effectiveFrom = blockFrom ?? nowServiceMinute;
   const blockWindowInvalid = blockTo !== null && blockTo <= effectiveFrom;
   const tonightMinutes = tonightTimeMinutes(state.config, timezone, today);
@@ -266,19 +269,42 @@ export function TonightControl(props: TonightControlProps) {
       }
     );
 
-  const confirmDecisions = async (decisions: ClosureDecision[]) => {
+  const confirmDecisions = async (decisions: ClosureDecision[], ruleId: string) => {
     if (!needsDecisions) return;
-    await setTonight.mutateAsync({
+    const { closeAt: closedAt } = needsDecisions;
+    const result = await setTonight.mutateAsync({
       venueId,
       body: {
         expectedVersion: state.version,
-        ruleId: needsDecisions.ruleId,
-        change: { type: "close_early", closeAt: needsDecisions.closeAt },
+        ruleId,
+        change: { type: "close_early", closeAt: closedAt },
         decisions,
       },
     });
     delete attemptIdsRef.current.closeAt;
     setNeedsDecisions(null);
+    // The Manager decided on real bookings: say what happened to them, and where to call.
+    const { cancel, move, keep_notify } = result.outcomes;
+    const notified = cancel + move + keep_notify;
+    const closed = t("availability.tonight.toast.closed", {
+      time: minuteText(closedAt, t, format),
+      count: clockHour(closedAt),
+    });
+    toast({
+      title:
+        notified > 0
+          ? t("availability.tonight.toast.closedNotified", { closed, count: notified })
+          : closed,
+      variant: "success",
+      ...(notified > 0
+        ? {
+            action: {
+              label: t("availability.tonight.toast.callList"),
+              onClick: () => setCallListFor(ruleId),
+            },
+          }
+        : {}),
+    });
   };
 
   const failure = (error || conflict) && (
@@ -368,21 +394,6 @@ export function TonightControl(props: TonightControlProps) {
             disabled={busy !== null}
             onChange={setBlockTarget}
           />
-          <Button
-            variant="secondary"
-            disabled={busy !== null || blockIds.length === 0 || blockWindowInvalid}
-            isLoading={busy === "block"}
-            onClick={() =>
-              void apply("block", {
-                type: "block_tables",
-                tableIds: [...blockIds],
-                from: effectiveFrom,
-                ...(blockTo !== null ? { to: blockTo } : {}),
-              })
-            }
-          >
-            {t("availability.tonight.block.button")}
-          </Button>
         </div>
         {blockTarget === PICK_TABLES && (
           <div
@@ -414,6 +425,21 @@ export function TonightControl(props: TonightControlProps) {
             blockTo,
             setBlockTo
           )}
+          <Button
+            variant="secondary"
+            disabled={busy !== null || blockIds.length === 0 || blockWindowInvalid}
+            isLoading={busy === "block"}
+            onClick={() =>
+              void apply("block", {
+                type: "block_tables",
+                tableIds: [...blockIds],
+                from: effectiveFrom,
+                ...(blockTo !== null ? { to: blockTo } : {}),
+              })
+            }
+          >
+            {t("availability.tonight.block.button")}
+          </Button>
         </div>
         <div className={styles.row}>
           <NumberInput
@@ -518,6 +544,8 @@ export function TonightControl(props: TonightControlProps) {
           placement="bottom"
           open={open}
           onOpenChange={setOpen}
+          // A column of fields over the timeline grid: glass let the grid show through them.
+          solid
         >
           {panel}
         </Popover>
@@ -526,11 +554,20 @@ export function TonightControl(props: TonightControlProps) {
         <TonightDecisionsDialog
           venueId={venueId}
           rule={closeEarlyRule(needsDecisions.ruleId, today, needsDecisions.closeAt)}
+          rules={rules}
           today={today}
           closeAt={needsDecisions.closeAt}
           nowMinute={nowServiceMinute}
           onConfirm={confirmDecisions}
+          onCallList={setCallListFor}
           onClose={() => setNeedsDecisions(null)}
+        />
+      )}
+      {callListFor && (
+        <CallListDialog
+          venueId={venueId}
+          ruleId={callListFor}
+          onClose={() => setCallListFor(null)}
         />
       )}
       {closing && (

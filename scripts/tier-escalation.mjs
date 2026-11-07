@@ -11,6 +11,8 @@
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 
+export const T1 = 1;
+export const T2 = 2;
 export const T3 = 3;
 export const T4 = 4;
 export const SIZE_ESCALATION_THRESHOLD = 1000;
@@ -61,6 +63,151 @@ export function decideSizeEscalation({ files, highestTier }) {
     counted,
     reason: `escalate one tier: ${counted} review-surface lines added (generated files excluded)`,
   };
+}
+
+// ---- path rules (#8398) ---------------------------------------------------
+// Per-file classification. Each changed file takes the highest tier of any
+// rule it matches; a file matching NO rule is T2 (a human must look at code the
+// table has never heard of). The PR tier is the max over files, so generated,
+// test or markdown files can only raise a PR, never lower it below what an
+// unmatched or higher-tier file in the same diff requires. Before #8398 the T2
+// default fired only when NO file in the whole PR matched, so one llms.txt or
+// .md alongside real source classified the PR T1 (#8378, #8360 merged that way).
+
+const isTestFile = (f) => /\.test\.[tj]sx?$/.test(f);
+const isCode = (f) => !/\.md$/.test(f) && !isTestFile(f);
+
+export const RULES = [
+  // T4 — critical
+  {
+    tier: T4,
+    when: (f) => /^prisma\/migrations\//.test(f),
+    why: "prisma migration (post-classifier: migration-reviewer must flag destructive ops)",
+  },
+  { tier: T4, when: (f) => f === "prisma/schema.prisma", why: "prisma schema change" },
+  { tier: T4, when: (f) => /^infrastructure\/pulumi\//.test(f), why: "pulumi infra change" },
+  { tier: T4, when: (f) => f === ".github/CODEOWNERS", why: "CODEOWNERS edit" },
+  {
+    tier: T4,
+    when: (f) =>
+      /^\.github\/workflows\/(codeql|coverage-gate|tier-classifier|auto-merge|merge-queue)\.yml$/.test(
+        f
+      ),
+    why: "merge-gate workflow edit",
+  },
+  {
+    tier: T4,
+    when: (f) => f === "scripts/tier-escalation.mjs",
+    why: "tier-escalation policy edit (merge-gate policy)",
+  },
+  {
+    tier: T4,
+    when: (f) => f === "scripts/resolve-pr-metadata.mjs",
+    why: "merge-gate script edit (resolves the PR metadata the classifier trusts)",
+  },
+  {
+    tier: T4,
+    when: (f) => f === "scripts/merge-queue-eligibility.mjs",
+    why: "merge-gate script edit (decides auto-merge eligibility)",
+  },
+  {
+    tier: T4,
+    when: (f) =>
+      /^services\/users\/src\/auth\//.test(f) || /^packages\/auth\/src\/middleware\//.test(f),
+    why: "auth-critical code path",
+  },
+  { tier: T4, when: (f) => f === "docs/SECURITY-AI.md", why: "SECURITY-AI.md edit" },
+
+  // T3 — sensitive
+  {
+    tier: T3,
+    when: (f) =>
+      /^services\/[^/]+\/src\/routes\//.test(f) || /^services\/[^/]+\/src\/middleware\//.test(f),
+    why: "service route or middleware",
+  },
+  {
+    tier: T3,
+    when: (f) => /^packages\/rialto\/src\/components\//.test(f),
+    why: "rialto component change",
+  },
+  {
+    tier: T3,
+    when: (f) => f === "package.json" || /^pnpm-lock\.yaml$/.test(f),
+    why: "root deps or lockfile",
+  },
+  {
+    tier: T3,
+    when: (f) => /^(eslint\.config\.js|tsconfig.*\.json|turbo\.json)$/.test(f),
+    why: "root build/lint config",
+  },
+  { tier: T3, when: (f) => /^scripts\/check-/.test(f), why: "gate-enforcement script" },
+  { tier: T3, when: (f) => /^\.husky\//.test(f), why: "pre-commit hook" },
+  { tier: T3, when: (f) => /^apps\/[^/]+\/wrangler\.toml$/.test(f), why: "wrangler config" },
+
+  // T2 — standard
+  { tier: T2, when: (f) => /^packages\/rialto\//.test(f), why: "rialto non-component" },
+  { tier: T2, when: (f) => /^services\/[^/]+\/src\//.test(f), why: "service code" },
+  { tier: T2, when: (f) => /^apps\/[^/]+\/src\//.test(f), why: "app code" },
+  { tier: T2, when: (f) => /^docs\/adr\//.test(f), why: "new ADR" },
+  // #8398: production source outside services/apps/rialto and the gate scripts
+  // was unmatched, so a T1 llms.txt riding along set the whole PR's tier.
+  { tier: T2, when: (f) => /^packages\/[^/]+\/src\//.test(f) && isCode(f), why: "package source" },
+  { tier: T2, when: (f) => /^scripts\//.test(f) && isCode(f), why: "repo script" },
+
+  // T1 — trivial
+  {
+    tier: T1,
+    when: (f) => /\.md$/.test(f) && !/(SECURITY-AI|change-tiers|review-criteria)/.test(f),
+    why: "markdown only",
+  },
+  { tier: T1, when: (f) => /^\.changeset\//.test(f), why: "changeset" },
+  { tier: T1, when: (f) => f === ".editorconfig" || /^\.vscode\//.test(f), why: "editor config" },
+  { tier: T1, when: (f) => /^metrics\//.test(f), why: "metrics append" },
+  {
+    tier: T1,
+    when: (f) => f === ".claude/acmm/state.json" || f === "apps/marketing/public/acmm-report.json",
+    why: "automation-only ACMM audit output (same class as metrics/** above)",
+  },
+  {
+    tier: T1,
+    when: (f) => /^(llms|llms-full)\.txt$/.test(f) || /\/(llms|llms-full)\.txt$/.test(f),
+    why: "auto-generated llms.txt",
+  },
+  { tier: T1, when: (f) => isTestFile(f), why: "test-only" },
+];
+
+const TIER_FLOOR_UNMATCHED = T2;
+
+/**
+ * @param {string[]} files raw changed paths
+ * @param {(p: string) => string} [show] escapes a path for display
+ * @returns {{ tier: number, reasons: string[] }} reasons only explain the final tier
+ */
+export function classifyPaths(files, show = (p) => p) {
+  const perFile = files.map((f) => {
+    let best = null;
+    for (const r of RULES) if ((!best || r.tier > best.tier) && r.when(f)) best = r;
+    return { f, tier: best ? best.tier : TIER_FLOOR_UNMATCHED, rule: best };
+  });
+  const tier = perFile.reduce((m, x) => Math.max(m, x.tier), 0);
+  if (tier === 0) return { tier: T2, reasons: ["no changed files: defaults to T2"] };
+  const reasons = [];
+  const seen = new Set();
+  const unmatched = [];
+  for (const x of perFile) {
+    if (x.tier !== tier) continue;
+    if (!x.rule) {
+      unmatched.push(x.f);
+    } else if (!seen.has(x.rule.why)) {
+      seen.add(x.rule.why);
+      reasons.push(`\`${show(x.f)}\` -> T${x.tier}: ${x.rule.why}`);
+    }
+  }
+  if (unmatched.length > 0) {
+    const shown = unmatched.slice(0, 3).map(show).join(", ");
+    reasons.push(`unmatched paths default to T2: ${shown}${unmatched.length > 3 ? "…" : ""}`);
+  }
+  return { tier, reasons };
 }
 
 // Keyword detection. #5956: mask code spans; `\b` alone treats `-` as a

@@ -7,11 +7,19 @@ import { COORDINATION_LABELS } from "@mbe/gh-client";
 import {
   DEFAULT_THRESHOLD,
   DEFAULT_OVERDUE_TOLERANCE_HOURS,
+  DEFAULT_FLAPPING_MIN_SAMPLE,
+  DEFAULT_FLAPPING_RATE_PCT,
   DEPLOY_WORKFLOW_FILES,
   MAIN_PUSH_WORKFLOW_FILES,
+  CANCELLED_IS_FAILURE_WORKFLOW_FILES,
   findMainPushWorkflows,
+  findUnwatchedMainPushWorkflows,
+  MAIN_PUSH_WATCH_EXEMPT_FILES,
+  hasMainPushTrigger,
   mainPushRunArgs,
+  mainPushRateRunArgs,
   classifyScheduledWorkflowHealth,
+  classifyFailureRate,
   hasScheduleTrigger,
   findScheduledWorkflows,
   findDeployWorkflows,
@@ -33,6 +41,10 @@ import {
   extractWorkflowNameFromMissedRunTitle,
   buildMissedRunBody,
   runScheduledWorkflowRecencyCheck,
+  buildFlappingFailureTitle,
+  extractWorkflowNameFromFlappingTitle,
+  buildFlappingFailureBody,
+  runWorkflowFailureRateCheck,
 } from "../scheduled-workflow-health.mjs";
 
 describe("classifyScheduledWorkflowHealth", () => {
@@ -326,6 +338,19 @@ describe("buildScheduledFailureBody", () => {
     expect(body).toContain("3 consecutive");
     expect(body).toContain("https://github.com/x/y/actions/runs/1");
     expect(body).toContain("https://github.com/x/y/actions/runs/2");
+  });
+});
+
+describe("buildScheduledFailureBody with cancelled runs counted (#8376)", () => {
+  it("says the cancelled (timed-out) runs are the streak instead of claiming they were excluded", () => {
+    const body = buildScheduledFailureBody({
+      workflowPath: ".github/workflows/nightly-compliance.yml",
+      streak: 3,
+      runs: [{ url: "https://github.com/x/y/actions/runs/1" }],
+      cancelledCountsAsFailure: true,
+    });
+    expect(body).not.toContain("`cancelled` or `skipped` are excluded");
+    expect(body).toContain("`cancelled` runs (job timeouts) count toward this streak");
   });
 });
 
@@ -1366,10 +1391,16 @@ describe("main-push workflow arm (#6955)", () => {
 
   it("pins the exact list of watched advisory workflows", () => {
     expect(MAIN_PUSH_WORKFLOW_FILES).toEqual([
+      "adr-check.yml",
       "apps-visual.yml",
       "e2e-screenshots.yml",
+      "instruction-regression.yml",
+      "post-merge.yml",
+      "release.yml",
       "rialto-visual.yml",
       "rialto-web-e2e.yml",
+      "secret-scan.yml",
+      "storybook.yml",
     ]);
   });
 
@@ -1381,6 +1412,98 @@ describe("main-push workflow arm (#6955)", () => {
       expect(on, file).not.toHaveProperty("schedule");
       expect(DEPLOY_WORKFLOW_FILES, file).not.toContain(file);
     }
+  });
+
+  // #7601: the completeness direction. The tests above only assert that every
+  // LISTED workflow qualifies; nothing asserted that every QUALIFYING workflow
+  // is listed. That is the gap rialto-web-e2e.yml fell through for 5d 8h, and
+  // fixing #7601 by appending one file left the next new advisory workflow
+  // free to repeat it. A qualifying workflow must be watched or explicitly
+  // exempt -- never silently neither.
+  it("watches or exempts every push-to-main advisory workflow (#7601)", () => {
+    const workflowsDir = join(import.meta.dirname, "..", "..", ".github", "workflows");
+    expect(findUnwatchedMainPushWorkflows(workflowsDir)).toEqual([]);
+  });
+
+  it("exempts only ci.yml, and states a reason for it", () => {
+    expect(Object.keys(MAIN_PUSH_WATCH_EXEMPT_FILES)).toEqual(["ci.yml"]);
+    expect(MAIN_PUSH_WATCH_EXEMPT_FILES["ci.yml"]).toMatch(/CI Gate/);
+  });
+
+  it("detects a push-to-main trigger in both YAML list forms", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: [main]\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches:\n      - main\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: [release]\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  pull_request:\n    branches: [main]\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  schedule:\n    - cron: '0 0 * * *'\n")).toBe(false);
+  });
+
+  // Fail closed on an unfiltered push: `on: push` with no `branches` fires on
+  // EVERY branch, main included, so it must qualify. Reading it as "not a
+  // main-push workflow" would reintroduce the silent gap this guard exists to
+  // close -- the workflow would be watched by nothing and flagged by nothing.
+  it("treats an unfiltered push trigger as pushing to main", () => {
+    expect(hasMainPushTrigger("on: push\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    paths:\n      - src/**\n")).toBe(true);
+  });
+
+  // YAML allows a bare scalar where a sequence is expected. Pinned so the
+  // scalar and sequence forms cannot drift apart.
+  it("reads a scalar branch filter the same as a one-item list", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: main\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: release\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: main\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: docs\n")).toBe(true);
+  });
+
+  // A tag-only push never fires on a branch, so it is not a main-push
+  // workflow -- without this, the fail-closed default would report every
+  // future tag-triggered workflow as unwatched.
+  it("does not treat a tag-only push as pushing to main", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    tags: ['v*']\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    tags: ['v*']\n    branches: [main]\n")).toBe(true);
+  });
+
+  it("honours branches-ignore", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: [main]\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: [docs]\n")).toBe(true);
+  });
+
+  it("reports a qualifying workflow that is listed in none of the sets", () => {
+    writeFileSync(join(dir, "stray.yml"), "name: Stray\non:\n  push:\n    branches: [main]\n");
+    expect(findUnwatchedMainPushWorkflows(dir)).toEqual([
+      { name: "Stray", file: "stray.yml", path: ".github/workflows/stray.yml" },
+    ]);
+  });
+
+  // The sort is a documented contract ("sorted by file name for deterministic
+  // output"), and it takes two entries to exercise the comparator at all --
+  // with 0 or 1 result the ordering claim is untested.
+  it("returns multiple unwatched workflows sorted by file name", () => {
+    writeFileSync(join(dir, "zeta.yml"), "name: Zeta\non:\n  push:\n    branches: [main]\n");
+    writeFileSync(join(dir, "alpha.yml"), "name: Alpha\non:\n  push:\n    branches: [main]\n");
+    expect(findUnwatchedMainPushWorkflows(dir).map((w) => w.file)).toEqual([
+      "alpha.yml",
+      "zeta.yml",
+    ]);
+  });
+
+  it("does not report scheduled, deploy, exempt, or already-listed workflows", () => {
+    writeFileSync(
+      join(dir, "cron.yml"),
+      "name: Cron\non:\n  push:\n    branches: [main]\n  schedule:\n    - cron: '0 0 * * *'\n"
+    );
+    writeFileSync(join(dir, "ci.yml"), "name: CI\non:\n  push:\n    branches: [main]\n");
+    writeFileSync(
+      join(dir, "deploy-static.yml"),
+      "name: Deploy Static\non:\n  push:\n    branches: [main]\n"
+    );
+    writeFileSync(
+      join(dir, "rialto-visual.yml"),
+      "name: Rialto Visual\non:\n  push:\n    branches: [main]\n"
+    );
+    expect(findUnwatchedMainPushWorkflows(dir)).toEqual([]);
   });
 
   it("every listed file exists in the real repo", () => {
@@ -1486,5 +1609,355 @@ describe("main-push workflow arm (#6955)", () => {
       },
     });
     expect(results[0].status).not.toBe("failing-streak");
+  });
+});
+
+// #8066: classifyScheduledWorkflowHealth only ever looks at the `threshold`
+// most recent runs, so a workflow that flaps (red, red, green, red, red,
+// red, green, ...) almost never presents a uniform window at the exact
+// moment the daily detector samples, and reads as "healthy" no matter how
+// red it actually is. apps-visual.yml sat 56% red on `main` for a week with
+// zero issues filed because of exactly this blind spot. This axis asks a
+// structurally different question — "what fraction of a wide sample
+// failed?" — independent of whether the most recent runs form a streak.
+describe("classifyFailureRate", () => {
+  it("flags a flapping workflow that never streaks 3-in-a-row at the head but fails most of the time", () => {
+    // red, red, green, red, red, red, green — the exact flap pattern quoted
+    // in #8066. classifyScheduledWorkflowHealth's 3-run head window
+    // ([failure, failure, success]) is never uniform, so it reports
+    // healthy no matter how red the workflow actually is.
+    const runs = [
+      { conclusion: "failure", url: "u1" },
+      { conclusion: "failure", url: "u2" },
+      { conclusion: "success", url: "u3" },
+      { conclusion: "failure", url: "u4" },
+      { conclusion: "failure", url: "u5" },
+      { conclusion: "failure", url: "u6" },
+      { conclusion: "success", url: "u7" },
+    ];
+
+    expect(classifyScheduledWorkflowHealth({ runs, threshold: 3 }).status).toBe("healthy");
+
+    const rate = classifyFailureRate({ runs, minSample: 7, ratePct: 40 });
+    expect(rate.status).toBe("flapping");
+    expect(rate.sample).toBe(7);
+    expect(rate.failureCount).toBe(5);
+  });
+
+  it("reports healthy when the failure rate is below the threshold", () => {
+    const runs = Array.from({ length: 10 }, (_, i) => ({
+      conclusion: i < 2 ? "failure" : "success",
+    }));
+    const rate = classifyFailureRate({ runs, minSample: 10, ratePct: 40 });
+    expect(rate.status).toBe("healthy");
+    expect(rate.failureRatePct).toBe(20);
+  });
+
+  it("excludes skipped and cancelled runs from the rate denominator (#4538/#4685)", () => {
+    const runs = [
+      { conclusion: "failure" },
+      { conclusion: "failure" },
+      { conclusion: "skipped" },
+      { conclusion: "cancelled" },
+      { conclusion: "success" },
+      { conclusion: "failure" },
+    ];
+    // Usable: failure, failure, success, failure -> 3/4 = 75%.
+    const rate = classifyFailureRate({ runs, minSample: 4, ratePct: 50 });
+    expect(rate.sample).toBe(4);
+    expect(rate.failureCount).toBe(3);
+    expect(rate.status).toBe("flapping");
+  });
+
+  it("returns insufficient-sample, never healthy, when usable runs are below the minimum", () => {
+    const runs = [{ conclusion: "failure" }, { conclusion: "success" }];
+    const rate = classifyFailureRate({ runs, minSample: 10, ratePct: 40 });
+    expect(rate.status).toBe("insufficient-sample");
+    expect(rate.status).not.toBe("healthy");
+  });
+
+  it("fails closed to insufficient-sample on an empty run list", () => {
+    expect(classifyFailureRate({ runs: [], minSample: 5, ratePct: 40 }).status).toBe(
+      "insufficient-sample"
+    );
+  });
+
+  it("fails closed to insufficient-sample on an undefined runs argument", () => {
+    expect(classifyFailureRate({ runs: undefined, minSample: 5, ratePct: 40 }).status).toBe(
+      "insufficient-sample"
+    );
+  });
+
+  it("excludes runs with a missing conclusion from the usable sample rather than guessing", () => {
+    const runs = [
+      { conclusion: "failure" },
+      { conclusion: "failure" },
+      { conclusion: undefined },
+      {},
+    ];
+    // Only 2 usable runs once the missing-conclusion ones are excluded —
+    // below the minSample of 3, so this must not guess a rate from them.
+    const rate = classifyFailureRate({ runs, minSample: 3, ratePct: 40 });
+    expect(rate.status).toBe("insufficient-sample");
+    expect(rate.sample).toBe(2);
+  });
+
+  it("falls back to the default minSample/ratePct when given invalid values", () => {
+    expect(DEFAULT_FLAPPING_MIN_SAMPLE).toBeGreaterThan(0);
+    expect(DEFAULT_FLAPPING_RATE_PCT).toBeGreaterThan(0);
+    const runs = Array.from({ length: DEFAULT_FLAPPING_MIN_SAMPLE }, () => ({
+      conclusion: "failure",
+    }));
+    const rate = classifyFailureRate({ runs, minSample: Number.NaN, ratePct: -1 });
+    expect(rate.status).toBe("flapping");
+  });
+});
+
+// Real measured history (#8066): apps-visual.yml on `main`, 2026-10-25 ->
+// 2026-11-01 — 87 of 156 runs red (56%), evenly interleaved via a
+// Bresenham-style distribution so no 3-run streak ever sits at the head
+// (the first entry here is a success), the exact shape that let this
+// workflow survive a week of red with zero issues filed.
+describe("classifyFailureRate — apps-visual.yml real history (#8066)", () => {
+  const TOTAL = 156;
+  const FAILURES = 87;
+  let acc = 0;
+  const APPS_VISUAL_REAL_HISTORY = Array.from({ length: TOTAL }, () => {
+    acc += FAILURES;
+    const isFailure = acc >= TOTAL;
+    if (isFailure) acc -= TOTAL;
+    return { conclusion: isFailure ? "failure" : "success" };
+  });
+
+  it("is built from the measured 87/156 ratio and never streaks 3 failures at the head", () => {
+    expect(APPS_VISUAL_REAL_HISTORY.filter((r) => r.conclusion === "failure")).toHaveLength(
+      FAILURES
+    );
+    expect(
+      classifyScheduledWorkflowHealth({ runs: APPS_VISUAL_REAL_HISTORY, threshold: 3 }).status
+    ).toBe("healthy");
+  });
+
+  it("is flagged flapping by classifyFailureRate even though the streak detector calls it healthy", () => {
+    const rate = classifyFailureRate({
+      runs: APPS_VISUAL_REAL_HISTORY,
+      minSample: 20,
+      ratePct: 40,
+    });
+    expect(rate.status).toBe("flapping");
+    expect(rate.failureRatePct).toBeCloseTo((FAILURES / TOTAL) * 100, 1);
+  });
+});
+
+describe("buildFlappingFailureTitle / extractWorkflowNameFromFlappingTitle", () => {
+  it("round-trips the workflow name through the deterministic title", () => {
+    const title = buildFlappingFailureTitle("apps-visual.yml", 55.8);
+    expect(title).toBe("ci-fix: apps-visual.yml is flapping at 55.8% failures");
+    expect(extractWorkflowNameFromFlappingTitle({ title })).toBe("apps-visual.yml");
+  });
+
+  it("returns null for a title that doesn't match the pattern", () => {
+    expect(extractWorkflowNameFromFlappingTitle({ title: "unrelated issue" })).toBeNull();
+  });
+
+  // The finding title must be honest — a flapping workflow has not "failed N
+  // consecutive runs" — and a streak-filed issue must never be confused with
+  // a rate-filed one, in either direction.
+  it("is never matched by the streak or missed-run title extractors, and vice versa", () => {
+    const flappingTitle = buildFlappingFailureTitle("apps-visual.yml", 55.8);
+    const streakTitle = buildScheduledFailureTitle("apps-visual.yml", 3);
+    const missedRunTitle = buildMissedRunTitle("apps-visual.yml");
+
+    expect(extractWorkflowNameFromIssueTitle({ title: flappingTitle })).toBeNull();
+    expect(extractWorkflowNameFromMissedRunTitle({ title: flappingTitle })).toBeNull();
+    expect(extractWorkflowNameFromFlappingTitle({ title: streakTitle })).toBeNull();
+    expect(extractWorkflowNameFromFlappingTitle({ title: missedRunTitle })).toBeNull();
+  });
+});
+
+describe("buildFlappingFailureBody", () => {
+  it("includes the workflow path, failure rate, and sample size", () => {
+    const body = buildFlappingFailureBody({
+      workflowPath: ".github/workflows/apps-visual.yml",
+      failureRatePct: 55.8,
+      sample: 156,
+      failureCount: 87,
+    });
+    expect(body).toContain(".github/workflows/apps-visual.yml");
+    expect(body).toContain("55.8%");
+    expect(body).toContain("87");
+    expect(body).toContain("156");
+  });
+});
+
+describe("mainPushRateRunArgs", () => {
+  it("queries a wider window than the streak arm for the same workflow", () => {
+    const streakArgs = mainPushRunArgs("apps-visual.yml", 3);
+    const rateArgs = mainPushRateRunArgs("apps-visual.yml", DEFAULT_FLAPPING_MIN_SAMPLE);
+    const streakLimit = Number(streakArgs[streakArgs.indexOf("--limit") + 1]);
+    const rateLimit = Number(rateArgs[rateArgs.indexOf("--limit") + 1]);
+    expect(rateLimit).toBeGreaterThan(streakLimit);
+    expect(rateArgs).toEqual(
+      expect.arrayContaining([
+        "--branch",
+        "main",
+        "--event",
+        "push",
+        "--workflow",
+        "apps-visual.yml",
+      ])
+    );
+  });
+});
+
+describe("runWorkflowFailureRateCheck", () => {
+  const FLAPPING_RUNS = [
+    { conclusion: "failure" },
+    { conclusion: "failure" },
+    { conclusion: "success" },
+    { conclusion: "failure" },
+    { conclusion: "failure" },
+    { conclusion: "failure" },
+    { conclusion: "success" },
+  ];
+
+  it("files one ci-fix issue for a flapping workflow and skips a healthy one", () => {
+    const workflows = [
+      { name: "apps-visual.yml", path: ".github/workflows/apps-visual.yml" },
+      { name: "healthy.yml", path: ".github/workflows/healthy.yml" },
+    ];
+    const runsByWorkflow = {
+      "apps-visual.yml": FLAPPING_RUNS,
+      "healthy.yml": Array.from({ length: 7 }, () => ({ conclusion: "success" })),
+    };
+    const created = [];
+
+    const results = runWorkflowFailureRateCheck({
+      workflows,
+      minSample: 7,
+      ratePct: 40,
+      getRuns: (name) => runsByWorkflow[name],
+      searchCiFixIssues: () => [],
+      getIssueState: () => "missing",
+      createIssue: (title, body, labels) => {
+        created.push({ title, body, labels });
+        return 321;
+      },
+    });
+
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe("ci-fix: apps-visual.yml is flapping at 71.4% failures");
+    expect(created[0].labels).toEqual(["ci-fix", COORDINATION_LABELS.READY]);
+    expect(results).toEqual([
+      { workflow: "apps-visual.yml", status: "flapping", action: "create", issueNumber: 321 },
+      { workflow: "healthy.yml", status: "healthy" },
+    ]);
+  });
+
+  it("skips filing a duplicate when an open issue already tracks the flapping rate", () => {
+    const workflows = [{ name: "apps-visual.yml", path: ".github/workflows/apps-visual.yml" }];
+    let createCalled = false;
+
+    const results = runWorkflowFailureRateCheck({
+      workflows,
+      minSample: 7,
+      ratePct: 40,
+      getRuns: () => FLAPPING_RUNS,
+      searchCiFixIssues: () => [
+        { number: 11, title: "ci-fix: apps-visual.yml is flapping at 71.4% failures" },
+      ],
+      getIssueState: () => "open",
+      createIssue: () => {
+        createCalled = true;
+        return 999;
+      },
+    });
+
+    expect(createCalled).toBe(false);
+    expect(results).toEqual([
+      { workflow: "apps-visual.yml", status: "flapping", action: "skip", issueNumber: 11 },
+    ]);
+  });
+
+  it("does not report insufficient-sample as flapping and never creates an issue for it", () => {
+    const workflows = [{ name: "new.yml", path: ".github/workflows/new.yml" }];
+    let createCalled = false;
+
+    const results = runWorkflowFailureRateCheck({
+      workflows,
+      minSample: 20,
+      ratePct: 40,
+      getRuns: () => [{ conclusion: "failure" }],
+      createIssue: () => {
+        createCalled = true;
+        return 1;
+      },
+    });
+
+    expect(createCalled).toBe(false);
+    expect(results).toEqual([{ workflow: "new.yml", status: "insufficient-sample" }]);
+  });
+});
+
+describe("cancelled-as-failure workflows (#8376)", () => {
+  const cancelledRuns = [
+    { conclusion: "cancelled", url: "u1" },
+    { conclusion: "cancelled", url: "u2" },
+    { conclusion: "cancelled", url: "u3" },
+  ];
+
+  it("by default still excludes cancelled runs from the streak", () => {
+    expect(classifyScheduledWorkflowHealth({ runs: cancelledRuns, threshold: 3 }).status).toBe(
+      "insufficient-history"
+    );
+  });
+
+  it("counts cancelled runs as failures when cancelledCountsAsFailure is set", () => {
+    const health = classifyScheduledWorkflowHealth({
+      runs: cancelledRuns,
+      threshold: 3,
+      cancelledCountsAsFailure: true,
+    });
+    expect(health.status).toBe("failing-streak");
+    expect(health.streak).toBe(3);
+  });
+
+  it("still excludes skipped runs when cancelledCountsAsFailure is set", () => {
+    const runs = [{ conclusion: "skipped" }, ...cancelledRuns];
+    const health = classifyScheduledWorkflowHealth({
+      runs,
+      threshold: 3,
+      cancelledCountsAsFailure: true,
+    });
+    expect(health.status).toBe("failing-streak");
+    expect(health.failingRuns).toHaveLength(3);
+  });
+
+  it("lists nightly-compliance.yml and the real workflow is scheduled", () => {
+    expect(CANCELLED_IS_FAILURE_WORKFLOW_FILES).toContain("nightly-compliance.yml");
+    const scheduled = findScheduledWorkflows(
+      join(import.meta.dirname, "..", "..", ".github", "workflows")
+    );
+    const entry = scheduled.find((w) => w.file === "nightly-compliance.yml");
+    expect(entry).toBeDefined();
+  });
+
+  it("files a ci-fix issue for a listed workflow whose runs all timed out", () => {
+    const created = [];
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [
+        { name: "nightly-compliance", path: ".github/workflows/nightly-compliance.yml" },
+        { name: "other", path: ".github/workflows/other.yml" },
+      ],
+      threshold: 3,
+      getRuns: () => cancelledRuns,
+      createIssue: (title) => {
+        created.push(title);
+        return 7;
+      },
+    });
+    expect(created).toEqual(["ci-fix: nightly-compliance has failed 3 consecutive scheduled runs"]);
+    expect(results[0].status).toBe("failing-streak");
+    expect(results[1].status).toBe("insufficient-history");
   });
 });

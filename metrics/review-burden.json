@@ -694,5 +694,210 @@
       "review_coverage": "measured",
       "no_formal_review_stage": false
     }
+  },
+  {
+    "timestamp": "2026-10-30T17:04:45.706Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [
+      {
+        "login": "mattbutlerengineering",
+        "prs_reviewed": 2,
+        "mean_review_minutes": 21.9,
+        "approvals": 2,
+        "rubber_stamps": 0,
+        "rubber_stamp_ratio": 0
+      }
+    ],
+    "summary": {
+      "total_reviewers": 1,
+      "total_reviews": 2,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 2,
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
+    }
+  },
+  {
+    "timestamp": "2026-10-31T16:12:43.109Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [
+      {
+        "login": "mattbutlerengineering",
+        "prs_reviewed": 2,
+        "mean_review_minutes": 21.9,
+        "approvals": 2,
+        "rubber_stamps": 0,
+        "rubber_stamp_ratio": 0
+      }
+    ],
+    "summary": {
+      "total_reviewers": 1,
+      "total_reviews": 2,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 2,
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
+    }
+  },
+  {
+    "timestamp": "2026-11-01T17:11:54.631Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [
+      {
+        "login": "mattbutlerengineering",
+        "prs_reviewed": 2,
+        "mean_review_minutes": 14.89,
+        "approvals": 2,
+        "rubber_stamps": 1,
+        "rubber_stamp_ratio": 0.5
+      }
+    ],
+    "summary": {
+      "total_reviewers": 1,
+      "total_reviews": 2,
+      "overall_rubber_stamp_ratio": 0.5,
+      "overall_rubber_stamps": 1,
+      "overall_approvals": 2,
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
+    }
+  },
+  {
+    "timestamp": "2026-11-02T20:50:34.088Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [
+      {
+        "login": "github-advanced-security",
+        "prs_reviewed": 1,
+        "mean_review_minutes": 2.9,
+        "approvals": 0,
+        "rubber_stamps": 0,
+        "rubber_stamp_ratio": 0
+      },
+      {
+        "login": "mattbutlerengineering",
+        "prs_reviewed": 5,
+        "mean_review_minutes": 484.3,
+        "approvals": 5,
+        "rubber_stamps": 2,
+        "rubber_stamp_ratio": 0.4
+      }
+    ],
+    "summary": {
+      "total_reviewers": 2,
+      "total_reviews": 6,
+      "overall_rubber_stamp_ratio": 0.4,
+      "overall_rubber_stamps": 2,
+      "overall_approvals": 5,
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
+    }
+  },
+  {
+    "timestamp": "2026-11-03T18:31:53.828Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [
+      {
+        "login": "mattbutlerengineering",
+        "prs_reviewed": 2,
+        "mean_review_minutes": 81.38,
+        "approvals": 2,
+        "rubber_stamps": 1,
+        "rubber_stamp_ratio": 0.5
+      },
+      {
+        "login": "github-advanced-security",
+        "prs_reviewed": 1,
+        "mean_review_minutes": 2.9,
+        "approvals": 0,
+        "rubber_stamps": 0,
+        "rubber_stamp_ratio": 0
+      }
+    ],
+    "summary": {
+      "total_reviewers": 2,
+      "total_reviews": 3,
+      "overall_rubber_stamp_ratio": 0.5,
+      "overall_rubber_stamps": 1,
+      "overall_approvals": 2,
+      "review_coverage": "measured",
+      "no_formal_review_stage": false
+    }
+  },
+  {
+    "timestamp": "2026-11-05T06:08:43.800Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [],
+    "summary": {
+      "total_reviewers": 0,
+      "total_reviews": 0,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 0,
+      "review_coverage": "no-formal-review-stage",
+      "no_formal_review_stage": true
+    }
+  },
+  {
+    "timestamp": "2026-11-05T18:52:11.761Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [],
+    "summary": {
+      "total_reviewers": 0,
+      "total_reviews": 0,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 0,
+      "review_coverage": "no-formal-review-stage",
+      "no_formal_review_stage": true
+    }
+  },
+  {
+    "timestamp": "2026-11-06T06:46:40.922Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [],
+    "summary": {
+      "total_reviewers": 0,
+      "total_reviews": 0,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 0,
+      "review_coverage": "no-formal-review-stage",
+      "no_formal_review_stage": true
+    }
+  },
+  {
+    "timestamp": "2026-11-06T18:09:38.768Z",
+    "window_days": 7,
+    "rubber_stamp_threshold_minutes": 5,
+    "total_closed_prs": 100,
+    "reviewers": [],
+    "summary": {
+      "total_reviewers": 0,
+      "total_reviews": 0,
+      "overall_rubber_stamp_ratio": 0,
+      "overall_rubber_stamps": 0,
+      "overall_approvals": 0,
+      "review_coverage": "no-formal-review-stage",
+      "no_formal_review_stage": true
+    }
   }
 ]

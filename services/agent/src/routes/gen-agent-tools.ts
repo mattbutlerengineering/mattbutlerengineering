@@ -4,14 +4,23 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import { GEN_WRITE_TOOL_NAMES } from "./gen-runner.js";
 import { createAvailabilityTools } from "./gen-agent-availability-tools.js";
+import { createBriefingTools } from "./gen-agent-briefing-tools.js";
+import { createClosureTools } from "./gen-agent-closure-tools.js";
 import { createGuestTools } from "./gen-agent-guest-tools.js";
+import { createFloorPlanTools } from "./gen-agent-floor-plan-tools.js";
+import { createMenuTools } from "./gen-agent-menu-tools.js";
 import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
-import { createTimelineTools } from "./gen-agent-timeline-tools.js";
+import { bookingWriteFailure, createTimelineTools } from "./gen-agent-timeline-tools.js";
 import {
+  NOT_EXECUTED,
   NO_VENUE,
+  failedBeforeWrite,
+  failureLog,
+  notExecuted,
   localTimeIn,
   refusalOf,
   resolveTable,
+  saveUnsure,
   todayIn,
   type ApiClient,
   type Refusal,
@@ -37,6 +46,8 @@ export interface CreateAgentToolsOptions {
 
 /** The reservations API's page-size ceiling. */
 const LOOKUP_LIMIT = 100;
+/** The reservations API's page-size ceiling; a venue's tables fit in one page. */
+const TABLES_LIMIT = 100;
 /** Guest profiles a name lookup follows; more than this means the name is too vague. */
 const MAX_GUEST_MATCHES = 5;
 
@@ -154,7 +165,7 @@ const FINAL_REFUSAL_STATUSES: ReadonlySet<number> = new Set([409, 422]);
 
 function createFailureResult(err: unknown) {
   const refusal = refusalOf(err);
-  if (!refusal) return { error: "Failed to create reservation. Please try again." };
+  if (!refusal) return { error: saveUnsure("lookup_reservation") };
   if (!FINAL_REFUSAL_STATUSES.has(refusal.status)) {
     // e.g. a 400 from our own malformed request: not the venue's decision.
     return { error: `Failed to create reservation: ${refusal.detail}` };
@@ -226,6 +237,31 @@ const CONFIRMATION_PENDING = {
 } as const;
 
 /**
+ * What a second call is told once the confirmed action is spent. The first attempt
+ * may have refused (and said "nothing was changed") or may have committed, so this
+ * never claims either: the first attempt's own result is the answer.
+ */
+const ALREADY_ATTEMPTED =
+  "This confirmed action was already attempted in this request and may or may not have run. Go by that attempt's result; ask the user to confirm again.";
+
+/**
+ * A tool's result with its not-executed marker removed. The single use is handed
+ * back only when the tool stated that nothing was written; a thrown error (which
+ * skips this entirely), a timeout and anything unmarked stay spent, because the
+ * write may have committed. The model never sees the marker.
+ *
+ * Handing it back lets the same confirmed input run again in this request: the
+ * gate still executes that exact input and no other tool, and no new
+ * action_request is emitted (gen-agent drops the confirmed tool's own).
+ */
+function releaseIfNotExecuted(result: unknown, release: () => void): unknown {
+  if (typeof result !== "object" || result === null || !(NOT_EXECUTED in result)) return result;
+  const { [NOT_EXECUTED]: marker, ...visible } = result as Record<string, unknown>;
+  if (marker === true) release();
+  return visible;
+}
+
+/**
  * Wraps every write tool so its real API call runs only for the action the
  * user explicitly confirmed — with exactly the confirmed input, at most once
  * per request. The unconfirmed path still surfaces as an action_request event
@@ -252,7 +288,7 @@ function gateWriteTools(
           return CONFIRMATION_PENDING;
         }
         if (consumed) {
-          return { error: "This confirmed action has already been executed." };
+          return { error: ALREADY_ATTEMPTED };
         }
         const schema = original.inputSchema as z.ZodType;
         const parsed = schema.safeParse(confirmedAction.toolInput);
@@ -268,7 +304,10 @@ function gateWriteTools(
           { toolName: name, actionId: confirmedAction.actionId },
           "executing user-confirmed action"
         );
-        return originalExecute(parsed.data as never, ctx);
+        const result = await originalExecute(parsed.data as never, ctx);
+        return releaseIfNotExecuted(result, () => {
+          consumed = false;
+        });
       },
     } as ToolSet[string];
   }
@@ -382,7 +421,7 @@ export function createAgentTools(
           );
           return { reservations: reservations.map(toLocal) };
         } catch (err) {
-          log.error({ err, date, venueId }, "lookup_reservation failed");
+          log.error({ ...failureLog(err), date, venueId }, "lookup_reservation failed");
           return { error: "Failed to look up reservations. Please try again." };
         }
       },
@@ -395,12 +434,12 @@ export function createAgentTools(
       }),
       execute: async ({ query }) => {
         if (!venueId) return NO_VENUE;
-        log.info({ query, venueId }, "search_guests tool called");
+        log.info({ venueId }, "search_guests tool called");
         try {
           const result = await api.guests.search({ venueId, query });
           return { guests: result.data };
         } catch (err) {
-          log.error({ err, query, venueId }, "search_guests failed");
+          log.error({ ...failureLog(err), venueId }, "search_guests failed");
           return { error: "Failed to search guests. Please try again." };
         }
       },
@@ -415,7 +454,7 @@ export function createAgentTools(
         if (!venueId) return NO_VENUE;
         log.info({ venueId }, "get_table_status tool called");
         try {
-          const result = await api.tables.list({ venueId });
+          const result = await api.tables.list({ venueId, limit: TABLES_LIMIT });
           return { tables: result.data };
         } catch (err) {
           log.error({ err, venueId }, "get_table_status failed");
@@ -482,10 +521,10 @@ export function createAgentTools(
         notes: z.string().optional().describe("Reservation notes"),
       }),
       execute: async ({ guestName, date, startTime, endTime, partySize, tableId, notes }) => {
-        if (!venueId) return NO_VENUE;
-        log.info({ guestName, date, startTime, partySize }, "create_reservation tool called");
+        if (!venueId) return notExecuted(NO_VENUE);
+        log.info({ venueId, date, startTime, partySize }, "create_reservation tool called");
         const window = reservationWindow(date, startTime, endTime, timeZone);
-        if (!window) return { error: UNREADABLE_TIME };
+        if (!window) return notExecuted({ error: UNREADABLE_TIME });
         try {
           const reservation = await api.reservations.create({
             guestName,
@@ -499,7 +538,7 @@ export function createAgentTools(
           });
           return { reservation };
         } catch (err) {
-          log.error({ err, guestName, date }, "create_reservation failed");
+          log.error({ ...failureLog(err), venueId, date }, "create_reservation failed");
           return createFailureResult(err);
         }
       },
@@ -518,7 +557,8 @@ export function createAgentTools(
         notes: z.string().optional().describe("Updated notes"),
       }),
       execute: async ({ reservationId, ...updates }) => {
-        log.info({ reservationId, ...updates }, "modify_reservation tool called");
+        // Field names only: notes are free text, and can say anything about a guest.
+        log.info({ reservationId, fields: Object.keys(updates) }, "modify_reservation tool called");
         try {
           const cleanUpdates = Object.fromEntries(
             Object.entries(updates).filter(([, v]) => v !== undefined)
@@ -526,8 +566,13 @@ export function createAgentTools(
           const reservation = await api.reservations.update(reservationId, cleanUpdates);
           return { reservation };
         } catch (err) {
-          log.error({ err, reservationId }, "modify_reservation failed");
-          return { error: "Failed to modify reservation. Please try again." };
+          log.error({ ...failureLog(err), reservationId }, "modify_reservation failed");
+          // The write is the tool's first call, so any failure may have saved.
+          return bookingWriteFailure(
+            err,
+            "modify the reservation",
+            saveUnsure("lookup_reservation")
+          );
         }
       },
     }),
@@ -544,13 +589,13 @@ export function createAgentTools(
         guestName: z.string().optional().describe("Guest name if provided"),
       }),
       execute: async ({ partySize, tableId, guestName }) => {
-        if (!venueId) return NO_VENUE;
-        log.info({ venueId, partySize, tableId, guestName }, "seat_walk_in tool called");
+        if (!venueId) return notExecuted(NO_VENUE);
+        log.info({ venueId, partySize, tableId }, "seat_walk_in tool called");
         try {
           if (!tableId) {
-            return {
+            return notExecuted({
               error: "A table must be specified for walk-ins. Check available tables first.",
-            };
+            });
           }
           const reservation = await api.reservations.walkIn({
             venueId,
@@ -560,8 +605,9 @@ export function createAgentTools(
           });
           return { reservation };
         } catch (err) {
-          log.error({ err, venueId, partySize }, "seat_walk_in failed");
-          return { error: "Failed to seat walk-in. Please try again." };
+          log.error({ ...failureLog(err), venueId, partySize }, "seat_walk_in failed");
+          // The write is the tool's first call, so any failure may have saved.
+          return bookingWriteFailure(err, "seat the walk-in", saveUnsure("get_table_status"));
         }
       },
     }),
@@ -574,26 +620,35 @@ export function createAgentTools(
         status: z.enum(["AVAILABLE", "OCCUPIED", "DIRTY", "READY"]).describe("New table status"),
       }),
       execute: async ({ table: tableRef, status: newStatus }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId, tableRef, newStatus }, "update_table_status tool called");
+        let unsure: string | undefined;
         try {
-          const tablesResult = await api.tables.list({ venueId });
+          const tablesResult = await api.tables.list({ venueId, limit: TABLES_LIMIT });
           const resolved = resolveTable(tablesResult.data, tableRef);
-          if ("error" in resolved) return resolved;
+          if ("error" in resolved) return notExecuted(resolved);
           const { table } = resolved;
+          unsure = saveUnsure("get_table_status");
           const updated = await api.tables.updateStatus(table.id, newStatus);
           return { table: updated };
         } catch (err) {
           log.error({ err, venueId, tableRef }, "update_table_status failed");
-          return { error: "Failed to update table status. Please try again." };
+          return failedBeforeWrite(
+            unsure,
+            bookingWriteFailure(err, "update the table status", unsure)
+          );
         }
       },
     }),
 
     ...createAvailabilityTools(log, api, { venueId, timeZone }),
+    ...createClosureTools(log, api, { venueId, timeZone }),
     ...createGuestTools(log, api, { venueId }),
     ...createWaitlistTools(log, api, { venueId, timeZone }),
+    ...createMenuTools(log, api, { venueId }),
+    ...createFloorPlanTools(log, api, { venueId }),
     ...createTimelineTools(log, api, { venueId }),
+    ...createBriefingTools(log, api, { venueId, timeZone }),
   };
   return gateWriteTools(tools, log, options.confirmedAction);
 }

@@ -19,6 +19,12 @@
   gap: var(--rialto-space-xs);
 }
 
+/* In flight: looks as a disabled Button does, but stays focusable (aria-disabled). */
+.reverting {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .tags,
 .actions {
   display: flex;

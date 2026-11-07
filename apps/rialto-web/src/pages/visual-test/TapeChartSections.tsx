@@ -13,10 +13,8 @@ import styles from "./VisualTest.module.css";
 const OVERLAP = makeOverlapScenario();
 const CLASSIFY_OVERLAP = classifyDormAsShared(OVERLAP.rooms);
 
-// Pinned so day-header text (weekday/date) renders identically regardless of
-// the host machine's timezone — without this, TapeChart falls back to the
-// system default timezone, and a baseline captured on a non-UTC machine
-// (e.g. local macOS) silently renders a different date than Linux CI (#4450).
+// Day labels follow the YYYY-MM-DD calendar day. timeZone is pinned so the
+// "today" marker stays on the same column across hosts (#4450).
 const CHART_TIME_ZONE = "UTC";
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
-import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Engine from "@mbe/availability";
@@ -22,8 +22,25 @@ const configSource = vi.hoisted(() => ({
   value: "rows" as "rows" | "empty" | "legacy",
   migrated: false,
 }));
+const configError = vi.hoisted(() => ({ value: null as Error | null }));
+/** No config has ever loaded: the read failed the first time. */
+const configAbsent = vi.hoisted(() => ({ value: false }));
+const teamError = vi.hoisted(() => ({ value: null as Error | null }));
+const teamRefetch = vi.hoisted(() => vi.fn());
 const team = vi.hoisted(() => ({ value: undefined as Partial<VenueTeam> | undefined }));
-const resolved = vi.hoisted(() => ({ services: [] as unknown[] }));
+const resolved = vi.hoisted(() => ({
+  services: [] as unknown[],
+  /** Hours for one date, where it differs from `services`. */
+  byDate: {} as Record<string, unknown[]>,
+}));
+const serviceList = vi.hoisted(() => ({
+  value: [{ id: "vs1", name: "Dinner", position: 0 }] as Array<{
+    id: string;
+    name: string;
+    position: number;
+    archivedAt?: string | null;
+  }>,
+}));
 const venue = vi.hoisted(() => ({
   selectedVenueId: "venue-1" as string | null,
   selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
@@ -36,11 +53,14 @@ vi.mock("../hooks/useAvailability.js", () => ({
   },
   useAvailabilityConfig: (params: unknown) => {
     configHook(params);
+    if (configAbsent.value) {
+      return { data: undefined, isLoading: false, error: configError.value, refetch };
+    }
     return {
       data: {
         config: {
           schedules: [{ id: "s1", name: "Weeknight", kind: "regular", isRegular: true }],
-          venueServices: [{ id: "vs1", name: "Dinner", position: 0 }],
+          venueServices: serviceList.value,
           scheduleServices: [],
           assignments: [],
           dateRules: [],
@@ -50,7 +70,7 @@ vi.mock("../hooks/useAvailability.js", () => ({
         ...(configSource.migrated ? { migrated: true } : {}),
       },
       isLoading: false,
-      error: null,
+      error: configError.value,
       refetch,
     };
   },
@@ -61,7 +81,9 @@ vi.mock("../hooks/useAvailability.js", () => ({
 }));
 vi.mock("../hooks/useClosures.js", () => ({
   useClosureImpact: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }),
+  useClosureImpacts: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
   useCreateClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useCreateClosures: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useReopenClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
@@ -95,6 +117,18 @@ vi.mock("../components/availability/AvailabilityDayDrawer.js", async (importOrig
     },
   };
 });
+import type * as Rialto from "@mattbutlerengineering/rialto";
+vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
+  ...(await importOriginal<typeof Rialto>()),
+  // The calendar popover is not what these tests are about: a plain input stands in for it.
+  DatePicker: (props: { label: string; value: string | null; onChange: (v: string) => void }) => (
+    <input
+      aria-label={props.label}
+      value={props.value ?? ""}
+      onChange={(e) => props.onChange(e.target.value)}
+    />
+  ),
+}));
 vi.mock("../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../utils/format.js", async (importOriginal) => ({
@@ -102,7 +136,12 @@ vi.mock("../utils/format.js", async (importOriginal) => ({
   deviceTimeZone: () => device.zone,
 }));
 vi.mock("../hooks/useVenueTeam.js", () => ({
-  useVenueTeam: () => ({ data: team.value, isLoading: false, error: null }),
+  useVenueTeam: () => ({
+    data: team.value,
+    isLoading: false,
+    error: teamError.value,
+    refetch: teamRefetch,
+  }),
 }));
 // The drawer's guest preview has its own suite (AvailabilityGuestPreview.test.tsx); here it idles.
 vi.mock("../hooks/useAvailabilityPreview.js", () => ({
@@ -111,10 +150,10 @@ vi.mock("../hooks/useAvailabilityPreview.js", () => ({
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: () => venue }));
 vi.mock("@mbe/availability", async (importOriginal) => ({
   ...(await importOriginal<typeof Engine>()),
-  resolveDay: () => ({
-    serviceDate: "2026-10-30",
+  resolveDay: (_context: unknown, date: string) => ({
+    serviceDate: date,
     scheduleId: "s1",
-    services: resolved.services,
+    services: resolved.byDate[date] ?? resolved.services,
     closures: [],
     bookingOpen: { online: true, phone: true, waitlist: true },
     explanation: [],
@@ -155,8 +194,13 @@ describe("AvailabilityPage", () => {
     venue.selectedVenueId = "venue-1";
     configSource.value = "rows";
     configSource.migrated = false;
+    configError.value = null;
+    configAbsent.value = false;
+    teamError.value = null;
     team.value = { viewerRole: "manager" };
     resolved.services = [];
+    resolved.byDate = {};
+    serviceList.value = [{ id: "vs1", name: "Dinner", position: 0 }];
     daysQuery.value = {
       data: ["2026-10-29", "2026-10-30"].map(summaryFor),
       isLoading: false,
@@ -206,10 +250,146 @@ describe("AvailabilityPage", () => {
     ).toBeVisible();
   });
 
+  async function openGoToDate() {
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
+    await screen.findByRole("dialog", { name: "Go to date" });
+  }
+  const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+
+  it("goes to a chosen date in the month on show, from the More actions menu (Go to date)", async () => {
+    renderPage();
+    await openGoToDate();
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-10-28");
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-03-15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    expect(screen.getByText("March 2027")).toBeVisible();
+    expect(daysHook).toHaveBeenLastCalledWith(
+      expect.objectContaining({ from: "2027-03-01", to: "2027-04-04" })
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Go to date" })).not.toBeInTheDocument()
+    );
+  });
+
+  it("keeps the wide row to one line: the menu trigger is an icon with a name, not a label", () => {
+    renderPage();
+    const more = screen.getByRole("button", { name: "More actions" });
+    // Visible text is the glyph alone; the name comes from aria-label.
+    expect(more).toHaveTextContent(/^⋯$/);
+    expect(more).toHaveAttribute("aria-label", "More actions");
+    expect(more).toHaveAttribute("aria-haspopup", "menu");
+  });
+
+  it("opens the dialog only after the menu has closed and returned its focus", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
+    // Opened in the same frame, the dialog would lose its focus to the menu's restore.
+    expect(screen.queryByRole("dialog", { name: "Go to date" })).not.toBeInTheDocument();
+    await screen.findByRole("dialog", { name: "Go to date" });
+  });
+
+  it("starts the picker on the calendar's date, not on today", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    await openGoToDate();
+    expect(screen.getByLabelText("Date")).toHaveValue("2026-11-28");
+  });
+
+  it("puts focus on the day it went to, after the dialog has handed focus back", async () => {
+    renderPage();
+    await openGoToDate();
+    fireEvent.change(screen.getByLabelText("Date"), { target: { value: "2027-03-15" } });
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Go to date" })).not.toBeInTheDocument()
+    );
+    await frame();
+    await frame();
+    expect(document.activeElement).toHaveAttribute("data-date", "2027-03-15");
+  });
+
+  it("leaves focus on the menu button when Go to date is dismissed", async () => {
+    renderPage();
+    // A pointer click does not focus in jsdom; a real one does.
+    screen.getByRole("button", { name: "More actions" }).focus();
+    await openGoToDate();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Go to date" })).not.toBeInTheDocument()
+    );
+    await frame();
+    await frame();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "More actions" }));
+  });
+
   it("names the date range in week view", () => {
     renderPage();
     fireEvent.click(screen.getByRole("radio", { name: "Week" }));
     expect(screen.getByRole("grid", { name: /Oct 26 – Nov 1, 2026/ })).toBeVisible();
+  });
+
+  describe("a read that failed (#7979)", () => {
+    const retry = () =>
+      fireEvent.click(within(screen.getByRole("alert")).getByRole("button", { name: "Retry" }));
+
+    it("gives a failed config read a banner with Retry, and no controls that cannot open", () => {
+      configAbsent.value = true;
+      configError.value = new Error("Network down");
+      renderPage();
+      expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load availability");
+      expect(screen.queryByRole("button", { name: /^Close…/ })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Pause online booking" })
+      ).not.toBeInTheDocument();
+      retry();
+      expect(refetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("gives a failed Team read a banner with Retry", () => {
+      team.value = undefined;
+      teamError.value = new Error("Network down");
+      renderPage();
+      expect(screen.getByRole("alert")).toHaveTextContent("Couldn't load availability");
+      retry();
+      expect(teamRefetch).toHaveBeenCalledTimes(1);
+      expect(refetch).not.toHaveBeenCalled();
+    });
+
+    it("replaces the endless Skeleton on a venue with no hours when the Team read fails", () => {
+      configSource.value = "empty";
+      team.value = undefined;
+      teamError.value = new Error("Network down");
+      const { container } = renderPage();
+      expect(container.querySelector('[class*="skeleton" i]')).toBeNull();
+      retry();
+      expect(teamRefetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("retries each read that failed, under one banner", () => {
+      daysQuery.value = { data: undefined, isLoading: false, error: new Error("Network down") };
+      team.value = undefined;
+      teamError.value = new Error("Network down");
+      renderPage();
+      retry();
+      expect(refetch).toHaveBeenCalledTimes(1);
+      expect(teamRefetch).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops the cells' skeletons when the days read fails", () => {
+      daysQuery.value = { data: undefined, isLoading: false, error: new Error("Network down") };
+      const { container } = renderPage();
+      expect(screen.getByRole("alert")).toBeInTheDocument();
+      expect(container.querySelector('[class*="skeleton" i]')).toBeNull();
+    });
+
+    it("leaves the page alone when a refresh fails over a config already loaded", () => {
+      configError.value = new Error("Network down");
+      renderPage();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^Close…/ })).toBeInTheDocument();
+    });
   });
 
   describe("venue time note", () => {
@@ -272,6 +452,9 @@ describe("AvailabilityPage", () => {
       renderPage();
       expect(screen.getByText(/A manager sets the regular week here/)).toBeInTheDocument();
       expect(screen.queryByRole("region", { name: "Quick setup" })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("complementary", { name: "Guest preview" })
+      ).not.toBeInTheDocument();
     });
 
     it("waits for the viewer's role rather than flashing the Host note", () => {
@@ -306,15 +489,14 @@ describe("AvailabilityPage", () => {
     expect(screen.queryByText(/Only managers change hours/)).not.toBeInTheDocument();
   });
 
-  it("opens History from the toolbar and lets an entry open its day", () => {
+  it("opens History from the More actions menu and lets an entry open its day", async () => {
     renderPage();
     expect(screen.queryByRole("region", { name: "History drawer" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "History" }));
-    fireEvent.click(
-      within(screen.getByRole("region", { name: "History drawer" })).getByRole("button", {
-        name: "Go to day",
-      })
-    );
+    expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "History" }));
+    const history = await screen.findByRole("region", { name: "History drawer" });
+    fireEvent.click(within(history).getByRole("button", { name: "Go to day" }));
     expect(screen.queryByRole("region", { name: "History drawer" })).not.toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: /Friday, October 30/ })).toBeInTheDocument();
   });
@@ -397,7 +579,9 @@ describe("AvailabilityPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       // No discard prompt: the only thing left is the drawer leaving.
-      expect(screen.queryByRole("dialog", { name: /Discard changes/ })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("alertdialog", { name: /Discard changes/ })
+      ).not.toBeInTheDocument();
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     });
 
@@ -406,7 +590,7 @@ describe("AvailabilityPage", () => {
       startDraft();
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       expect(
-        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+        screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
       expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
@@ -418,6 +602,7 @@ describe("AvailabilityPage", () => {
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
       await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
       expect(container.querySelector("[data-draft-dot]")).toBeNull();
     });
 
@@ -426,10 +611,34 @@ describe("AvailabilityPage", () => {
       startDraft();
       fireEvent.click(screen.getByRole("button", { name: /Thursday, October 29/ }));
       expect(
-        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+        screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
       expect(screen.getByRole("dialog", { name: /Thursday, October 29/ })).toBeTruthy();
+    });
+
+    it("keeps the draft, with the error above it, when a background refetch of the config fails", () => {
+      const view = renderPage();
+      startDraft();
+      configError.value = new Error("Network down");
+      view.rerender(
+        <ToastProvider>
+          <main>
+            <AvailabilityPage />
+          </main>
+        </ToastProvider>
+      );
+      expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
+      expect(screen.getByRole("alert")).toHaveTextContent("Couldn’t check for newer hours");
+    });
+
+    it("makes Copy wait as soon as an editor is open, even before any change", () => {
+      renderPage();
+      openFriday();
+      const copy = () => screen.getByRole("button", { name: "Copy to other days…" });
+      expect(copy()).not.toHaveAttribute("aria-disabled");
+      fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+      expect(copy()).toHaveAttribute("aria-disabled", "true");
     });
 
     function closeFromDrawer() {
@@ -442,7 +651,7 @@ describe("AvailabilityPage", () => {
       startDraft();
       closeFromDrawer();
       expect(
-        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+        screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
       expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
@@ -456,8 +665,12 @@ describe("AvailabilityPage", () => {
       closeFromDrawer();
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
       expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
-      await waitFor(() =>
-        expect(screen.queryByRole("dialog", { name: /Friday, October 30/ })).not.toBeInTheDocument()
+      await waitFor(
+        () =>
+          expect(
+            screen.queryByRole("dialog", { name: /Friday, October 30/ })
+          ).not.toBeInTheDocument(),
+        { timeout: 5000 }
       );
     });
 
@@ -499,19 +712,243 @@ describe("AvailabilityPage", () => {
     const pick = (re: RegExp) =>
       fireEvent.click(screen.getByRole("button", { name: re }), { ctrlKey: true });
 
+    it("opens Close from the selection bar on the selected dates, one closure each (#7981)", () => {
+      window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      renderPage();
+      pick(/Thursday, October 29/);
+      pick(/Friday, October 30/);
+      const bar = screen.getByRole("group", { name: "Selected dates" });
+      fireEvent.click(within(bar).getByRole("button", { name: "Close…" }));
+      const dialog = screen.getByRole("dialog", { name: "Close" });
+      expect(within(dialog).getByRole("radio", { name: "Several dates" })).toBeChecked();
+      expect(within(dialog).getByText("Thu, Oct 29")).toBeInTheDocument();
+      expect(within(dialog).getByText("Fri, Oct 30")).toBeInTheDocument();
+      expect(within(dialog).getByRole("button", { name: "Close 2 dates" })).toBeInTheDocument();
+    });
+
+    it("hides Close… from the selection bar for a Host", () => {
+      team.value = { viewerRole: "host" };
+      renderPage();
+      pick(/Thursday, October 29/);
+      const bar = screen.getByRole("group", { name: "Selected dates" });
+      expect(within(bar).queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
+    });
+
+    it("selects the weekday's dates from the Select… menu, skipping the past ones", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Every Wednesday in October" }));
+      // Today is Wed Oct 28; the 7th, 14th and 21st are behind us.
+      expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
+    });
+
+    it("offers Select days on the grid too, where a plain click then picks a day", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Select days" }));
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Click the days you want, or drag across them"
+      );
+      fireEvent.click(screen.getByRole("button", { name: /Friday, October 30/ }));
+      expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
+      expect(screen.queryByRole("dialog", { name: /Friday, October 30/ })).not.toBeInTheDocument();
+    });
+
+    it("says so when a Ctrl-click on a past date selects nothing", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      expect(screen.getByRole("status")).toHaveTextContent("Past dates can’t be selected.");
+    });
+
+    it("drops the message when the Manager moves to another month", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+      expect(screen.queryByText("Past dates can’t be selected.")).not.toBeInTheDocument();
+    });
+
+    it("says so when Shift+Arrow extends from today onto a past date", () => {
+      renderPage();
+      fireEvent.keyDown(screen.getByRole("button", { name: /Wednesday, October 28/ }), {
+        key: "ArrowLeft",
+        shiftKey: true,
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("Past dates can’t be selected.");
+    });
+
+    it("announces again when the same gesture repeats on another past date", () => {
+      renderPage();
+      const space = (re: RegExp) =>
+        fireEvent.keyDown(screen.getByRole("button", { name: re }), { key: " " });
+      space(/Monday, October 26/);
+      const first = screen.getByText("Past dates can’t be selected.");
+      space(/Tuesday, October 27/);
+      // A new node, so the live region speaks again.
+      expect(screen.getByText("Past dates can’t be selected.")).not.toBe(first);
+    });
+
+    it("says so when Space on a past date selects nothing", () => {
+      renderPage();
+      fireEvent.keyDown(screen.getByRole("button", { name: /Monday, October 26/ }), { key: " " });
+      expect(screen.getByText("Past dates can’t be selected.")).toBeInTheDocument();
+    });
+
+    it("drops the message once a selection lands entirely on future dates", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      pick(/Thursday, October 29/);
+      expect(screen.queryByText("Past dates can’t be selected.")).not.toBeInTheDocument();
+    });
+
+    it("offers no weekday entry in a month that is already over, and no empty menu", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+      // The anchor is Mon Sep 28; every Monday in September is behind us, and nothing else is on offer.
+      expect(screen.queryByRole("button", { name: "Select…" })).not.toBeInTheDocument();
+    });
+
+    it("skips past dates when a range is Shift-clicked across them", () => {
+      renderPage();
+      pick(/Monday, October 26/);
+      fireEvent.click(screen.getByRole("button", { name: /Thursday, October 29/ }), {
+        shiftKey: true,
+      });
+      expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+    });
+
+    it("keeps the selection bar out of the page until a drag across today ends", () => {
+      renderPage();
+      const cell = (re: RegExp) => screen.getByRole("button", { name: re });
+      fireEvent.mouseDown(cell(/Monday, October 26/), { button: 0 });
+      fireEvent.mouseEnter(cell(/Tuesday, October 27/), { buttons: 1 });
+      fireEvent.mouseEnter(cell(/Wednesday, October 28/), { buttons: 1 });
+      fireEvent.mouseEnter(cell(/Thursday, October 29/), { buttons: 1 });
+      // Mid-drag nothing is announced and nothing mounts that could move the grid.
+      expect(screen.getByRole("status")).toBeEmptyDOMElement();
+      expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
+      fireEvent.mouseUp(window);
+      // Today and later only; the two past days are dropped.
+      expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+      expect(screen.getByRole("button", { name: "Edit hours" })).toBeInTheDocument();
+    });
+
+    it("keeps a showing selection bar as it was until a drag ends, so the grid does not move", () => {
+      renderPage();
+      const cell = (re: RegExp) => screen.getByRole("button", { name: re });
+      pick(/Wednesday, October 28/);
+      pick(/Thursday, October 29/);
+      fireEvent.mouseDown(cell(/Thursday, October 29/), { button: 0 });
+      fireEvent.mouseEnter(cell(/Friday, October 30/), { buttons: 1 });
+      fireEvent.mouseEnter(cell(/Saturday, October 31/), { buttons: 1 });
+      expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
+      expect(screen.getByRole("button", { name: "Edit hours" })).toBeInTheDocument();
+      fireEvent.mouseUp(window);
+      expect(screen.getByRole("status")).toHaveTextContent("3 dates selected");
+    });
+
+    describe("when the picked dates have different hours", () => {
+      const dinner = (closesAt: number) => ({
+        venueServiceId: "vs1",
+        name: "Dinner",
+        opensAt: 1020,
+        lastSeatingAt: closesAt - 60,
+        closesAt,
+        seating: { version: 1, interval: 15 },
+        bookingTypes: ["online"],
+        scheduleServiceId: null,
+      });
+
+      beforeEach(() => {
+        window.HTMLElement.prototype.scrollIntoView = vi.fn();
+      });
+
+      it("takes the rows from a date that has a service, not from a closed first date", () => {
+        resolved.byDate = { "2026-10-28": [], "2026-10-30": [dinner(1380)] };
+        renderPage();
+        pick(/Wednesday, October 28/);
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        const drawer = screen.getByRole("dialog", { name: "2 dates selected" });
+        expect(within(drawer).getByRole("button", { name: "Edit Dinner" })).toBeInTheDocument();
+        expect(drawer).toHaveTextContent("The rows below are from Friday, October 30.");
+      });
+
+      it("names the date the rows came from when two open dates close at different times", () => {
+        resolved.byDate = { "2026-10-29": [dinner(1320)], "2026-10-30": [dinner(1380)] };
+        renderPage();
+        pick(/Thursday, October 29/);
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        expect(screen.getByRole("dialog", { name: "2 dates selected" })).toHaveTextContent(
+          "The rows below are from Thursday, October 29."
+        );
+      });
+
+      it("says nothing about differing hours when the dates agree", () => {
+        resolved.services = [dinner(1380)];
+        renderPage();
+        pick(/Thursday, October 29/);
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        expect(screen.queryByText(/different hours/)).not.toBeInTheDocument();
+      });
+
+      it("marks every selected date with the draft dot and names the selection in the prompt", () => {
+        resolved.services = [dinner(1380)];
+        const { container } = renderPage();
+        pick(/Thursday, October 29/);
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
+        fireEvent.click(screen.getByRole("button", { name: "Remove Dinner" }));
+        expect(container.querySelectorAll("[data-draft-dot]")).toHaveLength(2);
+        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        expect(
+          screen.getByRole("alertdialog", { name: "Discard changes to the 2 selected dates?" })
+        ).toBeInTheDocument();
+      });
+    });
+
     it("announces the count and opens the drawer for the first date with a fixed scope", () => {
       renderPage();
       pick(/Friday, October 30/);
       pick(/Thursday, October 29/);
       expect(screen.getByRole("status")).toHaveTextContent("2 dates selected");
       fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
-      expect(screen.getByRole("dialog", { name: /Thursday, October 29/ })).toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: "2 dates selected" })).toBeInTheDocument();
       expect(drawerProps).toHaveBeenLastCalledWith(
         expect.objectContaining({
           date: "2026-10-29",
           editing: expect.objectContaining({ fixedDates: ["2026-10-29", "2026-10-30"] }),
         })
       );
+    });
+
+    describe("after a bulk edit of hours (#7980)", () => {
+      const finish = (saved: boolean) => {
+        const props = drawerProps.mock.lastCall?.[0] as {
+          editing: { onFinished: (saved: boolean) => void };
+        };
+        act(() => props.editing.onFinished(saved));
+      };
+
+      it("a save clears the selection, like the other bulk actions, and focus lands on a day", () => {
+        renderPage();
+        pick(/Friday, October 30/);
+        pick(/Thursday, October 29/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        finish(true);
+        expect(screen.getByRole("status")).toBeEmptyDOMElement();
+        expect(screen.getByRole("button", { name: /Thursday, October 29/ })).toHaveFocus();
+      });
+
+      it("a discarded draft keeps the selection", () => {
+        renderPage();
+        pick(/Friday, October 30/);
+        fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
+        finish(false);
+        expect(screen.getByRole("status")).toHaveTextContent("1 date selected");
+      });
     });
 
     it("drops the fixed scope when a single day is opened afterwards", () => {
@@ -564,13 +1001,6 @@ describe("AvailabilityPage", () => {
       pick(/Friday, October 30/);
       fireEvent.click(screen.getByRole("button", { name: "Clear selection" }));
       expect(screen.queryByRole("button", { name: "Edit hours" })).not.toBeInTheDocument();
-    });
-
-    it("selects every weekday of the month from the Select… menu", () => {
-      renderPage();
-      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
-      fireEvent.click(screen.getByRole("menuitem", { name: "Every Wednesday in October" }));
-      expect(screen.getByRole("status")).toHaveTextContent("4 dates selected");
     });
 
     it("selects the loaded dates that use the anchor day's schedule", () => {
@@ -634,7 +1064,7 @@ describe("AvailabilityPage", () => {
       pick(/Thursday, October 29/);
       fireEvent.click(screen.getByRole("button", { name: "Edit hours" }));
       expect(
-        screen.getByRole("dialog", { name: /Discard changes to Friday, October 30\?/ })
+        screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
       // The draft is still the open one until the Manager answers.
       expect(drawerProps).toHaveBeenLastCalledWith(expect.objectContaining({ date: "2026-10-30" }));
@@ -649,9 +1079,204 @@ describe("AvailabilityPage", () => {
     });
   });
 
+  describe("on a phone (#7980)", () => {
+    beforeEach(() => {
+      window.matchMedia = vi.fn((query: string) => {
+        const max = /\(max-width:\s*(\d+)px\)/.exec(query);
+        return {
+          media: query,
+          matches: max ? 375 <= Number(max[1]) : false,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        };
+      }) as unknown as typeof window.matchMedia;
+    });
+
+    afterEach(() => {
+      Reflect.deleteProperty(window, "matchMedia");
+    });
+
+    it("keeps secondary actions in one menu", () => {
+      renderPage();
+      expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Select…" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+      const menu = screen.getByRole("menu");
+      for (const name of ["History", "Go to date", "Select days", "Change regular week…"]) {
+        expect(within(menu).getByRole("menuitem", { name })).toBeInTheDocument();
+      }
+    });
+
+    it("goes to a date from the phone menu", async () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
+      expect(await screen.findByRole("dialog", { name: "Go to date" })).toBeInTheDocument();
+    });
+
+    it("gives a Host only what a Host can do", () => {
+      team.value = { viewerRole: "host" };
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+      const menu = screen.getByRole("menu");
+      expect(within(menu).getByRole("menuitem", { name: "History" })).toBeInTheDocument();
+      expect(within(menu).getByRole("menuitem", { name: "Go to date" })).toBeInTheDocument();
+      expect(within(menu).queryByRole("menuitem", { name: /^Close…/ })).not.toBeInTheDocument();
+      expect(
+        within(menu).queryByRole("menuitem", { name: "Change regular week…" })
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("hands focus to the calendar when quick setup's save removes the focused button (#7980)", () => {
+    configSource.value = "empty";
+    const { rerender } = renderPage();
+    configSource.value = "rows";
+    rerender(
+      <ToastProvider>
+        <main>
+          <AvailabilityPage />
+        </main>
+      </ToastProvider>
+    );
+    expect(document.activeElement).toHaveAttribute("data-date");
+  });
+
   it("has no axe violations", async () => {
     vi.useRealTimers();
     const { container } = renderPage();
     expect((await axe(container, AXE_OPTIONS)).violations).toEqual([]);
+  });
+});
+
+describe("AvailabilityPage Services filter (#7981)", () => {
+  const lunch = {
+    venueServiceId: "vs0",
+    name: "Lunch",
+    opensAt: 690,
+    lastSeatingAt: 810,
+    closesAt: 870,
+  };
+  const dinner = {
+    venueServiceId: "vs1",
+    name: "Dinner",
+    opensAt: 1020,
+    lastSeatingAt: 1260,
+    closesAt: 1380,
+  };
+  const twoServices = [
+    { id: "vs1", name: "Dinner", position: 1 },
+    { id: "vs0", name: "Lunch", position: 0 },
+  ];
+  const day = (date: string, services: (typeof lunch)[]): AvailabilityDaySummary => ({
+    ...summaryFor(date),
+    serviceCount: services.length,
+    services,
+  });
+
+  beforeEach(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-28T20:00:00Z") });
+    venue.selectedVenueId = "venue-1";
+    configSource.value = "rows";
+    configError.value = null;
+    configAbsent.value = false;
+    teamError.value = null;
+    team.value = { viewerRole: "manager" };
+    resolved.services = [];
+    resolved.byDate = {};
+    serviceList.value = twoServices;
+    daysQuery.value = {
+      data: [
+        day("2026-10-26", [lunch]),
+        day("2026-10-27", [lunch, dinner]),
+        day("2026-10-28", [lunch, dinner]),
+        day("2026-10-29", [lunch, dinner]),
+      ],
+      isLoading: false,
+      error: null,
+    };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("sits beside the week summary, not in the toolbar that has no width to spare", () => {
+    renderPage();
+    const filter = screen.getByRole("combobox", { name: "Services" });
+    const summary = screen.getByText(/This week: open/);
+    expect(summary.parentElement).toContainElement(filter);
+    expect(
+      screen.getByRole("radio", { name: "Week" }).closest("div")?.parentElement
+    ).not.toContainElement(filter);
+  });
+
+  describe("on a phone", () => {
+    beforeEach(() => {
+      window.matchMedia = vi.fn((query: string) => {
+        const max = /\(max-width:\s*(\d+)px\)/.exec(query);
+        return {
+          media: query,
+          matches: max ? 375 <= Number(max[1]) : false,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        };
+      }) as unknown as typeof window.matchMedia;
+    });
+
+    afterEach(() => {
+      Reflect.deleteProperty(window, "matchMedia");
+    });
+
+    it("sits in the toolbar, once", () => {
+      renderPage();
+      expect(screen.getAllByRole("combobox", { name: "Services" })).toHaveLength(1);
+      const summary = screen.getByText(/This week: open/);
+      expect(summary.parentElement).not.toContainElement(
+        screen.getByRole("combobox", { name: "Services" })
+      );
+    });
+  });
+
+  it("is not offered to a venue with one service", () => {
+    serviceList.value = [{ id: "vs1", name: "Dinner", position: 0 }];
+    renderPage();
+    expect(screen.queryByRole("combobox", { name: "Services" })).not.toBeInTheDocument();
+  });
+
+  it("narrows every cell and the week summary to the chosen service", () => {
+    renderPage();
+    const monday = () => screen.getByRole("button", { name: /Monday, October 26/ });
+    expect(monday()).toHaveTextContent("Lunch");
+    expect(screen.getByText(/This week: open 4 days/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Services" }));
+    fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
+
+    expect(monday()).toHaveTextContent("No Dinner");
+    expect(monday()).not.toHaveTextContent("Lunch");
+    expect(screen.getByText(/This week, Dinner: open 3 days/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("combobox", { name: "Services" }));
+    fireEvent.click(screen.getByRole("option", { name: "All services" }));
+    expect(screen.getByText(/This week: open 4 days/)).toBeInTheDocument();
+  });
+
+  it("goes back to All on another venue", () => {
+    const view = renderPage();
+    fireEvent.click(screen.getByRole("combobox", { name: "Services" }));
+    fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
+    expect(screen.getByText(/This week, Dinner/)).toBeInTheDocument();
+    venue.selectedVenueId = "venue-2";
+    view.rerender(
+      <ToastProvider>
+        <main>
+          <AvailabilityPage />
+        </main>
+      </ToastProvider>
+    );
+    expect(screen.getByText(/This week: open/)).toBeInTheDocument();
   });
 });

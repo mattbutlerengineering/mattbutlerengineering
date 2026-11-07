@@ -1,5 +1,65 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.4
+
+### Patch Changes
+
+- [#8340](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8340) [`0aea43b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0aea43b3304f54facf41d8992b5a729a39780131) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TextArea fills the width of its field, as Input does, instead of falling back to the browser's ~20-column default.
+
+- [#8365](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8365) [`1e42660`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1e42660ec90d8648ff5dcfd61f57e2af45307d91) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Below 1024px, toasts no longer cover an open side Drawer's title and close button: they move to the bottom and sit above the drawer's footer, so its actions stay reachable too.
+
+## 0.10.3
+
+### Patch Changes
+
+- [#8310](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8310) [`32881a0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/32881a06be6a62e29fcf5ea8ff6c2c5ca2a4aa9a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Popover takes `solid` to paint the opaque elevated surface instead of translucent glass, for a panel of form controls over a busy page.
+
+- [#8248](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8248) [`ea9afa7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ea9afa7d18f4e796c47b8ef78edf279d3ab80377) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DateRange opens on the bounded month when today falls outside `min`/`max`, instead of a month where every day is disabled. NavigationMenu opens from Enter, Space, and ArrowDown, and Escape closes a menu that was opened by hover.
+
+- [#8265](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8265) [`e0c92f9`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e0c92f928b182d01efa03f1e29cc4701f2e39b49) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Navbar fills a sized frame and scrolls its link list, so the footer stays on screen. Spinner renders a `label` as visible text beside the ring. Flip-dot marquee and typewriter animations keep stepping after each commit. TapeChart stat chips and mobile day cards take `strings.reservationCountLabel`, so a locale override can translate the reservation count.
+
+## 0.10.2
+
+### Patch Changes
+
+- [#8279](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8279) [`c45b0f1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c45b0f1025c8fa55df0c864e21e3c8627feee319) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A light theme island nested inside a dark ancestor keeps the light color tokens. Custom properties inherit, so a `data-theme="light"` scope previously painted with the surrounding dark palette.
+
+- [#8246](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8246) [`977915f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/977915f9153d1fd38445f6a7a22732070a87dd75) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Toasts move beside an open end-side Drawer on screens 1024px and wider, instead of covering its title and close button (top placement) or its actions (bottom placement). The Drawer panel carries `data-rialto-drawer="<side>-<size>"` for this.
+
+## 0.10.1
+
+### Patch Changes
+
+- [#8210](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8210) [`d2e9416`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/d2e9416c9a7a22136d54b9cb2f44c098e66f93d1) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav Home is current only on the marketing index when `currentPath` is passed, and DepartureBoard scales its flap row to the container instead of scrolling it.
+
+- [#8212](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8212) [`59a9cfa`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/59a9cfab5cde807ea4c410eb3156fb3d5aeb554f) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DataList values wrap inside the row instead of painting past the card, including a run of letters with no soft-wrap opportunity. GlobalNav's mobile menu can be controlled so a page can close it when another overlay opens.
+
+- [#8219](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8219) [`3fb1235`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3fb1235d5b4ec630883d0497b2eb04d095bf226d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TapeChart day labels stay on the YYYY-MM-DD calendar day in every time zone, and the grid stops at the last dated column.
+
+## 0.10.0
+
+### Minor Changes
+
+- [#7972](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7972) [`ea52e9b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ea52e9b13f57d6c72eb11d43230420376334de1e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `ToastProvider` accepts `placement` (`"bottom-end"` default, or `"top-end"`) so apps can keep toasts off a primary action anchored to the bottom edge.
+
+### Patch Changes
+
+- [#8052](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8052) [`7fd9c61`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/7fd9c616cef68fe3f74dcb1192110ae8d62cbc32) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A click on the CommandPalette panel outside its search input (the search icon, a group label, the footer) now keeps focus inside the palette. Focus used to fall to the document body, where keys could not reach the palette and a page could take focus back behind it.
+
+- [#7996](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7996) [`dd6a0cd`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dd6a0cd9429e4b37a7870aa864f063baddf6594b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Dialog now stacks above Drawer. A confirm opened beside a Drawer (such as "Discard your changes?") sat underneath the Drawer's overlay, so its buttons could not be clicked. The overlay order is now Drawer, Dialog, CommandPalette, Select menu, Toast, so a command palette opened while a Dialog is up, a Select menu inside a Dialog and a Toast all stay on top.
+
+- [#8085](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8085) [`f87aed0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/f87aed0154118fb4d90165c9288496998e55b506) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `Combobox`, `Autocomplete` and `DropdownMenu` no longer clip inside a `Dialog`: they lift their list into the dialog's layer and place it by the trigger's viewport rect, flipping and capping to the room available. A Dialog-hosted `Popover` now clamps every placement into the viewport and re-caps its height when its content grows after opening.
+
+- [#7998](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/7998) [`36ade63`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/36ade637fd4df05bfb4a9cbce99708abfba9c694) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Dialog panel is now opaque in light and dark (it used the translucent glass recipe, so content behind it ghosted through). A long dialog scrolls its body, description included, while the title and footer stay in view, and short viewports (down to the 320x256 reflow size) tighten the chrome so the footer stays reachable. An overflowing body is a keyboard-focusable region; one that fits adds no tab stop. A Popover opened inside a Dialog (DatePicker, DateRangePicker, TimePicker) now renders in the dialog's layer, flipping to the roomier side, so the scrolling body no longer clips it.
+
+- [#8153](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8153) [`4987cd5`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/4987cd55c78c93964e1883293a6d2f0e8b154874) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A Popover opened inside a Dialog (DatePicker, DateRangePicker, TimePicker) now paints the opaque `--rialto-surface-elevated` in light and dark, with no backdrop blur. The translucent glass fill let the dialog body and scrim blend into the text's background, so a DatePicker's weekday row failed axe `color-contrast` ([#747070](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/747070) on #efeeec, 4.21:1). A Popover on a plain page keeps its glass surface.
+
+- [#8025](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8025) [`29379c3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/29379c34e90f5a68ab580fd7c008796e9948aa0b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - An overlay that mounts already open (Drawer, Dialog, Popover and the other `useReturnFocus` users) no longer loses focus to its trigger under React StrictMode. StrictMode replays the mount effects, and the first pass's pending focus restore then pulled focus out of the overlay and back to the element that opened it. A re-run before the restore frame now cancels it and keeps the original trigger, so closing still returns focus there.
+
+- [#8124](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8124) [`70d7c83`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/70d7c831480f7e35c442cd0d048f13937a5e66ae) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Three accessibility fixes. ImageUpload: the empty tile is named from its visible "Add image" text (plus the label), the error overlay renders outside the tile, and the preview tile is no longer a `role="button"` wrapping the Replace button. Because the tile is now named from `addImage`, the `uploadImage` message key is removed from `RialtoMessages` and the built-in locales; a locale object that still sets `uploadImage` now fails typecheck with an excess-property error, so delete that line. Dialog takes a `role` prop (`"dialog"` | `"alertdialog"`), and a destructive ConfirmDialog is now `role="alertdialog"` (the default variant stays `dialog`); a generated Dialog forwards `role` too. Form: an error the Form's assertive summary already carries is no longer announced a second time by its field, so one error is announced once and stays visible and linked through `aria-describedby`. A field error the summary does not carry (set by the server, raised on blur, or after a valid submit), a field used outside a Form, and every field in a Form with `showErrorSummary={false}` still announce their own error.
+
+- [#8077](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8077) [`b8c73fa`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/b8c73fa9a0f67a0be02ac99786e08dae7b198983) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `Select` keeps its open list inside the viewport: it flips above the trigger when there is more room there, and shrinks its max height to the space available, so every option stays clickable for a low trigger.
+
 ## 0.9.5
 
 ### Patch Changes

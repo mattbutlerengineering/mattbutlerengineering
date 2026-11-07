@@ -48,6 +48,6 @@ At session start, the agent (or an OMEGA hook) scans this directory for recent e
 
 ## Retention
 
-- Corrections older than 90 days with no recurrence are archived to `memory/archive/`.
+- Corrections older than 90 days with no recurrence are archived to `memory/archive/` (keeping the `corrections/` subfolder: `memory/archive/corrections/`), once a gotchas entry, test or hook holds the lesson.
 - Reinforcements are kept indefinitely as they have negligible size.
 - The total memory directory should stay under 200 files to keep context loading fast.

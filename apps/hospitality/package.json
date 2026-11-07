@@ -37,7 +37,7 @@
     {
       "name": "Floor Plan Shared (floor-plan-* incl. any geometry split, lazy chunks)",
       "path": "dist/assets/floor-plan-*.js",
-      "limit": "9.05 kB"
+      "limit": "9.2 kB"
     },
     {
       "name": "Dress Rehearsal (shared by the timeline and floor plan pages)",
@@ -50,19 +50,29 @@
       "limit": "8 kB"
     },
     {
-      "name": "Close Dialog (shared by the availability page and the timeline's Tonight panel)",
-      "path": "dist/assets/CloseDialog-*.js",
-      "limit": "5.5 kB"
+      "name": "Weekday summary + schedule changes (one hoisted chunk, shared by the schedule editor, Change regular week, the Schedules tab, History and quick setup)",
+      "path": "dist/assets/weekday-summary-*.js",
+      "limit": "2.9 kB"
+    },
+    {
+      "name": "Conflict problem parsing (shared by the availability page, timeline, waitlist and call list chunks)",
+      "path": "dist/assets/conflict-problem-*.js",
+      "limit": "3 kB"
+    },
+    {
+      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list)",
+      "path": "dist/assets/CallListDialog-*.js",
+      "limit": "13.5 kB"
+    },
+    {
+      "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
+      "path": "dist/assets/close-draft-*.js",
+      "limit": "3 kB"
     },
     {
       "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",
       "path": "dist/assets/tonight-blocks-*.js",
       "limit": "3.5 kB"
-    },
-    {
-      "name": "Availability day resolver (@mbe/availability resolve-day, shared by the availability page and the timeline's Tonight panel)",
-      "path": "dist/assets/resolve-day-*.js",
-      "limit": "2.2 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",
@@ -82,7 +92,7 @@
     {
       "name": "Rialto Vendor (design system)",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "88 kB"
+      "limit": "90 kB"
     },
     {
       "name": "Router Vendor (react-router)",
@@ -112,7 +122,7 @@
     {
       "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page)",
       "path": "dist/assets/useRefreshingChatStream-*.js",
-      "limit": "11.1 kB"
+      "limit": "13 kB"
     }
   ],
   "dependencies": {
@@ -126,17 +136,17 @@
     "@mbe/sentry": "workspace:*",
     "@mbe/types": "workspace:*",
     "@microsoft/fetch-event-source": "^2.0.1",
-    "@stripe/react-stripe-js": "^7.0.0",
-    "@stripe/stripe-js": "^10.1.0",
+    "@stripe/react-stripe-js": "^7.0.1",
+    "@stripe/stripe-js": "^10.2.0",
     "@tanstack/react-query": "^5.104.5",
-    "i18next": "26.5.6",
+    "i18next": "26.5.12",
     "idb": "^8.0.4",
     "konva": "^10.9.0",
     "qrcode": "^1.5.4",
     "react": "catalog:",
     "react-dom": "catalog:",
-    "react-hook-form": "^7.90.0",
-    "react-i18next": "17.1.4",
+    "react-hook-form": "^7.91.0",
+    "react-i18next": "17.1.9",
     "react-konva": "^19.3.2",
     "react-router": "catalog:"
   },
@@ -145,7 +155,7 @@
     "@mbe/config": "workspace:*",
     "@mbe/ui-quality-capture": "workspace:*",
     "@playwright/test": "^1.64.1",
-    "@sentry/vite-plugin": "^11.9.0",
+    "@sentry/vite-plugin": "^11.10.0",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.8",
@@ -155,7 +165,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "axe-core": "^4.14.0",
-    "fake-indexeddb": "^6.2.6",
+    "fake-indexeddb": "^6.2.7",
     "jsdom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

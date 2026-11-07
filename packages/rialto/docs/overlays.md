@@ -81,12 +81,17 @@ Modal dialog for focused interactions.
 
 ### Visual Design {#dialog-visual-design}
 
-- **Surface**: `glass` composition (translucent, blur backdrop)
+- **Surface**: opaque `--rialto-surface-elevated` in both themes. The panel composes `glass` but overrides it: a modal must not show the page through it.
+- **Scrolling**: only the body scrolls (the description scrolls with it). The body is `position: relative`, so absolutely positioned descendants (such as hidden radio inputs) resolve against it and stay inside its clip. The header and footer stay in view. The panel itself scrolls only in one case: the header and footer, which never shrink, are by themselves taller than the room available (a very long title, or a viewport shorter than the chrome); the body has then already shrunk to nothing. A body that overflows becomes a focusable `region` so it is keyboard-scrollable; a body that fits adds no tab stop.
+- **Short viewports**: at `max-height: 480px` the overlay padding, panel padding and chrome margins tighten so the body keeps room (320x256 is the WCAG reflow size).
+- **Nested Popover**: a `Popover` (and so `DatePicker`/`DateRangePicker`/`TimePicker`) opened inside a Dialog renders into the dialog's layer, placed by the trigger's viewport rect and flipped to the roomier side, so the scrolling body never clips it.
+- **Known limits of the dialog-hosted Popover**: no placement is clamped horizontally. The panel is centred on the trigger (top and bottom) or offset from it (left and right) and is never shifted back into the viewport, so on a narrow viewport it can overflow an edge: a DatePicker in a Dialog at 320x256 opens with its left edge at -8px. `left` and `right` are also not clamped vertically. `top` and `bottom` are flipped to the roomier side and height-capped, and this is recomputed on every scroll and resize but not when the popover's own content grows without either event, so a panel that grows after it opens is not re-capped.
+- **Non-portaled overlays directly in a Dialog are clipped**: `Combobox`, `Autocomplete` and `DropdownMenu` position their listbox absolutely inside their own wrapper, so a Dialog's scrolling body clips them (a listbox near the bottom of the body can show only a few pixels). Select and the Popover family are unaffected because they portal out. No in-repo consumer places one directly in a Dialog; if you need to, give the body room below the control or portal the listbox.
 - **Overlay**: `--rialto-overlay` backdrop scrim
 - **Radius**: `--rialto-radius-soft`
 - **Spacing**: `--rialto-space-lg` padding, `--rialto-space-md` header gap
 - **Close button**: `--rialto-radius-default`, hover `--rialto-surface-recessed`
-- **Z-index**: 100
+- **Z-index**: 10000
 
 ### Animation {#dialog-animation}
 
@@ -173,7 +178,7 @@ Simple confirmation dialog.
 
 ### Visual Design {#confirm-dialog-visual-design}
 
-- **Surface**: Inherits Dialog glass panel
+- **Surface**: Inherits the Dialog panel (opaque elevated surface)
 - **Confirm button**: `--rialto-accent` (default), `--rialto-error` (danger variant)
 - **Cancel button**: secondary style
 - **Radius**: `--rialto-radius-default` buttons
@@ -340,7 +345,7 @@ Positioned floating content.
 
 ### Visual Design {#popover-visual-design}
 
-- **Surface**: `glass` composition
+- **Surface**: `glass` composition on a plain page. Inside a Dialog (the `floating` panel) it is opaque `--rialto-surface-elevated` in both themes with no backdrop blur, keeping the glass border, shine and shadow: text on it (a DatePicker calendar) needs a fixed background, or `color-contrast` depends on the dialog body and scrim behind it (#8140).
 - **Radius**: `--rialto-radius-soft`
 - **Spacing**: `--rialto-space-md` padding, `--rialto-space-sm` header
 - **Close button**: `--rialto-radius-sharp`
@@ -584,7 +589,7 @@ interface CommandItem {
 - **Shortcuts**: `--rialto-font-mono`, `--rialto-text-xs`
 - **Empty state**: Centered icon + text
 - **Radius**: `--rialto-radius-soft` panel, `--rialto-radius-default` items
-- **Z-index**: 9999
+- **Z-index**: 10001
 
 ### Animation {#command-palette-animation}
 

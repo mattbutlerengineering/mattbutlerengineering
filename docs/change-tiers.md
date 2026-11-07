@@ -15,6 +15,8 @@ Risk classification for pull requests in this monorepo. Used by the `tier-classi
 
 The classifier assigns the **highest tier** any matched rule produces. T4 wins over T3 wins over T2 wins over T1.
 
+Classification is **per file**, then the PR takes the highest file tier. A file matching **no** rule is T2 (code the table has never heard of needs a human), so generated, test or markdown files in the same diff can never lower a PR below what its other files need. Before #8398 the T2 default applied only when _no_ file in the PR matched, so a single `llms.txt` or `.md` next to real source produced `tier:trivial` (#8378, #8360). `packages/*/src/**` and `scripts/**` (non-test, non-markdown) are explicit T2 rules. The rule table and `classifyPaths` live in `scripts/tier-escalation.mjs`, loaded from the base branch.
+
 ## Classification rules
 
 Rules are evaluated against the PR diff. Each rule maps a path glob (or a structural property) to a tier.
@@ -24,8 +26,9 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 - Any file under `prisma/migrations/` that drops a column, drops a table, or renames without backfill (semantic check by `migration-reviewer`).
 - Any change to `prisma/schema.prisma` that removes or renames a field on a model that has prod data.
 - Any change under `infrastructure/pulumi/` that affects the `prod` stack (changes detected by Pulumi preview).
-- Any change to `.github/CODEOWNERS`, `.github/workflows/codeql.yml`, `.github/workflows/coverage-gate.yml`, or any workflow that gates merge.
-- Any change to `scripts/tier-escalation.mjs`, the escalation policy `tier-classifier` applies. The workflow loads that module from the PR's **base** branch, never from the PR head, so a PR cannot edit the policy to lower its own tier; the edit itself lands T4.
+- Any change to `.github/CODEOWNERS`, `.github/workflows/codeql.yml`, `.github/workflows/coverage-gate.yml`, `.github/workflows/tier-classifier.yml`, `.github/workflows/auto-merge.yml`, `.github/workflows/merge-queue.yml`, or any workflow that gates merge.
+- Any change to `scripts/resolve-pr-metadata.mjs` (supplies the base ref, head SHA, title and body the classifier trusts) or `scripts/merge-queue-eligibility.mjs` (decides auto-merge eligibility from the tier label).
+- Any change to `scripts/tier-escalation.mjs`, the escalation policy `tier-classifier` applies. `tier-classifier` runs on `pull_request_target`, so the workflow file and every step run from the base side; the PR head is fetched as git objects and diffed, never checked out or executed, and the policy module is read from the PR's **base** branch. That execution context, not a path rule, is why a PR cannot edit the policy (or the resolver, or the workflow) to lower its own tier; the edit itself lands T4.
 - Any change to `services/users/src/auth/`, `packages/auth/src/middleware/`, or files implementing authorization checks.
 - Any change to `docs/SECURITY-AI.md` (this file's policy peer).
 - Any rotation of secrets, tokens, or API keys via repo changes (env templates, `wrangler.toml` bindings, `pulumi/Pulumi.prod.yaml`).
@@ -58,7 +61,7 @@ Rules are evaluated against the PR diff. Each rule maps a path glob (or a struct
 
 - Documentation-only changes: `*.md` outside `docs/SECURITY-AI.md`, `docs/change-tiers.md`, `docs/review-criteria.md`, and active ADRs.
 - Comment changes, JSDoc updates, README typo fixes.
-- Test-only additions (no production code change in the diff).
+- Test-only additions (no production code change in the diff): `*.test.ts|tsx|js|jsx`. `*.test.mjs`/`.cjs` under `scripts/` are T2 (`repo script`) by design.
 - Changeset additions (`.changeset/*.md`) that don't modify code.
 - Editor config: `.editorconfig`, `.vscode/*`, `.cursorrules` updates.
 - `metrics/*.jsonl` appends (these are append-only logs).

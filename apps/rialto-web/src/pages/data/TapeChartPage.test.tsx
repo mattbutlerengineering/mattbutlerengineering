@@ -32,7 +32,28 @@ vi.mock("@mattbutlerengineering/rialto", () => {
       {children}
     </div>
   );
-  const SegmentedControl = () => <div />;
+  const SegmentedControl = ({
+    segments,
+    value,
+    onChange,
+  }: {
+    segments?: { id: string; label: string }[];
+    value?: string;
+    onChange?: (id: string) => void;
+  }) => (
+    <div>
+      {segments?.map((segment) => (
+        <button
+          key={segment.id}
+          type="button"
+          aria-pressed={segment.id === value}
+          onClick={() => onChange?.(segment.id)}
+        >
+          {segment.label}
+        </button>
+      ))}
+    </div>
+  );
   const TapeChart = ({
     reservations,
     classifyOverlap,
@@ -40,7 +61,10 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     selectedReservationId,
     strings,
   }: {
-    strings?: { regionLabel?: string };
+    strings?: {
+      regionLabel?: string;
+      reservationCountLabel?: (count: number) => string;
+    };
     reservations: { id: string; guestName?: string }[];
     classifyOverlap?: unknown;
     onReservationClick?: (r: { id: string; guestName?: string }) => void;
@@ -54,6 +78,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
       data-classifier={String(typeof classifyOverlap === "function")}
       data-selected={selectedReservationId ?? ""}
     >
+      {strings?.reservationCountLabel ? <span>{strings.reservationCountLabel(69)}</span> : null}
       {reservations.map((r) => (
         <button key={r.id} type="button" onClick={() => onReservationClick?.(r)}>
           {r.guestName ?? r.id}
@@ -157,5 +182,29 @@ describe("TapeChartPage — Overlaps section", () => {
     expect(
       within(screen.getByTestId("tape-chart-overlaps-classified")).getByTestId("tapechart-stub")
     ).toHaveAttribute("data-selected", "");
+  });
+});
+
+describe("TapeChartPage — locale stat chip", () => {
+  it("localizes the reservation-count noun for ja, de, and ar", async () => {
+    const user = userEvent.setup();
+    render(<TapeChartPage />);
+
+    await user.click(screen.getByRole("button", { name: "Deutsch" }));
+    expect(
+      within(screen.getByRole("region", { name: "Reservierungsbandplan" })).getByText(
+        "Reservierungen"
+      )
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "日本語" }));
+    expect(
+      within(screen.getByRole("region", { name: "予約テープチャート" })).getByText("予約")
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "العربية" }));
+    expect(
+      within(screen.getByRole("region", { name: "مخطط الحجوزات" })).getByText("حجوزات")
+    ).toBeInTheDocument();
   });
 });

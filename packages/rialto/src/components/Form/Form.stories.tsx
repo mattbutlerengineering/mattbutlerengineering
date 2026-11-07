@@ -39,8 +39,18 @@ export const InvalidSubmit: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Submit" }));
-    await expect(canvas.getByLabelText("Email")).toHaveAttribute("aria-invalid", "true");
-    await expect(canvas.getByRole("alert")).toHaveTextContent("Email is required");
+    const email = canvas.getByLabelText("Email");
+    await expect(email).toHaveAttribute("aria-invalid", "true");
+    // Two surfaces carry the error but only one announces it: the form's summary is
+    // the single role=alert; the field's inline message is linked through the input's
+    // aria-describedby and is not a live region. Assert each on its own so deleting
+    // either surface fails the story.
+    const summary = canvas.getByRole("alert");
+    await expect(summary).toHaveTextContent("Email is required");
+    const fieldError = document.getElementById(email.getAttribute("aria-describedby") ?? "");
+    await expect(fieldError).toHaveTextContent("Email is required");
+    await expect(fieldError).not.toBe(summary);
+    await expect(fieldError).not.toHaveAttribute("role");
   },
 };
 

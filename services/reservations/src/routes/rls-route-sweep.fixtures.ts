@@ -445,6 +445,24 @@ async function createDisposableGuest(ctx: SweepContext, venueId: string): Promis
   return extractId(res);
 }
 
+/**
+ * A disposable guest WITH an email, so a win-back gets past its contact guard and reaches the
+ * claim (the send record's RLS grants). The sweep's app is given an email adapter whose client
+ * accepts and drops every send (see the integration test's setup): no network.
+ */
+async function createDisposableEmailedGuest(ctx: SweepContext, venueId: string): Promise<string> {
+  const res = await asAdmin(ctx, {
+    method: "POST",
+    url: "/api/v1/guests",
+    payload: {
+      venueId,
+      name: `RLS Sweep Win-back Guest ${randomUUID()}`,
+      email: `sweep-${randomUUID()}@example.invalid`,
+    },
+  });
+  return extractId(res);
+}
+
 /** Creates a disposable floor plan in `venueId` via the already-proven create route. */
 async function createDisposableFloorPlan(ctx: SweepContext, venueId: string): Promise<string> {
   const res = await asAdmin(ctx, {
@@ -1037,6 +1055,25 @@ const availabilityFixtures: Record<string, RouteFixture> = {
     expectOk(await asAdmin(ctx, impact(ctx.venueB.id)), "admin venue B");
     expectDenied(await asMember(ctx, impact(ctx.venueB.id)), "member venue B");
   }),
+  // Read-only: renders a notice from the posted booking and the venue's own name and zone.
+  "POST /api/v1/venues/:id/closures/notice-preview": ok(async (ctx) => {
+    const preview = (venueId: string) => ({
+      method: "POST" as const,
+      url: `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/closures/notice-preview`,
+      payload: {
+        action: "cancel",
+        closureDate: "2026-12-24",
+        startTime: "2026-12-25T02:30:00.000Z",
+        partySize: 2,
+        guestName: null,
+        message: null,
+        refund: null,
+      },
+    });
+    expectOk(await asAdmin(ctx, preview(ctx.venueA.id)), "admin venue A");
+    expectOk(await asAdmin(ctx, preview(ctx.venueB.id)), "admin venue B");
+    expectDenied(await asMember(ctx, preview(ctx.venueB.id)), "member venue B");
+  }),
   // A closure save rewrites the venue's operating hours, so it lands only on a
   // disposable venue, after a config save gives it a week to close. The empty
   // venue has no bookings to decide on. The reopen is the same venue's rule.
@@ -1417,6 +1454,8 @@ function sweepConfigChanges(options: { alternate?: boolean } = {}) {
           closesAt: 1320,
           seating: { version: 1, interval: 15 },
           bookingTypes: ["online", "phone"],
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
         },
       ],
       assignments: [
@@ -1836,20 +1875,19 @@ const guestFixtures: Record<string, RouteFixture> = {
     }),
     (ctx) => ctx.guestB
   ),
-  // No email on the disposable guest (createDisposableGuest sets only
-  // `name`) — sendWinBack's own guard returns `false` before ever reaching
-  // the notification port, so this stays a real, no-network 200.
+  // The guest has an email, so the route claims the send (guest_win_backs, FORCE RLS), calls the
+  // notification port (an accepting stub, so it is a real no-network 200) and records the send.
   "POST /api/v1/guests/:id/win-back": okEntityMutation(
-    createDisposableGuest,
+    createDisposableEmailedGuest,
     (id) => ({ method: "POST", url: `/api/v1/guests/${id}/win-back` }),
     (ctx) => ctx.guestB
   ),
 };
 
 /**
- * Reservations. `GET /` is a THIRD mixed case: `?venueId=` is scoped
- * correctly (ok), but `?guestId=` resolves via an unscoped `guestService.getById`
- * (item 2's own text names this). `/me` was item 1 (`listByUserId`, cross-venue
+ * Reservations. `GET /` scopes by `?venueId=`, or by `?guestId=`'s own venue
+ * through `app_resolve_venue_id` (#8256; it was an unscoped
+ * `guestService.getById`, item 2). `/me` was item 1 (`listByUserId`, cross-venue
  * by construction — a diner's bookings span whatever venues they visited) and
  * is now RESOLVED (#5369 PR 6) via a per-venue fan-out over
  * `app_reservation_venue_ids_for_user()`. `/:id` (GET/PATCH/DELETE) is item 2 via `requireReservationOwnerOrAdmin`'s
@@ -1860,6 +1898,8 @@ const guestFixtures: Record<string, RouteFixture> = {
  * `requireVenueAccess` at all — anyone may book), so it gets one smoke
  * assertion rather than the 4-way matrix.
  */
+const RESERVATIONS_LIST = "/api/v1/reservations";
+
 const reservationFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/reservations": ok(async (ctx) => {
     expectOk(
@@ -1869,11 +1909,28 @@ const reservationFixtures: Record<string, RouteFixture> = {
       }),
       "admin, venueId"
     );
-    expectBroken(
-      await asAdmin(ctx, { method: "GET", url: `/api/v1/reservations?guestId=${ctx.guestA}` }),
-      "admin, guestId (item-2: unscoped guestService.getById)",
-      ctx
+    // #8256: `?guestId=` resolves through `app_resolve_venue_id` and lists inside
+    // the guest's venue context (was the unscoped `guestService.getById`).
+    expectOk(
+      await asAdmin(ctx, { method: "GET", url: `${RESERVATIONS_LIST}?guestId=${ctx.guestA}` }),
+      "admin, guestId"
     );
+    expectOk(
+      await asMember(ctx, { method: "GET", url: `${RESERVATIONS_LIST}?guestId=${ctx.guestA}` }),
+      "member, own-venue guestId"
+    );
+    expectOk(
+      await asMember(ctx, {
+        method: "GET",
+        url: `${RESERVATIONS_LIST}?venueId=${ctx.venueA.id}&guestId=${ctx.guestA}`,
+      }),
+      "member, venueId + guestId"
+    );
+    expect(
+      (await asMember(ctx, { method: "GET", url: `${RESERVATIONS_LIST}?guestId=${ctx.guestB}` }))
+        .statusCode,
+      "member, other-venue guestId"
+    ).toBe(403);
   }),
   "GET /api/v1/reservations/me": ok(async (ctx) => {
     // `asAdmin`'s bypass identity is the diner who booked reservationMineA

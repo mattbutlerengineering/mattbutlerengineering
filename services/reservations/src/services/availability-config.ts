@@ -5,11 +5,14 @@ import {
   resolveDay,
   type ConfigIssue,
 } from "@mbe/availability";
+import { CONFLICT_CHANGES_MAX } from "@mbe/types";
 import type {
+  AvailabilityChangeDetail,
   AvailabilityChangeSummary,
   AvailabilityConfig,
   AvailabilityConfigSource,
   AvailabilityDaySummary,
+  ConflictChangesSince,
   PreviewAvailabilityParsed,
   PutAvailabilityConfigBody,
   StrandedReservation,
@@ -31,6 +34,7 @@ import {
   type BookedReservation,
 } from "./availability-config-checks.js";
 import { checkAvailability } from "./availability-check.js";
+import { configSavedDetail, readDetail } from "./availability-change-detail.js";
 import {
   ConfigRowConflict,
   readStoredConfig,
@@ -41,6 +45,7 @@ import { civilDateIn, planVenueMigration } from "./availability-migration.js";
 import { planPreview, type PreviewPlan } from "./availability-preview.js";
 import type { ConfigState, LegacyNotes } from "./availability-config-state.js";
 import { prisma } from "./database.js";
+import { onActivePlanWhere } from "./bookable-tables.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
 /**
@@ -63,7 +68,10 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
  */
 
 export type StoreDb = ConfigRowDb &
-  Pick<PrismaClient, "venue" | "reservation" | "availabilityChange" | "table">;
+  Pick<
+    PrismaClient,
+    "venue" | "reservation" | "availabilityChange" | "table" | "closureOutcome" | "$executeRaw"
+  >;
 export type StoreClient = Pick<PrismaClient, "$transaction">;
 
 export type { ConfigState, LegacyNotes } from "./availability-config-state.js";
@@ -221,12 +229,16 @@ export type SavePlan =
       inverse: ConfigInverse;
       range: { from: string | null; to: string | null };
       summary: string;
+      detail: AvailabilityChangeDetail;
     };
 
-function describeDiff(diff: ConfigDiff): string {
-  const count = (part: Record<string, unknown[]>) =>
-    Object.values(part).reduce((n, rows) => n + rows.length, 0);
-  return `Availability updated: ${count(diff.create)} added, ${count(diff.update)} changed, ${count(diff.remove)} removed`;
+const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function describeDiff(detail: AvailabilityChangeDetail): string {
+  const rows = `${detail.added} added, ${detail.changed} changed, ${detail.removed} removed`;
+  if (detail.code !== "regular_week_changed") return `Availability updated: ${rows}`;
+  const days = (detail.weekdays ?? []).map((d) => WEEKDAY_NAMES[d]).join(", ");
+  return `Regular week changed on ${days} from ${detail.startsOn}: ${rows}`;
 }
 
 /** The decision half of a save, pure: what the change becomes, or why it is refused. */
@@ -269,19 +281,28 @@ export function planSave(input: {
   if (reservations.length > 0) return { kind: "stranded", reservations };
 
   const diff = diffConfig(state.stored, next);
+  const detail = configSavedDetail(diff, state.stored, next, civilDateIn(now, state.timezone));
   return {
     kind: "write",
     next,
     diff,
     inverse: inverseOf(state.stored, diff, state.operatingHours),
     range: affectedRange(state.stored, diff, civilDateIn(now, state.timezone)),
-    summary: describeDiff(diff),
+    summary: describeDiff(detail),
+    detail,
   };
 }
 
 export type SaveOutcome =
   | { kind: "saved"; version: number; changeId: string }
-  | { kind: "version_conflict"; winningChange: AvailabilityChangeSummary | null }
+  | {
+      kind: "version_conflict";
+      winningChange: AvailabilityChangeSummary | null;
+      /** The version read before `winningChange`, so a later save can only make the winner newer. */
+      currentVersion: number;
+      /** Every change since the draft's version: the newest few and the true count. */
+      changesSince?: ConflictChangesSince;
+    }
   | { kind: "not_found" }
   | Exclude<SavePlan, { kind: "write" }>;
 
@@ -333,21 +354,109 @@ export async function futureBookings(
       ...stillToServeWhere(now),
       status: { notIn: [...NOT_BOOKED_STATUSES] },
     },
-    select: { id: true, tableId: true, startTime: true, partySize: true, date: true },
+    select: {
+      id: true,
+      tableId: true,
+      startTime: true,
+      partySize: true,
+      date: true,
+      guestName: true,
+    },
   });
 }
 
-export async function refuseStale(db: StoreDb, venueId: string): Promise<SaveOutcome> {
-  const exists = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
-  if (!exists) return { kind: "not_found" };
-  const winner = await db.availabilityChange.findFirst({
-    where: { venueId },
-    orderBy: { at: "desc" },
-    select: { id: true, actorId: true, at: true, kind: true, summary: true },
+const CHANGE_SUMMARY_SELECT = {
+  id: true,
+  actorId: true,
+  at: true,
+  kind: true,
+  summary: true,
+  summaryDetail: true,
+} as const;
+
+/** The audit row as the wire names it; `detail` only when the row has a readable one. */
+export const toSummary = (row: {
+  id: string;
+  actorId: string;
+  at: Date;
+  kind: string;
+  summary: string;
+  summaryDetail?: unknown;
+}): AvailabilityChangeSummary => {
+  const detail = readDetail(row.summaryDetail);
+  return {
+    id: row.id,
+    actorId: row.actorId,
+    at: row.at.toISOString(),
+    kind: row.kind,
+    summary: row.summary,
+    ...(detail ? { detail } : {}),
+  };
+};
+
+/**
+ * Refuses a save whose draft is on `expectedVersion`. The changes are ordered by the version they
+ * produced, never by `at`: `at` is stamped before the venue row lock is taken, so a change that waited
+ * on the lock can commit a higher version with an older `at`.
+ */
+export async function refuseStale(
+  db: StoreDb,
+  venueId: string,
+  expectedVersion: number
+): Promise<SaveOutcome> {
+  const exists = await db.venue.findUnique({
+    where: { id: venueId },
+    select: { id: true, availabilityVersion: true },
   });
+  if (!exists) return { kind: "not_found" };
+  const currentVersion = exists.availabilityVersion;
+  // Read before the changes: a save landing between the two reads makes the newest change newer than
+  // this version, so an Overwrite against it is refused again, never applied over a change unnamed.
+  // Bounded by `take`, on the (venue, version) index, however far behind the draft is.
+  const since = await db.availabilityChange.findMany({
+    where: { venueId, version: { gt: expectedVersion } },
+    orderBy: { version: "desc" },
+    take: CONFLICT_CHANGES_MAX,
+    select: CHANGE_SUMMARY_SELECT,
+  });
+  // Rows from before changes recorded their version cannot be placed after the draft; the newest by
+  // `at` still names a winner, and `total` below still counts them.
+  const winner = since[0] ?? (await newestChange(db, venueId));
+  const total = currentVersion - expectedVersion;
   return {
     kind: "version_conflict",
-    winningChange: winner && { ...winner, at: winner.at.toISOString() },
+    currentVersion,
+    winningChange: winner && toSummary(winner),
+    // A draft ahead of the venue (`total < 1`) has nothing to name.
+    ...(total >= 1 ? { changesSince: { total, changes: since.map(toSummary) } } : {}),
+  };
+}
+
+/** The latest change by the version it produced; rows without one (older) come after, by `at`. */
+function newestChange(db: StoreDb, venueId: string) {
+  return db.availabilityChange.findFirst({
+    where: { venueId },
+    orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }],
+    select: CHANGE_SUMMARY_SELECT,
+  });
+}
+
+/**
+ * Refuses a save that already won its compare-and-set on `committedVersion` but must still be
+ * answered as stale (a series a teammate changed since the draft read it). The transaction has
+ * bumped the version and is about to roll that back, so the venue's version here is not one that
+ * will exist: report `committedVersion`, and name the latest change under it.
+ */
+export async function refuseSeriesChanged(
+  db: StoreDb,
+  venueId: string,
+  committedVersion: number
+): Promise<SaveOutcome> {
+  const winner = await newestChange(db, venueId);
+  return {
+    kind: "version_conflict",
+    currentVersion: committedVersion,
+    winningChange: winner && toSummary(winner),
   };
 }
 
@@ -375,6 +484,10 @@ export function conflictIssue(error: ConfigRowConflict, next: AvailabilityConfig
 export const toDbDate = (d: string | null): Date | null =>
   d ? new Date(`${d}T00:00:00.000Z`) : null;
 
+/** The audit row's `summary_detail` column: written when there is a detail, left NULL otherwise. */
+export const detailData = (detail: AvailabilityChangeDetail | null) =>
+  detail ? { summaryDetail: detail as unknown as Prisma.InputJsonValue } : {};
+
 /** What a save commits: the row operations, and how its audit row reads. */
 export interface SaveRequest {
   changes: PutAvailabilityConfigBody["changes"];
@@ -383,6 +496,8 @@ export interface SaveRequest {
   kind: string;
   /** Replaces the generated summary. */
   summary?: string;
+  /** Replaces the generated code and data; `null` for none (a revert of a change that had none). */
+  detail?: AvailabilityChangeDetail | null;
   /** Written to `Venue.operatingHours` in place of the projection of the next config. */
   operatingHours?: Prisma.InputJsonValue | typeof Prisma.DbNull;
   /** Permit the result to have no live schedule (an undone first save). */
@@ -444,7 +559,7 @@ export async function commitSave(
     where: { id: venueId, availabilityVersion: expectedVersion },
     data: { availabilityVersion: { increment: 1 } },
   });
-  if (cas.count === 0) return refuseStale(tx, venueId);
+  if (cas.count === 0) return refuseStale(tx, venueId, expectedVersion);
 
   const state = await loadConfigState(tx, venueId, now);
   if (!state) throw new SaveRefused({ kind: "not_found" });
@@ -483,9 +598,11 @@ export async function commitSave(
       at: now,
       kind: request.kind,
       summary: request.summary ?? plan.summary,
+      ...detailData(request.detail === undefined ? plan.detail : request.detail),
       affectedFrom: toDbDate(plan.range.from),
       affectedTo: toDbDate(plan.range.to),
       inverse: plan.inverse as unknown as Prisma.InputJsonValue,
+      version: expectedVersion + 1,
     },
     select: { id: true },
   });
@@ -550,7 +667,7 @@ export async function previewAvailabilityConfig(
     const [bookings, tables] = await Promise.all([
       futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
       tx.table.findMany({
-        where: { venueId },
+        where: { venueId, ...onActivePlanWhere() },
         select: {
           id: true,
           name: true,

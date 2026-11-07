@@ -1,8 +1,10 @@
+import type { KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Skeleton } from "@mattbutlerengineering/rialto";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { presentDay } from "./day-summary.js";
+import type { ServiceFilter } from "./service-filter.js";
 import type { DateGestureHandlers } from "./useDateSelection.js";
 import styles from "./AvailabilityAgenda.module.css";
 
@@ -14,12 +16,34 @@ export interface AvailabilityAgendaProps {
   readonly byDate: ReadonlyMap<string, AvailabilityDaySummary>;
   readonly today: string;
   readonly selectedDate?: string | null;
-  /** The day whose drawer holds an unsaved draft; its row shows a dot. */
-  readonly draftDate?: string | null;
+  /** The days whose drawer draft holds unsaved edits; each row shows a dot. */
+  readonly draftDates?: readonly string[];
   readonly picked: ReadonlySet<string>;
   readonly isLoading: boolean;
+  /** The read failed: a day with no summary is not still on its way. */
+  readonly loadFailed?: boolean;
   /** Click and long-press handlers for one row (see `useDateSelection`). */
   readonly handlersFor: (date: string) => DateGestureHandlers;
+  /** Space on a row: add it to the selection or take it out, the same key as the grid. */
+  readonly onToggle: (date: string) => void;
+  /** The holidays among the dates ("Thanksgiving"), by date; each shows under its date. */
+  readonly holidays: ReadonlyMap<string, string>;
+  /** The one service every row reads for (the Services filter); `null` shows all. */
+  readonly serviceFilter: ServiceFilter | null;
+}
+
+/** Enter opens a row; Space picks it. Firefox clicks on Space's keyup, so that is stopped too. */
+function spaceHandlers(onSpace: () => void) {
+  return {
+    onKeyDown: (event: KeyboardEvent) => {
+      if (event.key !== " ") return;
+      event.preventDefault();
+      onSpace();
+    },
+    onKeyUp: (event: KeyboardEvent) => {
+      if (event.key === " ") event.preventDefault();
+    },
+  };
 }
 
 /**
@@ -28,7 +52,7 @@ export interface AvailabilityAgendaProps {
  * Tab walks the days in order and no grid roles are promised on a stacked layout.
  */
 export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
-  const { dates, byDate, today, selectedDate, draftDate, picked, isLoading, handlersFor } = props;
+  const { dates, byDate, today, selectedDate, draftDates, picked, isLoading, handlersFor } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
 
@@ -36,7 +60,18 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
     <ul className={styles.agenda} aria-label={props.label}>
       {dates.map((date) => {
         const summary = byDate.get(date);
-        const view = presentDay(date, summary, false, t, format);
+        const view = presentDay(date, summary, false, t, format, props.serviceFilter);
+        const holiday = props.holidays.get(date);
+        const shownDate = format.formatCalendarDate(date, {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
+        // Starts with the date as the row shows it, so what is heard matches what is seen.
+        const name = t("availability.calendar.cellName", {
+          date: shownDate,
+          details: holiday ? `${view.accessibleDetails}, ${holiday}` : view.accessibleDetails,
+        });
         return (
           <li key={date} className={styles.item}>
             <button
@@ -45,38 +80,37 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
                 styles.row,
                 date === selectedDate ? styles.selected : "",
                 picked.has(date) ? styles.picked : "",
+                view.tone ? styles[view.tone] : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
               data-date={date}
               aria-current={date === today ? "date" : undefined}
               aria-label={
-                (picked.has(date)
-                  ? t("availability.selection.selectedName", { name: view.accessibleName })
-                  : view.accessibleName) +
-                (date === draftDate ? `, ${t("availability.calendar.draftName")}` : "")
+                (picked.has(date) ? t("availability.selection.selectedName", { name }) : name) +
+                (draftDates?.includes(date) ? `, ${t("availability.calendar.draftName")}` : "")
               }
               {...handlersFor(date)}
+              {...spaceHandlers(() => props.onToggle(date))}
             >
-              {date === draftDate && (
+              {draftDates?.includes(date) && (
                 <span className={styles.draftDot} data-draft-dot aria-hidden="true" />
               )}
               <span className={styles.date} aria-hidden="true">
-                {format.formatCalendarDate(date, {
-                  weekday: "short",
-                  month: "short",
-                  day: "numeric",
-                })}
-              </span>
+                {shownDate}
+                {holiday && <span className={styles.holiday}>{holiday}</span>}
+              </span>{" "}
               {isLoading || !summary ? (
-                <Skeleton variant="text" width="100%" height={16} />
+                !props.loadFailed && <Skeleton variant="text" width="100%" height={16} />
               ) : (
                 <span className={styles.details} aria-hidden="true">
-                  <span className={styles.label}>{summary.label}</span>
-                  {view.count && <span className={styles.meta}>{view.count}</span>}
+                  <span className={styles.label}>{view.label} </span>
+                  {view.servicesSummary && (
+                    <span className={styles.meta}>{view.servicesSummary} </span>
+                  )}
                   {view.bands.map((b) => (
                     <span key={b.key} className={styles.band}>
-                      {b.text}
+                      {b.text}{" "}
                     </span>
                   ))}
                   {view.onlineOff && (

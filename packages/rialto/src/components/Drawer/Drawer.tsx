@@ -58,6 +58,9 @@ const slideOpen = {
   bottom: { y: 0 },
 } as const;
 
+/** Read by Toast.module.css: the open drawer's footer height. */
+const FOOTER_BLOCK_SIZE = "--rialto-drawer-footer-block-size";
+
 /* ── Component ──────────────────────────────── */
 export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
   { open, onClose, title, description, children, footer, side = "right", size = "default" },
@@ -83,6 +86,26 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
       document.body.style.overflow = "";
     };
   }, [open]);
+
+  /* ── Footer height, for toasts ───────────── */
+  // Toast.module.css lifts toasts above this footer where the drawer covers their corner, so a
+  // toast never sits over the drawer's title, close button or actions.
+  const footerRef = useRef<HTMLDivElement>(null);
+  const hasFooter = Boolean(footer);
+  useEffect(() => {
+    const node = footerRef.current;
+    if (!open || !node) return;
+    const root = document.documentElement;
+    const publish = () =>
+      root.style.setProperty(FOOTER_BLOCK_SIZE, `${node.getBoundingClientRect().height}px`);
+    publish();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(publish);
+    observer?.observe(node);
+    return () => {
+      observer?.disconnect();
+      root.style.removeProperty(FOOTER_BLOCK_SIZE);
+    };
+  }, [open, hasFooter]);
 
   useFocusTrap(panelRef, open);
 
@@ -119,6 +142,8 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
                 else if (ref) ref.current = node;
               }}
               className={panelClasses}
+              // Read by Toast.module.css, which moves toasts beside an open end-side drawer.
+              data-rialto-drawer={`${side}-${size}`}
               role="dialog"
               aria-modal="true"
               aria-labelledby={title ? titleId : undefined}
@@ -163,7 +188,11 @@ export const Drawer = forwardRef<HTMLDivElement, DrawerProps>(function Drawer(
               <div className={styles.body}>{children}</div>
 
               {/* Footer */}
-              {footer && <div className={styles.footer}>{footer}</div>}
+              {footer && (
+                <div ref={footerRef} className={styles.footer}>
+                  {footer}
+                </div>
+              )}
             </motion.div>
           </>
         )}

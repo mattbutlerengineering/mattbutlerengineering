@@ -6,6 +6,7 @@ import {
   MissingGithubTokenError,
 } from "@mbe/gh-client";
 import {
+  buildReviewCoverageTrail,
   collectQueueEfficiency,
   defaultReadPrs,
   fetchCommitsBatched,
@@ -1155,5 +1156,61 @@ describe("readMergedAiPrsPaged — fallback when the batched commit fetch fails"
     });
 
     expect(() => readMergedAiPrsPaged(ghClient, NOW, fetchCommits)).toThrow(GhAuthError);
+  });
+});
+
+describe("buildReviewCoverageTrail (#8184)", () => {
+  const row = (date, value, n, extra = {}) => ({
+    date,
+    sensor: "queueEfficiency",
+    available: true,
+    sub_metrics: { review_coverage: value, review_coverage_n: n },
+    ...extra,
+  });
+
+  it("appends the current reading to the two most recent earlier days", () => {
+    const rows = [
+      row("2026-10-27", 0.3, 20),
+      row("2026-10-28", 0.286, 21),
+      row("2026-10-29", 0.211, 19),
+    ];
+    expect(
+      buildReviewCoverageTrail(
+        rows,
+        { review_coverage: 0.167, review_coverage_n: 18 },
+        "2026-10-30"
+      )
+    ).toEqual([
+      { value: 0.286, n: 21 },
+      { value: 0.211, n: 19 },
+      { value: 0.167, n: 18 },
+    ]);
+  });
+
+  it("ignores same-day rows, other sensors, unavailable rows and rows without a coverage value", () => {
+    const rows = [
+      row("2026-10-29", 0.211, 19),
+      row("2026-10-30", 0.9, 30),
+      { date: "2026-10-28", sensor: "sdlcSpeed", available: true },
+      row("2026-10-28", 0.5, 20, { available: false }),
+      row("2026-10-27", null, 0),
+    ];
+    expect(
+      buildReviewCoverageTrail(
+        rows,
+        { review_coverage: 0.167, review_coverage_n: 18 },
+        "2026-10-30"
+      )
+    ).toEqual([
+      { value: 0.211, n: 19 },
+      { value: 0.167, n: 18 },
+    ]);
+  });
+
+  it("returns only the current reading with no history, and [] when current has no coverage", () => {
+    expect(
+      buildReviewCoverageTrail(null, { review_coverage: 0.2, review_coverage_n: 16 }, "2026-10-30")
+    ).toEqual([{ value: 0.2, n: 16 }]);
+    expect(buildReviewCoverageTrail([], { review_coverage: null }, "2026-10-30")).toEqual([]);
   });
 });

@@ -2,6 +2,7 @@
 id: ADR-030
 title: Venue Availability as Layered Rows with Typed Payloads, Resolved by One Pure Engine
 status: active
+amended_by: ADR-031
 date: 2026-10-25
 ---
 

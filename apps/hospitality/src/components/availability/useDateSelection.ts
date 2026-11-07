@@ -8,12 +8,19 @@ export interface DateSelectionOptions {
   readonly selection: readonly string[];
   readonly onSelectionChange: (dates: string[]) => void;
   readonly onOpenDay: (date: string) => void;
+  /** Select days is on: a plain click or tap picks, with no long press needed to start. */
+  readonly selecting?: boolean;
+  /**
+   * A range drag is under way (`true`) or over (`false`). The page holds back anything that would
+   * move the grid under the pointer until the drag ends.
+   */
+  readonly onDragChange?: (dragging: boolean) => void;
 }
 
 export interface DateGestureHandlers {
   readonly onClick: (event: MouseEvent) => void;
   readonly onMouseDown: (event: MouseEvent) => void;
-  readonly onMouseEnter: () => void;
+  readonly onMouseEnter: (event: MouseEvent) => void;
   readonly onTouchStart: () => void;
   readonly onTouchMove: () => void;
   readonly onTouchEnd: (event: TouchEvent) => void;
@@ -26,7 +33,7 @@ export interface DateGestureHandlers {
  * more. A plain click is still "open this day"; the opener decides when that drops the selection.
  */
 export function useDateSelection(options: DateSelectionOptions) {
-  const { selection, onSelectionChange, onOpenDay } = options;
+  const { selection, onSelectionChange, onOpenDay, onDragChange, selecting = false } = options;
   const pivot = useRef<string | null>(null);
   const drag = useRef<{ from: string; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -42,12 +49,24 @@ export function useDateSelection(options: DateSelectionOptions) {
         setTimeout(() => {
           suppressClick.current = false;
         }, 0);
+        onDragChange?.(false);
       }
       drag.current = null;
     };
     window.addEventListener("mouseup", endDrag);
-    return () => window.removeEventListener("mouseup", endDrag);
-  }, []);
+    // A release the window never sees (outside it, or after switching away) ends the drag too.
+    window.addEventListener("blur", endDrag);
+    return () => {
+      window.removeEventListener("mouseup", endDrag);
+      window.removeEventListener("blur", endDrag);
+    };
+  }, [onDragChange]);
+
+  /** A drag whose mouseup was lost: what shows it was lost ends it, without any click to swallow. */
+  const dropLostDrag = () => {
+    if (drag.current?.moved) onDragChange?.(false);
+    drag.current = null;
+  };
 
   const clearTimer = () => {
     if (pressTimer.current) clearTimeout(pressTimer.current);
@@ -68,13 +87,19 @@ export function useDateSelection(options: DateSelectionOptions) {
 
   const handlersFor = (date: string): DateGestureHandlers => ({
     onMouseDown: (event) => {
+      dropLostDrag();
       if (event.button === 0 && !event.shiftKey && !event.ctrlKey && !event.metaKey) {
         drag.current = { from: date, moved: false };
       }
     },
-    onMouseEnter: () => {
+    onMouseEnter: (event) => {
+      if (event.buttons === 0) {
+        dropLostDrag();
+        return;
+      }
       const d = drag.current;
       if (!d || (date === d.from && !d.moved)) return;
+      if (!d.moved) onDragChange?.(true);
       d.moved = true;
       extendSelection(d.from, date);
     },
@@ -82,7 +107,12 @@ export function useDateSelection(options: DateSelectionOptions) {
       if (suppressClick.current) return;
       if (event.shiftKey) {
         onSelectionChange(dateRange(pivot.current ?? date, date));
-      } else if (event.ctrlKey || event.metaKey || (touchMode.current && selection.length > 0)) {
+      } else if (
+        selecting ||
+        event.ctrlKey ||
+        event.metaKey ||
+        (touchMode.current && selection.length > 0)
+      ) {
         toggleSelected(date);
       } else {
         pivot.current = date;

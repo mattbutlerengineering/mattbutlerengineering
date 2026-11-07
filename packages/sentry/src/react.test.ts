@@ -52,6 +52,26 @@ describe("initSentry (react)", () => {
     expect(mockSentryInit).not.toHaveBeenCalled();
   });
 
+  it("does NOT call Sentry.init in a browser-automation session (navigator.webdriver)", () => {
+    vi.stubGlobal("navigator", { webdriver: true });
+    try {
+      initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
+      expect(mockSentryInit).not.toHaveBeenCalled();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("still calls Sentry.init in a normal browser (navigator.webdriver false)", () => {
+    vi.stubGlobal("navigator", { webdriver: false });
+    try {
+      initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
+      expect(mockSentryInit).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("calls Sentry.init when DSN is provided", () => {
     initSentry({ appName: "my-app", dsn: "https://key@sentry.io/456" });
     expect(mockSentryInit).toHaveBeenCalledTimes(1);

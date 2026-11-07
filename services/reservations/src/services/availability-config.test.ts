@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { CONFLICT_CHANGES_MAX } from "@mbe/types";
 import type { AvailabilityConfig, PutAvailabilityConfigBody } from "@mbe/types";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
@@ -23,6 +24,8 @@ const CONFIG: AvailabilityConfig = {
       closesAt: 1320,
       seating: { version: 1, interval: 15 },
       bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1 as const, sets: [] },
     },
   ],
   assignments: [
@@ -83,6 +86,88 @@ describe("planSave", () => {
     expect(plan).toEqual({
       kind: "invalid",
       issues: [expect.objectContaining({ path: "scheduleServices[0].lastSeatingAt" })],
+    });
+  });
+
+  describe("a varied week", () => {
+    const FRIDAY_LATE = {
+      weekdays: [4],
+      opensAt: 1020,
+      lastSeatingAt: 1320,
+      closesAt: 1380,
+      seating: { version: 1 as const, interval: 15 },
+      bookingTypes: ["online" as const, "phone" as const],
+    };
+    const scoped = (over: Partial<AvailabilityConfig["scheduleServices"][number]>) => ({
+      ...CONFIG.scheduleServices[0]!,
+      ...over,
+    });
+
+    it("plans a row carrying days and hour sets, and its inverse restores the prior row", () => {
+      const row = scoped({
+        weekdays: [1, 2, 3, 4],
+        dayHours: { version: 1, sets: [{ ...FRIDAY_LATE, weekdays: [5] }] },
+      });
+      const plan = planSave({
+        state: STATE,
+        body: body({ upsert: { scheduleServices: [row] } }),
+        bookings: [],
+        tableIds: new Set(),
+        now: NOW,
+      });
+
+      expect(plan.kind).toBe("write");
+      if (plan.kind !== "write") return;
+      expect(plan.diff.update.scheduleServices).toEqual([row]);
+      expect(plan.inverse.restore.scheduleServices).toEqual([CONFIG.scheduleServices[0]]);
+    });
+
+    it("records regular_week_changed for Friday alone, with an English summary older clients show", () => {
+      const friday = scoped({
+        weekdays: [0, 1, 2, 3, 4, 6],
+        dayHours: { version: 1, sets: [{ ...FRIDAY_LATE, weekdays: [5] }] },
+      });
+      const plan = planSave({
+        state: { ...STATE, stored: CONFIG },
+        body: body({ upsert: { scheduleServices: [friday] } }),
+        bookings: [],
+        tableIds: new Set(),
+        now: NOW,
+      });
+
+      expect(plan.kind).toBe("write");
+      if (plan.kind !== "write") return;
+      expect(plan.detail).toMatchObject({
+        code: "regular_week_changed",
+        startsOn: "2026-10-25",
+        weekdays: [5],
+      });
+      expect(plan.summary).toBe(
+        "Regular week changed on Fri from 2026-10-25: 0 added, 1 changed, 0 removed"
+      );
+    });
+
+    it("refuses a weekday claimed twice in one row as weekday_clash, with the set's path", () => {
+      const row = scoped({
+        weekdays: [1, 2],
+        dayHours: { version: 1, sets: [{ ...FRIDAY_LATE, weekdays: [2, 3] }] },
+      });
+      const plan = planSave({
+        state: STATE,
+        body: body({ upsert: { scheduleServices: [row] } }),
+        bookings: [],
+        tableIds: new Set(),
+        now: NOW,
+      });
+
+      expect(plan.kind).toBe("invalid");
+      if (plan.kind !== "invalid") return;
+      expect(plan.issues).toEqual([
+        expect.objectContaining({
+          code: "weekday_clash",
+          path: expect.stringContaining("scheduleServices[0]"),
+        }),
+      ]);
     });
   });
 
@@ -250,12 +335,23 @@ describe("saveAvailabilityConfig", () => {
       kind: "config",
       summary: "Availability updated: 1 added, 0 changed, 0 removed",
     };
+    const reads: string[] = [];
     const client = fakeClient({
       venue: {
         updateMany: vi.fn(async () => ({ count: 0 })),
-        findUnique: vi.fn(async () => ({ id: "venue-1" })),
+        findUnique: vi.fn(async () => {
+          reads.push("version");
+          return { id: "venue-1", availabilityVersion: 6 };
+        }),
       },
-      availabilityChange: { findFirst: vi.fn(async () => winner) },
+      availabilityChange: {
+        // Rows written before changes recorded their version: none can be placed after the draft.
+        findMany: vi.fn(async () => []),
+        findFirst: vi.fn(async () => {
+          reads.push("winner");
+          return winner;
+        }),
+      },
     });
 
     const outcome = await saveAvailabilityConfig(
@@ -263,9 +359,158 @@ describe("saveAvailabilityConfig", () => {
       client
     );
 
+    // The version is read before the winner: a save landing between the two reads makes the
+    // winner newer than the version, so an Overwrite against it is refused rather than blind.
+    expect(reads).toEqual(["version", "winner"]);
     expect(outcome).toEqual({
       kind: "version_conflict",
+      currentVersion: 6,
       winningChange: { ...winner, at: "2026-10-25T18:42:00.000Z" },
+      // Four versions passed (2 to 6), none of them placeable: counted, not named.
+      changesSince: { total: 4, changes: [] },
+    });
+  });
+
+  it("hands the winner's code and data to the client, and omits them for a row without any", async () => {
+    const detail = { code: "config_saved", added: 1, changed: 0, removed: 0 };
+    const at = new Date("2026-10-25T18:42:00.000Z");
+    const row = (id: string, summaryDetail: unknown) => ({
+      id,
+      actorId: "auth0|ana",
+      at,
+      kind: "config",
+      summary: "Availability updated: 1 added, 0 changed, 0 removed",
+      summaryDetail,
+    });
+    const client = fakeClient({
+      venue: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 6 })),
+      },
+      availabilityChange: {
+        findMany: vi.fn(async () => [row("B", detail), row("A", null), row("C", { junk: 1 })]),
+        findFirst: vi.fn(),
+      },
+    });
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: body({}, 3), now: NOW },
+      client
+    );
+
+    const changes = (outcome as { changesSince: { changes: Record<string, unknown>[] } })
+      .changesSince.changes;
+    expect(changes[0]).toMatchObject({ id: "B", detail });
+    expect(changes[1]).not.toHaveProperty("detail");
+    expect(changes[2]).not.toHaveProperty("detail");
+    expect(changes[0]).not.toHaveProperty("summaryDetail");
+  });
+
+  it("names every change since the draft's version, newest first (draft on v4, A makes v5, B makes v6)", async () => {
+    const row = (id: string, version: number, minute: number) => ({
+      id,
+      actorId: `auth0|${id}`,
+      at: new Date(Date.UTC(2026, 9, 25, 18, minute)),
+      kind: "config",
+      summary: `change ${id}`,
+      version,
+    });
+    const findMany = vi.fn(async () => [row("B", 6, 2), row("A", 5, 1)]);
+    const client = fakeClient({
+      venue: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 6 })),
+      },
+      availabilityChange: { findMany, findFirst: vi.fn(async () => null) },
+    });
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|manager", body: body({}, 4), now: NOW },
+      client
+    );
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { venueId: "venue-1", version: { gt: 4 } },
+        orderBy: { version: "desc" },
+        take: CONFLICT_CHANGES_MAX,
+      })
+    );
+    expect(outcome).toMatchObject({
+      kind: "version_conflict",
+      currentVersion: 6,
+      winningChange: { id: "B", at: "2026-10-25T18:02:00.000Z" },
+      changesSince: {
+        total: 2,
+        changes: [
+          { id: "B", at: "2026-10-25T18:02:00.000Z" },
+          { id: "A", at: "2026-10-25T18:01:00.000Z" },
+        ],
+      },
+    });
+    expect(JSON.stringify(outcome)).not.toContain('"version":5');
+  });
+
+  it("counts the changes it does not name for a draft many versions behind", async () => {
+    const newest = Array.from({ length: CONFLICT_CHANGES_MAX }, (_, i) => ({
+      id: `c${200 - i}`,
+      actorId: "auth0|ana",
+      at: new Date("2026-10-25T18:00:00.000Z"),
+      kind: "config",
+      summary: "s",
+      version: 200 - i,
+    }));
+    const client = fakeClient({
+      venue: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 200 })),
+      },
+      availabilityChange: { findMany: vi.fn(async () => newest), findFirst: vi.fn() },
+    });
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|manager", body: body({}, 1), now: NOW },
+      client
+    );
+
+    expect(outcome).toMatchObject({ changesSince: { total: 199 } });
+    expect(outcome.kind === "version_conflict" && outcome.changesSince?.changes).toHaveLength(
+      CONFLICT_CHANGES_MAX
+    );
+  });
+
+  it("picks the winner by the version it produced, not by when it was stamped", async () => {
+    // A reopen stamped before a save but committed after it holds the higher version.
+    const reopen = {
+      id: "reopen",
+      actorId: "auth0|ana",
+      at: new Date("2026-10-25T18:00:00.000Z"),
+      kind: "reopen",
+      summary: "Closure reopened (2026-11-01)",
+      version: 6,
+    };
+    const save = { ...reopen, id: "save", kind: "config", version: 5, summary: "s" };
+    save.at = new Date("2026-10-25T18:00:00.500Z");
+    const client = fakeClient({
+      venue: {
+        updateMany: vi.fn(async () => ({ count: 0 })),
+        findUnique: vi.fn(async () => ({ id: "venue-1", availabilityVersion: 6 })),
+      },
+      availabilityChange: {
+        // The store honours the orderBy: version descending.
+        findMany: vi.fn(async () => [reopen, save]),
+        findFirst: vi.fn(),
+      },
+    });
+
+    const outcome = await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|manager", body: body({}, 4), now: NOW },
+      client
+    );
+
+    expect(outcome).toMatchObject({
+      winningChange: { id: "reopen" },
+      changesSince: { changes: [{ id: "reopen" }, { id: "save" }] },
     });
   });
 
@@ -322,6 +567,33 @@ describe("saveAvailabilityConfig", () => {
     expect(anonymous.availabilityChange.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ actorName: null }) })
     );
+  });
+
+  it("records the version a save produced on its audit row", async () => {
+    const tx = savingTx();
+    await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
+      fakeClient(tx)
+    );
+    expect(tx.availabilityChange.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ version: 4 }) })
+    );
+  });
+
+  it("records the change's stable code and data beside its English summary", async () => {
+    const tx = savingTx();
+    await saveAvailabilityConfig(
+      { venueId: "venue-1", actorId: "auth0|ben", body: WHOLE_WEEK, now: NOW },
+      fakeClient(tx)
+    );
+    const data = (tx.availabilityChange.create.mock.calls[0] as unknown as [{ data: unknown }])[0]
+      .data;
+    expect(data).toMatchObject({
+      summary: expect.stringMatching(
+        /^Regular week changed on .+ from \d{4}-\d{2}-\d{2}: \d+ added, \d+ changed, \d+ removed$/
+      ),
+      summaryDetail: { code: "regular_week_changed", added: expect.any(Number) },
+    });
   });
 
   it("commits rows, the audit row and the legacy projection together", async () => {
@@ -453,6 +725,8 @@ describe("saveAvailabilityConfig", () => {
             },
           ],
         }),
+        // What a stranded refusal lists: who, and the service day its link opens.
+        select: expect.objectContaining({ guestName: true, date: true }),
       })
     );
   });
@@ -506,6 +780,8 @@ describe("getAvailabilityConfig: the migrated flag", () => {
             closesAt: 1320,
             seating: { version: 1, interval: 15 },
             bookingTypes: ["online", "phone"],
+            weekdays: [],
+            dayHours: { version: 1 as const, sets: [] },
           },
         ]),
       },

@@ -5,7 +5,14 @@ import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { GuestCard } from "../crm/GuestCard.js";
 import { useDepositByReservation } from "../../hooks/useDeposits.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { findReservationTable, occupiedCaption, statusWord, useSeatGuest } from "./seat-guest.js";
+import {
+  RESERVATION_EDIT_TEST_ID,
+  findReservationTable,
+  occupiedCaption,
+  statusWord,
+  useSeatGuest,
+  type SeatFlights,
+} from "./seat-guest.js";
 import { canSeat } from "../../utils/seating.js";
 import { StaffDepositSection } from "./StaffDepositSection.js";
 import { SpecialRequestsTicket } from "./SpecialRequestsTicket.js";
@@ -19,12 +26,16 @@ export interface ReservationDetailsProps {
   seated: boolean;
   /** The page's clock — lets `occupiedCaption` tell an overrun party from a different one (#5270). */
   now: Date;
-  onEdit: () => void;
+  /** Receives the clicked button, the opener the page returns focus to after a save. */
+  onEdit: (opener: HTMLElement) => void;
   /** Rejects on failure — the panel owns showing it (architecture § Dialog contracts). */
   onSeat: () => Promise<void>;
-  onCancel: () => void;
+  /** The page's seats in flight, which outlive this panel across a resize. */
+  seatFlights?: SeatFlights;
+  /** Receives the clicked button, the opener the page returns focus to when the dialog is dismissed. */
+  onCancel: (opener: HTMLElement) => void;
   /** Opens the Mark No-Show confirmation (only offered for CONFIRMED — the only valid source state). */
-  onMarkNoShow: () => void;
+  onMarkNoShow: (opener: HTMLElement) => void;
 }
 
 function getStatusBadgeClass(reservation: Reservation, seated: boolean): string {
@@ -55,6 +66,7 @@ export function ReservationDetails({
   now,
   onEdit,
   onSeat,
+  seatFlights,
   onCancel,
   onMarkNoShow,
 }: ReservationDetailsProps) {
@@ -62,7 +74,7 @@ export function ReservationDetails({
   const { t } = useTranslation();
   const table = findReservationTable(reservation, tables);
   const caption = occupiedCaption(reservation, table, now, t);
-  const { seating, failure, seatRef, seat } = useSeatGuest(onSeat);
+  const { seating, failure, seatRef, seat } = useSeatGuest(reservation.id, onSeat, seatFlights);
   const {
     data: deposit,
     isLoading: depositLoading,
@@ -181,7 +193,13 @@ export function ReservationDetails({
       )}
 
       <Stack gap="sm" className={styles.actionsDivider}>
-        <Button variant="primary" onClick={onEdit} className={styles.fullWidth} disabled={seating}>
+        <Button
+          data-testid={RESERVATION_EDIT_TEST_ID}
+          variant="primary"
+          onClick={(event) => onEdit(event.currentTarget)}
+          className={styles.fullWidth}
+          disabled={seating}
+        >
           {t("timeline.details.edit")}
         </Button>
         {canSeat(reservation, table) && (
@@ -199,7 +217,7 @@ export function ReservationDetails({
         {reservation.status !== "CANCELLED" && (
           <Button
             variant="ghost"
-            onClick={onCancel}
+            onClick={(event) => onCancel(event.currentTarget)}
             className={styles.fullWidth}
             disabled={seating}
           >
@@ -209,7 +227,7 @@ export function ReservationDetails({
         {reservation.status === "CONFIRMED" && (
           <Button
             variant="ghost"
-            onClick={onMarkNoShow}
+            onClick={(event) => onMarkNoShow(event.currentTarget)}
             className={styles.fullWidth}
             disabled={seating}
           >

@@ -174,6 +174,28 @@ describe("BookingWizardExamplePage", () => {
     expect(screen.getByLabelText("Check-out")).toHaveValue("2026-08-04");
   });
 
+  it("stays on the payment step when the card expiry is in the past", () => {
+    render(<BookingWizardExamplePage />);
+    setInput("Check-in", "2026-08-01");
+    setInput("Check-out", "2026-08-04");
+    clickContinue();
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(ROOMS[0]!.name, "i") }));
+    clickContinue();
+    setInput("First name", "Ada");
+    setInput("Last name", "Lovelace");
+    setInput("Email", "ada@example.com");
+    clickContinue();
+    setInput("Name on card", "Ann Lee");
+    setInput("Card number", "4242424242424242");
+    setInput("Expiry (MM/YY)", "01/20");
+    setInput("Security code", "123");
+    clickContinue();
+
+    expect(screen.getByTestId("steps")).toHaveAttribute("data-current", "3");
+    expect(screen.getByText(/expiry date is in the past/i)).toBeInTheDocument();
+    expect(screen.queryByText(/booking confirmed/i)).not.toBeInTheDocument();
+  });
+
   it("reaches the confirmation step and summarises every input", () => {
     render(<BookingWizardExamplePage />);
     completeToConfirmation();

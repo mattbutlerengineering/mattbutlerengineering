@@ -21,7 +21,8 @@
     "db:migrate:deploy": "prisma migrate deploy",
     "db:migrate:status": "prisma migrate status",
     "db:studio": "prisma studio",
-    "db:backfill-availability": "tsx src/scripts/backfill-availability.ts"
+    "db:backfill-availability": "tsx src/scripts/backfill-availability.ts",
+    "db:collapse-day-named-schedules": "tsx src/scripts/collapse-day-named-schedules.ts"
   },
   "dependencies": {
     "@fastify/rate-limit": "^11.2.1",
@@ -35,13 +36,13 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@prisma/client-runtime-utils": "^7.10.1",
-    "bullmq": "^6.4.0",
+    "bullmq": "^6.5.4",
     "fastify": "catalog:",
     "ioredis": "^6.0.0",
-    "jose": "^6.2.13",
+    "jose": "^6.2.14",
     "pg": "^8.23.1",
-    "resend": "^6.34.1",
-    "stripe": "^23.0.1",
+    "resend": "^6.36.1",
+    "stripe": "^23.1.0",
     "twilio": "^6.2.0"
   },
   "prisma": {

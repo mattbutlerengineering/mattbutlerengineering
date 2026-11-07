@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ChangeEvent, FocusEvent, ReactNode } from "react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { SignUp, SIGN_UP_PHASES } from "./SignUp";
@@ -512,5 +513,68 @@ describe("SignUp — success handoff", () => {
     });
 
     expect(screen.getByTestId("dashboard-page")).toBeInTheDocument();
+  });
+});
+
+describe("SignUp — invalid submit focus", () => {
+  function submitButton() {
+    return screen.getByRole("button", { name: /create account/i });
+  }
+
+  it("does not steal focus on first mount", () => {
+    renderSignUp();
+    expect(document.body).toHaveFocus();
+  });
+
+  it("moves focus to the first invalid field when Create account is activated empty", () => {
+    renderSignUp();
+    const submit = submitButton();
+    submit.focus();
+    fireEvent.click(submit);
+
+    const name = screen.getByLabelText("Full name");
+    expect(name).toHaveFocus();
+    expect(name).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByLabelText("Email address")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByRole("alert")).toHaveTextContent(/agree first/i);
+  });
+
+  it("moves focus to the terms checkbox when that is the only invalid control", () => {
+    renderSignUp();
+    setField("Full name", "Ada Lovelace");
+    setField("Email address", "ada@example.com");
+    setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
+    setField("Confirm password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
+
+    const submit = submitButton();
+    submit.focus();
+    fireEvent.click(submit);
+
+    expect(screen.getByRole("checkbox")).toHaveFocus();
+    expect(screen.getByRole("alert")).toHaveTextContent(/agree first/i);
+    expect(screen.getByLabelText("Full name")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("does not pull focus back when blur validation flags the email", () => {
+    renderSignUp();
+    const email = screen.getByLabelText("Email address");
+    const name = screen.getByLabelText("Full name");
+    fireEvent.change(email, { target: { value: "notanemail" } });
+    name.focus();
+    fireEvent.blur(email);
+
+    expect(name).toHaveFocus();
+    expect(screen.getByText(/valid email/i)).toBeInTheDocument();
+  });
+
+  it("submits an empty form with Enter from the focused Create account button", async () => {
+    vi.useRealTimers();
+    const user = userEvent.setup({ delay: null });
+    renderSignUp();
+    submitButton().focus();
+    await user.keyboard("{Enter}");
+
+    expect(screen.getByLabelText("Full name")).toHaveFocus();
+    expect(screen.getByRole("alert")).toHaveTextContent(/agree first/i);
   });
 });

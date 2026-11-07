@@ -561,7 +561,8 @@ export function WaitlistPage() {
               <WaitlistClosedNotice
                 venueId={selectedVenueId}
                 note={closingRule?.staffNote?.trim() || null}
-                ruleId={closingRule?.id ?? null}
+                rule={closingRule}
+                rules={tonight.rules}
                 canReopen={isManager && !!closingRule && isTonightOnlyWaitlistClosure(closingRule)}
                 manageInAvailability={
                   isManager && !!closingRule && !isTonightOnlyWaitlistClosure(closingRule)

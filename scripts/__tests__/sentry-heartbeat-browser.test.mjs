@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
-import { triggerBrowserTarget, SENTRY_INGEST_HOST } from "../sentry-heartbeat.mjs";
+import {
+  triggerBrowserTarget,
+  SENTRY_INGEST_HOST,
+  presentAsRealVisitor,
+} from "../sentry-heartbeat.mjs";
 
 const MARKER = "mbe-round-trip-20261001T000000000Z-abc";
 const target = {
@@ -150,5 +154,34 @@ describe("triggerBrowserTarget", () => {
     const result = await triggerBrowserTarget(target, MARKER, { chromium });
     expect(page.addInitScript).toHaveBeenCalled();
     expect(result.detail).toContain("CSP violation: script-src blocked eval");
+  });
+
+  it("presents the page as a real visitor, so @mbe/sentry's WebDriver guard still inits (#8378)", async () => {
+    // Headless Playwright Chromium sets navigator.webdriver = true, and initSentry skips
+    // Sentry.init under WebDriver so local E2E runs stay out of Sentry. The heartbeat must
+    // run the init script before navigation or every browser target goes not-found.
+    const { chromium, page } = fakeChromium();
+    await triggerBrowserTarget(target, MARKER, { chromium });
+    const scripts = page.addInitScript.mock.calls.map(([script]) => script);
+    expect(scripts).toContain(presentAsRealVisitor);
+    expect(
+      page.addInitScript.mock.invocationCallOrder[scripts.indexOf(presentAsRealVisitor)]
+    ).toBeLessThan(page.goto.mock.invocationCallOrder[0]);
+  });
+
+  it("presentAsRealVisitor makes navigator.webdriver read false", () => {
+    class FakeNavigator {
+      get webdriver() {
+        return true;
+      }
+    }
+    const original = globalThis.Navigator;
+    globalThis.Navigator = FakeNavigator;
+    try {
+      presentAsRealVisitor();
+      expect(new FakeNavigator().webdriver).toBe(false);
+    } finally {
+      globalThis.Navigator = original;
+    }
   });
 });

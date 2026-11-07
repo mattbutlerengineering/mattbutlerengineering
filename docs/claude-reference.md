@@ -79,24 +79,26 @@ All top-level commands registered in `tools/cli/src/command-loaders.ts`:
 
 ### GitHub Labels (coordination state machine)
 
-Two families, and they do different jobs. The **issue-state** labels below drive which issues an agent picks up; the **PR merge-gate** labels in the next table decide whether a PR is allowed to merge. A session driving the merge train needs both.
+Two families, and they do different jobs. The **issue-state** labels below drive which issues an agent picks up; the **PR merge-gate** labels in the next table decide whether a PR is allowed to merge. A session driving the merge train needs both. This section covers labels that automation branches on, not all ~100 repo labels; a label missing here is a deliberate omission only if no script, workflow or skill reads it.
 
 #### Issue state
 
-| Label              | Meaning                                                               |
-| ------------------ | --------------------------------------------------------------------- |
-| `ready`            | Available for agent pickup                                            |
-| `in-progress`      | Agent is working on it                                                |
-| `has-pr`           | PR created, awaiting merge/review                                     |
-| `agent-failed`     | Agent could not complete — needs manual review or retry               |
-| `agent-skip`       | Exhausted max retries — needs manual review or different approach     |
-| `audit`            | Found by site-audit                                                   |
-| `ci-fix`           | CI failure needing fix                                                |
-| `feature`          | New feature (created by `/decompose`)                                 |
-| `tracking`         | Parent issue tracking multi-part feature                              |
-| `meta-improvement` | Process improvement suggestion                                        |
-| `acmm`             | AI Codebase Maturity Model finding (created by `/acmm-audit --apply`) |
-| `sentry`           | Production error triaged from Sentry                                  |
+| Label              | Meaning                                                                                                                                                                                              |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ready`            | Available for agent pickup                                                                                                                                                                           |
+| `in-progress`      | Agent is working on it                                                                                                                                                                               |
+| `has-pr`           | PR created, awaiting merge/review                                                                                                                                                                    |
+| `agent-failed`     | Agent could not complete — needs manual review or retry                                                                                                                                              |
+| `agent-skip`       | Exhausted max retries — needs manual review or different approach                                                                                                                                    |
+| `audit`            | Found by site-audit                                                                                                                                                                                  |
+| `ci-fix`           | CI failure needing fix                                                                                                                                                                               |
+| `feature`          | New feature (created by `/decompose`)                                                                                                                                                                |
+| `tracking`         | Parent issue tracking multi-part feature                                                                                                                                                             |
+| `meta-improvement` | Process improvement suggestion                                                                                                                                                                       |
+| `acmm`             | AI Codebase Maturity Model finding (created by `/acmm-audit --apply`)                                                                                                                                |
+| `sentry`           | Production error triaged from Sentry                                                                                                                                                                 |
+| `ready-for-human`  | Human-only action required (e.g. a visual-baseline regen a cloud routine cannot dispatch). Use it **instead of** `ready`, never alongside it — see [gotchas.md § CI](../.claude/rules/gotchas.md#ci) |
+| `vetoed`           | Owner vetoed a `feature-proposal` inside the veto window; blocks decomposition                                                                                                                       |
 
 #### PR merge gates
 
@@ -111,7 +113,11 @@ These are the labels that actually decide whether a PR merges. `tier:*` is appli
 | `tier:sensitive` | T3. **Blocks auto-merge** — reviewer + a specialist subagent + 1 human review                                                                                                                            |
 | `tier:critical`  | T4. **Blocks auto-merge** — all of T3, plus Matt personally, plus an ADR or `meta-improvement` issue documenting why                                                                                     |
 
-> A PR carrying **no** `tier:*` label keeps the pre-#3787 behaviour rather than being blocked. `tier-classifier.yml` triggers on `pull_request` natively, and also accepts a `workflow_dispatch` escape hatch (#4070) that the four automation producers (drift-fix, production-feedback, pr-metrics, acmm-regression) call directly and wait on, so it now runs reliably on `GITHUB_TOKEN`/`AUTOMATION_PAT`-authored automation PRs too. Residual risk: `AUTOMATION_PAT` is still not configured as a repo secret (see [docs/SECRETS.md](../docs/SECRETS.md)), so the action-required-approval step those same producers rely on for their other `pull_request`-triggered checks still falls back to a `GITHUB_TOKEN` no-op. See [gotchas.md § CI](../.claude/rules/gotchas.md#ci) for the consequences.
+#### PR provenance
+
+`agent-authored` is neither an issue state nor a merge gate. `ai-attribution.yml` applies it automatically (never by hand) to mark a PR as agent-authored for audit-trail and metrics purposes (ACMM level computation, `pr-metrics`, `pr-outcomes`). It **does not relax any review requirement**: the PR gets the same scrutiny as a human-authored one.
+
+> A PR carrying **no** `tier:*` label keeps the pre-#3787 behaviour rather than being blocked. `tier-classifier.yml` triggers on `pull_request_target` (base-side workflow; the PR head is fetched as data, never executed — see [change-tiers.md](change-tiers.md)), and also accepts a `workflow_dispatch` escape hatch (#4070) that the four automation producers (drift-fix, production-feedback, pr-metrics, acmm-regression) call directly and wait on, so it now runs reliably on `GITHUB_TOKEN`/`AUTOMATION_PAT`-authored automation PRs too. Residual risk: `AUTOMATION_PAT` is still not configured as a repo secret (see [docs/SECRETS.md](../docs/SECRETS.md)), so the action-required-approval step those same producers rely on for their other `pull_request`-triggered checks still falls back to a `GITHUB_TOKEN` no-op. See [gotchas.md § CI](../.claude/rules/gotchas.md#ci) for the consequences.
 
 ## Session Learning & Feedback Loop
 
@@ -147,7 +153,7 @@ Each file is named `YYYY-MM-DD-<slug>.md` with frontmatter:
 - **2026-03-27** CDN-cache/Workers constraint → `gotchas.md § Deploy / static sites` ("Static sites must deploy as Cloudflare Workers...")
 - **2026-04-23** changesets push-ordering rule → `gotchas.md § Releases` ("Push before you version...")
 - **2026-04-25** zsh `$status` reserved-variable trap → `gotchas.md § Shell (zsh)` ("Never use `status` as a shell variable name...")
-- Rialto setState-in-useEffect ban → `gotchas.md § Pre-commit / lint` ("Rialto components must NOT call `setState`...")
+- Rialto setState-in-useEffect (advisory lint warn) → `gotchas.md § Pre-commit / lint` ("Rialto components should not call `setState`...")
 
 ### `.claude/reflections/` — Session Summaries and Root-Cause Analysis
 

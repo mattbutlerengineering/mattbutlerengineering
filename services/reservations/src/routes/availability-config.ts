@@ -48,6 +48,8 @@ function sendRefusal(
         configProblem(409, "Conflict", "Availability changed since you loaded it.", {
           code: "version-conflict",
           winningChange: outcome.winningChange,
+          currentVersion: outcome.currentVersion,
+          ...(outcome.changesSince ? { changesSince: outcome.changesSince } : {}),
         })
       );
     case "invalid":

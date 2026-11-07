@@ -157,6 +157,9 @@
   </file>
   <file path="src/schemas/availability-config-api.ts">
     <item priority="high">
+      export const ScheduleServiceRequestSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityConfigChangesSchema: unknown;
     </item>
     <item priority="high">
@@ -181,7 +184,16 @@
       export const AvailabilityConfigSaveResultSchema: unknown;
     </item>
     <item priority="high">
+      export const AvailabilityChangeDetailSchema: unknown;
+    </item>
+    <item priority="high">
       export const AvailabilityChangeSummarySchema: unknown;
+    </item>
+    <item priority="high">
+      export const CONFLICT_CHANGES_MAX: unknown;
+    </item>
+    <item priority="high">
+      export const ConflictChangesSinceSchema: unknown;
     </item>
     <item priority="high">
       export const AvailabilityChangeOutcomeSchema: unknown;
@@ -203,6 +215,9 @@
     </item>
     <item priority="high">
       export const StrandedReservationSchema: unknown;
+    </item>
+    <item priority="high">
+      export const STRANDED_ISSUE_DETAIL_MAX: unknown;
     </item>
     <item priority="high">
       export const AVAILABILITY_CONFIG_PROBLEM_CODES: unknown;
@@ -232,7 +247,25 @@
       export const CLOSURE_IMPACT_KINDS: unknown;
     </item>
     <item priority="high">
+      export const BOOKING_ORIGIN_HOSTS: unknown;
+    </item>
+    <item priority="high">
       export const ClosureImpactKindSchema: unknown;
+    </item>
+    <item priority="high">
+      export const GUEST_NOTICE_LOCALES: unknown;
+    </item>
+    <item priority="high">
+      export const DEFAULT_GUEST_NOTICE_LOCALE: unknown;
+    </item>
+    <item priority="high">
+      export const GuestNoticeLocaleSchema: unknown;
+    </item>
+    <item priority="low">
+      type GuestNoticeLocale = z.infer<typeof GuestNoticeLocaleSchema>;
+    </item>
+    <item priority="high">
+      export function resolveGuestNoticeLocale(raw: unknown): GuestNoticeLocale { /* ... */ }
     </item>
     <item priority="high">
       export const ClosureImpactReservationSchema: unknown;
@@ -242,6 +275,21 @@
     </item>
     <item priority="high">
       export const ClosureImpactSchema: unknown;
+    </item>
+    <item priority="high">
+      export const CLOSURE_NOTICE_ACTIONS: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureNoticePreviewBodySchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureNoticePreviewSchema: unknown;
+    </item>
+    <item priority="low">
+      type ClosureNoticePreviewBody = z.infer<typeof ClosureNoticePreviewBodySchema>;
+    </item>
+    <item priority="low">
+      type ClosureNoticePreview = z.infer<typeof ClosureNoticePreviewSchema>;
     </item>
     <item priority="low">
       type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
@@ -349,6 +397,12 @@
       type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
     </item>
     <item priority="low">
+      type AvailabilityChangeDetail = z.infer<typeof AvailabilityChangeDetailSchema>;
+    </item>
+    <item priority="low">
+      type ConflictChangesSince = z.infer<typeof ConflictChangesSinceSchema>;
+    </item>
+    <item priority="low">
       type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
     </item>
     <item priority="low">
@@ -391,6 +445,9 @@
       export const CreateClosuresBodySchema: unknown;
     </item>
     <item priority="high">
+      export const ReopenSeenSchema: unknown;
+    </item>
+    <item priority="high">
       export const ReopenClosureBodySchema: unknown;
     </item>
     <item priority="high">
@@ -401,6 +458,12 @@
     </item>
     <item priority="high">
       export const ClosuresResultSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosedByRuleSchema: unknown;
+    </item>
+    <item priority="high">
+      export const ClosureOverlapSchema: unknown;
     </item>
     <item priority="high">
       export const ReopenResultSchema: unknown;
@@ -448,6 +511,9 @@
       type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
     </item>
     <item priority="low">
+      type ReopenSeen = z.infer<typeof ReopenSeenSchema>;
+    </item>
+    <item priority="low">
       type ClosureResult = z.infer<typeof ClosureResultSchema>;
     </item>
     <item priority="low">
@@ -455,6 +521,12 @@
     </item>
     <item priority="low">
       type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+    </item>
+    <item priority="low">
+      type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+    </item>
+    <item priority="low">
+      type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
     </item>
     <item priority="low">
       type ReopenResult = z.infer<typeof ReopenResultSchema>;
@@ -540,6 +612,12 @@
       export const RepeatSchema: unknown;
     </item>
     <item priority="high">
+      export const DayHoursSetSchema: unknown;
+    </item>
+    <item priority="high">
+      export const DayHoursSchema: unknown;
+    </item>
+    <item priority="high">
       export const SpecialHoursServiceSchema: unknown;
     </item>
     <item priority="high">
@@ -565,6 +643,12 @@
     </item>
     <item priority="high">
       export const AvailabilityConfigSchema: unknown;
+    </item>
+    <item priority="low">
+      type DayHoursSet = z.infer<typeof DayHoursSetSchema>;
+    </item>
+    <item priority="low">
+      type DayHours = z.infer<typeof DayHoursSchema>;
     </item>
     <item priority="low">
       type Seating = z.infer<typeof SeatingSchema>;

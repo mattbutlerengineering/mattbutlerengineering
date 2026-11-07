@@ -49,8 +49,11 @@ function readRialtoToken(tokenName: string, theme: "light" | "dark"): string {
 // The Group mock uses forwardRef and attaches a fake Konva node to the ref
 // so that groupRef.current.to() does not throw.
 
+const shapeNodes = vi.hoisted(() => new Map<string, { to: ReturnType<typeof vi.fn> }>());
+
 vi.mock("react-konva", () => {
   interface ShapeMockProps {
+    listening?: boolean;
     name?: string;
     fill?: string;
     stroke?: string;
@@ -64,21 +67,33 @@ vi.mock("react-konva", () => {
   }
 
   function shapeMock(kind: string) {
-    return function ShapeMock({
-      name,
-      fill,
-      stroke,
-      strokeWidth,
-      width,
-      height,
-      radius,
-      cornerRadius,
-      opacity,
-      data,
-    }: ShapeMockProps) {
+    return React.forwardRef(function ShapeMock(
+      {
+        listening,
+        name,
+        fill,
+        stroke,
+        strokeWidth,
+        width,
+        height,
+        radius,
+        cornerRadius,
+        opacity,
+        data,
+      }: ShapeMockProps,
+      ref: React.Ref<unknown>
+    ) {
+      React.useEffect(() => {
+        const node = { to: vi.fn() };
+        if (name) shapeNodes.set(name, node);
+        if (ref && typeof ref === "object" && "current" in ref) {
+          (ref as React.MutableRefObject<unknown>).current = node;
+        }
+      });
       return (
         <div
           data-testid={`konva-${kind}`}
+          data-listening={listening}
           data-path={data}
           data-name={name}
           data-fill={fill}
@@ -91,7 +106,7 @@ vi.mock("react-konva", () => {
           data-opacity={opacity}
         />
       );
-    };
+    });
   }
 
   const GroupMock = React.forwardRef(function GroupMock(
@@ -123,7 +138,7 @@ vi.mock("react-konva", () => {
     // Attach a fake Konva node with a no-op .to() method
     React.useEffect(() => {
       if (ref && typeof ref === "object" && "current" in ref) {
-        (ref as React.MutableRefObject<unknown>).current = { to: vi.fn() };
+        (ref as React.MutableRefObject<unknown>).current = { to: vi.fn(), cache: vi.fn() };
       }
     });
 
@@ -198,7 +213,13 @@ vi.mock("react-konva", () => {
 
 import { TableShape } from "./TableShape.js";
 import { STATUS_GLYPHS, STATUS_GLYPH_KEYS } from "./table-status-glyph.js";
-import { TABLE_CORNER_RADIUS, SEAT_NAME, TABLE_SURFACE_NAME } from "./furniture-tokens.js";
+import {
+  TABLE_CORNER_RADIUS,
+  SEAT_NAME,
+  TABLE_SURFACE_NAME,
+  DRAG_SHADOW_NAME,
+  FURNITURE_GROUP_NAME,
+} from "./furniture-tokens.js";
 
 /* ── Fixtures ─────────────────────────────────────────────────── */
 
@@ -405,7 +426,7 @@ describe("TableShape", () => {
         capacity: 0,
       });
       render(<TableShape table={table} {...defaultProps} />);
-      // Round art = contact shadow + surface + 3 grain rings.
+      // Round table = contact shadow + surface + 3 grain rings.
       expect(document.querySelectorAll('[data-testid="konva-circle"]').length).toBe(5);
       expect(document.querySelectorAll('[data-testid="konva-path"]').length).toBe(1);
     });
@@ -890,6 +911,34 @@ describe("TableShape", () => {
       // Trigger mousedown which we mapped to onDragStart
       tableGroup().dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
       expect(onDragStart).toHaveBeenCalledWith("table-xyz");
+    });
+
+    // Konva only draws shadows on Shapes, never on Groups (#7965).
+    it("puts the drag shadow on a non-listening shape, not the group", async () => {
+      const { rerender } = render(
+        <TableShape table={makeTable()} {...defaultProps} isDragging={false} />
+      );
+      const shadow = requireNamed(DRAG_SHADOW_NAME);
+      expect(shadow.getAttribute("data-listening")).toBe("false");
+      rerender(<TableShape table={makeTable()} {...defaultProps} isDragging />);
+      await waitFor(() =>
+        expect(shapeNodes.get(DRAG_SHADOW_NAME)?.to).toHaveBeenLastCalledWith(
+          expect.objectContaining({ shadowBlur: 10, shadowOpacity: 0.3 })
+        )
+      );
+      rerender(<TableShape table={makeTable()} {...defaultProps} isDragging={false} />);
+      await waitFor(() =>
+        expect(shapeNodes.get(DRAG_SHADOW_NAME)?.to).toHaveBeenLastCalledWith(
+          expect.objectContaining({ shadowBlur: 0, shadowOpacity: 0 })
+        )
+      );
+    });
+
+    it("keeps the drag shadow out of the cached furniture group", () => {
+      render(<TableShape table={makeTable()} {...defaultProps} isDragging />);
+      expect(
+        requireNamed(DRAG_SHADOW_NAME).closest(`[data-name="${FURNITURE_GROUP_NAME}"]`)
+      ).toBeNull();
     });
   });
 });

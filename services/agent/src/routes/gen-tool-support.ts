@@ -40,6 +40,26 @@ export function localTimeIn(iso: unknown, timeZone: string | undefined): string 
   }
 }
 
+/**
+ * What a failed tool logs. A logger writes every field of an error it is given: a refusal's problem
+ * details can name guests, and the client's message and `path` hold the request's query, which can
+ * be a guest search. So status and code, or the error's name, never the error itself. An error with
+ * neither (a network failure) came from no response and holds no request data.
+ */
+export function failureLog(err: unknown) {
+  const {
+    problemDetails: problem,
+    path,
+    name,
+  } = (err ?? {}) as {
+    problemDetails?: { status?: unknown; code?: unknown };
+    path?: unknown;
+    name?: unknown;
+  };
+  if (problem) return { status: problem.status, code: problem.code };
+  return path === undefined ? { err } : { failure: name };
+}
+
 /** A 4xx the server answered on purpose: what the caller sent was refused, so retrying cannot help. */
 export interface Refusal {
   readonly status: number;
@@ -65,6 +85,44 @@ export function refusalOf(err: unknown): Refusal | undefined {
     ...(typeof code === "string" ? { code } : {}),
     ...(typeof reason === "string" ? { reason } : {}),
   };
+}
+
+/**
+ * What a write says when the server never answered it (timeout, lost response,
+ * 5xx: anything `refusalOf` doesn't call a refusal). It may have committed, so
+ * it never says nothing changed; `read` names what shows the real state.
+ */
+export function saveUnsure(read: string): string {
+  return `Couldn't confirm the change was saved. Check ${read} before trying again.`;
+}
+
+/**
+ * For a write the api-client would replay (DELETE) and whose replay is refused once
+ * the first attempt has committed. The refusal would read as "nothing changed", so
+ * the tool takes the first attempt's answer and reports it as unknown.
+ */
+export const NO_REPLAY = { maxRetries: 0 } as const;
+
+/**
+ * Marks a write tool's result as "nothing was written": the tool returned before
+ * any write request left, or the server answered a no-replay write with a refusal
+ * that guarantees it changed nothing. `gateWriteTools` releases the confirmed
+ * action's single use on this marker and on nothing else, and strips it before the
+ * model sees the result. Set it only where that is provable: a timeout, a 5xx, a
+ * network failure or any thrown error after a write was sent may have committed.
+ */
+export const NOT_EXECUTED = "notExecuted" as const;
+
+export function notExecuted<T extends object>(result: T): T & { readonly notExecuted: true } {
+  return { ...result, [NOT_EXECUTED]: true };
+}
+
+/**
+ * A write's failure result, marked not-executed while no write is on its way.
+ * `unsure` is set (by the tool) just before the first write request is sent.
+ */
+export function failedBeforeWrite<T extends object>(unsure: string | undefined, result: T) {
+  return unsure === undefined ? notExecuted(result) : result;
 }
 
 export interface NamedTable {

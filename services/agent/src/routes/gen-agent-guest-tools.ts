@@ -2,7 +2,15 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { NO_VENUE, refusalOf, type ApiClient } from "./gen-tool-support.js";
+import {
+  NO_VENUE,
+  failedBeforeWrite,
+  failureLog,
+  notExecuted,
+  refusalOf,
+  saveUnsure,
+  type ApiClient,
+} from "./gen-tool-support.js";
 
 /**
  * Chat tools for the guest directory (#7927): add a guest, update tags, dietary
@@ -32,12 +40,28 @@ function shown(guest: Guest) {
   };
 }
 
-/** A refused or failed guest write, in words the model can pass on. */
-function guestFailure(err: unknown, action: string) {
+const GUEST_SAVE_UNSURE = saveUnsure("search_guests");
+
+/**
+ * A win-back with no answer may or may not have gone out. The server claims a send before it
+ * calls the email provider and records the send only once the provider accepts it, so
+ * `list_lapsing_guests` tells a confirmed send (`lastWinBackAt`) from an attempt that was never
+ * confirmed (`winBackAttemptedAt`). The server refuses a second send for a week after either.
+ */
+function winBackUnsure(name: string): string {
+  return `Couldn't confirm the win-back message to ${name} was sent. Check ${name} in list_lapsing_guests: lastWinBackAt is the last send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out. The server won't send another for a week after either; both null means nothing was recorded. Tell the user which it is.`;
+}
+
+/**
+ * A refused or failed guest write, in words the model can pass on. `unsure` is set
+ * once the write is on its way: until then a failure can't have changed anything.
+ */
+function guestFailure(err: unknown, action: string, unsure: string | undefined) {
   const refusal = refusalOf(err);
   if (!refusal) {
     return {
-      error: `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
+      error:
+        unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
     };
   }
   if (refusal.status === 403) {
@@ -119,7 +143,7 @@ export function createGuestTools(
     // ── Read ───────────────────────────────────────────────
     list_lapsing_guests: tool({
       description:
-        "List regular guests who are overdue for a visit (win-back candidates), most overdue first.",
+        "List regular guests who are overdue for a visit (win-back candidates), most overdue first, with lastWinBackAt (the last win-back the email provider confirmed, null = none) and winBackAttemptedAt (an attempt never confirmed, which may not have gone out, null = none).",
       inputSchema: z.object({}),
       execute: async () => {
         if (!venueId) return NO_VENUE;
@@ -133,10 +157,12 @@ export function createGuestTools(
                 name: g.name,
                 daysSinceLastVisit: g.daysSinceLastVisit,
                 daysOverdue: g.daysOverdue,
+                lastWinBackAt: g.lastWinBackAt ?? null,
+                winBackAttemptedAt: g.winBackAttemptedAt ?? null,
               })),
           };
         } catch (err) {
-          log.error({ err, venueId }, "list_lapsing_guests failed");
+          log.error({ ...failureLog(err), venueId }, "list_lapsing_guests failed");
           return { error: "Couldn't read lapsing guests. Ask the user to try again." };
         }
       },
@@ -161,7 +187,7 @@ export function createGuestTools(
           message: "A phone number or an email is required to add a guest",
         }),
       execute: async ({ name, phone, email, dietaryRestrictions }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "add_guest tool called");
         try {
           const saved = await api.guests.findOrCreate({
@@ -173,8 +199,9 @@ export function createGuestTools(
           });
           return { saved: true, guest: shown(saved) };
         } catch (err) {
-          log.error({ err, venueId }, "add_guest failed");
-          return guestFailure(err, "add the guest");
+          log.error({ ...failureLog(err), venueId }, "add_guest failed");
+          // The write is the tool's first call, so any failure may have saved.
+          return guestFailure(err, "add the guest", GUEST_SAVE_UNSURE);
         }
       },
     }),
@@ -184,11 +211,12 @@ export function createGuestTools(
         "Update a guest's profile: correct their name, phone or email, add or remove tags, or replace their dietary restrictions. Requires confirmation.",
       inputSchema: UpdateGuestInputSchema,
       execute: async (input) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "update_guest tool called");
+        let unsure: string | undefined;
         try {
           const found = await findGuest(api, venueId, input.guest, input.contact);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
           const current = found.guest.tags ?? [];
           const tagsChange = input.addTags || input.removeTags;
           const tags = tagsChange
@@ -197,6 +225,7 @@ export function createGuestTools(
                 ...(input.addTags ?? []).filter((tag) => !current.some((c) => sameText(c, tag))),
               ]
             : undefined;
+          unsure = GUEST_SAVE_UNSURE;
           const updated = await api.guests.update(found.guest.id, {
             ...(input.name ? { name: input.name } : {}),
             ...(input.phone ? { phone: input.phone } : {}),
@@ -209,8 +238,8 @@ export function createGuestTools(
           });
           return { updated: true, guest: shown(updated) };
         } catch (err) {
-          log.error({ err, venueId }, "update_guest failed");
-          return guestFailure(err, "update the guest");
+          log.error({ ...failureLog(err), venueId }, "update_guest failed");
+          return failedBeforeWrite(unsure, guestFailure(err, "update the guest", unsure));
         }
       },
     }),
@@ -223,16 +252,18 @@ export function createGuestTools(
         text: z.string().min(1).max(1000).describe("The note"),
       }),
       execute: async ({ guest, contact, text }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "add_guest_note tool called");
+        let unsure: string | undefined;
         try {
           const found = await findGuest(api, venueId, guest, contact);
-          if ("error" in found) return found;
+          if ("error" in found) return notExecuted(found);
+          unsure = GUEST_SAVE_UNSURE;
           await api.guests.addNote(found.guest.id, text);
           return { noted: true, guest: found.guest.name };
         } catch (err) {
-          log.error({ err, venueId }, "add_guest_note failed");
-          return guestFailure(err, "add the note");
+          log.error({ ...failureLog(err), venueId }, "add_guest_note failed");
+          return failedBeforeWrite(unsure, guestFailure(err, "add the note", unsure));
         }
       },
     }),
@@ -244,19 +275,21 @@ export function createGuestTools(
         guest: z.string().min(1).describe("The lapsing guest's name, as listed"),
       }),
       execute: async ({ guest }) => {
-        if (!venueId) return NO_VENUE;
+        if (!venueId) return notExecuted(NO_VENUE);
         log.info({ venueId }, "send_win_back tool called");
+        let unsure: string | undefined;
         try {
           const lapsing = await api.guests.getLapsing(venueId);
           const matches = lapsing.filter((g) => sameText(g.name, guest));
           if (matches.length !== 1) {
-            return {
+            return notExecuted({
               error:
                 matches.length === 0
                   ? `${guest} isn't on the lapsing guest list, so no win-back was sent.`
                   : `More than one lapsing guest is called ${guest}. Send it from the Dashboard instead.`,
-            };
+            });
           }
+          unsure = winBackUnsure(matches[0]!.name);
           const { sent } = await api.guests.sendWinBack(matches[0]!.guestId);
           return sent
             ? { sent: true, guest: matches[0]!.name }
@@ -266,8 +299,8 @@ export function createGuestTools(
                 note: "The message wasn't sent, usually because of the guest's contact preferences. Say so.",
               };
         } catch (err) {
-          log.error({ err, venueId }, "send_win_back failed");
-          return guestFailure(err, "send the win-back message");
+          log.error({ ...failureLog(err), venueId }, "send_win_back failed");
+          return failedBeforeWrite(unsure, guestFailure(err, "send the win-back message", unsure));
         }
       },
     }),

@@ -41,6 +41,30 @@ function stripComments(text) {
     .join("\n");
 }
 
+describe("nightly-compliance.yml job budget (#8376)", () => {
+  const job = WORKFLOW.jobs.scan;
+
+  it("backs turbo with the same GitHub-cache remote cache ci.yml uses, before the build step", () => {
+    const names = job.steps.map((s) => s.name);
+    const cacheIdx = job.steps.findIndex((s) => /rharkor\/caching-for-turbo/.test(s.uses ?? ""));
+    expect(cacheIdx).toBeGreaterThan(-1);
+    expect(cacheIdx).toBeLessThan(names.indexOf("Lint, typecheck, test"));
+  });
+
+  it("restores the per-checkout .turbo/cache directory", () => {
+    const restore = job.steps.find(
+      (s) => /actions\/cache@/.test(s.uses ?? "") && s.with?.path === ".turbo/cache"
+    );
+    expect(restore).toBeDefined();
+  });
+
+  it("budgets the job above the measured 17-21 min passing run (20 min was a knife-edge)", () => {
+    // Measured: 10-27 and 11-01 passing runs spent 12.4-15 min in
+    // "Lint, typecheck, test" plus 3-4.5 min in the ACMM audit.
+    expect(job["timeout-minutes"]).toBeGreaterThanOrEqual(35);
+  });
+});
+
 describe("nightly-compliance.yml Lint, typecheck, test step", () => {
   const step = stepNamed("Lint, typecheck, test").run;
 
@@ -305,5 +329,15 @@ describe("nightly-compliance.yml Close superseded nightly-compliance issues step
   it("only runs when drift was actually filed this run", () => {
     expect(closeStep.if).toMatch(/steps\.drift\.outputs\.drift == 'true'/);
     expect(closeStep.if).toMatch(/steps\.file-issue\.outputs\.issue-number != ''/);
+  });
+});
+
+describe("nightly-compliance.yml concurrency (#8376)", () => {
+  it("never lets a manual dispatch cancel the scheduled run", () => {
+    // The health detector counts this workflow's `cancelled` runs as timeouts, so a
+    // superseded scheduled run must be impossible: the group is split per event.
+    const raw = readFileSync(resolve(ROOT, ".github/workflows/nightly-compliance.yml"), "utf8");
+    const group = raw.match(/^concurrency:\n(?:\s+#.*\n)*\s+group:\s*(.+)$/m)?.[1] ?? "";
+    expect(group).toContain("github.event_name");
   });
 });

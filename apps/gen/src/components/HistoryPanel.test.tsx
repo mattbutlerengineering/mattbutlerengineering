@@ -76,6 +76,12 @@ describe("HistoryPanel", () => {
     expect(screen.getByText("Loading...")).toBeDefined();
   });
 
+  // Browser audit #7463: two unlabeled <aside>s tripped axe landmark-unique.
+  it("names its complementary landmark so it is distinct from the JSON inspector", () => {
+    render(<HistoryPanel {...defaultProps} />);
+    expect(screen.getByRole("complementary", { name: "History" })).toBeDefined();
+  });
+
   it("should show 'No history yet' when empty and not loading", () => {
     render(<HistoryPanel {...defaultProps} />);
     expect(screen.getByText("No history yet")).toBeDefined();

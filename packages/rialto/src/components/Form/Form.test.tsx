@@ -1,10 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RialtoLocaleProvider } from "../../i18n/RialtoLocaleProvider";
 import { esMX } from "../../i18n/locales/es-MX";
 import { frCA } from "../../i18n/locales/fr-CA";
 import type { RialtoMessages } from "../../i18n/messages";
+import { FormField } from "../FormField/FormField";
+import { Input } from "../Input/Input";
 import { Form } from "./Form";
 import { useFormContext } from "./FormContext";
 
@@ -114,6 +116,67 @@ describe("Form", () => {
       const alert = screen.getByRole("alert");
       expect(alert).toHaveAttribute("aria-live", "assertive");
       expect(alert).toHaveTextContent("Email is required");
+    });
+
+    it("announces a field error once: the summary is the only alert, the field error stays linked", async () => {
+      const user = userEvent.setup();
+      render(
+        <Form>
+          <FormField name="email" validate={() => "Email is required"}>
+            <Input label="Email" value="" onChange={() => {}} />
+          </FormField>
+          <button type="submit">Submit</button>
+        </Form>
+      );
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+      expect(screen.getAllByRole("alert")).toHaveLength(1);
+      const email = screen.getByLabelText("Email");
+      const described = document.getElementById(email.getAttribute("aria-describedby") ?? "");
+      expect(described).toHaveTextContent("Email is required");
+      expect(described).not.toHaveAttribute("role");
+    });
+
+    it("announces a server-set field error raised before any submit", () => {
+      render(
+        <Form>
+          <Input label="Email" value="" onChange={() => {}} error hint="Email already taken" />
+        </Form>
+      );
+      const alerts = screen.getAllByRole("alert").filter((a) => a.textContent);
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0]).toHaveTextContent("Email already taken");
+    });
+
+    it("announces a server error set after a valid submit, which the summary does not carry", async () => {
+      const user = userEvent.setup();
+      function ServerError() {
+        const [message, setMessage] = useState<string | undefined>();
+        return (
+          <Form onValidSubmit={() => setMessage("Email already registered (409)")}>
+            <Input label="Email" value="" onChange={() => {}} error={!!message} hint={message} />
+            <button type="submit">Submit</button>
+          </Form>
+        );
+      }
+      render(<ServerError />);
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+      const alerts = screen.getAllByRole("alert").filter((a) => a.textContent);
+      expect(alerts).toHaveLength(1);
+      expect(alerts[0]).toHaveTextContent("Email already registered (409)");
+    });
+
+    it("lets the field announce its own error when the summary is turned off", async () => {
+      const user = userEvent.setup();
+      render(
+        <Form showErrorSummary={false}>
+          <FormField name="email" validate={() => "Email is required"}>
+            <Input label="Email" value="" onChange={() => {}} />
+          </FormField>
+          <button type="submit">Submit</button>
+        </Form>
+      );
+      await user.click(screen.getByRole("button", { name: "Submit" }));
+      expect(screen.getByRole("alert")).toHaveTextContent("Email is required");
     });
 
     it("omits the error summary entirely when showErrorSummary is false", async () => {

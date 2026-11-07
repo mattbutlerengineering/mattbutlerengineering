@@ -8,14 +8,16 @@ import {
   Stack,
   Tag,
   Text,
-  useToast,
 } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, Schedule } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { CompareServices } from "./CompareServices.js";
+import { scheduleNameText } from "./day-summary.js";
 import { buildDeleteScheduleChanges, isScheduleUnused } from "./schedule-changes.js";
 import { ScheduleEditorDrawer, type ScheduleEditorMode } from "./ScheduleEditorDrawer.js";
-import { SaveFailure, useWeekdaySummary } from "./ScheduleFormParts.js";
+import { SaveFailure, ScheduleDraftGuard, useWeekdaySummary } from "./ScheduleFormParts.js";
+import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./SchedulesTab.module.css";
 
@@ -26,9 +28,16 @@ export interface SchedulesTabProps {
   /** Today on the venue clock. */
   readonly today: string;
   readonly onStale: () => void;
+  /** Compare services has edits that are not saved; the page asks before another tab drops them. */
+  readonly onDirtyChange?: (dirty: boolean) => void;
+  /** Open with the New schedule editor showing (Create another schedule…). Read on mount. */
+  readonly startNew?: boolean;
 }
 
-/** Where a schedule applies, in words: "Mon–Thu", "Jun 1 – Sep 15, every day", or none yet. */
+/**
+ * Where a schedule applies, in words: "Mon–Thu", "Jun 1 – Sep 15, every day", the Use schedule
+ * rules that point at it, or none yet.
+ */
 function useUsageText(state: AvailabilityConfigState) {
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -36,7 +45,14 @@ function useUsageText(state: AvailabilityConfigState) {
   const day = (date: string) => format.formatCalendarDate(date, { month: "short", day: "numeric" });
   return (schedule: Schedule): string => {
     const uses = state.config.assignments.filter((a) => a.scheduleId === schedule.id);
-    if (uses.length === 0) return t("availabilitySchedules.notUsed");
+    if (uses.length === 0) {
+      const rules = state.config.dateRules.filter(
+        (r) => r.kind === "use_schedule" && r.useScheduleId === schedule.id
+      ).length;
+      return rules > 0
+        ? t("availabilitySchedules.usedByRules", { count: rules })
+        : t("availabilitySchedules.notUsed");
+    }
     return uses
       .map((a) => {
         const days = summary(a.weekdays);
@@ -60,27 +76,44 @@ function useUsageText(state: AvailabilityConfigState) {
  * and Delete (only for a schedule used nowhere), plus Compare services.
  */
 export function SchedulesTab(props: SchedulesTabProps) {
-  const { venueId, state, timezone, today, onStale } = props;
+  const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
   const { t } = useTranslation();
-  const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const usage = useUsageText(state);
   const saver = useScheduleSave(onStale);
   const [editor, setEditor] = useState<{ mode: ScheduleEditorMode; sourceId?: string } | null>(
-    null
+    props.startNew ? { mode: "new" } : null
   );
   const [comparing, setComparing] = useState(false);
+  const [compareDirty, setCompareDirty] = useState(false);
   const [deleting, setDeleting] = useState<Schedule | null>(null);
+  // Closing Compare throws away rows edited but not saved, so it asks first (as does the page).
+  const changeCompareDirty = (dirty: boolean) => {
+    setCompareDirty(dirty);
+    onDirtyChange?.(dirty);
+  };
+  const compareGuard = useDiscardGuard<void>(() => {
+    setComparing(false);
+    changeCompareDirty(false);
+  }, compareDirty);
 
   const schedules = state.config.schedules.filter((s) => !s.archivedAt);
 
   const confirmDelete = async () => {
     if (!deleting) return;
-    const ok = await saver.save(venueId, state, buildDeleteScheduleChanges(deleting.id), "replace");
-    if (ok)
-      toast({
-        variant: "success",
+    const saved = await saver.save(
+      venueId,
+      state,
+      buildDeleteScheduleChanges(deleting.id),
+      "replace"
+    );
+    if (saved) {
+      offerUndo({
+        venueId,
+        saved,
         title: t("availabilitySchedules.deleted", { name: deleting.name }),
       });
+    }
     setDeleting(null);
   };
 
@@ -91,7 +124,10 @@ export function SchedulesTab(props: SchedulesTabProps) {
           {t("availabilitySchedules.title")}
         </Heading>
         <div className={styles.actions}>
-          <Button variant="secondary" onClick={() => setComparing((open) => !open)}>
+          <Button
+            variant="secondary"
+            onClick={() => (comparing ? compareGuard.request() : setComparing(true))}
+          >
             {t("availabilitySchedules.compare.open")}
           </Button>
           <Button variant="primary" onClick={() => setEditor({ mode: "new" })}>
@@ -99,18 +135,22 @@ export function SchedulesTab(props: SchedulesTabProps) {
           </Button>
         </div>
       </div>
-      <SaveFailure messages={saver.failure} />
+      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       <ul className={styles.list}>
         {schedules.map((schedule) => {
           const unused = isScheduleUnused(state.config, schedule.id);
           const where = usage(schedule);
+          const shown = scheduleNameText(schedule.name, t);
           return (
             <li key={schedule.id} className={styles.item}>
               <div className={styles.name}>
                 <Text as="span" variant="body" color="primary">
-                  {schedule.name}
+                  {shown}
                 </Text>
-                {schedule.isRegular && <Tag>{t("availabilitySchedules.regularMarker")}</Tag>}
+                {/* A regular week still named "Regular week" says so already; the tag would repeat it. */}
+                {schedule.isRegular && shown !== t("availabilitySchedules.regularMarker") && (
+                  <Tag>{t("availabilitySchedules.regularMarker")}</Tag>
+                )}
                 <Text as="span" variant="caption" color="secondary">
                   {where}
                 </Text>
@@ -119,29 +159,36 @@ export function SchedulesTab(props: SchedulesTabProps) {
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-label={t("availabilitySchedules.editNamed", { name: shown })}
                   onClick={() => setEditor({ mode: "edit", sourceId: schedule.id })}
                 >
-                  {t("availabilitySchedules.editNamed", { name: schedule.name })}
+                  {t("availabilitySchedules.edit")}
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
+                  aria-label={t("availabilitySchedules.duplicateNamed", { name: shown })}
                   onClick={() => setEditor({ mode: "duplicate", sourceId: schedule.id })}
                 >
-                  {t("availabilitySchedules.duplicateNamed", { name: schedule.name })}
+                  {t("availabilitySchedules.duplicate")}
                 </Button>
                 {!schedule.isRegular && (
                   <DisabledTooltip
                     disabled={!unused}
-                    disabledReason={t("availabilitySchedules.deleteBlocked", { where })}
+                    disabledReason={
+                      state.config.assignments.some((a) => a.scheduleId === schedule.id)
+                        ? t("availabilitySchedules.deleteBlocked", { where })
+                        : t("availabilitySchedules.deleteBlockedRules", { where })
+                    }
                   >
                     <Button
                       variant="ghost"
                       size="sm"
                       disabled={!unused}
+                      aria-label={t("availabilitySchedules.deleteNamed", { name: shown })}
                       onClick={() => setDeleting(schedule)}
                     >
-                      {t("availabilitySchedules.deleteNamed", { name: schedule.name })}
+                      {t("availabilitySchedules.delete")}
                     </Button>
                   </DisabledTooltip>
                 )}
@@ -161,9 +208,17 @@ export function SchedulesTab(props: SchedulesTabProps) {
             timezone={timezone}
             today={today}
             onStale={onStale}
+            onDirtyChange={changeCompareDirty}
+            onEditSchedule={(sourceId) => setEditor({ mode: "edit", sourceId })}
           />
         </section>
       )}
+      <ScheduleDraftGuard
+        dirty={compareDirty}
+        asking={compareGuard.pending !== null}
+        onDiscard={compareGuard.confirmDiscard}
+        onKeepEditing={compareGuard.keepEditing}
+      />
       {editor && (
         <ScheduleEditorDrawer
           venueId={venueId}

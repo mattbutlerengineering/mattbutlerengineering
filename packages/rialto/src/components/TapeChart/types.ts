@@ -79,6 +79,12 @@ export interface TapeChartStrings {
   reservationAriaTemplate?: (r: TapeChartReservation, fmt: TapeChartFormattedParts) => string;
   nightsLabel?: (count: number) => string;
   partySizeLabel?: (count: number) => string;
+  /**
+   * Noun after a separately formatted reservation count, capitalized
+   * ("Reservation" / "Reservations"). The stat chips and the mobile day
+   * cards both use it; the mobile card lowercases the result.
+   */
+  reservationCountLabel?: (count: number) => string;
 }
 
 export interface TapeChartMovePayload {
@@ -98,7 +104,11 @@ export interface TapeChartProps {
   /** ISO date (exclusive). */
   endDate: string;
   locale?: string;
-  /** IANA time zone (e.g. "America/Los_Angeles"). Defaults to the runtime zone. */
+  /**
+   * IANA time zone used to decide which calendar day is "today"
+   * (e.g. "America/Los_Angeles"). Defaults to the runtime zone.
+   * Day labels stay on the YYYY-MM-DD calendar day and do not shift with this zone.
+   */
   timeZone?: string;
   /** ISO 4217 code used for rate display when reservations don't carry their own. */
   currency?: string;

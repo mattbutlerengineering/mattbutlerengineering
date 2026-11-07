@@ -36,6 +36,16 @@ const row = (over: Record<string, unknown>) => ({
   ...over,
 });
 
+/** What `newestInForce` selects of an audit row. */
+const inForce = (r: ReturnType<typeof row>) => ({
+  id: r.id,
+  actorId: r.actorId,
+  at: r.at,
+  kind: r.kind,
+  summary: r.summary,
+  notifiedGuests: r.notifiedGuests,
+});
+
 describe("listAvailabilityChanges", () => {
   const query = { limit: 25, offset: 0 };
 
@@ -83,7 +93,7 @@ describe("listAvailabilityChanges", () => {
       availabilityChange: {
         findMany,
         count: vi.fn(async () => 7),
-        findFirst: vi.fn(async () => ({ id: "chg-3" })),
+        findFirst: vi.fn(async () => inForce(newest)),
       },
     });
 
@@ -99,6 +109,13 @@ describe("listAvailabilityChanges", () => {
     expect(page).toEqual({
       total: 7,
       offset: 4,
+      undoable: {
+        id: "chg-3",
+        actorId: "auth0|ana",
+        at: "2026-10-25T18:30:00.000Z",
+        kind: "config",
+        summary: "Availability updated: 0 added, 1 changed, 0 removed",
+      },
       items: [
         expect.objectContaining({
           id: "chg-3",
@@ -112,6 +129,69 @@ describe("listAvailabilityChanges", () => {
     });
   });
 
+  it("carries each row's code and data, on the entry and on the undoable change", async () => {
+    const detail = { code: "tonight_ended" };
+    const saved = row({ id: "save", kind: "tonight_end", summaryDetail: detail });
+    const page = await listAvailabilityChanges(
+      "venue-1",
+      { limit: 2, offset: 0 },
+      fakeClient({
+        venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+        availabilityChange: {
+          findMany: vi.fn(async () => [saved, row({ id: "old" })]),
+          count: vi.fn(async () => 2),
+          findFirst: vi.fn(async () => ({ ...inForce(saved), summaryDetail: detail })),
+        },
+      })
+    );
+    expect(page?.items[0]).toMatchObject({ id: "save", detail });
+    expect(page?.items[1]).not.toHaveProperty("detail");
+    expect(page?.undoable).toMatchObject({ id: "save", detail });
+  });
+
+  it("names the undoable change even when the page holds another, and none when it told guests (#8120)", async () => {
+    const page = (inForceRow: Record<string, unknown> | null) =>
+      listAvailabilityChanges(
+        "venue-1",
+        { limit: 1, offset: 0 },
+        fakeClient({
+          venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+          availabilityChange: {
+            // The page's one row is the save; the change Undo is on is the older-stamped reopen.
+            findMany: vi.fn(async () => [row({ id: "save" })]),
+            count: vi.fn(async () => 2),
+            findFirst: vi.fn(async () => inForceRow),
+          },
+        })
+      );
+
+    const reopen = row({ id: "reopen", kind: "reopen", summary: "Closure reopened (2026-12-24)" });
+    expect((await page(inForce(reopen)))?.undoable).toMatchObject({ id: "reopen", kind: "reopen" });
+    expect((await page(inForce(reopen)))?.items[0]?.revertible).toBe(false);
+    expect((await page(inForce({ ...reopen, notifiedGuests: true })))?.undoable).toBeNull();
+    expect((await page(null))?.undoable).toBeNull();
+  });
+
+  it("picks the change Undo is offered on by the version it produced, rows without one after, by time", async () => {
+    const findFirst = vi.fn(async () => null);
+    const client = fakeClient({
+      venue: { findUnique: vi.fn(async () => ({ id: "venue-1", ianaTimezone: TZ })) },
+      availabilityChange: {
+        findMany: vi.fn(async () => []),
+        count: vi.fn(async () => 0),
+        findFirst,
+      },
+    });
+
+    await listAvailabilityChanges("venue-1", { limit: 25, offset: 0 }, client);
+
+    expect(findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ version: { sort: "desc", nulls: "last" } }, { at: "desc" }, { id: "desc" }],
+      })
+    );
+  });
+
   it("never offers Revert on a change that told guests, was reverted, or is itself a revert", async () => {
     const rows = [
       row({ id: "a", notifiedGuests: true }),
@@ -123,7 +203,7 @@ describe("listAvailabilityChanges", () => {
       availabilityChange: {
         findMany: vi.fn(async () => rows),
         count: vi.fn(async () => 3),
-        findFirst: vi.fn(async () => ({ id: "a" })),
+        findFirst: vi.fn(async () => inForce(rows[0]!)),
       },
     });
 
@@ -260,6 +340,8 @@ const CURRENT_SERVICE = {
   closesAt: 1320,
   seating: { version: 1, interval: 15 },
   bookingTypes: ["online", "phone"],
+  weekdays: [],
+  dayHours: { version: 1 as const, sets: [] },
 };
 const PRIOR_SERVICE = { ...CURRENT_SERVICE, opensAt: 1020 };
 
@@ -367,6 +449,26 @@ describe("revertAvailabilityChange", () => {
     );
   });
 
+  it("marks the revert's code when the undone change had one, and writes none when it had none", async () => {
+    const detail = { code: "config_saved", added: 0, changed: 1, removed: 0 };
+    const withDetail = revertingTx({
+      change: row({ id: "chg-5", inverse: inverse(), summaryDetail: detail }),
+    });
+    await revertAvailabilityChange({ ...request, expectedVersion: 5 }, fakeClient(withDetail));
+    expect(withDetail.availabilityChange.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ summaryDetail: { ...detail, reverted: true } }),
+      })
+    );
+
+    const without = revertingTx({});
+    await revertAvailabilityChange({ ...request, expectedVersion: 5 }, fakeClient(without));
+    const data = (
+      without.availabilityChange.create.mock.calls[0] as unknown as [{ data: object }]
+    )[0].data;
+    expect(data).not.toHaveProperty("summaryDetail");
+  });
+
   it("applies the inverse as a new save and links the original to it", async () => {
     const tx = revertingTx({});
 
@@ -404,8 +506,87 @@ describe("revertAvailabilityChange", () => {
     });
   });
 
+  describe("on a varied week", () => {
+    const FRIDAY_LATE = {
+      weekdays: [5],
+      opensAt: 1080,
+      lastSeatingAt: 1320,
+      closesAt: 1440,
+      seating: { version: 1, interval: 15 },
+      bookingTypes: ["online", "phone"],
+    };
+    const VARIED = {
+      ...CURRENT_SERVICE,
+      weekdays: [1, 2, 3, 4],
+      dayHours: { version: 1 as const, sets: [FRIDAY_LATE] },
+    };
+    const restoring = (prior: Record<string, unknown>) =>
+      inverse({
+        restore: { ...inverse().restore, scheduleServices: [prior] },
+      });
+
+    it("restores the prior rows including their day scope", async () => {
+      // Undoing a save that made the week uniform puts the varied rows back.
+      const tx = revertingTx({
+        change: row({ id: "chg-5", inverse: restoring(VARIED) }),
+      });
+
+      const outcome = await revertAvailabilityChange(
+        { ...request, expectedVersion: 5 },
+        fakeClient(tx)
+      );
+
+      expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
+      expect(tx.scheduleService.update).toHaveBeenCalledWith({
+        where: { id: "ss-1" },
+        data: expect.objectContaining({
+          weekdays: [1, 2, 3, 4],
+          dayHours: { version: 1, sets: [FRIDAY_LATE] },
+        }),
+      });
+    });
+
+    it("undoes a varied-week save back to the uniform row", async () => {
+      const tx = revertingTx({ service: VARIED });
+
+      await revertAvailabilityChange({ ...request, expectedVersion: 5 }, fakeClient(tx));
+
+      expect(tx.scheduleService.update).toHaveBeenCalledWith({
+        where: { id: "ss-1" },
+        data: expect.objectContaining({
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
+        }),
+      });
+    });
+
+    it("restores and parses an entry saved before the day scope (an inverse without the two fields)", async () => {
+      const { weekdays: _w, dayHours: _d, ...oldRow } = PRIOR_SERVICE;
+      const tx = revertingTx({
+        service: VARIED,
+        change: row({ id: "chg-5", inverse: restoring(oldRow) }),
+      });
+
+      const outcome = await revertAvailabilityChange(
+        { ...request, expectedVersion: 5 },
+        fakeClient(tx)
+      );
+
+      expect(outcome).toEqual({ kind: "saved", version: 6, changeId: "chg-6" });
+      expect(tx.scheduleService.update).toHaveBeenCalledWith({
+        where: { id: "ss-1" },
+        data: expect.objectContaining({
+          opensAt: 1020,
+          weekdays: [],
+          dayHours: { version: 1, sets: [] },
+        }),
+      });
+    });
+  });
+
   it("answers a stale version with the change that won, touching nothing", async () => {
     const tx = revertingTx({ cas: 0 });
+    (tx.availabilityChange as Record<string, unknown>)["findMany"] = vi.fn(async () => []);
     tx.availabilityChange.findFirst = vi.fn(async () => ({
       id: "chg-9",
       actorId: "auth0|ana",

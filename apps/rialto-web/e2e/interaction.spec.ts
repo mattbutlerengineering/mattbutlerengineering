@@ -1,4 +1,5 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 
 test.beforeEach(async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
@@ -52,6 +53,119 @@ test("Select page — opening a select shows options", async ({ page }) => {
   await trigger.click();
   const listbox = page.getByRole("listbox");
   await expect(listbox).toBeVisible();
+});
+
+async function consent(page: Page) {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      "rialto-cookie-consent",
+      JSON.stringify({
+        consented: true,
+        preferences: { essential: true, analytics: true, functional: true, marketing: true },
+      })
+    );
+  });
+}
+
+test("Select page — Tyre Compound and Race Strategy keep the picked option", async ({ page }) => {
+  await consent(page);
+  await page.goto("components/select");
+  await page.waitForLoadState("networkidle");
+
+  const tyre = page.getByRole("combobox", { name: "Tyre Compound" });
+  await tyre.click();
+  await page.getByRole("option", { name: "Medium (C3)" }).click();
+  await expect(tyre).toContainText("Medium (C3)");
+
+  await tyre.focus();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(tyre).toContainText("Hard (C1)");
+
+  const starting = page.getByRole("combobox", { name: "Starting tyre" });
+  const pit = page.getByRole("combobox", { name: "Pit window" });
+  await starting.click();
+  await page.getByRole("option", { name: "Hard (C1)" }).click();
+  await pit.click();
+  await page.getByRole("option", { name: "Lap 20–25" }).click();
+  await expect(starting).toContainText("Hard (C1)");
+  await expect(pit).toContainText("Lap 20–25");
+
+  await page.getByRole("button", { name: "Reset" }).click();
+  await expect(starting).toContainText("Select compound…");
+  await expect(pit).toContainText("Select lap…");
+  await expect(tyre).toContainText("Hard (C1)");
+});
+
+test("Number input page — pit strategy steps inside its bounds and Reset restores defaults", async ({
+  page,
+}) => {
+  await consent(page);
+  await page.goto("components/number-input");
+  await page.waitForLoadState("networkidle");
+
+  const target = page.getByLabel("Target Lap");
+  const fuel = page.getByLabel("Fuel Load (kg)");
+  await expect(target).toHaveValue("14");
+  await expect(fuel).toHaveValue("45");
+
+  await target.locator("xpath=..").getByRole("button", { name: "Increase" }).click();
+  await expect(target).toHaveValue("15");
+  await target.focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(target).toHaveValue("16");
+
+  await fuel.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(fuel).toHaveValue("44.5");
+
+  await page.getByRole("button", { name: "Reset" }).click();
+  await expect(target).toHaveValue("14");
+  await expect(fuel).toHaveValue("45");
+
+  await page.getByLabel("Lap Count").focus();
+  await page.keyboard.press("ArrowUp");
+  await expect(page.getByLabel("Lap Count")).toHaveValue("6");
+});
+
+async function glyphIsVisible(page: Page, name: string) {
+  const button = page.getByRole("button", { name, exact: true });
+  const svg = button.locator("svg");
+  const box = await svg.boundingBox();
+  expect(box).not.toBeNull();
+  expect(box!.width).toBeGreaterThan(8);
+  expect(box!.height).toBeGreaterThan(8);
+
+  const paint = await svg.evaluate((el) => {
+    const path = el.querySelector("path, line, polyline, circle");
+    const stroke = path ? getComputedStyle(path).stroke : "";
+    const background = getComputedStyle(el.closest("button")!).backgroundColor;
+    return { stroke, background };
+  });
+  expect(paint.stroke).not.toBe("none");
+  expect(paint.stroke).not.toBe("rgba(0, 0, 0, 0)");
+  expect(paint.stroke.replace(/\s/g, "")).not.toBe(paint.background.replace(/\s/g, ""));
+}
+
+test("Tooltip page — icon triggers paint a glyph in light and dark", async ({ page }) => {
+  await consent(page);
+
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ reducedMotion: "reduce", colorScheme: scheme });
+    await page.goto("components/tooltip");
+    await page.waitForLoadState("networkidle");
+    await expect(page.locator("html")).toHaveAttribute("data-theme", scheme);
+
+    for (const name of ["Upload", "Download", "Delete"]) {
+      await glyphIsVisible(page, name);
+    }
+
+    const upload = page.getByRole("button", { name: "Upload", exact: true });
+    await upload.hover();
+    await expect(page.getByRole("tooltip")).toContainText("Upload telemetry");
+    await upload.blur();
+  }
 });
 
 test("Checkbox page — checking a checkbox toggles its state", async ({ page }) => {
@@ -108,4 +222,77 @@ test("TapeChart page — each Overlaps chart reports its own rule", async ({ pag
   await classifiedChart.getByRole("button", { name: /Oscar Delacroix/ }).click();
   await expect(classifiedCard).toContainText("Shared occupancy");
   await expect(defaultCard).toContainText("Double-booked");
+});
+
+/* ── Dialog: scrolling body, nested popover, short viewports (#7994 review) ── */
+
+test.describe("Dialog layout", () => {
+  const openDialog = async (page: Page, trigger: string) => {
+    await page.goto("components/dialog");
+    await page.waitForLoadState("networkidle");
+    await page.getByRole("button", { name: trigger }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    return dialog;
+  };
+
+  test("a long body scrolls from the keyboard and passes axe scrollable-region-focusable", async ({
+    page,
+  }) => {
+    const dialog = await openDialog(page, "Long Content Dialog");
+    const body = dialog.getByRole("region", { name: "Scrollable content" });
+    expect(await body.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(true);
+
+    const { violations } = await new AxeBuilder({ page })
+      .include('[role="dialog"]')
+      .withRules(["scrollable-region-focusable"])
+      .analyze();
+    expect(violations).toEqual([]);
+
+    // Initial focus stays on the first action, not the scroller; one Shift+Tab
+    // reaches the body, where PageDown scrolls it.
+    await expect(dialog.getByRole("button", { name: "Dismiss" })).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(body).toBeFocused();
+    await page.keyboard.press("PageDown");
+    await expect.poll(() => body.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+  });
+
+  test("a dialog that fits adds no tab stop", async ({ page }) => {
+    const dialog = await openDialog(page, "Open Dialog");
+    await expect(dialog.locator('[tabindex="0"]')).toHaveCount(0);
+  });
+
+  test("a DatePicker day grid is fully visible when opened inside a dialog", async ({ page }) => {
+    const dialog = await openDialog(page, "Session Settings");
+    await dialog.getByLabel("Session Date").click();
+    const grid = page.getByRole("dialog", { name: "Popover" }).getByRole("grid");
+    await expect(grid).toBeVisible();
+    // Not clipped by the dialog body: first and last day cells are fully in the
+    // viewport, and the popover is lifted out of the dialog's scroller.
+    await expect(grid.getByRole("gridcell").first()).toBeInViewport({ ratio: 1 });
+    await expect(grid.getByRole("gridcell").last()).toBeInViewport({ ratio: 1 });
+    expect(await grid.evaluate((el) => el.closest('[role="dialog"] [role="region"]'))).toBeNull();
+  });
+
+  test("footer actions stay reachable at the 320x256 reflow size", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 256 });
+    const dialog = await openDialog(page, "Open Dialog");
+    await expect(dialog.getByRole("button", { name: "Confirm" })).toBeInViewport({ ratio: 1 });
+    await expect(dialog.getByRole("button", { name: "Close dialog" })).toBeInViewport({
+      ratio: 1,
+    });
+  });
+
+  test("a very long description scrolls and keeps the footer in view on a phone", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    const dialog = await openDialog(page, "Open Dialog");
+    await dialog.evaluate((el) => {
+      const p = el.querySelector("p");
+      if (p) p.textContent = "A long sentence about what happens next. ".repeat(60);
+    });
+    await expect(dialog.getByRole("button", { name: "Confirm" })).toBeInViewport({ ratio: 1 });
+  });
 });

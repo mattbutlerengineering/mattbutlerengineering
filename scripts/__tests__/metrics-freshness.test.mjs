@@ -22,6 +22,7 @@ import {
   FRESHNESS_POLICY,
   classifyFreshness,
   assessFreshness,
+  readWatched,
   assessQueueTelemetryCompleteness,
   freshnessFindings,
   freshnessRegressions,
@@ -45,6 +46,7 @@ const FRESH_ROWS = [
     categories: {},
   },
   { date: "2026-09-20", sensor: "sdlcSpeed", available: true },
+  { generatedAt: new Date(NOW.getTime()).toISOString(), features: [{ slug: "x" }] },
 ];
 
 const SDLC_ROW = { date: "2026-09-20", sensor: "sdlcSpeed", available: true };
@@ -133,13 +135,14 @@ describe("FRESHNESS_POLICY", () => {
       "process-metrics", // sdlcSpeed (#6654)
       "queue-telemetry",
       "review-burden",
+      "shipped-features", // weekly snapshot file, #8204
     ]);
   });
 
   it("names only metrics the metrics-store registry actually knows", () => {
     // A typo'd logical name would make read() throw -> "unreadable" -> still
     // a finding (fail-closed), but it would report the wrong reason forever.
-    for (const entry of FRESHNESS_POLICY) {
+    for (const entry of FRESHNESS_POLICY.filter((p) => !p.sourceFile)) {
       expect(METRICS[entry.metric], `${entry.metric} must be a registered metric`).toBeDefined();
     }
   });
@@ -159,7 +162,12 @@ describe("FRESHNESS_POLICY", () => {
       // sdlcSpeed is weekly (two missed runs = 14); lighthouse and mutation-score
       // are weekly behind a PR that can sit (three missed runs = 21, #7581);
       // every other entry is daily.
-      const weekly = { sdlcSpeed: 14, lighthouse: 21, "mutation-score": 21 };
+      const weekly = {
+        sdlcSpeed: 14,
+        lighthouse: 21,
+        "mutation-score": 21,
+        "shipped-features": 14,
+      };
       expect(entry.maxAgeDays).toBeLessThanOrEqual(weekly[entry.label ?? entry.metric] ?? 7);
     }
   });
@@ -462,6 +470,8 @@ describe("queueEfficiency + ai-issue-feedback policy (#6312)", () => {
         if (metric === "process-metrics") return [...queue, SDLC_ROW];
         if (metric === "ai-issue-feedback") return feedback;
         if (metric === "queue-telemetry") return [{ claimed_at: daysAgo(0) }];
+        if (metric === "shipped-features")
+          return { generatedAt: daysAgo(0), features: [{ slug: "a" }] };
         return [{ timestamp: daysAgo(0), date: daysAgo(0).slice(0, 10) }];
       },
       now: NOW,
@@ -587,5 +597,38 @@ describe("assessQueueTelemetryCompleteness", () => {
       now: NOW,
     });
     expect(results[0].state).toBe("unreadable");
+  });
+});
+
+describe("shipped-features snapshot policy entry (#8204)", () => {
+  const entry = FRESHNESS_POLICY.find((p) => p.metric === "shipped-features");
+  const assess = (snapshot) =>
+    assessFreshness({ readMetric: () => snapshot, now: NOW, policy: [entry] })[0];
+
+  it("watches the marketing snapshot's generatedAt", () => {
+    expect(entry.sourceFile).toBe("apps/marketing/src/data/shipped-features.json");
+    expect(entry.timestampField).toBe("generatedAt");
+  });
+
+  it("is fresh for a recent, non-empty snapshot", () => {
+    expect(assess({ generatedAt: daysAgo(3), features: [{ slug: "a" }] }).state).toBe("fresh");
+  });
+
+  it("is stale once a snapshot is older than two weekly runs", () => {
+    const result = assess({ generatedAt: daysAgo(18), features: [{ slug: "a" }] });
+    expect(result.state).toBe("stale");
+    expect(freshnessExitCode([result])).toBe(1);
+  });
+
+  it("fails closed on a missing file, an empty feature list, and an unparseable date", () => {
+    expect(assess(null).state).toBe("empty");
+    expect(assess({ generatedAt: daysAgo(1), features: [] }).state).toBe("unhealthy");
+    expect(assess({ generatedAt: "nope", features: [{ slug: "a" }] }).state).toBe("undated");
+  });
+
+  it("reads the real file through readWatched, and a missing file as null", () => {
+    expect(readWatched("shipped-features", { root: "/nonexistent-root" })).toBeNull();
+    const real = readWatched("shipped-features");
+    expect(typeof real.generatedAt).toBe("string");
   });
 });

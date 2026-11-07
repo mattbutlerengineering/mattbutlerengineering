@@ -1,4 +1,4 @@
-import type { ConfirmHoldRequest, Reservation } from "@mbe/types";
+import type { ConfirmHoldRequest, GuestNoticeLocale, Reservation } from "@mbe/types";
 import type { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import type { GateRejection } from "./assert-bookable.js";
@@ -27,6 +27,18 @@ export interface ConfirmHoldInput {
    * Checked in the same lookup as the session id, before any write.
    */
   venueId?: string;
+  /**
+   * The host the guest booked on (e.g. "eat-sheet.com"), resolved by the
+   * calling public route from the request's Origin header (#7892). Stored on
+   * the reservation so later guest emails brand by it. Undefined/null for
+   * non-public confirm paths or an unrecognized origin.
+   */
+  originHost?: string | null;
+  /**
+   * The guest's language, a supported notice locale resolved by the public route from the
+   * booking widget's locale. Closure notices are written in it; omitted keeps the column's en-US.
+   */
+  locale?: GuestNoticeLocale;
   /** Who confirmed; recorded on the `created` event. Defaults to {@link SYSTEM_ACTOR}. */
   actor?: ReservationEventActor;
   /**
@@ -127,6 +139,10 @@ export async function confirmHold(input: ConfirmHoldInput): Promise<ConfirmHoldR
           userId: userId ?? null,
           // Ownership proof for the public deposit route (#6304).
           originSessionId: hold.sessionId,
+          // The host the guest booked on (#7892); null for non-public confirm
+          // paths or an unrecognized origin.
+          originHost: input.originHost ?? null,
+          ...(input.locale ? { locale: input.locale } : {}),
           status: "CONFIRMED",
         },
         include: {

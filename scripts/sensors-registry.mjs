@@ -35,10 +35,18 @@ import {
   QUEUE_EFFICIENCY_COMPOSITE_DROP,
   QUEUE_EFFICIENCY_FPS_DROP,
   QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE,
+  QUEUE_EFFICIENCY_REVIEW_COVERAGE_TREND_DROP,
+  REVIEW_COVERAGE_TREND_WINDOW,
+  buildReviewCoverageTrail,
   readMergedAiPrsPaged,
 } from "./collect-queue-efficiency.mjs";
 import { read, lastEntry } from "./metrics-store.mjs";
-import { assessFreshness, freshnessFindings, freshnessRegressions } from "./metrics-freshness.mjs";
+import {
+  assessFreshness,
+  readWatched,
+  freshnessFindings,
+  freshnessRegressions,
+} from "./metrics-freshness.mjs";
 import { describeGhError, listRunArtifacts, downloadArtifactZip } from "@mbe/gh-client";
 import { extractZipEntries } from "./extract-zip-entries.mjs";
 import { parseJUnitXml } from "./parse-junit-xml.mjs";
@@ -428,7 +436,10 @@ export const SENSORS = [
     id: "metricsFreshness",
     category: "quality",
     collect: ({ root, now = new Date() }) => {
-      const results = assessFreshness({ readMetric: (metric) => read(metric, { root }), now });
+      const results = assessFreshness({
+        readMetric: (metric) => readWatched(metric, { root }),
+        now,
+      });
       return {
         // Always available: the check can always answer, even (especially)
         // when every file it watches is missing.
@@ -1051,8 +1062,23 @@ export const SENSORS = [
         "Queue efficiency verification: re-run sensor-report with --json and inspect queueEfficiency.composite vs baseline",
       confidence: "low",
     }),
-    collect: ({ ghClient, now }) =>
-      collectQueueEfficiency(() => readQueueEfficiencyPrs(ghClient, now), undefined, now),
+    collect: ({ ghClient, now, root }) => {
+      const data = collectQueueEfficiency(
+        () => readQueueEfficiencyPrs(ghClient, now),
+        undefined,
+        now
+      );
+      if (!data?.available || !data.sub_metrics) return data;
+      // #8184: carry the trailing review_coverage readings so the detector can
+      // see a sustained decline the blended composite hides.
+      const rows = safe(() => read("process-metrics", { root }));
+      const trail = buildReviewCoverageTrail(
+        rows,
+        data.sub_metrics,
+        (now ?? new Date()).toISOString().slice(0, 10)
+      );
+      return { ...data, sub_metrics: { ...data.sub_metrics, review_coverage_trail: trail } };
+    },
     format: (data, name) => {
       const baselineStr =
         data.baseline != null
@@ -1068,6 +1094,7 @@ export const SENSORS = [
     thresholds: {
       queue_efficiency_composite_drop: QUEUE_EFFICIENCY_COMPOSITE_DROP,
       queue_efficiency_fps_drop: QUEUE_EFFICIENCY_FPS_DROP,
+      queue_efficiency_review_coverage_trend_drop: QUEUE_EFFICIENCY_REVIEW_COVERAGE_TREND_DROP,
     },
     detectRegression: (current, previous, thresholds) => {
       if (!current?.available) return [];
@@ -1105,6 +1132,29 @@ export const SENSORS = [
             previous: previous.composite,
             delta: Math.round(delta * 1000) / 1000,
             severity: delta < -0.15 ? "high" : "medium",
+          });
+        }
+      }
+      // #8184: a sustained review_coverage decline moves the composite too little
+      // to trip the check above (0.286 -> 0.167 over 3 days: composite 0.918 -> 0.910).
+      const trail = current.sub_metrics?.review_coverage_trail ?? [];
+      const window = trail.slice(-REVIEW_COVERAGE_TREND_WINDOW);
+      if (
+        window.length === REVIEW_COVERAGE_TREND_WINDOW &&
+        window.every((p) => (p?.n ?? 0) >= QUEUE_EFFICIENCY_MIN_SAMPLE_SIZE) &&
+        window.every((p, i) => i === 0 || p.value < window[i - 1].value)
+      ) {
+        const first = window[0].value;
+        const last = window[window.length - 1].value;
+        const delta = last - first;
+        if (delta <= -thresholds.queue_efficiency_review_coverage_trend_drop) {
+          regressions.push({
+            sensor: "queueEfficiency",
+            metric: "review_coverage_trend",
+            current: last,
+            previous: first,
+            delta: Math.round(delta * 1000) / 1000,
+            severity: delta <= -0.2 ? "high" : "medium",
           });
         }
       }

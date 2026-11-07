@@ -200,3 +200,22 @@ Owner answered:
    "Defer to seed." Ship lists it as a follow-up seed tied to the existing
    `AUTOMATION_PAT` gap (docs/SECRETS.md): merge with an App/PAT token so
    push workflows run. Needs an Owner-minted secret.
+
+## Resume 2026-11-04 (Owner, live — not assumptions)
+
+- **Stage:** Operate. `release.md` records `outcome: released`,
+  `released-at: 2026-10-15` (#6680, `3e336927a`). Nothing above is changed.
+- **Minimum signal:** the count leg looked met at resume. 14 PRs authored by
+  `app/dependabot` were created after #6680 merged (2026-10-15T05:52:32Z),
+  counted with
+  `gh pr list --state all --author app/dependabot --search "created:>2026-10-15"`.
+  Operate re-counts them, measures the p90 open->merge time for the in-policy
+  ones against the ~24 h baseline, and stops if fewer than 10 exist.
+- **Merges:** the Owner said live, "you have my permission to merge any
+  prs". The retro's docs PR may therefore land through the repo's `/ship-pr`
+  boundary in this run.
+- **Where:** `.claude/worktrees/dependabot-operate`, branch
+  `docs/dependabot-auto-merge-retro` off `origin/main` `30a28963f`. The
+  § Resume 2026-10-18 worktree is not reused.
+- `users-observed` is counted by Operate from the signal it finds. This brief
+  supplies no count.

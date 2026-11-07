@@ -131,6 +131,17 @@ describe("useAuth", () => {
     expect(mockSigninSilent).toHaveBeenCalledOnce();
   });
 
+  // Consumers memoize on it (hospitality's useApiClient, #8258).
+  it("keeps signInSilent stable across renders", () => {
+    mockUseAuth.mockReturnValue(makeOIDCAuth());
+
+    const { result, rerender } = renderHook(() => useAuth());
+    const first = result.current.signInSilent;
+    rerender();
+
+    expect(result.current.signInSilent).toBe(first);
+  });
+
   it("passes an explicit returnTo through OIDC state when signIn is invoked", () => {
     mockUseAuth.mockReturnValue(makeOIDCAuth());
 
@@ -234,116 +245,13 @@ describe("useAccessToken", () => {
     expect(result.current.refreshError).toBeNull();
   });
 
-  it("does not call signinSilent at mount when expiry is far in the future", () => {
-    const oidcUser = makeOIDCUser({
-      expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour away
-    });
-    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
-
-    renderHook(() => useAccessToken());
-
-    expect(mockSigninSilent).not.toHaveBeenCalled();
-  });
-
-  it("schedules a refresh timer and calls signinSilent when crossing the refresh threshold", () => {
-    mockSigninSilent.mockResolvedValue(null);
-    const oidcUser = makeOIDCUser({
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60, // 30 minutes away
-    });
-    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
-
-    renderHook(() => useAccessToken());
-
-    // Not refreshed at mount — token is far outside the 5-minute proactive window
-    expect(mockSigninSilent).not.toHaveBeenCalled();
-
-    // Advance past the (30min - 5min) = 25min proactive threshold
-    act(() => {
-      vi.advanceTimersByTime(25 * 60 * 1000);
-    });
-
-    expect(mockSigninSilent).toHaveBeenCalledOnce();
-  });
-
-  it("refreshes immediately when already inside the 5-minute window", () => {
-    mockSigninSilent.mockResolvedValue(null);
-    const oidcUser = makeOIDCUser({
-      expires_at: Math.floor(Date.now() / 1000) + 240, // 4 minutes away — delay clamps to 0
-    });
-    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
-
-    renderHook(() => useAccessToken());
-
-    act(() => {
-      vi.advanceTimersByTime(0);
-    });
-
-    expect(mockSigninSilent).toHaveBeenCalledOnce();
-  });
-
-  it("re-arms the refresh timer when expiresAt changes and clears the previous one", () => {
-    mockSigninSilent.mockResolvedValue(null);
-    const now = Math.floor(Date.now() / 1000);
+  it("does not run its own renew timer (the library's automaticSilentRenew is the only renewer)", () => {
     mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: makeOIDCUser({ expires_at: now + 30 * 60 }) })
+      makeOIDCAuth({
+        isAuthenticated: true,
+        user: makeOIDCUser({ expires_at: Math.floor(Date.now() / 1000) + 240 }),
+      })
     );
-
-    const { rerender } = renderHook(() => useAccessToken());
-
-    // Expiry moves closer: the old 25-min timer must be cleared and a 5-min timer armed.
-    mockUseAuth.mockReturnValue(
-      makeOIDCAuth({ isAuthenticated: true, user: makeOIDCUser({ expires_at: now + 10 * 60 }) })
-    );
-    act(() => {
-      rerender();
-    });
-
-    // Advancing past both thresholds fires exactly once — the stale 25-min timer was cleared.
-    act(() => {
-      vi.advanceTimersByTime(25 * 60 * 1000);
-    });
-
-    expect(mockSigninSilent).toHaveBeenCalledOnce();
-  });
-
-  it("clears the refresh timer on unmount", () => {
-    mockSigninSilent.mockResolvedValue(null);
-    const oidcUser = makeOIDCUser({
-      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-    });
-    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
-
-    const { unmount } = renderHook(() => useAccessToken());
-    unmount();
-
-    act(() => {
-      vi.advanceTimersByTime(60 * 60 * 1000);
-    });
-
-    expect(mockSigninSilent).not.toHaveBeenCalled();
-  });
-
-  it("surfaces the refresh error via refreshError when signinSilent rejects", async () => {
-    const error = new Error("refresh failed");
-    mockSigninSilent.mockRejectedValue(error);
-    const oidcUser = makeOIDCUser({
-      expires_at: Math.floor(Date.now() / 1000) + 240,
-    });
-    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
-
-    const { result } = renderHook(() => useAccessToken());
-
-    await act(async () => {
-      await vi.runAllTimersAsync();
-    });
-
-    expect(mockSigninSilent).toHaveBeenCalledOnce();
-    expect(result.current.refreshError).toBe(error);
-  });
-
-  it("does not schedule a refresh when expiresAt is undefined", () => {
-    const oidcUser = makeOIDCUser({ expires_at: undefined });
-    mockUseAuth.mockReturnValue(makeOIDCAuth({ isAuthenticated: true, user: oidcUser }));
 
     renderHook(() => useAccessToken());
 

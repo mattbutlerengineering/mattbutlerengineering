@@ -18,6 +18,8 @@ const CONFIG: AvailabilityConfig = {
       closesAt: 1320,
       seating: { version: 1, interval: 15 },
       bookingTypes: ["online", "phone"],
+      weekdays: [],
+      dayHours: { version: 1 as const, sets: [] },
     },
   ],
   assignments: [
@@ -49,6 +51,25 @@ describe("findStrandedReservations", () => {
 
     expect(stranded).toEqual([
       { id: "res-1", startTime: "2026-11-07T03:00:00.000Z", partySize: 2, reason: "closed" },
+    ]);
+  });
+
+  it("names the guest and the service date, so a refusal can list and link each booking", () => {
+    const stranded = findStrandedReservations(
+      { timezone: TZ, config: CONFIG },
+      { timezone: TZ, config: closedOn("2026-11-06") },
+      [{ ...BOOKING, guestName: "Okafor", date: new Date("2026-11-06T00:00:00.000Z") }]
+    );
+
+    expect(stranded).toEqual([
+      {
+        id: "res-1",
+        startTime: "2026-11-07T03:00:00.000Z",
+        partySize: 2,
+        reason: "closed",
+        guestName: "Okafor",
+        serviceDate: "2026-11-06",
+      },
     ]);
   });
 
@@ -144,6 +165,30 @@ describe("summarizeDay", () => {
         },
       ],
     });
+  });
+
+  it("names the service a service closure is for, so a client can tell which one it closes", () => {
+    const config: AvailabilityConfig = {
+      ...CONFIG,
+      dateRules: [
+        {
+          id: "dr-s",
+          kind: "closure",
+          targetKind: "service",
+          venueServiceId: "vs-dinner",
+          startsOn: "2026-11-06",
+          endsOn: "2026-11-06",
+        },
+      ],
+    };
+    const day = resolveDay({ timezone: TZ, config }, "2026-11-06");
+    expect(summarizeDay(config, day).closures).toEqual([
+      expect.objectContaining({
+        ruleId: "dr-s",
+        targetKind: "service",
+        venueServiceId: "vs-dinner",
+      }),
+    ]);
   });
 
   it("labels a whole-day closure Closed, keeps its band and returns no services", () => {

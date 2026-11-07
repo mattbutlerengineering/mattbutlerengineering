@@ -22,22 +22,28 @@ describe("validateSettings", () => {
     expect(errors.defaultReservationDuration).toBe("Duration must be a positive number");
   });
 
-  it("rejects a non-positive max party size", () => {
-    const errors = validateSettings({
-      defaultReservationDuration: "",
-      maxPartySize: "0",
-      advanceBookingDays: "",
-    });
-    expect(errors.maxPartySize).toBe("Party size must be a positive number");
+  it("refuses what Booking rules refuses: a party of 0 or 2.5, a fraction or 731 days", () => {
+    const party = (maxPartySize: string) =>
+      validateSettings({ defaultReservationDuration: "", maxPartySize, advanceBookingDays: "" })
+        .maxPartySize;
+    const days = (advanceBookingDays: string) =>
+      validateSettings({ defaultReservationDuration: "", maxPartySize: "", advanceBookingDays })
+        .advanceBookingDays;
+    expect(party("0")).toBe("Use a whole number from 1 to 100.");
+    expect(party("2.5")).toBe("Use a whole number from 1 to 100.");
+    expect(party("101")).toBe("Use a whole number from 1 to 100.");
+    expect(days("abc")).toBe("Use a whole number of days from 0 to 730.");
+    expect(days("1.5")).toBe("Use a whole number of days from 0 to 730.");
+    expect(days("731")).toBe("Use a whole number of days from 0 to 730.");
   });
 
-  it("rejects a non-positive advance booking window", () => {
+  it("accepts 0 days ahead, as Booking rules does: guests book today only", () => {
     const errors = validateSettings({
       defaultReservationDuration: "",
       maxPartySize: "",
-      advanceBookingDays: "abc",
+      advanceBookingDays: "0",
     });
-    expect(errors.advanceBookingDays).toBe("Advance days must be a positive number");
+    expect(errors).toEqual({});
   });
 
   it("returns no errors for valid positive values", () => {
@@ -64,10 +70,10 @@ describe("SettingsStep", () => {
     expect(screen.getByLabelText(/Default Reservation Duration/i)).toHaveValue(
       Number(RECOMMENDED_SETTINGS.defaultReservationDuration)
     );
-    expect(screen.getByLabelText(/Maximum Party Size/i)).toHaveValue(
+    expect(screen.getByLabelText(/Largest party online/i)).toHaveValue(
       Number(RECOMMENDED_SETTINGS.maxPartySize)
     );
-    expect(screen.getByLabelText(/Advance Booking Window/i)).toHaveValue(
+    expect(screen.getByLabelText(/How far ahead guests can book/i)).toHaveValue(
       Number(RECOMMENDED_SETTINGS.advanceBookingDays)
     );
   });
@@ -101,7 +107,7 @@ describe("SettingsStep", () => {
       />
     );
 
-    const maxPartyInput = screen.getByLabelText(/Maximum Party Size/i);
+    const maxPartyInput = screen.getByLabelText(/Largest party online/i);
     fireEvent.change(maxPartyInput, { target: { value: "4" } });
 
     expect(onChange).toHaveBeenLastCalledWith({

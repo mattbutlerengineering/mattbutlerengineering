@@ -23,6 +23,12 @@ import {
 } from "../components/venue-onboarding/floor-plan-draft.js";
 import { draftFromTemplate } from "../components/venue-onboarding/floor-plan-templates.js";
 import { INITIAL_LAUNCH_PROGRESS } from "../components/venue-onboarding/launch-sequence.js";
+import { emptyDraft } from "../components/availability/quick-setup-draft.js";
+
+// LaunchStep's Guest preview reads no tables in the wizard (no venue yet); keep the hook inert.
+vi.mock("../hooks/useTables.js", () => ({
+  useTables: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+}));
 
 // The step's canvas draws the chosen room's zones (#7256), and SectionZone
 // reaches for Konva primitives (Label/Tag) and a texture loader this suite has
@@ -209,7 +215,7 @@ describe.each(CASES)("venue onboarding wizard in $tag", (c) => {
         <LaunchStep
           basicInfo={{ name: "Casa", slug: "casa", venueGroupId: "" }}
           locationTime={{ ianaTimezone: "America/Mexico_City", currencyCode: "MXN" }}
-          operatingHours={{}}
+          hoursDraft={emptyDraft("s1")}
           settings={RECOMMENDED_SETTINGS}
           onLaunch={async () => undefined}
           onCelebrationDone={noop}

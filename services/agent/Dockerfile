@@ -15,6 +15,7 @@ COPY patches ./patches
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
 COPY packages/auth/package.json ./packages/auth/
+COPY packages/availability/package.json ./packages/availability/
 COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/agent-core/package.json ./packages/agent-core/
 COPY packages/rialto/package.json ./packages/rialto/
@@ -35,6 +36,7 @@ RUN pnpm install --frozen-lockfile --ignore-scripts
 COPY packages/types/tsconfig.json ./packages/types/
 COPY packages/config/typescript ./packages/config/typescript
 COPY packages/auth/tsconfig.json ./packages/auth/
+COPY packages/availability/tsconfig.json ./packages/availability/
 COPY packages/api-client/tsconfig.json ./packages/api-client/
 COPY packages/agent-core/tsconfig.json ./packages/agent-core/
 COPY packages/rialto/tsconfig.json packages/rialto/tsconfig.lib.json ./packages/rialto/
@@ -50,6 +52,7 @@ COPY services/agent/prisma ./services/agent/prisma
 # Copy source code (most frequently changing layer — last)
 COPY packages/types/src ./packages/types/src
 COPY packages/auth/src ./packages/auth/src
+COPY packages/availability/src ./packages/availability/src
 COPY packages/api-client/src ./packages/api-client/src
 COPY packages/agent-core/src ./packages/agent-core/src
 COPY packages/rialto/src ./packages/rialto/src
@@ -63,6 +66,7 @@ COPY services/agent/src ./services/agent/src
 # Build workspace packages and service in a single layer
 RUN pnpm --filter @mbe/types build && \
     pnpm --filter @mbe/auth build && \
+    pnpm --filter @mbe/availability build && \
     pnpm --filter @mbe/agent-core build && \
     pnpm --filter @mbe/api-client build && \
     pnpm --filter @mattbutlerengineering/rialto build && \
@@ -94,6 +98,7 @@ COPY patches ./patches
 COPY packages/types/package.json ./packages/types/
 COPY packages/config/package.json ./packages/config/
 COPY packages/auth/package.json ./packages/auth/
+COPY packages/availability/package.json ./packages/availability/
 COPY packages/api-client/package.json ./packages/api-client/
 COPY packages/agent-core/package.json ./packages/agent-core/
 COPY packages/rialto/package.json ./packages/rialto/
@@ -110,6 +115,7 @@ RUN pnpm install --frozen-lockfile --prod --ignore-scripts
 # Copy compiled workspace packages
 COPY --from=builder /app/packages/types/dist ./packages/types/dist
 COPY --from=builder /app/packages/auth/dist ./packages/auth/dist
+COPY --from=builder /app/packages/availability/dist ./packages/availability/dist
 COPY --from=builder /app/packages/agent-core/dist ./packages/agent-core/dist
 COPY --from=builder /app/packages/api-client/dist ./packages/api-client/dist
 COPY --from=builder /app/packages/rialto/dist ./packages/rialto/dist

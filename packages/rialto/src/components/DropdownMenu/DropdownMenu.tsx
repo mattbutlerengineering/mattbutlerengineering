@@ -3,19 +3,24 @@ import {
   useRef,
   useId,
   useCallback,
+  useContext,
   useLayoutEffect,
+  useMemo,
   forwardRef,
   cloneElement,
   type ForwardedRef,
   type ReactNode,
   type ReactElement,
 } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useReturnFocus } from "../../hooks/useReturnFocus";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
 import { useDismiss } from "../../hooks/useDismiss";
 import { usePointerActivation } from "../../hooks/usePointerActivation";
+import { useLayerFloating, placeMenu } from "../../hooks/useLayerFloating";
+import { DialogLayerContext } from "../Dialog/DialogLayerContext";
 import { cn } from "../../utils/class-composer";
 import styles from "./DropdownMenu.module.css";
 
@@ -104,6 +109,12 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  // Inside a Dialog the menu is lifted into the dialog's layer so the scrolling
+  // body cannot clip it, and placed by the trigger wrapper's viewport rect.
+  const dialogLayer = useContext(DialogLayerContext);
+  const place = useMemo(() => placeMenu(align, side), [align, side]);
+  useLayerFloating(open && dialogLayer !== null, wrapperRef, menuRef, place);
   const itemRefs = useRef<Map<number, HTMLButtonElement>>(new Map());
   const motionPreset = useMotionPreset();
   const menuId = useId();
@@ -127,7 +138,12 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
 
   useEscapeKey(close, open);
 
-  useDismiss(wrapperRef, close, { enabled: open });
+  // The menu may be portaled out of the wrapper; a press on it is still inside.
+  const isMenuPress = useCallback(
+    (e: MouseEvent) => !!menuRef.current?.contains(e.target as Node),
+    []
+  );
+  useDismiss(wrapperRef, close, { enabled: open, isInside: isMenuPress });
   const { hasPointerMoved, resetPointerMovement } = usePointerActivation(open);
 
   // Focus active item — useLayoutEffect so it fires before framer-motion
@@ -206,6 +222,74 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
     }
   }
 
+  const menu = (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          ref={menuRef}
+          className={cn(
+            styles.menu,
+            align === "right" && styles.menuRight,
+            dialogLayer && styles.floating
+          )}
+          id={menuId}
+          role="menu"
+          data-side={side}
+          aria-labelledby={triggerId}
+          onKeyDown={handleKeyDown}
+          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: slide }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: slide }}
+          transition={motionPreset.springGentle}
+        >
+          {items.map((entry, i) => {
+            if (entry.type === "divider") {
+              return <div key={`div-${i}`} className={styles.divider} role="separator" />;
+            }
+
+            if (entry.type === "label") {
+              return (
+                <div key={`label-${i}`} className={styles.label} role="presentation">
+                  {entry.label}
+                </div>
+              );
+            }
+
+            // Item
+            const item = entry as MenuItemDef;
+            return (
+              <button
+                key={item.id}
+                ref={(el) => {
+                  if (el) itemRefs.current.set(i, el);
+                  else itemRefs.current.delete(i);
+                }}
+                className={cn(styles.item, item.destructive && styles.destructive)}
+                role="menuitem"
+                disabled={item.disabled}
+                data-active={activeIndex === i}
+                tabIndex={-1}
+                onClick={() => {
+                  if (!item.disabled) {
+                    item.onSelect?.();
+                    close();
+                  }
+                }}
+                onMouseEnter={() => {
+                  if (!item.disabled && hasPointerMoved()) setActiveIndex(i);
+                }}
+              >
+                {item.icon && <span className={styles.icon}>{item.icon}</span>}
+                {item.label}
+                {item.shortcut && <span className={styles.shortcut}>{item.shortcut}</span>}
+              </button>
+            );
+          })}
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
   return (
     <div ref={mergeRefs(ref, wrapperRef)} className={styles.wrapper}>
       {/* Trigger — ARIA attributes injected onto the trigger element itself */}
@@ -235,66 +319,7 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
       </div>
 
       {/* Menu */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            className={cn(styles.menu, align === "right" && styles.menuRight)}
-            id={menuId}
-            role="menu"
-            data-side={side}
-            aria-labelledby={triggerId}
-            onKeyDown={handleKeyDown}
-            initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: slide }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.95, y: slide }}
-            transition={motionPreset.springGentle}
-          >
-            {items.map((entry, i) => {
-              if (entry.type === "divider") {
-                return <div key={`div-${i}`} className={styles.divider} role="separator" />;
-              }
-
-              if (entry.type === "label") {
-                return (
-                  <div key={`label-${i}`} className={styles.label} role="presentation">
-                    {entry.label}
-                  </div>
-                );
-              }
-
-              // Item
-              const item = entry as MenuItemDef;
-              return (
-                <button
-                  key={item.id}
-                  ref={(el) => {
-                    if (el) itemRefs.current.set(i, el);
-                    else itemRefs.current.delete(i);
-                  }}
-                  className={cn(styles.item, item.destructive && styles.destructive)}
-                  role="menuitem"
-                  disabled={item.disabled}
-                  data-active={activeIndex === i}
-                  tabIndex={-1}
-                  onClick={() => {
-                    if (!item.disabled) {
-                      item.onSelect?.();
-                      close();
-                    }
-                  }}
-                  onMouseEnter={() => {
-                    if (!item.disabled && hasPointerMoved()) setActiveIndex(i);
-                  }}
-                >
-                  {item.icon && <span className={styles.icon}>{item.icon}</span>}
-                  {item.label}
-                  {item.shortcut && <span className={styles.shortcut}>{item.shortcut}</span>}
-                </button>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {dialogLayer ? createPortal(menu, dialogLayer) : menu}
     </div>
   );
 });

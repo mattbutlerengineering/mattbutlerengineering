@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CreateClosureBody, CreateClosuresBody, DateRule } from "@mbe/types";
+import { STRANDED_ISSUE_DETAIL_MAX } from "@mbe/types";
 
 vi.mock("./database.js", () => ({ prisma: {} }));
 
@@ -64,6 +65,8 @@ interface World {
     kind: string;
     notifiedGuests: boolean;
     summary: string;
+    /** The venue version the change produced. */
+    version?: number;
   }[];
   outcomes: Record<string, unknown>[];
   events: { reservationId: string; kind: string; actorId: string }[];
@@ -99,6 +102,9 @@ interface Where {
   startTime: { lt: Date };
   endTime: { gt: Date };
   dateRuleId: string;
+  action: string;
+  /** The outcome's booking, filtered by when it starts (a notice is only worth sending ahead of it). */
+  reservation: { startTime: { gt: Date } };
   inverse: { path: string[]; equals: unknown };
 }
 
@@ -140,7 +146,14 @@ function outcomeDelegate(w: World) {
   return {
     count: vi.fn(
       async ({ where }: { where: Where }) =>
-        w.outcomes.filter((o) => o.dateRuleId === where.dateRuleId).length
+        w.outcomes.filter((o) => {
+          if (o.dateRuleId !== where.dateRuleId) return false;
+          if (where.action && o.action !== where.action) return false;
+          const after = where.reservation?.startTime.gt;
+          if (!after) return true;
+          const booking = w.reservations.find((r) => r.id === o.reservationId);
+          return booking !== undefined && booking.startTime > after;
+        }).length
     ),
     createMany: vi.fn(async ({ data }: { data: Record<string, unknown>[] }) => {
       w.outcomes = [
@@ -169,6 +182,13 @@ function changeDelegate(w: World) {
           ) ?? null
       );
     }),
+    findMany: vi.fn(async ({ where, take }: { where: { version: { gt: number } }; take: number }) =>
+      w.changes
+        .filter((c) => (c.version ?? 0) > where.version.gt)
+        .sort((a, b) => (b.version ?? 0) - (a.version ?? 0))
+        .slice(0, take)
+        .map((c) => ({ ...c, at: new Date(0) }))
+    ),
     create: vi.fn(async ({ data }: { data: World["changes"][number] }) => {
       const change = { ...data, id: `chg-${w.changes.length + 1}` };
       w.changes = [...w.changes, change];
@@ -255,6 +275,13 @@ function fakeClient(w: World) {
     table: { findMany: vi.fn(async () => [{ id: "t-1" }]) },
     reservation: reservationDelegate(w),
     reservationHold: {
+      // The impact's occupancy read: every unexpired hold on the tables asked about.
+      findMany: vi.fn(
+        async ({ where }: { where: { tableId: { in: string[] }; expiresAt: { gt: Date } } }) =>
+          w.holds
+            .filter((h) => where.tableId.in.includes(h.tableId) && h.expiresAt > where.expiresAt.gt)
+            .map((h, i) => ({ ...h, id: `hold-${i}`, partySize: 2 }))
+      ),
       findFirst: vi.fn(async ({ where }: { where: HoldWhere }) => {
         const hold = w.holds.find(
           (h) =>
@@ -270,6 +297,12 @@ function fakeClient(w: World) {
       create: vi.fn(
         async ({ data }: { data: { reservationId: string; kind: string; actorId: string } }) => {
           w.events = [...w.events, data];
+        }
+      ),
+      createMany: vi.fn(
+        async ({ data }: { data: { reservationId: string; kind: string; actorId: string }[] }) => {
+          w.events = [...w.events, ...data];
+          return { count: data.length };
         }
       ),
     },
@@ -382,7 +415,18 @@ describe("createClosure", () => {
       expect.objectContaining({ reservationId: "res-2", action: "cancel", refund: "none" }),
     ]);
     expect(w.deposits.writes).toBe(0);
-    expect(w.changes[0]).toMatchObject({ kind: "closure", notifiedGuests: true });
+    expect(w.changes[0]).toMatchObject({ kind: "closure", notifiedGuests: true, version: 5 });
+    expect(w.changes[0]).toMatchObject({
+      summary: expect.stringMatching(/^Closure saved for 2026-12-24: 2 cancelled/),
+      summaryDetail: {
+        code: "closure_saved",
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+        cancelled: 2,
+        moved: 0,
+        kept: 0,
+      },
+    });
   });
 
   it("keeps and notifies without touching the reservations", async () => {
@@ -703,12 +747,53 @@ describe("createClosure", () => {
 
   it("marks a cancelled booking's pending deposit for refund, like a held one", async () => {
     const w = world();
-    w.reservations[0]!.deposit = { amountCents: 4000, currency: "usd", status: "pending" };
+    w.reservations[0]!.deposit = {
+      amountCents: 4000,
+      currency: "usd",
+      status: "pending",
+      stripePaymentIntentId: "pi_1",
+    } as never;
     const { tx } = await run(w, body());
     expect(tx.closureOutcome.createMany.mock.calls[0]![0].data[0]).toMatchObject({
       reservationId: "res-1",
       refund: "pending",
+      refundCents: 4000,
     });
+  });
+
+  // #8131: staff-created pending deposit, never sent to Stripe: no money was taken.
+  it("owes nothing on a pending deposit that never reached Stripe", async () => {
+    const w = world();
+    w.reservations[0]!.deposit = { amountCents: 4000, currency: "usd", status: "pending" };
+    const { tx } = await run(w, body());
+    expect(tx.closureOutcome.createMany.mock.calls[0]![0].data[0]).toMatchObject({
+      reservationId: "res-1",
+      refund: "none",
+      refundCents: null,
+    });
+  });
+
+  // #8131: the outcome stores the estimate of what is owed for the notice, but the estimate never
+  // decides whether the refund job runs: an estimate of 0 is still `pending` for the job to check
+  // against Stripe (a failed dashboard refund stays counted in the row).
+  it("stores the estimate after a partial dashboard refund, and keeps a 0 estimate pending for the job", async () => {
+    const w = world();
+    const captured = (post: number) =>
+      ({
+        amountCents: 4000,
+        currency: "usd",
+        status: "applied",
+        stripePaymentIntentId: "pi_1",
+        refundAmountCents: null,
+        postCaptureRefundCents: post,
+      }) as never;
+    w.reservations[0]!.deposit = captured(1500);
+    w.reservations[1]!.deposit = captured(4000);
+    const { tx } = await run(w, body());
+    expect(tx.closureOutcome.createMany.mock.calls[0]![0].data).toEqual([
+      expect.objectContaining({ reservationId: "res-1", refund: "pending", refundCents: 2500 }),
+      expect.objectContaining({ reservationId: "res-2", refund: "pending", refundCents: 0 }),
+    ]);
   });
 
   it("marks a cancelled booking's already-captured deposit for refund", async () => {
@@ -967,6 +1052,244 @@ describe("createClosure", () => {
         expect(outcome.kind).toBe("saved");
         expect(outcome).toMatchObject({ result: { outcomes: { cancel: 0 } } });
       });
+    });
+  });
+
+  describe("a remove-path series edit built from a series that has since changed (#8028)", () => {
+    /** The series as the Manager's client read it: Thursdays from Dec 1, no end. */
+    const readSeries: DateRule = {
+      id: "s1",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-01",
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+    } as DateRule;
+    const stored = {
+      id: "s1",
+      venueId: "v",
+      kind: "closure",
+      targetKind: "venue",
+      venueServiceId: null,
+      bookingTypes: [],
+      startsOn: new Date("2026-12-01T00:00:00.000Z"),
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+      window: null,
+      payload: null,
+      useScheduleId: null,
+      seriesId: null,
+      guestMessage: null,
+      staffNote: null,
+      expiresAt: null,
+      deletedAt: null,
+      tables: [],
+    };
+    /** The draft a client builds from `readSeries` for "All dates": Fridays added. */
+    const draft = closure({
+      id: "s2",
+      startsOn: "2026-12-01",
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4, 5] },
+    });
+    const edit = (replaces?: DateRule): Partial<CreateClosureBody> => ({
+      rule: draft,
+      alongside: { upsert: [], remove: ["s1"], ...(replaces ? { replaces } : {}) },
+      decisions: [],
+    });
+    const changedBy = (teammate: Record<string, unknown>): World =>
+      world({ dateRules: [{ ...stored, ...teammate }], reservations: [] });
+
+    it.each([
+      ["guest message", { guestMessage: "Closed for a private event" }],
+      ["weekdays", { repeat: { version: 1, weekdays: [3, 4] } }],
+      ["end date", { endsOn: new Date("2027-03-31T00:00:00.000Z") }],
+    ])("answers a changed %s with the version conflict, saving nothing", async (_n, teammate) => {
+      const w = changedBy(teammate);
+      const { outcome, tx } = await run(w, body(edit(readSeries)));
+
+      expect(outcome.kind).toBe("version_conflict");
+      expect(w.version).toBe(4);
+      expect(tx.dateRule.create).not.toHaveBeenCalled();
+      expect(tx.dateRule.update).not.toHaveBeenCalled();
+    });
+
+    describe("a skip a teammate added after the plan was built", () => {
+      const storedSkip = {
+        ...stored,
+        id: "k1",
+        kind: "skip",
+        startsOn: new Date("2026-12-03T00:00:00.000Z"),
+        endsOn: new Date("2026-12-03T00:00:00.000Z"),
+        repeat: null,
+        seriesId: "s1",
+      };
+      const moved = {
+        id: "k1",
+        kind: "skip",
+        targetKind: "venue",
+        startsOn: "2026-12-03",
+        endsOn: "2026-12-03",
+        seriesId: "s2",
+      } as DateRule;
+      const withSkip = (): World => world({ dateRules: [stored, storedSkip], reservations: [] });
+      const planned = (upsert: DateRule[], replaces?: DateRule): Partial<CreateClosureBody> => ({
+        ...edit(replaces),
+        alongside: { upsert, remove: ["s1"], ...(replaces ? { replaces } : {}) },
+      });
+
+      it.each([
+        ["names the series", readSeries],
+        ["is from an older client", undefined],
+      ])("refuses a plan that leaves it behind (%s)", async (_n, replaces) => {
+        const w = withSkip();
+        const { outcome, tx } = await run(w, body(planned([], replaces)));
+
+        expect(outcome.kind).toBe("version_conflict");
+        expect(w.version).toBe(4);
+        expect(tx.dateRule.create).not.toHaveBeenCalled();
+      });
+
+      it("saves a plan that moves every skip of the series", async () => {
+        const { outcome } = await run(withSkip(), body(planned([moved], readSeries)));
+        expect(outcome.kind).toBe("saved");
+      });
+    });
+
+    it("saves when the series is still the one the edit was built from", async () => {
+      const { outcome } = await run(changedBy({}), body(edit(readSeries)));
+      expect(outcome.kind).toBe("saved");
+    });
+
+    it("from an older client that names no series, still refuses a changed guest message", async () => {
+      const w = changedBy({ guestMessage: "Closed for a private event" });
+      const { outcome } = await run(w, body(edit()));
+      expect(outcome.kind).toBe("version_conflict");
+      expect(w.version).toBe(4);
+    });
+
+    it("from an older client that names no series, still accepts the draft's own changes", async () => {
+      const { outcome } = await run(changedBy({}), body(edit()));
+      expect(outcome.kind).toBe("saved");
+    });
+  });
+
+  describe("an edit of a one-date or range closure (#7984)", () => {
+    /** Dec 24 to 26 as stored: venue closed, no window. */
+    const storedRange = {
+      id: "c1",
+      venueId: "v",
+      kind: "closure",
+      targetKind: "venue",
+      venueServiceId: null,
+      bookingTypes: [],
+      startsOn: new Date("2026-12-24T00:00:00.000Z"),
+      endsOn: new Date("2026-12-26T00:00:00.000Z"),
+      repeat: null,
+      window: null,
+      payload: null,
+      useScheduleId: null,
+      seriesId: null,
+      guestMessage: null,
+      staffNote: null,
+      expiresAt: null,
+      deletedAt: null,
+      tables: [],
+    };
+    const readRange = closure({ id: "c1", startsOn: "2026-12-24", endsOn: "2026-12-26" });
+    /** The edit a client builds: the range grows to Dec 28, under a new id, replacing c1. */
+    const grow = (patch: Partial<CreateClosureBody> = {}): CreateClosureBody =>
+      body({
+        rule: closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-28" }),
+        alongside: { upsert: [], remove: ["c1"], replaces: readRange },
+        decisions: [],
+        ...patch,
+      });
+    const onDec = (id: string, date: string) => {
+      // 7 PM in Los Angeles, on `date`, is 3 AM UTC the next day.
+      const next = new Date(Date.parse(`${date}T03:00:00.000Z`) + 86_400_000).toISOString();
+      return res(id, date, next, next.replace("03:00", "04:30"));
+    };
+    const edited = (reservations: Res[] = []): World =>
+      world({ dateRules: [storedRange], reservations });
+
+    it("asks only about the booking on the date the edit adds, then saves the new closure", async () => {
+      const w = edited([onDec("kept-date", "2026-12-25"), onDec("new-date", "2026-12-27")]);
+
+      const first = await run(w, grow());
+      expect(first.outcome).toEqual({
+        kind: "decision_required",
+        groupKeys: ["2026-12-27:closed"],
+      });
+      expect(w.version).toBe(4);
+
+      const { outcome } = await run(
+        w,
+        grow({ decisions: [{ groupKey: "2026-12-27:closed", action: "cancel" }] })
+      );
+      expect(outcome).toMatchObject({
+        kind: "saved",
+        result: { ruleId: "c2", outcomes: { cancel: 1 } },
+      });
+      expect(w.reservations.map((r) => [r.id, r.status])).toEqual([
+        ["kept-date", "CONFIRMED"],
+        ["new-date", "CANCELLED"],
+      ]);
+    });
+
+    it("carries what the old closure did to each guest onto the edited one, and records it for Undo", async () => {
+      const w = edited([]);
+      w.outcomes = [{ id: "o-old", dateRuleId: "c1", reservationId: "gone", action: "cancel" }];
+      const { outcome } = await run(w, grow());
+
+      expect(outcome.kind).toBe("saved");
+      expect((w.changes[0]!.inverse as { closure: { carried: unknown } }).closure.carried).toEqual({
+        from: "c1",
+        outcomeIds: ["o-old"],
+      });
+    });
+
+    it("saves a shortened range with no question, since it only gives dates back", async () => {
+      const { outcome } = await run(
+        edited([onDec("a", "2026-12-25")]),
+        grow({ rule: closure({ id: "c2", startsOn: "2026-12-24", endsOn: "2026-12-24" }) })
+      );
+      expect(outcome).toMatchObject({ kind: "saved", result: { outcomes: { cancel: 0 } } });
+    });
+
+    it("needs the closure as the client read it", async () => {
+      const { outcome } = await run(edited(), grow({ alongside: { upsert: [], remove: ["c1"] } }));
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: [{ code: "replaces_required" }],
+      });
+    });
+
+    it("answers a closure a teammate changed since with the version conflict, saving nothing", async () => {
+      const w = world({
+        dateRules: [{ ...storedRange, endsOn: new Date("2026-12-30T00:00:00.000Z") }],
+        reservations: [],
+      });
+      const { outcome, tx } = await run(w, grow());
+
+      expect(outcome.kind).toBe("version_conflict");
+      expect(w.version).toBe(4);
+      expect(tx.dateRule.create).not.toHaveBeenCalled();
+    });
+
+    it("is a Manager's change", async () => {
+      const { outcome } = await run(edited(), grow(), { caller: HOST });
+      expect(outcome).toEqual({ kind: "forbidden" });
+    });
+
+    it("replaces one closure and writes nothing else beside it", async () => {
+      const { outcome } = await run(
+        edited(),
+        grow({
+          alongside: { upsert: [closure({ id: "extra" })], remove: ["c1"], replaces: readRange },
+        })
+      );
+      expect(outcome).toMatchObject({ kind: "invalid" });
     });
   });
 
@@ -1229,7 +1552,128 @@ describe("reopenClosure", () => {
       expect.objectContaining({ data: { deletedAt: NOW } })
     );
     expect(active(w)).toHaveLength(0);
-    expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: true });
+    expect(w.changes.at(-1)).toMatchObject({
+      kind: "reopen",
+      notifiedGuests: true,
+      version: w.version,
+      summary: "Closure reopened (2026-12-24)",
+      summaryDetail: {
+        code: "closure_reopened",
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+      },
+    });
+  });
+
+  describe("a reopen from a view of the rule that has since changed (#8121)", () => {
+    // The rule as a client read it: the shape of the config response.
+    const seenRule = (patch: Record<string, unknown> = {}) => ({
+      id: "dr-new",
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-24",
+      endsOn: "2026-12-24",
+      ...patch,
+    });
+    const seenChild = (id: string, day: string) => ({
+      id,
+      kind: "skip",
+      targetKind: "venue",
+      seriesId: "dr-new",
+      startsOn: day,
+      endsOn: day,
+    });
+    const reopenSeen = (w: World, seen: unknown) => {
+      const { client } = fakeClient(w);
+      const before = { version: w.version, changes: w.changes.length };
+      return reopenClosure(
+        {
+          venueId: "v",
+          ruleId: "dr-new",
+          caller: MANAGER,
+          tellCancelledGuests: false,
+          now: NOW,
+          seen: seen as never,
+        },
+        client
+      ).then((outcome) => ({ outcome, before }));
+    };
+    const storedRule = (patch: Record<string, unknown> = {}) => ({
+      ...rowFor("closure"),
+      ...patch,
+    });
+
+    it("reopens a rule the caller saw as it is, whatever else was saved since", async () => {
+      const w = world({ version: 9 });
+      w.dateRules = [storedRule(), { ...rowFor("closure"), id: "unrelated" }];
+
+      const { outcome } = await reopenSeen(w, { rule: seenRule(), children: [] });
+
+      expect(outcome.kind).toBe("reopened");
+    });
+
+    it("refuses as a version conflict when a teammate extended the rule, changing nothing", async () => {
+      const w = world({ version: 6 });
+      w.dateRules = [storedRule({ endsOn: new Date("2026-12-31T00:00:00.000Z") })];
+
+      const { outcome, before } = await reopenSeen(w, { rule: seenRule(), children: [] });
+
+      expect(outcome).toMatchObject({ kind: "version_conflict" });
+      expect(w.version).toBe(before.version);
+      expect(w.changes).toHaveLength(before.changes);
+      expect(w.dateRules).toHaveLength(1);
+    });
+
+    it("refuses when a skip was added to the rule since the caller read it", async () => {
+      const w = world();
+      w.dateRules = [storedRule(), { ...rowFor("skip"), id: "k9", seriesId: "dr-new" }];
+
+      const { outcome } = await reopenSeen(w, { rule: seenRule(), children: [] });
+
+      expect(outcome).toMatchObject({ kind: "version_conflict" });
+    });
+
+    it("refuses when a skip the caller saw is gone", async () => {
+      const w = world();
+      w.dateRules = [storedRule()];
+
+      const { outcome } = await reopenSeen(w, {
+        rule: seenRule(),
+        children: [seenChild("k1", "2026-12-24")],
+      });
+
+      expect(outcome).toMatchObject({ kind: "version_conflict" });
+    });
+
+    it("reads an empty message and a missing one as the same, as the route's Ajv turns null into an empty string", async () => {
+      const w = world();
+      w.dateRules = [storedRule()];
+
+      const { outcome } = await reopenSeen(w, {
+        rule: seenRule({ guestMessage: "", staffNote: "", venueServiceId: "", seriesId: "" }),
+        children: [],
+      });
+
+      expect(outcome.kind).toBe("reopened");
+    });
+
+    it("reports the version the venue is on, not the bump it took to read the rule", async () => {
+      const w = world({ version: 6 });
+      w.dateRules = [storedRule({ endsOn: new Date("2026-12-31T00:00:00.000Z") })];
+
+      const { outcome } = await reopenSeen(w, { rule: seenRule(), children: [] });
+
+      expect(outcome).toMatchObject({ kind: "version_conflict", currentVersion: 6 });
+    });
+
+    it("keeps today's behaviour when the caller sends nothing it saw", async () => {
+      const w = world();
+      w.dateRules = [storedRule({ endsOn: new Date("2026-12-31T00:00:00.000Z") })];
+
+      const { outcome } = await reopenSeen(w, undefined);
+
+      expect(outcome.kind).toBe("reopened");
+    });
   });
 
   describe("a series (#7685)", () => {
@@ -1288,6 +1732,268 @@ describe("reopenClosure", () => {
       const deleted = JSON.stringify(tx.dateRule.updateMany.mock.calls);
       expect(deleted).toContain("other");
       for (const id of ["s1", "k1", "e1"]) expect(deleted).not.toContain(id);
+    });
+
+    // Thursday Dec 24: the series closes the whole day; the edit opens it until 10 PM.
+    const editedThursday = () => {
+      const w = world();
+      w.dateRules = [
+        series,
+        {
+          ...child("e1", "closure", "2026-12-24"),
+          window: { version: 1, from: 1320, to: 1440 },
+        },
+      ];
+      return w;
+    };
+
+    it("refuses to remove a one-date edit when the series would close a booking out (#7975)", async () => {
+      const w = editedThursday(); // res-1 is booked at 7 PM that day
+      const before = { rules: w.dateRules, version: w.version, changes: w.changes.length };
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: expect.arrayContaining([
+          expect.objectContaining({ path: "reservations.res-1", code: "strands_booking" }),
+        ]),
+      });
+      expect({ rules: w.dateRules, version: w.version, changes: w.changes.length }).toEqual(before);
+    });
+
+    it("names each stranded booking on its issue, so the client can list and link it (#8043)", async () => {
+      const w = editedThursday();
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: expect.arrayContaining([
+          expect.objectContaining({
+            path: "reservations.res-1",
+            code: "strands_booking",
+            reservation: {
+              id: "res-1",
+              guestName: "res-1",
+              serviceDate: "2026-12-24",
+              startTime: "2026-12-25T03:00:00.000Z",
+              partySize: 2,
+              reason: expect.any(String),
+            },
+          }),
+        ]),
+      });
+      // The message is what the agent relays to a model: it never carries a name.
+      for (const issue of (outcome as { issues: { message: string }[] }).issues) {
+        expect(issue.message).not.toMatch(/res-\d/);
+      }
+    });
+
+    it("keeps one issue per booking but names only the first few, so the count stays true (#8043)", async () => {
+      const w = editedThursday();
+      const total = STRANDED_ISSUE_DETAIL_MAX + 7;
+      w.reservations = Array.from({ length: total }, (_, i) =>
+        res(`res-${i}`, "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z")
+      );
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      const issues = (outcome as { issues: { reservation?: unknown }[] }).issues;
+      expect(issues).toHaveLength(total);
+      expect(issues.filter((i) => i.reservation !== undefined)).toHaveLength(
+        STRANDED_ISSUE_DETAIL_MAX
+      );
+      expect(issues.slice(0, STRANDED_ISSUE_DETAIL_MAX).every((i) => i.reservation)).toBe(true);
+    });
+
+    it("names the soonest bookings first, whatever order the database returns them (#8043)", async () => {
+      const w = editedThursday();
+      const total = STRANDED_ISSUE_DETAIL_MAX + 7;
+      // Later bookings first, and two at the same minute: the order is start time, then id.
+      w.reservations = Array.from({ length: total }, (_, i) => {
+        const minute = total - i; // res-0 is the latest, the last is the soonest
+        const start = new Date(Date.parse("2026-12-25T03:00:00.000Z") + minute * 60_000);
+        return res(`res-${i}`, "2026-12-24", start.toISOString(), start.toISOString());
+      });
+      w.reservations.push(
+        res("res-b", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z"),
+        res("res-a", "2026-12-24", "2026-12-25T03:00:00.000Z", "2026-12-25T04:30:00.000Z")
+      );
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      const issues = (outcome as { issues: { reservation?: { id: string } }[] }).issues;
+      const named = issues.flatMap((i) => (i.reservation ? [i.reservation.id] : []));
+      expect(named).toHaveLength(STRANDED_ISSUE_DETAIL_MAX);
+      expect(named.slice(0, 2)).toEqual(["res-a", "res-b"]);
+      expect(named).toContain(`res-${total - 1}`);
+      expect(named).not.toContain("res-0");
+    });
+
+    it("takes the venue row before it scans bookings, so an in-flight booking is seen (#7975)", async () => {
+      const w = editedThursday();
+      w.reservations = [];
+      const { tx } = await reopen(w, MANAGER, "e1");
+
+      const firstWrite = Math.min(
+        ...tx.venue.update.mock.invocationCallOrder,
+        ...tx.venue.updateMany.mock.invocationCallOrder
+      );
+      expect(tx.reservation.findMany).toHaveBeenCalled();
+      expect(firstWrite).toBeLessThan(tx.reservation.findMany.mock.invocationCallOrder[0]!);
+    });
+
+    it("ignores a cancelled booking when deciding whether the date is stranded", async () => {
+      const w = editedThursday();
+      w.reservations = w.reservations.map((r) => ({ ...r, status: "CANCELLED" }));
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome.kind).toBe("reopened");
+    });
+
+    it("refuses when only an overnight booking depends on the edit", async () => {
+      const w = editedThursday();
+      // A 22:00-02:00 service: Friday 00:30 local is still Thursday's service day. The edit only
+      // closes from 01:00, so it is what keeps the 00:30 booking open against the series.
+      w.service = { opensAt: 1320, lastSeatingAt: 1500, closesAt: 1560 };
+      w.dateRules = w.dateRules.map((r) =>
+        r.id === "e1" ? { ...r, window: { version: 1, from: 1500, to: 1560 } } : r
+      );
+      w.reservations = [
+        res("res-night", "2026-12-24", "2026-12-25T08:30:00.000Z", "2026-12-25T10:00:00.000Z"),
+      ];
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome).toMatchObject({
+        kind: "invalid",
+        issues: [expect.objectContaining({ path: "reservations.res-night" })],
+      });
+    });
+
+    it("still removes a one-date edit when no booking depends on it", async () => {
+      const w = editedThursday();
+      w.reservations = [];
+
+      const { outcome } = await reopen(w, MANAGER, "e1");
+
+      expect(outcome.kind).toBe("reopened");
+    });
+  });
+
+  describe("a date another closure also closes (#8006)", () => {
+    const other = (fields: Record<string, unknown> = {}) => ({
+      ...rowFor("closure"),
+      id: "other",
+      ...fields,
+    });
+
+    it("says the date stays closed, naming the closure, and asks no notice to rebook it", async () => {
+      const w = world();
+      await run(w, body());
+      w.dateRules = [rowFor("closure"), other()];
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({
+        kind: "reopened",
+        result: {
+          notified: 0,
+          stillClosed: {
+            everyDate: true,
+            by: [{ ruleId: "other", targetKind: "venue", dates: ["2026-12-24"] }],
+          },
+        },
+      });
+      expect(w.changes.at(-1)).toMatchObject({ kind: "reopen", notifiedGuests: false });
+    });
+
+    it("says which date of a range stays closed, and still lets the notice go", async () => {
+      const w = world();
+      await run(w, body());
+      const range = {
+        ...rowFor("closure"),
+        startsOn: new Date("2026-12-23T00:00:00.000Z"),
+        endsOn: new Date("2026-12-25T00:00:00.000Z"),
+      };
+      w.dateRules = [range, other()];
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({
+        kind: "reopened",
+        result: {
+          notified: 2,
+          stillClosed: { everyDate: false, by: [{ ruleId: "other", dates: ["2026-12-24"] }] },
+        },
+      });
+    });
+
+    it("reports nothing staying closed when no other closure is there", async () => {
+      const w = world();
+      await run(w, body());
+      w.dateRules = [rowFor("closure")];
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({
+        kind: "reopened",
+        result: { stillClosed: { everyDate: false, by: [] } },
+      });
+    });
+  });
+
+  describe("who a reopen notice can reach (#7975)", () => {
+    const closedWithTwoGuests = async () => {
+      const w = world();
+      await run(w, body());
+      w.dateRules = [rowFor("closure")];
+      return w;
+    };
+
+    it("counts only the cancelled guests whose booking is still ahead, and says so on the audit row", async () => {
+      const w = await closedWithTwoGuests();
+      // res-2's booking has started by the time the closure is reopened.
+      w.reservations = w.reservations.map((r) =>
+        r.id === "res-2" ? { ...r, startTime: new Date("2026-10-20T01:00:00.000Z") } : r
+      );
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 1 } });
+      expect(w.changes.at(-1)).toMatchObject({
+        kind: "reopen",
+        notifiedGuests: true,
+        version: w.version,
+      });
+    });
+
+    it("records no guests told when every cancelled booking is already over", async () => {
+      const w = await closedWithTwoGuests();
+      w.reservations = w.reservations.map((r) => ({
+        ...r,
+        startTime: new Date("2026-10-20T01:00:00.000Z"),
+      }));
+
+      const { outcome } = await reopen(w);
+
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 0 } });
+      expect(w.changes.at(-1)).toMatchObject({ notifiedGuests: false });
+    });
+
+    it("tells nobody when the Manager did not ask to", async () => {
+      const w = await closedWithTwoGuests();
+      const { client } = fakeClient(w);
+
+      const outcome = await reopenClosure(
+        { venueId: "v", ruleId: "dr-new", caller: MANAGER, tellCancelledGuests: false, now: NOW },
+        client
+      );
+
+      expect(outcome).toMatchObject({ kind: "reopened", result: { notified: 0 } });
+      expect(w.changes.at(-1)).toMatchObject({ notifiedGuests: false });
     });
   });
 
@@ -1379,6 +2085,9 @@ describe("createClosure for a Tonight close-early (#7529)", () => {
       expect.objectContaining({ reservationId: "res-t", kind: "cancelled" }),
     ]);
     expect(w.changes[0]!.summary).toMatch(/^Closing early 2026-10-25/);
+    expect(w.changes[0]).toMatchObject({
+      summaryDetail: { code: "close_early_saved", startsOn: "2026-10-25", cancelled: 1 },
+    });
     expect((w.changes[0]!.inverse as { closure: unknown }).closure).toMatchObject({
       outcome: {
         cancelled: 1,

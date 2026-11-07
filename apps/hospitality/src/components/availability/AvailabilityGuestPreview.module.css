@@ -22,6 +22,19 @@
   gap: var(--rialto-space-xs) var(--rialto-space-sm);
 }
 
+/* Arrows either side of the one date, always on one row. */
+.stripPhone {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+}
+
+.stripDate {
+  min-width: 0;
+  text-align: center;
+}
+
 /* The previous result stays visible, dimmed, while a newer one is on its way. */
 .stale {
   opacity: 0.6;

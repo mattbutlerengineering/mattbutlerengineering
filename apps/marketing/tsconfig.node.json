@@ -5,5 +5,5 @@
     "noEmit": false,
     "outDir": "node_modules/.tmp/tsconfig.node"
   },
-  "include": ["vite.config.ts"]
+  "include": ["vite.config.ts", "pwa/workbox-options.ts", "pwa/workbox-options.test.ts"]
 }

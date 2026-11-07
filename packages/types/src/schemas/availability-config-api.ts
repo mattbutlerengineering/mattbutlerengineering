@@ -6,12 +6,14 @@ import {
   DateRuleTargetKindSchema,
   GUEST_MESSAGE_MAX_LENGTH,
   MinuteSchema,
+  RepeatSchema,
   RULE_BOOKING_TYPES,
   ScheduleAssignmentSchema,
   ScheduleSchema,
   ScheduleServiceSchema,
   ServiceDateSchema,
   VenueServiceSchema,
+  WindowSchema,
 } from "./availability-config.js";
 
 /**
@@ -21,6 +23,19 @@ import {
  */
 
 const IdListSchema = z.array(z.string().min(1));
+
+/**
+ * A schedule-service row on the PUT body. Unlike `ScheduleServiceSchema` (stored
+ * rows and History inverses, where an absent day scope reads as none so entries
+ * saved before it still parse), `weekdays` and `dayHours` are required here: a
+ * client that omits them (one built before day scope) would otherwise save "no
+ * scope" over a varied week, and the version compare-and-set cannot stop a
+ * client that loaded the varied week. It gets a 422 instead.
+ */
+export const ScheduleServiceRequestSchema = ScheduleServiceSchema.extend({
+  weekdays: ScheduleServiceSchema.shape.weekdays.removeDefault(),
+  dayHours: ScheduleServiceSchema.shape.dayHours.removeDefault(),
+});
 
 /**
  * Row operations against the venue's configuration, by table. An upserted row
@@ -34,7 +49,7 @@ export const AvailabilityConfigChangesSchema = z.object({
     .object({
       schedules: z.array(ScheduleSchema).optional(),
       venueServices: z.array(VenueServiceSchema).optional(),
-      scheduleServices: z.array(ScheduleServiceSchema).optional(),
+      scheduleServices: z.array(ScheduleServiceRequestSchema).optional(),
       assignments: z.array(ScheduleAssignmentSchema).optional(),
       dateRules: z.array(DateRuleSchema).optional(),
     })
@@ -100,13 +115,65 @@ export const AvailabilityConfigSaveResultSchema = z.object({
   changeId: z.string(),
 });
 
+/**
+ * A change's stable code and the facts its sentence is made of. The server writes `config_saved`,
+ * `closure_saved`, `close_early_saved`, `closure_reopened`, `tonight_pause_online`,
+ * `tonight_close_early`, `tonight_stop_window`, `tonight_block_tables`, `tonight_pacing`,
+ * `tonight_ended` and `regular_week_changed`; the client maps each to its own catalog keys. The wire accepts any string, so a
+ * newer server's code reads as unknown (the English `summary` is shown) rather than failing the
+ * response, and the fields are flat and optional: a code missing a field its sentence needs is
+ * shown as `summary` too.
+ */
+export const AvailabilityChangeDetailSchema = z.object({
+  code: z.string(),
+  /** The change undid the one the code names (`Reverted: …`). */
+  reverted: z.boolean().optional(),
+  /** `regular_week_changed`: the weekdays whose hours changed (with `startsOn`). */
+  weekdays: z.array(z.number().int().min(0).max(6)).optional(),
+  /** `config_saved`: rows added, changed and removed. */
+  added: z.number().int().optional(),
+  changed: z.number().int().optional(),
+  removed: z.number().int().optional(),
+  /** `closure_saved`, `close_early_saved`, `closure_reopened`: the rule's first and last day. */
+  startsOn: ServiceDateSchema.optional(),
+  endsOn: ServiceDateSchema.nullish(),
+  /** `closure_saved`, `close_early_saved`: what happened to the bookings it touched. */
+  cancelled: z.number().int().optional(),
+  moved: z.number().int().optional(),
+  kept: z.number().int().optional(),
+  /** `tonight_block_tables`: how many tables. */
+  tables: z.number().int().optional(),
+  /** `tonight_pacing`: the cover limit. */
+  covers: z.number().int().optional(),
+});
+
 /** The audit row a 409 `version-conflict` names as the change that won. */
 export const AvailabilityChangeSummarySchema = z.object({
   id: z.string(),
   actorId: z.string(),
   at: z.string(),
   kind: z.string(),
+  /** English, kept for older clients and for rows stored before `detail`. */
   summary: z.string(),
+  /**
+   * The same change as a stable code plus data, for a client to word in its own language. Absent
+   * or `null` on older servers and on rows stored before it; the client then shows `summary`.
+   */
+  detail: AvailabilityChangeDetailSchema.nullish(),
+});
+
+/**
+ * Most changes one version-conflict names. A draft older than this many versions gets the newest
+ * ones plus the true `total`, which bounds the query and the body however stale the draft is.
+ */
+export const CONFLICT_CHANGES_MAX = 10;
+
+/** The changes between a draft's version and the current one, for a conflict to name. */
+export const ConflictChangesSinceSchema = z.object({
+  /** How many versions passed since the draft's: the true count, named or not. */
+  total: z.number().int().min(1),
+  /** The newest changes among them, newest first, at most `CONFLICT_CHANGES_MAX`. */
+  changes: z.array(AvailabilityChangeSummarySchema).max(CONFLICT_CHANGES_MAX),
 });
 
 /** What a saved closure or close-early did to the bookings it touched; the History drawer words it. */
@@ -164,6 +231,12 @@ export const AvailabilityChangesPageSchema = z.object({
   offset: z.number().int(),
   /** Newest first. */
   items: z.array(AvailabilityChangeEntrySchema),
+  /**
+   * The change Undo is offered on now: the newest still in force, when it told no guest; `null`
+   * when there is none. Independent of the filters, `limit` and `offset`, so a one-row page can
+   * still name it. Absent from an older API, whose caller falls back to the page's `revertible`.
+   */
+  undoable: AvailabilityChangeSummarySchema.nullish(),
 });
 
 /** `POST …/availability/changes/:changeId/revert`: the version the client read, for the compare-and-set. */
@@ -176,7 +249,18 @@ export const StrandedReservationSchema = z.object({
   startTime: z.string(),
   partySize: z.number().int(),
   reason: z.enum(["closed", "outside_service", "table_blocked"]),
+  /** Who it is for; absent when the booking has no name. */
+  guestName: z.string().optional(),
+  /** The service date it belongs to, where a past-midnight booking's start time would mislead. */
+  serviceDate: ServiceDateSchema.optional(),
 });
+
+/**
+ * Most `strands_booking` issues of one refusal that carry their booking. The list is complete (one
+ * issue per booking, so its length is the true count); only the first this many are named, which
+ * bounds the guest data one refusal exposes and the body a client must render.
+ */
+export const STRANDED_ISSUE_DETAIL_MAX = 50;
 
 export const AVAILABILITY_CONFIG_PROBLEM_CODES = [
   "version-conflict",
@@ -203,8 +287,32 @@ export const AvailabilityConfigProblemSchema = z.object({
   code: z.enum(AVAILABILITY_CONFIG_PROBLEM_CODES),
   /** version-conflict: the latest change; `null` when none is recorded. */
   winningChange: AvailabilityChangeSummarySchema.nullable().optional(),
+  /**
+   * version-conflict on a config save: the version read just before `winningChange`. An Overwrite
+   * sent against it is refused again if anyone saved after. Absent from an older server.
+   */
+  currentVersion: z.number().int().optional(),
+  /**
+   * version-conflict on a config save: every change between the draft's version and
+   * `currentVersion` (the newest few plus the true count). Absent from an older server, which
+   * names only `winningChange`.
+   */
+  changesSince: ConflictChangesSinceSchema.optional(),
   /** invalid-config: `validateConfig` issues, path-addressed into the next config. */
-  issues: z.array(z.object({ path: z.string(), code: z.string(), message: z.string() })).optional(),
+  issues: z
+    .array(
+      z.object({
+        path: z.string(),
+        code: z.string(),
+        message: z.string(),
+        /**
+         * `strands_booking`: the booking, for the first `STRANDED_ISSUE_DETAIL_MAX` issues. Never
+         * repeated in `message`, which an agent passes to a model.
+         */
+        reservation: StrandedReservationSchema.optional(),
+      })
+    )
+    .optional(),
   /** stranded-bookings: future reservations the change would leave outside service. */
   reservations: z.array(StrandedReservationSchema).optional(),
   /** decision-required / invalid-decision: the impact groups at fault. */
@@ -245,6 +353,8 @@ export const AvailabilityDaySummarySchema = z.object({
       to: z.number().int(),
       /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
       bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
+      /** The service a `service` closure is for; absent for other targets and from an older API. */
+      venueServiceId: z.string().optional(),
     })
   ),
   bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -255,14 +365,24 @@ export const AvailabilityDaySummarySchema = z.object({
 
 /**
  * Date-rule rows a closure replaces in the same save (ux.md F-SER: a series edit that closes new
- * dates). Applied to the config before the draft `rule` is added, in the preview and in the
- * closure command's one transaction; Manager only.
+ * dates; ux.md F6: an edit of a one-date or range closure, which removes the saved closure and
+ * names it in `replaces`). Applied to the config before the draft `rule` is added, in the preview
+ * and in the closure command's one transaction; Manager only.
  */
 export const ClosureAlongsideSchema = z.object({
   /** Rows to write: the ended original series, and skips or one-date edits re-pointed. */
   upsert: z.array(DateRuleSchema).default([]),
   /** Rule ids to remove (soft delete): the series the draft replaces. */
   remove: IdListSchema.default([]),
+  /**
+   * The series being replaced, exactly as the client read it when it built the draft. When `remove`
+   * names the series, the closure command refuses with the version conflict if the stored series
+   * is no longer this row (a teammate changed its message, weekdays or end date since). Optional
+   * for clients from before this field: without it only the draft's other fields are compared.
+   * Required when `remove` names a one-date or range closure (an edit of it): the closure is then
+   * compared as a whole, and the edit is refused as invalid without it.
+   */
+  replaces: DateRuleSchema.optional(),
 });
 
 /** `POST …/closures/impact`: the draft date rule whose effect on bookings is asked about. */
@@ -273,7 +393,21 @@ export const ClosureImpactBodySchema = z.object({
 
 /** `closed`: the booking's time is gone; `shortened`: hours or a window changed. */
 export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
+
+/** The hosts a booking can have come from, as `resolveOriginHost` allowlists them (#7892). */
+export const BOOKING_ORIGIN_HOSTS = ["eat-sheet.com", "mattbutlerengineering.com"] as const;
 export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
+
+/** The languages a guest's notices are written in; the booking widget's locale picks one at booking. */
+export const GUEST_NOTICE_LOCALES = ["en-US", "es-MX", "fr-CA"] as const;
+export const DEFAULT_GUEST_NOTICE_LOCALE = "en-US";
+export const GuestNoticeLocaleSchema = z.enum(GUEST_NOTICE_LOCALES);
+export type GuestNoticeLocale = z.infer<typeof GuestNoticeLocaleSchema>;
+
+/** A booking's recorded locale as a notice language; anything unsupported or absent reads as en-US. */
+export function resolveGuestNoticeLocale(raw: unknown): GuestNoticeLocale {
+  return GuestNoticeLocaleSchema.catch(DEFAULT_GUEST_NOTICE_LOCALE).parse(raw);
+}
 
 export const ClosureImpactReservationSchema = z.object({
   id: z.string(),
@@ -281,10 +415,19 @@ export const ClosureImpactReservationSchema = z.object({
   endTime: z.string(),
   partySize: z.number().int(),
   guestName: z.string().nullable(),
-  /** The deposit held against this booking, if any. */
+  /** The deposit a cancel owes the guest a refund or void on, if any; the amount is an estimate of what is still owed. */
   deposit: z.object({ amountCents: z.number().int(), currency: z.string() }).nullable(),
   /** Starts before the closure and runs into it. */
   runsIntoClosure: z.boolean(),
+  /** The host the guest booked on; it picks the brand of the notice they are sent. */
+  originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+  /** The language the guest booked in; their notice is written in it. Absent reads as en-US. */
+  locale: GuestNoticeLocaleSchema.optional(),
+  /**
+   * Only on a `shortened` group: the start "Move to the nearest open time" would give this booking,
+   * from the logic the closure command moves with. `null`: no open time, so a move is refused.
+   */
+  proposedStart: z.string().nullable().optional(),
 });
 
 /** Bookings on one service date that the draft affects the same way. */
@@ -307,6 +450,41 @@ export const ClosureImpactSchema = z.object({
   groups: z.array(ClosureImpactGroupSchema),
 });
 
+/** What a Step 2 outcome tells a guest; a kept-silent booking is told nothing. */
+export const CLOSURE_NOTICE_ACTIONS = ["cancel", "move", "keep_notify"] as const;
+
+/**
+ * `POST …/closures/notice-preview`: one booking's notice, rendered by the builders the notice job
+ * sends with. The booking's own details are sent, so the response never names a guest it was not given.
+ */
+export const ClosureNoticePreviewBodySchema = z.object({
+  action: z.enum(CLOSURE_NOTICE_ACTIONS),
+  closureDate: ServiceDateSchema,
+  /** The booking's start as the notice states it: the proposed new start, for a move. */
+  startTime: z.string().datetime(),
+  partySize: z.number().int().min(1),
+  guestName: z.string().max(200).nullable(),
+  message: z.string().max(GUEST_MESSAGE_MAX_LENGTH).nullable(),
+  /** The deposit a cancel refunds. `currency` goes to `Intl.NumberFormat`, which throws on anything else. */
+  refund: z
+    .object({
+      amountCents: z.number().int().min(0),
+      currency: z.string().regex(/^[A-Za-z]{3}$/),
+    })
+    .nullable(),
+  /** The booking's host: the notice is sent from, and links to, that host's brand. */
+  originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+  /** The language the guest booked in; the notice is rendered in it. Absent reads as en-US. */
+  locale: GuestNoticeLocaleSchema.optional(),
+});
+
+export const ClosureNoticePreviewSchema = z.object({
+  email: z.object({ from: z.string(), subject: z.string(), text: z.string() }),
+  sms: z.string(),
+});
+
+export type ClosureNoticePreviewBody = z.infer<typeof ClosureNoticePreviewBodySchema>;
+export type ClosureNoticePreview = z.infer<typeof ClosureNoticePreviewSchema>;
 export type ClosureAlongside = z.infer<typeof ClosureAlongsideSchema>;
 export type ClosureImpactBody = z.infer<typeof ClosureImpactBodySchema>;
 export type ClosureImpactKind = z.infer<typeof ClosureImpactKindSchema>;
@@ -424,6 +602,8 @@ export type AvailabilityConfigSource = z.infer<typeof AvailabilityConfigSourceSc
 export type AvailabilityConfigState = z.infer<typeof AvailabilityConfigStateSchema>;
 export type AvailabilityConfigSaveResult = z.infer<typeof AvailabilityConfigSaveResultSchema>;
 export type AvailabilityChangeSummary = z.infer<typeof AvailabilityChangeSummarySchema>;
+export type AvailabilityChangeDetail = z.infer<typeof AvailabilityChangeDetailSchema>;
+export type ConflictChangesSince = z.infer<typeof ConflictChangesSinceSchema>;
 export type AvailabilityChangeOutcome = z.infer<typeof AvailabilityChangeOutcomeSchema>;
 export type AvailabilityChangeEntry = z.infer<typeof AvailabilityChangeEntrySchema>;
 export type AvailabilityChangesQuery = z.input<typeof AvailabilityChangesQuerySchema>;
@@ -481,8 +661,28 @@ export const CreateClosuresBodySchema = z.object({
     .max(MAX_CLOSURE_BATCH),
 });
 
-/** `DELETE …/closures/:ruleId`. */
-export const ReopenClosureBodySchema = z.object({ tellCancelledGuests: z.boolean() });
+/**
+ * What the caller saw of the rule it reopens: the rule and the rows that go with it (its skips and
+ * one-date edits, which have `seriesId` = the rule's id). A reopen deletes all of them.
+ */
+export const ReopenSeenSchema = z.object({
+  rule: DateRuleSchema,
+  children: z.array(DateRuleSchema),
+});
+
+/**
+ * `DELETE …/closures/:ruleId`. `seen` is optional: with it, a reopen whose rule (or whose skips and
+ * one-date edits) changed since the caller read it is refused as `version-conflict`; without it
+ * (an older client) the reopen acts on the rule as it is now.
+ *
+ * `date` reopens that one date of a bounded range and keeps the range's other dates closed. It
+ * needs `seen` (the split must be built from the range the caller saw) and a Manager.
+ */
+export const ReopenClosureBodySchema = z.object({
+  tellCancelledGuests: z.boolean(),
+  seen: ReopenSeenSchema.optional(),
+  date: ServiceDateSchema.optional(),
+});
 
 export const ClosureOutcomeCountsSchema = z.object({
   cancel: z.number().int(),
@@ -506,7 +706,42 @@ export const ClosuresResultSchema = z.object({
   results: z.array(ClosureResultSchema),
 });
 
-export const ReopenResultSchema = z.object({ version: z.number().int(), changeId: z.string() });
+/** A closure that closes some of the dates in question: what names it, and which dates. */
+export const ClosedByRuleSchema = z.object({
+  ruleId: z.string(),
+  targetKind: DateRuleTargetKindSchema,
+  venueServiceId: z.string().nullish(),
+  bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).nullish(),
+  startsOn: ServiceDateSchema,
+  endsOn: ServiceDateSchema.nullish(),
+  repeat: RepeatSchema.nullish(),
+  window: WindowSchema.nullish(),
+  /** The dates in question it closes, in order: not all of its own. */
+  dates: z.array(ServiceDateSchema),
+});
+
+/** Other closures over a set of dates (`@mbe/availability`'s `closure-overlap.ts`). */
+export const ClosureOverlapSchema = z.object({
+  /** Every date in question stays shut, so nothing the reopen names comes back to guests. */
+  everyDate: z.boolean(),
+  by: z.array(ClosedByRuleSchema),
+});
+
+export const ReopenResultSchema = z.object({
+  version: z.number().int(),
+  changeId: z.string(),
+  /**
+   * Guests a reopen notice was requested for: cancelled guests whose booking had not started,
+   * `0` when none were asked. Absent from an older API (and from ending Tonight); read it as
+   * `notified ?? null`.
+   */
+  notified: z.number().int().nonnegative().nullable().optional(),
+  /**
+   * Other closures that still close the reopened rule's dates, as stored when it committed. Absent
+   * from an older API and from ending Tonight.
+   */
+  stillClosed: ClosureOverlapSchema.optional(),
+});
 
 /**
  * What became of the reservations one closure (or Tonight close-early) touched,
@@ -528,6 +763,11 @@ export const ClosureSummarySchema = z.object({
   total: z.number().int(),
   /** Bookings the closure cancelled (the guests a reopen notice would go to). */
   cancelled: z.number().int(),
+  /**
+   * Of those, the guests a reopen notice can still reach: their booking has not started.
+   * Absent from an older API; read it as `upcomingCancelled ?? cancelled`.
+   */
+  upcomingCancelled: z.number().int().nonnegative().nullable().optional(),
   /** Guests with a confirmed email or SMS delivery. */
   sent: z.number().int(),
   /** Guests who rebooked after the cancel. */
@@ -612,9 +852,12 @@ export type TonightResult = z.infer<typeof TonightResultSchema>;
 export type ClosureDecision = z.infer<typeof ClosureDecisionSchema>;
 export type CreateClosureBody = z.infer<typeof CreateClosureBodySchema>;
 export type ReopenClosureBody = z.infer<typeof ReopenClosureBodySchema>;
+export type ReopenSeen = z.infer<typeof ReopenSeenSchema>;
 export type ClosureResult = z.infer<typeof ClosureResultSchema>;
 export type CreateClosuresBody = z.infer<typeof CreateClosuresBodySchema>;
 export type ClosuresResult = z.infer<typeof ClosuresResultSchema>;
+export type ClosedByRule = z.infer<typeof ClosedByRuleSchema>;
+export type ClosureOverlap = z.infer<typeof ClosureOverlapSchema>;
 export type ReopenResult = z.infer<typeof ReopenResultSchema>;
 export type RefundFailure = z.infer<typeof RefundFailureSchema>;
 export type ClosureSummary = z.infer<typeof ClosureSummarySchema>;

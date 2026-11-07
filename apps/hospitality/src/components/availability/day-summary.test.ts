@@ -2,7 +2,7 @@ import type { TFunction } from "i18next";
 import { describe, expect, it } from "vitest";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
-import { presentDay } from "./day-summary.js";
+import { dayLabelText, presentDay, scheduleNameText } from "./day-summary.js";
 
 const t = ((key: string, values?: Record<string, string>) =>
   values ? `${key} ${Object.values(values).join("|")}` : key) as unknown as TFunction;
@@ -24,27 +24,87 @@ const baseSummary: AvailabilityDaySummary = {
   ],
 };
 
+describe("the server's en-US words (#7980)", () => {
+  it("translates the three labels the API writes itself", () => {
+    expect(dayLabelText("Closed", t)).toBe("availability.calendar.dayLabel.closed");
+    expect(dayLabelText("Special hours", t)).toBe("availability.calendar.dayLabel.specialHours");
+    expect(dayLabelText("Open", t)).toBe("availability.calendar.dayLabel.open");
+  });
+
+  it("translates the seeded schedule name, and leaves a Manager's own name alone", () => {
+    expect(scheduleNameText("Regular week", t)).toBe("availabilitySchedules.regularMarker");
+    expect(dayLabelText("Regular week", t)).toBe("availabilitySchedules.regularMarker");
+    expect(scheduleNameText("Summer patio", t)).toBe("Summer patio");
+    expect(dayLabelText("Summer patio", t)).toBe("Summer patio");
+  });
+
+  it("speaks and shows the translated label", () => {
+    const view = presentDay(
+      "2026-10-30",
+      { ...baseSummary, label: "Closed", serviceCount: 0, services: [] },
+      false,
+      t,
+      format
+    );
+    expect(view.label).toBe("availability.calendar.dayLabel.closed");
+    expect(view.accessibleDetails).toBe("availability.calendar.dayLabel.closed");
+  });
+
+  it("marks a closed and a special-hours day apart from a schedule's day, whatever the language", () => {
+    const tone = (label: string) =>
+      presentDay("2026-10-30", { ...baseSummary, label }, false, t, format).tone;
+    expect(tone("Closed")).toBe("closed");
+    expect(tone("Special hours")).toBe("special");
+    expect(tone("Regular week")).toBeNull();
+    expect(tone("Summer patio")).toBeNull();
+    expect(presentDay("2026-10-30", undefined, false, t, format).tone).toBeNull();
+  });
+});
+
 describe("presentDay services", () => {
   it("emits a service line per service when detailed", () => {
     const view = presentDay("2026-10-30", baseSummary, true, t, format);
     expect(view.services).toEqual([
-      { key: "svc-1", text: "availability.calendar.serviceLine Lunch|11:00|14:00" },
-      { key: "svc-2", text: "availability.calendar.serviceLine Dinner|18:00|22:00" },
+      { key: "svc-1", text: "availability.calendar.serviceLine Lunch|11:00|13:30" },
+      { key: "svc-2", text: "availability.calendar.serviceLine Dinner|18:00|21:30" },
     ]);
   });
 
-  it("speaks the services in order in the accessible details", () => {
+  it("speaks the services in order in the accessible details, with no count to repeat them", () => {
     const view = presentDay("2026-10-30", baseSummary, true, t, format);
+    expect(view.servicesSummary).toBeNull();
     expect(view.accessibleDetails).toBe(
-      "Regular hours, availability.calendar.services 2, " +
-        "availability.calendar.serviceLine Lunch|11:00|14:00, " +
-        "availability.calendar.serviceLine Dinner|18:00|22:00"
+      "Regular hours, " +
+        "availability.calendar.serviceLine Lunch|11:00|13:30, " +
+        "availability.calendar.serviceLine Dinner|18:00|21:30"
     );
   });
 
-  it("omits service lines when not detailed", () => {
+  it("keeps the count in week view for an older API that sends no service lines", () => {
+    const { services: _services, ...old } = baseSummary;
+    expect(presentDay("2026-10-30", old, true, t, format).servicesSummary).toBe(
+      "availability.calendar.services 2"
+    );
+  });
+
+  it("names the services in month view, one service or several, and speaks each name", () => {
     const view = presentDay("2026-10-30", baseSummary, false, t, format);
     expect(view.services).toEqual([]);
+    expect(view.servicesSummary).toBe("Lunch · Dinner");
+    expect(view.accessibleDetails).toBe("Regular hours, Lunch, Dinner");
+    const lunchOnly = {
+      ...baseSummary,
+      serviceCount: 1,
+      services: baseSummary.services!.slice(0, 1),
+    };
+    expect(presentDay("2026-10-30", lunchOnly, false, t, format).servicesSummary).toBe("Lunch");
+    const closed = { ...baseSummary, label: "Closed", serviceCount: 0, services: [] };
+    expect(presentDay("2026-10-30", closed, false, t, format).servicesSummary).toBeNull();
+    // An older API with no service lines still gets the count, from two services up.
+    const { services: _services, ...old } = baseSummary;
+    expect(presentDay("2026-10-30", old, false, t, format).servicesSummary).toBe(
+      "availability.calendar.services 2"
+    );
   });
 
   it("omits service lines when there is no summary", () => {
@@ -86,7 +146,7 @@ describe("presentDay", () => {
     ]);
     expect(view.onlineOff).toBe(false);
     expect(view.accessibleDetails).toBe(
-      "Regular week, availability.calendar.bookingOffOnlineAllDayName"
+      "availabilitySchedules.regularMarker, availability.calendar.bookingOffOnlineAllDayName"
     );
   });
 
@@ -103,5 +163,56 @@ describe("presentDay", () => {
 
   it("keeps the online-off text when online is off with no closure", () => {
     expect(presentDay("2026-11-06", summary([]), false, t, weekFormat).onlineOff).toBe(true);
+  });
+});
+
+describe("the Services filter (#7981)", () => {
+  const dinner = { id: "svc-2", name: "Dinner" };
+
+  it("reads a day for the one service: its name, its line, its count", () => {
+    const view = presentDay("2026-10-30", baseSummary, false, t, format, dinner);
+    expect(view.servicesSummary).toBe("Dinner");
+    const detailed = presentDay("2026-10-30", baseSummary, true, t, format, dinner);
+    expect(detailed.services.map((l) => l.key)).toEqual(["svc-2"]);
+    expect(detailed.accessibleDetails).not.toContain("Lunch");
+  });
+
+  it("keeps only the closure bands that touch the service", () => {
+    const withClosure: AvailabilityDaySummary = {
+      ...baseSummary,
+      closures: [{ ruleId: "r1", targetKind: "service", from: 1200, to: 1320 }],
+    };
+    expect(presentDay("2026-10-30", withClosure, false, t, format, dinner).bands).toHaveLength(1);
+    const lunch = { id: "svc-1", name: "Lunch" };
+    expect(presentDay("2026-10-30", withClosure, false, t, format, lunch).bands).toHaveLength(0);
+  });
+
+  it("says a day the service does not run has no such service, as closed", () => {
+    const lunchOnly: AvailabilityDaySummary = {
+      ...baseSummary,
+      serviceCount: 1,
+      services: baseSummary.services?.slice(0, 1),
+    };
+    const view = presentDay("2026-10-30", lunchOnly, false, t, format, dinner);
+    expect(view.label).toBe("availability.calendar.serviceNotRunning Dinner");
+    expect(view.tone).toBe("closed");
+    expect(view.servicesSummary).toBeNull();
+  });
+
+  it("leaves a closed day saying Closed, not No Dinner", () => {
+    const closed: AvailabilityDaySummary = {
+      ...baseSummary,
+      label: "Closed",
+      serviceCount: 0,
+      services: [],
+    };
+    const view = presentDay("2026-10-30", closed, false, t, format, dinner);
+    expect(view.label).toBe("availability.calendar.dayLabel.closed");
+  });
+
+  it("is the same as no filter when there is none", () => {
+    expect(presentDay("2026-10-30", baseSummary, false, t, format, null)).toEqual(
+      presentDay("2026-10-30", baseSummary, false, t, format)
+    );
   });
 });

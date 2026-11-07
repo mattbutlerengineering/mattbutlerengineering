@@ -43,7 +43,8 @@ function ConfirmIcon({ variant }: { variant: "default" | "destructive" }) {
 /**
  * A purpose-built confirmation dialog with confirm/cancel actions and an icon.
  * When `variant` is `"destructive"`, the cancel button receives initial focus
- * to prevent accidental confirmations.
+ * to prevent accidental confirmations, and the panel is `role="alertdialog"`.
+ * The default variant is a plain `role="dialog"`.
  *
  * @example
  * <ConfirmDialog
@@ -101,6 +102,7 @@ export const ConfirmDialog = forwardRef<HTMLDivElement, ConfirmDialogProps>(func
       ref={ref}
       open={open}
       onClose={onCancel}
+      role={variant === "destructive" ? "alertdialog" : "dialog"}
       title={title}
       description={description}
       footer={

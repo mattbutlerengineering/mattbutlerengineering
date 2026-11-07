@@ -4,8 +4,6 @@ Collected 2026-10-14 from issue #6634 (conductor batch b20261014c, item spec
 step). Not a pipeline artifact. The issue body is the interview source; the
 Owner is not present in this session.
 
-stop-after: decompose
-
 ## Run
 
 - **Scale:** feature run, slug `bootstrap-worktree`, dir
@@ -90,3 +88,29 @@ not-applicable` expected at PRD time.
 - **Release authorization:** not granted and not reachable — the run stops
   at Decompose. Later build steps merge only on the Owner's in-session
   answer (conductor `standing_consent` is off).
+
+## Resume — 2026-11-02 (Owner present, in-session answers)
+
+The original `stop-after: decompose` line is removed: Decompose completed
+2026-10-14, and the batch's build step implemented WO-6..WO-10 and merged
+them to main in #6676 (all breakdown checkboxes checked; #6634 closed). This
+resume drives Verify → Review → Ship.
+
+- **Worktree / branch (supersedes the conductor worktree above, which no
+  longer exists):** `.claude/worktrees/bootstrap-worktree-autorun`, branch
+  `docs/bootstrap-worktree-autorun`, cut from `origin/main` @ `77f84aca5`.
+  Stage commits land here; the branch ends in one pull request.
+- **Open-PR pre-flight:** ran 2026-11-02. Open: #8005, #8157, #8160, #8166,
+  #8167 — none approved; Owner declined to merge or close any this session.
+  None blocks this run.
+- **Release authorization:** not granted — prepare and stop. Ship writes
+  `outcome: prepared` with `pending-merge:` naming this branch's pull
+  request; no deploy, publish, tag, or merge. The feature's code already
+  reached main via #6676; Ship records that, it does not re-release.
+- **Tracker interaction:** still none. #6634 is closed; do not reopen or
+  comment on it.
+
+## Operate
+
+operate: skip — no retro this run; the run stays active until someone has
+feedback to capture.

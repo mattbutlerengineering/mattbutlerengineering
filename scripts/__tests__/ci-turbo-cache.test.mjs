@@ -48,7 +48,7 @@ function turboCacheStep(job) {
   return job.steps.find((s) => String(s.with.path ?? "").includes(".turbo/cache"));
 }
 
-const CACHE_JOBS = ["build", "test", "typecheck"];
+const CACHE_JOBS = ["build", "test", "typecheck", "rls-integration"];
 
 describe("ci.yml turbo caching (local + remote)", () => {
   for (const job of CACHE_JOBS) {
@@ -84,7 +84,7 @@ describe("ci.yml turbo caching (local + remote)", () => {
     expect(WORKFLOW).not.toMatch(/turbo link --team/);
   });
 
-  const REMOTE_CACHE_JOBS = ["lint", "typecheck", "build", "test"];
+  const REMOTE_CACHE_JOBS = ["lint", "typecheck", "build", "test", "rls-integration"];
 
   for (const job of REMOTE_CACHE_JOBS) {
     it(`${job} job runs the pinned GitHub-Actions-backed turbo remote cache action`, () => {

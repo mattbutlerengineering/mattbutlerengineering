@@ -1095,6 +1095,7 @@ describe("sensors-registry", () => {
         code_churn_rate_max: 0.3,
         queue_efficiency_composite_drop: 0.05,
         queue_efficiency_fps_drop: 0.1,
+        queue_efficiency_review_coverage_trend_drop: 0.08,
         agent_success_rate_drop: 10,
         error_rate_increase: 20,
         service_uptime_min: 99.5,
@@ -1107,6 +1108,113 @@ describe("sensors-registry", () => {
       expect(shimSource).not.toMatch(/CODE_CHURN_THRESHOLD/);
       expect(shimSource).not.toMatch(/QUEUE_EFFICIENCY_(COMPOSITE|FPS)_DROP/);
       expect(shimSource).toMatch(/buildThresholds/);
+    });
+  });
+
+  describe("queueEfficiency detectRegression — review_coverage trend (#8184)", () => {
+    const sensor = () => SENSORS.find((s) => s.id === "queueEfficiency");
+    const run = (trail, composite = 0.91) =>
+      sensor().detectRegression(
+        {
+          available: true,
+          composite,
+          sub_metrics: {
+            issues_merged: 18,
+            review_coverage: trail.at(-1)?.value,
+            review_coverage_trail: trail,
+          },
+          regressions: [],
+        },
+        { available: true, composite: 0.914 },
+        sensor().thresholds
+      );
+    const trend = (regs) => regs.filter((r) => r.metric === "review_coverage_trend");
+
+    it("flags a 3-report review_coverage decline the composite hides (0.286 -> 0.211 -> 0.167)", () => {
+      const regs = trend(
+        run([
+          { value: 0.286, n: 21 },
+          { value: 0.211, n: 19 },
+          { value: 0.167, n: 18 },
+        ])
+      );
+      expect(regs).toHaveLength(1);
+      expect(regs[0]).toMatchObject({
+        sensor: "queueEfficiency",
+        metric: "review_coverage_trend",
+        current: 0.167,
+        previous: 0.286,
+        delta: -0.119,
+      });
+    });
+
+    it("does not flag a flat or rising trail", () => {
+      expect(
+        trend(
+          run([
+            { value: 0.2, n: 20 },
+            { value: 0.2, n: 20 },
+            { value: 0.2, n: 20 },
+          ])
+        )
+      ).toEqual([]);
+      expect(
+        trend(
+          run([
+            { value: 0.167, n: 20 },
+            { value: 0.25, n: 20 },
+            { value: 0.3, n: 20 },
+          ])
+        )
+      ).toEqual([]);
+    });
+
+    it("does not flag when the decline is not monotone (recovery in the middle)", () => {
+      expect(
+        trend(
+          run([
+            { value: 0.3, n: 20 },
+            { value: 0.15, n: 20 },
+            { value: 0.2, n: 20 },
+          ])
+        )
+      ).toEqual([]);
+    });
+
+    it("ignores trails shorter than 3 reports or with any report below the sample floor", () => {
+      expect(
+        trend(
+          run([
+            { value: 0.3, n: 20 },
+            { value: 0.1, n: 20 },
+          ])
+        )
+      ).toEqual([]);
+      expect(
+        trend(
+          run([
+            { value: 0.286, n: 21 },
+            { value: 0.211, n: 14 },
+            { value: 0.167, n: 18 },
+          ])
+        )
+      ).toEqual([]);
+    });
+
+    it("does not flag a decline smaller than the threshold", () => {
+      expect(
+        trend(
+          run([
+            { value: 0.25, n: 20 },
+            { value: 0.24, n: 20 },
+            { value: 0.23, n: 20 },
+          ])
+        )
+      ).toEqual([]);
+    });
+
+    it("declares its threshold next to the detector as a number", () => {
+      expect(typeof sensor().thresholds.queue_efficiency_review_coverage_trend_drop).toBe("number");
     });
   });
 
@@ -1422,11 +1530,19 @@ describe("metricsFreshness sensor (#5529)", () => {
     }),
   };
 
-  function seed(files) {
+  function seed(files, { withSnapshot = true } = {}) {
     tmpDir = mkdtempSync(join(tmpdir(), "metrics-freshness-sensor-"));
     mkdirSync(join(tmpDir, "metrics"), { recursive: true });
     for (const [name, content] of Object.entries(files)) {
       writeFileSync(join(tmpDir, "metrics", name), content);
+    }
+    if (withSnapshot) {
+      const dir = join(tmpDir, "apps/marketing/src/data");
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(
+        join(dir, "shipped-features.json"),
+        JSON.stringify({ generatedAt: "2026-09-20T00:00:00.000Z", features: [{ slug: "a" }] })
+      );
     }
     return tmpDir;
   }
@@ -1440,14 +1556,14 @@ describe("metricsFreshness sensor (#5529)", () => {
   it("reports a regression when the watched file does not exist", () => {
     // The state the repo was actually in. If this ever returns [], the
     // self-check has become decorative and this batch's whole point is lost.
-    const root = seed({});
+    const root = seed({}, { withSnapshot: false });
     const data = sensor().collect({
       root,
       now: new Date("2026-09-20T12:00:00.000Z"),
     });
 
     expect(data.available).toBe(true);
-    expect(data.stale_count).toBe(7);
+    expect(data.stale_count).toBe(8);
 
     const regressions = sensor().detectRegression(data, undefined, {});
     expect(regressions.map((r) => r.metric).sort()).toEqual([
@@ -1458,6 +1574,7 @@ describe("metricsFreshness sensor (#5529)", () => {
       "queueEfficiency",
       "review-burden",
       "sdlcSpeed",
+      "shipped-features",
     ]);
     expect(regressions.every((r) => r.sensor === "metricsFreshness")).toBe(true);
   });

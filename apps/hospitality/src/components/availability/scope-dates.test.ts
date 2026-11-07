@@ -38,6 +38,16 @@ describe("scopeDates", () => {
     expect(fridays).toHaveLength(53);
   });
 
+  it("every Friday from a past date counts only the Fridays still ahead", () => {
+    // Fri Oct 2 is three Fridays before Wed Oct 21; the year's reach is still counted from Oct 2.
+    const fridays = scopeDates(
+      { kind: "weekday", from: "2026-10-02", until: null },
+      { config: fixtureConfig(), timezone: FIXTURE_TIMEZONE, today: "2026-10-21" }
+    );
+    expect(fridays[0]).toBe("2026-10-23");
+    expect(fridays).toHaveLength(50);
+  });
+
   it("everywhere a schedule is used lists the future dates that schedule runs", () => {
     const run = dates({ kind: "schedule", scheduleId: "regular" });
     expect(run[0]).toBe("2026-10-30");
@@ -117,5 +127,15 @@ describe("ownChangeDates", () => {
   it("ignores closures: only hours changes are conflicts", () => {
     const closure: DateRule = { ...SERIES_SKIP, id: "c", kind: "closure", seriesId: undefined };
     expect(ownChangeDates(fixtureConfig(closure), [FIXTURE_DATE], null)).toEqual([]);
+  });
+});
+
+describe("scopeDates for a regular weekday", () => {
+  it("is every future date of that weekday the live regular week runs, to the 366-day horizon", () => {
+    const fridays = dates({ kind: "regularWeekday", weekday: 5 });
+    expect(fridays[0]).toBe("2026-10-30");
+    expect(fridays).toHaveLength(52);
+    // The fixture's regular week runs Fridays only.
+    expect(dates({ kind: "regularWeekday", weekday: 4 })).toEqual([]);
   });
 });

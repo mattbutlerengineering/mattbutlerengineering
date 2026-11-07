@@ -268,3 +268,24 @@ unconditionally — stop and surface.
     labelling. Rejected: any-site-in-repo (copyright/ToS exposure), a private
     store (new credential → stop-and-surface), self-referential pairs only
     (the rubber-stamp risk).
+
+## Resume, 2026-11-03
+
+Matt answered these live in the resuming session. Nothing above is changed.
+
+- **Scope:** implement breakdown item **N5** (marketing capture settles
+  before the shot; budget re-measured), the one unchecked item. Nothing else.
+- **Worktree:** the § Constraints worktree `.claude/worktrees/ui-quality-loop`
+  and branch `feat/ui-quality-loop` no longer exist (#5931 merged
+  2026-09-30). Work happens in `.claude/worktrees/ui-quality-loop-n5`, branch
+  `feat/ui-quality-loop-n5` off `origin/main` `cdaf49f31`. The main checkout
+  is behind and dirty — never read or write it.
+- **Measurement:** N5's acceptance dispatches `visual-noise-floor.yml` for
+  marketing at the N5 branch ref. That is measurement, not a release action.
+  VR baselines still come only from a Linux CI artifact, never macOS.
+- **Landing:** the N5 PR merges through the repo's `/ship-pr` boundary under
+  § Release authorization (1): `CI Gate` green, reviewer gate passed, matched
+  specialists, no unfixed critical finding, then squash merge. `verification.md`,
+  `review.md` and `release.md` are not rewritten.
+- **Operate:** this brief has no `operate:` section, so Operate does not run.
+- The § Release authorization "Not authorized" list still holds.

@@ -1,11 +1,13 @@
 import type { AvailabilityConfig } from "@mbe/types";
+import { servicesOn } from "./service-days.js";
 import { MINUTES_PER_DAY, WEEKDAYS, type Weekday } from "./types.js";
 
 /**
  * The legacy `Venue.operatingHours` value, derived from the regular week of an
  * availability config (docs/features/venue-availability/architecture.md §
  * Migration): per weekday, the first opening and the last closing across the
- * services that day's undated assignment brings. The store writes it so bundles
+ * services that day's undated assignment brings and that run on that weekday
+ * (a service scoped to some days, or with other hours on some, counts per day). The store writes it so bundles
  * that still read the column keep working until Phase 2 drops it.
  */
 
@@ -31,7 +33,9 @@ function clock(minute: number): string {
 export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyOperatingHours {
   // Archived rows stay in the config (others reference them) but no longer run.
   const liveSchedules = new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
-  const liveServices = new Set(config.venueServices.filter((s) => !s.archivedAt).map((s) => s.id));
+  const liveServices = new Map(
+    config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.id, s])
+  );
   const regularWeek = config.assignments.filter(
     (a) => !a.startsOn && !a.endsOn && liveSchedules.has(a.scheduleId)
   );
@@ -44,8 +48,10 @@ export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyO
         null
       );
     const services = covering
-      ? config.scheduleServices.filter(
-          (s) => s.scheduleId === covering.scheduleId && liveServices.has(s.venueServiceId)
+      ? servicesOn(
+          config.scheduleServices.filter((s) => s.scheduleId === covering.scheduleId),
+          liveServices,
+          stored
         )
       : [];
     if (services.length === 0) return CLOSED_DAY;

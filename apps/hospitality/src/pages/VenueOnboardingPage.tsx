@@ -71,7 +71,8 @@ export function VenueOnboardingPage() {
       data.floorPlan,
       buildOnboardingPayload(data),
       launch,
-      actions.setLaunchProgress
+      actions.setLaunchProgress,
+      data.hoursDraft
     );
 
     if (result.failedStage !== null) {
@@ -256,7 +257,7 @@ export function VenueOnboardingPage() {
             <LaunchStep
               basicInfo={data.basicInfo}
               locationTime={data.locationTime}
-              operatingHours={data.operatingHours}
+              hoursDraft={data.hoursDraft}
               settings={data.settings}
               onLaunch={handleLaunch}
               onCelebrationDone={handleCelebrationDone}

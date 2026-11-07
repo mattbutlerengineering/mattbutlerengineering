@@ -815,7 +815,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
         summary: "Delete a venue",
         operationId: "deleteVenue",
         description:
-          "Delete a venue. This will fail if the venue has tables or reservations. Requires authentication.",
+          "Delete a venue. Floor plans and tables with no bookings are deleted with it; this fails if a table has a reservation or hold, or the venue has guests or menus. Requires authentication.",
         tags: ["Venues"],
         security: [{ bearerAuth: [] }],
         params: {
@@ -842,7 +842,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
             $ref: "Error#",
           },
           409: {
-            description: "Venue has tables or reservations and cannot be deleted",
+            description: "Venue has bookings, guests or menus and cannot be deleted",
             $ref: "Error#",
           },
         },
@@ -862,7 +862,7 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
             createProblemDetails(
               409,
               "Conflict",
-              "Venue has tables or reservations and cannot be deleted"
+              "Venue has bookings, guests or menus and cannot be deleted"
             )
           );
       }

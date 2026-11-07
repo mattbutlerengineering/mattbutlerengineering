@@ -81,7 +81,7 @@
     "dependency-cruiser": "^18.7.0",
     "esbuild": "^0.28.2",
     "husky": "^9.1.7",
-    "knip": "6.42.1",
+    "knip": "6.44.1",
     "lint-staged": "^17.6.0",
     "size-limit": "^14.3.0",
     "turbo": "^2.11.10",
@@ -89,6 +89,7 @@
   },
   "pnpm": {
     "overrides": {
+      "@opentelemetry/api@>=1.10.0": "1.9.1",
       "tar@<8": "^7.5.22",
       "undici": ">=7.28.0 <8",
       "flatted@<4": "^3.4.3",
@@ -107,7 +108,8 @@
       "minimatch@<3.1.4": "3.1.4",
       "minimatch@>=5.0.0 <5.1.8": "5.1.8",
       "minimatch@>=9.0.0 <9.0.7": "9.0.7",
-      "minimatch@>=10.0.0 <10.2.3": "10.2.3",
+      "minimatch@>=10.0.0 <11.0.1": "^11.0.1",
+      "glob@>=9.0.0 <14.0.2": "^14.0.2",
       "lodash@<5": "^4.18.1",
       "lodash-es@<5": "^4.18.1",
       "esbuild@<0.28.1": "^0.28.1",
@@ -119,6 +121,7 @@
       "ip-address@<10.7.1": ">=10.7.1 <11",
       "fast-uri@<3.1.9": ">=3.1.9 <4",
       "fast-uri@>=4.0.0 <4.2.3": ">=4.2.3 <5",
+      "follow-redirects@<1.16.2": "^1.16.2",
       "hono@<4.13.5": "^4.13.5",
       "@hono/node-server@<2.0.12": "^2.0.12",
       "uuid@<14.0.0": "^14.0.0",
@@ -155,12 +158,13 @@
       "launch-editor@<2.14.2": "^2.14.2"
     },
     "patchedDependencies": {
-      "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator__vitest-runner@10.0.0.patch"
+      "@stryker-mutator/vitest-runner@10.1.1": "patches/@stryker-mutator__vitest-runner@10.1.1.patch"
     },
     "auditConfig": {
       "ignoreGhsas": [
         "GHSA-ch52-4w7c-c8xp",
-        "GHSA-mrhx-c7xc-m3w5"
+        "GHSA-mrhx-c7xc-m3w5",
+        "GHSA-gcqx-w48m-w2h4"
       ]
     }
   },

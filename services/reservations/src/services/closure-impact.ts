@@ -1,5 +1,11 @@
 import { MINUTES_PER_DAY, localDateTimeOf, resolveDay } from "@mbe/availability";
-import type { AvailabilitySnapshot, ResolvedClosure } from "@mbe/availability";
+import type {
+  AvailabilitySnapshot,
+  HoldSlim,
+  ReservationSlim,
+  ResolvedClosure,
+} from "@mbe/availability";
+import { BOOKING_ORIGIN_HOSTS, resolveGuestNoticeLocale } from "@mbe/types";
 import type {
   AvailabilityConfig,
   ClosureAlongside,
@@ -10,6 +16,8 @@ import type {
   DateRule,
 } from "@mbe/types";
 import { strandReason } from "./availability-config-checks.js";
+import { moveTarget } from "./closure-command-plan.js";
+import { checkTableConflict } from "./slot-rules.js";
 
 /**
  * The affected-set preview of a closure, special hours or Tonight change
@@ -28,7 +36,11 @@ export interface ImpactBooking {
   endTime: Date;
   partySize: number;
   guestName: string | null;
-  /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. Named for the common case. */
+  /** The host the guest booked on (#7892); anything but the allowlisted hosts reads as none. */
+  originHost?: string | null;
+  /** The language the guest booked in (a notice locale); absent or unsupported reads as en-US. */
+  locale?: string | null;
+  /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. `amountCents` is the estimate of what is still owed (the deposit less refunds already recorded; can be 0), not the deposit's amount. */
   heldDeposit: { amountCents: number; currency: string } | null;
 }
 
@@ -164,7 +176,66 @@ function toReservation(booking: ImpactBooking, runsInto: boolean): ClosureImpact
     guestName: booking.guestName,
     deposit: booking.heldDeposit,
     runsIntoClosure: runsInto,
+    originHost: BOOKING_ORIGIN_HOSTS.find((h) => h === booking.originHost) ?? null,
+    locale: resolveGuestNoticeLocale(booking.locale),
   };
+}
+
+/** The bookings and active holds on the tables a move may land on, as the save would find them. */
+export interface Occupancy {
+  reservations: readonly ReservationSlim[];
+  holds: readonly HoldSlim[];
+}
+
+/**
+ * Where "Move to the nearest open time" would put each booking, so the preview never promises a
+ * move the save would refuse. The start comes from `moveTarget`, the function the closure command
+ * moves with; whether the table is then free is `checkTableConflict`, the engine's form of the
+ * `overlapWindow` check `closure-apply`'s `targetTaken` queries with (bookings and unexpired holds).
+ * Moves are replayed in the order `applyTransitions` applies them (the group's bookings by start),
+ * and a booking that lands is where the next one finds it, so two bookings that would both take a
+ * table's 6:00 PM slot get one proposal and one `null`. A booking with no table is not checked.
+ * Bookings other groups cancel are assumed kept: a cancel is a choice not yet made.
+ */
+function withProposedStarts(
+  after: AvailabilitySnapshot,
+  group: ClosureImpactGroup,
+  tableOf: ReadonlyMap<string, string | null>,
+  occupancy: Occupancy,
+  now: Date
+): { group: ClosureImpactGroup; standing: readonly ReservationSlim[] } {
+  const placed = group.reservations.reduce(
+    (acc, r) => {
+      const target = moveTarget(after, group.date, r, now);
+      const tableId = tableOf.get(r.id) ?? null;
+      const taken =
+        target !== null &&
+        tableId !== null &&
+        checkTableConflict(
+          tableId,
+          target.startTime,
+          target.endTime,
+          acc.standing.filter((s) => s.id !== r.id),
+          occupancy.holds,
+          now
+        );
+      const landed = taken ? null : target;
+      const standing = landed
+        ? acc.standing.map((s) =>
+            s.id === r.id ? { ...s, startTime: landed.startTime, endTime: landed.endTime } : s
+          )
+        : acc.standing;
+      return {
+        standing,
+        reservations: [
+          ...acc.reservations,
+          { ...r, proposedStart: landed?.startTime.toISOString() ?? null },
+        ],
+      };
+    },
+    { standing: occupancy.reservations, reservations: [] as ClosureImpactReservation[] }
+  );
+  return { group: { ...group, reservations: placed.reservations }, standing: placed.standing };
 }
 
 function toGroup(
@@ -189,8 +260,14 @@ export function computeClosureImpact(input: {
   rule: DateRule;
   alongside?: ClosureAlongside;
   bookings: readonly ImpactBooking[];
+  /** For the proposed move times: a move never lands before now. */
+  now: Date;
+  /** Who else holds the tables a move lands on; absent, no table is taken. */
+  occupancy?: Occupancy;
 }): ClosureImpact {
-  const { timezone, config, rule, bookings, alongside } = input;
+  const { timezone, config, rule, bookings, alongside, now } = input;
+  const occupancy = input.occupancy ?? { reservations: [], holds: [] };
+  const tableOf = new Map(bookings.map((b) => [b.id, b.tableId] as const));
   const before = { timezone, config };
   const after = { timezone, config: withClosure(config, rule, alongside) };
   const kind = kindOf(rule);
@@ -207,9 +284,22 @@ export function computeClosureImpact(input: {
     byDate.set(date, [...(byDate.get(date) ?? []), toReservation(booking, verdict.runsInto)]);
   }
 
-  const groups = [...byDate.entries()]
+  const unmoved = [...byDate.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([date, reservations]) => toGroup(date, kind, reservations));
+  const groups =
+    kind === "shortened"
+      ? unmoved.reduce(
+          (acc, g) => {
+            const next = withProposedStarts(after, g, tableOf, acc.occupancy, now);
+            return {
+              groups: [...acc.groups, next.group],
+              occupancy: { ...acc.occupancy, reservations: next.standing },
+            };
+          },
+          { groups: [] as ClosureImpactGroup[], occupancy }
+        ).groups
+      : unmoved;
   return {
     reservations: groups.reduce((n, g) => n + g.reservations.length, 0),
     covers: groups.reduce((n, g) => n + g.covers, 0),
