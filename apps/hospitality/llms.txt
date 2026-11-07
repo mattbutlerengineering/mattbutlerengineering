@@ -1505,9 +1505,6 @@
       export function weekdayRuns(weekdays: readonly number[]): [number, number][] { /* ... */ }
     </item>
     <item priority="high">
-      export function hasOwnSchedules(config: AvailabilityConfig): boolean { /* ... */ }
-    </item>
-    <item priority="high">
       export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean { /* ... */ }
     </item>
     <item priority="high">

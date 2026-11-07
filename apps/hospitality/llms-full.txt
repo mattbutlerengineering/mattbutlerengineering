@@ -3504,9 +3504,6 @@
       });
       return runs;
     }
-    export function hasOwnSchedules(config: AvailabilityConfig): boolean {
-      return liveSchedules(config).some((s) => s.kind !== "regular");
-    }
     export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
       const schedule = config.schedules.find((s) => s.id === scheduleId);
       if (!schedule || schedule.isRegular) return false;

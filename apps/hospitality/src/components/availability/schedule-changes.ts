@@ -51,14 +51,6 @@ export function weekdayRuns(weekdays: readonly number[]): [number, number][] {
 const liveSchedules = (config: AvailabilityConfig): Schedule[] =>
   config.schedules.filter((s) => !s.archivedAt);
 
-/**
- * The Schedules tab exists only while a live schedule is not a regular week (ux.md F-UW): a venue
- * with one regular week, or with superseded versions of it, has nothing to manage there.
- */
-export function hasOwnSchedules(config: AvailabilityConfig): boolean {
-  return liveSchedules(config).some((s) => s.kind !== "regular");
-}
-
 /** A schedule can be deleted only when nothing assigns it and no date rule points at it. */
 export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
   const schedule = config.schedules.find((s) => s.id === scheduleId);
