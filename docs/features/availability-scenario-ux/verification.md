@@ -12,13 +12,13 @@ assumptions:
 
 ## Summary
 
-On `74f2f327c`: 12 of 12 PRD criteria PASS; 0 FAIL; 0 NOT RUN as automated checks, with one human check not run — no Owner or operator walkthrough of the changed page (criterion 4's budgets are agent stand-in counts). The full e2e set's result is quoted below, including the one pre-existing flaky test (seeded in `docs/backlog.md` by feature:availability-setup-hierarchy). Verdict: the everyday jobs meet their budgets and every confirmation names what changed.
+On `74f2f327c`: 12 of 12 PRD criteria PASS; 0 FAIL; 0 NOT RUN as automated checks, with one human check not run — no Owner or operator walkthrough of the changed page (criterion 4's budgets are agent stand-in counts). Full e2e: 370 of 370 passed with `--retries=0`; the pre-existing flaky "Escape on Go to date (desktop, fr-CA)" test (seeded in `docs/backlog.md`) passed this run and failed once in the previous full run. Verdict: the everyday jobs meet their budgets and every confirmation names what changed.
 
 ```
 apps/hospitality vitest:   Test Files 412 passed (412)   Tests 5810 passed (5810)
 apps/hospitality typecheck (test + e2e configs): exit 0
 apps/hospitality eslint src/ e2e/: 0 errors, 239 warnings (base 235; +4 prefer-rialto-components on calendar cells that were raw markup before; review.md)
-e2e (availability-*, onboarding, venue-setup-hub, a11y, fold-budget, locale-sweep; --retries=0, mocked API + local fake OIDC): see "Full e2e" below
+e2e (availability-*, onboarding, venue-setup-hub, a11y, fold-budget, locale-sweep; --retries=0, mocked API + local fake OIDC): 370 passed (17.9m)
 ```
 
 ## Criteria & evidence
@@ -101,7 +101,13 @@ e2e (availability-*, onboarding, venue-setup-hub, a11y, fold-budget, locale-swee
 
 ## Full e2e
 
-(Filled from the final run below.)
+```
+/tmp/e2e-local.sh <worktree> e2e/availability-*.spec.ts e2e/onboarding.spec.ts e2e/venue-setup-hub.spec.ts \
+  e2e/a11y.test.ts e2e/fold-budget.spec.ts e2e/locale-sweep.spec.ts --retries=0     (on 74f2f327c)
+  370 passed (17.9m)
+```
+
+The run before the last fixes (`49c29a35c`) was 366 passed, 4 failed: R8 and R11 (the spec still read the old one-string legend), `availability-phone` "calendar cells say what they show" (a closed day's booking chip ran into its muted text — product fix `74f2f327c`), and the pre-existing Go to date Escape race. An earlier attempt launched from the wrong directory ran only 162 tests (the shell could not expand the spec glob) and was discarded.
 
 ## Failures
 
