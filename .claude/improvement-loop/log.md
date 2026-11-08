@@ -5101,3 +5101,13 @@ Both quoted strings look like deprecation/config noise rather than a real assert
 **Coverage before this fire:** 100% (135/135 reachable rows covered, 0 uncovered, not provisional).
 
 **Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so both issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion (`hasNextPage: false`, totalCount 37 and 0), with #8106 spot-checked via `issue_read` to confirm the listing's state matches. A no-finding fire, logged as such.
+
+## 2026-11-08 — mbe-learning-loop
+
+**Sensors:** 17/18 available (e2eStability not available). Status: Healthy. acmm L5 (73/84), ciHealth 100% (22/22), mutationScore 99.07% PASS, flakyTests 0, metricsFreshness 0 unhealthy.
+**Regressions:** 0 detected, 0 issues created.
+**Sentry triage:** skipped — stored Sentry MCP token expired/unauthorized; no human available in this scheduled run to re-authorize.
+**Verifications:** 5 closed issues checked (48h window) — all 5 skipped ("no matching verifier for labels": #8518, #8519, #8520, #8521, #8522). 0 verified, 0 failed, 0 reopened.
+**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — meta-improvement 0%, ci-fix 0%, feature 4%, audit 4%, sentry 0%, dependencies 0%, acmm 0%. All budgets stay at default 3.
+**Skill proposals:** 0 (Sunday — Friday-only).
+**Threshold notes:** last-30-days verifications.jsonl: 10 non-skip verifications, 6 verified / 4 not-verified → fix-effectiveness 60% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above) max 4%, well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.523 → 1.545 (headroom).
