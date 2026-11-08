@@ -9,6 +9,9 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+}));
 vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
   useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
 }));
@@ -19,7 +22,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { CompareServices } from "./CompareServices.js";
-import { SchedulesTab } from "./SchedulesTab.js";
+import { SchedulesLayer } from "./schedules-tab.harness.js";
 
 /** The demo week plus a Manager's Weeknight, which runs Dinner on Mon–Thu with no day scope. */
 function withWeeknight(): AvailabilityConfig {
@@ -109,11 +112,10 @@ describe("Compare services on a varied week", () => {
     render(
       <ToastProvider>
         <main>
-          <SchedulesTab {...common} state={state()} />
+          <SchedulesLayer {...common} state={state()} comparing />
         </main>
       </ToastProvider>
     );
-    fireEvent.click(screen.getByRole("button", { name: "Compare services" }));
     fireEvent.click(screen.getByRole("combobox", { name: "Service" }));
     fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
     fireEvent.click(screen.getByRole("button", { name: "Edit schedule" }));

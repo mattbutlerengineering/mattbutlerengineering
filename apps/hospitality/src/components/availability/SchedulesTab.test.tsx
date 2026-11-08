@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 
@@ -12,14 +12,26 @@ vi.mock("../../hooks/useAvailability.js", () => ({
 vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
   useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
 }));
+const venueSettings = vi.hoisted(() => ({
+  value: undefined as Record<string, unknown> | undefined,
+}));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
-    selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
+    selectedVenue: {
+      id: "venue-1",
+      ianaTimezone: "America/Los_Angeles",
+      currencyCode: "USD",
+      settings: venueSettings.value,
+    },
   }),
+}));
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
 }));
 
 import { CompareServices } from "./CompareServices.js";
-import { SchedulesTab } from "./SchedulesTab.js";
+import type { ScheduleEditorTarget } from "./SchedulesTab.js";
+import { SchedulesLayer } from "./schedules-tab.harness.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 /** The regular week (Fridays), Weeknight (Mon-Thu, in use) and Spare (used nowhere). */
@@ -63,6 +75,14 @@ const common = {
   onStale: vi.fn(),
 };
 
+function Layer(props: {
+  readonly state: AvailabilityConfigState;
+  readonly comparing?: boolean;
+  readonly onEditorChange?: (editor: ScheduleEditorTarget) => void;
+}) {
+  return <SchedulesLayer {...common} {...props} />;
+}
+
 // At file level: the suites may run in any order, and rialto's Select scrolls in both.
 beforeAll(() => {
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -72,29 +92,73 @@ describe("SchedulesTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     save.mockResolvedValue({ version: 8, changeId: "chg" });
+    venueSettings.value = undefined;
   });
 
-  it("lists each schedule with where it applies and marks the regular week", () => {
-    renderWith(<SchedulesTab {...common} state={state()} />);
-    expect(screen.getByText("Regular week")).toBeInTheDocument();
+  it("heads the layer Regular week and lists only the other schedules under Other schedules", () => {
+    renderWith(<Layer state={state()} />);
+    expect(screen.getByRole("heading", { level: 2, name: "Regular week" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Other schedules" })).toBeInTheDocument();
+    // Weeknight and Spare are rows; the regular week ("Weekend") is the panel above, not a row.
+    const other = screen.getByRole("region", { name: "Other schedules" });
+    expect(within(other).getAllByRole("listitem")).toHaveLength(2);
     expect(screen.getByText("Mon–Thu")).toBeInTheDocument();
     expect(screen.getByText("Not used yet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit Weekend" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Duplicate Weekend" })).not.toBeInTheDocument();
   });
 
-  it("does not repeat 'Regular week' as a tag on a regular week still named that", () => {
-    const named = state();
-    const config = {
-      ...named.config,
-      schedules: named.config.schedules.map((s) =>
-        s.isRegular ? { ...s, name: "Regular week" } : s
-      ),
-    };
-    renderWith(<SchedulesTab {...common} state={{ ...named, config }} />);
-    expect(screen.getAllByText("Regular week")).toHaveLength(1);
+  it("has no Other schedules group when the regular week is the only schedule", () => {
+    const only = state();
+    const config = { ...only.config, schedules: only.config.schedules.filter((s) => s.isRegular) };
+    renderWith(<Layer state={{ ...only, config }} />);
+    expect(screen.queryByRole("heading", { name: "Other schedules" })).not.toBeInTheDocument();
+  });
+
+  it("opens the seeded add flow from Add a schedule…, and names no 'New schedule' button", () => {
+    const onEditorChange = vi.fn();
+    renderWith(<Layer state={state()} onEditorChange={onEditorChange} />);
+    expect(screen.queryByRole("button", { name: "New schedule" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add a schedule…" }));
+    expect(onEditorChange).toHaveBeenCalledWith({ mode: "new" });
+  });
+
+  it("says in one line what the layer is and prints the booking summary", () => {
+    venueSettings.value = { maxAdvanceBooking: 30, minAdvanceBooking: 1, maxPartySize: 12 };
+    renderWith(<Layer state={state()} />);
+    expect(
+      screen.getByText(
+        "Your usual week. Other schedules and special dates change it on the days they cover."
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Booking: Up to 30 days ahead · 1 hour notice · parties up to 12 online")
+    ).toBeInTheDocument();
+  });
+
+  it("says so when no booking rule is set", () => {
+    renderWith(<Layer state={state()} />);
+    expect(screen.getByText("Booking: not set up yet")).toBeInTheDocument();
+  });
+
+  it("opens Compare services only when the page says so", () => {
+    const { unmount } = renderWith(<Layer state={state()} />);
+    expect(screen.queryByRole("heading", { name: "Compare services" })).not.toBeInTheDocument();
+    unmount();
+    renderWith(<Layer state={state()} comparing />);
+    expect(screen.getByRole("heading", { level: 2, name: "Compare services" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("heading", { name: "Compare services" })).not.toBeInTheDocument();
+  });
+
+  it("Starting later… opens Change regular week with Starting empty", () => {
+    renderWith(<Layer state={state()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Starting later…" }));
+    expect(screen.getByRole("dialog", { name: "Change regular week" })).toBeInTheDocument();
   });
 
   it("shows short actions and keeps the schedule's name in what is spoken (#7980)", () => {
-    renderWith(<SchedulesTab {...common} state={state()} />);
+    renderWith(<Layer state={state()} />);
     expect(screen.getByRole("button", { name: "Edit Weeknight" })).toHaveTextContent(/^Edit$/);
     expect(screen.getByRole("button", { name: "Duplicate Weeknight" })).toHaveTextContent(
       /^Duplicate$/
@@ -103,7 +167,7 @@ describe("SchedulesTab", () => {
   });
 
   it("offers delete only where nothing uses the schedule", () => {
-    renderWith(<SchedulesTab {...common} state={state()} />);
+    renderWith(<Layer state={state()} />);
     expect(screen.getByRole("button", { name: "Delete Weeknight" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Delete Spare" })).toBeEnabled();
     // The regular week is never deletable.
@@ -111,7 +175,7 @@ describe("SchedulesTab", () => {
   });
 
   it("deletes an unused schedule after a confirmation", async () => {
-    renderWith(<SchedulesTab {...common} state={state()} />);
+    renderWith(<Layer state={state()} />);
     fireEvent.click(screen.getByRole("button", { name: "Delete Spare" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
@@ -122,7 +186,7 @@ describe("SchedulesTab", () => {
   });
 
   it("starts a duplicate named as a copy", () => {
-    renderWith(<SchedulesTab {...common} state={state()} />);
+    renderWith(<Layer state={state()} />);
     fireEvent.click(screen.getByRole("button", { name: "Duplicate Weeknight" }));
     expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("Weeknight (copy)");
   });

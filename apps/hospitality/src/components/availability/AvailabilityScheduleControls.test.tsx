@@ -1,62 +1,38 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
-import type { AvailabilityConfigState, Schedule } from "@mbe/types";
-import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
-
-vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => "desktop" }));
-
+import { fireEvent, render, screen } from "@testing-library/react";
+import type { AvailabilityTab } from "./availability-entry.js";
 import { AvailabilityScheduleControls } from "./AvailabilityScheduleControls.js";
 
-function stateWith(...extra: Schedule[]): AvailabilityConfigState {
-  return {
-    config: { ...DEMO_WEEK_CONFIG, schedules: [...DEMO_WEEK_CONFIG.schedules, ...extra] },
-    version: 1,
-    source: "rows",
-  } as AvailabilityConfigState;
-}
-
-function renderControls(state: AvailabilityConfigState, isManager = true) {
-  return render(
-    <AvailabilityScheduleControls
-      venueId="venue-1"
-      isManager={isManager}
-      state={state}
-      today="2026-11-04"
-      tab="calendar"
-      onTabChange={vi.fn()}
-      onStale={vi.fn()}
-    />
+function renderControls(isManager = true, tab: AvailabilityTab = "schedules") {
+  const onTabChange = vi.fn();
+  render(
+    <AvailabilityScheduleControls isManager={isManager} tab={tab} onTabChange={onTabChange} />
   );
+  return { onTabChange };
 }
 
-const tab = () => screen.queryByRole("radio", { name: "Schedules" });
+const layers = () => screen.getAllByRole("radio").map((r) => r.textContent);
 
-describe("AvailabilityScheduleControls Schedules tab", () => {
-  it("shows to a Manager when every schedule is a regular week, superseded versions included", () => {
-    renderControls(
-      stateWith({ id: "old", name: "Regular week", kind: "regular", isRegular: false })
-    );
-    expect(tab()).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Create another schedule…" })).toBeNull();
+describe("AvailabilityScheduleControls", () => {
+  it("lists the layers Schedules, Calendar, Special dates to a Manager", () => {
+    renderControls();
+    expect(layers()).toEqual(["Schedules", "Calendar", "Special dates"]);
+    expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
   });
 
-  it("shows to a Manager of a venue with one schedule", () => {
-    renderControls(stateWith());
-    expect(tab()).toBeInTheDocument();
+  it("never offers the Schedules layer to a Host", () => {
+    renderControls(false, "calendar");
+    expect(layers()).toEqual(["Calendar", "Special dates"]);
   });
 
-  it("never shows to a Host", () => {
-    renderControls(stateWith(), false);
-    expect(tab()).not.toBeInTheDocument();
-    renderControls(
-      stateWith({ id: "xmas", name: "Holiday", kind: "holiday", isRegular: false }),
-      false
-    );
-    expect(tab()).not.toBeInTheDocument();
+  it("asks for the layer picked", () => {
+    const { onTabChange } = renderControls();
+    fireEvent.click(screen.getByRole("radio", { name: "Special dates" }));
+    expect(onTabChange).toHaveBeenCalledWith("special");
   });
 
-  it("shows while a live schedule of another kind exists", () => {
-    renderControls(stateWith({ id: "xmas", name: "Holiday", kind: "holiday", isRegular: false }));
-    expect(tab()).toBeInTheDocument();
+  it("no longer carries a Change regular week… button", () => {
+    renderControls(true, "calendar");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

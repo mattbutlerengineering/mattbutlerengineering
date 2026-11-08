@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Button,
@@ -6,16 +6,20 @@ import {
   DisabledTooltip,
   Heading,
   Stack,
-  Tag,
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, Schedule } from "@mbe/types";
+import { useVenue } from "../../contexts/VenueContext.js";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { bookingRulesOf, bookingRulesText } from "./booking-rules.js";
+import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import { CompareServices } from "./CompareServices.js";
 import { scheduleNameText } from "./day-summary.js";
 import { buildDeleteScheduleChanges, isScheduleUnused } from "./schedule-changes.js";
-import { ScheduleEditorDrawer, type ScheduleEditorMode } from "./ScheduleEditorDrawer.js";
+import type { QuickSetupDraft } from "./quick-setup-draft.js";
+import { RegularWeekPanel } from "./RegularWeekPanel.js";
+import type { ScheduleEditorMode } from "./ScheduleEditorDrawer.js";
 import { SaveFailure, ScheduleDraftGuard, useWeekdaySummary } from "./ScheduleFormParts.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
@@ -28,9 +32,22 @@ export interface SchedulesTabProps {
   /** Today on the venue clock. */
   readonly today: string;
   readonly onStale: () => void;
-  /** Compare services has edits that are not saved; the page asks before another tab drops them. */
+  /** The week panel or Compare services has edits that are not saved; the page asks before another layer drops them. */
   readonly onDirtyChange?: (dirty: boolean) => void;
+  /** Opens the schedule editor, which the page renders (the header ⋯ and the day drawer open it too). */
+  readonly onEditorChange: (editor: ScheduleEditorTarget) => void;
+  /** Compare services is open (the page's ⋯ menu opens it). */
+  readonly comparing: boolean;
+  readonly onComparingChange: (comparing: boolean) => void;
 }
+
+export interface ScheduleEditorTarget {
+  readonly mode: ScheduleEditorMode;
+  readonly sourceId?: string;
+}
+
+/** The heading the page moves focus to once quick setup's save has landed. */
+export const REGULAR_WEEK_HEADING_ID = "availability-regular-week-heading";
 
 /**
  * Where a schedule applies, in words: "Mon–Thu", "Jun 1 – Sep 15, every day", the Use schedule
@@ -70,32 +87,37 @@ function useUsageText(state: AvailabilityConfigState) {
 }
 
 /**
- * The Schedules tab (ux.md F3, S5): each schedule and where it applies, with New, Duplicate, Edit
- * and Delete (only for a schedule used nowhere), plus Compare services.
+ * The Schedules layer (ux.md S-Avail2): the regular week as an editable form with its guest
+ * preview, the other schedules and where they apply (Edit, Duplicate, Delete), the Booking line
+ * and, when asked for, Compare services.
  */
 export function SchedulesTab(props: SchedulesTabProps) {
   const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
+  const { onEditorChange, comparing, onComparingChange } = props;
   const { t } = useTranslation();
+  const { selectedVenue } = useVenue();
   const offerUndo = useAvailabilityUndo();
   const usage = useUsageText(state);
   const saver = useScheduleSave(onStale);
-  const [editor, setEditor] = useState<{ mode: ScheduleEditorMode; sourceId?: string } | null>(
-    null
-  );
-  const [comparing, setComparing] = useState(false);
   const [compareDirty, setCompareDirty] = useState(false);
+  const [weekDirty, setWeekDirty] = useState(false);
+  // Starting later…: Change regular week opens carrying the week form's draft.
+  const [startingLater, setStartingLater] = useState<QuickSetupDraft | null>(null);
+  // Closing Change regular week hands the draft over to it, so the form starts again from the saved week.
+  const [panelKey, setPanelKey] = useState(0);
   const [deleting, setDeleting] = useState<Schedule | null>(null);
-  // Closing Compare throws away rows edited but not saved, so it asks first (as does the page).
-  const changeCompareDirty = (dirty: boolean) => {
-    setCompareDirty(dirty);
-    onDirtyChange?.(dirty);
-  };
+  useEffect(() => {
+    onDirtyChange?.(weekDirty || compareDirty);
+  }, [weekDirty, compareDirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
+  // Closing Compare throws away rows edited but not saved, so it asks first.
   const compareGuard = useDiscardGuard<void>(() => {
-    setComparing(false);
-    changeCompareDirty(false);
+    onComparingChange(false);
+    setCompareDirty(false);
   }, compareDirty);
 
-  const schedules = state.config.schedules.filter((s) => !s.archivedAt);
+  const others = state.config.schedules.filter((s) => !s.archivedAt && !s.isRegular);
+  const rules = bookingRulesText(bookingRulesOf(selectedVenue?.settings), t);
 
   const confirmDelete = async () => {
     if (!deleting) return;
@@ -118,115 +140,137 @@ export function SchedulesTab(props: SchedulesTabProps) {
   return (
     <Stack gap="md">
       <div className={styles.header}>
-        <Heading level={2} size={3}>
-          {t("availabilitySchedules.title")}
+        <Heading level={2} size={3} id={REGULAR_WEEK_HEADING_ID} tabIndex={-1}>
+          {t("availabilitySchedules.layer.regularWeek")}
         </Heading>
-        <div className={styles.actions}>
-          <Button
-            variant="secondary"
-            onClick={() => (comparing ? compareGuard.request() : setComparing(true))}
-          >
-            {t("availabilitySchedules.compare.open")}
-          </Button>
-          <Button variant="primary" onClick={() => setEditor({ mode: "new" })}>
-            {t("availabilitySchedules.new")}
-          </Button>
-        </div>
+        <Button variant="secondary" onClick={() => onEditorChange({ mode: "new" })}>
+          {t("availabilitySchedules.layer.add")}
+        </Button>
       </div>
+      <Text variant="body" color="secondary">
+        {t("availabilitySchedules.layer.intro")}
+      </Text>
+      <RegularWeekPanel
+        key={panelKey}
+        venueId={venueId}
+        state={state}
+        today={today}
+        onStale={onStale}
+        onStartLater={setStartingLater}
+        onDirtyChange={setWeekDirty}
+      />
       <SaveFailure messages={saver.failure} stranded={saver.stranded} />
-      <ul className={styles.list}>
-        {schedules.map((schedule) => {
-          const unused = isScheduleUnused(state.config, schedule.id);
-          const where = usage(schedule);
-          const shown = scheduleNameText(schedule.name, t);
-          return (
-            <li key={schedule.id} className={styles.item}>
-              <div className={styles.name}>
-                <Text as="span" variant="body" color="primary">
-                  {shown}
-                </Text>
-                {/* A regular week still named "Regular week" says so already; the tag would repeat it. */}
-                {schedule.isRegular && shown !== t("availabilitySchedules.regularMarker") && (
-                  <Tag>{t("availabilitySchedules.regularMarker")}</Tag>
-                )}
-                <Text as="span" variant="caption" color="secondary">
-                  {where}
-                </Text>
-              </div>
-              <div className={styles.actions}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t("availabilitySchedules.editNamed", { name: shown })}
-                  onClick={() => setEditor({ mode: "edit", sourceId: schedule.id })}
-                >
-                  {t("availabilitySchedules.edit")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t("availabilitySchedules.duplicateNamed", { name: shown })}
-                  onClick={() => setEditor({ mode: "duplicate", sourceId: schedule.id })}
-                >
-                  {t("availabilitySchedules.duplicate")}
-                </Button>
-                {!schedule.isRegular && (
-                  <DisabledTooltip
-                    disabled={!unused}
-                    disabledReason={
-                      state.config.assignments.some((a) => a.scheduleId === schedule.id)
-                        ? t("availabilitySchedules.deleteBlocked", { where })
-                        : t("availabilitySchedules.deleteBlockedRules", { where })
-                    }
-                  >
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={!unused}
-                      aria-label={t("availabilitySchedules.deleteNamed", { name: shown })}
-                      onClick={() => setDeleting(schedule)}
-                    >
-                      {t("availabilitySchedules.delete")}
-                    </Button>
-                  </DisabledTooltip>
-                )}
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {others.length > 0 && (
+        <section aria-labelledby="other-schedules">
+          <Stack gap="sm">
+            <Heading level={2} size={3} id="other-schedules">
+              {t("availabilitySchedules.layer.other")}
+            </Heading>
+            <ul className={styles.list}>
+              {others.map((schedule) => {
+                const unused = isScheduleUnused(state.config, schedule.id);
+                const where = usage(schedule);
+                const shown = scheduleNameText(schedule.name, t);
+                return (
+                  <li key={schedule.id} className={styles.item}>
+                    <div className={styles.name}>
+                      <Text as="span" variant="body" color="primary">
+                        {shown}
+                      </Text>
+                      <Text as="span" variant="caption" color="secondary">
+                        {where}
+                      </Text>
+                    </div>
+                    <div className={styles.actions}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={t("availabilitySchedules.editNamed", { name: shown })}
+                        onClick={() => onEditorChange({ mode: "edit", sourceId: schedule.id })}
+                      >
+                        {t("availabilitySchedules.edit")}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={t("availabilitySchedules.duplicateNamed", { name: shown })}
+                        onClick={() => onEditorChange({ mode: "duplicate", sourceId: schedule.id })}
+                      >
+                        {t("availabilitySchedules.duplicate")}
+                      </Button>
+                      <DisabledTooltip
+                        disabled={!unused}
+                        disabledReason={
+                          state.config.assignments.some((a) => a.scheduleId === schedule.id)
+                            ? t("availabilitySchedules.deleteBlocked", { where })
+                            : t("availabilitySchedules.deleteBlockedRules", { where })
+                        }
+                      >
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={!unused}
+                          aria-label={t("availabilitySchedules.deleteNamed", { name: shown })}
+                          onClick={() => setDeleting(schedule)}
+                        >
+                          {t("availabilitySchedules.delete")}
+                        </Button>
+                      </DisabledTooltip>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </Stack>
+        </section>
+      )}
       {comparing && (
         <section aria-labelledby="compare-services">
-          <Heading level={3} size={4} id="compare-services">
-            {t("availabilitySchedules.compare.title")}
-          </Heading>
+          <div className={styles.header}>
+            <Heading level={2} size={3} id="compare-services">
+              {t("availabilitySchedules.compare.title")}
+            </Heading>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => (compareDirty ? compareGuard.request() : onComparingChange(false))}
+            >
+              {t("availabilitySchedules.layer.closeCompare")}
+            </Button>
+          </div>
           <CompareServices
             venueId={venueId}
             state={state}
             timezone={timezone}
             today={today}
             onStale={onStale}
-            onDirtyChange={changeCompareDirty}
-            onEditSchedule={(sourceId) => setEditor({ mode: "edit", sourceId })}
+            onDirtyChange={setCompareDirty}
+            onEditSchedule={(sourceId) => onEditorChange({ mode: "edit", sourceId })}
           />
         </section>
       )}
+      <Text variant="body" color="secondary">
+        {rules === ""
+          ? t("availabilitySchedules.layer.bookingUnset")
+          : t("availabilitySchedules.layer.booking", { rules })}
+      </Text>
       <ScheduleDraftGuard
         dirty={compareDirty}
         asking={compareGuard.pending !== null}
         onDiscard={compareGuard.confirmDiscard}
         onKeepEditing={compareGuard.keepEditing}
       />
-      {editor && (
-        <ScheduleEditorDrawer
+      {startingLater && (
+        <ChangeRegularWeekDrawer
           venueId={venueId}
           state={state}
-          timezone={timezone}
           today={today}
-          mode={editor.mode}
-          {...(editor.sourceId ? { sourceScheduleId: editor.sourceId } : {})}
           onStale={onStale}
-          onClose={() => setEditor(null)}
+          initialDraft={startingLater}
+          onClose={() => {
+            setStartingLater(null);
+            setPanelKey((n) => n + 1);
+          }}
         />
       )}
       <ConfirmDialog

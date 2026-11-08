@@ -1858,7 +1858,6 @@
     "tabSchedules": "Schedules",
     "title": "Schedules",
     "regularMarker": "Regular week",
-    "new": "New schedule",
     "newTitle": "New schedule",
     "fromRegularWeek": "Start from your regular week",
     "duplicateTitle": "Duplicate schedule",
@@ -1943,7 +1942,6 @@
       "regularHint": "Reapply lays your hours over the current regular week. Check the result, then save."
     },
     "regularWeek": {
-      "open": "Change regular week…",
       "title": "Change regular week",
       "appliesTo": "Applies to {{days}}. Other days keep their hours.",
       "becomes": "This becomes your regular week: open {{days}}.",
@@ -1958,7 +1956,8 @@
       "start": {
         "today": "Start today",
         "tomorrow": "Start tomorrow"
-      }
+      },
+      "duplicate": "Duplicate regular week…"
     },
     "compare": {
       "open": "Compare services",
@@ -2022,7 +2021,19 @@
       "replacesRegularWeek": "With no end date, this replaces your regular week. Add an end date, or use Change regular week…"
     },
     "edit": "Edit",
-    "duplicate": "Duplicate"
+    "duplicate": "Duplicate",
+    "layer": {
+      "regularWeek": "Regular week",
+      "intro": "Your usual week. Other schedules and special dates change it on the days they cover.",
+      "add": "Add a schedule…",
+      "other": "Other schedules",
+      "booking": "Booking: {{rules}}",
+      "bookingUnset": "Booking: not set up yet",
+      "closeCompare": "Close",
+      "appliesFrom": "Changes apply from today, {{date}}.",
+      "startLater": "Starting later…",
+      "discard": "Discard"
+    }
   },
   "availability": {
     "title": "Availability",

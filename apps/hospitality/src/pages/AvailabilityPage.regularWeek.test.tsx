@@ -73,9 +73,9 @@ vi.mock("../contexts/venue-context-object.js", () => ({
 
 import { AvailabilityPage } from "./AvailabilityPage.js";
 
-function renderPage() {
+function renderPage(url = "/availability?tab=calendar") {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[url]}>
       <ToastProvider>
         <main>
           <AvailabilityPage />
@@ -100,7 +100,7 @@ describe("AvailabilityPage regular-week line", () => {
     renderPage();
     expect(
       screen.getByText(
-        "Regular week: Lunch 11:30 AM–2:00 PM Mon–Fri · Dinner 5:00 PM–9:00 PM Tue–Sun, Fri–Sat until 10:00 PM · Brunch 10:00 AM–1:00 PM Sat–Sun"
+        "Regular week: Lunch 11:30 AM–3:00 PM, last seating 2:00 PM Mon–Fri · Dinner 5:00 PM–11:00 PM, last seating 9:00 PM Tue–Sun, Fri–Sat until 12:00 AM (next day), last seating 10:00 PM · Brunch 10:00 AM–2:00 PM, last seating 1:00 PM Sat–Sun"
       )
     ).toBeInTheDocument();
   });
@@ -134,7 +134,9 @@ describe("AvailabilityPage regular-week line", () => {
     };
     read.config = uniform;
     renderPage();
-    expect(screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM every day")).toBeInTheDocument();
+    expect(
+      screen.getByText("Regular week: Dinner 5:00 PM–11:00 PM, last seating 9:00 PM every day")
+    ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
   });
 
@@ -191,8 +193,10 @@ describe("AvailabilityPage regular-week line", () => {
       ],
     };
     renderPage();
-    expect(screen.getByText(/^Regular week: Lunch 11:30 AM–2:00 PM Mon–Fri/)).toBeInTheDocument();
-    expect(screen.getByText("From Dec 1: Dinner 5:00 PM–9:00 PM every day")).toBeInTheDocument();
+    expect(
+      screen.getByText(/^Regular week: Lunch 11:30 AM–3:00 PM, last seating 2:00 PM Mon–Fri/)
+    ).toBeInTheDocument();
+    expect(screen.getByText("From Dec 1: Dinner 5:00 PM–11:00 PM, last seating 9:00 PM every day")).toBeInTheDocument();
   });
 });
 
@@ -262,20 +266,21 @@ describe("AvailabilityPage on a migrated venue", () => {
     read.config = collapsed();
     const { container } = renderPage();
     expect(
-      screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM Mon–Fri, Thu–Fri until 10:00 PM")
+      screen.getByText(
+        "Regular week: Dinner 5:00 PM–10:00 PM, last seating 9:00 PM Mon–Fri, Thu–Fri until 11:00 PM, last seating 10:00 PM"
+      )
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Thu–Fri hours/);
     expect(screen.getByRole("radio", { name: "Schedules" })).toBeInTheDocument();
   });
 
-  it("opens Change regular week pre-filled from the collapsed week", () => {
+  it("shows the collapsed week in the Schedules layer's week form, the Thu–Fri close as a block", () => {
     read.config = collapsed();
-    renderPage();
-    fireEvent.click(screen.getByRole("button", { name: "Change regular week…" }));
-    const drawer = screen.getByRole("dialog", { name: "Change regular week" });
-    expect(within(drawer).getByDisplayValue("Dinner")).toBeInTheDocument();
+    renderPage("/availability");
+    const form = screen.getByTestId("week-panel");
+    expect(within(form).getByDisplayValue("Dinner")).toBeInTheDocument();
     // The Thu–Fri close is a block of different hours on the one Dinner row, not a schedule.
-    const block = within(drawer).getByRole("group", { name: "Dinner: different hours" });
+    const block = within(form).getByRole("group", { name: "Dinner: different hours" });
     expect(
       within(block)
         .getAllByRole("checkbox")
@@ -284,11 +289,24 @@ describe("AvailabilityPage on a migrated venue", () => {
     ).toEqual(["Thu", "Fri"]);
   });
 
+  it("carries the collapsed week into Change regular week from Starting later…", () => {
+    read.config = collapsed();
+    renderPage("/availability");
+    fireEvent.click(screen.getByRole("button", { name: "Starting later…" }));
+    const drawer = screen.getByRole("dialog", { name: "Change regular week" });
+    expect(within(drawer).getByDisplayValue("Dinner")).toBeInTheDocument();
+    expect(
+      within(drawer).getByRole("group", { name: "Dinner: different hours" })
+    ).toBeInTheDocument();
+  });
+
   it("keeps the Schedules tab and the day-named schedule for a venue not yet collapsed", () => {
     read.config = oldShapeMigrated();
     renderPage();
     expect(screen.getByRole("radio", { name: "Schedules" })).toBeInTheDocument();
-    expect(screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM Mon–Wed")).toBeInTheDocument();
+    expect(
+      screen.getByText("Regular week: Dinner 5:00 PM–10:00 PM, last seating 9:00 PM Mon–Wed")
+    ).toBeInTheDocument();
   });
 
   it("still tells a venue with rows and no change that its hours were carried over", () => {

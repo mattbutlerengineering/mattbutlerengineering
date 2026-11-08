@@ -1,0 +1,18 @@
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+}
+
+.apply {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  justify-content: flex-end;
+}

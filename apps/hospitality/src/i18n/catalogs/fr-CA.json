@@ -1895,7 +1895,6 @@
     "tabSchedules": "Horaires",
     "title": "Horaires",
     "regularMarker": "Semaine habituelle",
-    "new": "Nouvel horaire",
     "newTitle": "Nouvel horaire",
     "fromRegularWeek": "Partir de votre semaine habituelle",
     "duplicateTitle": "Dupliquer l’horaire",
@@ -1984,7 +1983,6 @@
       "regularHint": "Réappliquer place vos heures par-dessus la semaine habituelle actuelle. Vérifiez le résultat, puis enregistrez."
     },
     "regularWeek": {
-      "open": "Modifier la semaine habituelle…",
       "title": "Modifier la semaine habituelle",
       "appliesTo": "S’applique à {{days}}. Les autres jours gardent leurs heures.",
       "becomes": "Elle devient votre semaine habituelle : ouvert {{days}}.",
@@ -2000,7 +1998,8 @@
       "start": {
         "today": "Commencer aujourd’hui",
         "tomorrow": "Commencer demain"
-      }
+      },
+      "duplicate": "Dupliquer la semaine habituelle…"
     },
     "compare": {
       "open": "Comparer les services",
@@ -2071,7 +2070,19 @@
       "replacesRegularWeek": "Sans date de fin, cet horaire remplace votre semaine habituelle. Ajoutez une date de fin ou utilisez Modifier la semaine habituelle…"
     },
     "edit": "Modifier",
-    "duplicate": "Dupliquer"
+    "duplicate": "Dupliquer",
+    "layer": {
+      "regularWeek": "Semaine habituelle",
+      "intro": "Votre semaine habituelle. Les autres horaires et les dates spéciales la modifient les jours qu’ils couvrent.",
+      "add": "Ajouter un horaire…",
+      "other": "Autres horaires",
+      "booking": "Réservation : {{rules}}",
+      "bookingUnset": "Réservation : pas encore configurée",
+      "closeCompare": "Fermer",
+      "appliesFrom": "Les changements s’appliquent dès aujourd’hui, {{date}}.",
+      "startLater": "Commencer plus tard…",
+      "discard": "Abandonner"
+    }
   },
   "availability": {
     "title": "Disponibilité",

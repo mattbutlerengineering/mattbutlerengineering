@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { bookingRulesText } from "../availability/booking-rules.js";
 import { serviceCloseChangeText, serviceHoursText } from "../availability/service-hours.js";
 import { useWeekdaySummary } from "../availability/ScheduleFormParts.js";
 import type { ClosureTarget, NodeState, SetupAction, SetupNode } from "./setup-tree.js";
@@ -90,16 +91,8 @@ export function useSetupNodeText(): SetupNodeText {
         );
         return [base, ...changes].join(" · ");
       }
-      case "rules": {
-        const parts = [
-          value.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: value.daysAhead }),
-          value.noticeHours !== null &&
-            t("setup.hub.rules.noticeHours", { count: value.noticeHours }),
-          value.largestParty !== null &&
-            t("setup.hub.rules.largestParty", { count: value.largestParty }),
-        ].filter((part): part is string => part !== false);
-        return parts.join(" · ");
-      }
+      case "rules":
+        return bookingRulesText(value, t);
       case "closure": {
         const what = t(
           value.what === "closed" ? "setup.hub.closedRow" : "setup.hub.specialHoursRow",

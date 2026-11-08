@@ -1,7 +1,12 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { weekdayIndexOf } from "@mbe/availability";
-import type { AvailabilityConfig, AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
+import type {
+  AvailabilityConfig,
+  AvailabilityConfigSaveResult,
+  AvailabilityConfigState,
+  ScopeConflictMode,
+} from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { editedWeekday, outsideSchedules, reapplyWeek, weekKey } from "./change-week-draft.js";
@@ -36,7 +41,7 @@ export interface RegularWeekEditInput {
   readonly today: string;
   readonly onStale: () => void;
   /** The change was saved (and Undo offered); the frame decides what happens next. */
-  readonly onSaved?: () => void;
+  readonly onSaved?: (saved: AvailabilityConfigSaveResult) => void;
   /** The regular week the draft is based on is gone and the Manager chose to discard. */
   readonly onGone?: () => void;
   /**
@@ -197,7 +202,7 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
           ? t("availabilitySchedules.regularWeek.savedWeek", { date: startText })
           : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
     });
-    onSaved?.();
+    onSaved?.(saved);
   };
 
   return {

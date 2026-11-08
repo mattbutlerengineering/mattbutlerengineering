@@ -3,6 +3,9 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+}));
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
@@ -32,7 +35,7 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import { ScheduleEditorDrawer } from "./ScheduleEditorDrawer.js";
-import { SchedulesTab } from "./SchedulesTab.js";
+import { SchedulesLayer } from "./schedules-tab.harness.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const TUE_SAT = [2, 3, 4, 5, 6];
@@ -687,10 +690,15 @@ describe("schedule drawers", () => {
       };
     }
 
-    const renderTab = (config: AvailabilityConfig) =>
+    const renderTab = (config: AvailabilityConfig, comparing = false) =>
       render(
         <main>
-          <SchedulesTab {...common} state={stateOf(config)} onStale={vi.fn()} />
+          <SchedulesLayer
+            {...common}
+            state={stateOf(config)}
+            onStale={vi.fn()}
+            comparing={comparing}
+          />
         </main>
       );
 
@@ -732,7 +740,7 @@ describe("schedule drawers", () => {
       expect(assignments.map((a: { weekdays: number[] }) => a.weekdays)).toEqual([[1, 2, 3, 4, 5]]);
     });
 
-    it("asks before the Compare toggle drops edited rows", () => {
+    it("asks before closing Compare services drops edited rows", () => {
       const base = fixtureConfig();
       const config: AvailabilityConfig = {
         ...base,
@@ -745,20 +753,19 @@ describe("schedule drawers", () => {
           ...base.scheduleServices.map((s) => ({ ...s, id: `${s.id}-wk`, scheduleId: "wk" })),
         ],
       };
-      renderTab(config);
-      fireEvent.click(screen.getByRole("button", { name: "Compare services" }));
+      renderTab(config, true);
       fireEvent.click(screen.getByRole("checkbox", { name: "Select Weekend" }));
       fireEvent.click(screen.getByRole("button", { name: "Set selected to…" }));
       fireEvent.click(screen.getByRole("combobox", { name: "Booking" }));
       fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
       fireEvent.click(screen.getByRole("button", { name: "Apply to 1 selected" }));
 
-      fireEvent.click(screen.getByRole("button", { name: "Compare services" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
       const dialog = screen.getByRole("alertdialog", { name: "Discard your changes?" });
       fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
       expect(screen.getByRole("checkbox", { name: "Select Weekend" })).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: "Compare services" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
       fireEvent.click(
         within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
           "button",
