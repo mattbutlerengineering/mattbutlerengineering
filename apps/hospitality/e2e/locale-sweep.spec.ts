@@ -643,25 +643,6 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
   if (route === "floor-plans/:id") {
     await page.route(/\/api\/v1\/floor-plans\/[^/?]+(\?.*)?$/, (r) => r.fulfill(ok(EDITOR_PLAN)));
   }
-  if (route === "setup") {
-    // An operational venue is bounced off the /setup checklist; with no floor plan it is still in setup.
-    await page.route(/\/api\/v1\/floor-plans\?/, (r) =>
-      r.fulfill({
-        status: 200,
-        json: {
-          data: [],
-          pagination: {
-            page: 1,
-            limit: 25,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: false,
-          },
-        },
-      })
-    );
-  }
 }
 
 /** The staff locale, and (for `admin`) the permission RequireAdmin reads off the OIDC profile. */

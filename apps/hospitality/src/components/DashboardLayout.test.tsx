@@ -291,7 +291,7 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Timeline Content")).toBeDefined();
   });
 
-  it("redirects the bare /setup checklist to /timeline when operational", () => {
+  it("keeps an operational venue on /setup: Venue Setup is a standing page", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
       completedSteps: ["onboarding", "operating-hours", "floor-plan"],
@@ -299,12 +299,24 @@ describe("DashboardLayout", () => {
       progress: 100,
     });
     renderLayout("/setup");
-    expect(screen.getByText("Timeline Content")).toBeDefined();
+    expect(screen.getByText("Setup Content")).toBeDefined();
+    expect(screen.queryByText("Timeline Content")).toBeNull();
+  });
+
+  it("keeps a setup-status venue on /setup", () => {
+    vi.mocked(useVenueReadiness).mockReturnValue({
+      status: "setup",
+      completedSteps: ["onboarding"],
+      nextStep: "operating-hours",
+      progress: 33,
+    });
+    renderLayout("/setup");
+    expect(screen.getByText("Setup Content")).toBeDefined();
   });
 
   it("does NOT redirect /setup/hours to /timeline when operational (#4982)", () => {
     // Editing operating hours must stay reachable after a venue goes
-    // operational — only the /setup checklist itself should bounce.
+    // operational, as /setup does.
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
       completedSteps: ["onboarding", "operating-hours", "floor-plan"],

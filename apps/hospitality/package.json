@@ -128,6 +128,21 @@
       "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page; 13.5 kB since #8455 widened the catalog by 8 components, 11.24 kB before)",
       "path": "dist/assets/useRefreshingChatStream-*.js",
       "limit": "13.5 kB"
+    },
+    {
+      "name": "Venue Setup page (lazy chunk)",
+      "path": "dist/assets/SetupPage-*.js",
+      "limit": "6 kB"
+    },
+    {
+      "name": "Regular week line (shared by the availability page and Venue Setup, hoisted)",
+      "path": "dist/assets/RegularWeekLine-*.js",
+      "limit": "11 kB"
+    },
+    {
+      "name": "Discard guard (shared by the availability drawers and Venue Setup, hoisted)",
+      "path": "dist/assets/use-discard-guard-*.js",
+      "limit": "3 kB"
     }
   ],
   "dependencies": {

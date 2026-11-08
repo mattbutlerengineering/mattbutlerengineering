@@ -13,25 +13,6 @@ async function viewAsHost(page: Page): Promise<void> {
       body: JSON.stringify({ data: { ...buildVenueTeamFixture(), viewerRole: "host" } }),
     })
   );
-  // No floor plan with tables: the venue is still in setup, so /setup stays put
-  // instead of DashboardLayout sending an operational venue on to /timeline.
-  await page.route("**/api/v1/floor-plans?*", (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        data: [],
-        pagination: {
-          page: 1,
-          limit: 25,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false,
-        },
-      }),
-    })
-  );
 }
 
 test.describe("Viewer role gate on floor plans", () => {

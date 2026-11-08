@@ -2943,34 +2943,123 @@
     }
   },
   "setup": {
-    "yourVenue": "your venue",
-    "welcome": "Welcome to {{venueName}}",
-    "intro": "Complete a few setup steps to start taking reservations.",
-    "progress": "{{percent}}% complete",
-    "stepsLabel": "Setup steps",
-    "stepAria": "{{label}} — {{status}}",
-    "review": "Review",
-    "done": "Done — {{venueName}}",
-    "status": {
-      "completed": "Completed",
-      "current": "Current step",
-      "locked": "Not yet available"
-    },
-    "steps": {
-      "onboarding": {
-        "label": "Venue Basics",
-        "description": "Set up your venue name, timezone, and currency.",
-        "cta": "Review Venue Details"
+    "hub": {
+      "title": "Venue Setup",
+      "description": "Everything a guest can book, and how it fits together. Each line opens where you change it.",
+      "yourVenue": "your venue",
+      "loading": "Loading Venue Setup",
+      "loadError": "Couldn't load Venue Setup.",
+      "groupError": "Couldn't load {{group}}.",
+      "groups": {
+        "open": "When you're open",
+        "sit": "Where guests sit"
       },
-      "hours": {
-        "label": "Set Operating Hours",
-        "description": "Configure which days and hours your venue is open.",
-        "cta": "Set Operating Hours"
+      "notSetUp": "Not set up",
+      "hostUnset": "A manager sets this up.",
+      "regularWeek": "Regular week",
+      "label": {
+        "schedules": "Schedules",
+        "specialDates": "Special dates",
+        "booking": "Booking",
+        "floorPlan": "Floor plan",
+        "noSection": "No section"
       },
-      "floorPlan": {
-        "label": "Create Floor Plan",
-        "description": "Add a floor plan with at least one table to enable reservations.",
-        "cta": "Create Floor Plan"
+      "caption": {
+        "schedule": "Schedule",
+        "service": "Service",
+        "section": "Section",
+        "table": "Table",
+        "floorPlan": "Floor plan"
+      },
+      "channelLabel": {
+        "online": "Online booking",
+        "phone": "Phone booking",
+        "waitlist": "Waitlist"
+      },
+      "channel": {
+        "online": "Online",
+        "phone": "Phone",
+        "waitlist": "Waitlist"
+      },
+      "what": {
+        "regularWeek": "The days and services guests can book.",
+        "schedules": "Named weeks your venue runs. The regular week is one.",
+        "specialDates": "Closures and special hours for one date or a range.",
+        "bookingUnset": "How far ahead, how much notice and how large a party guests can book online; defaults apply.",
+        "booking": "How guests book: online, by phone, on the waitlist.",
+        "floorPlan": "Where tables sit; guests can't book without a table."
+      },
+      "count": {
+        "schedules_one": "{{count}} schedule",
+        "schedules_other": "{{count}} schedules",
+        "specialDates_one": "{{count}} upcoming",
+        "specialDates_other": "{{count}} upcoming",
+        "channel_one": "closed on {{count}} upcoming date",
+        "channel_other": "closed on {{count}} upcoming dates"
+      },
+      "open": "Open {{days}}",
+      "period": "{{range}}, {{days}}",
+      "until": "Until {{date}}",
+      "from": "From {{date}}",
+      "range": "{{from}} – {{to}}",
+      "serviceLine": "{{hours}} · {{days}}",
+      "rules": {
+        "daysAhead_one": "Up to {{count}} day ahead",
+        "daysAhead_other": "Up to {{count}} days ahead",
+        "noticeHours_one": "{{count}} hour notice",
+        "noticeHours_other": "{{count}} hours notice",
+        "largestParty_one": "parties up to {{count}} online",
+        "largestParty_other": "parties up to {{count}} online"
+      },
+      "closedRow": "{{target}} closed",
+      "specialHoursRow": "{{target}}: special hours",
+      "target": {
+        "venue": "Whole venue",
+        "service": "A service",
+        "section": "A section",
+        "tables_one": "{{count}} table",
+        "tables_other": "{{count}} tables"
+      },
+      "sections_one": "{{count}} section",
+      "sections_other": "{{count}} sections",
+      "tables_one": "{{count}} table",
+      "tables_other": "{{count}} tables",
+      "seats_one": "{{count}} seat",
+      "seats_other": "{{count}} seats",
+      "floorPlanHint": "Sections and tables appear here once you add a floor plan",
+      "actions": {
+        "setUpRegularWeek": "Set up regular week",
+        "changeRegularWeek": "Change regular week…",
+        "editSchedule": "Edit",
+        "compareServices": "Compare services",
+        "createSchedule": "Create another schedule…",
+        "openCalendar": "Open calendar",
+        "openSpecialDates": "Open Special dates",
+        "bookingRules": "Booking rules…",
+        "openFloorPlan": "Open floor plan",
+        "addFloorPlan": "Add floor plan",
+        "addAnotherFloorPlan": "Add another floor plan",
+        "closeSection": "Close for a date…",
+        "moveToSection": "Move to a section"
+      },
+      "actionNamed": {
+        "editSchedule": "Edit {{name}}",
+        "openFloorPlan": "Open floor plan {{name}}",
+        "closeSection": "Close {{name}} for a date…"
+      },
+      "strip": {
+        "title": "Setup progress",
+        "count": "{{done}} of {{total}}",
+        "steps": {
+          "venueBasics": "Venue basics",
+          "regularWeek": "Regular week",
+          "floorPlan": "Floor plan"
+        },
+        "state": {
+          "done": "Done",
+          "next": "Next",
+          "later": "Not yet"
+        }
       }
     }
   },
