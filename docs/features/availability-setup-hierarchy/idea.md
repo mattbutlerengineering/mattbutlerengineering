@@ -2,6 +2,7 @@
 stage: idea
 run: feature:availability-setup-hierarchy
 date: 2026-11-07
+amended: 2026-11-08
 assumptions:
   - "Success sentence is the orchestrator's draft (brief, Idea inputs, [orchestrator default]); the ≤5 minute bar reuses the venue-availability PRD small-setup bar and PRD may sharpen it."
   - "Ambition ladder: the brief's standing instruction is the skill default, so Showstopper (recommended) is chosen, not picked live by the Owner; the four tests were run silently and all pass."
@@ -9,17 +10,22 @@ assumptions:
   - "Success criteria in the brief are derived from the drafted success sentence, not answered one by one; PRD sharpens them."
   - "The Showstopper moment (a setup map that fills in as the venue is configured) is drafted from the Owner's goal wording and the code read below; the Owner approved the brief but has not seen this moment."
   - "Evidence count of 1 (the Owner) and 0 independent operators is the Owner's live answer; no outside corroboration was run (the optional last30days step was not offered)."
+  - "Amendment 2026-11-08: the Owner folded a second request into this run (live interview, every answer the Owner's own): onboarding and post-onboarding availability configuration should match, and /availability is overwhelming. The Owner picked the Showstopper rung live, accepted the success sentence, and kept one unknown (run churn) from the four offered. The 2026-11-07 rung, demo and success sentence are superseded below; the original Venue Setup hub work stays as merged."
 ---
 
 # Idea: Availability setup hierarchy
 
 > As a user, I am confused about how to set up availability. Having clearer UX for different resource types and hierarchy of resources would make it easier for me to follow. I want to simplify the UX without sacrificing usability.
 
+> Amendment, 2026-11-08 (Owner, verbatim): "update the availability configuration during onboarding to match the configuration during after onboarding. Make it easier to understand the object heirarchy in both places." — "the experience should be consistent but also flexible. The current availability page is overwhelming with too many options and it's difficult to follow the heierarchy"
+
 ## Problem
 
 "I am confused about how to set up availability. I can't see what kinds of things I'm configuring or how they fit together, so I don't know where to go to change something."
 
 The venue Manager cannot see the resource types behind availability (weekly hours, schedules, services, special dates, booking channels, sections and tables) or how they nest, so each change starts with a search for the page that holds the control.
+
+**Amendment (2026-11-08).** The Owner's sharpened problem: "The experience should be consistent but also flexible. The current availability page is overwhelming with too many options and it's difficult to follow the hierarchy." Mapping the hierarchy on a separate hub does not fix it: `/availability` itself is too dense, and onboarding and `/availability` frame the same data differently, so what a Manager entered during onboarding is not recognisable afterwards.
 
 ## Who has it
 
@@ -52,38 +58,44 @@ Code read in the worktree at `origin/main` @ `7c051456f` (2026-11-07). Each brie
 - **Prior-run deferrals:** venue-availability `ux.md` "Flows: Phases 2–5" (areas/sections F15).
 - **Open issues:** none about availability setup UX (`gh issue list --search "availability in:title"` → only #7493 tracking); the venue-availability follow-ups (#7682–#7706) and audit issues (#7981, #7983, #7984) are closed (brief, from the orchestrator's read).
 - **Work in flight (duplication check, 2026-11-07, pre-flight):** outcome **no work in flight**. `git branch -r | grep -iE 'availab|setup-hub|hierarch'` → only `origin/docs/venue-availability-autorun-2026-11-07` (#8470, merged; this run's base commit) and `origin/fix/availability-drawer-diffs` (#7599, merged 2026-10-25). `gh pr list --state all --search "availability setup hierarchy in:title"` → `[]`. This is a run-start check by the orchestrator, not re-run by Idea.
+- **Amendment evidence (2026-11-08, `origin/main`).** The weekly-hours form is already one component: the onboarding wizard (`VenueOnboardingPage.tsx:219` → `QuickSetupHoursStep.tsx:74`) and the Change regular week / Schedule editor drawers and the empty-venue card all render `QuickSetupForm`. The mismatch is the frame and vocabulary: onboarding shows a flat services + days form with the guest-view strip and never names *schedule* or *regular week*; `/availability` puts that form behind drawers under Calendar | Special dates | Schedules tabs beside Tonight, Booking rules, Compare services, History and Go to date, and this run's `ux.md:86` keeps every one of them in place. Anecdote: 1 report, the Owner's own, 0 independent operators. Whether the Owner's view was before or after #8493/#8499 deployed was not established.
+- **Work in flight (amendment, 2026-11-08):** outcome **something already does this work** — this run itself. Its nine code PRs (#8483–#8489, #8493, #8499) are merged, #8482 (e2e) is open, and its artifacts live only on `feat/availability-setup-hierarchy`; `ux.md:15,321` flags the onboarding hours step "for the Owner". The Owner chose to fold the request into this run rather than open a second one. Other unmerged availability branches (`feat/availability-quick-setup`, `fix/onboarding-settings-same-rules`, the `fix/availability-*` worktrees) carry no run for this surface.
 
 ## Ambition rung
 
-Chosen: Showstopper, in the user's words: "Having clearer UX for different resource types and hierarchy of resources would make it easier for me to follow." (Taken as the skill's recommended default per the brief's standing instruction; see assumptions.)
-Not taken: Solid: rename the resource types and add a links-only "Venue setup" page, no live view; Moonshot: availability proposes its own resource tree from venue type, history and listings (seeded in `docs/backlog.md`).
-Demo: pass — the Manager opens an empty venue's setup map, sets up a two-service varied week, and watches the hierarchy fill in (venue → schedule → services; venue → floor plan → sections → tables) with the guest-view strip showing the result; the after is a drawn tree, not a metric.
-Removes a step: pass — removes "open each page until you find the control": every resource node links to its one editor, so the page search step is gone.
-Only this product: pass — the product already holds the venue's readiness, the schedule/service/date-rule config and the floor plan, and today shows none of how they connect; no other tool has this venue's data.
-Achievable: pass — riskiest piece is composing the schedule, service, date-rule and floor-plan reads into one hierarchy without a section-level rule in the model; the two-day spike is a read-only setup map over the existing availability-config and floor-plan hooks for one fixture venue, with each node linking to today's editors.
+Chosen: Showstopper (picked live by the Owner, 2026-11-08), in the user's words: "the experience should be consistent but also flexible."
+Not taken: Solid: same words and order (venue → schedule → services → days) in both places, rarely used actions moved behind a More menu; Moonshot: availability proposes schedules, special dates and closures from venue type, listing and history and the Manager only confirms (already seeded in `docs/backlog.md` by this run's 2026-11-07 pass; not seeded twice).
+Superseded (2026-11-07 Showstopper, built and merged): a Venue Setup hub that draws the hierarchy and links to today's editors. It stays as merged; this amendment changes `/availability` and onboarding.
+Demo: pass — the Manager finishes onboarding, opens `/availability` and sees exactly the first screen they just filled in, their hours in it, with a small "Add a second schedule / special date" step beside it.
+Removes a step: pass — removes re-learning the page and hunting for the regular week after onboarding.
+Only this product: pass — it builds on the onboarding draft and the saved venue config, which only this product holds.
+Achievable: pass — riskiest piece is hiding the deeper layers without losing any control; the two-day spike is in the section below.
 
 ## The demo
 
-Before: a new Manager clicks Set operating hours, lands on a calendar, clicks Create floor plan, lands on a different page, and never sees that hours, services, closures and tables belong to one structure. After: one setup surface shows the venue as a tree whose nodes (hours and schedules, services, special dates, booking channels, sections and tables) fill in as they set them up, each opening its one editor.
+Before: a Manager finishes onboarding's flat hours form, opens `/availability`, and meets tabs, drawers and a row of actions with no sign of the hours they just entered. After: `/availability` opens on the same first layer as onboarding — their services and the days they run, with the guest-view strip — and schedules, special dates and booking rules appear one layer down only when asked for.
 
 ## Riskiest piece + spike
 
-Showing a real hierarchy for physical resources when `DateRule` has no section target and Tonight groups by free-text `location`. Spike (~2 days): build the read-only setup map for one fixture venue from today's hooks, with section nodes derived from `FloorPlanSection → Table` and a "block this section" action expressed as a `tables` rule over that section's tables; judge whether the tree reads correctly without a schema change.
+Progressive disclosure on `/availability` without losing a control or slowing a frequent one. Spike (~2 days): render the saved config through `QuickSetupForm` as the first layer of `/availability` for one fixture venue, move every other action one layer down, and run this run's no-control-lost e2e (#8482) against it.
 
 ## Cheapest kill test
 
-Show a static mock of the tree beside today's nav to one person who has not seen the product and ask them to find where to change Friday's hours and where to block the patio for one date. If they cannot, no hub fixes it. The Owner is the only tester available, so this is run by the Owner on a click-through, and the result counts as one anecdote.
+Put a click-through of the layered `/availability` first screen next to the onboarding hours step and ask the Owner to add a second schedule and one special date without help. If the Owner still calls the page overwhelming or cannot find the second layer, layering does not fix it. One anecdote.
 
 ## Solution hunch
 
-One setup surface that names each resource type (hours/schedules, services, special dates, sections/tables, booking channels) and shows how they nest, with today's editors re-homed under it rather than rebuilt. A hunch, not a design.
+One layered availability editor used in both places: onboarding and `/availability` share the same first layer (services and their days, same words, same strip), and `/availability` reveals schedules, special dates, booking rules and the operational actions one layer down. The Venue Setup hub keeps mapping the wider hierarchy. A hunch, not a design.
 
 ## Success in one sentence
 
-"A new Manager, from an empty venue and without help text, can say what each resource type is and where to change it, and sets up a two-service varied week plus one section blocked for one date in ≤5 minutes."
+"A Manager who finishes onboarding opens `/availability` and recognises the same first screen with their own hours, and can add a second schedule or a special date without help, while every control that exists today is still reachable."
+
+Superseded 2026-11-07 sentence: "A new Manager, from an empty venue and without help text, can say what each resource type is and where to change it, and sets up a two-service varied week plus one section blocked for one date in ≤5 minutes."
 
 ## Unknowns & risks
 
+- **Run churn (amendment, the Owner's kept unknown).** This reopens PRD, UX and breakdown after nine merged PRs. Some merged work may conflict with layering and need reversing — for example the always-shown Schedules tab (#8488) and `ux.md:86`'s rule that every control keeps its place on Availability.
 - Whether the IA change fits the existing model, or a visible hierarchy needs a model change. Concretely, "one section blocked for one date" has no section target in `DateRule` (`schema.prisma:658`); it is only expressible as a `tables` rule over the section's tables, and Tonight's grouping uses `Table.location`, not `sectionId`. Architect decides.
 - The only tester is the Owner: 1 anecdote, 0 independent operators, so success is not independently testable before release.
 - Route and nav changes touch bookmarks, the `/setup/hours` redirect (`main.tsx:367`), the readiness-dependent nav (`nav-sections.ts`), the onboarding wizard hand-offs and the e2e suites (`availability-*.spec.ts`, `onboarding.spec.ts`).
