@@ -145,7 +145,6 @@ test.describe("the first screen", () => {
       /^Close…/,
       "Pause online booking",
       "Change regular week…",
-      "Create another schedule…",
     ]) {
       await expect(page.getByRole("main").getByRole("button", { name })).toHaveCount(0);
     }
@@ -156,7 +155,6 @@ test.describe("the first screen", () => {
       /^Close…/,
       "Pause online booking",
       "Change regular week…",
-      "Create another schedule…",
     ]) {
       await expect(menu.getByRole("menuitem", { name })).toBeVisible();
     }
@@ -212,16 +210,17 @@ test.describe("the first screen", () => {
     });
   }
 
-  test("Create another schedule… looks like something to press", async ({ mockedPage: page }) => {
+  test("the Schedules tab's New schedule looks like something to press", async ({
+    mockedPage: page,
+  }) => {
     await mockAvailability(page);
     await open(page, DESKTOP);
+    await page.getByRole("radio", { name: "Schedules" }).click();
     // A ghost button is transparent at rest, with a transparent border: it reads as plain text.
-    const fill = await page
-      .getByRole("button", { name: "Create another schedule…" })
-      .evaluate((button) => {
-        const { backgroundColor, backgroundImage } = getComputedStyle(button);
-        return { backgroundColor, backgroundImage };
-      });
+    const fill = await page.getByRole("button", { name: "New schedule" }).evaluate((button) => {
+      const { backgroundColor, backgroundImage } = getComputedStyle(button);
+      return { backgroundColor, backgroundImage };
+    });
     expect(fill.backgroundColor !== "rgba(0, 0, 0, 0)" || fill.backgroundImage !== "none").toBe(
       true
     );

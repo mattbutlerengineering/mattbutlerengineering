@@ -27,7 +27,8 @@ export type ConfigIssueCode =
   | "ends_before_start"
   | "seating_outside_service"
   | "window_ends_before_start"
-  | "booking_types_required";
+  | "booking_types_required"
+  | "section_closure_only";
 
 export interface ConfigIssue {
   /** e.g. `scheduleServices[1].lastSeatingAt`; `""` is the whole config. */
@@ -366,6 +367,21 @@ function bookingTypesIssues(config: AvailabilityConfig): ConfigIssue[] {
   );
 }
 
+/** A `sectionId` only means something on a table closure (ADR-032). */
+function sectionClosureIssues(config: AvailabilityConfig): ConfigIssue[] {
+  return config.dateRules.flatMap((rule, i) =>
+    rule.sectionId != null && !(rule.kind === "closure" && rule.targetKind === "tables")
+      ? [
+          issue(
+            `dateRules[${i}].sectionId`,
+            "section_closure_only",
+            "Only a table closure can name a section."
+          ),
+        ]
+      : []
+  );
+}
+
 export function validateConfig(input: unknown): ConfigIssue[] {
   const parsed = AvailabilityConfigSchema.safeParse(input);
   if (!parsed.success) {
@@ -380,5 +396,6 @@ export function validateConfig(input: unknown): ConfigIssue[] {
     ...precedenceIssues(config),
     ...windowIssues(config),
     ...bookingTypesIssues(config),
+    ...sectionClosureIssues(config),
   ];
 }

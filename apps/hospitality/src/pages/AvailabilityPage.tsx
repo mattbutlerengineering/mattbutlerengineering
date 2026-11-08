@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
+import { Link, useSearchParams } from "react-router";
 import { Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
 import { resolveDay } from "@mbe/availability";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailability.js";
+import { useVenueFloorPlanSections } from "../hooks/useFloorPlans.js";
 import { useNow } from "../hooks/useNow.js";
 import { minutesOfDayIn, venueDate } from "../utils/service-day.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
+import { useIsManager } from "../hooks/useIsManager.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
@@ -21,10 +24,11 @@ import { AvailabilityToolbar } from "../components/availability/AvailabilityTool
 import { ChangeRegularWeekDrawer } from "../components/availability/ChangeRegularWeekDrawer.js";
 import { scheduleNameText } from "../components/availability/day-summary.js";
 import { AvailabilityDayDrawer } from "../components/availability/AvailabilityDayDrawer.js";
+import { AvailabilityScheduleControls } from "../components/availability/AvailabilityScheduleControls.js";
 import {
-  AvailabilityScheduleControls,
+  parseAvailabilityEntry,
   type AvailabilityTab,
-} from "../components/availability/AvailabilityScheduleControls.js";
+} from "../components/availability/availability-entry.js";
 import { ScheduleEditorDrawer } from "../components/availability/ScheduleEditorDrawer.js";
 import { SchedulesTab } from "../components/availability/SchedulesTab.js";
 import { SpecialDatesTab } from "../components/availability/SpecialDatesTab.js";
@@ -40,7 +44,6 @@ import { CloseDialog } from "../components/availability/CloseDialog.js";
 import { GoToDateDialog } from "../components/availability/GoToDateDialog.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
-import { hasOwnSchedules } from "../components/availability/schedule-changes.js";
 import { RegularWeekLine } from "../components/availability/RegularWeekLine.js";
 import { NextHolidayNudge } from "../components/availability/NextHolidayNudge.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
@@ -73,6 +76,8 @@ interface Closing {
   readonly date: string | null;
   readonly dates?: readonly string[];
   readonly pause: boolean;
+  /** Opens on One section with this section chosen (`?closeSection=`). */
+  readonly sectionId?: string;
 }
 
 /**
@@ -136,9 +141,17 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   // The day Go to date went to. The dialog hands focus back to its trigger a frame after it
   // closes, so focus moves to the day only once that has happened (see the effect below).
   const [jumpTo, setJumpTo] = useState<string | null>(null);
-  const [tab, setTab] = useState<AvailabilityTab>("calendar");
-  // Set by Create another schedule…; read once when the Schedules tab mounts.
-  const [openNewSchedule, setOpenNewSchedule] = useState(false);
+  // How another page opened this one (?tab=, ?closeSection=, ?from=setup), read once on mount.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [entry] = useState(() => parseAvailabilityEntry(searchParams));
+  const [chosenTab, setChosenTab] = useState<AvailabilityTab>(entry.tab ?? "calendar");
+  // A section's Close dialog is not reopened by a refresh, so the param goes once it is read.
+  useEffect(() => {
+    if (!searchParams.has("closeSection")) return;
+    const rest = new URLSearchParams(searchParams);
+    rest.delete("closeSection");
+    setSearchParams(rest, { replace: true });
+  }, [searchParams, setSearchParams]);
   // A range drag holds the selection bar as it was, so the grid does not move under the pointer.
   const [barDuringDrag, setBarDuringDrag] = useState<string[] | null>(null);
   const [selectionAction, setSelectionAction] = useState<"use" | "clear" | null>(null);
@@ -199,11 +212,24 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const tabGuard = useDiscardGuard<AvailabilityTab>(
     (next) => {
       setSchedulesDirty(false);
-      setTab(next);
+      setChosenTab(next);
     },
-    tab === "schedules" && schedulesDirty
+    chosenTab === "schedules" && schedulesDirty
   );
   const format = useVenueFormat();
+  const pageHeader = (
+    <PageHeader
+      title={t("availability.title")}
+      description={t("availability.description")}
+      aside={
+        entry.from === "setup" ? (
+          <Link to="/setup" className={styles.backLink}>
+            {t("availability.backToSetup")}
+          </Link>
+        ) : undefined
+      }
+    />
+  );
 
   const dates = useMemo(() => visibleDates(view, anchor), [view, anchor]);
   const days = useAvailabilityDays({
@@ -212,6 +238,12 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     to: dates.at(-1) ?? anchor,
   });
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
+  // A section closure is named by its section on the calendar, the drawer and Special dates.
+  const sectionRows = useVenueFloorPlanSections({ venueId: selectedVenueId });
+  const sectionNames = useMemo(
+    () => new Map((sectionRows.data ?? []).map((s) => [s.id, s.name])),
+    [sectionRows.data]
+  );
   // The Services filter (2+ services only) is a view, not saved: it narrows how days read and
   // belongs to one venue, so a venue switch derives "All" rather than carrying the id over.
   const [chosenService, setChosenService] = useState<{
@@ -257,6 +289,18 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   });
   const teamRead = useVenueTeam({ venueId: selectedVenueId });
   const team = teamRead.data;
+  const isManager = useIsManager();
+  // ?closeSection= opens the Close dialog for that section, once, for a Manager with the config
+  // loaded (a Host has no Close dialog). An id the venue does not have opens it with no preselection.
+  const entrySection = useRef(entry.closeSection);
+  const entryReady = isManager && !!config.data;
+  useEffect(() => {
+    if (!entryReady || entrySection.current === undefined) return;
+    setClosing({ date: null, pause: false, sectionId: entrySection.current });
+    entrySection.current = undefined;
+  }, [entryReady]);
+  // Only a Manager has the Schedules tab: a Host who opens ?tab=schedules gets the calendar.
+  const tab = chosenTab === "schedules" && !isManager ? "calendar" : chosenTab;
   // A read that has never answered. A refresh failing over data on hand is the drawer's to say.
   const failedReads = [
     days.error ? days : null,
@@ -284,7 +328,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   if (!selectedVenueId) {
     return (
       <Stack gap="md">
-        <PageHeader title={t("availability.title")} description={t("availability.description")} />
+        {pageHeader}
         <Text variant="body" color="secondary">
           {t("availability.noVenue")}
         </Text>
@@ -296,8 +340,8 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   if (config.data?.source === "empty") {
     return (
       <Stack gap="md">
-        <PageHeader title={t("availability.title")} description={t("availability.description")} />
-        {team?.viewerRole === "manager" ? (
+        {pageHeader}
+        {isManager ? (
           <AvailabilityQuickSetup
             venueId={selectedVenueId}
             state={config.data}
@@ -397,27 +441,20 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
 
   // Leaving the calendar with an unsaved draft asks first; the tab changes on the next try.
   const changeTab = (next: AvailabilityTab) => {
-    setOpenNewSchedule(false);
     if (guard.dirty) guard.request(CLOSED);
     else if (tab === "schedules") tabGuard.request(next);
-    else setTab(next);
-  };
-  // "Create another schedule…" promises a schedule editor, so it lands on Schedules with New open.
-  const createSchedule = () => {
-    changeTab("schedules");
-    setOpenNewSchedule(true);
+    else setChosenTab(next);
   };
 
   const scheduleControls =
     team?.viewerRole && config.data ? (
       <AvailabilityScheduleControls
         venueId={selectedVenueId}
-        isManager={team.viewerRole === "manager"}
+        isManager={isManager}
         state={config.data}
         today={today}
         tab={tab}
         onTabChange={changeTab}
-        onCreateSchedule={createSchedule}
         onStale={() => void config.refetch()}
       />
     ) : null;
@@ -425,7 +462,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   if (tab === "schedules" && scheduleControls && config.data) {
     return (
       <Stack gap="md">
-        <PageHeader title={t("availability.title")} description={t("availability.description")} />
+        {pageHeader}
         {scheduleControls}
         <SchedulesTab
           venueId={selectedVenueId}
@@ -434,7 +471,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           today={today}
           onStale={() => void config.refetch()}
           onDirtyChange={setSchedulesDirty}
-          startNew={openNewSchedule}
         />
         <DiscardChangesDialog
           open={tabGuard.pending !== null}
@@ -450,7 +486,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   if (tab === "special" && scheduleControls && config.data) {
     return (
       <Stack gap="md">
-        <PageHeader title={t("availability.title")} description={t("availability.description")} />
+        {pageHeader}
         {scheduleControls}
         <SpecialDatesTab
           venueId={selectedVenueId}
@@ -459,16 +495,14 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           today={today}
           onStale={() => void config.refetch()}
           reloadError={config.error ? describeApiError(config.error).detail : null}
-          isManager={team?.viewerRole === "manager"}
+          isManager={isManager}
+          sectionNames={sectionNames}
         />
       </Stack>
     );
   }
-
-  const isManager = team?.viewerRole === "manager";
   // Every Manager action below opens on the config: with none loaded it could open nothing.
   const canAct = isManager && !!config.data;
-  const ownSchedules = config.data ? hasOwnSchedules(config.data.config) : false;
   const activeScheduleCount =
     config.data?.config.schedules.filter((s) => !s.archivedAt).length ?? 0;
   const ownChangeCount = config.data ? ownSingleDateRules(config.data.config, selection).length : 0;
@@ -515,7 +549,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
 
   return (
     <Stack gap="md">
-      <PageHeader title={t("availability.title")} description={t("availability.description")} />
+      {pageHeader}
       <div className={styles.controlsRow}>
         {scheduleControls}
         {(summary || showVenueTime || nudge || beside) && (
@@ -556,7 +590,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onClose={canAct ? () => setClosing({ date: null, pause: false }) : undefined}
         onPause={canAct && !pause ? () => setClosing({ date: null, pause: true }) : undefined}
         onChangeRegularWeek={canAct ? () => setChangingWeek(true) : undefined}
-        onCreateSchedule={canAct && !ownSchedules ? createSchedule : undefined}
       />
       {(config.data?.source === "legacy" || config.data?.migrated) && (
         <AvailabilityMigrationBanner key={selectedVenueId} venueId={selectedVenueId} />
@@ -626,6 +659,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onOpenDay={openDay}
         onAnchorChange={moveTo}
         serviceFilter={serviceFilter}
+        sectionNames={sectionNames}
       />
       <AvailabilityDayDrawer
         date={openDate}
@@ -634,6 +668,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         error={drawerFailure}
         viewerRole={team?.viewerRole}
         dateRules={config.data?.config.dateRules}
+        sectionNames={sectionNames}
         editing={
           config.data
             ? {
@@ -713,6 +748,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           initialDate={closing.date}
           initialDates={closing.dates}
           pauseOnline={closing.pause}
+          initialSectionId={closing.sectionId}
           onSaved={closing.dates ? finishSelectionAction : undefined}
           onClose={() => setClosing(null)}
         />

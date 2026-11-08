@@ -33,9 +33,8 @@ export interface AvailabilityToolbarProps {
   readonly onClose?: () => void;
   /** Absent as above, and while online booking is already paused. */
   readonly onPause?: () => void;
-  /** Absent as above: the schedule actions the page's controls hold on a wider screen. */
+  /** Absent as above: the schedule action the page's controls hold on a wider screen. */
   readonly onChangeRegularWeek?: () => void;
-  readonly onCreateSchedule?: () => void;
   /** Phone only: the services the Services filter offers; empty (or absent) hides it. */
   readonly services?: readonly ServiceFilter[];
   /** The service the calendar reads for, or `null` for all. */
@@ -67,7 +66,7 @@ const DIVIDER: MenuEntry = { type: "divider" };
  */
 export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
   const { viewport, view, period, selectItems, onClose, onPause } = props;
-  const { onChangeRegularWeek, onCreateSchedule, onHistory, onBookingRules } = props;
+  const { onChangeRegularWeek, onHistory, onBookingRules } = props;
   const { t } = useTranslation();
   const bookingRulesItems: MenuItems = onBookingRules
     ? [
@@ -152,15 +151,6 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
               id: "regular-week",
               label: t("availabilitySchedules.regularWeek.open"),
               onSelect: afterMenuCloses(onChangeRegularWeek),
-            },
-          ]
-        : []),
-      ...(onCreateSchedule
-        ? [
-            {
-              id: "create-schedule",
-              label: t("availabilitySchedules.createAnother"),
-              onSelect: onCreateSchedule,
             },
           ]
         : []),

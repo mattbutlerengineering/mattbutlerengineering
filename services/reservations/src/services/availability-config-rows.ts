@@ -8,7 +8,11 @@ import type {
 } from "@mbe/types";
 import { Prisma, type PrismaClient } from "../generated/prisma/index.js";
 import type { ConfigDiff, ConfigTable } from "./availability-config-plan.js";
-import { parseConfigRows, type SnapshotWarning } from "./availability-snapshot.js";
+import {
+  parseConfigRows,
+  SECTION_RULE_INCLUDE,
+  type SnapshotWarning,
+} from "./availability-snapshot.js";
 
 /**
  * Prisma reads and writes of the five config tables for the config store.
@@ -49,7 +53,7 @@ export async function readStoredConfig(
     db.dateRule.findMany({
       where: { venueId, deletedAt: null },
       orderBy: { createdAt: "asc" },
-      include: { tables: { select: { tableId: true } } },
+      include: SECTION_RULE_INCLUDE,
     }),
   ]);
   const warnings: SnapshotWarning[] = [];
@@ -98,6 +102,7 @@ const dateRuleData = (r: DateRule) => ({
   targetKind: r.targetKind,
   venueServiceId: r.venueServiceId ?? null,
   bookingTypes: r.bookingTypes ?? [],
+  sectionId: r.sectionId ?? null,
   startsOn: toDbDate(r.startsOn),
   endsOn: toDbDateOrNull(r.endsOn),
   repeat: jsonOrNull(r.repeat),
@@ -112,7 +117,8 @@ const dateRuleData = (r: DateRule) => ({
 });
 
 async function writeRuleTables(db: ConfigRowDb, venueId: string, rule: DateRule): Promise<void> {
-  const tableIds = rule.tableIds ?? [];
+  // A section closure keeps no join rows: its tables are the section's, read live (ADR-032).
+  const tableIds = rule.sectionId ? [] : (rule.tableIds ?? []);
   if (tableIds.length === 0) return;
   await db.dateRuleTable.createMany({
     data: tableIds.map((tableId) => ({ dateRuleId: rule.id, tableId, venueId })),

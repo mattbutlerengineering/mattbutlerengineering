@@ -195,6 +195,15 @@ describe("DateRuleSchema", () => {
       }).success
     ).toBe(false);
   });
+
+  it("keeps an optional sectionId on a closure and accepts its absence", () => {
+    const rule = { id: "dr-1", kind: "closure", targetKind: "tables", startsOn: "2026-12-24" };
+    expect(DateRuleSchema.parse(rule)).not.toHaveProperty("sectionId");
+    expect(DateRuleSchema.parse({ ...rule, sectionId: "sec-bar" })).toMatchObject({
+      sectionId: "sec-bar",
+    });
+    expect(DateRuleSchema.parse({ ...rule, sectionId: null })).toMatchObject({ sectionId: null });
+  });
 });
 
 describe("AvailabilityConfigSchema", () => {

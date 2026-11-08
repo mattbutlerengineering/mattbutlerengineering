@@ -973,6 +973,8 @@ jobs:
             src/services/floor-plan-lifecycle.integration.test.ts \
             src/services/bookable-tables.integration.test.ts \
             src/services/venue-delete-availability-cascade.integration.test.ts \
+            src/services/date-rule-section-migration.integration.test.ts \
+            src/services/section-closure-delete.integration.test.ts \
             src/scripts/collapse-day-named-schedules.integration.test.ts \
             --reporter=default --reporter=json --outputFile=rls-integration-results.json
 

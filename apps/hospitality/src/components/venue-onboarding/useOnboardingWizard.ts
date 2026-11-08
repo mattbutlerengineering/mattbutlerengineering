@@ -8,12 +8,12 @@ import type {
 import { localeRuntime } from "../../i18n/runtime.js";
 import { validateBasicInfo, type BasicInfoData, type SlugStatus } from "./BasicInfoStep.js";
 import { validateLocationTime, detectTimezone, type LocationTimeData } from "./LocationTimeStep.js";
-import type { OperatingHoursValidationErrors } from "./OperatingHoursStep.js";
 import {
   draftToLegacyHours,
   emptyDraft,
   validateDraft,
   validateQuickSetupHours,
+  type OperatingHoursValidationErrors,
   type QuickSetupDraft,
 } from "../availability/quick-setup-draft.js";
 import { validateSettings, RECOMMENDED_SETTINGS, type SettingsData } from "./SettingsStep.js";

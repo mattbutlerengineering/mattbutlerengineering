@@ -1,17 +1,15 @@
 /**
- * Pins the one shape of merge call that cloud routines and local auto-mode
- * sessions can issue without the auto-mode classifier denying it as
- * `[Merge Without Review]` (#6125).
+ * Pins the one shape of merge call that routines and local merge paths issue
+ * (#6125), and keeps the prompts honest about what it achieves.
  *
- * Auto mode resolves a narrow `permissions.allow` Bash rule before the
- * classifier runs, and a single-repository cloud session reads the repo's
- * `.claude/settings.json`. A compound command (`&&`, `;`, `|`, a leading
- * `R=…` assignment, a `$R/pulls` or `.../pulls` placeholder) does not match
- * the rule and falls through to the classifier, which blocks "merging a pull
- * request no human has approved". So the rule, the routine prompts and the
- * local merge paths have to agree on one literal form; this test keeps them
- * from drifting apart, the same way routine-liveness.test.mjs pins each
- * prompt's heartbeat line.
+ * Locally, a narrow `permissions.allow` Bash rule resolves before the
+ * auto-mode classifier. In cloud routines it does not: on 2026-11-07 a
+ * feature-drain fire issued exactly the plain REST merge under this rule and
+ * was still denied `[Merge Without Review]` by the classifier. A compound
+ * command (`&&`, `;`, `|`, a leading `R=…` assignment, a `$R/pulls` or
+ * `.../pulls` placeholder) never matches a rule at all. So the rule, the
+ * prompts and the local paths agree on one literal form, and the prompts must
+ * not claim the rule bypasses the cloud classifier.
  */
 
 import { describe, it, expect } from "vitest";
@@ -91,6 +89,11 @@ describe("merge allow rule (#6125)", () => {
     it("tells the session the call must stand alone and why", () => {
       expect(prompt).toMatch(/whole Bash call/);
       expect(prompt).toMatch(/\.claude\/settings\.json/);
+    });
+
+    it("does not claim the settings allow rule bypasses the cloud classifier", () => {
+      expect(prompt).not.toMatch(/approves exactly this form before the auto-mode classifier/);
+      expect(prompt).toMatch(/does not bypass/);
     });
 
     it("never merges through the GraphQL-backed `gh pr merge`, which answers 403 in CCR", () => {

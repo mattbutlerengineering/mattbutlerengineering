@@ -471,3 +471,58 @@ describe("loadAvailabilitySnapshot", () => {
     expect(venueSettings).toEqual({ phone: "555-0100", minAdvanceBooking: 2 });
   });
 });
+
+describe("section closures (ADR-032)", () => {
+  const now = new Date("2026-11-01T12:00:00Z");
+  /** A section closure row, read with the tables its section holds at read time. */
+  const sectionRule = (tableIds: string[], extra: Record<string, unknown> = {}) => ({
+    ...baseRule,
+    id: "r-bar",
+    targetKind: "tables",
+    sectionId: "sec-bar",
+    section: { tables: tableIds.map((id) => ({ id })) },
+    endsOn: d("2026-11-05"),
+    tables: [],
+    ...extra,
+  });
+  const load = (dateRules: unknown[]) =>
+    loadAvailabilitySnapshot("v1", "2026-11-05", "2026-11-06", now, {
+      db: fakeDb({ dateRules }).db,
+    });
+
+  it("expands a section rule to the section's tables as they are now", async () => {
+    const { snapshot } = await load([sectionRule(["t1"])]);
+    expect(snapshot.config.dateRules).toEqual([
+      expect.objectContaining({ id: "r-bar", sectionId: "sec-bar", tableIds: ["t1"] }),
+    ]);
+  });
+
+  it("blocks a table moved into the section and frees one moved out", async () => {
+    const inSection = await load([sectionRule(["t1"])]);
+    // The only table is in the closed section: nothing is bookable that day...
+    const blocked = listSlots(inSection.snapshot, "2026-11-05", 2, "online", now);
+    expect(blocked.length).toBeGreaterThan(0);
+    expect(blocked.every((slot) => !slot.available && slot.reason === "no_table")).toBe(true);
+
+    const movedOut = await load([sectionRule([])]);
+    // ...and the same rule, with the table out of the section, books again.
+    expect(movedOut.snapshot.config.dateRules).toEqual([
+      expect.objectContaining({ id: "r-bar", tableIds: [] }),
+    ]);
+    const open = listSlots(movedOut.snapshot, "2026-11-05", 2, "online", now);
+    expect(open.some((slot) => slot.available)).toBe(true);
+  });
+
+  it("ignores the join rows of a section rule: membership decides", async () => {
+    const { snapshot } = await load([sectionRule(["t1"], { tables: [{ tableId: "stale" }] })]);
+    expect(snapshot.config.dateRules[0]?.tableIds).toEqual(["t1"]);
+  });
+
+  it("leaves a plain tables rule on its join rows", async () => {
+    const { snapshot } = await load([
+      sectionRule(["t9"], { id: "r-plain", sectionId: null, tables: [{ tableId: "t1" }] }),
+    ]);
+    expect(snapshot.config.dateRules[0]).toMatchObject({ id: "r-plain", tableIds: ["t1"] });
+    expect(snapshot.config.dateRules[0]).not.toHaveProperty("sectionId", "sec-bar");
+  });
+});

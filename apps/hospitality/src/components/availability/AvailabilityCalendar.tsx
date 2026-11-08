@@ -40,6 +40,8 @@ export interface AvailabilityCalendarProps {
   readonly selecting?: boolean;
   /** The one service every day reads for (the Services filter); `null`/absent shows all. */
   readonly serviceFilter?: ServiceFilter | null;
+  /** Section names by id, so a section closure reads "Bar closed" (ADR-032). */
+  readonly sectionNames?: ReadonlyMap<string, string>;
 }
 
 interface CellProps {
@@ -58,6 +60,7 @@ interface CellProps {
   readonly holiday: string | null;
   readonly format: VenueFormat;
   readonly serviceFilter: ServiceFilter | null;
+  readonly sectionNames?: ReadonlyMap<string, string>;
   readonly handlers: DateGestureHandlers;
   readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>, date: string) => void;
 }
@@ -66,9 +69,9 @@ function Cell(props: CellProps) {
   const { date, summary, isLoading, detailed, isToday, isSelected, isPicked, isTabStop } = props;
   const { isMuted, handlers, isDraft, holiday } = props;
   const { t } = useTranslation();
-  const { format, serviceFilter } = props;
+  const { format, serviceFilter, sectionNames } = props;
 
-  const view = presentDay(date, summary, detailed, t, format, serviceFilter);
+  const view = presentDay(date, summary, detailed, t, format, serviceFilter, sectionNames);
 
   const className = [
     styles.cell,
@@ -166,6 +169,7 @@ function targetFor(key: string, date: string): string | null {
 export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   const { view, anchor, today, days, isLoading, selectedDate, draftDates } = props;
   const { selection, onAnchorChange, loadFailed = false, serviceFilter = null } = props;
+  const { sectionNames } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -266,6 +270,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
         handlersFor={handlersFor}
         holidays={holidays}
         serviceFilter={serviceFilter}
+        sectionNames={sectionNames}
         onToggle={toggleSelected}
       />
     );
@@ -312,6 +317,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
               holiday={holidays.get(date) ?? null}
               format={format}
               serviceFilter={serviceFilter}
+              sectionNames={sectionNames}
               handlers={handlersFor(date)}
               onKeyDown={handleKeyDown}
             />

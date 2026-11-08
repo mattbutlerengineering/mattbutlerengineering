@@ -13,7 +13,7 @@ import { SCOPE_CONFLICT_HORIZON_DAYS } from "../services/availability-config-pla
 import type { CreateClosureOutcome } from "../services/closure-command.js";
 import { ClosureRefundEnqueueError } from "../services/closure-refund.js";
 import { CLOSURE_FORBIDDEN, closureCaller } from "./closure-caller.js";
-import { enqueueClosureJobs, enqueueNotices } from "./closure-post-commit.js";
+import { runClosurePostCommit, runReopenNotice } from "./closure-post-commit.js";
 import { generateManageToken } from "./public-reservations.js";
 import { venueScoped } from "./venue-scope.js";
 
@@ -152,14 +152,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       });
       if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
       // After the commit; failures are logged, never returned.
-      await enqueueClosureJobs(fastify, request.log, {
-        venueId,
-        ruleId: outcome.result.ruleId,
-        cancelled: outcome.result.outcomes.cancel,
-        ...(outcome.result.givenBackNotified
-          ? { givenBackNotified: outcome.result.givenBackNotified }
-          : {}),
-      });
+      if (outcome.postCommit) await runClosurePostCommit(fastify, request.log, outcome.postCommit);
       return { data: outcome.result };
     }),
   });
@@ -228,13 +221,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
       });
       if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
       // After the commit; failures are logged, never returned.
-      for (const saved of outcome.result.results) {
-        await enqueueClosureJobs(fastify, request.log, {
-          venueId,
-          ruleId: saved.ruleId,
-          cancelled: saved.outcomes.cancel,
-        });
-      }
+      for (const plan of outcome.postCommit) await runClosurePostCommit(fastify, request.log, plan);
       return { data: outcome.result };
     }),
   });
@@ -326,18 +313,7 @@ export const closureRoutes: FastifyPluginAsync = async (fastify) => {
         now: new Date(),
       });
       if (outcome.kind === "reopened") {
-        // The same call the command counted: no notice to rebook a date that stays closed (#8006).
-        if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
-          await enqueueNotices(
-            closureNoticeService.enqueueForReopen,
-            {
-              venueId,
-              ruleId: request.params.ruleId,
-              ...(request.body.date ? { date: request.body.date } : {}),
-            },
-            request.log
-          );
-        }
+        if (outcome.notice) await runReopenNotice(fastify, request.log, outcome.notice);
         return { data: outcome.result };
       }
       return sendRefusal(reply, outcome);

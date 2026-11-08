@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import {
   Button,
   Alert,
@@ -19,6 +20,7 @@ import {
   GUEST_MESSAGE_MAX_LENGTH,
   MAX_CLOSURE_BATCH,
   type ClosureImpact,
+  type FloorPlanSection,
   type VenueService,
 } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
@@ -49,6 +51,10 @@ export interface CloseStepOneProps {
   readonly form: CloseForm;
   readonly onChange: (form: CloseForm) => void;
   readonly services: readonly VenueService[];
+  /** The venue's floor-plan sections, which One section chooses from. */
+  readonly sections: readonly FloorPlanSection[];
+  /** `failed`: One section is off, and says why; `loading`: it is off and says nothing yet. */
+  readonly sectionsStatus: "loading" | "failed" | "ready";
   readonly today: string;
   /** `true` while the impact lookup is in flight. */
   readonly impactLoading: boolean;
@@ -88,14 +94,19 @@ function whenKindDefaults(kind: CloseWhen["kind"], today: string): CloseWhen {
   }
 }
 
-function whatKindDefaults(kind: string, services: readonly VenueService[]): CloseWhat {
+function whatKindDefaults(
+  kind: string,
+  services: readonly VenueService[],
+  sections: readonly FloorPlanSection[]
+): CloseWhat {
   if (kind === "service") return { kind, serviceId: services[0]?.id ?? "" };
+  if (kind === "section") return { kind, sectionId: sections[0]?.id ?? "" };
   if (kind === "booking") return { kind, types: ["online"] };
   return { kind: "venue" };
 }
 
 export function CloseStepOne(props: CloseStepOneProps) {
-  const { form, onChange, services, today, impact, impactLoading, impactFailed } = props;
+  const { form, onChange, services, sections, today, impact, impactLoading, impactFailed } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const patch = (next: Partial<CloseForm>) => onChange({ ...form, ...next });
@@ -126,6 +137,8 @@ export function CloseStepOne(props: CloseStepOneProps) {
   // "Closed" for the whole day.
   const from = form.fromMinute === null ? null : minuteText(form.fromMinute, t, format);
   const service = what.kind === "service" ? services.find((s) => s.id === what.serviceId) : null;
+  const section =
+    what.kind === "section" ? sections.find((s) => s.id === what.sectionId) : undefined;
   const status = service
     ? t(
         from === null
@@ -133,10 +146,19 @@ export function CloseStepOne(props: CloseStepOneProps) {
           : "availability.close.status.serviceClosedFrom",
         { service: service.name, time: from }
       )
-    : t(
-        from === null ? "availability.close.status.closed" : "availability.close.status.closedFrom",
-        { time: from }
-      );
+    : section
+      ? t(
+          from === null
+            ? "availability.close.status.sectionClosed"
+            : "availability.close.status.sectionClosedFrom",
+          { section: section.name, time: from }
+        )
+      : t(
+          from === null
+            ? "availability.close.status.closed"
+            : "availability.close.status.closedFrom",
+          { time: from }
+        );
 
   return (
     <Stack gap="md">
@@ -154,13 +176,18 @@ export function CloseStepOne(props: CloseStepOneProps) {
             label={t("availability.close.what.label")}
             name="close-what"
             value={what.kind}
-            onChange={(kind) => patch({ what: whatKindDefaults(kind, services) })}
+            onChange={(kind) => patch({ what: whatKindDefaults(kind, services, sections) })}
           >
             <Radio value="venue" label={t("availability.close.what.venue")} />
             <Radio
               value="service"
               label={t("availability.close.what.service")}
               disabled={services.length === 0}
+            />
+            <Radio
+              value="section"
+              label={t("availability.close.what.section")}
+              disabled={sections.length === 0}
             />
             <Radio value="booking" label={t("availability.close.what.booking")} />
           </RadioGroup>
@@ -170,6 +197,26 @@ export function CloseStepOne(props: CloseStepOneProps) {
               value={what.serviceId}
               options={services.map((s) => ({ value: s.id, label: s.name }))}
               onChange={(serviceId) => patch({ what: { kind: "service", serviceId } })}
+            />
+          )}
+          {sections.length === 0 && props.sectionsStatus !== "loading" && (
+            <Text variant="caption" color="secondary">
+              {props.sectionsStatus === "failed" ? (
+                t("availability.close.what.sectionsFailed")
+              ) : (
+                <>
+                  {t("availability.close.what.noSections")}{" "}
+                  <Link to="/floor-plans">{t("availability.close.what.openFloorPlan")}</Link>
+                </>
+              )}
+            </Text>
+          )}
+          {what.kind === "section" && (
+            <Select
+              label={t("availability.close.what.pickSection")}
+              value={what.sectionId}
+              options={sections.map((s) => ({ value: s.id, label: s.name }))}
+              onChange={(sectionId) => patch({ what: { kind: "section", sectionId } })}
             />
           )}
           {what.kind === "booking" && (

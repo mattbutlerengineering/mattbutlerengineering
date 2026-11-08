@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { applyChanges, collapseDayNamedSchedules } from "@mbe/availability";
+import { MemoryRouter } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig, VenueTeam } from "@mbe/types";
 import { DEMO_WEEK_CONFIG } from "../utils/demo-week.fixture.js";
@@ -17,6 +18,14 @@ const venue = vi.hoisted(() => ({
   selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
 }));
 
+vi.mock("../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../hooks/useAvailability.js", () => ({
   useAvailabilityDays: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useAvailabilityConfig: () => ({
@@ -66,11 +75,13 @@ import { AvailabilityPage } from "./AvailabilityPage.js";
 
 function renderPage() {
   return render(
-    <ToastProvider>
-      <main>
-        <AvailabilityPage />
-      </main>
-    </ToastProvider>
+    <MemoryRouter>
+      <ToastProvider>
+        <main>
+          <AvailabilityPage />
+        </main>
+      </ToastProvider>
+    </MemoryRouter>
   );
 }
 
@@ -247,14 +258,14 @@ describe("AvailabilityPage on a migrated venue", () => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
 
-  it("reads a collapsed venue as one regular week, with no day-named schedule and no Schedules tab", () => {
+  it("reads a collapsed venue as one regular week, with no day-named schedule, and still offers the Schedules tab", () => {
     read.config = collapsed();
     const { container } = renderPage();
     expect(
       screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM Mon–Fri, Thu–Fri until 10:00 PM")
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Thu–Fri hours/);
-    expect(screen.queryByRole("radio", { name: "Schedules" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Schedules" })).toBeInTheDocument();
   });
 
   it("opens Change regular week pre-filled from the collapsed week", () => {

@@ -59,10 +59,6 @@ vi.mock("../components/booking-widget", () => ({
   WidgetLocaleScope: ({ children }: { children: unknown }) => children,
   hasOperatingHours: () => false,
 }));
-vi.mock("../components/venue-onboarding/OperatingHoursStep.js", () => ({
-  OperatingHoursStep: () => null,
-  validateOperatingHours: () => null,
-}));
 
 async function useLocale(tag: "es-MX" | "fr-CA", catalog: unknown) {
   localeRuntime.i18n.addResourceBundle(tag, "translation", catalog, true, true);

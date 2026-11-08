@@ -3,6 +3,14 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 
+vi.mock("../../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../../hooks/useClosures.js", () => ({
   useClosureSummaries: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useClosureCallList: () => ({ data: [], isLoading: false, error: null }),

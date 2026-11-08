@@ -57,7 +57,7 @@ export interface BookingWidgetProps {
   hasOperatingHours?: boolean;
   /** Who is viewing this widget — staff get a prompt to configure hours. Defaults to `"guest"`. */
   audience?: "staff" | "guest";
-  /** Staff-only: called when the "Set Operating Hours" prompt is clicked. */
+  /** Staff-only: called when the "Set up regular week" prompt is clicked. */
   onSetHours?: () => void;
   /**
    * IANA timezone the venue operates in (e.g. "America/New_York"). Threaded

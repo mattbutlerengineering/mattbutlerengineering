@@ -99,3 +99,28 @@ describe("closureBandText", () => {
     );
   });
 });
+
+describe("closureBandText for a section closure (ADR-032)", () => {
+  const section = { ruleId: "r", targetKind: "tables" as const, sectionId: "sec-bar" };
+  const names = new Map([["sec-bar", "Bar"]]);
+
+  it("names the section", () => {
+    expect(closureBandText({ ...section, ...WHOLE_DAY }, t, format, names)).toEqual({
+      key: "r",
+      text: "availability.calendar.sectionClosedAllDay Bar",
+      name: "availability.calendar.sectionClosedAllDayName Bar",
+    });
+    expect(closureBandText({ ...section, ...WINDOW }, t, format, names).text).toBe(
+      "availability.calendar.sectionClosedBand Bar|22:00|23:00"
+    );
+  });
+
+  it("says tables are blocked when the section's name is not known", () => {
+    expect(closureBandText({ ...section, ...WHOLE_DAY }, t, format).text).toBe(
+      "availability.calendar.tablesBlockedAllDay"
+    );
+    expect(closureBandText({ ...section, ...WHOLE_DAY }, t, format, new Map()).text).toBe(
+      "availability.calendar.tablesBlockedAllDay"
+    );
+  });
+});

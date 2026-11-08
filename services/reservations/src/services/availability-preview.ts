@@ -19,6 +19,7 @@ import {
   type BookedReservation,
 } from "./availability-config-checks.js";
 import { settleDraft, type ReferenceIssue } from "./availability-config-plan.js";
+import type { SectionIndex } from "./section-index.js";
 import type { ConfigState } from "./availability-config-state.js";
 import { civilDateIn } from "./availability-migration.js";
 import type { ConfigIssue } from "@mbe/availability";
@@ -36,6 +37,7 @@ export interface PreviewInput {
   /** Future, still-booked reservations, each with its service date. */
   bookings: readonly BookedReservation[];
   tableIds: ReadonlySet<string>;
+  sections?: SectionIndex;
   /** The venue's tables, so a party size narrows the times to those a table fits. */
   tables?: readonly EngineTable[];
   now: Date;
@@ -76,6 +78,7 @@ export function planPreview(input: PreviewInput): PreviewPlan {
     changes: draft.changes,
     scopeConflicts: draft.scopeConflicts,
     tableIds: input.tableIds,
+    ...(input.sections ? { sections: input.sections } : {}),
     now,
     today: civilDateIn(now, state.timezone),
     newId: input.newId ?? randomUUID,

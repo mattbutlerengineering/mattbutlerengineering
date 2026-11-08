@@ -40,10 +40,12 @@ import {
   mayCloseFor,
   TONIGHT_RULE_KINDS,
   type ClosureCaller,
+  type ClosurePostCommit,
   type CreateClosureOutcome,
 } from "./closure-command.js";
 import { currentServiceDate } from "./closure-command-plan.js";
 import { prisma } from "./database.js";
+import { loadSectionIndex } from "./section-index.js";
 
 /**
  * The Tonight API (docs/features/venue-availability/architecture.md
@@ -65,8 +67,9 @@ type Db = StoreDb;
 /** A band that runs to the end of the service day, past-midnight tail included. */
 const REST_OF_TONIGHT = 2 * MINUTES_PER_DAY;
 
+/** Only a close-early runs the closure command, so only it can owe post-commit work. */
 export type SetTonightOutcome =
-  | { kind: "saved"; result: TonightResult }
+  | { kind: "saved"; result: TonightResult; postCommit: ClosurePostCommit | null }
   | Exclude<CreateClosureOutcome, { kind: "saved" }>
   | { kind: "rule_exists" };
 
@@ -264,10 +267,13 @@ async function checkRule(
     ...state.effective,
     dateRules: [...state.effective.dateRules.filter((r) => r.id !== rule.id), rule],
   };
-  const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+  const [tables, sections] = await Promise.all([
+    tx.table.findMany({ where: { venueId }, select: { id: true } }),
+    loadSectionIndex(tx, venueId),
+  ]);
   const issues = [
     ...validateConfig(next),
-    ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+    ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids),
   ];
   if (issues.length > 0) throw new Refused({ kind: "invalid", issues });
   return next;
@@ -386,7 +392,7 @@ export async function setTonight(
       );
       return { kind: "saved", result };
     });
-    if (prepared.kind === "saved") return prepared;
+    if (prepared.kind === "saved") return { ...prepared, postCommit: null };
     const { rule } = prepared;
     const closed = await deps.createClosure({
       venueId,
@@ -400,6 +406,7 @@ export async function setTonight(
     return {
       kind: "saved",
       result: { ...closed.result, serviceDate: rule.startsOn, expiresAt: rule.expiresAt ?? "" },
+      postCommit: closed.postCommit,
     };
   } catch (error) {
     if (error instanceof Refused) return error.outcome;

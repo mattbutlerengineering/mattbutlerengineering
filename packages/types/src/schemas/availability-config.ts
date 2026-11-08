@@ -174,6 +174,11 @@ const DateRuleBase = z.object({
   venueServiceId: IdSchema.nullish(),
   bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).nullish(),
   tableIds: z.array(IdSchema).nullish(),
+  /**
+   * Set on a section closure (`kind: closure`, `targetKind: tables`): its tables are the section's
+   * tables right now (ADR-032). `tableIds` is derived from it on read and ignored on write.
+   */
+  sectionId: IdSchema.nullish(),
   startsOn: ServiceDateSchema,
   /** `null` means "until I reopen". */
   endsOn: ServiceDateSchema.nullish(),

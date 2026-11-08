@@ -200,9 +200,10 @@ describe("hospitality visual spec — every row lands where it asked, on a popul
     expect(spec).toMatch(/const LANDS_ON: Record<string, string> = \{\s*"\/": "timeline"\s*\}/);
   });
 
-  it("captures `setup` in a venue still in setup (no floor plan), not bounced to the timeline", () => {
-    expect(spec).toMatch(/route === "setup"/);
-    expect(spec).toMatch(/floor-plans\\\?/);
+  it("captures `setup` as the standing Venue Setup page, with no stub to keep the venue unready", () => {
+    // /setup is not bounced for an operational venue any more, so the row needs no special mock.
+    expect(spec).not.toMatch(/route === "setup"/);
+    expect(spec).not.toMatch(/floor-plans\\\?/);
   });
 
   it("fails a row that renders the router's error boundary instead of its page", () => {

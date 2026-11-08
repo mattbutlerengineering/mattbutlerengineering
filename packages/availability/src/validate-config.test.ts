@@ -365,6 +365,45 @@ describe("validateConfig — review follow-ups", () => {
   });
 });
 
+describe("validateConfig section closures", () => {
+  const rule = (overrides: Record<string, unknown>) => ({
+    id: "dr-1",
+    kind: "closure",
+    targetKind: "tables",
+    sectionId: "sec-bar",
+    startsOn: "2026-12-26",
+    ...overrides,
+  });
+
+  it("accepts a sectionId on a tables closure", () => {
+    expect(validateConfig(config({ dateRules: [rule({})] }))).toEqual([]);
+  });
+
+  it("rejects a sectionId on any other target or kind", () => {
+    expect(
+      pathsAndCodes(
+        config({
+          dateRules: [
+            rule({ id: "dr-1", targetKind: "venue" }),
+            rule({ id: "dr-2", kind: "skip", targetKind: "tables" }),
+            rule({ id: "dr-3", targetKind: "booking", bookingTypes: ["online"] }),
+          ],
+        })
+      )
+    ).toEqual([
+      { path: "dateRules[0].sectionId", code: "section_closure_only" },
+      { path: "dateRules[1].sectionId", code: "section_closure_only" },
+      { path: "dateRules[2].sectionId", code: "section_closure_only" },
+    ]);
+  });
+
+  it("ignores a null sectionId", () => {
+    expect(
+      validateConfig(config({ dateRules: [rule({ sectionId: null, targetKind: "venue" })] }))
+    ).toEqual([]);
+  });
+});
+
 describe("validateConfig per weekday", () => {
   const hours = (opensAt: number, closesAt: number) => ({
     opensAt,

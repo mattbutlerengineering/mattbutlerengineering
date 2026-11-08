@@ -420,6 +420,7 @@ function revertingTx(options: {
     },
     reservation: { findMany: vi.fn(async () => options.reservations ?? []) },
     table: { findMany: vi.fn(async () => []) },
+    floorPlanSection: { findMany: vi.fn(async () => []) },
     availabilityChange: {
       // The target by id first; the newest unreverted change otherwise.
       findFirst: vi.fn(async (args: { where: { id?: string } }) =>

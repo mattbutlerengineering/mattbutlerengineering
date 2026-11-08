@@ -654,13 +654,13 @@ describe("HomePage", () => {
       expect(sign.getAttribute("data-state")).toBe("closed");
     });
 
-    it("renders an unset sign when the venue has no operating hours", () => {
+    it("renders an unset sign when the venue has no regular week", () => {
       vi.setSystemTime(new Date(MON_19_00_PDT));
       selectVenue({ operatingHours: null });
 
       renderPage();
 
-      const sign = screen.getByRole("img", { name: "No operating hours set" });
+      const sign = screen.getByRole("img", { name: "No regular week set" });
       expect(sign.getAttribute("data-state")).toBe("unset");
     });
 

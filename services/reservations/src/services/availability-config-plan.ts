@@ -3,6 +3,7 @@ import {
   addDays,
   applyChanges,
   applyDraft,
+  expandSectionRules,
   resolveDay,
   validateConfig,
   weekdayIndexOf,
@@ -14,6 +15,7 @@ import type {
   DateRule,
   ScopeConflictMode,
 } from "@mbe/types";
+import { NO_SECTIONS, type SectionIndex } from "./section-index.js";
 
 /**
  * The pure half of a config save (docs/features/venue-availability/
@@ -53,7 +55,19 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
-const sameRow = (a: unknown, b: unknown): boolean => canonical(a) === canonical(b);
+/**
+ * A section closure's `tableIds` are derived from live membership on every read (ADR-032), so
+ * whatever list a client sends back is not part of the row.
+ */
+function withoutDerived(row: unknown): unknown {
+  if (row === null || typeof row !== "object" || !("sectionId" in row) || row.sectionId == null) {
+    return row;
+  }
+  return Object.fromEntries(Object.entries(row).filter(([key]) => key !== "tableIds"));
+}
+
+const sameRow = (a: unknown, b: unknown): boolean =>
+  canonical(withoutDerived(a)) === canonical(withoutDerived(b));
 
 export { applyChanges };
 
@@ -321,13 +335,14 @@ export interface ReferenceIssue {
 }
 
 /**
- * Every schedule, service and table a row points at must be the venue's own.
+ * Every schedule, service, section and table a row points at must be the venue's own.
  * The foreign keys alone would accept another venue's id. `seriesId` is not
  * checked: it may name a removed rule, and it only ever takes rules out.
  */
 export function referenceIssues(
   config: AvailabilityConfig,
-  venueTableIds: ReadonlySet<string>
+  venueTableIds: ReadonlySet<string>,
+  venueSectionIds: ReadonlySet<string>
 ): ReferenceIssue[] {
   const schedules = new Set(config.schedules.map((s) => s.id));
   const services = new Set(config.venueServices.map((s) => s.id));
@@ -360,7 +375,9 @@ export function referenceIssues(
             )
           )
         : []),
-      ...(r.tableIds ?? []).flatMap((t, k) =>
+      ...(r.sectionId ? check(`dateRules[${i}].sectionId`, r.sectionId, venueSectionIds) : []),
+      // A section rule's tableIds are derived from the section, not taken from the request.
+      ...(r.sectionId ? [] : (r.tableIds ?? [])).flatMap((t, k) =>
         check(`dateRules[${i}].tableIds[${k}]`, t, venueTableIds)
       ),
     ]),
@@ -385,6 +402,8 @@ export function settleDraft(input: {
    */
   exact?: boolean;
   tableIds: ReadonlySet<string>;
+  /** The venue's sections; absent means none, so any section closure is refused. */
+  sections?: SectionIndex;
   now: Date;
   today: string;
   newId: () => string;
@@ -400,8 +419,10 @@ export function settleDraft(input: {
         input.newId,
         input.today
       );
+  const sections = input.sections ?? NO_SECTIONS;
   return {
-    next,
-    issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],
+    // A section closure's tables are the section's now, whatever list the draft carried.
+    next: { ...next, dateRules: expandSectionRules(next.dateRules, sections.membership) },
+    issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds, sections.ids)],
   };
 }

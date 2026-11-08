@@ -29,8 +29,14 @@ describe("tableToFormValues", () => {
       minCovers: "1",
       maxCovers: "4",
       location: "Window",
+      sectionId: "",
       isActive: true,
     });
+  });
+
+  it("seeds the section id, with no section as an empty string", () => {
+    expect(tableToFormValues({ ...TABLE, sectionId: "section-1" }).sectionId).toBe("section-1");
+    expect(tableToFormValues({ ...TABLE, sectionId: null }).sectionId).toBe("");
   });
 
   it("renders absent optional fields as empty strings, never 'null' or 'undefined'", () => {
@@ -102,5 +108,23 @@ describe("buildTableUpdate", () => {
   it.each(["", "0", "-3", "abc", "2.5"])("omits a numeric field holding %o", (raw) => {
     const seeded = tableToFormValues(TABLE);
     expect(buildTableUpdate(seeded, { ...seeded, capacity: raw })).toEqual({});
+  });
+});
+
+describe("buildTableUpdate — section", () => {
+  const initial = tableToFormValues({ ...TABLE, sectionId: "section-1" });
+
+  it("sends nothing when the section is unchanged", () => {
+    expect(buildTableUpdate(initial, { ...initial })).toEqual({});
+  });
+
+  it("sends the new section id", () => {
+    expect(buildTableUpdate(initial, { ...initial, sectionId: "section-2" })).toEqual({
+      sectionId: "section-2",
+    });
+  });
+
+  it("sends null when the section is cleared", () => {
+    expect(buildTableUpdate(initial, { ...initial, sectionId: "" })).toEqual({ sectionId: null });
   });
 });

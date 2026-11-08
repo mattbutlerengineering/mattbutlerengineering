@@ -355,6 +355,8 @@ export const AvailabilityDaySummarySchema = z.object({
       bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
       /** The service a `service` closure is for; absent for other targets and from an older API. */
       venueServiceId: z.string().optional(),
+      /** The section a section closure is for; absent for other targets and from an older API. */
+      sectionId: z.string().optional(),
     })
   ),
   bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),

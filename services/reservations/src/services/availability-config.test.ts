@@ -536,6 +536,7 @@ describe("saveAvailabilityConfig", () => {
       },
       reservation: { findMany: vi.fn(async () => []) },
       table: { findMany: vi.fn(async () => []) },
+      floorPlanSection: { findMany: vi.fn(async () => []) },
       availabilityChange: { create: vi.fn(async () => ({ id: "chg-10" })) },
       ...rows,
     };
@@ -672,6 +673,7 @@ describe("saveAvailabilityConfig", () => {
       },
       reservation: { findMany: vi.fn(async () => []) },
       table: { findMany: vi.fn(async () => []) },
+      floorPlanSection: { findMany: vi.fn(async () => []) },
       availabilityChange: { create },
     });
 
@@ -702,6 +704,7 @@ describe("saveAvailabilityConfig", () => {
       },
       reservation: { findMany },
       table: { findMany: vi.fn(async () => []) },
+      floorPlanSection: { findMany: vi.fn(async () => []) },
       availabilityChange: { create: vi.fn() },
     });
     // 00:10 on Sat 7 Nov in Los Angeles: Friday's service day is still running.
@@ -864,6 +867,7 @@ describe("a venue whose legacy hours the strict reader rejects", () => {
       // A future Friday booking, served by the leniently read Friday hours.
       reservation: { findMany: vi.fn(async () => [BOOKING]) },
       table: { findMany: vi.fn(async () => []) },
+      floorPlanSection: { findMany: vi.fn(async () => []) },
       availabilityChange: change,
     });
     // Removing the derived services, as an editor working from the lenient
@@ -924,6 +928,7 @@ describe("previewAvailabilityConfig", () => {
     venue: { findUnique: vi.fn(async () => venue) },
     reservation: { findMany: vi.fn(reservations) },
     table: { findMany: vi.fn(async () => []) },
+    floorPlanSection: { findMany: vi.fn(async () => []) },
   });
 
   it("answers an unknown venue as not found", async () => {

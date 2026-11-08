@@ -139,6 +139,27 @@
       ): { changed: string[]; removed: string[] } { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/availability-entry.ts">
+    <item priority="high">
+      export const AVAILABILITY_TABS: unknown;
+    </item>
+    <item priority="low">
+      type AvailabilityTab = (typeof AVAILABILITY_TABS)[number];
+    </item>
+    <item priority="low">
+      interface AvailabilityEntry {
+        tab?: AvailabilityTab;
+        closeSection?: string;
+        from?: "setup";
+      }
+    </item>
+    <item priority="high">
+      export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry { /* ... */ }
+    </item>
+    <item priority="high">
+      export function availabilityPath(entry: AvailabilityEntry): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/booking-rules.ts">
     <item priority="low">
       interface BookingRulesForm {
@@ -270,7 +291,7 @@
       type BookingChannel = "online" | "phone" | "waitlist";
     </item>
     <item priority="low">
-      type CloseWhat = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "booking"; re;
+      type CloseWhat = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "section"; re | { readonly kind: "booking"; re;
     </item>
     <item priority="low">
       type CloseWhen = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "dates"; read | { readonly kind: "range"; read | {
@@ -338,13 +359,22 @@
       function targetOf(what: CloseWhat) { /* ... */ }
     </item>
     <item priority="high">
-      export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
+      type SectionMembership = ReadonlyMap<string, readonly string[]>;
+    </item>
+    <item priority="high">
+      export function buildCloseRule(
+        form: CloseForm,
+        id: string,
+        today: string,
+        membership: SectionMembership = new Map()
+      ): DateRule | null { /* ... */ }
     </item>
     <item priority="high">
       export function buildCloseRules(
         form: CloseForm,
         idFor: (date: string) => string,
-        today: string
+        today: string,
+        membership: SectionMembership = new Map()
       ): readonly DateRule[] { /* ... */ }
     </item>
     <item priority="high">
@@ -507,11 +537,15 @@
     <item priority="medium">
       function bookingCopy(suffix: ChannelSuffix): Copy { /* ... */ }
     </item>
+    <item priority="medium">
+      function sectionCopy(name: string): Copy { /* ... */ }
+    </item>
     <item priority="high">
       export function closureBandText(
         closure: Closure,
         t: TFunction,
-        format: VenueFormat
+        format: VenueFormat,
+        sectionNames?: ReadonlyMap<string, string>
       ): ClosureBandText { /* ... */ }
     </item>
   </file>
@@ -709,7 +743,8 @@
         detailed: boolean,
         t: TFunction,
         format: VenueFormat,
-        service?: ServiceFilter | null
+        service?: ServiceFilter | null,
+        sectionNames?: ReadonlyMap<string, string>
       ): DayPresentation { /* ... */ }
     </item>
   </file>
@@ -920,10 +955,20 @@
       ): string { /* ... */ }
     </item>
     <item priority="medium">
-      function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string { /* ... */ }
+      function targetText(
+        target: LayerTarget,
+        t: TFunction,
+        format: VenueFormat,
+        sectionNames?: ReadonlyMap<string, string>
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
-      function seriesText(series: LayerSeries, t: TFunction, format: VenueFormat): string { /* ... */ }
+      function seriesText(
+        series: LayerSeries,
+        t: TFunction,
+        format: VenueFormat,
+        sectionNames?: ReadonlyMap<string, string>
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
       function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: VenueFormat): string { /* ... */ }
@@ -936,7 +981,12 @@
       ): string { /* ... */ }
     </item>
     <item priority="high">
-      export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string { /* ... */ }
+      export function layerLabelText(
+        layer: Layer,
+        t: TFunction,
+        format: VenueFormat,
+        sectionNames?: ReadonlyMap<string, string>
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function layerEffectText(layer: Layer, t: TFunction, format: VenueFormat): string { /* ... */ }
@@ -1262,6 +1312,12 @@
         newId: () => string
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
+    <item priority="low">
+      interface OperatingHoursValidationErrors {
+        global?: string;
+        days?: Readonly<Partial<Record<keyof OperatingHours, string>>>;
+      }
+    </item>
     <item priority="high">
       export function validateQuickSetupHours(
         hours: OperatingHours,
@@ -1478,9 +1534,6 @@
       export function weekdayRuns(weekdays: readonly number[]): [number, number][] { /* ... */ }
     </item>
     <item priority="high">
-      export function hasOwnSchedules(config: AvailabilityConfig): boolean { /* ... */ }
-    </item>
-    <item priority="high">
       export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -1675,6 +1728,13 @@
     </item>
     <item priority="high">
       export function switchScope(input: SwitchInput): Switched { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/section-membership.ts">
+    <item priority="high">
+      export function sectionMembership(
+        tables: readonly Pick<Table, "id" | "sectionId">[]
+      ): ReadonlyMap<string, readonly string[]> { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/selection-actions.ts">
@@ -4093,6 +4153,9 @@
       export const useFloorPlanSections: unknown;
     </item>
     <item priority="high">
+      export const useVenueFloorPlanSections: unknown;
+    </item>
+    <item priority="high">
       export const useUpdateFloorPlanSection: unknown;
     </item>
   </file>
@@ -4295,6 +4358,20 @@
     </item>
     <item priority="high">
       export function useIsAdmin(): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useIsManager.ts">
+    <item priority="low">
+      interface ManagerAccess {
+        isManager: boolean;
+        isPending: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useManagerAccess(): ManagerAccess { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useIsManager(): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useMenus.ts">
@@ -5649,8 +5726,7 @@
         id: string;
         label: string;
         action: NavAction;
-        stepStatus?: "completed" | "current" | "locked";
-        disabled?: boolean;
+        badge?: string;
       }
     </item>
     <item priority="low">
@@ -6782,6 +6858,172 @@
     </item>
     <item priority="high">
       export function parseVenueProfileForm(form: VenueProfileForm): VenueProfileFormResult { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="venue-setup">
+  <file path="src/components/venue-setup/setup-tree.ts">
+    <item priority="low">
+      type Channel = (typeof CHANNELS)[number];
+    </item>
+    <item priority="low">
+      type SetupNodeKind = "schedules" | "schedule" | "service" | "specialDates" | "specialDate" | "booking" | "channel" | "floorPlan" | "section" | "noSection" | "table";
+    </item>
+    <item priority="low">
+      type ClosureTarget = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "section"; re | { readonly kind: "booking"; re | { readonly kind: "tables"; rea;
+    </item>
+    <item priority="low">
+      type NodeState = { readonly kind: "unset" } | { readonly kind: "count"; read | { readonly kind: "week"; reado | {
+            readonly kind: "period | {
+            readonly kind: "servic | {
+            readonly kind: "rules" | {
+            readonly kind: "closur | { readonly kind: "floorPlan";  | { readonly kind: "tables"; rea | { readonly kind: "seats"; read;
+    </item>
+    <item priority="low">
+      type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "compareServices" | "createSchedule" | "openCalendar" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
+    </item>
+    <item priority="low">
+      type SetupActionTarget = { readonly kind: "link"; reado | { readonly kind: "dialog"; rea;
+    </item>
+    <item priority="low">
+      interface SetupAction {
+        id: SetupActionId;
+        target: SetupActionTarget;
+        primary: boolean;
+        subject?: string;
+      }
+    </item>
+    <item priority="low">
+      interface SetupNode {
+        id: string;
+        kind: SetupNodeKind;
+        name: string | null;
+        state: NodeState;
+        actions: readonly SetupAction[];
+      }
+    </item>
+    <item priority="low">
+      type GroupLoad = { readonly status: "loading" } | { readonly status: "error"; re | { readonly status: "ready"; re;
+    </item>
+    <item priority="low">
+      interface OpenData {
+        config: AvailabilityConfig;
+        settings: VenueSettings | null | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface SitData {
+        floorPlans: readonly FloorPlan[];
+        sections: readonly FloorPlanSection[];
+        tables: readonly Table[];
+      }
+    </item>
+    <item priority="low">
+      interface SetupTreeInput {
+        venueName: string;
+        isManager: boolean;
+        readiness: "setup" | "operational";
+        today: string;
+        open: GroupLoad<OpenData>;
+      }
+    </item>
+    <item priority="low">
+      type GroupState = { readonly status: "loading" } | { readonly status: "error"; re | { readonly status: "ready" };
+    </item>
+    <item priority="low">
+      interface SetupGroup {
+        id: "open" | "sit";
+        load: GroupState;
+        nodes: readonly SetupNode[];
+      }
+    </item>
+    <item priority="low">
+      interface SetupTree {
+        venueName: string;
+        groups: readonly [SetupGroup, SetupGroup];
+      }
+    </item>
+    <item priority="high">
+      type Link = { readonly kind: "link"; readonly to: string };
+    </item>
+    <item priority="medium">
+      function scheduleNode(
+        schedule: Schedule,
+        config: AvailabilityConfig,
+        services: ReadonlyMap<string, { readonly name: string; readonly position: number }>,
+        manager: boolean
+      ): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function targetOf(
+        rule: DateRule,
+        services: ReadonlyMap<string, string>,
+        sections: ReadonlyMap<string, string> | null
+      ): ClosureTarget { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialDatesNode(
+        config: AvailabilityConfig,
+        today: string,
+        sections: ReadonlyMap<string, string> | null,
+        manager: boolean
+      ): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingNode(
+        config: AvailabilityConfig,
+        settings: VenueSettings | null | undefined,
+        today: string,
+        manager: boolean
+      ): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function openNodes(
+        data: OpenData,
+        today: string,
+        sections: ReadonlyMap<string, string> | null,
+        manager: boolean
+      ): SetupNode[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tableNode(table: Table): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function floorPlanNode(
+        plan: FloorPlan,
+        data: SitData,
+        manager: boolean,
+        hasTables: boolean
+      ): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sitNodes(data: SitData, manager: boolean): SetupNode[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withPrimary(nodes: readonly SetupNode[], targetId: string | null): SetupNode[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSetupTree(input: SetupTreeInput): SetupTree { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/venue-setup/useSetupNodeText.ts">
+    <item priority="low">
+      interface SetupNodeText {
+        caption: (node: SetupNode) => string | null;
+        label: (node: SetupNode) => string;
+        whatIs: (node: SetupNode) => string | null;
+        state: (node: SetupNode) => string;
+        actionLabel: (action: SetupAction, node: SetupNode) => string;
+      }
+    </item>
+    <item priority="high">
+      export function useSetupNodeText(): SetupNodeText { /* ... */ }
     </item>
   </file>
   </section>

@@ -325,6 +325,64 @@ describe("diffConfig and inverseOf", () => {
 });
 
 /** The saves the Schedules surfaces offer Undo on (#7979): a revert must get back to `stored`. */
+describe("section closures (ADR-032)", () => {
+  const sectionClosure = (tableIds: string[]): DateRule => ({
+    id: "dr-bar",
+    kind: "closure",
+    targetKind: "tables",
+    sectionId: "sec-bar",
+    tableIds,
+    startsOn: "2026-12-24",
+    endsOn: "2026-12-24",
+  });
+  const withRules = (...dateRules: DateRule[]): AvailabilityConfig => ({ ...BASE, dateRules });
+
+  it("treats tableIds as derived: a stale list is not a change", () => {
+    const stored = withRules(sectionClosure(["t1", "t2"]));
+    const next = withRules(sectionClosure([]));
+    const diff = diffConfig(stored, next);
+    expect(diff.update.dateRules).toEqual([]);
+    expect(diff.create.dateRules).toEqual([]);
+  });
+
+  it("still sees a change to the section itself or to another field", () => {
+    const stored = withRules(sectionClosure(["t1"]));
+    const moved = withRules({ ...sectionClosure(["t1"]), sectionId: "sec-patio" });
+    const longer = withRules({ ...sectionClosure(["t1"]), endsOn: "2026-12-26" });
+    expect(diffConfig(stored, moved).update.dateRules).toHaveLength(1);
+    expect(diffConfig(stored, longer).update.dateRules).toHaveLength(1);
+  });
+
+  it("still compares tableIds of a plain tables closure", () => {
+    const plain = (tableIds: string[]): DateRule => ({
+      id: "dr-plain",
+      kind: "closure",
+      targetKind: "tables",
+      tableIds,
+      startsOn: "2026-12-24",
+    });
+    const diff = diffConfig(withRules(plain(["t1"])), withRules(plain(["t1", "t2"])));
+    expect(diff.update.dateRules).toHaveLength(1);
+  });
+
+  it("rejects a section that is not the venue's", () => {
+    const config = withRules(sectionClosure([]));
+    expect(referenceIssues(config, new Set(), new Set(["sec-bar"]))).toEqual([]);
+    expect(referenceIssues(config, new Set(), new Set(["sec-other-venue"]))).toEqual([
+      {
+        path: "dateRules[0].sectionId",
+        code: "unknown_reference",
+        message: "Refers to a row this venue does not have.",
+      },
+    ]);
+  });
+
+  it("does not check the derived tableIds of a section rule", () => {
+    const config = withRules(sectionClosure(["t-not-in-venue"]));
+    expect(referenceIssues(config, new Set(), new Set(["sec-bar"]))).toEqual([]);
+  });
+});
+
 describe("undoing a schedule save", () => {
   const stored: AvailabilityConfig = {
     ...BASE,
@@ -408,7 +466,7 @@ describe("affectedRange", () => {
 
 describe("referenceIssues", () => {
   it("accepts a config whose references all resolve", () => {
-    expect(referenceIssues(BASE, new Set())).toEqual([]);
+    expect(referenceIssues(BASE, new Set(), new Set())).toEqual([]);
   });
 
   it("names each reference to a row the venue does not have", () => {
@@ -427,7 +485,7 @@ describe("referenceIssues", () => {
       ],
     };
 
-    expect(referenceIssues(config, new Set(["t-1"])).map((i) => i.path)).toEqual([
+    expect(referenceIssues(config, new Set(["t-1"]), new Set()).map((i) => i.path)).toEqual([
       "scheduleServices[0].scheduleId",
       "dateRules[0].tableIds[1]",
     ]);
