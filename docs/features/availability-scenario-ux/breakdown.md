@@ -43,7 +43,7 @@ Each item: RED tests first at the existing seam, then the change. "PRD" lists th
 
 - [x] **Quiet month cells and legend** — `dayDifference`, `monthLegend`, cell and legend rendering.
   - Files: `day-summary.ts` (+ test), `AvailabilityCalendar.tsx` (+ test), `AvailabilityPage.tsx` if the regular schedule id must be passed, catalogs.
-  - RED tests: a regular day → no chip; a Weeknights day → "Weeknights"; a day with a Lunch closure and Weeknights → "Lunch closed" + more 1; ranking order per ux.md F5; legend "This month: Weeknights · Mon–Thu   Lunch closed · 1 day" and "This month: your regular week"; accessible names unchanged; Host sees the same.
+  - RED tests: a regular day → no chip; a Weeknights day → "Weeknights"; a day with a Lunch closure and Weeknights → "Lunch closed" + more 1; ranking order per ux.md F5; legend "This month: Weeknights · Mon–Thu Lunch closed · 1 day" and "This month: your regular week"; accessible names unchanged; Host sees the same.
   - Accept: PRD 8; R8 0 clicks.
   - Blocked by: —
   - PRD: 4 (R8), 8
@@ -60,6 +60,7 @@ Each item: RED tests first at the existing seam, then the change. "PRD" lists th
 None.
 
 ## Notes
+
 - 2026-11-08 (Implement): items 1-5 verified by their tests and the full hospitality unit suite (411 files, 5,775 tests). Deviations, each logged by the slice:
   - Week form: `placePreset` takes the translated preset name (the draft module has no `t`); a placed start at or past midnight falls back to the preset's defaults (an opening is a time of day); `firstClearStart` also counts spill-over from neighbouring days and moves only the service's own hours, so a different-hours block overlap gets no fix; `setBlockDays` added so a block shortcut replaces the block's days. `quick-setup-draft.ts` is now ~950 lines, over the 800-line guideline — flagged for Review.
   - Footer and Booking: the Booking line button reads "Booking: {{rules}} · Change" ("· Set up" when unset); the first-paint budget of #8511's PRD 15 moves 7 → 8 (prd.md criterion 4 note).
@@ -71,4 +72,3 @@ None.
   - D1: `dayDifference` became `toDifference(dayDifferences(...))` (one implementation used by the component and the tests). A weekday the regular week is closed on is not a difference: no chip, no legend entry, a muted "Closed" text. `monthLegend` returns `{ heading, items }` rendered as a list; a chip is weekly only across two or more in-month weeks; count and pattern use the same cells; no legend until the regular schedule is known.
   - C2: toasts and buttons name the dates for Range ("Closed Thu, Dec 24 – Sat, Jan 2"), Repeats ("Closed every Monday, Mon, Jan 4 – Mon, Jan 25") and Until-reopen ("Closed from Sun, Nov 8 until you reopen"), and keep a booking pause's time. The disabled primary with no To says "Choose an end date to close."
   - E1: the demo-week spec no longer sets Dinner's times after the preset — the earlier adaptation had hidden the `placePreset` bug.
-

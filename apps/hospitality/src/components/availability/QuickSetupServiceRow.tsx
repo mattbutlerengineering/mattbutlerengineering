@@ -102,7 +102,11 @@ export function ServiceRow({
   const applyBlockDays = (result: BlockDayToggle, movedDays: readonly number[]) => {
     const lines = [
       ...(result.moved && movedDays.length > 0
-        ? [t("availability.quickSetup.blockDayMoved", { day: movedDays.map((day) => dayName(day)).join(", ") })]
+        ? [
+            t("availability.quickSetup.blockDayMoved", {
+              day: movedDays.map((day) => dayName(day)).join(", "),
+            }),
+          ]
         : []),
       ...result.removed.map((b) =>
         t("availability.quickSetup.blockRemoved", { days: daysText(b.days) })

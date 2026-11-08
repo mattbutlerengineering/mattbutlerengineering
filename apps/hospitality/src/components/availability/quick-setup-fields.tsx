@@ -37,7 +37,6 @@ export function IssueText({
   const dayName = useWeekdayName();
   const applyFix = use(QuickSetupFixContext);
   // One action per service: the same later start clears the overlap on every day it names.
-  // One action per service: the same later start clears the overlap on every day it names.
   const movable = [
     ...new Set(
       problems.flatMap((p) =>

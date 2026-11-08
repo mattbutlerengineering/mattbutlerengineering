@@ -44,18 +44,19 @@ Checks by component test (C), e2e (E) or both.
 - [ ] 3. **Save in reach.** With unsaved changes, the week panel's footer (apply line, Discard, Save) is in the viewport without scrolling, at 375×812 and 1280×720, wherever in the form the Manager is; with no changes it does not cover the form. E at both sizes.
 - [ ] 4. **Scenario budgets** (E, interaction counter, from first paint):
 
-  | # | Catalogue | Job | Before | Budget |
-  |---|---|---|---|---|
-  | R1 | B10 | Late service Fri–Sat beside Dinner closing 11 PM | 9 | ≤ 5 |
-  | R2 | C13 | A "Weeknights" schedule Mon–Thu, undated | 8 | ≤ 5 |
-  | R3 | C20 | Duplicate it as Mon–Thu with a later close | ~10 | ≤ 7 |
-  | R4 | D22 | No lunch on Christmas Eve | 9 | ≤ 5 |
-  | R5 | E39 | Closed every Monday in January | 11 | ≤ 10 |
-  | R6 | E41 | Close early tonight at 9:30 PM | 4 | ≤ 4, with ≤ 12 options listed |
-  | R7 | H72 | Change the largest online party | 4 | ≤ 3 |
-  | R8 | C19 | See which days differ this month | 1 click + scan | 0 clicks |
+  | #   | Catalogue | Job                                              | Before         | Budget                        |
+  | --- | --------- | ------------------------------------------------ | -------------- | ----------------------------- |
+  | R1  | B10       | Late service Fri–Sat beside Dinner closing 11 PM | 9              | ≤ 5                           |
+  | R2  | C13       | A "Weeknights" schedule Mon–Thu, undated         | 8              | ≤ 5                           |
+  | R3  | C20       | Duplicate it as Mon–Thu with a later close       | ~10            | ≤ 7                           |
+  | R4  | D22       | No lunch on Christmas Eve                        | 9              | ≤ 5                           |
+  | R5  | E39       | Closed every Monday in January                   | 11             | ≤ 10                          |
+  | R6  | E41       | Close early tonight at 9:30 PM                   | 4              | ≤ 4, with ≤ 12 options listed |
+  | R7  | H72       | Change the largest online party                  | 4              | ≤ 3                           |
+  | R8  | C19       | See which days differ this month                 | 1 click + scan | 0 clicks                      |
 
   #8511's S1–S10 budgets and the interaction baselines still hold. #8511's PRD 15 first-paint budget moves from ≤ 7 to ≤ 8 controls outside the week panel: the Booking line becomes a button (criterion 9), replacing a two-step path through ⋯ (R7: 4 → 3); still below the 12–15 of the page before #8511. [Recorded at Implement, 2026-11-08.]
+
 - [ ] 5. **Confirmations name the thing.** Close and Pause toasts name the target and date: whole venue ("Closed on Thu, Dec 24"), one service ("Lunch closed on Thu, Dec 24"), one section ("Bar closed on …"), booking only ("Phone booking paused on Sun, Nov 8"), ranges and repeats in the same pattern. C per kind.
 - [ ] 6. **The dialog says only true things.** "Step 1 of 2" shows only when a second step will follow; the floor-plan hint appears with the disabled One section choice, not between choices; the dialog's title matches how it was opened (Close… → "Close", Pause online booking → "Pause online booking"). C.
 - [ ] 7. **Dates and times the venue already has.** One-date closes offer chips for Tonight, Tomorrow and each holiday from the venue's holiday list in the next 60 days; "Starting at" for tonight lists times from the next half hour to tonight's last close, not from midnight. C + E (R4, R6).

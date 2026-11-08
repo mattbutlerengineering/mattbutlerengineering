@@ -45,16 +45,16 @@ e2e (availability-*, onboarding, venue-setup-hub, a11y, fold-budget, locale-swee
 - Check: `e2e/availability-everyday.spec.ts`, one test per row; #8511's S1–S10 and interaction baselines in `availability-scenarios.spec.ts` / `availability-interaction-*.spec.ts`; first paint ≤ 8 (prd.md note).
 - Evidence:
 
-  | # | Catalogue | Job | Before | Measured | Budget |
-  |---|---|---|---|---|---|
-  | R1 | B10 | Late Fri–Sat beside Dinner | 9 | 5 | ≤ 5 |
-  | R2 | C13 | Weeknights Mon–Thu | 8 | 5 | ≤ 5 |
-  | R3 | C20 | Duplicate with a later close | ~10 | 7 | ≤ 7 |
-  | R4 | D22 | No lunch on Christmas Eve | 9 | 4 | ≤ 5 |
-  | R5 | E39 | Closed every Monday in January | 11 | 10 | ≤ 10 |
-  | R6 | E41 | Close early tonight at 9:30 PM | 4 | 4 (10 options) | ≤ 4, ≤ 12 options |
-  | R7 | H72 | Largest online party | 4 | 3 | ≤ 3 |
-  | R8 | C19 | Which days differ this month | 1 click + scan | 0 clicks | 0 |
+  | #   | Catalogue | Job                            | Before         | Measured       | Budget            |
+  | --- | --------- | ------------------------------ | -------------- | -------------- | ----------------- |
+  | R1  | B10       | Late Fri–Sat beside Dinner     | 9              | 5              | ≤ 5               |
+  | R2  | C13       | Weeknights Mon–Thu             | 8              | 5              | ≤ 5               |
+  | R3  | C20       | Duplicate with a later close   | ~10            | 7              | ≤ 7               |
+  | R4  | D22       | No lunch on Christmas Eve      | 9              | 4              | ≤ 5               |
+  | R5  | E39       | Closed every Monday in January | 11             | 10             | ≤ 10              |
+  | R6  | E41       | Close early tonight at 9:30 PM | 4              | 4 (10 options) | ≤ 4, ≤ 12 options |
+  | R7  | H72       | Largest online party           | 4              | 3              | ≤ 3               |
+  | R8  | C19       | Which days differ this month   | 1 click + scan | 0 clicks       | 0                 |
 
 - Result: PASS (agent stand-in counts; no human timing).
 

@@ -157,9 +157,7 @@ describe("SchedulesTab", () => {
     renderWith(<Layer state={state()} onBookingRules={onBookingRules} />);
     const line = screen.getByRole("button", { name: /^Booking: .* · Set up$/ });
     const other = screen.getByRole("region", { name: "Other schedules" });
-    expect(
-      line.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
+    expect(line.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     const panelStart = screen.getByRole("button", { name: "Starting later…" });
     expect(
       panelStart.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING

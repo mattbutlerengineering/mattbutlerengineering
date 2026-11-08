@@ -50,11 +50,14 @@ describe("AvailabilityToolbar", () => {
     ]);
   });
 
-  it.each(["desktop", "phone"] as const)("opens the Select… menu right-aligned on a %s", (viewport) => {
-    renderToolbar({ viewport });
-    fireEvent.click(screen.getByRole("button", { name: "Select…" }));
-    expect(screen.getByRole("menu").className).toContain("menuRight");
-  });
+  it.each(["desktop", "phone"] as const)(
+    "opens the Select… menu right-aligned on a %s",
+    (viewport) => {
+      renderToolbar({ viewport });
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      expect(screen.getByRole("menu").className).toContain("menuRight");
+    }
+  );
 
   it("offers no Select… menu when there is nothing to select", () => {
     renderToolbar({ viewport: "phone", selectItems: [] });
