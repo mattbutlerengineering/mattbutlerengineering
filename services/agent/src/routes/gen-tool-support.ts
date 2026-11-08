@@ -161,6 +161,32 @@ function describeWriteFailure(
   return { refused: true, error: `${refusal.detail} ${outcome}` };
 }
 
+/**
+ * A failed chat read, in words the model can pass on; never shaped like an empty
+ * result. `what` names what was read ("the menus"). With `notEmpty` ("there are no
+ * bookings"), a transient failure is marked unknown and forbids that reading.
+ */
+export function readFailure(
+  err: unknown,
+  what: string,
+  opts?: { readonly notEmpty?: string }
+):
+  | { readonly refused: true; readonly error: string }
+  | { readonly unknown?: true; readonly error: string } {
+  const refusal = refusalOf(err);
+  if (refusal?.status === 403) {
+    return { refused: true, error: `The user doesn't have permission to see ${what}.` };
+  }
+  if (refusal) return { refused: true, error: refusal.detail };
+  if (opts?.notEmpty) {
+    return {
+      unknown: true,
+      error: `Couldn't read ${what} right now. Tell the user you couldn't check and to try again shortly; do not say ${opts.notEmpty}.`,
+    };
+  }
+  return { error: `Couldn't read ${what}. Ask the user to try again.` };
+}
+
 export interface NamedTable {
   readonly id: string;
   readonly name?: string | null;

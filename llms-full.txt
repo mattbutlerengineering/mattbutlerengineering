@@ -34239,7 +34239,7 @@
               };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
-              return { error: "Couldn't read tonight's availability. Ask the user to try again." };
+              return readFailure(err, "tonight's availability");
             }
           },
         }),
@@ -34392,19 +34392,6 @@
           : {}),
       };
     }
-    function readFailure(err: unknown) {
-      const refusal = refusalOf(err);
-      if (!refusal) {
-        return {
-          unknown: true,
-          error:
-            "Couldn't read the briefing right now. Tell the user you couldn't check and to try again shortly; do not say there are no bookings.",
-        } as const;
-      }
-      return refusal.status === 403
-        ? ({ refused: true, error: "The user doesn't have permission to see the briefing." } as const)
-        : ({ refused: true, error: refusal.detail } as const);
-    }
     export function createBriefingTools(
       log: FastifyBaseLogger,
       api: ApiClient,
@@ -34435,7 +34422,7 @@
               };
             } catch (err) {
               log.error({ err, venueId, date: day }, "get_briefing failed");
-              return readFailure(err);
+              return readFailure(err, "the briefing", { notEmpty: "there are no bookings" });
             }
           },
         }),
@@ -35139,7 +35126,7 @@
             return { closures, ...(counts ? {} : { countsUnavailable: true }) };
           } catch (err) {
             log.error({ ...failureLog(err), venueId }, "list_closures failed");
-            return { error: "Couldn't read the closures. Ask the user to try again." };
+            return readFailure(err, "the closures");
           }
         },
       });
@@ -35177,11 +35164,6 @@
         error: `${matches.length} floor plans are called ${ref}. Ask the user which one, and rename one in the floor plan editor first.`,
       };
     }
-    function readFailure(err: unknown) {
-      return refusalOf(err)?.status === 403
-        ? { refused: true, error: "The user doesn't have permission to see floor plans." }
-        : { error: "Couldn't read the floor plans. Ask the user to try again." };
-    }
     export function createFloorPlanTools(
       log: FastifyBaseLogger,
       api: ApiClient,
@@ -35209,7 +35191,7 @@
               };
             } catch (err) {
               log.error({ err, venueId }, "list_floor_plans failed");
-              return readFailure(err);
+              return readFailure(err, "the floor plans");
             }
           },
         }),
@@ -35310,7 +35292,7 @@
               };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "list_lapsing_guests failed");
-              return { error: "Couldn't read lapsing guests. Ask the user to try again." };
+              return readFailure(err, "lapsing guests");
             }
           },
         }),
@@ -35531,7 +35513,7 @@
               };
             } catch (err) {
               log.error({ err, venueId }, "list_menus failed");
-              return readFailure(err);
+              return readFailure(err, "the menus");
             }
           },
         }),
@@ -35567,7 +35549,7 @@
               };
             } catch (err) {
               log.error({ err, venueId }, "get_menu failed");
-              return readFailure(err);
+              return readFailure(err, "the menus");
             }
           },
         }),
@@ -35645,11 +35627,6 @@
           },
         }),
       };
-    }
-    function readFailure(err: unknown) {
-      return refusalOf(err)?.status === 403
-        ? { refused: true, error: "The user doesn't have permission to see menus." }
-        : { error: "Couldn't read the menus. Ask the user to try again." };
     }
   </file>
   <file path="services/agent/src/routes/gen-agent-prompt.ts">
@@ -36514,10 +36491,7 @@
               return { parties };
             } catch (err) {
               log.error({ ...failureLog(err), venueId }, "list_waitlist failed");
-              const refusal = refusalOf(err);
-              return refusal?.status === 403
-                ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
-                : { error: "Couldn't read the waitlist. Ask the user to try again." };
+              return readFailure(err, "the waitlist");
             }
           },
         }),
@@ -37770,6 +37744,26 @@
         return { refused: true, error: `The user doesn't have permission to do this. ${outcome}` };
       }
       return { refused: true, error: `${refusal.detail} ${outcome}` };
+    }
+    export function readFailure(
+      err: unknown,
+      what: string,
+      opts?: { readonly notEmpty?: string }
+    ):
+      | { readonly refused: true; readonly error: string }
+      | { readonly unknown?: true; readonly error: string } {
+      const refusal = refusalOf(err);
+      if (refusal?.status === 403) {
+        return { refused: true, error: `The user doesn't have permission to see ${what}.` };
+      }
+      if (refusal) return { refused: true, error: refusal.detail };
+      if (opts?.notEmpty) {
+        return {
+          unknown: true,
+          error: `Couldn't read ${what} right now. Tell the user you couldn't check and to try again shortly; do not say ${opts.notEmpty}.`,
+        };
+      }
+      return { error: `Couldn't read ${what}. Ask the user to try again.` };
     }
     export interface NamedTable {
       readonly id: string;

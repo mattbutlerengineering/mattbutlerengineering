@@ -2,7 +2,7 @@ import { tool } from "ai";
 import type { ToolSet } from "ai";
 import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
-import { NO_VENUE, localTimeIn, refusalOf, todayIn, type ApiClient } from "./gen-tool-support.js";
+import { NO_VENUE, localTimeIn, readFailure, todayIn, type ApiClient } from "./gen-tool-support.js";
 
 /**
  * Chat tool for the Briefing page (#7973): the day's pending and confirmed
@@ -45,21 +45,6 @@ function seatingOf(entry: BriefingEntry, timeZone: string | undefined) {
   };
 }
 
-/** A failed briefing read: never shaped like an empty briefing. */
-function readFailure(err: unknown) {
-  const refusal = refusalOf(err);
-  if (!refusal) {
-    return {
-      unknown: true,
-      error:
-        "Couldn't read the briefing right now. Tell the user you couldn't check and to try again shortly; do not say there are no bookings.",
-    } as const;
-  }
-  return refusal.status === 403
-    ? ({ refused: true, error: "The user doesn't have permission to see the briefing." } as const)
-    : ({ refused: true, error: refusal.detail } as const);
-}
-
 export function createBriefingTools(
   log: FastifyBaseLogger,
   api: ApiClient,
@@ -90,7 +75,7 @@ export function createBriefingTools(
           };
         } catch (err) {
           log.error({ err, venueId, date: day }, "get_briefing failed");
-          return readFailure(err);
+          return readFailure(err, "the briefing", { notEmpty: "there are no bookings" });
         }
       },
     }),

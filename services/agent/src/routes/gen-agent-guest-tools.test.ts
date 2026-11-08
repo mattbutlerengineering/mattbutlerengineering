@@ -266,6 +266,18 @@ describe("guest chat tools", () => {
         ],
       });
     });
+
+    it("says the user can't see lapsing guests on a 403, rather than to try again", async () => {
+      api.guests.getLapsing.mockRejectedValue(problem(403));
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      const result = await tools.list_lapsing_guests!.execute!({} as never, toolCtx);
+
+      expect(result).toEqual({
+        refused: true,
+        error: "The user doesn't have permission to see lapsing guests.",
+      });
+    });
   });
 
   describe("guest details stay out of the logs", () => {

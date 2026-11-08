@@ -17,6 +17,7 @@ import {
   failureLog,
   localTimeIn,
   notExecuted,
+  readFailure,
   refusalOf,
   saveUnsure,
   resolveTable,
@@ -372,7 +373,7 @@ export function createAvailabilityTools(
           };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "list_tonight_changes failed");
-          return { error: "Couldn't read tonight's availability. Ask the user to try again." };
+          return readFailure(err, "tonight's availability");
         }
       },
     }),

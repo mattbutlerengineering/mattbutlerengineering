@@ -11759,9 +11759,6 @@
     <item priority="medium">
       function seatingOf(entry: BriefingEntry, timeZone: string | undefined) { /* ... */ }
     </item>
-    <item priority="medium">
-      function readFailure(err: unknown) { /* ... */ }
-    </item>
     <item priority="high">
       export function createBriefingTools(
         log: FastifyBaseLogger,
@@ -11976,9 +11973,6 @@
         ref: string
       ): { plan: FloorPlan } | { error: string } { /* ... */ }
     </item>
-    <item priority="medium">
-      function readFailure(err: unknown) { /* ... */ }
-    </item>
     <item priority="high">
       export function createFloorPlanTools(
         log: FastifyBaseLogger,
@@ -12057,9 +12051,6 @@
         api: ApiClient,
         { venueId }: { readonly venueId?: string | undefined }
       ): ToolSet { /* ... */ }
-    </item>
-    <item priority="medium">
-      function readFailure(err: unknown) { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent-prompt.ts">
@@ -12452,6 +12443,15 @@
         err: unknown,
         { action, unsure, saved }: WriteFailureContext
       ): { readonly error: string; readonly refused?: true } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readFailure(
+        err: unknown,
+        what: string,
+        opts?: { readonly notEmpty?: string }
+      ):
+        | { readonly refused: true; readonly error: string }
+        | { readonly unknown?: true; readonly error: string } { /* ... */ }
     </item>
     <item priority="low">
       interface NamedTable {

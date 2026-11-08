@@ -5,7 +5,7 @@ import type { FastifyBaseLogger } from "fastify";
 import {
   NO_VENUE,
   notExecuted,
-  refusalOf,
+  readFailure,
   saveUnsure,
   writeFailure,
   type ApiClient,
@@ -123,7 +123,7 @@ export function createMenuTools(
           };
         } catch (err) {
           log.error({ err, venueId }, "list_menus failed");
-          return readFailure(err);
+          return readFailure(err, "the menus");
         }
       },
     }),
@@ -159,7 +159,7 @@ export function createMenuTools(
           };
         } catch (err) {
           log.error({ err, venueId }, "get_menu failed");
-          return readFailure(err);
+          return readFailure(err, "the menus");
         }
       },
     }),
@@ -237,11 +237,4 @@ export function createMenuTools(
       },
     }),
   };
-}
-
-/** A failed menu read, in words the model can pass on. */
-function readFailure(err: unknown) {
-  return refusalOf(err)?.status === 403
-    ? { refused: true, error: "The user doesn't have permission to see menus." }
-    : { error: "Couldn't read the menus. Ask the user to try again." };
 }

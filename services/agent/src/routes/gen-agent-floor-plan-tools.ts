@@ -5,7 +5,7 @@ import type { FastifyBaseLogger } from "fastify";
 import {
   NO_VENUE,
   notExecuted,
-  refusalOf,
+  readFailure,
   saveUnsure,
   writeFailure,
   type ApiClient,
@@ -40,13 +40,6 @@ function findPlan(
   };
 }
 
-/** A failed floor plan read, in words the model can pass on. */
-function readFailure(err: unknown) {
-  return refusalOf(err)?.status === 403
-    ? { refused: true, error: "The user doesn't have permission to see floor plans." }
-    : { error: "Couldn't read the floor plans. Ask the user to try again." };
-}
-
 export function createFloorPlanTools(
   log: FastifyBaseLogger,
   api: ApiClient,
@@ -74,7 +67,7 @@ export function createFloorPlanTools(
           };
         } catch (err) {
           log.error({ err, venueId }, "list_floor_plans failed");
-          return readFailure(err);
+          return readFailure(err, "the floor plans");
         }
       },
     }),
