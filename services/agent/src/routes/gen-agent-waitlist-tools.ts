@@ -7,7 +7,7 @@ import {
   failureLog,
   localTimeIn,
   notExecuted,
-  refusalOf,
+  readFailure,
   resolveTable,
   saveUnsure,
   writeFailure,
@@ -103,10 +103,7 @@ export function createWaitlistTools(
           return { parties };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "list_waitlist failed");
-          const refusal = refusalOf(err);
-          return refusal?.status === 403
-            ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
-            : { error: "Couldn't read the waitlist. Ask the user to try again." };
+          return readFailure(err, "the waitlist");
         }
       },
     }),

@@ -6,6 +6,7 @@ import {
   NO_VENUE,
   failureLog,
   notExecuted,
+  readFailure,
   saveUnsure,
   writeFailure,
   type ApiClient,
@@ -141,7 +142,7 @@ export function createGuestTools(
           };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "list_lapsing_guests failed");
-          return { error: "Couldn't read lapsing guests. Ask the user to try again." };
+          return readFailure(err, "lapsing guests");
         }
       },
     }),
