@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import {
   emptyService,
+  moveServiceStart,
   replaceService,
   setSharedDays,
   type QuickSetupDraft,
@@ -10,6 +11,7 @@ import {
 } from "./quick-setup-draft.js";
 import {
   issuesFor,
+  QuickSetupFixContext,
   QuickSetupIdScopeContext,
   quickSetupFieldId,
   useQuickSetupFieldId,
@@ -28,8 +30,7 @@ export interface QuickSetupFormProps {
   /** The venue does not exist yet (the onboarding wizard): the strip shows the typed hours only. */
   readonly local?: boolean;
   /**
-   * The form in Change regular week's drawer (ux.md S14): no strip beside it, and the shared Days
-   * as a one-line summary that opens its controls on "Change days".
+   * The form in Change regular week's drawer (ux.md S14): no strip beside it.
    */
   readonly inDrawer?: boolean;
   /** The days belong to where the schedule is used, not to this form (Edit schedule): shown, not changed. */
@@ -38,11 +39,10 @@ export interface QuickSetupFormProps {
   readonly idScope?: string;
 }
 
-function DaysField({ draft, onChange, issues, inDrawer, fixedDays }: QuickSetupFormProps) {
+function DaysField({ draft, onChange, issues, fixedDays }: QuickSetupFormProps) {
   const fieldId = useQuickSetupFieldId();
   const { t } = useTranslation();
   const summarize = useWeekdaySummary();
-  const [changing, setChanging] = useState(false);
   // F1 5: nothing follows the shared days, so there is nothing to ask.
   if (draft.services.length > 0 && draft.services.every((s) => s.days !== null)) {
     return (
@@ -62,19 +62,6 @@ function DaysField({ draft, onChange, issues, inDrawer, fixedDays }: QuickSetupF
     );
   }
   const problems = issuesFor(issues, null, "days");
-  // No days yet (a New schedule): the picker shows open, as it does once days have a problem.
-  if (inDrawer && !changing && problems.length === 0 && draft.days.length > 0) {
-    return (
-      <Stack direction="row" gap="sm" align="center">
-        <Text variant="body">
-          {t("availability.quickSetup.daysSummary", { days: summarize(draft.days) })}
-        </Text>
-        <Button variant="ghost" size="sm" aria-expanded={false} onClick={() => setChanging(true)}>
-          {t("availability.quickSetup.changeDays")}
-        </Button>
-      </Stack>
-    );
-  }
   return (
     <DayPicker
       id={fieldId(null, "days")}
@@ -135,46 +122,47 @@ export function QuickSetupForm({
     onChange({ ...draft, services: draft.services.filter((s) => s.id !== id) });
   };
 
+  const applyFix = (fix: { readonly serviceId: string; readonly opensAt: number }) => {
+    const service = draft.services.find((s) => s.id === fix.serviceId);
+    if (service) onChange(replaceService(draft, moveServiceStart(service, fix.opensAt)));
+  };
+
   return (
     <QuickSetupIdScopeContext value={scope}>
-      <div className={inDrawer ? styles.layoutSingle : styles.layout}>
-        <Stack gap="md">
-          {draft.services.map((service, index) => (
-            <ServiceRow
-              draft={draft}
-              key={service.id}
-              service={service}
-              index={index}
-              removable={draft.services.length > 1}
-              issues={issues}
-              onChange={(next) => onChange(replaceService(draft, next))}
-              onRemove={() => removeService(service.id)}
-              announce={announce}
-            />
-          ))}
-          <div>
-            <Button variant="secondary" onClick={addService}>
-              {t("availability.quickSetup.addService")}
-            </Button>
-          </div>
-          <DaysField
-            draft={draft}
-            onChange={onChange}
-            issues={issues}
-            inDrawer={inDrawer}
-            fixedDays={fixedDays}
-          />
-          <Text className={styles.visuallyHidden} role="status">
-            {announcement.message}
-            {announcement.repeat ? "\u00a0" : ""}
-          </Text>
-        </Stack>
-        {!inDrawer && (
-          <div className={styles.stripColumn}>
-            <RegularWeekStrip draft={draft} local={local} />
-          </div>
-        )}
-      </div>
+      <QuickSetupFixContext value={applyFix}>
+        <div className={inDrawer ? styles.layoutSingle : styles.layout}>
+          <Stack gap="md">
+            {draft.services.map((service, index) => (
+              <ServiceRow
+                draft={draft}
+                key={service.id}
+                service={service}
+                index={index}
+                removable={draft.services.length > 1}
+                issues={issues}
+                onChange={(next) => onChange(replaceService(draft, next))}
+                onRemove={() => removeService(service.id)}
+                announce={announce}
+              />
+            ))}
+            <div>
+              <Button variant="secondary" onClick={addService}>
+                {t("availability.quickSetup.addService")}
+              </Button>
+            </div>
+            <DaysField draft={draft} onChange={onChange} issues={issues} fixedDays={fixedDays} />
+            <Text className={styles.visuallyHidden} role="status">
+              {announcement.message}
+              {announcement.repeat ? "\u00a0" : ""}
+            </Text>
+          </Stack>
+          {!inDrawer && (
+            <div className={styles.stripColumn}>
+              <RegularWeekStrip draft={draft} local={local} />
+            </div>
+          )}
+        </div>
+      </QuickSetupFixContext>
     </QuickSetupIdScopeContext>
   );
 }

@@ -8,13 +8,15 @@ import {
   SERVICE_PRESET_IDS,
   WEEK_DISPLAY_ORDER,
   addBlock,
-  applyPreset,
+  placePreset,
+  setBlockDays,
   autoLastSeating,
   effectiveDays,
   removeBlock,
   replaceBlock,
   setServiceDays,
   toggleBlockDay,
+  type BlockDayToggle,
   type QuickSetupDraft,
   type QuickSetupIssue,
   type ServiceDraft,
@@ -97,10 +99,11 @@ export function ServiceRow({
     announce(t("availability.quickSetup.blockAdded"));
     onChange(addBlock(service, id));
   };
-  const toggleBlockDays = (blockId: string, day: number) => {
-    const result = toggleBlockDay(service, blockId, day);
+  const applyBlockDays = (result: BlockDayToggle, movedDay: number | null) => {
     const lines = [
-      ...(result.moved ? [t("availability.quickSetup.blockDayMoved", { day: dayName(day) })] : []),
+      ...(result.moved && movedDay !== null
+        ? [t("availability.quickSetup.blockDayMoved", { day: dayName(movedDay) })]
+        : []),
       ...result.removed.map((b) =>
         t("availability.quickSetup.blockRemoved", { days: daysText(b.days) })
       ),
@@ -108,6 +111,10 @@ export function ServiceRow({
     if (lines.length > 0) announce(lines.join(" "));
     onChange(result.service);
   };
+  const toggleBlockDays = (blockId: string, day: number) =>
+    applyBlockDays(toggleBlockDay(service, blockId, day), day);
+  const setBlockShortcut = (blockId: string, days: readonly number[]) =>
+    applyBlockDays(setBlockDays(service, blockId, days, effectiveDays(draft, service)), null);
   const removeHours = (blockId: string) => {
     const block = service.blocks.find((b) => b.id === blockId);
     announce(
@@ -132,7 +139,10 @@ export function ServiceRow({
           aria-label={t("availability.quickSetup.presetsLabel")}
         >
           {SERVICE_PRESET_IDS.map((id) => (
-            <Tag key={id} onClick={() => onChange(applyPreset(service, id, presetName(id)))}>
+            <Tag
+              key={id}
+              onClick={() => onChange(placePreset(draft, service.id, id, presetName(id)))}
+            >
               {presetName(id)}
             </Tag>
           ))}
@@ -203,6 +213,7 @@ export function ServiceRow({
             issues={issues}
             onChange={(next) => onChange(replaceBlock(service, next))}
             onToggleDay={(day) => toggleBlockDays(block.id, day)}
+            onSetDays={(days) => setBlockShortcut(block.id, days)}
             onRemove={() => removeHours(block.id)}
           />
         ))}

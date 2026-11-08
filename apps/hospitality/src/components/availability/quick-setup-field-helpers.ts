@@ -55,3 +55,8 @@ export function useWeekdayName() {
   return (day: number, weekday: "long" | "short" = "long") =>
     format.formatCalendarDate(addDays(SAMPLE_MONDAY, WEEK_DISPLAY_ORDER.indexOf(day)), { weekday });
 }
+
+/** Applies an overlap issue's suggested start; the form provides it, `IssueText` offers it. */
+export const QuickSetupFixContext = createContext<
+  ((fix: { readonly serviceId: string; readonly opensAt: number }) => void) | null
+>(null);

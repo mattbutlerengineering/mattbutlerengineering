@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { axe } from "vitest-axe";
@@ -6,7 +7,9 @@ vi.mock("../../hooks/useTables.js", () => ({
 }));
 
 import { QuickSetupCard } from "./QuickSetupCard.js";
-import { draftToConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
+import { draftService } from "./quick-setup-demo.fixture.js";
+import { draftToConfig, validateDraft, type QuickSetupDraft } from "./quick-setup-draft.js";
+import { QuickSetupForm } from "./QuickSetupForm.js";
 
 function renderCard() {
   const onSave = vi.fn<(draft: QuickSetupDraft) => Promise<void>>(() => Promise.resolve());
@@ -246,5 +249,131 @@ describe("QuickSetupForm different hours on some days", () => {
     // jsdom cannot compute colour contrast; token contrast is covered in rialto.
     const options = { rules: { "color-contrast": { enabled: false } } };
     expect((await axe(container, options)).violations).toEqual([]);
+  });
+});
+
+const checkedDays = (scope: HTMLElement) =>
+  within(scope)
+    .getAllByRole("checkbox")
+    .filter((c) => (c as HTMLInputElement).checked)
+    .map((c) => c.closest("label")?.textContent);
+
+function DrawerForm({
+  initial,
+  fixedDays = false,
+}: {
+  initial: QuickSetupDraft;
+  fixedDays?: boolean;
+}) {
+  const [draft, setDraft] = useState(initial);
+  return (
+    <QuickSetupForm
+      draft={draft}
+      onChange={setDraft}
+      issues={validateDraft(draft)}
+      inDrawer
+      fixedDays={fixedDays}
+    />
+  );
+}
+
+describe("QuickSetupForm days control", () => {
+  const dinnerEveryDay = (): QuickSetupDraft => ({
+    services: [draftService("s1", "Dinner", ["17:00", "21:15", "22:00"])],
+    days: [1, 2, 3, 4, 5, 6, 0],
+  });
+
+  it("keeps all seven days visible in a drawer while days are ticked, with no Change days", () => {
+    render(<DrawerForm initial={dinnerEveryDay()} />);
+    expect(screen.queryByRole("button", { name: "Change days" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("checkbox")).toHaveLength(7);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Monday" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Tuesday" }));
+    expect(screen.getAllByRole("checkbox")).toHaveLength(7);
+    expect(screen.queryByRole("button", { name: "Change days" })).not.toBeInTheDocument();
+  });
+
+  it("sets exactly Friday and Saturday from Fri–Sat in the shared days", () => {
+    render(<DrawerForm initial={dinnerEveryDay()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Fri–Sat" }));
+    expect(checkedDays(screen.getByRole("group", { name: "Days" }))).toEqual([
+      "Friday",
+      "Saturday",
+    ]);
+  });
+
+  it("sets exactly Friday and Saturday from Fri–Sat in a service's own days", () => {
+    render(<DrawerForm initial={dinnerEveryDay()} />);
+    fireEvent.click(screen.getByRole("button", { name: DIFFERENT_DAYS }));
+    const own = screen.getByRole("group", { name: "Dinner runs on" });
+    fireEvent.click(within(own).getByRole("button", { name: "Fri–Sat" }));
+    expect(checkedDays(own)).toEqual(["Friday", "Saturday"]);
+  });
+
+  it("sets exactly Friday and Saturday from Fri–Sat in a block", () => {
+    render(<DrawerForm initial={dinnerEveryDay()} />);
+    fireEvent.click(screen.getByRole("button", { name: DIFFERENT_HOURS }));
+    const block = screen.getByRole("group", { name: "Dinner: different hours" });
+    fireEvent.click(within(block).getByRole("button", { name: "Fri–Sat" }));
+    expect(checkedDays(block)).toEqual(["Fri", "Sat"]);
+  });
+
+  it("still asks for at least one day", () => {
+    render(<DrawerForm initial={dinnerEveryDay()} />);
+    for (const day of [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ]) {
+      fireEvent.click(screen.getByRole("checkbox", { name: day }));
+    }
+    expect(screen.getByText("Choose at least one day.")).toBeInTheDocument();
+  });
+
+  it("shows fixed days as text, not controls", () => {
+    render(<DrawerForm initial={dinnerEveryDay()} fixedDays />);
+    expect(screen.getByText(/^Days: /)).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Monday" })).not.toBeInTheDocument();
+  });
+});
+
+describe("QuickSetupForm overlap fix", () => {
+  it("offers the first clear start for a typed overlap and applying it clears the issue", () => {
+    render(
+      <DrawerForm
+        initial={{
+          days: [1, 2, 3, 4, 5],
+          services: [
+            draftService("s1", "Lunch", ["11:30", "17:15", "18:00"]),
+            draftService("s2", "Dinner", ["17:00", "21:15", "22:00"]),
+          ],
+        }}
+      />
+    );
+    expect(screen.getAllByText(/overlaps/).length).toBeGreaterThan(0);
+    const fix = screen.getByRole("button", { name: "Move Dinner to 6:00 PM" });
+    fireEvent.click(fix);
+    expect(screen.queryByText(/overlaps/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Move / })).not.toBeInTheDocument();
+  });
+
+  it("offers no action when no later start clears the overlap", () => {
+    render(
+      <DrawerForm
+        initial={{
+          days: [1, 2, 3, 4, 5],
+          services: [
+            draftService("s1", "Lunch", ["00:00", "22:45", "23:59"]),
+            draftService("s2", "Dinner", ["17:00", "21:15", "22:00"]),
+          ],
+        }}
+      />
+    );
+    expect(screen.getAllByText(/overlaps/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /^Move / })).not.toBeInTheDocument();
   });
 });

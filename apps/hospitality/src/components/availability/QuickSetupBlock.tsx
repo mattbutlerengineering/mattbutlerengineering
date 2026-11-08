@@ -8,7 +8,7 @@ import {
   type ServiceDraft,
 } from "./quick-setup-draft.js";
 import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
-import { IssueText, TimesRow } from "./quick-setup-fields.js";
+import { DayShortcuts, IssueText, TimesRow } from "./quick-setup-fields.js";
 import styles from "./QuickSetupForm.module.css";
 
 export interface HoursBlockFieldsetProps {
@@ -22,6 +22,8 @@ export interface HoursBlockFieldsetProps {
   readonly issues: readonly QuickSetupIssue[];
   readonly onChange: (next: HoursBlock) => void;
   readonly onToggleDay: (day: number) => void;
+  /** A shortcut's days, limited to those the service runs. */
+  readonly onSetDays: (days: readonly number[]) => void;
   readonly onRemove: () => void;
 }
 
@@ -35,6 +37,7 @@ export function HoursBlockFieldset({
   issues,
   onChange,
   onToggleDay,
+  onSetDays,
   onRemove,
 }: HoursBlockFieldsetProps) {
   const fieldId = useQuickSetupFieldId();
@@ -50,6 +53,7 @@ export function HoursBlockFieldset({
         {t("availability.quickSetup.blockLegend", { service: serviceName })}
       </legend>
       <Stack gap="sm">
+        <DayShortcuts onChange={onSetDays} />
         <div className={styles.dayToggles}>
           {WEEK_DISPLAY_ORDER.filter((day) => offeredDays.includes(day)).map((day) => (
             <Checkbox

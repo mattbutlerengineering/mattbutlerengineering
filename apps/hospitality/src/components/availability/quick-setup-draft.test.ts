@@ -14,7 +14,10 @@ import {
   draftToLegacyHours,
   emptyDraft,
   emptyService,
+  firstClearStart,
   issueMessage,
+  moveServiceStart,
+  placePreset,
   replaceService,
   setServiceDays,
   setServiceTime,
@@ -320,7 +323,9 @@ describe("quick setup draft", () => {
       lastSeating: "17:15",
     };
     const issues = validateDraft({ ...draft, services: [draft.services[0]!, overlapping] });
-    expect(issues).toContainEqual({ serviceId: "s1", field: "opens", code: "overlap" });
+    expect(issues).toContainEqual(
+      expect.objectContaining({ serviceId: "s1", field: "opens", code: "overlap" })
+    );
   });
 
   it("treats a close earlier than the opening as past midnight", () => {
@@ -558,5 +563,82 @@ describe("quick setup draft with days and blocks", () => {
     expect(hours.friday).toEqual({ open: "11:30", close: "00:00" });
     expect(hours.saturday).toEqual({ open: "10:00", close: "00:00" });
     expect(hours.sunday).toEqual({ open: "10:00", close: "23:00" });
+  });
+});
+
+describe("placePreset and firstClearStart", () => {
+  const place = (draft: QuickSetupDraft, id: string, preset: "late" | "dinner" | "lunch") =>
+    placePreset(draft, id, preset, "Late");
+
+  it("places Late after a Dinner closing at 23:00, keeping its three hours", () => {
+    const dinner = draftService("s1", "Dinner", ["17:00", "22:15", "23:00"]);
+    const draft: QuickSetupDraft = {
+      days: [1, 2, 3, 4, 5],
+      services: [dinner, { ...emptyService("s2") }],
+    };
+    const late = place(draft, "s2", "late");
+    expect(late).toMatchObject({ opens: "23:00", closes: "02:00", lastSeatingLinked: true });
+    expect(late.lastSeating).toBe(autoLastSeating("02:00", "23:00"));
+    expect(validateDraft(replaceService(draft, late))).toEqual([]);
+  });
+
+  it("keeps the preset's own times when the placed day would pass 16 hours", () => {
+    const lunch = draftService("s1", "Lunch", ["07:00", "11:15", "12:00"]);
+    const dinner = draftService("s3", "Dinner", ["17:00", "23:00", "23:30"]);
+    const draft: QuickSetupDraft = {
+      days: [1, 2, 3, 4, 5],
+      services: [lunch, dinner, emptyService("s2")],
+    };
+    expect(place(draft, "s2", "late")).toMatchObject({ opens: "22:00", closes: "01:00" });
+  });
+
+  it("keeps the preset's own times after a service closing past midnight", () => {
+    const lunch = draftService("s1", "Lunch", ["11:30", "13:15", "14:00"]);
+    const dinner = draftService("s3", "Dinner", ["17:00", "01:00", "01:30"]);
+    const draft: QuickSetupDraft = {
+      days: [1, 2, 3, 4, 5],
+      services: [lunch, dinner, emptyService("s2")],
+    };
+    expect(place(draft, "s2", "late")).toMatchObject({ opens: "22:00", closes: "01:00" });
+  });
+
+  it("ignores services on other days", () => {
+    const dinner = draftService("s1", "Dinner", ["17:00", "22:15", "23:00"], { days: [6] });
+    const draft: QuickSetupDraft = {
+      days: [1, 2],
+      services: [dinner, emptyService("s2")],
+    };
+    expect(place(draft, "s2", "late")).toMatchObject({ opens: "22:00", closes: "01:00" });
+  });
+
+  it("finds the first clear start in 15-minute steps, or null", () => {
+    const lunch = draftService("s1", "Lunch", ["11:30", "17:15", "18:00"]);
+    const dinner = draftService("s2", "Dinner", ["17:00", "21:15", "22:00"]);
+    const draft: QuickSetupDraft = { days: [1, 2, 3], services: [lunch, dinner] };
+    expect(firstClearStart(draft, "s2")).toBe(18 * 60);
+    const wide = draftService("s1", "Lunch", ["00:00", "22:45", "23:59"]);
+    expect(firstClearStart({ ...draft, services: [wide, dinner] }, "s2")).toBeNull();
+  });
+
+  it("carries the fix on an overlap issue", () => {
+    const lunch = draftService("s1", "Lunch", ["11:30", "17:15", "18:00"]);
+    const dinner = draftService("s2", "Dinner", ["17:00", "21:15", "22:00"]);
+    const issues = validateDraft({ days: [1, 2, 3], services: [lunch, dinner] });
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        serviceId: "s2",
+        code: "overlap",
+        fix: { serviceId: "s2", opensAt: 18 * 60 },
+      })
+    );
+  });
+
+  it("moves a service's start keeping its length and last seating's place", () => {
+    const dinner = draftService("s2", "Dinner", ["17:00", "21:15", "22:00"]);
+    expect(moveServiceStart(dinner, 18 * 60)).toMatchObject({
+      opens: "18:00",
+      closes: "23:00",
+      lastSeating: "22:15",
+    });
   });
 });

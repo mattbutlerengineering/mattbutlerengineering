@@ -79,6 +79,7 @@ const SEATING_INTERVAL_MINUTES = 15;
 export const WEEK_DISPLAY_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
 export const WEEKDAY_SHORTCUT: readonly number[] = [1, 2, 3, 4, 5];
 export const WEEKEND_SHORTCUT: readonly number[] = [6, 0];
+export const FRIDAY_SATURDAY_SHORTCUT: readonly number[] = [5, 6];
 
 export const SERVICE_PRESETS = {
   lunch: { opens: "11:30", closes: "14:30" },
@@ -113,7 +114,7 @@ function toMinutes(hhmm: string): number {
   return h * 60 + m;
 }
 
-function toClock(minutes: number): string {
+export function toClock(minutes: number): string {
   const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
   const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
   const mm = String(wrapped % 60).padStart(2, "0");
@@ -144,6 +145,131 @@ export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name
     lastSeating: autoLastSeating(closes, opens),
     lastSeatingLinked: true,
   };
+}
+
+/** A window another service holds on one day: minutes past that service day's midnight. */
+interface DayWindow {
+  readonly day: number;
+  readonly opensAt: number;
+  readonly closesAt: number;
+}
+
+/** The hours a service keeps on a day: its different-hours block's if one has the day, else its own. */
+function windowOn(service: ServiceDraft, day: number): DayWindow | null {
+  const times = service.blocks.find((b) => b.days.includes(day)) ?? service;
+  const m = minutesOf(times);
+  return m && { day, opensAt: m.opensAt, closesAt: m.closesAt };
+}
+
+/** The windows of every other service on the given days. */
+function othersOn(draft: QuickSetupDraft, serviceId: string, days: readonly number[]) {
+  return draft.services
+    .filter((s) => s.id !== serviceId)
+    .flatMap((s) =>
+      effectiveDays(draft, s)
+        .filter((d) => days.includes(d))
+        .map((d) => windowOn(s, d))
+    )
+    .filter((w): w is DayWindow => w !== null);
+}
+
+/** True when every affected day's earliest open → latest close stays within the span rule. */
+function withinSpan(
+  others: readonly DayWindow[],
+  days: readonly number[],
+  opensAt: number,
+  closesAt: number
+) {
+  return days.every((day) => {
+    const mine = others.filter((w) => w.day === day);
+    const open = Math.min(opensAt, ...mine.map((w) => w.opensAt));
+    const close = Math.max(closesAt, ...mine.map((w) => w.closesAt));
+    return close - open <= MAX_PAST_MIDNIGHT_SPAN;
+  });
+}
+
+/** Minutes from a service's opening to its close; a close not after the opening is the next day's. */
+function lengthOf(opens: string, closes: string): number {
+  const length = toMinutes(closes) - toMinutes(opens);
+  return length > 0 ? length : length + MINUTES_PER_DAY;
+}
+
+/**
+ * A name chip placed in the draft (ux.md F2): the preset's name and length, starting when the
+ * other services on its days close, so Late follows Dinner instead of overlapping it. The preset's
+ * own times stay when that start would pass midnight, push a day past the span rule, or no other
+ * service shares its days.
+ */
+export function placePreset(
+  draft: QuickSetupDraft,
+  serviceId: string,
+  preset: ServicePresetId,
+  name: string
+): ServiceDraft {
+  const service = draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
+  const defaults = applyPreset(service, preset, name);
+  const days = effectiveDays(draft, service);
+  const others = othersOn(draft, serviceId, days);
+  if (others.length === 0) return defaults;
+  const start = Math.max(...others.map((w) => w.closesAt));
+  const { opens, closes } = SERVICE_PRESETS[preset];
+  const end = start + lengthOf(opens, closes);
+  // A start is a time of day: one at or after midnight cannot be stored as the opening.
+  if (start >= MINUTES_PER_DAY || end > 2 * MINUTES_PER_DAY) return defaults;
+  if (!withinSpan(others, days, start, end)) return defaults;
+  const placedOpens = toClock(start);
+  const placedCloses = toClock(end);
+  return {
+    ...defaults,
+    opens: placedOpens,
+    closes: placedCloses,
+    lastSeating: autoLastSeating(placedCloses, placedOpens),
+  };
+}
+
+const START_STEP_MINUTES = 15;
+
+/**
+ * The earliest start at or after the service's own, in 15-minute steps, that keeps its length and
+ * overlaps nothing on its days (past midnight included) within the span rule; `null` when none.
+ * Only the service's own hours move: days a different-hours block covers keep the block's.
+ */
+export function firstClearStart(draft: QuickSetupDraft, serviceId: string): number | null {
+  const service = draft.services.find((s) => s.id === serviceId);
+  if (!service || service.opens === null || service.closes === null) return null;
+  const days = effectiveDays(draft, service).filter(
+    (d) => !service.blocks.some((b) => b.days.includes(d))
+  );
+  if (days.length === 0) return null;
+  const length = lengthOf(service.opens, service.closes);
+  const near = days.flatMap((d) => [d, (d + 1) % 7, (d + 6) % 7]);
+  const others = othersOn(draft, serviceId, near);
+  const clashes = (w: DayWindow, day: number, from: number, to: number) => {
+    // The same service day, then a window spilling in from the day before or out into the next.
+    if (w.day === day) return from < w.closesAt && w.opensAt < to;
+    if (w.day === (day + 6) % 7) return w.closesAt - MINUTES_PER_DAY > from;
+    return w.day === (day + 1) % 7 && to - MINUTES_PER_DAY > w.opensAt;
+  };
+  for (let from = toMinutes(service.opens); from < MINUTES_PER_DAY; from += START_STEP_MINUTES) {
+    const to = from + length;
+    const free = days.every((day) => !others.some((w) => clashes(w, day, from, to)));
+    if (free && withinSpan(others, days, from, to)) return from;
+  }
+  return null;
+}
+
+/** The service starting at `opensAt` (minutes) with its length kept; a typed last seating shifts with it. */
+export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft {
+  if (service.opens === null || service.closes === null) return service;
+  const closes = toClock(opensAt + lengthOf(service.opens, service.closes));
+  const opens = toClock(opensAt);
+  const shift = opensAt - toMinutes(service.opens);
+  const lastSeating = service.lastSeatingLinked
+    ? autoLastSeating(closes, opens)
+    : service.lastSeating === null
+      ? null
+      : toClock(toMinutes(service.lastSeating) + shift);
+  return { ...service, opens, closes, lastSeating };
 }
 
 /** Editing close keeps a linked last seating in step; editing last seating unlinks it. */
@@ -259,6 +385,31 @@ export function toggleBlockDay(
   return { service: { ...service, blocks }, moved, removed };
 }
 
+/**
+ * A block's days replaced by a shortcut's, limited to the days the service runs. Like ticking one
+ * day, each day leaves the other blocks, and a block left with no day goes too.
+ */
+export function setBlockDays(
+  service: ServiceDraft,
+  blockId: string,
+  days: readonly number[],
+  offered: readonly number[]
+): BlockDayToggle {
+  const wanted = days.filter((day) => offered.includes(day));
+  const others = service.blocks.filter((b) => b.id !== blockId);
+  const removed = others.filter(
+    (b) => b.days.length > 0 && b.days.every((day) => wanted.includes(day))
+  );
+  const moved = others.some((b) => b.days.some((day) => wanted.includes(day)));
+  const blocks = service.blocks.flatMap((b): HoursBlock[] => {
+    if (b.id === blockId) return [{ ...b, days: wanted }];
+    return removed.includes(b)
+      ? []
+      : [{ ...b, days: b.days.filter((day) => !wanted.includes(day)) }];
+  });
+  return { service: { ...service, blocks }, moved, removed };
+}
+
 // ── Validation ────────────────────────────────────────────────────────────
 
 export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
@@ -285,6 +436,8 @@ export interface QuickSetupIssue {
   /** `overlap` on some weekdays only: the weekday (0 = Sunday) and the service it overlaps. */
   readonly weekday?: number;
   readonly otherServiceId?: string;
+  /** `overlap` only: a later start for `serviceId` that clears it (`firstClearStart`). */
+  readonly fix?: { readonly serviceId: string; readonly opensAt: number };
 }
 
 interface ServiceMinutes {
@@ -432,6 +585,11 @@ export function validateDraft(
       const { weekday } = issue;
       const block =
         weekday === undefined ? undefined : service.blocks.find((b) => b.days.includes(weekday));
+      const opensAt = block === undefined ? firstClearStart(draft, service.id) : null;
+      const fix =
+        opensAt !== null && opensAt !== minutesOf(service)?.opensAt
+          ? { serviceId: service.id, opensAt }
+          : null;
       return [
         {
           serviceId: service.id,
@@ -439,6 +597,7 @@ export function validateDraft(
           field: "opens",
           code: "overlap",
           ...(weekday !== undefined && other ? { weekday, otherServiceId: other.id } : {}),
+          ...(fix ? { fix } : {}),
         },
       ];
     });

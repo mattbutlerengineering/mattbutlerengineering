@@ -1,20 +1,27 @@
-import type { Ref } from "react";
+import { use, type Ref } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Checkbox, Stack, Text, TimePicker } from "@mattbutlerengineering/rialto";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { clockHour } from "../../utils/clock-hour.js";
 import {
+  FRIDAY_SATURDAY_SHORTCUT,
   WEEKDAY_SHORTCUT,
   WEEKEND_SHORTCUT,
   WEEK_DISPLAY_ORDER,
   issueMessage,
   setServiceTime,
+  toClock,
   toggleDayIn,
   type DraftTimes,
   type QuickSetupDraft,
   type QuickSetupIssue,
 } from "./quick-setup-draft.js";
-import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
+import {
+  QuickSetupFixContext,
+  issuesFor,
+  useQuickSetupFieldId,
+  useWeekdayName,
+} from "./quick-setup-field-helpers.js";
 import styles from "./QuickSetupForm.module.css";
 
 export function IssueText({
@@ -25,17 +32,44 @@ export function IssueText({
   readonly draft: QuickSetupDraft;
 }) {
   const { t } = useTranslation();
+  const format = useVenueFormat();
   const dayName = useWeekdayName();
-  return problems.map((p) => (
-    <Text
-      key={`${p.code}-${p.blockId ?? ""}-${p.weekday ?? ""}`}
-      variant="caption"
-      color="error"
-      role="alert"
-    >
-      {issueMessage(p, draft, t, (day) => dayName(day))}
-    </Text>
-  ));
+  const applyFix = use(QuickSetupFixContext);
+  // One action per service: the same later start clears the overlap on every day it names.
+  const fixes = problems
+    .flatMap((p) => (p.fix ? [p.fix] : []))
+    .filter((fix, at, all) => all.findIndex((f) => f.serviceId === fix.serviceId) === at);
+  const serviceName = (id: string) => {
+    const index = draft.services.findIndex((s) => s.id === id);
+    return (
+      draft.services[index]?.name.trim() || t("availability.quickSetup.serviceN", { n: index + 1 })
+    );
+  };
+  return (
+    <>
+      {problems.map((p) => (
+        <Text
+          key={`${p.code}-${p.blockId ?? ""}-${p.weekday ?? ""}`}
+          variant="caption"
+          color="error"
+          role="alert"
+        >
+          {issueMessage(p, draft, t, (day) => dayName(day))}
+        </Text>
+      ))}
+      {applyFix &&
+        fixes.map((fix) => (
+          <div key={fix.serviceId}>
+            <Button variant="secondary" size="sm" onClick={() => applyFix(fix)}>
+              {t("availability.quickSetup.moveTo", {
+                service: serviceName(fix.serviceId),
+                time: format.formatLocalTime(toClock(fix.opensAt)),
+              })}
+            </Button>
+          </div>
+        ))}
+    </>
+  );
 }
 
 export interface DayPickerProps {
@@ -49,31 +83,44 @@ export interface DayPickerProps {
   readonly ref?: Ref<HTMLFieldSetElement>;
 }
 
+const SHORTCUTS = [
+  { id: "weekdays", days: WEEKDAY_SHORTCUT },
+  { id: "weekends", days: WEEKEND_SHORTCUT },
+  { id: "fridaySaturday", days: FRIDAY_SATURDAY_SHORTCUT },
+  { id: "everyDay", days: WEEK_DISPLAY_ORDER },
+] as const;
+
+/** The day shortcuts: Weekdays, Weekends, Fri–Sat and Every day. */
+export function DayShortcuts({
+  onChange,
+}: {
+  readonly onChange: (days: readonly number[]) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div className={styles.chips}>
+      {SHORTCUTS.map((shortcut) => (
+        <Button
+          key={shortcut.id}
+          variant="secondary"
+          size="sm"
+          onClick={() => onChange(shortcut.days)}
+        >
+          {t(`availability.quickSetup.shortcuts.${shortcut.id}`)}
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 /** A group of day shortcuts and the seven weekdays: the shared Days and a service's own days. */
 export function DayPicker({ legend, days, onChange, draft, problems, id, ref }: DayPickerProps) {
-  const { t } = useTranslation();
   const dayName = useWeekdayName();
-  const shortcuts = [
-    { id: "weekdays", days: WEEKDAY_SHORTCUT },
-    { id: "weekends", days: WEEKEND_SHORTCUT },
-    { id: "everyDay", days: WEEK_DISPLAY_ORDER },
-  ] as const;
   return (
     <fieldset className={styles.days} id={id} ref={ref} tabIndex={-1}>
       <legend className={styles.legend}>{legend}</legend>
       <Stack gap="sm">
-        <div className={styles.chips}>
-          {shortcuts.map((shortcut) => (
-            <Button
-              key={shortcut.id}
-              variant="secondary"
-              size="sm"
-              onClick={() => onChange(shortcut.days)}
-            >
-              {t(`availability.quickSetup.shortcuts.${shortcut.id}`)}
-            </Button>
-          ))}
-        </div>
+        <DayShortcuts onChange={onChange} />
         <div className={styles.dayToggles}>
           {WEEK_DISPLAY_ORDER.map((day) => (
             <Checkbox

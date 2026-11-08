@@ -522,7 +522,7 @@ describe("schedule drawers", () => {
       it("fills the days from the regular week once Starting is set", () => {
         renderNew("new", fixtureConfig(), "regular");
         fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
-        expect(screen.getByText("Days: Fri")).toBeInTheDocument();
+        expect(screen.getByRole("checkbox", { name: "Friday" })).toBeChecked();
         // Clearing Starting takes the days away again: they were never the Manager's.
         fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "" } });
         expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
@@ -532,8 +532,8 @@ describe("schedule drawers", () => {
         renderNew("new", fixtureConfig(), "regular");
         fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
         fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
-        expect(screen.getByText(/^Days: Sat/)).toBeInTheDocument();
-        expect(screen.queryByText(/Fri/)).not.toBeInTheDocument();
+        expect(screen.getByRole("checkbox", { name: "Saturday" })).toBeChecked();
+        expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
       });
 
       it("never saves days without dates: with no Starting the days stay empty and Save is off", () => {
