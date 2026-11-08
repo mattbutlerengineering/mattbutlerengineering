@@ -6996,7 +6996,12 @@
       function tableNode(table: Table): SetupNode { /* ... */ }
     </item>
     <item priority="medium">
-      function floorPlanNode(plan: FloorPlan, data: SitData, manager: boolean): SetupNode { /* ... */ }
+      function floorPlanNode(
+        plan: FloorPlan,
+        data: SitData,
+        manager: boolean,
+        hasTables: boolean
+      ): SetupNode { /* ... */ }
     </item>
     <item priority="medium">
       function sitNodes(data: SitData, manager: boolean): SetupNode[] { /* ... */ }

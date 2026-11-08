@@ -277,6 +277,7 @@ describe("buildSetupTree: schedules and services", () => {
       opensAt: 690,
       lastSeatingAt: 810,
       weekdays: [2, 3, 4, 5],
+      changes: [],
     });
   });
 
@@ -646,5 +647,81 @@ describe("buildSetupTree: per-group loading and errors", () => {
   it("does not mutate its input", () => {
     const frozen = Object.freeze({ ...REGULAR_WEEK });
     expect(() => buildSetupTree(input({ open: openOf(frozen) }))).not.toThrow();
+  });
+});
+
+describe("buildSetupTree: launch gates match venue readiness", () => {
+  const primaries = (tree: SetupTree) =>
+    walk(tree.groups.flatMap((g) => g.nodes)).flatMap((n) =>
+      n.actions.filter((a) => a.primary).map((a) => `${n.id}:${a.id}`)
+    );
+  const tableless = sitOf([plan("fp-1", "Main")], [section("sec-bar", "Bar")], []);
+
+  it("treats a floor plan with no active table as not set up, and makes it the primary step", () => {
+    const tree = buildSetupTree(
+      input({ readiness: "setup", open: openOf(REGULAR_WEEK), sit: tableless })
+    );
+    const fp = find(group(tree, "sit").nodes, "floor-plan:fp-1");
+    expect(fp.state.kind).toBe("unset");
+    expect(fp.children.map((c) => c.id)).toEqual(["section:sec-bar"]);
+    expect(primaries(tree)).toEqual(["floor-plan:fp-1:openFloorPlan"]);
+  });
+
+  it("counts a plan whose only tables are inactive as tableless", () => {
+    const inactive = sitOf(
+      [plan("fp-1", "Main")],
+      [],
+      [table("t-1", "B1", null, { isActive: false })]
+    );
+    const tree = buildSetupTree(input({ open: openOf(REGULAR_WEEK), sit: inactive }));
+    expect(find(group(tree, "sit").nodes, "floor-plan:fp-1").state.kind).toBe("unset");
+  });
+
+  it("assigns no primary until both groups are ready", () => {
+    expect(
+      primaries(buildSetupTree(input({ readiness: "setup", open: { status: "loading" } })))
+    ).toEqual([]);
+    expect(
+      primaries(buildSetupTree(input({ readiness: "setup", sit: { status: "loading" } })))
+    ).toEqual([]);
+    expect(
+      primaries(
+        buildSetupTree(
+          input({ readiness: "setup", open: { status: "error", error: new Error("x") } })
+        )
+      )
+    ).toEqual([]);
+  });
+});
+
+describe("buildSetupTree: services with day-specific hours", () => {
+  it("runs a service on its set's days too, and lists the different hours", () => {
+    const config: AvailabilityConfig = {
+      ...REGULAR_WEEK,
+      scheduleServices: [
+        {
+          ...(REGULAR_WEEK.scheduleServices[1] as AvailabilityConfig["scheduleServices"][number]),
+          weekdays: [2, 3, 4],
+          dayHours: {
+            version: 1,
+            sets: [
+              { weekdays: [5, 6], ...HOURS, opensAt: 1020, lastSeatingAt: 1320, closesAt: 1380 },
+              { weekdays: [0], ...HOURS, opensAt: 1020, lastSeatingAt: 1260, closesAt: 1400 },
+            ],
+          },
+        },
+        REGULAR_WEEK.scheduleServices[0] as AvailabilityConfig["scheduleServices"][number],
+      ],
+    };
+    const tree = buildSetupTree(input({ open: openOf(config) }));
+    const dinner = find(group(tree, "open").nodes, "service:sch-reg:vs-dinner");
+    expect(dinner.state).toEqual({
+      kind: "service",
+      opensAt: 1020,
+      lastSeatingAt: 1260,
+      weekdays: [0, 2, 3, 4, 5, 6],
+      // The Sunday set only moves the closing, so it books the same times and is left out.
+      changes: [{ weekdays: [5, 6], opensAt: 1020, lastSeatingAt: 1320 }],
+    });
   });
 });

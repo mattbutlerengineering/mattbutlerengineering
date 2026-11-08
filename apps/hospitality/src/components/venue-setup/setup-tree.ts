@@ -60,6 +60,12 @@ export type NodeState =
       readonly opensAt: number;
       readonly lastSeatingAt: number;
       readonly weekdays: readonly number[];
+      /** Days the service books other times on (a set that only moves the closing is left out). */
+      readonly changes: readonly {
+        readonly weekdays: readonly number[];
+        readonly opensAt: number;
+        readonly lastSeatingAt: number;
+      }[];
     }
   | {
       readonly kind: "rules";
@@ -174,7 +180,8 @@ const SETUP_SCHEDULES = availabilityPath({ tab: "schedules", from: "setup" });
 const SETUP_SPECIAL = availabilityPath({ tab: "special", from: "setup" });
 
 /** Launch steps the Manager must finish; the first unset one becomes the primary button. */
-const LAUNCH_GATES: ReadonlySet<string> = new Set(["schedules", "floor-plan-empty"]);
+const isLaunchGate = (node: SetupNode): boolean =>
+  node.kind === "schedules" || node.kind === "floorPlan";
 
 const latest = (dates: readonly (string | null | undefined)[]): string =>
   dates.reduce<string>((a, b) => (b && b > a ? b : a), "");
@@ -203,19 +210,31 @@ function scheduleNode(
         (services.get(a.venueServiceId)?.position ?? 0) -
         (services.get(b.venueServiceId)?.position ?? 0)
     );
-  const children: SetupNode[] = rows.map((row) => ({
-    id: `service:${schedule.id}:${row.venueServiceId}`,
-    kind: "service",
-    name: services.get(row.venueServiceId)?.name ?? null,
-    state: {
+  const children: SetupNode[] = rows.map((row) => {
+    const sets = row.dayHours.sets;
+    const setDays = sets.flatMap((set) => set.weekdays);
+    const baseDays = row.weekdays.length > 0 ? row.weekdays : covered;
+    return {
+      id: `service:${schedule.id}:${row.venueServiceId}`,
       kind: "service",
-      opensAt: row.opensAt,
-      lastSeatingAt: row.lastSeatingAt,
-      weekdays: row.weekdays.length > 0 ? sortedUnique(row.weekdays) : [...covered],
-    },
-    actions: [],
-    children: [],
-  }));
+      name: services.get(row.venueServiceId)?.name ?? null,
+      state: {
+        kind: "service",
+        opensAt: row.opensAt,
+        lastSeatingAt: row.lastSeatingAt,
+        weekdays: sortedUnique([...baseDays, ...setDays]),
+        changes: sets
+          .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+          .map((set) => ({
+            weekdays: sortedUnique(set.weekdays),
+            opensAt: set.opensAt,
+            lastSeatingAt: set.lastSeatingAt,
+          })),
+      },
+      actions: [],
+      children: [],
+    };
+  });
   const weekdays = sortedUnique(
     children.flatMap((c) => (c.state.kind === "service" ? c.state.weekdays : []))
   );
@@ -413,7 +432,12 @@ function tableNode(table: Table): SetupNode {
   };
 }
 
-function floorPlanNode(plan: FloorPlan, data: SitData, manager: boolean): SetupNode {
+function floorPlanNode(
+  plan: FloorPlan,
+  data: SitData,
+  manager: boolean,
+  hasTables: boolean
+): SetupNode {
   const tables = data.tables.filter((t) => t.isActive && t.floorPlanId === plan.id);
   const sections = data.sections
     .filter((s) => s.floorPlanId === plan.id)
@@ -457,7 +481,10 @@ function floorPlanNode(plan: FloorPlan, data: SitData, manager: boolean): SetupN
     id: `floor-plan:${plan.id}`,
     kind: "floorPlan",
     name: plan.name,
-    state: { kind: "floorPlan", sections: sections.length, tables: tables.length },
+    // Readiness counts the floor plan step done once any plan has an active table.
+    state: hasTables
+      ? { kind: "floorPlan", sections: sections.length, tables: tables.length }
+      : UNSET,
     actions: manager
       ? [
           action("openFloorPlan", link(planPath), plan.name),
@@ -469,6 +496,10 @@ function floorPlanNode(plan: FloorPlan, data: SitData, manager: boolean): SetupN
 }
 
 function sitNodes(data: SitData, manager: boolean): SetupNode[] {
+  const planIds = new Set(data.floorPlans.map((p) => p.id));
+  const hasTables = data.tables.some(
+    (t) => t.isActive && !!t.floorPlanId && planIds.has(t.floorPlanId)
+  );
   if (data.floorPlans.length === 0) {
     return [
       {
@@ -481,7 +512,7 @@ function sitNodes(data: SitData, manager: boolean): SetupNode[] {
       },
     ];
   }
-  return data.floorPlans.map((plan) => floorPlanNode(plan, data, manager));
+  return data.floorPlans.map((plan) => floorPlanNode(plan, data, manager, hasTables));
 }
 
 // ── The tree ────────────────────────────────────────────────────────────────
@@ -509,8 +540,13 @@ export function buildSetupTree(input: SetupTreeInput): SetupTree {
   let sit: readonly SetupNode[] =
     input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
 
-  if (isManager && input.readiness === "setup") {
-    const first = [...open, ...sit].find((n) => LAUNCH_GATES.has(n.id) && n.state.kind === "unset");
+  if (
+    isManager &&
+    input.readiness === "setup" &&
+    input.open.status === "ready" &&
+    input.sit.status === "ready"
+  ) {
+    const first = [...open, ...sit].find((n) => isLaunchGate(n) && n.state.kind === "unset");
     open = withPrimary(open, first?.id ?? null);
     sit = withPrimary(sit, first?.id ?? null);
   }

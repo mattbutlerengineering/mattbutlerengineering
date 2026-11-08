@@ -17489,6 +17489,12 @@
           readonly opensAt: number;
           readonly lastSeatingAt: number;
           readonly weekdays: readonly number[];
+          /** Days the service books other times on (a set that only moves the closing is left out). */
+          readonly changes: readonly {
+            readonly weekdays: readonly number[];
+            readonly opensAt: number;
+            readonly lastSeatingAt: number;
+          }[];
         }
       | {
           readonly kind: "rules";
@@ -17592,19 +17598,31 @@
             (services.get(a.venueServiceId)?.position ?? 0) -
             (services.get(b.venueServiceId)?.position ?? 0)
         );
-      const children: SetupNode[] = rows.map((row) => ({
-        id: `service:${schedule.id}:${row.venueServiceId}`,
-        kind: "service",
-        name: services.get(row.venueServiceId)?.name ?? null,
-        state: {
+      const children: SetupNode[] = rows.map((row) => {
+        const sets = row.dayHours.sets;
+        const setDays = sets.flatMap((set) => set.weekdays);
+        const baseDays = row.weekdays.length > 0 ? row.weekdays : covered;
+        return {
+          id: `service:${schedule.id}:${row.venueServiceId}`,
           kind: "service",
-          opensAt: row.opensAt,
-          lastSeatingAt: row.lastSeatingAt,
-          weekdays: row.weekdays.length > 0 ? sortedUnique(row.weekdays) : [...covered],
-        },
-        actions: [],
-        children: [],
-      }));
+          name: services.get(row.venueServiceId)?.name ?? null,
+          state: {
+            kind: "service",
+            opensAt: row.opensAt,
+            lastSeatingAt: row.lastSeatingAt,
+            weekdays: sortedUnique([...baseDays, ...setDays]),
+            changes: sets
+              .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+              .map((set) => ({
+                weekdays: sortedUnique(set.weekdays),
+                opensAt: set.opensAt,
+                lastSeatingAt: set.lastSeatingAt,
+              })),
+          },
+          actions: [],
+          children: [],
+        };
+      });
       const weekdays = sortedUnique(
         children.flatMap((c) => (c.state.kind === "service" ? c.state.weekdays : []))
       );
@@ -17789,7 +17807,12 @@
         children: [],
       };
     }
-    function floorPlanNode(plan: FloorPlan, data: SitData, manager: boolean): SetupNode {
+    function floorPlanNode(
+      plan: FloorPlan,
+      data: SitData,
+      manager: boolean,
+      hasTables: boolean
+    ): SetupNode {
       const tables = data.tables.filter((t) => t.isActive && t.floorPlanId === plan.id);
       const sections = data.sections
         .filter((s) => s.floorPlanId === plan.id)
@@ -17833,7 +17856,10 @@
         id: `floor-plan:${plan.id}`,
         kind: "floorPlan",
         name: plan.name,
-        state: { kind: "floorPlan", sections: sections.length, tables: tables.length },
+        // Readiness counts the floor plan step done once any plan has an active table.
+        state: hasTables
+          ? { kind: "floorPlan", sections: sections.length, tables: tables.length }
+          : UNSET,
         actions: manager
           ? [
               action("openFloorPlan", link(planPath), plan.name),
@@ -17844,6 +17870,10 @@
       };
     }
     function sitNodes(data: SitData, manager: boolean): SetupNode[] {
+      const planIds = new Set(data.floorPlans.map((p) => p.id));
+      const hasTables = data.tables.some(
+        (t) => t.isActive && !!t.floorPlanId && planIds.has(t.floorPlanId)
+      );
       if (data.floorPlans.length === 0) {
         return [
           {
@@ -17856,7 +17886,7 @@
           },
         ];
       }
-      return data.floorPlans.map((plan) => floorPlanNode(plan, data, manager));
+      return data.floorPlans.map((plan) => floorPlanNode(plan, data, manager, hasTables));
     }
     function withPrimary(nodes: readonly SetupNode[], targetId: string | null): SetupNode[] {
       return nodes.map((node) =>
@@ -17879,8 +17909,13 @@
       let sit: readonly SetupNode[] =
         input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
     
-      if (isManager && input.readiness === "setup") {
-        const first = [...open, ...sit].find((n) => LAUNCH_GATES.has(n.id) && n.state.kind === "unset");
+      if (
+        isManager &&
+        input.readiness === "setup" &&
+        input.open.status === "ready" &&
+        input.sit.status === "ready"
+      ) {
+        const first = [...open, ...sit].find((n) => isLaunchGate(n) && n.state.kind === "unset");
         open = withPrimary(open, first?.id ?? null);
         sit = withPrimary(sit, first?.id ?? null);
       }
@@ -17903,8 +17938,8 @@
       readonly whatIs: (node: SetupNode) => string | null;
       readonly state: (node: SetupNode) => string;
       readonly actionLabel: (action: SetupAction, node: SetupNode) => string;
-      /** The accessible name of an action that names its target, where the visible text does not. */
-      readonly actionName: (action: SetupAction) => string | undefined;
+      /** The target an action names, read after its visible label ("Close for a date… Bar"). */
+      readonly actionSubject: (action: SetupAction) => string | undefined;
     }
     export function useSetupNodeText(): SetupNodeText {
       const { t } = useTranslation();
@@ -17964,14 +17999,29 @@
                   : when(value.startsOn, value.endsOn),
               days: summarize(value.weekdays),
             });
-          case "service":
-            return t("setup.hub.serviceLine", {
-              hours: t("availability.regularWeekLine.hours", {
-                open: time(value.opensAt),
-                close: time(value.lastSeatingAt),
-              }),
+          case "service": {
+            const hours = (opensAt: number, lastSeatingAt: number) =>
+              t("availability.regularWeekLine.hours", {
+                open: time(opensAt),
+                close: time(lastSeatingAt),
+              });
+            const base = t("setup.hub.serviceLine", {
+              hours: hours(value.opensAt, value.lastSeatingAt),
               days: summarize(value.weekdays),
             });
+            const changes = value.changes.map((c) =>
+              c.opensAt === value.opensAt
+                ? t("availability.regularWeekLine.closes", {
+                    days: summarize(c.weekdays),
+                    close: time(c.lastSeatingAt),
+                  })
+                : t("availability.regularWeekLine.different", {
+                    days: summarize(c.weekdays),
+                    hours: hours(c.opensAt, c.lastSeatingAt),
+                  })
+            );
+            return [base, ...changes].join(" · ");
+          }
           case "rules": {
             const parts = [
               value.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: value.daysAhead }),
@@ -18059,20 +18109,7 @@
           action.id === "addFloorPlan" && node.state.kind !== "unset"
             ? t("setup.hub.actions.addAnotherFloorPlan")
             : t(`setup.hub.actions.${action.id}`),
-        actionName: (action) => {
-          const name = action.subject;
-          if (name === undefined) return undefined;
-          switch (action.id) {
-            case "editSchedule":
-              return t("setup.hub.actionNamed.editSchedule", { name });
-            case "openFloorPlan":
-              return t("setup.hub.actionNamed.openFloorPlan", { name });
-            case "closeSection":
-              return t("setup.hub.actionNamed.closeSection", { name });
-            default:
-              return undefined;
-          }
-        },
+        actionSubject: (action) => action.subject,
       };
     }
   </file>

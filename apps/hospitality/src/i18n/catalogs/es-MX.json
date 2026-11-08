@@ -3138,11 +3138,6 @@
         "closeSection": "Cerrar en una fecha…",
         "moveToSection": "Pasar a una sección"
       },
-      "actionNamed": {
-        "editSchedule": "Editar {{name}}",
-        "openFloorPlan": "Abrir el plano de sala {{name}}",
-        "closeSection": "Cerrar {{name}} en una fecha…"
-      },
       "strip": {
         "title": "Avance de la configuración",
         "count": "{{done}} de {{total}}",

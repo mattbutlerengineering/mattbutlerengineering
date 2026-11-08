@@ -12,8 +12,8 @@ export interface SetupNodeText {
   readonly whatIs: (node: SetupNode) => string | null;
   readonly state: (node: SetupNode) => string;
   readonly actionLabel: (action: SetupAction, node: SetupNode) => string;
-  /** The accessible name of an action that names its target, where the visible text does not. */
-  readonly actionName: (action: SetupAction) => string | undefined;
+  /** The target an action names, read after its visible label ("Close for a date… Bar"). */
+  readonly actionSubject: (action: SetupAction) => string | undefined;
 }
 
 /** The words the hub says for a node, in the venue's locale (glossary in ux.md). */
@@ -75,14 +75,29 @@ export function useSetupNodeText(): SetupNodeText {
               : when(value.startsOn, value.endsOn),
           days: summarize(value.weekdays),
         });
-      case "service":
-        return t("setup.hub.serviceLine", {
-          hours: t("availability.regularWeekLine.hours", {
-            open: time(value.opensAt),
-            close: time(value.lastSeatingAt),
-          }),
+      case "service": {
+        const hours = (opensAt: number, lastSeatingAt: number) =>
+          t("availability.regularWeekLine.hours", {
+            open: time(opensAt),
+            close: time(lastSeatingAt),
+          });
+        const base = t("setup.hub.serviceLine", {
+          hours: hours(value.opensAt, value.lastSeatingAt),
           days: summarize(value.weekdays),
         });
+        const changes = value.changes.map((c) =>
+          c.opensAt === value.opensAt
+            ? t("availability.regularWeekLine.closes", {
+                days: summarize(c.weekdays),
+                close: time(c.lastSeatingAt),
+              })
+            : t("availability.regularWeekLine.different", {
+                days: summarize(c.weekdays),
+                hours: hours(c.opensAt, c.lastSeatingAt),
+              })
+        );
+        return [base, ...changes].join(" · ");
+      }
       case "rules": {
         const parts = [
           value.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: value.daysAhead }),
@@ -170,19 +185,6 @@ export function useSetupNodeText(): SetupNodeText {
       action.id === "addFloorPlan" && node.state.kind !== "unset"
         ? t("setup.hub.actions.addAnotherFloorPlan")
         : t(`setup.hub.actions.${action.id}`),
-    actionName: (action) => {
-      const name = action.subject;
-      if (name === undefined) return undefined;
-      switch (action.id) {
-        case "editSchedule":
-          return t("setup.hub.actionNamed.editSchedule", { name });
-        case "openFloorPlan":
-          return t("setup.hub.actionNamed.openFloorPlan", { name });
-        case "closeSection":
-          return t("setup.hub.actionNamed.closeSection", { name });
-        default:
-          return undefined;
-      }
-    },
+    actionSubject: (action) => action.subject,
   };
 }

@@ -146,7 +146,7 @@ test.describe("Venue Setup hub", () => {
     });
     await page.goto("setup");
 
-    await page.getByRole("button", { name: "Close Bar for a date…" }).click();
+    await page.getByRole("button", { name: "Close for a date… Bar" }).click();
     await expect(page).toHaveURL(/\/availability\?from=setup$/);
     const dialog = page.getByRole("dialog", { name: "Close", exact: true });
     await expect(dialog.getByRole("radio", { name: "One section" })).toBeChecked();

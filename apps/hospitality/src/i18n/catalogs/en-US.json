@@ -3042,11 +3042,6 @@
         "closeSection": "Close for a date…",
         "moveToSection": "Move to a section"
       },
-      "actionNamed": {
-        "editSchedule": "Edit {{name}}",
-        "openFloorPlan": "Open floor plan {{name}}",
-        "closeSection": "Close {{name}} for a date…"
-      },
       "strip": {
         "title": "Setup progress",
         "count": "{{done}} of {{total}}",

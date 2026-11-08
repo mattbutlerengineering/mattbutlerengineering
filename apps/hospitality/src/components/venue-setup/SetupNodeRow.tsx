@@ -83,10 +83,15 @@ export function SetupNodeRow(props: SetupNodeRowProps) {
                 size="sm"
                 className={styles.action}
                 data-primary={action.primary ? "true" : undefined}
-                aria-label={text.actionName(action)}
                 onClick={() => onAction(action)}
               >
                 {text.actionLabel(action, node)}
+                {text.actionSubject(action) && (
+                  <>
+                    {" "}
+                    <Text className={styles.visuallyHidden}>{text.actionSubject(action)}</Text>
+                  </>
+                )}
               </Button>
             ))}
           </div>
