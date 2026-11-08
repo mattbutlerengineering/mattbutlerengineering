@@ -14,7 +14,7 @@ assumptions:
 
 On `3de1529d5`: 12 of 12 PRD criteria pass, 0 FAIL, and 0 automated checks NOT RUN. One human check was not run: no Owner or operator walkthrough.
 
-- App e2e: 557 of 557 with `--retries=0`.
+- App e2e: 557 of 557 with `--retries=0` on `3de1529d5`. After rebasing onto `main` (`426445f71`): 556 of 557. The one failure, availability-close "a close whose response was lost reports success when retried", timed out once and then passed 40 of 40 on its own (the spec × 5). Round 4 changes no Close code, so it is recorded as a flake in `docs/backlog.md`.
 - The service's real-Postgres suites: 157 of 157, including RLS isolation, the cascade and a 12-way concurrent write.
 
 Verdict: holiday decisions are made once and seen by everyone, and Copy never writes a never-ending rule and says what it changes.
