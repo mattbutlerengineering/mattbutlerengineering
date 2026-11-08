@@ -4,7 +4,8 @@ import styles from "./PageHeader.module.css";
 
 interface PageHeaderProps {
   title: string;
-  description?: string;
+  /** Plain text, or a node that brings its own typography (the Availability Today line). */
+  description?: ReactNode;
   /** Inline-end content on the title row; wraps beneath the title below 768px. */
   aside?: ReactNode;
   /** On a phone keep the aside on the title's row (a short action row) instead of a row of its own. */
@@ -29,11 +30,14 @@ export function PageHeader({
         <Text as="h1" variant="display" color="primary" tabIndex={-1}>
           {title}
         </Text>
-        {description && (
-          <Text variant="caption" color="secondary">
-            {description}
-          </Text>
-        )}
+        {description &&
+          (typeof description === "string" ? (
+            <Text variant="caption" color="secondary">
+              {description}
+            </Text>
+          ) : (
+            description
+          ))}
       </Stack>
       {aside && <div className={styles.aside}>{aside}</div>}
     </div>

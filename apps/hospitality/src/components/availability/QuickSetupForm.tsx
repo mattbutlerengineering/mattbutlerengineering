@@ -22,6 +22,7 @@ import { ServiceLineHeader } from "./quick-setup-line-header.js";
 import { DayPicker } from "./quick-setup-fields.js";
 import { ServiceRow } from "./QuickSetupServiceRow.js";
 import { RegularWeekStrip } from "./RegularWeekStrip.js";
+import { PreviewRow } from "./quick-setup-preview-row.js";
 import { useWeekdaySummary } from "./ScheduleFormParts.js";
 import styles from "./QuickSetupForm.module.css";
 import lineStyles from "./QuickSetupLine.module.css";
@@ -226,7 +227,11 @@ export function QuickSetupForm({
           </Stack>
           {!inDrawer && (
             <div className={styles.stripColumn}>
-              <RegularWeekStrip draft={draft} local={local} />
+              {collapsible ? (
+                <PreviewRow draft={draft} local={local} />
+              ) : (
+                <RegularWeekStrip draft={draft} local={local} />
+              )}
             </div>
           )}
         </div>

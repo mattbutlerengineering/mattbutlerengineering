@@ -129,14 +129,21 @@ describe("TodayLine", () => {
     expect(itemTexts()).toEqual(["Closing early · 9:30 PM"]);
   });
 
-  it("keeps its height while loading: a muted Today with no hours, no spinner and no link", () => {
+  it("keeps the page's static description in the slot while loading: no region, spinner or link", () => {
     setState({ status: "loading", model: null });
     renderLine();
-    const section = screen.getByRole("region", { name: "Today" });
-    expect(section).toHaveAttribute("aria-busy", "true");
-    expect(section).toHaveTextContent(/^Today$/);
+    expect(screen.getByText("Your hours, holidays and one-off changes.")).toBeInTheDocument();
+    expect(screen.queryByRole("region")).toBeNull();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("is one flowing line: label, date, hours, then items, then the link", () => {
+    setState({ model: model([{ kind: "serviceClosed", name: "Lunch" }]) });
+    renderLine();
+    expect(screen.getByRole("region", { name: "Today" }).textContent).toBe(
+      "Today · Sun, Nov 8 · Lunch 11:30 AM–3:00 PM · Dinner 5:00 PM–10:00 PM Lunch closedChange tonight"
+    );
   });
 
   it("says so with Retry when the day failed to load", () => {

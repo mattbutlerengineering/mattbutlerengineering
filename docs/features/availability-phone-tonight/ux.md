@@ -13,7 +13,9 @@ assumptions:
 
 ### Where
 
-Directly under the page header, above the online-pause banner and the layer switch, on every layer, for Manager and Host. One line on desktop; it wraps on a phone.
+In the page header's description slot, on every layer, for Manager and Host. It replaces the static "Your hours, holidays and one-off changes." once today's state has loaded. That line still shows while loading and for an empty venue, so nothing moves. The line is one flowing run of text: label, date, hours, items, link. It wraps on a phone and has no rows or margins of its own.
+
+*Amended at Implement (2026-11-08): the first build placed it as its own block under the header. It cost 50 px on desktop and 78 px on a phone, and failed the calendar first-screen guards in `availability-phone.spec.ts`, which protect what the calendar shows above the fold.*
 
 ```
 ┌ Availability ───────────────────────────────────────── Close…  Pause ┐
@@ -124,9 +126,15 @@ The same row as the header, with the chevron turned up and the service's existin
 - **Remove:** focus moves to the next service's header, or the previous one's if it was last.
 - **After Save:** every line closes, and focus stays where the Save flow already puts it.
 
+### Guest preview on a phone
+
+In the week panel at phone width, the Guest preview is one closed row, "Guest preview", with its hint. It opens the existing preview inline below the row (`aria-expanded`). It stays closed on first paint.
+
+*Amended at Implement (2026-11-08): with the service lines closed, the form column measured 523 px but the preview stacked under it at 915 px, so the panel stayed at 1,553 px against P2's ≤ 1,236. The audit's item #2 had proposed this row; prd.md had left it out, and it is now in.*
+
 ### Desktop / tablet / onboarding
 
-Unchanged: every service expanded, no headers.
+Unchanged: every service expanded, no headers, Guest preview beside the form.
 
 ## Copy (en-US; es-MX and fr-CA in the catalogs)
 

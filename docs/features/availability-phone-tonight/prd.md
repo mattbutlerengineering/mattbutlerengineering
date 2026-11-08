@@ -73,7 +73,7 @@ Checks by component test (C), e2e (E) or both.
 
 - Holiday decisions saved per venue; what Copy to other days means; the page's calendar-date "today"; renaming "Close early at" (all in `docs/backlog.md`).
 - Changing the Timeline's Tonight panel itself, beyond whatever the link needs to open it.
-- Guest preview placement on phone (audit #2 mentions a "What guests see" sheet): not taken this run.
+- ~~Guest preview placement on phone~~: taken in at Implement (2026-11-08). P2 cannot be met with the preview stacked at 915 px; on a phone it becomes one closed row (ux.md F2).
 
 ## Open questions
 
