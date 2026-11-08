@@ -210,3 +210,49 @@ describe("hook seam", () => {
     }
   });
 });
+
+/**
+ * #8519: the wrapper printed the advisory to stderr and exited 0 — a channel
+ * that reaches no one for a PostToolUse hook (8 advisories, 0 seen by the
+ * model). It must emit PostToolUse `additionalContext` JSON on stdout. A stub
+ * rule module isolates the wrapper's output contract from the rule itself.
+ */
+describe("check-changeset.sh wrapper output (#8519)", () => {
+  const HOOK = join(REPO_ROOT, ".claude", "hooks", "check-changeset.sh");
+
+  function runWrapper(stubOutput) {
+    const repo = mkdtempSync(join(tmpdir(), "changeset-wrapper-"));
+    try {
+      execFileSync("git", ["init", "-q"], { cwd: repo });
+      mkdirSync(join(repo, "scripts"));
+      writeFileSync(
+        join(repo, "scripts", "changeset-hook.mjs"),
+        `process.stdout.write(${JSON.stringify(stubOutput)});\n`
+      );
+      const edited = join(repo, "file.ts");
+      writeFileSync(edited, "export {};\n");
+      const stdout = execFileSync("bash", [HOOK, edited], {
+        cwd: repo,
+        encoding: "utf8",
+        env: { ...process.env, CLAUDE_PROJECT_DIR: repo },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      return stdout;
+    } finally {
+      rmSync(repo, { recursive: true, force: true });
+    }
+  }
+
+  it("emits the advisory as one line of PostToolUse additionalContext JSON", () => {
+    const stdout = runWrapper(`${WARNING}\n`);
+    const lines = stdout.trim().split("\n");
+    expect(lines).toHaveLength(1);
+    const payload = JSON.parse(lines[0]);
+    expect(payload.hookSpecificOutput.hookEventName).toBe("PostToolUse");
+    expect(payload.hookSpecificOutput.additionalContext).toBe(WARNING);
+  });
+
+  it("prints nothing when the rule has no advisory", () => {
+    expect(runWrapper("")).toBe("");
+  });
+});

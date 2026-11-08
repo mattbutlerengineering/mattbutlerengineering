@@ -695,6 +695,62 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
     },
     SEAM_TIMEOUT_MS
   );
+  // #8519: Check 1's Node-drift warning went to stderr with exit 0, which a
+  // PreToolUse hook shows to no one. It must use the same JSON contract as
+  // Check 3, and when both fire on one command the hook may print only ONE
+  // JSON object, so the two messages are merged into it.
+  const mismatchedNvmrc = () =>
+    writeFileSync(join(sandbox, ".nvmrc"), `${Number(process.versions.node.split(".")[0]) + 1}\n`);
+
+  it(
+    "pre-bash-guard reports Node drift before regen as PreToolUse JSON, not stderr",
+    () => {
+      mismatchedNvmrc();
+      const result = run("pre-bash-guard.sh", bashPayloadFor("pnpm regen"));
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe("");
+      const output = JSON.parse(result.stdout);
+      expect(output.hookSpecificOutput.hookEventName).toBe("PreToolUse");
+      expect(output.hookSpecificOutput.additionalContext).toContain("nvm use");
+      expect(output.systemMessage).toContain("nvm use");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-bash-guard merges Node drift and inert hooks into one JSON object",
+    () => {
+      mismatchedNvmrc();
+      const work = gitFixtureAheadOfOrigin();
+      const result = run(
+        "pre-bash-guard.sh",
+        bashPayloadFor("pnpm regen && git commit -m more"),
+        work
+      );
+      expect(result.status).toBe(0);
+      expect(result.stderr).toBe("");
+      const lines = result.stdout.trim().split("\n");
+      expect(lines).toHaveLength(1);
+      const output = JSON.parse(lines[0]);
+      expect(output.hookSpecificOutput.additionalContext).toContain("nvm use");
+      expect(output.hookSpecificOutput.additionalContext).toContain("pnpm install");
+      expect(output.systemMessage).toContain("nvm use");
+      expect(output.systemMessage).toContain("pnpm install");
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "pre-bash-guard stays silent before regen when Node matches .nvmrc",
+    () => {
+      writeFileSync(join(sandbox, ".nvmrc"), `${process.versions.node.split(".")[0]}\n`);
+      const result = run("pre-bash-guard.sh", bashPayloadFor("pnpm regen"));
+      expect(result.status).toBe(0);
+      expect(result.stdout).toBe("");
+      expect(result.stderr).toBe("");
+    },
+    SEAM_TIMEOUT_MS
+  );
 });
 
 describe("no hook reads the fictional Bash-tool env vars", () => {
@@ -903,10 +959,11 @@ describe("hook seam: path hooks act on the tree the edited file lives in", () =>
       );
 
       expect(result.status).toBe(0);
-      expect(result.stderr, "advisory came from the main checkout").toContain(
+      // #8519: the advisory is PostToolUse JSON on stdout, not stderr.
+      expect(result.stdout, "advisory came from the main checkout").toContain(
         "advisory-from-linked"
       );
-      expect(result.stderr).not.toContain("advisory-from-work");
+      expect(result.stdout).not.toContain("advisory-from-work");
     },
     SEAM_TIMEOUT_MS
   );
