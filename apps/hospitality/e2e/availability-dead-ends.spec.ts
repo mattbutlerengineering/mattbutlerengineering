@@ -269,7 +269,8 @@ test("Close: a failed Next moves focus to the first problem", async ({ mockedPag
   await mockAvailability(page);
   await page.goto("availability?tab=calendar");
   await page.getByRole("button", { name: "Pause online booking" }).click();
-  const dialog = page.getByRole("dialog", { name: "Close", exact: true });
+  // Opened from Pause online booking, the dialog is titled for it, not "Close".
+  const dialog = page.getByRole("dialog", { name: "Pause online booking", exact: true });
   await dialog
     .locator("label")
     .filter({ hasText: /^Online/ })

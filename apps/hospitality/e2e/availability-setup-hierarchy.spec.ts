@@ -267,7 +267,7 @@ test.describe("First paint and night-of actions (PRD 15, 21)", () => {
     await pinToday(mockedPage);
   });
 
-  test("PRD 15: a Manager's first paint has at most 7 actionable controls outside the week panel", async ({
+  test("PRD 15: a Manager's first paint has at most 8 actionable controls outside the week panel", async ({
     mockedPage: page,
   }) => {
     await firstPaint(page);
@@ -277,7 +277,8 @@ test.describe("First paint and night-of actions (PRD 15, 21)", () => {
       type: "first paint controls (agent stand-in)",
       description: `${count} outside the week panel: ${controls.join(" | ")}`,
     });
-    expect(count, controls.join("\n")).toBeLessThanOrEqual(7);
+    // 8, not 7 (availability-scenario-ux prd.md criterion 4): the Booking line is now a button.
+    expect(count, controls.join("\n")).toBeLessThanOrEqual(8);
     // Every control removed from first paint is one interaction away (PRD 7): a visible
     // "Add a schedule…" is how a one-schedule Manager learns schedules exist (PRD 19).
     expect(controls).toContain("button: Add a schedule…");
@@ -346,7 +347,7 @@ test.describe("The demo runs as written (PRD 23)", () => {
 
     // First paint meets criterion 15.
     const { count, controls } = await countFirstPaintControls(page, panel);
-    expect(count, controls.join("\n")).toBeLessThanOrEqual(7);
+    expect(count, controls.join("\n")).toBeLessThanOrEqual(8);
 
     // Special dates: one interaction down, one interaction back to the same first layer.
     const down = countInteractions(page);
