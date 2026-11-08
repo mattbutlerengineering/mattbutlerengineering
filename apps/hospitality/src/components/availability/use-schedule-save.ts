@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  AvailabilityConfigProblemSchema,
   type AvailabilityConfigChanges,
   type AvailabilityConfigSaveResult,
   type AvailabilityConfigState,
@@ -10,6 +9,7 @@ import {
 } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
+import { availabilityProblemOf } from "./conflict-problem.js";
 
 /**
  * Saves one schedule-level change through the single config hook and turns a refusal into
@@ -38,9 +38,7 @@ export function useScheduleSave(
   };
 
   const reject = (error: unknown) => {
-    const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-    const parsed = AvailabilityConfigProblemSchema.safeParse(details);
-    const problem = parsed.success ? parsed.data : null;
+    const problem = availabilityProblemOf(error);
     if (problem?.code === "version-conflict") {
       onStale();
       setConflicted(true);

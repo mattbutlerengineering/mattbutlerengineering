@@ -1053,6 +1053,16 @@ describe("closure chat tools", () => {
       expect(result).not.toHaveProperty("closures");
     });
 
+    it("says the user can't see the closures on a 403, rather than to try again", async () => {
+      api.availability.getConfig.mockRejectedValue(problem(403));
+      api.availability.listClosures.mockResolvedValue([]);
+
+      await expect(read("list_closures")).resolves.toEqual({
+        refused: true,
+        error: "The user doesn't have permission to see the closures.",
+      });
+    });
+
     it("flags unknown guest counts instead of reporting zero when the counts can't be read", async () => {
       api.availability.getConfig.mockResolvedValue(configState([rules[0], rules[2]]));
       api.availability.listClosures.mockRejectedValue(new Error("boom"));

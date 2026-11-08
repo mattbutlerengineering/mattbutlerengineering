@@ -126,6 +126,15 @@ describe("availability chat tools", () => {
       return tools.list_tonight_changes!.execute!({} as never, toolCtx);
     }
 
+    it("says the user can't see tonight's availability on a 403, rather than to try again", async () => {
+      api.availability.getConfig.mockRejectedValue(problem(403));
+
+      await expect(list()).resolves.toEqual({
+        refused: true,
+        error: "The user doesn't have permission to see tonight's availability.",
+      });
+    });
+
     it("describes each Tonight change in force in venue-local terms", async () => {
       api.availability.getConfig.mockResolvedValue(
         configState([

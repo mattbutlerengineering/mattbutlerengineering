@@ -46,6 +46,7 @@ import {
   NO_REPLAY,
   NO_VENUE,
   notExecuted,
+  readFailure,
   refusalOf,
   todayIn,
   type ApiClient,
@@ -517,7 +518,7 @@ function listClosures({ log, api, venueId, timeZone }: ToolContext) {
         return { closures, ...(counts ? {} : { countsUnavailable: true }) };
       } catch (err) {
         log.error({ ...failureLog(err), venueId }, "list_closures failed");
-        return { error: "Couldn't read the closures. Ask the user to try again." };
+        return readFailure(err, "the closures");
       }
     },
   });

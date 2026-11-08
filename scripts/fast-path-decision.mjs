@@ -249,14 +249,35 @@ async function loadDistClassifier() {
   }
 }
 
-const realDeps = {
-  getFiles: (pr) =>
-    gh(["pr", "diff", pr, "--name-only"])
+/**
+ * PR readers over REST only — `gh pr diff`/`gh pr view` are GraphQL-backed and
+ * 403 in cloud sessions (#8494). `gh` is injected for testing.
+ * @param {(args: string[]) => string} ghFn
+ */
+export function makePrReaders(ghFn) {
+  const lines = (out) =>
+    out
       .split("\n")
-      .map((f) => f.trim())
-      .filter(Boolean),
-  getLabels: (pr) =>
-    JSON.parse(gh(["pr", "view", pr, "--json", "labels"])).labels.map((l) => l.name),
+      .map((l) => l.trim())
+      .filter(Boolean);
+  return {
+    getFiles: (pr) =>
+      lines(
+        ghFn([
+          "api",
+          "--paginate",
+          `repos/{owner}/{repo}/pulls/${pr}/files?per_page=100`,
+          "--jq",
+          ".[].filename",
+        ])
+      ),
+    getLabels: (pr) =>
+      lines(ghFn(["api", `repos/{owner}/{repo}/issues/${pr}/labels`, "--jq", ".[].name"])),
+  };
+}
+
+const realDeps = {
+  ...makePrReaders(gh),
   // Rebuild output goes to stderr so stdout stays a single JSON line.
   getFreshness: () =>
     ensureFreshAgentCoreBuild({

@@ -1,13 +1,9 @@
 import type { TFunction } from "i18next";
-import {
-  AvailabilityConfigProblemSchema,
-  type AvailabilityChangeSummary,
-  type ClosureImpactGroup,
-} from "@mbe/types";
+import { type AvailabilityChangeSummary, type ClosureImpactGroup } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import { describeApiError, type ApiErrorCategory } from "../../lib/describe-api-error.js";
-import { conflictOf, isDecisionRequired } from "./conflict-problem.js";
+import { availabilityProblemOf, conflictOf, isDecisionRequired } from "./conflict-problem.js";
 
 /**
  * How the server refused a Step 2 save, shared by every flow that decides on bookings (Close,
@@ -45,11 +41,8 @@ const UNKNOWN_OUTCOME: ReadonlySet<ApiErrorCategory> = new Set([
 
 /** The ids of a `move-unavailable` refusal, or `null` for any other problem. */
 function moveUnavailableIds(error: unknown): readonly string[] | null {
-  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-  const problem = AvailabilityConfigProblemSchema.safeParse(details);
-  return problem.success && problem.data.code === "move-unavailable"
-    ? (problem.data.reservationIds ?? [])
-    : null;
+  const problem = availabilityProblemOf(error);
+  return problem?.code === "move-unavailable" ? (problem.reservationIds ?? []) : null;
 }
 
 export function refusalOf(error: unknown): Refusal {

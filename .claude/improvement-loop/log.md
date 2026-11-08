@@ -5029,6 +5029,15 @@ Both quoted strings look like deprecation/config noise rather than a real assert
 **Skill proposals:** 0 (Friday — checked `.claude/session-logs/*.json`: only 2 entries, both from today's startup hook with identical diff stats; below the 3-session repeated-workflow threshold, no novel pattern)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.516 → 1.521, headroom). False-positive rate 0% (0/30 sensor-labeled issues closed `not_planned`/duplicate in the last 30 days) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 102 skipped-for-lack-of-data) — above 50% threshold, no review needed; unchanged from 2026-11-05 since today's 5 new verifications were all skips. AI issue-feedback budgets: all 7 categories at default budget=3 (max rejection 3%, feature category).
 
+## 2026-11-07 — mbe-learning-loop
+
+**Sensors:** 17/18 available (e2eStability not available) — ✅ Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed (reopened), 5 skipped (#8450 no matching verifier for its labels; #8445/#8444/#8436/#8435 no success/failure CI runs found to verify against)
+**Sentry triage:** skipped — stored Sentry MCP access token still rejected (authorization expired, same as 2026-11-06), no human available to re-authorize in this unattended run
+**Skill proposals:** 0 (Saturday — Friday-only, session-log analysis not run)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.521 → 1.523, headroom). False-positive rate 3.7% (13/353 sensor-labeled issues closed `not_planned` in the last 30 days, via `gh api search/issues --paginate`) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 107 skipped-for-lack-of-data in the last 30 days) — above 50% threshold, no review needed; unchanged from 2026-11-06 since today's 5 new verifications were all skips. AI issue-feedback budgets: all 7 categories at default budget=3 (max rejection 4%, feature category: 108 total, 4 rejected).
+
 ## 2026-11-08 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
@@ -5070,3 +5079,25 @@ Both quoted strings look like deprecation/config noise rather than a real assert
 **queueEfficiency:** composite 0.878 (baseline n/a) — healthy
 **Difficulty distribution:** size:xl:19, size:m:12, size:xs:15, size:l:14, size:s:33
 **Issues filed:** 0
+
+## 2026-11-08 — mbe-ui-quality
+
+**State:** `state.mjs checkout` source `branch` (head 5567ce0, merged origin/main 73f6934, 1 conflict resolved by rule in `metrics/ui-quality-ledger.jsonl`).
+
+**Routes:** 4 due / 4 captured / 4 audited (hospitality 4: `book/:venueSlug`, `menu/:venueSlug`, `menu/:venueSlug/:menuSlug`, `reservations/manage`). Marketing and rialto-web had 0 routes due, so both capture runs skipped with "no routes planned". 20 hospitality rows `unreachable:auth`, 0 `unreachable:build` — all three app builds succeeded.
+
+**Findings:** 0 mechanical, 0 judged. All 4 captured routes (8 screenshots, 1280x720 + 375x812) judged clean against rubric v1's judged tells; unjudged 0, dropped tells 0.
+
+**Calibration:** stamp `stale`. `calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still carries no labelled pairs (the Verify-stage task of labelling >= 10 pairs remains unowned by this routine). Not retried. Re-queried after: still `stale`. Agent-built findings stay suppressed until a human labels the set. Same condition as 2026-11-05.
+
+**Rating:** 6 pairs over 1 app rated and recorded — hospitality 0.42. Reference wins on 5 pairs, 1 tie, 0 wins for ours: the two empty-state routes (`reservations/manage` "No Access Link", `menu/:venueSlug` "No menus yet") and the single-item `menu/:venueSlug/:menuSlug` lose on density and composition against dense product references (medusa-checkout/product, shadcn-dashboard-01, tremor-overview). `book/:venueSlug` was the closest of ours — tied against medusa-checkout — but conceded on the `Date`/`Party Size` labels hanging outside the booking card's inner padding, with `Date` crowding the 3-step stepper. Not filed: label misalignment is not a judged tell in rubric v1.
+
+**Filing:** plan produced no actions and no seeds. 0 issues created / 0 reopened / 0 commented, 0 seeds. All 35 issue numbers in the findings ledger resolve to `closed`; 37 `ui-quality`-labelled issues read across one complete page, none unknown to the plan beyond the two closed escalation issues (#7477, #7908). No escalation file written. Checkpoint commit pushed before step g as required.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+
+**Coverage before this fire:** 100% (135/135 reachable rows covered, 0 uncovered, not provisional).
+
+**Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so both issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion (`hasNextPage: false`, totalCount 37 and 0), with #8106 spot-checked via `issue_read` to confirm the listing's state matches. A no-finding fire, logged as such.

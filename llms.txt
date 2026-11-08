@@ -2104,6 +2104,9 @@
       type Conflict = { readonly code: "version-conf | { readonly code: "closure-exis;
     </item>
     <item priority="high">
+      export function availabilityProblemOf(error: unknown): AvailabilityConfigProblem | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function isDecisionRequired(error: unknown): boolean { /* ... */ }
     </item>
     <item priority="high">
@@ -11929,9 +11932,6 @@
     <item priority="medium">
       function seatingOf(entry: BriefingEntry, timeZone: string | undefined) { /* ... */ }
     </item>
-    <item priority="medium">
-      function readFailure(err: unknown) { /* ... */ }
-    </item>
     <item priority="high">
       export function createBriefingTools(
         log: FastifyBaseLogger,
@@ -12146,12 +12146,6 @@
         ref: string
       ): { plan: FloorPlan } | { error: string } { /* ... */ }
     </item>
-    <item priority="medium">
-      function readFailure(err: unknown) { /* ... */ }
-    </item>
-    <item priority="medium">
-      function writeFailure(err: unknown, unsure: string | undefined) { /* ... */ }
-    </item>
     <item priority="high">
       export function createFloorPlanTools(
         log: FastifyBaseLogger,
@@ -12169,9 +12163,6 @@
     </item>
     <item priority="medium">
       function winBackUnsure(name: string): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function guestFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="low">
       async function findGuest(
@@ -12209,9 +12200,6 @@
       function priceToCents(price: string): number { /* ... */ }
     </item>
     <item priority="medium">
-      function menuFailure(err: unknown, unsure: string | undefined) { /* ... */ }
-    </item>
-    <item priority="medium">
       function findMenu(menus: readonly Menu[], ref: string): { menu: Menu } | { error: string } { /* ... */ }
     </item>
     <item priority="medium">
@@ -12236,9 +12224,6 @@
         api: ApiClient,
         { venueId }: { readonly venueId?: string | undefined }
       ): ToolSet { /* ... */ }
-    </item>
-    <item priority="medium">
-      function readFailure(err: unknown) { /* ... */ }
     </item>
   </file>
   <file path="services/agent/src/routes/gen-agent-prompt.ts">
@@ -12285,14 +12270,6 @@
   <file path="services/agent/src/routes/gen-agent-timeline-tools.ts">
     <item priority="high">
       type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
-    </item>
-    <item priority="high">
-      export function bookingWriteFailure(
-        err: unknown,
-        action: string,
-        unsure: string | undefined,
-        saved?: string
-      ) { /* ... */ }
     </item>
     <item priority="low">
       async function venueReservation(
@@ -12395,9 +12372,6 @@
   <file path="services/agent/src/routes/gen-agent-waitlist-tools.ts">
     <item priority="high">
       type WaitlistEntry = Awaited<ReturnType<ApiClient["waitlist"]["list"]>>[number];
-    </item>
-    <item priority="medium">
-      function waitlistFailure(err: unknown, action: string, unsure: string | undefined) { /* ... */ }
     </item>
     <item priority="low">
       async function findParty(
@@ -12626,6 +12600,31 @@
     </item>
     <item priority="high">
       export function failedBeforeWrite<T extends object>(unsure: string | undefined, result: T) { /* ... */ }
+    </item>
+    <item priority="low">
+      interface WriteFailureContext {
+        action: string;
+        unsure: string | undefined;
+        saved?: string;
+      }
+    </item>
+    <item priority="high">
+      export function writeFailure(err: unknown, ctx: WriteFailureContext) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function describeWriteFailure(
+        err: unknown,
+        { action, unsure, saved }: WriteFailureContext
+      ): { readonly error: string; readonly refused?: true } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function readFailure(
+        err: unknown,
+        what: string,
+        opts?: { readonly notEmpty?: string }
+      ):
+        | { readonly refused: true; readonly error: string }
+        | { readonly unknown?: true; readonly error: string } { /* ... */ }
     </item>
     <item priority="low">
       interface NamedTable {

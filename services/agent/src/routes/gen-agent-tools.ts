@@ -10,18 +10,19 @@ import { createGuestTools } from "./gen-agent-guest-tools.js";
 import { createFloorPlanTools } from "./gen-agent-floor-plan-tools.js";
 import { createMenuTools } from "./gen-agent-menu-tools.js";
 import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
-import { bookingWriteFailure, createTimelineTools } from "./gen-agent-timeline-tools.js";
+import { createTimelineTools } from "./gen-agent-timeline-tools.js";
 import {
   NOT_EXECUTED,
   NO_VENUE,
-  failedBeforeWrite,
   failureLog,
   notExecuted,
   localTimeIn,
+  readFailure,
   refusalOf,
   resolveTable,
   saveUnsure,
   todayIn,
+  writeFailure,
   type ApiClient,
   type Refusal,
 } from "./gen-tool-support.js";
@@ -422,7 +423,7 @@ export function createAgentTools(
           return { reservations: reservations.map(toLocal) };
         } catch (err) {
           log.error({ ...failureLog(err), date, venueId }, "lookup_reservation failed");
-          return { error: "Failed to look up reservations. Please try again." };
+          return readFailure(err, "the reservations");
         }
       },
     }),
@@ -440,7 +441,7 @@ export function createAgentTools(
           return { guests: result.data };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "search_guests failed");
-          return { error: "Failed to search guests. Please try again." };
+          return readFailure(err, "the guests");
         }
       },
     }),
@@ -458,7 +459,7 @@ export function createAgentTools(
           return { tables: result.data };
         } catch (err) {
           log.error({ err, venueId }, "get_table_status failed");
-          return { error: "Failed to get table status. Please try again." };
+          return readFailure(err, "the table status");
         }
       },
     }),
@@ -486,7 +487,7 @@ export function createAgentTools(
           return { reservations: result.data.map(toLocal) };
         } catch (err) {
           log.error({ err, venueId, date }, "list_today_reservations failed");
-          return { error: "Failed to list reservations. Please try again." };
+          return readFailure(err, "the reservations");
         }
       },
     }),
@@ -568,11 +569,10 @@ export function createAgentTools(
         } catch (err) {
           log.error({ ...failureLog(err), reservationId }, "modify_reservation failed");
           // The write is the tool's first call, so any failure may have saved.
-          return bookingWriteFailure(
-            err,
-            "modify the reservation",
-            saveUnsure("lookup_reservation")
-          );
+          return writeFailure(err, {
+            action: "modify the reservation",
+            unsure: saveUnsure("lookup_reservation"),
+          });
         }
       },
     }),
@@ -607,7 +607,10 @@ export function createAgentTools(
         } catch (err) {
           log.error({ ...failureLog(err), venueId, partySize }, "seat_walk_in failed");
           // The write is the tool's first call, so any failure may have saved.
-          return bookingWriteFailure(err, "seat the walk-in", saveUnsure("get_table_status"));
+          return writeFailure(err, {
+            action: "seat the walk-in",
+            unsure: saveUnsure("get_table_status"),
+          });
         }
       },
     }),
@@ -633,10 +636,7 @@ export function createAgentTools(
           return { table: updated };
         } catch (err) {
           log.error({ err, venueId, tableRef }, "update_table_status failed");
-          return failedBeforeWrite(
-            unsure,
-            bookingWriteFailure(err, "update the table status", unsure)
-          );
+          return writeFailure(err, { action: "update the table status", unsure });
         }
       },
     }),

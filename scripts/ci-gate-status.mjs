@@ -298,9 +298,48 @@ export function classifyCiGateStatus(statusCheckRollup, headShaCheckRuns, option
 export function evaluatePr(prNumber, { viewPr, fetchCheckRuns }) {
   const prView = viewPr(prNumber);
   const checkRuns = fetchCheckRuns(prView.headRefOid);
-  return classifyCiGateStatus(prView.statusCheckRollup, checkRuns ?? [], {
+  // Cloud REST-only mode (#8494): no GraphQL rollup, so derive one from the
+  // head-SHA check-runs (the documented implement-queue cloud default).
+  const rollup = Array.isArray(prView.statusCheckRollup)
+    ? prView.statusCheckRollup
+    : (checkRuns ?? []).map((run) => ({
+        name: run?.name,
+        status: typeof run?.status === "string" ? run.status.toUpperCase() : undefined,
+        conclusion: typeof run?.conclusion === "string" ? run.conclusion.toUpperCase() : null,
+      }));
+  return classifyCiGateStatus(rollup, checkRuns ?? [], {
     checkRunsFetchFailed: checkRuns === null,
   });
+}
+
+/**
+ * True for the verbatim error CCR sessions return for any GraphQL-backed `gh`
+ * subcommand (#8494).
+ * @param {unknown} error
+ */
+export function isGraphqlBlocked(error) {
+  const text = `${error?.message ?? ""}${error?.stderr ?? ""}`;
+  return text.includes("GitHub GraphQL is not available from Claude Code sessions");
+}
+
+/** `gh pr view`, falling back to REST (head SHA only, no rollup) when GraphQL is blocked. */
+function viewPrWithRestFallback(pr) {
+  try {
+    return JSON.parse(
+      execFileSync("gh", ["pr", "view", pr, "--json", "statusCheckRollup,headRefOid"], {
+        encoding: "utf-8",
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+    );
+  } catch (error) {
+    if (!isGraphqlBlocked(error)) throw error;
+    const headRefOid = execFileSync(
+      "gh",
+      ["api", `repos/{owner}/{repo}/pulls/${pr}`, "--jq", ".head.sha"],
+      { encoding: "utf-8" }
+    ).trim();
+    return { statusCheckRollup: null, headRefOid };
+  }
 }
 
 /**
@@ -317,12 +356,7 @@ function run() {
   }
 
   const result = evaluatePr(prNumber, {
-    viewPr: (pr) =>
-      JSON.parse(
-        execFileSync("gh", ["pr", "view", pr, "--json", "statusCheckRollup,headRefOid"], {
-          encoding: "utf-8",
-        })
-      ),
+    viewPr: viewPrWithRestFallback,
     fetchCheckRuns: fetchHeadShaCheckRuns,
   });
 
