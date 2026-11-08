@@ -22,7 +22,7 @@ Four independent slices plus the e2e suite: (A) the shared week form's days cont
 - Owns PRD 1. Collaborators: `QuickSetupServiceRow` (unchanged focus targets).
 
 ### A2. Preset placement (policy)
-- `quick-setup-draft.ts`: `placePreset(draft, serviceId, preset): QuickSetupService` — the preset's name and length; start = latest `closesAt` among the other services whose effective days intersect this service's effective days, if placing there keeps every affected day's earliest open → latest close ≤ `MAX_PAST_MIDNIGHT_SPAN` (the rule `spanIssues` enforces) and the service does not run past 48:00; else the preset's own times. `applyPreset` callers in `QuickSetupServiceRow` use it. `firstClearStart(draft, serviceId): number | null` — the earliest start ≥ the service's current start that clears every overlap on its days within the same span rule, in 15-minute steps, or `null`.
+- `quick-setup-draft.ts` (as built: `quick-setup-placement.ts`, preset defaults kept when clear, see breakdown Notes): `placePreset(draft, serviceId, preset): QuickSetupService` — the preset's name and length; start = latest `closesAt` among the other services whose effective days intersect this service's effective days, if placing there keeps every affected day's earliest open → latest close ≤ `MAX_PAST_MIDNIGHT_SPAN` (the rule `spanIssues` enforces) and the service does not run past 48:00; else the preset's own times. `applyPreset` callers in `QuickSetupServiceRow` use it. `firstClearStart(draft, serviceId): number | null` — the earliest start ≥ the service's current start that clears every overlap on its days within the same span rule, in 15-minute steps, or `null`.
 - `QuickSetupIssue` with `code: "overlap"` gains an optional `fix: { serviceId, opensAt }` computed in `validateDraft`; `IssueText` renders the action "Move {{service}} to {{time}}" that applies `withStart(service, opensAt)` through the form's `onChange`.
 - Owns PRD 2.
 
@@ -49,7 +49,7 @@ Four independent slices plus the e2e suite: (A) the shared week form's days cont
 - Owns PRD 5, 6.
 
 ### D1. Quiet month cells and legend (policy + adapter)
-- `day-summary.ts`: `dayDifference(day, regularScheduleId, sectionNames, t): { chip: string; more: number } | null` — `null` when the day uses the regular schedule, has no closures, every booking channel is open and its label is the schedule's own; otherwise the first of Closed › service closed › section closed › booking paused › Special hours › schedule name, with `more` = further differences. `monthLegend(days, …): string` from the visible month's in-month cells: each chip label with the weekdays it falls on when they form a weekly pattern across the month, else a day count.
+- `day-summary.ts` (as built: `toDifference(dayDifferences(...))`, see breakdown Notes): `dayDifference(day, regularScheduleId, sectionNames, t): { chip: string; more: number } | null` — `null` when the day uses the regular schedule, has no closures, every booking channel is open and its label is the schedule's own; otherwise the first of Closed › service closed › section closed › booking paused › Special hours › schedule name, with `more` = further differences. `monthLegend(days, …): string` from the visible month's in-month cells: each chip label with the weekdays it falls on when they form a weekly pattern across the month, else a day count.
 - `AvailabilityCalendar.tsx` month cells render the date, holiday and the chip (or nothing); the legend renders above the grid in month view; the accessible name keeps today's full description.
 - Owns PRD 8.
 
