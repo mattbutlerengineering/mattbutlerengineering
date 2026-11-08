@@ -1,5 +1,8 @@
+import type { TFunction } from "i18next";
 import { resolveDay } from "@mbe/availability";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
+import type { VenueFormat } from "../../hooks/useVenueFormat.js";
+import { minuteText } from "./closure-band.js";
 
 /** One Tonight change in force, as a header chip describes it (ux.md F7). */
 export type TonightChange =
@@ -117,4 +120,42 @@ export function activeTonightChanges(
     const change = describe(rule);
     return change ? [change] : [];
   });
+}
+
+/** The chip's words, shared by the Timeline's Tonight control and the Today line on Availability. */
+export function tonightChipText(
+  change: TonightChange,
+  t: TFunction,
+  format: Pick<VenueFormat, "formatLocalTime">
+): string {
+  switch (change.kind) {
+    case "pause_online":
+      return t("availability.tonight.chip.pause");
+    case "close_early":
+      return t("availability.tonight.chip.closeEarly", {
+        time: minuteText(change.closeAt, t, format),
+      });
+    case "stop_window":
+      return t("availability.tonight.chip.stopWindow", {
+        from: minuteText(change.from, t, format),
+        to: minuteText(change.to, t, format),
+      });
+    case "block_tables":
+      // The server stores "rest of tonight" as 0 to the two-day maximum.
+      if (change.to >= MAX_MINUTE) {
+        return change.from === 0
+          ? t("availability.tonight.chip.blocked", { count: change.tableCount })
+          : t("availability.tonight.chip.blockedFrom", {
+              count: change.tableCount,
+              from: minuteText(change.from, t, format),
+            });
+      }
+      return t("availability.tonight.chip.blockedWindow", {
+        count: change.tableCount,
+        from: minuteText(change.from, t, format),
+        to: minuteText(change.to, t, format),
+      });
+    case "pacing":
+      return t("availability.tonight.chip.pacing", { count: change.covers });
+  }
 }
