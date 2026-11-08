@@ -48,6 +48,7 @@ import { CloseDialog } from "../components/availability/CloseDialog.js";
 import { GoToDateDialog } from "../components/availability/GoToDateDialog.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
+import { TodayLine } from "../components/availability/TodayLine.js";
 import { RegularWeekLine } from "../components/availability/RegularWeekLine.js";
 import { NextHolidayNudge } from "../components/availability/NextHolidayNudge.js";
 import { DiscardChangesDialog } from "../components/availability/DiscardChangesDialog.js";
@@ -410,10 +411,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         }
       />
     );
-  const pageHeader = (actions: ReactNode) => (
+  const pageHeader = (actions: ReactNode, description?: ReactNode) => (
     <PageHeader
       title={t("availability.title")}
-      description={t("availability.description")}
+      description={description ?? t("availability.description")}
       asideBesideTitle
       aside={
         actions || entry.from === "setup" ? (
@@ -767,7 +768,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
 
   return (
     <Stack gap="md">
-      {pageHeader(headerActions)}
+      {pageHeader(
+        headerActions,
+        <TodayLine venueId={selectedVenueId} bannerShowsOnline={pause !== null} />
+      )}
       {pause && config.data && (
         <OnlinePausedBanner
           venueId={selectedVenueId}

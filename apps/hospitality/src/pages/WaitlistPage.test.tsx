@@ -322,6 +322,9 @@ const makeTable = (overrides: Partial<Table> = {}): Table => ({
 const OPEN_TONIGHT: StaffTonight = {
   serviceDate: "2026-10-23",
   waitlistClosed: false,
+  summary: null,
+  readStatus: "ready",
+  refetch: () => undefined,
   config: null,
   rules: [],
 };
@@ -418,6 +421,9 @@ describe("WaitlistPage", () => {
     const tonightWith = (over: Record<string, unknown>): StaffTonight => ({
       serviceDate: "2026-10-23",
       waitlistClosed: true,
+      summary: null,
+      readStatus: "ready",
+      refetch: () => undefined,
       config: null,
       rules: [
         {

@@ -1,8 +1,11 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
+/** What `useViewport` answers; the lines are a phone-only mode. */
+const viewport = vi.hoisted(() => ({ current: "desktop" }));
+vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.current }));
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
@@ -303,5 +306,78 @@ describe("RegularWeekPanel", () => {
       expect(screen.getByRole("alert")).toHaveTextContent("Network down");
       expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     });
+  });
+});
+
+describe("RegularWeekPanel service lines", () => {
+  const lunchLine = () =>
+    screen.getByRole("button", { name: /^Lunch, 11:30 AM–3:00 PM · Mon–Fri/ });
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+  beforeEach(() => {
+    vi.clearAllMocks();
+    save.mockResolvedValue({ version: 8, changeId: "chg" });
+  });
+  afterEach(() => {
+    viewport.current = "desktop";
+  });
+
+  it("on a phone shows each service as a closed line", () => {
+    viewport.current = "phone";
+    render(panel(stateOf(demoConfig())));
+    expect(lunchLine()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryAllByLabelText("Service name")).toHaveLength(0);
+    fireEvent.click(lunchLine());
+    expect(screen.getAllByLabelText("Service name")).toHaveLength(1);
+  });
+
+  it("on a desktop shows every service open, with no lines", () => {
+    render(panel(stateOf(demoConfig())));
+    expect(screen.queryByRole("button", { name: /^Lunch, / })).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Service name")).toHaveLength(3);
+  });
+
+  it("on a tablet shows every service open, with no lines", () => {
+    viewport.current = "tablet";
+    render(panel(stateOf(demoConfig())));
+    expect(screen.queryByRole("button", { name: /^Lunch, / })).not.toBeInTheDocument();
+  });
+
+  it.each(["phone", "desktop"])(
+    "a Save refused for a problem focuses the first invalid field (%s)",
+    (width) => {
+      viewport.current = width;
+      render(panel(stateOf(demoConfig())));
+      if (width === "phone") fireEvent.click(lunchLine());
+      const name = screen.getAllByLabelText("Service name")[0] as HTMLInputElement;
+      expect(name.value).toBe("Lunch");
+      fireEvent.change(name, { target: { value: "" } });
+      screen.getByRole("button", { name: "Starting later…" }).focus();
+
+      const saveButton = screen.getByRole("button", { name: "Save" });
+      expect(saveButton).toHaveAttribute("aria-disabled", "true");
+      fireEvent.click(saveButton);
+
+      expect(save).not.toHaveBeenCalled();
+      expect(screen.getAllByLabelText("Service name")[0]).toHaveFocus();
+    }
+  );
+
+  it("closes every line once a save has landed", async () => {
+    viewport.current = "phone";
+    const config = demoConfig();
+    const { rerender } = render(panel(stateOf(config)));
+    fireEvent.click(lunchLine());
+    fireEvent.click(lunchMonday());
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+
+    rerender(panel(stateOf(config, 8)));
+    expect(screen.getByRole("button", { name: /^Lunch, 11:30 AM–3:00 PM/ })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+    expect(screen.queryAllByLabelText("Service name")).toHaveLength(0);
   });
 });

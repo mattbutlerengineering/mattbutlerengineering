@@ -6,6 +6,7 @@ import {
   replaceService,
   setSharedDays,
   type QuickSetupDraft,
+  type ServiceDraft,
 } from "./quick-setup-draft.js";
 import { type QuickSetupIssue } from "./quick-setup-validate.js";
 import { moveServiceStart } from "./quick-setup-placement.js";
@@ -14,13 +15,17 @@ import {
   QuickSetupFixContext,
   QuickSetupIdScopeContext,
   quickSetupFieldId,
+  quickSetupLineId,
   useQuickSetupFieldId,
 } from "./quick-setup-field-helpers.js";
+import { ServiceLineHeader } from "./quick-setup-line-header.js";
 import { DayPicker } from "./quick-setup-fields.js";
 import { ServiceRow } from "./QuickSetupServiceRow.js";
 import { RegularWeekStrip } from "./RegularWeekStrip.js";
+import { PreviewRow } from "./quick-setup-preview-row.js";
 import { useWeekdaySummary } from "./ScheduleFormParts.js";
 import styles from "./QuickSetupForm.module.css";
+import lineStyles from "./QuickSetupLine.module.css";
 
 export interface QuickSetupFormProps {
   readonly draft: QuickSetupDraft;
@@ -37,6 +42,22 @@ export interface QuickSetupFormProps {
   readonly fixedDays?: boolean;
   /** The id prefix of this form's fields, for an owner that must find them itself (focus a problem). */
   readonly idScope?: string;
+  /**
+   * Each service is a closed line on a phone (ux.md F2): one open at a time, plus any with a
+   * problem. Never set in onboarding. The owner re-keys the form after a save to close every line.
+   */
+  readonly collapsible?: boolean;
+}
+
+/** A service nothing has been typed into: there is no line to read, so it starts open. */
+function isBlankService(service: ServiceDraft) {
+  return (
+    service.name === "" &&
+    service.opens === null &&
+    service.lastSeating === null &&
+    service.closes === null &&
+    service.blocks.length === 0
+  );
 }
 
 function DaysField({ draft, onChange, issues, fixedDays }: QuickSetupFormProps) {
@@ -86,6 +107,7 @@ export function QuickSetupForm({
   inDrawer = false,
   fixedDays = false,
   idScope,
+  collapsible = false,
 }: QuickSetupFormProps) {
   const { t } = useTranslation();
   // Field ids carry the form instance: the week panel and the drawer opened from it can hold the
@@ -97,28 +119,53 @@ export function QuickSetupForm({
   const [announcement, setAnnouncement] = useState({ message: "", repeat: false });
   const announce = (message: string) =>
     setAnnouncement((last) => ({ message, repeat: !last.repeat }));
-  const focusAfterChangeRef = useRef<string | null>(null);
+  const focusAfterChangeRef = useRef<{ id: string; target: "name" | "header" } | null>(null);
+
+  // Phone lines (ux.md F2): the one service the Manager opened, plus every service with a problem.
+  // Forced-open is derived from `issues`, never stored, so fixing a problem releases the service.
+  // A brand-new empty service starts open: it has no line worth reading yet.
+  const [openId, setOpenId] = useState<string | null>(
+    () => draft.services.find(isBlankService)?.id ?? null
+  );
+  const firstIssueOf = new Map<string, QuickSetupIssue>();
+  for (const issue of issues) {
+    if (issue.serviceId !== null && !firstIssueOf.has(issue.serviceId)) {
+      firstIssueOf.set(issue.serviceId, issue);
+    }
+  }
+  const isOpen = (id: string) => openId === id || firstIssueOf.has(id);
 
   useEffect(() => {
-    const id = focusAfterChangeRef.current;
-    if (id === null) return;
+    const pending = focusAfterChangeRef.current;
+    if (pending === null) return;
     focusAfterChangeRef.current = null;
-    document.getElementById(quickSetupFieldId(id, "name", undefined, scope))?.focus();
+    const id =
+      pending.target === "name"
+        ? quickSetupFieldId(pending.id, "name", undefined, scope)
+        : quickSetupLineId(pending.id, "header", scope);
+    document.getElementById(id)?.focus();
   }, [draft.services.length, scope]);
 
   const addService = () => {
     const service = emptyService(crypto.randomUUID());
-    focusAfterChangeRef.current = service.id;
+    focusAfterChangeRef.current = { id: service.id, target: "name" };
+    // The new service opens and the others close (forced ones stay open).
+    setOpenId(service.id);
     announce(t("availability.quickSetup.serviceAdded", { n: draft.services.length + 1 }));
     onChange({ ...draft, services: [...draft.services, service] });
   };
   const removeService = (id: string) => {
     announce("");
-    // The removed row's controls are gone, so focus goes to the name of the service before it
-    // (after it, for the first).
+    // The removed row's controls are gone. Lines: focus goes to the next service's header, else
+    // the previous one's. Otherwise: the name of the service before it (after it, for the first).
     const at = draft.services.findIndex((s) => s.id === id);
-    const neighbour = draft.services[at > 0 ? at - 1 : 1];
-    focusAfterChangeRef.current = neighbour?.id ?? null;
+    const neighbour = collapsible
+      ? (draft.services[at + 1] ?? draft.services[at - 1])
+      : draft.services[at > 0 ? at - 1 : 1];
+    focusAfterChangeRef.current = neighbour
+      ? { id: neighbour.id, target: collapsible ? "header" : "name" }
+      : null;
+    if (openId === id) setOpenId(null);
     onChange({ ...draft, services: draft.services.filter((s) => s.id !== id) });
   };
 
@@ -132,19 +179,48 @@ export function QuickSetupForm({
       <QuickSetupFixContext value={applyFix}>
         <div className={inDrawer ? styles.layoutSingle : styles.layout}>
           <Stack gap="md">
-            {draft.services.map((service, index) => (
-              <ServiceRow
-                draft={draft}
-                key={service.id}
-                service={service}
-                index={index}
-                removable={draft.services.length > 1}
-                issues={issues}
-                onChange={(next) => onChange(replaceService(draft, next))}
-                onRemove={() => removeService(service.id)}
-                announce={announce}
-              />
-            ))}
+            {draft.services.map((service, index) => {
+              const open = !collapsible || isOpen(service.id);
+              const forced = firstIssueOf.has(service.id);
+              // The same keyed wrapper in both modes: rotating across the phone width keeps the rows.
+              return (
+                <div key={service.id}>
+                  {collapsible && (
+                    <ServiceLineHeader
+                      draft={draft}
+                      service={service}
+                      open={open}
+                      problem={firstIssueOf.get(service.id) ?? null}
+                      // A line with a problem is pinned open, never closed: fixing it must not
+                      // collapse the fields the Manager is typing into.
+                      onToggle={() =>
+                        setOpenId(openId === service.id && !forced ? null : service.id)
+                      }
+                    />
+                  )}
+                  {/* A closed service mounts no fields: it has no problem, so nothing hidden needs focus.
+                      Focus inside a line adopts it, so what is being edited stays open after its problem clears. */}
+                  <div
+                    id={quickSetupLineId(service.id, "fields", scope)}
+                    className={collapsible && open ? lineStyles.fields : undefined}
+                    onFocusCapture={() => setOpenId(service.id)}
+                  >
+                    {open && (
+                      <ServiceRow
+                        draft={draft}
+                        service={service}
+                        index={index}
+                        removable={draft.services.length > 1}
+                        issues={issues}
+                        onChange={(next) => onChange(replaceService(draft, next))}
+                        onRemove={() => removeService(service.id)}
+                        announce={announce}
+                      />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
             <div>
               <Button variant="secondary" onClick={addService}>
                 {t("availability.quickSetup.addService")}
@@ -158,7 +234,11 @@ export function QuickSetupForm({
           </Stack>
           {!inDrawer && (
             <div className={styles.stripColumn}>
-              <RegularWeekStrip draft={draft} local={local} />
+              {collapsible ? (
+                <PreviewRow draft={draft} local={local} />
+              ) : (
+                <RegularWeekStrip draft={draft} local={local} />
+              )}
             </div>
           )}
         </div>

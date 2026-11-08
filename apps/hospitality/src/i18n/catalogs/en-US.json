@@ -2274,6 +2274,10 @@
       "differentHours": "Different hours on some days",
       "blockLegend": "{{service}}: different hours",
       "removeBlock": "Remove these hours",
+      "line": {
+        "otherHours": "other hours {{days}}",
+        "nextDay": "(next day)"
+      },
       "strip": {
         "about": "First and last time a guest can book.",
         "local": "From the hours you typed",
@@ -2872,6 +2876,46 @@
       "selectDays": "Select days",
       "selectingHint": "Tap the days you want",
       "selectingHintPointer": "Click the days you want, or drag across them"
+    },
+    "today": {
+      "title": "Today",
+      "closed": "Closed",
+      "hours": "{{name}} {{from}}–{{to}}",
+      "itemsLabel": "In force tonight",
+      "change": "Change tonight",
+      "loadError": "Couldn't load today's hours.",
+      "serviceClosed": "{{name}} closed",
+      "closingEarly": "Closing early · {{time}}",
+      "closingEarlyNamed": "{{name}} closing early · {{time}}",
+      "closedBetween": "Closed {{from}}–{{to}}",
+      "targetClosedBetween": "{{name}} closed {{from}}–{{to}}",
+      "pausedBetween": {
+        "online": "Online paused {{from}}–{{to}}",
+        "phone": "Phone paused {{from}}–{{to}}",
+        "waitlist": "Waitlist paused {{from}}–{{to}}",
+        "online_phone": "Online and phone paused {{from}}–{{to}}",
+        "online_waitlist": "Online and waitlist paused {{from}}–{{to}}",
+        "phone_waitlist": "Phone and waitlist paused {{from}}–{{to}}",
+        "online_phone_waitlist": "Booking paused {{from}}–{{to}}"
+      },
+      "paused": {
+        "online": "Online paused",
+        "phone": "Phone paused",
+        "waitlist": "Waitlist paused",
+        "online_phone": "Online and phone paused",
+        "online_waitlist": "Online and waitlist paused",
+        "phone_waitlist": "Phone and waitlist paused",
+        "online_phone_waitlist": "Booking paused"
+      },
+      "pausedFrom": {
+        "online": "Online paused from {{time}}",
+        "phone": "Phone paused from {{time}}",
+        "waitlist": "Waitlist paused from {{time}}",
+        "online_phone": "Online and phone paused from {{time}}",
+        "online_waitlist": "Online and waitlist paused from {{time}}",
+        "phone_waitlist": "Phone and waitlist paused from {{time}}",
+        "online_phone_waitlist": "Booking paused from {{time}}"
+      }
     },
     "tonight": {
       "title": "Tonight",

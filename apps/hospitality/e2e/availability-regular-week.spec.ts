@@ -218,11 +218,17 @@ test.describe("Change regular week (F-UW)", () => {
         await expect(stranded).toBeVisible();
         await expect(drawer.getByText(/party of 4/)).toBeVisible();
 
-        // Fits: nothing in the drawer scrolls sideways, and Save is still on screen.
+        // Fits: nothing in the drawer scrolls sideways (the service lines' clipped, visually hidden
+        // separators are not content), and Save is still on screen.
         const overflow = await drawer.evaluate((el) => {
           const scrollers = [el, ...Array.from(el.querySelectorAll<HTMLElement>("*"))];
           return scrollers
-            .filter((n) => n.scrollWidth > n.clientWidth + 1 && n.clientWidth > 0)
+            .filter(
+              (n) =>
+                n.scrollWidth > n.clientWidth + 1 &&
+                n.clientWidth > 0 &&
+                !n.className.toString().includes("visuallyHidden")
+            )
             .map((n) => `${n.tagName}.${n.className} ${n.scrollWidth}>${n.clientWidth}`);
         });
         expect(overflow).toEqual([]);
@@ -258,7 +264,12 @@ test.describe("Change regular week (F-UW)", () => {
 
       const wide = await drawer.evaluate((root) =>
         [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))]
-          .filter((n) => n.clientWidth > 0 && n.scrollWidth > n.clientWidth + 1)
+          .filter(
+            (n) =>
+              n.clientWidth > 0 &&
+              n.scrollWidth > n.clientWidth + 1 &&
+              !String(n.className).includes("visuallyHidden")
+          )
           .map(
             (n) =>
               `${n.tagName}.${String(n.className).slice(0, 30)} ${n.scrollWidth}>${n.clientWidth}`

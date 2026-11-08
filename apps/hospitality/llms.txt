@@ -1432,6 +1432,19 @@
       export function useQuickSetupFieldId() { /* ... */ }
     </item>
     <item priority="high">
+      export function quickSetupLineId(
+        serviceId: string,
+        part: "header" | "fields",
+        scope: string = DEFAULT_SCOPE
+      ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useQuickSetupLineId() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function focusFirstInvalid(issues: readonly QuickSetupIssue[], scope: string) { /* ... */ }
+    </item>
+    <item priority="high">
       export function issuesFor(
         issues: readonly QuickSetupIssue[],
         serviceId: string | null,
@@ -1444,6 +1457,25 @@
     </item>
     <item priority="high">
       export const QuickSetupFixContext: unknown;
+    </item>
+  </file>
+  <file path="src/components/availability/quick-setup-line.ts">
+    <item priority="low">
+      type LineFormat = Pick<VenueFormat, "formatCalendarDate" | "formatLocalTime...;
+    </item>
+    <item priority="low">
+      interface ServiceLineText {
+        name: string;
+        summary: string;
+      }
+    </item>
+    <item priority="high">
+      export function serviceLineText(
+        service: ServiceDraft,
+        draft: QuickSetupDraft,
+        format: LineFormat,
+        t: TFunction
+      ): ServiceLineText { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/quick-setup-placement.ts">
@@ -2258,6 +2290,87 @@
       export function suggestName(startsOn: string | null, endsOn: string | null): NameSuggestion | null { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/today-line-text.ts">
+    <item priority="high">
+      type Format = Pick<VenueFormat, "formatLocalTime">;
+    </item>
+    <item priority="high">
+      type PausedSet = BookingChannel | "online_phone" | "online_waitlist" | "phone_waitlist" | "online_phone_waitlist";
+    </item>
+    <item priority="medium">
+      function channelSet(channels: readonly BookingChannel[]): PausedSet { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pausedText(
+        item: Extract<TodayItem, { kind: "paused" }>,
+        t: TFunction,
+        format: Format
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function todayItemText(item: TodayItem, t: TFunction, format: Format): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hoursText(model: TodayLineModel, t: TFunction, format: Format): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/today-line.ts">
+    <item priority="high">
+      type Closure = AvailabilityDaySummary["closures"][number];
+    </item>
+    <item priority="high">
+      type DayService = NonNullable<AvailabilityDaySummary["services"]>[number];
+    </item>
+    <item priority="low">
+      type BookingChannel = NonNullable<DateRule["bookingTypes"]>[number];
+    </item>
+    <item priority="low">
+      type TodayItem = { readonly kind: "serviceClose | { readonly kind: "closingEarly | {
+            readonly kind: "closed | {
+            readonly kind: "paused | {
+            readonly kind: "paused | { readonly kind: "tonight"; re;
+    </item>
+    <item priority="low">
+      interface TodayLineModel {
+        serviceDate: string;
+        closed: boolean;
+        hours: readonly { name: string; opensAt: number; closesAt: numbe...;
+        items: readonly TodayItem[];
+      }
+    </item>
+    <item priority="low">
+      interface TodayLineInput {
+        serviceDate: string;
+        summary: AvailabilityDaySummary;
+        rules: readonly DateRule[];
+        now: Date;
+        serviceNames: ReadonlyMap<string, string>;
+      }
+    </item>
+    <item priority="high">
+      interface Ranked {
+        rank: number;
+        item: TodayItem;
+      }
+    </item>
+    <item priority="medium">
+      function reachesClose(band: Closure, closesAt: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureItem(
+        band: Closure,
+        names: Pick<TodayLineInput, "serviceNames" | "sectionNames">,
+        services: readonly DayService[],
+        span: { opensAt: number; closesAt: number }
+      ): Ranked | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isWholeDayServiceBand(band: Closure, services: readonly DayService[]): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function todayLine(input: TodayLineInput): TodayLineModel { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/tonight-state.ts">
     <item priority="low">
       type TonightChange = { readonly ruleId: string; rea | { readonly ruleId: string; rea | {
@@ -2296,6 +2409,13 @@
         today: string,
         now: Date
       ): readonly TonightChange[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tonightChipText(
+        change: TonightChange,
+        t: TFunction,
+        format: Pick<VenueFormat, "formatLocalTime">
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/use-conflict-review.ts">
@@ -4959,6 +5079,7 @@
         config: AvailabilityConfig | null;
         rules: readonly DateRule[];
         waitlistClosed: boolean;
+        summary: AvailabilityDaySummary | null;
       }
     </item>
     <item priority="high">
@@ -5055,6 +5176,21 @@
         entries,
         onActivate,
       }: UseTimelineKeyboardParams): UseTimelineKeyboardResult { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useTodayLine.ts">
+    <item priority="low">
+      interface TodayLineState {
+        status: "loading" | "error" | "ready";
+        model: TodayLineModel | null;
+        retry: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useTodayLine(
+        venueId: string | null | undefined,
+        bannerShowsOnline: boolean
+      ): TodayLineState { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useTonight.ts">

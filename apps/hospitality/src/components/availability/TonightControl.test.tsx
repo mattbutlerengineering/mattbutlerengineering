@@ -226,6 +226,18 @@ describe("TonightControl", () => {
     endTonight.mockResolvedValue({ version: 8, changeId: "c" });
   });
 
+  describe("defaultOpen (the Today line's deep link)", () => {
+    it("starts with the panel open", () => {
+      renderControl({ viewerRole: "manager", defaultOpen: true });
+      expect(screen.getByRole("switch", { name: "Pause online booking" })).toBeInTheDocument();
+    });
+
+    it("starts closed by default", () => {
+      renderControl({ viewerRole: "manager" });
+      expect(screen.queryByRole("switch", { name: "Pause online booking" })).toBeNull();
+    });
+  });
+
   describe("Host without the grant", () => {
     it("hides the emergency close and explains who can use it as text", () => {
       renderControl({ viewerRole: "host", hostEmergencyClose: false });

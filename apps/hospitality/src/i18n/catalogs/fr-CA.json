@@ -2330,6 +2330,10 @@
       "differentHours": "Heures différentes certains jours",
       "blockLegend": "{{service}} : heures différentes",
       "removeBlock": "Retirer ces heures",
+      "line": {
+        "otherHours": "autres heures {{days}}",
+        "nextDay": "(le lendemain)"
+      },
       "strip": {
         "about": "Première et dernière heure qu’un client peut réserver.",
         "local": "À partir des heures saisies",
@@ -2954,6 +2958,46 @@
       "selectDays": "Sélectionner des jours",
       "selectingHint": "Touchez les jours voulus",
       "selectingHintPointer": "Cliquez sur les jours voulus ou faites glisser dessus"
+    },
+    "today": {
+      "title": "Aujourd'hui",
+      "closed": "Fermé",
+      "hours": "{{name}} {{from}}–{{to}}",
+      "itemsLabel": "En vigueur ce soir",
+      "change": "Modifier ce soir",
+      "loadError": "Impossible de charger les heures d'aujourd'hui.",
+      "serviceClosed": "Fermé : {{name}}",
+      "closingEarly": "Fermeture hâtive · {{time}}",
+      "closingEarlyNamed": "{{name}} : fermeture hâtive · {{time}}",
+      "closedBetween": "Fermé {{from}}–{{to}}",
+      "targetClosedBetween": "{{name}} : fermé {{from}}–{{to}}",
+      "pausedBetween": {
+        "online": "Réservations en ligne suspendues {{from}}–{{to}}",
+        "phone": "Réservations par téléphone suspendues {{from}}–{{to}}",
+        "waitlist": "Liste d'attente suspendue {{from}}–{{to}}",
+        "online_phone": "Réservations en ligne et par téléphone suspendues {{from}}–{{to}}",
+        "online_waitlist": "Réservations en ligne et liste d'attente suspendues {{from}}–{{to}}",
+        "phone_waitlist": "Réservations par téléphone et liste d'attente suspendues {{from}}–{{to}}",
+        "online_phone_waitlist": "Réservations suspendues {{from}}–{{to}}"
+      },
+      "paused": {
+        "online": "Réservations en ligne suspendues",
+        "phone": "Réservations par téléphone suspendues",
+        "waitlist": "Liste d'attente suspendue",
+        "online_phone": "Réservations en ligne et par téléphone suspendues",
+        "online_waitlist": "Réservations en ligne et liste d'attente suspendues",
+        "phone_waitlist": "Réservations par téléphone et liste d'attente suspendues",
+        "online_phone_waitlist": "Réservations suspendues"
+      },
+      "pausedFrom": {
+        "online": "Réservations en ligne suspendues dès {{time}}",
+        "phone": "Réservations par téléphone suspendues dès {{time}}",
+        "waitlist": "Liste d'attente suspendue dès {{time}}",
+        "online_phone": "Réservations en ligne et par téléphone suspendues dès {{time}}",
+        "online_waitlist": "Réservations en ligne et liste d'attente suspendues dès {{time}}",
+        "phone_waitlist": "Réservations par téléphone et liste d'attente suspendues dès {{time}}",
+        "online_phone_waitlist": "Réservations suspendues dès {{time}}"
+      }
     },
     "tonight": {
       "title": "Ce soir",

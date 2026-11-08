@@ -35,6 +35,37 @@ export function useQuickSetupFieldId() {
   );
 }
 
+/** The DOM id of a service's phone line: its header button, or the region its controls sit in. */
+export function quickSetupLineId(
+  serviceId: string,
+  part: "header" | "fields",
+  scope: string = DEFAULT_SCOPE
+) {
+  return `${scope}-${serviceId}-line-${part}`;
+}
+
+/** `quickSetupLineId` for the form instance this component is rendered in. */
+export function useQuickSetupLineId() {
+  const scope = use(QuickSetupIdScopeContext);
+  return useCallback(
+    (serviceId: string, part: "header" | "fields") => quickSetupLineId(serviceId, part, scope),
+    [scope]
+  );
+}
+
+/**
+ * Moves focus to the first problem's field, for an owner whose Save is refused. The form must
+ * have been given the same `scope` (`idScope`), and the field must be mounted: on a phone a
+ * service with a problem is held open, so it is.
+ */
+export function focusFirstInvalid(issues: readonly QuickSetupIssue[], scope: string) {
+  const first = issues[0];
+  if (!first) return;
+  document
+    .getElementById(quickSetupFieldId(first.serviceId, first.field, first.blockId, scope))
+    ?.focus();
+}
+
 export function issuesFor(
   issues: readonly QuickSetupIssue[],
   serviceId: string | null,

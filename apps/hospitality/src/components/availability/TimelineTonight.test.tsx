@@ -1,5 +1,7 @@
+import { useState, type ReactElement } from "react";
+import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
 
 type Query = {
   data: unknown;
@@ -29,9 +31,32 @@ vi.mock("../../hooks/useFloorPlans.js", () => ({
 }));
 vi.mock("../../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../../hooks/useNow.js", () => ({ useNow: () => new Date("2026-10-30T20:00:00Z") }));
-vi.mock("./TonightControl.js", () => ({ TonightControl: () => <div>Tonight panel</div> }));
+// Like the real control, `defaultOpen` only sets the panel's initial state.
+vi.mock("./TonightControl.js", () => ({
+  TonightControl: ({ defaultOpen }: { defaultOpen?: boolean }) => {
+    const [open] = useState(defaultOpen ?? false);
+    return <div>{open ? "Tonight panel (open)" : "Tonight panel"}</div>;
+  },
+}));
 
 import { TimelineTonight } from "./TimelineTonight.js";
+
+function render(ui: ReactElement) {
+  return rtlRender(<MemoryRouter initialEntries={["/timeline"]}>{ui}</MemoryRouter>);
+}
+
+function SearchProbe() {
+  return <output data-testid="search">{useLocation().search}</output>;
+}
+
+function renderAt(url: string) {
+  return rtlRender(
+    <MemoryRouter initialEntries={[url]}>
+      <TimelineTonight />
+      <SearchProbe />
+    </MemoryRouter>
+  );
+}
 
 const LOADED = { config: {}, version: 1, source: "rows" };
 
@@ -75,5 +100,42 @@ describe("TimelineTonight", () => {
     render(<TimelineTonight />);
     expect(screen.getByText("Tonight panel")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  describe("the Today line's deep link (?tonight=open)", () => {
+    it("opens the panel and removes the param, keeping others, so a reload does not reopen it", () => {
+      renderAt("/timeline?tonight=open&walkin=true");
+      expect(screen.getByText("Tonight panel (open)")).toBeInTheDocument();
+      expect(screen.getByTestId("search")).toHaveTextContent("?walkin=true");
+    });
+
+    it("stays closed without the param", () => {
+      renderAt("/timeline");
+      expect(screen.getByText("Tonight panel")).toBeInTheDocument();
+      expect(screen.getByTestId("search")).toBeEmptyDOMElement();
+    });
+
+    it("ignores any other value", () => {
+      renderAt("/timeline?tonight=1");
+      expect(screen.getByText("Tonight panel")).toBeInTheDocument();
+      expect(screen.getByTestId("search")).toHaveTextContent("?tonight=1");
+    });
+
+    it("asks once: a remount of the control (reads dropped, then back) does not reopen it", () => {
+      // A fresh element each time: re-rendering the very same one is bailed out by React.
+      const ui = () => (
+        <MemoryRouter initialEntries={["/timeline?tonight=open"]}>
+          <TimelineTonight />
+        </MemoryRouter>
+      );
+      const { rerender } = rtlRender(ui());
+      expect(screen.getByText("Tonight panel (open)")).toBeInTheDocument();
+      hooks.config = query({ isLoading: true });
+      rerender(ui());
+      expect(screen.queryByText(/Tonight panel/)).toBeNull();
+      hooks.config = query({ data: LOADED });
+      rerender(ui());
+      expect(screen.getByText("Tonight panel")).toBeInTheDocument();
+    });
   });
 });

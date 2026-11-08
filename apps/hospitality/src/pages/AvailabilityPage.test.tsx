@@ -115,6 +115,11 @@ vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
     <section aria-label="Quick setup">{venueId}</section>
   ),
 }));
+vi.mock("../components/availability/TodayLine.js", () => ({
+  TodayLine: ({ venueId, bannerShowsOnline }: { venueId: string; bannerShowsOnline: boolean }) => (
+    <section aria-label="Today line" data-venue={venueId} data-banner={String(bannerShowsOnline)} />
+  ),
+}));
 vi.mock("../components/availability/AvailabilityHistoryDrawer.js", () => ({
   AvailabilityHistoryDrawer: ({
     open,
@@ -606,6 +611,11 @@ describe("AvailabilityPage", () => {
       renderPage();
       expect(screen.getByRole("region", { name: "Quick setup" })).toHaveTextContent("venue-1");
       expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+    });
+
+    it("has no Today line: the setup form is the page", () => {
+      renderPage();
+      expect(screen.queryByRole("region", { name: "Today line" })).not.toBeInTheDocument();
     });
 
     it("tells a Host a manager sets the week, with no card", () => {
@@ -1612,6 +1622,33 @@ describe("AvailabilityPage layers", () => {
       expect(
         screen.queryByRole("button", { name: "Pause online booking" })
       ).not.toBeInTheDocument();
+    });
+
+    it("mounts the Today line after the header and before the banner, told the banner is up", () => {
+      extraRules.value = [
+        {
+          id: "pause-1",
+          kind: "closure",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          startsOn: "2026-10-28",
+          endsOn: null,
+        },
+      ];
+      renderPage(`/availability?tab=${tab}`);
+      const line = screen.getByRole("region", { name: "Today line" });
+      expect(line).toHaveAttribute("data-venue", "venue-1");
+      expect(line).toHaveAttribute("data-banner", "true");
+      const banner = screen.getByText("Online booking paused");
+      expect(line.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("tells the Today line there is no banner when nothing is paused", () => {
+      renderPage(`/availability?tab=${tab}`);
+      expect(screen.getByRole("region", { name: "Today line" })).toHaveAttribute(
+        "data-banner",
+        "false"
+      );
     });
   });
 

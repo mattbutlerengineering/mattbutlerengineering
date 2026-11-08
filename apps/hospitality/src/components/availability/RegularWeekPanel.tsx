@@ -3,10 +3,11 @@ import { useTranslation } from "react-i18next";
 import { Alert, Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { useViewport } from "../../hooks/useViewport.js";
 import { DraftPreview } from "./DraftPreview.js";
 import { LeaveGuard } from "./LeaveGuard.js";
 import type { QuickSetupDraft } from "./quick-setup-draft.js";
-import { useWeekdayName } from "./quick-setup-field-helpers.js";
+import { focusFirstInvalid, useWeekdayName } from "./quick-setup-field-helpers.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 import {
   BlockedReason,
@@ -109,6 +110,8 @@ function RegularWeekPanelBody(props: BodyProps) {
   const dayName = useWeekdayName();
   const summarize = useWeekdaySummary();
   const blockedId = useId();
+  const scopeId = useId();
+  const collapsible = useViewport() === "phone";
   const {
     draft,
     edit,
@@ -139,6 +142,8 @@ function RegularWeekPanelBody(props: BodyProps) {
     onGone: props.onDiscard,
   });
   const unsaved = dirty && !settling;
+  // Refused for a problem in the form, not for a conflict or a missing service.
+  const refused = blocked && block === null && issues.length > 0;
   const reviewing = review.review !== null;
   const { onStatus } = props;
   useEffect(() => {
@@ -167,7 +172,13 @@ function RegularWeekPanelBody(props: BodyProps) {
         ) : (
           <SaveFailure messages={saver.failure} stranded={saver.stranded} />
         )}
-        <QuickSetupForm draft={draft} onChange={edit} issues={issues} />
+        <QuickSetupForm
+          draft={draft}
+          onChange={edit}
+          issues={issues}
+          idScope={scopeId}
+          collapsible={collapsible}
+        />
         {dirty && (
           <>
             {weekdays.length > 0 && (
@@ -225,10 +236,14 @@ function RegularWeekPanelBody(props: BodyProps) {
                 </Button>
                 <Button
                   variant="primary"
-                  disabled={blocked}
+                  // A Save refused for a problem in the form stays pressable (aria-disabled, not
+                  // disabled): pressing it takes the Manager to the first problem.
+                  disabled={blocked && !refused}
+                  aria-disabled={refused || undefined}
+                  className={refused ? styles.refused : undefined}
                   aria-describedby={blocked ? blockedId : undefined}
                   isLoading={saver.isPending}
-                  onClick={() => void submit()}
+                  onClick={() => (refused ? focusFirstInvalid(issues, scopeId) : void submit())}
                 >
                   {t("availabilitySchedules.save")}
                 </Button>

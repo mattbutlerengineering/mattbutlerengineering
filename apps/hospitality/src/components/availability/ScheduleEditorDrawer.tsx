@@ -466,6 +466,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             issues={draftTouched ? issues : NO_ISSUES}
             inDrawer
             fixedDays={editing}
+            collapsible={viewport === "phone"}
           />
           <AlsoApplyTo
             options={alsoOptions}

@@ -1,0 +1,30 @@
+/* One flowing line in the page header's description slot: label, date, hours, items, link. */
+.line {
+  margin: 0;
+}
+
+.items {
+  display: inline;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.items > li {
+  display: inline-block;
+  margin-inline-end: var(--rialto-space-xs);
+}
+
+.change {
+  color: var(--rialto-text-secondary);
+  text-decoration: underline;
+}
+
+/* A touch target of at least 44 px on a phone. */
+@media (max-width: 767px) {
+  .change {
+    display: inline-flex;
+    align-items: center;
+    min-block-size: 44px;
+  }
+}
