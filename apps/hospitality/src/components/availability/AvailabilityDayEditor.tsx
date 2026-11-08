@@ -12,7 +12,6 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { weekdayIndexOf, type ResolvedDay } from "@mbe/availability";
 import {
-  AvailabilityConfigProblemSchema,
   type AvailabilityChangeSummary,
   type AvailabilityConfigSaveResult,
   type AvailabilityConfigState,
@@ -27,6 +26,7 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 import { ConflictDialog } from "./ConflictDialog.js";
+import { availabilityProblemOf } from "./conflict-problem.js";
 import { keepParked, parkedName, switchScope, type ParkedEdit } from "./scope-switch.js";
 import {
   buildDraftChanges,
@@ -106,12 +106,6 @@ const isDirty = (edit: EditState | null): boolean =>
 /** Something to lose: a save, or an edit held for a scope that has the service. */
 const holdsEdits = (edit: EditState | null): boolean =>
   edit !== null && (isDirty(edit) || edit.parked.length > 0);
-
-function problemOf(error: unknown) {
-  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-  const parsed = AvailabilityConfigProblemSchema.safeParse(details);
-  return parsed.success ? parsed.data : null;
-}
 
 /**
  * The editing half of the day drawer (ux.md F2): a read-mode list of services, and on the first
@@ -333,7 +327,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   };
 
   const rejectSave = (error: unknown, overwrote: boolean) => {
-    const problem = problemOf(error);
+    const problem = availabilityProblemOf(error);
     if (problem?.code === "version-conflict") {
       setConflict({
         winningChange: problem.winningChange ?? null,

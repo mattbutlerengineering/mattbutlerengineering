@@ -12,7 +12,6 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { stillClosedAfterReopen } from "@mbe/availability";
 import {
-  AvailabilityConfigProblemSchema,
   type ClosureOverlap,
   type DateRule,
   type StrandedReservation,
@@ -25,7 +24,7 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { addDays } from "../../utils/service-day.js";
 import { overlapLines } from "./closure-overlap-text.js";
-import { conflictOf } from "./conflict-problem.js";
+import { availabilityProblemOf, conflictOf } from "./conflict-problem.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 
 const NOTHING_STAYS: ClosureOverlap = { everyDate: false, by: [] };
@@ -78,10 +77,9 @@ interface Failure {
  * booking, and an older server names none.
  */
 function strandedOf(error: unknown): Failure | null {
-  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-  const problem = AvailabilityConfigProblemSchema.safeParse(details);
-  if (!problem.success || problem.data.code !== "invalid-config") return null;
-  const stranded = problem.data.issues?.filter((i) => i.code === "strands_booking") ?? [];
+  const problem = availabilityProblemOf(error);
+  if (problem?.code !== "invalid-config") return null;
+  const stranded = problem.issues?.filter((i) => i.code === "strands_booking") ?? [];
   if (stranded.length === 0) return null;
   const listed = stranded.flatMap((i) => (i.reservation ? [i.reservation] : []));
   return { text: "", listed, unlisted: stranded.length - listed.length };

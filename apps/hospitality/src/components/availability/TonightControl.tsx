@@ -17,7 +17,6 @@ import {
   useToast,
 } from "@mattbutlerengineering/rialto";
 import {
-  AvailabilityConfigProblemSchema,
   type AvailabilityConfigState,
   type ClosureDecision,
   type DateRule,
@@ -30,7 +29,7 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
-import { conflictOf, type Conflict } from "./conflict-problem.js";
+import { conflictOf, isDecisionRequired, type Conflict } from "./conflict-problem.js";
 import { useWinningChangeText } from "./use-winning-change-text.js";
 import { clockHour } from "../../utils/clock-hour.js";
 import { minuteText } from "./closure-band.js";
@@ -99,12 +98,6 @@ function chipText(change: TonightChange, t: TFunction, format: VenueFormat): str
     case "pacing":
       return t("availability.tonight.chip.pacing", { count: change.covers });
   }
-}
-
-function isDecisionRequired(error: unknown): boolean {
-  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-  const problem = AvailabilityConfigProblemSchema.safeParse(details);
-  return problem.success && problem.data.code === "decision-required";
 }
 
 /** The server refused the change itself (403): a retry cannot succeed. */
