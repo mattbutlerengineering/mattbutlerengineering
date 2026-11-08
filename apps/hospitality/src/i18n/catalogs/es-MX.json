@@ -3029,34 +3029,128 @@
     }
   },
   "setup": {
-    "yourVenue": "tu local",
-    "welcome": "Te damos la bienvenida a {{venueName}}",
-    "intro": "Completa unos pasos de configuración para empezar a recibir reservas.",
-    "progress": "{{percent}}% completado",
-    "stepsLabel": "Pasos de configuración",
-    "stepAria": "{{label}} — {{status}}",
-    "review": "Revisar",
-    "done": "Listo — {{venueName}}",
-    "status": {
-      "completed": "Completado",
-      "current": "Paso actual",
-      "locked": "Aún no disponible"
-    },
-    "steps": {
-      "onboarding": {
-        "label": "Datos básicos del local",
-        "description": "Configura el nombre, la zona horaria y la moneda de tu local.",
-        "cta": "Revisar datos del local"
+    "hub": {
+      "title": "Configuración del local",
+      "description": "Todo lo que un cliente puede reservar y cómo encaja. Cada línea abre el lugar donde lo cambias.",
+      "yourVenue": "tu local",
+      "loading": "Cargando la configuración del local",
+      "loadError": "No se pudo cargar la configuración del local.",
+      "groupError": "No se pudo cargar «{{group}}».",
+      "groups": {
+        "open": "Cuándo abres",
+        "sit": "Dónde se sientan los clientes"
       },
-      "hours": {
-        "label": "Definir horario de atención",
-        "description": "Configura qué días y en qué horarios abre tu local.",
-        "cta": "Definir horario de atención"
+      "notSetUp": "Sin configurar",
+      "hostUnset": "Lo configura un gerente.",
+      "regularWeek": "Semana habitual",
+      "label": {
+        "schedules": "Horarios",
+        "specialDates": "Fechas especiales",
+        "booking": "Reservas",
+        "floorPlan": "Plano de sala",
+        "noSection": "Sin sección"
       },
-      "floorPlan": {
-        "label": "Crear plano del salón",
-        "description": "Agrega un plano con al menos una mesa para habilitar las reservas.",
-        "cta": "Crear plano del salón"
+      "caption": {
+        "schedule": "Horario",
+        "service": "Servicio",
+        "section": "Sección",
+        "table": "Mesa",
+        "floorPlan": "Plano de sala"
+      },
+      "channelLabel": {
+        "online": "Reservas en línea",
+        "phone": "Reservas por teléfono",
+        "waitlist": "Lista de espera"
+      },
+      "channel": {
+        "online": "En línea",
+        "phone": "Teléfono",
+        "waitlist": "Lista de espera"
+      },
+      "what": {
+        "regularWeek": "Los días y servicios que los clientes pueden reservar.",
+        "schedules": "Semanas con nombre que sigue tu local. La semana habitual es una.",
+        "specialDates": "Cierres y horarios especiales para una fecha o un rango.",
+        "bookingUnset": "Con cuánta anticipación, cuánto aviso y qué tamaño de grupo pueden reservar en línea los clientes; se aplican los valores predeterminados.",
+        "booking": "Cómo reservan los clientes: en línea, por teléfono, en la lista de espera.",
+        "floorPlan": "Dónde están las mesas; sin una mesa, los clientes no pueden reservar."
+      },
+      "count": {
+        "schedules_one": "{{count}} horario",
+        "schedules_many": "{{count}} de horarios",
+        "schedules_other": "{{count}} horarios",
+        "specialDates_one": "{{count}} próxima",
+        "specialDates_many": "{{count}} de próximas",
+        "specialDates_other": "{{count}} próximas",
+        "channel_one": "cerrada en {{count}} fecha próxima",
+        "channel_many": "cerrada en {{count}} de fechas próximas",
+        "channel_other": "cerrada en {{count}} fechas próximas"
+      },
+      "open": "Abierto {{days}}",
+      "period": "{{range}}, {{days}}",
+      "until": "Hasta el {{date}}",
+      "from": "Desde el {{date}}",
+      "range": "{{from}} – {{to}}",
+      "serviceLine": "{{hours}} · {{days}}",
+      "rules": {
+        "daysAhead_one": "Hasta {{count}} día de anticipación",
+        "daysAhead_many": "Hasta {{count}} de días de anticipación",
+        "daysAhead_other": "Hasta {{count}} días de anticipación",
+        "noticeHours_one": "{{count}} hora de aviso",
+        "noticeHours_many": "{{count}} de horas de aviso",
+        "noticeHours_other": "{{count}} horas de aviso",
+        "largestParty_one": "grupos de hasta {{count}} en línea",
+        "largestParty_many": "grupos de hasta {{count}} en línea",
+        "largestParty_other": "grupos de hasta {{count}} en línea"
+      },
+      "closedRow": "{{target}}: cerrado",
+      "specialHoursRow": "{{target}}: horario especial",
+      "target": {
+        "venue": "Todo el local",
+        "service": "Un servicio",
+        "section": "Una sección",
+        "tables_one": "{{count}} mesa",
+        "tables_many": "{{count}} de mesas",
+        "tables_other": "{{count}} mesas"
+      },
+      "sections_one": "{{count}} sección",
+      "sections_many": "{{count}} de secciones",
+      "sections_other": "{{count}} secciones",
+      "tables_one": "{{count}} mesa",
+      "tables_many": "{{count}} de mesas",
+      "tables_other": "{{count}} mesas",
+      "seats_one": "{{count}} lugar",
+      "seats_many": "{{count}} de lugares",
+      "seats_other": "{{count}} lugares",
+      "floorPlanHint": "Las secciones y las mesas aparecen aquí cuando agregas un plano de sala",
+      "actions": {
+        "setUpRegularWeek": "Configurar la semana habitual",
+        "changeRegularWeek": "Cambiar la semana habitual…",
+        "editSchedule": "Editar",
+        "compareServices": "Comparar servicios",
+        "createSchedule": "Crear otro horario…",
+        "openCalendar": "Abrir el calendario",
+        "openSpecialDates": "Abrir Fechas especiales",
+        "bookingRules": "Reglas de reserva…",
+        "openFloorPlan": "Abrir el plano de sala",
+        "addFloorPlan": "Agregar plano de sala",
+        "addAnotherFloorPlan": "Agregar otro plano de sala",
+        "closeSection": "Cerrar en una fecha…",
+        "moveToSection": "Pasar a una sección"
+      },
+      "strip": {
+        "title": "Avance de la configuración",
+        "count": "{{done}} de {{total}}",
+        "steps": {
+          "venueBasics": "Datos básicos del local",
+          "regularWeek": "Semana habitual",
+          "floorPlan": "Plano de sala"
+        },
+        "state": {
+          "done": "Listo",
+          "next": "Siguiente",
+          "later": "Aún no"
+        }
       }
     }
   },

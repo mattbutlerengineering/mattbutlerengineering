@@ -6862,6 +6862,172 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="venue-setup">
+  <file path="src/components/venue-setup/setup-tree.ts">
+    <item priority="low">
+      type Channel = (typeof CHANNELS)[number];
+    </item>
+    <item priority="low">
+      type SetupNodeKind = "schedules" | "schedule" | "service" | "specialDates" | "specialDate" | "booking" | "channel" | "floorPlan" | "section" | "noSection" | "table";
+    </item>
+    <item priority="low">
+      type ClosureTarget = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "section"; re | { readonly kind: "booking"; re | { readonly kind: "tables"; rea;
+    </item>
+    <item priority="low">
+      type NodeState = { readonly kind: "unset" } | { readonly kind: "count"; read | { readonly kind: "week"; reado | {
+            readonly kind: "period | {
+            readonly kind: "servic | {
+            readonly kind: "rules" | {
+            readonly kind: "closur | { readonly kind: "floorPlan";  | { readonly kind: "tables"; rea | { readonly kind: "seats"; read;
+    </item>
+    <item priority="low">
+      type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "compareServices" | "createSchedule" | "openCalendar" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
+    </item>
+    <item priority="low">
+      type SetupActionTarget = { readonly kind: "link"; reado | { readonly kind: "dialog"; rea;
+    </item>
+    <item priority="low">
+      interface SetupAction {
+        id: SetupActionId;
+        target: SetupActionTarget;
+        primary: boolean;
+        subject?: string;
+      }
+    </item>
+    <item priority="low">
+      interface SetupNode {
+        id: string;
+        kind: SetupNodeKind;
+        name: string | null;
+        state: NodeState;
+        actions: readonly SetupAction[];
+      }
+    </item>
+    <item priority="low">
+      type GroupLoad = { readonly status: "loading" } | { readonly status: "error"; re | { readonly status: "ready"; re;
+    </item>
+    <item priority="low">
+      interface OpenData {
+        config: AvailabilityConfig;
+        settings: VenueSettings | null | undefined;
+      }
+    </item>
+    <item priority="low">
+      interface SitData {
+        floorPlans: readonly FloorPlan[];
+        sections: readonly FloorPlanSection[];
+        tables: readonly Table[];
+      }
+    </item>
+    <item priority="low">
+      interface SetupTreeInput {
+        venueName: string;
+        isManager: boolean;
+        readiness: "setup" | "operational";
+        today: string;
+        open: GroupLoad<OpenData>;
+      }
+    </item>
+    <item priority="low">
+      type GroupState = { readonly status: "loading" } | { readonly status: "error"; re | { readonly status: "ready" };
+    </item>
+    <item priority="low">
+      interface SetupGroup {
+        id: "open" | "sit";
+        load: GroupState;
+        nodes: readonly SetupNode[];
+      }
+    </item>
+    <item priority="low">
+      interface SetupTree {
+        venueName: string;
+        groups: readonly [SetupGroup, SetupGroup];
+      }
+    </item>
+    <item priority="high">
+      type Link = { readonly kind: "link"; readonly to: string };
+    </item>
+    <item priority="medium">
+      function scheduleNode(
+        schedule: Schedule,
+        config: AvailabilityConfig,
+        services: ReadonlyMap<string, { readonly name: string; readonly position: number }>,
+        manager: boolean
+      ): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function targetOf(
+        rule: DateRule,
+        services: ReadonlyMap<string, string>,
+        sections: ReadonlyMap<string, string> | null
+      ): ClosureTarget { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialDatesNode(
+        config: AvailabilityConfig,
+        today: string,
+        sections: ReadonlyMap<string, string> | null,
+        manager: boolean
+      ): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingNode(
+        config: AvailabilityConfig,
+        settings: VenueSettings | null | undefined,
+        today: string,
+        manager: boolean
+      ): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function openNodes(
+        data: OpenData,
+        today: string,
+        sections: ReadonlyMap<string, string> | null,
+        manager: boolean
+      ): SetupNode[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tableNode(table: Table): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function floorPlanNode(
+        plan: FloorPlan,
+        data: SitData,
+        manager: boolean,
+        hasTables: boolean
+      ): SetupNode { /* ... */ }
+    </item>
+    <item priority="medium">
+      function sitNodes(data: SitData, manager: boolean): SetupNode[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withPrimary(nodes: readonly SetupNode[], targetId: string | null): SetupNode[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildSetupTree(input: SetupTreeInput): SetupTree { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/venue-setup/useSetupNodeText.ts">
+    <item priority="low">
+      interface SetupNodeText {
+        caption: (node: SetupNode) => string | null;
+        label: (node: SetupNode) => string;
+        whatIs: (node: SetupNode) => string | null;
+        state: (node: SetupNode) => string;
+        actionLabel: (action: SetupAction, node: SetupNode) => string;
+      }
+    </item>
+    <item priority="high">
+      export function useSetupNodeText(): SetupNodeText { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="vite.manualChunks.ts">
   <file path="vite.manualChunks.ts">
     <item priority="high">

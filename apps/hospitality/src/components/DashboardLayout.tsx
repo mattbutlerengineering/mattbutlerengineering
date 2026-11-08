@@ -155,13 +155,7 @@ function DashboardLayoutInner() {
     }
 
     if (readiness.status === "operational") {
-      // Only bounce the /setup checklist itself — /setup/hours (and any
-      // other /setup/* subpage) must stay reachable so a manager can edit
-      // operating hours after a venue goes operational (#4982).
-      if (path === "/setup") {
-        navigate("/timeline", { replace: true });
-      }
-      // Redirect old root (index) to timeline
+      // /setup is the standing Venue Setup page for every venue: only the root bounces.
       if (path === "/" || path === "") {
         navigate("/timeline", { replace: true });
       }

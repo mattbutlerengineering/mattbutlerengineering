@@ -3,12 +3,12 @@ import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
 
 /**
  * F1 (docs/features/venue-availability/ux.md): a Manager at a venue with no hours sets the
- * bistro week from the quick-setup card, bookings open, and the Setup checklist marks hours as
+ * bistro week from the quick-setup card, bookings open, and Venue Setup marks hours as
  * done. The config and venue endpoints are stateful: they answer "empty" until the PUT lands.
  */
 
 test.describe("Availability quick setup (F1)", () => {
-  test("a Manager sets the bistro week from an empty venue and the checklist marks hours done", async ({
+  test("a Manager sets the bistro week from an empty venue and Venue Setup marks hours done", async ({
     mockedPage,
   }) => {
     const state = await mockEmptyVenue(mockedPage);
@@ -27,9 +27,13 @@ test.describe("Availability quick setup (F1)", () => {
     await expect(mockedPage.getByRole("grid")).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
 
+    // Venue Setup (the standing /setup page) now shows the saved week and counts the step done.
     await mockedPage.goto("setup");
+    await expect(mockedPage.getByRole("listitem", { name: /Schedules/ })).toContainText(
+      "1 schedule"
+    );
     await expect(
-      mockedPage.getByRole("listitem", { name: /Set Operating Hours — Completed/ })
+      mockedPage.getByRole("region", { name: "Setup progress" }).getByText("2 of 3")
     ).toBeVisible();
   });
 

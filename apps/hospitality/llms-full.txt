@@ -17453,6 +17453,667 @@
     }
   </file>
   </section>
+  <section priority="medium" role="venue-setup">
+  <file path="src/components/venue-setup/setup-tree.ts">
+    export type Channel = (typeof CHANNELS)[number];
+    export type SetupNodeKind =
+      | "schedules"
+      | "schedule"
+      | "service"
+      | "specialDates"
+      | "specialDate"
+      | "booking"
+      | "channel"
+      | "floorPlan"
+      | "section"
+      | "noSection"
+      | "table";
+    export type ClosureTarget =
+      | { readonly kind: "venue" }
+      | { readonly kind: "service"; readonly name: string | null }
+      | { readonly kind: "section"; readonly name: string | null }
+      | { readonly kind: "booking"; readonly bookingTypes: readonly Channel[] }
+      | { readonly kind: "tables"; readonly count: number };
+    export type NodeState =
+      | { readonly kind: "unset" }
+      | { readonly kind: "count"; readonly count: number }
+      | { readonly kind: "week"; readonly weekdays: readonly number[] }
+      | {
+          readonly kind: "period";
+          readonly startsOn: string | null;
+          readonly endsOn: string | null;
+          readonly weekdays: readonly number[];
+        }
+      | {
+          readonly kind: "service";
+          readonly opensAt: number;
+          readonly lastSeatingAt: number;
+          readonly weekdays: readonly number[];
+          /** Days the service books other times on (a set that only moves the closing is left out). */
+          readonly changes: readonly {
+            readonly weekdays: readonly number[];
+            readonly opensAt: number;
+            readonly lastSeatingAt: number;
+          }[];
+        }
+      | {
+          readonly kind: "rules";
+          readonly daysAhead: number | null;
+          readonly noticeHours: number | null;
+          readonly largestParty: number | null;
+        }
+      | {
+          readonly kind: "closure";
+          readonly what: "closed" | "specialHours";
+          readonly startsOn: string;
+          readonly endsOn: string | null;
+          readonly target: ClosureTarget;
+        }
+      | { readonly kind: "floorPlan"; readonly sections: number; readonly tables: number }
+      | { readonly kind: "tables"; readonly count: number }
+      | { readonly kind: "seats"; readonly seats: number };
+    export type SetupActionId =
+      | "setUpRegularWeek"
+      | "changeRegularWeek"
+      | "editSchedule"
+      | "compareServices"
+      | "createSchedule"
+      | "openCalendar"
+      | "openSpecialDates"
+      | "bookingRules"
+      | "openFloorPlan"
+      | "addFloorPlan"
+      | "closeSection"
+      | "moveToSection";
+    export type SetupActionTarget =
+      | { readonly kind: "link"; readonly to: string }
+      | { readonly kind: "dialog"; readonly dialog: "changeRegularWeek" | "bookingRules" };
+    export interface SetupAction {
+      readonly id: SetupActionId;
+      readonly target: SetupActionTarget;
+      /** The button the Manager is steered to next, before launch. */
+      readonly primary: boolean;
+      /** The resource the action names, for its accessible name ("Close Bar for a date…"). */
+      readonly subject?: string;
+    }
+    export interface SetupNode {
+      readonly id: string;
+      readonly kind: SetupNodeKind;
+      /** The resource's own name; null when the kind's label is the name ("Special dates"). */
+      readonly name: string | null;
+      readonly state: NodeState;
+      readonly actions: readonly SetupAction[];
+      readonly children: readonly SetupNode[];
+    }
+    export type GroupLoad<T> =
+      | { readonly status: "loading" }
+      | { readonly status: "error"; readonly error: unknown }
+      | { readonly status: "ready"; readonly data: T };
+    export interface OpenData {
+      readonly config: AvailabilityConfig;
+      readonly settings: VenueSettings | null | undefined;
+    }
+    export interface SitData {
+      readonly floorPlans: readonly FloorPlan[];
+      readonly sections: readonly FloorPlanSection[];
+      readonly tables: readonly Table[];
+    }
+    export interface SetupTreeInput {
+      readonly venueName: string;
+      readonly isManager: boolean;
+      /** `setup` marks the first unset launch step as the primary action. */
+      readonly readiness: "setup" | "operational";
+      /** The venue's today, `YYYY-MM-DD`. */
+      readonly today: string;
+      readonly open: GroupLoad<OpenData>;
+      readonly sit: GroupLoad<SitData>;
+    }
+    export type GroupState =
+      | { readonly status: "loading" }
+      | { readonly status: "error"; readonly error: unknown }
+      | { readonly status: "ready" };
+    export interface SetupGroup {
+      readonly id: "open" | "sit";
+      readonly load: GroupState;
+      readonly nodes: readonly SetupNode[];
+    }
+    export interface SetupTree {
+      readonly venueName: string;
+      readonly groups: readonly [SetupGroup, SetupGroup];
+    }
+    type Link = { readonly kind: "link"; readonly to: string };
+    function scheduleNode(
+      schedule: Schedule,
+      config: AvailabilityConfig,
+      services: ReadonlyMap<string, { readonly name: string; readonly position: number }>,
+      manager: boolean
+    ): SetupNode {
+      const assignments = config.assignments.filter((a) => a.scheduleId === schedule.id);
+      const covered =
+        assignments.length > 0 ? sortedUnique(assignments.flatMap((a) => a.weekdays)) : ALL_WEEKDAYS;
+      const rows = config.scheduleServices
+        .filter((s) => s.scheduleId === schedule.id && services.has(s.venueServiceId))
+        .sort(
+          (a, b) =>
+            (services.get(a.venueServiceId)?.position ?? 0) -
+            (services.get(b.venueServiceId)?.position ?? 0)
+        );
+      const children: SetupNode[] = rows.map((row) => {
+        const sets = row.dayHours.sets;
+        const setDays = sets.flatMap((set) => set.weekdays);
+        const baseDays = row.weekdays.length > 0 ? row.weekdays : covered;
+        return {
+          id: `service:${schedule.id}:${row.venueServiceId}`,
+          kind: "service",
+          name: services.get(row.venueServiceId)?.name ?? null,
+          state: {
+            kind: "service",
+            opensAt: row.opensAt,
+            lastSeatingAt: row.lastSeatingAt,
+            weekdays: sortedUnique([...baseDays, ...setDays]),
+            changes: sets
+              .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+              .map((set) => ({
+                weekdays: sortedUnique(set.weekdays),
+                opensAt: set.opensAt,
+                lastSeatingAt: set.lastSeatingAt,
+              })),
+          },
+          actions: [],
+          children: [],
+        };
+      });
+      const weekdays = sortedUnique(
+        children.flatMap((c) => (c.state.kind === "service" ? c.state.weekdays : []))
+      );
+      const dated = assignments.filter((a) => a.startsOn || a.endsOn);
+      const starts = dated.map((a) => a.startsOn).filter((d): d is string => !!d);
+      const ends = dated.map((a) => a.endsOn);
+      const state: NodeState =
+        !schedule.isRegular && dated.length > 0
+          ? {
+              kind: "period",
+              startsOn: starts.length > 0 ? starts.reduce((a, b) => (a < b ? a : b)) : null,
+              endsOn: ends.some((d) => !d) ? null : latest(ends),
+              weekdays: covered.slice(),
+            }
+          : { kind: "week", weekdays };
+      const actions: SetupAction[] = !manager
+        ? []
+        : schedule.isRegular
+          ? [
+              action("changeRegularWeek", { kind: "dialog", dialog: "changeRegularWeek" }),
+              action("editSchedule", link(SETUP_SCHEDULES), schedule.name),
+            ]
+          : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
+      return {
+        id: `schedule:${schedule.id}`,
+        kind: "schedule",
+        name: schedule.name,
+        state,
+        actions,
+        children,
+      };
+    }
+    function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode {
+      const services = new Map(
+        active(config.venueServices).map((s) => [s.id, { name: s.name, position: s.position }])
+      );
+      const schedules = active(config.schedules).map((s) => scheduleNode(s, config, services, manager));
+      const regular = active(config.schedules).find((s) => s.isRegular);
+      const regularSet =
+        regular !== undefined &&
+        schedules.some((n) => n.id === `schedule:${regular.id}` && n.children.length > 0);
+      if (!regularSet) {
+        return {
+          id: "schedules",
+          kind: "schedules",
+          name: null,
+          state: UNSET,
+          actions: manager ? [action("setUpRegularWeek", link(SETUP_CALENDAR))] : [],
+          children: [],
+        };
+      }
+      return {
+        id: "schedules",
+        kind: "schedules",
+        name: null,
+        state: { kind: "count", count: schedules.length },
+        actions: manager
+          ? [
+              action("compareServices", link(SETUP_SCHEDULES)),
+              action("createSchedule", link(SETUP_SCHEDULES)),
+            ]
+          : [],
+        children: schedules,
+      };
+    }
+    function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] {
+      return rules
+        .filter((r) => r.kind === "closure" || r.kind === "special_hours")
+        .filter((r) => r.endsOn == null || r.endsOn >= today)
+        .sort((a, b) =>
+          a.startsOn === b.startsOn ? a.id.localeCompare(b.id) : a.startsOn < b.startsOn ? -1 : 1
+        );
+    }
+    function targetOf(
+      rule: DateRule,
+      services: ReadonlyMap<string, string>,
+      sections: ReadonlyMap<string, string> | null
+    ): ClosureTarget {
+      switch (rule.targetKind) {
+        case "service":
+          return { kind: "service", name: services.get(rule.venueServiceId ?? "") ?? null };
+        case "booking":
+          return {
+            kind: "booking",
+            bookingTypes: (rule.bookingTypes ?? []).filter((b): b is Channel => CHANNELS.includes(b)),
+          };
+        case "tables":
+          return rule.sectionId
+            ? { kind: "section", name: sections?.get(rule.sectionId) ?? null }
+            : { kind: "tables", count: rule.tableIds?.length ?? 0 };
+        default:
+          return { kind: "venue" };
+      }
+    }
+    function specialDatesNode(
+      config: AvailabilityConfig,
+      today: string,
+      sections: ReadonlyMap<string, string> | null,
+      manager: boolean
+    ): SetupNode {
+      const upcoming = upcomingRules(config.dateRules, today);
+      const services = new Map(config.venueServices.map((s) => [s.id, s.name]));
+      const children: SetupNode[] = upcoming.slice(0, SPECIAL_DATES_SHOWN).map((rule) => ({
+        id: `special-date:${rule.id}`,
+        kind: "specialDate",
+        name: null,
+        state: {
+          kind: "closure",
+          what: rule.kind === "closure" ? "closed" : "specialHours",
+          startsOn: rule.startsOn,
+          endsOn: rule.endsOn ?? null,
+          target: targetOf(rule, services, sections),
+        },
+        actions: [],
+        children: [],
+      }));
+      return {
+        id: "special-dates",
+        kind: "specialDates",
+        name: null,
+        state: upcoming.length === 0 ? UNSET : { kind: "count", count: upcoming.length },
+        actions: manager
+          ? [
+              action("openCalendar", link(SETUP_CALENDAR)),
+              action("openSpecialDates", link(SETUP_SPECIAL)),
+            ]
+          : [],
+        children,
+      };
+    }
+    function bookingNode(
+      config: AvailabilityConfig,
+      settings: VenueSettings | null | undefined,
+      today: string,
+      manager: boolean
+    ): SetupNode {
+      const daysAhead = numberOrNull(settings?.maxAdvanceBooking);
+      const noticeHours = numberOrNull(settings?.minAdvanceBooking);
+      const largestParty = numberOrNull(settings?.maxPartySize);
+      const anySet = daysAhead !== null || noticeHours !== null || largestParty !== null;
+      const closures = upcomingRules(config.dateRules, today).filter(
+        (r) => r.kind === "closure" && r.targetKind === "booking"
+      );
+      return {
+        id: "booking",
+        kind: "booking",
+        name: null,
+        state: anySet ? { kind: "rules", daysAhead, noticeHours, largestParty } : UNSET,
+        actions: manager ? [action("bookingRules", { kind: "dialog", dialog: "bookingRules" })] : [],
+        children: CHANNELS.map((channel) => ({
+          id: `channel:${channel}`,
+          kind: "channel",
+          name: channel,
+          state: {
+            kind: "count",
+            count: closures.filter((r) => r.bookingTypes?.includes(channel)).length,
+          },
+          actions: [],
+          children: [],
+        })),
+      };
+    }
+    function openNodes(
+      data: OpenData,
+      today: string,
+      sections: ReadonlyMap<string, string> | null,
+      manager: boolean
+    ): SetupNode[] {
+      return [
+        schedulesNode(data.config, manager),
+        specialDatesNode(data.config, today, sections, manager),
+        bookingNode(data.config, data.settings, today, manager),
+      ];
+    }
+    function tableNode(table: Table): SetupNode {
+      return {
+        id: `table:${table.id}`,
+        kind: "table",
+        name: table.name,
+        state: { kind: "seats", seats: table.capacity },
+        actions: [],
+        children: [],
+      };
+    }
+    function floorPlanNode(
+      plan: FloorPlan,
+      data: SitData,
+      manager: boolean,
+      hasTables: boolean
+    ): SetupNode {
+      const tables = data.tables.filter((t) => t.isActive && t.floorPlanId === plan.id);
+      const sections = data.sections
+        .filter((s) => s.floorPlanId === plan.id)
+        .sort((a, b) => a.displayOrder - b.displayOrder);
+      const sectionIds = new Set(sections.map((s) => s.id));
+      const sectionNodes: SetupNode[] = sections.map((section) => {
+        const own = tables.filter((t) => t.sectionId === section.id);
+        return {
+          id: `section:${section.id}`,
+          kind: "section",
+          name: section.name,
+          state: { kind: "tables", count: own.length },
+          actions: manager
+            ? [
+                action(
+                  "closeSection",
+                  link(availabilityPath({ closeSection: section.id, from: "setup" })),
+                  section.name
+                ),
+              ]
+            : [],
+          children: own.map(tableNode),
+        };
+      });
+      const loose = tables.filter((t) => !t.sectionId || !sectionIds.has(t.sectionId));
+      const planPath = `/floor-plans/${plan.id}`;
+      const noSection: SetupNode[] =
+        loose.length === 0
+          ? []
+          : [
+              {
+                id: `no-section:${plan.id}`,
+                kind: "noSection",
+                name: null,
+                state: { kind: "tables", count: loose.length },
+                actions: manager ? [action("moveToSection", link(planPath))] : [],
+                children: loose.map(tableNode),
+              },
+            ];
+      return {
+        id: `floor-plan:${plan.id}`,
+        kind: "floorPlan",
+        name: plan.name,
+        // Readiness counts the floor plan step done once any plan has an active table.
+        state: hasTables
+          ? { kind: "floorPlan", sections: sections.length, tables: tables.length }
+          : UNSET,
+        actions: manager
+          ? [
+              action("openFloorPlan", link(planPath), plan.name),
+              action("addFloorPlan", link("/floor-plans")),
+            ]
+          : [],
+        children: [...sectionNodes, ...noSection],
+      };
+    }
+    function sitNodes(data: SitData, manager: boolean): SetupNode[] {
+      const planIds = new Set(data.floorPlans.map((p) => p.id));
+      const hasTables = data.tables.some(
+        (t) => t.isActive && !!t.floorPlanId && planIds.has(t.floorPlanId)
+      );
+      if (data.floorPlans.length === 0) {
+        return [
+          {
+            id: "floor-plan-empty",
+            kind: "floorPlan",
+            name: null,
+            state: UNSET,
+            actions: manager ? [action("addFloorPlan", link("/floor-plans"))] : [],
+            children: [],
+          },
+        ];
+      }
+      return data.floorPlans.map((plan) => floorPlanNode(plan, data, manager, hasTables));
+    }
+    function withPrimary(nodes: readonly SetupNode[], targetId: string | null): SetupNode[] {
+      return nodes.map((node) =>
+        node.id === targetId
+          ? {
+              ...node,
+              actions: node.actions.map((a, i) => (i === 0 ? { ...a, primary: true } : a)),
+            }
+          : node
+      );
+    }
+    export function buildSetupTree(input: SetupTreeInput): SetupTree {
+      const { isManager, today } = input;
+      const sectionNames =
+        input.sit.status === "ready"
+          ? new Map(input.sit.data.sections.map((s) => [s.id, s.name]))
+          : null;
+      let open: readonly SetupNode[] =
+        input.open.status === "ready" ? openNodes(input.open.data, today, sectionNames, isManager) : [];
+      let sit: readonly SetupNode[] =
+        input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
+    
+      if (
+        isManager &&
+        input.readiness === "setup" &&
+        input.open.status === "ready" &&
+        input.sit.status === "ready"
+      ) {
+        const first = [...open, ...sit].find((n) => isLaunchGate(n) && n.state.kind === "unset");
+        open = withPrimary(open, first?.id ?? null);
+        sit = withPrimary(sit, first?.id ?? null);
+      }
+    
+      return {
+        venueName: input.venueName,
+        groups: [
+          { id: "open", load: input.open.status === "ready" ? ready : input.open, nodes: open },
+          { id: "sit", load: input.sit.status === "ready" ? ready : input.sit, nodes: sit },
+        ],
+      };
+    }
+  </file>
+  <file path="src/components/venue-setup/useSetupNodeText.ts">
+    export interface SetupNodeText {
+      /** The kind's word ("Schedule", "Section"), for nodes that carry a name. */
+      readonly caption: (node: SetupNode) => string | null;
+      readonly label: (node: SetupNode) => string;
+      /** One line on what the resource is, on the top-level nodes. */
+      readonly whatIs: (node: SetupNode) => string | null;
+      readonly state: (node: SetupNode) => string;
+      readonly actionLabel: (action: SetupAction, node: SetupNode) => string;
+      /** The target an action names, read after its visible label ("Close for a date… Bar"). */
+      readonly actionSubject: (action: SetupAction) => string | undefined;
+    }
+    export function useSetupNodeText(): SetupNodeText {
+      const { t } = useTranslation();
+      const format = useVenueFormat();
+      const summarize = useWeekdaySummary();
+    
+      const day = (date: string) =>
+        format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
+      const shortDay = (date: string) =>
+        format.formatCalendarDate(date, { month: "short", day: "numeric" });
+      const time = (minute: number) => minuteText(minute, t, format);
+    
+      const target = (value: ClosureTarget): string => {
+        switch (value.kind) {
+          case "venue":
+            return t("setup.hub.target.venue");
+          case "service":
+            return value.name ?? t("setup.hub.target.service");
+          case "section":
+            return value.name ?? t("setup.hub.target.section");
+          case "booking":
+            return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
+              value.bookingTypes.map((b) => t(`setup.hub.channel.${b}`))
+            );
+          case "tables":
+            return t("setup.hub.target.tables", { count: value.count });
+        }
+      };
+    
+      const when = (startsOn: string, endsOn: string | null): string => {
+        if (endsOn === startsOn) return day(startsOn);
+        if (endsOn === null) return t("setup.hub.from", { date: day(startsOn) });
+        return t("setup.hub.range", { from: shortDay(startsOn), to: shortDay(endsOn) });
+      };
+    
+      const state = (node: SetupNode): string => {
+        const value: NodeState = node.state;
+        switch (value.kind) {
+          case "unset":
+            return t("setup.hub.notSetUp");
+          case "count":
+            switch (node.kind) {
+              case "schedules":
+                return t("setup.hub.count.schedules", { count: value.count });
+              case "specialDates":
+                return t("setup.hub.count.specialDates", { count: value.count });
+              default:
+                return t("setup.hub.count.channel", { count: value.count });
+            }
+          case "week":
+            return t("setup.hub.open", { days: summarize(value.weekdays) });
+          case "period":
+            return t("setup.hub.period", {
+              range:
+                value.startsOn === null
+                  ? t("setup.hub.until", { date: shortDay(value.endsOn ?? "") })
+                  : when(value.startsOn, value.endsOn),
+              days: summarize(value.weekdays),
+            });
+          case "service": {
+            const hours = (opensAt: number, lastSeatingAt: number) =>
+              t("availability.regularWeekLine.hours", {
+                open: time(opensAt),
+                close: time(lastSeatingAt),
+              });
+            const base = t("setup.hub.serviceLine", {
+              hours: hours(value.opensAt, value.lastSeatingAt),
+              days: summarize(value.weekdays),
+            });
+            const changes = value.changes.map((c) =>
+              c.opensAt === value.opensAt
+                ? t("availability.regularWeekLine.closes", {
+                    days: summarize(c.weekdays),
+                    close: time(c.lastSeatingAt),
+                  })
+                : t("availability.regularWeekLine.different", {
+                    days: summarize(c.weekdays),
+                    hours: hours(c.opensAt, c.lastSeatingAt),
+                  })
+            );
+            return [base, ...changes].join(" · ");
+          }
+          case "rules": {
+            const parts = [
+              value.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: value.daysAhead }),
+              value.noticeHours !== null &&
+                t("setup.hub.rules.noticeHours", { count: value.noticeHours }),
+              value.largestParty !== null &&
+                t("setup.hub.rules.largestParty", { count: value.largestParty }),
+            ].filter((part): part is string => part !== false);
+            return parts.join(" · ");
+          }
+          case "closure": {
+            const what = t(
+              value.what === "closed" ? "setup.hub.closedRow" : "setup.hub.specialHoursRow",
+              {
+                target: target(value.target),
+              }
+            );
+            return `${when(value.startsOn, value.endsOn)} · ${what}`;
+          }
+          case "floorPlan":
+            return `${t("setup.hub.sections", { count: value.sections })} · ${t("setup.hub.tables", { count: value.tables })}`;
+          case "tables":
+            return t("setup.hub.tables", { count: value.count });
+          case "seats":
+            return t("setup.hub.seats", { count: value.seats });
+        }
+      };
+    
+      return {
+        caption: (node) => {
+          if (node.name === null) return null;
+          switch (node.kind) {
+            case "schedule":
+              return t("setup.hub.caption.schedule");
+            case "service":
+              return t("setup.hub.caption.service");
+            case "section":
+              return t("setup.hub.caption.section");
+            case "table":
+              return t("setup.hub.caption.table");
+            case "floorPlan":
+              return t("setup.hub.caption.floorPlan");
+            default:
+              return null;
+          }
+        },
+        label: (node) => {
+          if (node.kind === "channel")
+            return t(
+              `setup.hub.channelLabel.${node.name === "phone" || node.name === "waitlist" ? node.name : "online"}`
+            );
+          if (node.name !== null) return node.name;
+          switch (node.kind) {
+            case "schedules":
+              return node.state.kind === "unset"
+                ? t("setup.hub.regularWeek")
+                : t("setup.hub.label.schedules");
+            case "specialDates":
+              return t("setup.hub.label.specialDates");
+            case "booking":
+              return t("setup.hub.label.booking");
+            case "noSection":
+              return t("setup.hub.label.noSection");
+            default:
+              return t("setup.hub.label.floorPlan");
+          }
+        },
+        whatIs: (node) => {
+          const unset = node.state.kind === "unset";
+          switch (node.kind) {
+            case "schedules":
+              return t(unset ? "setup.hub.what.regularWeek" : "setup.hub.what.schedules");
+            case "specialDates":
+              return t("setup.hub.what.specialDates");
+            case "booking":
+              return t(unset ? "setup.hub.what.bookingUnset" : "setup.hub.what.booking");
+            case "floorPlan":
+              return unset ? t("setup.hub.what.floorPlan") : null;
+            default:
+              return null;
+          }
+        },
+        state,
+        actionLabel: (action, node) =>
+          action.id === "addFloorPlan" && node.state.kind !== "unset"
+            ? t("setup.hub.actions.addAnotherFloorPlan")
+            : t(`setup.hub.actions.${action.id}`),
+        actionSubject: (action) => action.subject,
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="vite.manualChunks.ts">
   <file path="vite.manualChunks.ts">
     export function manualChunks(id: string): string | undefined {
