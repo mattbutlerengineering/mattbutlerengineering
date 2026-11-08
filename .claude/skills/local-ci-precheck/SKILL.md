@@ -94,14 +94,17 @@ fail=0
 
   # Affected packages + dependents only; turbo builds what size:check needs.
   # An empty affected set (docs-only change) runs nothing and exits 0.
-  pnpm turbo run size:check --filter='...[origin/main]' 2>&1 | sed 's/^/[size] /' &
-  size_pid=$!
+  size_pid=""
+  if [[ " $* " != *" --skip-size "* ]]; then
+    pnpm turbo run size:check --filter='...[origin/main]' 2>&1 | sed 's/^/[size] /' &
+    size_pid=$!
+  fi
 
   wait $lint_pid || fail=1
   wait $type_pid || fail=1
   wait $arch_pid || fail=1
   wait $drift_pid || fail=1
-  wait $size_pid || fail=1
+  [[ -z "$size_pid" ]] || wait $size_pid || fail=1
 }
 
 if (( fail )); then
@@ -136,10 +139,10 @@ CI's Build job regenerates `infrastructure/worker/dep-graph.json` and the Integr
 
 ## Size lane
 
-`Check bundle size budgets` (`pnpm size:check`) was the most frequent failing CI step: 9 of 40 failed `ci.yml` runs, 2026-11-06 to 11-08 (#8522). Each package's `size:check` runs two gates, and this lane runs both:
+`Check bundle size budgets` (`pnpm size:check`) was the most frequent failing CI step: 9 of 40 failed `ci.yml` runs, 2026-11-06 to 11-08 (#8522). This lane runs whatever each affected package's `size:check` script runs, exactly as CI does:
 
-1. **Chunk coverage** (`apps/hospitality/scripts/check-chunk-coverage.mjs`): every built chunk ≥ 5 KB raw needs a `size-limit` entry or an allowlist reason. A new lazy import that produces a new chunk fails here: `1 built chunk(s) have no size-limit budget and no allowlist entry`.
-2. **Budgets** (`size-limit`): a package over its configured limit.
+1. **Chunk coverage**, `apps/hospitality` only (`scripts/check-chunk-coverage.mjs`, chained before `size-limit`): every built chunk ≥ 5 KB raw needs a `size-limit` entry or an allowlist reason. A new lazy import that produces a new chunk fails here: `1 built chunk(s) have no size-limit budget and no allowlist entry`.
+2. **Budgets** (`size-limit`), every package with a `size:check` script: a package over its configured limit.
 
 `--filter='...[origin/main]'` limits it to packages changed since `origin/main` plus their dependents, so a rialto change also checks the apps that consume it. Fix a chunk-coverage failure by adding a `size-limit` entry in the app's `package.json` (preferred) or an allowlist entry with a reason.
 

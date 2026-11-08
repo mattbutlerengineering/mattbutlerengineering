@@ -31,4 +31,8 @@ describe("local-ci-precheck size lane (#8522)", () => {
     expect(SKILL).toMatch(/size_pid=\$!/);
     expect(SKILL).toMatch(/wait \$size_pid \|\| fail=1/);
   });
+
+  it("honours the documented --skip-size flag", () => {
+    expect(SKILL).toContain('*" --skip-size "*');
+  });
 });
