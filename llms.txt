@@ -20675,8 +20675,7 @@
         id: string;
         label: string;
         action: NavAction;
-        stepStatus?: "completed" | "current" | "locked";
-        disabled?: boolean;
+        badge?: string;
       }
     </item>
     <item priority="low">

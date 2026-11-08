@@ -438,12 +438,17 @@ describe("DashboardLayout", () => {
       expect(items[1]!.querySelector("[aria-current='page']")).not.toBeNull();
     });
 
-    it("shows Home > Floor Plans on the floor-plans route", () => {
+    it("shows Home > Floor Plan on the floor-plans route", () => {
       renderLayout("/floor-plans");
       const items = screen.getAllByTestId(/^breadcrumb-item-/);
       expect(items).toHaveLength(2);
       expect(items[0]).toHaveTextContent("Home");
-      expect(items[1]).toHaveTextContent("Floor Plans");
+      expect(items[1]).toHaveTextContent("Floor Plan");
+    });
+
+    it("labels /setup Venue Setup, and the /setup/hours redirect flash Availability", () => {
+      renderLayout("/setup");
+      expect(screen.getAllByTestId(/^breadcrumb-item-/)[1]).toHaveTextContent("Venue Setup");
     });
 
     it("labels the chat page Chat, not Details", () => {
@@ -453,12 +458,12 @@ describe("DashboardLayout", () => {
       expect(items[1]).toHaveTextContent("Chat");
     });
 
-    it("shows Home > Floor Plans > Details for nested floor-plan route", () => {
+    it("shows Home > Floor Plan > Details for nested floor-plan route", () => {
       renderLayout("/floor-plans/abc-123");
       const items = screen.getAllByTestId(/^breadcrumb-item-/);
       expect(items).toHaveLength(3);
       expect(items[0]).toHaveTextContent("Home");
-      expect(items[1]).toHaveTextContent("Floor Plans");
+      expect(items[1]).toHaveTextContent("Floor Plan");
       expect(items[2]).toHaveTextContent("Details");
       // Middle item is clickable, last is current page
       expect(items[1]!.querySelector("button")).not.toBeNull();

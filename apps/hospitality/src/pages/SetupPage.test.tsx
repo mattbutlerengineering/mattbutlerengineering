@@ -500,7 +500,7 @@ describe("Venue Setup: the Setup progress strip", () => {
   it("shows a Manager the launch steps before launch, with the first unset one primary", () => {
     readiness.value = EMPTY_SETUP;
     renderPage();
-    const strip = screen.getByRole("region", { name: "Setup progress" });
+    const strip = screen.getByRole("region", { name: "Venue Setup progress" });
     expect(within(strip).getByText("1 of 3")).toBeInTheDocument();
     expect(within(strip).getByText("Venue basics").closest("li")).toHaveTextContent("Done");
     expect(within(strip).getByText("Regular week").closest("li")).toHaveTextContent("Next");
@@ -513,7 +513,7 @@ describe("Venue Setup: the Setup progress strip", () => {
 
   it("is not shown once the venue is operational", () => {
     renderPage();
-    expect(screen.queryByRole("region", { name: "Setup progress" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Venue Setup progress" })).not.toBeInTheDocument();
   });
 });
 
@@ -533,7 +533,7 @@ describe("Venue Setup: the Host variant", () => {
     renderPage();
     const names = screen.queryAllByRole("button").map((b) => b.textContent);
     expect(names.join(" ")).not.toMatch(/set up|edit|change|close|add|move|rules|compare|open/i);
-    expect(screen.queryByRole("region", { name: "Setup progress" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Venue Setup progress" })).not.toBeInTheDocument();
     expect(screen.getByText("Lunch")).toBeInTheDocument();
   });
 

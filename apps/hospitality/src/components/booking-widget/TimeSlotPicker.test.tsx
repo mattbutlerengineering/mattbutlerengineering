@@ -427,7 +427,7 @@ describe("TimeSlotPicker", () => {
       );
 
       expect(screen.queryByText("No available times")).toBeNull();
-      const setHoursBtn = screen.getByText("Set Operating Hours");
+      const setHoursBtn = screen.getByText("Set up regular week");
       fireEvent.click(setHoursBtn);
       expect(onSetHours).toHaveBeenCalled();
     });
@@ -438,13 +438,13 @@ describe("TimeSlotPicker", () => {
       );
 
       expect(screen.queryByText("No available times")).toBeNull();
-      expect(screen.queryByText("Set Operating Hours")).toBeNull();
+      expect(screen.queryByText("Set up regular week")).toBeNull();
       expect(screen.getByTestId("empty-state")).toBeDefined();
     });
 
     it("defaults to the guest audience when not specified", () => {
       render(<TimeSlotPicker {...defaultProps} slots={[]} hasOperatingHours={false} />);
-      expect(screen.queryByText("Set Operating Hours")).toBeNull();
+      expect(screen.queryByText("Set up regular week")).toBeNull();
       expect(screen.queryByText("No available times")).toBeNull();
     });
 
@@ -453,7 +453,7 @@ describe("TimeSlotPicker", () => {
         <TimeSlotPicker {...defaultProps} slots={[]} hasOperatingHours={true} audience="staff" />
       );
       expect(screen.getByText("No available times")).toBeDefined();
-      expect(screen.queryByText("Set Operating Hours")).toBeNull();
+      expect(screen.queryByText("Set up regular week")).toBeNull();
     });
 
     it("takes priority over the waitlist option when hours aren't configured", () => {

@@ -14,25 +14,13 @@ describe("DashboardSidebar", () => {
       ],
     },
     {
-      label: "Setup",
+      label: "Get Started",
       items: [
         {
-          id: "hours",
-          label: "Hours",
-          action: { type: "route", path: "/hours" },
-          stepStatus: "completed",
-        },
-        {
-          id: "tables",
-          label: "Tables",
-          action: { type: "route", path: "/tables" },
-          stepStatus: "current",
-        },
-        {
-          id: "publish",
-          label: "Publish",
-          action: { type: "route", path: "/publish" },
-          stepStatus: "locked",
+          id: "setup",
+          label: "Venue Setup",
+          action: { type: "route", path: "/setup" },
+          badge: "1 of 3",
         },
       ],
     },
@@ -75,7 +63,7 @@ describe("DashboardSidebar", () => {
   it("renders section labels", () => {
     renderSidebar();
     expect(screen.getByText("Main")).toBeDefined();
-    expect(screen.getByText("Setup")).toBeDefined();
+    expect(screen.getByText("Get Started")).toBeDefined();
   });
 
   it("toggles section collapse", () => {
@@ -89,10 +77,14 @@ describe("DashboardSidebar", () => {
     expect(mainButton?.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("renders step statuses correctly", () => {
+  it("renders the progress count inside the item's accessible name", () => {
     renderSidebar();
-    expect(screen.getByText("Hours")).toBeDefined();
-    expect(screen.getByText("Tables")).toBeDefined();
-    expect(screen.getByText("Publish")).toBeDefined();
+    const item = screen.getByRole("button", { name: "Venue Setup 1 of 3" });
+    expect(item.textContent).toContain("1 of 3");
+  });
+
+  it("renders an item without a badge as its label alone", () => {
+    renderSidebar();
+    expect(screen.getByRole("button", { name: "Timeline" })).toBeDefined();
   });
 });

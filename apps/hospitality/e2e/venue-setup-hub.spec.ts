@@ -71,7 +71,7 @@ test.describe("Venue Setup hub", () => {
     await withoutBookingRules(page);
     await page.goto("setup");
 
-    const strip = page.getByRole("region", { name: "Setup progress" });
+    const strip = page.getByRole("region", { name: "Venue Setup progress" });
     await expect(strip.getByText("1 of 3")).toBeVisible();
     const primary = page.getByRole("button", { name: "Set up regular week" });
     await expect(primary).toHaveAttribute("data-primary", "true");
@@ -107,7 +107,7 @@ test.describe("Venue Setup hub", () => {
 
     await expect(page).toHaveURL(/\/setup$/);
     await expect(page.getByRole("heading", { level: 1, name: "Venue Setup" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Setup progress" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Venue Setup progress" })).toHaveCount(0);
     await expect(page.getByRole("listitem", { name: /Schedules/ })).toContainText("1 schedule");
     const floor = page.getByRole("listitem", { name: /Main Floor/ });
     await expect(floor).toBeVisible();
@@ -186,7 +186,7 @@ test.describe("Venue Setup hub", () => {
     const week = page.getByRole("listitem", { name: /Regular week/ });
     await expect(week.getByText("Not set up")).toBeVisible();
     await expect(week.getByText("A manager sets this up.")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Setup progress" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Venue Setup progress" })).toHaveCount(0);
     await expect(
       page.getByRole("main").getByRole("button", {
         name: /set up|edit|change|close|add|move|rules|compare|create|open/i,

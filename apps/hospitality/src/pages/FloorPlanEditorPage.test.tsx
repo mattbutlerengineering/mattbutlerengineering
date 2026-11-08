@@ -1130,12 +1130,12 @@ describe("FloorPlanEditorPage", () => {
       });
     });
 
-    it("shows Back to Floor Plans button in error state", async () => {
+    it("shows Back to Floor Plan button in error state", async () => {
       mockGetById.mockRejectedValue(new Error("Not found"));
       renderPage();
 
       await waitFor(() => {
-        expect(screen.getByText("Back to Floor Plans")).toBeDefined();
+        expect(screen.getByText("Back to Floor Plan")).toBeDefined();
       });
     });
 
@@ -1143,8 +1143,8 @@ describe("FloorPlanEditorPage", () => {
       mockGetById.mockRejectedValue(new Error("Not found"));
       renderPage();
 
-      await waitFor(() => screen.getByText("Back to Floor Plans"));
-      fireEvent.click(screen.getByText("Back to Floor Plans"));
+      await waitFor(() => screen.getByText("Back to Floor Plan"));
+      fireEvent.click(screen.getByText("Back to Floor Plan"));
 
       expect(mockNavigate).toHaveBeenCalledWith("/floor-plans");
     });

@@ -627,7 +627,7 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Step 3 — operating hours (must toggle at least one day)
-    expect(screen.getByText("Operating Hours")).toBeTruthy();
+    expect(screen.getByText("Regular week")).toBeTruthy();
     fillRegularWeek();
     fireEvent.click(screen.getByText("Next"));
 
@@ -706,7 +706,7 @@ describe("VenueOnboardingPage", () => {
 
     expect(screen.getAllByText("Choose a time.")).toHaveLength(3);
     expect(screen.getByText("Give this service a name.")).toBeTruthy();
-    expect(screen.getByText("Operating Hours")).toBeTruthy();
+    expect(screen.getByText("Regular week")).toBeTruthy();
   });
 
   it("keeps Next gated while the quick-setup card is invalid, and says why", () => {

@@ -21,7 +21,9 @@ test.describe("Viewer role gate on floor plans", () => {
     await mockedPage.goto("floor-plans");
 
     await expect(mockedPage).toHaveURL(/\/setup$/);
-    await expect(mockedPage.getByRole("heading", { name: "Floor Plans" })).toHaveCount(0);
+    await expect(mockedPage.getByRole("heading", { name: "Floor Plan", exact: true })).toHaveCount(
+      0
+    );
   });
 
   test("a Host opening /floor-plans/:id lands on /setup", async ({ mockedPage }) => {
@@ -35,7 +37,9 @@ test.describe("Viewer role gate on floor plans", () => {
   test("a Manager still reaches /floor-plans and the editor", async ({ mockedPage }) => {
     await mockedPage.goto("floor-plans");
     await expect(mockedPage).toHaveURL(/\/floor-plans$/);
-    await expect(mockedPage.getByRole("heading", { name: "Floor Plans" })).toBeVisible();
+    await expect(
+      mockedPage.getByRole("heading", { name: "Floor Plan", exact: true })
+    ).toBeVisible();
 
     await mockedPage.goto("floor-plans/fp_e2e_001");
     await expect(mockedPage).toHaveURL(/\/floor-plans\/fp_e2e_001$/);

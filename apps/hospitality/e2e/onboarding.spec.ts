@@ -4,7 +4,7 @@ import { mockApi } from "./api-mocks.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
 
 /**
- * Drives steps 1-4 (Welcome, Location & Time, Operating Hours, Settings) with
+ * Drives steps 1-4 (Welcome, Location & Time, Regular week, Settings) with
  * minimal valid data, then picks the `templateName` room on step 5 (Floor
  * Plan) and advances to step 6 (Launch review). Shared by the two
  * Launch-review tests below (#4817) — everything before Launch is identical
@@ -23,7 +23,7 @@ async function advanceToLaunchReview(page: Page, templateName: string, venueName
   await page.getByRole("option", { name: "Eastern Time (America/New_York)" }).click();
   await page.getByRole("button", { name: "Next" }).click();
 
-  // Step 3 (Operating Hours) is the availability quick-setup card: pick a
+  // Step 3 (Regular week) is the availability quick-setup card: pick a
   // service and a day preset; Next stays refused until both are chosen.
   await page.getByRole("button", { name: "Dinner" }).click();
   await page.getByRole("button", { name: "Weekdays" }).click();
@@ -176,7 +176,7 @@ test.describe("Venue onboarding wizard", () => {
     await mockedPage.getByRole("option", { name: "Eastern Time (America/New_York)" }).click();
     await mockedPage.getByRole("button", { name: "Next" }).click();
 
-    // Step 3 (Operating Hours) is the quick-setup card (F-ONB): a service and at
+    // Step 3 (Regular week) is the quick-setup card (F-ONB): a service and at
     // least one day are required before Next lets the wizard advance.
     // "Late" closes at 1:00 AM, after midnight: Next must still advance.
     await mockedPage.getByRole("button", { name: "Late" }).click();

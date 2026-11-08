@@ -82,7 +82,7 @@
       }
     },
     "hours": {
-      "heading": "Horario de atención",
+      "heading": "Semana habitual",
       "intro": "Para que tus invitados sepan cuándo abres.",
       "atLeastOne": "Al menos un día debe estar abierto"
     },
@@ -301,16 +301,13 @@
       "profile": "Perfil",
       "settings": "Configuración",
       "users": "Usuarios",
-      "venueBasics": "Datos del local",
-      "setOperatingHours": "Definir horario",
-      "createFloorPlan": "Crear plano de sala",
       "tonightsService": "Servicio de esta noche",
       "timeline": "Cronología",
       "reservations": "Reservas",
       "waitlist": "Lista de espera",
       "guests": "Clientes",
       "dashboard": "Panel",
-      "floorPlans": "Planos de sala",
+      "venueSetup": "Configuración del local",
       "bookingWidget": "Widget de reservas",
       "signOut": "Cerrar sesión",
       "chat": "Chat",
@@ -329,15 +326,15 @@
       "guests": "Clientes",
       "waitlist": "Lista de espera",
       "briefing": "Servicio de esta noche",
-      "floorPlans": "Planos de sala",
+      "floorPlan": "Plano de sala",
       "bookingWidget": "Widget de reservas",
       "onboarding": "Nuevo local",
       "profile": "Perfil",
       "settings": "Configuración",
       "admin": "Administración",
       "dashboard": "Panel",
-      "setup": "Configuración inicial",
-      "hours": "Horario de operación",
+      "setup": "Configuración del local",
+      "hours": "Disponibilidad",
       "menus": "Menús",
       "availability": "Disponibilidad",
       "chat": "Chat"
@@ -355,10 +352,10 @@
   },
   "floorPlan": {
     "list": {
-      "title": "Planos de sala",
+      "title": "Plano de sala",
       "description": "Diseña y administra la distribución de tu local",
       "newButton": "Nuevo plano",
-      "createButton": "Crear plano",
+      "createButton": "Agregar plano de sala",
       "loadFailed": "No se pudieron cargar los planos de sala.",
       "cloneFailed": "No se clonó el plano de sala.",
       "cloned": "Plano de sala \"{{name}}\" clonado correctamente",
@@ -385,7 +382,7 @@
       "loading": "Cargando",
       "notFound": "No se encontró el plano de sala",
       "notLoaded": "El plano de sala no está cargado",
-      "backToList": "Volver a planos de sala",
+      "backToList": "Volver al plano de sala",
       "backAria": "Volver a planos de sala",
       "active": "Activo",
       "setActive": "Establecer como activo",
@@ -612,7 +609,7 @@
       "closedOn_one": "Cerrado, abre el {{weekday}} a la {{time}}",
       "closedOn_other": "Cerrado, abre el {{weekday}} a las {{time}}",
       "closedOn_many": "Cerrado, abre el {{weekday}} a las {{time}}",
-      "unset": "Sin horario de operación definido",
+      "unset": "Sin semana habitual definida",
       "weekdays": {
         "monday": "lunes",
         "tuesday": "martes",
@@ -705,7 +702,7 @@
       "retry": "Reintentar",
       "noTablesHeading": "Aún no hay mesas.",
       "noTablesDescription": "Configura un plano de sala y la cuadrícula se llenará.",
-      "floorPlans": "Planos de sala",
+      "floorPlans": "Plano de sala",
       "detailsTitle": "Detalles de la reservación",
       "closeDetails": "Cerrar detalles de la reservación",
       "loadBanner": "No se pudieron cargar las reservaciones de esta noche.",
@@ -1309,9 +1306,9 @@
     },
     "timeSlot": {
       "changeSearch": "← Cambiar fecha o número de personas",
-      "noHoursStaffHeading": "No hay horario de atención configurado",
-      "noHoursStaffDescription": "Este restaurante aún no tiene horario de atención configurado, así que los clientes no pueden ver disponibilidad ni reservar una mesa.",
-      "setHours": "Configurar horario de atención",
+      "noHoursStaffHeading": "No hay semana habitual configurada",
+      "noHoursStaffDescription": "Este restaurante aún no tiene una semana habitual configurada, así que los clientes no pueden ver disponibilidad ni reservar una mesa.",
+      "setHours": "Configurar la semana habitual",
       "noHoursGuestHeading": "Aún no aceptamos reservas en línea",
       "noHoursGuestDescription": "Este restaurante aún no ha configurado las reservas en línea. Comunícate directamente con ellos para reservar una mesa.",
       "noTimesHeading": "No hay horarios disponibles",
@@ -3139,7 +3136,7 @@
         "moveToSection": "Pasar a una sección"
       },
       "strip": {
-        "title": "Avance de la configuración",
+        "title": "Avance de la configuración del local",
         "count": "{{done}} de {{total}}",
         "steps": {
           "venueBasics": "Datos básicos del local",
@@ -3293,7 +3290,7 @@
     "venue": {
       "title": "Local",
       "description": "Administra los días y horarios en que tu local acepta reservas.",
-      "operatingHours": "Horario de atención"
+      "venueSetup": "Configuración del local"
     },
     "team": {
       "title": "Equipo",
