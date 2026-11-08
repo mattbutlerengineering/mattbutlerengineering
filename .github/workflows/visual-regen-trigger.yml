@@ -1,0 +1,182 @@
+name: Visual Regen Trigger
+
+# When a UI PR merges and the advisory Apps Visual Regression / Rialto Web
+# E2E visual job goes red on main, nothing used to happen until a human
+# noticed and hand-dispatched visual-baseline-regen.yml — three times in two
+# days (#8423, #8401/#8434, #8440), and the first manual dispatch at #8440
+# failed outright because `grep=home` matched no test name (the real title is
+# `<route> @ <w>x<h>`, not a route fragment). This workflow does that
+# dispatch automatically, with the EXACT failing title(s) read out of the
+# run's own Playwright JSON report — scripts/visual-regen-trigger.mjs owns
+# the pure derivation (which app(s) failed, which titles, the dedupe check);
+# this file is a thin caller.
+#
+# It NEVER merges anything: visual-baseline-regen.yml's PR always stays
+# `needs-review`, and this workflow additionally posts a comment on the PR
+# that caused the drift so a human has a direct link to compare the images.
+# Dedupe: an app with an open regen PR (branch
+# automation/visual-baseline-regen/<app>, visual-baseline-regen.mjs's own
+# naming) is skipped rather than re-dispatched.
+on:
+  workflow_run:
+    workflows: ["Apps Visual Regression", "Rialto Web E2E"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  # `gh workflow run` needs actions:write (GITHUB_TOKEN dispatch); reading the
+  # triggering run's jobs/artifacts needs actions:read, which write implies.
+  actions: write
+
+concurrency:
+  group: visual-regen-trigger-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  derive:
+    name: Derive failing apps and dispatch plan
+    # Only a genuine failure on a push to main is drift worth regenerating —
+    # a pull_request run (non-goal: never regen on a PR branch) or a
+    # cancelled run (not a real regression) must not dispatch anything.
+    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      dispatch: ${{ steps.plan.outputs.dispatch }}
+      skipped: ${{ steps.plan.outputs.skipped }}
+      culprit_pr: ${{ steps.culprit.outputs.pr_number }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+
+      - name: Fetch the triggering run's jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          set -o pipefail
+          gh api "repos/${{ github.repository }}/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '[.jobs[] | {name, conclusion}]' > "$RUNNER_TEMP/jobs.json"
+
+      - name: Derive failing apps
+        id: failing
+        run: |
+          set -o pipefail
+          node scripts/visual-regen-trigger.mjs failing-apps --jobs "$RUNNER_TEMP/jobs.json" >> "$GITHUB_OUTPUT"
+
+      # Artifacts belong to the OTHER (triggering) run and are consumed in
+      # this privileged workflow_run job: downloaded OUTSIDE the checkout
+      # (runner.temp, never the workspace), one fixed-name step per known app
+      # rather than a dynamic path, so a poisoned artifact cannot overwrite a
+      # repo file. Each tolerates absence — a job that failed before its
+      # "Upload the JSON report" step (e.g. a webServer startup failure)
+      # leaves nothing to download, and the plan step below falls back to a
+      # whole-suite regen (empty --grep) for that app.
+      - name: Download marketing visual report
+        if: contains(fromJSON(steps.failing.outputs.apps), 'marketing')
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: marketing-visual-report
+          path: ${{ runner.temp }}/reports/marketing
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download hospitality visual report
+        if: contains(fromJSON(steps.failing.outputs.apps), 'hospitality')
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: hospitality-visual-report
+          path: ${{ runner.temp }}/reports/hospitality
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download rialto-web visual report
+        if: contains(fromJSON(steps.failing.outputs.apps), 'rialto-web')
+        continue-on-error: true
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rialto-web-visual-report
+          path: ${{ runner.temp }}/reports/rialto-web
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch open regen PR branches
+        id: open-branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -o pipefail
+          gh pr list --state open --json headRefName --jq '[.[].headRefName]' --limit 100 \
+            > "$RUNNER_TEMP/open-branches.json"
+
+      - name: Derive dispatch plan
+        id: plan
+        run: |
+          set -o pipefail
+          node scripts/visual-regen-trigger.mjs plan \
+            --jobs "$RUNNER_TEMP/jobs.json" \
+            --reports-dir "$RUNNER_TEMP/reports" \
+            --open-branches "$RUNNER_TEMP/open-branches.json" \
+            >> "$GITHUB_OUTPUT"
+
+      - name: Find the merged PR that caused the drift
+        id: culprit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -o pipefail
+          PR_NUMBER=$(gh api "repos/${{ github.repository }}/commits/$SHA/pulls" --jq '.[0].number // empty')
+          echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize
+        run: |
+          {
+            echo "## Visual regen trigger"
+            echo
+            echo "- Dispatching: \`${{ steps.plan.outputs.dispatch }}\`"
+            echo "- Skipped (regen PR already open): \`${{ steps.plan.outputs.skipped }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  dispatch:
+    name: Dispatch regen (${{ matrix.app }})
+    needs: [derive]
+    if: ${{ needs.derive.outputs.dispatch != '[]' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.derive.outputs.dispatch) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4
+
+      - name: Dispatch visual-baseline-regen.yml
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP: ${{ matrix.app }}
+          GREP: ${{ matrix.grep }}
+        run: |
+          set -o pipefail
+          if [ -n "$GREP" ]; then
+            gh workflow run visual-baseline-regen.yml -f app="$APP" -f grep="$GREP"
+          else
+            gh workflow run visual-baseline-regen.yml -f app="$APP"
+          fi
+
+      - name: Post drift notice on the merged PR
+        if: ${{ needs.derive.outputs.culprit_pr != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APP: ${{ matrix.app }}
+          GREP: ${{ matrix.grep }}
+          PR_NUMBER: ${{ needs.derive.outputs.culprit_pr }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        run: |
+          set -o pipefail
+          node scripts/visual-regen-trigger.mjs comment --app "$APP" --grep "$GREP" --run-url "$RUN_URL" \
+            > "$RUNNER_TEMP/comment.md"
+          gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/comment.md"
