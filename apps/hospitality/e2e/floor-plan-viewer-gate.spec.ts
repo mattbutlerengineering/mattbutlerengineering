@@ -19,7 +19,17 @@ async function viewAsHost(page: Page): Promise<void> {
     route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ data: [], pagination: { page: 1, limit: 50, total: 0 } }),
+      body: JSON.stringify({
+        data: [],
+        pagination: {
+          page: 1,
+          limit: 25,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false,
+        },
+      }),
     })
   );
 }
