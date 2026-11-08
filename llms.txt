@@ -2799,7 +2799,7 @@
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-field-helpers.ts">
     <item priority="high">
-      export const QuickSetupIdScope: unknown;
+      export const QuickSetupIdScopeContext: unknown;
     </item>
     <item priority="high">
       export function quickSetupFieldId(
@@ -3654,9 +3654,9 @@
       interface RegularWeekEditInput {
         venueId: string;
         state: AvailabilityConfigState;
-        today: string;
         onStale: () => void;
         onSaved?: (saved: AvailabilityConfigSaveResult) => void;
+        onGone?: () => void;
       }
     </item>
     <item priority="high">

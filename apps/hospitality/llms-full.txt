@@ -3096,7 +3096,7 @@
     }
   </file>
   <file path="src/components/availability/quick-setup-field-helpers.ts">
-    export const QuickSetupIdScope = createContext(DEFAULT_SCOPE);
+    export const QuickSetupIdScopeContext = createContext(DEFAULT_SCOPE);
     export function quickSetupFieldId(
       serviceId: string | null,
       field: QuickSetupField | "days",
@@ -3107,9 +3107,12 @@
       return `${scope}-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
     }
     export function useQuickSetupFieldId() {
-      const scope = useContext(QuickSetupIdScope);
-      return (serviceId: string | null, field: QuickSetupField | "days", blockId?: string) =>
-        quickSetupFieldId(serviceId, field, blockId, scope);
+      const scope = use(QuickSetupIdScopeContext);
+      return useCallback(
+        (serviceId: string | null, field: QuickSetupField | "days", blockId?: string) =>
+          quickSetupFieldId(serviceId, field, blockId, scope),
+        [scope]
+      );
     }
     export function issuesFor(
       issues: readonly QuickSetupIssue[],
@@ -5079,8 +5082,6 @@
     export interface RegularWeekEditInput {
       readonly venueId: string;
       readonly state: AvailabilityConfigState;
-      /** Today on the venue clock. */
-      readonly today: string;
       readonly onStale: () => void;
       /** The change was saved (and Undo offered); the frame decides what happens next. */
       readonly onSaved?: (saved: AvailabilityConfigSaveResult) => void;
@@ -5223,12 +5224,7 @@
         });
         // Checked against the version the draft was built from, so a change made since is a
         // conflict the Manager reviews, not something this save quietly rebases.
-        const saved = await saver.save(
-          venueId,
-          { ...state, version: review.baselineVersion },
-          changes,
-          scopeConflicts
-        );
+        const saved = await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
         if (!saved) return;
         offerUndo({
           venueId,
