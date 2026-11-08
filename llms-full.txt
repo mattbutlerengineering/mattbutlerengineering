@@ -95012,18 +95012,6 @@
     }
   </file>
   </section>
-  <section priority="medium" role="ux-shots">
-  <file path="apps/hospitality/ux-shots/fake-auth.ts">
-    export async function fakeAuth(page: Page) {
-      const now = Math.floor(Date.now() / 1000);
-      const claims = { sub: "auth0|e2e-user", email: "owner@example.com", email_verified: true, name: "Owner", iss: "https://fake-tenant.example.com/", aud: "fake-client", iat: now, exp: now + 36000 };
-      const jwt = `${b64({ alg: "RS256", typ: "JWT" })}.${b64(claims)}.sig`;
-      const user = { access_token: jwt, id_token: jwt, token_type: "Bearer", scope: "openid profile email", expires_at: now + 36000, profile: claims };
-      await page.addInitScript(([k, v]) => { sessionStorage.setItem(k, v); localStorage.setItem(k, v); }, ["oidc.user:https://fake-tenant.example.com:fake-client", JSON.stringify(user)]);
-      await page.route("https://fake-tenant.example.com/**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ issuer: "https://fake-tenant.example.com/", authorization_endpoint: "https://fake-tenant.example.com/authorize", token_endpoint: "https://fake-tenant.example.com/oauth/token", jwks_uri: "https://fake-tenant.example.com/.well-known/jwks.json", end_session_endpoint: "https://fake-tenant.example.com/v2/logout", userinfo_endpoint: "https://fake-tenant.example.com/userinfo" }) }));
-    }
-  </file>
-  </section>
   <section priority="medium" role="venue-onboarding">
   <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-copy.ts">
     export function layoutCounts(

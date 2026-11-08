@@ -6633,13 +6633,6 @@
     </item>
   </file>
   </section>
-  <section priority="medium" role="ux-shots">
-  <file path="ux-shots/fake-auth.ts">
-    <item priority="high">
-      export async function fakeAuth(page: Page) { /* ... */ }
-    </item>
-  </file>
-  </section>
   <section priority="medium" role="venue-onboarding">
   <file path="src/components/venue-onboarding/floor-plan-copy.ts">
     <item priority="high">
