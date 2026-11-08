@@ -243,6 +243,7 @@
         "gh-diff-failure.mjs",
         "guard-direct-push-to-main.mjs",
         "hook-input.mjs",
+        "instruction-budget-hook.mjs",
         "lib/deploy-check-dedupe.mjs",
         "lib/file-issue-cli.mjs",
         "lib/health-alert-summary.mjs",
