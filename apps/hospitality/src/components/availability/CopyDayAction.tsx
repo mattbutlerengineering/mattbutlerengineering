@@ -1,6 +1,6 @@
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Dialog, Radio, RadioGroup, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Button, Dialog, Stack, Text } from "@mattbutlerengineering/rialto";
 import { addDays, resolveDay, weekdayIndexOf, type ResolvedDay } from "@mbe/availability";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
@@ -38,8 +38,6 @@ export interface CopyDayActionProps {
   readonly reasonId?: string;
 }
 
-type How = "thisWeek" | "everyWeek";
-
 /** Change regular week, opened from Copy with the copied hours already in the chosen weekdays. */
 interface WeekPrefill {
   readonly draft: QuickSetupDraft;
@@ -47,9 +45,9 @@ interface WeekPrefill {
 }
 
 /**
- * Copy to other days (ux.md F2): the day's hours carried to chosen weekdays, either as one-off
- * special hours on the dates of this week or, for every week, by reviewing the regular week with
- * those weekdays already changed. The sentence under the choices says what the button will do.
+ * Copy to other days (ux.md F2): the day's hours carried to chosen weekdays. The primary button
+ * writes one-off special hours on the dates of this week; "Every week…" opens the regular week
+ * with those weekdays already changed. The sentence under the days says what the primary does.
  */
 export function CopyDayAction(props: CopyDayActionProps) {
   const { venueId, state, timezone, date, day, onStale, today, waiting = false, reasonId } = props;
@@ -60,9 +58,9 @@ export function CopyDayAction(props: CopyDayActionProps) {
   const saver = useScheduleSave(onStale);
   const [open, setOpen] = useState(false);
   const [weekdays, setWeekdays] = useState<readonly number[]>([]);
-  const [how, setHow] = useState<How>("thisWeek");
   const [prefill, setPrefill] = useState<WeekPrefill | null>(null);
-  const blockedId = useId();
+  const weekBlockedId = useId();
+  const everyBlockedId = useId();
 
   const source = weekdayIndexOf(date);
   const list = (items: readonly string[], type: Intl.ListFormatType = "conjunction") =>
@@ -84,31 +82,32 @@ export function CopyDayAction(props: CopyDayActionProps) {
 
   const week = useMemo(() => thisWeekTargets({ date, weekdays, today }), [date, weekdays, today]);
   // At most six dates, each resolved once: cheap enough to settle on every render.
-  const same =
-    how === "everyWeek"
-      ? regularSameWeekdays(state.config, timezone, day, weekdays, startsOn)
-      : week.dates
-          .filter((d) => sameHoursAs(day, resolveDay({ timezone, config: state.config }, d)))
-          .map(weekdayIndexOf);
+  const sameWeekdays = week.dates
+    .filter((d) => sameHoursAs(day, resolveDay({ timezone, config: state.config }, d)))
+    .map(weekdayIndexOf);
+  const changedDates = week.dates.filter((d) => !sameWeekdays.includes(weekdayIndexOf(d)));
+  const changedWeekdays = changedDates.map(weekdayIndexOf);
+  const regularSame = regularSameWeekdays(state.config, timezone, day, weekdays, startsOn);
+  const changedRegular = weekdays.filter((weekday) => !regularSame.includes(weekday));
 
-  const changed =
-    how === "everyWeek"
-      ? weekdays.filter((weekday) => !same.includes(weekday))
-      : week.dates.filter((d) => !same.includes(weekdayIndexOf(d))).map(weekdayIndexOf);
-  const changedDates = week.dates.filter((d) => changed.includes(weekdayIndexOf(d)));
-
-  const block: "daysRequired" | "noDates" | "allSame" | null =
+  const allSameText = t("availabilitySchedules.copy.allSame", { weekday: sourceName });
+  const weekReason =
     weekdays.length === 0
-      ? "daysRequired"
-      : how === "thisWeek" && week.dates.length === 0
-        ? "noDates"
-        : changed.length === 0
-          ? "allSame"
+      ? t("availabilitySchedules.copy.blocked.daysRequired")
+      : week.dates.length === 0
+        ? t("availabilitySchedules.copy.blocked.noDates")
+        : changedDates.length === 0
+          ? allSameText
           : null;
-  const blockText =
-    block === "allSame"
-      ? t("availabilitySchedules.copy.allSame", { weekday: sourceName })
-      : block && t(`availabilitySchedules.copy.blocked.${block}`);
+  const everyReason =
+    weekdays.length === 0
+      ? t("availabilitySchedules.copy.blocked.daysRequired")
+      : changedRegular.length === 0
+        ? allSameText
+        : null;
+  // One line when both buttons wait for the same reason, else one per blocked button.
+  const sharedReason = weekReason !== null && weekReason === everyReason;
+  const everyDescribedBy = sharedReason ? weekBlockedId : everyBlockedId;
 
   const hours =
     day.services.length === 0
@@ -117,44 +116,32 @@ export function CopyDayAction(props: CopyDayActionProps) {
           day.services.map((s) => namedServiceHoursText(s.name, s, { t, format })),
           "unit"
         );
-  const changedNames = list(changed.map(short));
+  const changedNames = list(changedWeekdays.map(short));
   const consequence =
-    block !== null
+    weekReason !== null
       ? null
-      : how === "thisWeek"
-        ? t("availabilitySchedules.copy.consequenceThisWeek", {
-            days: changedNames,
-            weekday: sourceName,
-            hours,
-            dates: list(changedDates.map(dateText)),
-          })
-        : t("availabilitySchedules.copy.consequenceEveryWeek", {
-            days: changedNames,
-            weekday: sourceName,
-            hours,
-            date: startText,
-          });
-  const thisWeekDates = list([
-    ...week.dates.map(dateText),
-    ...week.past.map((weekday) => `${short(weekday)} ${t("availabilitySchedules.copy.past")}`),
-  ]);
+      : t("availabilitySchedules.copy.consequenceThisWeek", {
+          days: changedNames,
+          weekday: sourceName,
+          hours,
+          dates: list(changedDates.map(dateText)),
+        });
 
   const close = () => {
     setOpen(false);
     setWeekdays([]);
-    setHow("thisWeek");
     saver.clearFailure();
   };
 
+  const review = () => {
+    setPrefill({
+      draft: copyWeekDraft(state.config, day, date, changedRegular, () => crypto.randomUUID()),
+      startsOn,
+    });
+    close();
+  };
+
   const submit = async () => {
-    if (how === "everyWeek") {
-      setPrefill({
-        draft: copyWeekDraft(state.config, day, date, changed, () => crypto.randomUUID()),
-        startsOn,
-      });
-      close();
-      return;
-    }
     const changes = buildCopySingleDates({
       config: state.config,
       source: day,
@@ -194,22 +181,29 @@ export function CopyDayAction(props: CopyDayActionProps) {
         title={t("availabilitySchedules.copy.title", { date: heading })}
         footer={
           <div className={styles.footer}>
-            <BlockedReason id={blockedId} reason={blockText} />
+            <BlockedReason id={weekBlockedId} reason={weekReason} />
+            {!sharedReason && <BlockedReason id={everyBlockedId} reason={everyReason} />}
             <Button variant="secondary" onClick={close}>
               {t("availabilitySchedules.cancel")}
             </Button>
             <Button
+              variant="secondary"
+              disabled={everyReason !== null}
+              aria-describedby={everyReason ? everyDescribedBy : undefined}
+              onClick={review}
+            >
+              {t("availabilitySchedules.copy.everyWeek")}
+            </Button>
+            <Button
               variant="primary"
-              disabled={block !== null}
-              aria-describedby={block ? blockedId : undefined}
+              disabled={weekReason !== null}
+              aria-describedby={weekReason ? weekBlockedId : undefined}
               isLoading={saver.isPending}
               onClick={() => void submit()}
             >
-              {how === "everyWeek"
-                ? t("availabilitySchedules.copy.review")
-                : changed.length === 0
-                  ? t("availabilitySchedules.copy.save")
-                  : t("availabilitySchedules.copy.saveTo", { days: changedNames })}
+              {changedDates.length === 0
+                ? t("availabilitySchedules.copy.save")
+                : t("availabilitySchedules.copy.saveTo", { days: changedNames })}
             </Button>
           </div>
         }
@@ -217,47 +211,37 @@ export function CopyDayAction(props: CopyDayActionProps) {
         <Stack gap="md">
           <SaveFailure messages={saver.failure} stranded={saver.stranded} />
           <DayPicker
-            id={`${blockedId}-days`}
+            id={`${weekBlockedId}-days`}
             legend={t("availabilitySchedules.copy.days")}
             days={weekdays}
             lockedDays={[source]}
             onChange={setWeekdays}
           />
-          <RadioGroup
-            label={t("availabilitySchedules.copy.howOften")}
-            name={`${blockedId}-how`}
-            value={how}
-            onChange={(id) => setHow(id as How)}
-          >
-            <Radio
-              value="thisWeek"
-              label={t("availabilitySchedules.copy.thisWeek")}
-              description={
-                thisWeekDates === ""
-                  ? undefined
-                  : t("availabilitySchedules.copy.thisWeekDates", { dates: thisWeekDates })
-              }
-            />
-            <Radio
-              value="everyWeek"
-              label={t("availabilitySchedules.copy.everyWeek")}
-              description={t("availabilitySchedules.copy.everyWeekHint", { date: startText })}
-            />
-          </RadioGroup>
           <div className={copyStyles.summary} aria-live="polite">
             {consequence && (
               <Text variant="body" color="primary">
                 {consequence}
               </Text>
             )}
-            {block !== "allSame" && same.length > 0 && (
+            {weekReason !== allSameText && sameWeekdays.length > 0 && (
               <Text variant="caption" color="secondary">
                 {t("availabilitySchedules.copy.alreadySame", {
-                  count: same.length,
-                  days: list(same.map(short)),
+                  count: sameWeekdays.length,
+                  days: list(sameWeekdays.map(short)),
                 })}
               </Text>
             )}
+            {week.past.length > 0 && (
+              <Text variant="caption" color="secondary">
+                {t("availabilitySchedules.copy.passed", {
+                  count: week.past.length,
+                  days: list(week.past.map(short)),
+                })}
+              </Text>
+            )}
+            <Text variant="caption" color="secondary">
+              {t("availabilitySchedules.copy.everyWeekHint", { date: startText })}
+            </Text>
           </div>
         </Stack>
       </Dialog>

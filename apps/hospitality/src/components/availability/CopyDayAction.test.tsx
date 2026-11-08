@@ -36,6 +36,7 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 
 import { CopyDayAction } from "./CopyDayAction.js";
 import {
+  EARLY_DINNER,
   FIXTURE_DATE,
   FIXTURE_TIMEZONE,
   fixtureConfig,
@@ -149,9 +150,8 @@ describe("Copy to other days", () => {
   });
 
   describe("Just this week", () => {
-    it("is the default, and its consequence names the days, hours and dates", () => {
+    it("is the primary, and its consequence names the days, hours and dates", () => {
       const dialog = renderCopy();
-      expect(within(dialog).getByRole("radio", { name: /Just this week/ })).toBeChecked();
       pick(dialog, "Sat", "Sun");
       expect(
         within(dialog).getByText(
@@ -183,7 +183,7 @@ describe("Copy to other days", () => {
     it("skips a weekday that has already passed this week, and says so", async () => {
       const dialog = renderCopy();
       pick(dialog, "Mon", "Sat");
-      expect(within(dialog).getByText(/Mon \(past\)/)).toBeInTheDocument();
+      expect(within(dialog).getByText("Mon has already passed this week.")).toBeInTheDocument();
       fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sat" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
       const sent = save.mock.calls[0]![0] as {
@@ -245,26 +245,21 @@ describe("Copy to other days", () => {
     });
   });
 
-  describe("Every week", () => {
-    it("says what it does to the regular week, and the button reviews it", () => {
+  describe("Every week…", () => {
+    it("says under the sentence that it changes the regular week, and from when", () => {
       const dialog = renderCopy();
       pick(dialog, "Sat", "Sun");
-      fireEvent.click(within(dialog).getByRole("radio", { name: /Every week/ }));
       expect(
-        within(dialog).getByText(
-          new RegExp(
-            "^Sat and Sun will use Friday’s hours \\(.*\\) every week from Oct 28\\. This changes your regular week\\.$"
-          )
-        )
+        within(dialog).getByText("Every week… changes your regular week from Oct 28.")
       ).toBeInTheDocument();
-      expect(within(dialog).getByRole("button", { name: "Review regular week…" })).toBeEnabled();
+      expect(within(dialog).getByRole("button", { name: "Every week…" })).toBeEnabled();
+      expect(within(dialog).queryByRole("radio")).not.toBeInTheDocument();
     });
 
     it("opens Change regular week with the weekdays and the start prefilled, saving nothing", async () => {
       const dialog = renderCopy();
       pick(dialog, "Sat");
-      fireEvent.click(within(dialog).getByRole("radio", { name: /Every week/ }));
-      fireEvent.click(within(dialog).getByRole("button", { name: "Review regular week…" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Every week…" }));
 
       // The Copy dialog closes as the drawer opens.
       const drawer = await screen.findByRole("dialog", { name: "Change regular week" });
@@ -299,34 +294,41 @@ describe("Copy to other days", () => {
       fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
       const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
       pick(dialog, "Sat");
-      fireEvent.click(within(dialog).getByRole("radio", { name: /Every week/ }));
-      expect(within(dialog).getByText(/every week from Oct 26\./)).toBeInTheDocument();
+      expect(within(dialog).getByText(/regular week from Oct 26\./)).toBeInTheDocument();
     });
 
-    it("does not count a past weekday out, and leaves out weekdays that already match", () => {
-      const week: AvailabilityConfig = {
-        ...fixtureConfig(),
-        assignments: [{ id: "as-regular", scheduleId: "regular", weekdays: [5, 6], precedence: 0 }],
-      };
-      const dialog = renderCopy(week);
-      pick(dialog, "Mon", "Sat", "Sun");
-      fireEvent.click(within(dialog).getByRole("radio", { name: /Every week/ }));
-      expect(within(dialog).getByText("Sat already has these hours.")).toBeInTheDocument();
-      expect(within(dialog).getByText(/^Mon and Sun will use Friday’s hours/)).toBeInTheDocument();
+    const regularSaturday: AvailabilityConfig = {
+      ...fixtureConfig(),
+      assignments: [{ id: "as-regular", scheduleId: "regular", weekdays: [5, 6], precedence: 0 }],
+    };
+
+    it("is still enabled for a past weekday, which the regular week does reach", () => {
+      const dialog = renderCopy();
+      pick(dialog, "Mon");
+      expect(within(dialog).getByRole("button", { name: "Every week…" })).toBeEnabled();
+      expect(within(dialog).getByRole("button", { name: "Copy" })).toBeDisabled();
     });
 
-    it("disables the primary with the reason when the regular week already matches", () => {
-      const week: AvailabilityConfig = {
-        ...fixtureConfig(),
-        assignments: [{ id: "as-regular", scheduleId: "regular", weekdays: [5, 6], precedence: 0 }],
-      };
-      const dialog = renderCopy(week);
+    it("disables only itself, with the reason, when the regular week already matches", () => {
+      const dialog = renderCopy({
+        ...regularSaturday,
+        dateRules: [{ ...EARLY_DINNER, id: "own", startsOn: "2026-10-31", endsOn: "2026-10-31" }],
+      });
       pick(dialog, "Sat");
-      fireEvent.click(within(dialog).getByRole("radio", { name: /Every week/ }));
-      expect(within(dialog).getByRole("button", { name: "Review regular week…" })).toBeDisabled();
-      expect(
-        within(dialog).getByText("These days already have Friday’s hours.")
-      ).toBeInTheDocument();
+      const every = within(dialog).getByRole("button", { name: "Every week…" });
+      expect(every).toBeDisabled();
+      const reason = within(dialog).getByText("These days already have Friday’s hours.");
+      expect(every).toHaveAttribute("aria-describedby", reason.id);
+      expect(within(dialog).getByRole("button", { name: "Copy to Sat" })).toBeEnabled();
+    });
+
+    it("leaves out the weekdays that already match when it opens the week", async () => {
+      const dialog = renderCopy(regularSaturday);
+      pick(dialog, "Sat", "Sun");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Every week…" }));
+      const drawer = await screen.findByRole("dialog", { name: "Change regular week" });
+      const sunday = within(drawer).getAllByRole("checkbox", { name: "Sunday" });
+      expect(sunday.every((box) => (box as HTMLInputElement).checked)).toBe(true);
     });
   });
 });

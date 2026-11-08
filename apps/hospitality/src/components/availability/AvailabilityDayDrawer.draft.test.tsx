@@ -360,7 +360,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
       fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
       const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Thursday" }));
-      expect(within(dialog).getByText(/Thu \(past\)/)).toBeInTheDocument();
+      expect(within(dialog).getByText("Thu has already passed this week.")).toBeInTheDocument();
       expect(
         within(dialog).getByText("Those days have already passed this week.")
       ).toBeInTheDocument();

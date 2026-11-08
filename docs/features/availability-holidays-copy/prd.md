@@ -71,7 +71,7 @@ Checks by component test (C), engine or server test (S), e2e (E), or a combinati
   | H1 | D27 | Close Thanksgiving, Christmas Day, New Year's Day | ≤ 3 |
   | H2 | D33 | Christmas Eve open as usual, seen by a second Manager | ≤ 3, 0 for the second Manager |
   | H3 | D22 | Special hours on New Year's Eve | ≤ before |
-  | K1 | C15 | Tuesday's hours on Wed and Thu every week | ≤ before, with no special-hours rule created |
+  | K1 | C15 | Tuesday's hours on Wed and Thu every week | ≤ 7, with no special-hours rule created (amended at Implement: before = 6, but that path wrote a never-ending rule without saying so; the +1 is Change regular week's preview and Save) |
   | K2 | C15 | Just this week | ≤ before |
 - [ ] 10. **Honest failure.** If the server rejects the venue decision (an older server during a deploy window, or any error), the line says the save failed with Retry and does not show the holiday as decided. C.
 - [ ] 11. **Locales.** New strings in en-US, es-MX and fr-CA; key parity. C.

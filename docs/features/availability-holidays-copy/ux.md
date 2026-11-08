@@ -114,6 +114,17 @@ Thu already has these hours.                               [Cancel]  [Copy to We
 - **Removed:** From, Until ("No end") and "Applies to N future dates". A date-bounded every-week change is a schedule ("Add a schedule…"), not a copy.
 - The existing blocked reasons stay where they still apply ("Choose at least one day to copy to.").
 
+### Amended at Implement (2026-11-08): the choice is the action
+
+The "How often" radio group is gone.
+- **Footer:** [Cancel] [Every week…] [Copy to Wed and Thu].
+  - The primary applies just this week.
+  - "Every week…" opens Change regular week prefilled, with Starting at the copied date's week or today, whichever is later.
+- **Consequence:** the sentence describes this week. One muted line under it says "Every week… changes your regular week from {{date}}."
+- **Disabling:** each button is disabled with its own reason when all of its targets already match.
+
+Why: K1 measured 8 interactions with the radio, against 6 before. Making the choice the action removes one interaction. The Change regular week review stays, because it is the preview and the impact checks that replace the old invisible 105-date write.
+
 ## Copy (en-US; es-MX and fr-CA in the catalogs)
 
 Upcoming holidays (`availabilitySpecial.holidays.*`):
@@ -159,5 +170,5 @@ Lists of names, days and dates use `Intl.ListFormat`, not string joins.
 - **H1:** Special dates (1), Close these 3 (1) = 2, plus any step two.
 - **H2:** Open as usual on Christmas Eve = 1 after reaching Special dates. A second Manager's context loads Special dates and sees Christmas Eve under Decided, with 0 decisions to make.
 - **H3:** Special hours… on New Year's Eve (1), then the sheet as today.
-- **K1:** day drawer, Copy (1), Wed and Thu chips (2), Every week (1), Review regular week (1), drawer Save (1).
+- **K1:** Calendar (1), the day (1), Copy (1), the Wed and Thu chips (2), Every week… (1), drawer Save (1) = 7.
 - **K2:** day drawer, Copy (1), Wed and Thu (2), Copy to Wed and Thu (1).
