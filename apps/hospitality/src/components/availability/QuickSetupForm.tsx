@@ -6,12 +6,11 @@ import {
   replaceService,
   setSharedDays,
   type QuickSetupDraft,
-  type QuickSetupField,
   type QuickSetupIssue,
 } from "./quick-setup-draft.js";
 import {
   issuesFor,
-  QuickSetupIdScope,
+  QuickSetupIdScopeContext,
   quickSetupFieldId,
   useQuickSetupFieldId,
 } from "./quick-setup-field-helpers.js";
@@ -104,10 +103,8 @@ export function QuickSetupForm({
   const { t } = useTranslation();
   // Field ids carry the form instance: the week panel and the drawer opened from it can hold the
   // same draft (same service ids) at once, and a shared id would hand one form's labels to the other.
-  const ownScope = useId();
-  const scope = idScope ?? ownScope;
-  const fieldId = (serviceId: string | null, field: QuickSetupField | "days") =>
-    quickSetupFieldId(serviceId, field, undefined, scope);
+  const ownScopeId = useId();
+  const scope = idScope ?? ownScopeId;
   // The same sentence twice would change no DOM, so a screen reader would stay silent the second
   // time: `repeat` flips a trailing no-break space to make each announcement a DOM change.
   const [announcement, setAnnouncement] = useState({ message: "", repeat: false });
@@ -119,8 +116,8 @@ export function QuickSetupForm({
     const id = focusAfterChangeRef.current;
     if (id === null) return;
     focusAfterChangeRef.current = null;
-    document.getElementById(fieldId(id, "name"))?.focus();
-  }, [draft.services.length]);
+    document.getElementById(quickSetupFieldId(id, "name", undefined, scope))?.focus();
+  }, [draft.services.length, scope]);
 
   const addService = () => {
     const service = emptyService(crypto.randomUUID());
@@ -139,7 +136,7 @@ export function QuickSetupForm({
   };
 
   return (
-    <QuickSetupIdScope value={scope}>
+    <QuickSetupIdScopeContext value={scope}>
       <div className={inDrawer ? styles.layoutSingle : styles.layout}>
         <Stack gap="md">
           {draft.services.map((service, index) => (
@@ -178,6 +175,6 @@ export function QuickSetupForm({
           </div>
         )}
       </div>
-    </QuickSetupIdScope>
+    </QuickSetupIdScopeContext>
   );
 }

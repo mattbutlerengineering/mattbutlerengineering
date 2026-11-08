@@ -27,7 +27,7 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
     setDraft(next);
     onDirtyChange?.(JSON.stringify(next) !== blank);
   };
-  const idScope = useId();
+  const scopeId = useId();
   const [attempted, setAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -44,7 +44,7 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
     const first = found[0];
     if (first) {
       document
-        .getElementById(quickSetupFieldId(first.serviceId, first.field, first.blockId, idScope))
+        .getElementById(quickSetupFieldId(first.serviceId, first.field, first.blockId, scopeId))
         ?.focus();
       return;
     }
@@ -70,7 +70,7 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
             </Alert>
           </div>
         )}
-        <QuickSetupForm draft={draft} onChange={edit} issues={issues} idScope={idScope} />
+        <QuickSetupForm draft={draft} onChange={edit} issues={issues} idScope={scopeId} />
         <Stack direction="row" justify="end">
           <Button variant="primary" onClick={save} disabled={isSaving}>
             {isSaving

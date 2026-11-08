@@ -86,7 +86,7 @@ export function ServiceRow({
       .getElementById(fieldId(service.id, "days", id))
       ?.querySelector("input")
       ?.focus();
-  }, [service.blocks.length, service.id]);
+  }, [service.blocks.length, service.id, fieldId]);
   const daysText = (days: readonly number[]) =>
     WEEK_DISPLAY_ORDER.filter((day) => days.includes(day))
       .map((day) => dayName(day, "short"))
