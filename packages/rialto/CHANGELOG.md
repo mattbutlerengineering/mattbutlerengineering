@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.7
+
+### Patch Changes
+
+- [#8516](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8516) [`ff6a7ab`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ff6a7ab7f8eafc925b1df7fb3c3805e147f30f69) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - SegmentedControl's sliding indicator now rounds its measured offset and width to whole pixels, so its edge no longer anti-aliases differently run to run with no visual change — the cause of a flaky `rialto-web-e2e` visual snapshot ([#8515](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8515)).
+
 ## 0.10.6
 
 ### Patch Changes
