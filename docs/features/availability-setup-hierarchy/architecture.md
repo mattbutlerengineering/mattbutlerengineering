@@ -2,6 +2,7 @@
 stage: architect
 run: feature:availability-setup-hierarchy
 date: 2026-11-07
+amended: 2026-11-08
 assumptions:
   - "Unattended run: the skill's step 6 (present the trade-offs and revise on feedback) was not done; the Owner is not available. The four decisions that could have gone another way (section closure storage, Tonight grouping, Host gating of floor-plan pages, the table Section select) are listed with a recommendation under Decisions & alternatives. The Owner can veto at the architecture gate."
   - "Data model (brief: Owner 'Architect decides'): one additive nullable column, `date_rules.section_id`, and one pure expansion function; no new target kind, no engine change. UI-only on today's model was tested against PRD criterion 4 and rejected (a snapshot of table ids goes stale when a table moves sections, a wrong guest-facing result); recorded in ADR-032."
@@ -14,11 +15,16 @@ assumptions:
   - "Delivery shape: the slices under Components are independently mergeable off `main` with the dependency edges stated there; ordering is Decompose's."
   - "Dead `OperatingHoursStep` (PRD criterion 13): deleted with its test. `validateOperatingHours` is used only by a localisation test and a mock, so it goes too; the `OperatingHoursValidationErrors` type moves to `quick-setup-draft.ts`, its three importers follow."
   - "No independent architecture review subagent: the skill does not require one. Claims about the code were read in this worktree on 2026-11-07 (`origin/main` @ `7c051456f`)."
+  - "Amendment 2026-11-08 (PRD criteria 14-24, ux.md W10-W22, S-Avail2): presentation, entry points and wording only. No API, schema, engine or data change; no new dependency. The Owner delegated the run ('keep working … make the ux easy for them'), so the step-6 trade-off review is recorded under Decisions with recommendations, not asked live; the Owner can veto at the architecture gate."
+  - "Amendment: the 'Add a schedule…' seed fills the regular week's days only once a Starting date is set and while the days are untouched. Seeding days immediately would save, with no dates, an undated assignment that outranks the regular week on every day (`ScheduleEditorDrawer.tsx:86-88`); this narrows ux.md's 'seeded … and its days' and ux.md is corrected in the same commit."
+  - "Amendment: no ADR. Every amendment decision is a two-way door undone by a revert with no data consequence; the reversal of 'Starting required, no default' (availability-config-usability ux.md:200) is a product decision flagged for the Owner in prd.md criterion 17, not an architectural one."
 ---
 
 # Architecture: Availability setup hierarchy
 
 Builds on `prd.md` and `ux.md` (commit `0c96bbb0e`). Amends ADR-030 through ADR-032 (provisional); contradicts neither ADR-029 nor ADR-031.
+
+**Amendment (2026-11-08).** Adds the components under "Amendment components" below; every earlier component stands. Builds on `prd.md` criteria 14-24 and `ux.md` (commit `6c2b59a68`).
 
 ## Approach
 
@@ -89,6 +95,51 @@ Each is a PR off `main` that keeps the suites green on its own. Ordering and siz
 7. Tonight grouping by section (no dependency).
 8. Venue Setup hub and the standing `/setup` (needs 1, 5; uses 3 and 4 for the section action and closure rows; hides those parts if absent).
 9. Navigation, route labels, glossary strings and the retired terms, in three locales (needs 8).
+
+
+### Amendment components (2026-11-08)
+
+#### Service hours text (policy)
+
+- Responsibility: one formatter for a configured service's times, `serviceHoursText({ opensAt, lastSeatingAt, closesAt }, { t, format })` → "11:30 AM–3:00 PM, last seating 2:00 PM" (", last seating …" left out when it equals close), and `serviceCloseChangeText(days, { closesAt, lastSeatingAt })` for per-day differences ("Fri, Sat until 12:00 AM, last seating 11:00 PM"). New module `apps/hospitality/src/components/availability/service-hours.ts`, minutes through the existing `minuteText` (past-midnight aware). Owns PRD 16.
+- Consumers switched to it: `RegularWeekLine.tsx` (the `hours`/`closes` keys), `venue-setup/useSetupNodeText.ts` (service rows and changes), `day-summary.ts` service text (`:70-74`), `AvailabilityDayEditor.tsx` service rows (`:377-380`). `setup-tree.ts` service values gain `closesAt` and its change filter compares `closesAt` too, so a per-day set that only moves the close is now shown.
+- Collaborators: i18n (`availability.serviceHours.*` in three catalogs; retired keys removed).
+
+#### Regular week edit (policy + two frames)
+
+- Responsibility: `useRegularWeekEdit({ venueId, state, today, onStale, fixedStart?, initialDraft? })`, extracted from `ChangeRegularWeekDrawer.tsx:65-213` without changing its behaviour: the draft (`draftFromConfig`), edited weekday, `startsOn`/`endsOn`/name/winner/`conflictMode`, `useConflictReview`, `useScheduleSave`, the derived values (covered weekdays, dates of use, own changes, overlaps, issues, outside schedules, closed days, save block and its text, preview changes) and `submit()` with undo. `fixedStart` pins `startsOn` (and keeps it out of `dirty`); `initialDraft` replaces the saved week as the starting draft.
+- Frames: `ChangeRegularWeekDrawer` = the hook + today's drawer chrome, gaining an `initialDraft` prop (Starting later…). New `RegularWeekPanel` = the hook with `fixedStart = today` + `QuickSetupForm` without `inDrawer` (the guest-preview column, as onboarding and quick setup) + the drawer's captions, `OwnChangesChoice`, `SaveFailure`/`ConflictReviewPanel`, `DraftPreview` + the footer (apply line, Starting later…, Discard, Save) + `ScheduleDraftGuard`/`LeaveGuard`. After its own save lands, the panel re-seeds from the refreshed config once `state.version` reaches the saved version; a colleague's save while dirty goes through conflict review as in the drawer, never a silent re-seed.
+- Owns PRD 14 (with the page frame), 17. Collaborators: `QuickSetupForm`, `schedule-changes.ts`, `DraftPreview`, `ScheduleFormParts`.
+
+#### Schedules layer (adapter)
+
+- Responsibility: `SchedulesTab` becomes the layer S-Avail2 draws: heading "Regular week" with **Add a schedule…**; `RegularWeekPanel`; **Other schedules** (today's rows for non-regular schedules: Edit, Duplicate, Delete); the Booking line (booking-rules read + the hub's booking summary text); Compare services below. The editor target (`{ mode, sourceId }`) and `comparing` move up to the page as controlled props, so the header ⋯ can open Compare services and Duplicate regular week. The week panel's dirty state joins Compare's in the page's tab guard.
+- Owns PRD 19 (with the page frame). Collaborators: Regular week edit, `ScheduleEditorDrawer`, `CompareServices`.
+
+#### Availability page frame (adapter)
+
+- Responsibility: `AvailabilityPage` renders one frame for every layer instead of three early returns (`:462-503`): page header with `AvailabilityHeaderActions` (Close…, Pause online booking, ⋯ = Booking rules…, Compare services, Duplicate regular week…, History, Go to date; phone: Close… and ⋯ with Pause first), `OnlinePausedBanner`, the load-failure banner, the layer control, the layer body, and the dialogs those actions open (`CloseDialog`, `BookingRulesDrawer`, `AvailabilityHistoryDrawer`, `GoToDateDialog`, `ChangeRegularWeekDrawer`, `ScheduleEditorDrawer`). Go to date from another layer switches to Calendar first; Compare services switches to Schedules.
+- Default layer: `chosenTab` starts as `entry.tab ?? null`; the shown tab is `chosenTab ?? (access.isPending ? "pending" : access.isManager ? "schedules" : "calendar")`; `"pending"` renders the layer skeleton, never the calendar. The Host clamp (`:303`) stays. Quick setup's save stops moving focus to the calendar (`:264-272`); focus goes to the Regular week heading.
+- `AvailabilityScheduleControls`: segment order Schedules, Calendar, Special dates; the Change regular week… button goes. `AvailabilityToolbar`: loses `onHistory`, `onGoToDate`, `onBookingRules`, `onClose`, `onPause`, `onChangeRegularWeek`; the phone menu holds only `selectItems` and is labelled "Select…". Calendar-only rows (week summary, Services filter, venue time, holiday nudge, regular-week line) render inside the Calendar layer.
+- Owns PRD 14, 15, 21, 22, 23. Collaborators: `useManagerAccess`, entry contract, every layer.
+
+#### Entry contract and hub links (adapter, amended)
+
+- `AvailabilityEntry` gains `action?: "addSchedule"` (`?action=addSchedule`, Zod enum, ignored when invalid, removed from the URL after it is read like `closeSection`). Hub actions: `changeRegularWeek` becomes a link `availabilityPath({ tab: "schedules", from: "setup" })` (the hub's `ChangeRegularWeekDrawer` dialog goes); `createSchedule` is relabelled "Add a schedule…" and links `availabilityPath({ tab: "schedules", action: "addSchedule", from: "setup" })`.
+- Owns PRD 7 and 8 for the moved entries.
+
+#### Add a schedule seed (policy)
+
+- Responsibility: `ScheduleEditorDrawer` mode `"new"` gains `seed?: "regular"`: services from the regular week (`draftFromConfig(config, …, regularId)`) with `days: []`; when Starting is set and the days are untouched, days become the regular week's covered weekdays. A seeded schedule saved with no dates keeps empty days, so it can never become an undated assignment that outranks the regular week. Duplicate is unchanged.
+- Owns ux.md W18 (PRD 18 S8).
+
+#### Onboarding copy (adapter)
+
+- `onboarding.hours.intro` and a new `onboarding.launch.changeLater` caption under the launch review's guest preview (`LaunchStep.tsx`), three catalogs. Owns PRD 20.
+
+#### Scenario harness (test adapter)
+
+- `e2e/helpers/close-mock.ts` (the stateful closure mock lifted from `availability-close.spec.ts:95-175`), `e2e/helpers/first-paint.ts` (counts actionable controls outside a named region), and one scenario spec per PRD 18 row on the fixtures ux.md names (F-one, F-bistro, F-dinner, F-close). Owns PRD 15, 18, 21, 23 evidence.
 
 ## Data model
 
@@ -178,6 +229,11 @@ No change to `Table.location` (kept, editable, not used for grouping any more on
 - **Schedules tab always shown to a manager** (UX) over keeping the `hasOwnSchedules` gate — the gate is the reason a one-schedule venue never sees the schedule level (PRD criterion 1). Accepted behaviour change below.
 - **Delete `OperatingHoursStep` and `validateOperatingHours`; move the error type** over leaving the file for its type export — the only live export is a type; keeping a file to host one type keeps the name "operating hours" alive in code (criterion 13).
 - **No ADR for** the hub shape, the entry-point contract, the Host gate or Tonight grouping: each is a two-way door undone by a revert, with no data consequence, so they fail the protocol's ADR test. ADR-032 passes it (data door one-way once a section closure is saved; surprising without context; a real trade-off).
+- **(Amendment) Inline week panel = the drawer's logic as a shared hook, two frames** over rendering a second editor inline (two save paths drift: the review found the inline sketch had already dropped `OwnChangesChoice`), and over auto-opening the drawer on the Schedules layer (keeps the date picker in front of every edit, the thing PRD 17 removes). Recommendation taken: shared hook.
+- **(Amendment) Default layer resolved after the role read, skeleton while pending** over defaulting to Calendar and switching once the role is known (a Manager sees 12+ controls flash, then a jump; first-paint counts become timing-dependent) and over defaulting to Schedules for everyone (Hosts have no Schedules layer, PRD 22).
+- **(Amendment) Seed days on Starting** over seeding days immediately (an undated assignment that outranks the regular week if saved without dates — a silent replacement of the week) and over no seed (W18 costs 11, over budget).
+- **(Amendment) `?action=addSchedule`** over a hub link that lands on Schedules and leaves one more click (the hub action would no longer do what it says) and over router state (does not survive reload; the run's contract is query parameters).
+- **(Amendment) Service hours formatter in `apps/hospitality`** over `@mbe/availability` — it is presentation and i18n; the engine package has no `t`.
 
 ### Accepted behaviour changes (old rule vs new rule, over the inputs where they differ)
 
@@ -193,6 +249,17 @@ No change to `Table.location` (kept, editable, not used for grouping any more on
 | Client built before this change loads a section closure                     | n/a                                                                                    | shows "Tables blocked" (a `tables` rule), never an error                                                                           |
 | Nav labels                                                                  | "Get Started" (3 locked step items) before launch; "Floor Plans", "Availability" after | "Venue Setup" (+ progress count) in both states; "Availability" after launch; step items and "Floor Plans" gone                    |
 | Settings → Venue "Operating hours" button                                   | label "Operating hours", goes to `/availability`                                       | label "Venue Setup", goes to `/setup`                                                                                              |
+| (Amendment) Manager opens `/availability` on a venue with hours                    | Calendar layer, 12-15 controls                                                          | Schedules layer: the week panel with the saved week and the guest preview; 7 controls outside it                                     |
+| (Amendment) Role read pending                                                       | Calendar painted (Host view) until the read answers                                    | Layer skeleton                                                                                                                       |
+| (Amendment) Quick setup's save                                                      | swaps to the calendar grid, focus on a day                                             | swaps to the Schedules layer week panel, focus on "Regular week"                                                                     |
+| (Amendment) Changing the regular week                                               | drawer; Save blocked until Starting is picked                                          | inline Save applies from today (same `buildRegularWeekChanges` payload as the drawer's Start today); Starting later… opens the drawer |
+| (Amendment) Regular-week line, hub service rows, day summary: Lunch 11:30/2:00/3:00 | "Lunch 11:30 AM–2:00 PM" (open–last seating)                                           | "Lunch 11:30 AM–3:00 PM, last seating 2:00 PM"                                                                                       |
+| (Amendment) Day editor service rows                                                 | "Lunch 11:30 AM – 3:00 PM"                                                             | "Lunch 11:30 AM–3:00 PM, last seating 2:00 PM"                                                                                       |
+| (Amendment) A per-day set that only moves the close                                 | left out of the hub and the regular-week line                                          | shown ("Fri, Sat until 12:00 AM, last seating 11:00 PM")                                                                             |
+| (Amendment) Close…, Pause online booking, History, Go to date, Booking rules…       | calendar toolbar only (phone: one More actions menu)                                   | page header on every layer (phone: Close… + ⋯); the Calendar's phone menu holds only Select… items                                   |
+| (Amendment) Hub "Change regular week…" / "Create another schedule…"                 | drawer on `/setup` / link to the Schedules tab                                         | link to the Schedules layer / "Add a schedule…" opening the seeded editor there                                                      |
+| (Amendment) New schedule seeded from the regular week                               | button "Start from your regular week", days cleared                                    | Add a schedule… seeds services; days follow the regular week once Starting is set                                                    |
+| (Amendment) Paused banner                                                           | calendar branch only                                                                   | above the layer control on every layer                                                                                               |
 
 ### Requirement traceability
 
@@ -211,6 +278,17 @@ No change to `Table.location` (kept, editable, not used for grouping any more on
 | 11 three locales                      | i18n catalogs                                                                                          |
 | 12 no regressions                     | engine and its property test unchanged; entry-point-moved spec edits listed in each slice's PR body    |
 | 13 dead step removed                  | Removal of the dead onboarding hours step                                                              |
+| 14 same first layer                   | Page frame (default layer), Regular week edit (`RegularWeekPanel`), Schedules layer                    |
+| 15 calm first paint                   | Page frame, header actions, Schedules layer; Scenario harness `first-paint.ts`                         |
+| 16 one time range                     | Service hours text                                                                                     |
+| 17 edit in place from today           | Regular week edit (`fixedStart`), `ChangeRegularWeekDrawer` `initialDraft`                             |
+| 18 scenario budgets                   | Scenario harness; Add a schedule seed (S8); header actions (S5, S7, S9, S10)                           |
+| 19 hierarchy in words                 | Schedules layer                                                                                        |
+| 20 onboarding names                   | Onboarding copy                                                                                        |
+| 21 night-of actions                   | `AvailabilityHeaderActions`                                                                            |
+| 22 hosts                              | Page frame (Host default and clamp), header actions hidden for non-managers                           |
+| 23 demo                               | Page frame + Regular week edit + Scenario harness                                                      |
+| 24 locales and regressions            | i18n catalogs; deliberate spec edits listed per PR                                                     |
 
 ## ADRs
 
