@@ -10,11 +10,10 @@ import { createGuestTools } from "./gen-agent-guest-tools.js";
 import { createFloorPlanTools } from "./gen-agent-floor-plan-tools.js";
 import { createMenuTools } from "./gen-agent-menu-tools.js";
 import { createWaitlistTools } from "./gen-agent-waitlist-tools.js";
-import { bookingWriteFailure, createTimelineTools } from "./gen-agent-timeline-tools.js";
+import { createTimelineTools } from "./gen-agent-timeline-tools.js";
 import {
   NOT_EXECUTED,
   NO_VENUE,
-  failedBeforeWrite,
   failureLog,
   notExecuted,
   localTimeIn,
@@ -22,6 +21,7 @@ import {
   resolveTable,
   saveUnsure,
   todayIn,
+  writeFailure,
   type ApiClient,
   type Refusal,
 } from "./gen-tool-support.js";
@@ -568,11 +568,10 @@ export function createAgentTools(
         } catch (err) {
           log.error({ ...failureLog(err), reservationId }, "modify_reservation failed");
           // The write is the tool's first call, so any failure may have saved.
-          return bookingWriteFailure(
-            err,
-            "modify the reservation",
-            saveUnsure("lookup_reservation")
-          );
+          return writeFailure(err, {
+            action: "modify the reservation",
+            unsure: saveUnsure("lookup_reservation"),
+          });
         }
       },
     }),
@@ -607,7 +606,10 @@ export function createAgentTools(
         } catch (err) {
           log.error({ ...failureLog(err), venueId, partySize }, "seat_walk_in failed");
           // The write is the tool's first call, so any failure may have saved.
-          return bookingWriteFailure(err, "seat the walk-in", saveUnsure("get_table_status"));
+          return writeFailure(err, {
+            action: "seat the walk-in",
+            unsure: saveUnsure("get_table_status"),
+          });
         }
       },
     }),
@@ -633,10 +635,7 @@ export function createAgentTools(
           return { table: updated };
         } catch (err) {
           log.error({ err, venueId, tableRef }, "update_table_status failed");
-          return failedBeforeWrite(
-            unsure,
-            bookingWriteFailure(err, "update the table status", unsure)
-          );
+          return writeFailure(err, { action: "update the table status", unsure });
         }
       },
     }),

@@ -125,6 +125,42 @@ export function failedBeforeWrite<T extends object>(unsure: string | undefined, 
   return unsure === undefined ? notExecuted(result) : result;
 }
 
+export interface WriteFailureContext {
+  /** What the tool was doing, as a verb phrase: "seat the party". */
+  readonly action: string;
+  /** `saveUnsure(..)`, set by the tool just before its first write request is sent. */
+  readonly unsure: string | undefined;
+  /** What an earlier step of a multi-write tool already saved: "The arrival". */
+  readonly saved?: string;
+}
+
+/**
+ * A refused or failed chat write, in words the model can pass on. Marked
+ * not-executed iff `unsure` is undefined (no write was sent), and never says
+ * "nothing changed" once one was, or once `saved` names an earlier write.
+ */
+export function writeFailure(err: unknown, ctx: WriteFailureContext) {
+  return failedBeforeWrite(ctx.unsure, describeWriteFailure(err, ctx));
+}
+
+function describeWriteFailure(
+  err: unknown,
+  { action, unsure, saved }: WriteFailureContext
+): { readonly error: string; readonly refused?: true } {
+  const outcome = saved
+    ? `${saved} was already saved; check the timeline before trying again.`
+    : "Nothing was changed.";
+  const refusal = refusalOf(err);
+  if (!refusal) {
+    if (unsure) return { error: saved ? `${saved} was already saved. ${unsure}` : unsure };
+    return { error: `Couldn't ${action} right now. ${outcome} Ask the user to try again shortly.` };
+  }
+  if (refusal.status === 403) {
+    return { refused: true, error: `The user doesn't have permission to do this. ${outcome}` };
+  }
+  return { refused: true, error: `${refusal.detail} ${outcome}` };
+}
+
 export interface NamedTable {
   readonly id: string;
   readonly name?: string | null;

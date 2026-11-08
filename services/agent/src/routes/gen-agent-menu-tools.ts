@@ -4,10 +4,10 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import {
   NO_VENUE,
-  failedBeforeWrite,
   notExecuted,
   refusalOf,
   saveUnsure,
+  writeFailure,
   type ApiClient,
 } from "./gen-tool-support.js";
 
@@ -51,28 +51,6 @@ const ItemSchema = {
 };
 
 const MENU_SAVE_UNSURE = saveUnsure("get_menu");
-
-/**
- * A refused or failed menu write, in words the model can pass on. `unsure` is set
- * once the write is on its way: until then a failure can't have changed anything.
- */
-function menuFailure(err: unknown, unsure: string | undefined) {
-  const refusal = refusalOf(err);
-  if (!refusal) {
-    return {
-      error:
-        unsure ??
-        "Couldn't change the menu right now. Nothing was changed. Ask the user to try again.",
-    };
-  }
-  if (refusal.status === 403) {
-    return {
-      refused: true,
-      error: "The user doesn't have permission to do this. Nothing was changed.",
-    };
-  }
-  return { refused: true, error: `${refusal.detail} Nothing was changed.` };
-}
 
 /** One menu by name (case-insensitive) or by the id of the menu the page has open. */
 function findMenu(menus: readonly Menu[], ref: string): { menu: Menu } | { error: string } {
@@ -214,7 +192,7 @@ export function createMenuTools(
           return { updated: true, item: target.item.name, status };
         } catch (err) {
           log.error({ err, venueId }, "set_menu_item_availability failed");
-          return failedBeforeWrite(unsure, menuFailure(err, unsure));
+          return writeFailure(err, { action: "change the menu", unsure });
         }
       },
     }),
@@ -254,7 +232,7 @@ export function createMenuTools(
           return { updated: true, item: name ?? target.item.name };
         } catch (err) {
           log.error({ err, venueId }, "update_menu_item failed");
-          return failedBeforeWrite(unsure, menuFailure(err, unsure));
+          return writeFailure(err, { action: "change the menu", unsure });
         }
       },
     }),
