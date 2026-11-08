@@ -243,6 +243,9 @@ async function sweep(
   const untranslated = (await visibleStrings(page))
     .map(normalize)
     .filter(Boolean)
+    // A text node that is wholly a typed value (a service called "Lunch") is the venue's own
+    // word, not UI copy, even where a catalog literal happens to read the same.
+    .filter((text) => !userData.includes(text))
     .flatMap((text) => {
       // Literal values are matched against what is on screen; templates against the text
       // with typed values masked, where their `.+?` still matches the token.
