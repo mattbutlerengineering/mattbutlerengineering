@@ -498,7 +498,9 @@ describe("CloseDialog", () => {
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Online" }));
     fireEvent.click(within(dialog).getByTestId("close-primary"));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(await screen.findByText("Phone booking paused on Tue, Dec 1")).toBeTruthy();
+    expect(
+      await screen.findByText("Phone booking paused from Tue, Dec 1 until you reopen")
+    ).toBeTruthy();
     expect(screen.queryByText("Online booking paused")).toBeNull();
   });
 
@@ -1923,13 +1925,31 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
         ""
       );
       expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      // The disabled primary says why, and is tied to the reason.
+      expect(within(dialog).getByTestId("close-primary")).toHaveAccessibleDescription(
+        "Choose an end date to close."
+      );
       pickTo("2026-12-27");
       expect(within(dialog).getByTestId("close-primary")).toBeEnabled();
+      expect(within(dialog).queryByText("Choose an end date to close.")).toBeNull();
       fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
       expect((within(dialog).getByRole("combobox", { name: "To" }) as HTMLInputElement).value).toBe(
         ""
       );
       expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+    });
+  });
+
+  describe("start times on a range that includes today", () => {
+    it("start at opening: the time now narrows only a closure of today alone", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-26T02:00:00Z")); // 6:00 PM Friday in Los Angeles
+      renderDialog({ today: "2026-12-25", initialDate: "2026-12-25" });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Date range" }));
+      pickTo("2026-12-27");
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      expect(screen.getAllByRole("option")[1]).toHaveTextContent("From 11:30 AM");
     });
   });
 
@@ -1990,6 +2010,21 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
       expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
         "Close from 9:30 PM tonight"
       );
+    });
+
+    it("names a range's dates and a repeat's weekday, and says what the button will do", async () => {
+      renderDialog({ today: "2026-12-01", initialDate: "2026-12-21" });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+      pickTo("2026-12-31");
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Mon" }));
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        "Close every Monday, Mon, Dec 21 – Mon, Dec 28"
+      );
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+      expect(
+        await screen.findByText("Closed every Monday, Mon, Dec 21 – Mon, Dec 28")
+      ).toBeTruthy();
     });
 
     it("says the whole venue closed, and when a start time was chosen, from when", async () => {

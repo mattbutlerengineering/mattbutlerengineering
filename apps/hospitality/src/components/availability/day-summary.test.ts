@@ -3,12 +3,17 @@ import { describe, expect, it } from "vitest";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 import {
-  dayDifference,
+  dayDifferences,
   dayLabelText,
   monthLegend,
   presentDay,
   scheduleNameText,
+  toDifference,
 } from "./day-summary.js";
+
+const dayDifference = (
+  ...args: Parameters<typeof dayDifferences>
+): ReturnType<typeof toDifference> => toDifference(dayDifferences(...args));
 
 const t = ((key: string, values?: Record<string, string>) =>
   values ? `${key} ${Object.values(values).join("|")}` : key) as unknown as TFunction;
@@ -324,10 +329,22 @@ describe("dayDifference: the one chip a month cell shows (ux.md F5)", () => {
     expect(
       diff({ closures: [{ ruleId: "v", targetKind: "venue", from: 1320, to: 1380 }] })?.chip
     ).toBe("availability.calendar.dayLabel.specialHours");
-    expect(diff({ label: "Closed", scheduleId: null, serviceCount: 0 })).toEqual({
+    expect(diff({ label: "Closed", scheduleId: "wk", serviceCount: 0 })).toEqual({
       chip: "availability.calendar.dayLabel.closed",
       more: 0,
     });
+    expect(
+      diff({
+        label: "Closed",
+        scheduleId: null,
+        serviceCount: 0,
+        closures: [{ ruleId: "v", targetKind: "venue", ...whole }],
+      })
+    ).toEqual({ chip: "availability.calendar.dayLabel.closed", more: 0 });
+  });
+
+  it("reads a weekday the regular week is closed on as part of the regular week: no chip", () => {
+    expect(diff({ label: "Closed", scheduleId: null, serviceCount: 0, services: [] })).toBeNull();
   });
 
   it("treats a summary with no schedule id as different only when its label is not the seeded regular week", () => {
@@ -345,11 +362,14 @@ describe("dayDifference: the one chip a month cell shows (ux.md F5)", () => {
 
 describe("monthLegend: the legend above the month grid", () => {
   const cell = (date: string, ...differences: string[]) => ({ date, differences });
+  const range = (from: number, to: number, ...differences: string[]) =>
+    Array.from({ length: to - from + 1 }, (_, i) =>
+      cell(`2026-12-${String(from + i).padStart(2, "0")}`, ...differences)
+    );
   // December 2026: Tue 1 .. Thu 31; the Mon–Thu of each full week is Weeknights.
-  const december = Array.from({ length: 31 }, (_, i) => {
-    const date = `2026-12-${String(i + 1).padStart(2, "0")}`;
-    const weekday = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
-    return weekday <= 3 ? cell(date, "Weeknights") : cell(date);
+  const december = range(1, 31).map((c) => {
+    const weekday = (new Date(`${c.date}T00:00:00Z`).getUTCDay() + 6) % 7;
+    return weekday <= 3 ? cell(c.date, "Weeknights") : c;
   });
   const shortDay = {
     formatCalendarDate: (date: string) =>
@@ -357,27 +377,49 @@ describe("monthLegend: the legend above the month grid", () => {
   } as unknown as VenueFormat;
 
   it("says the month is the regular week when nothing differs", () => {
-    expect(monthLegend([cell("2026-12-01"), cell("2026-12-02")], t, shortDay)).toBe(
-      "availability.calendar.legend.regular"
-    );
+    expect(monthLegend([cell("2026-12-01"), cell("2026-12-02")], t, shortDay)).toEqual({
+      heading: "availability.calendar.legend.regular",
+      items: [],
+    });
   });
 
   it("gives a weekly pattern its weekdays, and a one-off its day count, even when the one-off sits on a pattern day", () => {
     const withEve = december.map((c) =>
       c.date === "2026-12-24" ? cell(c.date, "Lunch closed", "Weeknights") : c
     );
-    const text = monthLegend(withEve, t, shortDay);
-    expect(text).toContain("legend.weekdays Weeknights|Mon–Thu");
-    expect(text).toContain("legend.days Lunch closed|1");
+    const { heading, items } = monthLegend(withEve, t, shortDay);
+    expect(heading).toBe("availability.calendar.legend.thisMonth");
+    expect(items).toEqual([
+      "availability.calendar.legend.weekdays Weeknights|Mon–Thu",
+      "availability.calendar.legend.days Lunch closed|1",
+    ]);
   });
 
-  it("counts days when the chip is not on the same weekdays every week it appears in", () => {
-    const text = monthLegend(
-      [cell("2026-12-01", "Closed"), cell("2026-12-08", "Closed"), cell("2026-12-09")],
+  it("is not weekly for adjacent dates in a single week, nor for a range", () => {
+    const eve = monthLegend(
+      [...range(21, 23), ...range(24, 25, "Closed"), ...range(26, 27)],
       t,
       shortDay
     );
-    expect(text).toContain("legend.weekdays Closed|Tue");
+    expect(eve.items).toEqual(["availability.calendar.legend.days Closed|2"]);
+    const week = monthLegend(range(21, 27, "Closed"), t, shortDay);
+    expect(week.items).toEqual(["availability.calendar.legend.days Closed|7"]);
+  });
+
+  it("is weekly when the chip is on the same weekdays in two or more weeks, and in every week that has them", () => {
+    const cells = [...range(1, 6), ...range(7, 13)].map((c) =>
+      ["2026-12-01", "2026-12-08"].includes(c.date) ? cell(c.date, "Closed") : c
+    );
+    expect(monthLegend(cells, t, shortDay).items).toEqual([
+      "availability.calendar.legend.weekdays Closed|Tue",
+    ]);
+    const missing = cells.map((c) => (c.date === "2026-12-08" ? cell(c.date) : c));
+    expect(monthLegend([...missing, cell("2026-12-15", "Closed")], t, shortDay).items).toEqual([
+      "availability.calendar.legend.days Closed|2",
+    ]);
+  });
+
+  it("counts days when the chip is not on the same weekdays every week it appears in", () => {
     const uneven = monthLegend(
       [
         cell("2026-12-01", "Closed"),
@@ -388,6 +430,20 @@ describe("monthLegend: the legend above the month grid", () => {
       t,
       shortDay
     );
-    expect(uneven).toContain("legend.days Closed|3");
+    expect(uneven.items).toEqual(["availability.calendar.legend.days Closed|3"]);
+  });
+
+  it("counts a chip wherever it appears, as the pattern does, not only where it is first", () => {
+    const { items } = monthLegend(
+      [
+        cell("2026-12-01", "Weeknights"),
+        cell("2026-12-22"),
+        cell("2026-12-03", "Weeknights"),
+        cell("2026-12-24", "Lunch closed", "Weeknights"),
+      ],
+      t,
+      shortDay
+    );
+    expect(items).toContain("availability.calendar.legend.days Weeknights|3");
   });
 });

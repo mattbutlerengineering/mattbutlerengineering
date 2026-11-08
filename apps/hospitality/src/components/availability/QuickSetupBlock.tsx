@@ -4,9 +4,9 @@ import {
   WEEK_DISPLAY_ORDER,
   type HoursBlock,
   type QuickSetupDraft,
-  type QuickSetupIssue,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
+import { type QuickSetupIssue } from "./quick-setup-validate.js";
 import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
 import { DayShortcuts, IssueText, TimesRow } from "./quick-setup-fields.js";
 import styles from "./QuickSetupForm.module.css";

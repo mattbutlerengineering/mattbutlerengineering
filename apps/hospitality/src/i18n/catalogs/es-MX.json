@@ -2162,7 +2162,7 @@
         "bookingPaused": "Reservas en pausa"
       },
       "legend": {
-        "thisMonth": "Este mes: {{items}}",
+        "thisMonth": "Este mes:",
         "regular": "Este mes: tu semana regular",
         "weekdays": "{{label}} · {{days}}",
         "days_one": "{{label}} · {{count}} día",
@@ -2712,7 +2712,8 @@
         "invalid": "Revisa las fechas: el final no puede ser antes del inicio, y una repetición necesita un día elegido entre ambas.",
         "tomorrow": "Mañana",
         "quickDates": "Fechas rápidas",
-        "holidayChip": "{{name}} · {{date}}"
+        "holidayChip": "{{name}} · {{date}}",
+        "endRequired": "Elige una fecha final para cerrar."
       },
       "window": {
         "label": "Desde las",
@@ -2770,16 +2771,16 @@
         "pauseWaitlist": "Pausar lista de espera",
         "pauseBooking": "Pausar reservas",
         "closeTarget": "Cerrar {{target}} el {{date}}",
-        "closeTargetNoDate": "Cerrar {{target}}",
         "closeFrom": "Cerrar desde {{time}} el {{date}}",
         "closeFromTonight": "Cerrar desde {{time}} esta noche",
-        "closeFromNoDate": "Cerrar desde {{time}}",
         "closeTargetFrom": "Cerrar {{target}} desde {{time}} el {{date}}",
         "closeTargetFromTonight": "Cerrar {{target}} desde {{time}} esta noche",
-        "closeTargetFromNoDate": "Cerrar {{target}} desde {{time}}"
+        "closeWhen": "Cerrar {{when}}",
+        "closeTargetWhen": "Cerrar {{target}} {{when}}",
+        "closeFromWhen": "Cerrar desde {{time}} {{when}}",
+        "closeTargetFromWhen": "Cerrar {{target}} desde {{time}} {{when}}"
       },
       "toast": {
-        "closedSection": "{{section}} cerrada el {{date}}",
         "paused": "Reservaciones en línea pausadas",
         "notified_one": "{{date}} cerrado · {{count}} reservación avisada",
         "notified_other": "{{date}} cerrado · {{count}} reservaciones avisadas",
@@ -2790,16 +2791,10 @@
         "manyBookingPaused_one": "Reservaciones pausadas en {{count}} fecha",
         "manyBookingPaused_other": "Reservaciones pausadas en {{count}} fechas",
         "manyBookingPaused_many": "Reservaciones pausadas en {{count}} fechas",
-        "closedOn": "Cerrado el {{date}}",
-        "serviceClosedOn": "{{service}} cerrado el {{date}}",
-        "closedFrom": "Cerrado desde {{time}} el {{date}}",
-        "closedFromTonight": "Cerrado desde {{time}} esta noche",
-        "serviceClosedFrom": "{{service}} cerrado desde {{time}} el {{date}}",
-        "serviceClosedFromTonight": "{{service}} cerrado desde {{time}} esta noche",
+        "closedFrom": "Cerrado desde {{time}} {{when}}",
         "serviceClosedMany_one": "{{name}} cerrado en {{count}} fecha",
         "serviceClosedMany_other": "{{name}} cerrado en {{count}} fechas",
         "serviceClosedMany_many": "{{name}} cerrado en {{count}} fechas",
-        "bookingPausedOn": "{{channels}} pausadas el {{date}}",
         "pausedChannels": {
           "online": "Reservaciones en línea",
           "phone": "Reservaciones por teléfono",
@@ -2811,7 +2806,23 @@
         },
         "withNotified_one": "{{text}} · {{count}} reservación avisada",
         "withNotified_other": "{{text}} · {{count}} reservaciones avisadas",
-        "withNotified_many": "{{text}} · {{count}} reservaciones avisadas"
+        "withNotified_many": "{{text}} · {{count}} reservaciones avisadas",
+        "closed": "Cerrado {{when}}",
+        "namedClosed": "{{name}} cerrado {{when}}",
+        "namedClosedFrom": "{{name}} cerrado desde {{time}} {{when}}",
+        "bookingPaused": "{{channels}} pausadas {{when}}",
+        "bookingPausedFrom": "{{channels}} pausadas desde {{time}} {{when}}",
+        "when": {
+          "date": "el {{date}}",
+          "range": "del {{from}} al {{to}}",
+          "repeats": "cada {{days}}, del {{from}} al {{to}}",
+          "untilReopen": "desde el {{date}} hasta que reabras"
+        },
+        "whenTimed": {
+          "tonight": "esta noche",
+          "range": "del {{from}} al {{to}}",
+          "untilReopen": "el {{date}} hasta que reabras"
+        }
       },
       "step2": {
         "urgent": "Urgente: los comensales recibirán un mensaje de texto y un correo",

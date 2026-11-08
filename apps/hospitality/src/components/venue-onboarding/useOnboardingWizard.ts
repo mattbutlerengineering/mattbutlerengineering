@@ -11,11 +11,11 @@ import { validateLocationTime, detectTimezone, type LocationTimeData } from "./L
 import {
   draftToLegacyHours,
   emptyDraft,
-  validateDraft,
   validateQuickSetupHours,
   type OperatingHoursValidationErrors,
   type QuickSetupDraft,
 } from "../availability/quick-setup-draft.js";
+import { validateDraft } from "../availability/quick-setup-validate.js";
 import { validateSettings, RECOMMENDED_SETTINGS, type SettingsData } from "./SettingsStep.js";
 import {
   EMPTY_FLOOR_PLAN_DRAFT,

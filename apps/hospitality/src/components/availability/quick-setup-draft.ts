@@ -1,14 +1,8 @@
 import type { TFunction } from "i18next";
 import {
-  buildLegacyConfig,
   decodeWeek,
   encodeWeek,
-  MAX_PAST_MIDNIGHT_SPAN,
-  normalizeLegacyHours,
   projectLegacyOperatingHours,
-  validateConfig,
-  WEEKDAYS,
-  type LegacyHours,
   type ServiceHours,
   type ServiceWeek,
 } from "@mbe/availability";
@@ -109,7 +103,7 @@ export function emptyDraft(firstServiceId: string): QuickSetupDraft {
 
 // ── Time helpers ──────────────────────────────────────────────────────────
 
-function toMinutes(hhmm: string): number {
+export function toMinutes(hhmm: string): number {
   const [h = 0, m = 0] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
@@ -145,131 +139,6 @@ export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name
     lastSeating: autoLastSeating(closes, opens),
     lastSeatingLinked: true,
   };
-}
-
-/** A window another service holds on one day: minutes past that service day's midnight. */
-interface DayWindow {
-  readonly day: number;
-  readonly opensAt: number;
-  readonly closesAt: number;
-}
-
-/** The hours a service keeps on a day: its different-hours block's if one has the day, else its own. */
-function windowOn(service: ServiceDraft, day: number): DayWindow | null {
-  const times = service.blocks.find((b) => b.days.includes(day)) ?? service;
-  const m = minutesOf(times);
-  return m && { day, opensAt: m.opensAt, closesAt: m.closesAt };
-}
-
-/** The windows of every other service on the given days. */
-function othersOn(draft: QuickSetupDraft, serviceId: string, days: readonly number[]) {
-  return draft.services
-    .filter((s) => s.id !== serviceId)
-    .flatMap((s) =>
-      effectiveDays(draft, s)
-        .filter((d) => days.includes(d))
-        .map((d) => windowOn(s, d))
-    )
-    .filter((w): w is DayWindow => w !== null);
-}
-
-/** True when every affected day's earliest open → latest close stays within the span rule. */
-function withinSpan(
-  others: readonly DayWindow[],
-  days: readonly number[],
-  opensAt: number,
-  closesAt: number
-) {
-  return days.every((day) => {
-    const mine = others.filter((w) => w.day === day);
-    const open = Math.min(opensAt, ...mine.map((w) => w.opensAt));
-    const close = Math.max(closesAt, ...mine.map((w) => w.closesAt));
-    return close - open <= MAX_PAST_MIDNIGHT_SPAN;
-  });
-}
-
-/** Minutes from a service's opening to its close; a close not after the opening is the next day's. */
-function lengthOf(opens: string, closes: string): number {
-  const length = toMinutes(closes) - toMinutes(opens);
-  return length > 0 ? length : length + MINUTES_PER_DAY;
-}
-
-/**
- * A name chip placed in the draft (ux.md F2): the preset's name and length, starting when the
- * other services on its days close, so Late follows Dinner instead of overlapping it. The preset's
- * own times stay when that start would pass midnight, push a day past the span rule, or no other
- * service shares its days.
- */
-export function placePreset(
-  draft: QuickSetupDraft,
-  serviceId: string,
-  preset: ServicePresetId,
-  name: string
-): ServiceDraft {
-  const service = draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
-  const defaults = applyPreset(service, preset, name);
-  const days = effectiveDays(draft, service);
-  const others = othersOn(draft, serviceId, days);
-  if (others.length === 0) return defaults;
-  const start = Math.max(...others.map((w) => w.closesAt));
-  const { opens, closes } = SERVICE_PRESETS[preset];
-  const end = start + lengthOf(opens, closes);
-  // A start is a time of day: one at or after midnight cannot be stored as the opening.
-  if (start >= MINUTES_PER_DAY || end > 2 * MINUTES_PER_DAY) return defaults;
-  if (!withinSpan(others, days, start, end)) return defaults;
-  const placedOpens = toClock(start);
-  const placedCloses = toClock(end);
-  return {
-    ...defaults,
-    opens: placedOpens,
-    closes: placedCloses,
-    lastSeating: autoLastSeating(placedCloses, placedOpens),
-  };
-}
-
-const START_STEP_MINUTES = 15;
-
-/**
- * The earliest start at or after the service's own, in 15-minute steps, that keeps its length and
- * overlaps nothing on its days (past midnight included) within the span rule; `null` when none.
- * Only the service's own hours move: days a different-hours block covers keep the block's.
- */
-export function firstClearStart(draft: QuickSetupDraft, serviceId: string): number | null {
-  const service = draft.services.find((s) => s.id === serviceId);
-  if (!service || service.opens === null || service.closes === null) return null;
-  const days = effectiveDays(draft, service).filter(
-    (d) => !service.blocks.some((b) => b.days.includes(d))
-  );
-  if (days.length === 0) return null;
-  const length = lengthOf(service.opens, service.closes);
-  const near = days.flatMap((d) => [d, (d + 1) % 7, (d + 6) % 7]);
-  const others = othersOn(draft, serviceId, near);
-  const clashes = (w: DayWindow, day: number, from: number, to: number) => {
-    // The same service day, then a window spilling in from the day before or out into the next.
-    if (w.day === day) return from < w.closesAt && w.opensAt < to;
-    if (w.day === (day + 6) % 7) return w.closesAt - MINUTES_PER_DAY > from;
-    return w.day === (day + 1) % 7 && to - MINUTES_PER_DAY > w.opensAt;
-  };
-  for (let from = toMinutes(service.opens); from < MINUTES_PER_DAY; from += START_STEP_MINUTES) {
-    const to = from + length;
-    const free = days.every((day) => !others.some((w) => clashes(w, day, from, to)));
-    if (free && withinSpan(others, days, from, to)) return from;
-  }
-  return null;
-}
-
-/** The service starting at `opensAt` (minutes) with its length kept; a typed last seating shifts with it. */
-export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft {
-  if (service.opens === null || service.closes === null) return service;
-  const closes = toClock(opensAt + lengthOf(service.opens, service.closes));
-  const opens = toClock(opensAt);
-  const shift = opensAt - toMinutes(service.opens);
-  const lastSeating = service.lastSeatingLinked
-    ? autoLastSeating(closes, opens)
-    : service.lastSeating === null
-      ? null
-      : toClock(toMinutes(service.lastSeating) + shift);
-  return { ...service, opens, closes, lastSeating };
 }
 
 /** Editing close keeps a linked last seating in step; editing last seating unlinks it. */
@@ -410,44 +279,16 @@ export function setBlockDays(
   return { service: { ...service, blocks }, moved, removed };
 }
 
-// ── Validation ────────────────────────────────────────────────────────────
+// ── Times as minutes ──────────────────────────────────────────────────────
 
-export type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
-export type QuickSetupIssueCode =
-  | "name_required"
-  | "name_too_long"
-  | "time_required"
-  | "close_after_open"
-  | "last_seating_after_close"
-  | "span_too_long"
-  | "legacy_closed_day"
-  | "overlap"
-  | "days_required"
-  | "block_days_required"
-  | "days_outside_use";
-
-export interface QuickSetupIssue {
-  /** `null` for the whole card (the shared days). */
-  readonly serviceId: string | null;
-  /** Set when the problem is inside one of the service's different-hours blocks. */
-  readonly blockId?: string;
-  readonly field: QuickSetupField | "days";
-  readonly code: QuickSetupIssueCode;
-  /** `overlap` on some weekdays only: the weekday (0 = Sunday) and the service it overlaps. */
-  readonly weekday?: number;
-  readonly otherServiceId?: string;
-  /** `overlap` only: a later start for `serviceId` that clears it (`firstClearStart`). */
-  readonly fix?: { readonly serviceId: string; readonly opensAt: number };
-}
-
-interface ServiceMinutes {
+export interface ServiceMinutes {
   readonly opensAt: number;
   readonly lastSeatingAt: number;
   readonly closesAt: number;
 }
 
 /** Minutes past the service day's midnight; a time earlier than the opening is after midnight. */
-function minutesOf(
+export function minutesOf(
   service: Pick<DraftTimes, "opens" | "lastSeating" | "closes">
 ): ServiceMinutes | null {
   if (service.opens === null || service.lastSeating === null || service.closes === null)
@@ -468,206 +309,6 @@ function minutesOf(
     closesAt: afterOpen(service.closes, true),
     lastSeatingAt: afterOpen(service.lastSeating, false),
   };
-}
-
-const TIME_FIELDS = [
-  ["opens", "opens"],
-  ["lastSeating", "lastSeating"],
-  ["closes", "closes"],
-] as const;
-
-interface IssueOwner {
-  readonly serviceId: string;
-  readonly blockId?: string;
-}
-
-function missingTimes(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] {
-  return TIME_FIELDS.filter(([key]) => times[key] === null).map(([, field]): QuickSetupIssue => ({
-    ...owner,
-    field,
-    code: "time_required",
-  }));
-}
-
-function completenessIssues(service: ServiceDraft): QuickSetupIssue[] {
-  const owner = { serviceId: service.id };
-  const name = service.name.trim();
-  const unnamed: QuickSetupIssue[] =
-    name === ""
-      ? [{ ...owner, field: "name", code: "name_required" }]
-      : name.length > SERVICE_NAME_MAX_LENGTH
-        ? [{ ...owner, field: "name", code: "name_too_long" }]
-        : [];
-  return [...unnamed, ...missingTimes(service, owner)];
-}
-
-function orderIssues(times: DraftTimes, m: ServiceMinutes, owner: IssueOwner): QuickSetupIssue[] {
-  const at = (field: QuickSetupField, code: QuickSetupIssueCode): QuickSetupIssue => ({
-    ...owner,
-    field,
-    code,
-  });
-  if (times.opens === times.closes) return [at("closes", "close_after_open")];
-  return m.lastSeatingAt > m.closesAt ? [at("lastSeating", "last_seating_after_close")] : [];
-}
-
-/** Times first (a block's own, or the service's), then nothing else until they are all there. */
-function timesIssues(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] {
-  const missing = missingTimes(times, owner);
-  const minutes = minutesOf(times);
-  return missing.length > 0 || minutes === null ? missing : orderIssues(times, minutes, owner);
-}
-
-function serviceIssues(service: ServiceDraft): QuickSetupIssue[] {
-  const missing = completenessIssues(service);
-  const minutes = minutesOf(service);
-  const times =
-    missing.length > 0 || minutes === null
-      ? missing
-      : orderIssues(service, minutes, { serviceId: service.id });
-  const days: QuickSetupIssue[] =
-    service.days !== null && service.days.length === 0
-      ? [{ serviceId: service.id, field: "days", code: "days_required" }]
-      : [];
-  const blocks = service.blocks.flatMap((block): QuickSetupIssue[] => {
-    const owner = { serviceId: service.id, blockId: block.id };
-    const blockDays: QuickSetupIssue[] =
-      block.days.length === 0 ? [{ ...owner, field: "days", code: "block_days_required" }] : [];
-    return [...timesIssues(block, owner), ...blockDays];
-  });
-  return [...times, ...days, ...blocks];
-}
-
-/**
- * Field-level problems, in card order (first is where focus goes). Overlap is the engine's call
- * (`validateConfig`): the same rule the server applies on save, per weekday. `legacyReader` is
- * for the new-venue wizard, which sends legacy hours; the card writes config rows directly, so
- * days the legacy reader would close (`legacy_closed_day`) are fine there.
- */
-export function validateDraft(
-  draft: QuickSetupDraft,
-  options: { readonly legacyReader?: boolean; readonly within?: readonly number[] } = {}
-): QuickSetupIssue[] {
-  // `within`: the days an edited schedule is used on. Rows are stored over those days only, so a
-  // service whose own days are all outside would be dropped and its stored row deleted.
-  const outside: QuickSetupIssue[] = draft.services.flatMap((service) =>
-    options.within &&
-    service.days !== null &&
-    service.days.length > 0 &&
-    service.days.every((day) => !options.within?.includes(day))
-      ? [{ serviceId: service.id, field: "days" as const, code: "days_outside_use" as const }]
-      : []
-  );
-  const perService = [...draft.services.flatMap(serviceIssues), ...outside];
-  // The shared days are needed only while a service follows them.
-  const followsShared = draft.services.length === 0 || draft.services.some((s) => s.days === null);
-  const daysIssue: QuickSetupIssue[] =
-    followsShared && draft.days.length === 0
-      ? [{ serviceId: null, field: "days", code: "days_required" }]
-      : [];
-  if (perService.length > 0) return [...perService, ...daysIssue];
-
-  let n = 0;
-  const config = draftToConfig(draft, () => `check-${++n}`);
-  const serviceByVenueService = new Map(
-    config.venueServices.map((vs) => [vs.id, draft.services[vs.position]])
-  );
-  const serviceAt = (path: string) => {
-    const row = config.scheduleServices[Number(/scheduleServices\[(\d+)\]/.exec(path)?.[1])];
-    return row ? serviceByVenueService.get(row.venueServiceId) : undefined;
-  };
-  const overlaps = validateConfig(config)
-    .filter((issue) => issue.code === "overlap")
-    .flatMap((issue): QuickSetupIssue[] => {
-      const service = serviceAt(issue.path);
-      if (!service) return [];
-      const other = issue.otherPath === undefined ? undefined : serviceAt(issue.otherPath);
-      const { weekday } = issue;
-      const block =
-        weekday === undefined ? undefined : service.blocks.find((b) => b.days.includes(weekday));
-      const opensAt = block === undefined ? firstClearStart(draft, service.id) : null;
-      const fix =
-        opensAt !== null && opensAt !== minutesOf(service)?.opensAt
-          ? { serviceId: service.id, opensAt }
-          : null;
-      return [
-        {
-          serviceId: service.id,
-          ...(block ? { blockId: block.id } : {}),
-          field: "opens",
-          code: "overlap",
-          ...(weekday !== undefined && other ? { weekday, otherServiceId: other.id } : {}),
-          ...(fix ? { fix } : {}),
-        },
-      ];
-    });
-  return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
-}
-
-/** The sentence for an issue. Overlap and missing service days name the service and the day. */
-export function issueMessage(
-  issue: QuickSetupIssue,
-  draft: QuickSetupDraft,
-  t: TFunction,
-  weekdayName: (weekday: number) => string
-): string {
-  const nameOf = (id: string | null | undefined) => {
-    const index = draft.services.findIndex((s) => s.id === id);
-    const service = draft.services[index];
-    return service?.name.trim() || t("availability.quickSetup.serviceN", { n: index + 1 });
-  };
-  if (issue.code === "overlap" && issue.weekday !== undefined) {
-    return t("availability.quickSetup.issues.overlap_on", {
-      service: nameOf(issue.serviceId),
-      other: nameOf(issue.otherServiceId),
-      day: weekdayName(issue.weekday),
-    });
-  }
-  if (issue.code === "days_required" && issue.serviceId !== null) {
-    return t("availability.quickSetup.issues.days_required_service", {
-      service: nameOf(issue.serviceId),
-    });
-  }
-  return t(`availability.quickSetup.issues.${issue.code}`);
-}
-
-/**
- * The server stores the day as one legacy window (earliest open, latest close) and its
- * reader closes the day when that window cannot seat anyone: a past-midnight window longer
- * than MAX_PAST_MIDNIGHT_SPAN, a span of exactly 24 hours (open == close), or one shorter
- * than the last-seating buffer. Read the projection with the server's own reader
- * (`normalizeLegacyHours` + `buildLegacyConfig`) so the thresholds are not copied here, and
- * blame the latest-closing service.
- */
-function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
-  const read = normalizeLegacyHours(draftToLegacyHours(draft));
-  const tooLong =
-    read.ok &&
-    WEEKDAYS.some((day) =>
-      read.hours.weekly[day].some(
-        (w) => w.wrapped === true && w.close - w.open > MAX_PAST_MIDNIGHT_SPAN
-      )
-    );
-  const code: QuickSetupIssueCode | null = tooLong
-    ? "span_too_long"
-    : legacyReader && read.ok && hasClosedDay(draft, read.hours)
-      ? "legacy_closed_day"
-      : null;
-  if (code === null) return [];
-  const latest = draft.services.reduce<{ id: string; closesAt: number } | null>((acc, s) => {
-    const m = minutesOf(s);
-    return m && (!acc || m.closesAt > acc.closesAt) ? { id: s.id, closesAt: m.closesAt } : acc;
-  }, null);
-  return latest ? [{ serviceId: latest.id, field: "closes", code }] : [];
-}
-
-/** True when a day the draft opens gets no assignment from the legacy reader (read as closed). */
-function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean {
-  let n = 0;
-  const built = buildLegacyConfig({ hours, today: "1970-01-01", newId: () => `legacy-${++n}` });
-  if (!built.ok) return false;
-  const open = new Set(built.config.assignments.flatMap((a) => a.weekdays));
-  return coveredDays(draft).some((day) => !open.has(day));
 }
 
 // ── To the stored model ───────────────────────────────────────────────────

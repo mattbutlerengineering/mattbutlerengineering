@@ -620,7 +620,12 @@ describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
     const { container } = month({
       anchor: "2026-11-15",
       days: [
-        day("2026-11-01", { label: "Closed", scheduleId: null, serviceCount: 0 }),
+        day("2026-11-01", {
+          label: "Closed",
+          scheduleId: null,
+          serviceCount: 0,
+          closures: [{ ruleId: "c9", targetKind: "venue", from: 0, to: 2880 }],
+        }),
         day("2026-11-26", { scheduleId: "reg" }),
       ],
     });
@@ -661,18 +666,79 @@ describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
     ).toMatch(/Weeknights.*Lunch/);
   });
 
-  it("states the month's differences above the grid", () => {
+  it("states the month's differences above the grid, one list item each", () => {
     month();
-    const legend = screen.getByText(/^This month:/);
-    expect(legend.textContent).toBe("This month: Weeknights · Mon–Thu   Lunch closed · 1 day");
-    expect(legend.compareDocumentPosition(screen.getByRole("grid"))).toBe(
+    const heading = screen.getByText("This month:");
+    const items = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual([
+      "Weeknights · Mon–Thu",
+      "Lunch closed · 1 day",
+    ]);
+    expect(heading.compareDocumentPosition(screen.getByRole("grid"))).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING
     );
+  });
+
+  it("does not call two closed days of one week a weekly pattern", () => {
+    const closed = (d: number) =>
+      day(dec(d), {
+        label: "Closed",
+        scheduleId: null,
+        serviceCount: 0,
+        closures: [{ ruleId: `c${d}`, targetKind: "venue", from: 0, to: 2880 }],
+      });
+    month({
+      days: DECEMBER.map((d) =>
+        [24, 25].includes(Number(d.serviceDate.slice(-2)))
+          ? closed(Number(d.serviceDate.slice(-2)))
+          : d
+      ),
+    });
+    expect(screen.getByText("Closed · 2 days")).toBeInTheDocument();
+  });
+
+  it("reads a weekday the regular week is closed on as plain muted text, with no chip or legend entry", () => {
+    month({
+      days: DECEMBER.map((d) =>
+        weekday(d.serviceDate) === 6
+          ? { ...d, label: "Closed", scheduleId: null, serviceCount: 0 }
+          : d
+      ),
+    });
+    const sunday = cellOf(/^6 Closed, Sunday, December 6:/);
+    expect(within(sunday).getByText("Closed")).toBeInTheDocument();
+    expect(screen.queryByText(/^Closed ·/)).toBeNull();
+  });
+
+  it("gives a real whole-day closure the Closed chip and a legend entry", () => {
+    month({
+      days: DECEMBER.map((d) =>
+        d.serviceDate === dec(5)
+          ? {
+              ...d,
+              label: "Closed",
+              scheduleId: null,
+              serviceCount: 0,
+              closures: [{ ruleId: "c5", targetKind: "venue" as const, from: 0, to: 2880 }],
+            }
+          : d
+      ),
+    });
+    expect(
+      within(cellOf(/^5 Closed, Saturday, December 5:/)).getByText("Closed")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Closed · 1 day")).toBeInTheDocument();
+  });
+
+  it("shows no legend until the regular schedule is known", () => {
+    month({ regularScheduleId: null });
+    expect(screen.queryByText(/^This month:/)).toBeNull();
   });
 
   it("says the month is the regular week when no day differs", () => {
     month({ days: DECEMBER.map((d) => ({ ...d, label: "Regular week", scheduleId: "reg" })) });
     expect(screen.getByText("This month: your regular week")).toBeInTheDocument();
+    expect(screen.queryByRole("list")).toBeNull();
   });
 
   it("shows no legend in week view, and no legend until the days have loaded", () => {
@@ -684,6 +750,6 @@ describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
     month({
       days: [...days, day("2027-01-01", { label: "Closed", scheduleId: null, serviceCount: 0 })],
     });
-    expect(screen.getByText(/^This month:/).textContent).not.toMatch(/Closed ·/);
+    expect(screen.queryByText(/^Closed ·/)).toBeNull();
   });
 });

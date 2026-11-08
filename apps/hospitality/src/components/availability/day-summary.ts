@@ -202,7 +202,10 @@ export function dayDifferences(
   const found: string[] = [];
   const closures = day.closures;
   const wholeDayVenue = closures.some((c) => c.targetKind === "venue" && isWholeDay(c));
-  if (day.label === "Closed" || wholeDayVenue)
+  // A weekday the regular week has no hours on reads "Closed" with no schedule and no closure: it
+  // is the regular week, not a difference. Any real closure, or another schedule's closed day, is one.
+  const regularClosed = day.label === "Closed" && !day.scheduleId && closures.length === 0;
+  if ((day.label === "Closed" && !regularClosed) || wholeDayVenue)
     found.push(t("availability.calendar.dayLabel.closed"));
 
   const serviceIds = new Set<string>();
@@ -257,24 +260,11 @@ export function dayDifferences(
   return found;
 }
 
-/**
- * The one chip a month cell shows when its date differs from the regular week (ux.md F5), ranked
- * Closed › {service} closed › {section} closed › booking paused › Special hours › another
- * schedule's name; `null` for a day that reads like the regular week.
- * `serviceNames` names a service a closure closed for good, which the day no longer lists.
- */
-export function dayDifference(
-  day: AvailabilityDaySummary,
-  regularScheduleId: string | null,
-  sectionNames: ReadonlyMap<string, string> | undefined,
-  t: TFunction,
-  serviceNames?: ReadonlyMap<string, string>
-): DayDifference | null {
-  const [chip, ...rest] = dayDifferences(day, regularScheduleId, sectionNames, t, serviceNames);
+/** A cell's chip from its ranked differences: the first, and how many more follow; `null` when none. */
+export function toDifference(found: readonly string[]): DayDifference | null {
+  const [chip, ...rest] = found;
   return chip === undefined ? null : { chip, more: rest.length };
 }
-
-const LEGEND_SEPARATOR = "   ";
 
 /** Monday-first index of a `YYYY-MM-DD` date's weekday. */
 function weekdayIndex(date: string): number {
@@ -296,48 +286,53 @@ function weekdaysText(dates: readonly string[], format: VenueFormat): string {
   return consecutive ? `${name(first)}–${name(last)}` : indexes.map(name).join(", ");
 }
 
+export interface MonthLegend {
+  /** "This month:", or the whole line "This month: your regular week" when nothing differs. */
+  readonly heading: string;
+  /** One entry per chip in use: "Weeknights · Mon–Thu", "Lunch closed · 1 day". */
+  readonly items: readonly string[];
+}
+
 /**
  * The legend above a month grid: each chip in use (a cell's first difference) with the weekdays
- * it falls on when it repeats on the same weekdays in every week it appears in, else with a day
- * count. `cells` are the month's own dates (not the neighbouring months' greyed ones) with all
- * their differences, first = the chip: Christmas Eve's "Lunch closed" does not break the
- * Weeknights pattern its Thursday still belongs to.
+ * it falls on when it repeats weekly, else with a day count. A chip is counted wherever it
+ * appears in a cell's differences, so Christmas Eve's "Lunch closed" does not break the
+ * Weeknights pattern its Thursday still belongs to. `cells` are the month's own dates (not the
+ * neighbouring months' greyed ones) with all their differences, first = the chip.
+ *
+ * Weekly means the chip is on the same weekdays in at least two in-month weeks and in every
+ * in-month week that has those weekdays: a run in one week (Dec 24–25) is a count, not a pattern.
  */
 export function monthLegend(
   cells: readonly { readonly date: string; readonly differences: readonly string[] }[],
   t: TFunction,
   format: VenueFormat
-): string {
-  const primary = new Map<string, number>();
+): MonthLegend {
+  const inUse = new Set<string>();
   for (const { differences } of cells) {
     const [chip] = differences;
-    if (chip !== undefined) primary.set(chip, (primary.get(chip) ?? 0) + 1);
+    if (chip !== undefined) inUse.add(chip);
   }
-  if (primary.size === 0) return t("availability.calendar.legend.regular");
+  if (inUse.size === 0) return { heading: t("availability.calendar.legend.regular"), items: [] };
 
   const weekKey = (date: string) => {
     const [y = 0, m = 1, d = 1] = date.split("-").map(Number);
     return Math.floor((Date.UTC(y, m - 1, d) / 86_400_000 - weekdayIndex(date)) / 7);
   };
-  const entries = [...primary].map(([chip, count]) => {
+  const items = [...inUse].map((chip) => {
     const having = cells.filter((c) => c.differences.includes(chip)).map((c) => c.date);
     const weekdays = new Set(having.map(weekdayIndex));
-    const weeks = new Set(having.map(weekKey));
-    // Weekly: in each week it appears in, every in-month day on those weekdays has it.
     const weekly =
-      having.length >= 2 &&
-      cells.every(
-        ({ date, differences }) =>
-          !weeks.has(weekKey(date)) ||
-          !weekdays.has(weekdayIndex(date)) ||
-          differences.includes(chip)
-      );
+      new Set(having.map(weekKey)).size >= 2 &&
+      cells
+        .filter(({ date }) => weekdays.has(weekdayIndex(date)))
+        .every(({ differences }) => differences.includes(chip));
     return weekly
       ? t("availability.calendar.legend.weekdays", {
           label: chip,
           days: weekdaysText(having, format),
         })
-      : t("availability.calendar.legend.days", { label: chip, count });
+      : t("availability.calendar.legend.days", { label: chip, count: having.length });
   });
-  return t("availability.calendar.legend.thisMonth", { items: entries.join(LEGEND_SEPARATOR) });
+  return { heading: t("availability.calendar.legend.thisMonth"), items };
 }

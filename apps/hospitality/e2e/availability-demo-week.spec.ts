@@ -116,19 +116,6 @@ test.describe("The demo week (PRD: the demo runs as written)", () => {
     // 5-6. Dinner follows the shared days; untick Monday in its own days.
     await page.getByRole("button", { name: "Add another service" }).click();
     await page.getByRole("button", { name: "Dinner" }).last().click();
-    // The preset starts where Lunch ends (availability-scenario-ux F2); the demo's Dinner opens at 5:00 PM.
-    await expect(stripRow(page, "Monday")).toContainText("Dinner 2:30 PM");
-    for (const [label, time] of [
-      ["Opens", "5:00 PM"],
-      ["Closes", "10:00 PM"],
-    ] as const) {
-      await page.getByRole("combobox", { name: label }).last().click();
-      await page
-        .getByRole("listbox", { name: label })
-        .getByRole("option", { name: time, exact: true })
-        .click();
-      await expect(page.getByRole("listbox", { name: label })).toHaveCount(0);
-    }
     await expect(stripRow(page, "Monday")).toContainText("Dinner 5:00 PM – 9:15 PM");
     await page.getByRole("button", { name: "Different days for this service" }).last().click();
     await page

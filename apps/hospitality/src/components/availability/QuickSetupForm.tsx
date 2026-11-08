@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next";
 import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import {
   emptyService,
-  moveServiceStart,
   replaceService,
   setSharedDays,
   type QuickSetupDraft,
-  type QuickSetupIssue,
 } from "./quick-setup-draft.js";
+import { type QuickSetupIssue } from "./quick-setup-validate.js";
+import { moveServiceStart } from "./quick-setup-placement.js";
 import {
   issuesFor,
   QuickSetupFixContext,

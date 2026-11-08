@@ -8,7 +8,8 @@ vi.mock("../../hooks/useTables.js", () => ({
 
 import { QuickSetupCard } from "./QuickSetupCard.js";
 import { draftService } from "./quick-setup-demo.fixture.js";
-import { draftToConfig, validateDraft, type QuickSetupDraft } from "./quick-setup-draft.js";
+import { draftToConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
+import { validateDraft } from "./quick-setup-validate.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 
 function renderCard() {

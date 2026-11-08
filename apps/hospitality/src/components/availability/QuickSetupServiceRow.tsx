@@ -8,7 +8,6 @@ import {
   SERVICE_PRESET_IDS,
   WEEK_DISPLAY_ORDER,
   addBlock,
-  placePreset,
   setBlockDays,
   autoLastSeating,
   effectiveDays,
@@ -18,9 +17,10 @@ import {
   toggleBlockDay,
   type BlockDayToggle,
   type QuickSetupDraft,
-  type QuickSetupIssue,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
+import { type QuickSetupIssue } from "./quick-setup-validate.js";
+import { placePreset } from "./quick-setup-placement.js";
 import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
 import { DayPicker, IssueText, TimesRow } from "./quick-setup-fields.js";
 import { HoursBlockFieldset } from "./QuickSetupBlock.js";
@@ -99,10 +99,10 @@ export function ServiceRow({
     announce(t("availability.quickSetup.blockAdded"));
     onChange(addBlock(service, id));
   };
-  const applyBlockDays = (result: BlockDayToggle, movedDay: number | null) => {
+  const applyBlockDays = (result: BlockDayToggle, movedDays: readonly number[]) => {
     const lines = [
-      ...(result.moved && movedDay !== null
-        ? [t("availability.quickSetup.blockDayMoved", { day: dayName(movedDay) })]
+      ...(result.moved && movedDays.length > 0
+        ? [t("availability.quickSetup.blockDayMoved", { day: movedDays.map((day) => dayName(day)).join(", ") })]
         : []),
       ...result.removed.map((b) =>
         t("availability.quickSetup.blockRemoved", { days: daysText(b.days) })
@@ -112,9 +112,15 @@ export function ServiceRow({
     onChange(result.service);
   };
   const toggleBlockDays = (blockId: string, day: number) =>
-    applyBlockDays(toggleBlockDay(service, blockId, day), day);
-  const setBlockShortcut = (blockId: string, days: readonly number[]) =>
-    applyBlockDays(setBlockDays(service, blockId, days, effectiveDays(draft, service)), null);
+    applyBlockDays(toggleBlockDay(service, blockId, day), [day]);
+  const setBlockShortcut = (blockId: string, days: readonly number[]) => {
+    const offered = effectiveDays(draft, service);
+    const taken = service.blocks
+      .filter((b) => b.id !== blockId)
+      .flatMap((b) => b.days)
+      .filter((day) => days.includes(day) && offered.includes(day));
+    applyBlockDays(setBlockDays(service, blockId, days, offered), taken);
+  };
   const removeHours = (blockId: string) => {
     const block = service.blocks.find((b) => b.id === blockId);
     announce(

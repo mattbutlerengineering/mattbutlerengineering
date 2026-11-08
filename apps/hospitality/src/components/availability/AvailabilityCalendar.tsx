@@ -8,7 +8,14 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { shiftAnchor, visibleDates, type CalendarView } from "./calendar-dates.js";
 import { columnDates } from "./selection.js";
 import { useDateSelection, type DateGestureHandlers } from "./useDateSelection.js";
-import { dayDifferences, monthLegend, presentDay, type DayDifference } from "./day-summary.js";
+import {
+  dayDifferences,
+  monthLegend,
+  presentDay,
+  toDifference,
+  type DayDifference,
+  type MonthLegend,
+} from "./day-summary.js";
 import { filterDaySummary, type ServiceFilter } from "./service-filter.js";
 import { useHolidayNames } from "./use-holidays.js";
 import { periodLabel } from "./period.js";
@@ -84,10 +91,18 @@ function Cell(props: CellProps) {
   const chipText = difference
     ? `${difference.chip}${difference.more > 0 ? ` +${difference.more}` : ""}`
     : null;
+  // A weekday the regular week is closed on is no difference, yet a closed day must not read like
+  // an open one: plain muted text rather than a chip.
+  const closedText =
+    !detailed &&
+    view.tone === "closed" &&
+    difference?.chip !== t("availability.calendar.dayLabel.closed")
+      ? view.label
+      : null;
   const visibleText =
-    detailed || (!holiday && !chipText)
+    detailed || (!holiday && !chipText && !closedText)
       ? null
-      : [format.formatCalendarDate(date, { day: "numeric" }), holiday, chipText]
+      : [format.formatCalendarDate(date, { day: "numeric" }), holiday, closedText, chipText]
           .filter(Boolean)
           .join(" ");
 
@@ -152,24 +167,21 @@ function Cell(props: CellProps) {
                 )}
               </>
             ) : (
-              difference && (
-                <span className={styles.chip}>
-                  {difference.chip}
-                  {difference.more > 0 && ` +${difference.more}`}
-                </span>
-              )
+              <>
+                {closedText && <span className={styles.closedText}>{closedText}</span>}
+                {difference && (
+                  <span className={styles.chip}>
+                    {difference.chip}
+                    {difference.more > 0 && ` +${difference.more}`}
+                  </span>
+                )}
+              </>
             )}
           </span>
         )}
       </button>
     </div>
   );
-}
-
-/** A cell's chip from its ranked differences: the first, and how many more follow. */
-function toDifference(found: readonly string[] | undefined): DayDifference | null {
-  const [chip, ...rest] = found ?? [];
-  return chip === undefined ? null : { chip, more: rest.length };
 }
 
 /** Where an arrow, Home/End or page key sends the anchor, or null for any other key. */
@@ -249,9 +261,10 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
       ),
     [showQuiet, days, serviceFilter, regularScheduleId, sectionNames, serviceNames, t]
   );
-  const legend = useMemo(
+  // No legend until the regular schedule is known: before that every day looks like the regular week.
+  const legend = useMemo<MonthLegend | null>(
     () =>
-      showQuiet && days !== undefined && !isLoading
+      showQuiet && days !== undefined && !isLoading && regularScheduleId !== null
         ? monthLegend(
             dates
               .filter((d) => d.startsWith(anchorMonth))
@@ -260,7 +273,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
             format
           )
         : null,
-    [showQuiet, days, isLoading, dates, anchorMonth, differences, t, format]
+    [showQuiet, days, isLoading, regularScheduleId, dates, anchorMonth, differences, t, format]
   );
   const { handlersFor, extendSelection, toggleSelected, pivot } = useDateSelection(props);
   const picked = useMemo(() => new Set(selection), [selection]);
@@ -385,7 +398,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
               isPicked={picked.has(date)}
               isTabStop={date === tabStop}
               isMuted={view === "month" && !date.startsWith(anchorMonth)}
-              difference={toDifference(differences.get(date))}
+              difference={toDifference(differences.get(date) ?? [])}
               holiday={holidays.get(date) ?? null}
               format={format}
               serviceFilter={serviceFilter}
@@ -401,7 +414,16 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   if (legend === null) return grid;
   return (
     <div className={styles.monthWithLegend}>
-      <p className={styles.legend}>{legend}</p>
+      <div className={styles.legend}>
+        <span>{legend.heading}</span>
+        {legend.items.length > 0 && (
+          <ul className={styles.legendItems}>
+            {legend.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
+      </div>
       {grid}
     </div>
   );

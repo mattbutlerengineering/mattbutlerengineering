@@ -11,13 +11,8 @@ import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { editedWeekday, outsideSchedules, reapplyWeek, weekKey } from "./change-week-draft.js";
 import { previewIds } from "./DraftPreview.js";
-import {
-  coveredDays,
-  draftFromConfig,
-  issueMessage,
-  validateDraft,
-  type QuickSetupDraft,
-} from "./quick-setup-draft.js";
+import { coveredDays, draftFromConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
+import { issueMessage, validateDraft } from "./quick-setup-validate.js";
 import { useWeekdayName } from "./quick-setup-field-helpers.js";
 import {
   buildRegularWeekChanges,

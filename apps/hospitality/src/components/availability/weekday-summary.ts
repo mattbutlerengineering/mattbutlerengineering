@@ -12,7 +12,7 @@ const SUNDAY = "2026-10-25";
  */
 export function weekdaySummary(
   weekdays: readonly number[],
-  format: VenueFormat,
+  format: Pick<VenueFormat, "formatCalendarDate" | "locale">,
   t: TFunction
 ): string {
   if (weekdays.length === 7) return t("availabilitySchedules.everyDay");

@@ -10,8 +10,6 @@ import {
   buildCloseRules,
   toggleDate,
   closedDates,
-  closeButtonText,
-  closeToastText,
   closeWhenId,
   decisionsReady,
   isPauseInForce,
@@ -27,6 +25,7 @@ import {
   withoutChoicesFor,
   type CloseForm,
 } from "./close-draft.js";
+import { closeButtonText, closeToastText } from "./close-text.js";
 
 const TODAY = "2026-12-01";
 
@@ -650,6 +649,17 @@ describe("startMinutes (#7978)", () => {
       expect(startMinutes(late(1560), TZ, [FRIDAY], null, 22 * 60).at(-1)).toBe(1530);
     });
 
+    it("ignores the time now, as the dialog passes it only for today alone", () => {
+      // The dialog gives no nowMinute when several dates are closed, today among them.
+      expect(startMinutes(fixtureConfig(), TZ, ["2026-12-18", FRIDAY], null)[0]).toBe(690);
+    });
+
+    it("keeps a held time before opening on a day that does not run past midnight", () => {
+      const options = startMinutes(fixtureConfig(), TZ, [FRIDAY], 300);
+      expect(options[0]).toBe(300);
+      expect(options[1]).toBe(690);
+    });
+
     it("is empty once nothing is left to close from, and still holds a time the form has", () => {
       expect(startMinutes(fixtureConfig(), TZ, [FRIDAY], null, 22 * 60 + 45)).toEqual([]);
       expect(startMinutes(fixtureConfig(), TZ, [FRIDAY], 1200, 22 * 60 + 45)).toEqual([1200]);
@@ -800,6 +810,7 @@ describe("closeToastText (ux.md F4.7)", () => {
     formatCalendarDate: (d: string, o: Intl.DateTimeFormatOptions) =>
       formatCalendarDate(d, o, locale),
     formatLocalTime: (hhmm: string) => formatLocalTime(hhmm, locale),
+    locale,
   };
   const base = (patch: Partial<CloseForm>): CloseForm =>
     form({ when: { kind: "date", date: "2026-12-24" }, ...patch });
@@ -833,7 +844,7 @@ describe("closeToastText (ux.md F4.7)", () => {
     expect(paused(["online", "phone"])).toBe("Online and phone booking paused on Sun, Nov 8");
     expect(paused(["phone", "online"])).toBe("Online and phone booking paused on Sun, Nov 8");
     expect(paused(["online", "phone", "waitlist"])).toBe("All booking paused on Sun, Nov 8");
-    expect(paused(["online"])).toBe("Online booking paused");
+    expect(paused(["online"])).toBe("Online booking paused on Sun, Nov 8");
   });
 
   it("says when it starts: tonight, or on a date", () => {
@@ -859,6 +870,95 @@ describe("closeToastText (ux.md F4.7)", () => {
     );
   });
 
+  describe("a range, a repeat and until reopened say their dates, for every target", () => {
+    const range = { kind: "range", from: "2026-12-24", to: "2027-01-02" } as const;
+    const repeats = {
+      kind: "repeats",
+      weekdays: [1],
+      from: "2027-01-01",
+      to: "2027-01-31",
+    } as const;
+    const until = { kind: "until-reopen", from: "2026-11-08" } as const;
+    const venue = { kind: "venue" } as const;
+    const lunch = { kind: "service", serviceId: "s" } as const;
+    const bar = { kind: "section", sectionId: "s" } as const;
+    const phone = { kind: "booking", types: ["phone"] } as const;
+    const whenOf = {
+      range: { when: range, date: "2026-12-24" },
+      repeats: { when: repeats, date: "2027-01-04" },
+      until: { when: until, date: "2026-11-08" },
+    } as const;
+    const t = (
+      kind: keyof typeof whenOf,
+      what: CloseForm["what"],
+      fromMinute: number | null = null,
+      name?: string
+    ) =>
+      text(base({ what, when: whenOf[kind].when, fromMinute }), {
+        name,
+        date: whenOf[kind].date,
+      });
+
+    it("all day", () => {
+      expect(t("range", venue)).toBe("Closed Thu, Dec 24 – Sat, Jan 2");
+      expect(t("range", lunch, null, "Lunch")).toBe("Lunch closed Thu, Dec 24 – Sat, Jan 2");
+      expect(t("range", bar, null, "Bar")).toBe("Bar closed Thu, Dec 24 – Sat, Jan 2");
+      expect(t("range", phone)).toBe("Phone booking paused Thu, Dec 24 – Sat, Jan 2");
+      expect(t("repeats", venue)).toBe("Closed every Monday, Mon, Jan 4 – Mon, Jan 25");
+      expect(t("repeats", lunch, null, "Lunch")).toBe(
+        "Lunch closed every Monday, Mon, Jan 4 – Mon, Jan 25"
+      );
+      expect(t("repeats", phone)).toBe(
+        "Phone booking paused every Monday, Mon, Jan 4 – Mon, Jan 25"
+      );
+      expect(t("until", venue)).toBe("Closed from Sun, Nov 8 until you reopen");
+      expect(t("until", bar, null, "Bar")).toBe("Bar closed from Sun, Nov 8 until you reopen");
+      expect(t("until", phone)).toBe("Phone booking paused from Sun, Nov 8 until you reopen");
+    });
+
+    it("keeps the pause entry's own sentence", () => {
+      expect(t("until", { kind: "booking", types: ["online"] })).toBe("Online booking paused");
+    });
+
+    it("keeps the start time", () => {
+      expect(t("range", venue, 780)).toBe("Closed from 1:00 PM on Thu, Dec 24 – Sat, Jan 2");
+      expect(t("range", lunch, 780, "Lunch")).toBe(
+        "Lunch closed from 1:00 PM on Thu, Dec 24 – Sat, Jan 2"
+      );
+      expect(t("repeats", bar, 780, "Bar")).toBe(
+        "Bar closed from 1:00 PM every Monday, Mon, Jan 4 – Mon, Jan 25"
+      );
+      expect(t("until", venue, 780)).toBe("Closed from 1:00 PM on Sun, Nov 8 until you reopen");
+      expect(t("until", phone, 780)).toBe(
+        "Phone booking paused from 1:00 PM on Sun, Nov 8 until you reopen"
+      );
+    });
+
+    it("names several weekdays as a summary and keeps the notified count", () => {
+      const days = { ...repeats, weekdays: [1, 2, 3, 5] };
+      expect(text(base({ when: days }), { date: "2027-01-04", notified: 2 })).toBe(
+        "Closed every Mon–Wed and Fri, Mon, Jan 4 – Fri, Jan 29 · 2 reservations notified"
+      );
+    });
+  });
+
+  it("says a repeat with one occurrence as that date", () => {
+    const once = { kind: "repeats", weekdays: [5], from: "2026-12-21", to: "2026-12-31" } as const;
+    expect(text(base({ when: once }), { date: "2026-12-25" })).toBe("Closed on Fri, Dec 25");
+  });
+
+  it("keeps the time on a booking-only closure, tonight or on a date", () => {
+    const phone = { kind: "booking", types: ["phone"] } as const;
+    expect(
+      text(base({ what: phone, when: { kind: "tonight" }, fromMinute: 1110 }), {
+        date: "2026-11-08",
+      })
+    ).toBe("Phone booking paused from 6:30 PM tonight");
+    expect(text(base({ what: phone, fromMinute: 1110 }))).toBe(
+      "Phone booking paused from 6:30 PM on Thu, Dec 24"
+    );
+  });
+
   it("adds the reservations notified", () => {
     expect(text(base({}), { notified: 14 })).toBe(
       "Closed on Thu, Dec 24 · 14 reservations notified"
@@ -876,9 +976,10 @@ describe("closeButtonText (ux.md S-Close, R4, R6)", () => {
     formatCalendarDate: (d: string, o: Intl.DateTimeFormatOptions) =>
       formatCalendarDate(d, o, locale),
     formatLocalTime: (hhmm: string) => formatLocalTime(hhmm, locale),
+    locale,
   };
-  const label = (patch: Partial<CloseForm>, name?: string) =>
-    closeButtonText({ form: form(patch), date: "2026-12-24", name }, defaultT, fmt);
+  const label = (patch: Partial<CloseForm>, name?: string, date = "2026-12-24") =>
+    closeButtonText({ form: form(patch), date, name }, defaultT, fmt);
   const lunch = { kind: "service", serviceId: "s" } as const;
   const tonight = { kind: "tonight" } as const;
 
@@ -904,13 +1005,48 @@ describe("closeButtonText (ux.md S-Close, R4, R6)", () => {
     );
   });
 
-  it("leaves the date out for a range, a repeat and until reopened", () => {
-    const range = { kind: "range", from: "2026-12-24", to: "2026-12-26" } as const;
-    expect(label({ when: range })).toBe("Close");
-    expect(label({ when: range, fromMinute: 780 })).toBe("Close from 1:00 PM");
-    expect(label({ what: lunch, when: range }, "Lunch")).toBe("Close Lunch");
-    expect(label({ what: lunch, when: range, fromMinute: 780 }, "Lunch")).toBe(
-      "Close Lunch from 1:00 PM"
-    );
+  describe("a range, a repeat and until reopened say their dates", () => {
+    const range = { kind: "range", from: "2026-12-24", to: "2027-01-02" } as const;
+    const repeats = {
+      kind: "repeats",
+      weekdays: [1],
+      from: "2027-01-01",
+      to: "2027-01-31",
+    } as const;
+    const until = { kind: "until-reopen", from: "2026-11-08" } as const;
+
+    it("without a start time", () => {
+      expect(label({ when: range })).toBe("Close Thu, Dec 24 – Sat, Jan 2");
+      expect(label({ what: lunch, when: range }, "Lunch")).toBe(
+        "Close Lunch Thu, Dec 24 – Sat, Jan 2"
+      );
+      expect(label({ when: repeats }, undefined, "2027-01-04")).toBe(
+        "Close every Monday, Mon, Jan 4 – Mon, Jan 25"
+      );
+      expect(label({ what: lunch, when: repeats }, "Lunch", "2027-01-04")).toBe(
+        "Close Lunch every Monday, Mon, Jan 4 – Mon, Jan 25"
+      );
+      expect(label({ when: until }, undefined, "2026-11-08")).toBe(
+        "Close from Sun, Nov 8 until you reopen"
+      );
+      expect(label({ what: lunch, when: until }, "Lunch", "2026-11-08")).toBe(
+        "Close Lunch from Sun, Nov 8 until you reopen"
+      );
+    });
+
+    it("with a start time", () => {
+      expect(label({ when: range, fromMinute: 780 })).toBe(
+        "Close from 1:00 PM on Thu, Dec 24 – Sat, Jan 2"
+      );
+      expect(label({ what: lunch, when: range, fromMinute: 780 }, "Lunch")).toBe(
+        "Close Lunch from 1:00 PM on Thu, Dec 24 – Sat, Jan 2"
+      );
+      expect(label({ when: repeats, fromMinute: 780 }, undefined, "2027-01-04")).toBe(
+        "Close from 1:00 PM every Monday, Mon, Jan 4 – Mon, Jan 25"
+      );
+      expect(label({ when: until, fromMinute: 780 }, undefined, "2026-11-08")).toBe(
+        "Close from 1:00 PM on Sun, Nov 8 until you reopen"
+      );
+    });
   });
 });

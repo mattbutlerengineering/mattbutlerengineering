@@ -23,8 +23,6 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
   buildCloseRules,
-  closeButtonText,
-  closeToastText,
   closedDates,
   closureForm,
   decisionsReady,
@@ -49,6 +47,7 @@ import {
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
+import { closeButtonText, closeToastText } from "./close-text.js";
 import { combineImpacts, decisionsFor } from "./add-dates-draft.js";
 import { AlreadyClosedNotice } from "./AlreadyClosedNotice.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
@@ -62,6 +61,8 @@ import { sectionMembership } from "./section-membership.js";
 import { sameRow } from "./series-edit.js";
 import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./CloseDialog.module.css";
+
+const endRequiredId = "close-end-required";
 
 export interface CloseDialogProps {
   readonly venueId: string;
@@ -426,6 +427,8 @@ export function CloseDialog(props: CloseDialogProps) {
   );
   // Guests are only told right away when something tells them: a booking group or the given-back choice.
   const showStepTwoNote = step === 2 && (groups.length > 0 || (givenBack && tellGivenBack));
+  // A disabled primary says why where it is: a disabled button cannot say it for itself.
+  const showEndRequired = step === 1 && toMissing;
   const impactFailed = impactError !== null;
   // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
   // choices would read as complete.
@@ -488,6 +491,16 @@ export function CloseDialog(props: CloseDialogProps) {
                   {stepTwoNote(decisionsReady(groups, choices), t)}
                 </Text>
               )}
+              {showEndRequired && (
+                <Text
+                  id={endRequiredId}
+                  variant="caption"
+                  color="secondary"
+                  className={styles.footerNote}
+                >
+                  {t("availability.close.when.endRequired")}
+                </Text>
+              )}
               <Button
                 variant="secondary"
                 disabled={isPending}
@@ -498,7 +511,9 @@ export function CloseDialog(props: CloseDialogProps) {
               <Button
                 variant="primary"
                 data-testid="close-primary"
-                aria-describedby={showStepTwoNote ? stepTwoNoteId : undefined}
+                aria-describedby={
+                  showStepTwoNote ? stepTwoNoteId : showEndRequired ? endRequiredId : undefined
+                }
                 onClick={step === 2 ? () => void save() : next}
                 isLoading={isPending}
                 disabled={primaryDisabled}

@@ -176,13 +176,37 @@
   gap: var(--rialto-space-sm);
 }
 
-/* The legend's runs of spaces separate its entries, so they must show. */
+/* The heading and its entries run inline; the entries are a list, so a screen reader hears them apart. */
 .legend {
-  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--rialto-space-xs) var(--rialto-space-sm);
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-sm);
   color: var(--rialto-text-secondary);
-  white-space: pre-wrap;
+}
+
+.legendItems {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs) var(--rialto-space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* A visible bar between entries, so nothing relies on spacing alone. */
+.legendItems li + li::before {
+  content: "|";
+  margin-inline-end: var(--rialto-space-md);
+  color: var(--rialto-border-strong);
+}
+
+/* A weekday the regular week is closed on: text, not a chip. */
+.closedText {
+  font-size: var(--rialto-text-xs);
+  color: var(--rialto-text-secondary);
 }
 
 /* A month cell's one chip: text first, so it never relies on colour. */

@@ -8,14 +8,15 @@ import {
   WEEKDAY_SHORTCUT,
   WEEKEND_SHORTCUT,
   WEEK_DISPLAY_ORDER,
-  issueMessage,
+  minutesOf,
   setServiceTime,
   toClock,
   toggleDayIn,
   type DraftTimes,
   type QuickSetupDraft,
-  type QuickSetupIssue,
 } from "./quick-setup-draft.js";
+import { firstClearStart } from "./quick-setup-placement.js";
+import { issueMessage, serviceLabel, type QuickSetupIssue } from "./quick-setup-validate.js";
 import {
   QuickSetupFixContext,
   issuesFor,
@@ -36,15 +37,24 @@ export function IssueText({
   const dayName = useWeekdayName();
   const applyFix = use(QuickSetupFixContext);
   // One action per service: the same later start clears the overlap on every day it names.
-  const fixes = problems
-    .flatMap((p) => (p.fix ? [p.fix] : []))
-    .filter((fix, at, all) => all.findIndex((f) => f.serviceId === fix.serviceId) === at);
-  const serviceName = (id: string) => {
-    const index = draft.services.findIndex((s) => s.id === id);
-    return (
-      draft.services[index]?.name.trim() || t("availability.quickSetup.serviceN", { n: index + 1 })
-    );
-  };
+  // One action per service: the same later start clears the overlap on every day it names.
+  const movable = [
+    ...new Set(
+      problems.flatMap((p) =>
+        p.code === "overlap" && p.blockId === undefined ? [p.serviceId] : []
+      )
+    ),
+  ];
+  const fixes = applyFix
+    ? movable.flatMap((serviceId) => {
+        const service = draft.services.find((s) => s.id === serviceId);
+        const opensAt = serviceId === null ? null : firstClearStart(draft, serviceId);
+        const current = service ? minutesOf(service)?.opensAt : undefined;
+        return serviceId !== null && opensAt !== null && opensAt !== current
+          ? [{ serviceId, opensAt }]
+          : [];
+      })
+    : [];
   return (
     <>
       {problems.map((p) => (
@@ -62,7 +72,7 @@ export function IssueText({
           <div key={fix.serviceId}>
             <Button variant="secondary" size="sm" onClick={() => applyFix(fix)}>
               {t("availability.quickSetup.moveTo", {
-                service: serviceName(fix.serviceId),
+                service: serviceLabel(draft, fix.serviceId, t),
                 time: format.formatLocalTime(toClock(fix.opensAt)),
               })}
             </Button>

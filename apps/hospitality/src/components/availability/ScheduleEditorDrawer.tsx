@@ -17,11 +17,10 @@ import {
   coveredDays,
   draftFromConfig,
   emptyDraft,
-  issueMessage,
   scheduleDays,
-  validateDraft,
   type QuickSetupDraft,
 } from "./quick-setup-draft.js";
+import { issueMessage, validateDraft } from "./quick-setup-validate.js";
 import { useWeekdayName } from "./quick-setup-field-helpers.js";
 import {
   buildEditScheduleChanges,
