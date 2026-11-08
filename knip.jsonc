@@ -325,6 +325,7 @@
         "visual-diff-refs.mjs",
         "visual-diff-report.mjs",
         "visual-noise-floor.mjs",
+        "visual-regen-trigger.mjs",
         "visual-tolerance-rule.mjs",
         "wait-for-tier-label.mjs",
         "worktree-base-freshness.mjs",
