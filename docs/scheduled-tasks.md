@@ -106,9 +106,9 @@ not a new row in the catalog below and not an edit of the builtin array in
 > rung is empty, by decomposing one `feature-proposal` past its 66h veto window
 > with `/ideate`'s own flip protocol. It merges through the review gate
 > (`reviewer` + `reviewersForDiff` specialists) and REST `PUT /pulls/{n}/merge`,
-> issued as one plain command so the `.claude/settings.json` allow rule approves
-> it before the auto-mode classifier; a `[Merge Without Review]` denial still
-> stops merging for that fire. PR claims use the
+> issued as one plain command. The cloud auto-mode classifier can still deny it
+> as `[Merge Without Review]`, since a `.claude/settings.json` allow rule does
+> not bypass it there; a denial stops merging for that fire. PR claims use the
 > `drain-claimed` label; issue claims use `in-progress`. Liveness is a heartbeat
 > on #6211 under the shared name `mbe-feature-drain` (one `noop` per day at
 > most). Prompt: [`routines/mbe-feature-drain.md`](./routines/mbe-feature-drain.md).
