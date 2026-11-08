@@ -5512,6 +5512,88 @@
       );
     };
   </file>
+  <file path="src/routes/holiday-decisions.ts">
+    export const holidayDecisionRoutes: FastifyPluginAsync = async (fastify) => {
+      const { holidayDecisionService } = fastify.services;
+    
+      registerEndpoint(fastify, holidayDecisionEndpoints.list, {
+        docs: {
+          summary: "List a venue's holiday decisions",
+          operationId: "listHolidayDecisions",
+          description:
+            "The holidays a Manager answered without changing the hours (today: open as usual), from `from` to `to` inclusive, by date. At most 400 days. Any venue member may read.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(VENUE_FROM_ID, async (request, reply, { venueId }) => {
+          if (!isHolidayDecisionsRange(request.query)) {
+            return reply.code(400).send(createProblemDetails(400, "Bad Request", BAD_RANGE));
+          }
+          const decisions = await holidayDecisionService.list(venueId, request.query, request.log);
+          if (!decisions) {
+            return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+          }
+          return { data: decisions };
+        }),
+      });
+    
+      registerEndpoint(fastify, holidayDecisionEndpoints.set, {
+        docs: {
+          summary: "Record a holiday decision",
+          operationId: "setHolidayDecision",
+          description:
+            "Idempotent: a repeat returns the existing row unchanged. Not an availability change: it writes no history and does not bump the availability version. The date is not checked against any holiday calendar. Requires a Manager (owner or manager) membership, or the admin role.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          { ...VENUE_FROM_ID, access: "manager" },
+          async (request, reply, { venueId }) => {
+            if (!isRealServiceDate(request.params.serviceDate)) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", BAD_DATE));
+            }
+            const decision = await holidayDecisionService.set({
+              venueId,
+              serviceDate: request.params.serviceDate,
+              decision: request.body.decision,
+              actorId: request.user?.id ?? "unknown",
+            });
+            if (!decision) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+            }
+            return { data: decision };
+          }
+        ),
+      });
+    
+      registerEndpoint(fastify, holidayDecisionEndpoints.clear, {
+        docs: {
+          summary: "Clear a holiday decision",
+          operationId: "clearHolidayDecision",
+          description:
+            "Idempotent: a date with no decision still answers 204. Requires a Manager (owner or manager) membership, or the admin role.",
+          tags: ["Availability"],
+          security: [{ bearerAuth: [] }],
+        },
+        preHandler: requireAuth,
+        handler: venueScoped(
+          { ...VENUE_FROM_ID, access: "manager" },
+          async (request, reply, { venueId }) => {
+            if (!isRealServiceDate(request.params.serviceDate)) {
+              return reply.code(400).send(createProblemDetails(400, "Bad Request", BAD_DATE));
+            }
+            const found = await holidayDecisionService.clear(venueId, request.params.serviceDate);
+            if (!found) {
+              return reply.code(404).send(createProblemDetails(404, "Not Found", VENUE_NOT_FOUND));
+            }
+            return reply.code(204).send();
+          }
+        ),
+      });
+    };
+  </file>
   <file path="src/routes/load-reservation-for-manage.ts">
     export type ManagePreambleResult =
       | { ok: true; reservation: Reservation }
@@ -18957,6 +19039,7 @@
       availabilityService: typeof availabilityService;
       availabilityConfigService: typeof availabilityConfigService;
       availabilityChangesService: typeof availabilityChangesService;
+      holidayDecisionService: typeof holidayDecisionService;
       closureImpactService: typeof closureImpactService;
       closureCommandService: typeof closureCommandService;
       /** Built in `buildApp` over the notifier scheduler — never a module singleton. */
@@ -18984,6 +19067,7 @@
       availabilityService,
       availabilityConfigService,
       availabilityChangesService,
+      holidayDecisionService,
       closureImpactService,
       closureCommandService,
       tonightCommandService,
@@ -20718,6 +20802,95 @@
         await this.cleanupExpired();
         return true;
       },
+    };
+  </file>
+  <file path="src/services/holiday-decision.ts">
+    type StoreClient = Pick<PrismaClient, "$transaction">;
+    type Db = Pick<PrismaClient, "venue" | "venueHolidayDecision">;
+    export interface DecisionLogger {
+      warn(obj: object, msg: string): void;
+    }
+    async function inVenue<T, M>(
+      client: StoreClient,
+      venueId: string,
+      missing: M,
+      work: (db: Db) => Promise<T>
+    ): Promise<T | M> {
+      return client.$transaction(async (tx) => {
+        await setVenueContext(tx, venueId);
+        const db = tx as unknown as Db;
+        const venue = await db.venue.findUnique({ where: { id: venueId }, select: { id: true } });
+        return venue ? work(db) : missing;
+      });
+    }
+    export function listHolidayDecisions(
+      venueId: string,
+      range: { from: string; to: string },
+      logger?: DecisionLogger,
+      client: StoreClient = prisma
+    ): Promise<HolidayDecision[] | null> {
+      return inVenue(client, venueId, null, async (db) => {
+        const rows = await db.venueHolidayDecision.findMany({
+          where: {
+            venueId,
+            serviceDate: { gte: toDbDate(range.from)!, lte: toDbDate(range.to)! },
+          },
+          orderBy: { serviceDate: "asc" },
+        });
+        return rows.flatMap((row) => {
+          const decision = HolidayDecisionKindSchema.safeParse(row.decision);
+          if (!decision.success) {
+            logger?.warn(
+              { venueId, serviceDate: toDay(row.serviceDate), decision: row.decision },
+              "holiday_decision_row_invalid"
+            );
+            return [];
+          }
+          return [toWire({ ...row, decision: decision.data })];
+        });
+      });
+    }
+    export interface SetHolidayDecisionInput {
+      venueId: string;
+      serviceDate: string;
+      decision: HolidayDecisionKind;
+      actorId: string;
+    }
+    export function setHolidayDecision(
+      input: SetHolidayDecisionInput,
+      client: StoreClient = prisma
+    ): Promise<HolidayDecision | null> {
+      const { venueId, decision, actorId } = input;
+      const serviceDate = toDbDate(input.serviceDate)!;
+      return inVenue(client, venueId, null, async (db) => {
+        // `update: { decision }`, not `{}`: Prisma compiles an upsert to one `INSERT … ON CONFLICT DO
+        // UPDATE` only when the update is non-empty (an empty one becomes SELECT then INSERT, which
+        // concurrent sets race into a unique violation, a 500). Re-writing the same value leaves
+        // `createdByUserId` and `createdAt`, the first author and time, untouched.
+        const row = await db.venueHolidayDecision.upsert({
+          where: { venueId_serviceDate: { venueId, serviceDate } },
+          create: { venueId, serviceDate, decision, createdByUserId: actorId },
+          update: { decision },
+        });
+        return toWire({ ...row, decision: HolidayDecisionKindSchema.parse(row.decision) });
+      });
+    }
+    export async function clearHolidayDecision(
+      venueId: string,
+      serviceDate: string,
+      client: StoreClient = prisma
+    ): Promise<boolean> {
+      return inVenue(client, venueId, false, async (db) => {
+        await db.venueHolidayDecision.deleteMany({
+          where: { venueId, serviceDate: toDbDate(serviceDate)! },
+        });
+        return true;
+      });
+    }
+    export const holidayDecisionService = {
+      list: listHolidayDecisions,
+      set: setHolidayDecision,
+      clear: clearHolidayDecision,
     };
   </file>
   <file path="src/services/job-worker.ts">
@@ -25766,6 +25939,7 @@
       "dateRule",
       "dateRuleTable",
       "availabilityChange",
+      "venueHolidayDecision",
       "closureOutcome",
       "guestWinBack",
     ]);
@@ -27594,6 +27768,7 @@
       await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
       await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(availabilityChangesRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+      await fastify.register(holidayDecisionRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(closureRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(tonightRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
       await fastify.register(availabilityRoutes, {

@@ -755,31 +755,68 @@
     </item>
   </file>
   <file path="src/components/availability/copy-day.ts">
-    <item priority="low">
-      interface CopyTarget {
-        weekdays: readonly number[];
-        from: string;
-        until: string | null;
-        today?: string;
-      }
-    </item>
-    <item priority="high">
-      export function copyDayDates(target: CopyTarget): string[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function buildCopyDayChanges(
-        input: CopyTarget & {
-          readonly config: AvailabilityConfig;
-          readonly services: readonly DraftService[];
-          readonly makeId: () => string;
-        }
-      ): AvailabilityConfigChanges { /* ... */ }
-    </item>
     <item priority="high">
       export function singleDateChangeCount(config: AvailabilityConfig, weekday: number): number { /* ... */ }
     </item>
     <item priority="high">
       export const NUDGE_THRESHOLD: unknown;
+    </item>
+  </file>
+  <file path="src/components/availability/copy-week-draft.ts">
+    <item priority="high">
+      type Service = ResolvedDay["services"][number];
+    </item>
+    <item priority="high">
+      export function sameHoursAs(source: ResolvedDay, target: ResolvedDay): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function thisWeekTargets(input: {
+        readonly date: string;
+        readonly weekdays: readonly number[];
+        readonly today: string;
+      }): { dates: string[]; past: number[] } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function buildCopySingleDates(input: {
+        readonly config: AvailabilityConfig;
+        readonly source: ResolvedDay;
+        readonly date: string;
+        readonly dates: readonly string[];
+        readonly makeId: () => string;
+      }): AvailabilityConfigChanges { /* ... */ }
+    </item>
+    <item priority="high">
+      export function splitCopyTargets(
+        config: AvailabilityConfig,
+        timezone: string,
+        source: ResolvedDay,
+        dates: readonly string[]
+      ): { changed: string[]; same: string[]; closed: string[] } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function regularSameWeekdays(
+        config: AvailabilityConfig,
+        timezone: string,
+        source: ResolvedDay,
+        weekdays: readonly number[],
+        from: string
+      ): number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function withCoveredDays(
+        config: AvailabilityConfig,
+        weekdays: readonly number[],
+        makeId: () => string
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function copyWeekDraft(
+        config: AvailabilityConfig,
+        source: ResolvedDay,
+        date: string,
+        weekdays: readonly number[],
+        makeId: () => string
+      ): QuickSetupDraft { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/day-summary.ts">
@@ -1013,6 +1050,40 @@
       export const useEditorOpen: unknown;
     </item>
   </file>
+  <file path="src/components/availability/holiday-decisions.ts">
+    <item priority="high">
+      export const HOLIDAY_HORIZON_DAYS: unknown;
+    </item>
+    <item priority="low">
+      type HolidayState = { readonly kind: "undecided" } | { readonly kind: "closed"; rea | { readonly kind: "openAsUsual" | { readonly kind: "specialHours | { readonly kind: "other" };
+    </item>
+    <item priority="low">
+      interface DecidedHoliday {
+        state: HolidayState;
+      }
+    </item>
+    <item priority="medium">
+      function covers(rule: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isOwnedOneDate(rule: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function classify(
+        rules: readonly DateRule[],
+        decided: ReadonlySet<string>,
+        date: string
+      ): HolidayState { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidayStates(
+        country: HolidayCountry,
+        today: string,
+        config: AvailabilityConfig,
+        decisions: readonly HolidayDecision[]
+      ): DecidedHoliday[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/holidays.ts">
     <item priority="low">
       type HolidayCountry = "US" | "CA" | "MX";
@@ -1034,16 +1105,6 @@
     </item>
     <item priority="high">
       export function holidaysIn(country: HolidayCountry, year: number): Holiday[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function isPlanned(config: AvailabilityConfig, date: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function upcomingHolidays(
-        country: HolidayCountry,
-        today: string,
-        config: AvailabilityConfig
-      ): Holiday[] { /* ... */ }
     </item>
     <item priority="high">
       export function holidaysWithin(
@@ -1136,14 +1197,6 @@
         date: string,
         nowMinute: number
       ): boolean { /* ... */ }
-    </item>
-  </file>
-  <file path="src/components/availability/open-as-usual.ts">
-    <item priority="high">
-      export function readOpenAsUsual(venueId: string): readonly string[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/outcome-label.ts">
@@ -2465,6 +2518,52 @@
     </item>
     <item priority="high">
       export function useHoldFocus(wayOut: HoldWayOut) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-holiday-decision.ts">
+    <item priority="low">
+      type HolidayChoice = "closed" | "openAsUsual" | "specialHours";
+    </item>
+    <item priority="low">
+      interface NamedHoliday {
+        name: string;
+        dateLabel: string;
+      }
+    </item>
+    <item priority="low">
+      interface HolidayLineStatus {
+        phase: "saving" | "failed";
+        to: HolidayChoice;
+      }
+    </item>
+    <item priority="low">
+      interface HolidaySheetRequest {
+        afterSaved?: () => Promise<void>;
+        onSettled: () => void;
+      }
+    </item>
+    <item priority="low">
+      interface HolidayFlow {
+        onClose: (
+          rows: readonly PlannedDate[],
+          title: string,
+        ...;
+        onSpecialHours: (row: PlannedDate, request: HolidaySheetRequest) => void;
+        onReopen: (ruleId: string, then: () => void) => void;
+        onEditHours: (date: string) => void;
+      }
+    </item>
+    <item priority="low">
+      interface UseHolidayDecisionOptions {
+        venueId: string;
+        state: AvailabilityConfigState;
+        onStale: () => void;
+        flow: HolidayFlow;
+        onDecided: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useHolidayDecision(options: UseHolidayDecisionOptions) { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/use-holidays.ts">
@@ -3955,6 +4054,36 @@
       export async function mockNoopPreview(page: Page): Promise<{ readonly requests: () => number }> { /* ... */ }
     </item>
   </file>
+  <file path="e2e/helpers/shared-config-mock.ts">
+    <item priority="low">
+      interface DecisionCall {
+        method: "PUT" | "DELETE";
+        date: string;
+        body: unknown;
+      }
+    </item>
+    <item priority="low">
+      interface ConfigPut {
+        expectedVersion: number;
+        changes: AvailabilityConfigChanges;
+      }
+    </item>
+    <item priority="low">
+      interface SharedConfigStore {
+        config: AvailabilityConfig;
+        version: number;
+        decisions: Map<string, string>;
+        decisionCalls: DecisionCall[];
+        configPuts: ConfigPut[];
+      }
+    </item>
+    <item priority="high">
+      export function createSharedConfig(config: AvailabilityConfig, version = 7): SharedConfigStore { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function serveSharedConfig(page: Page, store: SharedConfigStore): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="e2e/helpers/week-dates.ts">
     <item priority="high">
       export const WEEKDAYS: unknown;
@@ -4798,6 +4927,20 @@
     </item>
     <item priority="high">
       export const useAddStaffNote: unknown;
+    </item>
+  </file>
+  <file path="src/hooks/useHolidayDecisions.ts">
+    <item priority="high">
+      export const HOLIDAY_DECISIONS_QUERY_KEY: unknown;
+    </item>
+    <item priority="high">
+      export const useHolidayDecisions: unknown;
+    </item>
+    <item priority="high">
+      export const useSetHolidayDecision: unknown;
+    </item>
+    <item priority="high">
+      export const useClearHolidayDecision: unknown;
     </item>
   </file>
   <file path="src/hooks/useIsAdmin.ts">
