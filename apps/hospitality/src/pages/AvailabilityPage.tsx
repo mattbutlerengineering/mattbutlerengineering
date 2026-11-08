@@ -76,6 +76,8 @@ interface Closing {
   readonly date: string | null;
   readonly dates?: readonly string[];
   readonly pause: boolean;
+  /** Opens on One section with this section chosen (`?closeSection=`). */
+  readonly sectionId?: string;
 }
 
 /**
@@ -288,6 +290,15 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const teamRead = useVenueTeam({ venueId: selectedVenueId });
   const team = teamRead.data;
   const isManager = useIsManager();
+  // ?closeSection= opens the Close dialog for that section, once, for a Manager with the config
+  // loaded (a Host has no Close dialog). An id the venue does not have opens it with no preselection.
+  const entrySection = useRef(entry.closeSection);
+  const entryReady = isManager && !!config.data;
+  useEffect(() => {
+    if (!entryReady || entrySection.current === undefined) return;
+    setClosing({ date: null, pause: false, sectionId: entrySection.current });
+    entrySection.current = undefined;
+  }, [entryReady]);
   // Only a Manager has the Schedules tab: a Host who opens ?tab=schedules gets the calendar.
   const tab = chosenTab === "schedules" && !isManager ? "calendar" : chosenTab;
   // A read that has never answered. A refresh failing over data on hand is the drawer's to say.
@@ -737,6 +748,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           initialDate={closing.date}
           initialDates={closing.dates}
           pauseOnline={closing.pause}
+          initialSectionId={closing.sectionId}
           onSaved={closing.dates ? finishSelectionAction : undefined}
           onClose={() => setClosing(null)}
         />

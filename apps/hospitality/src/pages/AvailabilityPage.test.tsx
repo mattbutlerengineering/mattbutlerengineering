@@ -500,6 +500,26 @@ describe("AvailabilityPage", () => {
       expect(screen.queryByRole("link", { name: "Venue Setup" })).not.toBeInTheDocument();
     });
 
+    it("opens a Manager's Close dialog on the section ?closeSection= names", () => {
+      renderPage("/availability?closeSection=sec-bar");
+      const dialog = screen.getByRole("dialog", { name: "Close", exact: true });
+      expect(within(dialog).getByRole("radio", { name: "One section" })).toBeChecked();
+      expect(within(dialog).getByRole("combobox", { name: "Section" })).toHaveTextContent("Bar");
+    });
+
+    it("opens the Close dialog with no preselection for a section the venue lacks", () => {
+      renderPage("/availability?closeSection=gone");
+      const dialog = screen.getByRole("dialog", { name: "Close", exact: true });
+      expect(within(dialog).getByRole("radio", { name: "Whole venue" })).toBeChecked();
+      expect(within(dialog).getByRole("radio", { name: "One section" })).not.toBeChecked();
+    });
+
+    it("opens no Close dialog for a Host", () => {
+      team.value = { viewerRole: "host" };
+      renderPage("/availability?closeSection=sec-bar");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
     it("removes closeSection from the URL after mount and keeps the other params", () => {
       renderPage("/availability?tab=schedules&closeSection=sec-1&from=setup");
       expect(screen.getByTestId("location")).toHaveTextContent(

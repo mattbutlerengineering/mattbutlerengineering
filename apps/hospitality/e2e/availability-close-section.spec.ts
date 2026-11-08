@@ -202,4 +202,18 @@ test.describe("Availability close dialog: One section (ADR-032)", () => {
       "Bar closed all day"
     );
   });
+
+  test("?closeSection= opens the Close dialog on that section, and leaves no param behind", async ({
+    mockedPage,
+  }) => {
+    await mockedPage.clock.setFixedTime(pinnedNoon());
+    await mockAvailability(mockedPage, midNextMonth());
+
+    await mockedPage.goto("availability?closeSection=sec-main");
+
+    const dialog = mockedPage.getByRole("dialog", { name: "Close", exact: true });
+    await expect(dialog.getByRole("radio", { name: "One section" })).toBeChecked();
+    await expect(dialog.getByRole("combobox", { name: "Section" })).toContainText("Main Dining");
+    await expect(mockedPage).not.toHaveURL(/closeSection/);
+  });
 });
