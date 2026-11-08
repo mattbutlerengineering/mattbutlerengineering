@@ -50,8 +50,8 @@
       "limit": "8 kB"
     },
     {
-      "name": "Weekday summary + schedule changes (one hoisted chunk, shared by the schedule editor, Change regular week, the Schedules tab, History and quick setup)",
-      "path": "dist/assets/weekday-summary-*.js",
+      "name": "Weekday summary + schedule changes (one hoisted chunk, shared by the schedule editor, Change regular week, the Schedules tab, History and quick setup; rollup names it for change-summary-text since #8528)",
+      "path": "dist/assets/change-summary-text-*.js",
       "limit": "2.9 kB"
     },
     {
@@ -60,9 +60,9 @@
       "limit": "3 kB"
     },
     {
-      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list)",
+      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list; +1 kB at #8528 for the Tonight/Tomorrow/holiday chips and the opening-to-close Starting-at list, 14.19 kB measured)",
       "path": "dist/assets/CallListDialog-*.js",
-      "limit": "13.5 kB"
+      "limit": "14.5 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
@@ -143,6 +143,16 @@
       "name": "Availability refresh + problem parser (shared by the availability page and its closure dialogs, hoisted since #8508)",
       "path": "dist/assets/useRefreshAvailability-*.js",
       "limit": "3 kB"
+    },
+    {
+      "name": "Discard-changes dialog + leave guard (shared by the availability page, schedule drawers and Venue Setup, hoisted; 3.54 kB gzip at #8528)",
+      "path": "dist/assets/DiscardChangesDialog-*.js",
+      "limit": "4 kB"
+    },
+    {
+      "name": "Booking rules model (shared by availability, venue onboarding and Venue Setup, hoisted; 3.13 kB gzip at #8528)",
+      "path": "dist/assets/booking-rules-*.js",
+      "limit": "3.5 kB"
     }
   ],
   "dependencies": {
