@@ -324,8 +324,11 @@ export function CloseStepOne(props: CloseStepOneProps) {
                 )}
                 {(when.kind === "range" || when.kind === "repeats") && (
                   <>
+                    {/* A From picked past To carries To with it: a range never reads backwards. */}
                     {dateField(t("availability.close.when.fromLabel"), when.from, (from) =>
-                      patch({ when: { ...when, from } })
+                      patch({
+                        when: { ...when, from, to: when.to && when.to < from ? from : when.to },
+                      })
                     )}
                     {/* To starts no earlier than From, and so opens on From's month. */}
                     {dateField(

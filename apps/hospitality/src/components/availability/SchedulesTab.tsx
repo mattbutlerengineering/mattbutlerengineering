@@ -145,7 +145,10 @@ export function SchedulesTab(props: SchedulesTabProps) {
         <Heading level={2} size={3} id={REGULAR_WEEK_HEADING_ID} tabIndex={-1}>
           {t("availabilitySchedules.layer.regularWeek")}
         </Heading>
-        <Button variant="secondary" onClick={() => onEditorChange({ mode: "new", seed: "regular" })}>
+        <Button
+          variant="secondary"
+          onClick={() => onEditorChange({ mode: "new", seed: "regular" })}
+        >
           {t("availabilitySchedules.layer.add")}
         </Button>
       </div>

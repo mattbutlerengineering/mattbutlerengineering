@@ -81,9 +81,7 @@ describe("presentDay services", () => {
   it("speaks the services in order in the accessible details, with no count to repeat them", () => {
     const view = presentDay("2026-10-30", baseSummary, true, t, format);
     expect(view.servicesSummary).toBeNull();
-    expect(view.accessibleDetails).toBe(
-      `Regular hours, ${lunchLine}, ${dinnerLine}`
-    );
+    expect(view.accessibleDetails).toBe(`Regular hours, ${lunchLine}, ${dinnerLine}`);
   });
 
   it("keeps the count in week view for an older API that sends no service lines", () => {

@@ -6,6 +6,7 @@ import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Engine from "@mbe/availability";
 import type * as Format from "../utils/format.js";
 import type * as Drawer from "../components/availability/AvailabilityDayDrawer.js";
+import type * as Venues from "../hooks/useVenues.js";
 import type { AvailabilityDaySummary, VenueTeam } from "@mbe/types";
 
 const daysQuery = vi.hoisted(() => ({
@@ -93,7 +94,7 @@ vi.mock("../hooks/useAvailability.js", () => ({
   AVAILABILITY_DAYS_QUERY_KEY: "availabilityDays",
 }));
 vi.mock("../hooks/useVenues.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../hooks/useVenues.js")>()),
+  ...(await importOriginal<typeof Venues>()),
   useUpdateVenue: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("../hooks/useClosures.js", () => ({

@@ -53,7 +53,13 @@ describe("one service, one string", () => {
       closures: [],
       bookingOpen: { online: true, phone: true, waitlist: true },
       services: [
-        { venueServiceId: "vs-lunch", name: "Lunch", opensAt: 690, lastSeatingAt: 840, closesAt: 900 },
+        {
+          venueServiceId: "vs-lunch",
+          name: "Lunch",
+          opensAt: 690,
+          lastSeatingAt: 840,
+          closesAt: 900,
+        },
       ],
     };
     const { result } = renderHook(() => useVenueFormat());

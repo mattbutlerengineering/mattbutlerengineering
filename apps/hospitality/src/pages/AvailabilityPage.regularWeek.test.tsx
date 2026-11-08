@@ -196,7 +196,9 @@ describe("AvailabilityPage regular-week line", () => {
     expect(
       screen.getByText(/^Regular week: Lunch 11:30 AM–3:00 PM, last seating 2:00 PM Mon–Fri/)
     ).toBeInTheDocument();
-    expect(screen.getByText("From Dec 1: Dinner 5:00 PM–11:00 PM, last seating 9:00 PM every day")).toBeInTheDocument();
+    expect(
+      screen.getByText("From Dec 1: Dinner 5:00 PM–11:00 PM, last seating 9:00 PM every day")
+    ).toBeInTheDocument();
   });
 });
 

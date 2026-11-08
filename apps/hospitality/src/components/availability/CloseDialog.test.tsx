@@ -1466,6 +1466,23 @@ describe("CloseDialog", () => {
       expect(day("2027-01-10")).toHaveAttribute("aria-disabled", "true");
     });
 
+    it("moves To up to From when From is picked after it, so the range never reads backwards", () => {
+      renderDialog({ initialDate: "2026-12-02" });
+      fireEvent.click(screen.getByRole("radio", { name: "Date range" }));
+      const to = screen.getByRole("combobox", { name: "To" }) as HTMLInputElement;
+      const toBefore = to.value;
+      expect(toBefore).not.toBe("");
+      fireEvent.click(screen.getByRole("combobox", { name: "From" }));
+      fireEvent.click(screen.getByRole("button", { name: /next month/i }));
+      fireEvent.click(document.querySelector<HTMLElement>('[data-date="2027-01-20"]')!);
+      expect((screen.getByRole("combobox", { name: "From" }) as HTMLInputElement).value).toBe(
+        "Jan 20, 2027"
+      );
+      expect((screen.getByRole("combobox", { name: "To" }) as HTMLInputElement).value).toBe(
+        "Jan 20, 2027"
+      );
+    });
+
     it("says a Host's emergency close is all day, with no start time to pick", () => {
       renderDialog({ hostLocked: true, initialDate: null });
       const dialog = screen.getByRole("dialog");

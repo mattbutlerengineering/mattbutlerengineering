@@ -80,10 +80,7 @@ describe("useRegularWeekEdit", () => {
     // Fresh ids per save: compare the payload's shape, with ids blanked.
     const shape = (call: number) =>
       JSON.parse(
-        JSON.stringify(save.mock.calls[call]![0]).replace(
-          /"[0-9a-f]{8}-[0-9a-f-]{27}"/g,
-          '"<id>"'
-        )
+        JSON.stringify(save.mock.calls[call]![0]).replace(/"[0-9a-f]{8}-[0-9a-f-]{27}"/g, '"<id>"')
       );
     expect(shape(0)).toEqual(shape(1));
     expect(save.mock.calls[0]![0].body.scopeConflicts).toBe(
