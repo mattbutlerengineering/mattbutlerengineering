@@ -44,7 +44,9 @@ git push origin HEAD:refs/heads/revert-8511 && gh pr create --base main --head r
 4. Launch brief: `python3 …/launch_demo.py config` printed `NONE` and `launch-demo: 0 problem(s)`, so nothing was written.
 5. `git push -u origin feat/availability-setup-hierarchy` with hooks (destructive-migration check, AI antipattern ratchet, regen) → exit 0; remote `7be5f1a40` = local HEAD.
 6. `gh pr create --base main` → https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8511. Merge danger: two-way, matching this plan.
-7. Stopped: no merge without the Owner.
+7. A follow-up push (`cf6adb3bd`, this file) first failed silently: `git push … | grep` broke on grep's arguments and the push never ran (remote still `7be5f1a40`). It was re-run without a pipe → exit 0; remote `cf6adb3bd` = local.
+8. The repo's CI automation pushed two commits onto the branch after `cf6adb3bd`. `7e4407b23` prettier-formatted this run's docs. `266a55dd7` fixed a chunk-coverage gate failure: it gave the new shared `ScheduleFormParts` chunk a 3 kB budget and dropped budgets for `conflict-problem` and `use-discard-guard`, which #8508 hoisted away. Both were reviewed here: formatting only, and a size-limit change in `apps/hospitality/package.json` that matches the chunks the amendment created and removed. PR CI on `266a55dd7`: 60 pass, 6 skipping, 1 pending (Capture E2E Screenshots, advisory), 1 fail. Hospitality E2E shards 1-3 pass with the real Auth0 session (run 42484202722), as do Test (Node 22, hospitality), Typecheck, Lint, CI Gate, the AI antipattern ratchet and three of four visual suites. The failure is Visual Regression (hospitality), which is advisory: `availability@1280x720`, `availability@375x812`, `setup@1280x720` and `setup@375x812` differ. These are exactly the two screens this run changed (the layered page; the hub's service wording and "Add a schedule…"). Merge state `MERGEABLE`, `UNSTABLE` only because of that advisory check. My first push of this entry was rejected because the remote had moved; I rebased onto `266a55dd7` and pushed again.
+9. Stopped: no merge without the Owner.
 
 ## Post-release checks
 
@@ -52,7 +54,7 @@ git push origin HEAD:refs/heads/revert-8511 && gh pr create --base main --head r
   - https://mattbutlerengineering.com/hospitality/availability as a Manager opens on Schedules with the regular week in the form and 7 controls outside it;
   - Calendar and Special dates are one click away;
   - a Host's page shows Calendar, Special dates and a ⋯ with History and Go to date.
-- `visual.spec.ts` (Linux baselines, own workflow) will report `/availability` screenshot changes by design. Its baselines need the workflow's update path; this is not a defect.
+- Visual baselines: PR visual regression is advisory, and the repo never regenerates baselines on a PR branch (`visual-regen-trigger.yml`). After merge, the Apps Visual Regression run on `main` fails on the four screens above, and `visual-regen-trigger.yml` dispatches `visual-baseline-regen.yml` for hospitality, which opens a `needs-review` PR with the new PNGs. The Owner approves that PR by looking at the images; it is expected, not a regression.
 
 ## Outcome
 
