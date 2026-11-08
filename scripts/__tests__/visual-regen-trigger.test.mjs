@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   deriveFailingApps,
   extractFailingTestTitles,
@@ -6,7 +9,10 @@ import {
   regenBranchFor,
   isDuplicatePending,
   planRegenDispatches,
+  regenPrSearchUrl,
   renderDriftComment,
+  renderDuplicateNotice,
+  readReportsByApp,
 } from "../visual-regen-trigger.mjs";
 
 // ---------------------------------------------------------------------------
@@ -235,25 +241,100 @@ describe("planRegenDispatches", () => {
 });
 
 // ---------------------------------------------------------------------------
+// readReportsByApp — the CLI-facing glue that reads <dir>/<app>/report.json
+// per failing app, tolerating a missing file (AC2 nit: the untested branch).
+// ---------------------------------------------------------------------------
+
+describe("readReportsByApp", () => {
+  const jobs = [
+    { name: "Visual Regression (marketing)", conclusion: "failure" },
+    { name: "Visual Regression (hospitality)", conclusion: "failure" },
+  ];
+
+  it("reads a present report.json and omits an app whose report is missing", () => {
+    const dir = mkdtempSync(join(tmpdir(), "visual-regen-trigger-"));
+    try {
+      mkdirSync(join(dir, "marketing"), { recursive: true });
+      writeFileSync(
+        join(dir, "marketing", "report.json"),
+        JSON.stringify({ suites: [{ specs: [{ title: "/ @ 1280x720", ok: false }] }] })
+      );
+      // hospitality's report.json is deliberately never written.
+
+      const reportsByApp = readReportsByApp(jobs, dir);
+
+      expect(Object.keys(reportsByApp).sort()).toEqual(["marketing"]);
+      expect(extractFailingTestTitles(reportsByApp.marketing)).toEqual(["/ @ 1280x720"]);
+      expect(reportsByApp.hospitality).toBeUndefined();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// regenPrSearchUrl — the deterministic link a drift/duplicate comment can
+// give a human RIGHT AWAY, with no polling for a run/PR id: the regen
+// branch name is fully derivable from `app` alone (visual-baseline-regen.mjs's
+// own convention), so the search resolves to the real PR once it opens.
+// ---------------------------------------------------------------------------
+
+describe("regenPrSearchUrl", () => {
+  it("searches open PRs on the app's deterministic regen branch", () => {
+    const url = regenPrSearchUrl({ repo: "o/r", app: "marketing" });
+    expect(url).toBe(
+      "https://github.com/o/r/pulls?q=" +
+        encodeURIComponent("is:pr head:automation/visual-baseline-regen/marketing")
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
 // renderDriftComment — posted on the merged PR that caused the drift.
 // ---------------------------------------------------------------------------
 
 describe("renderDriftComment", () => {
-  it("names the app, links the failing run, and never claims auto-merge", () => {
+  it("names the app, links the failing run AND the regen PR search, never claims auto-merge", () => {
     const body = renderDriftComment({
       app: "marketing",
       grep: "/ @ 1280x720",
       runUrl: "https://github.com/o/r/actions/runs/123",
+      repo: "o/r",
     });
     expect(body).toContain("marketing");
     expect(body).toContain("https://github.com/o/r/actions/runs/123");
+    expect(body).toContain(regenPrSearchUrl({ repo: "o/r", app: "marketing" }));
     expect(body).toContain("needs-review");
     expect(body).not.toMatch(/auto-?merge/i);
   });
 
   it("notes a whole-suite regen when no grep was derived", () => {
-    const body = renderDriftComment({ app: "hospitality", grep: "", runUrl: "https://x" });
+    const body = renderDriftComment({
+      app: "hospitality",
+      grep: "",
+      runUrl: "https://x",
+      repo: "o/r",
+    });
     expect(body).toContain("hospitality");
     expect(body).not.toContain("--grep");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// renderDuplicateNotice — posted on the culprit PR when an app is skipped as
+// duplicate-pending, so that case is never silent (AC2 nit).
+// ---------------------------------------------------------------------------
+
+describe("renderDuplicateNotice", () => {
+  it("names the app, links the failing run AND the already-open regen PR search", () => {
+    const body = renderDuplicateNotice({
+      app: "marketing",
+      runUrl: "https://github.com/o/r/actions/runs/123",
+      repo: "o/r",
+    });
+    expect(body).toContain("marketing");
+    expect(body).toContain("https://github.com/o/r/actions/runs/123");
+    expect(body).toContain(regenPrSearchUrl({ repo: "o/r", app: "marketing" }));
+    expect(body).not.toMatch(/auto-?merge/i);
   });
 });

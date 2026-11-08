@@ -34,8 +34,12 @@
  *     reads `<dir>/<app>/report.json` per failing app (when present) and
  *     prints `dispatch=<json>` / `skipped=<json>` for `$GITHUB_OUTPUT`
  *   node scripts/visual-regen-trigger.mjs comment --app <app> --grep <grep> \
- *     --run-url <url>
- *     prints the drift-notice comment body
+ *     --run-url <url> --repo <owner>/<name>
+ *     prints the drift-notice comment body (links the failing run AND a
+ *     deterministic search for the app's regen PR)
+ *   node scripts/visual-regen-trigger.mjs comment-duplicate --app <app> \
+ *     --run-url <url> --repo <owner>/<name>
+ *     prints the comment body for an app skipped as duplicate-pending
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -156,14 +160,28 @@ export function planRegenDispatches({ jobs, reportsByApp = {}, openPrHeadRefs = 
 }
 
 /**
+ * Pure: a link that resolves to the app's regen PR once it exists — fully
+ * derivable from `app` alone (no run/PR id to look up or poll for), because
+ * `regenBranchFor` is a deterministic, one-PR-per-app branch name.
+ *
+ * @param {{ repo: string, app: string }} input `repo` is `owner/name`.
+ */
+export function regenPrSearchUrl({ repo, app }) {
+  const query = `is:pr head:${regenBranchFor(app)}`;
+  return `https://github.com/${repo}/pulls?q=${encodeURIComponent(query)}`;
+}
+
+/**
  * Pure: the comment posted on the merged PR whose change turned the visual
  * job red. Never claims auto-merge — the regen PR always stays `needs-review`
  * (see visual-baseline-regen.mjs's `renderPrBody`); this is the matching
- * notice for the PR that caused the drift, not the regen PR itself.
+ * notice for the PR that caused the drift, not the regen PR itself. Links
+ * BOTH the failing run (what broke) and the regen PR search (what to review)
+ * — AC2 requires a human be able to find and compare the regenerated images.
  *
- * @param {{ app: string, grep: string, runUrl: string }} input
+ * @param {{ app: string, grep: string, runUrl: string, repo: string }} input
  */
-export function renderDriftComment({ app, grep, runUrl }) {
+export function renderDriftComment({ app, grep, runUrl, repo }) {
   const scope = grep
     ? "with `--grep` scoped to the failing snapshot(s)"
     : "against the whole suite (no single failing snapshot was identified)";
@@ -171,8 +189,25 @@ export function renderDriftComment({ app, grep, runUrl }) {
     `This merge turned the \`${app}\` visual job red on \`main\` (${runUrl}).`,
     "",
     `Dispatched \`visual-baseline-regen.yml\` for \`${app}\` ${scope}. ` +
-      "It opens a `needs-review` PR with the regenerated baseline PNGs — please " +
-      "compare the images there before merging; this never merges on its own.",
+      `It opens a \`needs-review\` PR with the regenerated baseline PNGs — track it at ` +
+      `${regenPrSearchUrl({ repo, app })} and compare the images there before merging; ` +
+      "this never merges on its own.",
+  ].join("\n");
+}
+
+/**
+ * Pure: the comment posted on the culprit PR when an app is skipped as
+ * duplicate-pending (an app can go red again while its regen PR is still
+ * open) — so that case gets a notice too, instead of silence (AC2 nit).
+ *
+ * @param {{ app: string, runUrl: string, repo: string }} input
+ */
+export function renderDuplicateNotice({ app, runUrl, repo }) {
+  return [
+    `This merge turned the \`${app}\` visual job red on \`main\` again (${runUrl}).`,
+    "",
+    `A \`visual-baseline-regen.yml\` PR for \`${app}\` is already open — see ` +
+      `${regenPrSearchUrl({ repo, app })}. Not dispatching another regen while it's pending.`,
   ].join("\n");
 }
 
@@ -192,7 +227,7 @@ function readJson(path) {
  * defaulted — `planRegenDispatches` already treats a missing report as "no
  * known failing titles" and falls back to a whole-suite regen (empty `--grep`).
  */
-function readReportsByApp(jobs, reportsDir) {
+export function readReportsByApp(jobs, reportsDir) {
   const reportsByApp = {};
   for (const app of deriveFailingApps(jobs)) {
     const path = `${reportsDir}/${app}/report.json`;
@@ -222,10 +257,21 @@ function main() {
         app: flag(args, "app"),
         grep: flag(args, "grep") ?? "",
         runUrl: flag(args, "run-url") ?? "",
+        repo: flag(args, "repo"),
+      })
+    );
+  } else if (cmd === "comment-duplicate") {
+    process.stdout.write(
+      renderDuplicateNotice({
+        app: flag(args, "app"),
+        runUrl: flag(args, "run-url") ?? "",
+        repo: flag(args, "repo"),
       })
     );
   } else {
-    throw new Error("usage: visual-regen-trigger.mjs <failing-apps|plan|comment> …");
+    throw new Error(
+      "usage: visual-regen-trigger.mjs <failing-apps|plan|comment|comment-duplicate> …"
+    );
   }
 }
 

@@ -13,10 +13,12 @@ name: Visual Regen Trigger
 #
 # It NEVER merges anything: visual-baseline-regen.yml's PR always stays
 # `needs-review`, and this workflow additionally posts a comment on the PR
-# that caused the drift so a human has a direct link to compare the images.
-# Dedupe: an app with an open regen PR (branch
-# automation/visual-baseline-regen/<app>, visual-baseline-regen.mjs's own
-# naming) is skipped rather than re-dispatched.
+# that caused the drift — linking both the failing run and a deterministic
+# search for the app's regen PR (visual-baseline-regen.mjs's branch naming is
+# one-PR-per-app, so the search resolves once the PR opens; no polling for a
+# run/PR id). Dedupe: an app with an open regen PR is skipped rather than
+# re-dispatched, and gets its OWN comment on the culprit PR too, so a repeat
+# failure while a regen is pending is never silent.
 on:
   workflow_run:
     workflows: ["Apps Visual Regression", "Rialto Web E2E"]
@@ -124,21 +126,55 @@ jobs:
 
       - name: Find the merged PR that caused the drift
         id: culprit
+        # Comment-only lookup: a transient API hiccup here must not lose the
+        # dispatch above (it has already run) or fail the whole job — `||
+        # true` keeps a failed/empty lookup from tripping `bash -e`.
         env:
           GH_TOKEN: ${{ github.token }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -o pipefail
-          PR_NUMBER=$(gh api "repos/${{ github.repository }}/commits/$SHA/pulls" --jq '.[0].number // empty')
+          PR_NUMBER=$(gh api "repos/${{ github.repository }}/commits/$SHA/pulls" --jq '.[0].number // empty') || true
           echo "pr_number=$PR_NUMBER" >> "$GITHUB_OUTPUT"
 
+      # Every step output/needs value used below goes through `env:`, never
+      # inline `${{ }}` inside a `run:` body: GitHub Actions substitutes
+      # `${{ }}` into the script TEXT before bash ever parses it, so a `grep`
+      # value containing `|` (any app with 2+ failing titles — the common
+      # case for a layout-wide change) becomes a real shell pipe, and an
+      # untrusted title containing `$()`/backticks becomes command
+      # injection. `env:` hands the value to bash as a variable instead —
+      # content, never syntax. Pinned by
+      # scripts/__tests__/visual-regen-trigger-workflow.test.mjs.
+      - name: Post duplicate notice for skipped apps
+        if: ${{ steps.culprit.outputs.pr_number != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKIPPED_JSON: ${{ steps.plan.outputs.skipped }}
+          PR_NUMBER: ${{ steps.culprit.outputs.pr_number }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -o pipefail
+          echo "$SKIPPED_JSON" | jq -r '.[].app' > "$RUNNER_TEMP/skipped-apps.txt"
+          while IFS= read -r app; do
+            [ -z "$app" ] && continue
+            node scripts/visual-regen-trigger.mjs comment-duplicate \
+              --app "$app" --run-url "$RUN_URL" --repo "$REPO" \
+              > "$RUNNER_TEMP/dup-comment.md"
+            gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/dup-comment.md"
+          done < "$RUNNER_TEMP/skipped-apps.txt"
+
       - name: Summarize
+        env:
+          DISPATCH_JSON: ${{ steps.plan.outputs.dispatch }}
+          SKIPPED_JSON: ${{ steps.plan.outputs.skipped }}
         run: |
           {
             echo "## Visual regen trigger"
             echo
-            echo "- Dispatching: \`${{ steps.plan.outputs.dispatch }}\`"
-            echo "- Skipped (regen PR already open): \`${{ steps.plan.outputs.skipped }}\`"
+            echo "- Dispatching: \`$DISPATCH_JSON\`"
+            echo "- Skipped (regen PR already open): \`$SKIPPED_JSON\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
   dispatch:
@@ -175,8 +211,10 @@ jobs:
           GREP: ${{ matrix.grep }}
           PR_NUMBER: ${{ needs.derive.outputs.culprit_pr }}
           RUN_URL: ${{ github.event.workflow_run.html_url }}
+          REPO: ${{ github.repository }}
         run: |
           set -o pipefail
-          node scripts/visual-regen-trigger.mjs comment --app "$APP" --grep "$GREP" --run-url "$RUN_URL" \
+          node scripts/visual-regen-trigger.mjs comment \
+            --app "$APP" --grep "$GREP" --run-url "$RUN_URL" --repo "$REPO" \
             > "$RUNNER_TEMP/comment.md"
           gh pr comment "$PR_NUMBER" --body-file "$RUNNER_TEMP/comment.md"
