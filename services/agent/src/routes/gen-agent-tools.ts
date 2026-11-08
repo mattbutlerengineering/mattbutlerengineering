@@ -17,6 +17,7 @@ import {
   failureLog,
   notExecuted,
   localTimeIn,
+  readFailure,
   refusalOf,
   resolveTable,
   saveUnsure,
@@ -422,7 +423,7 @@ export function createAgentTools(
           return { reservations: reservations.map(toLocal) };
         } catch (err) {
           log.error({ ...failureLog(err), date, venueId }, "lookup_reservation failed");
-          return { error: "Failed to look up reservations. Please try again." };
+          return readFailure(err, "the reservations");
         }
       },
     }),
@@ -440,7 +441,7 @@ export function createAgentTools(
           return { guests: result.data };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "search_guests failed");
-          return { error: "Failed to search guests. Please try again." };
+          return readFailure(err, "the guests");
         }
       },
     }),
@@ -458,7 +459,7 @@ export function createAgentTools(
           return { tables: result.data };
         } catch (err) {
           log.error({ err, venueId }, "get_table_status failed");
-          return { error: "Failed to get table status. Please try again." };
+          return readFailure(err, "the table status");
         }
       },
     }),
@@ -486,7 +487,7 @@ export function createAgentTools(
           return { reservations: result.data.map(toLocal) };
         } catch (err) {
           log.error({ err, venueId, date }, "list_today_reservations failed");
-          return { error: "Failed to list reservations. Please try again." };
+          return readFailure(err, "the reservations");
         }
       },
     }),

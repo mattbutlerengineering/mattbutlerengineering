@@ -439,7 +439,9 @@ describe("createAgentTools", () => {
       if (!lookupReservationTool) throw new Error("expected lookup_reservation tool");
       const result = await lookupReservationTool.execute!({ guestName: "Smith" }, toolCtx);
 
-      expect(result).toEqual({ error: "Failed to look up reservations. Please try again." });
+      expect(result).toEqual({
+        error: "Couldn't read the reservations. Ask the user to try again.",
+      });
     });
   });
 
@@ -558,7 +560,7 @@ describe("createAgentTools", () => {
       if (!searchGuestsTool) throw new Error("expected search_guests tool");
       const result = await searchGuestsTool.execute!({ query: "Smith", venueId: "v1" }, toolCtx);
 
-      expect(result).toEqual({ error: "Failed to search guests. Please try again." });
+      expect(result).toEqual({ error: "Couldn't read the guests. Ask the user to try again." });
     });
   });
 
@@ -614,7 +616,9 @@ describe("createAgentTools", () => {
       if (!getTableStatusTool) throw new Error("expected get_table_status tool");
       const result = await getTableStatusTool.execute!({ venueId: "v1" }, toolCtx);
 
-      expect(result).toEqual({ error: "Failed to get table status. Please try again." });
+      expect(result).toEqual({
+        error: "Couldn't read the table status. Ask the user to try again.",
+      });
     });
   });
 
@@ -674,7 +678,58 @@ describe("createAgentTools", () => {
       if (!listTodayReservationsTool) throw new Error("expected list_today_reservations tool");
       const result = await listTodayReservationsTool.execute!({ venueId: "v1" }, toolCtx);
 
-      expect(result).toEqual({ error: "Failed to list reservations. Please try again." });
+      expect(result).toEqual({
+        error: "Couldn't read the reservations. Ask the user to try again.",
+      });
+    });
+  });
+
+  describe("older read tools report failures through readFailure", () => {
+    const READS = [
+      ["lookup_reservation", { guestName: "Smith" }, "the reservations"],
+      ["search_guests", { query: "Smith" }, "the guests"],
+      ["get_table_status", {}, "the table status"],
+      ["list_today_reservations", {}, "the reservations"],
+    ] as const;
+
+    function failAllReads(err: unknown) {
+      api.reservations.list.mockRejectedValue(err);
+      api.guests.search.mockRejectedValue(err);
+      api.tables.list.mockRejectedValue(err);
+    }
+
+    it.each(READS)(
+      "%s tells the model a 403 is a permission refusal",
+      async (name, input, what) => {
+        failAllReads(problem(403));
+        const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+        const result = await tools[name]!.execute!(input as never, toolCtx);
+
+        expect(result).toEqual({
+          refused: true,
+          error: `The user doesn't have permission to see ${what}.`,
+        });
+        expect(log.error).toHaveBeenCalledWith(expect.anything(), `${name} failed`);
+      }
+    );
+
+    it.each(READS)("%s passes another refusal's detail through", async (name, input) => {
+      failAllReads(problem(400, { detail: "venueId is invalid" }));
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      const result = await tools[name]!.execute!(input as never, toolCtx);
+
+      expect(result).toEqual({ refused: true, error: "venueId is invalid" });
+    });
+
+    it.each(READS)("%s asks for a retry on a transient failure", async (name, input, what) => {
+      failAllReads(problem(503));
+      const tools = createAgentTools(log, api as never, { venueId: "v1" });
+
+      const result = await tools[name]!.execute!(input as never, toolCtx);
+
+      expect(result).toEqual({ error: `Couldn't read ${what}. Ask the user to try again.` });
     });
   });
 
