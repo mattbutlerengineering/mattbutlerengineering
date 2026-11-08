@@ -10,8 +10,8 @@ import { type QuickSetupDraft } from "./quick-setup-draft.js";
 import { validateDraft } from "./quick-setup-validate.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 
-const LUNCH = "Lunch, 11:30 AM–3:00 PM, Every day";
-const DINNER = "Dinner, 5:00 PM–10:00 PM, Every day";
+const LUNCH = "Lunch, 11:30 AM–3:00 PM · Every day";
+const DINNER = "Dinner, 5:00 PM–10:00 PM · Every day";
 
 function week(): QuickSetupDraft {
   return {
@@ -109,16 +109,12 @@ describe("QuickSetupForm collapsible lines", () => {
 
   it("holds a service with a problem open, says the problem on its line, and releases it once fixed", () => {
     render(<Harness initial={weekWithProblem()} collapsible live />);
-    const dinner = header("Dinner, 5:00 PM–10:00 PM, Every day");
+    const dinner = screen.getByRole("button", { name: /^Dinner, 5:00 PM–10:00 PM · Every day/ });
     expect(dinner.getAttribute("aria-expanded")).toBe("true");
     expect(within(dinner).getByText("Choose a time.")).toBeTruthy();
     expect(dinner.querySelector("svg")).toBeNull();
     // Lunch has no problem and stays closed.
     expect(header(LUNCH).getAttribute("aria-expanded")).toBe("false");
-
-    fireEvent.click(dinner);
-    expect(dinner.getAttribute("aria-expanded")).toBe("true");
-    expect(screen.getAllByLabelText("Service name")).toHaveLength(1);
 
     fireEvent.click(screen.getByRole("button", { name: "Fix dinner" }));
     expect(header(DINNER).getAttribute("aria-expanded")).toBe("false");
@@ -130,7 +126,11 @@ describe("QuickSetupForm collapsible lines", () => {
     render(<Harness initial={weekWithProblem()} collapsible live />);
     fireEvent.click(header(LUNCH));
     expect(header(LUNCH).getAttribute("aria-expanded")).toBe("true");
-    expect(header(DINNER).getAttribute("aria-expanded")).toBe("true");
+    expect(
+      screen
+        .getByRole("button", { name: /^Dinner, 5:00 PM–10:00 PM/ })
+        .getAttribute("aria-expanded")
+    ).toBe("true");
     expect(screen.getAllByLabelText("Service name")).toHaveLength(2);
   });
 
@@ -150,7 +150,7 @@ describe("QuickSetupForm collapsible lines", () => {
     fireEvent.click(header(LUNCH));
     fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
     expect(screen.queryAllByLabelText("Service name")).toHaveLength(0);
-    expect(document.activeElement).toBe(header("Dinner, 5:00 PM–10:00 PM, Every day"));
+    expect(document.activeElement).toBe(header("Dinner, 5:00 PM–10:00 PM · Every day"));
   });
 
   it("moves focus to the previous service's line after removing the last", () => {
@@ -165,6 +165,54 @@ describe("QuickSetupForm collapsible lines", () => {
     expect(screen.getAllByLabelText("Service name")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: LUNCH })).toBeNull();
     expect(document.querySelectorAll("button[aria-expanded]")).toHaveLength(0);
+  });
+});
+
+describe("QuickSetupForm lines under edit", () => {
+  /** Dinner unnamed: a problem the Manager fixes by typing into the line itself. */
+  function weekWithUnnamedDinner(): QuickSetupDraft {
+    const base = week();
+    return { ...base, services: [base.services[0]!, { ...base.services[1]!, name: "" }] };
+  }
+
+  it("keeps a line open and focused when its problem is fixed from inside it", () => {
+    render(<Harness initial={weekWithUnnamedDinner()} collapsible live />);
+    const name = screen.getByLabelText("Service name") as HTMLInputElement;
+    name.focus();
+    fireEvent.change(name, { target: { value: "Dinner" } });
+    expect(screen.getByLabelText("Service name")).toBe(name);
+    expect(document.activeElement).toBe(name);
+    expect(header(DINNER).getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("keeps a line open once its header was pressed, even after the problem is fixed elsewhere", () => {
+    render(<Harness initial={weekWithProblem()} collapsible live />);
+    fireEvent.click(screen.getByRole("button", { name: /^Dinner, 5:00 PM–10:00 PM/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Fix dinner" }));
+    expect(header(DINNER).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getAllByLabelText("Service name")).toHaveLength(1);
+  });
+
+  it("keeps rows mounted when the viewport crosses the phone width, and opens the focused one", () => {
+    const { rerender } = render(<Harness initial={week()} />);
+    const lunchName = screen.getAllByLabelText("Service name")[0] as HTMLInputElement;
+    lunchName.focus();
+
+    rerender(<Harness initial={week()} collapsible />);
+    expect(screen.getAllByLabelText("Service name")).toHaveLength(1);
+    expect(screen.getByLabelText("Service name")).toBe(lunchName);
+    expect(header(LUNCH).getAttribute("aria-expanded")).toBe("true");
+    expect(header(DINNER).getAttribute("aria-expanded")).toBe("false");
+
+    rerender(<Harness initial={week()} />);
+    expect(screen.getAllByLabelText("Service name")[0]).toBe(lunchName);
+  });
+
+  it("names a line from its visible text", () => {
+    render(<Harness initial={week()} collapsible />);
+    expect(header(LUNCH).textContent).toContain("Lunch");
+    expect(header(LUNCH).hasAttribute("aria-label")).toBe(false);
+    expect(header(LUNCH).querySelector("p")).toBeNull();
   });
 });
 

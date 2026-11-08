@@ -118,10 +118,17 @@ function closureItem(
         : undefined;
   if (name === undefined) return null;
   // A service reads against its own hours; a section against the whole day's. A service the
-  // day no longer lists was closed whole-day by the engine, so only a whole-day band names it.
+  // day does not list either ran no hours today (a from-time or bounded band says nothing) or
+  // was closed whole-day by the engine, so only a whole-day band names it.
   const against = band.targetKind === "service" && own ? own : span;
+  if (
+    band.targetKind === "service" &&
+    !own &&
+    !(band.from <= span.opensAt && band.to >= span.closesAt)
+  ) {
+    return null;
+  }
   if (!reachesClose(band, against.closesAt)) {
-    if (band.targetKind === "service" && !own) return null;
     return {
       rank: RANK.closedBetween,
       item: { kind: "closedBetween", name, from: band.from, to: band.to },
@@ -147,8 +154,17 @@ function isWholeDayServiceBand(band: Closure, services: readonly DayService[]): 
  */
 export function todayLine(input: TodayLineInput): TodayLineModel {
   const { serviceDate, summary, rules, now, bannerShowsOnline } = input;
-  const tonightIds = new Set(rules.filter((r) => r.kind === "tonight").map((r) => r.id));
-  const bands = summary.closures.filter((band) => !tonightIds.has(band.ruleId));
+  // A closure band is classified only with its rule in hand: the day and the config refetch
+  // separately, so a band can arrive before its rule (a Tonight stop or pause just applied) and
+  // would read as a closure for a moment. An old API sends no services to read the bands against.
+  const ruleKinds = new Map(rules.map((r) => [r.id, r.kind]));
+  const bands =
+    summary.services === undefined
+      ? []
+      : summary.closures.filter((band) => {
+          const kind = ruleKinds.get(band.ruleId);
+          return kind !== undefined && kind !== "tonight";
+        });
   const services = summary.services ?? [];
   const span = {
     opensAt: services.length ? Math.min(...services.map((s) => s.opensAt)) : 0,

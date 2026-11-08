@@ -50,3 +50,12 @@
 .fields {
   padding-block-start: var(--rialto-space-sm);
 }
+
+.visuallyHidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

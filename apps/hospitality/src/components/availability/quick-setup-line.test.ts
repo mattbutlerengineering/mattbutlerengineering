@@ -23,14 +23,13 @@ describe("serviceLineText", () => {
     const line = serviceLineText(lunch, week([lunch]), format, t);
     expect(line.name).toBe("Lunch");
     expect(line.summary).toBe("11:30 AM–3:00 PM · Every day");
-    expect(line.label).toBe("Lunch, 11:30 AM–3:00 PM, Every day");
   });
 
   it("falls back to Service N by position when there is no name", () => {
     const unnamed = draftService("b", "  ", ["17:00", "21:00", "22:00"]);
     const line = serviceLineText(unnamed, week([lunch, unnamed]), format, t);
     expect(line.name).toBe("Service 2");
-    expect(line.label).toBe("Service 2, 5:00 PM–10:00 PM, Every day");
+    expect(line.summary).toBe("5:00 PM–10:00 PM · Every day");
   });
 
   it("marks a close past midnight as the next day", () => {
@@ -54,8 +53,14 @@ describe("serviceLineText", () => {
     expect(serviceLineText(dinner, week([dinner]), format, t).summary).toBe(
       "5:00 PM–11:00 PM · Every day · other hours Fri–Sat"
     );
-    expect(serviceLineText(dinner, week([dinner]), format, t).label).toBe(
-      "Dinner, 5:00 PM–11:00 PM, Every day, other hours Fri–Sat"
+  });
+
+  it("says other hours on every day as the plain summary, not the capitalised shortcut", () => {
+    const all = draftService("a", "A", ["17:00", "21:00", "23:00"], {
+      blocks: [draftBlock("b", EVERY_DAY, ["17:00", "22:00", "00:00"])],
+    });
+    expect(serviceLineText(all, week([all]), format, t).summary).toBe(
+      "5:00 PM–11:00 PM · Every day · other hours every day"
     );
   });
 
@@ -64,6 +69,5 @@ describe("serviceLineText", () => {
     const line = serviceLineText(blank, week([blank], []), format, t);
     expect(line.name).toBe("Service 1");
     expect(line.summary).toBe("");
-    expect(line.label).toBe("Service 1");
   });
 });

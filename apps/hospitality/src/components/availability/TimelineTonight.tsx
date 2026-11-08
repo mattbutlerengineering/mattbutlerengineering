@@ -26,10 +26,15 @@ export function TimelineTonight() {
   const tables = useTables({ venueId: selectedVenueId ?? undefined, activeOnly: true });
   const sections = useVenueFloorPlanSections({ venueId: selectedVenueId });
   // The Today line's link (`?tonight=open`) asks for the panel once, as the page mounts; the
-  // param is then removed so a reload or Back does not reopen it, and the request is kept in
-  // state until the control (which waits for its reads) mounts.
+  // param is then removed so a reload or Back does not reopen it. The request is kept until the
+  // control (which waits for its reads) has mounted, then spent: a later remount (a venue
+  // switch, a Retry) must not pop the panel open again.
   const [params, setParams] = useSearchParams();
-  const [openRequested] = useState(() => params.get(OPEN_PARAM) === "open");
+  const [openRequested, setOpenRequested] = useState(() => params.get(OPEN_PARAM) === "open");
+  const controlMounted = !!config.data && !!team.data;
+  useEffect(() => {
+    if (controlMounted) setOpenRequested(false);
+  }, [controlMounted]);
   useEffect(() => {
     if (params.get(OPEN_PARAM) !== "open") return;
     setParams(

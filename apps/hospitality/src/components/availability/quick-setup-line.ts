@@ -12,8 +12,6 @@ export interface ServiceLineText {
   readonly name: string;
   /** "11:30 AM–3:00 PM · Every day · other hours Fri, Sat"; the parts that are known. */
   readonly summary: string;
-  /** The same for a screen reader: "Lunch, 11:30 AM–3:00 PM, Every day". */
-  readonly label: string;
 }
 
 /**
@@ -47,12 +45,12 @@ export function serviceLineText(
     service.blocks.some((block) => block.days.includes(day))
   );
   if (otherDays.length > 0) {
-    parts.push(t("availability.quickSetup.line.otherHours", { days: dayText(otherDays) }));
+    parts.push(
+      t("availability.quickSetup.line.otherHours", { days: weekdaySummary(otherDays, format, t) })
+    );
   }
   return {
     name,
     summary: parts.join(" · "),
-    // "other hours" is a clause of its own to a screen reader, like the rest.
-    label: [name, ...parts].join(", "),
   };
 }

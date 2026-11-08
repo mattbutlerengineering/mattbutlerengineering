@@ -26,10 +26,10 @@ export function PreviewRow({ draft, local }: RegularWeekStripProps) {
         onClick={() => setOpen((was) => !was)}
       >
         <span className={styles.text}>
-          <Text variant="body" className={styles.name}>
+          <Text as="span" variant="body" className={styles.name}>
             {t("availability.quickSetup.previewTitle")}
           </Text>
-          <Text id={`${id}-hint`} variant="caption" color="secondary">
+          <Text as="span" id={`${id}-hint`} variant="caption" color="secondary">
             {t("availability.quickSetup.strip.about")}
           </Text>
         </span>

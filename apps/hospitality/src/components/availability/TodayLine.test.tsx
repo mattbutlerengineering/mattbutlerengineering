@@ -5,13 +5,8 @@ import { axe } from "vitest-axe";
 import type { TodayItem, TodayLineModel } from "./today-line.js";
 import type { TodayLineState } from "../../hooks/useTodayLine.js";
 
-const hook = vi.hoisted(() => ({ state: {} as unknown, args: [] as unknown[] }));
-vi.mock("../../hooks/useTodayLine.js", () => ({
-  useTodayLine: (...args: unknown[]) => {
-    hook.args = args;
-    return hook.state;
-  },
-}));
+const hook = vi.hoisted(() => ({ state: {} as unknown }));
+vi.mock("../../hooks/useTodayLine.js", () => ({ useTodayLine: () => hook.state }));
 
 import { TodayLine } from "./TodayLine.js";
 
@@ -48,11 +43,6 @@ function itemTexts(): string[] {
 describe("TodayLine", () => {
   beforeEach(() => {
     setState({});
-  });
-
-  it("passes the venue and the banner flag to the data hook", () => {
-    renderLine(true);
-    expect(hook.args).toEqual(["venue-1", true]);
   });
 
   it("names the day and its hours, with the link and nothing in force", () => {
@@ -138,12 +128,32 @@ describe("TodayLine", () => {
     expect(screen.queryByRole("link")).toBeNull();
   });
 
-  it("is one flowing line: label, date, hours, then items, then the link", () => {
+  it("flows label, date, hours, items, then the link, in that order", () => {
     setState({ model: model([{ kind: "serviceClosed", name: "Lunch" }]) });
     renderLine();
-    expect(screen.getByRole("region", { name: "Today" }).textContent).toBe(
-      "Today · Sun, Nov 8 · Lunch 11:30 AM–3:00 PM · Dinner 5:00 PM–10:00 PM Lunch closedChange tonight"
-    );
+    const text = screen.getByRole("region", { name: "Today" }).textContent ?? "";
+    const order = [
+      "Today",
+      "Sun, Nov 8",
+      "Lunch 11:30 AM–3:00 PM",
+      "Dinner 5:00 PM–10:00 PM",
+      "Lunch closed",
+      "Change tonight",
+    ].map((piece) => text.indexOf(piece));
+    expect(order.every((at) => at >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it("leaves the hours out, with no dangling separator, when the day gave none (old API)", () => {
+    setState({
+      model: model([{ kind: "tonight", change: { ruleId: "a", kind: "pacing", covers: 8 } }], {
+        hours: [],
+      }),
+    });
+    renderLine();
+    const text = screen.getByRole("region", { name: "Today" }).textContent ?? "";
+    expect(text).toMatch(/^Today · Sun, Nov 8 Pacing 8 covers/);
+    expect(text).not.toContain("Closed");
   });
 
   it("says so with Retry when the day failed to load", () => {

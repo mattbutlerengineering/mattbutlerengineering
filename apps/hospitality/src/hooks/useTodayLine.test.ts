@@ -29,7 +29,7 @@ function staff(over: Record<string, unknown> = {}) {
   return {
     serviceDate: "2026-11-08",
     config: { venueServices: [{ id: "vs-d", name: "Dinner" }] },
-    rules: [],
+    rules: [{ id: "c1", kind: "closure", targetKind: "tables", startsOn: "2026-11-08" }],
     summary: SUMMARY,
     readStatus: "ready",
     refetch: vi.fn(),

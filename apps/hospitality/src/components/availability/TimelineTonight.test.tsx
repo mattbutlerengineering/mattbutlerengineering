@@ -1,4 +1,4 @@
-import type { ReactElement } from "react";
+import { useState, type ReactElement } from "react";
 import { MemoryRouter, useLocation } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render as rtlRender, screen } from "@testing-library/react";
@@ -31,10 +31,12 @@ vi.mock("../../hooks/useFloorPlans.js", () => ({
 }));
 vi.mock("../../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../../hooks/useNow.js", () => ({ useNow: () => new Date("2026-10-30T20:00:00Z") }));
+// Like the real control, `defaultOpen` only sets the panel's initial state.
 vi.mock("./TonightControl.js", () => ({
-  TonightControl: ({ defaultOpen }: { defaultOpen?: boolean }) => (
-    <div>{defaultOpen ? "Tonight panel (open)" : "Tonight panel"}</div>
-  ),
+  TonightControl: ({ defaultOpen }: { defaultOpen?: boolean }) => {
+    const [open] = useState(defaultOpen ?? false);
+    return <div>{open ? "Tonight panel (open)" : "Tonight panel"}</div>;
+  },
 }));
 
 import { TimelineTonight } from "./TimelineTonight.js";
@@ -117,6 +119,23 @@ describe("TimelineTonight", () => {
       renderAt("/timeline?tonight=1");
       expect(screen.getByText("Tonight panel")).toBeInTheDocument();
       expect(screen.getByTestId("search")).toHaveTextContent("?tonight=1");
+    });
+
+    it("asks once: a remount of the control (reads dropped, then back) does not reopen it", () => {
+      // A fresh element each time: re-rendering the very same one is bailed out by React.
+      const ui = () => (
+        <MemoryRouter initialEntries={["/timeline?tonight=open"]}>
+          <TimelineTonight />
+        </MemoryRouter>
+      );
+      const { rerender } = rtlRender(ui());
+      expect(screen.getByText("Tonight panel (open)")).toBeInTheDocument();
+      hooks.config = query({ isLoading: true });
+      rerender(ui());
+      expect(screen.queryByText(/Tonight panel/)).toBeNull();
+      hooks.config = query({ data: LOADED });
+      rerender(ui());
+      expect(screen.getByText("Tonight panel")).toBeInTheDocument();
     });
   });
 });
