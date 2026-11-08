@@ -48,7 +48,7 @@ Each item: RED tests first at the existing seam, then the change. "PRD" lists th
   - Blocked by: —
   - PRD: 4 (R8), 8
 
-- [ ] **Everyday scenario suite and the demo** — R1-R11 and PRD 11 in e2e; deliberate updates to specs the slices change.
+- [x] **Everyday scenario suite and the demo** — R1-R11 and PRD 11 in e2e; deliberate updates to specs the slices change.
   - Files: new `e2e/availability-everyday.spec.ts`; updated specs that assert "Change days", old toasts, "Step 1 of 2", month-cell text, the Booking line position or Range/Repeats defaults.
   - RED tests: each R row within budget; footer in viewport at 375×812 and 1280×720 while dirty; Select… menu inside the viewport; the demo script exactly.
   - Accept: new spec passes with the availability, onboarding and Venue Setup e2e set; counts quoted; changed expectations listed.
