@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.8
+
+### Patch Changes
+
+- [#8511](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8511) [`0687154`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0687154baaf4cc1fab0eb6be2f49d8118e04e3a6) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Calendar and DatePicker with no value open on the `min` date's month when `min` is after today, instead of a month where every day is disabled (for example a "To" field after a chosen "From").
+
 ## 0.10.7
 
 ### Patch Changes
