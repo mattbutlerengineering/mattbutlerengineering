@@ -168,3 +168,30 @@ describe("ChangeRegularWeekDrawer on a varied week", () => {
     expect(screen.getByTestId("preview")).toHaveAttribute("data-focus", "2026-11-06");
   });
 });
+
+describe("ChangeRegularWeekDrawer with an initialDraft", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+
+  it("shows the given rows instead of the saved week, with Starting empty", () => {
+    const full = demoDraft();
+    const lunchOnly = { ...full, services: full.services.slice(0, 1) };
+    render(
+      <main>
+        <ChangeRegularWeekDrawer
+          venueId="venue-1"
+          state={stateOf(demoConfig())}
+          today="2026-10-25"
+          onStale={vi.fn()}
+          onClose={vi.fn()}
+          initialDraft={lunchOnly}
+        />
+      </main>
+    );
+    expect(screen.getAllByLabelText("Closes").map((c) => (c as HTMLInputElement).value)).toEqual([
+      "3:00 PM",
+    ]);
+    expect(screen.getByLabelText("Starting")).toHaveValue("");
+  });
+});
