@@ -182,6 +182,9 @@ export function LaunchStep({
 
           <Card title={t("onboarding.hours.heading")} variant="flat">
             <RegularWeekStrip draft={hoursDraft} local />
+            <Text variant="caption" color="secondary">
+              {t("onboarding.launch.changeLater")}
+            </Text>
           </Card>
 
           <Card title={t("onboarding.launch.settingsCard")} variant="flat">

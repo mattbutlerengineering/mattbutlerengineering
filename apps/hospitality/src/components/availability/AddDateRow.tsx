@@ -22,7 +22,7 @@ import {
   type RowKind,
 } from "./add-dates-draft.js";
 import { WEEK_STARTS_ON } from "./calendar-dates.js";
-import { minuteText } from "./closure-band.js";
+import { namedServiceHoursText } from "./service-hours.js";
 import { ServicesEditor } from "./ServicesEditor.js";
 import styles from "./AddSpecialDatesSheet.module.css";
 
@@ -168,11 +168,7 @@ export function AddDateRow(props: AddDateRowProps) {
             {row.services.map((s) => (
               <li key={s.key}>
                 <Text variant="caption" color="secondary">
-                  {t("availability.editor.serviceLine", {
-                    name: s.name,
-                    from: minuteText(s.opensAt, t, format),
-                    to: minuteText(s.closesAt, t, format),
-                  })}
+                  {namedServiceHoursText(s.name, s, { t, format })}
                 </Text>
               </li>
             ))}

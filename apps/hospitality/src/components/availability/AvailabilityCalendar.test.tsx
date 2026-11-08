@@ -78,7 +78,7 @@ describe("AvailabilityCalendar", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: "Friday, October 30: Special hours, closed 10:00 PM – 11:00 PM, Lunch 11:00 AM–1:30 PM, Dinner 6:00 PM–9:30 PM",
+        name: "Friday, October 30: Special hours, closed 10:00 PM – 11:00 PM, Lunch 11:00 AM–2:00 PM, last seating 1:30 PM, Dinner 6:00 PM–10:00 PM, last seating 9:30 PM",
       })
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Monday, October 26: Closed/ })).toBeInTheDocument();
@@ -87,8 +87,12 @@ describe("AvailabilityCalendar", () => {
   it("shows each service's hours as its own line", () => {
     renderCalendar();
     const cell = screen.getByRole("button", { name: /Friday, October 30/ });
-    expect(within(cell).getByText("Lunch 11:00 AM–1:30 PM")).toBeInTheDocument();
-    expect(within(cell).getByText("Dinner 6:00 PM–9:30 PM")).toBeInTheDocument();
+    expect(
+      within(cell).getByText("Lunch 11:00 AM–2:00 PM, last seating 1:30 PM")
+    ).toBeInTheDocument();
+    expect(
+      within(cell).getByText("Dinner 6:00 PM–10:00 PM, last seating 9:30 PM")
+    ).toBeInTheDocument();
   });
 
   it("names a holiday beside its day number and in the cell's name, and no other day", () => {
@@ -104,7 +108,7 @@ describe("AvailabilityCalendar", () => {
     expect(before.getAttribute("aria-label")).not.toMatch(/Thanksgiving/);
   });
 
-  it("prints the first and last time a guest can book, not the close", () => {
+  it("prints the opening and close, with the last seating after them", () => {
     const week = WEEK.map((d) =>
       d.serviceDate === "2026-10-30"
         ? {
@@ -125,8 +129,9 @@ describe("AvailabilityCalendar", () => {
     );
     renderCalendar({ days: week });
     const cell = screen.getByRole("button", { name: /Friday, October 30/ });
-    expect(within(cell).getByText("Dinner 5:00 PM–9:15 PM")).toBeInTheDocument();
-    expect(cell).not.toHaveTextContent("10:00 PM");
+    expect(
+      within(cell).getByText("Dinner 5:00 PM–10:00 PM, last seating 9:15 PM")
+    ).toBeInTheDocument();
   });
 
   it("marks the day that holds an unsaved draft with a dot and says so in its name", () => {

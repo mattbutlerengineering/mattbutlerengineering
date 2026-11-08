@@ -61,23 +61,27 @@ describe("the server's en-US words (#7980)", () => {
   });
 });
 
+/** The mock `t` above nests: name, then "open–close, last seating" built the service-hours way. */
+const lunchLine =
+  "availability.serviceHours.named Lunch|" +
+  "availability.serviceHours.withLastSeating availability.serviceHours.range 11:00|14:00|13:30";
+const dinnerLine =
+  "availability.serviceHours.named Dinner|" +
+  "availability.serviceHours.withLastSeating availability.serviceHours.range 18:00|22:00|21:30";
+
 describe("presentDay services", () => {
-  it("emits a service line per service when detailed", () => {
+  it("emits a service line per service when detailed, in the shared service-hours wording", () => {
     const view = presentDay("2026-10-30", baseSummary, true, t, format);
     expect(view.services).toEqual([
-      { key: "svc-1", text: "availability.calendar.serviceLine Lunch|11:00|13:30" },
-      { key: "svc-2", text: "availability.calendar.serviceLine Dinner|18:00|21:30" },
+      { key: "svc-1", text: lunchLine },
+      { key: "svc-2", text: dinnerLine },
     ]);
   });
 
   it("speaks the services in order in the accessible details, with no count to repeat them", () => {
     const view = presentDay("2026-10-30", baseSummary, true, t, format);
     expect(view.servicesSummary).toBeNull();
-    expect(view.accessibleDetails).toBe(
-      "Regular hours, " +
-        "availability.calendar.serviceLine Lunch|11:00|13:30, " +
-        "availability.calendar.serviceLine Dinner|18:00|21:30"
-    );
+    expect(view.accessibleDetails).toBe(`Regular hours, ${lunchLine}, ${dinnerLine}`);
   });
 
   it("keeps the count in week view for an older API that sends no service lines", () => {

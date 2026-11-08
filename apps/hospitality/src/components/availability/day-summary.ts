@@ -2,11 +2,12 @@ import type { TFunction } from "i18next";
 import type { AvailabilityDaySummary, DaySummaryService } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 import { filterDaySummary, type ServiceFilter } from "./service-filter.js";
-import { closureBandText, isWholeDay, minuteText, type ClosureBandText } from "./closure-band.js";
+import { closureBandText, isWholeDay, type ClosureBandText } from "./closure-band.js";
+import { namedServiceHoursText } from "./service-hours.js";
 
 export interface ServiceLineText {
   readonly key: string;
-  /** "Lunch 11:00 AM – 1:30 PM": first to last time a guest can book, not open to close. */
+  /** "Lunch 11:00 AM–3:00 PM, last seating 2:30 PM": the one service-time wording. */
   readonly text: string;
 }
 
@@ -66,12 +67,10 @@ function serviceLineText(
   t: TFunction,
   format: VenueFormat
 ): ServiceLineText {
-  const text = t("availability.calendar.serviceLine", {
-    name: service.name,
-    from: minuteText(service.opensAt, t, format),
-    to: minuteText(service.lastSeatingAt, t, format),
-  });
-  return { key: service.venueServiceId, text };
+  return {
+    key: service.venueServiceId,
+    text: namedServiceHoursText(service.name, service, { t, format }),
+  };
 }
 
 /**

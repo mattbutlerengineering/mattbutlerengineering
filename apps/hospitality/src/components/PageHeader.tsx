@@ -7,10 +7,21 @@ interface PageHeaderProps {
   description?: string;
   /** Inline-end content on the title row; wraps beneath the title below 768px. */
   aside?: ReactNode;
+  /** On a phone keep the aside on the title's row (a short action row) instead of a row of its own. */
+  asideBesideTitle?: boolean;
 }
 
-export function PageHeader({ title, description, aside }: PageHeaderProps) {
-  const className = aside ? `${styles.header} ${styles.withAside}` : styles.header;
+export function PageHeader({
+  title,
+  description,
+  aside,
+  asideBesideTitle = false,
+}: PageHeaderProps) {
+  const className = aside
+    ? [styles.header, styles.withAside, asideBesideTitle ? styles.asideBesideTitle : ""]
+        .filter(Boolean)
+        .join(" ")
+    : styles.header;
   return (
     <div className={className}>
       <Stack gap="xs">

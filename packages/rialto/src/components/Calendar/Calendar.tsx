@@ -98,11 +98,15 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
 
   // The visible month is derived once (lazy init) and thereafter changed only in
   // event handlers — never synced from a `useEffect` body.
+  // With no value, a `min` after today names where the first choosable day is: open there, not on
+  // a month whose every day is disabled (a "To" field after a chosen "From").
+  const opening =
+    value && parseIsoDate(value) ? value : min && parseIsoDate(min) && min > today ? min : null;
   const [visibleMonth, setVisibleMonth] = useState<CalendarMonth>(() =>
-    value && parseIsoDate(value) ? monthOfIso(value) : monthOfIso(today)
+    monthOfIso(opening ?? today)
   );
   const [focusedDate, setFocusedDate] = useState<string>(() =>
-    initialFocus(value, value && parseIsoDate(value) ? monthOfIso(value) : monthOfIso(today), today)
+    initialFocus(opening, monthOfIso(opening ?? today), today)
   );
 
   const isDisabled = useCallback(

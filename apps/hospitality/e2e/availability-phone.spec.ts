@@ -67,7 +67,7 @@ async function mockTwoSchedules(page: Page) {
 
 async function open(page: Page, viewport = PHONE) {
   await page.setViewportSize(viewport);
-  await page.goto("availability");
+  await page.goto("availability?tab=calendar");
   await page.locator("[data-date]").first().waitFor();
 }
 
@@ -134,35 +134,38 @@ test.describe("the first screen", () => {
     await expect(page.getByRole("radio", { name: "Month" })).toBeVisible();
   });
 
-  test("a phone keeps secondary actions in one menu, and each one works", async ({
+  test("a phone keeps secondary actions in the header menu, and each one works", async ({
     mockedPage: page,
   }) => {
     await mockAvailability(page);
     await open(page);
-    for (const name of [
-      "History",
-      "Select…",
-      /^Close…/,
-      "Pause online booking",
-      "Change regular week…",
-    ]) {
+    // The header holds Close… and ⋯; the toolbar's own menu is the Select… menu, so the page has
+    // one ⋯ and one Select….
+    for (const name of ["History", "Pause online booking", "Change regular week…"]) {
       await expect(page.getByRole("main").getByRole("button", { name })).toHaveCount(0);
     }
+    await expect(page.getByRole("main").getByRole("button", { name: /^Close…/ })).toBeVisible();
+    await expect(page.getByRole("main").getByRole("button", { name: "Select…" })).toHaveCount(1);
+    await expect(page.getByRole("button", { name: "More actions" })).toHaveCount(1);
     const menu = await moreMenu(page);
     for (const name of [
-      "History",
-      "Select days",
-      /^Close…/,
       "Pause online booking",
-      "Change regular week…",
+      "Booking rules…",
+      "Compare services",
+      "History",
+      "Go to date",
     ]) {
       await expect(menu.getByRole("menuitem", { name })).toBeVisible();
     }
-    // What changes the hours leads the menu, so it is on screen the moment the menu opens.
-    for (const name of ["Change regular week…", "Booking rules…"]) {
+    // Pause leads the menu (two interactions from first paint, PRD 21), so it is on screen at once.
+    for (const name of ["Pause online booking", "Booking rules…"]) {
       await expect(menu.getByRole("menuitem", { name })).toBeInViewport();
     }
-    await menu.getByRole("menuitem", { name: /^Close…/ }).click();
+    await page.keyboard.press("Escape");
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /^Close…/ })
+      .click();
     await expect(page.getByRole("dialog", { name: "Close", exact: true })).toBeVisible();
   });
 
@@ -177,9 +180,10 @@ test.describe("the first screen", () => {
     expect(first!.y).toBeLessThan(460);
     const today = await page.getByRole("button", { name: "Today" }).boundingBox();
     const month = await page.getByRole("radio", { name: "Month" }).boundingBox();
-    const close = await page.getByRole("button", { name: /^Close…/ }).boundingBox();
     expect(Math.abs(today!.y + today!.height / 2 - (month!.y + month!.height / 2))).toBeLessThan(4);
-    expect(Math.abs(today!.y + today!.height / 2 - (close!.y + close!.height / 2))).toBeLessThan(4);
+    // Close… moved to the page header, above the layer control and the toolbar.
+    const close = await page.getByRole("button", { name: /^Close…/ }).boundingBox();
+    expect(close!.y + close!.height).toBeLessThanOrEqual(today!.y);
   });
 
   for (const [tag, name] of [
@@ -210,14 +214,14 @@ test.describe("the first screen", () => {
     });
   }
 
-  test("the Schedules tab's New schedule looks like something to press", async ({
+  test("the Schedules layer's Add a schedule… looks like something to press", async ({
     mockedPage: page,
   }) => {
     await mockAvailability(page);
     await open(page, DESKTOP);
     await page.getByRole("radio", { name: "Schedules" }).click();
     // A ghost button is transparent at rest, with a transparent border: it reads as plain text.
-    const fill = await page.getByRole("button", { name: "New schedule" }).evaluate((button) => {
+    const fill = await page.getByRole("button", { name: "Add a schedule…" }).evaluate((button) => {
       const { backgroundColor, backgroundImage } = getComputedStyle(button);
       return { backgroundColor, backgroundImage };
     });
@@ -252,13 +256,14 @@ test.describe("375 px: nothing scrolls sideways", () => {
       await setLocale(page, locale);
       await open(page);
       await expectNoSideScroll(page);
-      const tabs = page.getByRole("radiogroup").first().getByRole("radio");
-      await tabs.nth(1).click({ force: true });
+      // The layers, in order: Schedules, Calendar, Special dates.
+      const layers = page.getByRole("radiogroup", { name: /Availability view|Vue|Vista/ }).first();
+      await layers.getByRole("radio").nth(2).click({ force: true });
       await page.getByRole("combobox").first().waitFor();
       await expectNoSideScroll(page);
-      await tabs.nth(2).click({ force: true });
-      await expect(tabs.nth(2)).toHaveAttribute("aria-checked", "true");
-      await page.getByRole("list").first().waitFor();
+      await layers.getByRole("radio").nth(0).click({ force: true });
+      await expect(layers.getByRole("radio").nth(0)).toHaveAttribute("aria-checked", "true");
+      await page.getByTestId("week-panel").waitFor();
       await expectNoSideScroll(page);
     });
   }
@@ -271,7 +276,7 @@ test.describe("375 px: nothing scrolls sideways", () => {
       await mockAvailability(page);
       await setLocale(page, locale);
       await open(page);
-      await page.getByRole("radiogroup").first().getByRole("radio").nth(1).click({ force: true });
+      await page.getByRole("radiogroup").first().getByRole("radio").nth(2).click({ force: true });
       await page.getByRole("combobox").first().waitFor();
       await page
         .getByRole("main")
@@ -329,8 +334,14 @@ test.describe("375 px: nothing scrolls sideways", () => {
       route.fulfill(json({ items: [], total: 0, offset: 0 }))
     );
     await open(page);
-    for (const item of ["History", "Change regular week…"]) {
-      await (await moreMenu(page)).getByRole("menuitem", { name: item }).click();
+    for (const open of [
+      async () => (await moreMenu(page)).getByRole("menuitem", { name: "History" }).click(),
+      async () => {
+        await page.getByRole("radio", { name: "Schedules" }).click({ force: true });
+        await page.getByRole("button", { name: "Starting later…" }).click();
+      },
+    ]) {
+      await open();
       const drawer = page.getByRole("dialog").first();
       await expect(drawer).toBeVisible();
       await expect.poll(async () => (await drawer.boundingBox())?.x).toBe(0);
@@ -422,7 +433,10 @@ test.describe("tap targets", () => {
   }) => {
     await mockAvailability(page);
     await open(page);
-    await (await moreMenu(page)).getByRole("menuitem", { name: /^Close…/ }).click();
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: /^Close…/ })
+      .click();
     const dialog = page.getByRole("dialog", { name: "Close", exact: true });
     await dialog.getByText("Step 1 of 2").waitFor();
     // A dialog opens at 0.97 scale: measure it once it has settled.
@@ -483,7 +497,8 @@ test.describe("keyboard and focus", () => {
   test("Select days lets a phone pick without a long press", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await openNextMonth(page);
-    await (await moreMenu(page)).getByRole("menuitem", { name: "Select days" }).click();
+    await page.getByRole("button", { name: "Select…" }).click();
+    await page.getByRole("menuitem", { name: "Select days" }).click();
     await expect(page.getByText("Tap the days you want")).toBeVisible();
     await page.locator("[data-date]").nth(1).click();
     await page.locator("[data-date]").nth(2).click();
@@ -544,7 +559,9 @@ test.describe("keyboard and focus", () => {
     await expect(days.nth(10)).toBeFocused();
   });
 
-  test("the first quick setup save hands focus to the calendar", async ({ mockedPage: page }) => {
+  test("the first quick setup save hands focus to the Regular week heading", async ({
+    mockedPage: page,
+  }) => {
     const empty = {
       schedules: [],
       venueServices: [],
@@ -585,8 +602,9 @@ test.describe("keyboard and focus", () => {
     const save = page.getByRole("button", { name: "Save and open bookings" });
     await save.focus();
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("grid")).toBeVisible();
-    await expect(page.locator('[data-date][tabindex="0"]')).toBeFocused();
+    // The save swaps the card for the week panel, and focus goes to its heading.
+    await expect(page.getByTestId("week-panel")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Regular week" })).toBeFocused();
   });
 });
 
@@ -625,7 +643,7 @@ test.describe("axe and small print", () => {
       )
     );
     await page.setViewportSize(PHONE);
-    await page.goto("availability");
+    await page.goto("availability?tab=calendar");
     await page.getByRole("button", { name: "Save and open bookings" }).waitFor();
     const results = await new AxeBuilder({ page }).include("main").withRules(AXE_RULES).analyze();
     expect(results.violations).toEqual([]);

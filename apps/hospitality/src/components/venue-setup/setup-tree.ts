@@ -59,12 +59,14 @@ export type NodeState =
       readonly kind: "service";
       readonly opensAt: number;
       readonly lastSeatingAt: number;
+      readonly closesAt: number;
       readonly weekdays: readonly number[];
-      /** Days the service books other times on (a set that only moves the closing is left out). */
+      /** Days whose hours differ from the base: opening, last seating or closing. */
       readonly changes: readonly {
         readonly weekdays: readonly number[];
         readonly opensAt: number;
         readonly lastSeatingAt: number;
+        readonly closesAt: number;
       }[];
     }
   | {
@@ -101,7 +103,7 @@ export type SetupActionId =
 /** Where an action goes: a route, or an existing editor the page opens in place. */
 export type SetupActionTarget =
   | { readonly kind: "link"; readonly to: string }
-  | { readonly kind: "dialog"; readonly dialog: "changeRegularWeek" | "bookingRules" };
+  | { readonly kind: "dialog"; readonly dialog: "bookingRules" };
 
 export interface SetupAction {
   readonly id: SetupActionId;
@@ -177,6 +179,12 @@ const action = (id: SetupActionId, target: SetupActionTarget, subject?: string):
 
 const SETUP_CALENDAR = availabilityPath({ from: "setup" });
 const SETUP_SCHEDULES = availabilityPath({ tab: "schedules", from: "setup" });
+const SETUP_CALENDAR_TAB = availabilityPath({ tab: "calendar", from: "setup" });
+const SETUP_ADD_SCHEDULE = availabilityPath({
+  tab: "schedules",
+  action: "addSchedule",
+  from: "setup",
+});
 const SETUP_SPECIAL = availabilityPath({ tab: "special", from: "setup" });
 
 /** Launch steps the Manager must finish; the first unset one becomes the primary button. */
@@ -222,13 +230,20 @@ function scheduleNode(
         kind: "service",
         opensAt: row.opensAt,
         lastSeatingAt: row.lastSeatingAt,
+        closesAt: row.closesAt,
         weekdays: sortedUnique([...baseDays, ...setDays]),
         changes: sets
-          .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+          .filter(
+            (set) =>
+              set.opensAt !== row.opensAt ||
+              set.lastSeatingAt !== row.lastSeatingAt ||
+              set.closesAt !== row.closesAt
+          )
           .map((set) => ({
             weekdays: sortedUnique(set.weekdays),
             opensAt: set.opensAt,
             lastSeatingAt: set.lastSeatingAt,
+            closesAt: set.closesAt,
           })),
       },
       actions: [],
@@ -254,7 +269,7 @@ function scheduleNode(
     ? []
     : schedule.isRegular
       ? [
-          action("changeRegularWeek", { kind: "dialog", dialog: "changeRegularWeek" }),
+          action("changeRegularWeek", link(SETUP_SCHEDULES)),
           action("editSchedule", link(SETUP_SCHEDULES), schedule.name),
         ]
       : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
@@ -295,7 +310,7 @@ function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode 
     actions: manager
       ? [
           action("compareServices", link(SETUP_SCHEDULES)),
-          action("createSchedule", link(SETUP_SCHEDULES)),
+          action("createSchedule", link(SETUP_ADD_SCHEDULE)),
         ]
       : [],
     children: schedules,
@@ -363,7 +378,7 @@ function specialDatesNode(
     state: upcoming.length === 0 ? UNSET : { kind: "count", count: upcoming.length },
     actions: manager
       ? [
-          action("openCalendar", link(SETUP_CALENDAR)),
+          action("openCalendar", link(SETUP_CALENDAR_TAB)),
           action("openSpecialDates", link(SETUP_SPECIAL)),
         ]
       : [],

@@ -35,6 +35,8 @@ export interface DraftPreviewProps {
   readonly reviewOnSave?: boolean;
   /** The date to open on when the change reaches it (the weekday being edited); else the first. */
   readonly focusDate?: string;
+  /** Replaces the card's "Guest preview" heading where another preview already carries that name. */
+  readonly title?: string;
 }
 
 interface Kept {
@@ -89,6 +91,7 @@ export function DraftPreview(props: DraftPreviewProps) {
             focusDate && kept.dates.includes(focusDate) ? focusDate : (kept.dates[0] as string)
           }
           baseVersion={baseVersion}
+          title={props.title}
           paused={!active}
           reviewOnSave={reviewOnSave}
         />

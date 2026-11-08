@@ -1455,6 +1455,56 @@ describe("CloseDialog", () => {
       expect(screen.getByText(/Fri, Dec 25 has special hours/)).toBeTruthy();
     });
 
+    it("opens To on the From date's month and refuses days before From (vacation range)", () => {
+      renderDialog({ initialDate: "2027-01-15" });
+      fireEvent.click(screen.getByRole("radio", { name: "Date range" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "To" }));
+      const day = (iso: string) => document.querySelector<HTMLElement>(`[data-date="${iso}"]`);
+      // No month to page through: the first choosable day is on screen.
+      expect(day("2027-01-20")).not.toBeNull();
+      expect(day("2027-01-20")).not.toHaveAttribute("aria-disabled");
+      expect(day("2027-01-10")).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("moves To up to From when From is picked after it, so the range never reads backwards", () => {
+      renderDialog({ initialDate: "2026-12-02" });
+      fireEvent.click(screen.getByRole("radio", { name: "Date range" }));
+      const to = screen.getByRole("combobox", { name: "To" }) as HTMLInputElement;
+      const toBefore = to.value;
+      expect(toBefore).not.toBe("");
+      fireEvent.click(screen.getByRole("combobox", { name: "From" }));
+      fireEvent.click(screen.getByRole("button", { name: /next month/i }));
+      fireEvent.click(document.querySelector<HTMLElement>('[data-date="2027-01-20"]')!);
+      expect((screen.getByRole("combobox", { name: "From" }) as HTMLInputElement).value).toBe(
+        "Jan 20, 2027"
+      );
+      expect((screen.getByRole("combobox", { name: "To" }) as HTMLInputElement).value).toBe(
+        "Jan 20, 2027"
+      );
+    });
+
+    it("does the same for Repeats: To opens on From's month and moves up to From", () => {
+      renderDialog({ initialDate: "2026-12-02" });
+      fireEvent.click(screen.getByRole("radio", { name: "Repeats" }));
+      const to = () => (screen.getByRole("combobox", { name: "To" }) as HTMLInputElement).value;
+      expect(to()).toBe("Mar 2, 2027");
+      fireEvent.click(screen.getByRole("combobox", { name: "From" }));
+      for (let month = 0; month < 4; month++) {
+        fireEvent.click(screen.getByRole("button", { name: /next month/i }));
+      }
+      fireEvent.click(document.querySelector<HTMLElement>('[data-date="2027-04-20"]')!);
+      expect((screen.getByRole("combobox", { name: "From" }) as HTMLInputElement).value).toBe(
+        "Apr 20, 2027"
+      );
+      expect(to()).toBe("Apr 20, 2027");
+      // And To refuses the days before From.
+      fireEvent.click(screen.getByRole("combobox", { name: "To" }));
+      const day = (iso: string) =>
+        Array.from(document.querySelectorAll<HTMLElement>(`[data-date="${iso}"]`)).at(-1);
+      expect(day("2027-04-25")).not.toHaveAttribute("aria-disabled");
+      expect(day("2027-04-10")).toHaveAttribute("aria-disabled", "true");
+    });
+
     it("says a Host's emergency close is all day, with no start time to pick", () => {
       renderDialog({ hostLocked: true, initialDate: null });
       const dialog = screen.getByRole("dialog");

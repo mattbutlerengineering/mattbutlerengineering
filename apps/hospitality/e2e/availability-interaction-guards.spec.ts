@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
+import { weekPanel } from "./helpers/first-paint.js";
 import { countInteractions } from "./helpers/interaction-counter.js";
 import {
   DEMO_WEEK_VIA_SCHEDULES_COUNT,
@@ -34,7 +35,8 @@ test.describe("Interaction guards (agent stand-in counts)", () => {
 
     await setUniformBistroWeek(counter.page);
 
-    await expect(mockedPage.getByRole("grid")).toBeVisible();
+    // The save lands on the week panel (Schedules layer), not the calendar.
+    await expect(weekPanel(mockedPage)).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
     expect(counter.count()).toBeLessThanOrEqual(UNIFORM_BISTRO_BASELINE);
   });
@@ -49,64 +51,41 @@ test.describe("Interaction guards (agent stand-in counts)", () => {
 
     await setLargeSetup(counter.page);
 
-    await expect(mockedPage.getByRole("grid")).toBeVisible();
+    // The save lands on the week panel (Schedules layer), not the calendar.
+    await expect(weekPanel(mockedPage)).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
     expect(counter.count()).toBeLessThanOrEqual(LARGE_SETUP_BASELINE);
   });
 
-  test("the demo week takes fewer interactions in quick setup than quick setup then New schedule", async ({
+  test("the demo week takes fewer interactions in quick setup than the recorded Schedules-tab path", async ({
     mockedPage,
   }) => {
-    // Quick setup only: the week is entered once, with each service's own days and hours.
+    // Quick setup only: the week is entered once, with each service's own days and hours. The
+    // recorded path (`DEMO_WEEK_VIA_SCHEDULES_COUNT`) was quick setup, then the Schedules tab's
+    // empty New schedule; that entry retired when "Add a schedule…" began seeding the editor from
+    // the regular week, so the constant stays as the measured bar and only quick setup is counted.
     const direct = await mockEmptyVenue(mockedPage);
     await mockedPage.goto("availability");
     const quickSetup = countInteractions(mockedPage);
     await setDemoWeek(quickSetup.page);
     await quickSetup.page.getByRole("button", { name: "Save and open bookings" }).click();
-    await expect(mockedPage.getByRole("grid")).toBeVisible();
+    // The save lands on the week panel (Schedules layer), not the calendar.
+    await expect(weekPanel(mockedPage)).toBeVisible();
     expect(direct.savedBody()).toMatchObject({ expectedVersion: 3 });
 
-    // Quick setup first, then the Schedules tab's New schedule for the week that differs. The
-    // same wrapper counts it on the same empty-venue fixture, mocked afresh (the later route wins)
-    // and reloaded so the page holds no state from the first path.
-    const viaSchedules = await mockEmptyVenue(mockedPage);
-    await mockedPage.goto("availability");
-    const second = mockedPage;
-    const counter = countInteractions(second);
-    await setUniformBistroWeek(counter.page);
-    await expect(second.getByRole("grid")).toBeVisible();
-    expect(viaSchedules.savedBody()).toMatchObject({ expectedVersion: 3 });
-    // The Schedules tab is always shown to a Manager; its New schedule opens the editor.
-    await counter.page.getByRole("radio", { name: "Schedules" }).click();
-    await counter.page.getByRole("button", { name: "New schedule" }).click();
-    const drawer = counter.page.getByRole("dialog");
-    await drawer.getByRole("textbox", { name: /Schedule name/ }).fill("Demo week");
-    await setDemoWeek(counter.page, drawer);
-    // It runs on every day the bistro week does, so it needs an end not to take that week over
-    // for good (the regular week always gives way to a schedule).
-    await drawer.getByRole("combobox", { name: "Ending" }).click();
-    await counter.page
-      .locator('[role="gridcell"][data-date]:not([aria-disabled]):visible')
-      .last()
-      .click();
-    await drawer.getByRole("button", { name: "Save", exact: true }).click();
-    await expect(second.getByText("Demo week saved")).toBeVisible();
-
-    // Both paths entered the same week: Dinner Tue–Sun, closing later on Fri and Sat (the base hours
-    // keep Tue–Thu and Sun, the set carries Fri and Sat).
+    // Dinner Tue–Sun, closing later on Fri and Sat (the base hours keep Tue–Thu and Sun, the set
+    // carries Fri and Sat).
     const dinner = (body: Record<string, unknown> | null) => {
       const rows = (body?.changes as { upsert: { scheduleServices?: DinnerRow[] } }).upsert
         .scheduleServices;
       return rows?.find((row) => row.dayHours.sets.length > 0);
     };
-    for (const body of [direct.savedBody(), viaSchedules.savedBody()]) {
-      expect(dinner(body)?.dayHours.sets.map((set) => set.weekdays)).toEqual([[5, 6]]);
-      expect(dinner(body)?.weekdays).toEqual([2, 3, 4, 0]);
-    }
+    expect(dinner(direct.savedBody())?.dayHours.sets.map((set) => set.weekdays)).toEqual([[5, 6]]);
+    expect(dinner(direct.savedBody())?.weekdays).toEqual([2, 3, 4, 0]);
 
     test.info().annotations.push({
       type: "interactions (agent stand-in)",
-      description: `quick setup ${quickSetup.count()}, quick setup then New schedule ${counter.count()}`,
+      description: `quick setup ${quickSetup.count()} (recorded Schedules-tab path ${DEMO_WEEK_VIA_SCHEDULES_COUNT})`,
     });
     expect(quickSetup.count()).toBeLessThan(DEMO_WEEK_VIA_SCHEDULES_COUNT);
   });

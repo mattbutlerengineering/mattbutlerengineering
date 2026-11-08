@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { minuteText } from "../availability/closure-band.js";
+import { bookingRulesText } from "../availability/booking-rules.js";
+import { serviceCloseChangeText, serviceHoursText } from "../availability/service-hours.js";
 import { useWeekdaySummary } from "../availability/ScheduleFormParts.js";
 import type { ClosureTarget, NodeState, SetupAction, SetupNode } from "./setup-tree.js";
 
@@ -26,7 +27,6 @@ export function useSetupNodeText(): SetupNodeText {
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
   const shortDay = (date: string) =>
     format.formatCalendarDate(date, { month: "short", day: "numeric" });
-  const time = (minute: number) => minuteText(minute, t, format);
 
   const target = (value: ClosureTarget): string => {
     switch (value.kind) {
@@ -76,38 +76,23 @@ export function useSetupNodeText(): SetupNodeText {
           days: summarize(value.weekdays),
         });
       case "service": {
-        const hours = (opensAt: number, lastSeatingAt: number) =>
-          t("availability.regularWeekLine.hours", {
-            open: time(opensAt),
-            close: time(lastSeatingAt),
-          });
+        const ctx = { t, format };
         const base = t("setup.hub.serviceLine", {
-          hours: hours(value.opensAt, value.lastSeatingAt),
+          hours: serviceHoursText(value, ctx),
           days: summarize(value.weekdays),
         });
         const changes = value.changes.map((c) =>
           c.opensAt === value.opensAt
-            ? t("availability.regularWeekLine.closes", {
-                days: summarize(c.weekdays),
-                close: time(c.lastSeatingAt),
-              })
+            ? serviceCloseChangeText(summarize(c.weekdays), c, ctx)
             : t("availability.regularWeekLine.different", {
                 days: summarize(c.weekdays),
-                hours: hours(c.opensAt, c.lastSeatingAt),
+                hours: serviceHoursText(c, ctx),
               })
         );
         return [base, ...changes].join(" · ");
       }
-      case "rules": {
-        const parts = [
-          value.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: value.daysAhead }),
-          value.noticeHours !== null &&
-            t("setup.hub.rules.noticeHours", { count: value.noticeHours }),
-          value.largestParty !== null &&
-            t("setup.hub.rules.largestParty", { count: value.largestParty }),
-        ].filter((part): part is string => part !== false);
-        return parts.join(" · ");
-      }
+      case "rules":
+        return bookingRulesText(value, t);
       case "closure": {
         const what = t(
           value.what === "closed" ? "setup.hub.closedRow" : "setup.hub.specialHoursRow",
