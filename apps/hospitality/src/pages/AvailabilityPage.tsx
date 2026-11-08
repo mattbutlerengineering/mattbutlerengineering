@@ -411,10 +411,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         }
       />
     );
-  const pageHeader = (actions: ReactNode) => (
+  const pageHeader = (actions: ReactNode, description?: ReactNode) => (
     <PageHeader
       title={t("availability.title")}
-      description={t("availability.description")}
+      description={description ?? t("availability.description")}
       asideBesideTitle
       aside={
         actions || entry.from === "setup" ? (
@@ -768,8 +768,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
 
   return (
     <Stack gap="md">
-      {pageHeader(headerActions)}
-      <TodayLine venueId={selectedVenueId} bannerShowsOnline={pause !== null} />
+      {pageHeader(
+        headerActions,
+        <TodayLine venueId={selectedVenueId} bannerShowsOnline={pause !== null} />
+      )}
       {pause && config.data && (
         <OnlinePausedBanner
           venueId={selectedVenueId}

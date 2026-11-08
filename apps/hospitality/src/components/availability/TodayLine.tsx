@@ -17,9 +17,10 @@ export interface TodayLineProps {
 }
 
 /**
- * What is on today, under the Availability header (ux.md F1): the service day, its hours, what
- * is in force on it, and a link to change tonight. Loading keeps the line's height; a failed
- * read says so with Retry and leaves the page working.
+ * What is on today, in the Availability header's description slot (ux.md F1): one flowing line
+ * with the service day, its hours, what is in force on it, and a link to change tonight. While
+ * the day loads the slot keeps the page's static description, so nothing moves when it fills;
+ * a failed read says so with Retry in the same slot and leaves the page working.
  */
 export function TodayLine({ venueId, bannerShowsOnline }: TodayLineProps) {
   const { t } = useTranslation();
@@ -27,49 +28,43 @@ export function TodayLine({ venueId, bannerShowsOnline }: TodayLineProps) {
   const headingId = useId();
   const { status, model, retry } = useTodayLine(venueId, bannerShowsOnline);
 
-  const heading = (
-    <Text as="strong" variant="label" id={headingId}>
-      {t("availability.today.title")}
-    </Text>
-  );
-
-  if (status === "loading" || !model) {
+  if (status === "error") {
     return (
-      <section className={styles.line} aria-labelledby={headingId} aria-busy={status === "loading"}>
-        <div className={styles.heading}>
-          {heading}
-          {status === "error" && (
-            <div className={styles.failed}>
-              <Text as="span" variant="caption" color="error">
-                {t("availability.today.loadError")}
-              </Text>
-              <Button variant="secondary" size="sm" onClick={retry}>
-                {t("errorBanner.retry")}
-              </Button>
-            </div>
-          )}
-        </div>
-      </section>
+      <Text variant="caption" color="secondary">
+        {t("availability.today.loadError")}{" "}
+        <Button variant="secondary" size="sm" onClick={retry}>
+          {t("errorBanner.retry")}
+        </Button>
+      </Text>
+    );
+  }
+  if (!model) {
+    return (
+      <Text variant="caption" color="secondary">
+        {t("availability.description")}
+      </Text>
     );
   }
 
   // Two items with the same words (a close-early made both ways) show once.
   const texts = [...new Set(model.items.map((item) => todayItemText(item, t, format)))];
+  const date = format.formatCalendarDate(model.serviceDate, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
   return (
-    <section className={styles.line} aria-labelledby={headingId}>
-      <div className={styles.heading}>
-        {heading}
-        <Text as="span" variant="body" color="secondary">
-          {format.formatCalendarDate(model.serviceDate, {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-          })}
-        </Text>
-        <Text as="span" variant="body">
-          {hoursText(model, t, format)}
-        </Text>
-      </div>
+    <Text
+      as="section"
+      variant="caption"
+      color="secondary"
+      className={styles.line}
+      aria-labelledby={headingId}
+    >
+      <Text as="strong" variant="caption" color="primary" id={headingId}>
+        {t("availability.today.title")}
+      </Text>
+      {` · ${date} · ${hoursText(model, t, format)} `}
       {texts.length > 0 && (
         <ul className={styles.items} aria-label={t("availability.today.itemsLabel")}>
           {texts.map((text) => (
@@ -82,6 +77,6 @@ export function TodayLine({ venueId, bannerShowsOnline }: TodayLineProps) {
       <Link to={CHANGE_TONIGHT_PATH} className={styles.change}>
         {t("availability.today.change")}
       </Link>
-    </section>
+    </Text>
   );
 }

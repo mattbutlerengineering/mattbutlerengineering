@@ -49,6 +49,12 @@ export interface RegularWeekStripProps {
   readonly draft: QuickSetupDraft;
   /** No venue yet (the onboarding wizard): the typed hours only, with no tables and no party. */
   readonly local?: boolean;
+
+  /**
+   * The id of the row that already titles this strip and says its hint (the phone's disclosure):
+   * the strip drops its own heading and hint and takes its name from that row.
+   */
+  readonly labelledBy?: string;
 }
 
 const NO_TABLES: readonly Table[] = [];
@@ -102,7 +108,7 @@ function rowsOf(
  * for nothing. Only the venue's tables are read, for the party check; while they load or if the
  * read fails the spans show without it, and Save is never blocked.
  */
-export function RegularWeekStrip({ draft, local = false }: RegularWeekStripProps) {
+export function RegularWeekStrip({ draft, local = false, labelledBy }: RegularWeekStripProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const dayName = useWeekdayName();
@@ -172,15 +178,27 @@ export function RegularWeekStrip({ draft, local = false }: RegularWeekStripProps
   }
 
   return (
-    <aside className={styles.strip} aria-label={t("availability.quickSetup.previewTitle")}>
+    <aside
+      className={styles.strip}
+      aria-label={labelledBy === undefined ? t("availability.quickSetup.previewTitle") : undefined}
+      aria-labelledby={labelledBy}
+    >
       <Stack gap="sm">
-        {/* Size 5: a side panel's title, not louder than the card it sits in. */}
-        <Heading level={3} size={5}>
-          {t("availability.quickSetup.previewTitle")}
-        </Heading>
-        <Text variant="caption" color="secondary">
-          {t(local ? "availability.quickSetup.strip.local" : "availability.quickSetup.strip.about")}
-        </Text>
+        {labelledBy === undefined && (
+          <>
+            {/* Size 5: a side panel's title, not louder than the card it sits in. */}
+            <Heading level={3} size={5}>
+              {t("availability.quickSetup.previewTitle")}
+            </Heading>
+            <Text variant="caption" color="secondary">
+              {t(
+                local
+                  ? "availability.quickSetup.strip.local"
+                  : "availability.quickSetup.strip.about"
+              )}
+            </Text>
+          </>
+        )}
         {!local && (
           <div className={styles.party}>
             <Select

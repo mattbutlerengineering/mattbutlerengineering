@@ -167,3 +167,49 @@ describe("QuickSetupForm collapsible lines", () => {
     expect(document.querySelectorAll("button[aria-expanded]")).toHaveLength(0);
   });
 });
+
+describe("QuickSetupForm guest preview on a phone", () => {
+  const PREVIEW = "Guest preview";
+  const strip = () => screen.queryByRole("complementary", { name: PREVIEW });
+
+  function Panelled(props: { readonly collapsible?: boolean }) {
+    const [draft, setDraft] = useState(() => week());
+    return (
+      <main>
+        <QuickSetupForm
+          draft={draft}
+          onChange={setDraft}
+          issues={[]}
+          collapsible={props.collapsible}
+        />
+      </main>
+    );
+  }
+
+  it("is one closed row, with its hint, until opened", () => {
+    render(<Panelled collapsible />);
+    const row = screen.getByRole("button", { name: PREVIEW });
+    expect(row.getAttribute("aria-expanded")).toBe("false");
+    expect(row.getAttribute("aria-controls")).toBeTruthy();
+    expect(within(row).getByText("First and last time a guest can book.")).toBeTruthy();
+    expect(strip()).toBeNull();
+
+    fireEvent.click(row);
+    expect(row.getAttribute("aria-expanded")).toBe("true");
+    expect(strip()).not.toBeNull();
+    expect(document.getElementById(row.getAttribute("aria-controls")!)!.contains(strip())).toBe(
+      true
+    );
+
+    fireEvent.click(row);
+    expect(strip()).toBeNull();
+  });
+
+  it("is the strip as before when not collapsible", () => {
+    render(<Panelled />);
+    expect(strip()).not.toBeNull();
+    expect(screen.getByRole("heading", { name: PREVIEW })).toBeTruthy();
+    expect(screen.getByText("First and last time a guest can book.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: PREVIEW })).toBeNull();
+  });
+});
