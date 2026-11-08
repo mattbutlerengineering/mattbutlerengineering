@@ -137,6 +137,12 @@ describe("LaunchStep", () => {
     expect(screen.queryByText(/17:00/)).toBeNull();
   });
 
+  it("says under the Guest preview where these hours are changed after launch", () => {
+    renderLaunchStep();
+
+    expect(screen.getByText("Change these later in Availability → Schedules.")).toBeTruthy();
+  });
+
   it("prints the service's own defaults for blank settings: no limit ahead, a party of 8", () => {
     renderLaunchStep();
     expect(screen.getByText(/^No limit/)).toBeTruthy();

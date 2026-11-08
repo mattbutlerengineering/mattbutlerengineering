@@ -83,7 +83,7 @@
     },
     "hours": {
       "heading": "Semana habitual",
-      "intro": "Para que tus invitados sepan cuándo abres.",
+      "intro": "Tus servicios y los días en que funcionan. Cámbialo cuando quieras en Disponibilidad → Horarios.",
       "atLeastOne": "Al menos un día debe estar abierto"
     },
     "settings": {
@@ -160,6 +160,7 @@
       "tables": "Mesas",
       "noTables": "Sin mesas: tu cronograma seguirá vacío hasta que agregues algunas",
       "resumeSaved": "Tu local está guardado. Al reintentar se continúa en {{stage}}.",
+      "changeLater": "Cámbialos después en Disponibilidad → Horarios.",
       "resumeNoVenue": "Al reintentar se continúa en {{stage}}.",
       "launchButton": "Lanzar local",
       "celebrationTables_one": "Tu local está en vivo con {{count}} mesa",

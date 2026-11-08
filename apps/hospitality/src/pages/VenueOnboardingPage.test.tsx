@@ -628,6 +628,12 @@ describe("VenueOnboardingPage", () => {
 
     // Step 3 — operating hours (must toggle at least one day)
     expect(screen.getByText("Regular week")).toBeTruthy();
+    // The intro names where the same week lives after launch (PRD criterion 20).
+    expect(
+      screen.getByText(
+        "Your services and the days they run. Change it any time in Availability → Schedules."
+      )
+    ).toBeTruthy();
     fillRegularWeek();
     fireEvent.click(screen.getByText("Next"));
 

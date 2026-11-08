@@ -83,7 +83,7 @@
     },
     "hours": {
       "heading": "Semaine habituelle",
-      "intro": "Pour que vos clients sachent quand vous êtes ouvert.",
+      "intro": "Vos services et les jours où ils ont lieu. Modifiez-la en tout temps dans Disponibilité → Horaires.",
       "atLeastOne": "Au moins un jour doit être ouvert"
     },
     "settings": {
@@ -160,6 +160,7 @@
       "tables": "Tables",
       "noTables": "Aucune table — votre chronologie restera vide tant que vous n’en ajoutez pas",
       "resumeSaved": "Votre établissement est enregistré. Une nouvelle tentative reprend à l’étape {{stage}}.",
+      "changeLater": "Modifiez-les plus tard dans Disponibilité → Horaires.",
       "resumeNoVenue": "Une nouvelle tentative reprend à l’étape {{stage}}.",
       "launchButton": "Lancer l’établissement",
       "celebrationTables_one": "Votre établissement est en ligne avec {{count}} table",
