@@ -5079,3 +5079,25 @@ Both quoted strings look like deprecation/config noise rather than a real assert
 **queueEfficiency:** composite 0.878 (baseline n/a) — healthy
 **Difficulty distribution:** size:xl:19, size:m:12, size:xs:15, size:l:14, size:s:33
 **Issues filed:** 0
+
+## 2026-11-08 — mbe-ui-quality
+
+**State:** `state.mjs checkout` source `branch` (head 5567ce0, merged origin/main 73f6934, 1 conflict resolved by rule in `metrics/ui-quality-ledger.jsonl`).
+
+**Routes:** 4 due / 4 captured / 4 audited (hospitality 4: `book/:venueSlug`, `menu/:venueSlug`, `menu/:venueSlug/:menuSlug`, `reservations/manage`). Marketing and rialto-web had 0 routes due, so both capture runs skipped with "no routes planned". 20 hospitality rows `unreachable:auth`, 0 `unreachable:build` — all three app builds succeeded.
+
+**Findings:** 0 mechanical, 0 judged. All 4 captured routes (8 screenshots, 1280x720 + 375x812) judged clean against rubric v1's judged tells; unjudged 0, dropped tells 0.
+
+**Calibration:** stamp `stale`. `calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still carries no labelled pairs (the Verify-stage task of labelling >= 10 pairs remains unowned by this routine). Not retried. Re-queried after: still `stale`. Agent-built findings stay suppressed until a human labels the set. Same condition as 2026-11-05.
+
+**Rating:** 6 pairs over 1 app rated and recorded — hospitality 0.42. Reference wins on 5 pairs, 1 tie, 0 wins for ours: the two empty-state routes (`reservations/manage` "No Access Link", `menu/:venueSlug` "No menus yet") and the single-item `menu/:venueSlug/:menuSlug` lose on density and composition against dense product references (medusa-checkout/product, shadcn-dashboard-01, tremor-overview). `book/:venueSlug` was the closest of ours — tied against medusa-checkout — but conceded on the `Date`/`Party Size` labels hanging outside the booking card's inner padding, with `Date` crowding the 3-step stepper. Not filed: label misalignment is not a judged tell in rubric v1.
+
+**Filing:** plan produced no actions and no seeds. 0 issues created / 0 reopened / 0 commented, 0 seeds. All 35 issue numbers in the findings ledger resolve to `closed`; 37 `ui-quality`-labelled issues read across one complete page, none unknown to the plan beyond the two closed escalation issues (#7477, #7908). No escalation file written. Checkpoint commit pushed before step g as required.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+
+**Coverage before this fire:** 100% (135/135 reachable rows covered, 0 uncovered, not provisional).
+
+**Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so both issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion (`hasNextPage: false`, totalCount 37 and 0), with #8106 spot-checked via `issue_read` to confirm the listing's state matches. A no-finding fire, logged as such.
