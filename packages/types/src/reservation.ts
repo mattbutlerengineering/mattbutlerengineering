@@ -155,5 +155,7 @@ export interface UpdateTableRequest {
   isActive?: boolean;
   priority?: number;
   floorPlanId?: string | null;
+  /** The floor-plan section the table belongs to; `null` removes it from its section. */
+  sectionId?: string | null;
   shapeMetadata?: TableShapeMetadata | null;
 }

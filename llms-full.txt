@@ -19769,6 +19769,8 @@
       minCovers: string;
       maxCovers: string;
       location: string;
+      /** The section's id; an empty string means "No section". */
+      sectionId: string;
       isActive: boolean;
     }
     export function tableToFormValues(table: Table): TableDetailsFormValues {
@@ -19784,6 +19786,7 @@
         // against these seeded values, so leaving the field alone sends nothing.
         maxCovers: String(table.maxCovers ?? table.capacity),
         location: table.location ?? "",
+        sectionId: table.sectionId ?? "",
         isActive: table.isActive,
       };
     }
@@ -19801,6 +19804,8 @@
     
       const location = current.location.trim();
       if (location !== initial.location.trim()) changes.location = location;
+    
+      if (current.sectionId !== initial.sectionId) changes.sectionId = current.sectionId || null;
     
       if (current.isActive !== initial.isActive) changes.isActive = current.isActive;
     
@@ -45488,7 +45493,7 @@
       // Resolve domain services from the buildApp seam (issue #3357) rather than
       // importing the sibling singleton directly — tests inject fakes via
       // buildApp({ services }).
-      const { tableService, floorPlanService } = fastify.services;
+      const { tableService, floorPlanService, floorPlanSectionService } = fastify.services;
     
       // List tables
       fastify.get<{
@@ -45686,12 +45691,16 @@
           },
         },
         venueScoped(tableVenue, async (request, reply) => {
-          const { floorPlanId } = request.body;
+          const { floorPlanId, sectionId } = request.body;
     
           // ADR-026 §3.3 item 5 / #5369 PR 7: the floor-plan reassignment
           // pre-check runs INSIDE the table's venue context (venueScoped), the way
           // `floor-plans.ts`'s `/tables/positions` route does, so both reads
           // succeed under FORCE instead of silently skipping this check.
+          // One read of the table serves both guards below.
+          const current =
+            floorPlanId || sectionId ? await tableService.getById(request.params.id) : null;
+    
           if (floorPlanId) {
             // Venue scope only proves the caller belongs to the TABLE's own venue.
             // `floorPlanId` is a client-supplied id that the update connects with
@@ -45701,10 +45710,7 @@
             // floor-plans.ts. Checked here rather than in the DB layer because
             // `Table` has no compound floorPlanId/venueId constraint, and ADR-026's
             // RLS does not apply to the app's own role.
-            const [current, floorPlan] = await Promise.all([
-              tableService.getById(request.params.id),
-              floorPlanService.getById(floorPlanId),
-            ]);
+            const floorPlan = await floorPlanService.getById(floorPlanId);
             // A missing table or floor plan is not a cross-venue reassignment —
             // fall through so the update below surfaces the existing 404. Note
             // (matching `floor-plans.ts`'s `/tables/positions` route): inside the
@@ -45721,6 +45727,29 @@
                     403,
                     titleForStatus(403),
                     "The requested floor plan does not belong to this table's venue"
+                  )
+                );
+            }
+          }
+    
+          // `sectionId` is client-supplied and the update connects it with no venue
+          // awareness of its own, so it must be one of the sections of the floor plan the
+          // table ends up on: the body's `floorPlanId` when sent, else its current plan. A
+          // table with no plan has no valid section. Another plan's or venue's section is
+          // indistinguishable from a missing one: 404.
+          if (sectionId && current?.venueId) {
+            const targetPlanId = floorPlanId !== undefined ? floorPlanId : current.floorPlanId;
+            const sections = targetPlanId
+              ? await floorPlanSectionService.list(current.venueId, targetPlanId)
+              : [];
+            if (!sections.some((section) => section.id === sectionId)) {
+              return reply
+                .code(404)
+                .send(
+                  createProblemDetails(
+                    404,
+                    titleForStatus(404),
+                    "Floor plan section not found on this table's floor plan"
                   )
                 );
             }
@@ -49528,6 +49557,11 @@
           .string()
           .nullable()
           .describe("Floor plan to assign, or null to unassign")
+          .optional(),
+        sectionId: z
+          .string()
+          .nullable()
+          .describe("Floor-plan section to put the table in, or null for no section")
           .optional(),
         shapeMetadata: TableShapeMetadataSchema.nullable()
           .describe("Canvas shape/position, or null to clear")
@@ -67561,6 +67595,11 @@
           if (data.floorPlanId !== undefined) {
             updateData.floorPlan = data.floorPlanId
               ? { connect: { id: data.floorPlanId } }
+              : { disconnect: true };
+          }
+          if (data.sectionId !== undefined) {
+            updateData.section = data.sectionId
+              ? { connect: { id: data.sectionId } }
               : { disconnect: true };
           }
           if (data.shapeMetadata !== undefined) {
@@ -87362,6 +87401,8 @@
       isActive?: boolean;
       priority?: number;
       floorPlanId?: string | null;
+      /** The floor-plan section the table belongs to; `null` removes it from its section. */
+      sectionId?: string | null;
       shapeMetadata?: TableShapeMetadata | null;
     }
   </file>

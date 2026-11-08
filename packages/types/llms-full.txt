@@ -2328,6 +2328,11 @@
           .nullable()
           .describe("Floor plan to assign, or null to unassign")
           .optional(),
+        sectionId: z
+          .string()
+          .nullable()
+          .describe("Floor-plan section to put the table in, or null for no section")
+          .optional(),
         shapeMetadata: TableShapeMetadataSchema.nullable()
           .describe("Canvas shape/position, or null to clear")
           .optional(),
@@ -3299,6 +3304,8 @@
       isActive?: boolean;
       priority?: number;
       floorPlanId?: string | null;
+      /** The floor-plan section the table belongs to; `null` removes it from its section. */
+      sectionId?: string | null;
       shapeMetadata?: TableShapeMetadata | null;
     }
   </file>

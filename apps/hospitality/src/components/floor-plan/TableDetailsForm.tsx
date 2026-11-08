@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { Button, Checkbox, Input, Text } from "@mattbutlerengineering/rialto";
+import { Button, Checkbox, Input, Select, Text } from "@mattbutlerengineering/rialto";
 import type { Table, UpdateTableRequest } from "@mbe/types";
 import {
   buildTableUpdate,
@@ -11,11 +11,24 @@ import {
 } from "./table-update.js";
 import styles from "./TableDetailsForm.module.css";
 
-/** The text fields react-hook-form owns; `isActive` is a Rialto Checkbox. */
-type TextFieldValues = Omit<TableDetailsFormValues, "isActive">;
+/** The text fields react-hook-form owns; `isActive` and `sectionId` are Rialto controls. */
+type TextFieldValues = Omit<TableDetailsFormValues, "isActive" | "sectionId">;
+
+/** Select option value for "No section"; the form value for it is the empty string. */
+const NO_SECTION_OPTION = "__none__";
+
+export interface SectionOption {
+  id: string;
+  name: string;
+}
 
 export interface TableDetailsFormProps {
   table: Table;
+  /**
+   * The sections the table may be put in (its floor plan's). Leave it undefined to hide the
+   * Section field — the page passes it for managers only.
+   */
+  sections?: readonly SectionOption[];
   /** Applies the delta. Rejecting surfaces the message without discarding the edit. */
   onSave: (tableId: string, changes: UpdateTableRequest) => Promise<void>;
   onDelete: (tableId: string) => void;
@@ -36,6 +49,7 @@ export interface TableDetailsFormProps {
  */
 export function TableDetailsForm({
   table,
+  sections,
   onSave,
   onDelete,
   onDirtyChange,
@@ -47,6 +61,7 @@ export function TableDetailsForm({
   // successful save so the form goes quiet again without a refetch.
   const [initial, setInitial] = useState<TableDetailsFormValues>(seeded);
   const [isActive, setIsActive] = useState(seeded.isActive);
+  const [sectionId, setSectionId] = useState(seeded.sectionId);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -61,7 +76,7 @@ export function TableDetailsForm({
   // discards values it cannot parse, so a half-typed number would read as no
   // change at all and disable Save while the operator looks at their own edit
   // — with no way to reach the validation message explaining it.
-  const hasChanges = isDirty || isActive !== initial.isActive;
+  const hasChanges = isDirty || isActive !== initial.isActive || sectionId !== initial.sectionId;
 
   useEffect(() => {
     onDirtyChange?.(hasChanges);
@@ -71,7 +86,7 @@ export function TableDetailsForm({
   }, [hasChanges, onDirtyChange]);
 
   const onFormSubmit = async (values: TextFieldValues) => {
-    const current: TableDetailsFormValues = { ...values, isActive };
+    const current: TableDetailsFormValues = { ...values, isActive, sectionId };
     const changes = buildTableUpdate(initial, current);
 
     // Whitespace-only edits are dirty to the form but mean nothing to the API.
@@ -169,6 +184,19 @@ export function TableDetailsForm({
         disabled={isSubmitting}
         {...register("location")}
       />
+
+      {sections && (
+        <Select
+          label={t("floorPlan.editor.section")}
+          options={[
+            { value: NO_SECTION_OPTION, label: t("floorPlan.editor.noSection") },
+            ...sections.map((section) => ({ value: section.id, label: section.name })),
+          ]}
+          value={sectionId === "" ? NO_SECTION_OPTION : sectionId}
+          onChange={(value) => setSectionId(value === NO_SECTION_OPTION ? "" : value)}
+          disabled={isSubmitting}
+        />
+      )}
 
       <Checkbox
         label={t("floorPlan.editor.active")}

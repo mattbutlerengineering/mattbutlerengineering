@@ -418,6 +418,8 @@
       "maxCovers": "Couverts maximum",
       "tableNumberPlaceholder": "p. ex. 12",
       "locationPlaceholder": "p. ex. Fenêtre",
+      "section": "Section",
+      "noSection": "Aucune section",
       "activeDescription": "Les tables inactives restent sur le plan de salle mais ne peuvent pas être réservées.",
       "nameRequired": "Le nom de la table est obligatoire.",
       "capacityMin": "La capacité doit être d'au moins 1.",

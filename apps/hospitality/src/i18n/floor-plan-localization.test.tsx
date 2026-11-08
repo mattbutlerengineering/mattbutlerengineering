@@ -73,6 +73,9 @@ vi.mock("../hooks/useFloorPlans.js", () => ({
   useFloorPlanSections: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useUpdateFloorPlanSection: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
+vi.mock("../hooks/useVenueTeam.js", () => ({
+  useVenueTeam: () => ({ data: { viewerRole: "host" } }),
+}));
 vi.mock("../hooks/useFloorPlanDraft.js", () => ({
   useFloorPlanDraft: () => ({
     tables: [TABLE],

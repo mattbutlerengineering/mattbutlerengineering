@@ -29,6 +29,7 @@ import {
   useFloorPlanSections,
   useUpdateFloorPlanSection,
 } from "../hooks/useFloorPlans.js";
+import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { useFloorPlanDraft, type PositionUpdate } from "../hooks/useFloorPlanDraft.js";
 import { REHEARSAL_PARAM } from "../utils/timeline-intent.js";
 import { useTableStatuses } from "../hooks/useSSESync.js";
@@ -90,6 +91,10 @@ function LiveFloorPlanEditorPage() {
 
   const sectionMutation = useUpdateFloorPlanSection();
   const venueId = floorPlan?.venueId;
+  // The Section field on the table form is a Manager's. The role is never guessed: until it has
+  // loaded (or when the read fails) the viewer is treated as a Host and the field stays hidden.
+  const team = useVenueTeam({ venueId: venueId ?? null });
+  const isManager = team.data?.viewerRole === "manager";
   const handleMaterialChange = useCallback(
     async (sectionId: string, floorMaterial: FloorMaterial | null) => {
       if (!venueId) return;
@@ -389,6 +394,7 @@ function LiveFloorPlanEditorPage() {
             <TableDetailsForm
               key={selectedTable.id}
               table={selectedTable}
+              sections={isManager ? sectionRows : undefined}
               onSave={async (tableId, changes) => {
                 await updateTableMutation.mutateAsync({ tableId, changes });
                 setTableFormDirty(false);

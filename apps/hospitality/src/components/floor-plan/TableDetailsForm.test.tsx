@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Table, UpdateTableRequest } from "@mbe/types";
 import { TableDetailsForm } from "./TableDetailsForm.js";
@@ -40,10 +40,16 @@ const onSave = vi.fn<(tableId: string, changes: UpdateTableRequest) => Promise<v
 const onDelete = vi.fn();
 const onDirtyChange = vi.fn();
 
-function renderForm(table: Table = TABLE) {
+const SECTIONS = [
+  { id: "section-main", name: "Main Dining" },
+  { id: "section-bar", name: "Bar" },
+];
+
+function renderForm(table: Table = TABLE, sections?: readonly { id: string; name: string }[]) {
   return render(
     <TableDetailsForm
       table={table}
+      sections={sections}
       onSave={onSave}
       onDelete={onDelete}
       onDirtyChange={onDirtyChange}
@@ -270,6 +276,77 @@ describe("TableDetailsForm", () => {
       unmount();
 
       expect(onDirtyChange).toHaveBeenLastCalledWith(false);
+    });
+  });
+
+  describe("section", () => {
+    beforeEach(() => {
+      // jsdom has none; the open listbox scrolls to its active option.
+      window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    });
+
+    it("lists the floor plan's sections and 'No section'", () => {
+      renderForm(TABLE, SECTIONS);
+
+      fireEvent.click(screen.getByRole("combobox", { name: "Section" }));
+
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "No section",
+        "Main Dining",
+        "Bar",
+      ]);
+    });
+
+    it("shows the table's current section", () => {
+      renderForm({ ...TABLE, sectionId: "section-bar" }, SECTIONS);
+
+      expect(screen.getByRole("combobox", { name: "Section" })).toHaveTextContent("Bar");
+    });
+
+    it("shows 'No section' for a table without a section", () => {
+      renderForm(TABLE, SECTIONS);
+
+      expect(screen.getByRole("combobox", { name: "Section" })).toHaveTextContent("No section");
+    });
+
+    it("saves a chosen section as sectionId", async () => {
+      const user = userEvent.setup();
+      renderForm(TABLE, SECTIONS);
+
+      fireEvent.click(screen.getByRole("combobox", { name: "Section" }));
+      fireEvent.click(screen.getByRole("option", { name: "Main Dining" }));
+      await user.click(screen.getByRole("button", { name: "Save Table" }));
+
+      await waitFor(() =>
+        expect(onSave).toHaveBeenCalledWith("table-a", { sectionId: "section-main" })
+      );
+    });
+
+    it("saves 'No section' as sectionId null", async () => {
+      const user = userEvent.setup();
+      renderForm({ ...TABLE, sectionId: "section-bar" }, SECTIONS);
+
+      fireEvent.click(screen.getByRole("combobox", { name: "Section" }));
+      fireEvent.click(screen.getByRole("option", { name: "No section" }));
+      await user.click(screen.getByRole("button", { name: "Save Table" }));
+
+      await waitFor(() => expect(onSave).toHaveBeenCalledWith("table-a", { sectionId: null }));
+    });
+
+    it("marks the form dirty when only the section changes", () => {
+      renderForm(TABLE, SECTIONS);
+
+      fireEvent.click(screen.getByRole("combobox", { name: "Section" }));
+      fireEvent.click(screen.getByRole("option", { name: "Bar" }));
+
+      expect(onDirtyChange).toHaveBeenLastCalledWith(true);
+      expect(screen.getByRole("button", { name: "Save Table" })).toBeEnabled();
+    });
+
+    it("renders no Section field when no sections are offered (non-manager)", () => {
+      renderForm(TABLE);
+
+      expect(screen.queryByRole("combobox", { name: "Section" })).toBeNull();
     });
   });
 });
