@@ -10,6 +10,7 @@ import {
   buildCloseRules,
   toggleDate,
   closedDates,
+  closeButtonText,
   closeToastText,
   closeWhenId,
   decisionsReady,
@@ -866,5 +867,50 @@ describe("closeToastText (ux.md F4.7)", () => {
     expect(
       text(base({ what: { kind: "service", serviceId: "s" } }), { name: "Lunch", notified: 2 })
     ).toBe("Lunch closed on Thu, Dec 24 · 2 reservations notified");
+  });
+});
+
+describe("closeButtonText (ux.md S-Close, R4, R6)", () => {
+  const locale = "en-US";
+  const fmt = {
+    formatCalendarDate: (d: string, o: Intl.DateTimeFormatOptions) =>
+      formatCalendarDate(d, o, locale),
+    formatLocalTime: (hhmm: string) => formatLocalTime(hhmm, locale),
+  };
+  const label = (patch: Partial<CloseForm>, name?: string) =>
+    closeButtonText({ form: form(patch), date: "2026-12-24", name }, defaultT, fmt);
+  const lunch = { kind: "service", serviceId: "s" } as const;
+  const tonight = { kind: "tonight" } as const;
+
+  it("keeps Close with the date for the venue with no start time", () => {
+    expect(label({})).toBe("Close Thu, Dec 24");
+  });
+
+  it("names a service or section", () => {
+    expect(label({ what: lunch }, "Lunch")).toBe("Close Lunch on Thu, Dec 24");
+    expect(label({ what: { kind: "section", sectionId: "x" } }, "Bar")).toBe(
+      "Close Bar on Thu, Dec 24"
+    );
+  });
+
+  it("names the start time: tonight, or on a date", () => {
+    expect(label({ when: tonight, fromMinute: 1290 })).toBe("Close from 9:30 PM tonight");
+    expect(label({ fromMinute: 780 })).toBe("Close from 1:00 PM on Thu, Dec 24");
+    expect(label({ what: lunch, fromMinute: 780 }, "Lunch")).toBe(
+      "Close Lunch from 1:00 PM on Thu, Dec 24"
+    );
+    expect(label({ what: lunch, when: tonight, fromMinute: 1290 }, "Lunch")).toBe(
+      "Close Lunch from 9:30 PM tonight"
+    );
+  });
+
+  it("leaves the date out for a range, a repeat and until reopened", () => {
+    const range = { kind: "range", from: "2026-12-24", to: "2026-12-26" } as const;
+    expect(label({ when: range })).toBe("Close");
+    expect(label({ when: range, fromMinute: 780 })).toBe("Close from 1:00 PM");
+    expect(label({ what: lunch, when: range }, "Lunch")).toBe("Close Lunch");
+    expect(label({ what: lunch, when: range, fromMinute: 780 }, "Lunch")).toBe(
+      "Close Lunch from 1:00 PM"
+    );
   });
 });

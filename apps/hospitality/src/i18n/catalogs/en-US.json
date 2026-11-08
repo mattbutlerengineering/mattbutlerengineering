@@ -2656,8 +2656,6 @@
       "guestsWillSeeMessage": "Guests will see: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Close {{date}}",
-        "closeSection": "Close {{section}} on {{date}}",
-        "closeSectionNoDate": "Close {{section}}",
         "closeMany_one": "Close {{count}} date",
         "closeMany_other": "Close {{count}} dates",
         "closeMany_many": "Close {{count}} dates",
@@ -2692,7 +2690,15 @@
         },
         "pausePhone": "Pause phone booking",
         "pauseWaitlist": "Pause waitlist",
-        "pauseBooking": "Pause booking"
+        "pauseBooking": "Pause booking",
+        "closeTarget": "Close {{target}} on {{date}}",
+        "closeTargetNoDate": "Close {{target}}",
+        "closeFrom": "Close from {{time}} on {{date}}",
+        "closeFromTonight": "Close from {{time}} tonight",
+        "closeFromNoDate": "Close from {{time}}",
+        "closeTargetFrom": "Close {{target}} from {{time}} on {{date}}",
+        "closeTargetFromTonight": "Close {{target}} from {{time}} tonight",
+        "closeTargetFromNoDate": "Close {{target}} from {{time}}"
       },
       "toast": {
         "closedSection": "{{section}} closed on {{date}}",

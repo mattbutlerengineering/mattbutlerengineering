@@ -394,6 +394,46 @@ export interface CloseToastDraft {
   readonly name: string | undefined;
 }
 
+/**
+ * The Close button once nothing is left to decide (ux.md S-Close): what it closes and from when,
+ * with the date for one date or tonight. A booking-only closure has its own labels.
+ */
+export function closeButtonText(
+  draft: { readonly form: CloseForm; readonly date: string; readonly name: string | undefined },
+  t: TFunction,
+  format: Pick<VenueFormat, "formatCalendarDate" | "formatLocalTime">
+): string {
+  const { form, name } = draft;
+  const { when } = form;
+  const tonight = when.kind === "tonight";
+  const dated = tonight || when.kind === "date";
+  const date = format.formatCalendarDate(draft.date, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  if (form.fromMinute !== null) {
+    const time = minuteText(form.fromMinute, t, format);
+    if (name) {
+      if (tonight)
+        return t("availability.close.button.closeTargetFromTonight", { target: name, time });
+      return dated
+        ? t("availability.close.button.closeTargetFrom", { target: name, time, date })
+        : t("availability.close.button.closeTargetFromNoDate", { target: name, time });
+    }
+    if (tonight) return t("availability.close.button.closeFromTonight", { time });
+    return dated
+      ? t("availability.close.button.closeFrom", { time, date })
+      : t("availability.close.button.closeFromNoDate", { time });
+  }
+  if (name) {
+    return dated
+      ? t("availability.close.button.closeTarget", { target: name, date })
+      : t("availability.close.button.closeTargetNoDate", { target: name });
+  }
+  return t("availability.close.button.close", { date: dated ? date : "" }).trim();
+}
+
 /** "Online and phone booking": the channels a booking-only closure pauses, in the venue's words. */
 function pausedChannels(types: readonly BookingChannel[], t: TFunction): string {
   const online = types.includes("online");

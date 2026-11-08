@@ -79,6 +79,18 @@ function Cell(props: CellProps) {
 
   const view = presentDay(date, summary, detailed, t, format, serviceFilter, sectionNames);
 
+  // A month cell shows its date, holiday and chip; the name starts with exactly that text, then
+  // the full description (WCAG 2.5.3: the name contains the visible label, in order).
+  const chipText = difference
+    ? `${difference.chip}${difference.more > 0 ? ` +${difference.more}` : ""}`
+    : null;
+  const visibleText =
+    detailed || (!holiday && !chipText)
+      ? null
+      : [format.formatCalendarDate(date, { day: "numeric" }), holiday, chipText]
+          .filter(Boolean)
+          .join(" ");
+
   const className = [
     styles.cell,
     isMuted ? styles.muted : "",
@@ -99,8 +111,9 @@ function Cell(props: CellProps) {
         tabIndex={isTabStop ? 0 : -1}
         aria-current={isToday ? "date" : undefined}
         aria-label={[
+          ...(visibleText ? [visibleText] : []),
           view.accessibleName,
-          ...(holiday ? [holiday] : []),
+          ...(holiday && !visibleText ? [holiday] : []),
           ...(isDraft ? [t("availability.calendar.draftName")] : []),
         ].join(", ")}
         {...handlers}

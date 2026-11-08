@@ -2734,8 +2734,6 @@
       "guestsWillSeeMessage": "Les clients verront : {{date}} · {{status}} · « {{message}} »",
       "button": {
         "close": "Fermer le {{date}}",
-        "closeSection": "Fermer {{section}} le {{date}}",
-        "closeSectionNoDate": "Fermer {{section}}",
         "closeMany_one": "Fermer {{count}} date",
         "closeMany_other": "Fermer {{count}} dates",
         "closeMany_many": "Fermer {{count}} dates",
@@ -2770,7 +2768,15 @@
         },
         "pausePhone": "Suspendre les réservations par téléphone",
         "pauseWaitlist": "Suspendre la liste d'attente",
-        "pauseBooking": "Suspendre les réservations"
+        "pauseBooking": "Suspendre les réservations",
+        "closeTarget": "Fermer {{target}} le {{date}}",
+        "closeTargetNoDate": "Fermer {{target}}",
+        "closeFrom": "Fermer à partir de {{time}} le {{date}}",
+        "closeFromTonight": "Fermer à partir de {{time}} ce soir",
+        "closeFromNoDate": "Fermer à partir de {{time}}",
+        "closeTargetFrom": "Fermer {{target}} à partir de {{time}} le {{date}}",
+        "closeTargetFromTonight": "Fermer {{target}} à partir de {{time}} ce soir",
+        "closeTargetFromNoDate": "Fermer {{target}} à partir de {{time}}"
       },
       "toast": {
         "closedSection": "{{section}} fermée le {{date}}",

@@ -147,6 +147,11 @@ describe("SchedulesTab", () => {
     ).toBeInTheDocument();
   });
 
+  it("lets the Booking line wrap instead of widening the page", () => {
+    renderWith(<Layer state={state()} />);
+    expect(screen.getByRole("button", { name: /^Booking: / }).className).toContain("bookingLine");
+  });
+
   it("puts the Booking line right after the week panel, before Other schedules, and opens the rules", () => {
     const onBookingRules = vi.fn();
     renderWith(<Layer state={state()} onBookingRules={onBookingRules} />);

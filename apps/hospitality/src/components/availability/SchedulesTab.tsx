@@ -170,8 +170,8 @@ export function SchedulesTab(props: SchedulesTabProps) {
         resetAtVersion={laterVersion}
         refreshError={props.refreshError}
       />
-      <div>
-        <Button variant="ghost" onClick={onBookingRules}>
+      <div className={styles.bookingRow}>
+        <Button variant="ghost" className={styles.bookingLine} onClick={onBookingRules}>
           {rules === ""
             ? t("availabilitySchedules.layer.bookingUnset")
             : t("availabilitySchedules.layer.booking", { rules })}

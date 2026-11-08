@@ -1849,6 +1849,31 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
       });
     });
 
+    it("checks One date, unchecks Tonight and selects only the chosen chip", () => {
+      renderDialog({ today: NOV_8, initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      const chips = within(within(dialog).getByRole("group", { name: "Quick dates" })).getAllByRole(
+        "button"
+      );
+      const selected = () =>
+        chips.filter((c) => /selected/.test(c.className)).map((c) => c.textContent);
+      expect(selected()).toEqual(["Tonight"]);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Christmas Eve · Thu, Dec 24" }));
+      expect(within(dialog).getByRole("radio", { name: "One date" })).toBeChecked();
+      expect(within(dialog).getByRole("radio", { name: "Tonight" })).not.toBeChecked();
+      expect(selected()).toEqual(["Christmas Eve · Thu, Dec 24"]);
+    });
+
+    it("sits after the When choices, as shortcuts for the date", () => {
+      renderDialog({ today: NOV_8, initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      const group = within(dialog).getByRole("group", { name: "Quick dates" });
+      const whenRadio = within(dialog).getByRole("radio", { name: "Until I reopen" });
+      expect(
+        whenRadio.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    });
+
     it("sets One date from Tomorrow and Tonight from Tonight", () => {
       renderDialog({ today: NOV_8, initialDate: "2026-12-24" });
       const dialog = screen.getByRole("dialog");
@@ -1945,6 +1970,26 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
       fireEvent.click(within(dialog).getByRole("radio", { name: "One service" }));
       fireEvent.click(within(dialog).getByTestId("close-primary"));
       expect(await screen.findByText("Lunch closed on Thu, Dec 24")).toBeTruthy();
+    });
+
+    it("names the target and the start time on the button", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-25T20:00:00Z"));
+      renderDialog({ today: "2026-12-25", initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "One service" }));
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        "Close Lunch on Fri, Dec 25"
+      );
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("option", { name: "From 9:30 PM" }));
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        "Close Lunch from 9:30 PM tonight"
+      );
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Whole venue" }));
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        "Close from 9:30 PM tonight"
+      );
     });
 
     it("says the whole venue closed, and when a start time was chosen, from when", async () => {

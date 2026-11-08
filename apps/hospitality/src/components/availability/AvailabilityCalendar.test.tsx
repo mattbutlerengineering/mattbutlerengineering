@@ -102,7 +102,7 @@ describe("AvailabilityCalendar", () => {
       anchor: "2026-11-15",
       days: [thanksgiving, day("2026-11-25")],
     });
-    const cell = screen.getByRole("button", { name: /^Thursday, November 26: .*, Thanksgiving$/ });
+    const cell = screen.getByRole("button", { name: /^26 Thanksgiving, Thursday, November 26: / });
     expect(within(cell).getByText("Thanksgiving")).toBeInTheDocument();
     const before = screen.getByRole("button", { name: /^Wednesday, November 25:/ });
     expect(before.getAttribute("aria-label")).not.toMatch(/Thanksgiving/);
@@ -616,24 +616,49 @@ describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
     expect(cell).toHaveTextContent(/^4\s*$/);
   });
 
+  it("names a cell with its visible text first (WCAG 2.5.3), chip and holiday included", async () => {
+    const { container } = month({
+      anchor: "2026-11-15",
+      days: [
+        day("2026-11-01", { label: "Closed", scheduleId: null, serviceCount: 0 }),
+        day("2026-11-26", { scheduleId: "reg" }),
+      ],
+    });
+    expect(cellOf(/^1 Closed, Sunday, November 1:/)).toBeInTheDocument();
+    expect(cellOf(/^26 Thanksgiving, Thursday, November 26:/)).toBeInTheDocument();
+    const result = await axe(container, {
+      rules: {
+        "color-contrast": { enabled: false },
+        "label-content-name-mismatch": { enabled: true },
+      },
+    });
+    expect(result.violations).toEqual([]);
+  });
+
   it("shows another schedule's name as the chip", () => {
     month();
-    expect(within(cellOf(/^Tuesday, December 1:/)).getByText("Weeknights")).toBeInTheDocument();
+    expect(
+      within(cellOf(/^1 Weeknights, Tuesday, December 1:/)).getByText("Weeknights")
+    ).toBeInTheDocument();
   });
 
   it("ranks a service closure above the schedule and counts the schedule as +1", () => {
     month();
-    const cell = cellOf(/^Thursday, December 24:/);
+    const cell = cellOf(/^24 Christmas Eve Lunch closed \+1, Thursday, December 24:/);
     expect(within(cell).getByText("Lunch closed +1")).toBeInTheDocument();
     expect(within(cell).queryByText("Weeknights")).toBeNull();
   });
 
   it("keeps the accessible name's full description", () => {
     month();
-    expect(cellOf(/^Tuesday, December 1:/)).toHaveAccessibleName("Tuesday, December 1: Weeknights");
-    expect(cellOf(/^Thursday, December 24:/).getAttribute("aria-label")).toMatch(
-      /Weeknights.*Lunch/
+    expect(cellOf(/^1 Weeknights, Tuesday, December 1:/)).toHaveAccessibleName(
+      "1 Weeknights, Tuesday, December 1: Weeknights"
     );
+    expect(
+      cellOf(/^24 Christmas Eve Lunch closed \+1, Thursday, December 24:/).getAttribute(
+        "aria-label"
+      )
+    ).toMatch(/Weeknights.*Lunch/);
   });
 
   it("states the month's differences above the grid", () => {

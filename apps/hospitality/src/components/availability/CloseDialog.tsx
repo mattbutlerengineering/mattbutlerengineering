@@ -23,6 +23,7 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
   buildCloseRules,
+  closeButtonText,
   closeToastText,
   closedDates,
   closureForm,
@@ -449,19 +450,7 @@ export function CloseDialog(props: CloseDialogProps) {
               ? t("availability.close.button.closeMany", {
                   count: form.when.kind === "dates" ? form.when.dates.length : 0,
                 })
-              : sectionName
-                ? form.when.kind === "date" || form.when.kind === "tonight"
-                  ? t("availability.close.button.closeSection", {
-                      section: sectionName,
-                      date: fullDate(startsOn),
-                    })
-                  : t("availability.close.button.closeSectionNoDate", { section: sectionName })
-                : t("availability.close.button.close", {
-                    date:
-                      form.when.kind === "date" || form.when.kind === "tonight"
-                        ? fullDate(startsOn)
-                        : "",
-                  }).trim();
+              : closeButtonText({ form, date: startsOn, name: targetName }, t, format);
 
   return (
     <>

@@ -208,6 +208,11 @@ export function CloseStepOne(props: CloseStepOneProps) {
             />
             <Radio value="booking" label={t("availability.close.what.booking")} />
           </RadioGroup>
+          {sections.length === 0 && props.sectionsStatus === "ready" && (
+            <Text variant="caption" color="secondary">
+              <Link to="/floor-plans">{t("availability.close.what.openFloorPlan")}</Link>
+            </Text>
+          )}
           {what.kind === "service" && (
             <Select
               label={t("availability.close.what.pickService")}
@@ -215,11 +220,6 @@ export function CloseStepOne(props: CloseStepOneProps) {
               options={services.map((s) => ({ value: s.id, label: s.name }))}
               onChange={(serviceId) => patch({ what: { kind: "service", serviceId } })}
             />
-          )}
-          {sections.length === 0 && props.sectionsStatus === "ready" && (
-            <Text variant="caption" color="secondary">
-              <Link to="/floor-plans">{t("availability.close.what.openFloorPlan")}</Link>
-            </Text>
           )}
           {what.kind === "section" && (
             <Select
@@ -263,6 +263,27 @@ export function CloseStepOne(props: CloseStepOneProps) {
             </dl>
           ) : (
             <>
+              <RadioGroup
+                label={t("availability.close.when.label")}
+                name="close-when"
+                value={when.kind}
+                onChange={(kind) =>
+                  patch({ when: whenKindDefaults(kind as CloseWhen["kind"], firstDate || today) })
+                }
+              >
+                {!props.closureEdit && (
+                  <Radio value="tonight" label={t("availability.close.when.tonight")} />
+                )}
+                <Radio value="date" label={t("availability.close.when.date")} />
+                {!props.closureEdit && (
+                  <Radio value="dates" label={t("availability.close.when.dates")} />
+                )}
+                <Radio value="range" label={t("availability.close.when.range")} />
+                {!props.closureEdit && (
+                  <Radio value="repeats" label={t("availability.close.when.repeats")} />
+                )}
+                <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
+              </RadioGroup>
               <div
                 className={styles.chips}
                 role="group"
@@ -295,27 +316,6 @@ export function CloseStepOne(props: CloseStepOneProps) {
                   </Tag>
                 ))}
               </div>
-              <RadioGroup
-                label={t("availability.close.when.label")}
-                name="close-when"
-                value={when.kind}
-                onChange={(kind) =>
-                  patch({ when: whenKindDefaults(kind as CloseWhen["kind"], firstDate || today) })
-                }
-              >
-                {!props.closureEdit && (
-                  <Radio value="tonight" label={t("availability.close.when.tonight")} />
-                )}
-                <Radio value="date" label={t("availability.close.when.date")} />
-                {!props.closureEdit && (
-                  <Radio value="dates" label={t("availability.close.when.dates")} />
-                )}
-                <Radio value="range" label={t("availability.close.when.range")} />
-                {!props.closureEdit && (
-                  <Radio value="repeats" label={t("availability.close.when.repeats")} />
-                )}
-                <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
-              </RadioGroup>
               <div className={styles.row} id={closeWhenId(when, false)}>
                 {when.kind === "date" &&
                   dateField(t("availability.close.when.dateLabel"), when.date, (date) =>
