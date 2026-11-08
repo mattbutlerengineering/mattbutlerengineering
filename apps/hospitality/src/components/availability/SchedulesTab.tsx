@@ -30,8 +30,6 @@ export interface SchedulesTabProps {
   readonly onStale: () => void;
   /** Compare services has edits that are not saved; the page asks before another tab drops them. */
   readonly onDirtyChange?: (dirty: boolean) => void;
-  /** Open with the New schedule editor showing (Create another schedule…). Read on mount. */
-  readonly startNew?: boolean;
 }
 
 /**
@@ -82,7 +80,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
   const usage = useUsageText(state);
   const saver = useScheduleSave(onStale);
   const [editor, setEditor] = useState<{ mode: ScheduleEditorMode; sourceId?: string } | null>(
-    props.startNew ? { mode: "new" } : null
+    null
   );
   const [comparing, setComparing] = useState(false);
   const [compareDirty, setCompareDirty] = useState(false);

@@ -1894,7 +1894,6 @@
     "tabsLabel": "Vista de disponibilidad",
     "tabCalendar": "Calendario",
     "tabSchedules": "Horarios",
-    "createAnother": "Crear otro horario…",
     "title": "Horarios",
     "regularMarker": "Semana habitual",
     "new": "Nuevo horario",
@@ -2078,6 +2077,7 @@
   "availability": {
     "title": "Disponibilidad",
     "description": "Tu horario, días festivos y cambios puntuales.",
+    "backToSetup": "Configuración del local",
     "hostNote": "Solo los gerentes cambian los horarios. Para esta noche, usa el panel Esta noche.",
     "loadError": "No se pudo cargar la disponibilidad",
     "noVenue": "Selecciona un local para ver su disponibilidad.",

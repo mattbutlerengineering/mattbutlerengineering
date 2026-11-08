@@ -1857,7 +1857,6 @@
     "tabsLabel": "Availability view",
     "tabCalendar": "Calendar",
     "tabSchedules": "Schedules",
-    "createAnother": "Create another schedule…",
     "title": "Schedules",
     "regularMarker": "Regular week",
     "new": "New schedule",
@@ -2029,6 +2028,7 @@
   "availability": {
     "title": "Availability",
     "description": "Your hours, holidays and one-off changes.",
+    "backToSetup": "Venue Setup",
     "hostNote": "Only managers change hours. For tonight, use the Tonight panel.",
     "loadError": "Couldn't load availability",
     "noVenue": "Select a venue to see its availability.",

@@ -7,8 +7,8 @@ import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
  * A migrated venue (PRD: one regular week). The old migration wrote a day-named "Thu–Fri hours"
  * schedule beside the regular week; `collapseDayNamedSchedules` folds it into the regular week's
  * Dinner row as a set of different hours. The calendar must then read one regular week with no
- * day-named schedule, and the Schedules tab must be absent. A venue not yet collapsed is the
- * contrast: it still has its tab and its schedule.
+ * day-named schedule, and its Schedules tab (always shown to a Manager) lists only the regular week.
+ * A venue not yet collapsed is the contrast: its tab still lists the schedule.
  *
  * The collapsed config is built by the real engine function from the old shape, then served to
  * the page. Local run, synthetic OIDC session (auth.setup.ts skipped; no Auth0 E2E creds locally).
@@ -65,7 +65,7 @@ function collapsed(): AvailabilityConfig {
 }
 
 test.describe("A migrated venue", () => {
-  test("reads as one regular week, with no day-named schedule and no Schedules tab", async ({
+  test("reads as one regular week, with no day-named schedule on the calendar or the Schedules tab", async ({
     mockedPage: page,
   }) => {
     await mockEmptyVenue(page, { derive: true, config: collapsed() });
@@ -77,7 +77,9 @@ test.describe("A migrated venue", () => {
     await expect(page.getByRole("grid")).toBeVisible();
     expect(await page.locator("body").innerText()).not.toMatch(/Thu–Fri hours/);
     await expect(page.getByRole("radio", { name: "Calendar" })).toBeVisible();
-    await expect(page.getByRole("radio", { name: "Schedules" })).toHaveCount(0);
+    await page.getByRole("radio", { name: "Schedules" }).click();
+    await expect(page.getByRole("heading", { name: "Schedules" })).toBeVisible();
+    expect(await page.locator("body").innerText()).not.toMatch(/Thu–Fri hours/);
   });
 
   test("a venue not yet collapsed still has its Schedules tab", async ({ mockedPage: page }) => {

@@ -1894,7 +1894,6 @@
     "tabsLabel": "Vue des disponibilités",
     "tabCalendar": "Calendrier",
     "tabSchedules": "Horaires",
-    "createAnother": "Créer un autre horaire…",
     "title": "Horaires",
     "regularMarker": "Semaine habituelle",
     "new": "Nouvel horaire",
@@ -2078,6 +2077,7 @@
   "availability": {
     "title": "Disponibilité",
     "description": "Vos heures, jours fériés et changements ponctuels.",
+    "backToSetup": "Configuration de l'établissement",
     "hostNote": "Seuls les gérants modifient les heures. Pour ce soir, utilisez le panneau Ce soir.",
     "loadError": "Impossible de charger la disponibilité",
     "noVenue": "Sélectionnez un établissement pour voir sa disponibilité.",

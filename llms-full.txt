@@ -5113,6 +5113,34 @@
       return { changed: [...new Set(changed)], removed: [...new Set(removed)] };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/availability-entry.ts">
+    export const AVAILABILITY_TABS = ["calendar", "special", "schedules"] as const;
+    export type AvailabilityTab = (typeof AVAILABILITY_TABS)[number];
+    export interface AvailabilityEntry {
+      readonly tab?: AvailabilityTab;
+      readonly closeSection?: string;
+      readonly from?: "setup";
+    }
+    export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry {
+      const params = typeof search === "string" ? new URLSearchParams(search) : search;
+      const entry: { -readonly [K in keyof AvailabilityEntry]: AvailabilityEntry[K] } = {};
+      const tab = FIELDS.tab.safeParse(params.get("tab"));
+      if (tab.success) entry.tab = tab.data;
+      const closeSection = FIELDS.closeSection.safeParse(params.get("closeSection"));
+      if (closeSection.success) entry.closeSection = closeSection.data;
+      const from = FIELDS.from.safeParse(params.get("from"));
+      if (from.success) entry.from = from.data;
+      return entry;
+    }
+    export function availabilityPath(entry: AvailabilityEntry): string {
+      const params = new URLSearchParams();
+      if (entry.tab) params.set("tab", entry.tab);
+      if (entry.closeSection) params.set("closeSection", entry.closeSection);
+      if (entry.from) params.set("from", entry.from);
+      const query = params.toString();
+      return query ? `${ROUTE}?${query}` : ROUTE;
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/booking-rules.ts">
     export interface BookingRulesForm {
       readonly daysAhead: string;
@@ -8295,9 +8323,6 @@
         }
       });
       return runs;
-    }
-    export function hasOwnSchedules(config: AvailabilityConfig): boolean {
-      return liveSchedules(config).some((s) => s.kind !== "regular");
     }
     export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
       const schedule = config.schedules.find((s) => s.id === scheduleId);

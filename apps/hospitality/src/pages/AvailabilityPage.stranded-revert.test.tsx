@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
 
@@ -112,13 +113,15 @@ describe("a refused Undo on the Availability page", () => {
 
   it("lists the bookings after a save on the Schedules tab", async () => {
     render(
-      <ToastProvider>
-        <main>
-          <AvailabilityPage />
-        </main>
-      </ToastProvider>
+      <MemoryRouter>
+        <ToastProvider>
+          <main>
+            <AvailabilityPage />
+          </main>
+        </ToastProvider>
+      </MemoryRouter>
     );
-    fireEvent.click(screen.getByRole("button", { name: "Create another schedule…" }));
+    fireEvent.click(screen.getByRole("radio", { name: "Schedules" }));
     fireEvent.click(await screen.findByRole("button", { name: "Save a schedule" }));
     fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
 
