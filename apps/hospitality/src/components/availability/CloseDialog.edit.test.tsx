@@ -7,6 +7,14 @@ const create = vi.hoisted(() => vi.fn());
 const impactState = vi.hoisted(() => ({ value: null as unknown }));
 /** What the impact query was last asked: the draft rule and what it replaces. */
 const asked = vi.hoisted(() => ({ rule: null as unknown, alongside: undefined as unknown }));
+vi.mock("../../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
   useClosureImpacts: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),

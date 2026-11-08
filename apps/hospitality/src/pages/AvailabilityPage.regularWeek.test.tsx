@@ -18,6 +18,14 @@ const venue = vi.hoisted(() => ({
   selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
 }));
 
+vi.mock("../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../hooks/useAvailability.js", () => ({
   useAvailabilityDays: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useAvailabilityConfig: () => ({

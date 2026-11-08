@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import {
   activeRules,
+  expandSectionRules,
   firstOccurrenceOnOrAfter,
   resolveDay,
   weekdayIndexOf,
@@ -26,6 +27,8 @@ export type BookingChannel = "online" | "phone" | "waitlist";
 export type CloseWhat =
   | { readonly kind: "venue" }
   | { readonly kind: "service"; readonly serviceId: string }
+  /** One floor-plan section: its tables as they are when the closure is saved, and then as they move (ADR-032). */
+  | { readonly kind: "section"; readonly sectionId: string }
   | { readonly kind: "booking"; readonly types: readonly BookingChannel[] };
 
 export type CloseWhen =
@@ -92,6 +95,7 @@ function spanOf(when: CloseWhen, today: string): Span {
 
 function whatIsComplete(what: CloseWhat): boolean {
   if (what.kind === "service") return what.serviceId !== "";
+  if (what.kind === "section") return what.sectionId !== "";
   if (what.kind === "booking") return what.types.length > 0;
   return true;
 }
@@ -146,18 +150,31 @@ function targetOf(what: CloseWhat) {
       return { targetKind: "venue" as const };
     case "service":
       return { targetKind: "service" as const, venueServiceId: what.serviceId };
+    case "section":
+      return { targetKind: "tables" as const, sectionId: what.sectionId, tableIds: [] };
     case "booking":
       return { targetKind: "booking" as const, bookingTypes: [...what.types] };
   }
 }
 
-/** The closure the form describes, or `null` while it is incomplete. Several dates build one each: see `buildCloseRules`. */
-export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null {
+/** Each section's table ids, for a section closure's `tableIds` (see `sectionMembership`). */
+type SectionMembership = ReadonlyMap<string, readonly string[]>;
+
+/**
+ * The closure the form describes, or `null` while it is incomplete. Several dates build one each:
+ * see `buildCloseRules`. A section closure carries the tables `membership` gives its section.
+ */
+export function buildCloseRule(
+  form: CloseForm,
+  id: string,
+  today: string,
+  membership: SectionMembership = new Map()
+): DateRule | null {
   if (validateClose(form, today) !== null || form.when.kind === "dates") return null;
   const span = spanOf(form.when, today);
   const note = form.staffNote.trim();
   const message = form.guestMessage.trim();
-  return {
+  const rule: DateRule = {
     id,
     kind: "closure",
     ...targetOf(form.what),
@@ -171,6 +188,7 @@ export function buildCloseRule(form: CloseForm, id: string, today: string): Date
     ...(note ? { staffNote: note } : {}),
     ...(message ? { guestMessage: message } : {}),
   };
+  return expandSectionRules([rule], membership)[0] ?? null;
 }
 
 /**
@@ -181,14 +199,20 @@ export function buildCloseRule(form: CloseForm, id: string, today: string): Date
 export function buildCloseRules(
   form: CloseForm,
   idFor: (date: string) => string,
-  today: string
+  today: string,
+  membership: SectionMembership = new Map()
 ): readonly DateRule[] {
   if (form.when.kind !== "dates") {
-    const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today);
+    const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today, membership);
     return rule ? [rule] : [];
   }
   return form.when.dates.flatMap((date) => {
-    const rule = buildCloseRule({ ...form, when: { kind: "date", date } }, idFor(date), today);
+    const rule = buildCloseRule(
+      { ...form, when: { kind: "date", date } },
+      idFor(date),
+      today,
+      membership
+    );
     return rule ? [rule] : [];
   });
 }
@@ -329,6 +353,9 @@ function whatOf(series: DateRule): CloseWhat {
   if (series.targetKind === "service" && series.venueServiceId) {
     return { kind: "service", serviceId: series.venueServiceId };
   }
+  if (series.targetKind === "tables" && series.sectionId) {
+    return { kind: "section", sectionId: series.sectionId };
+  }
   if (series.targetKind === "booking" && series.bookingTypes?.length) {
     return { kind: "booking", types: [...series.bookingTypes] };
   }
@@ -347,6 +374,7 @@ export function isEditableClosure(rule: DateRule): boolean {
     rule.seriesId == null &&
     (rule.targetKind === "venue" ||
       (rule.targetKind === "service" && !!rule.venueServiceId) ||
+      (rule.targetKind === "tables" && !!rule.sectionId) ||
       (rule.targetKind === "booking" && !!rule.bookingTypes?.length)) &&
     (rule.window == null || rule.window.to === END_OF_SERVICE_DAY)
   );

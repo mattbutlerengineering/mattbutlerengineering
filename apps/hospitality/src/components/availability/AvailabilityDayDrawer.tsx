@@ -74,6 +74,8 @@ export interface AvailabilityDayDrawerProps {
   readonly editing?: DayEditing;
   /** The venue's date rules, so a closure or special hours shows its staff note (Hosts too). */
   readonly dateRules?: readonly DateRule[];
+  /** Section names by id, so a section closure's layer reads "Bar closed" (ADR-032). */
+  readonly sectionNames?: ReadonlyMap<string, string>;
   readonly onClose: () => void;
 }
 
@@ -116,6 +118,7 @@ function DayBody({
   date,
   dateRules,
   config,
+  sectionNames,
   layerActions,
 }: {
   readonly day: ResolvedDay;
@@ -123,6 +126,7 @@ function DayBody({
   readonly dateRules?: readonly DateRule[];
   /** With `layerActions`: a day under a dated schedule alone still shows its layer, to act on. */
   readonly config?: Pick<AvailabilityConfig, "assignments" | "schedules">;
+  readonly sectionNames?: ReadonlyMap<string, string>;
   /** Remove / Edit beside a layer that stands for a saved rule; a Host and a past date get none. */
   readonly layerActions?: (layer: Layer) => ReactNode;
 }) {
@@ -165,7 +169,7 @@ function DayBody({
             {day.explanation.map((layer) => (
               <li key={layer.id} className={styles.layer}>
                 <Text as="span" variant="body" color="primary" data-layer-label>
-                  {layerLabelText(layer, t, format)}
+                  {layerLabelText(layer, t, format, sectionNames)}
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
                   {layerEffectText(layer, t, format)}
@@ -279,6 +283,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             date={date}
             dateRules={dateRules ?? editing?.state.config.dateRules}
             config={editing?.state.config}
+            sectionNames={props.sectionNames}
             layerActions={
               viewerRole === "manager" && editing && date >= editing.today
                 ? (layer) => (

@@ -5,6 +5,7 @@ import { Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
 import { resolveDay } from "@mbe/availability";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailability.js";
+import { useVenueFloorPlanSections } from "../hooks/useFloorPlans.js";
 import { useNow } from "../hooks/useNow.js";
 import { minutesOfDayIn, venueDate } from "../utils/service-day.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
@@ -75,6 +76,8 @@ interface Closing {
   readonly date: string | null;
   readonly dates?: readonly string[];
   readonly pause: boolean;
+  /** Opens on One section with this section chosen (`?closeSection=`). */
+  readonly sectionId?: string;
 }
 
 /**
@@ -235,6 +238,12 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     to: dates.at(-1) ?? anchor,
   });
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
+  // A section closure is named by its section on the calendar, the drawer and Special dates.
+  const sectionRows = useVenueFloorPlanSections({ venueId: selectedVenueId });
+  const sectionNames = useMemo(
+    () => new Map((sectionRows.data ?? []).map((s) => [s.id, s.name])),
+    [sectionRows.data]
+  );
   // The Services filter (2+ services only) is a view, not saved: it narrows how days read and
   // belongs to one venue, so a venue switch derives "All" rather than carrying the id over.
   const [chosenService, setChosenService] = useState<{
@@ -281,6 +290,15 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const teamRead = useVenueTeam({ venueId: selectedVenueId });
   const team = teamRead.data;
   const isManager = useIsManager();
+  // ?closeSection= opens the Close dialog for that section, once, for a Manager with the config
+  // loaded (a Host has no Close dialog). An id the venue does not have opens it with no preselection.
+  const entrySection = useRef(entry.closeSection);
+  const entryReady = isManager && !!config.data;
+  useEffect(() => {
+    if (!entryReady || entrySection.current === undefined) return;
+    setClosing({ date: null, pause: false, sectionId: entrySection.current });
+    entrySection.current = undefined;
+  }, [entryReady]);
   // Only a Manager has the Schedules tab: a Host who opens ?tab=schedules gets the calendar.
   const tab = chosenTab === "schedules" && !isManager ? "calendar" : chosenTab;
   // A read that has never answered. A refresh failing over data on hand is the drawer's to say.
@@ -478,6 +496,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           onStale={() => void config.refetch()}
           reloadError={config.error ? describeApiError(config.error).detail : null}
           isManager={isManager}
+          sectionNames={sectionNames}
         />
       </Stack>
     );
@@ -640,6 +659,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onOpenDay={openDay}
         onAnchorChange={moveTo}
         serviceFilter={serviceFilter}
+        sectionNames={sectionNames}
       />
       <AvailabilityDayDrawer
         date={openDate}
@@ -648,6 +668,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         error={drawerFailure}
         viewerRole={team?.viewerRole}
         dateRules={config.data?.config.dateRules}
+        sectionNames={sectionNames}
         editing={
           config.data
             ? {
@@ -727,6 +748,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           initialDate={closing.date}
           initialDates={closing.dates}
           pauseOnline={closing.pause}
+          initialSectionId={closing.sectionId}
           onSaved={closing.dates ? finishSelectionAction : undefined}
           onClose={() => setClosing(null)}
         />

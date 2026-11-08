@@ -1678,6 +1678,7 @@
     },
     "kind": {
       "closure": "Cerrado",
+      "sectionClosed": "{{section}} cerrada",
       "bookingPaused": "Reservas en pausa: {{channels}}",
       "specialHours": "Horario especial"
     },
@@ -2135,6 +2136,10 @@
       "tablesBlockedAllDayName": "mesas bloqueadas todo el día",
       "tablesBlockedBand": "Mesas bloqueadas {{from}} – {{to}}",
       "tablesBlockedBandName": "mesas bloqueadas {{from}} – {{to}}",
+      "sectionClosedAllDay": "{{section}} cerrada todo el día",
+      "sectionClosedAllDayName": "{{section}} cerrada todo el día",
+      "sectionClosedBand": "{{section}} cerrada {{from}} – {{to}}",
+      "sectionClosedBandName": "{{section}} cerrada {{from}} – {{to}}",
       "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (día siguiente)",
       "draftName": "cambios sin guardar",
@@ -2198,6 +2203,7 @@
         "serviceFallback": "Servicio",
         "bookingClosed": "Reservas cerradas: {{types}}",
         "tablesBlocked": "Mesas bloqueadas",
+        "sectionClosed": "{{name}} cerrada",
         "bookingType": {
           "online": "en línea",
           "phone": "por teléfono",
@@ -2647,6 +2653,11 @@
         "venue": "Todo el local",
         "service": "Un servicio",
         "pickService": "Servicio",
+        "section": "Una sección",
+        "pickSection": "Sección",
+        "noSections": "Primero agrega una sección a tu plano del salón",
+        "openFloorPlan": "Abrir plano del salón",
+        "sectionsFailed": "No se pudieron cargar las secciones.",
         "booking": "Solo reservas",
         "channel": {
           "online": "En línea",
@@ -2695,6 +2706,8 @@
       "guestsWillSeeMessage": "Los comensales verán: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Cerrar {{date}}",
+        "closeSection": "Cerrar {{section}} el {{date}}",
+        "closeSectionNoDate": "Cerrar {{section}}",
         "closeMany_one": "Cerrar {{count}} fecha",
         "closeMany_other": "Cerrar {{count}} fechas",
         "closeMany_many": "Cerrar {{count}} fechas",
@@ -2733,6 +2746,7 @@
       },
       "toast": {
         "closed": "{{date}} cerrado",
+        "closedSection": "{{section}} cerrada el {{date}}",
         "paused": "Reservaciones en línea pausadas",
         "bookingPaused": "Reservaciones pausadas el {{date}}",
         "notified_one": "{{date}} cerrado · {{count}} reservación avisada",
@@ -2805,7 +2819,9 @@
         "closed": "Cerrado",
         "closedFrom": "Cerrado desde {{time}}",
         "serviceClosed": "{{service}} cerrado",
-        "serviceClosedFrom": "{{service}} cerrado desde {{time}}"
+        "serviceClosedFrom": "{{service}} cerrado desde {{time}}",
+        "sectionClosed": "{{section}} cerrada",
+        "sectionClosedFrom": "{{section}} cerrada desde {{time}}"
       }
     },
     "paused": {

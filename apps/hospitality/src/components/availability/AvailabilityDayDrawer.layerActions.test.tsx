@@ -5,6 +5,14 @@ import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
 const reopen = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../../hooks/useAvailability.js", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),

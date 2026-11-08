@@ -60,6 +60,8 @@ export interface SpecialDatesTabProps {
   readonly reloadError?: string | null;
   /** Only a Manager can reopen or retry refunds; a Host views the list and the call list. */
   readonly isManager: boolean;
+  /** Section names by id, so a section closure reads "Bar closed" (ADR-032). */
+  readonly sectionNames?: ReadonlyMap<string, string>;
 }
 
 const FILTERS: readonly SpecialDatesFilter[] = [
@@ -85,12 +87,21 @@ function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): s
 }
 
 /** "Closed · From 10:00 PM", or "Booking paused: Online": what a closure really closes, and from when. */
-function closureDetail(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+function closureDetail(
+  rule: SpecialDateRule,
+  format: VenueFormat,
+  t: TFunction,
+  sectionNames?: ReadonlyMap<string, string>
+): string {
   const channels = (rule.bookingTypes ?? []).map((c) => t(`availability.close.what.channel.${c}`));
+  const section =
+    rule.targetKind === "tables" && rule.sectionId ? sectionNames?.get(rule.sectionId) : undefined;
   const what =
     rule.targetKind === "booking" && channels.length > 0
       ? t("availabilitySpecial.kind.bookingPaused", { channels: channels.join(", ") })
-      : t("availabilitySpecial.kind.closure");
+      : section !== undefined
+        ? t("availabilitySpecial.kind.sectionClosed", { section })
+        : t("availabilitySpecial.kind.closure");
   return rule.window
     ? [
         what,
@@ -263,6 +274,7 @@ function SpecialDateItem(props: RowProps) {
 export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const viewport = useViewport();
   const { venueId, state, timezone, today, onStale, reloadError, isManager } = props;
+  const { sectionNames } = props;
   const rules = state.config.dateRules;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -446,7 +458,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               detail={[
                 rule.endsOn === rule.startsOn && !rule.repeat ? holidays.get(rule.startsOn) : null,
                 rule.kind === "closure"
-                  ? closureDetail(rule, format, t)
+                  ? closureDetail(rule, format, t, sectionNames)
                   : t("availabilitySpecial.kind.specialHours"),
                 hoursRange(rule, format, t),
                 rule.repeat ? t("availabilitySpecial.repeating") : null,
@@ -578,6 +590,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           ruleScope={editingHours.ruleScope}
           onStale={onStale}
           reloadError={reloadError}
+          sectionNames={sectionNames}
           onClose={() => setEditingHours(null)}
         />
       )}
