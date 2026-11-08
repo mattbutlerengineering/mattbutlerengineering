@@ -22190,53 +22190,6 @@
       function sleep(ms: number): Promise<void> { /* ... */ }
     </item>
   </file>
-  <file path="packages/agent-core/src/revert-detector.ts">
-    <item priority="low">
-      interface RevertCommit {
-        sha: string;
-        oneline: string;
-        message: string;
-        revertedSha?: string;
-        revertedPrNumber?: number;
-      }
-    </item>
-    <item priority="low">
-      interface RevertedPR {
-        number: number;
-        title: string;
-        url: string;
-        isAiAuthor: boolean;
-        revertedAt: string;
-      }
-    </item>
-    <item priority="high">
-      export async function detectRecentReverts(
-        repoPath: string,
-        hoursBack: number = 24
-      ): Promise<RevertCommit[]> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function isPrAiAuthor(prBody: string): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function extractPrNumberFromMessage(message: string): number | undefined { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function getCommitDetails(
-        repoPath: string,
-        sha: string
-      ): Promise<{ message: string; timestamp: string } | null> { /* ... */ }
-    </item>
-    <item priority="high">
-      export function formatRevertForIssue(revert: RevertCommit, isAiAuthor: boolean): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function detectAiAuthorReverts(
-        repoPath: string,
-        hoursBack: number = 24
-      ): Promise<{ commit: RevertCommit; prNumber: number }[]> { /* ... */ }
-    </item>
-  </file>
   <file path="packages/agent-core/src/reviewer-contract.ts">
     <item priority="low">
       interface ReviewInput {
