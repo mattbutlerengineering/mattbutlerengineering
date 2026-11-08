@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
-import { loadFixture } from "./api-mocks.js";
+import { mockClosures } from "./helpers/close-mock.js";
+import type { CloseConnection } from "./helpers/close-mock.js";
 import { localDay } from "./local-day.js";
 
 /**
@@ -10,8 +11,6 @@ import { localDay } from "./local-day.js";
  * once the closure POST lands.
  */
 
-const DINNER = { opensAt: 1020, lastSeatingAt: 1260, closesAt: 1380 };
-const ALL_DAY_CLOSURE = { from: 0, to: 2880 };
 const BOOKINGS = 14;
 const GUESTS = 52;
 
@@ -31,159 +30,9 @@ function midNextMonth(): string {
   return next.toISOString().slice(0, 10);
 }
 
-function datesBetween(from: string, to: string): string[] {
-  const out: string[] = [];
-  for (
-    let d = new Date(`${from}T00:00:00Z`);
-    d <= new Date(`${to}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() + 1)
-  ) {
-    out.push(d.toISOString().slice(0, 10));
-  }
-  return out;
-}
-
-/**
- * While `dropped`, a closure POST commits and then its response is lost. The API client replays a
- * POST that carries an Idempotency-Key on a network error, so every attempt of one click drops.
- */
-interface Connection {
-  dropped: boolean;
-}
-
-async function mockAvailability(
-  page: Page,
-  closeDate: string,
-  connection: Connection = { dropped: false }
-) {
-  const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
-  const venueId = String(venues.data[0]?.id);
-  const base = `**/api/v1/venues/${venueId}`;
-  let version = 7;
-  let saved: Record<string, unknown> | null = null;
-  const posts: Array<{ key: string | undefined; ruleId: string }> = [];
-  const notices: Array<{ action: string; message: string | null }> = [];
-  const json = (data: unknown) => ({
-    status: 200,
-    contentType: "application/json",
-    body: JSON.stringify({ data }),
-  });
-
-  const config = () => ({
-    config: {
-      schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
-      venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
-      scheduleServices: [
-        {
-          id: "ss-dinner",
-          scheduleId: "regular",
-          venueServiceId: "vs-dinner",
-          ...DINNER,
-          seating: { version: 1, interval: 15 },
-          bookingTypes: ["online", "phone"],
-        },
-      ],
-      assignments: [
-        { id: "as", scheduleId: "regular", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
-      ],
-      dateRules: saved ? [(saved as { rule: unknown }).rule] : [],
-    },
-    version,
-    source: "rows",
-  });
-
-  await page.route(`${base}/availability/config`, (route) => route.fulfill(json(config())));
-  await page.route(`${base}/availability/days*`, (route) => {
-    const url = new URL(route.request().url());
-    const days = datesBetween(url.searchParams.get("from")!, url.searchParams.get("to")!).map(
-      (serviceDate) => {
-        const closed = saved !== null && serviceDate === closeDate;
-        return {
-          serviceDate,
-          label: closed ? "Closed" : "Regular week",
-          scheduleId: closed ? null : "regular",
-          serviceCount: closed ? 0 : 1,
-          closures: closed ? [{ ruleId: "rule-1", targetKind: "venue", ...ALL_DAY_CLOSURE }] : [],
-          bookingOpen: { online: !closed, phone: !closed, waitlist: !closed },
-        };
-      }
-    );
-    return route.fulfill(json(days));
-  });
-  await page.route(`${base}/closures/impact`, (route) => {
-    const rule = route.request().postDataJSON().rule as { startsOn: string; targetKind: string };
-    const affected = rule.startsOn === closeDate && rule.targetKind === "venue";
-    const reservations = Array.from({ length: affected ? BOOKINGS : 0 }, (_, i) => ({
-      id: `res-${i}`,
-      startTime: `${closeDate}T${String(17 + (i % 5)).padStart(2, "0")}:30:00Z`,
-      endTime: `${closeDate}T${String(19 + (i % 3)).padStart(2, "0")}:00:00Z`,
-      partySize: i < 10 ? 4 : 3,
-      guestName: `Guest ${i + 1}`,
-      deposit: i < 3 ? { amountCents: 4000, currency: "USD" } : null,
-      runsIntoClosure: false,
-    }));
-    return route.fulfill(
-      json({
-        reservations: reservations.length,
-        covers: affected ? GUESTS : 0,
-        depositsHeld: affected ? 3 : 0,
-        groups: affected
-          ? [
-              {
-                groupKey: `${closeDate}:closed`,
-                date: closeDate,
-                kind: "closed",
-                covers: GUESTS,
-                depositsHeld: 3,
-                reservations,
-              },
-            ]
-          : [],
-      })
-    );
-  });
-  // The server renders the notice (closure-content.ts); the browser shows it as sent. This answer
-  // stands in for that render and echoes the request, so the spec checks what the screen asks for.
-  await page.route(`${base}/closures/notice-preview`, (route) => {
-    const body = route.request().postDataJSON() as { action: string; message: string | null };
-    notices.push(body);
-    return route.fulfill(
-      json({
-        email: {
-          from: "Matt Butler Engineering <reservations@example.com>",
-          subject: "Your reservation at Rivera Bistro is cancelled",
-          text: `Rivera Bistro is closed.\n${body.message ?? ""}`,
-        },
-        sms: `Rivera Bistro is closed. ${body.message ?? ""} Rebook: https://example.com/m`,
-      })
-    );
-  });
-  await page.route(`${base}/closures`, (route) => {
-    // The Special dates tab lists closure outcomes; none exist in this flow.
-    if (route.request().method() === "GET") return route.fulfill(json([]));
-    const body = route.request().postDataJSON() as { rule: { id: string } };
-    posts.push({ key: route.request().headers()["idempotency-key"], ruleId: body.rule.id });
-    // A known key answers with the stored result and changes nothing (closure-command.ts replayOf).
-    if (saved === null) {
-      saved = body as unknown as Record<string, unknown>;
-      version += 1;
-    }
-    if (connection.dropped) return route.abort("connectionreset");
-    return route.fulfill(
-      json({
-        ruleId: "rule-1",
-        version,
-        changeId: "chg-close-1",
-        outcomes: { cancel: BOOKINGS, move: 0, keep_notify: 0, keep_silent: 0 },
-      })
-    );
-  });
-  return { saved: () => saved, posts: () => posts, notices: () => notices, venueId };
-}
-
 /** Opens the Close dialog for `closeDate` and advances to step 2 (the 14-booking impact list). */
 async function openCloseStepTwo(page: Page, closeDate: string, theme: "light" | "dark" = "light") {
-  await page.goto("availability");
+  await page.goto("availability?tab=calendar");
   // Desktop renders a grid, phones an agenda; both carry `data-date` on a day's cell or row.
   await expect(page.locator("[data-date]").first()).toBeVisible();
   await page.evaluate((t) => document.documentElement.setAttribute("data-theme", t), theme);
@@ -222,7 +71,7 @@ test.describe("Availability close dialog (F5)", () => {
       const CLOSE_DATE = midNextMonth();
       await mockedPage.setViewportSize({ width, height });
       await mockedPage.clock.setFixedTime(pinnedNoon());
-      await mockAvailability(mockedPage, CLOSE_DATE);
+      await mockClosures(mockedPage, { closeDate: CLOSE_DATE, bookings: BOOKINGS });
       const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE, theme);
 
       await expect(dialog.getByTestId("close-primary")).toBeInViewport({ ratio: 1 });
@@ -288,7 +137,7 @@ test.describe("Availability close dialog (F5)", () => {
   }) => {
     const CLOSE_DATE = midNextMonth();
     await mockedPage.clock.setFixedTime(pinnedNoon());
-    const state = await mockAvailability(mockedPage, CLOSE_DATE);
+    const state = await mockClosures(mockedPage, { closeDate: CLOSE_DATE, bookings: BOOKINGS });
     const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE);
     const calendar = mockedPage.getByRole("grid", { name: "Availability calendar" });
 
@@ -321,7 +170,7 @@ test.describe("Availability close dialog (F5)", () => {
   }) => {
     const CLOSE_DATE = midNextMonth();
     await mockedPage.clock.setFixedTime(pinnedNoon());
-    const state = await mockAvailability(mockedPage, CLOSE_DATE);
+    const state = await mockClosures(mockedPage, { closeDate: CLOSE_DATE, bookings: BOOKINGS });
     const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE);
     const cancelRadio = mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ });
     await dialog.locator("label").filter({ has: cancelRadio }).click();
@@ -348,7 +197,7 @@ test.describe("Availability close dialog (F5)", () => {
   }) => {
     const CLOSE_DATE = midNextMonth();
     await mockedPage.clock.setFixedTime(pinnedNoon());
-    await mockAvailability(mockedPage, CLOSE_DATE);
+    await mockClosures(mockedPage, { closeDate: CLOSE_DATE, bookings: BOOKINGS });
     const { dialog } = await openCloseStepTwo(mockedPage, CLOSE_DATE);
     const cancelRadio = mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ });
     await dialog.locator("label").filter({ has: cancelRadio }).click();
@@ -384,9 +233,13 @@ test.describe("Availability close dialog (F5)", () => {
   }) => {
     const CLOSE_DATE = midNextMonth();
     await mockedPage.clock.setFixedTime(pinnedNoon());
-    const connection: Connection = { dropped: true };
-    const state = await mockAvailability(mockedPage, CLOSE_DATE, connection);
-    await mockedPage.goto("availability");
+    const connection: CloseConnection = { dropped: true };
+    const state = await mockClosures(mockedPage, {
+      closeDate: CLOSE_DATE,
+      bookings: BOOKINGS,
+      connection,
+    });
+    await mockedPage.goto("availability?tab=calendar");
 
     const calendar = mockedPage.getByRole("grid", { name: "Availability calendar" });
     await expect(calendar).toBeVisible();

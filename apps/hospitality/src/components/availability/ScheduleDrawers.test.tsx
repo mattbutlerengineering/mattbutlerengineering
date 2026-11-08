@@ -3,6 +3,9 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+}));
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
@@ -32,7 +35,9 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import { ScheduleEditorDrawer } from "./ScheduleEditorDrawer.js";
-import { SchedulesTab } from "./SchedulesTab.js";
+import { SchedulesLayer } from "./schedules-tab.harness.js";
+import { demoDraft } from "./quick-setup-demo.fixture.js";
+import { draftToConfig } from "./quick-setup-draft.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const TUE_SAT = [2, 3, 4, 5, 6];
@@ -464,10 +469,11 @@ describe("schedule drawers", () => {
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });
 
-    function renderNew(mode: "new" | "duplicate", opened: AvailabilityConfig) {
+    function renderNew(mode: "new" | "duplicate", opened: AvailabilityConfig, seed?: "regular") {
       const props = {
         ...common,
         mode,
+        ...(seed ? { seed } : {}),
         ...(mode === "duplicate" ? { sourceScheduleId: "regular" } : {}),
         onStale: vi.fn(),
         onClose: vi.fn(),
@@ -497,39 +503,151 @@ describe("schedule drawers", () => {
       expect(screen.getByText("Choose at least one day.")).toBeInTheDocument();
     });
 
-    it("New schedule can start from the regular week's services, and its days are still the Manager's", async () => {
-      renderNew("new", fixtureConfig());
-      fireEvent.click(screen.getByRole("button", { name: "Start from your regular week" }));
-      expect(
-        screen.queryByRole("button", { name: "Start from your regular week" })
-      ).not.toBeInTheDocument();
-      const names = screen
-        .getAllByRole("textbox", { name: /Service name/ })
-        .map((input) => (input as HTMLInputElement).value);
-      expect(names).toEqual(["Lunch", "Dinner"]);
-      // Not the regular week's Friday: a schedule is used where the Manager says.
-      expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
+    describe("Add a schedule… (seeded from the regular week)", () => {
+      const serviceNames = () =>
+        screen
+          .getAllByRole("textbox", { name: /Service name/ })
+          .map((input) => (input as HTMLInputElement).value);
 
-      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
-        target: { value: "Weekend hours" },
+      it("opens with the regular week's services and no days", () => {
+        renderNew("new", fixtureConfig(), "regular");
+        expect(serviceNames()).toEqual(["Lunch", "Dinner"]);
+        // The regular week runs Fridays; the new schedule is used nowhere until it has dates.
+        expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
+        expect(
+          screen.queryByRole("button", { name: "Start from your regular week" })
+        ).not.toBeInTheDocument();
       });
-      fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
-      fireEvent.click(screen.getByRole("button", { name: "Save" }));
-      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-      const upsert = save.mock.calls[0]?.[0].body.changes.upsert;
-      expect(upsert.assignments.map((a: { weekdays: number[] }) => a.weekdays)).toEqual([[0, 6]]);
-      expect(
-        upsert.scheduleServices.map(
-          (r: { venueServiceId: string; opensAt: number; closesAt: number }) => [
-            r.venueServiceId,
-            r.opensAt,
-            r.closesAt,
-          ]
-        )
-      ).toEqual([
-        ["vs-lunch", 690, 900],
-        ["vs-dinner", 1020, 1380],
-      ]);
+
+      it("fills the days from the regular week once Starting is set", () => {
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+        expect(screen.getByText("Days: Fri")).toBeInTheDocument();
+        // Clearing Starting takes the days away again: they were never the Manager's.
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "" } });
+        expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
+      });
+
+      it("stops following the regular week once the days have been touched", () => {
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+        expect(screen.getByText(/^Days: Sat/)).toBeInTheDocument();
+        expect(screen.queryByText(/Fri/)).not.toBeInTheDocument();
+      });
+
+      it("never saves days without dates: with no Starting the days stay empty and Save is off", () => {
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Summer hours" },
+        });
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+        expect(save).not.toHaveBeenCalled();
+      });
+
+      /** The regular week made of these demo services (Lunch Mon–Fri, Dinner Tue–Sun, Brunch Sat–Sun). */
+      function weekOf(pick: (i: number) => boolean, dinnerFollowsShared = false) {
+        let n = 0;
+        const full = demoDraft();
+        return draftToConfig(
+          {
+            ...full,
+            services: full.services
+              .filter((_, i) => pick(i))
+              .map((s) => (dinnerFollowsShared && s.id === "dinner" ? { ...s, days: null } : s)),
+          },
+          () => `w-${++n}`
+        );
+      }
+      const dayChecks = () =>
+        screen.queryAllByRole("checkbox").filter((c) => (c as HTMLInputElement).checked);
+
+      it("shows no service's own days before Starting, so Save asks for days the Manager chose", () => {
+        // Lunch Mon–Fri with Dinner every day.
+        renderNew(
+          "new",
+          weekOf((i) => i < 2, true),
+          "regular"
+        );
+        expect(dayChecks()).toHaveLength(0);
+        expect(screen.queryByText(/^Days:/)).not.toBeInTheDocument();
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Summer hours" },
+        });
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        expect(screen.queryByText("Choose a start date to save.")).not.toBeInTheDocument();
+      });
+
+      it("never saves a dateless schedule with days the Manager did not choose", () => {
+        // Lunch Mon–Fri with Brunch Sat–Sun: nothing follows the shared days.
+        renderNew(
+          "new",
+          weekOf((i) => i !== 1),
+          "regular"
+        );
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Summer hours" },
+        });
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        // Taking Brunch away leaves a Lunch-only subset: still no dateless save.
+        fireEvent.click(screen.getByRole("button", { name: "Remove service 2" }));
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+        expect(save).not.toHaveBeenCalled();
+      });
+
+      it("saves an undated schedule on days the Manager picks, as a named week for those days (C13)", async () => {
+        // The regular week runs Fridays, so weekends add a week of their own without replacing it.
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Weekends" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+        await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+        const upsert = save.mock.calls[0]?.[0].body.changes.upsert;
+        expect(
+          upsert.assignments.map((a: { weekdays: number[]; startsOn?: string | null }) => [
+            [...a.weekdays].sort(),
+            a.startsOn ?? null,
+          ])
+        ).toEqual([[[0, 6], null]]);
+      });
+
+      it("gives each service back its own days once Starting is set", () => {
+        renderNew(
+          "new",
+          weekOf((i) => i !== 1),
+          "regular"
+        );
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+        const lunch = screen.getByRole("group", { name: "Lunch runs on" });
+        expect(
+          within(lunch)
+            .getAllByRole("checkbox")
+            .filter((c) => (c as HTMLInputElement).checked)
+            .map((c) => c.closest("label")?.textContent)
+        ).toEqual(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+      });
+
+      it("saves the followed days with the dates once Starting and Ending are set", async () => {
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Summer hours" },
+        });
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+        fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+        await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+        const upsert = save.mock.calls[0]?.[0].body.changes.upsert;
+        expect(
+          upsert.assignments.map((a: { weekdays: number[]; startsOn: string }) => [
+            a.weekdays,
+            a.startsOn,
+          ])
+        ).toEqual([[[5], "2026-11-02"]]);
+      });
     });
 
     it("New schedule: says availability changed, not that a schedule did, and Start over clears every field", async () => {
@@ -687,10 +805,15 @@ describe("schedule drawers", () => {
       };
     }
 
-    const renderTab = (config: AvailabilityConfig) =>
+    const renderTab = (config: AvailabilityConfig, comparing = false) =>
       render(
         <main>
-          <SchedulesTab {...common} state={stateOf(config)} onStale={vi.fn()} />
+          <SchedulesLayer
+            {...common}
+            state={stateOf(config)}
+            onStale={vi.fn()}
+            comparing={comparing}
+          />
         </main>
       );
 
@@ -732,7 +855,7 @@ describe("schedule drawers", () => {
       expect(assignments.map((a: { weekdays: number[] }) => a.weekdays)).toEqual([[1, 2, 3, 4, 5]]);
     });
 
-    it("asks before the Compare toggle drops edited rows", () => {
+    it("asks before closing Compare services drops edited rows", () => {
       const base = fixtureConfig();
       const config: AvailabilityConfig = {
         ...base,
@@ -745,20 +868,19 @@ describe("schedule drawers", () => {
           ...base.scheduleServices.map((s) => ({ ...s, id: `${s.id}-wk`, scheduleId: "wk" })),
         ],
       };
-      renderTab(config);
-      fireEvent.click(screen.getByRole("button", { name: "Compare services" }));
+      renderTab(config, true);
       fireEvent.click(screen.getByRole("checkbox", { name: "Select Weekend" }));
       fireEvent.click(screen.getByRole("button", { name: "Set selected to…" }));
       fireEvent.click(screen.getByRole("combobox", { name: "Booking" }));
       fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
       fireEvent.click(screen.getByRole("button", { name: "Apply to 1 selected" }));
 
-      fireEvent.click(screen.getByRole("button", { name: "Compare services" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
       const dialog = screen.getByRole("alertdialog", { name: "Discard your changes?" });
       fireEvent.click(within(dialog).getByRole("button", { name: "Keep editing" }));
       expect(screen.getByRole("checkbox", { name: "Select Weekend" })).toBeInTheDocument();
 
-      fireEvent.click(screen.getByRole("button", { name: "Compare services" }));
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
       fireEvent.click(
         within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
           "button",

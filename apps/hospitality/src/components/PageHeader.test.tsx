@@ -110,4 +110,16 @@ describe("vertical spend above content (#6367 WO-3)", () => {
   it("separates the title block from content with --rialto-space-md", () => {
     expect(headerRule).toMatch(/margin-block-end:\s*var\(--rialto-space-md\)/);
   });
+
+  it("keeps a phone's aside on the title's row only when asked (Availability's header actions)", () => {
+    expect(css).toMatch(/\.asideBesideTitle\s*\{[^}]*display:\s*grid/);
+    const { container } = render(
+      <PageHeader title="Availability" aside={<button>Close…</button>} />
+    );
+    expect(container.firstElementChild?.className).not.toMatch(/asideBesideTitle/);
+    const { container: beside } = render(
+      <PageHeader title="Availability" aside={<button>Close…</button>} asideBesideTitle />
+    );
+    expect(beside.firstElementChild?.className).toMatch(/asideBesideTitle/);
+  });
 });

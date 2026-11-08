@@ -7,7 +7,7 @@ import {
   type QuickSetupIssue,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
-import { issuesFor, quickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
+import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
 import { IssueText, TimesRow } from "./quick-setup-fields.js";
 import styles from "./QuickSetupForm.module.css";
 
@@ -37,6 +37,7 @@ export function HoursBlockFieldset({
   onToggleDay,
   onRemove,
 }: HoursBlockFieldsetProps) {
+  const fieldId = useQuickSetupFieldId();
   const { t } = useTranslation();
   const dayName = useWeekdayName();
   const matchesBase =
@@ -44,11 +45,7 @@ export function HoursBlockFieldset({
     block.lastSeating === service.lastSeating &&
     block.closes === service.closes;
   return (
-    <fieldset
-      className={styles.block}
-      id={quickSetupFieldId(service.id, "days", block.id)}
-      tabIndex={-1}
-    >
+    <fieldset className={styles.block} id={fieldId(service.id, "days", block.id)} tabIndex={-1}>
       <legend className={styles.legend}>
         {t("availability.quickSetup.blockLegend", { service: serviceName })}
       </legend>

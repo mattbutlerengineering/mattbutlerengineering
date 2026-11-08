@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
+import { weekPanel } from "./helpers/first-paint.js";
 import { countInteractions } from "./helpers/interaction-counter.js";
 import {
   LARGE_SETUP_BASELINE,
@@ -21,7 +22,8 @@ test.describe("Quick-setup interaction baselines", () => {
 
     await setUniformBistroWeek(counter.page);
 
-    await expect(mockedPage.getByRole("grid")).toBeVisible();
+    // The save lands on the week panel (Schedules layer), not the calendar.
+    await expect(weekPanel(mockedPage)).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
     expect(counter.count()).toBe(UNIFORM_BISTRO_BASELINE);
   });
@@ -33,7 +35,8 @@ test.describe("Quick-setup interaction baselines", () => {
 
     await setLargeSetup(counter.page);
 
-    await expect(mockedPage.getByRole("grid")).toBeVisible();
+    // The save lands on the week panel (Schedules layer), not the calendar.
+    await expect(weekPanel(mockedPage)).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
     expect(counter.count()).toBe(LARGE_SETUP_BASELINE);
   });

@@ -12,6 +12,9 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   useRevertAvailabilityChange: () => ({ mutateAsync: revert }),
 }));
 // The preview has its own tests (ScheduleFlowPreview.test.tsx); here it never answers.
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+}));
 vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
   useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
 }));
@@ -39,7 +42,7 @@ import { CompareServices } from "./CompareServices.js";
 import { CopyDayAction } from "./CopyDayAction.js";
 import { ScheduleEditorDrawer } from "./ScheduleEditorDrawer.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
-import { SchedulesTab } from "./SchedulesTab.js";
+import { SchedulesLayer } from "./schedules-tab.harness.js";
 import {
   EARLY_DINNER,
   FIXTURE_DATE,
@@ -177,7 +180,7 @@ describe("Undo after a schedule save", () => {
   it("offers Undo after deleting a schedule, reverting that save", async () => {
     render(
       <main>
-        <SchedulesTab
+        <SchedulesLayer
           venueId="venue-1"
           state={{
             ...state,

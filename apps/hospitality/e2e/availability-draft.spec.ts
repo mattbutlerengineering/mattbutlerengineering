@@ -57,7 +57,7 @@ const status = (page: Page) => page.locator('[role="status"][aria-live="polite"]
 
 async function open(page: Page) {
   await page.clock.setFixedTime(new Date(`${localDay()}T12:00:00`));
-  await page.goto("availability");
+  await page.goto("availability?tab=calendar");
   await expect(page.locator("[data-date]").first()).toBeVisible();
 }
 

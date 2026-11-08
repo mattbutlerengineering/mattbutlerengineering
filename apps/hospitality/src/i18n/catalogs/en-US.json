@@ -83,7 +83,7 @@
     },
     "hours": {
       "heading": "Regular week",
-      "intro": "So guests know when you're open.",
+      "intro": "Your services and the days they run. Change it any time in Availability → Schedules.",
       "atLeastOne": "At least one day must be open"
     },
     "settings": {
@@ -155,6 +155,7 @@
       "tables": "Tables",
       "noTables": "No tables — your Timeline stays empty until you add some",
       "resumeSaved": "Your venue is saved. Retry picks up at {{stage}}.",
+      "changeLater": "Change these later in Availability → Schedules.",
       "resumeNoVenue": "Retry picks up at {{stage}}.",
       "launchButton": "Launch Venue",
       "celebrationTables_one": "Your venue is live with {{count}} table",
@@ -1857,9 +1858,7 @@
     "tabSchedules": "Schedules",
     "title": "Schedules",
     "regularMarker": "Regular week",
-    "new": "New schedule",
     "newTitle": "New schedule",
-    "fromRegularWeek": "Start from your regular week",
     "duplicateTitle": "Duplicate schedule",
     "editTitle": "Edit {{name}}",
     "editNamed": "Edit {{name}}",
@@ -1942,14 +1941,12 @@
       "regularHint": "Reapply lays your hours over the current regular week. Check the result, then save."
     },
     "regularWeek": {
-      "open": "Change regular week…",
       "title": "Change regular week",
       "appliesTo": "Applies to {{days}}. Other days keep their hours.",
       "becomes": "This becomes your regular week: open {{days}}.",
       "closedDays_one": "{{days}} is closed.",
       "closedDays_other": "{{days}} are closed.",
-      "outside": "{{days}} use “{{name}}”. Edit it on Schedules.",
-      "openSchedules": "Open Schedules",
+      "outside": "{{days}} use “{{name}}”. It is listed under Other schedules.",
       "noEnd": "No end — this becomes the new regular week",
       "save": "Save hours from {{date}}",
       "saved": "{{name}} from {{date}}",
@@ -1957,7 +1954,8 @@
       "start": {
         "today": "Start today",
         "tomorrow": "Start tomorrow"
-      }
+      },
+      "duplicate": "Duplicate regular week…"
     },
     "compare": {
       "open": "Compare services",
@@ -2021,7 +2019,20 @@
       "replacesRegularWeek": "With no end date, this replaces your regular week. Add an end date, or use Change regular week…"
     },
     "edit": "Edit",
-    "duplicate": "Duplicate"
+    "duplicate": "Duplicate",
+    "layer": {
+      "regularWeek": "Regular week",
+      "intro": "Your usual week. Other schedules and special dates change it on the days they cover.",
+      "add": "Add a schedule…",
+      "other": "Other schedules",
+      "booking": "Booking: {{rules}}",
+      "bookingUnset": "Booking: not set up yet",
+      "closeCompare": "Close",
+      "appliesFrom": "Changes apply from today, {{date}}.",
+      "startLater": "Starting later…",
+      "discard": "Discard",
+      "whatChanges": "What changes for guests"
+    }
   },
   "availability": {
     "title": "Availability",
@@ -2088,7 +2099,6 @@
       "sectionClosedAllDayName": "{{section}} closed all day",
       "sectionClosedBand": "{{section}} closed {{from}} – {{to}}",
       "sectionClosedBandName": "{{section}} closed {{from}} – {{to}}",
-      "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (next day)",
       "draftName": "unsaved changes",
       "labelWithPeriod": "{{label}}, {{period}}",
@@ -2901,14 +2911,19 @@
       "tables": "Some tables",
       "doneAndStays": "{{done}}. {{stays}}"
     },
+    "serviceHours": {
+      "range": "{{open}}–{{close}}",
+      "withLastSeating": "{{range}}, last seating {{last}}",
+      "closeChange": "{{days}} until {{close}}",
+      "closeChangeWithLastSeating": "{{days}} until {{close}}, last seating {{last}}",
+      "named": "{{name}} {{hours}}"
+    },
     "regularWeekLine": {
       "line": "Regular week: {{services}}",
       "upcoming": "From {{date}}: {{services}}",
       "upcomingPeriod": "{{from}}–{{to}}: {{services}}",
       "service": "{{name}} {{hours}} {{days}}",
       "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
-      "hours": "{{open}}–{{close}}",
-      "closes": "{{days}} until {{close}}",
       "different": "{{days}} {{hours}}",
       "details": "Details",
       "heading": "Regular week"
@@ -3029,7 +3044,7 @@
         "changeRegularWeek": "Change regular week…",
         "editSchedule": "Edit",
         "compareServices": "Compare services",
-        "createSchedule": "Create another schedule…",
+        "createSchedule": "Add a schedule…",
         "openCalendar": "Open calendar",
         "openSpecialDates": "Open Special dates",
         "bookingRules": "Booking rules…",

@@ -6,6 +6,7 @@ import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Engine from "@mbe/availability";
 import type * as Format from "../utils/format.js";
 import type * as Drawer from "../components/availability/AvailabilityDayDrawer.js";
+import type * as Venues from "../hooks/useVenues.js";
 import type { AvailabilityDaySummary, VenueTeam } from "@mbe/types";
 
 const daysQuery = vi.hoisted(() => ({
@@ -26,7 +27,15 @@ const configSource = vi.hoisted(() => ({
 const configError = vi.hoisted(() => ({ value: null as Error | null }));
 /** No config has ever loaded: the read failed the first time. */
 const configAbsent = vi.hoisted(() => ({ value: false }));
+/** The venue's sections; undefined until that read answers. */
+const sections = vi.hoisted(() => ({
+  value: [{ id: "sec-bar", name: "Bar" }] as Array<{ id: string; name: string }> | undefined,
+}));
 const teamError = vi.hoisted(() => ({ value: null as Error | null }));
+/** The role read has not answered. */
+const teamLoading = vi.hoisted(() => ({ value: false }));
+/** Date rules the config carries (a pause, for the paused banner). */
+const extraRules = vi.hoisted(() => ({ value: [] as unknown[] }));
 const teamRefetch = vi.hoisted(() => vi.fn());
 const team = vi.hoisted(() => ({ value: undefined as Partial<VenueTeam> | undefined }));
 const resolved = vi.hoisted(() => ({
@@ -49,7 +58,7 @@ const venue = vi.hoisted(() => ({
 
 vi.mock("../hooks/useFloorPlans.js", () => ({
   useVenueFloorPlanSections: () => ({
-    data: [{ id: "sec-bar", name: "Bar" }],
+    data: sections.value,
     isLoading: false,
     error: null,
   }),
@@ -72,7 +81,7 @@ vi.mock("../hooks/useAvailability.js", () => ({
           venueServices: serviceList.value,
           scheduleServices: [],
           assignments: [],
-          dateRules: [],
+          dateRules: extraRules.value,
         },
         version: 1,
         source: configSource.value,
@@ -88,7 +97,13 @@ vi.mock("../hooks/useAvailability.js", () => ({
   AVAILABILITY_CONFIG_QUERY_KEY: "availabilityConfig",
   AVAILABILITY_DAYS_QUERY_KEY: "availabilityDays",
 }));
+vi.mock("../hooks/useVenues.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof Venues>()),
+  useUpdateVenue: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
 vi.mock("../hooks/useClosures.js", () => ({
+  useClosureSummaries: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+  useRetryClosureRefunds: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useClosureImpact: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }),
   useClosureImpacts: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
   useCreateClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -147,7 +162,7 @@ vi.mock("../utils/format.js", async (importOriginal) => ({
 vi.mock("../hooks/useVenueTeam.js", () => ({
   useVenueTeam: () => ({
     data: team.value,
-    isLoading: false,
+    isLoading: teamLoading.value,
     error: teamError.value,
     refetch: teamRefetch,
   }),
@@ -192,7 +207,7 @@ function LocationProbe() {
   return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
 }
 
-function page(url = "/availability") {
+function page(url = "/availability?tab=calendar") {
   return (
     <MemoryRouter initialEntries={[url]}>
       <ToastProvider>
@@ -451,6 +466,29 @@ describe("AvailabilityPage", () => {
     ).toBeInTheDocument();
   });
 
+  it("names a section closure by its section on the calendar cell", () => {
+    daysQuery.value = {
+      data: [
+        {
+          ...summaryFor("2026-10-29"),
+          closures: [
+            { ruleId: "r-bar", targetKind: "tables", sectionId: "sec-bar", from: 0, to: 2880 },
+          ],
+        },
+      ] as AvailabilityDaySummary[],
+      isLoading: false,
+      error: null,
+    };
+    sections.value = undefined;
+    const view = renderPage();
+    // The sections read answers after the days: the cell is renamed, not left on "Tables blocked".
+    sections.value = [{ id: "sec-bar", name: "Bar" }];
+    view.rerender(page());
+    expect(screen.getByRole("button", { name: /Thursday, October 29/ })).toHaveAccessibleName(
+      /Bar closed all day/
+    );
+  });
+
   it("opens the day drawer from a cell", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /Friday, October 30/ }));
@@ -475,7 +513,8 @@ describe("AvailabilityPage", () => {
     it("opens Schedules for ?tab=schedules", () => {
       renderPage("/availability?tab=schedules");
       expect(schedulesTab()).toBeChecked();
-      expect(screen.getByRole("heading", { name: "Schedules" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { level: 2, name: "Regular week" })).toBeInTheDocument();
+      expect(screen.queryByRole("grid")).not.toBeInTheDocument();
     });
 
     it("gives a Host the calendar for ?tab=schedules", () => {
@@ -487,7 +526,8 @@ describe("AvailabilityPage", () => {
 
     it("renders the default page for garbage params", () => {
       renderPage("/availability?tab=%00&closeSection=&from=nowhere&x=1");
-      expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
+      // No valid tab: a Manager lands on Schedules.
+      expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
       expect(screen.queryByRole("link", { name: "Venue Setup" })).not.toBeInTheDocument();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
@@ -525,6 +565,35 @@ describe("AvailabilityPage", () => {
       expect(screen.getByTestId("location")).toHaveTextContent(
         "/availability?tab=schedules&from=setup"
       );
+    });
+
+    it("opens the seeded schedule editor on Schedules for ?action=addSchedule, once", async () => {
+      renderPage("/availability?action=addSchedule&from=setup");
+      expect(await screen.findByRole("dialog", { name: "New schedule" })).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
+      expect(screen.getByLabelText("Starting")).toHaveValue("");
+      expect(screen.getByTestId("location")).toHaveTextContent("/availability?from=setup");
+    });
+
+    it("opens no editor for ?action=addSchedule on another layer", () => {
+      renderPage("/availability?tab=calendar&action=addSchedule");
+      expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent("/availability?tab=calendar");
+    });
+
+    it("does not hold ?action=addSchedule back on a venue with no hours until quick setup saves", () => {
+      configSource.value = "empty";
+      const view = renderPage("/availability?action=addSchedule");
+      configSource.value = "rows";
+      view.rerender(page("/availability?action=addSchedule"));
+      expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
+    });
+
+    it("opens no editor for a Host who follows ?action=addSchedule", () => {
+      team.value = { viewerRole: "host" };
+      renderPage("/availability?action=addSchedule");
+      expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
     });
   });
 
@@ -1182,15 +1251,39 @@ describe("AvailabilityPage", () => {
       Reflect.deleteProperty(window, "matchMedia");
     });
 
-    it("keeps secondary actions in one menu", () => {
+    it("keeps the page's actions in one ⋯ and the calendar's picking in Select…", () => {
       renderPage();
       expect(screen.queryByRole("button", { name: "History" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Select…" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Close…" })).toBeInTheDocument();
+      // Pause online booking sits first in ⋯ on a phone (two interactions).
+      expect(
+        screen.queryByRole("button", { name: "Pause online booking" })
+      ).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "More actions" }));
       const menu = screen.getByRole("menu");
-      for (const name of ["History", "Go to date", "Select days", "Change regular week…"]) {
-        expect(within(menu).getByRole("menuitem", { name })).toBeInTheDocument();
-      }
+      expect(
+        within(menu)
+          .getAllByRole("menuitem")
+          .map((item) => item.textContent)
+      ).toEqual([
+        "Pause online booking",
+        "Booking rules…",
+        "Compare services",
+        "Duplicate regular week…",
+        "History",
+        "Go to date",
+      ]);
+    });
+
+    it("the calendar's phone menu is Select… and holds only the ways to pick days", () => {
+      renderPage();
+      fireEvent.click(screen.getByRole("button", { name: "Select…" }));
+      const select = screen.getByRole("menu");
+      expect(within(select).getByRole("menuitem", { name: "Select days" })).toBeInTheDocument();
+      expect(
+        within(select).queryByRole("menuitem", { name: "Go to date" })
+      ).not.toBeInTheDocument();
+      expect(within(select).queryByRole("menuitem", { name: "History" })).not.toBeInTheDocument();
     });
 
     it("goes to a date from the phone menu", async () => {
@@ -1200,26 +1293,35 @@ describe("AvailabilityPage", () => {
       expect(await screen.findByRole("dialog", { name: "Go to date" })).toBeInTheDocument();
     });
 
-    it("gives a Host only what a Host can do", () => {
+    it("gives a Host a ⋯ with History and Go to date only, and the calendar's Select…", () => {
       team.value = { viewerRole: "host" };
       renderPage();
+      expect(screen.queryByRole("button", { name: /^Close…/ })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "More actions" }));
-      const menu = screen.getByRole("menu");
-      expect(within(menu).getByRole("menuitem", { name: "History" })).toBeInTheDocument();
-      expect(within(menu).getByRole("menuitem", { name: "Go to date" })).toBeInTheDocument();
-      expect(within(menu).queryByRole("menuitem", { name: /^Close…/ })).not.toBeInTheDocument();
       expect(
-        within(menu).queryByRole("menuitem", { name: "Change regular week…" })
-      ).not.toBeInTheDocument();
+        within(screen.getByRole("menu"))
+          .getAllByRole("menuitem")
+          .map((item) => item.textContent)
+      ).toEqual(["History", "Go to date"]);
     });
   });
 
-  it("hands focus to the calendar when quick setup's save removes the focused button (#7980)", () => {
+  it("hands focus to the calendar when quick setup's save lands on a layer with no Regular week heading", () => {
     configSource.value = "empty";
-    const { rerender } = renderPage();
+    const { rerender } = renderPage("/availability?tab=calendar");
     configSource.value = "rows";
-    rerender(page());
+    rerender(page("/availability?tab=calendar"));
     expect(document.activeElement).toHaveAttribute("data-date");
+  });
+
+  it("hands focus to the Regular week heading when quick setup's save removes the focused button (#7980)", () => {
+    configSource.value = "empty";
+    const { rerender } = renderPage("/availability");
+    configSource.value = "rows";
+    rerender(page("/availability"));
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { level: 2, name: "Regular week" })
+    );
   });
 
   it("has no axe violations", async () => {
@@ -1352,5 +1454,228 @@ describe("AvailabilityPage Services filter (#7981)", () => {
     venue.selectedVenueId = "venue-2";
     view.rerender(page());
     expect(screen.getByText(/This week: open/)).toBeInTheDocument();
+  });
+});
+
+describe("AvailabilityPage layers", () => {
+  beforeEach(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-28T20:00:00Z") });
+    venue.selectedVenueId = "venue-1";
+    configSource.value = "rows";
+    configSource.migrated = false;
+    configError.value = null;
+    configAbsent.value = false;
+    teamError.value = null;
+    teamLoading.value = false;
+    extraRules.value = [];
+    sections.value = [{ id: "sec-bar", name: "Bar" }];
+    team.value = { viewerRole: "manager" };
+    resolved.services = [];
+    resolved.byDate = {};
+    daysQuery.value = {
+      data: ["2026-10-29", "2026-10-30"].map(summaryFor),
+      isLoading: false,
+      error: null,
+    };
+  });
+
+  afterEach(() => {
+    teamLoading.value = false;
+    extraRules.value = [];
+    vi.useRealTimers();
+  });
+
+  const layerRadio = (name: string) => screen.getByRole("radio", { name });
+  const headerButton = (name: string) => screen.getByRole("button", { name });
+
+  it("shows the skeleton, and no calendar or layer control, while the role is pending", () => {
+    teamLoading.value = true;
+    team.value = undefined;
+    renderPage("/availability?tab=calendar");
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(headerButton("Close…")).toBeDisabled();
+  });
+
+  it("lands a Manager on Schedules", () => {
+    renderPage("/availability");
+    expect(layerRadio("Schedules")).toBeChecked();
+    expect(screen.getByTestId("week-panel")).toBeInTheDocument();
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+  });
+
+  it("lands a Host on Calendar, with no Schedules layer and only History and Go to date in ⋯", () => {
+    team.value = { viewerRole: "host" };
+    renderPage("/availability");
+    expect(layerRadio("Calendar")).toBeChecked();
+    expect(screen.queryByRole("radio", { name: "Schedules" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pause online booking" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add a schedule…" })).not.toBeInTheDocument();
+    fireEvent.click(headerButton("More actions"));
+    expect(
+      within(screen.getByRole("menu"))
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent)
+    ).toEqual(["History", "Go to date"]);
+  });
+
+  it("opens Calendar for ?tab=calendar, and lists the layers in order", () => {
+    renderPage("/availability?tab=calendar");
+    expect(layerRadio("Calendar")).toBeChecked();
+    expect(screen.getByRole("grid")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("radiogroup", { name: "Availability view" }))
+        .getAllByRole("radio")
+        .map((r) => r.textContent)
+    ).toEqual(["Schedules", "Calendar", "Special dates"]);
+  });
+
+  it("first paint for a Manager on a one-schedule venue has 7 controls outside the week panel", () => {
+    renderPage("/availability");
+    const panel = screen.getByTestId("week-panel");
+    const controls = Array.from(
+      document.body.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea")
+    ).filter((el) => !panel.contains(el));
+    expect(controls.map((el) => el.textContent || el.getAttribute("aria-label"))).toEqual([
+      "Close…",
+      "Pause online booking",
+      "⋯",
+      "Schedules",
+      "Calendar",
+      "Special dates",
+      "Add a schedule…",
+    ]);
+  });
+
+  describe.each([["schedules"], ["calendar"], ["special"]] as const)("from the %s layer", (tab) => {
+    it("opens Close… and Pause online booking from the header", async () => {
+      renderPage(`/availability?tab=${tab}`);
+      fireEvent.click(headerButton("Close…"));
+      expect(await screen.findByRole("dialog", { name: /Close/ })).toBeInTheDocument();
+    });
+
+    it("opens Pause online booking from the header", async () => {
+      renderPage(`/availability?tab=${tab}`);
+      fireEvent.click(headerButton("Pause online booking"));
+      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    });
+
+    it("opens Booking rules… from ⋯", async () => {
+      renderPage(`/availability?tab=${tab}`);
+      fireEvent.click(headerButton("More actions"));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Booking rules…" }));
+      expect(await screen.findByLabelText(/How far ahead guests can book/)).toBeInTheDocument();
+    });
+
+    it("opens History from ⋯", async () => {
+      renderPage(`/availability?tab=${tab}`);
+      fireEvent.click(headerButton("More actions"));
+      fireEvent.click(screen.getByRole("menuitem", { name: "History" }));
+      expect(await screen.findByRole("region", { name: "History drawer" })).toBeInTheDocument();
+    });
+
+    it("goes to Calendar, then opens Go to date from ⋯", async () => {
+      renderPage(`/availability?tab=${tab}`);
+      fireEvent.click(headerButton("More actions"));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
+      expect(await screen.findByRole("dialog", { name: "Go to date" })).toBeInTheDocument();
+      expect(layerRadio("Calendar")).toBeChecked();
+    });
+
+    it("goes to Schedules and opens Compare services from ⋯", async () => {
+      renderPage(`/availability?tab=${tab}`);
+      fireEvent.click(headerButton("More actions"));
+      fireEvent.click(screen.getByRole("menuitem", { name: "Compare services" }));
+      expect(await screen.findByRole("heading", { name: "Compare services" })).toBeInTheDocument();
+      expect(layerRadio("Schedules")).toBeChecked();
+    });
+
+    it("shows the paused banner above the layer control", () => {
+      extraRules.value = [
+        {
+          id: "pause-1",
+          kind: "closure",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          startsOn: "2026-10-28",
+          endsOn: null,
+        },
+      ];
+      renderPage(`/availability?tab=${tab}`);
+      expect(screen.getByText("Online booking paused")).toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Pause online booking" })
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("Duplicate regular week… opens the schedule editor from ⋯", async () => {
+    renderPage("/availability?tab=calendar");
+    fireEvent.click(headerButton("More actions"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate regular week…" }));
+    expect(await screen.findByRole("textbox", { name: /Schedule name/ })).toHaveValue(
+      "Weeknight (copy)"
+    );
+  });
+
+  it("asks before leaving Schedules with an edited week, and stays on Keep editing", () => {
+    renderPage("/availability");
+    const closes = screen.getAllByLabelText("Closes")[0] as HTMLInputElement;
+    expect(closes).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+    fireEvent.click(layerRadio("Calendar"));
+    const ask = screen.getByRole("alertdialog", { name: "Discard your changes?" });
+    fireEvent.click(within(ask).getByRole("button", { name: "Keep editing" }));
+    expect(layerRadio("Schedules")).toBeChecked();
+    fireEvent.click(layerRadio("Calendar"));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
+        "button",
+        {
+          name: "Discard",
+        }
+      )
+    );
+    expect(layerRadio("Calendar")).toBeChecked();
+  });
+
+  it("leaves no day target behind when Keep editing answers the guard after History → open day", async () => {
+    renderPage("/availability");
+    fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+    fireEvent.click(headerButton("More actions"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "History" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Go to day" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
+        "button",
+        {
+          name: "Keep editing",
+        }
+      )
+    );
+    expect(layerRadio("Schedules")).toBeChecked();
+    // Later, a plain visit to Calendar opens no day.
+    fireEvent.click(layerRadio("Calendar"));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
+        "button",
+        {
+          name: "Discard",
+        }
+      )
+    );
+    expect(layerRadio("Calendar")).toBeChecked();
+    expect(screen.queryByRole("dialog", { name: /October 30/ })).not.toBeInTheDocument();
+  });
+
+  it("goes to the Calendar day from History opened on another layer", async () => {
+    renderPage("/availability");
+    fireEvent.click(headerButton("More actions"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "History" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Go to day" }));
+    expect(layerRadio("Calendar")).toBeChecked();
   });
 });

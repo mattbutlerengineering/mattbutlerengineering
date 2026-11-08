@@ -1356,7 +1356,7 @@ export async function mockApi(page: Page): Promise<SseMock> {
 }
 
 /** One regular schedule, Lunch and Dinner every day, as `GET …/availability/config` returns it. */
-function buildAvailabilityConfigFixture() {
+export function buildAvailabilityConfigFixture() {
   const service = (id: string, opensAt: number, lastSeatingAt: number, closesAt: number) => ({
     id: `ss-${id}`,
     scheduleId: "sch-regular",

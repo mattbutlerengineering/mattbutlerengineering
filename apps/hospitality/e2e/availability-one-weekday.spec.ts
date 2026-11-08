@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures.js";
+import { weekPanel } from "./helpers/first-paint.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
 import { setDemoWeek } from "./helpers/quick-setup-scenarios.js";
 import { calendarWeek, nextMonday } from "./helpers/week-dates.js";
@@ -22,34 +23,36 @@ test.describe("Change one weekday of the regular week", () => {
     await page.goto("availability");
     await setDemoWeek(page);
     await page.getByRole("button", { name: "Save and open bookings" }).click();
-    await expect(page.getByRole("grid")).toBeVisible();
+    await expect(weekPanel(page)).toBeVisible();
 
     const monday = nextMonday(localDay());
+    await page.getByRole("radio", { name: "Calendar" }).click();
     await page.getByRole("radio", { name: "Week" }).click({ force: true });
     await page.getByRole("button", { name: "Next", exact: true }).click();
     const before = await calendarWeek(page, monday);
-    expect(before.Wednesday).toContain("Lunch 11:30 AM – 1:45 PM");
+    expect(before.Wednesday).toContain("Lunch 11:30 AM–2:30 PM, last seating 1:45 PM");
 
-    // Change regular week: a block of different hours for Lunch on Wednesday.
-    await page.getByRole("button", { name: "Change regular week…" }).click();
-    const drawer = page.getByRole("dialog").first();
-    await drawer.getByRole("button", { name: "Different hours on some days" }).first().click();
-    const block = drawer.getByRole("group", { name: "Lunch: different hours" });
+    // The week panel on the Schedules layer: a block of different hours for Lunch on Wednesday,
+    // saved from today without a drawer or a date.
+    await page.getByRole("radio", { name: "Schedules" }).click();
+    const panel = weekPanel(page);
+    await panel.getByRole("button", { name: "Different hours on some days" }).first().click();
+    const block = panel.getByRole("group", { name: "Lunch: different hours" });
     await block.getByText("Wed", { exact: true }).click();
     await block.getByRole("combobox", { name: "Closes" }).click();
     await page
       .getByRole("listbox", { name: "Closes" })
       .getByRole("option", { name: "1:00 PM", exact: true })
       .click();
-    await drawer.getByLabel("Starting").click();
-    await page.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
-    await drawer.getByRole("button", { name: /^Save hours from/ }).click();
-    await expect(drawer).toBeHidden();
+    await panel.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(panel.getByRole("button", { name: "Save", exact: true })).toBeHidden();
 
     // Wednesday's lunch moved; the other six weekdays read as before.
+    // The calendar keeps its week and position across a visit to another layer.
+    await page.getByRole("radio", { name: "Calendar" }).click();
     const after = await calendarWeek(page, monday);
     expect(after.Wednesday).not.toEqual(before.Wednesday);
-    expect(after.Wednesday).toContain("Lunch 11:30 AM – 12:15 PM");
+    expect(after.Wednesday).toContain("Lunch 11:30 AM–1:00 PM, last seating 12:15 PM");
     for (const day of Object.keys(before).filter((d) => d !== "Wednesday")) {
       expect(after[day], day).toEqual(before[day]);
     }

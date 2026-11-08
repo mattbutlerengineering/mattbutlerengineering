@@ -6,11 +6,13 @@ export type AvailabilityTab = (typeof AVAILABILITY_TABS)[number];
 
 /**
  * How another page opens `/availability` (architecture.md "Availability entry contract"): the tab to
- * start on, a section whose Close dialog to open, and whether it came from Venue Setup.
+ * start on, a section whose Close dialog to open, an action to run, and whether it came from Venue Setup.
  */
 export interface AvailabilityEntry {
   readonly tab?: AvailabilityTab;
   readonly closeSection?: string;
+  /** Opens the schedule editor on Schedules, seeded from the regular week (Add a schedule…). */
+  readonly action?: "addSchedule";
   readonly from?: "setup";
 }
 
@@ -20,6 +22,7 @@ const ROUTE = "/availability";
 const FIELDS = {
   tab: z.enum(AVAILABILITY_TABS),
   closeSection: z.string().min(1),
+  action: z.literal("addSchedule"),
   from: z.literal("setup"),
 } as const;
 
@@ -31,6 +34,8 @@ export function parseAvailabilityEntry(search: string | URLSearchParams): Availa
   if (tab.success) entry.tab = tab.data;
   const closeSection = FIELDS.closeSection.safeParse(params.get("closeSection"));
   if (closeSection.success) entry.closeSection = closeSection.data;
+  const action = FIELDS.action.safeParse(params.get("action"));
+  if (action.success) entry.action = action.data;
   const from = FIELDS.from.safeParse(params.get("from"));
   if (from.success) entry.from = from.data;
   return entry;
@@ -41,6 +46,7 @@ export function availabilityPath(entry: AvailabilityEntry): string {
   const params = new URLSearchParams();
   if (entry.tab) params.set("tab", entry.tab);
   if (entry.closeSection) params.set("closeSection", entry.closeSection);
+  if (entry.action) params.set("action", entry.action);
   if (entry.from) params.set("from", entry.from);
   const query = params.toString();
   return query ? `${ROUTE}?${query}` : ROUTE;

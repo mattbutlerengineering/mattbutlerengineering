@@ -1,65 +1,37 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, SegmentedControl } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfigState } from "@mbe/types";
-import { useViewport } from "../../hooks/useViewport.js";
-import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
+import { SegmentedControl } from "@mattbutlerengineering/rialto";
 import type { AvailabilityTab } from "./availability-entry.js";
 import styles from "./AvailabilityScheduleControls.module.css";
 
 export interface AvailabilityScheduleControlsProps {
-  readonly venueId: string;
-  /** A Manager also gets the schedule features; a Host sees Calendar and Special dates only. */
+  /** A Manager also gets the Schedules layer; a Host sees Calendar and Special dates only. */
   readonly isManager: boolean;
-  readonly state: AvailabilityConfigState;
-  /** Today on the venue clock. */
-  readonly today: string;
   readonly tab: AvailabilityTab;
   readonly onTabChange: (tab: AvailabilityTab) => void;
-  readonly onStale: () => void;
 }
 
 /**
- * The Manager's entry points to the schedule features (ux.md Surfaces): the Calendar | Schedules
- * tabs (the Schedules tab always, even with one schedule), and Change regular week… beside the
- * calendar.
+ * The layer control (ux.md S-Avail2): Schedules | Calendar | Special dates, in that order, with
+ * the Schedules layer always there for a Manager, even with one schedule.
  */
 export function AvailabilityScheduleControls(props: AvailabilityScheduleControlsProps) {
-  const { venueId, isManager, state, today, tab, onTabChange, onStale } = props;
+  const { isManager, tab, onTabChange } = props;
   const { t } = useTranslation();
-  const [changing, setChanging] = useState(false);
-  // On a phone's calendar both schedule actions live in the toolbar's menu (AvailabilityToolbar).
-  const inMenu = useViewport() === "phone" && tab === "calendar";
 
   return (
     <div className={styles.controls}>
       <SegmentedControl
         aria-label={t("availabilitySchedules.tabsLabel")}
         segments={[
-          { id: "calendar", label: t("availabilitySchedules.tabCalendar") },
-          { id: "special", label: t("availabilitySpecial.tab") },
           ...(isManager
             ? [{ id: "schedules", label: t("availabilitySchedules.tabSchedules") }]
             : []),
+          { id: "calendar", label: t("availabilitySchedules.tabCalendar") },
+          { id: "special", label: t("availabilitySpecial.tab") },
         ]}
         value={tab}
         onChange={(id) => onTabChange(id as AvailabilityTab)}
       />
-      {isManager && tab === "calendar" && !inMenu && (
-        <Button variant="secondary" onClick={() => setChanging(true)}>
-          {t("availabilitySchedules.regularWeek.open")}
-        </Button>
-      )}
-      {isManager && changing && (
-        <ChangeRegularWeekDrawer
-          venueId={venueId}
-          state={state}
-          today={today}
-          onStale={onStale}
-          onClose={() => setChanging(false)}
-          onOpenSchedules={() => onTabChange("schedules")}
-        />
-      )}
     </div>
   );
 }

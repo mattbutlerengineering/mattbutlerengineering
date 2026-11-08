@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
+import { weekPanel } from "./helpers/first-paint.js";
 
 /**
  * F1 (docs/features/venue-availability/ux.md): a Manager at a venue with no hours sets the
@@ -24,7 +25,8 @@ test.describe("Availability quick setup (F1)", () => {
     await mockedPage.getByRole("button", { name: "Save and open bookings" }).click();
 
     await expect(mockedPage.getByText("Bookings are open Mon–Fri")).toBeVisible();
-    await expect(mockedPage.getByRole("grid")).toBeVisible();
+    // The save lands on the week panel (Schedules layer), not the calendar.
+    await expect(weekPanel(mockedPage)).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
 
     // Venue Setup (the standing /setup page) now shows the saved week and counts the step done.
@@ -57,7 +59,8 @@ test.describe("Availability quick setup (F1)", () => {
     await mockedPage.getByRole("button", { name: "Weekdays" }).click();
     await mockedPage.getByRole("button", { name: "Save and open bookings" }).click();
 
-    await expect(mockedPage.getByRole("grid")).toBeVisible();
+    // The save lands on the week panel (Schedules layer), not the calendar.
+    await expect(weekPanel(mockedPage)).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
   });
 

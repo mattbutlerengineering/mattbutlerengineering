@@ -276,6 +276,7 @@ describe("buildSetupTree: schedules and services", () => {
       kind: "service",
       opensAt: 690,
       lastSeatingAt: 810,
+      closesAt: 870,
       weekdays: [2, 3, 4, 5],
       changes: [],
     });
@@ -343,9 +344,15 @@ describe("buildSetupTree: schedules and services", () => {
       kind: "link",
       to: "/availability?tab=schedules&from=setup",
     });
+    // Change regular week is a link to the Schedules layer, where the week is edited in place.
     expect(find(open, "schedule:sch-reg").actions[0]?.target).toEqual({
-      kind: "dialog",
-      dialog: "changeRegularWeek",
+      kind: "link",
+      to: "/availability?tab=schedules&from=setup",
+    });
+    // Add a schedule… opens the seeded editor there.
+    expect(find(open, "schedules").actions[1]?.target).toEqual({
+      kind: "link",
+      to: "/availability?tab=schedules&action=addSchedule&from=setup",
     });
   });
 });
@@ -443,7 +450,7 @@ describe("buildSetupTree: special dates and their targets", () => {
 
   it("opens the calendar and the Special dates tab", () => {
     expect(node.actions.map((a) => a.target)).toEqual([
-      { kind: "link", to: "/availability?from=setup" },
+      { kind: "link", to: "/availability?tab=calendar&from=setup" },
       { kind: "link", to: "/availability?tab=special&from=setup" },
     ]);
   });
@@ -719,9 +726,45 @@ describe("buildSetupTree: services with day-specific hours", () => {
       kind: "service",
       opensAt: 1020,
       lastSeatingAt: 1260,
+      closesAt: 1320,
       weekdays: [0, 2, 3, 4, 5, 6],
-      // The Sunday set only moves the closing, so it books the same times and is left out.
-      changes: [{ weekdays: [5, 6], opensAt: 1020, lastSeatingAt: 1320 }],
+      // The Sunday set only moves the closing; it is still a different day and is listed.
+      changes: [
+        { weekdays: [5, 6], opensAt: 1020, lastSeatingAt: 1320, closesAt: 1380 },
+        { weekdays: [0], opensAt: 1020, lastSeatingAt: 1260, closesAt: 1400 },
+      ],
+    });
+  });
+
+  it("shows a per-day set that moves only the close", () => {
+    const config: AvailabilityConfig = {
+      ...REGULAR_WEEK,
+      scheduleServices: REGULAR_WEEK.scheduleServices.map((row) =>
+        row.venueServiceId === "vs-dinner"
+          ? {
+              ...row,
+              dayHours: {
+                version: 1 as const,
+                sets: [
+                  {
+                    weekdays: [5, 6],
+                    ...HOURS,
+                    opensAt: row.opensAt,
+                    lastSeatingAt: row.lastSeatingAt,
+                    closesAt: row.closesAt + 60,
+                  },
+                ],
+              },
+            }
+          : row
+      ),
+    };
+    const tree = buildSetupTree(input({ open: openOf(config) }));
+    const dinner = find(group(tree, "open").nodes, "service:sch-reg:vs-dinner");
+    expect(dinner.state).toMatchObject({
+      kind: "service",
+      closesAt: 1320,
+      changes: [{ weekdays: [5, 6], opensAt: 1020, lastSeatingAt: 1260, closesAt: 1380 }],
     });
   });
 });

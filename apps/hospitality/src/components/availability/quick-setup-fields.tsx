@@ -14,7 +14,7 @@ import {
   type QuickSetupDraft,
   type QuickSetupIssue,
 } from "./quick-setup-draft.js";
-import { issuesFor, quickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
+import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
 import styles from "./QuickSetupForm.module.css";
 
 export function IssueText({
@@ -111,6 +111,7 @@ export function TimesRow<T extends DraftTimes>({
   issues,
   onChange,
 }: TimesRowProps<T>) {
+  const fieldId = useQuickSetupFieldId();
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { opens, closes } = times;
@@ -120,7 +121,7 @@ export function TimesRow<T extends DraftTimes>({
         {TIME_FIELDS.map((field) => (
           <div key={field} className={styles.timeField}>
             <TimePicker
-              id={quickSetupFieldId(serviceId, field, blockId)}
+              id={fieldId(serviceId, field, blockId)}
               label={t(`availability.quickSetup.${field}`)}
               value={times[field]}
               onChange={(value) => onChange(setServiceTime(times, field, value))}

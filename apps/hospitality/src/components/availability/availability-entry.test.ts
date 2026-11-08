@@ -33,6 +33,29 @@ describe("parseAvailabilityEntry", () => {
   });
 });
 
+describe("?action=", () => {
+  it("accepts addSchedule", () => {
+    expect(parseAvailabilityEntry("?tab=schedules&action=addSchedule")).toEqual({
+      tab: "schedules",
+      action: "addSchedule",
+    });
+  });
+
+  it("drops any other action, keeping the other fields", () => {
+    expect(parseAvailabilityEntry("?action=deleteEverything&tab=special")).toEqual({
+      tab: "special",
+    });
+    expect(parseAvailabilityEntry("?action=")).toEqual({});
+  });
+
+  it("round-trips through availabilityPath", () => {
+    const entry = { tab: "schedules", action: "addSchedule", from: "setup" } as const;
+    const path = availabilityPath(entry);
+    expect(path).toBe("/availability?tab=schedules&action=addSchedule&from=setup");
+    expect(parseAvailabilityEntry(path.slice(path.indexOf("?")))).toEqual(entry);
+  });
+});
+
 describe("availabilityPath", () => {
   it("is the bare route for an empty entry", () => {
     expect(availabilityPath({})).toBe("/availability");

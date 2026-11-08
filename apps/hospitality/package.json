@@ -55,8 +55,8 @@
       "limit": "2.9 kB"
     },
     {
-      "name": "Conflict problem parsing (shared by the availability page, timeline, waitlist and call list chunks)",
-      "path": "dist/assets/conflict-problem-*.js",
+      "name": "Schedule form parts (shared by the availability drawers, day editor and quick setup)",
+      "path": "dist/assets/ScheduleFormParts-*.js",
       "limit": "3 kB"
     },
     {
@@ -138,11 +138,6 @@
       "name": "Regular week line (shared by the availability page and Venue Setup, hoisted)",
       "path": "dist/assets/RegularWeekLine-*.js",
       "limit": "11 kB"
-    },
-    {
-      "name": "Discard guard (shared by the availability drawers and Venue Setup, hoisted)",
-      "path": "dist/assets/use-discard-guard-*.js",
-      "limit": "3 kB"
     },
     {
       "name": "Availability refresh + problem parser (shared by the availability page and its closure dialogs, hoisted since #8508)",

@@ -58,16 +58,6 @@ vi.mock("../components/availability/BookingRulesDrawer.js", () => ({
     </section>
   ),
 }));
-vi.mock("../components/availability/ChangeRegularWeekDrawer.js", () => ({
-  ChangeRegularWeekDrawer: ({ onClose }: { onClose: () => void }) => (
-    <section aria-label="Change regular week editor">
-      <button type="button" onClick={onClose}>
-        Close editor
-      </button>
-    </section>
-  ),
-}));
-
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 
@@ -292,16 +282,23 @@ describe("Venue Setup: schedules and services", () => {
     expect(screen.getByText("1 schedule")).toBeInTheDocument();
   });
 
-  it("opens Change regular week in place, and links to the Schedules tab", async () => {
+  it("links Change regular week and Add a schedule… to the Schedules layer", async () => {
     setConfig(WEEK);
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Change regular week…" }));
-    expect(screen.getByRole("region", { name: "Change regular week editor" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Close editor" }));
-    await user.click(screen.getByRole("button", { name: "Compare services" }));
     expect(screen.getByLabelText("location")).toHaveTextContent(
       "/availability?tab=schedules&from=setup"
+    );
+  });
+
+  it("sends Add a schedule… to the seeded editor on the Schedules layer", async () => {
+    setConfig(WEEK);
+    renderPage();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Add a schedule…" }));
+    expect(screen.getByLabelText("location")).toHaveTextContent(
+      "/availability?tab=schedules&action=addSchedule&from=setup"
     );
   });
 });

@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import type { VenueSettings } from "@mbe/types";
 
 /**
@@ -65,5 +66,33 @@ export function withBookingRules(
     ...set("maxAdvanceBooking", form.daysAhead),
     ...set("minAdvanceBooking", form.noticeHours),
     ...set("maxPartySize", form.largestParty),
+  };
+}
+
+/** The rules as numbers (`null` = not set): what the hub's Booking node and the Schedules layer print. */
+export interface BookingRulesValues {
+  readonly daysAhead: number | null;
+  readonly noticeHours: number | null;
+  readonly largestParty: number | null;
+}
+
+/** "Up to 30 days ahead · 1 hour notice · parties up to 12 online": only the rules that are set. */
+export function bookingRulesText(rules: BookingRulesValues, t: TFunction): string {
+  return [
+    rules.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: rules.daysAhead }),
+    rules.noticeHours !== null && t("setup.hub.rules.noticeHours", { count: rules.noticeHours }),
+    rules.largestParty !== null && t("setup.hub.rules.largestParty", { count: rules.largestParty }),
+  ]
+    .filter((part): part is string => part !== false)
+    .join(" · ");
+}
+
+/** The three rules in `Venue.settings` as numbers (`null` where not set). */
+export function bookingRulesOf(settings: VenueSettings | null | undefined): BookingRulesValues {
+  const num = (value: unknown) => (typeof value === "number" ? value : null);
+  return {
+    daysAhead: num(settings?.maxAdvanceBooking),
+    noticeHours: num(settings?.minAdvanceBooking),
+    largestParty: num(settings?.maxPartySize),
   };
 }

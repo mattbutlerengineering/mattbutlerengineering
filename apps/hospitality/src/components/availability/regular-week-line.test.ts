@@ -22,12 +22,17 @@ describe("regularWeekLine", () => {
     const set = dinner.dayHours.sets[0]!;
     expect(Dinner).toMatchObject({ opensAt: dinner.opensAt, lastSeatingAt: dinner.lastSeatingAt });
     expect(Dinner?.changes).toEqual([
-      { weekdays: [5, 6], opensAt: set.opensAt, lastSeatingAt: set.lastSeatingAt },
+      {
+        weekdays: [5, 6],
+        opensAt: set.opensAt,
+        lastSeatingAt: set.lastSeatingAt,
+        closesAt: set.closesAt,
+      },
     ]);
     expect(set.lastSeatingAt).toBeGreaterThan(dinner.lastSeatingAt);
   });
 
-  it("says nothing of a set that moves only the closing: guests book the same times", () => {
+  it("lists a set that moves only the closing, so the line can say it", () => {
     const dinner = DEMO_WEEK_CONFIG.scheduleServices.find((s) => s.id === "demo-ss-dinner")!;
     const closeOnly: AvailabilityConfig = {
       ...DEMO_WEEK_CONFIG,
@@ -48,7 +53,16 @@ describe("regularWeekLine", () => {
       ),
     };
     const { Dinner, Lunch } = byName(closeOnly);
-    expect(Dinner?.changes).toEqual([]);
+    const set = dinner.dayHours.sets[0]!;
+    expect(set.closesAt).not.toBe(dinner.closesAt);
+    expect(Dinner?.changes).toEqual([
+      {
+        weekdays: [5, 6],
+        opensAt: dinner.opensAt,
+        lastSeatingAt: dinner.lastSeatingAt,
+        closesAt: set.closesAt,
+      },
+    ]);
     expect(Lunch?.changes).toEqual([]);
   });
 

@@ -24,3 +24,38 @@
     flex-basis: 100%;
   }
 }
+
+/*
+ * A phone's header actions share the title's row (Availability: Close…, ⋯), so they add no row to the
+ * screen. The title and its description become grid items: title and aside on row one, the
+ * description across row two.
+ */
+@media (max-width: 767px) {
+  .asideBesideTitle {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--rialto-space-sm);
+    row-gap: 0;
+  }
+
+  .asideBesideTitle > :first-child {
+    display: contents;
+  }
+
+  .asideBesideTitle > :first-child > :first-child {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .asideBesideTitle > :first-child > :nth-child(2) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .asideBesideTitle .aside {
+    grid-column: 2;
+    grid-row: 1;
+    flex-basis: auto;
+  }
+}

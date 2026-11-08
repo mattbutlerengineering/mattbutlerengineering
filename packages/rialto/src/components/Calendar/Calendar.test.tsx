@@ -2,7 +2,7 @@
  * Unit tests for the Calendar component: value round-trip, min/max + predicate
  * disabling, keyboard navigation, and ARIA grid structure.
  */
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 import { render, screen, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Calendar } from "./Calendar";
@@ -89,6 +89,55 @@ describe("Calendar — min/max + predicate disabling", () => {
     expect(onChange).not.toHaveBeenCalled();
     await user.click(cell(container, "2024-06-03"));
     expect(onChange).toHaveBeenCalledWith("2024-06-03");
+  });
+
+  it("opens on the min date's month when there is no value and min is after today", () => {
+    // A field whose earliest date is in a later month (a "To" after a chosen "From") would
+    // otherwise open on a month where every day is disabled.
+    const { container } = renderCalendar({ value: null, min: "2099-03-10" });
+    expect(cell(container, "2099-03-10")).not.toHaveAttribute("aria-disabled");
+    const tabbable = container.querySelectorAll('[role="gridcell"][tabindex="0"]');
+    expect(tabbable).toHaveLength(1);
+    expect(tabbable[0]).toHaveAttribute("data-date", "2099-03-10");
+  });
+
+  describe("with today pinned to 2099-03-10", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"], now: new Date(2099, 2, 10, 12) });
+    });
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("opens on today when min is today", () => {
+      const { container } = renderCalendar({ value: null, min: "2099-03-10" });
+      const tabbable = container.querySelectorAll('[role="gridcell"][tabindex="0"]');
+      expect(tabbable).toHaveLength(1);
+      expect(tabbable[0]).toHaveAttribute("data-date", "2099-03-10");
+      expect(cell(container, "2099-03-10")).not.toHaveAttribute("aria-disabled");
+      expect(cell(container, "2099-03-09")).toHaveAttribute("aria-disabled", "true");
+    });
+
+    it("opens on min's month when max is before min, with every day disabled and no crash", () => {
+      const { container } = renderCalendar({ value: null, min: "2099-05-10", max: "2099-05-01" });
+      expect(cell(container, "2099-05-10")).toHaveAttribute("aria-disabled", "true");
+      expect(cell(container, "2099-05-01")).toHaveAttribute("aria-disabled", "true");
+      expect(container.querySelectorAll('[role="gridcell"][tabindex="0"]')).toHaveLength(1);
+    });
+
+    it("ignores a min that is not a date and opens on today's month", () => {
+      const { container } = renderCalendar({ value: null, min: "soon" });
+      expect(cell(container, "2099-03-10")).toBeInTheDocument();
+      const tabbable = container.querySelectorAll('[role="gridcell"][tabindex="0"]');
+      expect(tabbable[0]).toHaveAttribute("data-date", "2099-03-10");
+    });
+  });
+
+  it("still opens on today's month when min is in the past", () => {
+    const { container } = renderCalendar({ value: null, min: "2000-01-01" });
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    expect(cell(container, iso)).toBeInTheDocument();
   });
 });
 
