@@ -1,6 +1,18 @@
+import type { Page } from "@playwright/test";
 import { loadFixture } from "./api-mocks.js";
 import { test, expect } from "./fixtures.js";
 // Screenshots saved to e2e/screenshots/{spec}-{state}.png on test run
+
+/**
+ * Selects table 1 from the sidebar's table list. The canvas's table buttons are an a11y overlay
+ * under a `<canvas>` that intercepts pointer events, so they are not clickable.
+ */
+async function selectTable1(page: Page): Promise<void> {
+  await page
+    .locator('[class*="tableListStack"]')
+    .getByRole("button", { name: "1", exact: true })
+    .click();
+}
 
 test.describe("CF-4: Floor plan editor", () => {
   test("floor plans page shows cards", async ({ mockedPage }) => {
@@ -79,10 +91,7 @@ test.describe("CF-4: Floor plan editor", () => {
     });
 
     await mockedPage.goto("floor-plans/fp_e2e_001");
-    await mockedPage
-      .getByRole("button", { name: /Table 1/ })
-      .first()
-      .click();
+    await selectTable1(mockedPage);
 
     await mockedPage.getByRole("combobox", { name: "Section" }).click();
     await mockedPage.getByRole("option", { name: "Bar" }).click();
@@ -92,10 +101,7 @@ test.describe("CF-4: Floor plan editor", () => {
 
     // Reload: the assignment is read back from the floor plan, not held in form state.
     await mockedPage.reload();
-    await mockedPage
-      .getByRole("button", { name: /Table 1/ })
-      .first()
-      .click();
+    await selectTable1(mockedPage);
     await expect(mockedPage.getByRole("combobox", { name: "Section" })).toHaveText(/Bar/);
 
     // And back out again.
