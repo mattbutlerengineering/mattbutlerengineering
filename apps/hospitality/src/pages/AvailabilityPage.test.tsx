@@ -502,14 +502,14 @@ describe("AvailabilityPage", () => {
 
     it("opens a Manager's Close dialog on the section ?closeSection= names", () => {
       renderPage("/availability?closeSection=sec-bar");
-      const dialog = screen.getByRole("dialog", { name: "Close", exact: true });
+      const dialog = screen.getByRole("dialog", { name: /^Close$/ });
       expect(within(dialog).getByRole("radio", { name: "One section" })).toBeChecked();
       expect(within(dialog).getByRole("combobox", { name: "Section" })).toHaveTextContent("Bar");
     });
 
     it("opens the Close dialog with no preselection for a section the venue lacks", () => {
       renderPage("/availability?closeSection=gone");
-      const dialog = screen.getByRole("dialog", { name: "Close", exact: true });
+      const dialog = screen.getByRole("dialog", { name: /^Close$/ });
       expect(within(dialog).getByRole("radio", { name: "Whole venue" })).toBeChecked();
       expect(within(dialog).getByRole("radio", { name: "One section" })).not.toBeChecked();
     });
