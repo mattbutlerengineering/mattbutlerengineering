@@ -563,7 +563,7 @@ describe("schedule drawers", () => {
       const dayChecks = () =>
         screen.queryAllByRole("checkbox").filter((c) => (c as HTMLInputElement).checked);
 
-      it("shows no service's own days before Starting, and asks for a start date, when a service runs a subset", () => {
+      it("shows no service's own days before Starting, so Save asks for days the Manager chose", () => {
         // Lunch Mon–Fri with Dinner every day.
         renderNew(
           "new",
@@ -576,10 +576,10 @@ describe("schedule drawers", () => {
           target: { value: "Summer hours" },
         });
         expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-        expect(screen.getByText("Choose a start date to save.")).toBeInTheDocument();
+        expect(screen.queryByText("Choose a start date to save.")).not.toBeInTheDocument();
       });
 
-      it("never saves a dateless schedule with days, whatever the services run on", () => {
+      it("never saves a dateless schedule with days the Manager did not choose", () => {
         // Lunch Mon–Fri with Brunch Sat–Sun: nothing follows the shared days.
         renderNew(
           "new",
@@ -590,12 +590,29 @@ describe("schedule drawers", () => {
           target: { value: "Summer hours" },
         });
         expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-        expect(screen.getByText("Choose a start date to save.")).toBeInTheDocument();
         // Taking Brunch away leaves a Lunch-only subset: still no dateless save.
         fireEvent.click(screen.getByRole("button", { name: "Remove service 2" }));
         expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
         fireEvent.click(screen.getByRole("button", { name: "Save" }));
         expect(save).not.toHaveBeenCalled();
+      });
+
+      it("saves an undated schedule on days the Manager picks, as a named week for those days (C13)", async () => {
+        // The regular week runs Fridays, so weekends add a week of their own without replacing it.
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Weekends" },
+        });
+        fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+        await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+        const upsert = save.mock.calls[0]?.[0].body.changes.upsert;
+        expect(
+          upsert.assignments.map((a: { weekdays: number[]; startsOn?: string | null }) => [
+            [...a.weekdays].sort(),
+            a.startsOn ?? null,
+          ])
+        ).toEqual([[[0, 6], null]]);
       });
 
       it("gives each service back its own days once Starting is set", () => {

@@ -242,8 +242,6 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     services: draft.services,
     startsOn,
     endsOn,
-    // Add a schedule… always starts on a date: with none it would be used nowhere, or outrank the regular week.
-    startRequired: !editing && seed === "regular",
     // A copy of the regular week saved with no end would take it over for good.
     replacesRegularWeek: !editing && replacesRegularWeek(config, useOn, today),
   });
