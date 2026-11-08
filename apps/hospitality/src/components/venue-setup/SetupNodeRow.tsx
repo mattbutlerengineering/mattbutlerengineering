@@ -62,7 +62,7 @@ export function SetupNodeRow(props: SetupNodeRowProps) {
             {label}
           </Button>
         ) : (
-          <Text as="span" variant="label" id={labelId} className={styles.name}>
+          <Text as="span" variant="body" id={labelId} className={styles.name}>
             {label}
           </Text>
         )}

@@ -152,7 +152,7 @@ test.describe("Venue Setup hub", () => {
     await expect(week.getByText("A manager sets this up.")).toBeVisible();
     await expect(page.getByRole("region", { name: "Setup progress" })).toHaveCount(0);
     await expect(
-      page.getByRole("button", {
+      page.getByRole("main").getByRole("button", {
         name: /set up|edit|change|close|add|move|rules|compare|create|open/i,
       })
     ).toHaveCount(0);

@@ -6864,9 +6864,6 @@
   </section>
   <section priority="medium" role="venue-setup">
   <file path="src/components/venue-setup/setup-tree.ts">
-    <item priority="high">
-      export const SPECIAL_DATES_SHOWN: unknown;
-    </item>
     <item priority="low">
       type Channel = (typeof CHANNELS)[number];
     </item>

@@ -17,7 +17,7 @@ import { availabilityPath } from "../availability/availability-entry.js";
  */
 
 /** How many upcoming special dates the hub lists before "Show all". */
-export const SPECIAL_DATES_SHOWN = 5;
+const SPECIAL_DATES_SHOWN = 5;
 
 const ALL_WEEKDAYS: readonly number[] = [0, 1, 2, 3, 4, 5, 6];
 const CHANNELS = ["online", "phone", "waitlist"] as const;

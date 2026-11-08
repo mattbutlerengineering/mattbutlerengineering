@@ -95843,7 +95843,6 @@
   </section>
   <section priority="medium" role="venue-setup">
   <file path="apps/hospitality/src/components/venue-setup/setup-tree.ts">
-    export const SPECIAL_DATES_SHOWN = 5;
     export type Channel = (typeof CHANNELS)[number];
     export type SetupNodeKind =
       | "schedules"

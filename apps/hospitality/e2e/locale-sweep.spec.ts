@@ -426,6 +426,13 @@ const USER_TEXT_FIELDS: Record<string, RegExp> = {
   "user-me.json": /^name$/,
 };
 
+/**
+ * Names a Manager typed for the mock availability config's services (api-mocks.ts, inline rather
+ * than a JSON fixture). Venue Setup lists them; "Lunch" and "Dinner" are also catalog words
+ * (quick-setup presets, the booking widget's periods) a locale translates.
+ */
+const MOCK_SERVICE_NAMES: readonly string[] = ["Lunch", "Dinner"];
+
 function userEnteredText(): string[] {
   const collect = (node: unknown, fields: RegExp, key = ""): string[] => {
     if (typeof node === "string") return fields.test(key) ? [node] : [];
@@ -438,7 +445,7 @@ function userEnteredText(): string[] {
       fields
     )
   );
-  return Array.from(new Set(values.map(normalize)));
+  return Array.from(new Set([...values, ...MOCK_SERVICE_NAMES].map(normalize)));
 }
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
