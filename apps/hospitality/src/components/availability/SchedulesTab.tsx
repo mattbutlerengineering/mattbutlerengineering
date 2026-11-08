@@ -41,6 +41,8 @@ export interface SchedulesTabProps {
   /** Compare services is open (the page's ⋯ menu opens it). */
   readonly comparing: boolean;
   readonly onComparingChange: (comparing: boolean) => void;
+  /** Opens the booking rules drawer (the page renders it). */
+  readonly onBookingRules: () => void;
 }
 
 export interface ScheduleEditorTarget {
@@ -97,7 +99,7 @@ function useUsageText(state: AvailabilityConfigState) {
  */
 export function SchedulesTab(props: SchedulesTabProps) {
   const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
-  const { onEditorChange, comparing, onComparingChange } = props;
+  const { onEditorChange, comparing, onComparingChange, onBookingRules } = props;
   const { t } = useTranslation();
   const { selectedVenue } = useVenue();
   const offerUndo = useAvailabilityUndo();
@@ -168,6 +170,13 @@ export function SchedulesTab(props: SchedulesTabProps) {
         resetAtVersion={laterVersion}
         refreshError={props.refreshError}
       />
+      <div>
+        <Button variant="ghost" onClick={onBookingRules}>
+          {rules === ""
+            ? t("availabilitySchedules.layer.bookingUnset")
+            : t("availabilitySchedules.layer.booking", { rules })}
+        </Button>
+      </div>
       <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       {others.length > 0 && (
         <section aria-labelledby="other-schedules">
@@ -258,11 +267,6 @@ export function SchedulesTab(props: SchedulesTabProps) {
           />
         </section>
       )}
-      <Text variant="body" color="secondary">
-        {rules === ""
-          ? t("availabilitySchedules.layer.bookingUnset")
-          : t("availabilitySchedules.layer.booking", { rules })}
-      </Text>
       <ScheduleDraftGuard
         dirty={compareDirty}
         asking={compareGuard.pending !== null}

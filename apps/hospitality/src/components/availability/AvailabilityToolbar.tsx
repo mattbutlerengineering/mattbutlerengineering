@@ -92,6 +92,7 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
       <DropdownMenu
         trigger={<Button variant="secondary">{t("availability.selection.selectMenu")}</Button>}
         items={selectItems}
+        align="right"
       />
     ) : null;
 

@@ -108,6 +108,15 @@ describe("RegularWeekPanel", () => {
     expect(screen.queryByText(/This becomes your regular week/)).not.toBeInTheDocument();
   });
 
+  it("pins the footer while the form is dirty, and only then", () => {
+    const { container } = render(panel(stateOf(demoConfig())));
+    expect(container.querySelector("[data-pinned]")).toBeNull();
+    fireEvent.click(lunchMonday());
+    const pinned = container.querySelector("[data-pinned]");
+    expect(pinned).not.toBeNull();
+    expect(within(pinned as HTMLElement).getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
   it("an edit adds Discard, Save and the drawer's captions", () => {
     render(panel(stateOf(demoConfig())));
     fireEvent.click(lunchMonday());
