@@ -30,15 +30,36 @@ const GUEST_LINES: Record<string, string[]> = {
   Sunday: ["Brunch 10:00 AM – 1:15 PM", "Dinner 5:00 PM – 9:15 PM"],
 };
 
-/** The same services as the day drawer lists them: open to close. */
-const DRAWER_LINES: Record<string, string[]> = {
-  Monday: ["Lunch 11:30 AM – 2:30 PM"],
-  Tuesday: ["Lunch 11:30 AM – 2:30 PM", "Dinner 5:00 PM – 10:00 PM"],
-  Wednesday: ["Lunch 11:30 AM – 2:30 PM", "Dinner 5:00 PM – 10:00 PM"],
-  Thursday: ["Lunch 11:30 AM – 2:30 PM", "Dinner 5:00 PM – 10:00 PM"],
-  Friday: ["Lunch 11:30 AM – 2:30 PM", "Dinner 5:00 PM – 12:00 AM (next day)"],
-  Saturday: ["Brunch 10:00 AM – 2:00 PM", "Dinner 5:00 PM – 12:00 AM (next day)"],
-  Sunday: ["Brunch 10:00 AM – 2:00 PM", "Dinner 5:00 PM – 10:00 PM"],
+/**
+ * The same services as the calendar cell and the day drawer print them (ux.md "Service time
+ * rule"): open–close, then last seating; a past-midnight close reads "12:00 AM (next day)".
+ */
+const SERVICE_HOURS: Record<string, string[]> = {
+  Monday: ["Lunch 11:30 AM–2:30 PM, last seating 1:45 PM"],
+  Tuesday: [
+    "Lunch 11:30 AM–2:30 PM, last seating 1:45 PM",
+    "Dinner 5:00 PM–10:00 PM, last seating 9:15 PM",
+  ],
+  Wednesday: [
+    "Lunch 11:30 AM–2:30 PM, last seating 1:45 PM",
+    "Dinner 5:00 PM–10:00 PM, last seating 9:15 PM",
+  ],
+  Thursday: [
+    "Lunch 11:30 AM–2:30 PM, last seating 1:45 PM",
+    "Dinner 5:00 PM–10:00 PM, last seating 9:15 PM",
+  ],
+  Friday: [
+    "Lunch 11:30 AM–2:30 PM, last seating 1:45 PM",
+    "Dinner 5:00 PM–12:00 AM (next day), last seating 11:15 PM",
+  ],
+  Saturday: [
+    "Brunch 10:00 AM–2:00 PM, last seating 1:15 PM",
+    "Dinner 5:00 PM–12:00 AM (next day), last seating 11:15 PM",
+  ],
+  Sunday: [
+    "Brunch 10:00 AM–2:00 PM, last seating 1:15 PM",
+    "Dinner 5:00 PM–10:00 PM, last seating 9:15 PM",
+  ],
 };
 
 const strip = (page: Page) => page.getByRole("complementary", { name: "Guest preview" });
@@ -150,10 +171,12 @@ test.describe("The demo week (PRD: the demo runs as written)", () => {
     // 9. Save the week they already watched.
     await page.getByRole("button", { name: "Save and open bookings" }).click();
     await expect(page.getByText("Bookings are open every day")).toBeVisible();
-    await expect(page.getByRole("grid")).toBeVisible();
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
+    // The save lands on the week panel (Schedules layer); the calendar is the next layer over.
+    await page.goto("availability?tab=calendar");
+    await expect(page.getByRole("grid")).toBeVisible();
 
-    // The calendar: each weekday of next week lists the services and the times the strip showed.
+    // The calendar: each weekday of next week lists the same services, in the service time rule.
     const monday = nextMonday(localDay());
     await page.getByRole("radio", { name: "Week" }).click({ force: true });
     await page.getByRole("button", { name: "Next", exact: true }).click();
@@ -162,23 +185,19 @@ test.describe("The demo week (PRD: the demo runs as written)", () => {
       await expect(cell).toBeVisible();
       // The day list loads after the week renders, so wait for it rather than read a skeleton.
       await expect
-        .poll(
-          async () =>
-            (await serviceLines(cell)).map((l) => l.replace("–", " – ").replace(/ +/g, " ")),
-          { message: `calendar, ${day}` }
-        )
-        .toEqual(watched[day]);
+        .poll(async () => serviceLines(cell), { message: `calendar, ${day}` })
+        .toEqual(SERVICE_HOURS[day]);
     }
 
-    // The day drawer lists each weekday's services open to close; the guest preview, opened by
-    // starting an edit of the day's first service, lists what a guest can book and is the strip's
-    // own line for the day. Editing a close moves no bookable time, so every line stays comparable.
+    // The day drawer prints each weekday's services as the calendar cell does; the guest preview,
+    // opened by starting an edit of the day's first service, lists what a guest can book and is
+    // the strip's own line for the day. Editing a close moves no bookable time, so every line stays comparable.
     for (const [offset, day] of WEEKDAYS.entries()) {
       await page.locator(`[data-date="${plusDays(monday, offset)}"]`).click();
       const drawer = page.getByRole("dialog").first();
       const first = GUEST_LINES[day]![0]!.split(" ")[0]!;
       await expect(drawer.getByRole("button", { name: `Edit ${first}` })).toBeVisible();
-      expect(await serviceLines(drawer), `drawer, ${day}`).toEqual(DRAWER_LINES[day]);
+      expect(await serviceLines(drawer), `drawer, ${day}`).toEqual(SERVICE_HOURS[day]);
 
       await drawer.getByRole("button", { name: `Edit ${first}` }).click();
       await chooseTime(drawer.getByRole("group", { name: first }), page, "Closes", "3:00 PM");

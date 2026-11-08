@@ -29,7 +29,7 @@ export function nextMonday(today: string): string {
   return plusDays(today, 7 - sinceMonday);
 }
 
-/** The service lines a strip row, a preview, a calendar cell or a drawer prints: "Dinner 5:00 PM – 9:15 PM". */
+/** The service lines a strip row, a preview, a calendar cell or a drawer prints: "Dinner 5:00 PM – 9:15 PM" (strip, preview) or "Dinner 5:00 PM–10:00 PM, last seating 9:15 PM" (cell, drawer). */
 export async function serviceLines(scope: Locator): Promise<string[]> {
   const text = await scope.innerText();
   return text
@@ -54,7 +54,7 @@ export async function calendarWeek(page: Page, monday: string): Promise<Record<s
         }
       )
       .toBe(true);
-    week[day] = (await serviceLines(cell)).map((l) => l.replace("–", " – ").replace(/ +/g, " "));
+    week[day] = await serviceLines(cell);
   }
   return week;
 }

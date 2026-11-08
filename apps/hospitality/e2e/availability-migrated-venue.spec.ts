@@ -69,24 +69,28 @@ test.describe("A migrated venue", () => {
     mockedPage: page,
   }) => {
     await mockEmptyVenue(page, { derive: true, config: collapsed() });
-    await page.goto("availability");
+    await page.goto("availability?tab=calendar");
 
     await expect(
-      page.getByText("Regular week: Dinner 5:00 PM–9:00 PM Mon–Fri, Thu–Fri until 10:00 PM")
+      page.getByText(
+        "Regular week: Dinner 5:00 PM–10:00 PM, last seating 9:00 PM Mon–Fri, Thu–Fri until 11:00 PM, last seating 10:00 PM"
+      )
     ).toBeVisible();
     await expect(page.getByRole("grid")).toBeVisible();
     expect(await page.locator("body").innerText()).not.toMatch(/Thu–Fri hours/);
     await expect(page.getByRole("radio", { name: "Calendar" })).toBeVisible();
     await page.getByRole("radio", { name: "Schedules" }).click();
-    await expect(page.getByRole("heading", { name: "Schedules" })).toBeVisible();
+    await expect(page.getByRole("grid")).toBeHidden();
     expect(await page.locator("body").innerText()).not.toMatch(/Thu–Fri hours/);
   });
 
   test("a venue not yet collapsed still has its Schedules tab", async ({ mockedPage: page }) => {
     await mockEmptyVenue(page, { derive: true, config: oldShapeMigrated() });
-    await page.goto("availability");
+    await page.goto("availability?tab=calendar");
 
-    await expect(page.getByText("Regular week: Dinner 5:00 PM–9:00 PM Mon–Wed")).toBeVisible();
+    await expect(
+      page.getByText("Regular week: Dinner 5:00 PM–10:00 PM, last seating 9:00 PM Mon–Wed")
+    ).toBeVisible();
     await expect(page.getByRole("radio", { name: "Schedules" })).toBeVisible();
     // The day-named schedule shows on the calendar, so its absence above is not an empty page.
     await expect(page.getByText("Thu–Fri hours").first()).toBeVisible();

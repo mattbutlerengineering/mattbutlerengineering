@@ -20,7 +20,7 @@ const failure = {
 const NEVER_RETRIED = 15_000;
 
 async function openDay(page: Page, label: RegExp) {
-  await page.goto("availability");
+  await page.goto("availability?tab=calendar");
   await page.locator("[data-date]").first().waitFor();
   await page.getByRole("button", { name: label }).nth(20).click();
   return page.getByRole("dialog");
@@ -35,7 +35,7 @@ test.describe("a read that failed", () => {
     await page.route(`${base}/availability/config`, (route) =>
       answering ? route.fallback() : route.fulfill(failure)
     );
-    await page.goto("availability");
+    await page.goto("availability?tab=calendar");
     const banner = page.getByRole("alert").filter({ hasText: "Couldn't load availability" });
     await expect(banner).toBeVisible({ timeout: NEVER_RETRIED });
     await expect(page.getByRole("button", { name: /^Close…/ })).toHaveCount(0);
@@ -53,7 +53,7 @@ test.describe("a read that failed", () => {
   }) => {
     await mockAvailability(page);
     await page.route(`${base}/availability/days*`, (route) => route.fulfill(failure));
-    await page.goto("availability");
+    await page.goto("availability?tab=calendar");
     await expect(
       page.getByRole("alert").filter({ hasText: "Couldn't load availability" })
     ).toBeVisible({ timeout: NEVER_RETRIED });
@@ -63,7 +63,7 @@ test.describe("a read that failed", () => {
   test("Team: a banner with Retry", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await page.route(/\/api\/v1\/venues\/[^/?]+\/team$/, (route) => route.fulfill(failure));
-    await page.goto("availability");
+    await page.goto("availability?tab=calendar");
     await expect(
       page
         .getByRole("alert")
@@ -255,7 +255,7 @@ test("+ Add service on a closed day adds a row and moves focus into it", async (
   mockedPage: page,
 }) => {
   await mockAvailability(page, { weekdays: [1, 2, 3] });
-  await page.goto("availability");
+  await page.goto("availability?tab=calendar");
   await page.locator("[data-date]").first().waitFor();
   await page.locator('button[aria-label*="Closed"]').first().click();
   const dialog = page.getByRole("dialog");
@@ -267,7 +267,7 @@ test("+ Add service on a closed day adds a row and moves focus into it", async (
 
 test("Close: a failed Next moves focus to the first problem", async ({ mockedPage: page }) => {
   await mockAvailability(page);
-  await page.goto("availability");
+  await page.goto("availability?tab=calendar");
   await page.getByRole("button", { name: "Pause online booking" }).click();
   const dialog = page.getByRole("dialog", { name: "Close", exact: true });
   await dialog
@@ -280,8 +280,9 @@ test("Close: a failed Next moves focus to the first problem", async ({ mockedPag
 
 test("Change regular week says why Save is off", async ({ mockedPage: page }) => {
   await mockAvailability(page);
-  await page.goto("availability");
-  await page.getByRole("button", { name: "Change regular week…" }).click();
+  await page.goto("availability?tab=schedules");
+  // The week panel's Starting later… opens Change regular week (the dated frame of the same form).
+  await page.getByRole("button", { name: "Starting later…" }).click();
   const drawer = page.getByRole("dialog");
   await expect(drawer.getByText("Choose a start date to save.")).toBeVisible();
   await expect(drawer.getByRole("button", { name: /^Save/ })).toBeDisabled();
@@ -291,8 +292,9 @@ test("Change regular week offers no start date after the end date", async ({
   mockedPage: page,
 }) => {
   await mockAvailability(page);
-  await page.goto("availability");
-  await page.getByRole("button", { name: "Change regular week…" }).click();
+  await page.goto("availability?tab=schedules");
+  // The week panel's Starting later… opens Change regular week (the dated frame of the same form).
+  await page.getByRole("button", { name: "Starting later…" }).click();
   const drawer = page.getByRole("dialog");
   // The picker's own day cells: the page calendar's date sits on a button inside its cell.
   const offeredDays = page.locator('[role="gridcell"][data-date]:not([aria-disabled]):visible');
@@ -316,13 +318,12 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
   mockedPage: page,
 }) => {
   const mock = await mockAvailability(page);
-  await page.goto("availability");
-  // The Schedules tab is always shown to a Manager; its New schedule opens the editor.
-  await page.getByRole("radio", { name: "Schedules" }).click();
-  await page.getByRole("button", { name: "New schedule" }).click();
+  await page.goto("availability?tab=schedules");
+  // Add a schedule… opens the schedule editor, seeded from the regular week.
+  await page.getByRole("button", { name: "Add a schedule…" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
-  await page.getByRole("button", { name: "Brunch", exact: true }).click();
-  await page.getByRole("button", { name: "Weekdays", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Brunch", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Weekdays", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Spare saved")).toBeVisible();
   // By keyboard, with the drawer that offered it gone: focus must not fall to the page body.
@@ -414,13 +415,12 @@ test("a refused Undo names each stranded booking with a link, outside the alert 
       }),
     })
   );
-  await page.goto("availability");
-  // The Schedules tab is always shown to a Manager; its New schedule opens the editor.
-  await page.getByRole("radio", { name: "Schedules" }).click();
-  await page.getByRole("button", { name: "New schedule" }).click();
+  await page.goto("availability?tab=schedules");
+  // Add a schedule… opens the schedule editor, seeded from the regular week.
+  await page.getByRole("button", { name: "Add a schedule…" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
-  await page.getByRole("button", { name: "Brunch", exact: true }).click();
-  await page.getByRole("button", { name: "Weekdays", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Brunch", exact: true }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Weekdays", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Spare saved")).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
@@ -447,7 +447,7 @@ test("the day drawer's Why this day reads in French (#8089)", async ({ mockedPag
       },
     ],
   });
-  await page.goto("availability");
+  await page.goto("availability?tab=calendar");
   await page.locator("[data-date]").first().waitFor();
   await page.locator("button[data-date]").nth(20).click();
   const layers = page.getByRole("dialog").locator("ol li");
@@ -529,7 +529,7 @@ test("a refused reopen lists each booking with a link, outside its alert (#8043)
       }),
     })
   );
-  await page.goto("availability");
+  await page.goto("availability?tab=calendar");
   await page.getByRole("radio", { name: "Special dates" }).click({ force: true });
   await page.getByRole("button", { name: /^Remove closure for/ }).click();
   const dialog = page.getByRole("dialog");

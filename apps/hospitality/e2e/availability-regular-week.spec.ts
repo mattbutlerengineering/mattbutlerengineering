@@ -86,9 +86,9 @@ async function mockTueSatVenue(page: Page, dateRules: unknown[] = []) {
 test.describe("Change regular week (F-UW)", () => {
   test("a Tuesday to Saturday venue keeps Sunday and Monday closed", async ({ mockedPage }) => {
     const state = await mockTueSatVenue(mockedPage);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability?tab=schedules");
 
-    await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
+    await mockedPage.getByRole("button", { name: "Starting later…" }).click();
     await expect(
       mockedPage.getByText("This becomes your regular week: open Tue–Sat.")
     ).toBeVisible();
@@ -108,18 +108,19 @@ test.describe("Change regular week (F-UW)", () => {
 
   test("Escape on a drawer with unsaved edits asks first", async ({ mockedPage }) => {
     await mockTueSatVenue(mockedPage);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability?tab=schedules");
 
     const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
-    await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
+    await mockedPage.getByRole("button", { name: "Starting later…" }).click();
     await expect(drawer).toBeVisible();
-    await mockedPage.getByRole("textbox", { name: "Service name" }).first().fill("Dinner late");
+    // The week panel behind the drawer has the same fields: type in the drawer's.
+    await drawer.getByRole("textbox", { name: "Service name" }).first().fill("Dinner late");
 
     await mockedPage.keyboard.press("Escape");
     const ask = mockedPage.getByRole("alertdialog", { name: "Discard your changes?" });
     await expect(ask).toBeVisible();
     await ask.getByRole("button", { name: "Keep editing" }).click();
-    await expect(mockedPage.getByRole("textbox", { name: "Service name" }).first()).toHaveValue(
+    await expect(drawer.getByRole("textbox", { name: "Service name" }).first()).toHaveValue(
       "Dinner late"
     );
 
@@ -135,13 +136,13 @@ test.describe("Change regular week (F-UW)", () => {
     mockedPage,
   }) => {
     await mockTueSatVenue(mockedPage);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability?tab=schedules");
 
     const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
-    await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
-    await mockedPage.getByRole("textbox", { name: "Service name" }).first().fill("Dinner late");
+    await mockedPage.getByRole("button", { name: "Starting later…" }).click();
+    await drawer.getByRole("textbox", { name: "Service name" }).first().fill("Dinner late");
 
-    await mockedPage.getByRole("button", { name: "Cancel" }).click();
+    await drawer.getByRole("button", { name: "Cancel" }).click();
     const ask = mockedPage.getByRole("alertdialog", { name: "Discard your changes?" });
     await expect(ask).toBeVisible();
     // A real click: the prompt must stack above the drawer's overlay, not under it.
@@ -203,14 +204,8 @@ test.describe("Change regular week (F-UW)", () => {
             body: JSON.stringify({ data: previewResult }),
           })
         );
-        await mockedPage.goto("availability");
-        // On a phone the toolbar keeps this action in its More menu.
-        if (size.width < 500) {
-          await mockedPage.getByRole("button", { name: "More actions" }).click();
-          await mockedPage.getByRole("menuitem", { name: "Change regular week…" }).click();
-        } else {
-          await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
-        }
+        await mockedPage.goto("availability?tab=schedules");
+        await mockedPage.getByRole("button", { name: "Starting later…" }).click();
         const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
         await expect(drawer.getByText(/Make a change to see what guests will see/)).toBeVisible();
 
@@ -251,9 +246,8 @@ test.describe("Change regular week (F-UW)", () => {
         })
       );
       await mockedPage.addInitScript(() => localStorage.setItem("mbe-hospitality-locale", "fr-CA"));
-      await mockedPage.goto("availability");
-      await mockedPage.getByRole("button", { name: "Plus d’actions" }).click();
-      await mockedPage.getByRole("menuitem", { name: /^Modifier la semaine habituelle/ }).click();
+      await mockedPage.goto("availability?tab=schedules");
+      await mockedPage.getByRole("button", { name: "Commencer plus tard…" }).click();
       const drawer = mockedPage.getByRole("dialog").first();
       await mockedPage.getByLabel(/^Début/).click();
       await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
@@ -278,8 +272,8 @@ test.describe("Change regular week (F-UW)", () => {
       await mockedPage.route("**/availability/preview*", (route) =>
         route.fulfill({ status: 500, contentType: "application/problem+json", body: "{}" })
       );
-      await mockedPage.goto("availability");
-      await mockedPage.getByRole("button", { name: "Change regular week…" }).click();
+      await mockedPage.goto("availability?tab=schedules");
+      await mockedPage.getByRole("button", { name: "Starting later…" }).click();
       await mockedPage.getByLabel("Starting").click();
       await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
 
@@ -339,7 +333,7 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
         (locale) => localStorage.setItem("mbe-hospitality-locale", locale),
         c.locale
       );
-      await mockedPage.goto("availability");
+      await mockedPage.goto("availability?tab=calendar");
       await mockedPage.getByRole("button", { name: c.more }).click();
       await mockedPage.getByRole("menuitem", { name: c.goTo }).click();
       const dialog = mockedPage.getByRole("dialog", { name: c.goTo });
@@ -372,7 +366,7 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
         (locale) => localStorage.setItem("mbe-hospitality-locale", locale),
         c.locale
       );
-      await mockedPage.goto("availability");
+      await mockedPage.goto("availability?tab=calendar");
       const more = mockedPage.getByRole("button", { name: c.more });
       await more.click();
       await mockedPage.getByRole("menuitem", { name: c.goTo }).click();
@@ -408,7 +402,7 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
         (locale) => localStorage.setItem("mbe-hospitality-locale", locale),
         c.locale
       );
-      await mockedPage.goto("availability");
+      await mockedPage.goto("availability?tab=calendar");
       const day = localDay(1);
       // Phone and tablet list the days; the grid is desktop only. Either way the date is a button.
       await mockedPage.locator(`button[data-date="${day}"]`).click();
@@ -522,7 +516,7 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
           (locale) => localStorage.setItem("mbe-hospitality-locale", locale),
           c.locale
         );
-        await mockedPage.goto("availability");
+        await mockedPage.goto("availability?tab=calendar");
         await mockedPage.locator(`button[data-date="${day}"]`).click();
         const drawer = mockedPage.getByRole("dialog").first();
         const remove = drawer.getByRole("button", { name: c.remove });
@@ -565,7 +559,7 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
           (locale) => localStorage.setItem("mbe-hospitality-locale", locale),
           c.locale
         );
-        await mockedPage.goto("availability");
+        await mockedPage.goto("availability?tab=calendar");
         await mockedPage.locator(`button[data-date="${day}"]`).click();
         const drawer = mockedPage.getByRole("dialog").first();
         await drawer.getByRole("button", { name: c.edit }).click();
@@ -587,22 +581,15 @@ test.describe("Change regular week: name suggestion (#7981)", () => {
     for (const locale of ["en-US", "fr-CA"]) {
       test(`one tap fills the name (${size.width}px, ${locale})`, async ({ mockedPage }) => {
         const fr = locale === "fr-CA";
-        const open = fr ? /^Modifier la semaine habituelle/ : "Change regular week…";
+        const open = fr ? "Commencer plus tard…" : "Starting later…";
         await mockedPage.setViewportSize(size);
         await mockTueSatVenue(mockedPage);
         await mockedPage.addInitScript(
           (tag) => localStorage.setItem("mbe-hospitality-locale", tag),
           locale
         );
-        await mockedPage.goto("availability");
-        if (size.width < 500) {
-          await mockedPage
-            .getByRole("button", { name: fr ? "Plus d’actions" : "More actions" })
-            .click();
-          await mockedPage.getByRole("menuitem", { name: open }).click();
-        } else {
-          await mockedPage.getByRole("button", { name: open }).click();
-        }
+        await mockedPage.goto("availability?tab=schedules");
+        await mockedPage.getByRole("button", { name: open }).click();
         // The name is asked for only when the change has an end date (it is then a named period).
         // Ending first, so no preview starts before the name is typed or suggested.
         await mockedPage.getByLabel(fr ? /^Fin/ : "Ending").click();

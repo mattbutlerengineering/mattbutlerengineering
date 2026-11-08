@@ -168,7 +168,7 @@ test.describe("Availability close dialog: One section (ADR-032)", () => {
     await mockedPage.clock.setFixedTime(pinnedNoon());
     const state = await mockAvailability(mockedPage, CLOSE_DATE);
 
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability?tab=calendar");
     const calendar = mockedPage.getByRole("grid", { name: "Availability calendar" });
     await expect(calendar).toBeVisible();
     await mockedPage.getByRole("button", { name: "Next", exact: true }).click();
