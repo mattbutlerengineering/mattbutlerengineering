@@ -90,6 +90,23 @@ describe("Calendar — min/max + predicate disabling", () => {
     await user.click(cell(container, "2024-06-03"));
     expect(onChange).toHaveBeenCalledWith("2024-06-03");
   });
+
+  it("opens on the min date's month when there is no value and min is after today", () => {
+    // A field whose earliest date is in a later month (a "To" after a chosen "From") would
+    // otherwise open on a month where every day is disabled.
+    const { container } = renderCalendar({ value: null, min: "2099-03-10" });
+    expect(cell(container, "2099-03-10")).not.toHaveAttribute("aria-disabled");
+    const tabbable = container.querySelectorAll('[role="gridcell"][tabindex="0"]');
+    expect(tabbable).toHaveLength(1);
+    expect(tabbable[0]).toHaveAttribute("data-date", "2099-03-10");
+  });
+
+  it("still opens on today's month when min is in the past", () => {
+    const { container } = renderCalendar({ value: null, min: "2000-01-01" });
+    const today = new Date();
+    const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+    expect(cell(container, iso)).toBeInTheDocument();
+  });
 });
 
 describe("Calendar — getDateLabel", () => {

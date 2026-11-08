@@ -1455,6 +1455,17 @@ describe("CloseDialog", () => {
       expect(screen.getByText(/Fri, Dec 25 has special hours/)).toBeTruthy();
     });
 
+    it("opens To on the From date's month and refuses days before From (vacation range)", () => {
+      renderDialog({ initialDate: "2027-01-15" });
+      fireEvent.click(screen.getByRole("radio", { name: "Date range" }));
+      fireEvent.click(screen.getByRole("combobox", { name: "To" }));
+      const day = (iso: string) => document.querySelector<HTMLElement>(`[data-date="${iso}"]`);
+      // No month to page through: the first choosable day is on screen.
+      expect(day("2027-01-20")).not.toBeNull();
+      expect(day("2027-01-20")).not.toHaveAttribute("aria-disabled");
+      expect(day("2027-01-10")).toHaveAttribute("aria-disabled", "true");
+    });
+
     it("says a Host's emergency close is all day, with no start time to pick", () => {
       renderDialog({ hostLocked: true, initialDate: null });
       const dialog = screen.getByRole("dialog");

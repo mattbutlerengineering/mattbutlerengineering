@@ -116,11 +116,11 @@ export function CloseStepOne(props: CloseStepOneProps) {
 
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
-  const dateField = (label: string, value: string, set: (v: string) => void) => (
+  const dateField = (label: string, value: string, set: (v: string) => void, min = today) => (
     <DatePicker
       label={label}
       value={value || null}
-      min={today}
+      min={min}
       locale={format.locale}
       weekStartsOn={WEEK_STARTS_ON}
       onChange={(v) => set(v ?? "")}
@@ -327,8 +327,12 @@ export function CloseStepOne(props: CloseStepOneProps) {
                     {dateField(t("availability.close.when.fromLabel"), when.from, (from) =>
                       patch({ when: { ...when, from } })
                     )}
-                    {dateField(t("availability.close.when.toLabel"), when.to, (to) =>
-                      patch({ when: { ...when, to } })
+                    {/* To starts no earlier than From, and so opens on From's month. */}
+                    {dateField(
+                      t("availability.close.when.toLabel"),
+                      when.to,
+                      (to) => patch({ when: { ...when, to } }),
+                      when.from && when.from > today ? when.from : today
                     )}
                   </>
                 )}
