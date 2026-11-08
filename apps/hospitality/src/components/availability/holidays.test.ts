@@ -1,27 +1,8 @@
 import { describe, expect, it } from "vitest";
-import type { AvailabilityConfig, DateRule } from "@mbe/types";
-import { holidayCountry, holidaysIn, holidaysWithin, upcomingHolidays } from "./holidays.js";
+import { holidayCountry, holidaysIn, holidaysWithin } from "./holidays.js";
 
 const dateOf = (country: "US" | "CA" | "MX", year: number, id: string) =>
   holidaysIn(country, year).find((h) => h.id === id)?.date;
-
-const EMPTY: AvailabilityConfig = {
-  schedules: [],
-  venueServices: [],
-  scheduleServices: [],
-  assignments: [],
-  dateRules: [],
-};
-
-const closure = (startsOn: string, extra: Partial<DateRule> = {}) =>
-  ({
-    id: `r-${startsOn}`,
-    kind: "closure",
-    targetKind: "venue",
-    startsOn,
-    endsOn: startsOn,
-    ...extra,
-  }) as DateRule;
 
 describe("holidaysIn", () => {
   it("places the moving US holidays on their weekday", () => {
@@ -64,50 +45,6 @@ describe("holidaysIn", () => {
   it("lists a year in date order", () => {
     const dates = holidaysIn("MX", 2026).map((h) => h.date);
     expect(dates).toEqual([...dates].sort());
-  });
-});
-
-describe("upcomingHolidays", () => {
-  it("lists from today to the horizon, across the new year", () => {
-    const ids = upcomingHolidays("US", "2026-11-04", EMPTY).map((h) => `${h.id} ${h.date}`);
-    expect(ids).toEqual([
-      "thanksgiving 2026-11-26",
-      "christmasEve 2026-12-24",
-      "christmasDay 2026-12-25",
-      "newYearsEve 2026-12-31",
-      "newYearsDay 2027-01-01",
-      "valentinesDay 2027-02-14",
-    ]);
-  });
-
-  it("includes a holiday that is today", () => {
-    expect(upcomingHolidays("US", "2026-11-26", EMPTY)[0]?.id).toBe("thanksgiving");
-  });
-
-  it("drops a date a rule already covers, and keeps one only a skip or Tonight touches", () => {
-    const config: AvailabilityConfig = {
-      ...EMPTY,
-      dateRules: [
-        closure("2026-12-24", { endsOn: "2026-12-26" }),
-        closure("2026-11-26", { kind: "skip" } as Partial<DateRule>),
-      ],
-    };
-    const ids = upcomingHolidays("US", "2026-11-04", config).map((h) => h.id);
-    expect(ids).not.toContain("christmasEve");
-    expect(ids).not.toContain("christmasDay");
-    expect(ids).toContain("thanksgiving");
-  });
-
-  it("drops a date an open-ended or repeating rule covers on that weekday only", () => {
-    // Thursdays closed from Nov 1 on: Thanksgiving is planned; Christmas Eve (a Thursday) too.
-    const config: AvailabilityConfig = {
-      ...EMPTY,
-      dateRules: [closure("2026-11-01", { endsOn: null, repeat: { version: 1, weekdays: [4] } })],
-    };
-    const ids = upcomingHolidays("US", "2026-11-04", config).map((h) => h.id);
-    expect(ids).not.toContain("thanksgiving");
-    expect(ids).not.toContain("christmasEve");
-    expect(ids).toContain("christmasDay");
   });
 });
 

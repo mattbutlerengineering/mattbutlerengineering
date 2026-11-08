@@ -32,6 +32,14 @@ vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
+vi.mock("../../hooks/useHolidayDecisions.js", () => ({
+  useHolidayDecisions: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+  useSetHolidayDecision: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useClearHolidayDecision: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("../../hooks/useApiClient.js", () => ({
+  useApiClient: () => ({ availability: { getConfig: vi.fn() } }),
+}));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({

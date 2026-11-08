@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next";
 import { Button, Text } from "@mattbutlerengineering/rialto";
 import { addDays } from "@mbe/availability";
 import type { AvailabilityConfig } from "@mbe/types";
+import { useHolidayDecisions } from "../../hooks/useHolidayDecisions.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { upcomingHolidays } from "./holidays.js";
-import { readOpenAsUsual } from "./open-as-usual.js";
+import { holidayStates, HOLIDAY_HORIZON_DAYS } from "./holiday-decisions.js";
 import { useHolidayCountry } from "./use-holidays.js";
 import styles from "./RegularWeekLine.module.css";
 
@@ -22,22 +22,28 @@ export interface NextHolidayNudgeProps {
 }
 
 /**
- * Calendar, Managers: the next holiday within a month that no date rule covers and that is not
- * marked Open as usual, with a way to Special dates. The calendar names holidays already; this says
- * the nearest one has not been decided.
+ * Calendar, Managers: the next holiday within a month that nothing has decided yet, with a way to
+ * Special dates. A closure, special hours, a rule this flow does not own and an Open as usual all
+ * count as decided, for everyone: they come from the venue's own data. The decisions are read
+ * through the query Special dates uses, so opening it next costs no second request. While they
+ * load or fail it says nothing: it never nags about a holiday it cannot yet know is decided.
  */
 export function NextHolidayNudge({ venueId, config, today, onPlan }: NextHolidayNudgeProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const country = useHolidayCountry();
+  const decisions = useHolidayDecisions({
+    venueId,
+    from: today,
+    to: addDays(today, HOLIDAY_HORIZON_DAYS),
+  });
   const next = useMemo(() => {
-    if (!country) return undefined;
-    const openAsUsual = readOpenAsUsual(venueId);
+    if (!country || !decisions.data) return undefined;
     const last = addDays(today, NUDGE_DAYS);
-    return upcomingHolidays(country, today, config).find(
-      (h) => h.date <= last && !openAsUsual.includes(h.date)
+    return holidayStates(country, today, config, decisions.data).find(
+      (h) => h.state.kind === "undecided" && h.date <= last
     );
-  }, [country, venueId, today, config]);
+  }, [country, today, config, decisions.data]);
   if (!next) return null;
 
   const name = t(`availabilitySpecial.holidays.name.${next.id}`);

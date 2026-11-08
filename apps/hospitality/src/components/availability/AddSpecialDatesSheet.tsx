@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -62,6 +62,15 @@ export interface AddSpecialDatesSheetProps {
   readonly onClose: () => void;
   /** One Closed row per date to start from (the holidays offered on Special dates); else one empty row. */
   readonly initialRows?: readonly PlannedDate[];
+  /**
+   * With valid initial rows, run Next once on mount and keep the drawer shut until there is
+   * something to decide (Step 2) or something went wrong: nothing affected saves straight away.
+   */
+  readonly autoNext?: boolean;
+  /** The success toast's title, in place of the count of dates ("Closed on Thanksgiving, Thu, Nov 26"). */
+  readonly savedTitle?: string;
+  /** The closures were saved (not cancelled, not refused), called once before the sheet closes. */
+  readonly onSaved?: () => void;
 }
 
 /** A date the sheet opens on, and what it is ("Thanksgiving"), shown in its row's legend. */
@@ -100,6 +109,7 @@ const SHARED_MESSAGE_ID = "add-dates-shared-message";
 export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const viewport = useViewport();
   const { venueId, state, timezone, today, onStale, onClose, initialRows } = props;
+  const { autoNext, savedTitle, onSaved } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
@@ -201,13 +211,20 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
         (n, r) => n + r.outcomes.cancel + r.outcomes.move + r.outcomes.keep_notify,
         0
       );
+      const savedCount = t(
+        notified > 0 ? "availabilitySpecial.add.savedNotified" : "availabilitySpecial.add.saved",
+        { count: dateCount, notified }
+      );
       toast({
-        title: t(
-          notified > 0 ? "availabilitySpecial.add.savedNotified" : "availabilitySpecial.add.saved",
-          { count: dateCount, notified }
-        ),
+        title:
+          savedTitle === undefined
+            ? savedCount
+            : notified > 0
+              ? t("availabilitySpecial.holidays.savedNotified", { title: savedTitle, notified })
+              : savedTitle,
         variant: "success",
       });
+      onSaved?.();
       onClose();
     } catch (error) {
       const refused = refusalOf(error);
@@ -300,6 +317,16 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     }
   };
 
+  // A holiday sent here to be closed asks its one question (Step 2) only when it has one.
+  const autoStartedRef = useRef(false);
+  // Reads the form as it was opened; the effect re-runs only when `autoNext` does.
+  const startNext = useEffectEvent(() => void next());
+  useEffect(() => {
+    if (!autoNext || autoStartedRef.current) return;
+    autoStartedRef.current = true;
+    startNext();
+  }, [autoNext]);
+  const waitingOnAuto = autoNext === true && step === 1 && failure.length === 0 && invalid === null;
   const counts = outcomeCounts(combined.groups, choices);
   const label = (() => {
     if (step === 1) return t("availabilitySpecial.add.next");
@@ -341,6 +368,9 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
       </Drawer>
     );
   }
+
+  // Nothing to decide yet: no drawer until Step 2 or a failure needs one.
+  if (waitingOnAuto) return null;
 
   return (
     <>

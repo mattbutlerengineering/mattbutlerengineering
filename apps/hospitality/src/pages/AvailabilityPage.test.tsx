@@ -97,6 +97,14 @@ vi.mock("../hooks/useAvailability.js", () => ({
   AVAILABILITY_CONFIG_QUERY_KEY: "availabilityConfig",
   AVAILABILITY_DAYS_QUERY_KEY: "availabilityDays",
 }));
+vi.mock("../hooks/useHolidayDecisions.js", () => ({
+  useHolidayDecisions: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+  useSetHolidayDecision: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useClearHolidayDecision: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: () => ({ availability: { getConfig: vi.fn() } }),
+}));
 vi.mock("../hooks/useVenues.js", async (importOriginal) => ({
   ...(await importOriginal<typeof Venues>()),
   useUpdateVenue: () => ({ mutateAsync: vi.fn(), isPending: false }),

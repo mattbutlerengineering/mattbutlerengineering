@@ -11,6 +11,8 @@ const read = vi.hoisted(() => ({
   config: null as unknown,
   source: "rows" as "rows" | "empty" | "legacy",
   migrated: false,
+  /** The venue's open-as-usual decisions; `undefined` while they load. */
+  decisions: [] as unknown[] | undefined,
 }));
 const team = vi.hoisted(() => ({ value: undefined as Partial<VenueTeam> | undefined }));
 const venue = vi.hoisted(() => ({
@@ -52,6 +54,19 @@ vi.mock("../hooks/useClosures.js", () => ({
   useClosureSummaries: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useRetryClosureRefunds: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
+vi.mock("../hooks/useHolidayDecisions.js", () => ({
+  useHolidayDecisions: () => ({
+    data: read.decisions,
+    isLoading: read.decisions === undefined,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  useSetHolidayDecision: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useClearHolidayDecision: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: () => ({ availability: { getConfig: vi.fn() } }),
+}));
 vi.mock("../components/availability/AvailabilityQuickSetup.js", () => ({
   AvailabilityQuickSetup: () => <section aria-label="Quick setup" />,
 }));
@@ -92,6 +107,7 @@ describe("AvailabilityPage regular-week line", () => {
     read.config = DEMO_WEEK_CONFIG;
     read.source = "rows";
     read.migrated = false;
+    read.decisions = [];
     team.value = { viewerRole: "manager" };
   });
 
@@ -170,7 +186,6 @@ describe("AvailabilityPage regular-week line", () => {
   });
 
   it("tells a Manager the next unplanned holiday and takes them to Special dates", () => {
-    localStorage.clear();
     renderPage();
     expect(
       screen.getByText("Thanksgiving is Thu, Nov 26 and isn't planned yet.")
@@ -179,16 +194,23 @@ describe("AvailabilityPage regular-week line", () => {
     expect(screen.getByRole("radio", { name: "Special dates" })).toBeChecked();
   });
 
-  it("says nothing of a holiday to a Host, or of one marked Open as usual", () => {
+  it("says nothing of a holiday to a Host, or of one decided Open as usual", () => {
     team.value = { viewerRole: "host" };
     const { unmount } = renderPage();
     expect(screen.queryByText(/isn't planned yet/)).not.toBeInTheDocument();
     unmount();
     team.value = { viewerRole: "manager" };
-    localStorage.setItem("mbe-availability-open-as-usual:venue-1", JSON.stringify(["2026-11-26"]));
+    read.decisions = [
+      { serviceDate: "2026-11-26", decision: "open_as_usual", createdAt: "2026-11-04T00:00:00Z" },
+    ];
     renderPage();
     expect(screen.queryByText(/Thanksgiving is/)).not.toBeInTheDocument();
-    localStorage.clear();
+  });
+
+  it("says nothing while the decisions load, rather than nag about a holiday it cannot know", () => {
+    read.decisions = undefined;
+    renderPage();
+    expect(screen.queryByText(/isn't planned yet/)).not.toBeInTheDocument();
   });
 
   it("shows a regular week saved for a later date before it takes over", () => {
