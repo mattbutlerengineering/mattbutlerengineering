@@ -7,6 +7,7 @@ import {
   GATE_PATH_MATCHERS,
   decideFastPath,
   main,
+  makePrReaders,
   parseArgs,
 } from "../fast-path-decision.mjs";
 
@@ -251,5 +252,22 @@ describe("GATE_PATH_MATCHERS single-source pin", () => {
       for (const f of hit[g.pattern]) expect(g.matches(f), `${g.pattern} ${f}`).toBe(true);
       expect(g.matches("src/app.ts")).toBe(false);
     }
+  });
+});
+
+describe("makePrReaders (REST-only, #8494)", () => {
+  test("reads files and labels via gh api, never a GraphQL-backed `gh pr` subcommand", () => {
+    const calls = [];
+    const gh = (args) => {
+      calls.push(args);
+      if (args.join(" ").includes("/files")) return "a.ts\nb.ts\n";
+      return "bug\nui-quality\n";
+    };
+    const { getFiles, getLabels } = makePrReaders(gh);
+    expect(getFiles("7")).toEqual(["a.ts", "b.ts"]);
+    expect(getLabels("7")).toEqual(["bug", "ui-quality"]);
+    expect(calls.every((a) => a[0] === "api")).toBe(true);
+    expect(calls.some((a) => a.join(" ").includes("pulls/7/files"))).toBe(true);
+    expect(calls.some((a) => a.join(" ").includes("issues/7/labels"))).toBe(true);
   });
 });

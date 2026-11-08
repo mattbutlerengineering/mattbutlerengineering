@@ -449,6 +449,68 @@ describe("ci-gate-status", () => {
     });
   });
 
+  describe("cloud REST-only mode (#8494)", () => {
+    const run = (name, status, conclusion) => ({ name, status, conclusion });
+
+    test("no rollup: CI Gate success check-run classifies green", async () => {
+      const { evaluatePr } = await import("../ci-gate-status.mjs");
+      const result = evaluatePr("1", {
+        viewPr: () => ({ statusCheckRollup: null, headRefOid: "abc" }),
+        fetchCheckRuns: () => [
+          run("Build", "completed", "success"),
+          run("CI Gate", "completed", "success"),
+        ],
+      });
+      expect(result.state).toBe("green");
+    });
+
+    test("no rollup: failed CI Gate classifies failed", async () => {
+      const { evaluatePr } = await import("../ci-gate-status.mjs");
+      const result = evaluatePr("1", {
+        viewPr: () => ({ statusCheckRollup: null, headRefOid: "abc" }),
+        fetchCheckRuns: () => [run("CI Gate", "completed", "failure")],
+      });
+      expect(result.state).toBe("failed");
+    });
+
+    test("no rollup: other jobs running, no gate yet is pending", async () => {
+      const { evaluatePr } = await import("../ci-gate-status.mjs");
+      const result = evaluatePr("1", {
+        viewPr: () => ({ statusCheckRollup: null, headRefOid: "abc" }),
+        fetchCheckRuns: () => [run("Build", "in_progress", null)],
+      });
+      expect(result.state).toBe("pending");
+    });
+
+    test("no rollup: no check-runs at all is gate-missing", async () => {
+      const { evaluatePr } = await import("../ci-gate-status.mjs");
+      const result = evaluatePr("1", {
+        viewPr: () => ({ statusCheckRollup: null, headRefOid: "abc" }),
+        fetchCheckRuns: () => [],
+      });
+      expect(result.state).toBe("gate-missing");
+    });
+
+    test("no rollup and failed fetch is unknown", async () => {
+      const { evaluatePr } = await import("../ci-gate-status.mjs");
+      const result = evaluatePr("1", {
+        viewPr: () => ({ statusCheckRollup: null, headRefOid: "abc" }),
+        fetchCheckRuns: () => null,
+      });
+      expect(result.state).toBe("unknown");
+    });
+
+    test("isGraphqlBlocked matches the verbatim CCR error only", async () => {
+      const { isGraphqlBlocked } = await import("../ci-gate-status.mjs");
+      expect(
+        isGraphqlBlocked(
+          new Error("HTTP 403: GitHub GraphQL is not available from Claude Code sessions")
+        )
+      ).toBe(true);
+      expect(isGraphqlBlocked(new Error("HTTP 404: Not Found"))).toBe(false);
+    });
+  });
+
   describe("fetch-error handling (#6290)", () => {
     const noGateRollup = [{ name: "Build", status: "COMPLETED", conclusion: "SUCCESS" }];
 
