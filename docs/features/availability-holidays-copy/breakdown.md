@@ -3,7 +3,7 @@ stage: decompose
 run: feature:availability-holidays-copy
 date: 2026-11-08
 assumptions:
-  - "Four slices. A (the kind) is small and lands first, because B and C compile against its Zod member and the regenerated Prisma client. After A's first item, B and C run in parallel with each other and with A's remaining tests: their files are disjoint (architecture.md § Files). Shared files are the three i18n catalogs only, each slice adding keys under its own namespace (B: availabilitySpecial.holidays.*, C: availabilitySchedules.copy.*)."
+  - "REVISED (Main): Open-as-usual lives in its own table and endpoints, not a DateRule kind (architecture.md header). Four slices. A (the store) lands its first item first, because B compiles against the shared types and the api-client methods; C touches no decision code and may start at once. After A1, B and C run in parallel with each other and with A2 to A4: their files are disjoint (architecture.md § D). Shared files are the three i18n catalogs only, each slice adding keys under its own namespace (B: availabilitySpecial.holidays.*, C: availabilitySchedules.copy.*)."
   - "The shared contract (type names, exports, prop names) is in architecture.md § Shared contract. A slice may not rename anything in it without messaging the others."
   - "Checks (build, tests, lint) run once by the main agent after the slices land, not by each slice."
 ---
@@ -12,33 +12,32 @@ assumptions:
 
 PRD criteria are numbered as in prd.md.
 
-## Slice A: the `open_as_usual` kind (types, engine, server)
+## Slice A: the holiday-decision store (migration, routes, types, api-client)
 
-- [ ] **A1. The kind and the migration.** *Land first, alone.*
-  - `packages/types/src/schemas/availability-config.ts`: add the `open_as_usual` member (`targetKind: z.literal("venue")`), export `OpenAsUsualRule`.
-  - `services/reservations/prisma/schema.prisma`: add `open_as_usual` to `enum DateRuleKind` and to the `DateRule` doc comment.
-  - New migration `…_add_open_as_usual_date_rule_kind/migration.sql`: `ALTER TYPE "DateRuleKind" ADD VALUE IF NOT EXISTS 'open_as_usual';`, with the precedent's non-destructive header and the rollback note (soft-delete the rows first).
-  - Regenerate the Prisma client.
+- [ ] **A1. Table, types, endpoints.** *Land first, alone.*
+  - `schema.prisma`: `VenueHolidayDecision` (`@@unique([venueId, serviceDate])`, `decision` a string, FK cascade); migration `<ts>_add_venue_holiday_decision` with the `CREATE TABLE`, `ENABLE`/`FORCE ROW LEVEL SECURITY`, the `venue_holiday_decision_isolation` policy and the `app_reservations` grant (as `20261025000000_add_venue_availability` `:287-359`). Regenerate the Prisma client.
+  - `packages/types`: `schemas/holiday-decisions.ts` and `endpoints/holiday-decisions.ts` exactly as the shared contract; exported from the indexes.
+  - `packages/api-client/src/availability.ts`: `listHolidayDecisions`, `setHolidayDecision`, `clearHolidayDecision`.
 
-  Acceptance: `tsc` passes in `packages/types`, `packages/availability`, `services/reservations`; `dateRuleData` writes the new value with no code change. PRD 3, 4.
-- [ ] **A2. Engine tests: guests resolve identically.** In `packages/availability`: deep-equal `resolveDay` with and without the rule (plain, special-hours and closed days, `explanation` included); the booking judge verdict identical; `validateConfig` accepts the rule; every `ofKind` excludes it. In `packages/types`: parse and reject cases. PRD 4.
-- [ ] **A3. Service tests.** In `services/reservations`: PUT config upsert then GET; remove + upsert in one PUT replaces a `special_hours` row; a Host is refused; a stale version is 409; `POST …/closures` refuses the kind with 422; the calendar summary label is unchanged; the migration applies over existing rows. PRD 3, 4, 10.
-- [ ] **A4. Docs.** One line each in `services/reservations/docs/reference.md` (the kind, no payload, PUT-only, Manager) and `packages/availability/CLAUDE.md` (the layer order is unchanged: this kind selects no layer).
+  Acceptance: `tsc` passes in `packages/types`, `packages/api-client`, `services/reservations`. PRD 3.
+- [ ] **A2. Service and routes.** `services/holiday-decision.ts` (`list`, `set` idempotent upsert, `clear` idempotent delete; skips a row whose `decision` it cannot parse), added to `domain-services.ts`; `routes/holiday-decisions.ts` with `registerEndpoint` (list: any member; set and clear: Manager), registered in `app.ts` under `AVAILABILITY_CONFIG_PREFIX`; RFC 7807 errors; OpenAPI docs. PRD 3.
+- [ ] **A3. Tests.** Route and service tests, the three `rls-route-sweep` fixtures and the RLS isolation and cascade checks, schema tests, the api-client tests (architecture.md § E "A"). PRD 3.
+- [ ] **A4. Docs.** The three routes and the table in `services/reservations/docs/reference.md`.
 
-Files owned: `packages/types/src/schemas/availability-config.ts` (+tests), `packages/availability/src/**` tests only, `services/reservations/prisma/**`, `services/reservations/src/**` tests only, the two docs.
+Files owned: `services/reservations/prisma/**`, the new route and service files, `domain-services.ts`, `app.ts` (one line), `rls-route-sweep.fixtures.ts`, `reference.md`; `packages/types` (the two new files and the indexes); `packages/api-client/src/availability.ts` and its tests. No existing availability file changes: `DateRuleSchema`, the engine and the config route are not touched.
 
 ## Slice B: holiday decisions UI (depends on A1)
 
-- [ ] **B1. Pure model.** `holiday-decisions.ts` with `holidayDecisions`, `openAsUsualRule`, `decisionChanges`, and the 365-day horizon; delete `isPlanned`, `upcomingHolidays` and `HOLIDAY_HORIZON_DAYS` from `holidays.ts` and fix `holidays.test.ts`. Tests: every precedence row in architecture.md § B1. PRD 1, 5.
+- [ ] **B1. Pure model.** `holiday-decisions.ts` with `holidayStates(country, today, config, decisions)` and the 365-day horizon (a covering rule outranks the open mark); delete `isPlanned`, `upcomingHolidays` and `HOLIDAY_HORIZON_DAYS` from `holidays.ts` and fix `holidays.test.ts`. Tests: every precedence row in architecture.md § B1. PRD 1, 5.
 - [ ] **B2. Closure-path props.** `AddSpecialDatesSheet`: `autoNext` and `savedTitle`. `ReopenClosureDialog`: `onReopened`. Tests for each prop (with nothing affected the sheet saves with no drawer shown; with bookings affected it shows step two; the toast text). PRD 1, 2.
-- [ ] **B3. Decision hook and line.** `use-holiday-decision.ts` (saving, failed and retry per date, the PUT for Open as usual, the chains for Closed and Special hours per architecture.md § B2, Undo) and `HolidayLine.tsx` with its CSS module (three choices, `aria-pressed`, 44 px targets at 375 px, Change). Tests: the PUT body, one request when replacing special hours or an earlier mark, the 400 and 409 failure states with Retry, the line never showing as decided on failure. PRD 1, 5, 10.
-- [ ] **B4. The Upcoming holidays panel.** Rewrite `UpcomingHolidays.tsx`: usually-closed header and `Close these N` (two or more undecided), month `h3` groups, first 5 and "Show N more", the folded Decided group, Host read-only, the `other` → day-drawer route through `onOpenDay`. Wire `SpecialDatesTab` (state and callbacks for the sheet and the reopen chain) and pass `onOpenDay` from `AvailabilityPage` (≤ 3 lines). PRD 1, 2, 3, 5.
-- [ ] **B5. Nudge and cutover.** `NextHolidayNudge` reads `holidayDecisions`; delete `open-as-usual.ts` and its imports; replace the localStorage seed in `AvailabilityPage.regularWeek.test.tsx:188` with an `open_as_usual` rule. Remove the dead catalog keys. PRD 3.
+- [ ] **B3. Query hooks, decision hook and line.** `hooks/useHolidayDecisions.ts` (query key `holidayDecisions`, set and clear mutations invalidating it, no `trackOwnSave`); `use-holiday-decision.ts` (saving, failed and retry per date; the ordered chains of architecture.md § B2: remove the owned rule or reopen the closure first and then `set`; write the closure or special hours first and then `clear`; Undo = `clear`) and `HolidayLine.tsx` with its CSS module (three choices, `aria-pressed`, 44 px targets at 375 px, Change). Tests: the calls and their order for every transition, a failure at each step leaving the line undecided with Retry, a 404 and a 405 from `set` reading `Couldn't save.`, the line never showing as decided on failure. PRD 1, 5, 10.
+- [ ] **B4. The Upcoming holidays panel.** Rewrite `UpcomingHolidays.tsx`: usually-closed header and `Close these N` (two or more undecided), month `h3` groups, first 5 and "Show N more", the folded Decided group, the loading skeleton and the failed-list state (no lines), Host read-only, the `other` → day-drawer route through `onOpenDay`. Wire `SpecialDatesTab` (state and callbacks for the sheet and the reopen chain) and pass `onOpenDay` from `AvailabilityPage` (≤ 3 lines). PRD 1, 2, 3, 5.
+- [ ] **B5. Nudge and cutover.** `NextHolidayNudge` reads `holidayStates` (nothing rendered while the list loads or fails); delete `open-as-usual.ts` and its imports; replace the localStorage seed in `AvailabilityPage.regularWeek.test.tsx:188` with a decision for `2026-11-26`. Remove the dead catalog keys. PRD 3.
 - [ ] **B6. Strings.** `availabilitySpecial.holidays.*` per ux.md in en-US, es-MX and fr-CA; key parity; lists through `Intl.ListFormat`. PRD 11.
 
 Order: B1 and B2 in parallel; B3 after B1 and B2; B4 after B3; B5 and B6 after B4.
 
-Files owned: `holiday-decisions.ts`, `holidays.ts` (+tests), `UpcomingHolidays.tsx`, `HolidayLine.tsx` (+css), `use-holiday-decision.ts`, `NextHolidayNudge.tsx`, `open-as-usual.ts` (deleted), `SpecialDatesTab.tsx` (+css, tests), `AddSpecialDatesSheet.tsx`, `ReopenClosureDialog.tsx`, `AvailabilityPage.tsx` (the `onOpenDay` line only), `AvailabilityPage.regularWeek.test.tsx`, `availabilitySpecial.holidays.*` in the catalogs.
+Files owned: `holiday-decisions.ts`, `holidays.ts` (+tests), `hooks/useHolidayDecisions.ts`, `UpcomingHolidays.tsx`, `HolidayLine.tsx` (+css), `use-holiday-decision.ts`, `NextHolidayNudge.tsx`, `open-as-usual.ts` (deleted), `SpecialDatesTab.tsx` (+css, tests), `AddSpecialDatesSheet.tsx`, `ReopenClosureDialog.tsx`, `AvailabilityPage.tsx` (the `onOpenDay` line only), `AvailabilityPage.regularWeek.test.tsx`, `availabilitySpecial.holidays.*` in the catalogs.
 
 ## Slice C: Copy UI (independent of A and B)
 
@@ -53,13 +52,13 @@ Files owned: `copy-week-draft.ts`, `copy-day.ts`, `CopyDayAction.tsx` (+tests), 
 
 ## Slice D: scenarios (after A, B and C)
 
-- [ ] **D1. Shared-config mock and the e2e spec.** `e2e/helpers/shared-config-mock.ts` (one in-memory config for two pages' config GET and PUT) and `e2e/availability-holidays-copy.spec.ts`:
+- [ ] **D1. Shared-config mock and the e2e spec.** `e2e/helpers/shared-config-mock.ts` (one in-memory store for two pages: config GET and PUT and the three `holiday-decisions` routes) and `e2e/availability-holidays-copy.spec.ts`:
   - H1 (≤ 3);
   - H2 (≤ 3, and the second Manager's context shows the decision with 0 decisions and no nudge);
   - H3 (≤ before);
   - K1 (≤ before; the PUT carries week rows and no `dateRules` upsert; matching days send no PUT);
   - K2 (≤ before; one rule per date, no repeat);
-  - the failure line (a 400 answer, Retry, not shown as decided);
+  - the failure line (the decision `PUT` answers 404 once, as an older server would: `Couldn't save.`, Retry, not shown as decided);
   - a Host sees decisions read-only.
 
   Counts are recorded as agent stand-in annotations through `countInteractions`; "before" is measured on this run's base at Implement. PRD 1–3, 5, 6, 8, 9, 10.
@@ -76,10 +75,11 @@ A1 ──┬─► B1,B2 ─► B3 ─► B4 ─► B5,B6 ──┐
      └─► A2,A3,A4 ─────────────────────┘
 ```
 
-- A1 is the only gate; C does not even need it to compile (it touches no rule kind), so C may start at once.
+- A1 is the only gate for B; C touches no decision code, so C may start at once.
 - A2 to A4, B and C are parallel after A1.
 - D follows all three.
 
 ## Notes
 
-- 2026-11-08 (Decompose): architecture.md corrects prd.md's "no SQL migration": `DateRule.kind` is a Postgres enum, so A1 carries one additive migration.
+- 2026-11-08 (Decompose): architecture.md corrects prd.md's "no SQL migration": the new table needs one `CREATE TABLE` migration with RLS and grants (A1).
+- 2026-11-08 (Revised, Main): the first design, a new `open_as_usual` `DateRule` kind, is replaced by a separate table and endpoints, because it made old tabs (Host stations on Timeline) fail to parse the config and made a server rollback fail every date-rule read.
