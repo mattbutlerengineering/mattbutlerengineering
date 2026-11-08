@@ -578,3 +578,87 @@ describe("AvailabilityCalendar multi-select", () => {
     expect(onOpenDayMock).not.toHaveBeenCalled();
   });
 });
+
+describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
+  const dec = (d: number) => `2026-12-${String(d).padStart(2, "0")}`;
+  const weekday = (date: string) => (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
+  // December 2026: Mon–Thu on the Weeknights schedule, the rest on the regular week.
+  const DECEMBER = Array.from({ length: 31 }, (_, i) => dec(i + 1)).map((date) =>
+    weekday(date) <= 3
+      ? day(date, { label: "Weeknights", scheduleId: "wk" })
+      : day(date, { label: "Regular week", scheduleId: "reg" })
+  );
+  const EVE = day(dec(24), {
+    label: "Weeknights",
+    scheduleId: "wk",
+    closures: [
+      { ruleId: "c1", targetKind: "service", venueServiceId: "svc-1", from: 660, to: 900 },
+    ],
+    services: [
+      { venueServiceId: "svc-1", name: "Lunch", opensAt: 660, lastSeatingAt: 810, closesAt: 900 },
+    ],
+  });
+  const days = DECEMBER.map((d) => (d.serviceDate === dec(24) ? EVE : d));
+  const month = (props: Partial<React.ComponentProps<typeof AvailabilityCalendar>> = {}) =>
+    renderCalendar({
+      view: "month",
+      anchor: dec(15),
+      today: "2026-11-08",
+      days,
+      regularScheduleId: "reg",
+      ...props,
+    });
+  const cellOf = (name: RegExp) => screen.getByRole("button", { name });
+
+  it("shows a regular day's date and nothing else", () => {
+    month();
+    const cell = cellOf(/^Friday, December 4:/);
+    expect(cell).toHaveTextContent(/^4\s*$/);
+  });
+
+  it("shows another schedule's name as the chip", () => {
+    month();
+    expect(within(cellOf(/^Tuesday, December 1:/)).getByText("Weeknights")).toBeInTheDocument();
+  });
+
+  it("ranks a service closure above the schedule and counts the schedule as +1", () => {
+    month();
+    const cell = cellOf(/^Thursday, December 24:/);
+    expect(within(cell).getByText("Lunch closed +1")).toBeInTheDocument();
+    expect(within(cell).queryByText("Weeknights")).toBeNull();
+  });
+
+  it("keeps the accessible name's full description", () => {
+    month();
+    expect(cellOf(/^Tuesday, December 1:/)).toHaveAccessibleName("Tuesday, December 1: Weeknights");
+    expect(cellOf(/^Thursday, December 24:/).getAttribute("aria-label")).toMatch(
+      /Weeknights.*Lunch/
+    );
+  });
+
+  it("states the month's differences above the grid", () => {
+    month();
+    const legend = screen.getByText(/^This month:/);
+    expect(legend.textContent).toBe("This month: Weeknights · Mon–Thu   Lunch closed · 1 day");
+    expect(legend.compareDocumentPosition(screen.getByRole("grid"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+  });
+
+  it("says the month is the regular week when no day differs", () => {
+    month({ days: DECEMBER.map((d) => ({ ...d, label: "Regular week", scheduleId: "reg" })) });
+    expect(screen.getByText("This month: your regular week")).toBeInTheDocument();
+  });
+
+  it("shows no legend in week view, and no legend until the days have loaded", () => {
+    renderCalendar();
+    expect(screen.queryByText(/^This month:/)).toBeNull();
+  });
+
+  it("leaves a greyed neighbouring-month day out of the legend", () => {
+    month({
+      days: [...days, day("2027-01-01", { label: "Closed", scheduleId: null, serviceCount: 0 })],
+    });
+    expect(screen.getByText(/^This month:/).textContent).not.toMatch(/Closed ·/);
+  });
+});

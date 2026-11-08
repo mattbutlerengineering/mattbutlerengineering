@@ -2,7 +2,13 @@ import type { TFunction } from "i18next";
 import { describe, expect, it } from "vitest";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
-import { dayLabelText, presentDay, scheduleNameText } from "./day-summary.js";
+import {
+  dayDifference,
+  dayLabelText,
+  monthLegend,
+  presentDay,
+  scheduleNameText,
+} from "./day-summary.js";
 
 const t = ((key: string, values?: Record<string, string>) =>
   values ? `${key} ${Object.values(values).join("|")}` : key) as unknown as TFunction;
@@ -218,5 +224,170 @@ describe("the Services filter (#7981)", () => {
     expect(presentDay("2026-10-30", baseSummary, false, t, format, null)).toEqual(
       presentDay("2026-10-30", baseSummary, false, t, format)
     );
+  });
+});
+
+describe("dayDifference: the one chip a month cell shows (ux.md F5)", () => {
+  const REGULAR = "reg";
+  const OPEN = { online: true, phone: true, waitlist: true };
+  const regularDay = { ...baseSummary, scheduleId: REGULAR, label: "Regular week" };
+  const sections = new Map([["sec-bar", "Bar"]]);
+  const diff = (overrides: Partial<AvailabilityDaySummary>) =>
+    dayDifference({ ...regularDay, ...overrides }, REGULAR, sections, t);
+  const whole = { from: 0, to: 2880 };
+
+  it("is null for a day that reads like the regular week", () => {
+    expect(diff({})).toBeNull();
+    expect(diff({ bookingOpen: OPEN, guestMessage: "Hi" })).toBeNull();
+  });
+
+  it("names another schedule, with nothing more", () => {
+    expect(diff({ scheduleId: "wk", label: "Weeknights" })).toEqual({
+      chip: "Weeknights",
+      more: 0,
+    });
+  });
+
+  it("ranks a service closure above the schedule's name, and counts the schedule as more", () => {
+    const day = diff({
+      scheduleId: "wk",
+      label: "Weeknights",
+      closures: [
+        { ruleId: "c1", targetKind: "service", venueServiceId: "svc-1", from: 660, to: 840 },
+      ],
+    });
+    expect(day).toEqual({ chip: "availability.calendar.chip.serviceClosed Lunch", more: 1 });
+  });
+
+  it("falls back to the venue's service names when the day no longer lists the service", () => {
+    const closed = {
+      ...regularDay,
+      services: [],
+      closures: [
+        { ruleId: "c1", targetKind: "service" as const, venueServiceId: "svc-9", ...whole },
+      ],
+    };
+    expect(dayDifference(closed, REGULAR, sections, t, new Map([["svc-9", "Brunch"]]))?.chip).toBe(
+      "availability.calendar.chip.serviceClosed Brunch"
+    );
+    expect(dayDifference(closed, REGULAR, sections, t)?.chip).toBe(
+      "availability.calendar.chip.serviceClosedUnnamed"
+    );
+  });
+
+  it("ranks Closed › service › section › booking paused › Special hours › schedule name", () => {
+    const service = {
+      ruleId: "s",
+      targetKind: "service" as const,
+      venueServiceId: "svc-1",
+      ...whole,
+    };
+    const section = { ruleId: "t", targetKind: "tables" as const, sectionId: "sec-bar", ...whole };
+    const booking = {
+      ruleId: "b",
+      targetKind: "booking" as const,
+      bookingTypes: ["online" as const],
+      ...whole,
+    };
+    const venue = { ruleId: "v", targetKind: "venue" as const, ...whole };
+    const base = { scheduleId: "wk", label: "Special hours" };
+    expect(diff({ ...base, closures: [venue, service, section, booking] })).toEqual({
+      chip: "availability.calendar.dayLabel.closed",
+      more: 4,
+    });
+    expect(diff({ ...base, closures: [service, section, booking] })?.chip).toBe(
+      "availability.calendar.chip.serviceClosed Lunch"
+    );
+    expect(diff({ ...base, closures: [section, booking] })).toEqual({
+      chip: "availability.calendar.chip.sectionClosed Bar",
+      more: 3 - 1,
+    });
+    expect(diff({ ...base, closures: [booking] })?.chip).toBe(
+      "availability.calendar.chip.onlinePaused"
+    );
+    expect(diff({ ...base })).toEqual({
+      chip: "availability.calendar.dayLabel.specialHours",
+      more: 0,
+    });
+  });
+
+  it("reads a paused channel from the booking flags, and several as booking paused", () => {
+    expect(diff({ bookingOpen: { ...OPEN, phone: false } })?.chip).toBe(
+      "availability.calendar.chip.phonePaused"
+    );
+    expect(diff({ bookingOpen: { online: false, phone: false, waitlist: true } })?.chip).toBe(
+      "availability.calendar.chip.bookingPaused"
+    );
+  });
+
+  it("reads a partial venue closure as special hours, and a closed label as Closed", () => {
+    expect(
+      diff({ closures: [{ ruleId: "v", targetKind: "venue", from: 1320, to: 1380 }] })?.chip
+    ).toBe("availability.calendar.dayLabel.specialHours");
+    expect(diff({ label: "Closed", scheduleId: null, serviceCount: 0 })).toEqual({
+      chip: "availability.calendar.dayLabel.closed",
+      more: 0,
+    });
+  });
+
+  it("treats a summary with no schedule id as different only when its label is not the seeded regular week", () => {
+    const old = (label: string) =>
+      dayDifference(
+        { ...regularDay, label, scheduleId: undefined as unknown as null },
+        REGULAR,
+        sections,
+        t
+      );
+    expect(old("Regular week")).toBeNull();
+    expect(old("Weeknights")?.chip).toBe("Weeknights");
+  });
+});
+
+describe("monthLegend: the legend above the month grid", () => {
+  const cell = (date: string, ...differences: string[]) => ({ date, differences });
+  // December 2026: Tue 1 .. Thu 31; the Mon–Thu of each full week is Weeknights.
+  const december = Array.from({ length: 31 }, (_, i) => {
+    const date = `2026-12-${String(i + 1).padStart(2, "0")}`;
+    const weekday = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
+    return weekday <= 3 ? cell(date, "Weeknights") : cell(date);
+  });
+  const shortDay = {
+    formatCalendarDate: (date: string) =>
+      ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date(`${date}T00:00:00Z`).getUTCDay()],
+  } as unknown as VenueFormat;
+
+  it("says the month is the regular week when nothing differs", () => {
+    expect(monthLegend([cell("2026-12-01"), cell("2026-12-02")], t, shortDay)).toBe(
+      "availability.calendar.legend.regular"
+    );
+  });
+
+  it("gives a weekly pattern its weekdays, and a one-off its day count, even when the one-off sits on a pattern day", () => {
+    const withEve = december.map((c) =>
+      c.date === "2026-12-24" ? cell(c.date, "Lunch closed", "Weeknights") : c
+    );
+    const text = monthLegend(withEve, t, shortDay);
+    expect(text).toContain("legend.weekdays Weeknights|Mon–Thu");
+    expect(text).toContain("legend.days Lunch closed|1");
+  });
+
+  it("counts days when the chip is not on the same weekdays every week it appears in", () => {
+    const text = monthLegend(
+      [cell("2026-12-01", "Closed"), cell("2026-12-08", "Closed"), cell("2026-12-09")],
+      t,
+      shortDay
+    );
+    expect(text).toContain("legend.weekdays Closed|Tue");
+    const uneven = monthLegend(
+      [
+        cell("2026-12-01", "Closed"),
+        cell("2026-12-02"),
+        cell("2026-12-08", "Closed"),
+        cell("2026-12-09", "Closed"),
+      ],
+      t,
+      shortDay
+    );
+    expect(uneven).toContain("legend.days Closed|3");
   });
 });

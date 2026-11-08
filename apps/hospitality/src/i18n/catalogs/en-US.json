@@ -2025,8 +2025,8 @@
       "intro": "Your usual week. Other schedules and special dates change it on the days they cover.",
       "add": "Add a schedule…",
       "other": "Other schedules",
-      "booking": "Booking: {{rules}}",
-      "bookingUnset": "Booking: not set up yet",
+      "booking": "Booking: {{rules}} · Change",
+      "bookingUnset": "Booking: not set up yet · Set up",
       "closeCompare": "Close",
       "appliesFrom": "Changes apply from today, {{date}}.",
       "startLater": "Starting later…",
@@ -2103,6 +2103,23 @@
       "draftName": "unsaved changes",
       "labelWithPeriod": "{{label}}, {{period}}",
       "untilClose": "close",
+      "chip": {
+        "serviceClosed": "{{service}} closed",
+        "serviceClosedUnnamed": "Service closed",
+        "sectionClosed": "{{section}} closed",
+        "onlinePaused": "Online paused",
+        "phonePaused": "Phone paused",
+        "waitlistPaused": "Waitlist paused",
+        "bookingPaused": "Booking paused"
+      },
+      "legend": {
+        "thisMonth": "This month: {{items}}",
+        "regular": "This month: your regular week",
+        "weekdays": "{{label}} · {{days}}",
+        "days_one": "{{label}} · {{count}} day",
+        "days_other": "{{label}} · {{count}} days",
+        "days_many": "{{label}} · {{count}} days"
+      },
       "dayLabel": {
         "closed": "Closed",
         "specialHours": "Special hours",
@@ -2242,6 +2259,7 @@
       "shortcuts": {
         "weekdays": "Weekdays",
         "weekends": "Weekends",
+        "fridaySaturday": "Fri–Sat",
         "everyDay": "Every day"
       },
       "addService": "Add another service",
@@ -2252,7 +2270,7 @@
       "runsOn": "{{service}} runs on",
       "everyServiceOwnDays": "Every service has its own days.",
       "daysSummary": "Days: {{days}}",
-      "changeDays": "Change days",
+      "moveTo": "Move {{service}} to {{time}}",
       "differentHours": "Different hours on some days",
       "blockLegend": "{{service}}: different hours",
       "removeBlock": "Remove these hours",
@@ -2613,7 +2631,10 @@
         "fromLabel": "From",
         "toLabel": "To",
         "weekdays": "Repeats on",
-        "invalid": "Check the dates: the end can't be before the start, and a repeat needs a chosen day between them."
+        "invalid": "Check the dates: the end can't be before the start, and a repeat needs a chosen day between them.",
+        "tomorrow": "Tomorrow",
+        "quickDates": "Quick dates",
+        "holidayChip": "{{name}} · {{date}}"
       },
       "window": {
         "label": "Starting at",
@@ -2674,22 +2695,39 @@
         "pauseBooking": "Pause booking"
       },
       "toast": {
-        "closed": "{{date}} closed",
         "closedSection": "{{section}} closed on {{date}}",
         "paused": "Online booking paused",
-        "bookingPaused": "Booking paused on {{date}}",
         "notified_one": "{{date}} closed · {{count}} reservation notified",
         "notified_other": "{{date}} closed · {{count}} reservations notified",
         "notified_many": "{{date}} closed · {{count}} reservations notified",
         "many_one": "{{count}} date closed",
         "many_other": "{{count}} dates closed",
         "many_many": "{{count}} dates closed",
-        "manyNotified_one": "{{count}} date closed · {{notified}} reservation notified",
-        "manyNotified_other": "{{count}} dates closed · {{notified}} reservations notified",
-        "manyNotified_many": "{{count}} dates closed · {{notified}} reservations notified",
         "manyBookingPaused_one": "Booking paused on {{count}} date",
         "manyBookingPaused_other": "Booking paused on {{count}} dates",
-        "manyBookingPaused_many": "Booking paused on {{count}} dates"
+        "manyBookingPaused_many": "Booking paused on {{count}} dates",
+        "closedOn": "Closed on {{date}}",
+        "serviceClosedOn": "{{service}} closed on {{date}}",
+        "closedFrom": "Closed from {{time}} on {{date}}",
+        "closedFromTonight": "Closed from {{time}} tonight",
+        "serviceClosedFrom": "{{service}} closed from {{time}} on {{date}}",
+        "serviceClosedFromTonight": "{{service}} closed from {{time}} tonight",
+        "serviceClosedMany_one": "{{name}} closed on {{count}} date",
+        "serviceClosedMany_other": "{{name}} closed on {{count}} dates",
+        "serviceClosedMany_many": "{{name}} closed on {{count}} dates",
+        "bookingPausedOn": "{{channels}} paused on {{date}}",
+        "pausedChannels": {
+          "online": "Online booking",
+          "phone": "Phone booking",
+          "waitlist": "Waitlist booking",
+          "online_phone": "Online and phone booking",
+          "online_waitlist": "Online and waitlist booking",
+          "phone_waitlist": "Phone and waitlist booking",
+          "all": "All booking"
+        },
+        "withNotified_one": "{{text}} · {{count}} reservation notified",
+        "withNotified_other": "{{text}} · {{count}} reservations notified",
+        "withNotified_many": "{{text}} · {{count}} reservations notified"
       },
       "step2": {
         "urgent": "Urgent: guests will get a text and an email",
