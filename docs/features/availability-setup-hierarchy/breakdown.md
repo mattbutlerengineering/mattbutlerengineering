@@ -96,42 +96,42 @@ architecture's component names are kept as written in `architecture.md`.
 
 ## Milestone 3: Calm, consistent Availability (amendment 2026-11-08): the week a Manager set up in onboarding is the first thing `/availability` shows, editable in place, with everything else one named layer down
 
-- [ ] **Service hours text** — One formatter, "11:30 AM–3:00 PM, last seating 2:00 PM", used by the regular-week line, the hub, the day summary and the day editor.
+- [x] **Service hours text** — One formatter, "11:30 AM–3:00 PM, last seating 2:00 PM", used by the regular-week line, the hub, the day summary and the day editor.
   - Files: new `apps/hospitality/src/components/availability/service-hours.ts` (+ test); `RegularWeekLine.tsx`, `day-summary.ts`, `AvailabilityDayEditor.tsx`, `venue-setup/useSetupNodeText.ts`, `venue-setup/setup-tree.ts` (service value gains `closesAt`; change filter compares it); three catalogs (`availability.serviceHours.*`, retired keys removed).
   - RED tests: Unit: `serviceHoursText` over a fixture with open 690, last seating 840, close 900 returns "11:30 AM–3:00 PM, last seating 2:00 PM"; last seating equal to close drops the clause; a past-midnight close (1440+) reads "12:00 AM"; `serviceCloseChangeText` names days, close and last seating. Component: `RegularWeekLine`, the hub service row, the day editor row and the day summary all render the identical string for the same service. Unit: `setup-tree` shows a per-day set that only moves the close.
   - Accept: the four surfaces print the same range for the same service and day (PRD 16); key parity test green; existing RegularWeekLine/setup-tree/day-drawer tests updated only for the new wording.
   - Blocked by: —
   - PRD: 16, 24
 
-- [ ] **Regular week edit hook** — Extract `useRegularWeekEdit` from `ChangeRegularWeekDrawer` with `fixedStart` and `initialDraft`; the drawer becomes hook + chrome and gains an `initialDraft` prop.
+- [x] **Regular week edit hook** — Extract `useRegularWeekEdit` from `ChangeRegularWeekDrawer` with `fixedStart` and `initialDraft`; the drawer becomes hook + chrome and gains an `initialDraft` prop.
   - Files: new `components/availability/use-regular-week-edit.ts` (+ test); `ChangeRegularWeekDrawer.tsx`.
   - RED tests: Unit (hook): with `fixedStart = today` the save block never reports `startRequired`, `dirty` ignores the start, and `submit()` sends the same `buildRegularWeekChanges` payload and conflict mode as the drawer with Starting = today; `initialDraft` replaces the saved week as the draft and counts as dirty when it differs. Component: the drawer opened with `initialDraft` shows those rows with Starting empty.
   - Accept: every existing `ChangeRegularWeekDrawer` test and `availability-regular-week.spec.ts` stay green unchanged; the hook payload test proves inline and drawer saves are byte-identical for the same draft and start.
   - Blocked by: —
   - PRD: 17
 
-- [ ] **Week panel on the Schedules layer** — `RegularWeekPanel` (week form with guest preview, captions, own-changes choice, stranded preview, footer with Starting later…, Discard, Save, discard guards) and the Schedules layer around it (Regular week heading, Add a schedule…, Other schedules, Booking line, Compare below).
+- [x] **Week panel on the Schedules layer** — `RegularWeekPanel` (week form with guest preview, captions, own-changes choice, stranded preview, footer with Starting later…, Discard, Save, discard guards) and the Schedules layer around it (Regular week heading, Add a schedule…, Other schedules, Booking line, Compare below).
   - Files: new `components/availability/RegularWeekPanel.tsx` (+ test, CSS module); `SchedulesTab.tsx` (+ test, CSS); three catalogs.
   - RED tests: Component: the panel shows the saved services, times, days and the guest preview; the footer reads "Changes apply from today, {date}." and offers Starting later… before any edit; an edit adds Discard and Save and the drawer's captions; Save calls the hook's submit and the form re-seeds from the refreshed config; Starting later… calls back with the current draft; with covered own changes the own-changes choice renders. Component: the layer lists only non-regular schedules under Other schedules with Edit, Duplicate, Delete; the heading reads "Regular week"; the Booking line renders the booking summary; Compare opens when the page says so.
   - Accept: a Manager can change the regular week on the layer without a drawer and without picking a date (PRD 17); the hierarchy reads Regular week → its services, siblings listed (PRD 19).
   - Blocked by: Regular week edit hook
   - PRD: 14, 17, 19
 
-- [ ] **Availability page frame** — One frame for every layer: header actions (Close…, Pause online booking, ⋯), paused banner, layer control Schedules | Calendar | Special dates, Manager default Schedules after the role read with a skeleton while pending, shared dialogs; calendar toolbar trimmed; quick-setup save lands on the week panel.
+- [x] **Availability page frame** — One frame for every layer: header actions (Close…, Pause online booking, ⋯), paused banner, layer control Schedules | Calendar | Special dates, Manager default Schedules after the role read with a skeleton while pending, shared dialogs; calendar toolbar trimmed; quick-setup save lands on the week panel.
   - Files: `pages/AvailabilityPage.tsx` (+ test), new `components/availability/AvailabilityHeaderActions.tsx` (+ test), `AvailabilityScheduleControls.tsx` (+ test), `AvailabilityToolbar.tsx` (+ test), `AvailabilityQuickSetup.tsx` focus; three catalogs.
   - RED tests: Component: role pending renders the skeleton and no calendar; a Manager lands on Schedules, a Host on Calendar with no Schedules layer and no header actions; `?tab=calendar` opens Calendar; header Close…, Pause, Booking rules…, History, Go to date (switches to Calendar) and Compare services (switches to Schedules) work from every layer; the paused banner shows on every layer; the toolbar no longer renders ⋯, Close…, Pause or Change regular week…; the phone toolbar menu holds only Select… items. Leaving Schedules with a dirty week panel asks first.
   - Accept: first paint on the one-schedule fixture shows 7 actionable controls outside the week panel (PRD 15); night-of actions are one interaction on desktop, two on phone (PRD 21); Hosts see today's page (PRD 22).
   - Blocked by: Week panel on the Schedules layer
   - PRD: 14, 15, 21, 22
 
-- [ ] **Add a schedule seed and hub links** — `ScheduleEditorDrawer` new-mode seed from the regular week (days follow it once Starting is set and untouched); `?action=addSchedule`; hub Change regular week → `?tab=schedules`, hub "Add a schedule…" → `?tab=schedules&action=addSchedule`; "New schedule"/"Create another schedule…" retire.
+- [x] **Add a schedule seed and hub links** — `ScheduleEditorDrawer` new-mode seed from the regular week (days follow it once Starting is set and untouched); `?action=addSchedule`; hub Change regular week → `?tab=schedules`, hub "Add a schedule…" → `?tab=schedules&action=addSchedule`; "New schedule"/"Create another schedule…" retire.
   - Files: `ScheduleEditorDrawer.tsx` (+ test), `availability-entry.ts` (+ test), `venue-setup/setup-tree.ts` (+ test), `pages/SetupPage.tsx` (drops the regular-week dialog), `SchedulesTab.tsx`, `AvailabilityPage.tsx` (reads `action` once, then removes it), three catalogs.
   - RED tests: Component: the seeded editor opens with the regular week's services and no days; setting Starting fills the days from the regular week; touching days first stops the fill; saving with no dates keeps empty days. Unit: `parseAvailabilityEntry` accepts `action=addSchedule`, drops anything else; `availabilityPath` round-trips it. Unit: hub actions are links with those paths. e2e: the hub's Add a schedule… opens the seeded editor on the Schedules layer.
   - Accept: no path saves a dateless schedule with days from the seed; hub actions do what they say on the Schedules layer (PRD 7, 8).
   - Blocked by: Availability page frame
   - PRD: 7, 8, 18 (S8), 19
 
-- [ ] **Onboarding copy** — Hours step intro names where the week lives later; launch review caption under the guest preview.
+- [x] **Onboarding copy** — Hours step intro names where the week lives later; launch review caption under the guest preview.
   - Files: `src/i18n/catalogs/{en-US,es-MX,fr-CA}.json` (`onboarding.hours.intro`, new `onboarding.launch.changeLater`), `components/venue-onboarding/LaunchStep.tsx` (+ test), `QuickSetupHoursStep` test if it pins the intro.
   - RED tests: Component: the hours step shows "Your services and the days they run. Change it any time in Availability → Schedules."; the launch review shows "Change these later in Availability → Schedules." under the guest preview.
   - Accept: onboarding uses the glossary term and names the place (PRD 20); key parity green.
@@ -153,3 +153,11 @@ None.
 
 - Verification the architecture left to Implement: whether deleting a floor plan (the plan-delete path) hard-deletes sections by cascade. It is carried in the item "Section closure: migration, engine expansion and server".
 - Entry-point spec edits (`availability-*.spec.ts`, `onboarding.spec.ts`, floor-plan specs, and any spec asserting the old `/setup` bounce) belong to the item that moves the entry point and are listed in that PR's body.
+- 2026-11-08 (Implement, Milestone 3): deviations and findings, each verified by the item's tests and the full hospitality unit suite (410 files, 5678 tests green).
+  - Service hours text: a past-midnight close reads "12:00 AM (next day)", the existing `minuteText` convention, not ux.md's shorthand "12:00 AM". `regular-week-line.ts` also gained `closesAt` (the line reads it). The calendar cells use the same formatter through `day-summary.ts`, so they now print open–close plus last seating too.
+  - Regular week edit hook: `onSaved` receives the save result (the panel waits for that version before re-seeding); an extra `onGone` carries the conflict review's "the regular week is gone" path.
+  - Week panel: `ChangeRegularWeekDrawer` (Starting later…) is rendered by `SchedulesTab`, `ScheduleEditorDrawer` by the page; the booking summary is one function, `bookingRulesText`, shared with the hub. The inline stranded preview is titled "What changes for guests" (`DraftPreview` `title`), because the form's guest-preview column already says "Guest preview".
+  - Page frame: Hosts keep History and Go to date in a header ⋯ (PRD 7 and 22; the first cut dropped them). The hub's Open calendar now links `?tab=calendar` because a Manager's default layer is Schedules.
+  - Add a schedule seed: with no dates, Save stays blocked on "Choose at least one day", so a dateless schedule with seeded days cannot be saved; "Start from your regular week" retires.
+  - Scenario suite findings fixed in the product, not in the budgets: the Close dialog's To picker opened on today's month (Rialto `Calendar` now opens on `min`'s month when there is no value; To is bounded by From), and moving From past To left an inverted range (To now follows From). Both were S7 (a week-long vacation) over budget.
+
