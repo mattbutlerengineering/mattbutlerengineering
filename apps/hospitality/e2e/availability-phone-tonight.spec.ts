@@ -46,12 +46,15 @@ async function chooseTime(
     .click();
 }
 
+/** The field a refused Save lands on: Dinner's Opens, the overlap with Lunch. */
+const PROBLEM_FIELD = "Opens";
+
 const savePanel = (page: Page) =>
   weekPanel(page).getByRole("button", { name: "Save", exact: true });
 
 /** A service's line on a phone: its accessible name starts with the service's name. */
 const line = (page: Page, name: string) =>
-  weekPanel(page).getByRole("button", { name: new RegExp(`^${name}, `) });
+  weekPanel(page).getByRole("button", { name: new RegExp(`^${name} ?, `) });
 
 // ── Today line mocks ────────────────────────────────────────────────────────────────────────────
 
@@ -97,7 +100,24 @@ async function mockToday(page: Page, scenario: TodayScenario = {}): Promise<void
   const fixture = buildAvailabilityConfigFixture();
   const config: AvailabilityConfig = {
     ...(fixture.config as AvailabilityConfig),
-    dateRules: [...(scenario.rules ?? [])],
+    // A closure band is read only with its rule in hand, so each band has a rule beside it.
+    dateRules: [
+      ...(scenario.rules ?? []),
+      ...(scenario.closures ?? [])
+        .filter((band) => !(scenario.rules ?? []).some((rule) => rule.id === band.ruleId))
+        .map(
+          (band) =>
+            ({
+              id: band.ruleId,
+              kind: "closure",
+              targetKind: band.targetKind,
+              venueServiceId: band.venueServiceId ?? null,
+              bookingTypes: band.bookingTypes ?? null,
+              startsOn: TODAY,
+              endsOn: TODAY,
+            }) as DateRule
+        ),
+    ],
   };
   const json = (data: unknown) => ({
     status: 200,
@@ -174,9 +194,11 @@ test.describe("Availability on a phone (P1, P2)", () => {
     // Before: every service is one line and none is open. Names carry hours and days.
     await expect(line(page, "Lunch")).toHaveAttribute("aria-expanded", "false");
     await expect(line(page, "Dinner")).toHaveAttribute("aria-expanded", "false");
-    await expect(line(page, "Lunch")).toHaveAccessibleName(/^Lunch, 11:30 AM.*3:00 PM, Every day$/);
+    await expect(line(page, "Lunch")).toHaveAccessibleName(
+      /^Lunch ?, 11:30 AM.*3:00 PM · Every day$/
+    );
     await expect(line(page, "Dinner")).toHaveAccessibleName(
-      /^Dinner, 5:00 PM.*11:00 PM, Every day$/
+      /^Dinner ?, 5:00 PM.*11:00 PM · Every day$/
     );
     // Dinner's line is inside the first viewport.
     const box = await line(page, "Dinner").boundingBox();
@@ -187,7 +209,7 @@ test.describe("Availability on a phone (P1, P2)", () => {
 
     const counter = countInteractions(page);
     const panel = weekPanel(counter.page);
-    await panel.getByRole("button", { name: /^Dinner, / }).click();
+    await panel.getByRole("button", { name: /^Dinner ?, / }).click();
     await expect(line(page, "Dinner")).toHaveAttribute("aria-expanded", "true");
     // Dinner already closes at 11:00 PM on F-one, so the walkthrough moves it to 10:00 PM.
     await chooseTime(counter.page, panel, "Closes", 0, "10:00 PM");
@@ -256,30 +278,36 @@ test.describe("Availability on a phone (P1, P2)", () => {
     await chooseTime(page, panel, "Opens", 0, "2:00 PM");
     await expect(panel.getByText(/overlaps/).first()).toBeVisible();
 
-    // Whichever line carries the problem is open and does nothing when pressed.
-    const open = panel.locator('button[aria-expanded="true"]');
-    await expect(open.first()).toBeVisible();
-    const before = await open.count();
-    await open.first().click();
-    await expect(open).toHaveCount(before);
+    // The line carrying the problem is open, and pressing it pins it open rather than closing it.
+    const dinner = line(page, "Dinner");
+    await expect(dinner).toHaveAttribute("aria-expanded", "true");
+    await dinner.click();
+    await expect(dinner).toHaveAttribute("aria-expanded", "true");
 
     // Save stays pressable, is announced as disabled, and focuses the first problem's field.
     const save = savePanel(page);
     await expect(save).toHaveAttribute("aria-disabled", "true");
     // aria-disabled, not disabled: a real tap lands, so the click is forced past Playwright's enabled check.
     await save.click({ force: true });
-    await expect
-      .poll(() =>
-        page.evaluate(() => {
-          const active = document.activeElement;
-          return (
-            active !== null &&
-            active.closest('[data-testid="week-panel"]') !== null &&
-            active.tagName !== "BUTTON"
-          );
-        })
-      )
-      .toBe(true);
+    await expect(panel.getByRole("combobox", { name: PROBLEM_FIELD }).first()).toBeFocused();
+  });
+
+  test("fixing a problem by typing inside its line keeps the line open and the field focused", async ({
+    mockedPage: page,
+  }) => {
+    await firstPaint(page);
+    const panel = weekPanel(page);
+    await panel.getByRole("button", { name: "Add another service" }).click();
+    // The new service has no name yet: a problem, so its line is open and its name is focused.
+    const name = panel.getByRole("textbox", { name: "Service name" }).last();
+    await expect(name).toBeFocused();
+    await name.pressSequentially("Late supper");
+    await expect(name).toBeFocused();
+    await expect(name).toHaveValue("Late supper");
+    await expect(panel.getByRole("button", { name: /^Late supper ?, / })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    );
   });
 
   test("Add another service opens the new service with its name focused", async ({
@@ -465,6 +493,15 @@ test.describe("The Today line (T1, T2)", () => {
         await expect(page.getByRole("button", { name: "Emergency: close tonight…" })).toBeVisible();
         await expect(page).not.toHaveURL(/tonight=open/);
         record("T2", counter.count(), 2);
+
+        // A reload of the Timeline keeps the panel closed; Back lands on /availability.
+        await page.reload();
+        await expect(page.getByRole("button", { name: /^Tonight\s*▾/ })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Emergency: close tonight…" })).toHaveCount(
+          0
+        );
+        await page.goBack();
+        await expect(page).toHaveURL(/\/availability/);
       });
     });
   }
