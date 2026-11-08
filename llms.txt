@@ -1867,13 +1867,24 @@
     <item priority="medium">
       function distinctDays(config: AvailabilityConfig, dates: readonly string[]): readonly string[] { /* ... */ }
     </item>
+    <item priority="medium">
+      function servicesOn(config: AvailabilityConfig, timezone: string, dates: readonly string[]) { /* ... */ }
+    </item>
     <item priority="high">
       export function startMinutes(
         config: AvailabilityConfig,
         timezone: string,
         dates: readonly string[],
-        keep: number | null
+        keep: number | null,
+        nowMinute?: number
       ): readonly number[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overnightFloor(
+        config: AvailabilityConfig,
+        timezone: string,
+        dates: readonly string[]
+      ): number { /* ... */ }
     </item>
     <item priority="high">
       export function settleStartMinute(
@@ -1883,6 +1894,12 @@
         timezone: string,
         today: string
       ): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function willHaveStepTwo(
+        groups: readonly ClosureImpactGroup[],
+        givenBack: ClosureImpact["givenBack"]
+      ): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function whatOf(series: DateRule): CloseWhat { /* ... */ }
@@ -1963,6 +1980,46 @@
       ): DateRule | null { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/close-text.ts">
+    <item priority="low">
+      interface CloseToastDraft {
+        form: CloseForm;
+        date: string;
+        count: number;
+        name: string | undefined;
+      }
+    </item>
+    <item priority="medium">
+      function pausedChannels(types: readonly BookingChannel[], t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      type CloseFormat = Pick<VenueFormat, "formatCalendarDate" | "formatLocalTime...;
+    </item>
+    <item priority="medium">
+      function whenPhrase(
+        when: CloseWhen,
+        timed: boolean,
+        firstDate: string,
+        t: TFunction,
+        format: CloseFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closeButtonText(
+        draft: { readonly form: CloseForm; readonly date: string; readonly name: string | undefined },
+        t: TFunction,
+        format: CloseFormat
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closeToastText(
+        draft: CloseToastDraft,
+        outcome: { readonly notified: number },
+        t: TFunction,
+        format: CloseFormat
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/closed-all-day.ts">
     <item priority="high">
       export const closedAllDay: unknown;
@@ -1980,7 +2037,11 @@
       }
     </item>
     <item priority="high">
-      export function minuteText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
+      export function minuteText(
+        minute: number,
+        t: TFunction,
+        format: Pick<VenueFormat, "formatLocalTime">
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function closureEndText(minute: number, t: TFunction, format: VenueFormat): string { /* ... */ }
@@ -2216,6 +2277,51 @@
         sectionNames?: ReadonlyMap<string, string>
       ): DayPresentation { /* ... */ }
     </item>
+    <item priority="low">
+      interface DayDifference {
+        chip: string;
+        more: number;
+      }
+    </item>
+    <item priority="medium">
+      function pausedChannels(
+        day: AvailabilityDaySummary
+      ): ReadonlySet<(typeof BOOKING_CHANNELS)[number]> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function pausedChip(paused: ReadonlySet<(typeof BOOKING_CHANNELS)[number]>, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dayDifferences(
+        day: AvailabilityDaySummary,
+        regularScheduleId: string | null,
+        sectionNames: ReadonlyMap<string, string> | undefined,
+        t: TFunction,
+        serviceNames?: ReadonlyMap<string, string>
+      ): readonly string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toDifference(found: readonly string[]): DayDifference | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdayIndex(date: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function weekdaysText(dates: readonly string[], format: VenueFormat): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface MonthLegend {
+        heading: string;
+        items: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      export function monthLegend(
+        cells: readonly { readonly date: string; readonly differences: readonly string[] }[],
+        t: TFunction,
+        format: VenueFormat
+      ): MonthLegend { /* ... */ }
+    </item>
   </file>
   <file path="apps/hospitality/src/components/availability/describe-change.ts">
     <item priority="high">
@@ -2389,6 +2495,13 @@
         country: HolidayCountry,
         today: string,
         config: AvailabilityConfig
+      ): Holiday[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function holidaysWithin(
+        country: HolidayCountry,
+        today: string,
+        days: number = CLOSE_CHIP_DAYS
       ): Holiday[] { /* ... */ }
     </item>
     <item priority="high">
@@ -2580,6 +2693,9 @@
       export const WEEKEND_SHORTCUT: readonly number[];
     </item>
     <item priority="high">
+      export const FRIDAY_SATURDAY_SHORTCUT: readonly number[];
+    </item>
+    <item priority="high">
       export const SERVICE_PRESETS: unknown;
     </item>
     <item priority="low">
@@ -2594,11 +2710,11 @@
     <item priority="high">
       export function emptyDraft(firstServiceId: string): QuickSetupDraft { /* ... */ }
     </item>
-    <item priority="medium">
-      function toMinutes(hhmm: string): number { /* ... */ }
+    <item priority="high">
+      export function toMinutes(hhmm: string): number { /* ... */ }
     </item>
-    <item priority="medium">
-      function toClock(minutes: number): string { /* ... */ }
+    <item priority="high">
+      export function toClock(minutes: number): string { /* ... */ }
     </item>
     <item priority="high">
       export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
@@ -2658,73 +2774,25 @@
         day: number
       ): BlockDayToggle { /* ... */ }
     </item>
-    <item priority="low">
-      type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
-    </item>
-    <item priority="low">
-      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required" | "block_days_required" | "days_outside_use";
-    </item>
-    <item priority="low">
-      interface QuickSetupIssue {
-        serviceId: string | null;
-        blockId?: string;
-        field: QuickSetupField | "days";
-        code: QuickSetupIssueCode;
-        weekday?: number;
-      }
-    </item>
     <item priority="high">
+      export function setBlockDays(
+        service: ServiceDraft,
+        blockId: string,
+        days: readonly number[],
+        offered: readonly number[]
+      ): BlockDayToggle { /* ... */ }
+    </item>
+    <item priority="low">
       interface ServiceMinutes {
         opensAt: number;
         lastSeatingAt: number;
         closesAt: number;
       }
     </item>
-    <item priority="medium">
-      function minutesOf(
+    <item priority="high">
+      export function minutesOf(
         service: Pick<DraftTimes, "opens" | "lastSeating" | "closes">
       ): ServiceMinutes | null { /* ... */ }
-    </item>
-    <item priority="high">
-      interface IssueOwner {
-        serviceId: string;
-        blockId?: string;
-      }
-    </item>
-    <item priority="medium">
-      function missingTimes(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function completenessIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function orderIssues(times: DraftTimes, m: ServiceMinutes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function timesIssues(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function serviceIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function validateDraft(
-        draft: QuickSetupDraft,
-        options: { readonly legacyReader?: boolean; readonly within?: readonly number[] } = {}
-      ): QuickSetupIssue[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function issueMessage(
-        issue: QuickSetupIssue,
-        draft: QuickSetupDraft,
-        t: TFunction,
-        weekdayName: (weekday: number) => string
-      ): string { /* ... */ }
-    </item>
-    <item priority="medium">
-      function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
-    </item>
-    <item priority="medium">
-      function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean { /* ... */ }
     </item>
     <item priority="high">
       export function effectiveDays(draft: QuickSetupDraft, service: ServiceDraft): readonly number[] { /* ... */ }
@@ -2825,6 +2893,96 @@
     </item>
     <item priority="high">
       export function useWeekdayName() { /* ... */ }
+    </item>
+    <item priority="high">
+      export const QuickSetupFixContext: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-placement.ts">
+    <item priority="medium">
+      function lengthOf(opens: string, closes: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isClear(draft: QuickSetupDraft, candidate: ServiceDraft): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function placePreset(
+        draft: QuickSetupDraft,
+        serviceId: string,
+        preset: ServicePresetId,
+        name: string
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function firstClearStart(draft: QuickSetupDraft, serviceId: string): number | null { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-validate.ts">
+    <item priority="low">
+      type QuickSetupField = "name" | "opens" | "lastSeating" | "closes";
+    </item>
+    <item priority="low">
+      type QuickSetupIssueCode = "name_required" | "name_too_long" | "time_required" | "close_after_open" | "last_seating_after_close" | "span_too_long" | "legacy_closed_day" | "overlap" | "days_required" | "block_days_required" | "days_outside_use";
+    </item>
+    <item priority="low">
+      interface QuickSetupIssue {
+        serviceId: string | null;
+        blockId?: string;
+        field: QuickSetupField | "days";
+        code: QuickSetupIssueCode;
+        weekday?: number;
+      }
+    </item>
+    <item priority="high">
+      interface IssueOwner {
+        serviceId: string;
+        blockId?: string;
+      }
+    </item>
+    <item priority="medium">
+      function missingTimes(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function completenessIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function orderIssues(times: DraftTimes, m: ServiceMinutes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function timesIssues(times: DraftTimes, owner: IssueOwner): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function serviceIssues(service: ServiceDraft): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function validateDraft(
+        draft: QuickSetupDraft,
+        options: { readonly legacyReader?: boolean; readonly within?: readonly number[] } = {}
+      ): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceLabel(
+        draft: QuickSetupDraft,
+        id: string | null | undefined,
+        t: TFunction
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function issueMessage(
+        issue: QuickSetupIssue,
+        draft: QuickSetupDraft,
+        t: TFunction,
+        weekdayName: (weekday: number) => string
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function hasClosedDay(draft: QuickSetupDraft, hours: LegacyHours): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/regular-week-line.ts">
@@ -3758,7 +3916,7 @@
     <item priority="high">
       export function weekdaySummary(
         weekdays: readonly number[],
-        format: VenueFormat,
+        format: Pick<VenueFormat, "formatCalendarDate" | "locale">,
         t: TFunction
       ): string { /* ... */ }
     </item>
