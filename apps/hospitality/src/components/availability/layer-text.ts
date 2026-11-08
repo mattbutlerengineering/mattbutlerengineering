@@ -47,7 +47,12 @@ function bookingTypesText(
   return new Intl.ListFormat(locale, { type: "conjunction" }).format(names);
 }
 
-function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string {
+function targetText(
+  target: LayerTarget,
+  t: TFunction,
+  format: VenueFormat,
+  sectionNames?: ReadonlyMap<string, string>
+): string {
   switch (target.kind) {
     case "venue":
       return t("availability.calendar.dayLabel.closed");
@@ -62,15 +67,26 @@ function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): str
         }),
         format.locale
       );
-    case "tables":
-      return t("availability.drawer.layer.tablesBlocked");
+    case "tables": {
+      const section = target.sectionId ? sectionNames?.get(target.sectionId) : undefined;
+      return section !== undefined
+        ? t("availability.drawer.layer.sectionClosed", { name: section })
+        : t("availability.drawer.layer.tablesBlocked");
+    }
   }
 }
 
-function seriesText(series: LayerSeries, t: TFunction, format: VenueFormat): string {
+function seriesText(
+  series: LayerSeries,
+  t: TFunction,
+  format: VenueFormat,
+  sectionNames?: ReadonlyMap<string, string>
+): string {
   const days = series.weekdays?.map((d) => t(WEEKDAY_NAME[d] ?? WEEKDAY_NAME[0])).join(", ");
   const range = `${series.startsOn} – ${series.endsOn ?? t("availability.drawer.layer.untilReopened")}`;
-  return [targetText(series.target, t, format), days, range].filter(Boolean).join(" · ");
+  return [targetText(series.target, t, format, sectionNames), days, range]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: VenueFormat): string {
@@ -108,7 +124,12 @@ function tonightText(
 }
 
 /** A layer's title in the viewer's language. */
-export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string {
+export function layerLabelText(
+  layer: Layer,
+  t: TFunction,
+  format: VenueFormat,
+  sectionNames?: ReadonlyMap<string, string>
+): string {
   switch (layer.kind) {
     case "schedule":
       return layer.scheduleName !== undefined
@@ -125,11 +146,11 @@ export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat):
     case "skip":
       return layer.skippedFrom
         ? t("availability.drawer.layer.skippedFrom", {
-            series: seriesText(layer.skippedFrom, t, format),
+            series: seriesText(layer.skippedFrom, t, format, sectionNames),
           })
         : t("availability.drawer.layer.skippedDate");
     case "closure":
-      return layer.target ? targetText(layer.target, t, format) : layer.label;
+      return layer.target ? targetText(layer.target, t, format, sectionNames) : layer.label;
     case "tonight":
       return t("availability.drawer.layer.tonight");
   }

@@ -5,6 +5,7 @@ import { Skeleton, Stack, Text } from "@mattbutlerengineering/rialto";
 import { resolveDay } from "@mbe/availability";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailability.js";
+import { useVenueFloorPlanSections } from "../hooks/useFloorPlans.js";
 import { useNow } from "../hooks/useNow.js";
 import { minutesOfDayIn, venueDate } from "../utils/service-day.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
@@ -235,6 +236,12 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     to: dates.at(-1) ?? anchor,
   });
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
+  // A section closure is named by its section on the calendar, the drawer and Special dates.
+  const sectionRows = useVenueFloorPlanSections({ venueId: selectedVenueId });
+  const sectionNames = useMemo(
+    () => new Map((sectionRows.data ?? []).map((s) => [s.id, s.name])),
+    [sectionRows.data]
+  );
   // The Services filter (2+ services only) is a view, not saved: it narrows how days read and
   // belongs to one venue, so a venue switch derives "All" rather than carrying the id over.
   const [chosenService, setChosenService] = useState<{
@@ -478,6 +485,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           onStale={() => void config.refetch()}
           reloadError={config.error ? describeApiError(config.error).detail : null}
           isManager={isManager}
+          sectionNames={sectionNames}
         />
       </Stack>
     );
@@ -640,6 +648,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onOpenDay={openDay}
         onAnchorChange={moveTo}
         serviceFilter={serviceFilter}
+        sectionNames={sectionNames}
       />
       <AvailabilityDayDrawer
         date={openDate}
@@ -648,6 +657,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         error={drawerFailure}
         viewerRole={team?.viewerRole}
         dateRules={config.data?.config.dateRules}
+        sectionNames={sectionNames}
         editing={
           config.data
             ? {

@@ -85,14 +85,15 @@ export function presentDay(
   detailed: boolean,
   t: TFunction,
   format: VenueFormat,
-  service?: ServiceFilter | null
+  service?: ServiceFilter | null,
+  sectionNames?: ReadonlyMap<string, string>
 ): DayPresentation {
   const summary = fullSummary && service ? filterDaySummary(fullSummary, service.id) : fullSummary;
   const notRunningName =
     service && fullSummary && fullSummary.serviceCount > 0 && summary?.serviceCount === 0
       ? service.name
       : null;
-  const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
+  const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format, sectionNames));
   const services = detailed
     ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
     : [];

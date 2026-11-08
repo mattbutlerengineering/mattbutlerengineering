@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Alert, Button, Dialog, Text, useToast } from "@mattbutlerengineering/rialto";
@@ -15,7 +15,9 @@ import {
   useCreateClosure,
   useCreateClosures,
 } from "../../hooks/useClosures.js";
+import { useVenueFloorPlanSections } from "../../hooks/useFloorPlans.js";
 import { useNow } from "../../hooks/useNow.js";
+import { useTables } from "../../hooks/useTables.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { serviceMinuteOf } from "../../utils/service-day.js";
@@ -53,6 +55,7 @@ import { CloseStepOne } from "./CloseStepOne.js";
 import { CloseStepTwo } from "./CloseStepTwo.js";
 import { GivenBackChoice } from "./GivenBackChoice.js";
 import { outcomeLabel, outcomeSummary } from "./outcome-label.js";
+import { sectionMembership } from "./section-membership.js";
 import { sameRow } from "./series-edit.js";
 import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./CloseDialog.module.css";
@@ -65,6 +68,8 @@ export interface CloseDialogProps {
   readonly today: string;
   /** Pre-filled "one date"; `null` starts on tonight. */
   readonly initialDate: string | null;
+  /** Start on "One section" with this section chosen; a section the venue does not have is ignored. */
+  readonly initialSectionId?: string;
   /** Pre-filled "Several dates" (the selection bar's Close…); wins over `initialDate`. */
   readonly initialDates?: readonly string[];
   /** Start with "Booking only: online" and "Until I reopen" (pause online booking). */
@@ -93,7 +98,9 @@ export interface CloseDialogProps {
 }
 
 function initialForm(props: CloseDialogProps): CloseForm {
-  const { initialDate, initialDates, pauseOnline, hostLocked, series, editing, today } = props;
+  const { initialDate, initialDates, initialSectionId, pauseOnline, hostLocked, series, editing } =
+    props;
+  const { today } = props;
   if (editing) return closureForm(editing);
   if (series && initialDate) return seriesForm(series, initialDate);
   if (hostLocked) {
@@ -106,7 +113,11 @@ function initialForm(props: CloseDialogProps): CloseForm {
     };
   }
   return {
-    what: pauseOnline ? { kind: "booking", types: ["online"] } : { kind: "venue" },
+    what: pauseOnline
+      ? { kind: "booking", types: ["online"] }
+      : initialSectionId
+        ? { kind: "section", sectionId: initialSectionId }
+        : { kind: "venue" },
     when: pauseOnline
       ? { kind: "until-reopen", from: today }
       : initialDates && initialDates.length > 1
@@ -147,7 +158,28 @@ export function CloseDialog(props: CloseDialogProps) {
   const isPending = createOne.isPending || createMany.isPending;
   const refresh = useRefreshAvailability();
 
+  const sectionsRead = useVenueFloorPlanSections({ venueId });
+  const tablesRead = useTables({ venueId, activeOnly: true });
+  const sections = useMemo(() => sectionsRead.data ?? [], [sectionsRead.data]);
+  const membership = useMemo(() => sectionMembership(tablesRead.data ?? []), [tablesRead.data]);
+  const sectionsStatus = sectionsRead.error
+    ? "failed"
+    : sectionsRead.data === undefined && sectionsRead.isLoading
+      ? "loading"
+      : "ready";
+
   const [form, setForm] = useState<CloseForm>(() => initialForm(props));
+  // A section the dialog was opened for may not exist (a stale link): once the venue's sections
+  // are known, no preselection is better than a choice that cannot be saved.
+  const missingSection =
+    props.initialSectionId !== undefined &&
+    form.what.kind === "section" &&
+    form.what.sectionId === props.initialSectionId &&
+    sectionsStatus !== "loading" &&
+    !sections.some((s) => s.id === props.initialSectionId);
+  useEffect(() => {
+    if (missingSection) setForm((prev) => ({ ...prev, what: { kind: "venue" } }));
+  }, [missingSection]);
   const [step, setStep] = useState<1 | 2>(1);
   const [choices, setChoices] = useState<ChoiceMap>({});
   // Asked only when an edit gives back dates holding cancelled guests; like a Reopen, told by default.
@@ -211,10 +243,11 @@ export function CloseDialog(props: CloseDialogProps) {
       buildCloseRules(
         { ...form, staffNote: "", guestMessage: "" },
         (date) => (several ? idIn(previewIds, date) : previewId),
-        today
+        today,
+        membership
       ).map((r) => inSeries(r, series)!),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the id maps never change
-    [form, previewId, today, series, several]
+    [form, previewId, today, series, several, membership]
   );
   const impactRule = several ? null : (impactRules[0] ?? null);
   const impactQuery = useClosureImpact({ venueId, rule: impactRule, alongside });
@@ -236,10 +269,14 @@ export function CloseDialog(props: CloseDialogProps) {
   const rules = buildCloseRules(
     form,
     (date) => (several ? idIn(attemptIds, `${ruleId}:${date}`) : ruleId),
-    today
+    today,
+    membership
   ).map((r) => inSeries(r, series)!);
   const rule = rules[0] ?? null;
   const services = state.config.venueServices.filter((s) => !s.archivedAt);
+  const { what } = form;
+  const sectionName =
+    what.kind === "section" ? sections.find((s) => s.id === what.sectionId)?.name : undefined;
 
   const startsOn = rule?.startsOn ?? today;
   // Special hours anywhere in the closure's dates (a range or a repeat too) are replaced by it.
@@ -333,7 +370,9 @@ export function CloseDialog(props: CloseDialogProps) {
             ? form.what.types.length === 1 && form.what.types[0] === "online"
               ? t("availability.close.toast.paused")
               : t("availability.close.toast.bookingPaused", { date })
-            : t("availability.close.toast.closed", { date });
+            : sectionName
+              ? t("availability.close.toast.closedSection", { section: sectionName, date })
+              : t("availability.close.toast.closed", { date });
       if (props.onSavedQuietly && saved.result && notified === 0 && givenBackTold === 0) {
         // A save that told no guest is one History can revert: the caller offers Undo.
         props.onSavedQuietly(saved.result);
@@ -403,12 +442,19 @@ export function CloseDialog(props: CloseDialogProps) {
               ? t("availability.close.button.closeMany", {
                   count: form.when.kind === "dates" ? form.when.dates.length : 0,
                 })
-              : t("availability.close.button.close", {
-                  date:
-                    form.when.kind === "date" || form.when.kind === "tonight"
-                      ? fullDate(startsOn)
-                      : "",
-                }).trim();
+              : sectionName
+                ? form.when.kind === "date" || form.when.kind === "tonight"
+                  ? t("availability.close.button.closeSection", {
+                      section: sectionName,
+                      date: fullDate(startsOn),
+                    })
+                  : t("availability.close.button.closeSectionNoDate", { section: sectionName })
+                : t("availability.close.button.close", {
+                    date:
+                      form.when.kind === "date" || form.when.kind === "tonight"
+                        ? fullDate(startsOn)
+                        : "",
+                  }).trim();
 
   return (
     <>
@@ -490,6 +536,8 @@ export function CloseDialog(props: CloseDialogProps) {
               form={form}
               onChange={edit}
               services={services}
+              sections={sections}
+              sectionsStatus={sectionsStatus}
               today={today}
               impact={impact}
               impactLoading={impactLoading}

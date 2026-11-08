@@ -1646,6 +1646,7 @@
     },
     "kind": {
       "closure": "Closed",
+      "sectionClosed": "{{section}} closed",
       "bookingPaused": "Booking paused: {{channels}}",
       "specialHours": "Special hours"
     },
@@ -2086,6 +2087,10 @@
       "tablesBlockedAllDayName": "tables blocked all day",
       "tablesBlockedBand": "Tables blocked {{from}} – {{to}}",
       "tablesBlockedBandName": "tables blocked {{from}} – {{to}}",
+      "sectionClosedAllDay": "{{section}} closed all day",
+      "sectionClosedAllDayName": "{{section}} closed all day",
+      "sectionClosedBand": "{{section}} closed {{from}} – {{to}}",
+      "sectionClosedBandName": "{{section}} closed {{from}} – {{to}}",
       "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (next day)",
       "draftName": "unsaved changes",
@@ -2149,6 +2154,7 @@
         "serviceFallback": "Service",
         "bookingClosed": "{{types}} booking closed",
         "tablesBlocked": "Tables blocked",
+        "sectionClosed": "{{name}} closed",
         "bookingType": {
           "online": "online",
           "phone": "phone",
@@ -2569,6 +2575,11 @@
         "venue": "Whole venue",
         "service": "One service",
         "pickService": "Service",
+        "section": "One section",
+        "pickSection": "Section",
+        "noSections": "Add a section to your floor plan first",
+        "openFloorPlan": "Open Floor Plan",
+        "sectionsFailed": "Couldn't load the sections.",
         "booking": "Booking only",
         "channel": {
           "online": "Online",
@@ -2617,6 +2628,8 @@
       "guestsWillSeeMessage": "Guests will see: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Close {{date}}",
+        "closeSection": "Close {{section}} on {{date}}",
+        "closeSectionNoDate": "Close {{section}}",
         "closeMany_one": "Close {{count}} date",
         "closeMany_other": "Close {{count}} dates",
         "closeMany_many": "Close {{count}} dates",
@@ -2655,6 +2668,7 @@
       },
       "toast": {
         "closed": "{{date}} closed",
+        "closedSection": "{{section}} closed on {{date}}",
         "paused": "Online booking paused",
         "bookingPaused": "Booking paused on {{date}}",
         "notified_one": "{{date}} closed · {{count}} reservation notified",
@@ -2725,7 +2739,9 @@
         "closed": "Closed",
         "closedFrom": "Closed from {{time}}",
         "serviceClosed": "{{service}} closed",
-        "serviceClosedFrom": "{{service}} closed from {{time}}"
+        "serviceClosedFrom": "{{service}} closed from {{time}}",
+        "sectionClosed": "{{section}} closed",
+        "sectionClosedFrom": "{{section}} closed from {{time}}"
       }
     },
     "paused": {

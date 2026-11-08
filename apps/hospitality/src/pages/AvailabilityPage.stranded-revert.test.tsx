@@ -21,6 +21,14 @@ const config = {
   source: "rows",
 };
 
+vi.mock("../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../hooks/useAvailability.js", () => ({
   useAvailabilityDays: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useAvailabilityConfig: () => ({ data: config, isLoading: false, error: null, refetch: vi.fn() }),
