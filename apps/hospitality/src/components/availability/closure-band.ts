@@ -101,15 +101,36 @@ const COPY: Record<Closure["targetKind"], Copy> = {
   },
 };
 
+/** A section closure reads by its section's name, when the name is known (ADR-032). */
+function sectionCopy(name: string): Copy {
+  return {
+    allDay: (t) => [
+      t("availability.calendar.sectionClosedAllDay", { section: name }),
+      t("availability.calendar.sectionClosedAllDayName", { section: name }),
+    ],
+    band: (t, v) => [
+      t("availability.calendar.sectionClosedBand", { section: name, ...v }),
+      t("availability.calendar.sectionClosedBandName", { section: name, ...v }),
+    ],
+  };
+}
+
 export function closureBandText(
   closure: Closure,
   t: TFunction,
-  format: VenueFormat
+  format: VenueFormat,
+  sectionNames?: ReadonlyMap<string, string>
 ): ClosureBandText {
+  const section =
+    closure.targetKind === "tables" && closure.sectionId
+      ? sectionNames?.get(closure.sectionId)
+      : undefined;
   const copy =
     closure.targetKind === "booking"
       ? bookingCopy(channelSuffix(closure))
-      : COPY[closure.targetKind];
+      : section !== undefined
+        ? sectionCopy(section)
+        : COPY[closure.targetKind];
   if (isWholeDay(closure)) {
     const [text, name] = copy.allDay(t);
     return { key: closure.ruleId, text, name };

@@ -5113,6 +5113,34 @@
       return { changed: [...new Set(changed)], removed: [...new Set(removed)] };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/availability-entry.ts">
+    export const AVAILABILITY_TABS = ["calendar", "special", "schedules"] as const;
+    export type AvailabilityTab = (typeof AVAILABILITY_TABS)[number];
+    export interface AvailabilityEntry {
+      readonly tab?: AvailabilityTab;
+      readonly closeSection?: string;
+      readonly from?: "setup";
+    }
+    export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry {
+      const params = typeof search === "string" ? new URLSearchParams(search) : search;
+      const entry: { -readonly [K in keyof AvailabilityEntry]: AvailabilityEntry[K] } = {};
+      const tab = FIELDS.tab.safeParse(params.get("tab"));
+      if (tab.success) entry.tab = tab.data;
+      const closeSection = FIELDS.closeSection.safeParse(params.get("closeSection"));
+      if (closeSection.success) entry.closeSection = closeSection.data;
+      const from = FIELDS.from.safeParse(params.get("from"));
+      if (from.success) entry.from = from.data;
+      return entry;
+    }
+    export function availabilityPath(entry: AvailabilityEntry): string {
+      const params = new URLSearchParams();
+      if (entry.tab) params.set("tab", entry.tab);
+      if (entry.closeSection) params.set("closeSection", entry.closeSection);
+      if (entry.from) params.set("from", entry.from);
+      const query = params.toString();
+      return query ? `${ROUTE}?${query}` : ROUTE;
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/booking-rules.ts">
     export interface BookingRulesForm {
       readonly daysAhead: string;
@@ -5381,6 +5409,8 @@
     export type CloseWhat =
       | { readonly kind: "venue" }
       | { readonly kind: "service"; readonly serviceId: string }
+      /** One floor-plan section: its tables as they are when the closure is saved, and then as they move (ADR-032). */
+      | { readonly kind: "section"; readonly sectionId: string }
       | { readonly kind: "booking"; readonly types: readonly BookingChannel[] };
     export type CloseWhen =
       | { readonly kind: "tonight" }
@@ -5433,6 +5463,7 @@
     }
     function whatIsComplete(what: CloseWhat): boolean {
       if (what.kind === "service") return what.serviceId !== "";
+      if (what.kind === "section") return what.sectionId !== "";
       if (what.kind === "booking") return what.types.length > 0;
       return true;
     }
@@ -5470,16 +5501,24 @@
           return { targetKind: "venue" as const };
         case "service":
           return { targetKind: "service" as const, venueServiceId: what.serviceId };
+        case "section":
+          return { targetKind: "tables" as const, sectionId: what.sectionId, tableIds: [] };
         case "booking":
           return { targetKind: "booking" as const, bookingTypes: [...what.types] };
       }
     }
-    export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null {
+    type SectionMembership = ReadonlyMap<string, readonly string[]>;
+    export function buildCloseRule(
+      form: CloseForm,
+      id: string,
+      today: string,
+      membership: SectionMembership = new Map()
+    ): DateRule | null {
       if (validateClose(form, today) !== null || form.when.kind === "dates") return null;
       const span = spanOf(form.when, today);
       const note = form.staffNote.trim();
       const message = form.guestMessage.trim();
-      return {
+      const rule: DateRule = {
         id,
         kind: "closure",
         ...targetOf(form.what),
@@ -5493,18 +5532,25 @@
         ...(note ? { staffNote: note } : {}),
         ...(message ? { guestMessage: message } : {}),
       };
+      return expandSectionRules([rule], membership)[0] ?? null;
     }
     export function buildCloseRules(
       form: CloseForm,
       idFor: (date: string) => string,
-      today: string
+      today: string,
+      membership: SectionMembership = new Map()
     ): readonly DateRule[] {
       if (form.when.kind !== "dates") {
-        const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today);
+        const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today, membership);
         return rule ? [rule] : [];
       }
       return form.when.dates.flatMap((date) => {
-        const rule = buildCloseRule({ ...form, when: { kind: "date", date } }, idFor(date), today);
+        const rule = buildCloseRule(
+          { ...form, when: { kind: "date", date } },
+          idFor(date),
+          today,
+          membership
+        );
         return rule ? [rule] : [];
       });
     }
@@ -5600,6 +5646,9 @@
       if (series.targetKind === "service" && series.venueServiceId) {
         return { kind: "service", serviceId: series.venueServiceId };
       }
+      if (series.targetKind === "tables" && series.sectionId) {
+        return { kind: "section", sectionId: series.sectionId };
+      }
       if (series.targetKind === "booking" && series.bookingTypes?.length) {
         return { kind: "booking", types: [...series.bookingTypes] };
       }
@@ -5612,6 +5661,7 @@
         rule.seriesId == null &&
         (rule.targetKind === "venue" ||
           (rule.targetKind === "service" && !!rule.venueServiceId) ||
+          (rule.targetKind === "tables" && !!rule.sectionId) ||
           (rule.targetKind === "booking" && !!rule.bookingTypes?.length)) &&
         (rule.window == null || rule.window.to === END_OF_SERVICE_DAY)
       );
@@ -5826,15 +5876,34 @@
         ],
       };
     }
+    function sectionCopy(name: string): Copy {
+      return {
+        allDay: (t) => [
+          t("availability.calendar.sectionClosedAllDay", { section: name }),
+          t("availability.calendar.sectionClosedAllDayName", { section: name }),
+        ],
+        band: (t, v) => [
+          t("availability.calendar.sectionClosedBand", { section: name, ...v }),
+          t("availability.calendar.sectionClosedBandName", { section: name, ...v }),
+        ],
+      };
+    }
     export function closureBandText(
       closure: Closure,
       t: TFunction,
-      format: VenueFormat
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
     ): ClosureBandText {
+      const section =
+        closure.targetKind === "tables" && closure.sectionId
+          ? sectionNames?.get(closure.sectionId)
+          : undefined;
       const copy =
         closure.targetKind === "booking"
           ? bookingCopy(channelSuffix(closure))
-          : COPY[closure.targetKind];
+          : section !== undefined
+            ? sectionCopy(section)
+            : COPY[closure.targetKind];
       if (isWholeDay(closure)) {
         const [text, name] = copy.allDay(t);
         return { key: closure.ruleId, text, name };
@@ -6247,14 +6316,15 @@
       detailed: boolean,
       t: TFunction,
       format: VenueFormat,
-      service?: ServiceFilter | null
+      service?: ServiceFilter | null,
+      sectionNames?: ReadonlyMap<string, string>
     ): DayPresentation {
       const summary = fullSummary && service ? filterDaySummary(fullSummary, service.id) : fullSummary;
       const notRunningName =
         service && fullSummary && fullSummary.serviceCount > 0 && summary?.serviceCount === 0
           ? service.name
           : null;
-      const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
+      const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format, sectionNames));
       const services = detailed
         ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
         : [];
@@ -6908,7 +6978,12 @@
       const names = types.map((type) => t(BOOKING_TYPE_NAME[type]));
       return new Intl.ListFormat(locale, { type: "conjunction" }).format(names);
     }
-    function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string {
+    function targetText(
+      target: LayerTarget,
+      t: TFunction,
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
+    ): string {
       switch (target.kind) {
         case "venue":
           return t("availability.calendar.dayLabel.closed");
@@ -6923,14 +6998,25 @@
             }),
             format.locale
           );
-        case "tables":
-          return t("availability.drawer.layer.tablesBlocked");
+        case "tables": {
+          const section = target.sectionId ? sectionNames?.get(target.sectionId) : undefined;
+          return section !== undefined
+            ? t("availability.drawer.layer.sectionClosed", { name: section })
+            : t("availability.drawer.layer.tablesBlocked");
+        }
       }
     }
-    function seriesText(series: LayerSeries, t: TFunction, format: VenueFormat): string {
+    function seriesText(
+      series: LayerSeries,
+      t: TFunction,
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
+    ): string {
       const days = series.weekdays?.map((d) => t(WEEKDAY_NAME[d] ?? WEEKDAY_NAME[0])).join(", ");
       const range = `${series.startsOn} – ${series.endsOn ?? t("availability.drawer.layer.untilReopened")}`;
-      return [targetText(series.target, t, format), days, range].filter(Boolean).join(" · ");
+      return [targetText(series.target, t, format, sectionNames), days, range]
+        .filter(Boolean)
+        .join(" · ");
     }
     function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: VenueFormat): string {
       return hours.length === 0
@@ -6964,7 +7050,12 @@
       }
       return t("availability.drawer.layer.pacing", { count: tonight.pacingCovers });
     }
-    export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string {
+    export function layerLabelText(
+      layer: Layer,
+      t: TFunction,
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
+    ): string {
       switch (layer.kind) {
         case "schedule":
           return layer.scheduleName !== undefined
@@ -6981,11 +7072,11 @@
         case "skip":
           return layer.skippedFrom
             ? t("availability.drawer.layer.skippedFrom", {
-                series: seriesText(layer.skippedFrom, t, format),
+                series: seriesText(layer.skippedFrom, t, format, sectionNames),
               })
             : t("availability.drawer.layer.skippedDate");
         case "closure":
-          return layer.target ? targetText(layer.target, t, format) : layer.label;
+          return layer.target ? targetText(layer.target, t, format, sectionNames) : layer.label;
         case "tonight":
           return t("availability.drawer.layer.tonight");
       }
@@ -7750,6 +7841,10 @@
         },
       };
     }
+    export interface OperatingHoursValidationErrors {
+      readonly global?: string;
+      readonly days?: Readonly<Partial<Record<keyof OperatingHours, string>>>;
+    }
     export function validateQuickSetupHours(
       hours: OperatingHours,
       t: TFunction = localeRuntime.i18n.t
@@ -8291,9 +8386,6 @@
         }
       });
       return runs;
-    }
-    export function hasOwnSchedules(config: AvailabilityConfig): boolean {
-      return liveSchedules(config).some((s) => s.kind !== "regular");
     }
     export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
       const schedule = config.schedules.find((s) => s.id === scheduleId);
@@ -8855,6 +8947,18 @@
         unsaved: [...new Set([...edits, ...removals, ...lost, ...named("unsaved")].map(parkedName))],
         overridden: [...new Set(named("overridden").map(parkedName))],
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/section-membership.ts">
+    export function sectionMembership(
+      tables: readonly Pick<Table, "id" | "sectionId">[]
+    ): ReadonlyMap<string, readonly string[]> {
+      const membership = new Map<string, string[]>();
+      for (const { id, sectionId } of tables) {
+        if (!sectionId) continue;
+        membership.set(sectionId, [...(membership.get(sectionId) ?? []), id]);
+      }
+      return membership;
     }
   </file>
   <file path="apps/hospitality/src/components/availability/selection-actions.ts">
@@ -19765,6 +19869,8 @@
       minCovers: string;
       maxCovers: string;
       location: string;
+      /** The section's id; an empty string means "No section". */
+      sectionId: string;
       isActive: boolean;
     }
     export function tableToFormValues(table: Table): TableDetailsFormValues {
@@ -19780,6 +19886,7 @@
         // against these seeded values, so leaving the field alone sends nothing.
         maxCovers: String(table.maxCovers ?? table.capacity),
         location: table.location ?? "",
+        sectionId: table.sectionId ?? "",
         isActive: table.isActive,
       };
     }
@@ -19797,6 +19904,8 @@
     
       const location = current.location.trim();
       if (location !== initial.location.trim()) changes.location = location;
+    
+      if (current.sectionId !== initial.sectionId) changes.sectionId = current.sectionId || null;
     
       if (current.isActive !== initial.isActive) changes.isActive = current.isActive;
     
@@ -22427,6 +22536,14 @@
       fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
       getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
     });
+    export const useVenueFloorPlanSections = createQueryHook<
+      FloorPlanSection[],
+      { venueId?: string | null }
+    >({
+      key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!),
+      getEnabled: (params) => !!params?.venueId,
+    });
     export const useUpdateFloorPlanSection = createMutationHook<
       { venueId: string; sectionId: string; data: UpdateFloorPlanSectionRequest },
       FloorPlanSection
@@ -22922,6 +23039,24 @@
       return (
         includesAdmin(accessTokenPermissions(accessToken)) || includesAdmin(user?.raw?.permissions)
       );
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useIsManager.ts">
+    export interface ManagerAccess {
+      readonly isManager: boolean;
+      /** True while the venue list or the team read has not answered yet, so the role is unknown. */
+      readonly isPending: boolean;
+    }
+    export function useManagerAccess(): ManagerAccess {
+      const { selectedVenueId, isLoading: venueLoading } = useVenue();
+      const team = useVenueTeam({ venueId: selectedVenueId });
+      return {
+        isManager: team.data?.viewerRole === "manager",
+        isPending: venueLoading || team.isLoading,
+      };
+    }
+    export function useIsManager(): boolean {
+      return useManagerAccess().isManager;
     }
   </file>
   <file path="apps/hospitality/src/hooks/useMenus.ts">
@@ -39597,12 +39732,25 @@
       "Only a Manager can do this. A Host may close the whole venue for tonight, and only when the venue allows it.";
   </file>
   <file path="services/reservations/src/routes/closure-post-commit.ts">
-    export async function publishClosureChanges(
+    type NoticeEnqueue = FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"];
+    async function enqueueNotices(
+      enqueue: NoticeEnqueue,
+      input: Omit<Parameters<NoticeEnqueue>[0], "now">,
+      log: FastifyBaseLogger,
+      failure = "closure notices were not enqueued"
+    ): Promise<void> {
+      try {
+        await enqueue({ ...input, now: new Date() });
+      } catch (error) {
+        log.error({ err: error, ...input }, failure);
+      }
+    }
+    async function publishClosureChanges(
       fastify: FastifyInstance,
       log: FastifyBaseLogger,
-      saved: { venueId: string; ruleId: string; carried?: readonly string[] }
+      plan: ClosurePostCommit
     ): Promise<void> {
-      const { venueId, ruleId, carried } = saved;
+      const { venueId, ruleId, carried } = plan;
       try {
         await fastify.transitions.settleClosure(
           venueId,
@@ -39612,74 +39760,39 @@
         log.error({ err, venueId, ruleId }, "closure SSE events were not published");
       }
     }
-    export async function enqueueNotices(
-      enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-      input: {
-        venueId: string;
-        ruleId: string;
-        carried?: readonly string[];
-        only?: readonly string[];
-        date?: string;
-      },
-      log: FastifyBaseLogger
-    ): Promise<void> {
-      try {
-        await enqueue({ ...input, now: new Date() });
-      } catch (error) {
-        log.error({ err: error, ...input }, "closure notices were not enqueued");
-      }
-    }
-    export async function enqueueClosureJobs(
+    export async function runClosurePostCommit(
       fastify: FastifyInstance,
       log: FastifyBaseLogger,
-      saved: { venueId: string; ruleId: string; cancelled: number; givenBackNotified?: number }
+      plan: ClosurePostCommit
     ): Promise<void> {
-      const { venueId, ruleId, cancelled } = saved;
-      const carried = await carriedOutcomes(log, venueId, ruleId);
-      await publishClosureChanges(fastify, log, { venueId, ruleId, carried });
-      if (cancelled > 0) {
+      const { venueId, ruleId, carried, givenBack } = plan;
+      await publishClosureChanges(fastify, log, plan);
+      if (plan.refunds) {
         try {
           await fastify.closureRefunds.enqueue(venueId, ruleId, carried);
         } catch (err) {
           log.error({ err, venueId, ruleId }, "Failed to enqueue closure refund jobs");
         }
       }
-      await enqueueNotices(
-        fastify.services.closureNoticeService.enqueueForClosure,
-        { venueId, ruleId, carried },
-        log
-      );
-      if (saved.givenBackNotified) await enqueueGivenBackNotices(fastify, log, { venueId, ruleId });
+      const notices = fastify.services.closureNoticeService;
+      await enqueueNotices(notices.enqueueForClosure, { venueId, ruleId, carried }, log);
+      // An edit that gave dates back and chose to tell the guests there: the reopen notice, through
+      // the same path a reopen uses, to the guests on the removed closure the save recorded.
+      if (givenBack) {
+        await enqueueNotices(
+          notices.enqueueForReopen,
+          { venueId, ruleId: givenBack.ruleId, only: givenBack.outcomeIds, date: givenBack.from },
+          log,
+          "given-back reopen notices were not enqueued"
+        );
+      }
     }
-    async function enqueueGivenBackNotices(
+    export async function runReopenNotice(
       fastify: FastifyInstance,
       log: FastifyBaseLogger,
-      saved: { venueId: string; ruleId: string }
+      notice: ReopenNotice
     ): Promise<void> {
-      const { venueId, ruleId } = saved;
-      try {
-        const given = await readGivenBack(venueId, ruleId);
-        if (!given) return;
-        await enqueueNotices(
-          fastify.services.closureNoticeService.enqueueForReopen,
-          { venueId, ruleId: given.ruleId, only: given.outcomeIds, date: given.from },
-          log
-        );
-      } catch (err) {
-        log.error({ err, venueId, ruleId }, "given-back reopen notices were not enqueued");
-      }
-    }
-    async function carriedOutcomes(
-      log: FastifyBaseLogger,
-      venueId: string,
-      ruleId: string
-    ): Promise<string[]> {
-      try {
-        return await readCarriedOutcomeIds(venueId, ruleId);
-      } catch (err) {
-        log.error({ err, venueId, ruleId }, "carried closure outcomes were not read");
-        return [];
-      }
+      await enqueueNotices(fastify.services.closureNoticeService.enqueueForReopen, notice, log);
     }
   </file>
   <file path="services/reservations/src/routes/closures.ts">
@@ -39797,14 +39910,7 @@
           });
           if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
           // After the commit; failures are logged, never returned.
-          await enqueueClosureJobs(fastify, request.log, {
-            venueId,
-            ruleId: outcome.result.ruleId,
-            cancelled: outcome.result.outcomes.cancel,
-            ...(outcome.result.givenBackNotified
-              ? { givenBackNotified: outcome.result.givenBackNotified }
-              : {}),
-          });
+          if (outcome.postCommit) await runClosurePostCommit(fastify, request.log, outcome.postCommit);
           return { data: outcome.result };
         }),
       });
@@ -39873,13 +39979,7 @@
           });
           if (outcome.kind !== "saved") return sendRefusal(reply, outcome);
           // After the commit; failures are logged, never returned.
-          for (const saved of outcome.result.results) {
-            await enqueueClosureJobs(fastify, request.log, {
-              venueId,
-              ruleId: saved.ruleId,
-              cancelled: saved.outcomes.cancel,
-            });
-          }
+          for (const plan of outcome.postCommit) await runClosurePostCommit(fastify, request.log, plan);
           return { data: outcome.result };
         }),
       });
@@ -39971,18 +40071,7 @@
             now: new Date(),
           });
           if (outcome.kind === "reopened") {
-            // The same call the command counted: no notice to rebook a date that stays closed (#8006).
-            if (request.body.tellCancelledGuests && !outcome.result.stillClosed?.everyDate) {
-              await enqueueNotices(
-                closureNoticeService.enqueueForReopen,
-                {
-                  venueId,
-                  ruleId: request.params.ruleId,
-                  ...(request.body.date ? { date: request.body.date } : {}),
-                },
-                request.log
-              );
-            }
+            if (outcome.notice) await runReopenNotice(fastify, request.log, outcome.notice);
             return { data: outcome.result };
           }
           return sendRefusal(reply, outcome);
@@ -45458,7 +45547,7 @@
       // Resolve domain services from the buildApp seam (issue #3357) rather than
       // importing the sibling singleton directly — tests inject fakes via
       // buildApp({ services }).
-      const { tableService, floorPlanService } = fastify.services;
+      const { tableService, floorPlanService, floorPlanSectionService } = fastify.services;
     
       // List tables
       fastify.get<{
@@ -45656,12 +45745,16 @@
           },
         },
         venueScoped(tableVenue, async (request, reply) => {
-          const { floorPlanId } = request.body;
+          const { floorPlanId, sectionId } = request.body;
     
           // ADR-026 §3.3 item 5 / #5369 PR 7: the floor-plan reassignment
           // pre-check runs INSIDE the table's venue context (venueScoped), the way
           // `floor-plans.ts`'s `/tables/positions` route does, so both reads
           // succeed under FORCE instead of silently skipping this check.
+          // One read of the table serves both guards below.
+          const current =
+            floorPlanId || sectionId ? await tableService.getById(request.params.id) : null;
+    
           if (floorPlanId) {
             // Venue scope only proves the caller belongs to the TABLE's own venue.
             // `floorPlanId` is a client-supplied id that the update connects with
@@ -45671,10 +45764,7 @@
             // floor-plans.ts. Checked here rather than in the DB layer because
             // `Table` has no compound floorPlanId/venueId constraint, and ADR-026's
             // RLS does not apply to the app's own role.
-            const [current, floorPlan] = await Promise.all([
-              tableService.getById(request.params.id),
-              floorPlanService.getById(floorPlanId),
-            ]);
+            const floorPlan = await floorPlanService.getById(floorPlanId);
             // A missing table or floor plan is not a cross-venue reassignment —
             // fall through so the update below surfaces the existing 404. Note
             // (matching `floor-plans.ts`'s `/tables/positions` route): inside the
@@ -45691,6 +45781,29 @@
                     403,
                     titleForStatus(403),
                     "The requested floor plan does not belong to this table's venue"
+                  )
+                );
+            }
+          }
+    
+          // `sectionId` is client-supplied and the update connects it with no venue
+          // awareness of its own, so it must be one of the sections of the floor plan the
+          // table ends up on: the body's `floorPlanId` when sent, else its current plan. A
+          // table with no plan has no valid section. Another plan's or venue's section is
+          // indistinguishable from a missing one: 404.
+          if (sectionId && current?.venueId) {
+            const targetPlanId = floorPlanId !== undefined ? floorPlanId : current.floorPlanId;
+            const sections = targetPlanId
+              ? await floorPlanSectionService.list(current.venueId, targetPlanId)
+              : [];
+            if (!sections.some((section) => section.id === sectionId)) {
+              return reply
+                .code(404)
+                .send(
+                  createProblemDetails(
+                    404,
+                    titleForStatus(404),
+                    "Floor plan section not found on this table's floor plan"
                   )
                 );
             }
@@ -45856,17 +45969,9 @@
             now: new Date(),
           });
           if (outcome.kind === "saved") {
-            const { outcomes, ruleId } = outcome.result;
-            const affected =
-              outcomes.cancel + outcomes.move + outcomes.keep_notify + outcomes.keep_silent;
-            // Only a close-early runs the closure command, so only it owes the
-            // closure's post-commit refunds and notices.
-            if (request.body.change.type === "close_early" && affected > 0) {
-              await enqueueClosureJobs(fastify, request.log, {
-                venueId,
-                ruleId,
-                cancelled: outcomes.cancel,
-              });
+            // After the commit; failures are logged, never returned.
+            if (outcome.postCommit) {
+              await runClosurePostCommit(fastify, request.log, outcome.postCommit);
             }
             return { data: outcome.result };
           }
@@ -48059,6 +48164,8 @@
           bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
           /** The service a `service` closure is for; absent for other targets and from an older API. */
           venueServiceId: z.string().optional(),
+          /** The section a section closure is for; absent for other targets and from an older API. */
+          sectionId: z.string().optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -49496,6 +49603,11 @@
           .string()
           .nullable()
           .describe("Floor plan to assign, or null to unassign")
+          .optional(),
+        sectionId: z
+          .string()
+          .nullable()
+          .describe("Floor-plan section to put the table in, or null for no section")
           .optional(),
         shapeMetadata: TableShapeMetadataSchema.nullable()
           .describe("Canvas shape/position, or null to clear")
@@ -54415,13 +54527,14 @@
         scheduleId: day.scheduleId,
         serviceCount: day.services.length,
         closures: day.closures.map(
-          ({ ruleId, targetKind, from, to, bookingTypes, venueServiceId }) => ({
+          ({ ruleId, targetKind, from, to, bookingTypes, venueServiceId, sectionId }) => ({
             ruleId,
             targetKind,
             from,
             to,
             ...(targetKind === "booking" && bookingTypes ? { bookingTypes } : {}),
             ...(targetKind === "service" && venueServiceId ? { venueServiceId } : {}),
+            ...(targetKind === "tables" && sectionId ? { sectionId } : {}),
           })
         ),
         bookingOpen: day.bookingOpen,
@@ -54452,6 +54565,12 @@
         return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
       }
       return JSON.stringify(value);
+    }
+    function withoutDerived(row: unknown): unknown {
+      if (row === null || typeof row !== "object" || !("sectionId" in row) || row.sectionId == null) {
+        return row;
+      }
+      return Object.fromEntries(Object.entries(row).filter(([key]) => key !== "tableIds"));
     }
     function coversDate(rule: DateRule, date: string): boolean {
       return (
@@ -54660,7 +54779,8 @@
     }
     export function referenceIssues(
       config: AvailabilityConfig,
-      venueTableIds: ReadonlySet<string>
+      venueTableIds: ReadonlySet<string>,
+      venueSectionIds: ReadonlySet<string>
     ): ReferenceIssue[] {
       const schedules = new Set(config.schedules.map((s) => s.id));
       const services = new Set(config.venueServices.map((s) => s.id));
@@ -54693,7 +54813,9 @@
                 )
               )
             : []),
-          ...(r.tableIds ?? []).flatMap((t, k) =>
+          ...(r.sectionId ? check(`dateRules[${i}].sectionId`, r.sectionId, venueSectionIds) : []),
+          // A section rule's tableIds are derived from the section, not taken from the request.
+          ...(r.sectionId ? [] : (r.tableIds ?? [])).flatMap((t, k) =>
             check(`dateRules[${i}].tableIds[${k}]`, t, venueTableIds)
           ),
         ]),
@@ -54710,6 +54832,8 @@
        */
       exact?: boolean;
       tableIds: ReadonlySet<string>;
+      /** The venue's sections; absent means none, so any section closure is refused. */
+      sections?: SectionIndex;
       now: Date;
       today: string;
       newId: () => string;
@@ -54725,9 +54849,11 @@
             input.newId,
             input.today
           );
+      const sections = input.sections ?? NO_SECTIONS;
       return {
-        next,
-        issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds)],
+        // A section closure's tables are the section's now, whatever list the draft carried.
+        next: { ...next, dateRules: expandSectionRules(next.dateRules, sections.membership) },
+        issues: [...validateConfig(next), ...referenceIssues(next, input.tableIds, sections.ids)],
       };
     }
   </file>
@@ -54753,7 +54879,7 @@
         db.dateRule.findMany({
           where: { venueId, deletedAt: null },
           orderBy: { createdAt: "asc" },
-          include: { tables: { select: { tableId: true } } },
+          include: SECTION_RULE_INCLUDE,
         }),
       ]);
       const warnings: SnapshotWarning[] = [];
@@ -54764,7 +54890,8 @@
       return { config, warnings };
     }
     async function writeRuleTables(db: ConfigRowDb, venueId: string, rule: DateRule): Promise<void> {
-      const tableIds = rule.tableIds ?? [];
+      // A section closure keeps no join rows: its tables are the section's, read live (ADR-032).
+      const tableIds = rule.sectionId ? [] : (rule.tableIds ?? []);
       if (tableIds.length === 0) return;
       await db.dateRuleTable.createMany({
         data: tableIds.map((tableId) => ({ dateRuleId: rule.id, tableId, venueId })),
@@ -54913,7 +55040,13 @@
     export type StoreDb = ConfigRowDb &
       Pick<
         PrismaClient,
-        "venue" | "reservation" | "availabilityChange" | "table" | "closureOutcome" | "$executeRaw"
+        | "venue"
+        | "reservation"
+        | "availabilityChange"
+        | "table"
+        | "floorPlanSection"
+        | "closureOutcome"
+        | "$executeRaw"
       >;
     export type StoreClient = Pick<PrismaClient, "$transaction">;
     function withStored(legacy: AvailabilityConfig, stored: AvailabilityConfig): AvailabilityConfig {
@@ -55063,6 +55196,7 @@
       bookings: readonly BookedReservation[];
       /** Every table of the venue, active or not: a date rule may only block these. */
       tableIds: ReadonlySet<string>;
+      sections?: SectionIndex;
       now: Date;
       newId?: () => string;
       /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
@@ -55077,6 +55211,7 @@
         scopeConflicts: body.scopeConflicts,
         ...(input.exact ? { exact: true } : {}),
         tableIds: input.tableIds,
+        ...(input.sections ? { sections: input.sections } : {}),
         now,
         today: civilDateIn(now, state.timezone),
         newId: input.newId ?? randomUUID,
@@ -55315,9 +55450,10 @@
       if (!state) throw new SaveRefused({ kind: "not_found" });
       const request = await resolve(state);
       const today = civilDateIn(now, state.timezone);
-      const [bookings, tables] = await Promise.all([
+      const [bookings, tables, sections] = await Promise.all([
         futureBookings(tx, venueId, today, now),
         tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        loadSectionIndex(tx, venueId),
       ]);
       const tableIds = new Set(tables.map((t) => t.id));
       const plan = planSave({
@@ -55325,6 +55461,7 @@
         body: { expectedVersion, changes: request.changes, scopeConflicts: request.scopeConflicts },
         bookings,
         tableIds,
+        sections,
         now,
         ...(request.allowNoHours ? { allowNoHours: true } : {}),
         ...(request.exact ? { exact: true } : {}),
@@ -55401,7 +55538,7 @@
         await setVenueContext(tx, venueId);
         const state = await loadConfigState(tx, venueId, now);
         if (!state) return { kind: "not_found" };
-        const [bookings, tables] = await Promise.all([
+        const [bookings, tables, sections] = await Promise.all([
           futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
           tx.table.findMany({
             where: { venueId, ...onActivePlanWhere() },
@@ -55415,12 +55552,14 @@
               priority: true,
             },
           }),
+          loadSectionIndex(tx, venueId),
         ]);
         return planPreview({
           state,
           body,
           bookings,
           tableIds: new Set(tables.map((t) => t.id)),
+          sections,
           tables,
           now,
         });
@@ -55695,6 +55834,7 @@
       /** Future, still-booked reservations, each with its service date. */
       bookings: readonly BookedReservation[];
       tableIds: ReadonlySet<string>;
+      sections?: SectionIndex;
       /** The venue's tables, so a party size narrows the times to those a table fits. */
       tables?: readonly EngineTable[];
       now: Date;
@@ -55715,6 +55855,7 @@
         changes: draft.changes,
         scopeConflicts: draft.scopeConflicts,
         tableIds: input.tableIds,
+        ...(input.sections ? { sections: input.sections } : {}),
         now,
         today: civilDateIn(now, state.timezone),
         newId: input.newId ?? randomUUID,
@@ -55861,11 +56002,18 @@
         guestMessage: row.guestMessage,
       };
     }
+    export const SECTION_RULE_INCLUDE = {
+      tables: { select: { tableId: true } },
+      section: { select: { tables: { select: { id: true } } } },
+    } as const;
     export interface DateRuleRow {
       id: string;
       kind: string;
       targetKind: string;
       venueServiceId: string | null;
+      sectionId: string | null;
+      /** The section a section closure names, with its tables as of this read. */
+      section?: { tables: { id: string }[] } | null;
       bookingTypes: string[];
       startsOn: Date;
       endsOn: Date | null;
@@ -55893,6 +56041,7 @@
         targetKind: row.targetKind,
         venueServiceId: row.venueServiceId,
         bookingTypes,
+        sectionId: row.sectionId,
         tableIds: row.tables.map((t) => t.tableId),
         startsOn: toServiceDate(row.startsOn),
         endsOn: row.endsOn ? toServiceDate(row.endsOn) : null,
@@ -55966,6 +56115,13 @@
       assignments: ScheduleAssignmentRow[];
       dateRules: DateRuleRow[];
     }
+    function sectionMembership(rows: readonly DateRuleRow[]): Map<string, string[]> {
+      return new Map(
+        rows.flatMap((r) =>
+          r.sectionId && r.section ? [[r.sectionId, r.section.tables.map((t) => t.id)] as const] : []
+        )
+      );
+    }
     export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig {
       const { schedules, venueServices, scheduleServices, assignments, dateRules } = rows;
       return {
@@ -56006,15 +56162,18 @@
           })),
           warnings
         ),
-        dateRules: parseRows<DateRule>(
-          "date_rules",
-          DateRuleSchema,
-          dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
-          warnings,
-          (id) => {
-            const row = dateRules.find((r) => r.id === id);
-            return row ? failClosedRule(row) : null;
-          }
+        dateRules: expandSectionRules(
+          parseRows<DateRule>(
+            "date_rules",
+            DateRuleSchema,
+            dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
+            warnings,
+            (id) => {
+              const row = dateRules.find((r) => r.id === id);
+              return row ? failClosedRule(row) : null;
+            }
+          ),
+          sectionMembership(dateRules)
         ),
       };
     }
@@ -56062,7 +56221,7 @@
             startsOn: { lte: windowEnd },
             OR: [{ endsOn: null }, { endsOn: { gte: windowStart } }],
           },
-          include: { tables: { select: { tableId: true } } },
+          include: SECTION_RULE_INCLUDE,
         }),
         db.table.findMany({
           where: bookableTableWhere(venueId),
@@ -57053,19 +57212,6 @@
       const carried = carriedOf(inverse);
       if (carried) await rekey(tx, carried.outcomeIds, carried.from);
     }
-    export const readCarriedOutcomeIds = (venueId: string, ruleId: string): Promise<string[]> =>
-      runWithVenueContext(venueId, () => carriedOutcomeIds(prisma, venueId, ruleId));
-    export async function carriedOutcomeIds(
-      db: Pick<PrismaClient, "availabilityChange">,
-      venueId: string,
-      ruleId: string
-    ): Promise<string[]> {
-      const change = await db.availabilityChange.findFirst({
-        where: { venueId, kind: "closure", inverse: { path: ["closure", "ruleId"], equals: ruleId } },
-        select: { inverse: true },
-      });
-      return carriedOf(change?.inverse)?.outcomeIds ?? [];
-    }
   </file>
   <file path="services/reservations/src/services/closure-changes.ts">
     export interface ClosureChanges {
@@ -57347,8 +57493,28 @@
         ...(i < STRANDED_ISSUE_DETAIL_MAX ? { reservation: r } : {}),
       }));
     }
+    export interface ClosurePostCommit {
+      venueId: string;
+      ruleId: string;
+      /** Outcomes carried in from the series this save replaced: that save told and refunded them. */
+      carried: string[];
+      /** The save cancelled a booking, so its deposits may be owed back. */
+      refunds: boolean;
+      /** Guests an edit gave their date back to and chose to tell (#8413), on the removed closure. */
+      givenBack: GivenBackGuests | null;
+    }
+    export interface ReopenNotice {
+      venueId: string;
+      ruleId: string;
+      /** A one-date reopen: only the guests on this date. */
+      date?: string;
+    }
+    interface Saved {
+      result: ClosureResult;
+      postCommit: ClosurePostCommit | null;
+    }
     export type CreateClosureOutcome =
-      | { kind: "saved"; result: ClosureResult }
+      | ({ kind: "saved" } & Saved)
       | { kind: "not_found" }
       | { kind: "forbidden" }
       | { kind: "too_long" }
@@ -57460,11 +57626,40 @@
       const closure = (change?.inverse as { closure?: ClosureMeta } | null | undefined)?.closure;
       return change && closure ? { id: change.id, actorId: change.actorId, closure } : null;
     }
-    async function storedResult(
+    function savedOf(
+      venueId: string,
+      closure: Pick<ClosureMeta, "ruleId" | "version" | "carried" | "givenBack">,
+      changeId: string,
+      counts: Record<ClosureAction, number>
+    ): Saved {
+      const { ruleId, givenBack } = closure;
+      const result: ClosureResult = {
+        ruleId,
+        version: closure.version,
+        changeId,
+        outcomes: counts,
+        ...(givenBack ? { givenBackNotified: givenBack.outcomeIds.length } : {}),
+      };
+      // With no outcome of its own and no guest given a date back, there is nothing to publish,
+      // refund or tell: the outcomes it carried in were decided by the save it replaced.
+      const decided = counts.cancel + counts.move + counts.keep_notify + counts.keep_silent;
+      if (decided === 0 && !givenBack) return { result, postCommit: null };
+      return {
+        result,
+        postCommit: {
+          venueId,
+          ruleId,
+          carried: closure.carried?.outcomeIds ?? [],
+          refunds: counts.cancel > 0,
+          givenBack: givenBack ?? null,
+        },
+      };
+    }
+    async function storedSave(
       tx: Pick<PrismaClient, "closureOutcome">,
       venueId: string,
       replay: { id: string; closure: ClosureMeta }
-    ): Promise<ClosureResult> {
+    ): Promise<Saved> {
       const { closure } = replay;
       // What the save decided, as stored with it: the rule's rows can since have moved to a later
       // growth, and the ones it carried in were never its own.
@@ -57478,13 +57673,8 @@
             },
             select: { action: true },
           });
-      return {
-        ruleId: closure.ruleId,
-        version: closure.version,
-        changeId: replay.id,
-        outcomes: closure.counts ?? countActions(rows.map((r) => r.action)),
-        ...(closure.givenBack ? { givenBackNotified: closure.givenBack.outcomeIds.length } : {}),
-      };
+      const counts = closure.counts ?? countActions(rows.map((r) => r.action));
+      return savedOf(venueId, closure, replay.id, counts);
     }
     interface Plan {
       rows: Prisma.ClosureOutcomeCreateManyInput[];
@@ -57559,7 +57749,7 @@
       ruleKinds: ReadonlySet<string>;
       batch?: BatchShape;
     };
-    async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> {
+    async function replayOf(tx: Db, input: CommitInput): Promise<Saved | null> {
       const { venueId, caller, body, key } = input;
       const replay = await findReplay(tx, venueId, key);
       if (!replay) return null;
@@ -57567,7 +57757,7 @@
       if (!caller.isManager && replay.actorId !== caller.actorId) {
         throw new Refused({ kind: "forbidden" });
       }
-      return storedResult(tx, venueId, replay);
+      return storedSave(tx, venueId, replay);
     }
     async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> {
       const { body, caller, venueId, now } = input;
@@ -57619,7 +57809,7 @@
       const existing = await tx.closureOutcome.count({ where: { venueId, dateRuleId: rule.id } });
       if (existing > 0) throw new Refused({ kind: "closure_exists" });
     }
-    async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
+    async function commit(tx: Db, input: CommitInput): Promise<Saved> {
       const { venueId, caller, body, key, now } = input;
       const { rule } = body;
       const replayed = await replayOf(tx, input);
@@ -57758,13 +57948,7 @@
           ],
         });
       }
-      return {
-        ruleId: rule.id,
-        version,
-        changeId: change.id,
-        outcomes: plan.counts,
-        ...(givenBack ? { givenBackNotified: givenBack.outcomeIds.length } : {}),
-      };
+      return savedOf(venueId, meta, change.id, plan.counts);
     }
     export async function createClosure(
       input: {
@@ -57781,18 +57965,19 @@
       const { venueId, caller, body, idempotencyKey: key, now } = input;
       const ruleKinds = input.ruleKinds ?? CLOSURE_RULE_KINDS;
       try {
-        const result = await client.$transaction(async (tx) => {
+        const saved = await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
           return commit(tx, { venueId, caller, body, key, now, ruleKinds });
         });
-        return { kind: "saved", result };
+        return { kind: "saved", ...saved };
       } catch (error) {
         if (error instanceof Refused) return error.outcome;
         throw error;
       }
     }
     export type CreateClosuresOutcome =
-      { kind: "saved"; result: ClosuresResult } | Exclude<CreateClosureOutcome, { kind: "saved" }>;
+      | { kind: "saved"; result: ClosuresResult; postCommit: ClosurePostCommit[] }
+      | Exclude<CreateClosureOutcome, { kind: "saved" }>;
     export async function createClosures(
       input: {
         venueId: string;
@@ -57806,9 +57991,9 @@
       const { venueId, caller, body, idempotencyKey: key, now } = input;
       if (!caller.isManager) return { kind: "forbidden" };
       try {
-        const results = await client.$transaction(async (tx) => {
+        const saved = await client.$transaction(async (tx) => {
           await setVenueContext(tx, venueId);
-          const saved: ClosureResult[] = [];
+          const items: Saved[] = [];
           const batch: BatchShape = {
             count: body.items.length,
             ruleIds: body.items.map((i) => i.rule.id),
@@ -57821,7 +58006,7 @@
           }
           let expectedVersion = body.expectedVersion;
           for (const [i, item] of body.items.entries()) {
-            const result = await commit(tx, {
+            const committed = await commit(tx, {
               venueId,
               caller,
               body: { expectedVersion, rule: item.rule, decisions: item.decisions },
@@ -57830,12 +58015,17 @@
               ruleKinds: CLOSURE_RULE_KINDS,
               batch,
             });
-            saved.push(result);
-            expectedVersion = result.version;
+            items.push(committed);
+            expectedVersion = committed.result.version;
           }
-          return saved;
+          return items;
         });
-        return { kind: "saved", result: { version: results.at(-1)!.version, results } };
+        const results = saved.map((s) => s.result);
+        return {
+          kind: "saved",
+          result: { version: results.at(-1)!.version, results },
+          postCommit: saved.flatMap((s) => (s.postCommit ? [s.postCommit] : [])),
+        };
       } catch (error) {
         if (error instanceof Refused) return error.outcome;
         throw error;
@@ -57855,7 +58045,7 @@
       if (saved?.actorId !== actorId) throw new Refused({ kind: "forbidden" });
     }
     export type ReopenOutcome =
-      | { kind: "reopened"; result: ReopenResult }
+      | { kind: "reopened"; result: ReopenResult; notice: ReopenNotice | null }
       | { kind: "not_found" }
       | { kind: "forbidden" }
       | Extract<Refusal, { kind: "invalid" | "version_conflict" }>;
@@ -57989,13 +58179,14 @@
             reopened,
             civilDateIn(now, state.timezone)
           );
-          // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
-          // row, Undo and the caller's count must agree with who it actually reaches. With every date
-          // still closed by another closure there is nothing to rebook, so nobody is told to (#8006).
-          const notified =
+          // With every date still closed by another closure there is nothing to rebook, so nobody is
+          // told to (#8006). Only guests whose booking has not started get the notice
+          // (`listNotifiable`); the audit row, Undo and the caller's count agree with who it reaches.
+          const notice: ReopenNotice | null =
             input.tellCancelledGuests && !stillClosed.everyDate
-              ? await upcomingCancelled(db, venueId, ruleId, now)
-              : 0;
+              ? { venueId, ruleId, ...(input.date ? { date: input.date } : {}) }
+              : null;
+          const notified = notice ? await upcomingCancelled(db, venueId, ruleId, now) : 0;
           const change = await db.availabilityChange.create({
             data: {
               venueId,
@@ -58020,6 +58211,7 @@
           return {
             kind: "reopened" as const,
             result: { version: bumped.availabilityVersion, changeId: change.id, notified, stillClosed },
+            notice,
           };
         });
       } catch (error) {
@@ -58124,20 +58316,13 @@
         from: from.toISOString().slice(0, 10),
       };
     }
-    export const readGivenBack = (venueId: string, ruleId: string): Promise<GivenBackGuests | null> =>
-      runWithVenueContext(venueId, async () => {
-        const change = await prisma.availabilityChange.findFirst({
-          where: { venueId, kind: "closure", inverse: { path: ["closure", "ruleId"], equals: ruleId } },
-          select: { inverse: true },
-        });
-        const meta = change?.inverse as
-          { closure?: { givenBack?: GivenBackGuests } } | null | undefined;
-        return meta?.closure?.givenBack ?? null;
-      });
   </file>
   <file path="services/reservations/src/services/closure-impact-store.ts">
     type StoreClient = Pick<PrismaClient, "$transaction">;
-    type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservationHold">;
+    type ImpactDb = Pick<
+      PrismaClient,
+      "table" | "reservation" | "reservationHold" | "floorPlanSection"
+    >;
     export type ClosureImpactOutcome =
       | { kind: "ok"; impact: ClosureImpact }
       | { kind: "not_found" }
@@ -58188,15 +58373,25 @@
       tx: ImpactDb,
       venueId: string,
       state: ConfigState,
-      rule: DateRule,
+      draft: DateRule,
       now: Date,
-      alongside?: ClosureAlongside
+      draftAlongside?: ClosureAlongside
     ): Promise<ClosureImpactOutcome> {
-      const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+      const [tables, sections] = await Promise.all([
+        tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        loadSectionIndex(tx, venueId),
+      ]);
+      // A section closure blocks its section's tables now, whatever tableIds the client sent (ADR-032).
+      const [expandedRule] = expandSectionRules([draft], sections.membership);
+      const rule = expandedRule ?? draft;
+      const alongside = draftAlongside && {
+        ...draftAlongside,
+        upsert: expandSectionRules(draftAlongside.upsert, sections.membership),
+      };
       const next = withClosure(state.effective, rule, alongside);
       const issues = [
         ...validateConfig(next),
-        ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+        ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids),
       ];
       if (issues.length > 0) return { kind: "invalid", issues };
     
@@ -61401,12 +61596,20 @@
         return section ? mapSection(section) : null;
       },
     
-      /** Its tables are kept and become unassigned (`ON DELETE SET NULL`). */
-      async delete(venueId: string, sectionId: string): Promise<boolean> {
-        const { count } = await prisma.floorPlanSection.deleteMany({
-          where: { id: sectionId, venueId },
+      /**
+       * Its tables are kept and become unassigned (`ON DELETE SET NULL`). A live section closure keeps
+       * blocking the section's tables as a plain tables closure (ADR-032), in the same transaction.
+       */
+      async delete(venueId: string, sectionId: string, now: Date = new Date()): Promise<boolean> {
+        // Explicit transaction: bypasses the per-call auto-wrap, so set the venue ourselves.
+        return prisma.$transaction(async (tx) => {
+          await setVenueContext(tx, venueId);
+          const owned = await tx.floorPlanSection.count({ where: { id: sectionId, venueId } });
+          if (owned === 0) return false;
+          await materialiseSectionClosures(tx, venueId, [sectionId], now);
+          const { count } = await tx.floorPlanSection.deleteMany({ where: { id: sectionId, venueId } });
+          return count > 0;
         });
-        return count > 0;
       },
     
       /**
@@ -61770,6 +61973,18 @@
             ]);
     
             if (reservations + holds === 0) {
+              // The plan's sections go with it (ON DELETE CASCADE): a live section closure becomes a
+              // plain tables closure first (ADR-032), as when a section is deleted on its own.
+              const sections = await tx.floorPlanSection.findMany({
+                where: { floorPlanId: id },
+                select: { id: true },
+              });
+              await materialiseSectionClosures(
+                tx,
+                venueId,
+                sections.map((s) => s.id),
+                new Date()
+              );
               await tx.table.deleteMany({ where: { floorPlanId: id } });
               await tx.floorPlan.delete({ where: { id } });
               return "deleted" as const;
@@ -66252,6 +66467,73 @@
       return [...new Set([...unaccounted, ...stale, ...closed])].sort();
     }
   </file>
+  <file path="services/reservations/src/services/section-closure-materialise.ts">
+    export type MaterialiseDb = Pick<PrismaClient, "venue" | "dateRule" | "dateRuleTable" | "table">;
+    export async function materialiseSectionClosures(
+      db: MaterialiseDb,
+      venueId: string,
+      sectionIds: readonly string[],
+      now: Date
+    ): Promise<number> {
+      if (sectionIds.length === 0) return 0;
+      const venue = await db.venue.findUnique({
+        where: { id: venueId },
+        select: { ianaTimezone: true },
+      });
+      if (!venue) return 0;
+      const today = new Date(`${civilDateIn(now, venue.ianaTimezone)}T00:00:00.000Z`);
+      const rules = await db.dateRule.findMany({
+        where: {
+          venueId,
+          sectionId: { in: [...sectionIds] },
+          deletedAt: null,
+          OR: [{ endsOn: null }, { endsOn: { gte: today } }],
+        },
+        select: { id: true, sectionId: true },
+      });
+      if (rules.length === 0) return 0;
+    
+      const tables = await db.table.findMany({
+        where: { venueId, sectionId: { in: [...sectionIds] } },
+        select: { id: true, sectionId: true },
+      });
+      const data = rules.flatMap((rule) =>
+        tables
+          .filter((table) => table.sectionId === rule.sectionId)
+          .map((table) => ({ dateRuleId: rule.id, tableId: table.id, venueId }))
+      );
+      if (data.length > 0) await db.dateRuleTable.createMany({ data, skipDuplicates: true });
+      await db.dateRule.updateMany({
+        where: { id: { in: rules.map((r) => r.id) }, venueId },
+        data: { sectionId: null },
+      });
+      await db.venue.updateMany({
+        where: { id: venueId },
+        data: { availabilityVersion: { increment: 1 } },
+      });
+      return rules.length;
+    }
+  </file>
+  <file path="services/reservations/src/services/section-index.ts">
+    export interface SectionIndex {
+      ids: ReadonlySet<string>;
+      membership: ReadonlyMap<string, readonly string[]>;
+    }
+    export const NO_SECTIONS: SectionIndex = { ids: new Set(), membership: new Map() };
+    export async function loadSectionIndex(
+      db: Pick<PrismaClient, "floorPlanSection">,
+      venueId: string
+    ): Promise<SectionIndex> {
+      const sections = await db.floorPlanSection.findMany({
+        where: { venueId },
+        select: { id: true, tables: { select: { id: true } } },
+      });
+      return {
+        ids: new Set(sections.map((s) => s.id)),
+        membership: new Map(sections.map((s) => [s.id, s.tables.map((t) => t.id)])),
+      };
+    }
+  </file>
   <file path="services/reservations/src/services/serializers.ts">
     export interface PrismaTableRow {
       id: string;
@@ -67384,6 +67666,11 @@
               ? { connect: { id: data.floorPlanId } }
               : { disconnect: true };
           }
+          if (data.sectionId !== undefined) {
+            updateData.section = data.sectionId
+              ? { connect: { id: data.sectionId } }
+              : { disconnect: true };
+          }
           if (data.shapeMetadata !== undefined) {
             updateData.shapeMetadata = data.shapeMetadata
               ? (data.shapeMetadata as unknown as Prisma.InputJsonValue)
@@ -67445,7 +67732,7 @@
     type StoreClient = Pick<PrismaClient, "$transaction">;
     type Db = StoreDb;
     export type SetTonightOutcome =
-      | { kind: "saved"; result: TonightResult }
+      | { kind: "saved"; result: TonightResult; postCommit: ClosurePostCommit | null }
       | Exclude<CreateClosureOutcome, { kind: "saved" }>
       | { kind: "rule_exists" };
     type Refusal = Exclude<SetTonightOutcome, { kind: "saved" }>;
@@ -67604,10 +67891,13 @@
         ...state.effective,
         dateRules: [...state.effective.dateRules.filter((r) => r.id !== rule.id), rule],
       };
-      const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+      const [tables, sections] = await Promise.all([
+        tx.table.findMany({ where: { venueId }, select: { id: true } }),
+        loadSectionIndex(tx, venueId),
+      ]);
       const issues = [
         ...validateConfig(next),
-        ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+        ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids),
       ];
       if (issues.length > 0) throw new Refused({ kind: "invalid", issues });
       return next;
@@ -67712,7 +68002,7 @@
           );
           return { kind: "saved", result };
         });
-        if (prepared.kind === "saved") return prepared;
+        if (prepared.kind === "saved") return { ...prepared, postCommit: null };
         const { rule } = prepared;
         const closed = await deps.createClosure({
           venueId,
@@ -67726,6 +68016,7 @@
         return {
           kind: "saved",
           result: { ...closed.result, serviceDate: rule.startsOn, expiresAt: rule.expiresAt ?? "" },
+          postCommit: closed.postCommit,
         };
       } catch (error) {
         if (error instanceof Refused) return error.outcome;
@@ -70098,10 +70389,8 @@
       id: string;
       label: string;
       action: NavAction;
-      /** Setup step status — drives icon before the label */
-      stepStatus?: "completed" | "current" | "locked";
-      /** Prevents click and applies muted style */
-      disabled?: boolean;
+      /** Short status text after the label, e.g. the pre-launch progress count */
+      badge?: string;
     }
     export interface NavSection {
       /**
@@ -70141,38 +70430,20 @@
       isAdmin: boolean,
       t: TFunction
     ): readonly NavSection[] {
-      const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
-    
-      const STEP_LABELS: Record<SetupStep, string> = {
-        onboarding: t("nav.items.venueBasics"),
-        "operating-hours": t("nav.items.setOperatingHours"),
-        "floor-plan": t("nav.items.createFloorPlan"),
-      };
-    
-      const STEP_PATHS: Record<SetupStep, string> = {
-        onboarding: "/onboarding",
-        "operating-hours": "/availability",
-        "floor-plan": "/floor-plans",
-      };
-    
-      const items: NavItem[] = STEP_ORDER.map((step) => {
-        const isCompleted = readiness.completedSteps.includes(step);
-        const isCurrent = readiness.nextStep === step;
-        const isLocked = !isCompleted && !isCurrent;
-    
-        return {
-          id: `setup-${step}`,
-          label: STEP_LABELS[step],
-          action: { type: "route", path: STEP_PATHS[step] },
-          stepStatus: isCompleted ? "completed" : isCurrent ? "current" : "locked",
-          disabled: isLocked,
-        };
-      });
-    
       const setupSection: NavSection = {
         id: "Get Started",
         label: t("nav.sections.getStarted"),
-        items,
+        items: [
+          {
+            id: SETUP_ITEM_ID,
+            label: t("nav.items.venueSetup"),
+            action: { type: "route", path: SETUP_PATH },
+            badge: t("setup.hub.strip.count", {
+              done: readiness.completedSteps.length,
+              total: SETUP_STEP_COUNT,
+            }),
+          },
+        ],
       };
     
       const account = buildAccount(t);
@@ -70200,7 +70471,7 @@
         id: "Manage",
         label: t("nav.sections.manage"),
         items: [
-          route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+          route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
           route("availability", t("nav.items.availability"), "/availability"),
           route("menus", t("nav.items.menus"), "/menus"),
           route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
@@ -75054,144 +75325,6 @@
     }
     function sleep(ms: number): Promise<void> {
       return new Promise((resolve) => setTimeout(resolve, ms));
-    }
-  </file>
-  <file path="packages/agent-core/src/revert-detector.ts">
-    export interface RevertCommit {
-      sha: string;
-      oneline: string;
-      message: string;
-      revertedSha?: string;
-      revertedPrNumber?: number;
-      timestamp: string;
-    }
-    export interface RevertedPR {
-      number: number;
-      title: string;
-      url: string;
-      isAiAuthor: boolean;
-      revertedAt: string;
-    }
-    export async function detectRecentReverts(
-      repoPath: string,
-      hoursBack: number = 24
-    ): Promise<RevertCommit[]> {
-      try {
-        const { stdout } = await execFileAsync(
-          "git",
-          ["log", `--since=${hoursBack} hours ago`, "--oneline", "--grep=^Revert", "main"],
-          {
-            cwd: repoPath,
-            timeout: GIT_TIMEOUT_MS,
-          }
-        );
-    
-        const commits: { sha: string; oneline: string }[] = [];
-        for (const line of stdout.trim().split("\n")) {
-          if (!line.trim()) continue;
-          const [sha, ...rest] = line.split(" ");
-          if (!sha) continue;
-          commits.push({ sha, oneline: rest.join(" ") });
-        }
-    
-        const detailed: RevertCommit[] = [];
-        for (const commit of commits) {
-          const { stdout: message } = await execFileAsync(
-            "git",
-            ["show", "-s", "--format=%B", commit.sha],
-            {
-              cwd: repoPath,
-              timeout: GIT_TIMEOUT_MS,
-            }
-          );
-    
-          // Extract reverted PR number from message
-          const prMatch = message.match(/#(\d+)/);
-          const prNumber = prMatch?.[1] ? parseInt(prMatch[1], 10) : undefined;
-    
-          // Extract reverted commit SHA
-          const revertedMatch = message.match(/This reverts commit (\w+)/);
-          const revertedSha = revertedMatch?.[1];
-    
-          // Get timestamp
-          const { stdout: timestampStr } = await execFileAsync(
-            "git",
-            ["show", "-s", "--format=%aI", commit.sha],
-            { cwd: repoPath, timeout: GIT_TIMEOUT_MS }
-          );
-    
-          detailed.push({
-            sha: commit.sha,
-            oneline: commit.oneline,
-            message: message.trim(),
-            revertedSha,
-            revertedPrNumber: prNumber,
-            timestamp: timestampStr.trim(),
-          });
-        }
-    
-        return detailed;
-      } catch {
-        // No reverts found or git error
-        return [];
-      }
-    }
-    export function isPrAiAuthor(prBody: string): boolean {
-      return prBody.includes("Generated by @mbe/agent-core");
-    }
-    export function extractPrNumberFromMessage(message: string): number | undefined {
-      const match = message.match(/#(\d+)/);
-      return match?.[1] ? parseInt(match[1], 10) : undefined;
-    }
-    export async function getCommitDetails(
-      repoPath: string,
-      sha: string
-    ): Promise<{ message: string; timestamp: string } | null> {
-      try {
-        const { stdout: message } = await execFileAsync("git", ["show", "-s", "--format=%B", sha], {
-          cwd: repoPath,
-          timeout: GIT_TIMEOUT_MS,
-        });
-        const { stdout: timestamp } = await execFileAsync("git", ["show", "-s", "--format=%aI", sha], {
-          cwd: repoPath,
-          timeout: GIT_TIMEOUT_MS,
-        });
-        return {
-          message: message.trim(),
-          timestamp: timestamp.trim(),
-        };
-      } catch {
-        // Commit not found or git error
-        return null;
-      }
-    }
-    export function formatRevertForIssue(revert: RevertCommit, isAiAuthor: boolean): string {
-      const prInfo = revert.revertedPrNumber
-        ? `PR #${revert.revertedPrNumber}`
-        : revert.revertedSha || "unknown";
-      const authorMark = isAiAuthor ? "🤖 AI-authored" : "👤 Manual";
-    
-      return `| ${revert.sha.slice(0, 7)} | ${revert.oneline} | ${prInfo} | ${authorMark} | ${new Date(revert.timestamp).toISOString().split("T")[0]} |`;
-    }
-    export async function detectAiAuthorReverts(
-      repoPath: string,
-      hoursBack: number = 24
-    ): Promise<{ commit: RevertCommit; prNumber: number }[]> {
-      const reverts = await detectRecentReverts(repoPath, hoursBack);
-      const results: { commit: RevertCommit; prNumber: number }[] = [];
-    
-      for (const revert of reverts) {
-        if (revert.revertedPrNumber) {
-          // Note: In a real implementation, we'd query GitHub to check if PR is AI-authored
-          // For now, we'll return all reverts and let the caller check
-          results.push({
-            commit: revert,
-            prNumber: revert.revertedPrNumber,
-          });
-        }
-      }
-    
-      return results;
     }
   </file>
   <file path="packages/agent-core/src/reviewer-contract.ts">
@@ -80823,6 +80956,18 @@
       });
     }
   </file>
+  <file path="packages/availability/src/expand-section-rules.ts">
+    export function expandSectionRules(
+      rules: readonly DateRule[],
+      membership: ReadonlyMap<string, readonly string[]>
+    ): DateRule[] {
+      return rules.map((rule) =>
+        rule.sectionId == null
+          ? rule
+          : { ...rule, tableIds: [...(membership.get(rule.sectionId) ?? [])] }
+      );
+    }
+  </file>
   <file path="packages/availability/src/first-occurrence.ts">
     export interface OccurrenceRule {
       readonly startsOn: ServiceDate;
@@ -80924,6 +81069,8 @@
       kind: DateRule["targetKind"];
       /** The service a `service` target closes, as stored. */
       serviceName?: string;
+      /** The section a section closure is for (ADR-032); a reader looks its name up. */
+      sectionId?: string;
       bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
     }
     export interface LayerHoursService {
@@ -80960,6 +81107,7 @@
       return {
         kind: rule.targetKind,
         ...(serviceName !== undefined ? { serviceName } : {}),
+        ...(rule.targetKind === "tables" && rule.sectionId ? { sectionId: rule.sectionId } : {}),
         ...(rule.bookingTypes ? { bookingTypes: [...rule.bookingTypes] } : {}),
       };
     }
@@ -81597,6 +81745,8 @@
       targetKind: DateRule["targetKind"];
       venueServiceId?: string;
       tableIds?: string[];
+      /** The section a section closure names (ADR-032); `tableIds` is its live membership. */
+      sectionId?: string;
       bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
       from: number;
       to: number;
@@ -81661,6 +81811,7 @@
           ? { venueServiceId: rule.venueServiceId }
           : {}),
         ...(rule.targetKind === "tables" && rule.tableIds ? { tableIds: rule.tableIds } : {}),
+        ...(rule.targetKind === "tables" && rule.sectionId ? { sectionId: rule.sectionId } : {}),
         ...(rule.targetKind === "booking" && rule.bookingTypes
           ? { bookingTypes: rule.bookingTypes }
           : {}),
@@ -82472,7 +82623,8 @@
       | "ends_before_start"
       | "seating_outside_service"
       | "window_ends_before_start"
-      | "booking_types_required";
+      | "booking_types_required"
+      | "section_closure_only";
     export interface ConfigIssue {
       /** e.g. `scheduleServices[1].lastSeatingAt`; `""` is the whole config. */
       path: string;
@@ -82759,6 +82911,19 @@
           : []
       );
     }
+    function sectionClosureIssues(config: AvailabilityConfig): ConfigIssue[] {
+      return config.dateRules.flatMap((rule, i) =>
+        rule.sectionId != null && !(rule.kind === "closure" && rule.targetKind === "tables")
+          ? [
+              issue(
+                `dateRules[${i}].sectionId`,
+                "section_closure_only",
+                "Only a table closure can name a section."
+              ),
+            ]
+          : []
+      );
+    }
     export function validateConfig(input: unknown): ConfigIssue[] {
       const parsed = AvailabilityConfigSchema.safeParse(input);
       if (!parsed.success) {
@@ -82773,6 +82938,7 @@
         ...precedenceIssues(config),
         ...windowIssues(config),
         ...bookingTypesIssues(config),
+        ...sectionClosureIssues(config),
       ];
     }
   </file>
@@ -87150,6 +87316,8 @@
       isActive?: boolean;
       priority?: number;
       floorPlanId?: string | null;
+      /** The floor-plan section the table belongs to; `null` removes it from its section. */
+      sectionId?: string | null;
       shapeMetadata?: TableShapeMetadata | null;
     }
   </file>
@@ -95482,6 +95650,667 @@
         errors[key] = errorCodeFor(issue.code, form[key]);
       }
       return { ok: false, errors };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="venue-setup">
+  <file path="apps/hospitality/src/components/venue-setup/setup-tree.ts">
+    export type Channel = (typeof CHANNELS)[number];
+    export type SetupNodeKind =
+      | "schedules"
+      | "schedule"
+      | "service"
+      | "specialDates"
+      | "specialDate"
+      | "booking"
+      | "channel"
+      | "floorPlan"
+      | "section"
+      | "noSection"
+      | "table";
+    export type ClosureTarget =
+      | { readonly kind: "venue" }
+      | { readonly kind: "service"; readonly name: string | null }
+      | { readonly kind: "section"; readonly name: string | null }
+      | { readonly kind: "booking"; readonly bookingTypes: readonly Channel[] }
+      | { readonly kind: "tables"; readonly count: number };
+    export type NodeState =
+      | { readonly kind: "unset" }
+      | { readonly kind: "count"; readonly count: number }
+      | { readonly kind: "week"; readonly weekdays: readonly number[] }
+      | {
+          readonly kind: "period";
+          readonly startsOn: string | null;
+          readonly endsOn: string | null;
+          readonly weekdays: readonly number[];
+        }
+      | {
+          readonly kind: "service";
+          readonly opensAt: number;
+          readonly lastSeatingAt: number;
+          readonly weekdays: readonly number[];
+          /** Days the service books other times on (a set that only moves the closing is left out). */
+          readonly changes: readonly {
+            readonly weekdays: readonly number[];
+            readonly opensAt: number;
+            readonly lastSeatingAt: number;
+          }[];
+        }
+      | {
+          readonly kind: "rules";
+          readonly daysAhead: number | null;
+          readonly noticeHours: number | null;
+          readonly largestParty: number | null;
+        }
+      | {
+          readonly kind: "closure";
+          readonly what: "closed" | "specialHours";
+          readonly startsOn: string;
+          readonly endsOn: string | null;
+          readonly target: ClosureTarget;
+        }
+      | { readonly kind: "floorPlan"; readonly sections: number; readonly tables: number }
+      | { readonly kind: "tables"; readonly count: number }
+      | { readonly kind: "seats"; readonly seats: number };
+    export type SetupActionId =
+      | "setUpRegularWeek"
+      | "changeRegularWeek"
+      | "editSchedule"
+      | "compareServices"
+      | "createSchedule"
+      | "openCalendar"
+      | "openSpecialDates"
+      | "bookingRules"
+      | "openFloorPlan"
+      | "addFloorPlan"
+      | "closeSection"
+      | "moveToSection";
+    export type SetupActionTarget =
+      | { readonly kind: "link"; readonly to: string }
+      | { readonly kind: "dialog"; readonly dialog: "changeRegularWeek" | "bookingRules" };
+    export interface SetupAction {
+      readonly id: SetupActionId;
+      readonly target: SetupActionTarget;
+      /** The button the Manager is steered to next, before launch. */
+      readonly primary: boolean;
+      /** The resource the action names, for its accessible name ("Close Bar for a date…"). */
+      readonly subject?: string;
+    }
+    export interface SetupNode {
+      readonly id: string;
+      readonly kind: SetupNodeKind;
+      /** The resource's own name; null when the kind's label is the name ("Special dates"). */
+      readonly name: string | null;
+      readonly state: NodeState;
+      readonly actions: readonly SetupAction[];
+      readonly children: readonly SetupNode[];
+    }
+    export type GroupLoad<T> =
+      | { readonly status: "loading" }
+      | { readonly status: "error"; readonly error: unknown }
+      | { readonly status: "ready"; readonly data: T };
+    export interface OpenData {
+      readonly config: AvailabilityConfig;
+      readonly settings: VenueSettings | null | undefined;
+    }
+    export interface SitData {
+      readonly floorPlans: readonly FloorPlan[];
+      readonly sections: readonly FloorPlanSection[];
+      readonly tables: readonly Table[];
+    }
+    export interface SetupTreeInput {
+      readonly venueName: string;
+      readonly isManager: boolean;
+      /** `setup` marks the first unset launch step as the primary action. */
+      readonly readiness: "setup" | "operational";
+      /** The venue's today, `YYYY-MM-DD`. */
+      readonly today: string;
+      readonly open: GroupLoad<OpenData>;
+      readonly sit: GroupLoad<SitData>;
+    }
+    export type GroupState =
+      | { readonly status: "loading" }
+      | { readonly status: "error"; readonly error: unknown }
+      | { readonly status: "ready" };
+    export interface SetupGroup {
+      readonly id: "open" | "sit";
+      readonly load: GroupState;
+      readonly nodes: readonly SetupNode[];
+    }
+    export interface SetupTree {
+      readonly venueName: string;
+      readonly groups: readonly [SetupGroup, SetupGroup];
+    }
+    type Link = { readonly kind: "link"; readonly to: string };
+    function scheduleNode(
+      schedule: Schedule,
+      config: AvailabilityConfig,
+      services: ReadonlyMap<string, { readonly name: string; readonly position: number }>,
+      manager: boolean
+    ): SetupNode {
+      const assignments = config.assignments.filter((a) => a.scheduleId === schedule.id);
+      const covered =
+        assignments.length > 0 ? sortedUnique(assignments.flatMap((a) => a.weekdays)) : ALL_WEEKDAYS;
+      const rows = config.scheduleServices
+        .filter((s) => s.scheduleId === schedule.id && services.has(s.venueServiceId))
+        .sort(
+          (a, b) =>
+            (services.get(a.venueServiceId)?.position ?? 0) -
+            (services.get(b.venueServiceId)?.position ?? 0)
+        );
+      const children: SetupNode[] = rows.map((row) => {
+        const sets = row.dayHours.sets;
+        const setDays = sets.flatMap((set) => set.weekdays);
+        const baseDays = row.weekdays.length > 0 ? row.weekdays : covered;
+        return {
+          id: `service:${schedule.id}:${row.venueServiceId}`,
+          kind: "service",
+          name: services.get(row.venueServiceId)?.name ?? null,
+          state: {
+            kind: "service",
+            opensAt: row.opensAt,
+            lastSeatingAt: row.lastSeatingAt,
+            weekdays: sortedUnique([...baseDays, ...setDays]),
+            changes: sets
+              .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+              .map((set) => ({
+                weekdays: sortedUnique(set.weekdays),
+                opensAt: set.opensAt,
+                lastSeatingAt: set.lastSeatingAt,
+              })),
+          },
+          actions: [],
+          children: [],
+        };
+      });
+      const weekdays = sortedUnique(
+        children.flatMap((c) => (c.state.kind === "service" ? c.state.weekdays : []))
+      );
+      const dated = assignments.filter((a) => a.startsOn || a.endsOn);
+      const starts = dated.map((a) => a.startsOn).filter((d): d is string => !!d);
+      const ends = dated.map((a) => a.endsOn);
+      const state: NodeState =
+        !schedule.isRegular && dated.length > 0
+          ? {
+              kind: "period",
+              startsOn: starts.length > 0 ? starts.reduce((a, b) => (a < b ? a : b)) : null,
+              endsOn: ends.some((d) => !d) ? null : latest(ends),
+              weekdays: covered.slice(),
+            }
+          : { kind: "week", weekdays };
+      const actions: SetupAction[] = !manager
+        ? []
+        : schedule.isRegular
+          ? [
+              action("changeRegularWeek", { kind: "dialog", dialog: "changeRegularWeek" }),
+              action("editSchedule", link(SETUP_SCHEDULES), schedule.name),
+            ]
+          : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
+      return {
+        id: `schedule:${schedule.id}`,
+        kind: "schedule",
+        name: schedule.name,
+        state,
+        actions,
+        children,
+      };
+    }
+    function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode {
+      const services = new Map(
+        active(config.venueServices).map((s) => [s.id, { name: s.name, position: s.position }])
+      );
+      const schedules = active(config.schedules).map((s) => scheduleNode(s, config, services, manager));
+      const regular = active(config.schedules).find((s) => s.isRegular);
+      const regularSet =
+        regular !== undefined &&
+        schedules.some((n) => n.id === `schedule:${regular.id}` && n.children.length > 0);
+      if (!regularSet) {
+        return {
+          id: "schedules",
+          kind: "schedules",
+          name: null,
+          state: UNSET,
+          actions: manager ? [action("setUpRegularWeek", link(SETUP_CALENDAR))] : [],
+          children: [],
+        };
+      }
+      return {
+        id: "schedules",
+        kind: "schedules",
+        name: null,
+        state: { kind: "count", count: schedules.length },
+        actions: manager
+          ? [
+              action("compareServices", link(SETUP_SCHEDULES)),
+              action("createSchedule", link(SETUP_SCHEDULES)),
+            ]
+          : [],
+        children: schedules,
+      };
+    }
+    function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] {
+      return rules
+        .filter((r) => r.kind === "closure" || r.kind === "special_hours")
+        .filter((r) => r.endsOn == null || r.endsOn >= today)
+        .sort((a, b) =>
+          a.startsOn === b.startsOn ? a.id.localeCompare(b.id) : a.startsOn < b.startsOn ? -1 : 1
+        );
+    }
+    function targetOf(
+      rule: DateRule,
+      services: ReadonlyMap<string, string>,
+      sections: ReadonlyMap<string, string> | null
+    ): ClosureTarget {
+      switch (rule.targetKind) {
+        case "service":
+          return { kind: "service", name: services.get(rule.venueServiceId ?? "") ?? null };
+        case "booking":
+          return {
+            kind: "booking",
+            bookingTypes: (rule.bookingTypes ?? []).filter((b): b is Channel => CHANNELS.includes(b)),
+          };
+        case "tables":
+          return rule.sectionId
+            ? { kind: "section", name: sections?.get(rule.sectionId) ?? null }
+            : { kind: "tables", count: rule.tableIds?.length ?? 0 };
+        default:
+          return { kind: "venue" };
+      }
+    }
+    function specialDatesNode(
+      config: AvailabilityConfig,
+      today: string,
+      sections: ReadonlyMap<string, string> | null,
+      manager: boolean
+    ): SetupNode {
+      const upcoming = upcomingRules(config.dateRules, today);
+      const services = new Map(config.venueServices.map((s) => [s.id, s.name]));
+      const children: SetupNode[] = upcoming.slice(0, SPECIAL_DATES_SHOWN).map((rule) => ({
+        id: `special-date:${rule.id}`,
+        kind: "specialDate",
+        name: null,
+        state: {
+          kind: "closure",
+          what: rule.kind === "closure" ? "closed" : "specialHours",
+          startsOn: rule.startsOn,
+          endsOn: rule.endsOn ?? null,
+          target: targetOf(rule, services, sections),
+        },
+        actions: [],
+        children: [],
+      }));
+      return {
+        id: "special-dates",
+        kind: "specialDates",
+        name: null,
+        state: upcoming.length === 0 ? UNSET : { kind: "count", count: upcoming.length },
+        actions: manager
+          ? [
+              action("openCalendar", link(SETUP_CALENDAR)),
+              action("openSpecialDates", link(SETUP_SPECIAL)),
+            ]
+          : [],
+        children,
+      };
+    }
+    function bookingNode(
+      config: AvailabilityConfig,
+      settings: VenueSettings | null | undefined,
+      today: string,
+      manager: boolean
+    ): SetupNode {
+      const daysAhead = numberOrNull(settings?.maxAdvanceBooking);
+      const noticeHours = numberOrNull(settings?.minAdvanceBooking);
+      const largestParty = numberOrNull(settings?.maxPartySize);
+      const anySet = daysAhead !== null || noticeHours !== null || largestParty !== null;
+      const closures = upcomingRules(config.dateRules, today).filter(
+        (r) => r.kind === "closure" && r.targetKind === "booking"
+      );
+      return {
+        id: "booking",
+        kind: "booking",
+        name: null,
+        state: anySet ? { kind: "rules", daysAhead, noticeHours, largestParty } : UNSET,
+        actions: manager ? [action("bookingRules", { kind: "dialog", dialog: "bookingRules" })] : [],
+        children: CHANNELS.map((channel) => ({
+          id: `channel:${channel}`,
+          kind: "channel",
+          name: channel,
+          state: {
+            kind: "count",
+            count: closures.filter((r) => r.bookingTypes?.includes(channel)).length,
+          },
+          actions: [],
+          children: [],
+        })),
+      };
+    }
+    function openNodes(
+      data: OpenData,
+      today: string,
+      sections: ReadonlyMap<string, string> | null,
+      manager: boolean
+    ): SetupNode[] {
+      return [
+        schedulesNode(data.config, manager),
+        specialDatesNode(data.config, today, sections, manager),
+        bookingNode(data.config, data.settings, today, manager),
+      ];
+    }
+    function tableNode(table: Table): SetupNode {
+      return {
+        id: `table:${table.id}`,
+        kind: "table",
+        name: table.name,
+        state: { kind: "seats", seats: table.capacity },
+        actions: [],
+        children: [],
+      };
+    }
+    function floorPlanNode(
+      plan: FloorPlan,
+      data: SitData,
+      manager: boolean,
+      hasTables: boolean
+    ): SetupNode {
+      const tables = data.tables.filter((t) => t.isActive && t.floorPlanId === plan.id);
+      const sections = data.sections
+        .filter((s) => s.floorPlanId === plan.id)
+        .sort((a, b) => a.displayOrder - b.displayOrder);
+      const sectionIds = new Set(sections.map((s) => s.id));
+      const sectionNodes: SetupNode[] = sections.map((section) => {
+        const own = tables.filter((t) => t.sectionId === section.id);
+        return {
+          id: `section:${section.id}`,
+          kind: "section",
+          name: section.name,
+          state: { kind: "tables", count: own.length },
+          actions: manager
+            ? [
+                action(
+                  "closeSection",
+                  link(availabilityPath({ closeSection: section.id, from: "setup" })),
+                  section.name
+                ),
+              ]
+            : [],
+          children: own.map(tableNode),
+        };
+      });
+      const loose = tables.filter((t) => !t.sectionId || !sectionIds.has(t.sectionId));
+      const planPath = `/floor-plans/${plan.id}`;
+      const noSection: SetupNode[] =
+        loose.length === 0
+          ? []
+          : [
+              {
+                id: `no-section:${plan.id}`,
+                kind: "noSection",
+                name: null,
+                state: { kind: "tables", count: loose.length },
+                actions: manager ? [action("moveToSection", link(planPath))] : [],
+                children: loose.map(tableNode),
+              },
+            ];
+      return {
+        id: `floor-plan:${plan.id}`,
+        kind: "floorPlan",
+        name: plan.name,
+        // Readiness counts the floor plan step done once any plan has an active table.
+        state: hasTables
+          ? { kind: "floorPlan", sections: sections.length, tables: tables.length }
+          : UNSET,
+        actions: manager
+          ? [
+              action("openFloorPlan", link(planPath), plan.name),
+              action("addFloorPlan", link("/floor-plans")),
+            ]
+          : [],
+        children: [...sectionNodes, ...noSection],
+      };
+    }
+    function sitNodes(data: SitData, manager: boolean): SetupNode[] {
+      const planIds = new Set(data.floorPlans.map((p) => p.id));
+      const hasTables = data.tables.some(
+        (t) => t.isActive && !!t.floorPlanId && planIds.has(t.floorPlanId)
+      );
+      if (data.floorPlans.length === 0) {
+        return [
+          {
+            id: "floor-plan-empty",
+            kind: "floorPlan",
+            name: null,
+            state: UNSET,
+            actions: manager ? [action("addFloorPlan", link("/floor-plans"))] : [],
+            children: [],
+          },
+        ];
+      }
+      return data.floorPlans.map((plan) => floorPlanNode(plan, data, manager, hasTables));
+    }
+    function withPrimary(nodes: readonly SetupNode[], targetId: string | null): SetupNode[] {
+      return nodes.map((node) =>
+        node.id === targetId
+          ? {
+              ...node,
+              actions: node.actions.map((a, i) => (i === 0 ? { ...a, primary: true } : a)),
+            }
+          : node
+      );
+    }
+    export function buildSetupTree(input: SetupTreeInput): SetupTree {
+      const { isManager, today } = input;
+      const sectionNames =
+        input.sit.status === "ready"
+          ? new Map(input.sit.data.sections.map((s) => [s.id, s.name]))
+          : null;
+      let open: readonly SetupNode[] =
+        input.open.status === "ready" ? openNodes(input.open.data, today, sectionNames, isManager) : [];
+      let sit: readonly SetupNode[] =
+        input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
+    
+      if (
+        isManager &&
+        input.readiness === "setup" &&
+        input.open.status === "ready" &&
+        input.sit.status === "ready"
+      ) {
+        const first = [...open, ...sit].find((n) => isLaunchGate(n) && n.state.kind === "unset");
+        open = withPrimary(open, first?.id ?? null);
+        sit = withPrimary(sit, first?.id ?? null);
+      }
+    
+      return {
+        venueName: input.venueName,
+        groups: [
+          { id: "open", load: input.open.status === "ready" ? ready : input.open, nodes: open },
+          { id: "sit", load: input.sit.status === "ready" ? ready : input.sit, nodes: sit },
+        ],
+      };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/venue-setup/useSetupNodeText.ts">
+    export interface SetupNodeText {
+      /** The kind's word ("Schedule", "Section"), for nodes that carry a name. */
+      readonly caption: (node: SetupNode) => string | null;
+      readonly label: (node: SetupNode) => string;
+      /** One line on what the resource is, on the top-level nodes. */
+      readonly whatIs: (node: SetupNode) => string | null;
+      readonly state: (node: SetupNode) => string;
+      readonly actionLabel: (action: SetupAction, node: SetupNode) => string;
+      /** The target an action names, read after its visible label ("Close for a date… Bar"). */
+      readonly actionSubject: (action: SetupAction) => string | undefined;
+    }
+    export function useSetupNodeText(): SetupNodeText {
+      const { t } = useTranslation();
+      const format = useVenueFormat();
+      const summarize = useWeekdaySummary();
+    
+      const day = (date: string) =>
+        format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
+      const shortDay = (date: string) =>
+        format.formatCalendarDate(date, { month: "short", day: "numeric" });
+      const time = (minute: number) => minuteText(minute, t, format);
+    
+      const target = (value: ClosureTarget): string => {
+        switch (value.kind) {
+          case "venue":
+            return t("setup.hub.target.venue");
+          case "service":
+            return value.name ?? t("setup.hub.target.service");
+          case "section":
+            return value.name ?? t("setup.hub.target.section");
+          case "booking":
+            return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
+              value.bookingTypes.map((b) => t(`setup.hub.channel.${b}`))
+            );
+          case "tables":
+            return t("setup.hub.target.tables", { count: value.count });
+        }
+      };
+    
+      const when = (startsOn: string, endsOn: string | null): string => {
+        if (endsOn === startsOn) return day(startsOn);
+        if (endsOn === null) return t("setup.hub.from", { date: day(startsOn) });
+        return t("setup.hub.range", { from: shortDay(startsOn), to: shortDay(endsOn) });
+      };
+    
+      const state = (node: SetupNode): string => {
+        const value: NodeState = node.state;
+        switch (value.kind) {
+          case "unset":
+            return t("setup.hub.notSetUp");
+          case "count":
+            switch (node.kind) {
+              case "schedules":
+                return t("setup.hub.count.schedules", { count: value.count });
+              case "specialDates":
+                return t("setup.hub.count.specialDates", { count: value.count });
+              default:
+                return t("setup.hub.count.channel", { count: value.count });
+            }
+          case "week":
+            return t("setup.hub.open", { days: summarize(value.weekdays) });
+          case "period":
+            return t("setup.hub.period", {
+              range:
+                value.startsOn === null
+                  ? t("setup.hub.until", { date: shortDay(value.endsOn ?? "") })
+                  : when(value.startsOn, value.endsOn),
+              days: summarize(value.weekdays),
+            });
+          case "service": {
+            const hours = (opensAt: number, lastSeatingAt: number) =>
+              t("availability.regularWeekLine.hours", {
+                open: time(opensAt),
+                close: time(lastSeatingAt),
+              });
+            const base = t("setup.hub.serviceLine", {
+              hours: hours(value.opensAt, value.lastSeatingAt),
+              days: summarize(value.weekdays),
+            });
+            const changes = value.changes.map((c) =>
+              c.opensAt === value.opensAt
+                ? t("availability.regularWeekLine.closes", {
+                    days: summarize(c.weekdays),
+                    close: time(c.lastSeatingAt),
+                  })
+                : t("availability.regularWeekLine.different", {
+                    days: summarize(c.weekdays),
+                    hours: hours(c.opensAt, c.lastSeatingAt),
+                  })
+            );
+            return [base, ...changes].join(" · ");
+          }
+          case "rules": {
+            const parts = [
+              value.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: value.daysAhead }),
+              value.noticeHours !== null &&
+                t("setup.hub.rules.noticeHours", { count: value.noticeHours }),
+              value.largestParty !== null &&
+                t("setup.hub.rules.largestParty", { count: value.largestParty }),
+            ].filter((part): part is string => part !== false);
+            return parts.join(" · ");
+          }
+          case "closure": {
+            const what = t(
+              value.what === "closed" ? "setup.hub.closedRow" : "setup.hub.specialHoursRow",
+              {
+                target: target(value.target),
+              }
+            );
+            return `${when(value.startsOn, value.endsOn)} · ${what}`;
+          }
+          case "floorPlan":
+            return `${t("setup.hub.sections", { count: value.sections })} · ${t("setup.hub.tables", { count: value.tables })}`;
+          case "tables":
+            return t("setup.hub.tables", { count: value.count });
+          case "seats":
+            return t("setup.hub.seats", { count: value.seats });
+        }
+      };
+    
+      return {
+        caption: (node) => {
+          if (node.name === null) return null;
+          switch (node.kind) {
+            case "schedule":
+              return t("setup.hub.caption.schedule");
+            case "service":
+              return t("setup.hub.caption.service");
+            case "section":
+              return t("setup.hub.caption.section");
+            case "table":
+              return t("setup.hub.caption.table");
+            case "floorPlan":
+              return t("setup.hub.caption.floorPlan");
+            default:
+              return null;
+          }
+        },
+        label: (node) => {
+          if (node.kind === "channel")
+            return t(
+              `setup.hub.channelLabel.${node.name === "phone" || node.name === "waitlist" ? node.name : "online"}`
+            );
+          if (node.name !== null) return node.name;
+          switch (node.kind) {
+            case "schedules":
+              return node.state.kind === "unset"
+                ? t("setup.hub.regularWeek")
+                : t("setup.hub.label.schedules");
+            case "specialDates":
+              return t("setup.hub.label.specialDates");
+            case "booking":
+              return t("setup.hub.label.booking");
+            case "noSection":
+              return t("setup.hub.label.noSection");
+            default:
+              return t("setup.hub.label.floorPlan");
+          }
+        },
+        whatIs: (node) => {
+          const unset = node.state.kind === "unset";
+          switch (node.kind) {
+            case "schedules":
+              return t(unset ? "setup.hub.what.regularWeek" : "setup.hub.what.schedules");
+            case "specialDates":
+              return t("setup.hub.what.specialDates");
+            case "booking":
+              return t(unset ? "setup.hub.what.bookingUnset" : "setup.hub.what.booking");
+            case "floorPlan":
+              return unset ? t("setup.hub.what.floorPlan") : null;
+            default:
+              return null;
+          }
+        },
+        state,
+        actionLabel: (action, node) =>
+          action.id === "addFloorPlan" && node.state.kind !== "unset"
+            ? t("setup.hub.actions.addAnotherFloorPlan")
+            : t(`setup.hub.actions.${action.id}`),
+        actionSubject: (action) => action.subject,
+      };
     }
   </file>
   </section>

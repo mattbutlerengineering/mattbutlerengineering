@@ -13,6 +13,7 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { TeamMember, TeamRole, VenueTeam } from "@mbe/types";
 import { useVenue } from "../../contexts/VenueContext.js";
+import { useIsManager } from "../../hooks/useIsManager.js";
 import {
   useSetHostEmergencyClose,
   useSetTeamRole,
@@ -82,7 +83,7 @@ function TeamBody({ venueId, team }: TeamBodyProps) {
   const setGrant = useSetHostEmergencyClose();
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const isManager = team.viewerRole === "manager";
+  const isManager = useIsManager();
 
   const save = async (write: () => Promise<unknown>) => {
     setIsSaving(true);

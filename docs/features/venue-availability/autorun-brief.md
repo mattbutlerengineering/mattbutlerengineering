@@ -56,3 +56,13 @@ The Owner answered these live in the resuming session. Nothing above is changed.
 - The Owner-only release steps in `release.md` (confirm the migration, the `backfill-availability.ts` dry run then `--apply`, the production checks) have **not been run**. Keep `outcome: prepared`; the run stays at Ship.
 - Release authorization: still none. No backfill, deploy, dispatch, tag or other production action.
 - Operate: still not specified, so Operate does not run.
+
+## Resume, 2026-11-07
+
+The Owner answered these live in the resuming session. Nothing above is changed.
+
+- Resumed at Ship (`release.md` records `outcome: prepared`, `pending-merge: []`; the 2026-11-03 write-back stands).
+- The Owner-only release steps in `release.md` (confirm the migration, the `backfill-availability.ts` dry run then `--apply`, the production checks) have **still not been run**. The Owner chose stop-and-report over a further `release.md` write-back, so no Ship pass was dispatched and `outcome:` stays `prepared`.
+- Release authorization: still none. No backfill, deploy, dispatch, tag or other production action.
+- Tracker: no new tracker interaction (the run's #7493 mirror is unchanged).
+- Operate: `skip` (Owner, 2026-11-07). A protocol-sanctioned skip: no retro this run; the run stays active until someone has feedback to capture.

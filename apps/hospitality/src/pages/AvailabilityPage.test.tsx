@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
+import { MemoryRouter, useLocation } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Engine from "@mbe/availability";
 import type * as Format from "../utils/format.js";
@@ -46,6 +47,14 @@ const venue = vi.hoisted(() => ({
   selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
 }));
 
+vi.mock("../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../hooks/useAvailability.js", () => ({
   useAvailabilityDays: (params: unknown) => {
     daysHook(params);
@@ -177,14 +186,27 @@ function summaryFor(date: string): AvailabilityDaySummary {
   };
 }
 
-function renderPage() {
-  return render(
-    <ToastProvider>
-      <main>
-        <AvailabilityPage />
-      </main>
-    </ToastProvider>
+/** The URL the router holds, for the entry contract's "param removed after mount". */
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
+}
+
+function page(url = "/availability") {
+  return (
+    <MemoryRouter initialEntries={[url]}>
+      <ToastProvider>
+        <main>
+          <AvailabilityPage />
+        </main>
+        <LocationProbe />
+      </ToastProvider>
+    </MemoryRouter>
   );
+}
+
+function renderPage(url?: string) {
+  return render(page(url));
 }
 
 describe("AvailabilityPage", () => {
@@ -436,6 +458,76 @@ describe("AvailabilityPage", () => {
     expect(within(dialog).getByText(/Closed\./)).toBeInTheDocument();
   });
 
+  describe("the entry contract (?tab=, ?closeSection=, ?from=setup)", () => {
+    const schedulesTab = () => screen.queryByRole("radio", { name: "Schedules" });
+
+    it("shows a Manager the Schedules tab on a one-schedule venue", () => {
+      renderPage();
+      expect(schedulesTab()).toBeInTheDocument();
+    });
+
+    it("does not show a Host the Schedules tab", () => {
+      team.value = { viewerRole: "host" };
+      renderPage();
+      expect(schedulesTab()).not.toBeInTheDocument();
+    });
+
+    it("opens Schedules for ?tab=schedules", () => {
+      renderPage("/availability?tab=schedules");
+      expect(schedulesTab()).toBeChecked();
+      expect(screen.getByRole("heading", { name: "Schedules" })).toBeInTheDocument();
+    });
+
+    it("gives a Host the calendar for ?tab=schedules", () => {
+      team.value = { viewerRole: "host" };
+      renderPage("/availability?tab=schedules");
+      expect(screen.getByRole("grid")).toBeInTheDocument();
+      expect(schedulesTab()).not.toBeInTheDocument();
+    });
+
+    it("renders the default page for garbage params", () => {
+      renderPage("/availability?tab=%00&closeSection=&from=nowhere&x=1");
+      expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
+      expect(screen.queryByRole("link", { name: "Venue Setup" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("shows the Venue Setup back-link only for ?from=setup", () => {
+      const view = renderPage("/availability?from=setup");
+      expect(screen.getByRole("link", { name: "Venue Setup" })).toHaveAttribute("href", "/setup");
+      view.unmount();
+      renderPage();
+      expect(screen.queryByRole("link", { name: "Venue Setup" })).not.toBeInTheDocument();
+    });
+
+    it("opens a Manager's Close dialog on the section ?closeSection= names", () => {
+      renderPage("/availability?closeSection=sec-bar");
+      const dialog = screen.getByRole("dialog", { name: /^Close$/ });
+      expect(within(dialog).getByRole("radio", { name: "One section" })).toBeChecked();
+      expect(within(dialog).getByRole("combobox", { name: "Section" })).toHaveTextContent("Bar");
+    });
+
+    it("opens the Close dialog with no preselection for a section the venue lacks", () => {
+      renderPage("/availability?closeSection=gone");
+      const dialog = screen.getByRole("dialog", { name: /^Close$/ });
+      expect(within(dialog).getByRole("radio", { name: "Whole venue" })).toBeChecked();
+      expect(within(dialog).getByRole("radio", { name: "One section" })).not.toBeChecked();
+    });
+
+    it("opens no Close dialog for a Host", () => {
+      team.value = { viewerRole: "host" };
+      renderPage("/availability?closeSection=sec-bar");
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("removes closeSection from the URL after mount and keeps the other params", () => {
+      renderPage("/availability?tab=schedules&closeSection=sec-1&from=setup");
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/availability?tab=schedules&from=setup"
+      );
+    });
+  });
+
   describe("a venue with no hours", () => {
     beforeEach(() => {
       configSource.value = "empty";
@@ -621,13 +713,7 @@ describe("AvailabilityPage", () => {
       const view = renderPage();
       startDraft();
       configError.value = new Error("Network down");
-      view.rerender(
-        <ToastProvider>
-          <main>
-            <AvailabilityPage />
-          </main>
-        </ToastProvider>
-      );
+      view.rerender(page());
       expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
       expect(screen.getByRole("alert")).toHaveTextContent("Couldn’t check for newer hours");
     });
@@ -1132,13 +1218,7 @@ describe("AvailabilityPage", () => {
     configSource.value = "empty";
     const { rerender } = renderPage();
     configSource.value = "rows";
-    rerender(
-      <ToastProvider>
-        <main>
-          <AvailabilityPage />
-        </main>
-      </ToastProvider>
-    );
+    rerender(page());
     expect(document.activeElement).toHaveAttribute("data-date");
   });
 
@@ -1270,13 +1350,7 @@ describe("AvailabilityPage Services filter (#7981)", () => {
     fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
     expect(screen.getByText(/This week, Dinner/)).toBeInTheDocument();
     venue.selectedVenueId = "venue-2";
-    view.rerender(
-      <ToastProvider>
-        <main>
-          <AvailabilityPage />
-        </main>
-      </ToastProvider>
-    );
+    view.rerender(page());
     expect(screen.getByText(/This week: open/)).toBeInTheDocument();
   });
 });

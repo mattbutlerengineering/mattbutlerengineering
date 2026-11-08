@@ -22,6 +22,14 @@ const impactQuery = vi.hoisted(() => ({
   loading: false,
   error: null as unknown,
 }));
+vi.mock("../../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: saving.value }),
   useCreateClosures: () => ({ mutateAsync: createMany, isPending: saving.value }),

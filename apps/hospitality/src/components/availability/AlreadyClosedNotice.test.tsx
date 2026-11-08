@@ -5,6 +5,14 @@ import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 
 const create = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../../hooks/useClosures.js", () => ({
   useCreateClosure: () => ({ mutateAsync: create, isPending: false }),
   useCreateClosures: () => ({ mutateAsync: create, isPending: false }),

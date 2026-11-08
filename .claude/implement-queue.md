@@ -14,7 +14,7 @@ skill. The skill is the loop; every section below is a **hook** it reads by
 name. The frontmatter is the Owner's standing consent to auto-merge
 (`merge: auto`, skills ADR-0087): a PR merges only with `CI Gate` present and
 green, every reviewer passing, no `needs-review` label, and no gate-path file
-(gate paths are `GATE_PATHS` in `@mbe/agent-core`; `qualifiesForLowRiskFastPath` already returns false for them).
+(gate paths surface as `holdForHuman` in `scripts/fast-path-decision.mjs`'s output; `qualifiesForLowRiskFastPath` already returns false for them).
 
 Cloud routines and GitHub Actions cannot load the plugin (#6332), so they clone
 the public skills repo and follow `skills/implement-queue/SKILL.md` by path,
@@ -66,7 +66,7 @@ node scripts/worktree-base-freshness.mjs check
 # exit 1 -> "unrelated" | "stale" | "unknown", all fail closed
 ```
 
-On exit 1, remediate before dispatching — for a worker starting fresh work the fix is `git fetch origin && git reset --hard origin/main`, which is also exactly what the worker's own step 0 re-runs in its worktree. This is the same fail-closed posture as `scripts/agent-core-build-freshness.mjs check` in the worker→train boundary below, on a different input: `unrelated` (#5296 — no common ancestor, so `git merge` answers `fatal: refusing to merge unrelated histories` and `gh pr update-branch` cannot repair it) must never be softened into `stale`, and an undeterminable base is never read as usable.
+On exit 1, remediate before dispatching — for a worker starting fresh work the fix is `git fetch origin && git reset --hard origin/main`, which is also exactly what the worker's own step 0 re-runs in its worktree. This is the same fail-closed posture as the build-freshness check inside `scripts/fast-path-decision.mjs` (§ fast-path), on a different input: `unrelated` (#5296 — no common ancestor, so `git merge` answers `fatal: refusing to merge unrelated histories` and `gh pr update-branch` cannot repair it) must never be softened into `stale`, and an undeterminable base is never read as usable.
 
 ## model
 
@@ -139,31 +139,29 @@ node scripts/ci-gate-status.mjs check --pr <N>   # → {"state": "green"|"failed
 
 ## fast-path
 
-**Low-risk fast path.** `tier:*` labels do **not** gate implement-queue's merges — see [No tier hold](#no-tier-hold) below. Check the `needs-review` label, which still holds a PR:
+**Low-risk fast path.** `tier:*` labels do **not** gate implement-queue's merges — see [No tier hold](#no-tier-hold) below. The `needs-review` label still holds a PR (the command reads it). One command makes the whole "may this PR merge without review?" decision, including the specialist set the `reviewers` hook dispatches:
 
 ```bash
-gh pr view <N> --json labels -q '[.labels[].name]'   # → labelNames
+node scripts/fast-path-decision.mjs check --pr <N>
+# → {"fastPath":bool,"reviewers":["…"],"holdForHuman":bool,"reason":"…"}
 ```
 
-If `needs-review` is present, the fast path is off-limits — fall through to the `reviewers` hook (Reviewer sub-agent).
+It always exits 0 with a decision (2 = usage error; 1 = `gh` could not fetch the PR's files/labels, which is **not** a decision — retry or hold the PR, never guess). Branch on the JSON, once per PR, and do not re-derive any of it by hand:
 
-**Before the first classifier call this iteration, verify the built `@mbe/agent-core` dist is trustworthy.** Both `isLowRiskPR` and `reviewersForDiff` (the `reviewers` hook's specialist gate) run from the **built** `packages/agent-core/dist/` — gitignored, so a session inherits whatever the last build in this checkout produced. A stale dist doesn't error; it exports working functions that return confident, wrong (narrower) answers — on PR #3988 a 77-minute-stale dist made `reviewersForDiff` return `[]` for a diff that should have dispatched `e2e-selector-drift-reviewer` (#3989). Run once per session before trusting either function:
+- `fastPath: true` → skip review and enqueue immediately:
 
-```bash
-node scripts/agent-core-build-freshness.mjs check
-# exit 0 -> dist proven newer than every src/** file (rebuilt automatically if it wasn't) — safe to classify
-# exit 1 -> still can't prove freshness after a rebuild attempt — FAIL CLOSED (see below)
-```
+  ```bash
+  gh pr merge <N> --auto --squash --delete-branch
+  ```
 
-`exit 1` means: do **not** trust `isLowRiskPR`/`reviewersForDiff` for this PR at all. Skip the fast path unconditionally (fall through to the `reviewers` hook) and treat its specialist gate as if every specialist reviewer applies — dispatch the full reviewer set rather than trusting an empty/narrow `reviewersForDiff` result. A dist that fails to prove itself fresh must never be read as "low risk" or "no specialists match".
+- `holdForHuman: true` → a changed file matches a gate path (`GATE_PATH_MATCHERS` in the script, pinned to `GATE_PATHS` in `@mbe/agent-core`, and independent of the dist so it holds even when the dist cannot be trusted: ADRs, design docs, PRDs, architecture docs). These always hold for a human merge (ADR-0087); the PR is still reviewed, then held.
+- otherwise → fall through to the `reviewers` hook, dispatching the universal reviewer plus every name in `reviewers`.
 
-Only when `needs-review` is absent, no changed file matches a gate path (those always hold for a human merge, ADR-0087; gate paths are `GATE_PATHS` in `@mbe/agent-core`; `qualifiesForLowRiskFastPath` already returns false for them), the freshness check exited 0, AND `qualifiesForLowRiskFastPath(changedFiles)` (`@mbe/agent-core`, `gh pr diff <N> --name-only` for `changedFiles`) returns `true` — skip review and enqueue immediately:
+The command encodes the ordering, in this precedence: dist untrusted or unloadable → no fast path and **every** specialist reviewer; empty diff → no fast path; gate path → hold for human; `needs-review` label → no fast path (reviewers still computed); else `qualifiesForLowRiskFastPath(files)` and `reviewersForDiff(files)`.
 
-```bash
-gh pr merge <N> --auto --squash --delete-branch
-```
+**Why the freshness check is inside it.** Both classifiers run from the **built** `packages/agent-core/dist/` — gitignored, so a session inherits whatever the last build in this checkout produced. A stale dist doesn't error; it exports working functions that return confident, wrong (narrower) answers — on PR #3988 a 77-minute-stale dist made `reviewersForDiff` return `[]` for a diff that should have dispatched `e2e-selector-drift-reviewer` (#3989). The command runs `scripts/agent-core-build-freshness.mjs`'s check in-process (rebuilding once if needed, build output on stderr) and, when freshness cannot be proven or the dist will not import, fails closed: a dist that fails to prove itself fresh is never read as "low risk" or "no specialists match".
 
-`qualifiesForLowRiskFastPath` requires **both** `isLowRiskPR(files)` **and** `reviewersForDiff(files).length === 0` — the specialist gate wins. `isLowRiskPR` and `reviewersForDiff` are independent functions over the same file list and can both fire on the same diff: a pure dependency bump (every file matches `isLowRiskFile` in `packages/agent-core/src/file-classifier.ts`) can simultaneously match `dependency-update-reviewer` via `reviewersForDiff` (`packages/agent-core/src/pr-risk-classifier.ts`) — PR #4058 is exactly this shape. Calling `isLowRiskPR` alone would enqueue that PR with zero review, silently dropping the specialist its own sibling function selected (#4063). A low-risk-but-specialist-matched PR falls through to step 4 (specialists) even though step 3's universal reviewer is still skipped. This doc intentionally does not enumerate the underlying globs so the doc and the code cannot drift apart (see #3887, #3916) — `qualifiesForLowRiskFastPath` is the single composed predicate; reference it here rather than restating the two-part boolean. Move to the next PR.
+**Why the specialist gate wins.** `qualifiesForLowRiskFastPath` requires **both** `isLowRiskPR(files)` **and** `reviewersForDiff(files).length === 0`. `isLowRiskPR` and `reviewersForDiff` are independent functions over the same file list and can both fire on the same diff: a pure dependency bump (every file matches `isLowRiskFile` in `packages/agent-core/src/file-classifier.ts`) can simultaneously match `dependency-update-reviewer` via `reviewersForDiff` (`packages/agent-core/src/pr-risk-classifier.ts`) — PR #4058 is exactly this shape. Calling `isLowRiskPR` alone would enqueue that PR with zero review, silently dropping the specialist its own sibling function selected (#4063). A low-risk-but-specialist-matched PR gets `fastPath: false` with its specialists listed, so it falls through to the `reviewers` hook even though the universal reviewer is still skipped. This doc intentionally does not enumerate the underlying globs so the doc and the code cannot drift apart (see #3887, #3916). Move to the next PR.
 
 ## reviewers
 
@@ -225,19 +223,21 @@ in case it overlaps work already in progress in this checkout), then re-dispatch
 reviewer. Whatever verdict the mutating dispatch returned is invalid — it read a tree
 it had already altered.
 
-**Diff-matched specialized review gate.** Reuses the same freshness check from the `fast-path` hook — do not call `reviewersForDiff` again against an untrusted dist. For each reviewer returned by `reviewersForDiff(changedFiles)` (`packages/agent-core/src/pr-risk-classifier.ts` — the single source of truth for which specialist covers which changed-file pattern; this doc intentionally does not enumerate them so the two cannot drift apart, see #3916), dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers. Apply the same before/after `git status --porcelain` guard from step 3 to each specialist dispatch — snapshot before, compare after, treat any mismatch as a failed review and re-dispatch rather than trusting a verdict from a reviewer that mutated the tree it read.
+**Diff-matched specialized review gate.** The `reviewers` array from the `fast-path` hook's `node scripts/fast-path-decision.mjs check --pr <N>` is the specialist set — do not call `reviewersForDiff` by hand (it already folds in the build-freshness fail-closed rule: an untrusted dist returns every specialist). `packages/agent-core/src/pr-risk-classifier.ts` is the single source of truth for which specialist covers which changed-file pattern; this doc intentionally does not enumerate them so the two cannot drift apart, see #3916. For each reviewer named, dispatch via Agent tool against the PR diff. CI can't catch a drop-column migration paired with code that still reads the column, or an ADR violation that isn't a regex match — these can. **A `block` verdict holds the PR.** Most PRs match 0–1 reviewers. Apply the same before/after `git status --porcelain` guard from step 3 to each specialist dispatch — snapshot before, compare after, treat any mismatch as a failed review and re-dispatch rather than trusting a verdict from a reviewer that mutated the tree it read.
 
 ## merge-command
 
-**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (see `GATE_PATHS` in `@mbe/agent-core`), which holds the PR for a human merge:
+**On all-pass verdict:** enqueue immediately — a review-gate pass plus green CI is the whole bar, unless a changed file matches a gate path (`holdForHuman` in the `fast-path` hook's `node scripts/fast-path-decision.mjs check --pr <N>` JSON), which holds the PR for a human merge:
 
 ```bash
 gh pr merge <N> --auto --squash --delete-branch
 ```
 
+Issue that line as the whole Bash call — nothing before or after it (no `cd`, `&&`, `;`, `|`, subshell or variable assignment). `Bash(gh pr *)` in `.claude/settings.json` approves the plain form before the auto-mode classifier runs; a compound form is classified and can be denied as `[Merge Without Review]`. Cloud routines, where `gh pr merge` answers 403, use the REST form the sibling rule `Bash(gh api -X PUT repos/mattbutlerengineering/mattbutlerengineering/pulls/*)` approves — see `docs/routines/mbe-feature-drain.md`.
+
 GitHub merges once CI Gate is green and the branch is up to date. The session does not wait — it moves to the next PR (or Phase 3). Do **not** re-check `tier:*` here; see [No tier hold](#no-tier-hold).
 
-**If the merge call itself is denied by the session runtime** (`denied, reason: [Merge Without Review]` — seen in Claude Code Remote sessions, #6125): do not retry it, via this or any other tool, for the rest of the session. Post the review verdict as a PR comment and record the PR as "reviewed, green, awaiting human merge" in the run summary, then continue with the remaining PRs' review gates. See [gotchas.md § Claude Code Remote](rules/gotchas.md#claude-code-remote--cloud-sessions).
+**If the plain merge call is still denied by the session runtime** (`denied, reason: [Merge Without Review]`, #6125 — the classifier was consulted, so first check the call matched the allow rule exactly): do not retry it, via this or any other tool, for the rest of the session. Post the review verdict as a PR comment and record the PR as "reviewed, green, awaiting human merge" in the run summary, then continue with the remaining PRs' review gates. See [gotchas.md § Claude Code Remote](rules/gotchas.md#claude-code-remote--cloud-sessions).
 
 **On `"flag"` verdict (Reviewer) or `block` (specialized reviewer):** apply the retry policy (default: one retry — dispatch a new worker session on the same branch with `--no-pr`; if retry also flags, label the linked issue `needs-review` and **do not enqueue**). See [Reviewer Contract](../docs/agents/reviewer-contract.md) for the full policy.
 

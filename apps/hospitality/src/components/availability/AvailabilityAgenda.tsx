@@ -30,6 +30,8 @@ export interface AvailabilityAgendaProps {
   readonly holidays: ReadonlyMap<string, string>;
   /** The one service every row reads for (the Services filter); `null` shows all. */
   readonly serviceFilter: ServiceFilter | null;
+  /** Section names by id, so a section closure reads "Bar closed" (ADR-032). */
+  readonly sectionNames?: ReadonlyMap<string, string>;
 }
 
 /** Enter opens a row; Space picks it. Firefox clicks on Space's keyup, so that is stopped too. */
@@ -60,7 +62,15 @@ export function AvailabilityAgenda(props: AvailabilityAgendaProps) {
     <ul className={styles.agenda} aria-label={props.label}>
       {dates.map((date) => {
         const summary = byDate.get(date);
-        const view = presentDay(date, summary, false, t, format, props.serviceFilter);
+        const view = presentDay(
+          date,
+          summary,
+          false,
+          t,
+          format,
+          props.serviceFilter,
+          props.sectionNames
+        );
         const holiday = props.holidays.get(date);
         const shownDate = format.formatCalendarDate(date, {
           weekday: "short",

@@ -5,7 +5,6 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import type { ClosureAlongside, DateRule } from "@mbe/types";
 import { PrismaClient } from "../generated/prisma/index.js";
 import { revertAvailabilityChange } from "./availability-changes.js";
-import { carriedOutcomeIds } from "./closure-carry-outcomes.js";
 import { createClosure } from "./closure-command.js";
 import { getClosureImpact } from "./closure-impact-store.js";
 import { loadClosureChanges } from "./closure-changes.js";
@@ -114,7 +113,10 @@ describe.skipIf(!DATABASE_URL)("a grown series keeps its outcomes (real Postgres
       repeat: { version: 1, weekdays },
       guestMessage: "Closed on Mondays",
     });
-    /** Saves `rule` (with `alongside` when it replaces a series), deciding every group `action`. */
+    /**
+     * Saves `rule` (with `alongside` when it replaces a series), deciding every group `action`.
+     * Answers the result with the post-commit work the save owes.
+     */
     const save = async (
       rule: DateRule,
       action: Action,
@@ -144,7 +146,7 @@ describe.skipIf(!DATABASE_URL)("a grown series keeps its outcomes (real Postgres
         client
       );
       if (saved.kind !== "saved") throw new Error(`save ${saved.kind}`);
-      return saved.result;
+      return { ...saved.result, postCommit: saved.postCommit };
     };
     const replace = (old: DateRule): ClosureAlongside => ({
       upsert: [],
@@ -177,7 +179,6 @@ describe.skipIf(!DATABASE_URL)("a grown series keeps its outcomes (real Postgres
       outcomeOf,
       totalOf,
       revert,
-      carriedOf: (ruleId: string) => inVenue((tx) => carriedOutcomeIds(tx, venueId, ruleId)),
       replay: async (key: string, rule: DateRule, old: DateRule, expectedVersion: number) => {
         const again = await createClosure(
           {
@@ -299,7 +300,7 @@ describe.skipIf(!DATABASE_URL)("a grown series keeps its outcomes (real Postgres
         },
       } as never,
     });
-    const carriedIds = await w.carriedOf(grown.id);
+    const carriedIds = silent.postCommit!.carried;
     expect(carriedIds).toEqual([carried.id]);
     await runWithVenueContext(w.venueId, async () => {
       // Nothing decided in this save is owed a notice, and the carried guest is not told again.
@@ -330,7 +331,7 @@ describe.skipIf(!DATABASE_URL)("a grown series keeps its outcomes (real Postgres
     const original = w.seriesOf(`s-${randomUUID()}`, [1]);
     await w.save(original, "cancel");
     const grown = w.seriesOf(`s-${randomUUID()}`, [1, 3]);
-    await w.save(grown, "cancel", w.replace(original));
+    const cancelling = await w.save(grown, "cancel", w.replace(original));
 
     const jobs: string[] = [];
     const notices = createClosureNoticeService({
@@ -341,7 +342,7 @@ describe.skipIf(!DATABASE_URL)("a grown series keeps its outcomes (real Postgres
         },
       } as never,
     });
-    const carriedIds = await w.carriedOf(grown.id);
+    const carriedIds = cancelling.postCommit!.carried;
     await runWithVenueContext(w.venueId, async () => {
       await notices.enqueueForClosure({
         venueId: w.venueId,

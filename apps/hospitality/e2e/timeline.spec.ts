@@ -106,7 +106,7 @@ test.describe("Timeline load axis: skeleton, fetch failure, and no tables are th
     ).toHaveCount(0);
   });
 
-  test('tables empty → "No tables yet." with the Floor plans link, Walk-in enabled, no error surface', async ({
+  test('tables empty → "No tables yet." with the Floor Plan link, Walk-in enabled, no error surface', async ({
     mockedPage,
   }) => {
     await mockedPage.route("**/api/v1/tables?*", (route) =>
@@ -131,7 +131,7 @@ test.describe("Timeline load axis: skeleton, fetch failure, and no tables are th
     await expect(
       mockedPage.getByRole("heading", { name: "No tables yet.", exact: true })
     ).toBeVisible();
-    await expect(mockedPage.getByRole("link", { name: "Floor plans", exact: true })).toBeVisible();
+    await expect(mockedPage.getByRole("link", { name: "Floor Plan", exact: true })).toBeVisible();
     await expect(
       mockedPage
         .getByTestId("date-navigation")

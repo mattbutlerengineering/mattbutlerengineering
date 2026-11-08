@@ -954,45 +954,36 @@
   </file>
   <file path="src/routes/closure-post-commit.ts">
     <item priority="high">
-      export async function publishClosureChanges(
-        fastify: FastifyInstance,
-        log: FastifyBaseLogger,
-        saved: { venueId: string; ruleId: string; carried?: readonly string[] }
-      ): Promise<void> { /* ... */ }
+      type NoticeEnqueue = FastifyInstance["services"]["closureNoticeService"]["enqu...;
     </item>
-    <item priority="high">
-      export async function enqueueNotices(
-        enqueue: FastifyInstance["services"]["closureNoticeService"]["enqueueForClosure"],
-        input: {
-          venueId: string;
-          ruleId: string;
-          carried?: readonly string[];
-          only?: readonly string[];
-          date?: string;
-        },
-        log: FastifyBaseLogger
-      ): Promise<void> { /* ... */ }
-    </item>
-    <item priority="high">
-      export async function enqueueClosureJobs(
-        fastify: FastifyInstance,
+    <item priority="low">
+      async function enqueueNotices(
+        enqueue: NoticeEnqueue,
+        input: Omit<Parameters<NoticeEnqueue>[0], "now">,
         log: FastifyBaseLogger,
-        saved: { venueId: string; ruleId: string; cancelled: number; givenBackNotified?: number }
+        failure = "closure notices were not enqueued"
       ): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function enqueueGivenBackNotices(
+      async function publishClosureChanges(
         fastify: FastifyInstance,
         log: FastifyBaseLogger,
-        saved: { venueId: string; ruleId: string }
+        plan: ClosurePostCommit
       ): Promise<void> { /* ... */ }
     </item>
-    <item priority="low">
-      async function carriedOutcomes(
+    <item priority="high">
+      export async function runClosurePostCommit(
+        fastify: FastifyInstance,
         log: FastifyBaseLogger,
-        venueId: string,
-        ruleId: string
-      ): Promise<string[]> { /* ... */ }
+        plan: ClosurePostCommit
+      ): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function runReopenNotice(
+        fastify: FastifyInstance,
+        log: FastifyBaseLogger,
+        notice: ReopenNotice
+      ): Promise<void> { /* ... */ }
     </item>
   </file>
   <file path="src/routes/closures.ts">
@@ -2206,6 +2197,9 @@
       function canonical(value: unknown): string { /* ... */ }
     </item>
     <item priority="medium">
+      function withoutDerived(row: unknown): unknown { /* ... */ }
+    </item>
+    <item priority="medium">
       function coversDate(rule: DateRule, date: string): boolean { /* ... */ }
     </item>
     <item priority="medium">
@@ -2285,7 +2279,8 @@
     <item priority="high">
       export function referenceIssues(
         config: AvailabilityConfig,
-        venueTableIds: ReadonlySet<string>
+        venueTableIds: ReadonlySet<string>,
+        venueSectionIds: ReadonlySet<string>
       ): ReferenceIssue[] { /* ... */ }
     </item>
     <item priority="high">
@@ -2300,6 +2295,8 @@
          */
         exact?: boolean;
         tableIds: ReadonlySet<string>;
+        /** The venue's sections; absent means none, so any section closure is refused. */
+        sections?: SectionIndex;
         now: Date;
         today: string;
         newId: () => string;
@@ -2374,7 +2371,8 @@
       type StoreDb = ConfigRowDb &
         Pick<
           PrismaClient,
-          "venue" | "re...;
+          | "venue"
+         ...;
     </item>
     <item priority="low">
       type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -2436,6 +2434,7 @@
         bookings: readonly BookedReservation[];
         /** Every table of the venue, active or not: a date rule may only block these. */
         tableIds: ReadonlySet<string>;
+        sections?: SectionIndex;
         now: Date;
         newId?: () => string;
         /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
@@ -2649,7 +2648,7 @@
         body: PreviewAvailabilityParsed;
         bookings: readonly BookedReservation[];
         tableIds: ReadonlySet<string>;
-        tables?: readonly EngineTable[];
+        sections?: SectionIndex;
       }
     </item>
     <item priority="low">
@@ -2727,13 +2726,16 @@
     <item priority="medium">
       function failClosedRule(row: DateRuleRow): DateRule { /* ... */ }
     </item>
+    <item priority="high">
+      export const SECTION_RULE_INCLUDE: unknown;
+    </item>
     <item priority="low">
       interface DateRuleRow {
         id: string;
         kind: string;
         targetKind: string;
         venueServiceId: string | null;
-        bookingTypes: string[];
+        sectionId: string | null;
       }
     </item>
     <item priority="medium">
@@ -2766,6 +2768,9 @@
         assignments: ScheduleAssignmentRow[];
         dateRules: DateRuleRow[];
       }
+    </item>
+    <item priority="medium">
+      function sectionMembership(rows: readonly DateRuleRow[]): Map<string, string[]> { /* ... */ }
     </item>
     <item priority="high">
       export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig { /* ... */ }
@@ -3138,16 +3143,6 @@
     <item priority="high">
       export async function returnCarriedOutcomes(tx: Db, inverse: unknown): Promise<void> { /* ... */ }
     </item>
-    <item priority="high">
-      export const readCarriedOutcomeIds: unknown;
-    </item>
-    <item priority="high">
-      export async function carriedOutcomeIds(
-        db: Pick<PrismaClient, "availabilityChange">,
-        venueId: string,
-        ruleId: string
-      ): Promise<string[]> { /* ... */ }
-    </item>
   </file>
   <file path="src/services/closure-changes.ts">
     <item priority="low">
@@ -3264,7 +3259,29 @@
       function strandedIssues(stranded: readonly StrandedReservation[], message: string): RefusalIssue[] { /* ... */ }
     </item>
     <item priority="low">
-      type CreateClosureOutcome = { kind: "saved"; result: Closu | { kind: "not_found" } | { kind: "forbidden" } | { kind: "too_long" } | { kind: "version_conflict"; wi | { kind: "key_reused" } | { kind: "closure_exists" } | { kind: "invalid"; issues: Ref | { kind: "decision_required"; g | { kind: "invalid_decision"; gr | { kind: "move_unavailable"; re;
+      interface ClosurePostCommit {
+        venueId: string;
+        ruleId: string;
+        carried: string[];
+        refunds: boolean;
+        givenBack: GivenBackGuests | null;
+      }
+    </item>
+    <item priority="low">
+      interface ReopenNotice {
+        venueId: string;
+        ruleId: string;
+        date?: string;
+      }
+    </item>
+    <item priority="high">
+      interface Saved {
+        result: ClosureResult;
+        postCommit: ClosurePostCommit | null;
+      }
+    </item>
+    <item priority="low">
+      type CreateClosureOutcome = ({ kind: "saved" } & Saved) | { kind: "not_found" } | { kind: "forbidden" } | { kind: "too_long" } | { kind: "version_conflict"; wi | { kind: "key_reused" } | { kind: "closure_exists" } | { kind: "invalid"; issues: Ref | { kind: "decision_required"; g | { kind: "invalid_decision"; gr | { kind: "move_unavailable"; re;
     </item>
     <item priority="high">
       type Refusal = Exclude<CreateClosureOutcome, { kind: "saved" }>;
@@ -3317,12 +3334,20 @@
         key: string
       ): Promise<{ id: string; actorId: string; closure: ClosureMeta } | null> { /* ... */ }
     </item>
+    <item priority="medium">
+      function savedOf(
+        venueId: string,
+        closure: Pick<ClosureMeta, "ruleId" | "version" | "carried" | "givenBack">,
+        changeId: string,
+        counts: Record<ClosureAction, number>
+      ): Saved { /* ... */ }
+    </item>
     <item priority="low">
-      async function storedResult(
+      async function storedSave(
         tx: Pick<PrismaClient, "closureOutcome">,
         venueId: string,
         replay: { id: string; closure: ClosureMeta }
-      ): Promise<ClosureResult> { /* ... */ }
+      ): Promise<Saved> { /* ... */ }
     </item>
     <item priority="high">
       interface Plan {
@@ -3360,7 +3385,7 @@
         body: Cre...;
     </item>
     <item priority="low">
-      async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> { /* ... */ }
+      async function replayOf(tx: Db, input: CommitInput): Promise<Saved | null> { /* ... */ }
     </item>
     <item priority="low">
       async function refuseBadAlongside(tx: Db, input: CommitInput, state: ConfigState): Promise<void> { /* ... */ }
@@ -3369,7 +3394,7 @@
       async function preflight(tx: Db, input: CommitInput): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
-      async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> { /* ... */ }
+      async function commit(tx: Db, input: CommitInput): Promise<Saved> { /* ... */ }
     </item>
     <item priority="high">
       export async function createClosure(
@@ -3499,16 +3524,15 @@
         }
       ): Promise<GivenBackGuests | null> { /* ... */ }
     </item>
-    <item priority="high">
-      export const readGivenBack: unknown;
-    </item>
   </file>
   <file path="src/services/closure-impact-store.ts">
     <item priority="high">
       type StoreClient = Pick<PrismaClient, "$transaction">;
     </item>
     <item priority="high">
-      type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservation...;
+      type ImpactDb = Pick<
+        PrismaClient,
+        "table" | "reservation" | "reserv...;
     </item>
     <item priority="low">
       type ClosureImpactOutcome = { kind: "ok"; impact: ClosureI | { kind: "not_found" } | { kind: "too_long" } | { kind: "invalid"; issues: { p;
@@ -3530,9 +3554,9 @@
         tx: ImpactDb,
         venueId: string,
         state: ConfigState,
-        rule: DateRule,
+        draft: DateRule,
         now: Date,
-        alongside?: ClosureAlongside
+        draftAlongside?: ClosureAlongside
       ): Promise<ClosureImpactOutcome> { /* ... */ }
     </item>
     <item priority="medium">
@@ -5251,6 +5275,36 @@
         declarations: RlsDeclarations,
         pending: readonly string[]
       ): string[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/section-closure-materialise.ts">
+    <item priority="low">
+      type MaterialiseDb = Pick<PrismaClient, "venue" | "dateRule" | "dateRuleTable"...;
+    </item>
+    <item priority="high">
+      export async function materialiseSectionClosures(
+        db: MaterialiseDb,
+        venueId: string,
+        sectionIds: readonly string[],
+        now: Date
+      ): Promise<number> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/section-index.ts">
+    <item priority="low">
+      interface SectionIndex {
+        ids: ReadonlySet<string>;
+        membership: ReadonlyMap<string, readonly string[]>;
+      }
+    </item>
+    <item priority="high">
+      export const NO_SECTIONS: SectionIndex;
+    </item>
+    <item priority="high">
+      export async function loadSectionIndex(
+        db: Pick<PrismaClient, "floorPlanSection">,
+        venueId: string
+      ): Promise<SectionIndex> { /* ... */ }
     </item>
   </file>
   <file path="src/services/serializers.ts">

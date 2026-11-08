@@ -19,6 +19,8 @@ export interface SpecialHoursEditDrawerProps {
   readonly onStale: () => void;
   /** Why the config could not be reloaded; the drawer shows it with a Retry. */
   readonly reloadError?: string | null;
+  /** Section names by id, so a section closure's layer reads "Bar closed" (ADR-032). */
+  readonly sectionNames?: ReadonlyMap<string, string>;
   readonly onClose: () => void;
 }
 
@@ -43,6 +45,7 @@ export function SpecialHoursEditDrawer(props: SpecialHoursEditDrawerProps) {
         isLoading={false}
         error={reloadError ?? null}
         viewerRole="manager"
+        sectionNames={props.sectionNames}
         editing={{
           venueId,
           state,

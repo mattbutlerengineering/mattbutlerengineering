@@ -132,7 +132,8 @@ export const METRICS = {
  */
 export const DURABLE_OUTSIDE = {
   ".claude/improvement-loop/log.md": "human-readable loop audit narrative, merge=union",
-  ".claude/improvement-loop/revert-log.md": "written by .github/workflows/revert-rca-detection.yml",
+  ".claude/improvement-loop/revert-log.md":
+    "historical revert log; its writer (revert-rca-detection.yml) was retired",
   "apps/marketing/public/sensor-report.json":
     "public AI-health page copy, written by scripts/sensor-report.mjs",
   "apps/marketing/public/ai-health-trends.json":

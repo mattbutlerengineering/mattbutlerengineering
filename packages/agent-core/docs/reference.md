@@ -45,7 +45,6 @@ Entry point: `runSession(config, onEvent?)` in `session-runner.ts`.
 | `gate-runner.ts`          | Runs quality gates in sequence; aggregates pass/fail results                |
 | `circuit-breaker.ts`      | Stops cascading failures by tracking error rates and tripping open          |
 | `deploy-verifier.ts`      | Verifies a deployment reached a healthy state after PR merge                |
-| `revert-detector.ts`      | Detects whether a commit reverts a prior change                             |
 | `pr-risk-classifier.ts`   | Classifies PR risk level (low/medium/high) to gate auto-merge decisions     |
 | `budget-calculator.ts`    | Computes per-session cost budgets from model, turn count, and token limits  |
 | `retry.ts`                | Generic retry with backoff; detects `ContextWindowExhaustedError`           |

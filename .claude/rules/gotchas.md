@@ -34,7 +34,7 @@ Project-specific traps that are **still live**. Read these before diving into pr
 - **Cloud sessions self-bootstrap**: a `SessionStart` hook (`scripts/cloud-session-bootstrap.mjs`) installs and builds `@mbe/cli...` when `CLAUDE_CODE_REMOTE=true` and `node_modules` is missing (#8169).
 - **`gh pr update-branch` drifts llms artifacts** (no regen runs). Fix: `pnpm build --filter @mbe/cli... && pnpm regen`, commit, push.
 - **llms regen needs `packages/agent-core/dist` built.** `regen-llms.sh` swallows the `ERR_MODULE_NOT_FOUND` silently; pre-push's `pnpm regen --check` fails closed on it and reports **every** package stale — all 28 stale at once = missing build, not drift. Always `pnpm build --filter @mbe/cli...` first. `SKIP_PUSH_TYPECHECK=1` does not bypass it.
-- **A _stale_ `agent-core/dist` silently narrows implement-queue's review gate** (#3989: `reviewersForDiff` returned `[]` from old dist). `scripts/agent-core-build-freshness.mjs check` fails closed on stale/missing/unknown; exit 1 = treat the PR as needing full review.
+- **A _stale_ `agent-core/dist` silently narrows implement-queue's review gate** (#3989: `reviewersForDiff` returned `[]` from old dist). `scripts/fast-path-decision.mjs check --pr <N>` folds in the freshness check and fails closed (no fast path, every specialist).
 - **A workflow that names Playwright specs explicitly must list every spec** (#3955: six rialto-web specs never ran). Use an explicit file list, never a glob; pinned by `apps/rialto-web/e2e/workflow-coverage.test.ts`. Orphaned tests in general: `scripts/check-orphaned-tests.mjs` (#3911).
 - **`pnpm exec mbe` fails (`Command "mbe" not found`)** — the bin is never linked. Use `node tools/cli/dist/index.js <cmd>` or `pnpm --filter @mbe/cli start <cmd>`.
 - **An exported `new Command(...)` nobody `.addCommand()`s is unreachable, and its unit tests still pass.** Guarded by `scripts/check-orphaned-cli-commands.mjs` in `repo-audit`.
@@ -110,7 +110,7 @@ Project-specific traps that are **still live**. Read these before diving into pr
   - **Large MCP results land on disk, not in context.** An over-cap tool result is written to a file and the tool returns its path — read it with `jq` rather than re-running the query.
   - **Pin error-shape detectors to a string captured verbatim from a real log, never a plausible one** (#6312: the GraphQL fallback shipped dead). Also: `--search "label:a label:b"` ANDs labels (comma form ORs); REST `state_reason` is lowercase.
 
-- **A CCR session's permission classifier can deny every PR merge (`[Merge Without Review]`)** regardless of tier or review (#6125). On the first denial, stop calling merge for the session; leave the PR green and reviewed, and report it as awaiting a human merge.
+- **Auto mode's classifier denies PR merges (`[Merge Without Review]`, #6125).** Locally a `.claude/settings.json` allow rule matching one plain merge call passes; cloud routines ignore it (2026-11-07). Still denied: stop merging; routines hand off to `reviewed-merge.yml`.
 
 ## Deploy / static sites
 

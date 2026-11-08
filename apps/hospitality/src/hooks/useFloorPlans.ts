@@ -166,6 +166,16 @@ export const useFloorPlanSections = createQueryHook<
   getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
 });
 
+/** Every section of the venue across its floor plans (Tonight groups tables by these). */
+export const useVenueFloorPlanSections = createQueryHook<
+  FloorPlanSection[],
+  { venueId?: string | null }
+>({
+  key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+  fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!),
+  getEnabled: (params) => !!params?.venueId,
+});
+
 /* ── useUpdateFloorPlanSection mutation ──────────────── */
 
 /** Patches one section (name, colour, floor material). Re-reads the section list on success. */

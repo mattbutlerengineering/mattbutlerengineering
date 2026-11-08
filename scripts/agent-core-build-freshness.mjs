@@ -39,8 +39,8 @@ import { fileURLToPath } from "node:url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, "..");
 
-export const DEFAULT_SRC_DIR = path.join(ROOT, "packages/agent-core/src");
-export const DEFAULT_DIST_DIR = path.join(ROOT, "packages/agent-core/dist");
+const DEFAULT_SRC_DIR = path.join(ROOT, "packages/agent-core/src");
+const DEFAULT_DIST_DIR = path.join(ROOT, "packages/agent-core/dist");
 
 // ---------------------------------------------------------------------------
 // Pure logic — no side effects below this section boundary comment.

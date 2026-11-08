@@ -114,4 +114,20 @@ describe("Layer structured fields", () => {
       window: { from: 720, to: 780 },
     });
   });
+
+  it("names the section a section closure is for, beside the en-US strings", () => {
+    const section: DateRule = {
+      ...ON_DAY,
+      id: "r-section",
+      kind: "closure",
+      targetKind: "tables",
+      sectionId: "sec-bar",
+      tableIds: ["t1"],
+    };
+    const closure = layers(section).find((l) => l.kind === "closure");
+    expect(closure).toMatchObject({
+      label: "Tables blocked",
+      target: { kind: "tables", sectionId: "sec-bar" },
+    });
+  });
 });

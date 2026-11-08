@@ -1,6 +1,6 @@
 ---
 name: ship-pr
-description: "Runs the full merge boundary on one open PR — build-freshness, CI-gate classification, specialist and universal review, then merge — via the implement-queue profile's hooks, outside the queue loop. Invoke with /ship-pr <N> [--ready]."
+description: "Runs the full merge boundary on one open PR — fast-path decision, CI-gate classification, specialist and universal review, then merge — via the implement-queue profile's hooks, outside the queue loop. Invoke with /ship-pr <N> [--ready]."
 user-invocable: true
 ---
 
@@ -47,19 +47,19 @@ step on anything but a clean pass.
    Only once holds clear, and only if `--ready` was passed, run
    `gh pr ready <N>`.
 
-2. **Build freshness.**
+2. **Fast-path decision.**
 
    ```bash
-   node scripts/agent-core-build-freshness.mjs check
+   node scripts/fast-path-decision.mjs check --pr <N>
    ```
 
-   This governs only the dist-backed classifiers, `reviewersForDiff` and
-   `qualifiesForLowRiskFastPath`; step 3's `scripts/ci-gate-status.mjs`
-   imports only Node built-ins and does not depend on it. Exit 0 → that dist
-   is proven fresh (or was rebuilt). Exit 1 →
-   do not trust `reviewersForDiff` for this run; fall straight through to
-   the full specialist set in step 4 as if every specialist applies — see
-   `.claude/implement-queue.md` § fast-path for the exact fail-closed rule.
+   One JSON line: `{fastPath, reviewers, holdForHuman, reason}`. It folds in
+   the agent-core build-freshness check (rebuilding the dist if needed) and
+   fails closed — no fast path, every specialist — when the dist cannot be
+   trusted; see `.claude/implement-queue.md` § fast-path for the precedence.
+   Exit 0 is any decision; exit 1 means `gh` could not fetch the PR, so
+   stop and report it. Keep the JSON for step 4. Step 3's
+   `scripts/ci-gate-status.mjs` is independent of it.
 
 3. **CI-gate classification.** Follow `.claude/implement-queue.md` §
    ci-status verbatim, including its `gate-missing` dispatch-and-re-poll
@@ -75,12 +75,11 @@ step on anything but a clean pass.
    `failed`/`pending`/`gate-missing`/`gate-unattributed`/`unknown` here.
 
 4. **Review.** Follow `.claude/implement-queue.md` § fast-path and §
-   reviewers as written: whether review can be skipped is decided there and
-   by `qualifiesForLowRiskFastPath`, not re-decided here. Dispatch the
-   diff-matched specialists `reviewersForDiff(changedFiles)` names
-   (`gh pr diff <N> --name-only`), plus the universal `reviewer` subagent
-   unless the fast path applies. A gate-path PR is still reviewed; step 5
-   holds it.
+   reviewers as written: whether review can be skipped is step 2's
+   `fastPath`, not re-decided here. Dispatch the diff-matched specialists
+   step 2's `reviewers` names, plus the universal `reviewer` subagent
+   unless `fastPath` is true. A gate-path PR (`holdForHuman`) is still
+   reviewed; step 5 holds it.
 
    § reviewers assumes a queue worker. For a single PR, take its inputs
    from here instead:
@@ -108,7 +107,7 @@ step on anything but a clean pass.
 
    - a label in the profile's `hold_labels` on the PR or a linked issue — report
      `held — <label>`;
-   - a changed file matching a gate path (`GATE_PATHS` in `@mbe/agent-core`)
+   - step 2's `holdForHuman: true` (a changed file matches a gate path)
      — report `held for human merge — gate path`.
 
    Otherwise follow `.claude/implement-queue.md` § merge-command:
@@ -117,9 +116,13 @@ step on anything but a clean pass.
    gh pr merge <N> --auto --squash --delete-branch
    ```
 
+   Issue it as the whole Bash call, nothing else on the line: `Bash(gh pr *)` in
+   `.claude/settings.json` approves the plain form before the auto-mode
+   classifier runs; a compound form is classified and can be denied.
+
    If GitHub reports the PR `CLEAN` and refuses `--auto`, merge directly
    with the same command minus `--auto` — this path, too, runs only after
-   the hold re-read above cleared. If the merge call itself is denied with
+   the hold re-read above cleared. If the plain merge call is still denied with
    `[Merge Without Review]` (Claude Code Remote sessions, gotchas § CCR
    #6125), do not retry through this or any other tool — report the PR as
    reviewed, green, and awaiting a human merge.

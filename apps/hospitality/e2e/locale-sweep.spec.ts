@@ -243,6 +243,9 @@ async function sweep(
   const untranslated = (await visibleStrings(page))
     .map(normalize)
     .filter(Boolean)
+    // A text node that is wholly a typed value (a service called "Lunch") is the venue's own
+    // word, not UI copy, even where a catalog literal happens to read the same.
+    .filter((text) => !userData.includes(text))
     .flatMap((text) => {
       // Literal values are matched against what is on screen; templates against the text
       // with typed values masked, where their `.+?` still matches the token.
@@ -426,6 +429,13 @@ const USER_TEXT_FIELDS: Record<string, RegExp> = {
   "user-me.json": /^name$/,
 };
 
+/**
+ * Names a Manager typed for the mock availability config's services (api-mocks.ts, inline rather
+ * than a JSON fixture). Venue Setup lists them; "Lunch" and "Dinner" are also catalog words
+ * (quick-setup presets, the booking widget's periods) a locale translates.
+ */
+const MOCK_SERVICE_NAMES: readonly string[] = ["Lunch", "Dinner"];
+
 function userEnteredText(): string[] {
   const collect = (node: unknown, fields: RegExp, key = ""): string[] => {
     if (typeof node === "string") return fields.test(key) ? [node] : [];
@@ -438,7 +448,7 @@ function userEnteredText(): string[] {
       fields
     )
   );
-  return Array.from(new Set(values.map(normalize)));
+  return Array.from(new Set([...values, ...MOCK_SERVICE_NAMES].map(normalize)));
 }
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -642,25 +652,6 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
   }
   if (route === "floor-plans/:id") {
     await page.route(/\/api\/v1\/floor-plans\/[^/?]+(\?.*)?$/, (r) => r.fulfill(ok(EDITOR_PLAN)));
-  }
-  if (route === "setup") {
-    // An operational venue is bounced off the /setup checklist; with no floor plan it is still in setup.
-    await page.route(/\/api\/v1\/floor-plans\?/, (r) =>
-      r.fulfill({
-        status: 200,
-        json: {
-          data: [],
-          pagination: {
-            page: 1,
-            limit: 25,
-            total: 0,
-            totalPages: 0,
-            hasNext: false,
-            hasPrev: false,
-          },
-        },
-      })
-    );
   }
 }
 

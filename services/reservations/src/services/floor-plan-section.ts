@@ -11,6 +11,7 @@ import {
 } from "@mbe/types";
 import { prisma } from "./database.js";
 import { toTable } from "./serializers.js";
+import { materialiseSectionClosures } from "./section-closure-materialise.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
 interface PrismaFloorPlanSection {
@@ -89,12 +90,20 @@ export const floorPlanSectionService = {
     return section ? mapSection(section) : null;
   },
 
-  /** Its tables are kept and become unassigned (`ON DELETE SET NULL`). */
-  async delete(venueId: string, sectionId: string): Promise<boolean> {
-    const { count } = await prisma.floorPlanSection.deleteMany({
-      where: { id: sectionId, venueId },
+  /**
+   * Its tables are kept and become unassigned (`ON DELETE SET NULL`). A live section closure keeps
+   * blocking the section's tables as a plain tables closure (ADR-032), in the same transaction.
+   */
+  async delete(venueId: string, sectionId: string, now: Date = new Date()): Promise<boolean> {
+    // Explicit transaction: bypasses the per-call auto-wrap, so set the venue ourselves.
+    return prisma.$transaction(async (tx) => {
+      await setVenueContext(tx, venueId);
+      const owned = await tx.floorPlanSection.count({ where: { id: sectionId, venueId } });
+      if (owned === 0) return false;
+      await materialiseSectionClosures(tx, venueId, [sectionId], now);
+      const { count } = await tx.floorPlanSection.deleteMany({ where: { id: sectionId, venueId } });
+      return count > 0;
     });
-    return count > 0;
   },
 
   /**

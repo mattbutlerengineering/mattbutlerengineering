@@ -149,11 +149,8 @@ describe("the real repository", () => {
     expect(evaluateWorkflowPrScope(repoInputs()).findings).toEqual([]);
   });
 
-  it.each(["routine-liveness", "revert-rca-detection", "stale-in-progress"])(
-    "%s.yml grants pull-requests read",
-    (name) => {
-      const source = readFileSync(join(ROOT, `.github/workflows/${name}.yml`), "utf-8");
-      expect(stripComments(source)).toMatch(/^\s*pull-requests:\s*read\s*$/m);
-    }
-  );
+  it.each(["routine-liveness", "stale-in-progress"])("%s.yml grants pull-requests read", (name) => {
+    const source = readFileSync(join(ROOT, `.github/workflows/${name}.yml`), "utf-8");
+    expect(stripComments(source)).toMatch(/^\s*pull-requests:\s*read\s*$/m);
+  });
 });

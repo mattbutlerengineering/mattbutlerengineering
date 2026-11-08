@@ -22,6 +22,9 @@ vi.mock("./database.js", async () => {
 
 vi.mock("../middleware/venue-context.js", () => ({ setVenueContext: vi.fn() }));
 
+const { materialise } = vi.hoisted(() => ({ materialise: vi.fn() }));
+vi.mock("./section-closure-materialise.js", () => ({ materialiseSectionClosures: materialise }));
+
 import { floorPlanSectionService } from "./floor-plan-section.js";
 import { prisma } from "./database.js";
 
@@ -111,10 +114,38 @@ describe("floorPlanSectionService", () => {
 
   it("returns null/false for a section of another venue", async () => {
     db.floorPlanSection.updateMany.mockResolvedValue({ count: 0 });
-    db.floorPlanSection.deleteMany.mockResolvedValue({ count: 0 });
     expect(await floorPlanSectionService.update("v1", "s9", { name: "x" })).toBeNull();
+
+    const tx = { floorPlanSection: { count: vi.fn().mockResolvedValue(0), deleteMany: vi.fn() } };
+    db.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) => fn(tx));
     expect(await floorPlanSectionService.delete("v1", "s9")).toBe(false);
-    expect(whereOf(db.floorPlanSection.deleteMany)).toEqual({ id: "s9", venueId: "v1" });
+    expect(tx.floorPlanSection.count).toHaveBeenCalledWith({ where: { id: "s9", venueId: "v1" } });
+    expect(tx.floorPlanSection.deleteMany).not.toHaveBeenCalled();
+    expect(materialise).not.toHaveBeenCalled();
+  });
+
+  it("materialises live section closures, then deletes the section, in one transaction", async () => {
+    const order: string[] = [];
+    materialise.mockImplementation(async () => void order.push("materialise"));
+    const tx = {
+      floorPlanSection: {
+        count: vi.fn().mockResolvedValue(1),
+        deleteMany: vi.fn(async () => {
+          order.push("delete");
+          return { count: 1 };
+        }),
+      },
+    };
+    db.$transaction.mockImplementationOnce(async (fn: (tx: unknown) => unknown) => fn(tx));
+    const at = new Date("2026-11-07T12:00:00Z");
+
+    expect(await floorPlanSectionService.delete("v1", "s1", at)).toBe(true);
+
+    expect(materialise).toHaveBeenCalledWith(tx, "v1", ["s1"], at);
+    expect(order).toEqual(["materialise", "delete"]);
+    expect(tx.floorPlanSection.deleteMany).toHaveBeenCalledWith({
+      where: { id: "s1", venueId: "v1" },
+    });
   });
 
   it("reorders only distinct sections of the floor plan in this venue", async () => {

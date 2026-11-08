@@ -15,6 +15,7 @@
       "Bash(gh pr *)",
       "Bash(gh run *)",
       "Bash(gh issue *)",
+      "Bash(gh api -X PUT repos/mattbutlerengineering/mattbutlerengineering/pulls/*)",
       "Bash(git log *)",
       "Bash(git diff *)",
       "Bash(git status *)",
@@ -109,6 +110,15 @@
           {
             "type": "command",
             "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-changeset.sh\" \"$FILE\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FILE=$(node \"$CLAUDE_PROJECT_DIR/.claude/hooks/hook-input.mjs\"); [ -n \"$FILE\" ] || exit 0; bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/check-instruction-budget.sh\" \"$FILE\""
           }
         ]
       },

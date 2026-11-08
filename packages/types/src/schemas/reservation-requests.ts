@@ -366,6 +366,11 @@ export const UpdateTableBodySchema = z
       .nullable()
       .describe("Floor plan to assign, or null to unassign")
       .optional(),
+    sectionId: z
+      .string()
+      .nullable()
+      .describe("Floor-plan section to put the table in, or null for no section")
+      .optional(),
     shapeMetadata: TableShapeMetadataSchema.nullable()
       .describe("Canvas shape/position, or null to clear")
       .optional(),

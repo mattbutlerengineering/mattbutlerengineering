@@ -76,8 +76,9 @@ test.describe("Interaction guards (agent stand-in counts)", () => {
     await setUniformBistroWeek(counter.page);
     await expect(second.getByRole("grid")).toBeVisible();
     expect(viaSchedules.savedBody()).toMatchObject({ expectedVersion: 3 });
-    // Create another schedule… opens the New schedule editor itself.
-    await counter.page.getByRole("button", { name: "Create another schedule…" }).click();
+    // The Schedules tab is always shown to a Manager; its New schedule opens the editor.
+    await counter.page.getByRole("radio", { name: "Schedules" }).click();
+    await counter.page.getByRole("button", { name: "New schedule" }).click();
     const drawer = counter.page.getByRole("dialog");
     await drawer.getByRole("textbox", { name: /Schedule name/ }).fill("Demo week");
     await setDemoWeek(counter.page, drawer);

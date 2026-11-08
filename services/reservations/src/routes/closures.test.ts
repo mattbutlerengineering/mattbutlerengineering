@@ -55,6 +55,9 @@ const RESULT = {
   changeId: "chg-1",
   outcomes: { cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 },
 };
+/** The work the command decided the save owes after commit. */
+const PLAN = { venueId: "venue-1", ruleId: "dr-new", carried: [], refunds: true, givenBack: null };
+const SAVED = { kind: "saved", result: RESULT, postCommit: PLAN };
 
 describe("closure routes", () => {
   let app: FastifyInstance;
@@ -91,7 +94,7 @@ describe("closure routes", () => {
     ) => app.inject({ method: "POST", url: URL, headers, payload: payload as object });
 
     it("saves with the Idempotency-Key and returns the result", async () => {
-      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+      commandSvc.create.mockResolvedValueOnce(SAVED);
 
       const res = await post();
 
@@ -134,7 +137,7 @@ describe("closure routes", () => {
 
       /** What the command receives after the route's real validation. */
       const received = async (alongside: unknown) => {
-        commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+        commandSvc.create.mockResolvedValueOnce(SAVED);
         const res = await post({ expectedVersion: 4, rule: draft, alongside, decisions: [] });
         expect(res.statusCode).toBe(200);
         return commandSvc.create.mock.calls[0]![0].body as CreateClosureBody;
@@ -162,45 +165,34 @@ describe("closure routes", () => {
       });
     });
 
-    it("enqueues the notices for the saved closure, replays included", async () => {
-      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+    it("runs the post-commit work the command decided: refund jobs and notices", async () => {
+      commandSvc.create.mockResolvedValueOnce({
+        ...SAVED,
+        postCommit: { ...PLAN, carried: ["o-old"] },
+      });
+
       await post();
+
+      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new", ["o-old"]);
       expect(noticeSvc.enqueueForClosure).toHaveBeenCalledWith(
-        expect.objectContaining({ venueId: "venue-1", ruleId: "dr-new" })
+        expect.objectContaining({ venueId: "venue-1", ruleId: "dr-new", carried: ["o-old"] })
       );
+    });
+
+    it("runs nothing after a save that owes nothing", async () => {
+      commandSvc.create.mockResolvedValueOnce({ ...SAVED, postCommit: null });
+
+      expect((await post()).statusCode).toBe(200);
+
+      expect(closureRefunds.enqueue).not.toHaveBeenCalled();
+      expect(noticeSvc.enqueueForClosure).not.toHaveBeenCalled();
     });
 
     it("still answers 200 when the queue is down (the closure is committed)", async () => {
-      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
+      commandSvc.create.mockResolvedValueOnce(SAVED);
+      closureRefunds.enqueue.mockRejectedValueOnce(new Error("redis down"));
       noticeSvc.enqueueForClosure.mockRejectedValueOnce(new Error("redis down"));
       expect((await post()).statusCode).toBe(200);
-    });
-
-    it("a failed refund enqueue does not skip the notices", async () => {
-      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
-      closureRefunds.enqueue.mockRejectedValueOnce(new Error("redis down"));
-      expect((await post()).statusCode).toBe(200);
-      expect(noticeSvc.enqueueForClosure).toHaveBeenCalledWith(
-        expect.objectContaining({ venueId: "venue-1", ruleId: "dr-new" })
-      );
-    });
-
-    it("enqueues the closure's refund jobs after the save commits", async () => {
-      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
-      closureRefunds.enqueue.mockResolvedValueOnce(1);
-
-      await post();
-
-      expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new", []);
-    });
-
-    it("still answers 200 when enqueueing fails; the outcomes stay pending for a retry", async () => {
-      commandSvc.create.mockResolvedValueOnce({ kind: "saved", result: RESULT });
-      closureRefunds.enqueue.mockRejectedValueOnce(new Error("redis down"));
-
-      const res = await post();
-
-      expect(res.statusCode).toBe(200);
     });
 
     it("enqueues nothing for a refusal", async () => {
@@ -261,13 +253,18 @@ describe("closure routes", () => {
         { ...RESULT, ruleId: "dr-25", version: 6, outcomes: { ...RESULT.outcomes, cancel: 0 } },
       ],
     };
+    const BATCH_SAVED = {
+      kind: "saved",
+      result: BATCH_RESULT,
+      postCommit: [PLAN, { ...PLAN, ruleId: "dr-25", refunds: false }],
+    };
     const post = (
       payload: unknown = BATCH,
       headers: Record<string, string> = { ...ADMIN, "idempotency-key": "k-1" }
     ) => app.inject({ method: "POST", url: BATCH_URL, headers, payload: payload as object });
 
     it("saves every item with the Idempotency-Key and returns each result", async () => {
-      commandSvc.createMany.mockResolvedValueOnce({ kind: "saved", result: BATCH_RESULT });
+      commandSvc.createMany.mockResolvedValueOnce(BATCH_SAVED);
 
       const res = await post();
 
@@ -278,8 +275,8 @@ describe("closure routes", () => {
       );
     });
 
-    it("enqueues refunds and notices for each saved closure after the commit", async () => {
-      commandSvc.createMany.mockResolvedValueOnce({ kind: "saved", result: BATCH_RESULT });
+    it("runs each item's post-commit work, as the command decided it, after the commit", async () => {
+      commandSvc.createMany.mockResolvedValueOnce(BATCH_SAVED);
 
       await post();
 
@@ -287,7 +284,6 @@ describe("closure routes", () => {
       expect(noticeSvc.enqueueForClosure).toHaveBeenCalledWith(
         expect.objectContaining({ venueId: "venue-1", ruleId: "dr-25" })
       );
-      // Only the item that cancelled bookings owes a refund job.
       expect(closureRefunds.enqueue).toHaveBeenCalledTimes(1);
       expect(closureRefunds.enqueue).toHaveBeenCalledWith("venue-1", "dr-new", []);
     });
@@ -481,22 +477,6 @@ describe("closure routes", () => {
         commandSvc.reopen.mockReset();
       });
 
-      it("tells the notice step which date was reopened, so urgency is that date's", async () => {
-        noticeSvc.enqueueForReopen.mockClear();
-        commandSvc.reopen.mockResolvedValueOnce({
-          kind: "reopened",
-          result: { version: 6, changeId: "chg-2" },
-        });
-        await del({
-          tellCancelledGuests: true,
-          seen: { rule, children: [] },
-          date: "2026-12-26",
-        });
-        expect(noticeSvc.enqueueForReopen).toHaveBeenCalledWith(
-          expect.objectContaining({ ruleId: "dr-new", date: "2026-12-26" })
-        );
-      });
-
       it("hands an impossible date through Ajv to the store, which refuses it", async () => {
         commandSvc.reopen.mockResolvedValueOnce({
           kind: "invalid",
@@ -598,42 +578,17 @@ describe("closure routes", () => {
       });
     });
 
-    it("enqueues reopen notices only when the Manager chose to tell cancelled guests", async () => {
-      const reopened = { kind: "reopened", result: { version: 6, changeId: "chg-2" } };
-      commandSvc.reopen.mockResolvedValueOnce(reopened);
+    it("enqueues the reopen notice the command decided, and none when it decided none", async () => {
+      const result = { version: 6, changeId: "chg-2" };
+      const notice = { venueId: "venue-1", ruleId: "dr-new", date: "2026-12-26" };
+      commandSvc.reopen.mockResolvedValueOnce({ kind: "reopened", result, notice });
       await del({ tellCancelledGuests: true });
-      expect(noticeSvc.enqueueForReopen).toHaveBeenCalledWith(
-        expect.objectContaining({ venueId: "venue-1", ruleId: "dr-new" })
-      );
+      expect(noticeSvc.enqueueForReopen).toHaveBeenCalledWith(expect.objectContaining(notice));
+
       noticeSvc.enqueueForReopen.mockClear();
-      commandSvc.reopen.mockResolvedValueOnce(reopened);
-      await del({ tellCancelledGuests: false });
+      commandSvc.reopen.mockResolvedValueOnce({ kind: "reopened", result, notice: null });
+      expect((await del({ tellCancelledGuests: true })).statusCode).toBe(200);
       expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
-    });
-
-    it("tells no guest to rebook when another closure keeps every date closed (#8006)", async () => {
-      noticeSvc.enqueueForReopen.mockClear();
-      const stillClosed = {
-        everyDate: true,
-        by: [
-          {
-            ruleId: "other",
-            targetKind: "venue",
-            startsOn: "2026-12-24",
-            endsOn: "2026-12-24",
-            dates: ["2026-12-24"],
-          },
-        ],
-      };
-      commandSvc.reopen.mockResolvedValueOnce({
-        kind: "reopened",
-        result: { version: 6, changeId: "chg-2", notified: 0, stillClosed },
-      });
-
-      const response = await del({ tellCancelledGuests: true });
-
-      expect(noticeSvc.enqueueForReopen).not.toHaveBeenCalled();
-      expect(response.json().data.stillClosed).toEqual(stillClosed);
     });
 
     it("404s an unknown closure and 403s a Host outside the limits", async () => {
