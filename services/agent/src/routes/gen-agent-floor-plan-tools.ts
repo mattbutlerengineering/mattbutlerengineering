@@ -4,10 +4,10 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import {
   NO_VENUE,
-  failedBeforeWrite,
   notExecuted,
   refusalOf,
   saveUnsure,
+  writeFailure,
   type ApiClient,
 } from "./gen-tool-support.js";
 
@@ -45,28 +45,6 @@ function readFailure(err: unknown) {
   return refusalOf(err)?.status === 403
     ? { refused: true, error: "The user doesn't have permission to see floor plans." }
     : { error: "Couldn't read the floor plans. Ask the user to try again." };
-}
-
-/**
- * A refused or failed floor plan write, in words the model can pass on. `unsure` is
- * set once the write is on its way: until then a failure can't have changed anything.
- */
-function writeFailure(err: unknown, unsure: string | undefined) {
-  const refusal = refusalOf(err);
-  if (!refusal) {
-    return {
-      error:
-        unsure ??
-        "Couldn't change the floor plan right now. Nothing was changed. Ask the user to try again.",
-    };
-  }
-  if (refusal.status === 403) {
-    return {
-      refused: true,
-      error: "The user doesn't have permission to do this. Nothing was changed.",
-    };
-  }
-  return { refused: true, error: `${refusal.detail} Nothing was changed.` };
 }
 
 export function createFloorPlanTools(
@@ -127,7 +105,7 @@ export function createFloorPlanTools(
           return { updated: true, floorPlan: found.plan.name };
         } catch (err) {
           log.error({ err, venueId }, "activate_floor_plan failed");
-          return failedBeforeWrite(unsure, writeFailure(err, unsure));
+          return writeFailure(err, { action: "change the floor plan", unsure });
         }
       },
     }),
