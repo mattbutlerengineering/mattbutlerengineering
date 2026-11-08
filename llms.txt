@@ -29782,8 +29782,7 @@
         isManager: boolean;
         readiness: "setup" | "operational";
         today: string;
-        capabilities: {
-          /** The Close dialog can open on a section; without...;
+        open: GroupLoad<OpenData>;
       }
     </item>
     <item priority="low">
@@ -29854,15 +29853,10 @@
       function tableNode(table: Table): SetupNode { /* ... */ }
     </item>
     <item priority="medium">
-      function floorPlanNode(
-        plan: FloorPlan,
-        data: SitData,
-        manager: boolean,
-        closeSection: boolean
-      ): SetupNode { /* ... */ }
+      function floorPlanNode(plan: FloorPlan, data: SitData, manager: boolean): SetupNode { /* ... */ }
     </item>
     <item priority="medium">
-      function sitNodes(data: SitData, manager: boolean, closeSection: boolean): SetupNode[] { /* ... */ }
+      function sitNodes(data: SitData, manager: boolean): SetupNode[] { /* ... */ }
     </item>
     <item priority="medium">
       function withPrimary(nodes: readonly SetupNode[], targetId: string | null): SetupNode[] { /* ... */ }

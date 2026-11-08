@@ -140,10 +140,6 @@ export interface SetupTreeInput {
   readonly readiness: "setup" | "operational";
   /** The venue's today, `YYYY-MM-DD`. */
   readonly today: string;
-  readonly capabilities: {
-    /** The Close dialog can open on a section; without it the section action is left out. */
-    readonly closeSection: boolean;
-  };
   readonly open: GroupLoad<OpenData>;
   readonly sit: GroupLoad<SitData>;
 }
@@ -417,12 +413,7 @@ function tableNode(table: Table): SetupNode {
   };
 }
 
-function floorPlanNode(
-  plan: FloorPlan,
-  data: SitData,
-  manager: boolean,
-  closeSection: boolean
-): SetupNode {
+function floorPlanNode(plan: FloorPlan, data: SitData, manager: boolean): SetupNode {
   const tables = data.tables.filter((t) => t.isActive && t.floorPlanId === plan.id);
   const sections = data.sections
     .filter((s) => s.floorPlanId === plan.id)
@@ -435,16 +426,15 @@ function floorPlanNode(
       kind: "section",
       name: section.name,
       state: { kind: "tables", count: own.length },
-      actions:
-        manager && closeSection
-          ? [
-              action(
-                "closeSection",
-                link(availabilityPath({ closeSection: section.id, from: "setup" })),
-                section.name
-              ),
-            ]
-          : [],
+      actions: manager
+        ? [
+            action(
+              "closeSection",
+              link(availabilityPath({ closeSection: section.id, from: "setup" })),
+              section.name
+            ),
+          ]
+        : [],
       children: own.map(tableNode),
     };
   });
@@ -478,7 +468,7 @@ function floorPlanNode(
   };
 }
 
-function sitNodes(data: SitData, manager: boolean, closeSection: boolean): SetupNode[] {
+function sitNodes(data: SitData, manager: boolean): SetupNode[] {
   if (data.floorPlans.length === 0) {
     return [
       {
@@ -491,7 +481,7 @@ function sitNodes(data: SitData, manager: boolean, closeSection: boolean): Setup
       },
     ];
   }
-  return data.floorPlans.map((plan) => floorPlanNode(plan, data, manager, closeSection));
+  return data.floorPlans.map((plan) => floorPlanNode(plan, data, manager));
 }
 
 // ── The tree ────────────────────────────────────────────────────────────────
@@ -509,7 +499,7 @@ function withPrimary(nodes: readonly SetupNode[], targetId: string | null): Setu
 }
 
 export function buildSetupTree(input: SetupTreeInput): SetupTree {
-  const { isManager, today, capabilities } = input;
+  const { isManager, today } = input;
   const sectionNames =
     input.sit.status === "ready"
       ? new Map(input.sit.data.sections.map((s) => [s.id, s.name]))
@@ -517,9 +507,7 @@ export function buildSetupTree(input: SetupTreeInput): SetupTree {
   let open: readonly SetupNode[] =
     input.open.status === "ready" ? openNodes(input.open.data, today, sectionNames, isManager) : [];
   let sit: readonly SetupNode[] =
-    input.sit.status === "ready"
-      ? sitNodes(input.sit.data, isManager, capabilities.closeSection)
-      : [];
+    input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
 
   if (isManager && input.readiness === "setup") {
     const first = [...open, ...sit].find((n) => LAUNCH_GATES.has(n.id) && n.state.kind === "unset");

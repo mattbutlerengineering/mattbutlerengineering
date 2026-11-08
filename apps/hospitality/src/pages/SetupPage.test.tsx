@@ -433,11 +433,19 @@ describe("Venue Setup: floor plan, sections and tables", () => {
     expect(screen.getByLabelText("location")).toHaveTextContent("/setup");
   });
 
-  it("offers Move to a section on No section, and no section closure until the Close dialog has one", async () => {
+  it("offers Close for a date… on a section and Move to a section on No section", async () => {
     renderPage();
     const user = userEvent.setup();
-    expect(screen.queryByRole("button", { name: /Close .* for a date/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Move to a section" }));
+    expect(screen.getAllByRole("button", { name: /Close .* for a date/ })).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "Close Bar for a date…" }));
+    expect(screen.getByLabelText("location")).toHaveTextContent(
+      "/availability?closeSection=sec-bar&from=setup"
+    );
+  });
+
+  it("sends No section's Move to a section to the floor plan", async () => {
+    renderPage();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Move to a section" }));
     expect(screen.getByLabelText("location")).toHaveTextContent("/floor-plans/fp-1");
   });
 

@@ -169,7 +169,6 @@ const BASE: SetupTreeInput = {
   isManager: true,
   readiness: "operational",
   today: TODAY,
-  capabilities: { closeSection: true },
   open: { status: "ready", data: { config: EMPTY_CONFIG, settings: null } },
   sit: { status: "ready", data: { floorPlans: [], sections: [], tables: [] } },
 };
@@ -557,13 +556,6 @@ describe("buildSetupTree: floor plan, sections and tables", () => {
         target: { kind: "link", to: "/availability?closeSection=sec-bar&from=setup" },
       },
     ]);
-  });
-
-  it("hides the section closure action when the Close dialog has no section choice", () => {
-    const hidden = buildSetupTree(
-      input({ capabilities: { closeSection: false }, sit: sitOf(plans, sections, tables) })
-    );
-    expect(find(group(hidden, "sit").nodes, "section:sec-bar").actions).toEqual([]);
   });
 
   it("shows one node per floor plan", () => {

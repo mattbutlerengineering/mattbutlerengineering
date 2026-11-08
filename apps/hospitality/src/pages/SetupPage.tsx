@@ -28,11 +28,6 @@ import {
 } from "../components/venue-setup/setup-tree.js";
 import styles from "../components/venue-setup/VenueSetup.module.css";
 
-/**
- * What the hub may link to. The Close dialog's "One section" choice and its `?closeSection=`
- * preselection ship in their own change (#8476); until it is on this branch the hub leaves the
- * section "Close for a date…" action out rather than link to a dialog that ignores it.
- */
 const EMPTY_CONFIG: AvailabilityConfig = {
   schedules: [],
   venueServices: [],
@@ -40,8 +35,6 @@ const EMPTY_CONFIG: AvailabilityConfig = {
   assignments: [],
   dateRules: [],
 };
-
-const CAPABILITIES = { closeSection: false } as const;
 
 interface Read<T> {
   readonly data: T | undefined;
@@ -90,7 +83,6 @@ export function SetupPage() {
     isManager,
     readiness: readiness.status === "operational" ? "operational" : "setup",
     today,
-    capabilities: CAPABILITIES,
     open: groupLoad(openReads, () => ({ config: config.data?.config ?? EMPTY_CONFIG, settings })),
     sit: groupLoad(sitReads, () => ({
       floorPlans: plans.data ?? [],

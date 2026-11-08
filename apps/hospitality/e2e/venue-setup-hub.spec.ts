@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { buildVenueTeamFixture, loadFixture } from "./api-mocks.js";
+import { mockAvailability } from "./availability-draft-mock.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
 
 /**
@@ -115,6 +116,41 @@ test.describe("Venue Setup hub", () => {
 
     await floor.getByRole("button", { name: "Open floor plan Main Floor" }).click();
     await expect(page).toHaveURL(/\/floor-plans\/fp_e2e_001$/);
+  });
+
+  test("a section's Close for a date… opens the Close dialog on that section", async ({
+    mockedPage: page,
+  }) => {
+    await mockAvailability(page);
+    await page.route(/\/api\/v1\/floor-plan-sections(\?|$)/, (route) => {
+      if (route.request().method() !== "GET") return route.fallback();
+      const at = "2026-01-01T00:00:00.000Z";
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            {
+              id: "sec-bar",
+              venueId: "ven_e2e_001",
+              floorPlanId: "fp_e2e_001",
+              name: "Bar",
+              color: "#8b7355",
+              displayOrder: 0,
+              createdAt: at,
+              updatedAt: at,
+            },
+          ],
+        }),
+      });
+    });
+    await page.goto("setup");
+
+    await page.getByRole("button", { name: "Close Bar for a date…" }).click();
+    await expect(page).toHaveURL(/\/availability\?from=setup$/);
+    const dialog = page.getByRole("dialog", { name: "Close", exact: true });
+    await expect(dialog.getByRole("radio", { name: "One section" })).toBeChecked();
+    await expect(dialog.getByRole("combobox", { name: "Section" })).toContainText("Bar");
   });
 
   test("the Schedules actions open the Schedules tab on Availability", async ({
