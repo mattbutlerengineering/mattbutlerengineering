@@ -1602,6 +1602,7 @@
       interface AvailabilityEntry {
         tab?: AvailabilityTab;
         closeSection?: string;
+        action?: "addSchedule";
         from?: "setup";
       }
     </item>
@@ -1637,6 +1638,19 @@
         settings: VenueSettings | null | undefined,
         form: BookingRulesForm
       ): VenueSettings { /* ... */ }
+    </item>
+    <item priority="low">
+      interface BookingRulesValues {
+        daysAhead: number | null;
+        noticeHours: number | null;
+        largestParty: number | null;
+      }
+    </item>
+    <item priority="high">
+      export function bookingRulesText(rules: BookingRulesValues, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookingRulesOf(settings: VenueSettings | null | undefined): BookingRulesValues { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/calendar-dates.ts">
@@ -2785,11 +2799,18 @@
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-field-helpers.ts">
     <item priority="high">
+      export const QuickSetupIdScope: unknown;
+    </item>
+    <item priority="high">
       export function quickSetupFieldId(
         serviceId: string | null,
         field: QuickSetupField | "days",
-        blockId?: string
+        blockId?: string,
+        scope: string = DEFAULT_SCOPE
       ) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useQuickSetupFieldId() { /* ... */ }
     </item>
     <item priority="high">
       export function issuesFor(
@@ -2808,6 +2829,7 @@
       interface LineHours {
         opensAt: number;
         lastSeatingAt: number;
+        closesAt: number;
       }
     </item>
     <item priority="low">
@@ -3378,6 +3400,38 @@
       ): readonly AvailabilityDaySummary[] | undefined { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/service-hours.ts">
+    <item priority="low">
+      interface ServiceTimes {
+        opensAt: number;
+        lastSeatingAt: number;
+        closesAt: number;
+      }
+    </item>
+    <item priority="low">
+      interface ServiceHoursContext {
+        t: TFunction;
+        format: VenueFormat;
+      }
+    </item>
+    <item priority="high">
+      export function serviceHoursText(times: ServiceTimes, { t, format }: ServiceHoursContext): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function serviceCloseChangeText(
+        daysText: string,
+        times: Pick<ServiceTimes, "closesAt" | "lastSeatingAt">,
+        { t, format }: ServiceHoursContext
+      ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function namedServiceHoursText(
+        name: string,
+        times: ServiceTimes,
+        ctx: ServiceHoursContext
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/special-dates.ts">
     <item priority="low">
       type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
@@ -3593,6 +3647,20 @@
     </item>
     <item priority="high">
       export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-regular-week-edit.ts">
+    <item priority="low">
+      interface RegularWeekEditInput {
+        venueId: string;
+        state: AvailabilityConfigState;
+        today: string;
+        onStale: () => void;
+        onSaved?: (saved: AvailabilityConfigSaveResult) => void;
+      }
+    </item>
+    <item priority="high">
+      export function useRegularWeekEdit(input: RegularWeekEditInput) { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
@@ -5261,8 +5329,8 @@
     <item priority="high">
       export async function mockApi(page: Page): Promise<SseMock> { /* ... */ }
     </item>
-    <item priority="medium">
-      function buildAvailabilityConfigFixture() { /* ... */ }
+    <item priority="high">
+      export function buildAvailabilityConfigFixture() { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/auth-helpers.ts">
@@ -6848,6 +6916,48 @@
   </file>
   </section>
   <section priority="medium" role="helpers">
+  <file path="apps/hospitality/e2e/helpers/close-mock.ts">
+    <item priority="low">
+      interface AvailabilityConfigResponse {
+        config: Record<string, unknown> & { readonly dateRules?: readonly...;
+        version: number;
+        source: string;
+      }
+    </item>
+    <item priority="low">
+      interface CloseConnection {
+        dropped: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface CloseMockOptions {
+        closeDate?: string;
+        bookings?: number;
+        config?: AvailabilityConfigResponse;
+        connection?: CloseConnection;
+      }
+    </item>
+    <item priority="low">
+      type SavedClosure = { readonly rule: unknown } & Record<string, unknown>;
+    </item>
+    <item priority="low">
+      interface CloseMock {
+        venueId: string;
+        saved: () => SavedClosure | null;
+        posts: () => ReadonlyArray<{ key: string | undefined; ruleId: st...;
+        notices: () => ReadonlyArray<{ action: string; message: string | n...;
+      }
+    </item>
+    <item priority="high">
+      export const DINNER_ONLY_CONFIG: AvailabilityConfigResponse;
+    </item>
+    <item priority="high">
+      export function datesBetween(from: string, to: string): string[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockClosures(page: Page, options: CloseMockOptions = {}): Promise<CloseMock> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
     <item priority="medium">
       function changedWeekdays(
@@ -6892,6 +7002,23 @@
       ) { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/e2e/helpers/first-paint.ts">
+    <item priority="low">
+      interface FirstPaintCount {
+        count: number;
+        controls: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      export async function countFirstPaintControls(
+        page: Page,
+        region: Locator
+      ): Promise<FirstPaintCount> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function weekPanel(page: Page): Locator { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/e2e/helpers/interaction-counter.ts">
     <item priority="low">
       interface InteractionCounter {
@@ -6924,6 +7051,49 @@
     </item>
     <item priority="high">
       export const DEMO_WEEK_VIA_SCHEDULES_COUNT: unknown;
+    </item>
+  </file>
+  <file path="apps/hospitality/e2e/helpers/scenario-fixtures.ts">
+    <item priority="high">
+      export function dinnerOnlyConfig(): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function pinToday(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextMonthDay(day: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function tomorrow(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function layerOption(page: Page, name: "Schedules" | "Calendar" | "Special dates"): Locator { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function firstPaint(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pickerDay(page: Page, date: string): Locator { /* ... */ }
+    </item>
+    <item priority="low">
+      interface CapturedConfigPuts {
+        bodies: () => ReadonlyArray<ConfigPutBody>;
+        last: () => ConfigPutBody;
+      }
+    </item>
+    <item priority="low">
+      interface ConfigPutBody {
+        expectedVersion: number;
+        changes: {
+          readonly upsert: {
+            readonly venueServices?: R...;
+      }
+    </item>
+    <item priority="high">
+      export async function captureConfigPuts(page: Page): Promise<CapturedConfigPuts> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockNoopPreview(page: Page): Promise<{ readonly requests: () => number }> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/e2e/helpers/week-dates.ts">
@@ -29278,6 +29448,13 @@
   <file path="packages/rialto/src/utils/service-worker.ts">
     <item priority="high">
       export function unregisterStaleServiceWorkers(exemptedScopes: string[] = ["/hospitality/"]): void { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="ux-shots">
+  <file path="apps/hospitality/ux-shots/fake-auth.ts">
+    <item priority="high">
+      export async function fakeAuth(page: Page) { /* ... */ }
     </item>
   </file>
   </section>

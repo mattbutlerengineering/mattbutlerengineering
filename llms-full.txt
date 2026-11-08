@@ -5119,6 +5119,8 @@
     export interface AvailabilityEntry {
       readonly tab?: AvailabilityTab;
       readonly closeSection?: string;
+      /** Opens the schedule editor on Schedules, seeded from the regular week (Add a schedule…). */
+      readonly action?: "addSchedule";
       readonly from?: "setup";
     }
     export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry {
@@ -5128,6 +5130,8 @@
       if (tab.success) entry.tab = tab.data;
       const closeSection = FIELDS.closeSection.safeParse(params.get("closeSection"));
       if (closeSection.success) entry.closeSection = closeSection.data;
+      const action = FIELDS.action.safeParse(params.get("action"));
+      if (action.success) entry.action = action.data;
       const from = FIELDS.from.safeParse(params.get("from"));
       if (from.success) entry.from = from.data;
       return entry;
@@ -5136,6 +5140,7 @@
       const params = new URLSearchParams();
       if (entry.tab) params.set("tab", entry.tab);
       if (entry.closeSection) params.set("closeSection", entry.closeSection);
+      if (entry.action) params.set("action", entry.action);
       if (entry.from) params.set("from", entry.from);
       const query = params.toString();
       return query ? `${ROUTE}?${query}` : ROUTE;
@@ -5181,6 +5186,28 @@
         ...set("maxAdvanceBooking", form.daysAhead),
         ...set("minAdvanceBooking", form.noticeHours),
         ...set("maxPartySize", form.largestParty),
+      };
+    }
+    export interface BookingRulesValues {
+      readonly daysAhead: number | null;
+      readonly noticeHours: number | null;
+      readonly largestParty: number | null;
+    }
+    export function bookingRulesText(rules: BookingRulesValues, t: TFunction): string {
+      return [
+        rules.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: rules.daysAhead }),
+        rules.noticeHours !== null && t("setup.hub.rules.noticeHours", { count: rules.noticeHours }),
+        rules.largestParty !== null && t("setup.hub.rules.largestParty", { count: rules.largestParty }),
+      ]
+        .filter((part): part is string => part !== false)
+        .join(" · ");
+    }
+    export function bookingRulesOf(settings: VenueSettings | null | undefined): BookingRulesValues {
+      const num = (value: unknown) => (typeof value === "number" ? value : null);
+      return {
+        daysAhead: num(settings?.maxAdvanceBooking),
+        noticeHours: num(settings?.minAdvanceBooking),
+        largestParty: num(settings?.maxPartySize),
       };
     }
   </file>
@@ -6261,7 +6288,7 @@
   <file path="apps/hospitality/src/components/availability/day-summary.ts">
     export interface ServiceLineText {
       readonly key: string;
-      /** "Lunch 11:00 AM – 1:30 PM": first to last time a guest can book, not open to close. */
+      /** "Lunch 11:00 AM–3:00 PM, last seating 2:30 PM": the one service-time wording. */
       readonly text: string;
     }
     export function scheduleNameText(name: string, t: TFunction): string {
@@ -6303,12 +6330,10 @@
       t: TFunction,
       format: VenueFormat
     ): ServiceLineText {
-      const text = t("availability.calendar.serviceLine", {
-        name: service.name,
-        from: minuteText(service.opensAt, t, format),
-        to: minuteText(service.lastSeatingAt, t, format),
-      });
-      return { key: service.venueServiceId, text };
+      return {
+        key: service.venueServiceId,
+        text: namedServiceHoursText(service.name, service, { t, format }),
+      };
     }
     export function presentDay(
       date: string,
@@ -7891,13 +7916,20 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-field-helpers.ts">
+    export const QuickSetupIdScope = createContext(DEFAULT_SCOPE);
     export function quickSetupFieldId(
       serviceId: string | null,
       field: QuickSetupField | "days",
-      blockId?: string
+      blockId?: string,
+      scope: string = DEFAULT_SCOPE
     ) {
-      if (serviceId === null) return DAYS_FIELD_ID;
-      return `quick-setup-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
+      if (serviceId === null) return `${scope}-days`;
+      return `${scope}-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
+    }
+    export function useQuickSetupFieldId() {
+      const scope = useContext(QuickSetupIdScope);
+      return (serviceId: string | null, field: QuickSetupField | "days", blockId?: string) =>
+        quickSetupFieldId(serviceId, field, blockId, scope);
     }
     export function issuesFor(
       issues: readonly QuickSetupIssue[],
@@ -7919,6 +7951,7 @@
     export interface LineHours {
       readonly opensAt: number;
       readonly lastSeatingAt: number;
+      readonly closesAt: number;
     }
     export interface HoursChange extends LineHours {
       readonly weekdays: readonly number[];
@@ -7973,14 +8006,20 @@
             name,
             opensAt: row.opensAt,
             lastSeatingAt: row.lastSeatingAt,
+            closesAt: row.closesAt,
             days: WEEK_DISPLAY_ORDER.filter((day) => week.days[day] !== null),
             changes: row.dayHours.sets
-              // A set that moves only the closing books the same times: nothing to say on this line.
-              .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+              .filter(
+                (set) =>
+                  set.opensAt !== row.opensAt ||
+                  set.lastSeatingAt !== row.lastSeatingAt ||
+                  set.closesAt !== row.closesAt
+              )
               .map((set) => ({
                 weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
                 opensAt: set.opensAt,
                 lastSeatingAt: set.lastSeatingAt,
+                closesAt: set.closesAt,
               })),
           },
         ];
@@ -9283,6 +9322,50 @@
       return days.map((d) => filterDaySummary(d, service.id));
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/service-hours.ts">
+    export interface ServiceTimes {
+      readonly opensAt: number;
+      readonly lastSeatingAt: number;
+      readonly closesAt: number;
+    }
+    export interface ServiceHoursContext {
+      readonly t: TFunction;
+      readonly format: VenueFormat;
+    }
+    export function serviceHoursText(times: ServiceTimes, { t, format }: ServiceHoursContext): string {
+      const range = t("availability.serviceHours.range", {
+        open: minuteText(times.opensAt, t, format),
+        close: minuteText(times.closesAt, t, format),
+      });
+      return times.lastSeatingAt === times.closesAt
+        ? range
+        : t("availability.serviceHours.withLastSeating", {
+            range,
+            last: minuteText(times.lastSeatingAt, t, format),
+          });
+    }
+    export function serviceCloseChangeText(
+      daysText: string,
+      times: Pick<ServiceTimes, "closesAt" | "lastSeatingAt">,
+      { t, format }: ServiceHoursContext
+    ): string {
+      const close = minuteText(times.closesAt, t, format);
+      return times.lastSeatingAt === times.closesAt
+        ? t("availability.serviceHours.closeChange", { days: daysText, close })
+        : t("availability.serviceHours.closeChangeWithLastSeating", {
+            days: daysText,
+            close,
+            last: minuteText(times.lastSeatingAt, t, format),
+          });
+    }
+    export function namedServiceHoursText(
+      name: string,
+      times: ServiceTimes,
+      ctx: ServiceHoursContext
+    ): string {
+      return ctx.t("availability.serviceHours.named", { name, hours: serviceHoursText(times, ctx) });
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/special-dates.ts">
     export type SpecialDatesFilter = "all" | "closures" | "special_hours" | "repeating" | "past";
     export type SpecialDateRule = Extract<DateRule, { kind: "closure" | "special_hours" }>;
@@ -9810,6 +9893,207 @@
             .map((h) => [h.date, t(`availabilitySpecial.holidays.name.${h.id}`)])
         );
       }, [country, dates, t]);
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-regular-week-edit.ts">
+    export interface RegularWeekEditInput {
+      readonly venueId: string;
+      readonly state: AvailabilityConfigState;
+      /** Today on the venue clock. */
+      readonly today: string;
+      readonly onStale: () => void;
+      /** The change was saved (and Undo offered); the frame decides what happens next. */
+      readonly onSaved?: (saved: AvailabilityConfigSaveResult) => void;
+      /** The regular week the draft is based on is gone and the Manager chose to discard. */
+      readonly onGone?: () => void;
+      /**
+       * Pins the start to this date: the Manager picks none, it never counts as an edit and a save
+       * is never blocked for lack of one. There is then no end date either.
+       */
+      readonly fixedStart?: string;
+      /** Replaces the saved regular week as the starting draft (it is dirty when it differs). */
+      readonly initialDraft?: QuickSetupDraft;
+    }
+    export function useRegularWeekEdit(input: RegularWeekEditInput) {
+      const { venueId, state, onStale, onSaved, onGone, fixedStart, initialDraft } = input;
+      const { config } = state;
+      const { t } = useTranslation();
+      const format = useVenueFormat();
+      const dayName = useWeekdayName();
+      const offerUndo = useAvailabilityUndo();
+      const saver = useScheduleSave(onStale);
+    
+      const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+      const [draft, setDraft] = useState<QuickSetupDraft>(() => initialDraft ?? weekOf(config));
+      /** The weekday the Manager touched last: the preview opens on it. */
+      const [edited, setEdited] = useState<number | null>(null);
+      const [pickedStart, setStartsOn] = useState<string | null>(null);
+      const [pickedEnd, setEndsOn] = useState<string | null>(null);
+      const [name, setName] = useState("");
+      const [winner, setWinner] = useState<Winner>("new");
+      const [conflictMode, setConflictMode] = useState<ScopeConflictMode>("keep");
+    
+      const pinned = fixedStart !== undefined;
+      const startsOn = pinned ? fixedStart : pickedStart;
+      const endsOn = pinned ? null : pickedEnd;
+    
+      const edit = (next: QuickSetupDraft) => {
+        setEdited((was) => editedWeekday(draft, next) ?? was);
+        setDraft(next);
+      };
+    
+      const review = useConflictReview({
+        kind: "regularWeek",
+        state,
+        // The hook keeps the regular week the edit opened on, so a colleague's newer regular week
+        // is compared with, not mistaken for, where these rows came from.
+        scheduleId: regular?.id,
+        // The week is merged below, by service name, with its days and blocks; the hook's own
+        // per-row merge is for the schedule editors.
+        services: [],
+        name: null,
+        conflicted: saver.conflicted,
+        clearConflict: saver.clearConflict,
+        apply: ({ baseline }) =>
+          edit(reapplyWeek({ base: weekOf(baseline), draft, latest: weekOf(state.config) })),
+        startOver: () => {
+          setDraft(weekOf(state.config));
+          setEdited(null);
+          setName("");
+          setStartsOn(null);
+          setEndsOn(null);
+          setWinner("new");
+          setConflictMode("keep");
+        },
+        onGone: onGone ?? (() => undefined),
+      });
+      const baselineWeek = useMemo(() => weekOf(review.baseline), [review.baseline]);
+      const dirty =
+        name.trim() !== "" ||
+        (!pinned && startsOn !== null) ||
+        endsOn !== null ||
+        weekKey(draft) !== weekKey(baselineWeek);
+    
+      const weekdays = useMemo(() => coveredDays(draft), [draft]);
+      const dates = useMemo(
+        () => (startsOn ? datesOfUse({ weekdays, startsOn, endsOn }, startsOn) : []),
+        [weekdays, startsOn, endsOn]
+      );
+      const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
+      const overlaps = useMemo(
+        () =>
+          startsOn && endsOn
+            ? overlappingSchedules(config, { weekdays, startsOn, endsOn }).map((s) => s.name)
+            : [],
+        [config, weekdays, startsOn, endsOn]
+      );
+      const issues = useMemo(() => validateDraft(draft), [draft]);
+      const outside = useMemo(() => outsideSchedules(config), [config]);
+      const closedDays = baselineWeek.days.filter((day) => !weekdays.includes(day));
+      const focusDate =
+        edited === null ? undefined : dates.find((date) => weekdayIndexOf(date) === edited);
+    
+      const trimmed = name.trim();
+      const block = scheduleSaveBlock({
+        conflicted: saver.conflicted,
+        name,
+        services: draft.services,
+        startsOn,
+        endsOn,
+        startRequired: !pinned,
+        nameRequired: endsOn !== null,
+      });
+      const firstIssue = issues[0];
+      const blockedText = block
+        ? t(`availabilitySchedules.blocked.${block === "nameRequired" ? "nameRequiredPeriod" : block}`)
+        : firstIssue
+          ? issueMessage(firstIssue, draft, t, (day) => dayName(day))
+          : null;
+      const blocked = blockedText !== null;
+      const previewChanges = useMemo(
+        () =>
+          blocked || !startsOn
+            ? null
+            : buildRegularWeekChanges({
+                config,
+                name: trimmed,
+                draft,
+                startsOn,
+                endsOn,
+                winner,
+                makeId: previewIds(),
+              }),
+        [blocked, config, trimmed, draft, startsOn, endsOn, winner]
+      );
+      const startText = startsOn
+        ? format.formatCalendarDate(startsOn, { month: "short", day: "numeric" })
+        : "";
+      const scopeConflicts: ScopeConflictMode = dates.length > 1 ? conflictMode : "replace";
+    
+      const submit = async () => {
+        if (!startsOn) return;
+        const changes = buildRegularWeekChanges({
+          config,
+          name: trimmed,
+          draft,
+          startsOn,
+          endsOn,
+          winner,
+          makeId: () => crypto.randomUUID(),
+        });
+        // Checked against the version the draft was built from, so a change made since is a
+        // conflict the Manager reviews, not something this save quietly rebases.
+        const saved = await saver.save(
+          venueId,
+          { ...state, version: review.baselineVersion },
+          changes,
+          scopeConflicts
+        );
+        if (!saved) return;
+        offerUndo({
+          venueId,
+          saved,
+          title:
+            endsOn === null
+              ? t("availabilitySchedules.regularWeek.savedWeek", { date: startText })
+              : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
+        });
+        onSaved?.(saved);
+      };
+    
+      return {
+        draft,
+        edit,
+        startsOn,
+        setStartsOn,
+        endsOn,
+        setEndsOn,
+        name,
+        setName,
+        winner,
+        setWinner,
+        conflictMode,
+        setConflictMode,
+        saver,
+        review,
+        dirty,
+        weekdays,
+        dates,
+        own,
+        overlaps,
+        issues,
+        outside,
+        closedDays,
+        focusDate,
+        trimmed,
+        block,
+        blockedText,
+        blocked,
+        previewChanges,
+        scopeConflicts,
+        startText,
+        submit,
+      };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-reload-hold.ts">
@@ -15971,7 +16255,7 @@
         },
       };
     }
-    function buildAvailabilityConfigFixture() {
+    export function buildAvailabilityConfigFixture() {
       const service = (id: string, opensAt: number, lastSeatingAt: number, closesAt: number) => ({
         id: `ss-${id}`,
         scheduleId: "sch-regular",
@@ -20063,6 +20347,203 @@
   </file>
   </section>
   <section priority="medium" role="helpers">
+  <file path="apps/hospitality/e2e/helpers/close-mock.ts">
+    export interface AvailabilityConfigResponse {
+      readonly config: Record<string, unknown> & { readonly dateRules?: readonly unknown[] };
+      readonly version: number;
+      readonly source: string;
+    }
+    export interface CloseConnection {
+      dropped: boolean;
+    }
+    export interface CloseMockOptions {
+      /**
+       * The one service date the Manager closes whole-venue in the scenario. The days answer shows the
+       * "Closed" band on it once the POST lands, and `bookings` apply to it. Omit when the spec only
+       * checks that a closure was saved.
+       */
+      readonly closeDate?: string;
+      /** Bookings a whole-venue closure of `closeDate` would affect; 0 saves with no second step. */
+      readonly bookings?: number;
+      /** The config served before a closure lands; default is the Dinner-only venue below. */
+      readonly config?: AvailabilityConfigResponse;
+      readonly connection?: CloseConnection;
+    }
+    export type SavedClosure = { readonly rule: unknown } & Record<string, unknown>;
+    export interface CloseMock {
+      readonly venueId: string;
+      /** The last accepted POST body, or null before any. */
+      readonly saved: () => SavedClosure | null;
+      /** Every POST attempt: its Idempotency-Key and the rule id. */
+      readonly posts: () => ReadonlyArray<{ key: string | undefined; ruleId: string }>;
+      /** Every notice-preview request body. */
+      readonly notices: () => ReadonlyArray<{ action: string; message: string | null }>;
+    }
+    export const DINNER_ONLY_CONFIG: AvailabilityConfigResponse = {
+      config: {
+        schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
+        venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+        scheduleServices: [
+          {
+            id: "ss-dinner",
+            scheduleId: "regular",
+            venueServiceId: "vs-dinner",
+            ...DINNER,
+            seating: { version: 1, interval: 15 },
+            bookingTypes: ["online", "phone"],
+          },
+        ],
+        assignments: [
+          { id: "as", scheduleId: "regular", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+        ],
+        dateRules: [],
+      },
+      version: 7,
+      source: "rows",
+    };
+    export function datesBetween(from: string, to: string): string[] {
+      const out: string[] = [];
+      for (
+        let d = new Date(`${from}T00:00:00Z`);
+        d <= new Date(`${to}T00:00:00Z`);
+        d.setUTCDate(d.getUTCDate() + 1)
+      ) {
+        out.push(d.toISOString().slice(0, 10));
+      }
+      return out;
+    }
+    export async function mockClosures(page: Page, options: CloseMockOptions = {}): Promise<CloseMock> {
+      const { closeDate, bookings = 0, config: base = DINNER_ONLY_CONFIG, connection } = options;
+      const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
+      const venueId = String(venues.data[0]?.id);
+      const routeBase = `**/api/v1/venues/${venueId}`;
+      let version = base.version;
+      let saved: SavedClosure | null = null;
+      const posts: Array<{ key: string | undefined; ruleId: string }> = [];
+      const notices: Array<{ action: string; message: string | null }> = [];
+      const json = (data: unknown) => ({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data }),
+      });
+      const guestCount = (i: number) => (i < 10 ? 4 : 3);
+      const covers = Array.from({ length: bookings }, (_, i) => guestCount(i)).reduce(
+        (a, b) => a + b,
+        0
+      );
+      const deposits = Math.min(3, bookings);
+    
+      const configAnswer = () => ({
+        ...base,
+        config: {
+          ...base.config,
+          dateRules: [...(base.config.dateRules ?? []), ...(saved ? [saved.rule] : [])],
+        },
+        version,
+      });
+    
+      await page.route(`${routeBase}/availability/config`, (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        return route.fulfill(json(configAnswer()));
+      });
+      await page.route(`${routeBase}/availability/days*`, (route) => {
+        const url = new URL(route.request().url());
+        const days = datesBetween(url.searchParams.get("from")!, url.searchParams.get("to")!).map(
+          (serviceDate) => {
+            const closed = saved !== null && serviceDate === closeDate;
+            return {
+              serviceDate,
+              label: closed ? "Closed" : "Regular week",
+              scheduleId: closed ? null : "regular",
+              serviceCount: closed ? 0 : 1,
+              closures: closed ? [{ ruleId: "rule-1", targetKind: "venue", ...ALL_DAY_CLOSURE }] : [],
+              bookingOpen: { online: !closed, phone: !closed, waitlist: !closed },
+            };
+          }
+        );
+        return route.fulfill(json(days));
+      });
+      await page.route(`${routeBase}/closures/impact`, (route) => {
+        const rule = route.request().postDataJSON().rule as { startsOn: string; targetKind: string };
+        const affected =
+          closeDate !== undefined &&
+          rule.startsOn === closeDate &&
+          rule.targetKind === "venue" &&
+          bookings > 0;
+        const reservations = Array.from({ length: affected ? bookings : 0 }, (_, i) => ({
+          id: `res-${i}`,
+          startTime: `${closeDate}T${String(17 + (i % 5)).padStart(2, "0")}:30:00Z`,
+          endTime: `${closeDate}T${String(19 + (i % 3)).padStart(2, "0")}:00:00Z`,
+          partySize: guestCount(i),
+          guestName: `Guest ${i + 1}`,
+          deposit: i < 3 ? { amountCents: 4000, currency: "USD" } : null,
+          runsIntoClosure: false,
+        }));
+        return route.fulfill(
+          json({
+            reservations: reservations.length,
+            covers: affected ? covers : 0,
+            depositsHeld: affected ? deposits : 0,
+            groups: affected
+              ? [
+                  {
+                    groupKey: `${closeDate}:closed`,
+                    date: closeDate,
+                    kind: "closed",
+                    covers,
+                    depositsHeld: deposits,
+                    reservations,
+                  },
+                ]
+              : [],
+          })
+        );
+      });
+      // The server renders the notice (closure-content.ts); the browser shows it as sent. This answer
+      // stands in for that render and echoes the request, so the spec checks what the screen asks for.
+      await page.route(`${routeBase}/closures/notice-preview`, (route) => {
+        const body = route.request().postDataJSON() as { action: string; message: string | null };
+        notices.push(body);
+        return route.fulfill(
+          json({
+            email: {
+              from: "Matt Butler Engineering <reservations@example.com>",
+              subject: "Your reservation at Rivera Bistro is cancelled",
+              text: `Rivera Bistro is closed.\n${body.message ?? ""}`,
+            },
+            sms: `Rivera Bistro is closed. ${body.message ?? ""} Rebook: https://example.com/m`,
+          })
+        );
+      });
+      await page.route(`${routeBase}/closures`, (route) => {
+        // The Special dates tab lists closure outcomes; none exist in these flows.
+        if (route.request().method() === "GET") return route.fulfill(json([]));
+        const body = route.request().postDataJSON() as SavedClosure & { rule: { id: string } };
+        posts.push({ key: route.request().headers()["idempotency-key"], ruleId: body.rule.id });
+        // A known key answers with the stored result and changes nothing (closure-command.ts replayOf).
+        if (saved === null) {
+          saved = body;
+          version += 1;
+        }
+        if (connection?.dropped) return route.abort("connectionreset");
+        return route.fulfill(
+          json({
+            ruleId: "rule-1",
+            version,
+            changeId: "chg-close-1",
+            outcomes: { cancel: bookings, move: 0, keep_notify: 0, keep_silent: 0 },
+          })
+        );
+      });
+    
+      return {
+        venueId,
+        saved: () => saved,
+        posts: () => posts,
+        notices: () => notices,
+      };
+    }
+  </file>
   <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
     function changedWeekdays(
       before: AvailabilityConfig,
@@ -20282,6 +20763,48 @@
       });
     }
   </file>
+  <file path="apps/hospitality/e2e/helpers/first-paint.ts">
+    export interface FirstPaintCount {
+      readonly count: number;
+      /** One "role: name" per counted control, in document order, for a readable failure. */
+      readonly controls: readonly string[];
+    }
+    export async function countFirstPaintControls(
+      page: Page,
+      region: Locator
+    ): Promise<FirstPaintCount> {
+      const regionHandle = await region.elementHandle();
+      return page.evaluate(
+        ({ selector, shell, outside }) => {
+          const main = document.querySelector("main#main-content");
+          if (!main) throw new Error("first paint: no <main id=main-content> on the page");
+          const seen = new Set<Element>();
+          const controls: string[] = [];
+          for (const el of main.querySelectorAll(selector)) {
+            if (outside?.contains(el)) continue;
+            if (el.closest("[aria-hidden=true], [inert]")) continue;
+            // The shell's own row inside <main>: breadcrumb, system health badge, paused pill.
+            if (el.closest(shell)) continue;
+            if (el.matches(":disabled")) continue;
+            const rect = el.getBoundingClientRect();
+            if (rect.width <= 1 || rect.height <= 1) continue;
+            const style = getComputedStyle(el);
+            if (style.visibility === "hidden" || style.display === "none") continue;
+            if (seen.has(el)) continue;
+            seen.add(el);
+            const name =
+              el.getAttribute("aria-label") ?? (el.textContent ?? "").trim().replace(/\s+/g, " ");
+            controls.push(`${el.getAttribute("role") ?? el.tagName.toLowerCase()}: ${name}`);
+          }
+          return { count: controls.length, controls };
+        },
+        { selector: ACTIONABLE, shell: SHELL_ROW, outside: regionHandle }
+      );
+    }
+    export function weekPanel(page: Page): Locator {
+      return page.getByTestId("week-panel");
+    }
+  </file>
   <file path="apps/hospitality/e2e/helpers/interaction-counter.ts">
     export interface InteractionCounter {
       /** Use this in place of the test's `page`. */
@@ -20374,6 +20897,128 @@
     }
     export const DEMO_WEEK_VIA_SCHEDULES_COUNT = 26;
   </file>
+  <file path="apps/hospitality/e2e/helpers/scenario-fixtures.ts">
+    export function dinnerOnlyConfig(): AvailabilityConfig {
+      return {
+        schedules: [{ id: "regular", name: "Regular week", kind: "regular", isRegular: true }],
+        venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+        scheduleServices: [
+          {
+            id: "ss-dinner",
+            scheduleId: "regular",
+            venueServiceId: "vs-dinner",
+            opensAt: 1020,
+            lastSeatingAt: 1260,
+            closesAt: 1320,
+            seating: SEATING,
+            bookingTypes: ["online", "phone"],
+            weekdays: [],
+            dayHours: { version: 1, sets: [] },
+          },
+        ],
+        assignments: [
+          { id: "as-regular", scheduleId: "regular", weekdays: [0, 1, 2, 3, 4, 5, 6], precedence: 0 },
+        ],
+        dateRules: [],
+      };
+    }
+    export async function pinToday(page: Page): Promise<void> {
+      await page.clock.setFixedTime(new Date(`${localDay()}T12:00:00`));
+    }
+    export function nextMonthDay(day: number): string {
+      const [year, month] = localDay().split("-").map(Number) as [number, number];
+      return new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+    }
+    export function tomorrow(): string {
+      return plusDays(localDay(), 1);
+    }
+    export function layerOption(page: Page, name: "Schedules" | "Calendar" | "Special dates"): Locator {
+      return page.getByRole("radio", { name }).or(page.getByRole("tab", { name }));
+    }
+    export async function firstPaint(page: Page): Promise<void> {
+      await page.goto("availability");
+      await expect(page.getByTestId("week-panel")).toBeVisible();
+    }
+    export function pickerDay(page: Page, date: string): Locator {
+      return page.locator(`[role="gridcell"][data-date="${date}"]`).last();
+    }
+    export interface CapturedConfigPuts {
+      readonly bodies: () => ReadonlyArray<ConfigPutBody>;
+      readonly last: () => ConfigPutBody;
+    }
+    export interface ConfigPutBody {
+      readonly expectedVersion: number;
+      readonly changes: {
+        readonly upsert: {
+          readonly venueServices?: ReadonlyArray<{ id: string; name: string }>;
+          readonly schedules?: ReadonlyArray<{ id: string; name: string }>;
+          readonly scheduleServices?: ReadonlyArray<{
+            id: string;
+            scheduleId: string;
+            venueServiceId: string;
+            opensAt: number;
+            lastSeatingAt: number;
+            closesAt: number;
+            weekdays: readonly number[];
+          }>;
+          readonly assignments?: ReadonlyArray<{
+            scheduleId: string;
+            weekdays: readonly number[];
+            startsOn?: string;
+            endsOn?: string;
+          }>;
+          readonly dateRules?: ReadonlyArray<{ startsOn?: string }>;
+        };
+      };
+    }
+    export async function captureConfigPuts(page: Page): Promise<CapturedConfigPuts> {
+      const bodies: ConfigPutBody[] = [];
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/config$/, (route) => {
+        if (route.request().method() === "PUT") bodies.push(route.request().postDataJSON());
+        return route.fallback();
+      });
+      return {
+        bodies: () => bodies,
+        last: () => {
+          const body = bodies.at(-1);
+          if (!body) throw new Error("no PUT of the availability config was sent");
+          return body;
+        },
+      };
+    }
+    export async function mockNoopPreview(page: Page): Promise<{ readonly requests: () => number }> {
+      let requests = 0;
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/preview/, (route) => {
+        requests += 1;
+        const { focusDate } = route.request().postDataJSON() as { focusDate: string };
+        const days = Array.from({ length: 30 }, (_, i) => ({
+          serviceDate: plusDays(focusDate, i),
+          added: [] as number[],
+          removed: [] as number[],
+        }));
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: {
+              version: 1,
+              days,
+              focusDay: {
+                serviceDate: focusDate,
+                label: "Regular",
+                scheduleId: "sch-regular",
+                serviceCount: 2,
+                closures: [],
+                bookingOpen: { online: true, phone: true, waitlist: true },
+              },
+              stranded: { total: 0, offset: 0, items: [] },
+            },
+          }),
+        });
+      });
+      return { requests: () => requests };
+    }
+  </file>
   <file path="apps/hospitality/e2e/helpers/week-dates.ts">
     export const WEEKDAYS = [
       "Monday",
@@ -20415,7 +21060,7 @@
             }
           )
           .toBe(true);
-        week[day] = (await serviceLines(cell)).map((l) => l.replace("–", " – ").replace(/ +/g, " "));
+        week[day] = await serviceLines(cell);
       }
       return week;
     }
@@ -94371,6 +95016,18 @@
     }
   </file>
   </section>
+  <section priority="medium" role="ux-shots">
+  <file path="apps/hospitality/ux-shots/fake-auth.ts">
+    export async function fakeAuth(page: Page) {
+      const now = Math.floor(Date.now() / 1000);
+      const claims = { sub: "auth0|e2e-user", email: "owner@example.com", email_verified: true, name: "Owner", iss: "https://fake-tenant.example.com/", aud: "fake-client", iat: now, exp: now + 36000 };
+      const jwt = `${b64({ alg: "RS256", typ: "JWT" })}.${b64(claims)}.sig`;
+      const user = { access_token: jwt, id_token: jwt, token_type: "Bearer", scope: "openid profile email", expires_at: now + 36000, profile: claims };
+      await page.addInitScript(([k, v]) => { sessionStorage.setItem(k, v); localStorage.setItem(k, v); }, ["oidc.user:https://fake-tenant.example.com:fake-client", JSON.stringify(user)]);
+      await page.route("https://fake-tenant.example.com/**", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ issuer: "https://fake-tenant.example.com/", authorization_endpoint: "https://fake-tenant.example.com/authorize", token_endpoint: "https://fake-tenant.example.com/oauth/token", jwks_uri: "https://fake-tenant.example.com/.well-known/jwks.json", end_session_endpoint: "https://fake-tenant.example.com/v2/logout", userinfo_endpoint: "https://fake-tenant.example.com/userinfo" }) }));
+    }
+  </file>
+  </section>
   <section priority="medium" role="venue-onboarding">
   <file path="apps/hospitality/src/components/venue-onboarding/floor-plan-copy.ts">
     export function layoutCounts(
@@ -95688,12 +96345,14 @@
           readonly kind: "service";
           readonly opensAt: number;
           readonly lastSeatingAt: number;
+          readonly closesAt: number;
           readonly weekdays: readonly number[];
-          /** Days the service books other times on (a set that only moves the closing is left out). */
+          /** Days whose hours differ from the base: opening, last seating or closing. */
           readonly changes: readonly {
             readonly weekdays: readonly number[];
             readonly opensAt: number;
             readonly lastSeatingAt: number;
+            readonly closesAt: number;
           }[];
         }
       | {
@@ -95727,7 +96386,7 @@
       | "moveToSection";
     export type SetupActionTarget =
       | { readonly kind: "link"; readonly to: string }
-      | { readonly kind: "dialog"; readonly dialog: "changeRegularWeek" | "bookingRules" };
+      | { readonly kind: "dialog"; readonly dialog: "bookingRules" };
     export interface SetupAction {
       readonly id: SetupActionId;
       readonly target: SetupActionTarget;
@@ -95810,13 +96469,20 @@
             kind: "service",
             opensAt: row.opensAt,
             lastSeatingAt: row.lastSeatingAt,
+            closesAt: row.closesAt,
             weekdays: sortedUnique([...baseDays, ...setDays]),
             changes: sets
-              .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+              .filter(
+                (set) =>
+                  set.opensAt !== row.opensAt ||
+                  set.lastSeatingAt !== row.lastSeatingAt ||
+                  set.closesAt !== row.closesAt
+              )
               .map((set) => ({
                 weekdays: sortedUnique(set.weekdays),
                 opensAt: set.opensAt,
                 lastSeatingAt: set.lastSeatingAt,
+                closesAt: set.closesAt,
               })),
           },
           actions: [],
@@ -95842,7 +96508,7 @@
         ? []
         : schedule.isRegular
           ? [
-              action("changeRegularWeek", { kind: "dialog", dialog: "changeRegularWeek" }),
+              action("changeRegularWeek", link(SETUP_SCHEDULES)),
               action("editSchedule", link(SETUP_SCHEDULES), schedule.name),
             ]
           : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
@@ -95882,7 +96548,7 @@
         actions: manager
           ? [
               action("compareServices", link(SETUP_SCHEDULES)),
-              action("createSchedule", link(SETUP_SCHEDULES)),
+              action("createSchedule", link(SETUP_ADD_SCHEDULE)),
             ]
           : [],
         children: schedules,
@@ -95946,7 +96612,7 @@
         state: upcoming.length === 0 ? UNSET : { kind: "count", count: upcoming.length },
         actions: manager
           ? [
-              action("openCalendar", link(SETUP_CALENDAR)),
+              action("openCalendar", link(SETUP_CALENDAR_TAB)),
               action("openSpecialDates", link(SETUP_SPECIAL)),
             ]
           : [],
@@ -96150,7 +96816,6 @@
         format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
       const shortDay = (date: string) =>
         format.formatCalendarDate(date, { month: "short", day: "numeric" });
-      const time = (minute: number) => minuteText(minute, t, format);
     
       const target = (value: ClosureTarget): string => {
         switch (value.kind) {
@@ -96200,38 +96865,23 @@
               days: summarize(value.weekdays),
             });
           case "service": {
-            const hours = (opensAt: number, lastSeatingAt: number) =>
-              t("availability.regularWeekLine.hours", {
-                open: time(opensAt),
-                close: time(lastSeatingAt),
-              });
+            const ctx = { t, format };
             const base = t("setup.hub.serviceLine", {
-              hours: hours(value.opensAt, value.lastSeatingAt),
+              hours: serviceHoursText(value, ctx),
               days: summarize(value.weekdays),
             });
             const changes = value.changes.map((c) =>
               c.opensAt === value.opensAt
-                ? t("availability.regularWeekLine.closes", {
-                    days: summarize(c.weekdays),
-                    close: time(c.lastSeatingAt),
-                  })
+                ? serviceCloseChangeText(summarize(c.weekdays), c, ctx)
                 : t("availability.regularWeekLine.different", {
                     days: summarize(c.weekdays),
-                    hours: hours(c.opensAt, c.lastSeatingAt),
+                    hours: serviceHoursText(c, ctx),
                   })
             );
             return [base, ...changes].join(" · ");
           }
-          case "rules": {
-            const parts = [
-              value.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: value.daysAhead }),
-              value.noticeHours !== null &&
-                t("setup.hub.rules.noticeHours", { count: value.noticeHours }),
-              value.largestParty !== null &&
-                t("setup.hub.rules.largestParty", { count: value.largestParty }),
-            ].filter((part): part is string => part !== false);
-            return parts.join(" · ");
-          }
+          case "rules":
+            return bookingRulesText(value, t);
           case "closure": {
             const what = t(
               value.what === "closed" ? "setup.hub.closedRow" : "setup.hub.specialHoursRow",
