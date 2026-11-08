@@ -588,7 +588,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           {nudge}
         </div>
       )}
-      {config.data && <RegularWeekLine config={config.data.config} timeZone={timeZone} now={now} />}
+      {/* A phone has no row to spare above the first day (the nudge's rule); a Manager reads the
+          week on the Schedules layer, a Host has no other place to read it. */}
+      {config.data && !(onPhone && isManager) && (
+        <RegularWeekLine config={config.data.config} timeZone={timeZone} now={now} />
+      )}
       <AvailabilityToolbar
         viewport={viewport}
         view={view}

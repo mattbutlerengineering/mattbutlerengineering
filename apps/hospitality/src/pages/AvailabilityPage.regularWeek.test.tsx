@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { applyChanges, collapseDayNamedSchedules } from "@mbe/availability";
 import { MemoryRouter } from "react-router";
@@ -103,6 +103,35 @@ describe("AvailabilityPage regular-week line", () => {
         "Regular week: Lunch 11:30 AM–3:00 PM, last seating 2:00 PM Mon–Fri · Dinner 5:00 PM–11:00 PM, last seating 9:00 PM Tue–Sun, Fri–Sat until 12:00 AM (next day), last seating 10:00 PM · Brunch 10:00 AM–2:00 PM, last seating 1:00 PM Sat–Sun"
       )
     ).toBeInTheDocument();
+  });
+
+  describe("on a phone", () => {
+    beforeEach(() => {
+      window.matchMedia = vi.fn((query: string) => {
+        const max = /\(max-width:\s*(\d+)px\)/.exec(query);
+        return {
+          media: query,
+          matches: max ? 375 <= Number(max[1]) : false,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+        };
+      }) as unknown as typeof window.matchMedia;
+    });
+    afterEach(() => {
+      Reflect.deleteProperty(window, "matchMedia");
+    });
+
+    // A phone has no row to spare above the first day; a Manager reads the week on Schedules.
+    it("leaves the line off a Manager's calendar", () => {
+      renderPage();
+      expect(screen.queryByText(/^Regular week: /)).not.toBeInTheDocument();
+    });
+
+    it("keeps it for a Host, who has no Schedules layer", () => {
+      team.value = { viewerRole: "host" };
+      renderPage();
+      expect(screen.getByText(/^Regular week: /)).toBeInTheDocument();
+    });
   });
 
   it("opens Details to seven weekdays, and lists no schedule or assignment", () => {
