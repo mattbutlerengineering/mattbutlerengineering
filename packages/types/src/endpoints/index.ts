@@ -17,3 +17,4 @@ export {
 } from "./define.js";
 export { guestsEndpoints, GUESTS_PREFIX } from "./guests.js";
 export { availabilityConfigEndpoints, AVAILABILITY_CONFIG_PREFIX } from "./availability-config.js";
+export { holidayDecisionEndpoints } from "./holiday-decisions.js";

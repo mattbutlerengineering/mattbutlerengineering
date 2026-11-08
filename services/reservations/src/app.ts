@@ -8,6 +8,7 @@ import { venueRoutes } from "./routes/venues.js";
 import { venueTeamRoutes } from "./routes/venue-team.js";
 import { availabilityConfigRoutes } from "./routes/availability-config.js";
 import { availabilityChangesRoutes } from "./routes/availability-changes.js";
+import { holidayDecisionRoutes } from "./routes/holiday-decisions.js";
 import { closureRoutes } from "./routes/closures.js";
 import { tonightRoutes } from "./routes/tonight.js";
 import { AVAILABILITY_CONFIG_PREFIX } from "@mbe/types";
@@ -316,6 +317,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(venueTeamRoutes, { prefix: venuesPrefix });
   await fastify.register(availabilityConfigRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(availabilityChangesRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
+  await fastify.register(holidayDecisionRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(closureRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(tonightRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX });
   await fastify.register(availabilityRoutes, {
