@@ -51,7 +51,11 @@ git push origin HEAD:refs/heads/revert-8533 && gh pr create --base main --head r
 2. `git push -u origin feat/availability-phone-tonight` with hooks: exit 0. Remote `d568ea52b` matches local.
 3. `gh pr create --base feat/availability-scenario-ux` → https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8533. Merge danger: two-way, matching this plan.
 4. Launch brief: the repo's launch-demo config is `NONE`, so nothing was written.
-5. Stopped: no merge without the Owner.
+5. PR CI on `0efe242dd`: 17 pass, 6 skipping, 1 pending (Capture E2E Screenshots, advisory), 1 fail.
+   - Hospitality E2E shards 1–3 pass with the real Auth0 session.
+   - The one failure is Visual Regression (hospitality), which is advisory. The snapshots `availability@1280x720`, `availability@375x812`, `setup@1280x720` and `setup@375x812` differ from `main`'s baselines. These are the same four as #8511 and #8528, screens the stack changes by design.
+   - The main CI workflow (unit, typecheck, lint, CI Gate) runs only on pull requests into `main`, so it runs when #8533 is retargeted. Locally on the same code: 419/5911 unit tests pass, typecheck has 0 errors, lint has 0 errors.
+6. Stopped: no merge without the Owner.
 
 ## Post-release checks
 
