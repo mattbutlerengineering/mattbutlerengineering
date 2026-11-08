@@ -18,7 +18,9 @@ test.describe("CF-4: Floor plan editor", () => {
   test("floor plans page shows cards", async ({ mockedPage }) => {
     await mockedPage.goto("floor-plans");
 
-    await expect(mockedPage.getByRole("heading", { name: "Floor Plans" })).toBeVisible();
+    await expect(
+      mockedPage.getByRole("heading", { name: "Floor Plan", exact: true })
+    ).toBeVisible();
     await mockedPage.screenshot({ path: "e2e/screenshots/floor-plan-cards.png", fullPage: true });
   });
 

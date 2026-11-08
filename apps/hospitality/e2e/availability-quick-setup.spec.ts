@@ -33,7 +33,7 @@ test.describe("Availability quick setup (F1)", () => {
       "1 schedule"
     );
     await expect(
-      mockedPage.getByRole("region", { name: "Setup progress" }).getByText("2 of 3")
+      mockedPage.getByRole("region", { name: "Venue Setup progress" }).getByText("2 of 3")
     ).toBeVisible();
   });
 

@@ -70419,10 +70419,8 @@
       id: string;
       label: string;
       action: NavAction;
-      /** Setup step status — drives icon before the label */
-      stepStatus?: "completed" | "current" | "locked";
-      /** Prevents click and applies muted style */
-      disabled?: boolean;
+      /** Short status text after the label, e.g. the pre-launch progress count */
+      badge?: string;
     }
     export interface NavSection {
       /**
@@ -70462,38 +70460,20 @@
       isAdmin: boolean,
       t: TFunction
     ): readonly NavSection[] {
-      const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
-    
-      const STEP_LABELS: Record<SetupStep, string> = {
-        onboarding: t("nav.items.venueBasics"),
-        "operating-hours": t("nav.items.setOperatingHours"),
-        "floor-plan": t("nav.items.createFloorPlan"),
-      };
-    
-      const STEP_PATHS: Record<SetupStep, string> = {
-        onboarding: "/onboarding",
-        "operating-hours": "/availability",
-        "floor-plan": "/floor-plans",
-      };
-    
-      const items: NavItem[] = STEP_ORDER.map((step) => {
-        const isCompleted = readiness.completedSteps.includes(step);
-        const isCurrent = readiness.nextStep === step;
-        const isLocked = !isCompleted && !isCurrent;
-    
-        return {
-          id: `setup-${step}`,
-          label: STEP_LABELS[step],
-          action: { type: "route", path: STEP_PATHS[step] },
-          stepStatus: isCompleted ? "completed" : isCurrent ? "current" : "locked",
-          disabled: isLocked,
-        };
-      });
-    
       const setupSection: NavSection = {
         id: "Get Started",
         label: t("nav.sections.getStarted"),
-        items,
+        items: [
+          {
+            id: SETUP_ITEM_ID,
+            label: t("nav.items.venueSetup"),
+            action: { type: "route", path: SETUP_PATH },
+            badge: t("setup.hub.strip.count", {
+              done: readiness.completedSteps.length,
+              total: SETUP_STEP_COUNT,
+            }),
+          },
+        ],
       };
     
       const account = buildAccount(t);
@@ -70521,7 +70501,7 @@
         id: "Manage",
         label: t("nav.sections.manage"),
         items: [
-          route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+          route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
           route("availability", t("nav.items.availability"), "/availability"),
           route("menus", t("nav.items.menus"), "/menus"),
           route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),

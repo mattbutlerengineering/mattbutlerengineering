@@ -11,16 +11,14 @@
 import type { TFunction } from "i18next";
 import { localeRuntime } from "./i18n/runtime.js";
 import type { NavAction } from "./nav-actions.js";
-import type { VenueReadiness, SetupStep } from "./hooks/useVenueReadiness.js";
+import type { VenueReadiness } from "./hooks/useVenueReadiness.js";
 
 export interface NavItem {
   id: string;
   label: string;
   action: NavAction;
-  /** Setup step status — drives icon before the label */
-  stepStatus?: "completed" | "current" | "locked";
-  /** Prevents click and applies muted style */
-  disabled?: boolean;
+  /** Short status text after the label, e.g. the pre-launch progress count */
+  badge?: string;
 }
 
 export interface NavSection {
@@ -35,6 +33,12 @@ export interface NavSection {
 
 /** Section ids — the en-US labels, which is what collapse state was first persisted under. */
 export const ACCOUNT_SECTION_ID = "Account";
+
+/** One Venue Setup item in both readiness states: same destination, same label. */
+const SETUP_ITEM_ID = "setup";
+const SETUP_PATH = "/setup";
+/** Launch steps counted in the pre-launch badge: venue basics, regular week, floor plan. */
+const SETUP_STEP_COUNT = 3;
 
 const defaultT = (): TFunction => localeRuntime.i18n.t;
 
@@ -74,38 +78,20 @@ function buildSetupSections(
   isAdmin: boolean,
   t: TFunction
 ): readonly NavSection[] {
-  const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
-
-  const STEP_LABELS: Record<SetupStep, string> = {
-    onboarding: t("nav.items.venueBasics"),
-    "operating-hours": t("nav.items.setOperatingHours"),
-    "floor-plan": t("nav.items.createFloorPlan"),
-  };
-
-  const STEP_PATHS: Record<SetupStep, string> = {
-    onboarding: "/onboarding",
-    "operating-hours": "/availability",
-    "floor-plan": "/floor-plans",
-  };
-
-  const items: NavItem[] = STEP_ORDER.map((step) => {
-    const isCompleted = readiness.completedSteps.includes(step);
-    const isCurrent = readiness.nextStep === step;
-    const isLocked = !isCompleted && !isCurrent;
-
-    return {
-      id: `setup-${step}`,
-      label: STEP_LABELS[step],
-      action: { type: "route", path: STEP_PATHS[step] },
-      stepStatus: isCompleted ? "completed" : isCurrent ? "current" : "locked",
-      disabled: isLocked,
-    };
-  });
-
   const setupSection: NavSection = {
     id: "Get Started",
     label: t("nav.sections.getStarted"),
-    items,
+    items: [
+      {
+        id: SETUP_ITEM_ID,
+        label: t("nav.items.venueSetup"),
+        action: { type: "route", path: SETUP_PATH },
+        badge: t("setup.hub.strip.count", {
+          done: readiness.completedSteps.length,
+          total: SETUP_STEP_COUNT,
+        }),
+      },
+    ],
   };
 
   const account = buildAccount(t);
@@ -136,7 +122,7 @@ function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavS
     id: "Manage",
     label: t("nav.sections.manage"),
     items: [
-      route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+      route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
       route("availability", t("nav.items.availability"), "/availability"),
       route("menus", t("nav.items.menus"), "/menus"),
       route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),

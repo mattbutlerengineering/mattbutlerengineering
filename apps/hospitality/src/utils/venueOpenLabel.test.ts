@@ -30,7 +30,7 @@ describe("formatVenueOpenLabel", () => {
   });
 
   it("uses the product's existing phrase when hours are unset", () => {
-    expect(formatVenueOpenLabel({ state: "unset" })).toBe("No operating hours set");
+    expect(formatVenueOpenLabel({ state: "unset" })).toBe("No regular week set");
   });
 });
 

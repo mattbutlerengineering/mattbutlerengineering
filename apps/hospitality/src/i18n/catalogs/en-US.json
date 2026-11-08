@@ -82,7 +82,7 @@
       }
     },
     "hours": {
-      "heading": "Operating Hours",
+      "heading": "Regular week",
       "intro": "So guests know when you're open.",
       "atLeastOne": "At least one day must be open"
     },
@@ -294,16 +294,13 @@
       "profile": "Profile",
       "settings": "Settings",
       "users": "Users",
-      "venueBasics": "Venue Basics",
-      "setOperatingHours": "Set Operating Hours",
-      "createFloorPlan": "Create Floor Plan",
       "tonightsService": "Tonight's Service",
       "timeline": "Timeline",
       "reservations": "Reservations",
       "waitlist": "Waitlist",
       "guests": "Guests",
       "dashboard": "Dashboard",
-      "floorPlans": "Floor Plans",
+      "venueSetup": "Venue Setup",
       "bookingWidget": "Booking Widget",
       "signOut": "Sign Out",
       "chat": "Chat",
@@ -322,15 +319,15 @@
       "guests": "Guests",
       "waitlist": "Waitlist",
       "briefing": "Tonight's Service",
-      "floorPlans": "Floor Plans",
+      "floorPlan": "Floor Plan",
       "bookingWidget": "Booking Widget",
       "onboarding": "New Venue",
       "profile": "Profile",
       "settings": "Settings",
       "admin": "Admin",
       "dashboard": "Dashboard",
-      "setup": "Setup",
-      "hours": "Operating Hours",
+      "setup": "Venue Setup",
+      "hours": "Availability",
       "menus": "Menus",
       "availability": "Availability",
       "chat": "Chat"
@@ -348,10 +345,10 @@
   },
   "floorPlan": {
     "list": {
-      "title": "Floor Plans",
+      "title": "Floor Plan",
       "description": "Design and manage your venue layouts",
       "newButton": "New Floor Plan",
-      "createButton": "Create Floor Plan",
+      "createButton": "Add floor plan",
       "loadFailed": "Couldn't load floor plans.",
       "cloneFailed": "Floor plan not cloned.",
       "cloned": "Floor plan \"{{name}}\" cloned successfully",
@@ -377,7 +374,7 @@
       "loading": "Loading",
       "notFound": "Floor plan not found",
       "notLoaded": "Floor plan not loaded",
-      "backToList": "Back to Floor Plans",
+      "backToList": "Back to Floor Plan",
       "backAria": "Back to floor plans",
       "active": "Active",
       "setActive": "Set as Active",
@@ -597,7 +594,7 @@
       "closedToday_other": "Closed, opens at {{time}}",
       "closedOn_one": "Closed, opens {{weekday}} at {{time}}",
       "closedOn_other": "Closed, opens {{weekday}} at {{time}}",
-      "unset": "No operating hours set",
+      "unset": "No regular week set",
       "weekdays": {
         "monday": "Monday",
         "tuesday": "Tuesday",
@@ -688,7 +685,7 @@
       "retry": "Retry",
       "noTablesHeading": "No tables yet.",
       "noTablesDescription": "Set up a floor plan and the grid fills in.",
-      "floorPlans": "Floor plans",
+      "floorPlans": "Floor Plan",
       "detailsTitle": "Reservation Details",
       "closeDetails": "Close reservation details",
       "loadBanner": "Couldn't load tonight's reservations.",
@@ -1281,9 +1278,9 @@
     },
     "timeSlot": {
       "changeSearch": "← Change date or party size",
-      "noHoursStaffHeading": "No operating hours set",
-      "noHoursStaffDescription": "This venue doesn't have any operating hours configured yet, so guests can't see availability or book a table.",
-      "setHours": "Set Operating Hours",
+      "noHoursStaffHeading": "No regular week set",
+      "noHoursStaffDescription": "This venue doesn't have a regular week yet, so guests can't see availability or book a table.",
+      "setHours": "Set up regular week",
       "noHoursGuestHeading": "Not taking online bookings yet",
       "noHoursGuestDescription": "This venue hasn't set up online reservations yet. Please contact them directly to book a table.",
       "noTimesHeading": "No available times",
@@ -3043,7 +3040,7 @@
         "moveToSection": "Move to a section"
       },
       "strip": {
-        "title": "Setup progress",
+        "title": "Venue Setup progress",
         "count": "{{done}} of {{total}}",
         "steps": {
           "venueBasics": "Venue basics",
@@ -3195,7 +3192,7 @@
     "venue": {
       "title": "Venue",
       "description": "Manage the days and times your venue is open for reservations.",
-      "operatingHours": "Operating Hours"
+      "venueSetup": "Venue Setup"
     },
     "team": {
       "title": "Team",

@@ -4,66 +4,6 @@ import type { NavSection, NavItem } from "../nav-sections.js";
 import type { NavAction } from "../nav-actions.js";
 import styles from "./DashboardSidebar.module.css";
 
-/* ── Step status icons ───────────────────────── */
-
-function CompletedIcon() {
-  return (
-    <svg
-      className={styles.stepIcon}
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-}
-
-function CurrentIcon() {
-  return (
-    <svg
-      className={styles.stepIcon}
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <polyline points="9 18 15 12 9 6" />
-    </svg>
-  );
-}
-
-function LockedIcon() {
-  return (
-    <svg
-      className={styles.stepIcon}
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-    </svg>
-  );
-}
-
 /* ── Constants ───────────────────────────────── */
 
 const STORAGE_KEY = "hospitality-sidebar-collapsed";
@@ -223,21 +163,21 @@ export function DashboardSidebar({
                   <ul className={styles.sectionItemsFlat}>
                     {section.items.map((item) => {
                       const active = isItemActive(item);
-                      const isDisabled = item.disabled === true;
                       return (
                         <li key={item.id} className={styles.navItem}>
                           <button
-                            className={`${styles.navLink} ${active ? styles.navLinkActive : ""} ${isDisabled ? styles.navLinkDisabled : ""}`}
-                            onClick={isDisabled ? undefined : () => handleItemClick(item.action)}
+                            className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}
+                            onClick={() => handleItemClick(item.action)}
                             aria-current={active ? "page" : undefined}
-                            aria-disabled={isDisabled ? "true" : undefined}
                             type="button"
-                            tabIndex={isDisabled ? -1 : undefined}
                           >
-                            {item.stepStatus === "completed" && <CompletedIcon />}
-                            {item.stepStatus === "current" && <CurrentIcon />}
-                            {item.stepStatus === "locked" && <LockedIcon />}
                             {item.label}
+                            {item.badge !== undefined && (
+                              <>
+                                {" "}
+                                <span className={styles.navBadge}>{item.badge}</span>
+                              </>
+                            )}
                           </button>
                         </li>
                       );
@@ -268,21 +208,21 @@ export function DashboardSidebar({
                   <ul className={styles.sectionItems}>
                     {section.items.map((item) => {
                       const active = isItemActive(item);
-                      const isDisabled = item.disabled === true;
                       return (
                         <li key={item.id} className={styles.navItem}>
                           <button
-                            className={`${styles.navLink} ${active ? styles.navLinkActive : ""} ${isDisabled ? styles.navLinkDisabled : ""}`}
-                            onClick={isDisabled ? undefined : () => handleItemClick(item.action)}
+                            className={`${styles.navLink} ${active ? styles.navLinkActive : ""}`}
+                            onClick={() => handleItemClick(item.action)}
                             aria-current={active ? "page" : undefined}
-                            aria-disabled={isDisabled ? "true" : undefined}
                             type="button"
-                            tabIndex={isDisabled ? -1 : undefined}
                           >
-                            {item.stepStatus === "completed" && <CompletedIcon />}
-                            {item.stepStatus === "current" && <CurrentIcon />}
-                            {item.stepStatus === "locked" && <LockedIcon />}
                             {item.label}
+                            {item.badge !== undefined && (
+                              <>
+                                {" "}
+                                <span className={styles.navBadge}>{item.badge}</span>
+                              </>
+                            )}
                           </button>
                         </li>
                       );
