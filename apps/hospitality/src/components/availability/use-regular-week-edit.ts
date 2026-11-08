@@ -37,8 +37,6 @@ const weekOf = (config: AvailabilityConfig): QuickSetupDraft =>
 export interface RegularWeekEditInput {
   readonly venueId: string;
   readonly state: AvailabilityConfigState;
-  /** Today on the venue clock. */
-  readonly today: string;
   readonly onStale: () => void;
   /** The change was saved (and Undo offered); the frame decides what happens next. */
   readonly onSaved?: (saved: AvailabilityConfigSaveResult) => void;
@@ -187,12 +185,7 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     });
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
-    const saved = await saver.save(
-      venueId,
-      { ...state, version: review.baselineVersion },
-      changes,
-      scopeConflicts
-    );
+    const saved = await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
     if (!saved) return;
     offerUndo({
       venueId,

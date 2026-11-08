@@ -76,6 +76,7 @@ const common = {
 };
 
 function Layer(props: {
+  readonly venueId?: string;
   readonly state: AvailabilityConfigState;
   readonly comparing?: boolean;
   readonly onEditorChange?: (editor: ScheduleEditorTarget) => void;
@@ -149,6 +150,31 @@ describe("SchedulesTab", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Compare services" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("heading", { name: "Compare services" })).not.toBeInTheDocument();
+  });
+
+  it("does not carry a settling save over to another venue's week form", async () => {
+    const { rerender } = renderWith(<Layer state={state()} />);
+    const toggleMonday = () =>
+      fireEvent.click(
+        within(screen.getByRole("group", { name: "Days" })).getByRole("checkbox", {
+          name: "Monday",
+        })
+      );
+    toggleMonday();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Save" })).toBeNull());
+    // Saved on venue 1 (version 8), not yet refreshed; the Manager switches to venue 2 at version 3.
+    rerender(
+      <ToastProvider>
+        <main>
+          <Layer venueId="venue-2" state={{ ...state(), version: 3 }} />
+        </main>
+      </ToastProvider>
+    );
+    toggleMonday();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
   });
 
   it("Starting later… leaves no id shared by the panel's form and the drawer's, so both are labelled", () => {

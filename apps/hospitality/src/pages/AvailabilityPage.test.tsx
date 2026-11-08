@@ -575,6 +575,20 @@ describe("AvailabilityPage", () => {
       expect(screen.getByTestId("location")).toHaveTextContent("/availability?from=setup");
     });
 
+    it("opens no editor for ?action=addSchedule on another layer", () => {
+      renderPage("/availability?tab=calendar&action=addSchedule");
+      expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
+      expect(screen.getByTestId("location")).toHaveTextContent("/availability?tab=calendar");
+    });
+
+    it("does not hold ?action=addSchedule back on a venue with no hours until quick setup saves", () => {
+      configSource.value = "empty";
+      const view = renderPage("/availability?action=addSchedule");
+      configSource.value = "rows";
+      view.rerender(page("/availability?action=addSchedule"));
+      expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
+    });
+
     it("opens no editor for a Host who follows ?action=addSchedule", () => {
       team.value = { viewerRole: "host" };
       renderPage("/availability?action=addSchedule");
@@ -1292,6 +1306,14 @@ describe("AvailabilityPage", () => {
     });
   });
 
+  it("hands focus to the calendar when quick setup's save lands on a layer with no Regular week heading", () => {
+    configSource.value = "empty";
+    const { rerender } = renderPage("/availability?tab=calendar");
+    configSource.value = "rows";
+    rerender(page("/availability?tab=calendar"));
+    expect(document.activeElement).toHaveAttribute("data-date");
+  });
+
   it("hands focus to the Regular week heading when quick setup's save removes the focused button (#7980)", () => {
     configSource.value = "empty";
     const { rerender } = renderPage("/availability");
@@ -1618,6 +1640,35 @@ describe("AvailabilityPage layers", () => {
       )
     );
     expect(layerRadio("Calendar")).toBeChecked();
+  });
+
+  it("leaves no day target behind when Keep editing answers the guard after History → open day", async () => {
+    renderPage("/availability");
+    fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+    fireEvent.click(headerButton("More actions"));
+    fireEvent.click(screen.getByRole("menuitem", { name: "History" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Go to day" }));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
+        "button",
+        {
+          name: "Keep editing",
+        }
+      )
+    );
+    expect(layerRadio("Schedules")).toBeChecked();
+    // Later, a plain visit to Calendar opens no day.
+    fireEvent.click(layerRadio("Calendar"));
+    fireEvent.click(
+      within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
+        "button",
+        {
+          name: "Discard",
+        }
+      )
+    );
+    expect(layerRadio("Calendar")).toBeChecked();
+    expect(screen.queryByRole("dialog", { name: /October 30/ })).not.toBeInTheDocument();
   });
 
   it("goes to the Calendar day from History opened on another layer", async () => {

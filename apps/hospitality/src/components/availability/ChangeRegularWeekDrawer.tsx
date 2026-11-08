@@ -2,7 +2,7 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import { addDays } from "@mbe/availability";
-import type { AvailabilityConfigState } from "@mbe/types";
+import type { AvailabilityConfigSaveResult, AvailabilityConfigState } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import type { QuickSetupDraft } from "./quick-setup-draft.js";
@@ -30,8 +30,8 @@ export interface ChangeRegularWeekDrawerProps {
   readonly today: string;
   readonly onStale: () => void;
   readonly onClose: () => void;
-  /** Where "Open Schedules" goes (the line about days a schedule of the Manager's runs). */
-  readonly onOpenSchedules?: () => void;
+  /** The change was saved, before the drawer closes (the Schedules layer re-seeds its week form). */
+  readonly onSaved?: (saved: AvailabilityConfigSaveResult) => void;
   /** Replaces the saved regular week as the draft (Starting later… from the week panel). */
   readonly initialDraft?: QuickSetupDraft;
 }
@@ -45,7 +45,7 @@ export interface ChangeRegularWeekDrawerProps {
  */
 export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
   const viewport = useViewport();
-  const { venueId, state, today, onStale, onClose, onOpenSchedules, initialDraft } = props;
+  const { venueId, state, today, onStale, onClose, onSaved, initialDraft } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const dayName = useWeekdayName();
@@ -85,30 +85,29 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
   } = useRegularWeekEdit({
     venueId,
     state,
-    today,
     onStale,
-    onSaved: onClose,
+    onSaved: (saved) => {
+      onSaved?.(saved);
+      onClose();
+    },
     onGone: onClose,
     initialDraft,
   });
   // Escape, the backdrop and Cancel all ask first while there is something to lose.
-  const guard = useDiscardGuard<boolean>((openSchedules) => {
-    onClose();
-    if (openSchedules) onOpenSchedules?.();
-  }, dirty);
+  const guard = useDiscardGuard<void>(onClose, dirty);
   const blockedId = useId();
 
   return (
     <>
       <Drawer
         open
-        onClose={() => guard.request(false)}
+        onClose={() => guard.request()}
         title={t("availabilitySchedules.regularWeek.title")}
         size={viewport === "phone" ? "full" : "wide"}
         footer={
           <div className={styles.footer}>
             <BlockedReason id={blockedId} reason={blockedText} />
-            <Button variant="secondary" onClick={() => guard.request(false)}>
+            <Button variant="secondary" onClick={() => guard.request()}>
               {t("availabilitySchedules.cancel")}
             </Button>
             <Button
@@ -205,14 +204,6 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
                 days: summarize(schedule.weekdays),
                 name: schedule.name,
               })}
-              {onOpenSchedules && (
-                <>
-                  {" "}
-                  <Button variant="ghost" size="sm" onClick={() => guard.request(true)}>
-                    {t("availabilitySchedules.regularWeek.openSchedules")}
-                  </Button>
-                </>
-              )}
             </Text>
           ))}
           {endsOn !== null && (

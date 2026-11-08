@@ -44,19 +44,34 @@ function demoConfig(): AvailabilityConfig {
 
 const TODAY = "2026-10-25"; // a Sunday
 
-function panel(state: AvailabilityConfigState, extra: { onStartLater?: () => void } = {}) {
+function panel(
+  state: AvailabilityConfigState,
+  extra: {
+    onStartLater?: () => void;
+    onStale?: () => void;
+    resetAtVersion?: number;
+    refreshError?: string | null;
+  } = {}
+) {
   return (
     <main>
       <RegularWeekPanel
         venueId="venue-1"
         state={state}
         today={TODAY}
-        onStale={vi.fn()}
+        onStale={extra.onStale ?? vi.fn()}
         onStartLater={extra.onStartLater ?? vi.fn()}
+        resetAtVersion={extra.resetAtVersion}
+        refreshError={extra.refreshError}
       />
     </main>
   );
 }
+
+const dinnerTuesday = () =>
+  within(screen.getByRole("group", { name: "Dinner runs on" })).getByRole("checkbox", {
+    name: "Tuesday",
+  });
 
 const lunchMonday = () =>
   within(screen.getByRole("group", { name: "Lunch runs on" })).getByRole("checkbox", {
@@ -171,5 +186,113 @@ describe("RegularWeekPanel", () => {
     fireEvent.click(lunchMonday());
     expect(screen.getByRole("radio", { name: "Keep theirs" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Replace them" })).toBeInTheDocument();
+  });
+
+  describe("when the saved week moves under the form", () => {
+    /** The demo week with Lunch no longer running on Mondays, as another save would leave it. */
+    function lunchWithoutMonday(): AvailabilityConfig {
+      let n = 0;
+      const saved = demoDraft();
+      return draftToConfig(
+        {
+          ...saved,
+          services: saved.services.map((s, i) => (i === 0 ? { ...s, days: [2, 3, 4, 5] } : s)),
+        },
+        () => `other-${++n}`
+      );
+    }
+    const discard = () => screen.queryByRole("button", { name: "Discard" });
+
+    it("shows the new week when a version lands while the form is clean (Undo, a colleague, Compare, Add, Delete)", () => {
+      const { rerender } = render(panel(stateOf(demoConfig())));
+      expect(lunchMonday()).toBeChecked();
+      rerender(panel(stateOf(lunchWithoutMonday(), 9)));
+      expect(lunchMonday()).not.toBeChecked();
+    });
+
+    it("does not replace the form's edits, and offers no Save of its own, while it is dirty", () => {
+      const { rerender } = render(panel(stateOf(demoConfig())));
+      fireEvent.click(
+        within(screen.getByRole("group", { name: "Dinner runs on" })).getByRole("checkbox", {
+          name: "Tuesday",
+        })
+      );
+      rerender(panel(stateOf(lunchWithoutMonday(), 9)));
+      expect(discard()).toBeInTheDocument();
+      // Still the Manager's week, not the colleague's.
+      expect(lunchMonday()).toBeChecked();
+    });
+
+    it("starts again from the saved week once a save the page made (Starting later…) has landed, edits or not", () => {
+      const { rerender } = render(panel(stateOf(demoConfig())));
+      fireEvent.click(lunchMonday());
+      expect(discard()).toBeInTheDocument();
+      // Not landed yet: the edits stay.
+      rerender(panel(stateOf(demoConfig(), 7), { resetAtVersion: 8 }));
+      expect(discard()).toBeInTheDocument();
+      rerender(panel(stateOf(lunchWithoutMonday(), 8), { resetAtVersion: 8 }));
+      expect(discard()).not.toBeInTheDocument();
+      expect(lunchMonday()).not.toBeChecked();
+    });
+
+    it("goes through conflict review, not a silent re-seed, when a colleague saved first", async () => {
+      const config = demoConfig();
+      save.mockRejectedValueOnce(
+        Object.assign(new Error("conflict"), {
+          problemDetails: {
+            type: "about:blank",
+            title: "Conflict",
+            status: 409,
+            detail: "x",
+            code: "version-conflict",
+          },
+        })
+      );
+      const onStale = vi.fn();
+      const { rerender } = render(panel(stateOf(config), { onStale }));
+      fireEvent.click(dinnerTuesday());
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(onStale).toHaveBeenCalledTimes(1));
+      rerender(panel(stateOf(lunchWithoutMonday(), 8), { onStale }));
+      fireEvent.click(await screen.findByRole("button", { name: "Reapply my changes" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      expect(save.mock.calls[1]![0].body.expectedVersion).toBe(8);
+    });
+
+    it("Start over takes the colleague's week", async () => {
+      save.mockRejectedValueOnce(
+        Object.assign(new Error("conflict"), {
+          problemDetails: {
+            type: "about:blank",
+            title: "Conflict",
+            status: 409,
+            detail: "x",
+            code: "version-conflict",
+          },
+        })
+      );
+      const onStale = vi.fn();
+      const { rerender } = render(panel(stateOf(demoConfig()), { onStale }));
+      fireEvent.click(dinnerTuesday());
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(onStale).toHaveBeenCalledTimes(1));
+      rerender(panel(stateOf(lunchWithoutMonday(), 8), { onStale }));
+      fireEvent.click(await screen.findByRole("button", { name: "Start over" }));
+      expect(lunchMonday()).not.toBeChecked();
+      expect(discard()).not.toBeInTheDocument();
+    });
+
+    it("stops waiting for a refresh that failed, shows why and lets the Manager save again", async () => {
+      const config = demoConfig();
+      const { rerender } = render(panel(stateOf(config)));
+      fireEvent.click(lunchMonday());
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+      rerender(panel(stateOf(config, 7), { refreshError: "Network down" }));
+      expect(screen.getByRole("alert")).toHaveTextContent("Network down");
+      expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    });
   });
 });

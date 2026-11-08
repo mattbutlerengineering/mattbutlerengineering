@@ -37,7 +37,6 @@ function setup(extra: Partial<Parameters<typeof useRegularWeekEdit>[0]> = {}) {
     useRegularWeekEdit({
       venueId: "venue-1",
       state,
-      today: TODAY,
       onStale: vi.fn(),
       onSaved,
       ...extra,

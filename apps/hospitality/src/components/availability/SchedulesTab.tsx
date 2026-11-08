@@ -34,6 +34,8 @@ export interface SchedulesTabProps {
   readonly onStale: () => void;
   /** The week panel or Compare services has edits that are not saved; the page asks before another layer drops them. */
   readonly onDirtyChange?: (dirty: boolean) => void;
+  /** The page's refresh of the config failed (the week form stops waiting for it). */
+  readonly refreshError?: string | null;
   /** Opens the schedule editor, which the page renders (the header ⋯ and the day drawer open it too). */
   readonly onEditorChange: (editor: ScheduleEditorTarget) => void;
   /** Compare services is open (the page's ⋯ menu opens it). */
@@ -105,8 +107,8 @@ export function SchedulesTab(props: SchedulesTabProps) {
   const [weekDirty, setWeekDirty] = useState(false);
   // Starting later…: Change regular week opens carrying the week form's draft.
   const [startingLater, setStartingLater] = useState<QuickSetupDraft | null>(null);
-  // Closing Change regular week hands the draft over to it, so the form starts again from the saved week.
-  const [panelKey, setPanelKey] = useState(0);
+  // A save the Starting later… drawer made: the form starts again from the saved week once it lands.
+  const [laterVersion, setLaterVersion] = useState<number | undefined>(undefined);
   const [deleting, setDeleting] = useState<Schedule | null>(null);
   useEffect(() => {
     onDirtyChange?.(weekDirty || compareDirty);
@@ -156,13 +158,15 @@ export function SchedulesTab(props: SchedulesTabProps) {
         {t("availabilitySchedules.layer.intro")}
       </Text>
       <RegularWeekPanel
-        key={panelKey}
+        key={venueId}
         venueId={venueId}
         state={state}
         today={today}
         onStale={onStale}
         onStartLater={setStartingLater}
         onDirtyChange={setWeekDirty}
+        resetAtVersion={laterVersion}
+        refreshError={props.refreshError}
       />
       <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       {others.length > 0 && (
@@ -272,10 +276,8 @@ export function SchedulesTab(props: SchedulesTabProps) {
           today={today}
           onStale={onStale}
           initialDraft={startingLater}
-          onClose={() => {
-            setStartingLater(null);
-            setPanelKey((n) => n + 1);
-          }}
+          onSaved={(saved) => setLaterVersion(saved.version)}
+          onClose={() => setStartingLater(null)}
         />
       )}
       <ConfirmDialog

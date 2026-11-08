@@ -1,6 +1,6 @@
 import { useEffect, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Alert, Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { DraftPreview } from "./DraftPreview.js";
@@ -28,6 +28,13 @@ export interface RegularWeekPanelProps {
   readonly onStartLater: (draft: QuickSetupDraft) => void;
   /** The form has edits that are not saved; the page asks before the layer goes. */
   readonly onDirtyChange?: (dirty: boolean) => void;
+  /**
+   * A save made elsewhere (the Starting later… drawer) that supersedes whatever is in the form:
+   * once the state reaches this version the form starts again from the saved week, edits or not.
+   */
+  readonly resetAtVersion?: number;
+  /** The refresh of the config failed (the page's read), so a settling save stops waiting for it. */
+  readonly refreshError?: string | null;
 }
 
 /**
@@ -35,25 +42,55 @@ export interface RegularWeekPanelProps {
  * editable in place and applied from today. It is the drawer's logic (`useRegularWeekEdit`, with
  * the start pinned to today) in another frame, not a second save.
  *
- * The hook keeps the version its draft was built on, so after this panel's own save the body is
- * rebuilt from the refreshed config once the state has reached the saved version.
+ * The hook keeps the version its draft was built on, so the body is rebuilt from the config
+ * whenever the saved week moved under it and there is nothing to lose: the form is clean and no
+ * conflict is being reviewed (a colleague's save, Undo, another editor). After this panel's own
+ * save, or a save the page tells it about, the form starts again once the state has reached that
+ * version, edits or not. A colleague's save while the form is dirty goes through conflict review.
+ * Mounted per venue (the page keys it), so nothing here outlives a venue switch.
  */
 export function RegularWeekPanel(props: RegularWeekPanelProps) {
-  const { state } = props;
-  const [epoch, setEpoch] = useState(0);
+  const { state, resetAtVersion, refreshError } = props;
+  const { t } = useTranslation();
+  const [seed, setSeed] = useState({ version: state.version, epoch: 0 });
+  // The version this panel's own save returned, until the config has caught up with it.
   const [awaiting, setAwaiting] = useState<number | null>(null);
-  if (awaiting !== null && state.version >= awaiting) {
+  const [status, setStatus] = useState({ dirty: false, reviewing: false });
+  const forced = Math.max(awaiting ?? 0, resetAtVersion ?? 0);
+  const restart = () => {
+    setSeed((was) => ({ version: state.version, epoch: was.epoch + 1 }));
     setAwaiting(null);
-    setEpoch((n) => n + 1);
+    setStatus({ dirty: false, reviewing: false });
+  };
+  if (forced > seed.version && state.version >= forced) {
+    restart();
+  } else if (
+    awaiting === null &&
+    state.version !== seed.version &&
+    !status.dirty &&
+    !status.reviewing
+  ) {
+    restart();
+  } else if (awaiting !== null && refreshError) {
+    // The refresh failed: stop waiting for it and say so instead of hiding Save for good.
+    setAwaiting(null);
   }
   return (
-    <RegularWeekPanelBody
-      key={`${props.venueId}:${epoch}`}
-      {...props}
-      settling={awaiting !== null}
-      onSaved={(version) => setAwaiting(version)}
-      onDiscard={() => setEpoch((n) => n + 1)}
-    />
+    <>
+      {refreshError && (
+        <Alert variant="error" title={t("availability.loadError")}>
+          {refreshError}
+        </Alert>
+      )}
+      <RegularWeekPanelBody
+        key={`${props.venueId}:${seed.epoch}`}
+        {...props}
+        settling={awaiting !== null}
+        onSaved={(version) => setAwaiting(version)}
+        onDiscard={restart}
+        onStatus={setStatus}
+      />
+    </>
   );
 }
 
@@ -62,6 +99,7 @@ interface BodyProps extends RegularWeekPanelProps {
   readonly settling: boolean;
   readonly onSaved: (version: number) => void;
   readonly onDiscard: () => void;
+  readonly onStatus: (status: { dirty: boolean; reviewing: boolean }) => void;
 }
 
 function RegularWeekPanelBody(props: BodyProps) {
@@ -95,13 +133,17 @@ function RegularWeekPanelBody(props: BodyProps) {
   } = useRegularWeekEdit({
     venueId,
     state,
-    today,
     onStale,
     fixedStart: today,
     onSaved: (saved) => props.onSaved(saved.version),
     onGone: props.onDiscard,
   });
   const unsaved = dirty && !settling;
+  const reviewing = review.review !== null;
+  const { onStatus } = props;
+  useEffect(() => {
+    onStatus({ dirty, reviewing });
+  }, [dirty, reviewing, onStatus]);
   useEffect(() => {
     onDirtyChange?.(unsaved);
     return () => onDirtyChange?.(false);

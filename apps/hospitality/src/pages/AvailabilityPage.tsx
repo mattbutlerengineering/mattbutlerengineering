@@ -84,10 +84,10 @@ interface Closing {
   readonly sectionId?: string;
 }
 
-/** Another layer, and what to do once there (Go to date, Compare services). */
+/** Another layer, and what to do once there (Go to date, Compare services, open a day). */
 interface TabMove {
   readonly tab: AvailabilityTab;
-  readonly then?: "goToDate" | "compare";
+  readonly then?: "goToDate" | "compare" | { readonly openDay: string };
 }
 
 /**
@@ -121,12 +121,14 @@ export function AvailabilityPage() {
   );
 }
 
-/** The day to focus, or failing that the calendar's Tab stop, or its first day. */
 /** The Regular week heading: where quick setup's save lands once the week panel replaces the card. */
-function focusRegularWeekHeading(root: HTMLElement | null) {
-  root?.querySelector<HTMLElement>(`#${REGULAR_WEEK_HEADING_ID}`)?.focus();
+function focusRegularWeekHeading(root: HTMLElement | null): boolean {
+  const heading = root?.querySelector<HTMLElement>(`#${REGULAR_WEEK_HEADING_ID}`);
+  heading?.focus();
+  return !!heading;
 }
 
+/** The day to focus, or failing that the calendar's Tab stop, or its first day. */
 function focusCalendar(root: HTMLElement | null, date: string | null) {
   const target =
     (date && root?.querySelector<HTMLElement>(`[data-date="${date}"]`)) ||
@@ -163,9 +165,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const [searchParams, setSearchParams] = useSearchParams();
   const [entry] = useState(() => parseAvailabilityEntry(searchParams));
   // `null` until the viewer picks one: a Manager then lands on Schedules, a Host on Calendar.
-  const [chosenTab, setChosenTab] = useState<AvailabilityTab | null>(
-    entry.tab ?? (entry.action ? "schedules" : null)
-  );
+  const [chosenTab, setChosenTab] = useState<AvailabilityTab | null>(entry.tab ?? null);
   // A section's Close dialog and an action are not reopened by a refresh, so those params go once read.
   useEffect(() => {
     if (!searchParams.has("closeSection") && !searchParams.has("action")) return;
@@ -238,6 +238,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     if (next !== "schedules") setComparing(false);
     if (then === "goToDate") setGoToOpen(true);
     if (then === "compare") setComparing(true);
+    // The day opens only once the layer has actually changed, so Keep editing leaves no target behind.
+    if (typeof then === "object") {
+      guard.request({ date: then.openDay });
+      moveTo(then.openDay);
+    }
   };
   const access = useManagerAccess();
   const isManager = access.isManager;
@@ -292,7 +297,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
       wasEmpty.current = true;
     } else if (source && wasEmpty.current) {
       wasEmpty.current = false;
-      if (document.activeElement === document.body) focusRegularWeekHeading(rootRef.current);
+      if (document.activeElement === document.body) {
+        // On another layer (?tab=calendar) there is no heading: the calendar takes the focus.
+        if (!focusRegularWeekHeading(rootRef.current)) focusCalendar(rootRef.current, null);
+      }
     }
   }, [source, rootRef]);
 
@@ -318,18 +326,21 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   // loaded (a Host has no Close dialog). An id the venue does not have opens it with no preselection.
   const entrySection = useRef(entry.closeSection);
   const entryReady = isManager && !!config.data;
+  // On a venue with no hours the quick-setup card stands in for the page: the entry is spent, not
+  // held back to pop open when that card saves.
+  const emptyVenue = config.data?.source === "empty";
   useEffect(() => {
     if (!entryReady || entrySection.current === undefined) return;
-    setClosing({ date: null, pause: false, sectionId: entrySection.current });
+    if (!emptyVenue) setClosing({ date: null, pause: false, sectionId: entrySection.current });
     entrySection.current = undefined;
-  }, [entryReady]);
-  // ?action=addSchedule opens the seeded schedule editor on Schedules, once, for a Manager.
-  const entryAction = useRef(entry.action);
+  }, [entryReady, emptyVenue]);
+  // ?action=addSchedule opens the seeded schedule editor, once, for a Manager who is on Schedules.
+  const entryActionRef = useRef(entry.action);
   useEffect(() => {
-    if (!entryReady || entryAction.current !== "addSchedule") return;
-    setEditor({ mode: "new", seed: "regular" });
-    entryAction.current = undefined;
-  }, [entryReady]);
+    if (!entryReady || entryActionRef.current === undefined) return;
+    if (!emptyVenue && tab === "schedules") setEditor({ mode: "new", seed: "regular" });
+    entryActionRef.current = undefined;
+  }, [entryReady, emptyVenue, tab]);
   // A read that has never answered. A refresh failing over data on hand is the drawer's to say.
   const failedReads = [
     days.error ? days : null,
@@ -718,6 +729,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           timezone={timeZone}
           today={today}
           onStale={() => void config.refetch()}
+          refreshError={config.error ? describeApiError(config.error).detail : null}
           onDirtyChange={setSchedulesDirty}
           onEditorChange={setEditor}
           comparing={comparing}
@@ -774,9 +786,12 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onOpenDay={(date) => {
           setHistoryOpen(false);
           // The day opens on the Calendar, from whichever layer History was opened on.
-          if (tab !== "calendar") changeTab({ tab: "calendar" });
-          guard.request({ date });
-          moveTo(date);
+          if (tab !== "calendar") {
+            changeTab({ tab: "calendar", then: { openDay: date } });
+          } else {
+            guard.request({ date });
+            moveTo(date);
+          }
         }}
       />
       <GoToDateDialog

@@ -295,6 +295,16 @@ describe("AddSpecialDatesSheet", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
+  it("lists a Same as Friday row's services in the one service time wording", async () => {
+    renderSheet();
+    await pickDate(0, "2026-12-31");
+    fireEvent.click(screen.getByRole("radio", { name: "Same as another day" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Copy hours from" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Same as Friday" }));
+    expect(screen.getByText(/^Lunch 11:30 AM–3:00 PM(, last seating .*)?$/)).toBeInTheDocument();
+    expect(screen.queryByText(/ – /)).not.toBeInTheDocument();
+  });
+
   it("previews each date's own message when the rows differ (#7983)", async () => {
     preview.mockResolvedValue([impact("2026-12-24", 2), impact("2026-12-25", 2)]);
     renderSheet();

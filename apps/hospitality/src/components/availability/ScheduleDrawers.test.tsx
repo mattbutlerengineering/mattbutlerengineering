@@ -36,6 +36,8 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import { ScheduleEditorDrawer } from "./ScheduleEditorDrawer.js";
 import { SchedulesLayer } from "./schedules-tab.harness.js";
+import { demoDraft } from "./quick-setup-demo.fixture.js";
+import { draftToConfig } from "./quick-setup-draft.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const TUE_SAT = [2, 3, 4, 5, 6];
@@ -542,6 +544,74 @@ describe("schedule drawers", () => {
         expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
         fireEvent.click(screen.getByRole("button", { name: "Save" }));
         expect(save).not.toHaveBeenCalled();
+      });
+
+      /** The regular week made of these demo services (Lunch Mon–Fri, Dinner Tue–Sun, Brunch Sat–Sun). */
+      function weekOf(pick: (i: number) => boolean, dinnerFollowsShared = false) {
+        let n = 0;
+        const full = demoDraft();
+        return draftToConfig(
+          {
+            ...full,
+            services: full.services
+              .filter((_, i) => pick(i))
+              .map((s) => (dinnerFollowsShared && s.id === "dinner" ? { ...s, days: null } : s)),
+          },
+          () => `w-${++n}`
+        );
+      }
+      const dayChecks = () =>
+        screen.queryAllByRole("checkbox").filter((c) => (c as HTMLInputElement).checked);
+
+      it("shows no service's own days before Starting, and asks for a start date, when a service runs a subset", () => {
+        // Lunch Mon–Fri with Dinner every day.
+        renderNew(
+          "new",
+          weekOf((i) => i < 2, true),
+          "regular"
+        );
+        expect(dayChecks()).toHaveLength(0);
+        expect(screen.queryByText(/^Days:/)).not.toBeInTheDocument();
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Summer hours" },
+        });
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        expect(screen.getByText("Choose a start date to save.")).toBeInTheDocument();
+      });
+
+      it("never saves a dateless schedule with days, whatever the services run on", () => {
+        // Lunch Mon–Fri with Brunch Sat–Sun: nothing follows the shared days.
+        renderNew(
+          "new",
+          weekOf((i) => i !== 1),
+          "regular"
+        );
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Summer hours" },
+        });
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        expect(screen.getByText("Choose a start date to save.")).toBeInTheDocument();
+        // Taking Brunch away leaves a Lunch-only subset: still no dateless save.
+        fireEvent.click(screen.getByRole("button", { name: "Remove service 2" }));
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+        expect(save).not.toHaveBeenCalled();
+      });
+
+      it("gives each service back its own days once Starting is set", () => {
+        renderNew(
+          "new",
+          weekOf((i) => i !== 1),
+          "regular"
+        );
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+        const lunch = screen.getByRole("group", { name: "Lunch runs on" });
+        expect(
+          within(lunch)
+            .getAllByRole("checkbox")
+            .filter((c) => (c as HTMLInputElement).checked)
+            .map((c) => c.closest("label")?.textContent)
+        ).toEqual(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
       });
 
       it("saves the followed days with the dates once Starting and Ending are set", async () => {

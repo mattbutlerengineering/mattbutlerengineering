@@ -120,20 +120,43 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const followsRegular = mode === "new" && seed === "regular" && !daysTouched;
   const [startsOn, setStartsOn] = useState<string | null>(null);
   const [endsOn, setEndsOn] = useState<string | null>(null);
-  // With Starting set and the days untouched, the seeded days are the regular week's: so a dateless
-  // schedule can never save with days (it would outrank the regular week on every day).
-  const draft = useMemo(
-    () => (followsRegular && startsOn ? { ...rawDraft, days: regularDays } : rawDraft),
-    [followsRegular, startsOn, rawDraft, regularDays]
-  );
+  // The days a seeded schedule shows are the regular week's only once Starting is set (a dateless
+  // schedule with days would outrank the regular week on every day), and only while they are
+  // untouched. Before Starting no service shows days either, its own included; the raw draft keeps
+  // them for after.
+  const draft = useMemo(() => {
+    if (!followsRegular) return rawDraft;
+    return startsOn
+      ? { ...rawDraft, days: regularDays }
+      : { ...rawDraft, days: [], services: rawDraft.services.map((s) => ({ ...s, days: null })) };
+  }, [followsRegular, startsOn, rawDraft, regularDays]);
+  const ownDays = (id: string) => rawDraft.services.find((s) => s.id === id)?.days ?? null;
   const changeDraft = (next: QuickSetupDraft) => {
-    if (!followsRegular || !startsOn) {
-      if (seed === "regular" && next.days.join() !== rawDraft.days.join()) setDaysTouched(true);
+    if (!followsRegular) {
+      if (seed === "regular") setDaysTouched(true);
       setDraft(next);
       return;
     }
+    if (!startsOn) {
+      // Nothing is shown, so any days now are the Manager's; otherwise the services keep the days
+      // the regular week gave them.
+      const chosen = next.days.length > 0 || next.services.some((s) => s.days !== null);
+      if (chosen) setDaysTouched(true);
+      setDraft(
+        chosen
+          ? next
+          : {
+              ...next,
+              days: rawDraft.days,
+              services: next.services.map((s) => ({ ...s, days: ownDays(s.id) })),
+            }
+      );
+      return;
+    }
     // Still the followed days: keep them unset in the draft; any other days are the Manager's.
-    const sameDays = next.days.join() === regularDays.join();
+    const sameDays =
+      next.days.join() === regularDays.join() &&
+      next.services.every((s) => (s.days?.join() ?? null) === (ownDays(s.id)?.join() ?? null));
     if (!sameDays) setDaysTouched(true);
     setDraft(sameDays ? { ...next, days: rawDraft.days } : next);
   };
@@ -219,6 +242,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     services: draft.services,
     startsOn,
     endsOn,
+    // Add a schedule… always starts on a date: with none it would be used nowhere, or outrank the regular week.
+    startRequired: !editing && seed === "regular",
     // A copy of the regular week saved with no end would take it over for good.
     replacesRegularWeek: !editing && replacesRegularWeek(config, useOn, today),
   });
