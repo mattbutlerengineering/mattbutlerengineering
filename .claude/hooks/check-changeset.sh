@@ -8,9 +8,10 @@
 # this hook counted every file in .changeset/, which made it permanently
 # silent once the release queue stopped being drained — see the module header.
 #
-# Advisory, never blocking: always exits 0, prints at most a stderr note.
-# node's own stderr is discarded so a broken import cannot spray a stack
-# trace into the model-facing stderr surface on every edit.
+# Advisory, never blocking: always exits 0. The advisory goes out as ONE line
+# of PostToolUse JSON (`hookSpecificOutput.additionalContext`) on stdout —
+# stderr with exit 0 reaches no one (#5766, #8519). node's own stderr is
+# discarded so a broken import cannot leak a stack trace into the output.
 set -uo pipefail
 
 file_path="${1:-}"
@@ -32,6 +33,8 @@ fi
 cd "$root" || exit 0
 
 advisory=$(node "$root/scripts/changeset-hook.mjs" "$file_path" 2>/dev/null) || true
-[[ -n "$advisory" ]] && printf '%s\n' "$advisory" >&2
+if [[ -n "$advisory" ]]; then
+  ADVISORY="$advisory" node -e 'process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:process.env.ADVISORY}})+"\n")'
+fi
 
 exit 0
