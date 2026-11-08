@@ -12,13 +12,16 @@ import {
   type ClosureAction,
   type ClosureAlongside,
   type ClosureDecision,
+  type ClosureImpact,
   type ClosureImpactGroup,
   type ClosureImpactReservation,
   type AvailabilityConfig,
   type ClosureImpactKind,
   type DateRule,
 } from "@mbe/types";
+import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays } from "../../utils/service-day.js";
+import { minuteText } from "./closure-band.js";
 import { onlineSeatingLeft } from "./online-seatings.js";
 
 /** Channels a booking-only closure can close. */
@@ -293,37 +296,59 @@ function distinctDays(config: AvailabilityConfig, dates: readonly string[]): rea
   return [...kinds.values()];
 }
 
+/** The half hour at or before `minute`. */
+const floorToHalfHour = (minute: number): number => minute - (minute % HALF_HOUR);
+
+/** The services open on these dates: the hours a start time is chosen against. */
+function servicesOn(config: AvailabilityConfig, timezone: string, dates: readonly string[]) {
+  return distinctDays(config, dates).flatMap(
+    (date) => resolveDay({ timezone, config }, date).services
+  );
+}
+
 /**
- * The start times "Starting at" offers across `dates`: every half hour of the day. When any of
- * them runs past midnight, the half hours after it up to its close (shown as "next day"), and none
- * before the earliest opening: a plain "1:00 AM" reads as after midnight but closes that whole
- * evening. `keep` is a time the form already holds (a series' own), which must stay selectable.
+ * The start times "Starting at" offers across `dates`: half hours from the first opening to the
+ * half hour before the last close (shown as "next day" past midnight), and none before the
+ * earliest opening on a day that runs past midnight: a plain "1:00 AM" reads as after midnight
+ * but closes that whole evening. A date with no hours offers the whole day. `nowMinute`, passed
+ * only when the one date is today, starts the list at the next half hour. `keep` is a time the
+ * form already holds (a series' own), which must stay selectable.
  */
 export function startMinutes(
   config: AvailabilityConfig,
   timezone: string,
   dates: readonly string[],
-  keep: number | null
+  keep: number | null,
+  nowMinute?: number
 ): readonly number[] {
-  const services = distinctDays(config, dates).flatMap(
-    (date) => resolveDay({ timezone, config }, date).services
-  );
-  const lastClose = lastCloseOf(services);
-  const end = Math.max(lastClose, keep ?? 0);
+  const services = servicesOn(config, timezone, dates);
+  const hasHours = services.length > 0;
   const firstOpen = services.reduce((min, s) => Math.min(min, s.opensAt), MINUTES_PER_DAY);
-  const first = lastClose > MINUTES_PER_DAY ? firstOpen - (firstOpen % HALF_HOUR) : 0;
-  const options: number[] = [];
+  const opening = hasHours ? floorToHalfHour(firstOpen) : 0;
+  const afterNow = nowMinute === undefined ? 0 : floorToHalfHour(nowMinute) + HALF_HOUR;
   // Starting at the close itself closes nothing, so the last option is the half hour before it.
-  for (
-    let m = first;
-    m < Math.min(Math.max(end, MINUTES_PER_DAY), END_OF_SERVICE_DAY);
-    m += HALF_HOUR
-  ) {
+  const stop = Math.min(hasHours ? lastCloseOf(services) : MINUTES_PER_DAY, END_OF_SERVICE_DAY);
+  const options: number[] = [];
+  for (let m = Math.max(opening, afterNow); m < stop; m += HALF_HOUR) {
     options.push(m);
   }
   return keep !== null && !options.includes(keep)
     ? [...options, keep].sort((a, b) => a - b)
     : options;
+}
+
+/**
+ * The earliest start a day that runs past midnight allows: its first opening. Any other day has
+ * no floor, so a time the Manager chose before opening stays as they chose it.
+ */
+function overnightFloor(
+  config: AvailabilityConfig,
+  timezone: string,
+  dates: readonly string[]
+): number {
+  const services = servicesOn(config, timezone, dates);
+  if (lastCloseOf(services) <= MINUTES_PER_DAY) return 0;
+  return floorToHalfHour(services.reduce((min, s) => Math.min(min, s.opensAt), MINUTES_PER_DAY));
 }
 
 /**
@@ -345,8 +370,100 @@ export function settleStartMinute(
   const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
   const dates =
     next.when.kind === "dates" ? next.when.dates : closedDates({ startsOn, endsOn, repeat });
-  const [first = 0] = startMinutes(config, timezone, dates, null);
-  return next.fromMinute < first ? { ...next, fromMinute: null } : next;
+  return next.fromMinute < overnightFloor(config, timezone, dates)
+    ? { ...next, fromMinute: null }
+    : next;
+}
+
+/** Step 2 follows Step 1 when bookings are affected or an edit gives dates back: what Next checks. */
+export function willHaveStepTwo(
+  groups: readonly ClosureImpactGroup[],
+  givenBack: ClosureImpact["givenBack"]
+): boolean {
+  return groups.length > 0 || Boolean(givenBack);
+}
+
+/** What the toast after a save is built from: the submitted form and the dates it covers. */
+export interface CloseToastDraft {
+  readonly form: CloseForm;
+  /** The first date the closure covers (a repeat's From date may not be one of its days). */
+  readonly date: string;
+  /** How many closures were saved: more than one for Several dates. */
+  readonly count: number;
+  /** The chosen service's or section's name, when What is one. */
+  readonly name: string | undefined;
+}
+
+/** "Online and phone booking": the channels a booking-only closure pauses, in the venue's words. */
+function pausedChannels(types: readonly BookingChannel[], t: TFunction): string {
+  const online = types.includes("online");
+  const phone = types.includes("phone");
+  const waitlist = types.includes("waitlist");
+  if (online && phone && waitlist) return t("availability.close.toast.pausedChannels.all");
+  if (online && phone) return t("availability.close.toast.pausedChannels.online_phone");
+  if (online && waitlist) return t("availability.close.toast.pausedChannels.online_waitlist");
+  if (phone && waitlist) return t("availability.close.toast.pausedChannels.phone_waitlist");
+  if (phone) return t("availability.close.toast.pausedChannels.phone");
+  if (waitlist) return t("availability.close.toast.pausedChannels.waitlist");
+  return t("availability.close.toast.pausedChannels.online");
+}
+
+/** The sentence after a save (ux.md F4.7): what closed, when, and how many guests were told. */
+export function closeToastText(
+  draft: CloseToastDraft,
+  outcome: { readonly notified: number },
+  t: TFunction,
+  format: Pick<VenueFormat, "formatCalendarDate" | "formatLocalTime">
+): string {
+  const { form, count, name } = draft;
+  const { what, when } = form;
+  const date = format.formatCalendarDate(draft.date, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+
+  const base = (): string => {
+    if (when.kind === "dates") {
+      if (what.kind === "booking")
+        return t("availability.close.toast.manyBookingPaused", { count });
+      return name
+        ? t("availability.close.toast.serviceClosedMany", { name, count })
+        : t("availability.close.toast.many", { count });
+    }
+    if (what.kind === "booking") {
+      if (what.types.length === 1 && what.types[0] === "online") {
+        return t("availability.close.toast.paused");
+      }
+      return t("availability.close.toast.bookingPausedOn", {
+        channels: pausedChannels(what.types, t),
+        date,
+      });
+    }
+    if (form.fromMinute !== null) {
+      const time = minuteText(form.fromMinute, t, format);
+      const tonight = when.kind === "tonight";
+      if (name) {
+        return tonight
+          ? t("availability.close.toast.serviceClosedFromTonight", { service: name, time })
+          : t("availability.close.toast.serviceClosedFrom", { service: name, time, date });
+      }
+      return tonight
+        ? t("availability.close.toast.closedFromTonight", { time })
+        : t("availability.close.toast.closedFrom", { time, date });
+    }
+    if (name && what.kind === "section") {
+      return t("availability.close.toast.closedSection", { section: name, date });
+    }
+    return name
+      ? t("availability.close.toast.serviceClosedOn", { service: name, date })
+      : t("availability.close.toast.closedOn", { date });
+  };
+
+  const sentence = base();
+  return outcome.notified > 0
+    ? t("availability.close.toast.withNotified", { text: sentence, count: outcome.notified })
+    : sentence;
 }
 
 function whatOf(series: DateRule): CloseWhat {

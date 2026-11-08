@@ -23,6 +23,7 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
   buildCloseRules,
+  closeToastText,
   closedDates,
   closureForm,
   decisionsReady,
@@ -37,6 +38,7 @@ import {
   seriesForm,
   settleStartMinute,
   startMinutes,
+  willHaveStepTwo,
   stepTwoNote,
   stepTwoNoteId,
   toDecisions,
@@ -285,13 +287,28 @@ export function CloseDialog(props: CloseDialogProps) {
       ? (rules.map((r) => replacedSpecialDate(liveRules, r)).find((d) => d !== null) ?? null)
       : null;
   // Read every day the closure covers: a time must mean the same on all of them.
+  const closedOn = rules.length > 0 ? rules.flatMap(closedDates) : [startsOn];
   const startOptions = startMinutes(
     state.config,
     timezone,
-    rules.length > 0 ? rules.flatMap(closedDates) : [startsOn],
-    form.fromMinute
+    closedOn,
+    form.fromMinute,
+    // Only a closure of today alone starts no earlier than now; any other date has its own hours.
+    closedOn.length === 1 && closedOn[0] === today
+      ? serviceMinuteOf(now, timezone, today)
+      : undefined
   );
 
+  const stepTwo = willHaveStepTwo(groups, givenBack);
+  // Range and Repeats start with To empty: the closure is not one until the Manager picks it.
+  const toMissing =
+    (form.when.kind === "range" || form.when.kind === "repeats") && form.when.to === "";
+  const targetName =
+    what.kind === "service"
+      ? services.find((s) => s.id === what.serviceId)?.name
+      : what.kind === "section"
+        ? sectionName
+        : undefined;
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
 
@@ -299,7 +316,7 @@ export function CloseDialog(props: CloseDialogProps) {
     const problem = validateClose(form, today);
     setInvalid(problem);
     if (problem) return focusCloseField(problem);
-    if (groups.length > 0 || givenBack) setStep(2);
+    if (stepTwo) setStep(2);
     else void save();
   };
 
@@ -353,26 +370,14 @@ export function CloseDialog(props: CloseDialogProps) {
       const notified = cancel + move + keep_notify;
       const givenBackTold = saved.result?.givenBackNotified ?? 0;
       // A repeat's From date may not be one of its days.
-      const date = fullDate(closedDates(rule)[0] ?? startsOn);
-      const count = rules.length;
-      const title = several
-        ? t(
-            notified > 0
-              ? "availability.close.toast.manyNotified"
-              : form.what.kind === "booking"
-                ? "availability.close.toast.manyBookingPaused"
-                : "availability.close.toast.many",
-            { count, notified }
-          )
-        : notified > 0
-          ? t("availability.close.toast.notified", { date, count: notified })
-          : form.what.kind === "booking"
-            ? form.what.types.length === 1 && form.what.types[0] === "online"
-              ? t("availability.close.toast.paused")
-              : t("availability.close.toast.bookingPaused", { date })
-            : sectionName
-              ? t("availability.close.toast.closedSection", { section: sectionName, date })
-              : t("availability.close.toast.closed", { date });
+      const firstDate = closedDates(rule)[0] ?? startsOn;
+      const date = fullDate(firstDate);
+      const title = closeToastText(
+        { form, date: firstDate, count: rules.length, name: targetName },
+        { notified },
+        t,
+        format
+      );
       if (props.onSavedQuietly && saved.result && notified === 0 && givenBackTold === 0) {
         // A save that told no guest is one History can revert: the caller offers Undo.
         props.onSavedQuietly(saved.result);
@@ -426,13 +431,15 @@ export function CloseDialog(props: CloseDialogProps) {
   const primaryDisabled =
     savedEarlier ||
     editState !== null ||
-    (step === 2 ? !impact || !decisionsReady(groups, choices) : impactLoading || impactFailed);
+    (step === 2
+      ? !impact || !decisionsReady(groups, choices)
+      : impactLoading || impactFailed || toMissing);
   const label =
     step === 2
       ? groups.length === 0
         ? t("availability.close.edit.save")
         : outcomeLabel(counts, t)
-      : groups.length > 0 || givenBack
+      : stepTwo
         ? t("availability.close.next")
         : editing
           ? t("availability.close.edit.save")
@@ -461,8 +468,18 @@ export function CloseDialog(props: CloseDialogProps) {
       <Dialog
         open
         onClose={leave}
-        title={editing ? t("availability.close.edit.title") : t("availability.close.title")}
-        description={savedEarlier ? undefined : t("availability.close.step", { step })}
+        title={
+          editing
+            ? t("availability.close.edit.title")
+            : props.pauseOnline
+              ? t("availability.close.button.pause")
+              : t("availability.close.title")
+        }
+        description={
+          savedEarlier || (step === 1 && !stepTwo)
+            ? undefined
+            : t("availability.close.step", { step })
+        }
         footer={
           savedEarlier ? (
             <div className={styles.footer}>

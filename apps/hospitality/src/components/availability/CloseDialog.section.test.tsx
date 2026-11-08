@@ -143,8 +143,11 @@ describe("CloseDialog: One section (ADR-032)", () => {
     sectionsRead.value = { data: [], isLoading: false, error: null };
     renderDialog();
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("radio", { name: "One section" })).toBeDisabled();
-    expect(within(dialog).getByText("Add a section to your floor plan first")).toBeInTheDocument();
+    const choice = within(dialog).getByRole("radio", { name: /^One section/ });
+    expect(choice).toBeDisabled();
+    // The reason is part of the choice itself, so it is read with it.
+    expect(choice).toHaveAccessibleDescription("Add a section to your floor plan first");
+    expect(choice.closest("label")).toHaveTextContent("Add a section to your floor plan first");
     expect(within(dialog).getByRole("link", { name: "Open Floor Plan" })).toHaveAttribute(
       "href",
       "/floor-plans"
@@ -155,8 +158,9 @@ describe("CloseDialog: One section (ADR-032)", () => {
     sectionsRead.value = { data: [], isLoading: false, error: new Error("down") };
     renderDialog();
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("radio", { name: "One section" })).toBeDisabled();
-    expect(within(dialog).getByText("Couldn't load the sections.")).toBeInTheDocument();
+    const choice = within(dialog).getByRole("radio", { name: /^One section/ });
+    expect(choice).toBeDisabled();
+    expect(choice).toHaveAccessibleDescription("Couldn't load the sections.");
     expect(within(dialog).getByRole("radio", { name: "Whole venue" })).toBeEnabled();
   });
 });

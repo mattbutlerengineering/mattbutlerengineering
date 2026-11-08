@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { ClosureImpactGroup, DateRule } from "@mbe/types";
+import { defaultT } from "../../i18n/default-t.js";
+import { formatCalendarDate, formatLocalTime } from "../../utils/format.js";
 import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 import {
   actionsFor,
@@ -8,6 +10,7 @@ import {
   buildCloseRules,
   toggleDate,
   closedDates,
+  closeToastText,
   closeWhenId,
   decisionsReady,
   isPauseInForce,
@@ -19,6 +22,7 @@ import {
   toDecisions,
   unmovable,
   validateClose,
+  willHaveStepTwo,
   withoutChoicesFor,
   type CloseForm,
 } from "./close-draft.js";
@@ -597,10 +601,58 @@ describe("startMinutes (#7978)", () => {
   };
   const TZ = "America/Los_Angeles";
 
-  it("offers the whole day in half hours when the day closes before midnight", () => {
+  it("runs from the first opening to the half hour before the last close", () => {
+    // The fixture Friday: Lunch opens 11:30 AM, Dinner closes 11:00 PM.
     const options = startMinutes(fixtureConfig(), TZ, [FRIDAY], null);
-    expect(options).toHaveLength(48);
+    expect(options[0]).toBe(690);
+    expect(options.at(-1)).toBe(1350);
+    expect(options).toHaveLength(23);
+  });
+
+  it("floors the first opening to the half hour", () => {
+    const base = fixtureConfig();
+    const config = {
+      ...base,
+      scheduleServices: base.scheduleServices.map((s) => ({ ...s, opensAt: s.opensAt + 10 })),
+    };
+    expect(startMinutes(config, TZ, [FRIDAY], null)[0]).toBe(690);
+  });
+
+  it("offers the whole day on a date with no hours at all", () => {
+    const options = startMinutes(fixtureConfig(), TZ, ["2026-12-21"], null);
+    expect(options[0]).toBe(0);
     expect(options.at(-1)).toBe(1410);
+  });
+
+  describe("with the time now (today)", () => {
+    it("starts at the next half hour, never on the half hour it is", () => {
+      const at = (now: number) => startMinutes(fixtureConfig(), TZ, [FRIDAY], null, now);
+      expect(at(18 * 60)[0]).toBe(18 * 60 + 30);
+      expect(at(18 * 60 + 1)[0]).toBe(18 * 60 + 30);
+      expect(at(18 * 60 + 29)[0]).toBe(18 * 60 + 30);
+      expect(at(18 * 60 + 30)[0]).toBe(19 * 60);
+    });
+
+    it("lists 6:30 PM to 10:30 PM at 6:00 PM when Dinner closes at 11:00 PM", () => {
+      const options = startMinutes(fixtureConfig(), TZ, [FRIDAY], null, 18 * 60);
+      expect(options).toEqual([1110, 1140, 1170, 1200, 1230, 1260, 1290, 1320, 1350]);
+    });
+
+    it("does not start before opening when it is earlier than that", () => {
+      expect(startMinutes(fixtureConfig(), TZ, [FRIDAY], null, 6 * 60)[0]).toBe(690);
+    });
+
+    it("keeps the overnight close: the last option is still the half hour before it", () => {
+      expect(startMinutes(late(1560), TZ, [FRIDAY], null, 22 * 60).slice(0, 2)).toEqual([
+        1350, 1380,
+      ]);
+      expect(startMinutes(late(1560), TZ, [FRIDAY], null, 22 * 60).at(-1)).toBe(1530);
+    });
+
+    it("is empty once nothing is left to close from, and still holds a time the form has", () => {
+      expect(startMinutes(fixtureConfig(), TZ, [FRIDAY], null, 22 * 60 + 45)).toEqual([]);
+      expect(startMinutes(fixtureConfig(), TZ, [FRIDAY], 1200, 22 * 60 + 45)).toEqual([1200]);
+    });
   });
 
   it("continues past midnight to the half hour before a 2:00 AM close", () => {
@@ -610,6 +662,7 @@ describe("startMinutes (#7978)", () => {
 
   it("keeps a start time the form already holds selectable", () => {
     expect(startMinutes(fixtureConfig(), TZ, [FRIDAY], 1500)).toContain(1500);
+    expect(startMinutes(fixtureConfig(), TZ, [FRIDAY], 60)).toContain(60);
   });
 
   describe("on a day that runs past midnight", () => {
@@ -724,5 +777,94 @@ describe("Close on several dates (#7981)", () => {
   it("toggles a date in and out, ascending and without repeats", () => {
     expect(toggleDate(["2026-12-26"], "2026-12-24")).toEqual(["2026-12-24", "2026-12-26"]);
     expect(toggleDate(["2026-12-24", "2026-12-26"], "2026-12-24")).toEqual(["2026-12-26"]);
+  });
+});
+
+describe("willHaveStepTwo", () => {
+  const group = { groupKey: "g" } as ClosureImpactGroup;
+
+  it("is true when bookings are affected or an edit gives dates back", () => {
+    expect(willHaveStepTwo([group], undefined)).toBe(true);
+    expect(willHaveStepTwo([], { guests: 2 } as never)).toBe(true);
+  });
+
+  it("is false when nothing is affected", () => {
+    expect(willHaveStepTwo([], undefined)).toBe(false);
+  });
+});
+
+describe("closeToastText (ux.md F4.7)", () => {
+  const locale = "en-US";
+  const fmt = {
+    formatCalendarDate: (d: string, o: Intl.DateTimeFormatOptions) =>
+      formatCalendarDate(d, o, locale),
+    formatLocalTime: (hhmm: string) => formatLocalTime(hhmm, locale),
+  };
+  const base = (patch: Partial<CloseForm>): CloseForm =>
+    form({ when: { kind: "date", date: "2026-12-24" }, ...patch });
+  const text = (
+    f: CloseForm,
+    extra: { notified?: number; name?: string; count?: number; date?: string } = {}
+  ) =>
+    closeToastText(
+      { form: f, date: extra.date ?? "2026-12-24", count: extra.count ?? 1, name: extra.name },
+      { notified: extra.notified ?? 0 },
+      defaultT,
+      fmt
+    );
+
+  it("names the whole venue, a service and a section on one date", () => {
+    expect(text(base({}))).toBe("Closed on Thu, Dec 24");
+    expect(text(base({ what: { kind: "service", serviceId: "s" } }), { name: "Lunch" })).toBe(
+      "Lunch closed on Thu, Dec 24"
+    );
+    expect(text(base({ what: { kind: "section", sectionId: "s" } }), { name: "Bar" })).toBe(
+      "Bar closed on Thu, Dec 24"
+    );
+  });
+
+  it("names the channels a booking-only closure pauses", () => {
+    const paused = (types: readonly ("online" | "phone" | "waitlist")[]) =>
+      text(base({ what: { kind: "booking", types }, when: { kind: "date", date: "2026-11-08" } }), {
+        date: "2026-11-08",
+      });
+    expect(paused(["phone"])).toBe("Phone booking paused on Sun, Nov 8");
+    expect(paused(["online", "phone"])).toBe("Online and phone booking paused on Sun, Nov 8");
+    expect(paused(["phone", "online"])).toBe("Online and phone booking paused on Sun, Nov 8");
+    expect(paused(["online", "phone", "waitlist"])).toBe("All booking paused on Sun, Nov 8");
+    expect(paused(["online"])).toBe("Online booking paused");
+  });
+
+  it("says when it starts: tonight, or on a date", () => {
+    expect(
+      text(base({ when: { kind: "tonight" }, fromMinute: 1290 }), { date: "2026-11-08" })
+    ).toBe("Closed from 9:30 PM tonight");
+    expect(
+      text(base({ what: { kind: "service", serviceId: "s" }, fromMinute: 780 }), { name: "Lunch" })
+    ).toBe("Lunch closed from 1:00 PM on Thu, Dec 24");
+    expect(text(base({ fromMinute: 1500 }))).toBe("Closed from 1:00 AM (next day) on Thu, Dec 24");
+  });
+
+  it("counts several dates, naming the target first", () => {
+    const several = base({
+      when: { kind: "dates", dates: ["2026-12-24", "2026-12-25", "2026-12-26"] },
+    });
+    expect(text(several, { count: 3 })).toBe("3 dates closed");
+    expect(
+      text({ ...several, what: { kind: "service", serviceId: "s" } }, { count: 3, name: "Lunch" })
+    ).toBe("Lunch closed on 3 dates");
+    expect(text({ ...several, what: { kind: "booking", types: ["phone"] } }, { count: 3 })).toBe(
+      "Booking paused on 3 dates"
+    );
+  });
+
+  it("adds the reservations notified", () => {
+    expect(text(base({}), { notified: 14 })).toBe(
+      "Closed on Thu, Dec 24 · 14 reservations notified"
+    );
+    expect(text(base({}), { notified: 1 })).toBe("Closed on Thu, Dec 24 · 1 reservation notified");
+    expect(
+      text(base({ what: { kind: "service", serviceId: "s" } }), { name: "Lunch", notified: 2 })
+    ).toBe("Lunch closed on Thu, Dec 24 · 2 reservations notified");
   });
 });
