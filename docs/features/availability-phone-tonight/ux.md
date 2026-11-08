@@ -15,7 +15,7 @@ assumptions:
 
 In the page header's description slot, on every layer, for Manager and Host. It replaces the static "Your hours, holidays and one-off changes." once today's state has loaded. That line still shows while loading and for an empty venue, so nothing moves. The line is one flowing run of text: label, date, hours, items, link. It wraps on a phone and has no rows or margins of its own.
 
-*Amended at Implement (2026-11-08): the first build placed it as its own block under the header. It cost 50 px on desktop and 78 px on a phone, and failed the calendar first-screen guards in `availability-phone.spec.ts`, which protect what the calendar shows above the fold.*
+_Amended at Implement (2026-11-08): the first build placed it as its own block under the header. It cost 50 px on desktop and 78 px on a phone, and failed the calendar first-screen guards in `availability-phone.spec.ts`, which protect what the calendar shows above the fold._
 
 ```
 ┌ Availability ───────────────────────────────────────── Close…  Pause ┐
@@ -44,21 +44,21 @@ Change tonight →
    - a day with no open service reads **"Closed"**, with no items about closures, since the day is simply closed.
 3. **Items**, each a neutral Rialto `Tag` (not dismissible, not a control). In this order:
 
-   | In force today | Text |
-   |---|---|
-   | A service closed all day | "Lunch closed" |
-   | A section closed all day | "Patio closed" |
-   | The venue closing from a time (a closure with a start time) | "Closing early · 9:30 PM" |
-   | A service or section closing from a time | "Dinner closing early · 9:30 PM" |
-   | Booking paused (a closure on booking channels) | "Online paused", "Phone paused", "Online and phone paused"; with a time: "Phone paused from 6:30 PM" |
-   | Night-of close early (Timeline) | "Closing early · 9:30 PM" (the Timeline's chip) |
-   | Night-of stop window | "No bookings 7:30–8:00 PM" (the Timeline's chip) |
-   | Night-of blocked tables | "2 tables blocked · rest of tonight" (the Timeline's chips, incl. from/window variants) |
-   | Night-of pacing | the Timeline's pacing chip |
-   | Night-of online pause | "Online paused · rest of tonight" |
-
+   | In force today                                              | Text                                                                                                 |
+   | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+   | A service closed all day                                    | "Lunch closed"                                                                                       |
+   | A section closed all day                                    | "Patio closed"                                                                                       |
+   | The venue closing from a time (a closure with a start time) | "Closing early · 9:30 PM"                                                                            |
+   | A service or section closing from a time                    | "Dinner closing early · 9:30 PM"                                                                     |
+   | Booking paused (a closure on booking channels)              | "Online paused", "Phone paused", "Online and phone paused"; with a time: "Phone paused from 6:30 PM" |
+   | Night-of close early (Timeline)                             | "Closing early · 9:30 PM" (the Timeline's chip)                                                      |
+   | Night-of stop window                                        | "No bookings 7:30–8:00 PM" (the Timeline's chip)                                                     |
+   | Night-of blocked tables                                     | "2 tables blocked · rest of tonight" (the Timeline's chips, incl. from/window variants)              |
+   | Night-of pacing                                             | the Timeline's pacing chip                                                                           |
+   | Night-of online pause                                       | "Online paused · rest of tonight"                                                                    |
    - **Said once:** when the online-pause banner is showing, the line does not include an online pause (its own night-of chip, or the online part of a channel closure). "Online and phone paused" becomes "Phone paused".
    - Two items with the same text (a close-early made both ways) show once.
+
 4. **"Change tonight"**, a Rialto link to `/timeline?tonight=open`, which opens the Timeline's Tonight panel (popover on desktop, sheet on a phone). The same link for Manager and Host. Nothing else on the line is interactive.
 
 ### States
@@ -78,6 +78,7 @@ Change tonight →
 ### Where
 
 The week form at phone width in:
+
 - the Schedules week panel;
 - Change regular week;
 - the schedule editor (New, Duplicate, Edit).
@@ -108,6 +109,7 @@ One full-width button per service, styled as a list row with a chevron:
 ### Open line
 
 The same row as the header, with the chevron turned up and the service's existing controls below it, unchanged: presets, name, times, days, different hours, Remove.
+
 - Pressing the header closes it.
 - Opening one service closes any other.
 - On first paint no service is open, unless one has a problem.
@@ -130,7 +132,7 @@ The same row as the header, with the chevron turned up and the service's existin
 
 In the week panel at phone width, the Guest preview is one closed row, "Guest preview", with its hint. It opens the existing preview inline below the row (`aria-expanded`). It stays closed on first paint.
 
-*Amended at Implement (2026-11-08): with the service lines closed, the form column measured 523 px but the preview stacked under it at 915 px, so the panel stayed at 1,553 px against P2's ≤ 1,236. The audit's item #2 had proposed this row; prd.md had left it out, and it is now in.*
+_Amended at Implement (2026-11-08): with the service lines closed, the form column measured 523 px but the preview stacked under it at 915 px, so the panel stayed at 1,553 px against P2's ≤ 1,236. The audit's item #2 had proposed this row; prd.md had left it out, and it is now in._
 
 ### Desktop / tablet / onboarding
 

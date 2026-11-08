@@ -52,12 +52,12 @@ e2e (availability-*, onboarding, venue-setup-hub, a11y, fold-budget, locale-swee
 
 ### 4. Phone budgets
 
-| # | Job | Before (base 6f15dbcb5) | Measured | Budget |
-|---|---|---|---|---|
-| P1 | Change Dinner's close and save, 375×812 | 3 clicks + ≈ 550 px scroll (Dinner's Closes at y = 1,357) | 4, with Dinner's line in the first viewport | ≤ 4, line in the first viewport |
-| P2 | Week panel height, no changes | 2,472.7 px | 719.1 px | ≤ 1,236 px |
-| T1 | Learn tonight's state | 2 (Timeline, Tonight) | 0 | 0 |
-| T2 | Reach the Tonight controls | 2 | 1 | ≤ 2 |
+| #   | Job                                     | Before (base 6f15dbcb5)                                   | Measured                                    | Budget                          |
+| --- | --------------------------------------- | --------------------------------------------------------- | ------------------------------------------- | ------------------------------- |
+| P1  | Change Dinner's close and save, 375×812 | 3 clicks + ≈ 550 px scroll (Dinner's Closes at y = 1,357) | 4, with Dinner's line in the first viewport | ≤ 4, line in the first viewport |
+| P2  | Week panel height, no changes           | 2,472.7 px                                                | 719.1 px                                    | ≤ 1,236 px                      |
+| T1  | Learn tonight's state                   | 2 (Timeline, Tonight)                                     | 0                                           | 0                               |
+| T2  | Reach the Tonight controls              | 2                                                         | 1                                           | ≤ 2                             |
 
 - First paint outside the week panel is ≤ 9: `availability-setup-hierarchy.spec.ts`, PRD 15/23 tests, updated deliberately from ≤ 8.
 - The calendar first-screen guards hold: 6 whole days (≥ 5), 4 (≥ 4), and the desktop first day at y = 487.5 (< 500).
@@ -83,6 +83,7 @@ e2e (availability-*, onboarding, venue-setup-hub, a11y, fold-budget, locale-swee
   - the night-of close-early chip;
   - a closed day reading "Closed";
   - a Host seeing the same line.
+
 - **Result:** PASS
 
 ### 6. Said once
@@ -120,11 +121,13 @@ e2e (availability-*, onboarding, venue-setup-hub, a11y, fold-budget, locale-swee
   - the 375 px fit scans skip visually hidden separators.
 
   The run before the review fixes (`801c8f083`) was 543/546. Three failures were caused by the phone lines (R9, and the axe label-in-name check in Change regular week at 375 in en-US and fr-CA); all three are fixed.
+
 - **Result:** PASS
 
 ## Failures
 
 None open. Found and fixed during Implement and Review:
+
 - the first Today line block failed the calendar guards;
 - P2 failed at 1,553 px until the Guest preview row was added;
 - line headers failed axe label-in-name;

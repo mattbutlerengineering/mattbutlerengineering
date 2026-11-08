@@ -19,6 +19,7 @@ assumptions:
   - Catalog keys `availability.today.*` in all three locales.
 
   PRD 5–9.
+
 - [x] 3. **Phone service lines.**
   - `quick-setup-line.ts` (`serviceLineText`) and `quick-setup-line.tsx` (the header).
   - `QuickSetupForm` gets `collapsible`, `openId`, forced-open services and the focus rules.
@@ -27,6 +28,7 @@ assumptions:
   - Catalog keys `availability.quickSetup.line.*`.
 
   PRD 1–3, 9.
+
 - [x] 4. **Scenario e2e.** `e2e/availability-phone-tonight.spec.ts` covers P1, P2, T1 (paused, closing early, a service closed, a closed day, said-once with the banner) and T2 (the Timeline opens with Tonight open), plus a Host. Deliberate updates to the first-paint count (≤ 9) and to any phone selectors. PRD 4, 10.
 
 ## Order
@@ -34,6 +36,7 @@ assumptions:
 Items 1 and 3 run in parallel. Item 2 follows item 1 in the same slice. Item 4 follows both.
 
 ## Notes
+
 - 2026-11-08 (Implement): deviations from architecture.md.
   - A2: `tonightChipText(change, t, format)` matches how the chips already called `minuteText`. It lives in `tonight-state.ts`, and the Today wording is in `today-line-text.ts`.
   - A4: the link is `/timeline?tonight=open` through react-router's `Link`. Staff routes are not venue-scoped (`nav-sections.ts`, `main.tsx`), and Rialto has no Link.
@@ -50,4 +53,3 @@ Items 1 and 3 run in parallel. Item 2 follows item 1 in the same slice. Item 4 f
     - a blank service starts open.
   - Refused Save: the panel's Save was natively disabled, so it could not focus a problem. For form problems it is now `aria-disabled` and focuses the first problem field; other blocks stay disabled. This shows on desktop too.
   - Added in scope: the Guest preview is one closed row on a phone (`quick-setup-preview-row.tsx`). The strip takes `labelledBy` to drop its repeated heading (prd.md and ux.md amended).
-

@@ -27,6 +27,7 @@ assumptions:
 **Door: two-way.** Reverting restores #8528's page. No API, schema, engine or migration change.
 
 **Blast radius:**
+
 - Every viewer of `/availability` sees the Today line in the header's subtitle slot.
 - Phone users of the week form get service lines.
 - The Timeline accepts `?tonight=open`.
@@ -56,6 +57,7 @@ git push origin HEAD:refs/heads/revert-8533 && gh pr create --base main --head r
 ## Post-release checks
 
 Not run: nothing has reached users. After #8511, #8528 and #8533 merge and deploy, check https://mattbutlerengineering.com/hospitality/availability:
+
 - The header reads "Today · <date> · <hours>" with what's in force tonight.
 - "Change tonight" opens the Timeline's Tonight panel.
 - On a phone, the week form shows one line per service.

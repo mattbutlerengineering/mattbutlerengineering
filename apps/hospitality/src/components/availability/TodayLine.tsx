@@ -8,7 +8,7 @@ import { hoursText, todayItemText } from "./today-line-text.js";
 import styles from "./TodayLine.module.css";
 
 /** Where "Change tonight" goes: the Timeline, with its Tonight panel open. */
-export const CHANGE_TONIGHT_PATH = "/timeline?tonight=open";
+const CHANGE_TONIGHT_PATH = "/timeline?tonight=open";
 
 export interface TodayLineProps {
   readonly venueId: string;

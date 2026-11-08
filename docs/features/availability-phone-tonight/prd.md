@@ -44,16 +44,18 @@ Checks by component test (C), e2e (E) or both.
   - Opening or closing a line keeps focus on that line, and its expanded state is announced.
 
   C.
+
 - [ ] 4. **Phone budgets** (E, 375×812, F-one: Lunch and Dinner):
 
-  | # | Catalogue | Job | Before | Budget |
-  |---|---|---|---|---|
-  | P1 | A1/B7 | Change Dinner's close to 11:00 PM and save | measured at Implement | ≤ 4 interactions, Dinner's line inside the first viewport |
-  | P2 | A1 | The week panel's height with no unsaved changes | 2,421 px (audit) | ≤ half the measured before |
-  | T1 | E40/E41/L107 | Learn tonight's state (paused, closing early, a service closed) | 2: Timeline, then Tonight | 0 clicks on `/availability` |
-  | T2 | L107–L110 | Reach the Tonight controls from `/availability` | 2 (nav, Tonight) | ≤ 2, from the Today line |
+  | #   | Catalogue    | Job                                                             | Before                    | Budget                                                    |
+  | --- | ------------ | --------------------------------------------------------------- | ------------------------- | --------------------------------------------------------- |
+  | P1  | A1/B7        | Change Dinner's close to 11:00 PM and save                      | measured at Implement     | ≤ 4 interactions, Dinner's line inside the first viewport |
+  | P2  | A1           | The week panel's height with no unsaved changes                 | 2,421 px (audit)          | ≤ half the measured before                                |
+  | T1  | E40/E41/L107 | Learn tonight's state (paused, closing early, a service closed) | 2: Timeline, then Tonight | 0 clicks on `/availability`                               |
+  | T2  | L107–L110    | Reach the Tonight controls from `/availability`                 | 2 (nav, Tonight)          | ≤ 2, from the Today line                                  |
 
   #8511/#8528's budgets still hold. Exception: the first-paint count of controls outside the week panel moves from ≤ 8 to ≤ 9, because the Today line's link is one control. That link replaces a two-step path (T2) and the trip T1 takes.
+
 - [ ] 5. **The Today line says what's true.** On every layer, for Manager and Host, a line under the page header names:
   - **The service day:** after midnight and before the venue's rollover it is yesterday's service day.
   - **Hours:** each service's hours that day, or Closed.
@@ -63,6 +65,7 @@ Checks by component test (C), e2e (E) or both.
     - night-of changes from the Timeline: close early, stop window, tables blocked, pacing, in the Timeline's own words.
 
   An item that has ended (`expiresAt` passed) is not shown. With nothing in force, hours alone. C per item + E (T1).
+
 - [ ] 6. **Said once.** A pause that the existing online-pause banner already states is not repeated on the line, and the line's other items remain. C.
 - [ ] 7. **To the Tonight controls.** The line offers one link to the Timeline's Tonight controls for Manager and Host. C + E (T2).
 - [ ] 8. **Honest while loading or failed.** The line shows nothing until today's state has loaded, without moving the page below it once it appears. If it fails, it says so in one line with Retry, and the rest of the page works. C.

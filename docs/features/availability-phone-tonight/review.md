@@ -12,6 +12,7 @@ assumptions:
 ## Scope
 
 Diff `6f15dbcb5..HEAD -- apps/hospitality` (43 files):
+
 - the phone service lines and the phone Guest preview row in the shared week form;
 - the refused-Save focus;
 - the Today line (model, text, hook, view, header slot);
@@ -58,6 +59,7 @@ Diff `6f15dbcb5..HEAD -- apps/hospitality` (43 files):
 ## Passes with no findings
 
 Each pass was checked against the code and the engine, per the reviewer:
+
 - Service day vs calendar day.
 - Band classification vs `resolve-day.ts`.
 - Night-of bands skipped.

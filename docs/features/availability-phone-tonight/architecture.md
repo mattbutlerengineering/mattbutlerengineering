@@ -15,14 +15,14 @@ assumptions:
 
 ```ts
 export type TodayItem =
-  | { kind: "serviceClosed"; name: string }                       // service or section, whole day
-  | { kind: "closingEarly"; at: number; name: string | null }     // venue (name null) / service / section from a time
+  | { kind: "serviceClosed"; name: string } // service or section, whole day
+  | { kind: "closingEarly"; at: number; name: string | null } // venue (name null) / service / section from a time
   | { kind: "paused"; channels: readonly BookingType[]; from: number | null }
-  | { kind: "tonight"; change: TonightChange };                    // night-of rule, Timeline wording
+  | { kind: "tonight"; change: TonightChange }; // night-of rule, Timeline wording
 
 export interface TodayLineModel {
   readonly serviceDate: string;
-  readonly closed: boolean;                                        // no open service that day
+  readonly closed: boolean; // no open service that day
   readonly hours: readonly { name: string; opensAt: number; closesAt: number }[];
   readonly items: readonly TodayItem[];
 }
@@ -30,11 +30,11 @@ export interface TodayLineModel {
 export function todayLine(input: {
   serviceDate: string;
   summary: AvailabilityDaySummary;
-  rules: readonly DateRule[];                                      // for activeTonightChanges
+  rules: readonly DateRule[]; // for activeTonightChanges
   now: Date;
-  serviceNames: ReadonlyMap<string, string>;                       // venueServiceId → name
+  serviceNames: ReadonlyMap<string, string>; // venueServiceId → name
   sectionNames: ReadonlyMap<string, string>;
-  bannerShowsOnline: boolean;                                      // OnlinePausedBanner is up
+  bannerShowsOnline: boolean; // OnlinePausedBanner is up
 }): TodayLineModel;
 ```
 
@@ -107,6 +107,7 @@ export function todayLine(input: {
 ## C. Files
 
 New:
+
 - `today-line.ts` + test
 - `TodayLine.tsx` + module.css + test
 - `useTodayLine.ts`
@@ -114,6 +115,7 @@ New:
 - `quick-setup-line.tsx`
 
 Changed:
+
 - `tonight-state.ts` (chip text export)
 - `TonightControl.tsx` (uses it; `defaultOpen`)
 - `TimelineTonight.tsx`

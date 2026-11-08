@@ -49,10 +49,12 @@ Rounds 1–2 (#8511, #8528) put the week first, kept Save in reach and made the 
 Chosen: Showstopper (default; the Owner delegated), in the user's words: "make the ux easy for them and use our scenarios to support."
 
 Not taken:
+
 - **Solid:** a one-line "Tonight" text on `/availability` linking to the Timeline, and a CSS-only tighter phone layout.
 - **Moonshot:** the weekly "what changes this week" list, already seeded in `docs/backlog.md`.
 
 The four tests:
+
 - **Demo: pass.** On a phone, a Manager opens Availability and reads "Today · Lunch 11:30 AM–3:00 PM · Dinner 5:00–10:00 PM · Online paused". They tap the **Dinner** row, change Closes to 11:00 PM and Save, without scrolling past Lunch's controls.
 - **Removes a step: pass.** Going to the Timeline and opening the Tonight panel to learn tonight's state is gone, and so is scrolling past other services' controls on a phone.
 - **Only this product: pass.** It already holds today's resolved hours, the night-of rules and the closures. Nothing else knows that "Online paused" and "Lunch closed" apply to this venue tonight.
@@ -67,6 +69,7 @@ The four tests:
 ## Riskiest piece + spike
 
 The shared week form (`QuickSetupForm`) also serves onboarding, the Change regular week drawer and the schedule editor. Collapsing on phone must:
+
 - keep every problem visible: a row with a problem stays open;
 - keep focus rules: a new service opens, and Remove moves focus to a neighbour;
 - keep onboarding unchanged.
