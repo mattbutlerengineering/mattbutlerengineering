@@ -24,7 +24,13 @@ vi.mock("../../hooks/useClosures.js", () => ({
 vi.mock("../../hooks/useFloorPlans.js", () => ({
   useVenueFloorPlanSections: () => sectionsRead.value,
 }));
-vi.mock("../../hooks/useTables.js", () => ({ useTables: () => tablesRead.value }));
+const useTablesSpy = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useTables.js", () => ({
+  useTables: (params: unknown) => {
+    useTablesSpy(params);
+    return tablesRead.value;
+  },
+}));
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../../contexts/venue-context-object.js", () => ({
@@ -108,6 +114,13 @@ describe("CloseDialog: One section (ADR-032)", () => {
       endsOn: DATE,
     });
     expect(await screen.findByText("Bar closed on Thu, Dec 24")).toBeInTheDocument();
+  });
+
+  it("reads every active table of the venue, not the first page", () => {
+    renderDialog();
+    expect(useTablesSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "venue-1", activeOnly: true, limit: 100 })
+    );
   });
 
   it("starts on the section it is opened for", () => {

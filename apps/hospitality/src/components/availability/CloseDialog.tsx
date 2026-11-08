@@ -159,7 +159,7 @@ export function CloseDialog(props: CloseDialogProps) {
   const refresh = useRefreshAvailability();
 
   const sectionsRead = useVenueFloorPlanSections({ venueId });
-  const tablesRead = useTables({ venueId, activeOnly: true });
+  const tablesRead = useTables({ venueId, activeOnly: true, limit: 100 });
   const sections = useMemo(() => sectionsRead.data ?? [], [sectionsRead.data]);
   const membership = useMemo(() => sectionMembership(tablesRead.data ?? []), [tablesRead.data]);
   const sectionsStatus = sectionsRead.error

@@ -590,6 +590,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           ruleScope={editingHours.ruleScope}
           onStale={onStale}
           reloadError={reloadError}
+          sectionNames={sectionNames}
           onClose={() => setEditingHours(null)}
         />
       )}
