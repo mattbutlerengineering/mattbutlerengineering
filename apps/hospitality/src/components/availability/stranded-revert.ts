@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from "react";
 import type { TFunction } from "i18next";
-import { AvailabilityConfigProblemSchema, type StrandedReservation } from "@mbe/types";
+import type { StrandedReservation } from "@mbe/types";
+import { availabilityProblemOf } from "./conflict-problem.js";
 import { revertErrorText } from "./revert-error.js";
 
 /**
@@ -51,11 +52,8 @@ export const useStrandedRevert = (): readonly StrandedReservation[] =>
   useSyncExternalStore(subscribe, () => shown);
 
 function strandedReservations(error: unknown): readonly StrandedReservation[] {
-  const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-  const problem = AvailabilityConfigProblemSchema.safeParse(details);
-  return problem.success && problem.data.code === "stranded-bookings"
-    ? (problem.data.reservations ?? [])
-    : [];
+  const problem = availabilityProblemOf(error);
+  return problem?.code === "stranded-bookings" ? (problem.reservations ?? []) : [];
 }
 
 interface ToastInput {

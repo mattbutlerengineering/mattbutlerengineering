@@ -6104,19 +6104,20 @@
       | { readonly code: "version-conflict"; readonly winningChange: AvailabilityChangeSummary | null }
       /** This attempt id already committed (a response was lost). */
       | { readonly code: "closure-exists" };
-    export function isDecisionRequired(error: unknown): boolean {
+    export function availabilityProblemOf(error: unknown): AvailabilityConfigProblem | null {
       const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
       const problem = AvailabilityConfigProblemSchema.safeParse(details);
-      return problem.success && problem.data.code === "decision-required";
+      return problem.success ? problem.data : null;
+    }
+    export function isDecisionRequired(error: unknown): boolean {
+      return availabilityProblemOf(error)?.code === "decision-required";
     }
     export function conflictOf(error: unknown): Conflict | null {
-      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-      const problem = AvailabilityConfigProblemSchema.safeParse(details);
-      if (!problem.success) return null;
-      if (problem.data.code === "version-conflict") {
-        return { code: "version-conflict", winningChange: problem.data.winningChange ?? null };
+      const problem = availabilityProblemOf(error);
+      if (problem?.code === "version-conflict") {
+        return { code: "version-conflict", winningChange: problem.winningChange ?? null };
       }
-      return problem.data.code === "closure-exists" ? { code: "closure-exists" } : null;
+      return problem?.code === "closure-exists" ? { code: "closure-exists" } : null;
     }
   </file>
   <file path="apps/hospitality/src/components/availability/conflict-review.ts">
@@ -9355,11 +9356,8 @@
           readonly outcomeUnknown: boolean;
         };
     function moveUnavailableIds(error: unknown): readonly string[] | null {
-      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-      const problem = AvailabilityConfigProblemSchema.safeParse(details);
-      return problem.success && problem.data.code === "move-unavailable"
-        ? (problem.data.reservationIds ?? [])
-        : null;
+      const problem = availabilityProblemOf(error);
+      return problem?.code === "move-unavailable" ? (problem.reservationIds ?? []) : null;
     }
     export function refusalOf(error: unknown): Refusal {
       if (isDecisionRequired(error)) return { kind: "groups-changed" };
@@ -9463,11 +9461,8 @@
     export const useStrandedRevert = (): readonly StrandedReservation[] =>
       useSyncExternalStore(subscribe, () => shown);
     function strandedReservations(error: unknown): readonly StrandedReservation[] {
-      const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-      const problem = AvailabilityConfigProblemSchema.safeParse(details);
-      return problem.success && problem.data.code === "stranded-bookings"
-        ? (problem.data.reservations ?? [])
-        : [];
+      const problem = availabilityProblemOf(error);
+      return problem?.code === "stranded-bookings" ? (problem.reservations ?? []) : [];
     }
     interface ToastInput {
       readonly title: string;
@@ -9950,9 +9945,7 @@
       };
     
       const reject = (error: unknown) => {
-        const details = (error as { problemDetails?: unknown } | null)?.problemDetails;
-        const parsed = AvailabilityConfigProblemSchema.safeParse(details);
-        const problem = parsed.success ? parsed.data : null;
+        const problem = availabilityProblemOf(error);
         if (problem?.code === "version-conflict") {
           onStale();
           setConflicted(true);
