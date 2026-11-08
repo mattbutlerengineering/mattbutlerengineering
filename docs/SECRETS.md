@@ -245,10 +245,9 @@ Revert the Pulumi config PR afterwards to keep config in sync.
 
 **Cadence:** Semi-annually
 
-> **Not currently set.** Until this secret exists, every workflow below falls back to
-> `secrets.GITHUB_TOKEN` (via `${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}`) and
-> hits the bug this secret exists to fix (see below) — the fallback is a silent no-op, not
-> a working alternative.
+> **Set 2026-11-08.** Every workflow below reads `${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}`,
+> so removing the secret silently returns them to the broken `GITHUB_TOKEN` behavior described below.
+> `reviewed-merge.yml` reads it without a fallback and fails loudly when it is missing.
 
 **Why `GITHUB_TOKEN` doesn't work here:** GitHub has a hard-coded, non-configurable
 anti-privilege-escalation rule: a `pull_request` event whose head commit was pushed using the
@@ -276,6 +275,11 @@ no longer attributed to `github-actions[bot]`.
 `GITHUB_TOKEN` behavior above until it is set): `production-feedback.yml`, `auto-qa-tune.yml`,
 `drift-fix.yml`, `pr-metrics.yml`, `acmm-regression.yml`, `acmm-cold-start.yml`,
 `changelog.yml`, `revert-watchdog.yml`, `auto-rollback.yml`.
+
+**`reviewed-merge.yml` merges with it.** Cloud routines cannot merge (the auto-mode classifier
+denies it, #6125), so they post a `reviewed-merge: <head sha> PASS <score>/10` verdict and add the
+`reviewed` label; the workflow merges with this token so main's push workflows fire. A PR that
+changes `.github/workflows/**` merges only if the token also has Workflows write.
 
 ### RIALTO_PACKAGES_TOKEN
 
