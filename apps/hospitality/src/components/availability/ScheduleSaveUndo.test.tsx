@@ -110,6 +110,7 @@ describe("Undo after a schedule save", () => {
     render(
       <main>
         <CopyDayAction
+          timezone="America/Los_Angeles"
           venueId="venue-1"
           state={state}
           date={FIXTURE_DATE}
@@ -120,8 +121,8 @@ describe("Undo after a schedule save", () => {
       </main>
     );
     fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /^Mon/ }));
-    fireEvent.click(screen.getByRole("button", { name: /^Copy to \d+ date/ }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Saturday" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy to Sat" }));
     (await undoOffered())();
     await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));
   });

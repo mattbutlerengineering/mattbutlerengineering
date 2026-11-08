@@ -220,8 +220,8 @@ describe("AvailabilityDayDrawer around a draft", () => {
       save.mockResolvedValueOnce({ version: 5, changeId: "chg-1" });
       fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
       const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
-      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
-      fireEvent.click(within(dialog).getByRole("button", { name: /^Copy to \d+ dates?$/ }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Saturday" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sat" }));
       await vi.waitFor(() =>
         expect(screen.getByRole("button", { name: "Edit Lunch" })).toHaveAttribute(
           "aria-disabled",
@@ -318,8 +318,8 @@ describe("AvailabilityDayDrawer around a draft", () => {
       render(drawer());
       fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
       const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
-      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
-      fireEvent.click(within(dialog).getByRole("button", { name: /^Copy to \d+ dates?$/ }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Saturday" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sat" }));
       await vi.waitFor(() => expect(save).toHaveBeenCalled());
       await vi.waitFor(() =>
         expect(screen.getByRole("button", { name: "Edit Lunch" })).not.toHaveAttribute(
@@ -355,17 +355,22 @@ describe("AvailabilityDayDrawer around a draft", () => {
   });
 
   describe("Copy from a past day", () => {
-    it("counts only the dates from today on, in the button and in what is sent", async () => {
-      render(drawer({ date: "2026-10-02", today: "2026-10-21" }));
+    it("reaches only the dates of its week that are today or later, and names the rest as past", async () => {
+      render(drawer({ date: "2026-10-16", today: "2026-10-17" }));
       fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
       const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
-      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
-      fireEvent.click(within(dialog).getByRole("button", { name: "Copy to 50 dates" }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Thursday" }));
+      expect(within(dialog).getByText(/Thu \(past\)/)).toBeInTheDocument();
+      expect(
+        within(dialog).getByText("Those days have already passed this week.")
+      ).toBeInTheDocument();
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Saturday" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sat" }));
       await vi.waitFor(() => expect(save).toHaveBeenCalled());
       const sent = save.mock.calls.at(-1)?.[0] as {
         body: { changes: { upsert: { dateRules: Array<{ startsOn: string }> } } };
       };
-      expect(sent.body.changes.upsert.dateRules[0]?.startsOn).toBe("2026-10-21");
+      expect(sent.body.changes.upsert.dateRules.map((r) => r.startsOn)).toEqual(["2026-10-17"]);
     });
   });
 });

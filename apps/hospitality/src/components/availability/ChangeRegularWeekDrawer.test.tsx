@@ -172,6 +172,42 @@ describe("ChangeRegularWeekDrawer on a varied week", () => {
   });
 });
 
+describe("ChangeRegularWeekDrawer with an initialStartsOn", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+
+  function renderPrefilled() {
+    const onClose = vi.fn();
+    render(
+      <main>
+        <ChangeRegularWeekDrawer
+          venueId="venue-1"
+          state={stateOf(demoConfig())}
+          today="2026-10-25"
+          onStale={vi.fn()}
+          onClose={onClose}
+          initialStartsOn="2026-11-09"
+        />
+      </main>
+    );
+    return { onClose };
+  }
+
+  it("opens with Starting set, so Save needs nothing more", () => {
+    renderPrefilled();
+    expect(screen.getByLabelText("Starting")).toHaveValue("2026-11-09");
+    expect(saveButton()).toBeEnabled();
+  });
+
+  it("counts the prefilled start as a change: Cancel asks before discarding", () => {
+    const { onClose } = renderPrefilled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText("Discard your changes?")).toBeInTheDocument();
+  });
+});
+
 describe("ChangeRegularWeekDrawer with an initialDraft", () => {
   beforeAll(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();

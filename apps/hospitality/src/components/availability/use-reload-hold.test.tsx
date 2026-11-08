@@ -121,8 +121,8 @@ describe("the hold after the Manager's own save", () => {
   async function copyToFriday() {
     fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
     const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
-    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
-    fireEvent.click(within(dialog).getByRole("button", { name: /^Copy to \d+ dates?$/ }));
+    fireEvent.click(within(dialog).getByRole("checkbox", { name: "Saturday" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sat" }));
     await vi.waitFor(() => expect(edit()).toHaveAttribute("aria-disabled", "true"));
     await act(async () => {
       await Promise.resolve();
