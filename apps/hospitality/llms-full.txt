@@ -3296,6 +3296,27 @@
         [scope]
       );
     }
+    export function quickSetupLineId(
+      serviceId: string,
+      part: "header" | "fields",
+      scope: string = DEFAULT_SCOPE
+    ) {
+      return `${scope}-${serviceId}-line-${part}`;
+    }
+    export function useQuickSetupLineId() {
+      const scope = use(QuickSetupIdScopeContext);
+      return useCallback(
+        (serviceId: string, part: "header" | "fields") => quickSetupLineId(serviceId, part, scope),
+        [scope]
+      );
+    }
+    export function focusFirstInvalid(issues: readonly QuickSetupIssue[], scope: string) {
+      const first = issues[0];
+      if (!first) return;
+      document
+        .getElementById(quickSetupFieldId(first.serviceId, first.field, first.blockId, scope))
+        ?.focus();
+    }
     export function issuesFor(
       issues: readonly QuickSetupIssue[],
       serviceId: string | null,
@@ -3314,6 +3335,50 @@
     export const QuickSetupFixContext = createContext<
       ((fix: { readonly serviceId: string; readonly opensAt: number }) => void) | null
     >(null);
+  </file>
+  <file path="src/components/availability/quick-setup-line.ts">
+    export type LineFormat = Pick<VenueFormat, "formatCalendarDate" | "formatLocalTime" | "locale">;
+    export interface ServiceLineText {
+      /** The service's name, else "Service N" by position. */
+      readonly name: string;
+      /** "11:30 AM–3:00 PM · Every day · other hours Fri, Sat"; the parts that are known. */
+      readonly summary: string;
+    }
+    export function serviceLineText(
+      service: ServiceDraft,
+      draft: QuickSetupDraft,
+      format: LineFormat,
+      t: TFunction
+    ): ServiceLineText {
+      const index = draft.services.findIndex((s) => s.id === service.id);
+      const name =
+        service.name.trim() || t("availability.quickSetup.serviceN", { n: Math.max(index, 0) + 1 });
+      const parts: string[] = [];
+      if (service.opens !== null && service.closes !== null) {
+        const wraps = toMinutes(service.closes) <= toMinutes(service.opens);
+        const range = `${format.formatLocalTime(service.opens)}–${format.formatLocalTime(service.closes)}`;
+        parts.push(wraps ? `${range} ${t("availability.quickSetup.line.nextDay")}` : range);
+      }
+      // The form's own "Every day" reads as a sentence start; the shared summary's reads mid-sentence.
+      const dayText = (list: readonly number[]) =>
+        list.length === 7
+          ? t("availability.quickSetup.shortcuts.everyDay")
+          : weekdaySummary(list, format, t);
+      const days = effectiveDays(draft, service);
+      if (days.length > 0) parts.push(dayText(days));
+      const otherDays = WEEK_DISPLAY_ORDER.filter((day) =>
+        service.blocks.some((block) => block.days.includes(day))
+      );
+      if (otherDays.length > 0) {
+        parts.push(
+          t("availability.quickSetup.line.otherHours", { days: weekdaySummary(otherDays, format, t) })
+        );
+      }
+      return {
+        name,
+        summary: parts.join(" · "),
+      };
+    }
   </file>
   <file path="src/components/availability/quick-setup-placement.ts">
     function lengthOf(opens: string, closes: string): number {
@@ -5214,6 +5279,239 @@
       return { kind: "season", season: season ?? "winter" };
     }
   </file>
+  <file path="src/components/availability/today-line-text.ts">
+    type Format = Pick<VenueFormat, "formatLocalTime">;
+    type PausedSet =
+      BookingChannel | "online_phone" | "online_waitlist" | "phone_waitlist" | "online_phone_waitlist";
+    function channelSet(channels: readonly BookingChannel[]): PausedSet {
+      return CHANNEL_ORDER.filter((channel) => channels.includes(channel)).join("_") as PausedSet;
+    }
+    function pausedText(
+      item: Extract<TodayItem, { kind: "paused" }>,
+      t: TFunction,
+      format: Format
+    ): string {
+      const set = channelSet(item.channels);
+      return item.from === null
+        ? t(`availability.today.paused.${set}`)
+        : t(`availability.today.pausedFrom.${set}`, { time: minuteText(item.from, t, format) });
+    }
+    export function todayItemText(item: TodayItem, t: TFunction, format: Format): string {
+      switch (item.kind) {
+        case "serviceClosed":
+          return t("availability.today.serviceClosed", { name: item.name });
+        case "closingEarly":
+          return item.name === null
+            ? t("availability.today.closingEarly", { time: minuteText(item.at, t, format) })
+            : t("availability.today.closingEarlyNamed", {
+                name: item.name,
+                time: minuteText(item.at, t, format),
+              });
+        case "closedBetween": {
+          const range = { from: minuteText(item.from, t, format), to: minuteText(item.to, t, format) };
+          return item.name === null
+            ? t("availability.today.closedBetween", range)
+            : t("availability.today.targetClosedBetween", { name: item.name, ...range });
+        }
+        case "paused":
+          return pausedText(item, t, format);
+        case "pausedBetween":
+          return t(`availability.today.pausedBetween.${channelSet(item.channels)}`, {
+            from: minuteText(item.from, t, format),
+            to: minuteText(item.to, t, format),
+          });
+        case "tonight":
+          return tonightChipText(item.change, t, format);
+      }
+    }
+    export function hoursText(model: TodayLineModel, t: TFunction, format: Format): string {
+      if (model.closed) return t("availability.today.closed");
+      return model.hours
+        .map((h) =>
+          t("availability.today.hours", {
+            name: h.name,
+            from: minuteText(h.opensAt, t, format),
+            to: minuteText(h.closesAt, t, format),
+          })
+        )
+        .join(" · ");
+    }
+  </file>
+  <file path="src/components/availability/today-line.ts">
+    type Closure = AvailabilityDaySummary["closures"][number];
+    type DayService = NonNullable<AvailabilityDaySummary["services"]>[number];
+    export type BookingChannel = NonNullable<DateRule["bookingTypes"]>[number];
+    export type TodayItem =
+      | { readonly kind: "serviceClosed"; readonly name: string }
+      | { readonly kind: "closingEarly"; readonly at: number; readonly name: string | null }
+      | {
+          readonly kind: "closedBetween";
+          readonly name: string | null;
+          readonly from: number;
+          readonly to: number;
+        }
+      | {
+          readonly kind: "paused";
+          readonly channels: readonly BookingChannel[];
+          readonly from: number | null;
+        }
+      | {
+          readonly kind: "pausedBetween";
+          readonly channels: readonly BookingChannel[];
+          readonly from: number;
+          readonly to: number;
+        }
+      | { readonly kind: "tonight"; readonly change: TonightChange };
+    export interface TodayLineModel {
+      readonly serviceDate: string;
+      /** No service is open that day. */
+      readonly closed: boolean;
+      readonly hours: readonly { name: string; opensAt: number; closesAt: number }[];
+      readonly items: readonly TodayItem[];
+    }
+    export interface TodayLineInput {
+      readonly serviceDate: string;
+      readonly summary: AvailabilityDaySummary;
+      /** All the venue's date rules: Tonight rules for the day become items. */
+      readonly rules: readonly DateRule[];
+      readonly now: Date;
+      /** `venueServiceId` to name. */
+      readonly serviceNames: ReadonlyMap<string, string>;
+      readonly sectionNames: ReadonlyMap<string, string>;
+      /** The online-pause banner is up, so the line does not say it again. */
+      readonly bannerShowsOnline: boolean;
+    }
+    interface Ranked {
+      readonly rank: number;
+      readonly item: TodayItem;
+    }
+    function reachesClose(band: Closure, closesAt: number): boolean {
+      return band.to >= closesAt;
+    }
+    function closureItem(
+      band: Closure,
+      names: Pick<TodayLineInput, "serviceNames" | "sectionNames">,
+      services: readonly DayService[],
+      span: { opensAt: number; closesAt: number }
+    ): Ranked | null {
+      if (band.targetKind === "venue") {
+        // A whole-day venue band is handled as a closed day by the caller.
+        return reachesClose(band, span.closesAt)
+          ? { rank: RANK.venueEarly, item: { kind: "closingEarly", at: band.from, name: null } }
+          : {
+              rank: RANK.closedBetween,
+              item: { kind: "closedBetween", name: null, from: band.from, to: band.to },
+            };
+      }
+      if (band.targetKind === "booking") {
+        const channels = band.bookingTypes ?? [];
+        if (channels.length === 0) return null;
+        if (!reachesClose(band, span.closesAt)) {
+          return {
+            rank: RANK.pausedBetween,
+            item: { kind: "pausedBetween", channels, from: band.from, to: band.to },
+          };
+        }
+        return {
+          rank: RANK.paused,
+          item: {
+            kind: "paused",
+            channels,
+            from: band.from > span.opensAt ? band.from : null,
+          },
+        };
+      }
+      const own = band.venueServiceId
+        ? services.find((s) => s.venueServiceId === band.venueServiceId)
+        : undefined;
+      const name =
+        band.targetKind === "service"
+          ? ((band.venueServiceId ? names.serviceNames.get(band.venueServiceId) : undefined) ??
+            own?.name)
+          : band.sectionId
+            ? names.sectionNames.get(band.sectionId)
+            : undefined;
+      if (name === undefined) return null;
+      // A service reads against its own hours; a section against the whole day's. A service the
+      // day does not list either ran no hours today (a from-time or bounded band says nothing) or
+      // was closed whole-day by the engine, so only a whole-day band names it.
+      const against = band.targetKind === "service" && own ? own : span;
+      if (
+        band.targetKind === "service" &&
+        !own &&
+        !(band.from <= span.opensAt && band.to >= span.closesAt)
+      ) {
+        return null;
+      }
+      if (!reachesClose(band, against.closesAt)) {
+        return {
+          rank: RANK.closedBetween,
+          item: { kind: "closedBetween", name, from: band.from, to: band.to },
+        };
+      }
+      if (band.from <= against.opensAt)
+        return { rank: RANK.serviceClosed, item: { kind: "serviceClosed", name } };
+      return { rank: RANK.namedEarly, item: { kind: "closingEarly", at: band.from, name } };
+    }
+    function isWholeDayServiceBand(band: Closure, services: readonly DayService[]): boolean {
+      if (band.targetKind !== "service") return false;
+      const own = services.find((s) => s.venueServiceId === band.venueServiceId);
+      return own !== undefined && band.from <= own.opensAt && band.to >= own.closesAt;
+    }
+    export function todayLine(input: TodayLineInput): TodayLineModel {
+      const { serviceDate, summary, rules, now, bannerShowsOnline } = input;
+      // A closure band is classified only with its rule in hand: the day and the config refetch
+      // separately, so a band can arrive before its rule (a Tonight stop or pause just applied) and
+      // would read as a closure for a moment. An old API sends no services to read the bands against.
+      const ruleKinds = new Map(rules.map((r) => [r.id, r.kind]));
+      const bands =
+        summary.services === undefined
+          ? []
+          : summary.closures.filter((band) => {
+              const kind = ruleKinds.get(band.ruleId);
+              return kind !== undefined && kind !== "tonight";
+            });
+      const services = summary.services ?? [];
+      const span = {
+        opensAt: services.length ? Math.min(...services.map((s) => s.opensAt)) : 0,
+        closesAt: services.length ? Math.max(...services.map((s) => s.closesAt)) : 0,
+      };
+      const venueClosed = bands.some(
+        (band) => band.targetKind === "venue" && band.from <= span.opensAt && band.to >= span.closesAt
+      );
+      const hours = services
+        .filter((s) => !bands.some((band) => isWholeDayServiceBand(band, [s])))
+        .map(({ name, opensAt, closesAt }) => ({ name, opensAt, closesAt }))
+        .sort((a, b) => a.opensAt - b.opensAt);
+      const closed =
+        venueClosed ||
+        summary.label === CLOSED_LABEL ||
+        (summary.services !== undefined ? hours.length === 0 : summary.serviceCount === 0);
+    
+      const fromClosures: readonly Ranked[] = closed
+        ? []
+        : bands.flatMap((band) => {
+            const ranked = closureItem(band, input, services, span);
+            if (ranked === null) return [];
+            const { item } = ranked;
+            if ((item.kind !== "paused" && item.kind !== "pausedBetween") || !bannerShowsOnline) {
+              return [ranked];
+            }
+            const channels = item.channels.filter((channel) => channel !== "online");
+            return channels.length > 0 ? [{ rank: ranked.rank, item: { ...item, channels } }] : [];
+          });
+      const fromTonight: readonly Ranked[] = activeTonightChanges(rules, serviceDate, now)
+        .filter((change) => !(bannerShowsOnline && change.kind === "pause_online"))
+        .map((change) => ({ rank: RANK.tonight, item: { kind: "tonight", change } }));
+    
+      return {
+        serviceDate,
+        closed,
+        hours: closed ? [] : hours,
+        items: [...fromClosures, ...fromTonight].sort((a, b) => a.rank - b.rank).map((r) => r.item),
+      };
+    }
+  </file>
   <file path="src/components/availability/tonight-state.ts">
     export type TonightChange =
       | { readonly ruleId: string; readonly kind: "pause_online" }
@@ -5301,6 +5599,42 @@
         const change = describe(rule);
         return change ? [change] : [];
       });
+    }
+    export function tonightChipText(
+      change: TonightChange,
+      t: TFunction,
+      format: Pick<VenueFormat, "formatLocalTime">
+    ): string {
+      switch (change.kind) {
+        case "pause_online":
+          return t("availability.tonight.chip.pause");
+        case "close_early":
+          return t("availability.tonight.chip.closeEarly", {
+            time: minuteText(change.closeAt, t, format),
+          });
+        case "stop_window":
+          return t("availability.tonight.chip.stopWindow", {
+            from: minuteText(change.from, t, format),
+            to: minuteText(change.to, t, format),
+          });
+        case "block_tables":
+          // The server stores "rest of tonight" as 0 to the two-day maximum.
+          if (change.to >= MAX_MINUTE) {
+            return change.from === 0
+              ? t("availability.tonight.chip.blocked", { count: change.tableCount })
+              : t("availability.tonight.chip.blockedFrom", {
+                  count: change.tableCount,
+                  from: minuteText(change.from, t, format),
+                });
+          }
+          return t("availability.tonight.chip.blockedWindow", {
+            count: change.tableCount,
+            from: minuteText(change.from, t, format),
+            to: minuteText(change.to, t, format),
+          });
+        case "pacing":
+          return t("availability.tonight.chip.pacing", { count: change.covers });
+      }
     }
   </file>
   <file path="src/components/availability/use-conflict-review.ts">
@@ -13232,6 +13566,12 @@
       readonly rules: readonly DateRule[];
       /** The service day's waitlist is closed (`bookingOpen.waitlist`); false until known. */
       readonly waitlistClosed: boolean;
+      /** The service day's summary (hours, closure bands); `null` until it has loaded. */
+      readonly summary: AvailabilityDaySummary | null;
+      /** `error` only when nothing is loaded to show; a failed refresh over data stays `ready`. */
+      readonly readStatus: "loading" | "error" | "ready";
+      /** Retries the read that failed (the config first, else the day). */
+      readonly refetch: () => void;
     }
     export function useStaffTonight(venueId: string | null | undefined): StaffTonight {
       const { timeZone } = useVenueFormat();
@@ -13245,12 +13585,20 @@
         to: serviceDate ?? "",
         enabled: serviceDate !== null,
       });
-      const summary = days.data?.find((day) => day.serviceDate === serviceDate);
+      const summary = days.data?.find((day) => day.serviceDate === serviceDate) ?? null;
+      // A refresh that fails over data already loaded keeps showing it.
+      const failed = (!config.data && config.error) || (!summary && days.error);
       return {
         serviceDate,
         config: state?.config ?? null,
         rules: state?.config.dateRules ?? NO_RULES,
         waitlistClosed: summary ? !summary.bookingOpen.waitlist : false,
+        summary,
+        readStatus: failed ? "error" : summary ? "ready" : "loading",
+        refetch: () => {
+          if (!config.data && config.error) void config.refetch();
+          else void days.refetch();
+        },
       };
     }
   </file>
@@ -13570,6 +13918,39 @@
       );
     
       return { focusedId, setFocusedId, handleKeyDown };
+    }
+  </file>
+  <file path="src/hooks/useTodayLine.ts">
+    export interface TodayLineState {
+      readonly status: "loading" | "error" | "ready";
+      /** `null` until `status` is `ready`. */
+      readonly model: TodayLineModel | null;
+      readonly retry: () => void;
+    }
+    export function useTodayLine(
+      venueId: string | null | undefined,
+      bannerShowsOnline: boolean
+    ): TodayLineState {
+      const { serviceDate, config, rules, summary, readStatus, refetch } = useStaffTonight(venueId);
+      const sections = useVenueFloorPlanSections({ venueId: venueId ?? null });
+      const now = useNow();
+      const model = useMemo(() => {
+        if (!summary || !serviceDate) return null;
+        return todayLine({
+          serviceDate,
+          summary,
+          rules,
+          now,
+          serviceNames: new Map((config?.venueServices ?? []).map((v) => [v.id, v.name])),
+          sectionNames: new Map((sections.data ?? []).map((s) => [s.id, s.name])),
+          bannerShowsOnline,
+        });
+      }, [serviceDate, summary, rules, now, config, sections.data, bannerShowsOnline]);
+      return {
+        status: model ? "ready" : readStatus === "error" ? "error" : "loading",
+        model,
+        retry: refetch,
+      };
     }
   </file>
   <file path="src/hooks/useTonight.ts">
