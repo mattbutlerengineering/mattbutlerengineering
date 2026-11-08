@@ -17,8 +17,8 @@ Project-specific traps that are **still live**. Read these before diving into pr
 - JSX strings with `'` fail `react/no-unescaped-entities` — use `&apos;`.
 - **Rialto components should not call `setState` inside a `useEffect` body** — render loop. `react-hooks/set-state-in-effect` is only `warn` (advisory: pre-commit and CI pass; `error` breaks `Combobox.tsx` + 3 hospitality sites). Derive during render or set state in handlers.
 - **lint-staged passes generated files to ESLint as explicit args, bypassing config `ignores`** — `lint-staged.config.js` filters `/generated/` paths first; keep it.
-- **`run-related-tests.sh` (PostToolUse) runs the sibling `*.test.*` after every TS/JS edit.** Never blocks. `Test failure in related file` = that test failing; no output = pass _or_ no sibling test, not proof of coverage.
-- **`check-changeset.sh` warns when rialto published source changes without a changeset in the diff** (same rule as CI's `check-rialto-changeset.mjs`). Advisory, fails open — a missing warning is not proof CI passes.
+- **`run-related-tests.sh` reports a failing sibling test as `additionalContext`; silence = pass _or_ no sibling test** (#8518; pinned by `run-related-tests-hook.test.mjs`).
+- **`check-changeset.sh` warns when rialto published source changes without a changeset in the diff** (same rule as CI's `check-rialto-changeset.mjs`). Advisory via `additionalContext` (#8519), fails open — a missing warning is not proof CI passes.
 
 ## Pre-push / typecheck
 

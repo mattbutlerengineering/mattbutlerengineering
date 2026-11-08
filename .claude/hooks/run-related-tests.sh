@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # PostToolUse hook: runs the related test file when a source file is edited.
 # Maps src/foo.ts -> src/foo.test.ts (or .spec.ts) and runs it via vitest.
-# Silent on pass (exit 0), prints failure summary on fail.
+# Silent on pass. On failure, prints ONE line of JSON to stdout carrying the
+# summary as `hookSpecificOutput.additionalContext` — the only channel that
+# reaches the model for a hook that exits 0 (stderr + exit 0 is shown to
+# no one; #5766, #8518). Always exits 0: advisory, never blocking.
 set -uo pipefail
 
 file_path="${1:-}"
@@ -58,12 +61,15 @@ done
 
 # Run the related test (suppress output on success)
 rel_test="${test_file#"$pkg_root"/}"
-output=$(pnpm --dir "$pkg_root" vitest run "$rel_test" --reporter=dot 2>&1)
+# `exec` is required: `pnpm --dir <dir> vitest …` makes pnpm 9 spawn <dir>
+# itself and fail with EACCES on every run (#8518).
+output=$(pnpm --dir "$pkg_root" exec vitest run "$rel_test" --reporter=dot 2>&1)
 run_result=$?
 
 if [[ $run_result -ne 0 ]]; then
-  echo "Test failure in related file: $rel_test" >&2
-  echo "$output" | tail -20 >&2
+  summary=$(printf 'Test failure in related file: %s\n%s' "$rel_test" "$(printf '%s\n' "$output" | tail -20)")
+  # JSON.stringify, never hand-escaped: test output carries quotes and ANSI.
+  SUMMARY="$summary" node -e 'process.stdout.write(JSON.stringify({hookSpecificOutput:{hookEventName:"PostToolUse",additionalContext:process.env.SUMMARY}})+"\n")'
 fi
 
 exit 0

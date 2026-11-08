@@ -103,13 +103,8 @@ jobs:
             FINDINGS="${FINDINGS}### TODO/FIXME Comments\n- Found **${TODO_COUNT}** new TODO/FIXME/HACK comment(s). Consider creating issues to track these.\n\n"
           fi
 
-          # Check 4: Hardcoded secrets patterns
-          SECRET_PATTERNS='(api[_-]?key|secret[_-]?key|password|token|credential)\s*[:=]\s*["\x27][^\x27"]{8,}'
-          SECRET_HITS=$(echo "$DIFF" | grep -ciE "$SECRET_PATTERNS" 2>/dev/null || echo 0)
-          if [ "$SECRET_HITS" -gt 0 ]; then
-            FINDINGS="${FINDINGS}### Potential Hardcoded Secrets\n- Found **${SECRET_HITS}** line(s) matching secret patterns. Please verify these are not real credentials.\n\n"
-            SEVERITY="critical"
-          fi
+          # (Check 4, a regex secret scan, was removed in #8521: secret-scan.yml,
+          # GitHub push protection and the secret-scan.mjs edit hook cover it.)
 
           # Check 5: Direct mutation patterns in TypeScript
           MUTATION_COUNT=$(echo "$DIFF" | grep -cE '^\+.*(\.push\(|\.splice\(|\.sort\(\)|Object\.assign\(.*, )' 2>/dev/null || echo 0)

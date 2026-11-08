@@ -66,9 +66,13 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
       if (!container || !el) return;
       const cRect = container.getBoundingClientRect();
       const eRect = el.getBoundingClientRect();
+      // Round to whole pixels: an un-rounded offset/width anti-aliases its
+      // edge differently run to run even when nothing visually changed,
+      // which flaked the `light / segmentedcontrol-default` visual snapshot
+      // in CI (#8515).
       setIndicator({
-        offset: dir === "rtl" ? cRect.right - eRect.right : eRect.left - cRect.left,
-        width: eRect.width,
+        offset: Math.round(dir === "rtl" ? cRect.right - eRect.right : eRect.left - cRect.left),
+        width: Math.round(eRect.width),
       });
     }, [value, dir]);
 

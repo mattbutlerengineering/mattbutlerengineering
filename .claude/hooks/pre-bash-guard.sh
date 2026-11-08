@@ -7,7 +7,7 @@
 # Receives the hook payload as JSON on stdin; the about-to-execute command
 # is read via hook-input.mjs (measured contract: scripts/hook-input.mjs).
 #
-#   Check 1 — Node-version drift (WARN, exit 0):
+#   Check 1 — Node-version drift (WARN via JSON, exit 0; #8519):
 #     Repo pins Node 22 via .nvmrc. Worktree/agent shells that run on Node 20
 #     regenerate llms.txt embedding a stale generated-schemas enum → CI
 #     Integrity job fails after push (#2 recurring failure). We warn — not
@@ -37,8 +37,11 @@
 #     (2.1.282) shows NEITHER stream to the user for a PreToolUse hook that
 #     exits 0, so a plain warning would be invisible — the exact silent
 #     failure #5766 exists to fix, one layer up. The script itself decides
-#     whether to print (nothing when healthy, one line of JSON when inert),
-#     so this line must never redirect its stdout.
+#     whether to print (nothing when healthy, one line of JSON when inert).
+#
+#   Output: every warning (Check 1, Check 3) is collected and printed at the
+#   end as ONE PreToolUse JSON object — a hook may print only one, and a
+#   command like `pnpm regen && git commit` trips both checks (#8519).
 #
 # Skip mechanisms:
 #   - $SKIP_BASH_GUARD=1 → bypass all checks entirely.
@@ -51,6 +54,12 @@ cmd=$(printf '%s' "$payload" | node "$CLAUDE_PROJECT_DIR/.claude/hooks/hook-inpu
 [ -n "$cmd" ] || exit 0
 [[ "${SKIP_BASH_GUARD:-}" == "1" ]] && exit 0
 
+# Warnings for the model and user, joined by blank lines and emitted once at
+# the end. A string, not an array: bash 3.2 (macOS) errors on expanding an
+# empty array under `set -u`.
+warnings=""
+add_warning() { warnings="${warnings:+$warnings$'\n\n'}$1"; }
+
 # ---------------------------------------------------------------------------
 # Check 1: Node-version drift warning (before regen / pack — where drift enters)
 # ---------------------------------------------------------------------------
@@ -61,8 +70,7 @@ case "$cmd" in
       want=$(tr -dc '0-9.' < "$nvmrc")
       have=$(node -v 2>/dev/null | sed 's/^v//')
       if [[ -n "$want" && -n "$have" && "${want%%.*}" != "${have%%.*}" ]]; then
-        echo "⚠️  Node ${have%%.*} != .nvmrc ${want%%.*}. Run 'nvm use' before regen/pack —" >&2
-        echo "    a mismatched Node regenerates llms.txt with a stale schema enum and CI Integrity fails (gotchas.md #2)." >&2
+        add_warning "⚠️  Node ${have%%.*} != .nvmrc ${want%%.*}. Run 'nvm use' before regen/pack — a mismatched Node regenerates llms.txt with a stale schema enum and CI Integrity fails (gotchas.md)."
       fi
     fi
     ;;
@@ -98,8 +106,20 @@ esac
 # ---------------------------------------------------------------------------
 case "$cmd" in
   *"git commit"*|*"git push"*)
-    node "$CLAUDE_PROJECT_DIR/scripts/check-hooks-active.mjs" --hook-json
+    hooks_json=$(node "$CLAUDE_PROJECT_DIR/scripts/check-hooks-active.mjs" --hook-json)
+    if [[ -n "$hooks_json" ]]; then
+      hooks_msg=$(printf '%s' "$hooks_json" | node -e 'let d="";process.stdin.on("data",(c)=>(d+=c)).on("end",()=>{try{process.stdout.write(JSON.parse(d).hookSpecificOutput.additionalContext||"")}catch{}})')
+      [[ -n "$hooks_msg" ]] && add_warning "$hooks_msg"
+    fi
     ;;
 esac
+
+# ---------------------------------------------------------------------------
+# Emit: one PreToolUse JSON object — additionalContext reaches the model,
+# systemMessage the user. Built with JSON.stringify, never hand-escaped.
+# ---------------------------------------------------------------------------
+if [[ -n "$warnings" ]]; then
+  WARNINGS="$warnings" node -e 'const m=process.env.WARNINGS;process.stdout.write(JSON.stringify({systemMessage:m,hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:m}})+"\n")'
+fi
 
 exit 0
