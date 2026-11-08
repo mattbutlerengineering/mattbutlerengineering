@@ -6,6 +6,7 @@ import {
   HolidayDecisionsQuerySchema,
   SetHolidayDecisionBodySchema,
 } from "./holiday-decisions.js";
+import { AVAILABILITY_CONFIG_PREFIX } from "../endpoints/availability-config.js";
 import { holidayDecisionEndpoints } from "../endpoints/holiday-decisions.js";
 
 describe("HolidayDecisionSchema", () => {
@@ -73,18 +74,17 @@ describe("HolidayDecisionsQuerySchema", () => {
 });
 
 describe("holidayDecisionEndpoints", () => {
+  const base = `${AVAILABILITY_CONFIG_PREFIX}/:id/availability/holiday-decisions`;
+
   it("declares list, set and clear under the venues prefix", () => {
-    expect(holidayDecisionEndpoints.list).toMatchObject({
-      method: "GET",
-      path: "/api/v1/venues/:id/availability/holiday-decisions",
-    });
+    expect(holidayDecisionEndpoints.list).toMatchObject({ method: "GET", path: base });
     expect(holidayDecisionEndpoints.set).toMatchObject({
       method: "PUT",
-      path: "/api/v1/venues/:id/availability/holiday-decisions/:serviceDate",
+      path: `${base}/:serviceDate`,
     });
     expect(holidayDecisionEndpoints.clear).toMatchObject({
       method: "DELETE",
-      path: "/api/v1/venues/:id/availability/holiday-decisions/:serviceDate",
+      path: `${base}/:serviceDate`,
     });
   });
 });
