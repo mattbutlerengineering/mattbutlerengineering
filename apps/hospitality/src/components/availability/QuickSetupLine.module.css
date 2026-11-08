@@ -1,0 +1,52 @@
+/* A service's collapsed line on a phone: a list row with a chevron (ux.md F2). */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--rialto-space-sm);
+  inline-size: 100%;
+  min-block-size: 44px;
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+  color: var(--rialto-text-primary);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.header:hover {
+  background: var(--rialto-surface-recessed);
+}
+
+.header:focus-visible {
+  outline: 2px solid var(--rialto-accent);
+  outline-offset: 2px;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  min-inline-size: 0;
+}
+
+.name {
+  font-weight: 600;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--rialto-text-tertiary);
+  transition: transform 0.2s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+/* Open: the header and the controls under it read as one block. */
+.fields {
+  padding-block-start: var(--rialto-space-sm);
+}

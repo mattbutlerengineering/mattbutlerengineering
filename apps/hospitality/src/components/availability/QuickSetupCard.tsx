@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Stack } from "@mattbutlerengineering/rialto";
 import { QuickSetupForm } from "./QuickSetupForm.js";
-import { quickSetupFieldId } from "./quick-setup-field-helpers.js";
+import { focusFirstInvalid } from "./quick-setup-field-helpers.js";
 import { emptyDraft, type QuickSetupDraft } from "./quick-setup-draft.js";
 import { validateDraft } from "./quick-setup-validate.js";
 import styles from "./QuickSetupCard.module.css";
@@ -42,11 +42,8 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
   const save = async () => {
     const found = validateDraft(draft);
     setAttempted(true);
-    const first = found[0];
-    if (first) {
-      document
-        .getElementById(quickSetupFieldId(first.serviceId, first.field, first.blockId, scopeId))
-        ?.focus();
+    if (found.length > 0) {
+      focusFirstInvalid(found, scopeId);
       return;
     }
     setIsSaving(true);

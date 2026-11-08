@@ -1,7 +1,10 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 
+/** What `useViewport` answers; the lines are a phone-only mode. */
+const viewport = vi.hoisted(() => ({ current: "desktop" }));
+vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.current }));
 const save = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
@@ -193,5 +196,29 @@ describe("ChangeRegularWeekDrawer with an initialDraft", () => {
       "3:00 PM",
     ]);
     expect(screen.getByLabelText("Starting")).toHaveValue("");
+  });
+});
+
+describe("ChangeRegularWeekDrawer service lines", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    viewport.current = "desktop";
+  });
+
+  it("on a phone shows each service as a closed line", () => {
+    viewport.current = "phone";
+    renderDrawer();
+    expect(
+      screen.getByRole("button", { name: /^Lunch, 11:30 AM–3:00 PM, Mon–Fri/ })
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryAllByLabelText("Service name")).toHaveLength(0);
+  });
+
+  it("elsewhere keeps every service open", () => {
+    renderDrawer();
+    expect(screen.queryByRole("button", { name: /^Lunch, / })).not.toBeInTheDocument();
+    expect(screen.getAllByLabelText("Service name")).toHaveLength(3);
   });
 });

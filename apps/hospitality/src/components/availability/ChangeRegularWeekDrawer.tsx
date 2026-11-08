@@ -223,7 +223,13 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
               {t("availabilitySchedules.impact", { count: dates.length })}
             </Text>
           )}
-          <QuickSetupForm draft={draft} onChange={edit} issues={issues} inDrawer />
+          <QuickSetupForm
+            draft={draft}
+            onChange={edit}
+            issues={issues}
+            inDrawer
+            collapsible={viewport === "phone"}
+          />
           <OverlapChoice
             name={trimmed || t("availabilitySchedules.thisSchedule")}
             others={overlaps}
