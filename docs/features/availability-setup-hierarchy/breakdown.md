@@ -138,7 +138,7 @@ architecture's component names are kept as written in `architecture.md`.
   - Blocked by: —
   - PRD: 20, 24
 
-- [ ] **Scenario suite, first paint and the demo** — Close mock and first-paint helpers; one e2e per PRD 18 scenario on the ux.md fixtures; first-paint count; night-of reachability desktop and phone; the demo; item 10's checks (a)-(e) updated for the layered page; deliberate updates to the specs the amendment moves.
+- [x] **Scenario suite, first paint and the demo** — Close mock and first-paint helpers; one e2e per PRD 18 scenario on the ux.md fixtures; first-paint count; night-of reachability desktop and phone; the demo; item 10's checks (a)-(e) updated for the layered page; deliberate updates to the specs the amendment moves.
   - Files: new `e2e/helpers/close-mock.ts`, `e2e/helpers/first-paint.ts`, `e2e/availability-scenarios.spec.ts`, `e2e/availability-setup-hierarchy.spec.ts`; updated `availability-interaction-baselines.spec.ts`, `availability-interaction-guards.spec.ts`, `availability-entry.spec.ts`, `availability-regular-week.spec.ts`, `availability-phone.spec.ts`, `availability-close.spec.ts` (uses the lifted mock), `venue-setup-hub.spec.ts`, `onboarding.spec.ts` where they assert moved entries.
   - RED tests: e2e: S1-S10 each end saved within budget (interaction counter), the with-bookings variants of S5/S7 recorded with their counts; first paint ≤ 7 outside the week panel; Close… and Pause one interaction on desktop, two at 375×812; the demo script of PRD 23; W10 (quick setup → reload → the same week panel); Host page unchanged; item 10 (a)-(e).
   - Accept: all new and updated specs pass with the full availability, onboarding and Venue Setup suites; every changed expectation is listed in the PR body; the measured counts are quoted.
@@ -160,4 +160,5 @@ None.
   - Page frame: Hosts keep History and Go to date in a header ⋯ (PRD 7 and 22; the first cut dropped them). The hub's Open calendar now links `?tab=calendar` because a Manager's default layer is Schedules.
   - Add a schedule seed: with no dates, Save stays blocked on "Choose at least one day", so a dateless schedule with seeded days cannot be saved; "Start from your regular week" retires.
   - Scenario suite findings fixed in the product, not in the budgets: the Close dialog's To picker opened on today's month (Rialto `Calendar` now opens on `min`'s month when there is no value; To is bounded by From), and moving From past To left an inverted range (To now follows From). Both were S7 (a week-long vacation) over budget.
+- 2026-11-08 (Verify): item 10 (Setup hierarchy end-to-end scenarios) stays unchecked. Its checks (a)-(e) run and pass inside item 17's suite on the layered page, but its acceptance quotes the varied-week count "against the `7c051456f` baseline", and a worktree at that commit could not run here (workspace packages and dists differ). verification.md records it as NOT RUN, with criteria 2 and 3.
 
