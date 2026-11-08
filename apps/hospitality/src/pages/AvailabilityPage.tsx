@@ -274,6 +274,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     () => new Map((sectionRows.data ?? []).map((s) => [s.id, s.name])),
     [sectionRows.data]
   );
+  // A closure that closed a service for good leaves it out of the day, so the month's chip reads its name here.
+  const serviceNames = useMemo(
+    () => new Map((config.data?.config.venueServices ?? []).map((v) => [v.id, v.name])),
+    [config.data]
+  );
   // The Services filter (2+ services only) is a view, not saved: it narrows how days read and
   // belongs to one venue, so a venue switch derives "All" rather than carrying the id over.
   const [chosenService, setChosenService] = useState<{
@@ -677,6 +682,8 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onAnchorChange={moveTo}
         serviceFilter={serviceFilter}
         sectionNames={sectionNames}
+        serviceNames={serviceNames}
+        regularScheduleId={regularSchedule?.id ?? null}
       />
       <AvailabilityDayDrawer
         date={openDate}
@@ -734,6 +741,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           onEditorChange={setEditor}
           comparing={comparing}
           onComparingChange={setComparing}
+          onBookingRules={() => setBookingRulesOpen(true)}
         />
       ) : (
         loading

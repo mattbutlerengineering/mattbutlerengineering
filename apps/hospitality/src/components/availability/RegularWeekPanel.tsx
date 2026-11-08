@@ -210,7 +210,7 @@ function RegularWeekPanelBody(props: BodyProps) {
             />
           </>
         )}
-        <div className={styles.footer}>
+        <div className={styles.footer} data-pinned={unsaved ? "" : undefined}>
           <Text variant="caption" color="secondary" className={styles.apply}>
             {t("availabilitySchedules.layer.appliesFrom", { date: todayText })}
           </Text>

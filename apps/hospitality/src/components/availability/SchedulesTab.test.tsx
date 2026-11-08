@@ -80,6 +80,7 @@ function Layer(props: {
   readonly state: AvailabilityConfigState;
   readonly comparing?: boolean;
   readonly onEditorChange?: (editor: ScheduleEditorTarget) => void;
+  readonly onBookingRules?: () => void;
 }) {
   return <SchedulesLayer {...common} {...props} />;
 }
@@ -133,13 +134,36 @@ describe("SchedulesTab", () => {
       )
     ).toBeInTheDocument();
     expect(
-      screen.getByText("Booking: Up to 30 days ahead · 1 hour notice · parties up to 12 online")
+      screen.getByRole("button", {
+        name: "Booking: Up to 30 days ahead · 1 hour notice · parties up to 12 online · Change",
+      })
     ).toBeInTheDocument();
   });
 
   it("says so when no booking rule is set", () => {
     renderWith(<Layer state={state()} />);
-    expect(screen.getByText("Booking: not set up yet")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Booking: not set up yet · Set up" })
+    ).toBeInTheDocument();
+  });
+
+  it("lets the Booking line wrap instead of widening the page", () => {
+    renderWith(<Layer state={state()} />);
+    expect(screen.getByRole("button", { name: /^Booking: / }).className).toContain("bookingLine");
+  });
+
+  it("puts the Booking line right after the week panel, before Other schedules, and opens the rules", () => {
+    const onBookingRules = vi.fn();
+    renderWith(<Layer state={state()} onBookingRules={onBookingRules} />);
+    const line = screen.getByRole("button", { name: /^Booking: .* · Set up$/ });
+    const other = screen.getByRole("region", { name: "Other schedules" });
+    expect(line.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const panelStart = screen.getByRole("button", { name: "Starting later…" });
+    expect(
+      panelStart.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    fireEvent.click(line);
+    expect(onBookingRules).toHaveBeenCalledTimes(1);
   });
 
   it("opens Compare services only when the page says so", () => {

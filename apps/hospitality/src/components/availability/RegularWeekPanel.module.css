@@ -5,6 +5,19 @@
   align-items: center;
 }
 
+/* Dirty: Save stays in reach while the form scrolls (the page's main area is the scroll container). */
+.footer[data-pinned] {
+  /* A sticky offset counts from inside the scroller's padding (the dashboard's main area), so it
+     reaches past that padding to sit on the scroller's edge and not leave content showing below. */
+  --footer-edge: var(--rialto-space-lg);
+  position: sticky;
+  inset-block-end: calc(-1 * var(--footer-edge));
+  z-index: var(--rialto-z-sticky);
+  padding-block: var(--rialto-space-sm) calc(var(--rialto-space-sm) + var(--footer-edge));
+  background: var(--rialto-surface);
+  border-block-start: 1px solid var(--rialto-border-strong);
+}
+
 .apply {
   flex: 1 1 auto;
   min-width: 0;
@@ -15,4 +28,22 @@
   flex-wrap: wrap;
   gap: var(--rialto-space-xs);
   justify-content: flex-end;
+}
+
+/* Phone: the apply line first, full width; the buttons wrap beneath it. */
+@media (max-width: 767px) {
+  .footer[data-pinned] {
+    --footer-edge: var(--rialto-space-md);
+  }
+}
+
+@media (max-width: 640px) {
+  .apply {
+    flex-basis: 100%;
+  }
+
+  .actions {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+  }
 }

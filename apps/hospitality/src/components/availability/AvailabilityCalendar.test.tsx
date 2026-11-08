@@ -102,7 +102,7 @@ describe("AvailabilityCalendar", () => {
       anchor: "2026-11-15",
       days: [thanksgiving, day("2026-11-25")],
     });
-    const cell = screen.getByRole("button", { name: /^Thursday, November 26: .*, Thanksgiving$/ });
+    const cell = screen.getByRole("button", { name: /^26 Thanksgiving, Thursday, November 26: / });
     expect(within(cell).getByText("Thanksgiving")).toBeInTheDocument();
     const before = screen.getByRole("button", { name: /^Wednesday, November 25:/ });
     expect(before.getAttribute("aria-label")).not.toMatch(/Thanksgiving/);
@@ -576,5 +576,251 @@ describe("AvailabilityCalendar multi-select", () => {
     fireEvent.keyDown(friday, { key: " " });
     expect(picked()).toBe("");
     expect(onOpenDayMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
+  const dec = (d: number) => `2026-12-${String(d).padStart(2, "0")}`;
+  const weekday = (date: string) => (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7;
+  // December 2026: Mon–Thu on the Weeknights schedule, the rest on the regular week.
+  const DECEMBER = Array.from({ length: 31 }, (_, i) => dec(i + 1)).map((date) =>
+    weekday(date) <= 3
+      ? day(date, { label: "Weeknights", scheduleId: "wk" })
+      : day(date, { label: "Regular week", scheduleId: "reg" })
+  );
+  const EVE = day(dec(24), {
+    label: "Weeknights",
+    scheduleId: "wk",
+    closures: [
+      { ruleId: "c1", targetKind: "service", venueServiceId: "svc-1", from: 660, to: 900 },
+    ],
+    services: [
+      { venueServiceId: "svc-1", name: "Lunch", opensAt: 660, lastSeatingAt: 810, closesAt: 900 },
+    ],
+  });
+  const days = DECEMBER.map((d) => (d.serviceDate === dec(24) ? EVE : d));
+  const month = (props: Partial<React.ComponentProps<typeof AvailabilityCalendar>> = {}) =>
+    renderCalendar({
+      view: "month",
+      anchor: dec(15),
+      today: "2026-11-08",
+      days,
+      regularScheduleId: "reg",
+      ...props,
+    });
+  const cellOf = (name: RegExp) => screen.getByRole("button", { name });
+
+  it("shows a regular day's date and nothing else", () => {
+    month();
+    const cell = cellOf(/^Friday, December 4:/);
+    expect(cell).toHaveTextContent(/^4\s*$/);
+  });
+
+  it("names a cell with its visible text first (WCAG 2.5.3), chip and holiday included", async () => {
+    const { container } = month({
+      anchor: "2026-11-15",
+      days: [
+        day("2026-11-01", {
+          label: "Closed",
+          scheduleId: null,
+          serviceCount: 0,
+          closures: [{ ruleId: "c9", targetKind: "venue", from: 0, to: 2880 }],
+        }),
+        day("2026-11-26", { scheduleId: "reg" }),
+      ],
+    });
+    expect(cellOf(/^1 Closed, Sunday, November 1:/)).toBeInTheDocument();
+    expect(cellOf(/^26 Thanksgiving, Thursday, November 26:/)).toBeInTheDocument();
+    const result = await axe(container, {
+      rules: {
+        "color-contrast": { enabled: false },
+        "label-content-name-mismatch": { enabled: true },
+      },
+    });
+    expect(result.violations).toEqual([]);
+  });
+
+  describe("accessible name starts with the visible text (WCAG 2.5.3)", () => {
+    const AXE_NAME = {
+      rules: {
+        "color-contrast": { enabled: false },
+        "label-content-name-mismatch": { enabled: true },
+      },
+    };
+    const offline = { online: false, phone: true, waitlist: true };
+
+    it("takes no booking chip on a regular-closed day: the muted Closed text alone", async () => {
+      const { container } = month({
+        anchor: "2026-11-15",
+        days: [
+          day("2026-11-01", {
+            label: "Closed",
+            scheduleId: null,
+            serviceCount: 0,
+            bookingOpen: offline,
+          }),
+        ],
+      });
+      const sunday = cellOf(/^1 Closed, Sunday, November 1:/);
+      expect(sunday).toHaveTextContent(/^1\s*Closed\s*$/);
+      expect(within(sunday).queryByText(/paused/)).toBeNull();
+      expect((await axe(container, AXE_NAME)).violations).toEqual([]);
+    });
+
+    it("takes no booking chip on a day with a whole-day closure either", () => {
+      month({
+        anchor: "2026-11-15",
+        days: [
+          day("2026-11-01", {
+            label: "Closed",
+            scheduleId: null,
+            serviceCount: 0,
+            bookingOpen: offline,
+            closures: [{ ruleId: "c9", targetKind: "venue", from: 0, to: 2880 }],
+          }),
+        ],
+      });
+      expect(cellOf(/^1 Closed, Sunday, November 1:/)).toHaveTextContent(/^1\s*Closed\s*$/);
+    });
+
+    it("a chip alone, and a holiday with a chip, read in the name as they do on screen", async () => {
+      const { container } = month({
+        anchor: "2026-11-15",
+        days: [
+          day("2026-11-03", { scheduleId: "reg", bookingOpen: offline }),
+          day("2026-11-26", { scheduleId: "reg", bookingOpen: offline }),
+        ],
+      });
+      expect(cellOf(/^3 Online paused, Tuesday, November 3:/)).toHaveTextContent(
+        /^3\s*Online paused\s*$/
+      );
+      expect(
+        cellOf(/^26 Thanksgiving Online paused, Thursday, November 26:/).textContent?.trim()
+      ).toBe("26 Thanksgiving Online paused");
+      expect((await axe(container, AXE_NAME)).violations).toEqual([]);
+    });
+
+    it("a holiday on a regular-closed day: date, holiday, then the muted Closed", async () => {
+      const { container } = month({
+        anchor: "2026-11-15",
+        days: [day("2026-11-26", { label: "Closed", scheduleId: null, serviceCount: 0 })],
+      });
+      const cell = cellOf(/^26 Thanksgiving Closed, Thursday, November 26:/);
+      expect(cell).toHaveTextContent(/^26\s*Thanksgiving\s*Closed\s*$/);
+      expect((await axe(container, AXE_NAME)).violations).toEqual([]);
+    });
+  });
+
+  it("shows another schedule's name as the chip", () => {
+    month();
+    expect(
+      within(cellOf(/^1 Weeknights, Tuesday, December 1:/)).getByText("Weeknights")
+    ).toBeInTheDocument();
+  });
+
+  it("ranks a service closure above the schedule and counts the schedule as +1", () => {
+    month();
+    const cell = cellOf(/^24 Christmas Eve Lunch closed \+1, Thursday, December 24:/);
+    expect(within(cell).getByText("Lunch closed +1")).toBeInTheDocument();
+    expect(within(cell).queryByText("Weeknights")).toBeNull();
+  });
+
+  it("keeps the accessible name's full description", () => {
+    month();
+    expect(cellOf(/^1 Weeknights, Tuesday, December 1:/)).toHaveAccessibleName(
+      "1 Weeknights, Tuesday, December 1: Weeknights"
+    );
+    expect(
+      cellOf(/^24 Christmas Eve Lunch closed \+1, Thursday, December 24:/).getAttribute(
+        "aria-label"
+      )
+    ).toMatch(/Weeknights.*Lunch/);
+  });
+
+  it("states the month's differences above the grid, one list item each", () => {
+    month();
+    const heading = screen.getByText("This month:");
+    const items = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(items.map((li) => li.textContent)).toEqual([
+      "Weeknights · Mon–Thu",
+      "Lunch closed · 1 day",
+    ]);
+    expect(heading.compareDocumentPosition(screen.getByRole("grid"))).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING
+    );
+  });
+
+  it("does not call two closed days of one week a weekly pattern", () => {
+    const closed = (d: number) =>
+      day(dec(d), {
+        label: "Closed",
+        scheduleId: null,
+        serviceCount: 0,
+        closures: [{ ruleId: `c${d}`, targetKind: "venue", from: 0, to: 2880 }],
+      });
+    month({
+      days: DECEMBER.map((d) =>
+        [24, 25].includes(Number(d.serviceDate.slice(-2)))
+          ? closed(Number(d.serviceDate.slice(-2)))
+          : d
+      ),
+    });
+    expect(screen.getByText("Closed · 2 days")).toBeInTheDocument();
+  });
+
+  it("reads a weekday the regular week is closed on as plain muted text, with no chip or legend entry", () => {
+    month({
+      days: DECEMBER.map((d) =>
+        weekday(d.serviceDate) === 6
+          ? { ...d, label: "Closed", scheduleId: null, serviceCount: 0 }
+          : d
+      ),
+    });
+    const sunday = cellOf(/^6 Closed, Sunday, December 6:/);
+    expect(within(sunday).getByText("Closed")).toBeInTheDocument();
+    expect(screen.queryByText(/^Closed ·/)).toBeNull();
+  });
+
+  it("gives a real whole-day closure the Closed chip and a legend entry", () => {
+    month({
+      days: DECEMBER.map((d) =>
+        d.serviceDate === dec(5)
+          ? {
+              ...d,
+              label: "Closed",
+              scheduleId: null,
+              serviceCount: 0,
+              closures: [{ ruleId: "c5", targetKind: "venue" as const, from: 0, to: 2880 }],
+            }
+          : d
+      ),
+    });
+    expect(
+      within(cellOf(/^5 Closed, Saturday, December 5:/)).getByText("Closed")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Closed · 1 day")).toBeInTheDocument();
+  });
+
+  it("shows no legend until the regular schedule is known", () => {
+    month({ regularScheduleId: null });
+    expect(screen.queryByText(/^This month:/)).toBeNull();
+  });
+
+  it("says the month is the regular week when no day differs", () => {
+    month({ days: DECEMBER.map((d) => ({ ...d, label: "Regular week", scheduleId: "reg" })) });
+    expect(screen.getByText("This month: your regular week")).toBeInTheDocument();
+    expect(screen.queryByRole("list")).toBeNull();
+  });
+
+  it("shows no legend in week view, and no legend until the days have loaded", () => {
+    renderCalendar();
+    expect(screen.queryByText(/^This month:/)).toBeNull();
+  });
+
+  it("leaves a greyed neighbouring-month day out of the legend", () => {
+    month({
+      days: [...days, day("2027-01-01", { label: "Closed", scheduleId: null, serviceCount: 0 })],
+    });
+    expect(screen.queryByText(/^Closed ·/)).toBeNull();
   });
 });

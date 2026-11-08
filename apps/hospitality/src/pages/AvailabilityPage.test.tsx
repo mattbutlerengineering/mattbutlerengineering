@@ -1430,6 +1430,8 @@ describe("AvailabilityPage Services filter (#7981)", () => {
 
   it("narrows every cell and the week summary to the chosen service", () => {
     renderPage();
+    // Month cells are quiet (a date and one chip); the week view lists each cell's services.
+    fireEvent.click(screen.getByRole("radio", { name: "Week" }));
     const monday = () => screen.getByRole("button", { name: /Monday, October 26/ });
     expect(monday()).toHaveTextContent("Lunch");
     expect(screen.getByText(/This week: open 4 days/)).toBeInTheDocument();
@@ -1533,7 +1535,7 @@ describe("AvailabilityPage layers", () => {
     ).toEqual(["Schedules", "Calendar", "Special dates"]);
   });
 
-  it("first paint for a Manager on a one-schedule venue has 7 controls outside the week panel", () => {
+  it("first paint for a Manager on a one-schedule venue has 8 controls outside the week panel", () => {
     renderPage("/availability");
     const panel = screen.getByTestId("week-panel");
     const controls = Array.from(
@@ -1547,6 +1549,7 @@ describe("AvailabilityPage layers", () => {
       "Calendar",
       "Special dates",
       "Add a schedule…",
+      "Booking: not set up yet · Set up",
     ]);
   });
 

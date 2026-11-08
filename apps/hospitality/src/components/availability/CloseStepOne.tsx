@@ -38,7 +38,8 @@ import {
   type CloseWhat,
   type CloseWhen,
 } from "./close-draft.js";
-import { useHolidayNames } from "./use-holidays.js";
+import { holidaysWithin } from "./holidays.js";
+import { useHolidayCountry, useHolidayNames } from "./use-holidays.js";
 import styles from "./CloseDialog.module.css";
 
 const CHANNELS: readonly BookingChannel[] = ["online", "phone", "waitlist"];
@@ -86,9 +87,9 @@ function whenKindDefaults(kind: CloseWhen["kind"], today: string): CloseWhen {
     case "dates":
       return { kind, dates: [today] };
     case "range":
-      return { kind, from: today, to: addDays(today, 6) };
+      return { kind, from: today, to: "" };
     case "repeats":
-      return { kind, weekdays: [], from: today, to: addDays(today, 90) };
+      return { kind, weekdays: [], from: today, to: "" };
     default:
       return { kind: "until-reopen", from: today };
   }
@@ -111,6 +112,21 @@ export function CloseStepOne(props: CloseStepOneProps) {
   const format = useVenueFormat();
   const patch = (next: Partial<CloseForm>) => onChange({ ...form, ...next });
   const { what, when } = form;
+  const tomorrow = addDays(today, 1);
+  const country = useHolidayCountry();
+  const holidayChips = useMemo(
+    () => (country ? holidaysWithin(country, today) : []),
+    [country, today]
+  );
+  // Why One section is off, under its own choice; no word while the sections are still loading.
+  const noSectionsReason =
+    sections.length > 0 || props.sectionsStatus === "loading"
+      ? undefined
+      : t(
+          props.sectionsStatus === "failed"
+            ? "availability.close.what.sectionsFailed"
+            : "availability.close.what.noSections"
+        );
   // Trimmed, like validateForm: what blocks Next is what the field flags.
   const messageError = form.guestMessage.trim().length > GUEST_MESSAGE_MAX_LENGTH;
 
@@ -188,9 +204,15 @@ export function CloseStepOne(props: CloseStepOneProps) {
               value="section"
               label={t("availability.close.what.section")}
               disabled={sections.length === 0}
+              description={noSectionsReason}
             />
             <Radio value="booking" label={t("availability.close.what.booking")} />
           </RadioGroup>
+          {sections.length === 0 && props.sectionsStatus === "ready" && (
+            <Text variant="caption" color="secondary">
+              <Link to="/floor-plans">{t("availability.close.what.openFloorPlan")}</Link>
+            </Text>
+          )}
           {what.kind === "service" && (
             <Select
               label={t("availability.close.what.pickService")}
@@ -198,18 +220,6 @@ export function CloseStepOne(props: CloseStepOneProps) {
               options={services.map((s) => ({ value: s.id, label: s.name }))}
               onChange={(serviceId) => patch({ what: { kind: "service", serviceId } })}
             />
-          )}
-          {sections.length === 0 && props.sectionsStatus !== "loading" && (
-            <Text variant="caption" color="secondary">
-              {props.sectionsStatus === "failed" ? (
-                t("availability.close.what.sectionsFailed")
-              ) : (
-                <>
-                  {t("availability.close.what.noSections")}{" "}
-                  <Link to="/floor-plans">{t("availability.close.what.openFloorPlan")}</Link>
-                </>
-              )}
-            </Text>
           )}
           {what.kind === "section" && (
             <Select
@@ -274,6 +284,38 @@ export function CloseStepOne(props: CloseStepOneProps) {
                 )}
                 <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
               </RadioGroup>
+              <div
+                className={styles.chips}
+                role="group"
+                aria-label={t("availability.close.when.quickDates")}
+              >
+                {!props.closureEdit && (
+                  <Tag
+                    selected={when.kind === "tonight"}
+                    onClick={() => patch({ when: { kind: "tonight" } })}
+                  >
+                    {t("availability.close.when.tonight")}
+                  </Tag>
+                )}
+                <Tag
+                  selected={when.kind === "date" && when.date === tomorrow}
+                  onClick={() => patch({ when: { kind: "date", date: tomorrow } })}
+                >
+                  {t("availability.close.when.tomorrow")}
+                </Tag>
+                {holidayChips.map((h) => (
+                  <Tag
+                    key={h.id + h.date}
+                    selected={when.kind === "date" && when.date === h.date}
+                    onClick={() => patch({ when: { kind: "date", date: h.date } })}
+                  >
+                    {t("availability.close.when.holidayChip", {
+                      name: t(`availabilitySpecial.holidays.name.${h.id}`),
+                      date: fullDate(h.date),
+                    })}
+                  </Tag>
+                ))}
+              </div>
               <div className={styles.row} id={closeWhenId(when, false)}>
                 {when.kind === "date" &&
                   dateField(t("availability.close.when.dateLabel"), when.date, (date) =>

@@ -3,7 +3,8 @@ import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Stack } from "@mattbutlerengineering/rialto";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 import { quickSetupFieldId } from "./quick-setup-field-helpers.js";
-import { emptyDraft, validateDraft, type QuickSetupDraft } from "./quick-setup-draft.js";
+import { emptyDraft, type QuickSetupDraft } from "./quick-setup-draft.js";
+import { validateDraft } from "./quick-setup-validate.js";
 import styles from "./QuickSetupCard.module.css";
 
 export interface QuickSetupCardProps {

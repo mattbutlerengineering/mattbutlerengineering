@@ -12,6 +12,7 @@ import {
   type ClosureAction,
   type ClosureAlongside,
   type ClosureDecision,
+  type ClosureImpact,
   type ClosureImpactGroup,
   type ClosureImpactReservation,
   type AvailabilityConfig,
@@ -293,37 +294,59 @@ function distinctDays(config: AvailabilityConfig, dates: readonly string[]): rea
   return [...kinds.values()];
 }
 
+/** The half hour at or before `minute`. */
+const floorToHalfHour = (minute: number): number => minute - (minute % HALF_HOUR);
+
+/** The services open on these dates: the hours a start time is chosen against. */
+function servicesOn(config: AvailabilityConfig, timezone: string, dates: readonly string[]) {
+  return distinctDays(config, dates).flatMap(
+    (date) => resolveDay({ timezone, config }, date).services
+  );
+}
+
 /**
- * The start times "Starting at" offers across `dates`: every half hour of the day. When any of
- * them runs past midnight, the half hours after it up to its close (shown as "next day"), and none
- * before the earliest opening: a plain "1:00 AM" reads as after midnight but closes that whole
- * evening. `keep` is a time the form already holds (a series' own), which must stay selectable.
+ * The start times "Starting at" offers across `dates`: half hours from the first opening to the
+ * half hour before the last close (shown as "next day" past midnight), and none before the
+ * earliest opening on a day that runs past midnight: a plain "1:00 AM" reads as after midnight
+ * but closes that whole evening. A date with no hours offers the whole day. `nowMinute`, passed
+ * only when the one date is today, starts the list at the next half hour. `keep` is a time the
+ * form already holds (a series' own), which must stay selectable.
  */
 export function startMinutes(
   config: AvailabilityConfig,
   timezone: string,
   dates: readonly string[],
-  keep: number | null
+  keep: number | null,
+  nowMinute?: number
 ): readonly number[] {
-  const services = distinctDays(config, dates).flatMap(
-    (date) => resolveDay({ timezone, config }, date).services
-  );
-  const lastClose = lastCloseOf(services);
-  const end = Math.max(lastClose, keep ?? 0);
+  const services = servicesOn(config, timezone, dates);
+  const hasHours = services.length > 0;
   const firstOpen = services.reduce((min, s) => Math.min(min, s.opensAt), MINUTES_PER_DAY);
-  const first = lastClose > MINUTES_PER_DAY ? firstOpen - (firstOpen % HALF_HOUR) : 0;
-  const options: number[] = [];
+  const opening = hasHours ? floorToHalfHour(firstOpen) : 0;
+  const afterNow = nowMinute === undefined ? 0 : floorToHalfHour(nowMinute) + HALF_HOUR;
   // Starting at the close itself closes nothing, so the last option is the half hour before it.
-  for (
-    let m = first;
-    m < Math.min(Math.max(end, MINUTES_PER_DAY), END_OF_SERVICE_DAY);
-    m += HALF_HOUR
-  ) {
+  const stop = Math.min(hasHours ? lastCloseOf(services) : MINUTES_PER_DAY, END_OF_SERVICE_DAY);
+  const options: number[] = [];
+  for (let m = Math.max(opening, afterNow); m < stop; m += HALF_HOUR) {
     options.push(m);
   }
   return keep !== null && !options.includes(keep)
     ? [...options, keep].sort((a, b) => a - b)
     : options;
+}
+
+/**
+ * The earliest start a day that runs past midnight allows: its first opening. Any other day has
+ * no floor, so a time the Manager chose before opening stays as they chose it.
+ */
+function overnightFloor(
+  config: AvailabilityConfig,
+  timezone: string,
+  dates: readonly string[]
+): number {
+  const services = servicesOn(config, timezone, dates);
+  if (lastCloseOf(services) <= MINUTES_PER_DAY) return 0;
+  return floorToHalfHour(services.reduce((min, s) => Math.min(min, s.opensAt), MINUTES_PER_DAY));
 }
 
 /**
@@ -345,8 +368,17 @@ export function settleStartMinute(
   const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
   const dates =
     next.when.kind === "dates" ? next.when.dates : closedDates({ startsOn, endsOn, repeat });
-  const [first = 0] = startMinutes(config, timezone, dates, null);
-  return next.fromMinute < first ? { ...next, fromMinute: null } : next;
+  return next.fromMinute < overnightFloor(config, timezone, dates)
+    ? { ...next, fromMinute: null }
+    : next;
+}
+
+/** Step 2 follows Step 1 when bookings are affected or an edit gives dates back: what Next checks. */
+export function willHaveStepTwo(
+  groups: readonly ClosureImpactGroup[],
+  givenBack: ClosureImpact["givenBack"]
+): boolean {
+  return groups.length > 0 || Boolean(givenBack);
 }
 
 function whatOf(series: DateRule): CloseWhat {

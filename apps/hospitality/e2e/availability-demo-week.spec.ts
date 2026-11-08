@@ -209,7 +209,8 @@ test.describe("The demo week (PRD: the demo runs as written)", () => {
       // Leave without saving: the draft was only there to open the preview. Discarding closes it.
       await drawer.getByRole("button", { name: "Cancel" }).click();
       await page.getByRole("alertdialog").getByRole("button", { name: "Discard" }).click();
-      await expect(drawer).toBeHidden();
+      // The pinned clock stalls the drawer's exit by about 4-6 s (4.4 s before availability-scenario-ux).
+      await expect(drawer).toBeHidden({ timeout: 15_000 });
     }
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
-import { holidayCountry, holidaysIn, upcomingHolidays } from "./holidays.js";
+import { holidayCountry, holidaysIn, holidaysWithin, upcomingHolidays } from "./holidays.js";
 
 const dateOf = (country: "US" | "CA" | "MX", year: number, id: string) =>
   holidaysIn(country, year).find((h) => h.id === id)?.date;
@@ -108,6 +108,28 @@ describe("upcomingHolidays", () => {
     expect(ids).not.toContain("thanksgiving");
     expect(ids).not.toContain("christmasEve");
     expect(ids).toContain("christmasDay");
+  });
+});
+
+describe("holidaysWithin", () => {
+  it("lists every holiday in the next 60 days, across the new year", () => {
+    expect(holidaysWithin("US", "2026-11-08").map((h) => `${h.id} ${h.date}`)).toEqual([
+      "thanksgiving 2026-11-26",
+      "christmasEve 2026-12-24",
+      "christmasDay 2026-12-25",
+      "newYearsEve 2026-12-31",
+      "newYearsDay 2027-01-01",
+    ]);
+  });
+
+  it("takes a different horizon, and includes today and the last day", () => {
+    expect(holidaysWithin("US", "2026-11-26", 0).map((h) => h.id)).toEqual(["thanksgiving"]);
+    expect(holidaysWithin("US", "2026-11-08", 18).map((h) => h.id)).toEqual(["thanksgiving"]);
+    expect(holidaysWithin("US", "2026-11-08", 17)).toEqual([]);
+  });
+
+  it("is empty for a window with no holiday", () => {
+    expect(holidaysWithin("US", "2026-07-05")).toEqual([]);
   });
 });
 

@@ -2074,8 +2074,8 @@
       "intro": "Tu semana de siempre. Otros horarios y fechas especiales la cambian en los días que cubren.",
       "add": "Agregar un horario…",
       "other": "Otros horarios",
-      "booking": "Reservas: {{rules}}",
-      "bookingUnset": "Reservas: aún sin configurar",
+      "booking": "Reservas: {{rules}} · Cambiar",
+      "bookingUnset": "Reservas: aún sin configurar · Configurar",
       "closeCompare": "Cerrar",
       "appliesFrom": "Los cambios se aplican desde hoy, {{date}}.",
       "startLater": "Empezar más tarde…",
@@ -2152,6 +2152,23 @@
       "draftName": "cambios sin guardar",
       "labelWithPeriod": "{{label}}, {{period}}",
       "untilClose": "cierre",
+      "chip": {
+        "serviceClosed": "{{service}} cerrado",
+        "serviceClosedUnnamed": "Servicio cerrado",
+        "sectionClosed": "{{section}} cerrada",
+        "onlinePaused": "En línea en pausa",
+        "phonePaused": "Teléfono en pausa",
+        "waitlistPaused": "Lista de espera en pausa",
+        "bookingPaused": "Reservas en pausa"
+      },
+      "legend": {
+        "thisMonth": "Este mes:",
+        "regular": "Este mes: tu semana regular",
+        "weekdays": "{{label}} · {{days}}",
+        "days_one": "{{label}} · {{count}} día",
+        "days_other": "{{label}} · {{count}} días",
+        "days_many": "{{label}} · {{count}} días"
+      },
       "dayLabel": {
         "closed": "Cerrado",
         "specialHours": "Horario especial",
@@ -2298,6 +2315,7 @@
       "shortcuts": {
         "weekdays": "Entre semana",
         "weekends": "Fines de semana",
+        "fridaySaturday": "Vie–Sáb",
         "everyDay": "Todos los días"
       },
       "addService": "Agregar otro servicio",
@@ -2308,7 +2326,7 @@
       "runsOn": "{{service}} se ofrece estos días",
       "everyServiceOwnDays": "Cada servicio tiene sus propios días.",
       "daysSummary": "Días: {{days}}",
-      "changeDays": "Cambiar días",
+      "moveTo": "Mover {{service}} a {{time}}",
       "differentHours": "Horarios distintos en algunos días",
       "blockLegend": "{{service}}: horarios distintos",
       "removeBlock": "Quitar estos horarios",
@@ -2691,7 +2709,11 @@
         "fromLabel": "Desde",
         "toLabel": "Hasta",
         "weekdays": "Se repite los",
-        "invalid": "Revisa las fechas: el final no puede ser antes del inicio, y una repetición necesita un día elegido entre ambas."
+        "invalid": "Revisa las fechas: el final no puede ser antes del inicio, y una repetición necesita un día elegido entre ambas.",
+        "tomorrow": "Mañana",
+        "quickDates": "Fechas rápidas",
+        "holidayChip": "{{name}} · {{date}}",
+        "endRequired": "Elige una fecha final para cerrar."
       },
       "window": {
         "label": "Desde las",
@@ -2713,8 +2735,6 @@
       "guestsWillSeeMessage": "Los comensales verán: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Cerrar {{date}}",
-        "closeSection": "Cerrar {{section}} el {{date}}",
-        "closeSectionNoDate": "Cerrar {{section}}",
         "closeMany_one": "Cerrar {{count}} fecha",
         "closeMany_other": "Cerrar {{count}} fechas",
         "closeMany_many": "Cerrar {{count}} fechas",
@@ -2749,25 +2769,60 @@
         },
         "pausePhone": "Pausar reservas por teléfono",
         "pauseWaitlist": "Pausar lista de espera",
-        "pauseBooking": "Pausar reservas"
+        "pauseBooking": "Pausar reservas",
+        "closeTarget": "Cerrar {{target}} el {{date}}",
+        "closeFrom": "Cerrar desde {{time}} el {{date}}",
+        "closeFromTonight": "Cerrar desde {{time}} esta noche",
+        "closeTargetFrom": "Cerrar {{target}} desde {{time}} el {{date}}",
+        "closeTargetFromTonight": "Cerrar {{target}} desde {{time}} esta noche",
+        "closeWhen": "Cerrar {{when}}",
+        "closeTargetWhen": "Cerrar {{target}} {{when}}",
+        "closeFromWhen": "Cerrar desde {{time}} {{when}}",
+        "closeTargetFromWhen": "Cerrar {{target}} desde {{time}} {{when}}"
       },
       "toast": {
-        "closed": "{{date}} cerrado",
-        "closedSection": "{{section}} cerrada el {{date}}",
         "paused": "Reservaciones en línea pausadas",
-        "bookingPaused": "Reservaciones pausadas el {{date}}",
         "notified_one": "{{date}} cerrado · {{count}} reservación avisada",
         "notified_other": "{{date}} cerrado · {{count}} reservaciones avisadas",
         "notified_many": "{{date}} cerrado · {{count}} reservaciones avisadas",
         "many_one": "{{count}} fecha cerrada",
         "many_other": "{{count}} fechas cerradas",
         "many_many": "{{count}} fechas cerradas",
-        "manyNotified_one": "{{count}} fecha cerrada · {{notified}} reservación avisada",
-        "manyNotified_other": "{{count}} fechas cerradas · {{notified}} reservaciones avisadas",
-        "manyNotified_many": "{{count}} fechas cerradas · {{notified}} reservaciones avisadas",
         "manyBookingPaused_one": "Reservaciones pausadas en {{count}} fecha",
         "manyBookingPaused_other": "Reservaciones pausadas en {{count}} fechas",
-        "manyBookingPaused_many": "Reservaciones pausadas en {{count}} fechas"
+        "manyBookingPaused_many": "Reservaciones pausadas en {{count}} fechas",
+        "closedFrom": "Cerrado desde {{time}} {{when}}",
+        "serviceClosedMany_one": "{{name}} cerrado en {{count}} fecha",
+        "serviceClosedMany_other": "{{name}} cerrado en {{count}} fechas",
+        "serviceClosedMany_many": "{{name}} cerrado en {{count}} fechas",
+        "pausedChannels": {
+          "online": "Reservaciones en línea",
+          "phone": "Reservaciones por teléfono",
+          "waitlist": "Reservaciones de lista de espera",
+          "online_phone": "Reservaciones en línea y por teléfono",
+          "online_waitlist": "Reservaciones en línea y de lista de espera",
+          "phone_waitlist": "Reservaciones por teléfono y de lista de espera",
+          "all": "Todas las reservaciones"
+        },
+        "withNotified_one": "{{text}} · {{count}} reservación avisada",
+        "withNotified_other": "{{text}} · {{count}} reservaciones avisadas",
+        "withNotified_many": "{{text}} · {{count}} reservaciones avisadas",
+        "closed": "Cerrado {{when}}",
+        "namedClosed": "{{name}} cerrado {{when}}",
+        "namedClosedFrom": "{{name}} cerrado desde {{time}} {{when}}",
+        "bookingPaused": "{{channels}} pausadas {{when}}",
+        "bookingPausedFrom": "{{channels}} pausadas desde {{time}} {{when}}",
+        "when": {
+          "date": "el {{date}}",
+          "range": "del {{from}} al {{to}}",
+          "repeats": "cada {{days}}, del {{from}} al {{to}}",
+          "untilReopen": "desde el {{date}} hasta que reabras"
+        },
+        "whenTimed": {
+          "tonight": "esta noche",
+          "range": "del {{from}} al {{to}}",
+          "untilReopen": "el {{date}} hasta que reabras"
+        }
       },
       "step2": {
         "urgent": "Urgente: los comensales recibirán un mensaje de texto y un correo",

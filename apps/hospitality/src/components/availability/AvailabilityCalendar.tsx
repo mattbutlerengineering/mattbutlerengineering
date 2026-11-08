@@ -8,8 +8,15 @@ import { useViewport } from "../../hooks/useViewport.js";
 import { shiftAnchor, visibleDates, type CalendarView } from "./calendar-dates.js";
 import { columnDates } from "./selection.js";
 import { useDateSelection, type DateGestureHandlers } from "./useDateSelection.js";
-import { presentDay } from "./day-summary.js";
-import type { ServiceFilter } from "./service-filter.js";
+import {
+  dayDifferences,
+  monthLegend,
+  presentDay,
+  toDifference,
+  type DayDifference,
+  type MonthLegend,
+} from "./day-summary.js";
+import { filterDaySummary, type ServiceFilter } from "./service-filter.js";
 import { useHolidayNames } from "./use-holidays.js";
 import { periodLabel } from "./period.js";
 import { AvailabilityAgenda } from "./AvailabilityAgenda.js";
@@ -42,6 +49,10 @@ export interface AvailabilityCalendarProps {
   readonly serviceFilter?: ServiceFilter | null;
   /** Section names by id, so a section closure reads "Bar closed" (ADR-032). */
   readonly sectionNames?: ReadonlyMap<string, string>;
+  /** The regular schedule's id: a month cell differs from the regular week when its day does not use it. */
+  readonly regularScheduleId?: string | null;
+  /** Service names by id, so a closure that closed a service for good still names it ("Lunch closed"). */
+  readonly serviceNames?: ReadonlyMap<string, string>;
 }
 
 interface CellProps {
@@ -56,6 +67,8 @@ interface CellProps {
   readonly isPicked: boolean;
   readonly isTabStop: boolean;
   readonly isMuted: boolean;
+  /** Month view's one chip: how this date differs from the regular week; `null` when it does not. */
+  readonly difference: DayDifference | null;
   /** The holiday this date falls on ("Thanksgiving"), shown beside the day number. */
   readonly holiday: string | null;
   readonly format: VenueFormat;
@@ -67,11 +80,31 @@ interface CellProps {
 
 function Cell(props: CellProps) {
   const { date, summary, isLoading, detailed, isToday, isSelected, isPicked, isTabStop } = props;
-  const { isMuted, handlers, isDraft, holiday } = props;
+  const { isMuted, handlers, isDraft, holiday, difference } = props;
   const { t } = useTranslation();
   const { format, serviceFilter, sectionNames } = props;
 
   const view = presentDay(date, summary, detailed, t, format, serviceFilter, sectionNames);
+
+  // A month cell shows its date, holiday and chip; the name starts with exactly that text, then
+  // the full description (WCAG 2.5.3: the name contains the visible label, in order).
+  const chipText = difference
+    ? `${difference.chip}${difference.more > 0 ? ` +${difference.more}` : ""}`
+    : null;
+  // A weekday the regular week is closed on is no difference, yet a closed day must not read like
+  // an open one: plain muted text rather than a chip.
+  const closedText =
+    !detailed &&
+    view.tone === "closed" &&
+    difference?.chip !== t("availability.calendar.dayLabel.closed")
+      ? view.label
+      : null;
+  const visibleText =
+    detailed || (!holiday && !chipText && !closedText)
+      ? null
+      : [format.formatCalendarDate(date, { day: "numeric" }), holiday, closedText, chipText]
+          .filter(Boolean)
+          .join(" ");
 
   const className = [
     styles.cell,
@@ -93,8 +126,9 @@ function Cell(props: CellProps) {
         tabIndex={isTabStop ? 0 : -1}
         aria-current={isToday ? "date" : undefined}
         aria-label={[
+          ...(visibleText ? [visibleText] : []),
           view.accessibleName,
-          ...(holiday ? [holiday] : []),
+          ...(holiday && !visibleText ? [holiday] : []),
           ...(isDraft ? [t("availability.calendar.draftName")] : []),
         ].join(", ")}
         {...handlers}
@@ -115,20 +149,33 @@ function Cell(props: CellProps) {
           !props.loadFailed && <Skeleton variant="text" width="100%" height={16} />
         ) : (
           <span className={styles.details} aria-hidden="true">
-            <span className={styles.label}>{view.label} </span>
-            {view.servicesSummary && <span className={styles.meta}>{view.servicesSummary} </span>}
-            {view.bands.map((b) => (
-              <span key={b.key} className={styles.band}>
-                {b.text}{" "}
-              </span>
-            ))}
-            {view.services.map((s) => (
-              <span key={s.key} className={styles.service}>
-                {s.text}{" "}
-              </span>
-            ))}
-            {view.onlineOff && (
-              <span className={styles.meta}>{t("availability.calendar.onlineOff")}</span>
+            {detailed ? (
+              <>
+                <span className={styles.label}>{view.label} </span>
+                {view.bands.map((b) => (
+                  <span key={b.key} className={styles.band}>
+                    {b.text}{" "}
+                  </span>
+                ))}
+                {view.services.map((s) => (
+                  <span key={s.key} className={styles.service}>
+                    {s.text}{" "}
+                  </span>
+                ))}
+                {view.onlineOff && (
+                  <span className={styles.meta}>{t("availability.calendar.onlineOff")}</span>
+                )}
+              </>
+            ) : (
+              <>
+                {closedText && <span className={styles.closedText}>{closedText} </span>}
+                {difference && (
+                  <span className={styles.chip}>
+                    {difference.chip}
+                    {difference.more > 0 && ` +${difference.more}`}
+                  </span>
+                )}
+              </>
             )}
           </span>
         )}
@@ -169,7 +216,7 @@ function targetFor(key: string, date: string): string | null {
 export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   const { view, anchor, today, days, isLoading, selectedDate, draftDates } = props;
   const { selection, onAnchorChange, loadFailed = false, serviceFilter = null } = props;
-  const { sectionNames } = props;
+  const { sectionNames, serviceNames, regularScheduleId = null } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -191,6 +238,43 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   }, [anchor, view]);
 
   const isMobile = useViewport() !== "desktop";
+  // Month grid only (the phone agenda and the week view keep their rows): what each in-month date
+  // changes about the regular week, and the legend over them. Nothing until the days are read.
+  const showQuiet = view === "month" && !isMobile;
+  const differences = useMemo(
+    () =>
+      new Map(
+        showQuiet
+          ? (days ?? []).map((d) => [
+              d.serviceDate,
+              serviceFilter === null
+                ? dayDifferences(d, regularScheduleId, sectionNames, t, serviceNames)
+                : dayDifferences(
+                    filterDaySummary(d, serviceFilter.id),
+                    regularScheduleId,
+                    sectionNames,
+                    t,
+                    serviceNames
+                  ),
+            ])
+          : []
+      ),
+    [showQuiet, days, serviceFilter, regularScheduleId, sectionNames, serviceNames, t]
+  );
+  // No legend until the regular schedule is known: before that every day looks like the regular week.
+  const legend = useMemo<MonthLegend | null>(
+    () =>
+      showQuiet && days !== undefined && !isLoading && regularScheduleId !== null
+        ? monthLegend(
+            dates
+              .filter((d) => d.startsWith(anchorMonth))
+              .map((date) => ({ date, differences: differences.get(date) ?? [] })),
+            t,
+            format
+          )
+        : null,
+    [showQuiet, days, isLoading, regularScheduleId, dates, anchorMonth, differences, t, format]
+  );
   const { handlersFor, extendSelection, toggleSelected, pivot } = useDateSelection(props);
   const picked = useMemo(() => new Set(selection), [selection]);
 
@@ -276,7 +360,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
     );
   }
 
-  return (
+  const grid = (
     <div ref={gridRef} className={styles.calendar} aria-label={gridLabel} role="grid">
       <div role="row" className={styles.row}>
         {(weeks[0] ?? []).map((date, column) => (
@@ -314,6 +398,7 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
               isPicked={picked.has(date)}
               isTabStop={date === tabStop}
               isMuted={view === "month" && !date.startsWith(anchorMonth)}
+              difference={toDifference(differences.get(date) ?? [])}
               holiday={holidays.get(date) ?? null}
               format={format}
               serviceFilter={serviceFilter}
@@ -324,6 +409,22 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
           ))}
         </div>
       ))}
+    </div>
+  );
+  if (legend === null) return grid;
+  return (
+    <div className={styles.monthWithLegend}>
+      <div className={styles.legend}>
+        <span>{legend.heading}</span>
+        {legend.items.length > 0 && (
+          <ul className={styles.legendItems}>
+            {legend.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {grid}
     </div>
   );
 }

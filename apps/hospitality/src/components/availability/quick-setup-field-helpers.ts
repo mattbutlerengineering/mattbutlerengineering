@@ -1,11 +1,8 @@
 import { createContext, use, useCallback } from "react";
 import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import {
-  WEEK_DISPLAY_ORDER,
-  type QuickSetupField,
-  type QuickSetupIssue,
-} from "./quick-setup-draft.js";
+import { WEEK_DISPLAY_ORDER } from "./quick-setup-draft.js";
+import { type QuickSetupField, type QuickSetupIssue } from "./quick-setup-validate.js";
 
 /** A fixed Monday: weekday names come from the active locale, never a hand-kept list. */
 const SAMPLE_MONDAY = "2026-10-26";
@@ -55,3 +52,8 @@ export function useWeekdayName() {
   return (day: number, weekday: "long" | "short" = "long") =>
     format.formatCalendarDate(addDays(SAMPLE_MONDAY, WEEK_DISPLAY_ORDER.indexOf(day)), { weekday });
 }
+
+/** Applies an overlap issue's suggested start; the form provides it, `IssueText` offers it. */
+export const QuickSetupFixContext = createContext<
+  ((fix: { readonly serviceId: string; readonly opensAt: number }) => void) | null
+>(null);

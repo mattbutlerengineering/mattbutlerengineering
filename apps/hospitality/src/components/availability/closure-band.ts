@@ -14,7 +14,11 @@ export interface ClosureBandText {
 }
 
 /** A minute past the service day's midnight as venue wall-clock text; past 24:00 reads "(next day)". */
-export function minuteText(minute: number, t: TFunction, format: VenueFormat): string {
+export function minuteText(
+  minute: number,
+  t: TFunction,
+  format: Pick<VenueFormat, "formatLocalTime">
+): string {
   const wrapped = minute % MINUTES_PER_DAY;
   const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
   const mm = String(wrapped % 60).padStart(2, "0");

@@ -14,20 +14,20 @@ import {
   draftToLegacyHours,
   emptyDraft,
   emptyService,
-  issueMessage,
   replaceService,
+  setBlockDays,
   setServiceDays,
   setServiceTime,
   setSharedDays,
   toggleBlockDay,
   toggleDayIn,
-  validateDraft,
   validateQuickSetupHours,
   WEEKDAY_SHORTCUT,
   WEEK_DISPLAY_ORDER,
   type QuickSetupDraft,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
+import { issueMessage, validateDraft } from "./quick-setup-validate.js";
 
 function counter() {
   let n = 0;
@@ -320,7 +320,9 @@ describe("quick setup draft", () => {
       lastSeating: "17:15",
     };
     const issues = validateDraft({ ...draft, services: [draft.services[0]!, overlapping] });
-    expect(issues).toContainEqual({ serviceId: "s1", field: "opens", code: "overlap" });
+    expect(issues).toContainEqual(
+      expect.objectContaining({ serviceId: "s1", field: "opens", code: "overlap" })
+    );
   });
 
   it("treats a close earlier than the opening as past midnight", () => {
@@ -558,5 +560,39 @@ describe("quick setup draft with days and blocks", () => {
     expect(hours.friday).toEqual({ open: "11:30", close: "00:00" });
     expect(hours.saturday).toEqual({ open: "10:00", close: "00:00" });
     expect(hours.sunday).toEqual({ open: "10:00", close: "23:00" });
+  });
+});
+
+describe("setBlockDays", () => {
+  const block = (id: string, days: number[]) => draftBlock(id, days, ["18:00", "22:00", "23:00"]);
+  const service = (blocks: ReturnType<typeof block>[]) =>
+    draftService("s1", "Dinner", ["17:00", "21:15", "22:00"], { blocks });
+  const ALL = [0, 1, 2, 3, 4, 5, 6];
+
+  it("takes the days from another block, and removes a block it empties", () => {
+    const result = setBlockDays(service([block("a", [5]), block("b", [6, 0])]), "a", [5, 6], ALL);
+    expect(result.service.blocks.map((b) => [b.id, b.days])).toEqual([
+      ["a", [5, 6]],
+      ["b", [0]],
+    ]);
+    expect(result.moved).toBe(true);
+    const emptied = setBlockDays(service([block("a", []), block("b", [6])]), "a", [5, 6], ALL);
+    expect(emptied.service.blocks.map((b) => b.id)).toEqual(["a"]);
+    expect(emptied.removed.map((b) => b.id)).toEqual(["b"]);
+  });
+
+  it("keeps only the days the service runs", () => {
+    const result = setBlockDays(service([block("a", [])]), "a", [5, 6], [1, 2, 3, 4, 5]);
+    expect(result.service.blocks[0]?.days).toEqual([5]);
+  });
+
+  it("leaves the block with no days when none are offered, and keeps empty other blocks", () => {
+    const result = setBlockDays(service([block("a", [1]), block("b", [])]), "a", [5, 6], [1, 2]);
+    expect(result.service.blocks.map((b) => [b.id, b.days])).toEqual([
+      ["a", []],
+      ["b", []],
+    ]);
+    expect(result.moved).toBe(false);
+    expect(result.removed).toEqual([]);
   });
 });

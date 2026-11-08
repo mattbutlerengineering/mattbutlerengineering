@@ -162,7 +162,11 @@ test.describe("Availability close dialog (F5)", () => {
       rule: { kind: "closure", targetKind: "venue", startsOn: CLOSE_DATE, endsOn: CLOSE_DATE },
       decisions: [{ groupKey: `${CLOSE_DATE}:closed`, action: "cancel" }],
     });
-    await expect(calendar.locator(`[data-date="${CLOSE_DATE}"]`)).toContainText("Closed all day");
+    // The cell is quiet: a "Closed" chip (+1 for the paused booking); the accessible name keeps
+    // the full description.
+    const cell = calendar.locator(`[data-date="${CLOSE_DATE}"]`);
+    await expect(cell).toContainText("Closed");
+    await expect(cell).toHaveAttribute("aria-label", /closed all day/);
   });
 
   test("Preview message shows the notice the server renders for the chosen outcome (#7983)", async ({

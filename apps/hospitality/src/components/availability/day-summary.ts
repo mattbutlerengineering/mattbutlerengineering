@@ -160,3 +160,181 @@ export function presentDay(
     }),
   };
 }
+
+/** What sets a month cell apart from the regular week: the most telling difference, and how many more there are. */
+export interface DayDifference {
+  /** The chip's text, in the viewer's language: "Closed", "Lunch closed", "Weeknights". */
+  readonly chip: string;
+  /** Further differences the chip does not name ("+1"). */
+  readonly more: number;
+}
+
+const BOOKING_CHANNELS = ["online", "phone", "waitlist"] as const;
+
+function pausedChannels(
+  day: AvailabilityDaySummary
+): ReadonlySet<(typeof BOOKING_CHANNELS)[number]> {
+  const paused = new Set(BOOKING_CHANNELS.filter((channel) => !day.bookingOpen[channel]));
+  for (const closure of day.closures) {
+    if (closure.targetKind !== "booking") continue;
+    for (const channel of closure.bookingTypes ?? BOOKING_CHANNELS) paused.add(channel);
+  }
+  return paused;
+}
+
+function pausedChip(paused: ReadonlySet<(typeof BOOKING_CHANNELS)[number]>, t: TFunction): string {
+  const [only] = [...paused];
+  if (paused.size === 1 && only === "online") return t("availability.calendar.chip.onlinePaused");
+  if (paused.size === 1 && only === "phone") return t("availability.calendar.chip.phonePaused");
+  if (paused.size === 1 && only === "waitlist")
+    return t("availability.calendar.chip.waitlistPaused");
+  return t("availability.calendar.chip.bookingPaused");
+}
+
+/** Every way the day departs from the regular week, in the order the chip ranks them; the first is its chip. */
+export function dayDifferences(
+  day: AvailabilityDaySummary,
+  regularScheduleId: string | null,
+  sectionNames: ReadonlyMap<string, string> | undefined,
+  t: TFunction,
+  serviceNames?: ReadonlyMap<string, string>
+): readonly string[] {
+  const found: string[] = [];
+  const closures = day.closures;
+  const wholeDayVenue = closures.some((c) => c.targetKind === "venue" && isWholeDay(c));
+  // A weekday the regular week has no hours on reads "Closed" with no schedule and no closure: it
+  // is the regular week, not a difference. Any real closure, or another schedule's closed day, is one.
+  const regularClosed = day.label === "Closed" && !day.scheduleId && closures.length === 0;
+  if ((day.label === "Closed" && !regularClosed) || wholeDayVenue)
+    found.push(t("availability.calendar.dayLabel.closed"));
+
+  const serviceIds = new Set<string>();
+  const serviceChips: string[] = [];
+  for (const c of closures) {
+    if (c.targetKind !== "service") continue;
+    const key = c.venueServiceId ?? "";
+    if (serviceIds.has(key)) continue;
+    serviceIds.add(key);
+    const name =
+      day.services?.find((s) => s.venueServiceId === c.venueServiceId)?.name ??
+      (c.venueServiceId === undefined ? undefined : serviceNames?.get(c.venueServiceId));
+    serviceChips.push(
+      name === undefined
+        ? t("availability.calendar.chip.serviceClosedUnnamed")
+        : t("availability.calendar.chip.serviceClosed", { service: name })
+    );
+  }
+  found.push(...serviceChips);
+
+  const sectionIds = new Set<string>();
+  let otherClosure = false;
+  for (const c of closures) {
+    if (c.targetKind === "venue") {
+      if (!isWholeDay(c)) otherClosure = true;
+    } else if (c.targetKind === "tables") {
+      const section = c.sectionId === undefined ? undefined : sectionNames?.get(c.sectionId);
+      if (section === undefined) otherClosure = true;
+      else if (!sectionIds.has(c.sectionId ?? "")) {
+        sectionIds.add(c.sectionId ?? "");
+        found.push(t("availability.calendar.chip.sectionClosed", { section }));
+      }
+    }
+  }
+
+  // A closed day takes no bookings by nature: its channels being off is not a further difference.
+  const closedDay = day.label === "Closed" || wholeDayVenue;
+  const paused = pausedChannels(day);
+  if (paused.size > 0 && !closedDay) found.push(pausedChip(paused, t));
+
+  if (day.label === "Special hours" || otherClosure) {
+    found.push(t("availability.calendar.dayLabel.specialHours"));
+  }
+
+  // A day from an older API sends no schedule id: it differs only by a name that is not the seeded regular week's.
+  const scheduleDiffers =
+    day.scheduleId === undefined
+      ? scheduleNameText(day.label, t) !== t("availabilitySchedules.regularMarker")
+      : day.scheduleId !== null &&
+        regularScheduleId !== null &&
+        day.scheduleId !== regularScheduleId;
+  const namesSchedule = !["Closed", "Special hours", "Open"].includes(day.label);
+  if (scheduleDiffers && namesSchedule) found.push(scheduleNameText(day.label, t));
+  return found;
+}
+
+/** A cell's chip from its ranked differences: the first, and how many more follow; `null` when none. */
+export function toDifference(found: readonly string[]): DayDifference | null {
+  const [chip, ...rest] = found;
+  return chip === undefined ? null : { chip, more: rest.length };
+}
+
+/** Monday-first index of a `YYYY-MM-DD` date's weekday. */
+function weekdayIndex(date: string): number {
+  const [y = 0, m = 1, d = 1] = date.split("-").map(Number);
+  return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7;
+}
+
+/** "Mon–Thu" for a run of consecutive weekdays, "Mon, Wed" otherwise. */
+function weekdaysText(dates: readonly string[], format: VenueFormat): string {
+  const byIndex = new Map(dates.map((d) => [weekdayIndex(d), d]));
+  const indexes = [...byIndex.keys()].sort((a, b) => a - b);
+  const name = (index: number) =>
+    format.formatCalendarDate(byIndex.get(index) ?? "", { weekday: "short" });
+  const first = indexes[0];
+  const last = indexes.at(-1);
+  if (first === undefined || last === undefined) return "";
+  if (indexes.length === 1) return name(first);
+  const consecutive = last - first === indexes.length - 1;
+  return consecutive ? `${name(first)}–${name(last)}` : indexes.map(name).join(", ");
+}
+
+export interface MonthLegend {
+  /** "This month:", or the whole line "This month: your regular week" when nothing differs. */
+  readonly heading: string;
+  /** One entry per chip in use: "Weeknights · Mon–Thu", "Lunch closed · 1 day". */
+  readonly items: readonly string[];
+}
+
+/**
+ * The legend above a month grid: each chip in use (a cell's first difference) with the weekdays
+ * it falls on when it repeats weekly, else with a day count. A chip is counted wherever it
+ * appears in a cell's differences, so Christmas Eve's "Lunch closed" does not break the
+ * Weeknights pattern its Thursday still belongs to. `cells` are the month's own dates (not the
+ * neighbouring months' greyed ones) with all their differences, first = the chip.
+ *
+ * Weekly means the chip is on the same weekdays in at least two in-month weeks and in every
+ * in-month week that has those weekdays: a run in one week (Dec 24–25) is a count, not a pattern.
+ */
+export function monthLegend(
+  cells: readonly { readonly date: string; readonly differences: readonly string[] }[],
+  t: TFunction,
+  format: VenueFormat
+): MonthLegend {
+  const inUse = new Set<string>();
+  for (const { differences } of cells) {
+    const [chip] = differences;
+    if (chip !== undefined) inUse.add(chip);
+  }
+  if (inUse.size === 0) return { heading: t("availability.calendar.legend.regular"), items: [] };
+
+  const weekKey = (date: string) => {
+    const [y = 0, m = 1, d = 1] = date.split("-").map(Number);
+    return Math.floor((Date.UTC(y, m - 1, d) / 86_400_000 - weekdayIndex(date)) / 7);
+  };
+  const items = [...inUse].map((chip) => {
+    const having = cells.filter((c) => c.differences.includes(chip)).map((c) => c.date);
+    const weekdays = new Set(having.map(weekdayIndex));
+    const weekly =
+      new Set(having.map(weekKey)).size >= 2 &&
+      cells
+        .filter(({ date }) => weekdays.has(weekdayIndex(date)))
+        .every(({ differences }) => differences.includes(chip));
+    return weekly
+      ? t("availability.calendar.legend.weekdays", {
+          label: chip,
+          days: weekdaysText(having, format),
+        })
+      : t("availability.calendar.legend.days", { label: chip, count: having.length });
+  });
+  return { heading: t("availability.calendar.legend.thisMonth"), items };
+}

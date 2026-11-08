@@ -8,17 +8,19 @@ import {
   SERVICE_PRESET_IDS,
   WEEK_DISPLAY_ORDER,
   addBlock,
-  applyPreset,
+  setBlockDays,
   autoLastSeating,
   effectiveDays,
   removeBlock,
   replaceBlock,
   setServiceDays,
   toggleBlockDay,
+  type BlockDayToggle,
   type QuickSetupDraft,
-  type QuickSetupIssue,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
+import { type QuickSetupIssue } from "./quick-setup-validate.js";
+import { placePreset } from "./quick-setup-placement.js";
 import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
 import { DayPicker, IssueText, TimesRow } from "./quick-setup-fields.js";
 import { HoursBlockFieldset } from "./QuickSetupBlock.js";
@@ -97,16 +99,31 @@ export function ServiceRow({
     announce(t("availability.quickSetup.blockAdded"));
     onChange(addBlock(service, id));
   };
-  const toggleBlockDays = (blockId: string, day: number) => {
-    const result = toggleBlockDay(service, blockId, day);
+  const applyBlockDays = (result: BlockDayToggle, movedDays: readonly number[]) => {
     const lines = [
-      ...(result.moved ? [t("availability.quickSetup.blockDayMoved", { day: dayName(day) })] : []),
+      ...(result.moved && movedDays.length > 0
+        ? [
+            t("availability.quickSetup.blockDayMoved", {
+              day: movedDays.map((day) => dayName(day)).join(", "),
+            }),
+          ]
+        : []),
       ...result.removed.map((b) =>
         t("availability.quickSetup.blockRemoved", { days: daysText(b.days) })
       ),
     ];
     if (lines.length > 0) announce(lines.join(" "));
     onChange(result.service);
+  };
+  const toggleBlockDays = (blockId: string, day: number) =>
+    applyBlockDays(toggleBlockDay(service, blockId, day), [day]);
+  const setBlockShortcut = (blockId: string, days: readonly number[]) => {
+    const offered = effectiveDays(draft, service);
+    const taken = service.blocks
+      .filter((b) => b.id !== blockId)
+      .flatMap((b) => b.days)
+      .filter((day) => days.includes(day) && offered.includes(day));
+    applyBlockDays(setBlockDays(service, blockId, days, offered), taken);
   };
   const removeHours = (blockId: string) => {
     const block = service.blocks.find((b) => b.id === blockId);
@@ -132,7 +149,10 @@ export function ServiceRow({
           aria-label={t("availability.quickSetup.presetsLabel")}
         >
           {SERVICE_PRESET_IDS.map((id) => (
-            <Tag key={id} onClick={() => onChange(applyPreset(service, id, presetName(id)))}>
+            <Tag
+              key={id}
+              onClick={() => onChange(placePreset(draft, service.id, id, presetName(id)))}
+            >
               {presetName(id)}
             </Tag>
           ))}
@@ -203,6 +223,7 @@ export function ServiceRow({
             issues={issues}
             onChange={(next) => onChange(replaceBlock(service, next))}
             onToggleDay={(day) => toggleBlockDays(block.id, day)}
+            onSetDays={(days) => setBlockShortcut(block.id, days)}
             onRemove={() => removeHours(block.id)}
           />
         ))}

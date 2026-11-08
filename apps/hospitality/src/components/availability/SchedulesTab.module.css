@@ -40,3 +40,19 @@
   gap: var(--rialto-space-sm);
   align-items: center;
 }
+
+.bookingRow {
+  min-width: 0;
+}
+
+/* The line can be long: it wraps inside the content width instead of scrolling the page sideways.
+   Doubled class so it wins over the button's own nowrap/centering whatever the stylesheet order. */
+.bookingLine.bookingLine {
+  max-width: 100%;
+  min-height: 2.75rem;
+  height: auto;
+  white-space: normal;
+  text-align: start;
+  justify-content: flex-start;
+  overflow-wrap: anywhere;
+}

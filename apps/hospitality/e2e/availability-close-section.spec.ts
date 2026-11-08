@@ -198,9 +198,10 @@ test.describe("Availability close dialog: One section (ADR-032)", () => {
         endsOn: CLOSE_DATE,
       },
     });
-    await expect(calendar.locator(`[data-date="${CLOSE_DATE}"]`)).toContainText(
-      "Bar closed all day"
-    );
+    // The cell is quiet: one chip ("Bar closed"); its accessible name keeps the full description.
+    const cell = calendar.locator(`[data-date="${CLOSE_DATE}"]`);
+    await expect(cell).toContainText("Bar closed");
+    await expect(cell).toHaveAttribute("aria-label", /Bar closed all day/);
   });
 
   test("?closeSection= opens the Close dialog on that section, and leaves no param behind", async ({

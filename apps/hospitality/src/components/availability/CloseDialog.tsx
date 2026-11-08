@@ -37,6 +37,7 @@ import {
   seriesForm,
   settleStartMinute,
   startMinutes,
+  willHaveStepTwo,
   stepTwoNote,
   stepTwoNoteId,
   toDecisions,
@@ -46,6 +47,7 @@ import {
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
+import { closeButtonText, closeToastText } from "./close-text.js";
 import { combineImpacts, decisionsFor } from "./add-dates-draft.js";
 import { AlreadyClosedNotice } from "./AlreadyClosedNotice.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
@@ -59,6 +61,8 @@ import { sectionMembership } from "./section-membership.js";
 import { sameRow } from "./series-edit.js";
 import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./CloseDialog.module.css";
+
+const endRequiredId = "close-end-required";
 
 export interface CloseDialogProps {
   readonly venueId: string;
@@ -285,13 +289,28 @@ export function CloseDialog(props: CloseDialogProps) {
       ? (rules.map((r) => replacedSpecialDate(liveRules, r)).find((d) => d !== null) ?? null)
       : null;
   // Read every day the closure covers: a time must mean the same on all of them.
+  const closedOn = rules.length > 0 ? rules.flatMap(closedDates) : [startsOn];
   const startOptions = startMinutes(
     state.config,
     timezone,
-    rules.length > 0 ? rules.flatMap(closedDates) : [startsOn],
-    form.fromMinute
+    closedOn,
+    form.fromMinute,
+    // Only a closure of today alone starts no earlier than now; any other date has its own hours.
+    closedOn.length === 1 && closedOn[0] === today
+      ? serviceMinuteOf(now, timezone, today)
+      : undefined
   );
 
+  const stepTwo = willHaveStepTwo(groups, givenBack);
+  // Range and Repeats start with To empty: the closure is not one until the Manager picks it.
+  const toMissing =
+    (form.when.kind === "range" || form.when.kind === "repeats") && form.when.to === "";
+  const targetName =
+    what.kind === "service"
+      ? services.find((s) => s.id === what.serviceId)?.name
+      : what.kind === "section"
+        ? sectionName
+        : undefined;
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
 
@@ -299,7 +318,7 @@ export function CloseDialog(props: CloseDialogProps) {
     const problem = validateClose(form, today);
     setInvalid(problem);
     if (problem) return focusCloseField(problem);
-    if (groups.length > 0 || givenBack) setStep(2);
+    if (stepTwo) setStep(2);
     else void save();
   };
 
@@ -353,26 +372,14 @@ export function CloseDialog(props: CloseDialogProps) {
       const notified = cancel + move + keep_notify;
       const givenBackTold = saved.result?.givenBackNotified ?? 0;
       // A repeat's From date may not be one of its days.
-      const date = fullDate(closedDates(rule)[0] ?? startsOn);
-      const count = rules.length;
-      const title = several
-        ? t(
-            notified > 0
-              ? "availability.close.toast.manyNotified"
-              : form.what.kind === "booking"
-                ? "availability.close.toast.manyBookingPaused"
-                : "availability.close.toast.many",
-            { count, notified }
-          )
-        : notified > 0
-          ? t("availability.close.toast.notified", { date, count: notified })
-          : form.what.kind === "booking"
-            ? form.what.types.length === 1 && form.what.types[0] === "online"
-              ? t("availability.close.toast.paused")
-              : t("availability.close.toast.bookingPaused", { date })
-            : sectionName
-              ? t("availability.close.toast.closedSection", { section: sectionName, date })
-              : t("availability.close.toast.closed", { date });
+      const firstDate = closedDates(rule)[0] ?? startsOn;
+      const date = fullDate(firstDate);
+      const title = closeToastText(
+        { form, date: firstDate, count: rules.length, name: targetName },
+        { notified },
+        t,
+        format
+      );
       if (props.onSavedQuietly && saved.result && notified === 0 && givenBackTold === 0) {
         // A save that told no guest is one History can revert: the caller offers Undo.
         props.onSavedQuietly(saved.result);
@@ -420,19 +427,23 @@ export function CloseDialog(props: CloseDialogProps) {
   );
   // Guests are only told right away when something tells them: a booking group or the given-back choice.
   const showStepTwoNote = step === 2 && (groups.length > 0 || (givenBack && tellGivenBack));
+  // A disabled primary says why where it is: a disabled button cannot say it for itself.
+  const showEndRequired = step === 1 && toMissing;
   const impactFailed = impactError !== null;
   // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
   // choices would read as complete.
   const primaryDisabled =
     savedEarlier ||
     editState !== null ||
-    (step === 2 ? !impact || !decisionsReady(groups, choices) : impactLoading || impactFailed);
+    (step === 2
+      ? !impact || !decisionsReady(groups, choices)
+      : impactLoading || impactFailed || toMissing);
   const label =
     step === 2
       ? groups.length === 0
         ? t("availability.close.edit.save")
         : outcomeLabel(counts, t)
-      : groups.length > 0 || givenBack
+      : stepTwo
         ? t("availability.close.next")
         : editing
           ? t("availability.close.edit.save")
@@ -442,27 +453,25 @@ export function CloseDialog(props: CloseDialogProps) {
               ? t("availability.close.button.closeMany", {
                   count: form.when.kind === "dates" ? form.when.dates.length : 0,
                 })
-              : sectionName
-                ? form.when.kind === "date" || form.when.kind === "tonight"
-                  ? t("availability.close.button.closeSection", {
-                      section: sectionName,
-                      date: fullDate(startsOn),
-                    })
-                  : t("availability.close.button.closeSectionNoDate", { section: sectionName })
-                : t("availability.close.button.close", {
-                    date:
-                      form.when.kind === "date" || form.when.kind === "tonight"
-                        ? fullDate(startsOn)
-                        : "",
-                  }).trim();
+              : closeButtonText({ form, date: startsOn, name: targetName }, t, format);
 
   return (
     <>
       <Dialog
         open
         onClose={leave}
-        title={editing ? t("availability.close.edit.title") : t("availability.close.title")}
-        description={savedEarlier ? undefined : t("availability.close.step", { step })}
+        title={
+          editing
+            ? t("availability.close.edit.title")
+            : props.pauseOnline
+              ? t("availability.close.button.pause")
+              : t("availability.close.title")
+        }
+        description={
+          savedEarlier || (step === 1 && !stepTwo)
+            ? undefined
+            : t("availability.close.step", { step })
+        }
         footer={
           savedEarlier ? (
             <div className={styles.footer}>
@@ -482,6 +491,16 @@ export function CloseDialog(props: CloseDialogProps) {
                   {stepTwoNote(decisionsReady(groups, choices), t)}
                 </Text>
               )}
+              {showEndRequired && (
+                <Text
+                  id={endRequiredId}
+                  variant="caption"
+                  color="secondary"
+                  className={styles.footerNote}
+                >
+                  {t("availability.close.when.endRequired")}
+                </Text>
+              )}
               <Button
                 variant="secondary"
                 disabled={isPending}
@@ -492,7 +511,9 @@ export function CloseDialog(props: CloseDialogProps) {
               <Button
                 variant="primary"
                 data-testid="close-primary"
-                aria-describedby={showStepTwoNote ? stepTwoNoteId : undefined}
+                aria-describedby={
+                  showStepTwoNote ? stepTwoNoteId : showEndRequired ? endRequiredId : undefined
+                }
                 onClick={step === 2 ? () => void save() : next}
                 isLoading={isPending}
                 disabled={primaryDisabled}

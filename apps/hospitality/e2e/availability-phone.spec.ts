@@ -176,8 +176,9 @@ test.describe("the first screen", () => {
     await open(page, DESKTOP);
     const first = await page.locator("[data-date]").first().boundingBox();
     // The toolbar used to push the first day to 472. The regular-week line (ux.md S2) is one row
-    // more than the 430 this allowed before it, so the guard sits just under the old 472.
-    expect(first!.y).toBeLessThan(460);
+    // more than the 430 this allowed before it, and the month legend (availability-scenario-ux
+    // F5) one more, so the guard sits just under 500.
+    expect(first!.y).toBeLessThan(500);
     const today = await page.getByRole("button", { name: "Today" }).boundingBox();
     const month = await page.getByRole("radio", { name: "Month" }).boundingBox();
     expect(Math.abs(today!.y + today!.height / 2 - (month!.y + month!.height / 2))).toBeLessThan(4);
@@ -428,7 +429,7 @@ test.describe("tap targets", () => {
     expect(await smallTargets(page.locator("main"))).toEqual([]);
   });
 
-  test("a dialog's close, Cancel and Next are at least 44 px on a phone", async ({
+  test("a dialog's close, Cancel and primary action are at least 44 px on a phone", async ({
     mockedPage: page,
   }) => {
     await mockAvailability(page);
@@ -438,7 +439,8 @@ test.describe("tap targets", () => {
       .getByRole("button", { name: /^Close…/ })
       .click();
     const dialog = page.getByRole("dialog", { name: "Close", exact: true });
-    await dialog.getByText("Step 1 of 2").waitFor();
+    // No "Step 1 of 2" line: nothing is booked on the date, so no second step follows.
+    await dialog.getByTestId("close-primary").waitFor();
     // A dialog opens at 0.97 scale: measure it once it has settled.
     await expect.poll(() => smallTargets(dialog)).toEqual([]);
   });

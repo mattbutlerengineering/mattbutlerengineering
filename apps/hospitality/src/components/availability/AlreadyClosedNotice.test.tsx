@@ -78,6 +78,13 @@ function renderDialog(
 }
 
 const pick = (name: RegExp | string) => fireEvent.click(screen.getByRole("radio", { name }));
+// A range starts with To empty (feature:availability-scenario-ux), so a test picks its end.
+function pickTo(date: string) {
+  fireEvent.click(screen.getByRole("combobox", { name: "To" }));
+  fireEvent.click(
+    Array.from(document.querySelectorAll<HTMLElement>(`[data-date="${date}"]`)).at(-1)!
+  );
+}
 
 describe("closing a date that is already closed (#8006)", () => {
   beforeAll(() => {
@@ -126,7 +133,8 @@ describe("closing a date that is already closed (#8006)", () => {
   it("says which date of a range is closed, without calling the whole range closed", () => {
     renderDialog([closure()], { initialDate: "2026-12-24" });
     pick("Date range");
-    // The range starts on the 24th and runs a week, so it holds the 25th.
+    pickTo("2026-12-30");
+    // The range runs from the 24th for a week, so it holds the 25th.
     expect(screen.getByText("Some dates are already closed")).toBeTruthy();
     expect(screen.getByText("Already closed on Fri, Dec 25: Whole venue.")).toBeTruthy();
     expect(screen.queryByText("Already closed")).toBeNull();
@@ -184,6 +192,7 @@ describe("closing a date that is already closed (#8006)", () => {
     const year = closure({ startsOn: "2026-12-01", endsOn: "2027-06-30" });
     renderDialog([year], { initialDate: "2026-12-07" });
     pick("Date range");
+    pickTo("2026-12-13");
     expect(
       screen.getByText(
         "Already closed on Mon, Dec 7, Tue, Dec 8, Wed, Dec 9 and 4 more dates: Whole venue · Tue, Dec 1 to Wed, Jun 30."

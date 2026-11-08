@@ -83,6 +83,18 @@ import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 const DATE = "2026-12-24";
 
+/** Picks To in the open Range or Repeats form: it starts empty and its calendar opens on From's month. */
+function pickTo(date: string) {
+  fireEvent.click(screen.getByRole("combobox", { name: "To" }));
+  fireEvent.click(
+    Array.from(document.querySelectorAll<HTMLElement>(`[data-date="${date}"]`)).at(-1)!
+  );
+}
+
+/** The picker that was open has closed, so the next one's controls are the only ones on screen. */
+const pickerClosed = () =>
+  waitFor(() => expect(screen.queryByRole("button", { name: /next month/i })).toBeNull());
+
 /** A weekly dinner-only closure from 10:00 PM: the series whose one date is being edited. */
 const DINNER_SERIES: DateRule = {
   id: "series-1",
@@ -259,7 +271,9 @@ describe("CloseDialog", () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     // The toast counts what was notified: reservations, not the 52 guests booked.
-    expect(await screen.findByText("Thu, Dec 24 closed · 14 reservations notified")).toBeTruthy();
+    expect(
+      await screen.findByText("Closed on Thu, Dec 24 · 14 reservations notified")
+    ).toBeTruthy();
     const call = create.mock.calls[0]?.[0] as {
       body: { expectedVersion: number; rule: Record<string, unknown>; decisions: unknown[] };
     };
@@ -484,7 +498,9 @@ describe("CloseDialog", () => {
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Online" }));
     fireEvent.click(within(dialog).getByTestId("close-primary"));
     await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(await screen.findByText(/^Booking paused on /)).toBeTruthy();
+    expect(
+      await screen.findByText("Phone booking paused from Tue, Dec 1 until you reopen")
+    ).toBeTruthy();
     expect(screen.queryByText("Online booking paused")).toBeNull();
   });
 
@@ -584,7 +600,9 @@ describe("CloseDialog", () => {
       const [first, second] = create.mock.calls.map((c) => c[0] as Call);
       expect(second!.idempotencyKey).toBe(first!.idempotencyKey);
       expect(second!.body.rule.id).toBe(first!.body.rule.id);
-      expect(await screen.findByText("Thu, Dec 24 closed · 14 reservations notified")).toBeTruthy();
+      expect(
+        await screen.findByText("Closed on Thu, Dec 24 · 14 reservations notified")
+      ).toBeTruthy();
     });
 
     it("starts a new attempt when the Manager changes the request after a failure", async () => {
@@ -1230,6 +1248,7 @@ describe("CloseDialog", () => {
     it("goes to the weekdays when a repeat has dates but no day", () => {
       renderDialog();
       pick(/^Repeats/);
+      pickTo("2026-12-31");
       next();
       expect(screen.getAllByRole("checkbox")[0]).toHaveFocus();
     });
@@ -1278,6 +1297,7 @@ describe("CloseDialog", () => {
       renderDialog({ state: overnightState(), initialDate: "2026-12-21" });
       const dialog = screen.getByRole("dialog");
       fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+      pickTo("2026-12-31");
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
       fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
       expect(screen.getByRole("option", { name: "From 1:30 AM (next day)" })).toBeTruthy();
@@ -1343,6 +1363,7 @@ describe("CloseDialog", () => {
         renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
         const dialog = screen.getByRole("dialog");
         fireEvent.click(within(dialog).getByRole("radio", { name: "Date range" }));
+        pickTo("2026-12-27");
         const { afterMidnight, morning } = fridayOptions(dialog);
         expect(afterMidnight).toBeTruthy();
         expect(morning).toBeNull();
@@ -1356,11 +1377,13 @@ describe("CloseDialog", () => {
           changeId: "c",
           outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
         });
-        renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
+        // Only Friday has hours (to 2:00 AM), so Monday offers the whole day, 1:00 AM included.
+        renderDialog({ state: overnightState(), initialDate: MONDAY });
         const dialog = screen.getByRole("dialog");
         fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
         fireEvent.click(screen.getByRole("option", { name: "From 1:00 AM" }));
         fireEvent.click(within(dialog).getByRole("radio", { name: "Date range" }));
+        pickTo("2026-12-27");
 
         expect(within(dialog).getByRole("combobox", { name: "Starting at" })).toHaveTextContent(
           "All day"
@@ -1375,6 +1398,7 @@ describe("CloseDialog", () => {
         renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
         const dialog = screen.getByRole("dialog");
         fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+        pickTo("2026-12-27");
         fireEvent.click(within(dialog).getByRole("checkbox", { name: "Mon" }));
         fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
         const { afterMidnight, morning } = fridayOptions(dialog);
@@ -1394,6 +1418,7 @@ describe("CloseDialog", () => {
 
       it("names the first date it really closes, not its From date", () => {
         const dialog = repeatFrom("2026-12-21");
+        pickTo("2026-12-31");
         fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
         expect(within(dialog).getByText(/Guests will see: Fri, Dec 25/)).toBeTruthy();
         expect(within(dialog).queryByText(/Mon, Dec 21/)).toBeNull();
@@ -1413,6 +1438,7 @@ describe("CloseDialog", () => {
         renderDialog({ initialDate: "2026-12-21" });
         const dialog = screen.getByRole("dialog");
         fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+        pickTo("2026-12-31");
         fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
         return dialog;
       };
@@ -1420,14 +1446,14 @@ describe("CloseDialog", () => {
       it("names the first date it closes", async () => {
         const dialog = fridays();
         fireEvent.click(within(dialog).getByTestId("close-primary"));
-        expect(await screen.findByText("Fri, Dec 25 closed")).toBeTruthy();
+        expect(await screen.findByText("Closed on Fri, Dec 25")).toBeTruthy();
       });
 
       it("names it when guests were notified", async () => {
         const dialog = fridays({ cancel: 2, move: 0, keep_notify: 0, keep_silent: 0 });
         fireEvent.click(within(dialog).getByTestId("close-primary"));
         expect(
-          await screen.findByText("Fri, Dec 25 closed · 2 reservations notified")
+          await screen.findByText("Closed on Fri, Dec 25 · 2 reservations notified")
         ).toBeTruthy();
       });
 
@@ -1437,7 +1463,7 @@ describe("CloseDialog", () => {
         fireEvent.click(within(dialog).getByRole("checkbox", { name: "Phone" }));
         fireEvent.click(within(dialog).getByRole("checkbox", { name: "Online" }));
         fireEvent.click(within(dialog).getByTestId("close-primary"));
-        expect(await screen.findByText("Booking paused on Fri, Dec 25")).toBeTruthy();
+        expect(await screen.findByText("Phone booking paused on Fri, Dec 25")).toBeTruthy();
       });
     });
 
@@ -1452,6 +1478,7 @@ describe("CloseDialog", () => {
       renderDialog({ state: overnightState(special), initialDate: "2026-12-24" });
       expect(screen.queryByText(/has special hours/)).toBeNull();
       fireEvent.click(screen.getByRole("radio", { name: "Date range" }));
+      pickTo("2026-12-27");
       expect(screen.getByText(/Fri, Dec 25 has special hours/)).toBeTruthy();
     });
 
@@ -1466,12 +1493,12 @@ describe("CloseDialog", () => {
       expect(day("2027-01-10")).toHaveAttribute("aria-disabled", "true");
     });
 
-    it("moves To up to From when From is picked after it, so the range never reads backwards", () => {
+    it("moves To up to From when From is picked after it, so the range never reads backwards", async () => {
       renderDialog({ initialDate: "2026-12-02" });
       fireEvent.click(screen.getByRole("radio", { name: "Date range" }));
-      const to = screen.getByRole("combobox", { name: "To" }) as HTMLInputElement;
-      const toBefore = to.value;
-      expect(toBefore).not.toBe("");
+      expect((screen.getByRole("combobox", { name: "To" }) as HTMLInputElement).value).toBe("");
+      pickTo("2026-12-10");
+      await pickerClosed();
       fireEvent.click(screen.getByRole("combobox", { name: "From" }));
       fireEvent.click(screen.getByRole("button", { name: /next month/i }));
       fireEvent.click(document.querySelector<HTMLElement>('[data-date="2027-01-20"]')!);
@@ -1483,11 +1510,16 @@ describe("CloseDialog", () => {
       );
     });
 
-    it("does the same for Repeats: To opens on From's month and moves up to From", () => {
+    it("does the same for Repeats: To opens on From's month and moves up to From", async () => {
       renderDialog({ initialDate: "2026-12-02" });
       fireEvent.click(screen.getByRole("radio", { name: "Repeats" }));
       const to = () => (screen.getByRole("combobox", { name: "To" }) as HTMLInputElement).value;
-      expect(to()).toBe("Mar 2, 2027");
+      // To starts empty, so its calendar opens on From's month; the primary waits for it.
+      expect(to()).toBe("");
+      expect(screen.getByTestId("close-primary")).toBeDisabled();
+      pickTo("2026-12-20");
+      expect(to()).toBe("Dec 20, 2026");
+      await pickerClosed();
       fireEvent.click(screen.getByRole("combobox", { name: "From" }));
       for (let month = 0; month < 4; month++) {
         fireEvent.click(screen.getByRole("button", { name: /next month/i }));
@@ -1760,5 +1792,250 @@ describe("CloseDialog", () => {
     expect((await axe(document.body, AXE_OPTIONS)).violations).toEqual([]);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect((await axe(document.body, AXE_OPTIONS)).violations).toEqual([]);
+  });
+});
+
+describe("CloseDialog: dates, times, steps, title and toasts (availability-scenario-ux)", () => {
+  const NO_BOOKINGS: ClosureImpact = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
+  const SAVED = {
+    ruleId: "rule",
+    version: 8,
+    changeId: "c",
+    outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+  };
+  const NOV_8 = "2026-11-08";
+
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+  beforeEach(() => {
+    create.mockReset();
+    create.mockResolvedValue(SAVED);
+    impactByDate.value = {};
+    saving.value = false;
+    impactState.value = NO_BOOKINGS;
+    Object.assign(impactQuery, { keyed: false, firstKey: null, loading: false, error: null });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  describe("quick dates", () => {
+    it("offers Tonight, Tomorrow and each holiday in the next 60 days on Nov 8, 2026", () => {
+      renderDialog({ today: NOV_8, initialDate: null });
+      const chips = within(screen.getByRole("group", { name: "Quick dates" })).getAllByRole(
+        "button"
+      );
+      expect(chips.map((c) => c.textContent)).toEqual([
+        "Tonight",
+        "Tomorrow",
+        "Thanksgiving · Thu, Nov 26",
+        "Christmas Eve · Thu, Dec 24",
+        "Christmas Day · Fri, Dec 25",
+        "New Year’s Eve · Thu, Dec 31",
+        "New Year’s Day · Fri, Jan 1",
+      ]);
+    });
+
+    it("sets One date from a holiday chip, and saves that date", async () => {
+      renderDialog({ today: NOV_8, initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByRole("radio", { name: "Tonight" })).toBeChecked();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Christmas Eve · Thu, Dec 24" }));
+      expect(within(dialog).getByRole("radio", { name: "One date" })).toBeChecked();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Close Thu, Dec 24" }));
+      await waitFor(() => expect(create).toHaveBeenCalled());
+      expect(create.mock.calls[0]![0].body.rule).toMatchObject({
+        startsOn: "2026-12-24",
+        endsOn: "2026-12-24",
+      });
+    });
+
+    it("checks One date, unchecks Tonight and selects only the chosen chip", () => {
+      renderDialog({ today: NOV_8, initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      const chips = within(within(dialog).getByRole("group", { name: "Quick dates" })).getAllByRole(
+        "button"
+      );
+      const selected = () =>
+        chips.filter((c) => /selected/.test(c.className)).map((c) => c.textContent);
+      expect(selected()).toEqual(["Tonight"]);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Christmas Eve · Thu, Dec 24" }));
+      expect(within(dialog).getByRole("radio", { name: "One date" })).toBeChecked();
+      expect(within(dialog).getByRole("radio", { name: "Tonight" })).not.toBeChecked();
+      expect(selected()).toEqual(["Christmas Eve · Thu, Dec 24"]);
+    });
+
+    it("sits after the When choices, as shortcuts for the date", () => {
+      renderDialog({ today: NOV_8, initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      const group = within(dialog).getByRole("group", { name: "Quick dates" });
+      const whenRadio = within(dialog).getByRole("radio", { name: "Until I reopen" });
+      expect(
+        whenRadio.compareDocumentPosition(group) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    });
+
+    it("sets One date from Tomorrow and Tonight from Tonight", () => {
+      renderDialog({ today: NOV_8, initialDate: "2026-12-24" });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("button", { name: "Tomorrow" }));
+      expect(within(dialog).getByRole("button", { name: "Close Mon, Nov 9" })).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Tonight" }));
+      expect(within(dialog).getByRole("radio", { name: "Tonight" })).toBeChecked();
+    });
+  });
+
+  describe("start times today", () => {
+    it("lists All day and 6:30 PM to 10:30 PM at 6:00 PM, with Dinner to 11:00 PM", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-26T02:00:00Z")); // 6:00 PM Friday in Los Angeles
+      renderDialog({ today: "2026-12-25", initialDate: null });
+      fireEvent.click(screen.getByRole("combobox", { name: "Starting at" }));
+      expect(screen.getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "All day",
+        "From 6:30 PM",
+        "From 7:00 PM",
+        "From 7:30 PM",
+        "From 8:00 PM",
+        "From 8:30 PM",
+        "From 9:00 PM",
+        "From 9:30 PM",
+        "From 10:00 PM",
+        "From 10:30 PM",
+      ]);
+    });
+
+    it("starts at opening for a later date, whatever the time now", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-26T02:00:00Z"));
+      renderDialog({ today: "2026-12-25", initialDate: "2026-12-25" });
+      renderDialog({ today: "2026-12-18", initialDate: "2026-12-25" });
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Starting at" })[1]!);
+      expect(screen.getAllByRole("option")[1]).toHaveTextContent("From 11:30 AM");
+    });
+  });
+
+  describe("Range and Repeats", () => {
+    it("start with To empty and the primary disabled until it is chosen", () => {
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Date range" }));
+      expect((within(dialog).getByRole("combobox", { name: "To" }) as HTMLInputElement).value).toBe(
+        ""
+      );
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+      // The disabled primary says why, and is tied to the reason.
+      expect(within(dialog).getByTestId("close-primary")).toHaveAccessibleDescription(
+        "Choose an end date to close."
+      );
+      pickTo("2026-12-27");
+      expect(within(dialog).getByTestId("close-primary")).toBeEnabled();
+      expect(within(dialog).queryByText("Choose an end date to close.")).toBeNull();
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+      expect((within(dialog).getByRole("combobox", { name: "To" }) as HTMLInputElement).value).toBe(
+        ""
+      );
+      expect(within(dialog).getByTestId("close-primary")).toBeDisabled();
+    });
+  });
+
+  describe("start times on a range that includes today", () => {
+    it("start at opening: the time now narrows only a closure of today alone", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-26T02:00:00Z")); // 6:00 PM Friday in Los Angeles
+      renderDialog({ today: "2026-12-25", initialDate: "2026-12-25" });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Date range" }));
+      pickTo("2026-12-27");
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      expect(screen.getAllByRole("option")[1]).toHaveTextContent("From 11:30 AM");
+    });
+  });
+
+  describe("the step line", () => {
+    it("is not shown when no booking is affected", () => {
+      renderDialog();
+      expect(screen.queryByText(/^Step \d of 2$/)).toBeNull();
+    });
+
+    it("is shown once bookings are affected, and on Step 2", () => {
+      impactState.value = IMPACT;
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("Step 1 of 2")).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+      expect(within(dialog).getByText("Step 2 of 2")).toBeTruthy();
+    });
+  });
+
+  describe("the title", () => {
+    it("follows the entry: Close, or Pause online booking from the pause entry", () => {
+      const { unmount } = renderDialog();
+      expect(
+        within(screen.getByRole("dialog")).getByRole("heading", { name: "Close" })
+      ).toBeTruthy();
+      unmount();
+      renderDialog({ initialDate: null, pauseOnline: true });
+      expect(
+        within(screen.getByRole("dialog")).getByRole("heading", { name: "Pause online booking" })
+      ).toBeTruthy();
+    });
+  });
+
+  describe("the toast", () => {
+    it("names the service it closed", async () => {
+      renderDialog();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "One service" }));
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+      expect(await screen.findByText("Lunch closed on Thu, Dec 24")).toBeTruthy();
+    });
+
+    it("names the target and the start time on the button", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-25T20:00:00Z"));
+      renderDialog({ today: "2026-12-25", initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "One service" }));
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        "Close Lunch on Fri, Dec 25"
+      );
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("option", { name: "From 9:30 PM" }));
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        "Close Lunch from 9:30 PM tonight"
+      );
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Whole venue" }));
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        "Close from 9:30 PM tonight"
+      );
+    });
+
+    it("names a range's dates and a repeat's weekday, and says what the button will do", async () => {
+      renderDialog({ today: "2026-12-01", initialDate: "2026-12-21" });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("radio", { name: "Repeats" }));
+      pickTo("2026-12-31");
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Mon" }));
+      expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+        "Close every Monday, Mon, Dec 21 – Mon, Dec 28"
+      );
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+      expect(
+        await screen.findByText("Closed every Monday, Mon, Dec 21 – Mon, Dec 28")
+      ).toBeTruthy();
+    });
+
+    it("says the whole venue closed, and when a start time was chosen, from when", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-12-25T20:00:00Z")); // noon Friday in Los Angeles
+      renderDialog({ today: "2026-12-25", initialDate: null });
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
+      fireEvent.click(screen.getByRole("option", { name: "From 9:30 PM" }));
+      fireEvent.click(within(dialog).getByTestId("close-primary"));
+      expect(await screen.findByText("Closed from 9:30 PM tonight")).toBeTruthy();
+    });
   });
 });

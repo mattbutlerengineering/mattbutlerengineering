@@ -154,6 +154,25 @@ export function upcomingHolidays(
   );
 }
 
+/** How far ahead the Close dialog offers holiday chips. */
+const CLOSE_CHIP_DAYS = 60;
+
+/**
+ * Every holiday from `today` (inclusive) to `days` later, planned ones included: the Close dialog
+ * shows an already-closed date its own notice instead of hiding the chip.
+ */
+export function holidaysWithin(
+  country: HolidayCountry,
+  today: string,
+  days: number = CLOSE_CHIP_DAYS
+): Holiday[] {
+  const end = addDays(today, days);
+  const year = Number(today.slice(0, 4));
+  return [...holidaysIn(country, year), ...holidaysIn(country, year + 1)].filter(
+    (h) => h.date >= today && h.date <= end
+  );
+}
+
 const COUNTRIES: readonly HolidayCountry[] = ["US", "CA", "MX"];
 
 /**
