@@ -538,6 +538,21 @@ describe("AvailabilityPage", () => {
         "/availability?tab=schedules&from=setup"
       );
     });
+
+    it("opens the seeded schedule editor on Schedules for ?action=addSchedule, once", async () => {
+      renderPage("/availability?action=addSchedule&from=setup");
+      expect(await screen.findByRole("dialog", { name: "New schedule" })).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
+      expect(screen.getByLabelText("Starting")).toHaveValue("");
+      expect(screen.getByTestId("location")).toHaveTextContent("/availability?from=setup");
+    });
+
+    it("opens no editor for a Host who follows ?action=addSchedule", () => {
+      team.value = { viewerRole: "host" };
+      renderPage("/availability?action=addSchedule");
+      expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
+    });
   });
 
   describe("a venue with no hours", () => {
@@ -1236,12 +1251,16 @@ describe("AvailabilityPage", () => {
       expect(await screen.findByRole("dialog", { name: "Go to date" })).toBeInTheDocument();
     });
 
-    it("gives a Host none of the header actions, only the calendar's Select…", () => {
+    it("gives a Host a ⋯ with History and Go to date only, and the calendar's Select…", () => {
       team.value = { viewerRole: "host" };
       renderPage();
-      expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^Close…/ })).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Select…" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+      expect(
+        within(screen.getByRole("menu"))
+          .getAllByRole("menuitem")
+          .map((item) => item.textContent)
+      ).toEqual(["History", "Go to date"]);
     });
   });
 
@@ -1436,15 +1455,20 @@ describe("AvailabilityPage layers", () => {
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
   });
 
-  it("lands a Host on Calendar, with no Schedules layer and no header actions", () => {
+  it("lands a Host on Calendar, with no Schedules layer and only History and Go to date in ⋯", () => {
     team.value = { viewerRole: "host" };
     renderPage("/availability");
     expect(layerRadio("Calendar")).toBeChecked();
     expect(screen.queryByRole("radio", { name: "Schedules" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Pause online booking" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "More actions" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add a schedule…" })).not.toBeInTheDocument();
+    fireEvent.click(headerButton("More actions"));
+    expect(
+      within(screen.getByRole("menu"))
+        .getAllByRole("menuitem")
+        .map((item) => item.textContent)
+    ).toEqual(["History", "Go to date"]);
   });
 
   it("opens Calendar for ?tab=calendar, and lists the layers in order", () => {
@@ -1557,9 +1581,12 @@ describe("AvailabilityPage layers", () => {
     expect(layerRadio("Schedules")).toBeChecked();
     fireEvent.click(layerRadio("Calendar"));
     fireEvent.click(
-      within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole("button", {
-        name: "Discard",
-      })
+      within(screen.getByRole("alertdialog", { name: "Discard your changes?" })).getByRole(
+        "button",
+        {
+          name: "Discard",
+        }
+      )
     );
     expect(layerRadio("Calendar")).toBeChecked();
   });

@@ -57,6 +57,8 @@ export interface AvailabilityGuestPreviewProps {
    * drives the date strip.
    */
   readonly scope?: PreviewScope;
+  /** The card's heading; the default names the preview as the drawers and the editor show it. */
+  readonly title?: string;
   /** No request is made, and the last result stays dimmed. For a draft that cannot be previewed yet. */
   readonly paused?: boolean;
   /** Whether Save reviews a moved config with the Manager; false for a flow that has no review. */
@@ -376,7 +378,7 @@ export function AvailabilityGuestPreview(props: AvailabilityGuestPreviewProps) {
   return (
     <Card
       variant="flat"
-      title={t("availability.preview.title")}
+      title={props.title ?? t("availability.preview.title")}
       subtitle={t("availability.preview.draft")}
     >
       <Stack gap="sm">

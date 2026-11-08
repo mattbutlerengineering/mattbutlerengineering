@@ -344,9 +344,15 @@ describe("buildSetupTree: schedules and services", () => {
       kind: "link",
       to: "/availability?tab=schedules&from=setup",
     });
+    // Change regular week is a link to the Schedules layer, where the week is edited in place.
     expect(find(open, "schedule:sch-reg").actions[0]?.target).toEqual({
-      kind: "dialog",
-      dialog: "changeRegularWeek",
+      kind: "link",
+      to: "/availability?tab=schedules&from=setup",
+    });
+    // Add a schedule… opens the seeded editor there.
+    expect(find(open, "schedules").actions[1]?.target).toEqual({
+      kind: "link",
+      to: "/availability?tab=schedules&action=addSchedule&from=setup",
     });
   });
 });
@@ -444,7 +450,7 @@ describe("buildSetupTree: special dates and their targets", () => {
 
   it("opens the calendar and the Special dates tab", () => {
     expect(node.actions.map((a) => a.target)).toEqual([
-      { kind: "link", to: "/availability?from=setup" },
+      { kind: "link", to: "/availability?tab=calendar&from=setup" },
       { kind: "link", to: "/availability?tab=special&from=setup" },
     ]);
   });

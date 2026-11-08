@@ -38,6 +38,7 @@ export function SchedulesLayer(props: SchedulesLayerProps) {
           today={tab.today}
           mode={editor.mode}
           {...(editor.sourceId ? { sourceScheduleId: editor.sourceId } : {})}
+          {...(editor.seed ? { seed: editor.seed } : {})}
           onStale={tab.onStale}
           onClose={() => setEditor(null)}
         />

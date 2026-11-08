@@ -120,7 +120,7 @@ describe("SchedulesTab", () => {
     renderWith(<Layer state={state()} onEditorChange={onEditorChange} />);
     expect(screen.queryByRole("button", { name: "New schedule" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add a schedule…" }));
-    expect(onEditorChange).toHaveBeenCalledWith({ mode: "new" });
+    expect(onEditorChange).toHaveBeenCalledWith({ mode: "new", seed: "regular" });
   });
 
   it("says in one line what the layer is and prints the booking summary", () => {

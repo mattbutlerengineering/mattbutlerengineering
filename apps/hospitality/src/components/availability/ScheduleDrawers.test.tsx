@@ -467,10 +467,11 @@ describe("schedule drawers", () => {
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });
 
-    function renderNew(mode: "new" | "duplicate", opened: AvailabilityConfig) {
+    function renderNew(mode: "new" | "duplicate", opened: AvailabilityConfig, seed?: "regular") {
       const props = {
         ...common,
         mode,
+        ...(seed ? { seed } : {}),
         ...(mode === "duplicate" ? { sourceScheduleId: "regular" } : {}),
         onStale: vi.fn(),
         onClose: vi.fn(),
@@ -500,39 +501,66 @@ describe("schedule drawers", () => {
       expect(screen.getByText("Choose at least one day.")).toBeInTheDocument();
     });
 
-    it("New schedule can start from the regular week's services, and its days are still the Manager's", async () => {
-      renderNew("new", fixtureConfig());
-      fireEvent.click(screen.getByRole("button", { name: "Start from your regular week" }));
-      expect(
-        screen.queryByRole("button", { name: "Start from your regular week" })
-      ).not.toBeInTheDocument();
-      const names = screen
-        .getAllByRole("textbox", { name: /Service name/ })
-        .map((input) => (input as HTMLInputElement).value);
-      expect(names).toEqual(["Lunch", "Dinner"]);
-      // Not the regular week's Friday: a schedule is used where the Manager says.
-      expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
+    describe("Add a schedule… (seeded from the regular week)", () => {
+      const serviceNames = () =>
+        screen
+          .getAllByRole("textbox", { name: /Service name/ })
+          .map((input) => (input as HTMLInputElement).value);
 
-      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
-        target: { value: "Weekend hours" },
+      it("opens with the regular week's services and no days", () => {
+        renderNew("new", fixtureConfig(), "regular");
+        expect(serviceNames()).toEqual(["Lunch", "Dinner"]);
+        // The regular week runs Fridays; the new schedule is used nowhere until it has dates.
+        expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
+        expect(
+          screen.queryByRole("button", { name: "Start from your regular week" })
+        ).not.toBeInTheDocument();
       });
-      fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
-      fireEvent.click(screen.getByRole("button", { name: "Save" }));
-      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
-      const upsert = save.mock.calls[0]?.[0].body.changes.upsert;
-      expect(upsert.assignments.map((a: { weekdays: number[] }) => a.weekdays)).toEqual([[0, 6]]);
-      expect(
-        upsert.scheduleServices.map(
-          (r: { venueServiceId: string; opensAt: number; closesAt: number }) => [
-            r.venueServiceId,
-            r.opensAt,
-            r.closesAt,
-          ]
-        )
-      ).toEqual([
-        ["vs-lunch", 690, 900],
-        ["vs-dinner", 1020, 1380],
-      ]);
+
+      it("fills the days from the regular week once Starting is set", () => {
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+        expect(screen.getByText("Days: Fri")).toBeInTheDocument();
+        // Clearing Starting takes the days away again: they were never the Manager's.
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "" } });
+        expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
+      });
+
+      it("stops following the regular week once the days have been touched", () => {
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+        expect(screen.getByText(/^Days: Sat/)).toBeInTheDocument();
+        expect(screen.queryByText(/Fri/)).not.toBeInTheDocument();
+      });
+
+      it("never saves days without dates: with no Starting the days stay empty and Save is off", () => {
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Summer hours" },
+        });
+        expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+        expect(save).not.toHaveBeenCalled();
+      });
+
+      it("saves the followed days with the dates once Starting and Ending are set", async () => {
+        renderNew("new", fixtureConfig(), "regular");
+        fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+          target: { value: "Summer hours" },
+        });
+        fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+        fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
+        fireEvent.click(screen.getByRole("button", { name: "Save" }));
+        await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+        const upsert = save.mock.calls[0]?.[0].body.changes.upsert;
+        expect(
+          upsert.assignments.map((a: { weekdays: number[]; startsOn: string }) => [
+            a.weekdays,
+            a.startsOn,
+          ])
+        ).toEqual([[[5], "2026-11-02"]]);
+      });
     });
 
     it("New schedule: says availability changed, not that a schedule did, and Start over clears every field", async () => {

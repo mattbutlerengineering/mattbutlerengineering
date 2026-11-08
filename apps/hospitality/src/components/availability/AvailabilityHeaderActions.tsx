@@ -12,9 +12,10 @@ export interface AvailabilityHeaderActionsProps {
   readonly pending: boolean;
   /** Absent while online booking is already paused (the banner offers Resume). */
   readonly onPause?: () => void;
-  readonly onClose: () => void;
-  readonly onBookingRules: () => void;
-  readonly onCompareServices: () => void;
+  /** The Manager-only actions are absent for a Host, who keeps History and Go to date. */
+  readonly onClose?: () => void;
+  readonly onBookingRules?: () => void;
+  readonly onCompareServices?: () => void;
   /** Absent when the venue has no regular week to copy. */
   readonly onDuplicateRegularWeek?: () => void;
   readonly onHistory: () => void;
@@ -35,7 +36,7 @@ function afterMenuCloses(open: () => void) {
  * The Manager's page-level actions, the same on every layer (ux.md S-Avail2, F7): Close…, Pause
  * online booking and a ⋯ menu. A phone keeps Close… and folds Pause into ⋯, at the top, so the
  * night-of actions are one interaction on a desktop and two on a phone. A Host is given none of
- * it (the page does not render this).
+ * the Manager actions but keeps History and Go to date in ⋯.
  */
 export function AvailabilityHeaderActions(props: AvailabilityHeaderActionsProps) {
   const { viewport, pending, onPause, onClose } = props;
@@ -45,16 +46,24 @@ export function AvailabilityHeaderActions(props: AvailabilityHeaderActionsProps)
     ...(viewport === "phone" && onPause
       ? [{ id: "pause", label: t("availability.paused.open"), onSelect: afterMenuCloses(onPause) }]
       : []),
-    {
-      id: "booking-rules",
-      label: t("availability.bookingRules.open"),
-      onSelect: afterMenuCloses(props.onBookingRules),
-    },
-    {
-      id: "compare-services",
-      label: t("availabilitySchedules.compare.open"),
-      onSelect: afterMenuCloses(props.onCompareServices),
-    },
+    ...(props.onBookingRules
+      ? [
+          {
+            id: "booking-rules",
+            label: t("availability.bookingRules.open"),
+            onSelect: afterMenuCloses(props.onBookingRules),
+          },
+        ]
+      : []),
+    ...(props.onCompareServices
+      ? [
+          {
+            id: "compare-services",
+            label: t("availabilitySchedules.compare.open"),
+            onSelect: afterMenuCloses(props.onCompareServices),
+          },
+        ]
+      : []),
     ...(props.onDuplicateRegularWeek
       ? [
           {
@@ -78,9 +87,11 @@ export function AvailabilityHeaderActions(props: AvailabilityHeaderActionsProps)
 
   return (
     <div className={styles.actions}>
-      <Button variant="secondary" disabled={pending} onClick={onClose}>
-        {t("availability.close.open")}
-      </Button>
+      {onClose && (
+        <Button variant="secondary" disabled={pending} onClick={onClose}>
+          {t("availability.close.open")}
+        </Button>
+      )}
       {viewport !== "phone" && onPause && (
         <Button variant="secondary" disabled={pending} onClick={onPause}>
           {t("availability.paused.open")}

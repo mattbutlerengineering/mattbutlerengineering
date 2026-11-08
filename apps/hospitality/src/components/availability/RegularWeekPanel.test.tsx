@@ -15,9 +15,9 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 vi.mock("../../hooks/useTables.js", () => ({
   useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
 }));
-// The preview has its own tests (ScheduleFlowPreview.test.tsx): here only that it shows counts.
-vi.mock("./AvailabilityGuestPreview.js", () => ({
-  AvailabilityGuestPreview: () => <div data-testid="stranded-preview" />,
+// The draft preview has its own tests (ScheduleFlowPreview.test.tsx): here it never answers.
+vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
+  useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
 }));
 import type * as Rialto from "@mattbutlerengineering/rialto";
 vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
@@ -100,7 +100,14 @@ describe("RegularWeekPanel", () => {
     expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
     expect(screen.getByText("This becomes your regular week: open Tue–Sun.")).toBeInTheDocument();
     expect(screen.getByText("Monday is closed.")).toBeInTheDocument();
-    expect(screen.getByTestId("stranded-preview")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "What changes for guests" })).toBeInTheDocument();
+  });
+
+  it("a dirty panel has one Guest preview (the form's) and one What changes for guests", () => {
+    render(panel(stateOf(demoConfig())));
+    fireEvent.click(lunchMonday());
+    expect(screen.getAllByRole("heading", { name: "Guest preview" })).toHaveLength(1);
+    expect(screen.getAllByRole("heading", { name: "What changes for guests" })).toHaveLength(1);
   });
 
   it("Discard returns the form to the saved week", () => {

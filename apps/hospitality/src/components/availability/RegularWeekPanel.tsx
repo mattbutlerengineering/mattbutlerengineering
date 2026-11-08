@@ -164,6 +164,7 @@ function RegularWeekPanelBody(props: BodyProps) {
               focusDate={focusDate}
               baseVersion={review.baselineVersion}
               idle={block === "conflict" ? "conflict" : "fields"}
+              title={t("availabilitySchedules.layer.whatChanges")}
             />
           </>
         )}

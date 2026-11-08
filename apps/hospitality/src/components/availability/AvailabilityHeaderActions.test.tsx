@@ -90,4 +90,20 @@ describe("AvailabilityHeaderActions", () => {
     expect(screen.getByRole("button", { name: "Pause online booking" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "More actions" })).toBeDisabled();
   });
+
+  it("gives a Host a ⋯ with only History and Go to date", async () => {
+    const on = renderActions({
+      onClose: undefined,
+      onPause: undefined,
+      onBookingRules: undefined,
+      onCompareServices: undefined,
+      onDuplicateRegularWeek: undefined,
+    });
+    expect(screen.queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Pause online booking" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "More actions" }));
+    expect(menuItems()).toEqual(["History", "Go to date"]);
+    fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
+    await waitFor(() => expect(on.onGoToDate).toHaveBeenCalledTimes(1));
+  });
 });

@@ -159,16 +159,19 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   // The day Go to date went to. The dialog hands focus back to its trigger a frame after it
   // closes, so focus moves to the day only once that has happened (see the effect below).
   const [jumpTo, setJumpTo] = useState<string | null>(null);
-  // How another page opened this one (?tab=, ?closeSection=, ?from=setup), read once on mount.
+  // How another page opened this one (?tab=, ?closeSection=, ?action=, ?from=setup), read once on mount.
   const [searchParams, setSearchParams] = useSearchParams();
   const [entry] = useState(() => parseAvailabilityEntry(searchParams));
   // `null` until the viewer picks one: a Manager then lands on Schedules, a Host on Calendar.
-  const [chosenTab, setChosenTab] = useState<AvailabilityTab | null>(entry.tab ?? null);
-  // A section's Close dialog is not reopened by a refresh, so the param goes once it is read.
+  const [chosenTab, setChosenTab] = useState<AvailabilityTab | null>(
+    entry.tab ?? (entry.action ? "schedules" : null)
+  );
+  // A section's Close dialog and an action are not reopened by a refresh, so those params go once read.
   useEffect(() => {
-    if (!searchParams.has("closeSection")) return;
+    if (!searchParams.has("closeSection") && !searchParams.has("action")) return;
     const rest = new URLSearchParams(searchParams);
     rest.delete("closeSection");
+    rest.delete("action");
     setSearchParams(rest, { replace: true });
   }, [searchParams, setSearchParams]);
   // A range drag holds the selection bar as it was, so the grid does not move under the pointer.
@@ -320,6 +323,13 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     setClosing({ date: null, pause: false, sectionId: entrySection.current });
     entrySection.current = undefined;
   }, [entryReady]);
+  // ?action=addSchedule opens the seeded schedule editor on Schedules, once, for a Manager.
+  const entryAction = useRef(entry.action);
+  useEffect(() => {
+    if (!entryReady || entryAction.current !== "addSchedule") return;
+    setEditor({ mode: "new", seed: "regular" });
+    entryAction.current = undefined;
+  }, [entryReady]);
   // A read that has never answered. A refresh failing over data on hand is the drawer's to say.
   const failedReads = [
     days.error ? days : null,
@@ -357,32 +367,33 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     else applyTab(move);
   };
   const regularSchedule = config.data?.config.schedules.find((s) => s.isRegular && !s.archivedAt);
-  // A Host is given none of the header actions; while the role or the config is read they show
-  // disabled, and a config that failed to load has nothing for them to open.
+  // A Host keeps History and Go to date; the rest is the Manager's. While the role or the config
+  // is read the actions show disabled, and a config that failed to load has nothing to open.
   const headerActions =
-    access.isPending || (isManager && (config.data || !config.error)) ? (
+    isManager && !config.data && config.error ? null : (
       <AvailabilityHeaderActions
         viewport={viewport}
-        pending={access.isPending || !canAct}
-        onClose={() => setClosing({ date: null, pause: false })}
-        onPause={!pause ? () => setClosing({ date: null, pause: true }) : undefined}
-        onBookingRules={() => setBookingRulesOpen(true)}
-        onCompareServices={() =>
-          tab === "schedules"
-            ? setComparing(true)
-            : changeTab({ tab: "schedules", then: "compare" })
-        }
-        onDuplicateRegularWeek={
-          regularSchedule
-            ? () => setEditor({ mode: "duplicate", sourceId: regularSchedule.id })
-            : undefined
-        }
+        pending={access.isPending || (isManager && !canAct)}
+        {...(isManager || access.isPending
+          ? {
+              onClose: () => setClosing({ date: null, pause: false }),
+              onPause: !pause ? () => setClosing({ date: null, pause: true }) : undefined,
+              onBookingRules: () => setBookingRulesOpen(true),
+              onCompareServices: () =>
+                tab === "schedules"
+                  ? setComparing(true)
+                  : changeTab({ tab: "schedules", then: "compare" }),
+              onDuplicateRegularWeek: regularSchedule
+                ? () => setEditor({ mode: "duplicate", sourceId: regularSchedule.id })
+                : undefined,
+            }
+          : {})}
         onHistory={() => setHistoryOpen(true)}
         onGoToDate={() =>
           tab === "calendar" ? setGoToOpen(true) : changeTab({ tab: "calendar", then: "goToDate" })
         }
       />
-    ) : null;
+    );
   const pageHeader = (actions: ReactNode) => (
     <PageHeader
       title={t("availability.title")}
@@ -780,6 +791,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           today={today}
           mode={editor.mode}
           {...(editor.sourceId ? { sourceScheduleId: editor.sourceId } : {})}
+          {...(editor.seed ? { seed: editor.seed } : {})}
           onStale={() => void config.refetch()}
           onClose={() => setEditor(null)}
         />

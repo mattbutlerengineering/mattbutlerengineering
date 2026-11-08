@@ -1859,7 +1859,6 @@
     "title": "Schedules",
     "regularMarker": "Regular week",
     "newTitle": "New schedule",
-    "fromRegularWeek": "Start from your regular week",
     "duplicateTitle": "Duplicate schedule",
     "editTitle": "Edit {{name}}",
     "editNamed": "Edit {{name}}",
@@ -2032,7 +2031,8 @@
       "closeCompare": "Close",
       "appliesFrom": "Changes apply from today, {{date}}.",
       "startLater": "Starting later…",
-      "discard": "Discard"
+      "discard": "Discard",
+      "whatChanges": "What changes for guests"
     }
   },
   "availability": {
@@ -3045,7 +3045,7 @@
         "changeRegularWeek": "Change regular week…",
         "editSchedule": "Edit",
         "compareServices": "Compare services",
-        "createSchedule": "Create another schedule…",
+        "createSchedule": "Add a schedule…",
         "openCalendar": "Open calendar",
         "openSpecialDates": "Open Special dates",
         "bookingRules": "Booking rules…",

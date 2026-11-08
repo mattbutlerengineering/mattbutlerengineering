@@ -61,6 +61,11 @@ export interface ScheduleEditorDrawerProps {
   readonly mode: ScheduleEditorMode;
   /** The schedule being edited or copied. */
   readonly sourceScheduleId?: string;
+  /**
+   * New schedule only: start from the regular week's services (Add a schedule…). The days stay
+   * empty until Starting is set, then follow the regular week while the Manager leaves them be.
+   */
+  readonly seed?: "regular";
   readonly onStale: () => void;
   readonly onClose: () => void;
 }
@@ -75,7 +80,7 @@ const NO_ISSUES: readonly never[] = [];
  */
 export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const viewport = useViewport();
-  const { venueId, state, timezone, today, mode, sourceScheduleId, onStale, onClose } = props;
+  const { venueId, state, timezone, today, mode, sourceScheduleId, seed, onStale, onClose } = props;
   const { config } = state;
   const { t } = useTranslation();
   const dayName = useWeekdayName();
@@ -86,7 +91,12 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   // A copy starts with no days, as a new schedule does: it is used where the Manager says. Seeded
   // with the source's days it would save as an undated assignment that outranks the regular week
   // on every day, and a schedule only a Use schedule rule runs has no days of its own to copy.
+  const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
   const seedDraft = (from: AvailabilityConfig): QuickSetupDraft => {
+    // Add a schedule…: the regular week's services, no days (they follow once Starting is set).
+    if (mode === "new" && seed === "regular" && regular) {
+      return { ...draftFromConfig(from, () => crypto.randomUUID(), regular.id), days: [] };
+    }
     if (!source) return emptyDraft(crypto.randomUUID());
     const seeded = draftFromConfig(from, () => crypto.randomUUID(), source.id);
     return mode === "duplicate" ? { ...seeded, days: [] } : seeded;
@@ -100,9 +110,33 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   );
   const [initialDraft] = useState(() => seedDraft(config));
   const [name, setName] = useState(initialName);
-  const [draft, setDraft] = useState<QuickSetupDraft>(initialDraft);
+  const [rawDraft, setDraft] = useState<QuickSetupDraft>(initialDraft);
+  // The Manager has chosen days themselves; until then a seeded schedule's days follow the regular week.
+  const [daysTouched, setDaysTouched] = useState(false);
+  const regularDays = useMemo(
+    () => (regular ? coveredDays(draftFromConfig(config, () => "seed", regular.id)) : []),
+    [config, regular]
+  );
+  const followsRegular = mode === "new" && seed === "regular" && !daysTouched;
   const [startsOn, setStartsOn] = useState<string | null>(null);
   const [endsOn, setEndsOn] = useState<string | null>(null);
+  // With Starting set and the days untouched, the seeded days are the regular week's: so a dateless
+  // schedule can never save with days (it would outrank the regular week on every day).
+  const draft = useMemo(
+    () => (followsRegular && startsOn ? { ...rawDraft, days: regularDays } : rawDraft),
+    [followsRegular, startsOn, rawDraft, regularDays]
+  );
+  const changeDraft = (next: QuickSetupDraft) => {
+    if (!followsRegular || !startsOn) {
+      if (seed === "regular" && next.days.join() !== rawDraft.days.join()) setDaysTouched(true);
+      setDraft(next);
+      return;
+    }
+    // Still the followed days: keep them unset in the draft; any other days are the Manager's.
+    const sameDays = next.days.join() === regularDays.join();
+    if (!sameDays) setDaysTouched(true);
+    setDraft(sameDays ? { ...next, days: rawDraft.days } : next);
+  };
   const [winner, setWinner] = useState<Winner>("new");
   const [conflictMode, setConflictMode] = useState<ScopeConflictMode>("keep");
   // The other schedules the edited times also go to, per service (ux.md F-X step 4).
@@ -110,13 +144,6 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   // The picks the last save sent. A lost race blocks Save, which takes the options (and so the
   // groups) away until the Manager answers, so the review names these, not what is offered now.
   const [sent, setSent] = useState<AlsoApplyPicks>({});
-  // Most schedules are the regular week with a few changes (summer hours, a holiday stretch), so a
-  // New schedule can start from its services instead of retyping them: with no days, as a copy
-  // starts, so it is used where the Manager says. Offered until the draft is touched.
-  const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
-  const startFromRegular = (regularId: string) =>
-    setDraft({ ...draftFromConfig(config, () => crypto.randomUUID(), regularId), days: [] });
-
   const editing = mode === "edit";
   const review = useConflictReview({
     kind: editing ? "edit" : "draft",
@@ -146,6 +173,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     },
     startOver: () => {
       setDraft(seedDraft(state.config));
+      setDaysTouched(false);
       setName(initialName);
       setStartsOn(null);
       setEndsOn(null);
@@ -160,7 +188,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps -- seedDraft reads only `source`, fixed by the ids below
     [editing, review.baseline, initialDraft, sourceScheduleId]
   );
-  const draftTouched = weekKey(draft) !== weekKey(baselineDraft);
+  const draftTouched = weekKey(rawDraft) !== weekKey(baselineDraft);
   const dirty =
     name !== (editing ? review.baselineName : initialName) ||
     draftTouched ||
@@ -408,16 +436,9 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
                   })
                 : t("availabilitySchedules.impact", { count: dates.length })}
           </Text>
-          {mode === "new" && regular && !draftTouched && (
-            <div>
-              <Button variant="secondary" size="sm" onClick={() => startFromRegular(regular.id)}>
-                {t("availabilitySchedules.fromRegularWeek")}
-              </Button>
-            </div>
-          )}
           <QuickSetupForm
             draft={draft}
-            onChange={setDraft}
+            onChange={changeDraft}
             // A New schedule opens on an empty service: its fields wait for the Manager to start
             // on it before they say what is missing. Save's own reason is shown either way.
             issues={draftTouched ? issues : NO_ISSUES}

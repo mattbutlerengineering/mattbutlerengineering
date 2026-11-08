@@ -1896,7 +1896,6 @@
     "title": "Horarios",
     "regularMarker": "Semana habitual",
     "newTitle": "Nuevo horario",
-    "fromRegularWeek": "Empezar con tu semana habitual",
     "duplicateTitle": "Duplicar horario",
     "editTitle": "Editar {{name}}",
     "editNamed": "Editar {{name}}",
@@ -2081,7 +2080,8 @@
       "closeCompare": "Cerrar",
       "appliesFrom": "Los cambios se aplican desde hoy, {{date}}.",
       "startLater": "Empezar más tarde…",
-      "discard": "Descartar"
+      "discard": "Descartar",
+      "whatChanges": "Qué cambia para tus invitados"
     }
   },
   "availability": {
@@ -3141,7 +3141,7 @@
         "changeRegularWeek": "Cambiar la semana habitual…",
         "editSchedule": "Editar",
         "compareServices": "Comparar servicios",
-        "createSchedule": "Crear otro horario…",
+        "createSchedule": "Agregar un horario…",
         "openCalendar": "Abrir el calendario",
         "openSpecialDates": "Abrir Fechas especiales",
         "bookingRules": "Reglas de reserva…",
