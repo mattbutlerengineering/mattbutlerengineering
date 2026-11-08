@@ -104,47 +104,60 @@ Each is walked below using only controls this document defines. Controls are nam
 Fixtures: **F-one** is the suite's one-schedule venue (`mockApi`: Lunch 11:30 open / 2:00 last seating / 3:00 close and Dinner 5:00 / 9:30 / 11:00, every day). **F-bistro** is `mockEmptyVenue` after `setUniformBistroWeek` (Lunch and Dinner presets, Mon–Fri). **F-dinner** is `mockEmptyVenue({ config })` with Dinner alone, every day. **F-close** is F-one plus the stateful closure mock now private to `availability-close.spec.ts` (`/closures` GET/POST and `/closures/impact`), lifted into `e2e/helpers/` so S5, S7 and S10 can use it; with no affected bookings unless a walkthrough says otherwise. Steps count Locator actions as `helpers/interaction-counter.ts` does; choosing a time is 2 (open the list, pick); a date picker is 2 (open, pick) plus 1 per month moved. Each starts on `/availability` first paint, counted after the role read settles.
 
 #### W10. After onboarding, the same screen (PRD 14, 23)
+
 - Actor/goal: a Manager who just saved Lunch and Dinner Mon–Fri in quick setup (`mockEmptyVenue`, `setUniformBistroWeek`) reloads `/availability`.
 - Steps: none. The **Schedules** layer is selected; under **Regular week** the **week form** shows Lunch and Dinner with their times, Days Mon–Fri ticked, and the **Guest preview** beside it — the same form and preview the hours step showed.
 - Result: completes in 0 steps. Opening **Calendar** and back returns to the same form.
 
 #### W11 (S1, catalogue A1). Dinner 17:00–22:00 Tue–Sat on an existing week — budget ≤ 6
+
 - Fixture F-one. Steps: Dinner **Closes** → 10:00 PM (2); Dinner **Different days for this service** (1); untick Sunday and Monday in "Dinner runs on" (2); **Save** (1). **6.**
 - The footer reads "Changes apply from today, Sun, Nov 8." and "This becomes your regular week: open every day."; the stranded-bookings preview lists any booking outside the new hours; with none, Save lands and the undo toast says "Regular week changed from Nov 8".
 
 #### W12 (S2, B7). Add lunch beside dinner — budget ≤ 5
+
 - Fixture F-dinner. Steps: **Add another service** (1); **Lunch** preset (1); **Save** (1). **3.**
 
 #### W13 (S3, B8). Brunch on weekends only — budget ≤ 6
+
 - Fixture F-bistro (Lunch Mon–Fri, so Brunch 10:00–2:00 on Sat–Sun overlaps nothing). Steps: **Add another service** (1); **Brunch** (1); **Different days for this service** (1); **Weekends** in "Brunch runs on" (1); **Save** (1). **5.** On F-one (Lunch every day) Brunch would overlap Lunch on Sat–Sun and Save would stay blocked with "Brunch and Lunch overlap on Saturday" — that is the form's existing validation, not a gap.
 
 #### W14 (S4, A4). Last seating earlier than close — budget ≤ 3
+
 - Fixture F-one. Steps: Dinner **Last seating** → 9:00 PM (2); **Save** (1). **3.** Picking Last seating unlinks it from Closes, so the "… min before close" hint no longer shows (`QuickSetupServiceRow.tsx:155-161`).
 
 #### W15 (S5, D21). Close all day on one holiday — budget ≤ 6
+
 - Fixture F-close. Steps: header **Close…** (1); **One date** (1); **Date** (1); next month › (1); the day (1); the primary "Close Thu, Dec 24" (1). **6.** With no affected bookings step one's primary saves (`CloseDialog.tsx:430-437`). With affected bookings the primary reads **Next** and step two needs one decision per group before its primary: +2 or more, and over budget — recorded as the honest cost of a closure that touches guests, not designed away. The Close dialog is today's (S-Close); only its entry moved to the header.
 
 #### W16 (S6, D23). Special hours on one date — budget ≤ 7
+
 - Steps: **Calendar** (1); the date's cell (1); **Edit Dinner** in the day drawer (1); **Closes** → 1:00 AM (2); **Save** (1). **6.**
 
 #### W17 (S7, E37). A week-long vacation — budget ≤ 8
+
 - Fixture F-close. Steps: header **Close…** (1); **Date range** (1); **From** (2); **To** (2); the primary (1). **7** within one month, +1 per month moved. **Several dates** (one chip per date) is the wrong choice for a range and is not used.
 
 #### W18 (S8, C16). Summer hours Jun 1 – Sep 15 — budget ≤ 10
+
 - Fixture F-one. Steps: **Add a schedule…** (1) opens the schedule editor seeded from the regular week's services; **Name** "Summer hours" (1); **Starting** (2 + months moved) — the days now follow the regular week (every day) because they were untouched; **Ending** (2); Dinner **Closes** → 11:30 PM (2); **Save** (1). **9** plus month moves. Today's New schedule opens empty and "Start from your regular week" clears the days (`ScheduleEditorDrawer.tsx:89-92,117-118,411-416`), which would cost 11. Days are not seeded before a Starting date because a dateless schedule with days outranks the regular week on every day (`ScheduleEditorDrawer.tsx:86-88`). The new schedule appears under **Other schedules** with "Jun 1 – Sep 15, every day" and **Edit**, **Duplicate**, **Delete**.
 
 #### W19 (S9, H74/H75). How far ahead and minimum notice — budget ≤ 5
+
 - Fixture F-one. Steps: header **⋯** (1); **Booking rules…** (1); "How far ahead guests can book (days)" (1); "Minimum notice (hours)" (1); **Save** (1). **5.** The **Booking** line under the schedules updates to the new values.
 
 #### W20 (S10, L107/E44). Pause online booking tonight — budget ≤ 3
+
 - Fixture F-close. Steps: header **Pause online booking** (1); the dialog's primary (1). **2.** The page-level paused banner shows on every layer (it renders in the calendar branch only today; see Dependencies).
 
 #### W21. Starting later (PRD 17)
+
 - Actor/goal: a Manager wants the new dinner hours only from next Monday.
 - Steps: edit Dinner in the **week form**; **Starting later…** (1) opens Change regular week with the edited draft carried over and **Starting** empty; pick the date (2); **Save hours from Nov 9** (1).
 - Result: completes; the inline form returns to the saved week; the change shows in Calendar from Nov 9.
 
 #### W22. Host (PRD 22)
+
 - Actor/goal: a Host opens `/availability`. Result: the page is today's Host page — **Calendar** and **Special dates** only, read-only, no **Close…**, **Pause online booking**, **⋯**, or **Add a schedule…**.
 
 ## Code facts
@@ -419,35 +432,35 @@ Copy day stays inside the day drawer. Quick setup, Change regular week and the S
 
 **Amendment (2026-11-08) — where each control lives on `/availability`:**
 
-| Control | Before (2026-11-07) | After |
-|---|---|---|
-| Regular week editor | Change regular week… drawer (Calendar toolbar), hub | **Week panel** on the Schedules layer (default); the drawer via **Starting later…** (always shown); hub **Change regular week…** opens `/availability?tab=schedules` |
-| New schedule | Schedules tab header ("New schedule"); hub "Create another schedule…" | **Add a schedule…** beside the Regular week heading, and on the hub; opens seeded from the regular week |
-| Compare services | Schedules tab header | **⋯** → Compare services |
-| Duplicate / Edit regular week | Schedules tab row | **⋯** → Duplicate regular week…; the week form is the edit |
-| Edit / Duplicate / Delete other schedules | Schedules tab rows | **Other schedules** rows (unchanged actions) |
-| Close…, Pause online booking | Calendar toolbar | Page header (every layer) |
-| History, Go to date, Booking rules… | Calendar toolbar ⋯ | Page header **⋯** |
-| Date navigation, Month/Week, Select… | Calendar toolbar | Calendar layer toolbar (unchanged) |
-| Holiday nudge, week summary, Services filter, regular-week line | above the calendar toolbar | Calendar layer only |
+| Control                                                         | Before (2026-11-07)                                                   | After                                                                                                                                                                |
+| --------------------------------------------------------------- | --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Regular week editor                                             | Change regular week… drawer (Calendar toolbar), hub                   | **Week panel** on the Schedules layer (default); the drawer via **Starting later…** (always shown); hub **Change regular week…** opens `/availability?tab=schedules` |
+| New schedule                                                    | Schedules tab header ("New schedule"); hub "Create another schedule…" | **Add a schedule…** beside the Regular week heading, and on the hub; opens seeded from the regular week                                                              |
+| Compare services                                                | Schedules tab header                                                  | **⋯** → Compare services                                                                                                                                             |
+| Duplicate / Edit regular week                                   | Schedules tab row                                                     | **⋯** → Duplicate regular week…; the week form is the edit                                                                                                           |
+| Edit / Duplicate / Delete other schedules                       | Schedules tab rows                                                    | **Other schedules** rows (unchanged actions)                                                                                                                         |
+| Close…, Pause online booking                                    | Calendar toolbar                                                      | Page header (every layer)                                                                                                                                            |
+| History, Go to date, Booking rules…                             | Calendar toolbar ⋯                                                    | Page header **⋯**                                                                                                                                                    |
+| Date navigation, Month/Week, Select…                            | Calendar toolbar                                                      | Calendar layer toolbar (unchanged)                                                                                                                                   |
+| Holiday nudge, week summary, Services filter, regular-week line | above the calendar toolbar                                            | Calendar layer only                                                                                                                                                  |
 
 ### Glossary (test fixture for PRD criterion 5)
 
-| Concept                                 | UI term                                                                 | Never in UI                                          |
-| --------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------- |
-| The setup hub (nav, title, route label) | Venue Setup                                                             | Setup, Get Started (as a destination), Hours         |
-| The calendar page                       | Availability                                                            | Operating Hours, Set Operating Hours                 |
-| The room page                           | Floor Plan (singular in titles and nav sublabels)                       | Create Floor Plan, Floor Plans as a destination name |
-| Weekly pattern                          | Regular week                                                            | operating hours as a resource name                   |
-| Named alternative week                  | Schedule (hub, Schedules tab, schedule editor; from the first schedule) | template, period                                     |
-| Bookable period                         | Service                                                                 | shift, slot                                          |
-| One-date difference                     | Special hours; list = Special dates; closure = Closure                  | override, changed                                    |
-| How guests book                         | Booking (Online booking, phone booking, waitlist)                       | channel                                              |
-| A part of the floor                     | Section                                                                 | area, zone, location (for a section)                 |
-| One seat group                          | Table                                                                   | —                                                    |
-| Temporary night change                  | Tonight                                                                 | —                                                    |
-| Layers of the Availability page (amendment) | Schedules, Calendar, Special dates (in that order) | Week (as a layer name), Hours (as a layer name) |
-| A service's times (amendment) | "11:30 AM–3:00 PM, last seating 2:00 PM" | "11:30 AM–2:00 PM" for open–last seating |
+| Concept                                     | UI term                                                                 | Never in UI                                          |
+| ------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------- |
+| The setup hub (nav, title, route label)     | Venue Setup                                                             | Setup, Get Started (as a destination), Hours         |
+| The calendar page                           | Availability                                                            | Operating Hours, Set Operating Hours                 |
+| The room page                               | Floor Plan (singular in titles and nav sublabels)                       | Create Floor Plan, Floor Plans as a destination name |
+| Weekly pattern                              | Regular week                                                            | operating hours as a resource name                   |
+| Named alternative week                      | Schedule (hub, Schedules tab, schedule editor; from the first schedule) | template, period                                     |
+| Bookable period                             | Service                                                                 | shift, slot                                          |
+| One-date difference                         | Special hours; list = Special dates; closure = Closure                  | override, changed                                    |
+| How guests book                             | Booking (Online booking, phone booking, waitlist)                       | channel                                              |
+| A part of the floor                         | Section                                                                 | area, zone, location (for a section)                 |
+| One seat group                              | Table                                                                   | —                                                    |
+| Temporary night change                      | Tonight                                                                 | —                                                    |
+| Layers of the Availability page (amendment) | Schedules, Calendar, Special dates (in that order)                      | Week (as a layer name), Hours (as a layer name)      |
+| A service's times (amendment)               | "11:30 AM–3:00 PM, last seating 2:00 PM"                                | "11:30 AM–2:00 PM" for open–last seating             |
 
 Button copy: sentence case with counts and names ("Close Bar on Thu, Dec 24"). Action verbs: Set up (empty), Edit, Change, Close, Open, Add, Compare.
 

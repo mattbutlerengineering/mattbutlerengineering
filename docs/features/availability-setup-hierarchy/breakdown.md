@@ -161,4 +161,3 @@ None.
   - Add a schedule seed: with no dates, Save stays blocked on "Choose at least one day", so a dateless schedule with seeded days cannot be saved; "Start from your regular week" retires.
   - Scenario suite findings fixed in the product, not in the budgets: the Close dialog's To picker opened on today's month (Rialto `Calendar` now opens on `min`'s month when there is no value; To is bounded by From), and moving From past To left an inverted range (To now follows From). Both were S7 (a week-long vacation) over budget.
 - 2026-11-08 (Verify): item 10 (Setup hierarchy end-to-end scenarios) stays unchecked. Its checks (a)-(e) run and pass inside item 17's suite on the layered page, but its acceptance quotes the varied-week count "against the `7c051456f` baseline", and a worktree at that commit could not run here (workspace packages and dists differ). verification.md records it as NOT RUN, with criteria 2 and 3.
-

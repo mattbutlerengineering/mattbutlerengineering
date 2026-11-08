@@ -95,20 +95,21 @@ Criteria 14-18 and 23 are the amendment's acceptance bar; 19-22 and 24 guard it.
 - [ ] 17. **Edit in place, from today.** Changing a time or a day on the first layer and pressing Save applies the change from today, with the stranded-bookings check of `ChangeRegularWeekDrawer` still run before it lands; a "Starting later…" choice remains one click away and keeps the existing date-range behaviour. e2e: change Dinner's close, save, and assert the PUT carries today's date and the stranded check ran. [Reverses availability-config-usability `ux.md:200`; flagged for the Owner.]
 - [ ] 18. **Scenarios start from the first layer.** Each scenario below starts on `/availability` first paint and ends saved within its step budget (interaction counter, e2e). Budgets are this PRD's; UX may lower them, never raise them without recording why.
 
-  | # | Catalogue | Job | Budget |
-  |---|-----------|-----|--------|
-  | S1 | A1 | Change dinner to 17:00–22:00 Tue–Sat on an existing week | ≤ 6 |
-  | S2 | B7 | Add a lunch service beside dinner | ≤ 5 |
-  | S3 | B8 | Brunch on weekends only | ≤ 6 |
-  | S4 | A4 | Last seating earlier than close for one service | ≤ 3 |
-  | S5 | D21 | Close all day on one holiday | ≤ 6 (UX: measured on today's Close dialog) |
-  | S6 | D23 | Special hours on one date | ≤ 7 |
-  | S7 | E37 | Close for a week-long vacation | ≤ 8 (UX: range picking adds steps to the S5 path) |
-  | S8 | C16 | A seasonal schedule (summer hours, start and end date) | ≤ 10 |
-  | S9 | H74/H75 | Change how far ahead guests can book and the minimum notice | ≤ 5 |
-  | S10 | L107 / E44 | Pause online booking for tonight | ≤ 3 |
+  | #   | Catalogue  | Job                                                         | Budget                                            |
+  | --- | ---------- | ----------------------------------------------------------- | ------------------------------------------------- |
+  | S1  | A1         | Change dinner to 17:00–22:00 Tue–Sat on an existing week    | ≤ 6                                               |
+  | S2  | B7         | Add a lunch service beside dinner                           | ≤ 5                                               |
+  | S3  | B8         | Brunch on weekends only                                     | ≤ 6                                               |
+  | S4  | A4         | Last seating earlier than close for one service             | ≤ 3                                               |
+  | S5  | D21        | Close all day on one holiday                                | ≤ 6 (UX: measured on today's Close dialog)        |
+  | S6  | D23        | Special hours on one date                                   | ≤ 7                                               |
+  | S7  | E37        | Close for a week-long vacation                              | ≤ 8 (UX: range picking adds steps to the S5 path) |
+  | S8  | C16        | A seasonal schedule (summer hours, start and end date)      | ≤ 10                                              |
+  | S9  | H74/H75    | Change how far ahead guests can book and the minimum notice | ≤ 5                                               |
+  | S10 | L107 / E44 | Pause online booking for tonight                            | ≤ 3                                               |
 
   Interaction baselines `UNIFORM_BISTRO_BASELINE` (5) and `LARGE_SETUP_BASELINE` (13) are not exceeded.
+
 - [ ] 19. **Hierarchy in words on the page.** `/availability` names the schedule being shown ("Regular week" or the schedule's name) as the heading the services sit under, lists the venue's other schedules as siblings with their date ranges, and offers adding one; a one-schedule venue still sees "Regular week" named as a schedule. Component + e2e. Supersedes the always-shown Schedules tab of criterion 1's implementation (#8488) only if UX moves schedules out of a tab; criterion 7 still holds.
 - [ ] 20. **Onboarding uses the same names.** The onboarding hours step titles its form with the same term as `/availability`'s first layer (glossary, criterion 5), and its final review names where to change it later. No schedules, special dates or booking rules are added to onboarding. Component test on the step and the launch review.
 - [ ] 21. **Night-of actions stay quick.** Close… and Pause online booking each stay reachable from first paint for a Manager in at most one interaction on desktop and at most two on phone (today's phone cost). e2e on desktop and the 375×812 viewport. [Corrected at UX 2026-11-08 from "one, and on phone": a 375 px header cannot hold both beside the layer control.]

@@ -193,22 +193,23 @@ e2e (availability-*.spec.ts, onboarding, venue-setup-hub, a11y, fold-budget, loc
 - Check: `availability-scenarios.spec.ts`, one test per scenario on the ux.md fixtures.
 - Evidence:
 
-  | Scenario | Catalogue | Measured | Budget |
-  |---|---|---|---|
-  | S1 dinner Tue–Sat 17–22 | A1 | 6 | 6 |
-  | S2 add lunch | B7 | 3 | 5 |
-  | S3 weekend brunch | B8 | 5 | 6 |
-  | S4 last seating | A4 | 3 | 3 |
-  | S5 holiday closure | D21 | 6 | 6 |
-  | S5 with 14 bookings | D21 | 8 | recorded |
-  | S6 special hours | D23 | 6 | 7 |
-  | S7 week-long vacation | E37 | ≤ 8 (passes) | 8 |
-  | S7 with bookings | E37 | 11 | recorded |
-  | S8 seasonal schedule | C16 | 10 | 10 |
-  | S9 booking rules | H74/H75 | 5 | 5 |
-  | S10 pause tonight | L107/E44 | 2 | 3 |
+  | Scenario                | Catalogue | Measured     | Budget   |
+  | ----------------------- | --------- | ------------ | -------- |
+  | S1 dinner Tue–Sat 17–22 | A1        | 6            | 6        |
+  | S2 add lunch            | B7        | 3            | 5        |
+  | S3 weekend brunch       | B8        | 5            | 6        |
+  | S4 last seating         | A4        | 3            | 3        |
+  | S5 holiday closure      | D21       | 6            | 6        |
+  | S5 with 14 bookings     | D21       | 8            | recorded |
+  | S6 special hours        | D23       | 6            | 7        |
+  | S7 week-long vacation   | E37       | ≤ 8 (passes) | 8        |
+  | S7 with bookings        | E37       | 11           | recorded |
+  | S8 seasonal schedule    | C16       | 10           | 10       |
+  | S9 booking rules        | H74/H75   | 5            | 5        |
+  | S10 pause tonight       | L107/E44  | 2            | 3        |
 
   Interaction baselines: `availability-interaction-baselines.spec.ts` and `-guards.spec.ts` pass (≤ 5 uniform bistro, ≤ 13 large setup).
+
 - Result: PASS. S7 first measured 9; two product bugs behind it were fixed, not budgeted away (the To picker's month and the inverted range).
 
 ### 19. Hierarchy in words on the page
