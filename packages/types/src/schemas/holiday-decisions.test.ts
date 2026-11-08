@@ -5,6 +5,7 @@ import {
   HolidayDecisionSchema,
   HolidayDecisionsQuerySchema,
   SetHolidayDecisionBodySchema,
+  isRealServiceDate,
 } from "./holiday-decisions.js";
 import { AVAILABILITY_CONFIG_PREFIX } from "../endpoints/availability-config.js";
 import { holidayDecisionEndpoints } from "../endpoints/holiday-decisions.js";
@@ -70,6 +71,19 @@ describe("HolidayDecisionsQuerySchema", () => {
     expect(HolidayDecisionsQuerySchema.safeParse({ from: "nope", to: "2026-03-01" }).success).toBe(
       false
     );
+  });
+});
+
+describe("isRealServiceDate", () => {
+  it("accepts real calendar days, including a leap day", () => {
+    expect(isRealServiceDate("2026-11-08")).toBe(true);
+    expect(isRealServiceDate("2028-02-29")).toBe(true);
+  });
+
+  it("rejects days the calendar does not have, which ServiceDateSchema's pattern lets through", () => {
+    expect(isRealServiceDate("2026-02-31")).toBe(false);
+    expect(isRealServiceDate("2027-02-29")).toBe(false);
+    expect(isRealServiceDate("2026-13-01")).toBe(false);
   });
 });
 
