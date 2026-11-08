@@ -64,7 +64,7 @@ export function TodayLine({ venueId, bannerShowsOnline }: TodayLineProps) {
       <Text as="strong" variant="caption" color="primary" id={headingId}>
         {t("availability.today.title")}
       </Text>
-      {` · ${date} · ${hoursText(model, t, format)} `}
+      {` · ${[date, hoursText(model, t, format)].filter(Boolean).join(" · ")} `}
       {texts.length > 0 && (
         <ul className={styles.items} aria-label={t("availability.today.itemsLabel")}>
           {texts.map((text) => (

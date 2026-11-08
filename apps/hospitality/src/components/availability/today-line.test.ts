@@ -35,11 +35,15 @@ function summary(over: Partial<AvailabilityDaySummary> = {}): AvailabilityDaySum
   };
 }
 
-function build(over: Partial<TodayLineInput> = {}) {
-  return todayLine({
+/**
+ * Every closure band comes from a rule in the config, so by default the helper lists one per
+ * band; `exact` leaves `rules` as given (a band whose rule has not arrived yet).
+ */
+function build(over: Partial<TodayLineInput> = {}, exact = false) {
+  const input = {
     serviceDate: DATE,
     summary: summary(),
-    rules: [],
+    rules: [] as readonly DateRule[],
     now: NOW,
     serviceNames: new Map([
       ["vs-l", "Lunch"],
@@ -48,7 +52,20 @@ function build(over: Partial<TodayLineInput> = {}) {
     sectionNames: new Map([["sec-1", "Patio"]]),
     bannerShowsOnline: false,
     ...over,
-  });
+  };
+  const known = new Set(input.rules.map((r) => r.id));
+  const bandRules = input.summary.closures
+    .filter((band) => !known.has(band.ruleId))
+    .map(
+      (band) =>
+        ({
+          id: band.ruleId,
+          kind: "closure",
+          targetKind: band.targetKind,
+          startsOn: DATE,
+        }) as DateRule
+    );
+  return todayLine({ ...input, rules: exact ? input.rules : [...input.rules, ...bandRules] });
 }
 
 function tonight(id: string, extra: Record<string, unknown>): DateRule {
@@ -357,6 +374,57 @@ describe("todayLine closures", () => {
       ],
     });
     expect(model.items.map((i) => i.kind)).toEqual(["tonight", "tonight"]);
+  });
+
+  it("skips a band whose rule the config has not delivered yet (the two refetches race)", () => {
+    const model = build(
+      {
+        summary: summary({
+          closures: [
+            { ruleId: "new-stop", targetKind: "venue", from: 1170, to: 1200 },
+            { ruleId: "new-pause", targetKind: "booking", bookingTypes: ["online"], ...WHOLE },
+          ],
+        }),
+      },
+      true
+    );
+    expect(model.items).toEqual([]);
+  });
+
+  it("names nothing for a from-time band on a service that does not run today", () => {
+    const model = build({
+      serviceNames: new Map([["vs-brunch", "Brunch"]]),
+      summary: summary({
+        closures: [
+          {
+            ruleId: "c1",
+            targetKind: "service",
+            venueServiceId: "vs-brunch",
+            from: 1290,
+            to: TO_CLOSE,
+          },
+        ],
+      }),
+    });
+    expect(model.items).toEqual([]);
+  });
+
+  it("reads an old API's summary (no services) as night-of items only, with no hours", () => {
+    const { services: _omit, ...old } = summary({
+      closures: [
+        { ruleId: "c1", targetKind: "booking", bookingTypes: ["phone"], from: 1080, to: 1140 },
+        { ruleId: "c2", targetKind: "venue", from: 1290, to: TO_CLOSE },
+      ],
+    });
+    const model = build({
+      summary: old,
+      rules: [tonight("t1", { payload: { version: 1, closeAt: 1290 } })],
+    });
+    expect(model.closed).toBe(false);
+    expect(model.hours).toEqual([]);
+    expect(model.items).toEqual([
+      { kind: "tonight", change: { ruleId: "t1", kind: "close_early", closeAt: 1290 } },
+    ]);
   });
 });
 

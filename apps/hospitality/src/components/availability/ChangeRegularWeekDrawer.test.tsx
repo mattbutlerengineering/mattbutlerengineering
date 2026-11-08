@@ -211,7 +211,7 @@ describe("ChangeRegularWeekDrawer service lines", () => {
     viewport.current = "phone";
     renderDrawer();
     expect(
-      screen.getByRole("button", { name: /^Lunch, 11:30 AM–3:00 PM, Mon–Fri/ })
+      screen.getByRole("button", { name: /^Lunch, 11:30 AM–3:00 PM · Mon–Fri/ })
     ).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryAllByLabelText("Service name")).toHaveLength(0);
   });

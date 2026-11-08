@@ -180,36 +180,43 @@ export function QuickSetupForm({
         <div className={inDrawer ? styles.layoutSingle : styles.layout}>
           <Stack gap="md">
             {draft.services.map((service, index) => {
-              const row = (
-                <ServiceRow
-                  draft={draft}
-                  key={service.id}
-                  service={service}
-                  index={index}
-                  removable={draft.services.length > 1}
-                  issues={issues}
-                  onChange={(next) => onChange(replaceService(draft, next))}
-                  onRemove={() => removeService(service.id)}
-                  announce={announce}
-                />
-              );
-              if (!collapsible) return row;
-              const open = isOpen(service.id);
+              const open = !collapsible || isOpen(service.id);
+              const forced = firstIssueOf.has(service.id);
+              // The same keyed wrapper in both modes: rotating across the phone width keeps the rows.
               return (
                 <div key={service.id}>
-                  <ServiceLineHeader
-                    draft={draft}
-                    service={service}
-                    open={open}
-                    problem={firstIssueOf.get(service.id) ?? null}
-                    onToggle={() => setOpenId(openId === service.id ? null : service.id)}
-                  />
-                  {/* A closed service mounts no fields: it has no problem, so nothing hidden needs focus. */}
+                  {collapsible && (
+                    <ServiceLineHeader
+                      draft={draft}
+                      service={service}
+                      open={open}
+                      problem={firstIssueOf.get(service.id) ?? null}
+                      // A line with a problem is pinned open, never closed: fixing it must not
+                      // collapse the fields the Manager is typing into.
+                      onToggle={() =>
+                        setOpenId(openId === service.id && !forced ? null : service.id)
+                      }
+                    />
+                  )}
+                  {/* A closed service mounts no fields: it has no problem, so nothing hidden needs focus.
+                      Focus inside a line adopts it, so what is being edited stays open after its problem clears. */}
                   <div
                     id={quickSetupLineId(service.id, "fields", scope)}
-                    className={open ? lineStyles.fields : undefined}
+                    className={collapsible && open ? lineStyles.fields : undefined}
+                    onFocusCapture={() => setOpenId(service.id)}
                   >
-                    {open && row}
+                    {open && (
+                      <ServiceRow
+                        draft={draft}
+                        service={service}
+                        index={index}
+                        removable={draft.services.length > 1}
+                        issues={issues}
+                        onChange={(next) => onChange(replaceService(draft, next))}
+                        onRemove={() => removeService(service.id)}
+                        announce={announce}
+                      />
+                    )}
                   </div>
                 </div>
               );

@@ -310,7 +310,8 @@ describe("RegularWeekPanel", () => {
 });
 
 describe("RegularWeekPanel service lines", () => {
-  const lunchLine = () => screen.getByRole("button", { name: /^Lunch, 11:30 AM–3:00 PM, Mon–Fri/ });
+  const lunchLine = () =>
+    screen.getByRole("button", { name: /^Lunch, 11:30 AM–3:00 PM · Mon–Fri/ });
   beforeAll(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });

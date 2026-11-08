@@ -19,7 +19,7 @@ export interface ServiceLineHeaderProps {
 
 /**
  * The phone's line for one service (ux.md F2): a full-width button, name over a summary, a chevron
- * while it can be toggled. It owns no fields: the form renders the service's controls under it.
+ * while it can be toggled (a service with a problem is pinned open instead). It owns no fields: the form renders the service's controls under it.
  */
 export function ServiceLineHeader({
   draft,
@@ -34,7 +34,6 @@ export function ServiceLineHeader({
   const lineId = useQuickSetupLineId();
   const text = serviceLineText(service, draft, format, t);
   const problemText = problem ? issueMessage(problem, draft, t, (day) => dayName(day)) : null;
-  const problemId = `${lineId(service.id, "header")}-problem`;
   return (
     <button
       type="button"
@@ -42,24 +41,28 @@ export function ServiceLineHeader({
       className={styles.header}
       aria-expanded={open}
       aria-controls={lineId(service.id, "fields")}
-      aria-describedby={problemText === null ? undefined : problemId}
-      aria-label={text.label}
-      // A service with a problem has nothing to hide behind: pressing does nothing.
-      onClick={problem ? undefined : onToggle}
+      onClick={onToggle}
     >
+      {/* The visible text is the name; the hidden separators make it read "Lunch, 11:30 AM–3:00 PM · Every day". */}
       <span className={styles.text}>
-        <Text variant="body" className={styles.name}>
+        <Text as="span" variant="body" className={styles.name}>
           {text.name}
         </Text>
         {text.summary !== "" && (
-          <Text variant="caption" color="secondary">
-            {text.summary}
-          </Text>
+          <>
+            <span className={styles.visuallyHidden}>,</span>{" "}
+            <Text as="span" variant="caption" color="secondary">
+              {text.summary}
+            </Text>
+          </>
         )}
         {problemText !== null && (
-          <Text id={problemId} variant="caption" color="error">
-            {problemText}
-          </Text>
+          <>
+            <span className={styles.visuallyHidden}>.</span>{" "}
+            <Text as="span" variant="caption" color="error">
+              {problemText}
+            </Text>
+          </>
         )}
       </span>
       {problem === null && (
