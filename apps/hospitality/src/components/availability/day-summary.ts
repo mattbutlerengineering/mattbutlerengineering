@@ -241,8 +241,10 @@ export function dayDifferences(
     }
   }
 
+  // A closed day takes no bookings by nature: its channels being off is not a further difference.
+  const closedDay = day.label === "Closed" || wholeDayVenue;
   const paused = pausedChannels(day);
-  if (paused.size > 0) found.push(pausedChip(paused, t));
+  if (paused.size > 0 && !closedDay) found.push(pausedChip(paused, t));
 
   if (day.label === "Special hours" || otherClosure) {
     found.push(t("availability.calendar.dayLabel.specialHours"));

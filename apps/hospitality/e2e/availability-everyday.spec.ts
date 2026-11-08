@@ -388,12 +388,18 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     const counter = countInteractions(page);
 
     const cell = (date: string) => counter.page.locator(`[data-date="${date}"]`).first();
-    await expect(counter.page.getByText("This month: ", { exact: false })).toContainText(
-      "Weeknights · Mon–Thu"
-    );
-    await expect(counter.page.getByText("This month: ", { exact: false })).toContainText(
-      "Lunch closed · 1 day"
-    );
+    await expect(
+      counter.page
+        .getByRole("main")
+        .getByRole("listitem")
+        .filter({ hasText: "Weeknights · Mon–Thu" })
+    ).toBeVisible();
+    await expect(
+      counter.page
+        .getByRole("main")
+        .getByRole("listitem")
+        .filter({ hasText: "Lunch closed · 1 day" })
+    ).toBeVisible();
     // Mon–Thu cells read Weeknights; Christmas Eve's closure outranks it.
     await expect(cell("2026-12-21")).toContainText("Weeknights");
     await expect(cell("2026-12-24")).toContainText("Lunch closed");
@@ -500,9 +506,9 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await nextMonth(page).click();
     await expect(page.locator('[data-date="2026-12-24"]').first()).toBeVisible();
 
-    await expect(page.getByText("This month: ", { exact: false })).toContainText(
-      "Weeknights · Mon–Thu"
-    );
+    await expect(
+      page.getByRole("main").getByRole("listitem").filter({ hasText: "Weeknights · Mon–Thu" })
+    ).toBeVisible();
     await expect(page.locator('[data-date="2026-12-24"]').first()).toContainText("Lunch closed");
     await expect(page.locator('[data-date="2026-12-05"]').first()).not.toContainText(
       /Regular|Lunch|Dinner|Weeknights/

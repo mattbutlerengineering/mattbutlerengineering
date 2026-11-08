@@ -640,6 +640,77 @@ describe("AvailabilityCalendar quiet month cells and legend (PRD 8)", () => {
     expect(result.violations).toEqual([]);
   });
 
+  describe("accessible name starts with the visible text (WCAG 2.5.3)", () => {
+    const AXE_NAME = {
+      rules: {
+        "color-contrast": { enabled: false },
+        "label-content-name-mismatch": { enabled: true },
+      },
+    };
+    const offline = { online: false, phone: true, waitlist: true };
+
+    it("takes no booking chip on a regular-closed day: the muted Closed text alone", async () => {
+      const { container } = month({
+        anchor: "2026-11-15",
+        days: [
+          day("2026-11-01", {
+            label: "Closed",
+            scheduleId: null,
+            serviceCount: 0,
+            bookingOpen: offline,
+          }),
+        ],
+      });
+      const sunday = cellOf(/^1 Closed, Sunday, November 1:/);
+      expect(sunday).toHaveTextContent(/^1\s*Closed\s*$/);
+      expect(within(sunday).queryByText(/paused/)).toBeNull();
+      expect((await axe(container, AXE_NAME)).violations).toEqual([]);
+    });
+
+    it("takes no booking chip on a day with a whole-day closure either", () => {
+      month({
+        anchor: "2026-11-15",
+        days: [
+          day("2026-11-01", {
+            label: "Closed",
+            scheduleId: null,
+            serviceCount: 0,
+            bookingOpen: offline,
+            closures: [{ ruleId: "c9", targetKind: "venue", from: 0, to: 2880 }],
+          }),
+        ],
+      });
+      expect(cellOf(/^1 Closed, Sunday, November 1:/)).toHaveTextContent(/^1\s*Closed\s*$/);
+    });
+
+    it("a chip alone, and a holiday with a chip, read in the name as they do on screen", async () => {
+      const { container } = month({
+        anchor: "2026-11-15",
+        days: [
+          day("2026-11-03", { scheduleId: "reg", bookingOpen: offline }),
+          day("2026-11-26", { scheduleId: "reg", bookingOpen: offline }),
+        ],
+      });
+      expect(cellOf(/^3 Online paused, Tuesday, November 3:/)).toHaveTextContent(
+        /^3\s*Online paused\s*$/
+      );
+      expect(
+        cellOf(/^26 Thanksgiving Online paused, Thursday, November 26:/).textContent?.trim()
+      ).toBe("26 Thanksgiving Online paused");
+      expect((await axe(container, AXE_NAME)).violations).toEqual([]);
+    });
+
+    it("a holiday on a regular-closed day: date, holiday, then the muted Closed", async () => {
+      const { container } = month({
+        anchor: "2026-11-15",
+        days: [day("2026-11-26", { label: "Closed", scheduleId: null, serviceCount: 0 })],
+      });
+      const cell = cellOf(/^26 Thanksgiving Closed, Thursday, November 26:/);
+      expect(cell).toHaveTextContent(/^26\s*Thanksgiving\s*Closed\s*$/);
+      expect((await axe(container, AXE_NAME)).violations).toEqual([]);
+    });
+  });
+
   it("shows another schedule's name as the chip", () => {
     month();
     expect(

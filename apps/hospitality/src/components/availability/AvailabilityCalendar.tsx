@@ -168,7 +168,7 @@ function Cell(props: CellProps) {
               </>
             ) : (
               <>
-                {closedText && <span className={styles.closedText}>{closedText}</span>}
+                {closedText && <span className={styles.closedText}>{closedText} </span>}
                 {difference && (
                   <span className={styles.chip}>
                     {difference.chip}

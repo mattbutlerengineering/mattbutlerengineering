@@ -298,7 +298,7 @@ describe("dayDifference: the one chip a month cell shows (ux.md F5)", () => {
     const base = { scheduleId: "wk", label: "Special hours" };
     expect(diff({ ...base, closures: [venue, service, section, booking] })).toEqual({
       chip: "availability.calendar.dayLabel.closed",
-      more: 4,
+      more: 3, // booking paused is no further difference on a closed day
     });
     expect(diff({ ...base, closures: [service, section, booking] })?.chip).toBe(
       "availability.calendar.chip.serviceClosed Lunch"
