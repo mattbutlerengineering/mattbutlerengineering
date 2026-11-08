@@ -17,6 +17,7 @@ import {
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { toTable } from "./serializers.js";
+import { materialiseSectionClosures } from "./section-closure-materialise.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
 type PrismaFloorPlan = {
@@ -337,6 +338,18 @@ export const floorPlanService = {
         ]);
 
         if (reservations + holds === 0) {
+          // The plan's sections go with it (ON DELETE CASCADE): a live section closure becomes a
+          // plain tables closure first (ADR-032), as when a section is deleted on its own.
+          const sections = await tx.floorPlanSection.findMany({
+            where: { floorPlanId: id },
+            select: { id: true },
+          });
+          await materialiseSectionClosures(
+            tx,
+            venueId,
+            sections.map((s) => s.id),
+            new Date()
+          );
           await tx.table.deleteMany({ where: { floorPlanId: id } });
           await tx.floorPlan.delete({ where: { id } });
           return "deleted" as const;

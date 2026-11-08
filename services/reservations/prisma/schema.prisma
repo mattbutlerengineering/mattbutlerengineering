@@ -244,6 +244,7 @@ model FloorPlanSection {
   /// Null means no floor finish: the zone renders as it did before materials existed.
   floorMaterial FloorMaterial? @map("floor_material")
   tables       Table[]
+  dateRules    DateRule[]
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
 
@@ -655,7 +656,9 @@ model ScheduleAssignment {
 }
 
 /// A dated override layer: special hours, closure, use-schedule, skip, tonight.
-/// Soft-deleted via `deletedAt`. `sectionId` (P3) is deliberately absent.
+/// Soft-deleted via `deletedAt`. `sectionId` is a label plus live membership for a section
+/// closure (ADR-032), not Phase 3's per-section rules: there is no section target kind, and the
+/// engine only ever sees the section's tables as a `tables` closure.
 model DateRule {
   id             String             @id @default(cuid())
   venueId        String             @map("venue_id")
@@ -667,6 +670,11 @@ model DateRule {
   /// Subset of {online, phone, waitlist}; empty = all channels.
   bookingTypes   String[]           @default([]) @map("booking_types")
   tables         DateRuleTable[]
+  /// Set on a section closure (`kind: closure`, `targetKind: tables`): its tables are the section's
+  /// tables right now, so no `date_rule_tables` rows are kept. NULL for every other rule, and set
+  /// back to NULL (rows materialised) when the section is deleted.
+  sectionId      String?            @map("section_id")
+  section        FloorPlanSection?  @relation(fields: [sectionId], references: [id], onDelete: SetNull)
   startsOn       DateTime           @map("starts_on") @db.Date
   /// NULL = "until I reopen".
   endsOn         DateTime?          @map("ends_on") @db.Date
@@ -698,6 +706,7 @@ model DateRule {
   @@index([venueServiceId])
   @@index([useScheduleId])
   @@index([seriesId])
+  @@index([sectionId])
   @@map("date_rules")
 }
 

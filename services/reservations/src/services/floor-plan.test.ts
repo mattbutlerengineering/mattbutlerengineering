@@ -26,6 +26,9 @@ vi.mock("./database.js", async () => {
   });
 });
 
+const { materialise } = vi.hoisted(() => ({ materialise: vi.fn() }));
+vi.mock("./section-closure-materialise.js", () => ({ materialiseSectionClosures: materialise }));
+
 import { floorPlanService } from "./floor-plan.js";
 import { prisma } from "./database.js";
 
@@ -335,6 +338,7 @@ describe("floorPlanService", () => {
         $executeRawUnsafe: vi.fn().mockResolvedValue(0),
         $queryRaw: vi.fn().mockResolvedValue(opts.plan ? [opts.plan] : []),
         floorPlan: { delete: vi.fn(), update: vi.fn() },
+        floorPlanSection: { findMany: vi.fn().mockResolvedValue([]) },
         table: {
           findMany: vi
             .fn()
@@ -398,6 +402,31 @@ describe("floorPlanService", () => {
       expect(await floorPlanService.delete("fp-1")).toBe("deleted");
       expect(tx.table.deleteMany).toHaveBeenCalledWith({ where: { floorPlanId: "fp-1" } });
       expect(tx.floorPlan.delete).toHaveBeenCalledWith({ where: { id: "fp-1" } });
+    });
+
+    it("materialises live section closures before the plan's sections cascade away", async () => {
+      const tx = deleteTx({ plan: inactive });
+      const order: string[] = [];
+      tx.floorPlanSection.findMany.mockResolvedValue([{ id: "sec-1" }, { id: "sec-2" }]);
+      materialise.mockImplementation(async () => void order.push("materialise"));
+      tx.table.deleteMany.mockImplementation(async () => void order.push("tables"));
+
+      expect(await floorPlanService.delete("fp-1")).toBe("deleted");
+
+      expect(tx.floorPlanSection.findMany).toHaveBeenCalledWith({
+        where: { floorPlanId: "fp-1" },
+        select: { id: true },
+      });
+      expect(materialise).toHaveBeenCalledWith(tx, "venue-1", ["sec-1", "sec-2"], expect.any(Date));
+      expect(order).toEqual(["materialise", "tables"]);
+    });
+
+    it("leaves the sections of an archived plan, and their closures, alone", async () => {
+      deleteTx({ plan: inactive, history: 1 });
+
+      expect(await floorPlanService.delete("fp-1")).toBe("archived");
+
+      expect(materialise).not.toHaveBeenCalled();
     });
 
     it("archives a plan with history, freeing its table names", async () => {
