@@ -1,4 +1,4 @@
-import type { AvailabilityConfig, DateRule } from "@mbe/types";
+import type { AvailabilityConfig, AvailabilityDaySummary, DateRule } from "@mbe/types";
 import { useAvailabilityConfig, useAvailabilityDays } from "./useAvailability.js";
 import { useNow } from "./useNow.js";
 import { useVenueFormat } from "./useVenueFormat.js";
@@ -15,6 +15,12 @@ export interface StaffTonight {
   readonly rules: readonly DateRule[];
   /** The service day's waitlist is closed (`bookingOpen.waitlist`); false until known. */
   readonly waitlistClosed: boolean;
+  /** The service day's summary (hours, closure bands); `null` until it has loaded. */
+  readonly summary: AvailabilityDaySummary | null;
+  /** `error` only when nothing is loaded to show; a failed refresh over data stays `ready`. */
+  readonly readStatus: "loading" | "error" | "ready";
+  /** Retries the read that failed (the config first, else the day). */
+  readonly refetch: () => void;
 }
 
 /**
@@ -35,11 +41,19 @@ export function useStaffTonight(venueId: string | null | undefined): StaffTonigh
     to: serviceDate ?? "",
     enabled: serviceDate !== null,
   });
-  const summary = days.data?.find((day) => day.serviceDate === serviceDate);
+  const summary = days.data?.find((day) => day.serviceDate === serviceDate) ?? null;
+  // A refresh that fails over data already loaded keeps showing it.
+  const failed = (!config.data && config.error) || (!summary && days.error);
   return {
     serviceDate,
     config: state?.config ?? null,
     rules: state?.config.dateRules ?? NO_RULES,
     waitlistClosed: summary ? !summary.bookingOpen.waitlist : false,
+    summary,
+    readStatus: failed ? "error" : summary ? "ready" : "loading",
+    refetch: () => {
+      if (!config.data && config.error) void config.refetch();
+      else void days.refetch();
+    },
   };
 }

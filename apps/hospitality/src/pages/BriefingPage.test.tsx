@@ -39,6 +39,9 @@ const tonightAt = (serviceDate: string | null): StaffTonight => ({
   config: null,
   rules: [],
   waitlistClosed: false,
+  summary: null,
+  readStatus: "ready",
+  refetch: () => undefined,
 });
 vi.mock("../hooks/useSSESync.tsx", () => ({
   useSSEEventFeed: vi.fn(() => []),

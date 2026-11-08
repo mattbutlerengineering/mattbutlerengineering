@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
-import type { TFunction } from "i18next";
 import {
   Button,
   Checkbox,
@@ -26,7 +25,7 @@ import {
 import { useEndTonight, useSetTonight, type SetTonightRequest } from "../../hooks/useTonight.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
 import { useViewport } from "../../hooks/useViewport.js";
-import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
 import { conflictOf, isDecisionRequired, type Conflict } from "./conflict-problem.js";
@@ -38,7 +37,7 @@ import {
   activeTonightChanges,
   tonightDefaults,
   tonightTimeMinutes,
-  type TonightChange,
+  tonightChipText,
 } from "./tonight-state.js";
 import { currentServiceDate } from "../../utils/current-service-date.js";
 import { serviceMinuteOf } from "../../utils/service-day.js";
@@ -55,50 +54,17 @@ export interface TonightControlProps {
   readonly tables: readonly Table[];
   /** The venue's floor-plan sections: the grouping for the block-tables list. */
   readonly sections: readonly FloorPlanSection[];
+  /** Start with the panel open: the Today line's "Change tonight" link lands here. */
+  readonly defaultOpen?: boolean;
 }
 
 type TonightBody = SetTonightRequest["change"];
 
-/**`MinuteSchema` allows a service day up to two days of minutes (ADR-029). */
-const MAX_MINUTE = 2880;
 const ALL_TABLES = "all";
 const PICK_TABLES = "pick";
 const UNSET = "unset";
 const SECTION_PREFIX = "section:";
 const DEFAULT_PACING = 10;
-
-function chipText(change: TonightChange, t: TFunction, format: VenueFormat): string {
-  switch (change.kind) {
-    case "pause_online":
-      return t("availability.tonight.chip.pause");
-    case "close_early":
-      return t("availability.tonight.chip.closeEarly", {
-        time: minuteText(change.closeAt, t, format),
-      });
-    case "stop_window":
-      return t("availability.tonight.chip.stopWindow", {
-        from: minuteText(change.from, t, format),
-        to: minuteText(change.to, t, format),
-      });
-    case "block_tables":
-      // The server stores "rest of tonight" as 0 to the two-day maximum.
-      if (change.to >= MAX_MINUTE) {
-        return change.from === 0
-          ? t("availability.tonight.chip.blocked", { count: change.tableCount })
-          : t("availability.tonight.chip.blockedFrom", {
-              count: change.tableCount,
-              from: minuteText(change.from, t, format),
-            });
-      }
-      return t("availability.tonight.chip.blockedWindow", {
-        count: change.tableCount,
-        from: minuteText(change.from, t, format),
-        to: minuteText(change.to, t, format),
-      });
-    case "pacing":
-      return t("availability.tonight.chip.pacing", { count: change.covers });
-  }
-}
 
 /** The server refused the change itself (403): a retry cannot succeed. */
 function isForbidden(error: unknown): boolean {
@@ -181,7 +147,7 @@ export function TonightControl(props: TonightControlProps) {
   const refresh = useRefreshAvailability();
   const { toast } = useToast();
 
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(props.defaultOpen ?? false);
   const [closing, setClosing] = useState(false);
   const [needsDecisions, setNeedsDecisions] = useState<{
     readonly ruleId: string;
@@ -562,7 +528,7 @@ export function TonightControl(props: TonightControlProps) {
           {changes.map((change) => (
             <li key={change.ruleId}>
               <Tag variant="accent" dismissible onDismiss={() => void end(change.ruleId)}>
-                {chipText(change, t, format)}
+                {tonightChipText(change, t, format)}
               </Tag>
             </li>
           ))}

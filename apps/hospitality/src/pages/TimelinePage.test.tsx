@@ -654,6 +654,9 @@ describe("TimelinePage", () => {
       config: null,
       rules: [],
       waitlistClosed: false,
+      summary: null,
+      readStatus: "ready",
+      refetch: () => undefined,
     });
   });
 
@@ -663,6 +666,9 @@ describe("TimelinePage", () => {
       config: null,
       rules: [],
       waitlistClosed: false,
+      summary: null,
+      readStatus: "ready",
+      refetch: () => undefined,
     });
     renderPage();
     expect(vi.mocked(useTimelineData)).toHaveBeenCalledWith(
@@ -676,6 +682,9 @@ describe("TimelinePage", () => {
       config: null,
       rules: [],
       waitlistClosed: false,
+      summary: null,
+      readStatus: "ready",
+      refetch: () => undefined,
     });
     renderPage(["/timeline?date=2020-02-02"]);
     expect(vi.mocked(useTimelineData)).toHaveBeenCalledWith(
