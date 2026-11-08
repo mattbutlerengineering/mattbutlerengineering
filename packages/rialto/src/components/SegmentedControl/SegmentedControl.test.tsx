@@ -216,6 +216,52 @@ describe("SegmentedControl", () => {
     expect(container.firstElementChild?.className).not.toMatch(/undefined/);
   });
 
+  describe("indicator pixel snapping (#8515)", () => {
+    // getBoundingClientRect returns sub-pixel values whenever text layout
+    // doesn't land on a whole device pixel. An un-rounded offset/width makes
+    // the indicator's edge anti-alias differently run to run even when
+    // nothing visually changed — the cause of rialto-web-e2e's flaky
+    // `light / segmentedcontrol-default` snapshot.
+    it("rounds the sliding indicator's offset and width to whole pixels", () => {
+      const rect = (partial: Partial<DOMRect>): DOMRect => ({
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        width: 0,
+        height: 0,
+        x: 0,
+        y: 0,
+        toJSON() {
+          return this;
+        },
+        ...partial,
+      });
+
+      vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+        this: HTMLElement
+      ) {
+        if (this.getAttribute("role") === "radiogroup") {
+          return rect({ left: 10.2, right: 210.2, width: 200 });
+        }
+        if (this.getAttribute("role") === "radio" && this.textContent === "Week") {
+          return rect({ left: 52.4, right: 103.9, width: 51.5 });
+        }
+        return rect({});
+      });
+
+      render(<SegmentedControl segments={segments} value="week" onChange={vi.fn()} />);
+
+      const radiogroup = screen.getByRole("radiogroup");
+      const indicatorEl = radiogroup.firstElementChild as HTMLElement;
+
+      expect(indicatorEl.style.insetInlineStart).toBe("42px");
+      expect(indicatorEl.style.width).toBe("52px");
+
+      vi.restoreAllMocks();
+    });
+  });
+
   describe("a11y iteration 4", () => {
     it("keeps the group reachable by Tab when value matches no segment", () => {
       render(<SegmentedControl segments={segments} value="" onChange={vi.fn()} />);
