@@ -27,6 +27,10 @@ const configSource = vi.hoisted(() => ({
 const configError = vi.hoisted(() => ({ value: null as Error | null }));
 /** No config has ever loaded: the read failed the first time. */
 const configAbsent = vi.hoisted(() => ({ value: false }));
+/** The venue's sections; undefined until that read answers. */
+const sections = vi.hoisted(() => ({
+  value: [{ id: "sec-bar", name: "Bar" }] as Array<{ id: string; name: string }> | undefined,
+}));
 const teamError = vi.hoisted(() => ({ value: null as Error | null }));
 /** The role read has not answered. */
 const teamLoading = vi.hoisted(() => ({ value: false }));
@@ -54,7 +58,7 @@ const venue = vi.hoisted(() => ({
 
 vi.mock("../hooks/useFloorPlans.js", () => ({
   useVenueFloorPlanSections: () => ({
-    data: [{ id: "sec-bar", name: "Bar" }],
+    data: sections.value,
     isLoading: false,
     error: null,
   }),
@@ -460,6 +464,29 @@ describe("AvailabilityPage", () => {
     expect(
       screen.getByText("This week: open 2 days · 1 closure · online booking on")
     ).toBeInTheDocument();
+  });
+
+  it("names a section closure by its section on the calendar cell", () => {
+    daysQuery.value = {
+      data: [
+        {
+          ...summaryFor("2026-10-29"),
+          closures: [
+            { ruleId: "r-bar", targetKind: "tables", sectionId: "sec-bar", from: 0, to: 2880 },
+          ],
+        },
+      ] as AvailabilityDaySummary[],
+      isLoading: false,
+      error: null,
+    };
+    sections.value = undefined;
+    const view = renderPage();
+    // The sections read answers after the days: the cell is renamed, not left on "Tables blocked".
+    sections.value = [{ id: "sec-bar", name: "Bar" }];
+    view.rerender(page());
+    expect(screen.getByRole("button", { name: /Thursday, October 29/ })).toHaveAccessibleName(
+      /Bar closed all day/
+    );
   });
 
   it("opens the day drawer from a cell", () => {
@@ -1421,6 +1448,7 @@ describe("AvailabilityPage layers", () => {
     teamError.value = null;
     teamLoading.value = false;
     extraRules.value = [];
+    sections.value = [{ id: "sec-bar", name: "Bar" }];
     team.value = { viewerRole: "manager" };
     resolved.services = [];
     resolved.byDate = {};

@@ -19,7 +19,7 @@ import {
   type QuickSetupIssue,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
-import { issuesFor, quickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
+import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
 import { DayPicker, IssueText, TimesRow } from "./quick-setup-fields.js";
 import { HoursBlockFieldset } from "./QuickSetupBlock.js";
 import styles from "./QuickSetupForm.module.css";
@@ -47,6 +47,7 @@ export function ServiceRow({
   onRemove,
   announce,
 }: ServiceRowProps) {
+  const fieldId = useQuickSetupFieldId();
   const { t } = useTranslation();
   const format = useVenueFormat();
   const dayName = useWeekdayName();
@@ -82,7 +83,7 @@ export function ServiceRow({
     newBlockRef.current = null;
     if (id === null) return;
     document
-      .getElementById(quickSetupFieldId(service.id, "days", id))
+      .getElementById(fieldId(service.id, "days", id))
       ?.querySelector("input")
       ?.focus();
   }, [service.blocks.length, service.id]);
@@ -137,7 +138,7 @@ export function ServiceRow({
           ))}
         </div>
         <Input
-          id={quickSetupFieldId(service.id, "name")}
+          id={fieldId(service.id, "name")}
           label={t("availability.quickSetup.nameLabel")}
           value={service.name}
           maxLength={SERVICE_NAME_MAX_LENGTH}
@@ -170,7 +171,7 @@ export function ServiceRow({
               </Button>
             </div>
             <DayPicker
-              id={quickSetupFieldId(service.id, "days")}
+              id={fieldId(service.id, "days")}
               ref={daysRef}
               legend={t("availability.quickSetup.runsOn", { service: serviceName })}
               days={service.days}

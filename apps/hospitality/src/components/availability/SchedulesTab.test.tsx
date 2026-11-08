@@ -151,6 +151,22 @@ describe("SchedulesTab", () => {
     expect(screen.queryByRole("heading", { name: "Compare services" })).not.toBeInTheDocument();
   });
 
+  it("Starting later… leaves no id shared by the panel's form and the drawer's, so both are labelled", () => {
+    renderWith(<Layer state={state()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Starting later…" }));
+    const drawer = screen.getByRole("dialog", { name: "Change regular week" });
+    const ids = Array.from(document.querySelectorAll("[id]")).map((el) => el.id);
+    expect(ids.filter((id, i) => ids.indexOf(id) !== i)).toEqual([]);
+    expect(within(drawer).getAllByRole("textbox", { name: /Service name/ }).length).toBeGreaterThan(
+      0
+    );
+    // The panel's own fields keep their names too.
+    expect(
+      within(screen.getByTestId("week-panel")).getAllByRole("textbox", { name: /Service name/ })
+        .length
+    ).toBeGreaterThan(0);
+  });
+
   it("Starting later… opens Change regular week with Starting empty", () => {
     renderWith(<Layer state={state()} />);
     fireEvent.click(screen.getByRole("button", { name: "Starting later…" }));

@@ -1,3 +1,4 @@
+import { createContext, useContext } from "react";
 import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import {
@@ -8,16 +9,30 @@ import {
 
 /** A fixed Monday: weekday names come from the active locale, never a hand-kept list. */
 const SAMPLE_MONDAY = "2026-10-26";
-const DAYS_FIELD_ID = "quick-setup-days";
+const DEFAULT_SCOPE = "quick-setup";
+
+/**
+ * Which form instance a field id belongs to. Two forms can be mounted at once (the week panel and
+ * the Change regular week drawer opened from it, on the same draft), so ids carry the instance.
+ */
+export const QuickSetupIdScope = createContext(DEFAULT_SCOPE);
 
 /** The DOM id of a field, so the owner can move focus to the first invalid one. */
 export function quickSetupFieldId(
   serviceId: string | null,
   field: QuickSetupField | "days",
-  blockId?: string
+  blockId?: string,
+  scope: string = DEFAULT_SCOPE
 ) {
-  if (serviceId === null) return DAYS_FIELD_ID;
-  return `quick-setup-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
+  if (serviceId === null) return `${scope}-days`;
+  return `${scope}-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
+}
+
+/** `quickSetupFieldId` for the form instance this component is rendered in. */
+export function useQuickSetupFieldId() {
+  const scope = useContext(QuickSetupIdScope);
+  return (serviceId: string | null, field: QuickSetupField | "days", blockId?: string) =>
+    quickSetupFieldId(serviceId, field, blockId, scope);
 }
 
 export function issuesFor(

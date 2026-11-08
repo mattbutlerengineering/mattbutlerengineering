@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Card, Stack } from "@mattbutlerengineering/rialto";
 import { QuickSetupForm } from "./QuickSetupForm.js";
@@ -27,6 +27,7 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
     setDraft(next);
     onDirtyChange?.(JSON.stringify(next) !== blank);
   };
+  const idScope = useId();
   const [attempted, setAttempted] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const errorRef = useRef<HTMLDivElement>(null);
@@ -43,7 +44,7 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
     const first = found[0];
     if (first) {
       document
-        .getElementById(quickSetupFieldId(first.serviceId, first.field, first.blockId))
+        .getElementById(quickSetupFieldId(first.serviceId, first.field, first.blockId, idScope))
         ?.focus();
       return;
     }
@@ -69,7 +70,7 @@ export function QuickSetupCard({ onSave, errorMessage, onDirtyChange }: QuickSet
             </Alert>
           </div>
         )}
-        <QuickSetupForm draft={draft} onChange={edit} issues={issues} />
+        <QuickSetupForm draft={draft} onChange={edit} issues={issues} idScope={idScope} />
         <Stack direction="row" justify="end">
           <Button variant="primary" onClick={save} disabled={isSaving}>
             {isSaving

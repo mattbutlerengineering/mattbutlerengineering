@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import {
@@ -6,9 +6,15 @@ import {
   replaceService,
   setSharedDays,
   type QuickSetupDraft,
+  type QuickSetupField,
   type QuickSetupIssue,
 } from "./quick-setup-draft.js";
-import { issuesFor, quickSetupFieldId } from "./quick-setup-field-helpers.js";
+import {
+  issuesFor,
+  QuickSetupIdScope,
+  quickSetupFieldId,
+  useQuickSetupFieldId,
+} from "./quick-setup-field-helpers.js";
 import { DayPicker } from "./quick-setup-fields.js";
 import { ServiceRow } from "./QuickSetupServiceRow.js";
 import { RegularWeekStrip } from "./RegularWeekStrip.js";
@@ -29,16 +35,19 @@ export interface QuickSetupFormProps {
   readonly inDrawer?: boolean;
   /** The days belong to where the schedule is used, not to this form (Edit schedule): shown, not changed. */
   readonly fixedDays?: boolean;
+  /** The id prefix of this form's fields, for an owner that must find them itself (focus a problem). */
+  readonly idScope?: string;
 }
 
 function DaysField({ draft, onChange, issues, inDrawer, fixedDays }: QuickSetupFormProps) {
+  const fieldId = useQuickSetupFieldId();
   const { t } = useTranslation();
   const summarize = useWeekdaySummary();
   const [changing, setChanging] = useState(false);
   // F1 5: nothing follows the shared days, so there is nothing to ask.
   if (draft.services.length > 0 && draft.services.every((s) => s.days !== null)) {
     return (
-      <fieldset className={styles.days} id={quickSetupFieldId(null, "days")}>
+      <fieldset className={styles.days} id={fieldId(null, "days")}>
         <legend className={styles.legend}>{t("availability.quickSetup.days")}</legend>
         <Text variant="body" color="secondary">
           {t("availability.quickSetup.everyServiceOwnDays")}
@@ -69,7 +78,7 @@ function DaysField({ draft, onChange, issues, inDrawer, fixedDays }: QuickSetupF
   }
   return (
     <DayPicker
-      id={quickSetupFieldId(null, "days")}
+      id={fieldId(null, "days")}
       legend={t("availability.quickSetup.days")}
       days={draft.days}
       onChange={(days) => onChange(setSharedDays(draft, days))}
@@ -90,8 +99,15 @@ export function QuickSetupForm({
   local = false,
   inDrawer = false,
   fixedDays = false,
+  idScope,
 }: QuickSetupFormProps) {
   const { t } = useTranslation();
+  // Field ids carry the form instance: the week panel and the drawer opened from it can hold the
+  // same draft (same service ids) at once, and a shared id would hand one form's labels to the other.
+  const ownScope = useId();
+  const scope = idScope ?? ownScope;
+  const fieldId = (serviceId: string | null, field: QuickSetupField | "days") =>
+    quickSetupFieldId(serviceId, field, undefined, scope);
   // The same sentence twice would change no DOM, so a screen reader would stay silent the second
   // time: `repeat` flips a trailing no-break space to make each announcement a DOM change.
   const [announcement, setAnnouncement] = useState({ message: "", repeat: false });
@@ -103,7 +119,7 @@ export function QuickSetupForm({
     const id = focusAfterChangeRef.current;
     if (id === null) return;
     focusAfterChangeRef.current = null;
-    document.getElementById(quickSetupFieldId(id, "name"))?.focus();
+    document.getElementById(fieldId(id, "name"))?.focus();
   }, [draft.services.length]);
 
   const addService = () => {
@@ -123,43 +139,45 @@ export function QuickSetupForm({
   };
 
   return (
-    <div className={inDrawer ? styles.layoutSingle : styles.layout}>
-      <Stack gap="md">
-        {draft.services.map((service, index) => (
-          <ServiceRow
+    <QuickSetupIdScope value={scope}>
+      <div className={inDrawer ? styles.layoutSingle : styles.layout}>
+        <Stack gap="md">
+          {draft.services.map((service, index) => (
+            <ServiceRow
+              draft={draft}
+              key={service.id}
+              service={service}
+              index={index}
+              removable={draft.services.length > 1}
+              issues={issues}
+              onChange={(next) => onChange(replaceService(draft, next))}
+              onRemove={() => removeService(service.id)}
+              announce={announce}
+            />
+          ))}
+          <div>
+            <Button variant="secondary" onClick={addService}>
+              {t("availability.quickSetup.addService")}
+            </Button>
+          </div>
+          <DaysField
             draft={draft}
-            key={service.id}
-            service={service}
-            index={index}
-            removable={draft.services.length > 1}
+            onChange={onChange}
             issues={issues}
-            onChange={(next) => onChange(replaceService(draft, next))}
-            onRemove={() => removeService(service.id)}
-            announce={announce}
+            inDrawer={inDrawer}
+            fixedDays={fixedDays}
           />
-        ))}
-        <div>
-          <Button variant="secondary" onClick={addService}>
-            {t("availability.quickSetup.addService")}
-          </Button>
-        </div>
-        <DaysField
-          draft={draft}
-          onChange={onChange}
-          issues={issues}
-          inDrawer={inDrawer}
-          fixedDays={fixedDays}
-        />
-        <Text className={styles.visuallyHidden} role="status">
-          {announcement.message}
-          {announcement.repeat ? "\u00a0" : ""}
-        </Text>
-      </Stack>
-      {!inDrawer && (
-        <div className={styles.stripColumn}>
-          <RegularWeekStrip draft={draft} local={local} />
-        </div>
-      )}
-    </div>
+          <Text className={styles.visuallyHidden} role="status">
+            {announcement.message}
+            {announcement.repeat ? "\u00a0" : ""}
+          </Text>
+        </Stack>
+        {!inDrawer && (
+          <div className={styles.stripColumn}>
+            <RegularWeekStrip draft={draft} local={local} />
+          </div>
+        )}
+      </div>
+    </QuickSetupIdScope>
   );
 }

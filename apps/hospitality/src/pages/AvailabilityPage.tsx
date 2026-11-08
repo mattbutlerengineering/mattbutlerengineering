@@ -398,6 +398,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     <PageHeader
       title={t("availability.title")}
       description={t("availability.description")}
+      asideBesideTitle
       aside={
         actions || entry.from === "setup" ? (
           <div className={styles.headerAside}>
