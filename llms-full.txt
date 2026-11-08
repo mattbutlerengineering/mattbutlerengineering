@@ -5409,6 +5409,8 @@
     export type CloseWhat =
       | { readonly kind: "venue" }
       | { readonly kind: "service"; readonly serviceId: string }
+      /** One floor-plan section: its tables as they are when the closure is saved, and then as they move (ADR-032). */
+      | { readonly kind: "section"; readonly sectionId: string }
       | { readonly kind: "booking"; readonly types: readonly BookingChannel[] };
     export type CloseWhen =
       | { readonly kind: "tonight" }
@@ -5461,6 +5463,7 @@
     }
     function whatIsComplete(what: CloseWhat): boolean {
       if (what.kind === "service") return what.serviceId !== "";
+      if (what.kind === "section") return what.sectionId !== "";
       if (what.kind === "booking") return what.types.length > 0;
       return true;
     }
@@ -5498,16 +5501,24 @@
           return { targetKind: "venue" as const };
         case "service":
           return { targetKind: "service" as const, venueServiceId: what.serviceId };
+        case "section":
+          return { targetKind: "tables" as const, sectionId: what.sectionId, tableIds: [] };
         case "booking":
           return { targetKind: "booking" as const, bookingTypes: [...what.types] };
       }
     }
-    export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null {
+    type SectionMembership = ReadonlyMap<string, readonly string[]>;
+    export function buildCloseRule(
+      form: CloseForm,
+      id: string,
+      today: string,
+      membership: SectionMembership = new Map()
+    ): DateRule | null {
       if (validateClose(form, today) !== null || form.when.kind === "dates") return null;
       const span = spanOf(form.when, today);
       const note = form.staffNote.trim();
       const message = form.guestMessage.trim();
-      return {
+      const rule: DateRule = {
         id,
         kind: "closure",
         ...targetOf(form.what),
@@ -5521,18 +5532,25 @@
         ...(note ? { staffNote: note } : {}),
         ...(message ? { guestMessage: message } : {}),
       };
+      return expandSectionRules([rule], membership)[0] ?? null;
     }
     export function buildCloseRules(
       form: CloseForm,
       idFor: (date: string) => string,
-      today: string
+      today: string,
+      membership: SectionMembership = new Map()
     ): readonly DateRule[] {
       if (form.when.kind !== "dates") {
-        const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today);
+        const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today, membership);
         return rule ? [rule] : [];
       }
       return form.when.dates.flatMap((date) => {
-        const rule = buildCloseRule({ ...form, when: { kind: "date", date } }, idFor(date), today);
+        const rule = buildCloseRule(
+          { ...form, when: { kind: "date", date } },
+          idFor(date),
+          today,
+          membership
+        );
         return rule ? [rule] : [];
       });
     }
@@ -5628,6 +5646,9 @@
       if (series.targetKind === "service" && series.venueServiceId) {
         return { kind: "service", serviceId: series.venueServiceId };
       }
+      if (series.targetKind === "tables" && series.sectionId) {
+        return { kind: "section", sectionId: series.sectionId };
+      }
       if (series.targetKind === "booking" && series.bookingTypes?.length) {
         return { kind: "booking", types: [...series.bookingTypes] };
       }
@@ -5640,6 +5661,7 @@
         rule.seriesId == null &&
         (rule.targetKind === "venue" ||
           (rule.targetKind === "service" && !!rule.venueServiceId) ||
+          (rule.targetKind === "tables" && !!rule.sectionId) ||
           (rule.targetKind === "booking" && !!rule.bookingTypes?.length)) &&
         (rule.window == null || rule.window.to === END_OF_SERVICE_DAY)
       );
@@ -5854,15 +5876,34 @@
         ],
       };
     }
+    function sectionCopy(name: string): Copy {
+      return {
+        allDay: (t) => [
+          t("availability.calendar.sectionClosedAllDay", { section: name }),
+          t("availability.calendar.sectionClosedAllDayName", { section: name }),
+        ],
+        band: (t, v) => [
+          t("availability.calendar.sectionClosedBand", { section: name, ...v }),
+          t("availability.calendar.sectionClosedBandName", { section: name, ...v }),
+        ],
+      };
+    }
     export function closureBandText(
       closure: Closure,
       t: TFunction,
-      format: VenueFormat
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
     ): ClosureBandText {
+      const section =
+        closure.targetKind === "tables" && closure.sectionId
+          ? sectionNames?.get(closure.sectionId)
+          : undefined;
       const copy =
         closure.targetKind === "booking"
           ? bookingCopy(channelSuffix(closure))
-          : COPY[closure.targetKind];
+          : section !== undefined
+            ? sectionCopy(section)
+            : COPY[closure.targetKind];
       if (isWholeDay(closure)) {
         const [text, name] = copy.allDay(t);
         return { key: closure.ruleId, text, name };
@@ -6275,14 +6316,15 @@
       detailed: boolean,
       t: TFunction,
       format: VenueFormat,
-      service?: ServiceFilter | null
+      service?: ServiceFilter | null,
+      sectionNames?: ReadonlyMap<string, string>
     ): DayPresentation {
       const summary = fullSummary && service ? filterDaySummary(fullSummary, service.id) : fullSummary;
       const notRunningName =
         service && fullSummary && fullSummary.serviceCount > 0 && summary?.serviceCount === 0
           ? service.name
           : null;
-      const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
+      const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format, sectionNames));
       const services = detailed
         ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
         : [];
@@ -6936,7 +6978,12 @@
       const names = types.map((type) => t(BOOKING_TYPE_NAME[type]));
       return new Intl.ListFormat(locale, { type: "conjunction" }).format(names);
     }
-    function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string {
+    function targetText(
+      target: LayerTarget,
+      t: TFunction,
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
+    ): string {
       switch (target.kind) {
         case "venue":
           return t("availability.calendar.dayLabel.closed");
@@ -6951,14 +6998,25 @@
             }),
             format.locale
           );
-        case "tables":
-          return t("availability.drawer.layer.tablesBlocked");
+        case "tables": {
+          const section = target.sectionId ? sectionNames?.get(target.sectionId) : undefined;
+          return section !== undefined
+            ? t("availability.drawer.layer.sectionClosed", { name: section })
+            : t("availability.drawer.layer.tablesBlocked");
+        }
       }
     }
-    function seriesText(series: LayerSeries, t: TFunction, format: VenueFormat): string {
+    function seriesText(
+      series: LayerSeries,
+      t: TFunction,
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
+    ): string {
       const days = series.weekdays?.map((d) => t(WEEKDAY_NAME[d] ?? WEEKDAY_NAME[0])).join(", ");
       const range = `${series.startsOn} – ${series.endsOn ?? t("availability.drawer.layer.untilReopened")}`;
-      return [targetText(series.target, t, format), days, range].filter(Boolean).join(" · ");
+      return [targetText(series.target, t, format, sectionNames), days, range]
+        .filter(Boolean)
+        .join(" · ");
     }
     function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: VenueFormat): string {
       return hours.length === 0
@@ -6992,7 +7050,12 @@
       }
       return t("availability.drawer.layer.pacing", { count: tonight.pacingCovers });
     }
-    export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string {
+    export function layerLabelText(
+      layer: Layer,
+      t: TFunction,
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
+    ): string {
       switch (layer.kind) {
         case "schedule":
           return layer.scheduleName !== undefined
@@ -7009,11 +7072,11 @@
         case "skip":
           return layer.skippedFrom
             ? t("availability.drawer.layer.skippedFrom", {
-                series: seriesText(layer.skippedFrom, t, format),
+                series: seriesText(layer.skippedFrom, t, format, sectionNames),
               })
             : t("availability.drawer.layer.skippedDate");
         case "closure":
-          return layer.target ? targetText(layer.target, t, format) : layer.label;
+          return layer.target ? targetText(layer.target, t, format, sectionNames) : layer.label;
         case "tonight":
           return t("availability.drawer.layer.tonight");
       }
@@ -8884,6 +8947,18 @@
         unsaved: [...new Set([...edits, ...removals, ...lost, ...named("unsaved")].map(parkedName))],
         overridden: [...new Set(named("overridden").map(parkedName))],
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/section-membership.ts">
+    export function sectionMembership(
+      tables: readonly Pick<Table, "id" | "sectionId">[]
+    ): ReadonlyMap<string, readonly string[]> {
+      const membership = new Map<string, string[]>();
+      for (const { id, sectionId } of tables) {
+        if (!sectionId) continue;
+        membership.set(sectionId, [...(membership.get(sectionId) ?? []), id]);
+      }
+      return membership;
     }
   </file>
   <file path="apps/hospitality/src/components/availability/selection-actions.ts">
@@ -81182,6 +81257,8 @@
       kind: DateRule["targetKind"];
       /** The service a `service` target closes, as stored. */
       serviceName?: string;
+      /** The section a section closure is for (ADR-032); a reader looks its name up. */
+      sectionId?: string;
       bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
     }
     export interface LayerHoursService {
@@ -81218,6 +81295,7 @@
       return {
         kind: rule.targetKind,
         ...(serviceName !== undefined ? { serviceName } : {}),
+        ...(rule.targetKind === "tables" && rule.sectionId ? { sectionId: rule.sectionId } : {}),
         ...(rule.bookingTypes ? { bookingTypes: [...rule.bookingTypes] } : {}),
       };
     }

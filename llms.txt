@@ -1743,7 +1743,7 @@
       type BookingChannel = "online" | "phone" | "waitlist";
     </item>
     <item priority="low">
-      type CloseWhat = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "booking"; re;
+      type CloseWhat = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "section"; re | { readonly kind: "booking"; re;
     </item>
     <item priority="low">
       type CloseWhen = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "dates"; read | { readonly kind: "range"; read | {
@@ -1811,13 +1811,22 @@
       function targetOf(what: CloseWhat) { /* ... */ }
     </item>
     <item priority="high">
-      export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null { /* ... */ }
+      type SectionMembership = ReadonlyMap<string, readonly string[]>;
+    </item>
+    <item priority="high">
+      export function buildCloseRule(
+        form: CloseForm,
+        id: string,
+        today: string,
+        membership: SectionMembership = new Map()
+      ): DateRule | null { /* ... */ }
     </item>
     <item priority="high">
       export function buildCloseRules(
         form: CloseForm,
         idFor: (date: string) => string,
-        today: string
+        today: string,
+        membership: SectionMembership = new Map()
       ): readonly DateRule[] { /* ... */ }
     </item>
     <item priority="high">
@@ -1980,11 +1989,15 @@
     <item priority="medium">
       function bookingCopy(suffix: ChannelSuffix): Copy { /* ... */ }
     </item>
+    <item priority="medium">
+      function sectionCopy(name: string): Copy { /* ... */ }
+    </item>
     <item priority="high">
       export function closureBandText(
         closure: Closure,
         t: TFunction,
-        format: VenueFormat
+        format: VenueFormat,
+        sectionNames?: ReadonlyMap<string, string>
       ): ClosureBandText { /* ... */ }
     </item>
   </file>
@@ -2182,7 +2195,8 @@
         detailed: boolean,
         t: TFunction,
         format: VenueFormat,
-        service?: ServiceFilter | null
+        service?: ServiceFilter | null,
+        sectionNames?: ReadonlyMap<string, string>
       ): DayPresentation { /* ... */ }
     </item>
   </file>
@@ -2393,10 +2407,20 @@
       ): string { /* ... */ }
     </item>
     <item priority="medium">
-      function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string { /* ... */ }
+      function targetText(
+        target: LayerTarget,
+        t: TFunction,
+        format: VenueFormat,
+        sectionNames?: ReadonlyMap<string, string>
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
-      function seriesText(series: LayerSeries, t: TFunction, format: VenueFormat): string { /* ... */ }
+      function seriesText(
+        series: LayerSeries,
+        t: TFunction,
+        format: VenueFormat,
+        sectionNames?: ReadonlyMap<string, string>
+      ): string { /* ... */ }
     </item>
     <item priority="medium">
       function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: VenueFormat): string { /* ... */ }
@@ -2409,7 +2433,12 @@
       ): string { /* ... */ }
     </item>
     <item priority="high">
-      export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string { /* ... */ }
+      export function layerLabelText(
+        layer: Layer,
+        t: TFunction,
+        format: VenueFormat,
+        sectionNames?: ReadonlyMap<string, string>
+      ): string { /* ... */ }
     </item>
     <item priority="high">
       export function layerEffectText(layer: Layer, t: TFunction, format: VenueFormat): string { /* ... */ }
@@ -3151,6 +3180,13 @@
     </item>
     <item priority="high">
       export function switchScope(input: SwitchInput): Switched { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/section-membership.ts">
+    <item priority="high">
+      export function sectionMembership(
+        tables: readonly Pick<Table, "id" | "sectionId">[]
+      ): ReadonlyMap<string, readonly string[]> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/selection-actions.ts">
@@ -23757,6 +23793,7 @@
       interface LayerTarget {
         kind: DateRule["targetKind"];
         serviceName?: string;
+        sectionId?: string;
         bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
       }
     </item>
