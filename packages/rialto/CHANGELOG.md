@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.6
+
+### Patch Changes
+
+- [#8459](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8459) [`5e562c6`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5e562c6daae8768bdf0b5f542cf9c54f226b7174) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add co-located `.catalog.ts` metadata for Skeleton, Drawer, Tooltip, Popover, PinInput, DropdownMenu, ScrollArea, and Handshake so the AI generator can place them. Metadata only — no component behavior changes.
+
 ## 0.10.5
 
 ### Patch Changes
