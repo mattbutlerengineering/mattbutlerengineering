@@ -5029,6 +5029,15 @@ Both quoted strings look like deprecation/config noise rather than a real assert
 **Skill proposals:** 0 (Friday — checked `.claude/session-logs/*.json`: only 2 entries, both from today's startup hook with identical diff stats; below the 3-session repeated-workflow threshold, no novel pattern)
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.516 → 1.521, headroom). False-positive rate 0% (0/30 sensor-labeled issues closed `not_planned`/duplicate in the last 30 days) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 102 skipped-for-lack-of-data) — above 50% threshold, no review needed; unchanged from 2026-11-05 since today's 5 new verifications were all skips. AI issue-feedback budgets: all 7 categories at default budget=3 (max rejection 3%, feature category).
 
+## 2026-11-07 — mbe-learning-loop
+
+**Sensors:** 17/18 available (e2eStability not available) — ✅ Healthy
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed (reopened), 5 skipped (#8450 no matching verifier for its labels; #8445/#8444/#8436/#8435 no success/failure CI runs found to verify against)
+**Sentry triage:** skipped — stored Sentry MCP access token still rejected (authorization expired, same as 2026-11-06), no human available to re-authorize in this unattended run
+**Skill proposals:** 0 (Saturday — Friday-only, session-log analysis not run)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.521 → 1.523, headroom). False-positive rate 3.7% (13/353 sensor-labeled issues closed `not_planned` in the last 30 days, via `gh api search/issues --paginate`) — well under 30%, no loosening needed. Fix-effectiveness 60% (6/10 checked, excluding 107 skipped-for-lack-of-data in the last 30 days) — above 50% threshold, no review needed; unchanged from 2026-11-06 since today's 5 new verifications were all skips. AI issue-feedback budgets: all 7 categories at default budget=3 (max rejection 4%, feature category: 108 total, 4 rejected).
+
 ## 2026-11-08 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search, `created_at`/`closed_at` exact)
