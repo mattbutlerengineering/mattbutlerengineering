@@ -2330,6 +2330,10 @@
       "differentHours": "Horarios distintos en algunos días",
       "blockLegend": "{{service}}: horarios distintos",
       "removeBlock": "Quitar estos horarios",
+      "line": {
+        "otherHours": "otros horarios {{days}}",
+        "nextDay": "(día siguiente)"
+      },
       "strip": {
         "about": "Primera y última hora que un cliente puede reservar.",
         "local": "Con los horarios que escribiste",
@@ -2954,6 +2958,46 @@
       "selectDays": "Seleccionar días",
       "selectingHint": "Toca los días que quieras",
       "selectingHintPointer": "Haz clic en los días que quieras o arrastra sobre ellos"
+    },
+    "today": {
+      "title": "Hoy",
+      "closed": "Cerrado",
+      "hours": "{{name}} {{from}}–{{to}}",
+      "itemsLabel": "En vigor esta noche",
+      "change": "Cambiar esta noche",
+      "loadError": "No se pudieron cargar los horarios de hoy.",
+      "serviceClosed": "Cerrado: {{name}}",
+      "closingEarly": "Cierre anticipado · {{time}}",
+      "closingEarlyNamed": "{{name}}: cierre anticipado · {{time}}",
+      "closedBetween": "Cerrado {{from}}–{{to}}",
+      "targetClosedBetween": "{{name}}: cerrado {{from}}–{{to}}",
+      "pausedBetween": {
+        "online": "Reservas en línea en pausa {{from}}–{{to}}",
+        "phone": "Reservas por teléfono en pausa {{from}}–{{to}}",
+        "waitlist": "Lista de espera en pausa {{from}}–{{to}}",
+        "online_phone": "Reservas en línea y por teléfono en pausa {{from}}–{{to}}",
+        "online_waitlist": "Reservas en línea y lista de espera en pausa {{from}}–{{to}}",
+        "phone_waitlist": "Reservas por teléfono y lista de espera en pausa {{from}}–{{to}}",
+        "online_phone_waitlist": "Reservas en pausa {{from}}–{{to}}"
+      },
+      "paused": {
+        "online": "Reservas en línea en pausa",
+        "phone": "Reservas por teléfono en pausa",
+        "waitlist": "Lista de espera en pausa",
+        "online_phone": "Reservas en línea y por teléfono en pausa",
+        "online_waitlist": "Reservas en línea y lista de espera en pausa",
+        "phone_waitlist": "Reservas por teléfono y lista de espera en pausa",
+        "online_phone_waitlist": "Reservas en pausa"
+      },
+      "pausedFrom": {
+        "online": "Reservas en línea en pausa desde {{time}}",
+        "phone": "Reservas por teléfono en pausa desde {{time}}",
+        "waitlist": "Lista de espera en pausa desde {{time}}",
+        "online_phone": "Reservas en línea y por teléfono en pausa desde {{time}}",
+        "online_waitlist": "Reservas en línea y lista de espera en pausa desde {{time}}",
+        "phone_waitlist": "Reservas por teléfono y lista de espera en pausa desde {{time}}",
+        "online_phone_waitlist": "Reservas en pausa desde {{time}}"
+      }
     },
     "tonight": {
       "title": "Esta noche",

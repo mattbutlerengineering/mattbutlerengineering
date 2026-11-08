@@ -30,6 +30,13 @@
   justify-content: flex-end;
 }
 
+/* A Save refused for a problem in the form still takes presses (it goes to the problem), so it
+   wears Button's disabled look itself: Button styles only the `disabled` attribute. */
+.refused {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+}
+
 /* Phone: the apply line first, full width; the buttons wrap beneath it. */
 @media (max-width: 767px) {
   .footer[data-pinned] {
