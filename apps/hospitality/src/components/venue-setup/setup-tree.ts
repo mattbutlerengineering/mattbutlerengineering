@@ -59,12 +59,14 @@ export type NodeState =
       readonly kind: "service";
       readonly opensAt: number;
       readonly lastSeatingAt: number;
+      readonly closesAt: number;
       readonly weekdays: readonly number[];
-      /** Days the service books other times on (a set that only moves the closing is left out). */
+      /** Days whose hours differ from the base: opening, last seating or closing. */
       readonly changes: readonly {
         readonly weekdays: readonly number[];
         readonly opensAt: number;
         readonly lastSeatingAt: number;
+        readonly closesAt: number;
       }[];
     }
   | {
@@ -222,13 +224,20 @@ function scheduleNode(
         kind: "service",
         opensAt: row.opensAt,
         lastSeatingAt: row.lastSeatingAt,
+        closesAt: row.closesAt,
         weekdays: sortedUnique([...baseDays, ...setDays]),
         changes: sets
-          .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+          .filter(
+            (set) =>
+              set.opensAt !== row.opensAt ||
+              set.lastSeatingAt !== row.lastSeatingAt ||
+              set.closesAt !== row.closesAt
+          )
           .map((set) => ({
             weekdays: sortedUnique(set.weekdays),
             opensAt: set.opensAt,
             lastSeatingAt: set.lastSeatingAt,
+            closesAt: set.closesAt,
           })),
       },
       actions: [],

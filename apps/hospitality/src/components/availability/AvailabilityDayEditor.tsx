@@ -43,7 +43,7 @@ import type { SeriesScope } from "./series-edit.js";
 import { BlockedReason } from "./ScheduleFormParts.js";
 import { nextServiceRow, ServicesEditor } from "./ServicesEditor.js";
 import { StrandedBookings } from "./StrandedBookings.js";
-import { minuteText } from "./closure-band.js";
+import { namedServiceHoursText } from "./service-hours.js";
 import { scheduleNameText } from "./day-summary.js";
 import styles from "./AvailabilityDayEditor.module.css";
 
@@ -373,11 +373,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           {day.services.map((service, row) => (
             <li key={service.venueServiceId} className={styles.service}>
               <Text as="span" variant="body" color="primary" className={styles.serviceLine}>
-                {t("availability.editor.serviceLine", {
-                  name: service.name,
-                  from: minuteText(service.opensAt, t, format),
-                  to: minuteText(service.closesAt, t, format),
-                })}
+                {namedServiceHoursText(service.name, service, { t, format })}
               </Text>
               <Button
                 variant="secondary"

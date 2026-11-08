@@ -122,6 +122,11 @@ describe("AvailabilityDayEditor", () => {
     expect(screen.queryByText("You’re changing")).not.toBeInTheDocument();
   });
 
+  it("reads a service's hours the one shared way, last seating after the close", () => {
+    renderEditor();
+    expect(screen.getByText("Lunch 11:30 AM–3:00 PM, last seating 2:00 PM")).toBeInTheDocument();
+  });
+
   it("previews the draft once it differs, across every date in the chosen scope", () => {
     renderEditor();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));

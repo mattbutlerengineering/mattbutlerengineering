@@ -11,6 +11,7 @@ import {
 import type { AvailabilityConfig } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { minuteText } from "./closure-band.js";
+import { serviceCloseChangeText, serviceHoursText } from "./service-hours.js";
 import {
   regularWeekLine,
   upcomingRegularWeek,
@@ -75,12 +76,8 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
 
   if (line.services.length === 0) return null;
 
-  const time = (minute: number) => minuteText(minute, t, format);
-  const hours = (h: LineHours) =>
-    t("availability.regularWeekLine.hours", {
-      open: time(h.opensAt),
-      close: time(h.lastSeatingAt),
-    });
+  const ctx = { t, format };
+  const hours = (h: LineHours) => serviceHoursText(h, ctx);
   const describe = (week: Line) =>
     week.services
       .map((service) => {
@@ -89,9 +86,9 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
         const changes = service.changes
           .map((c) => {
             const days = summarize(c.weekdays);
-            // Same opening: only the last seating moved, so say only that.
+            // Same opening: only the close or last seating moved, so say only that.
             return c.opensAt === service.opensAt
-              ? t("availability.regularWeekLine.closes", { days, close: time(c.lastSeatingAt) })
+              ? serviceCloseChangeText(days, c, ctx)
               : t("availability.regularWeekLine.different", { days, hours: hours(c) });
           })
           .join(", ");

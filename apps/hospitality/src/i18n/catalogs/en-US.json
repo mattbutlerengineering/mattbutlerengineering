@@ -2089,7 +2089,6 @@
       "sectionClosedAllDayName": "{{section}} closed all day",
       "sectionClosedBand": "{{section}} closed {{from}} – {{to}}",
       "sectionClosedBandName": "{{section}} closed {{from}} – {{to}}",
-      "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (next day)",
       "draftName": "unsaved changes",
       "labelWithPeriod": "{{label}}, {{period}}",
@@ -2902,14 +2901,19 @@
       "tables": "Some tables",
       "doneAndStays": "{{done}}. {{stays}}"
     },
+    "serviceHours": {
+      "range": "{{open}}–{{close}}",
+      "withLastSeating": "{{range}}, last seating {{last}}",
+      "closeChange": "{{days}} until {{close}}",
+      "closeChangeWithLastSeating": "{{days}} until {{close}}, last seating {{last}}",
+      "named": "{{name}} {{hours}}"
+    },
     "regularWeekLine": {
       "line": "Regular week: {{services}}",
       "upcoming": "From {{date}}: {{services}}",
       "upcomingPeriod": "{{from}}–{{to}}: {{services}}",
       "service": "{{name}} {{hours}} {{days}}",
       "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
-      "hours": "{{open}}–{{close}}",
-      "closes": "{{days}} until {{close}}",
       "different": "{{days}} {{hours}}",
       "details": "Details",
       "heading": "Regular week"

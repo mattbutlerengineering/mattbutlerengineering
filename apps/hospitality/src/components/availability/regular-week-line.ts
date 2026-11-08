@@ -16,6 +16,7 @@ import { WEEK_DISPLAY_ORDER } from "./quick-setup-draft.js";
 export interface LineHours {
   readonly opensAt: number;
   readonly lastSeatingAt: number;
+  readonly closesAt: number;
 }
 
 export interface HoursChange extends LineHours {
@@ -82,14 +83,20 @@ export function regularWeekLine(config: AvailabilityConfig, today: string): Regu
         name,
         opensAt: row.opensAt,
         lastSeatingAt: row.lastSeatingAt,
+        closesAt: row.closesAt,
         days: WEEK_DISPLAY_ORDER.filter((day) => week.days[day] !== null),
         changes: row.dayHours.sets
-          // A set that moves only the closing books the same times: nothing to say on this line.
-          .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+          .filter(
+            (set) =>
+              set.opensAt !== row.opensAt ||
+              set.lastSeatingAt !== row.lastSeatingAt ||
+              set.closesAt !== row.closesAt
+          )
           .map((set) => ({
             weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
             opensAt: set.opensAt,
             lastSeatingAt: set.lastSeatingAt,
+            closesAt: set.closesAt,
           })),
       },
     ];

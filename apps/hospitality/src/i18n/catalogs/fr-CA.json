@@ -2138,7 +2138,6 @@
       "sectionClosedAllDayName": "{{section}} fermée toute la journée",
       "sectionClosedBand": "{{section}} fermée {{from}} – {{to}}",
       "sectionClosedBandName": "{{section}} fermée {{from}} – {{to}}",
-      "serviceLine": "{{name}} {{from}} – {{to}}",
       "nextDay": "{{time}} (lendemain)",
       "draftName": "changements non enregistrés",
       "labelWithPeriod": "{{label}}, {{period}}",
@@ -2988,14 +2987,19 @@
       "tables": "Certaines tables",
       "doneAndStays": "{{done}}. {{stays}}"
     },
+    "serviceHours": {
+      "range": "{{open}}–{{close}}",
+      "withLastSeating": "{{range}}, dernière table à {{last}}",
+      "closeChange": "{{days}} jusqu’à {{close}}",
+      "closeChangeWithLastSeating": "{{days}} jusqu’à {{close}}, dernière table à {{last}}",
+      "named": "{{name}} {{hours}}"
+    },
     "regularWeekLine": {
       "line": "Semaine habituelle : {{services}}",
       "upcoming": "Dès le {{date}} : {{services}}",
       "upcomingPeriod": "{{from}}–{{to}} : {{services}}",
       "service": "{{name}} {{hours}} {{days}}",
       "serviceWith": "{{name}} {{hours}} {{days}}, {{changes}}",
-      "hours": "{{open}}–{{close}}",
-      "closes": "{{days}} jusqu’à {{close}}",
       "different": "{{days}} {{hours}}",
       "details": "Détails",
       "heading": "Semaine habituelle"
