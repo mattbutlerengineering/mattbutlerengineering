@@ -13,10 +13,23 @@
 # file is over budget. Fails open (exit 0) for every other file and on any
 # internal error (missing root, unreadable file, broken import) so this can
 # never deadlock an edit unrelated to the two budgeted files.
+#
+# Silent and fast on every other file means no node spawn for them, not just
+# an exit 0 that node happens to print — this runs on EVERY Edit|Write. A
+# cheap basename match rules out the overwhelming majority of edits before
+# any subprocess at all; only a file actually named CLAUDE.md or gotchas.md
+# pays for a git call to resolve the repo root, and only an exact match on
+# root CLAUDE.md or .claude/rules/gotchas.md — never one of the repo's 20+
+# nested per-package CLAUDE.md files — pays for the node spawn.
 set -uo pipefail
 
 file_path="${1:-}"
 [[ -z "$file_path" ]] && exit 0
+
+case "$file_path" in
+  */CLAUDE.md | CLAUDE.md | */gotchas.md | gotchas.md) ;;
+  *) exit 0 ;;
+esac
 
 # The tree to ask about is the one the edited file lives in, NOT
 # $CLAUDE_PROJECT_DIR: hooks run with that set to the MAIN checkout even for a
@@ -26,7 +39,18 @@ root=$(git -C "$(dirname "$file_path")" rev-parse --show-toplevel 2>/dev/null)
 if [[ -z "$root" || ! -d "$root" ]]; then
   root="${CLAUDE_PROJECT_DIR:-$(git rev-parse --show-toplevel 2>/dev/null)}"
 fi
-[[ -z "$root" || ! -f "$root/scripts/instruction-budget-hook.mjs" ]] && exit 0
+[[ -z "$root" ]] && exit 0
+
+# Exact repo-relative match, not a basename match: a nested CLAUDE.md
+# (packages/rialto/CLAUDE.md, services/agent/CLAUDE.md, ...) is not budgeted
+# and must not reach node either.
+relative="${file_path#"$root"/}"
+case "$relative" in
+  CLAUDE.md | .claude/rules/gotchas.md) ;;
+  *) exit 0 ;;
+esac
+
+[[ -f "$root/scripts/instruction-budget-hook.mjs" ]] || exit 0
 cd "$root" || exit 0
 
 message=$(node "$root/scripts/instruction-budget-hook.mjs" "$file_path" 2>/dev/null)

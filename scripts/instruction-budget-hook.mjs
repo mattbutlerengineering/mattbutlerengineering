@@ -84,7 +84,7 @@ export function formatBudgetMessage({ relativePath, size, limit, over }) {
   return (
     `BLOCK: ${relativePath} is ${size} bytes, ${over} over the ${limit} byte budget ` +
     `(scripts/check-instruction-budget.mjs). Compress an entry or move it to a ` +
-    `path-scoped gotchas-*.md sibling before this edit.`
+    `path-scoped gotchas-*.md sibling now; the edit has already been written.`
   );
 }
 

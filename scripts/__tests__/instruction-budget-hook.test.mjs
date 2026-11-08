@@ -12,9 +12,17 @@
 
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, mkdirSync, rmSync, readFileSync } from "node:fs";
+import {
+  mkdtempSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync,
+  readFileSync,
+  chmodSync,
+  existsSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
-import { join, dirname } from "node:path";
+import { join, dirname, delimiter } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -129,6 +137,63 @@ describe("hook seam", () => {
     expect(() =>
       execFileSync("bash", [hookPath], { env: { ...process.env, CLAUDE_PROJECT_DIR: REPO_ROOT } })
     ).not.toThrow();
+  });
+
+  /**
+   * AC2 ("no node spawn beyond hook-input.mjs" for every other file) is
+   * about what the hook DOES, not just what it prints — a version that
+   * spawned node and let the node script decide to stay silent would still
+   * pass the "prints nothing" assertions above while failing this one. A
+   * fake `node` shim on PATH makes the spawn itself observable: it never
+   * runs for an unrelated file, so the marker it would have written never
+   * appears. Only a real `git` call (resolving the repo root) is allowed
+   * before the bash-level filter rules a file in or out.
+   */
+  function withFakeNode(markerName) {
+    const binDir = mkdtempSync(join(tmpdir(), "ib-hook-fakebin-"));
+    const marker = join(binDir, markerName);
+    writeFileSync(join(binDir, "node"), `#!/bin/sh\ntouch "${marker}"\nexit 1\n`);
+    chmodSync(join(binDir, "node"), 0o755);
+    return {
+      marker,
+      env: {
+        ...process.env,
+        CLAUDE_PROJECT_DIR: REPO_ROOT,
+        PATH: `${binDir}${delimiter}${process.env.PATH}`,
+      },
+      cleanup: () => rmSync(binDir, { recursive: true, force: true }),
+    };
+  }
+
+  it("never spawns node for a file unrelated to either budgeted path", () => {
+    const { marker, env, cleanup } = withFakeNode("node-was-called-unrelated");
+    try {
+      const out = execFileSync("bash", [hookPath, join(REPO_ROOT, "README.md")], {
+        encoding: "utf-8",
+        env,
+      });
+      expect(out).toBe("");
+      expect(existsSync(marker)).toBe(false);
+    } finally {
+      cleanup();
+    }
+  });
+
+  it("never spawns node for a NESTED, non-root CLAUDE.md (the repo has 20+)", () => {
+    // packages/rialto/CLAUDE.md matches a naive "*/CLAUDE.md" basename
+    // filter but is not the budgeted root CLAUDE.md — the precise
+    // repo-relative check in the wrapper must exclude it before node runs.
+    const { marker, env, cleanup } = withFakeNode("node-was-called-nested");
+    try {
+      const out = execFileSync("bash", [hookPath, join(REPO_ROOT, "packages/rialto/CLAUDE.md")], {
+        encoding: "utf-8",
+        env,
+      });
+      expect(out).toBe("");
+      expect(existsSync(marker)).toBe(false);
+    } finally {
+      cleanup();
+    }
   });
 
   it("exits 0 silently for an under-budget gotchas.md edit in a throwaway repo", () => {
