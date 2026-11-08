@@ -1,4 +1,3 @@
-import { mkdirSync } from "node:fs";
 import type { Locator, Page } from "@playwright/test";
 import type { AvailabilityConfig } from "@mbe/types";
 import { test, expect } from "./fixtures.js";
@@ -28,7 +27,6 @@ import {
  * `mockClosures`.
  */
 
-const SHOTS = "/tmp/everyday-shots";
 const DESKTOP = { width: 1280, height: 720 } as const;
 const PHONE = { width: 375, height: 812 } as const;
 
@@ -56,11 +54,6 @@ async function chooseTime(
     .getByRole("listbox", { name: label })
     .getByRole("option", { name: time, exact: true })
     .click();
-}
-
-async function shot(page: Page, name: string): Promise<void> {
-  mkdirSync(SHOTS, { recursive: true });
-  await page.screenshot({ path: `${SHOTS}/${name}.png` });
 }
 
 const F_ONE_CONFIG = buildAvailabilityConfigFixture() as AvailabilityConfigResponse;
@@ -198,7 +191,6 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await expect(panel.getByRole("combobox", { name: "Opens" }).last()).toHaveValue("11:00 PM");
     await expect(panel.getByRole("combobox", { name: "Closes" }).last()).toHaveValue("2:00 AM");
     await expect(page.getByText(/overlaps/)).toHaveCount(0);
-    await shot(page, "r1-after-adding-late");
     await savePanel(counter.page).click();
 
     await expect.poll(() => puts.bodies().length).toBe(1);
@@ -223,7 +215,6 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     const drawer = counter.page.getByRole("dialog");
     await drawer.getByRole("textbox", { name: /Schedule name/ }).fill("Weeknights");
     await drawer.getByRole("button", { name: "Weekdays", exact: true }).click();
-    await shot(page, "days-chips-drawer");
     await drawer.getByText("Friday", { exact: true }).click();
     // The chips stay in place: all seven day checkboxes are still there, Friday unticked.
     await expect(drawer.getByRole("checkbox")).toHaveCount(7);
@@ -275,7 +266,6 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     const dialog = counter.page.getByRole("dialog", { name: "Close", exact: true });
     await dialog.getByText("One service", { exact: true }).click();
     await dialog.getByRole("button", { name: "Christmas Eve · Thu, Dec 24" }).click();
-    await shot(page, "close-dialog-desktop");
     await dialog.getByTestId("close-primary").click();
 
     await expect.poll(() => state.saved()).not.toBeNull();
@@ -343,7 +333,6 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     expect(labels[0]).toBe("All day");
     expect(labels[1]).toBe("From 6:30 PM");
     expect(labels.at(-1)).toBe("From 10:30 PM");
-    await shot(page, "r6-starting-at-list");
     await options.filter({ hasText: "From 9:30 PM" }).click();
     await dialog.getByTestId("close-primary").click();
 
@@ -367,7 +356,6 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
       return route.fallback();
     });
     await firstPaint(page);
-    await shot(page, "booking-line");
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: /^Booking:/ }).click();
@@ -408,7 +396,6 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     for (const date of ["2026-12-05", "2026-12-06", "2026-12-11"]) {
       await expect(cell(date)).not.toContainText(/Regular|Lunch|Dinner|Weeknights/);
     }
-    await shot(page, "december-month-legend");
     record("R8", counter.count(), 0);
     expect(counter.count()).toBe(0);
   });
@@ -458,7 +445,6 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
           }
         });
         await expect(save).toBeInViewport();
-        await shot(page, "footer-pinned-375x812");
       }
 
       await savePanel(counter.page).click();
@@ -550,17 +536,6 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
         .toBe(true);
     });
   }
-
-  test("Close dialog with chips on a phone", async ({ mockedPage: page }) => {
-    await page.setViewportSize(PHONE);
-    await mockClosures(page, { config: F_ONE_CONFIG });
-    await firstPaint(page);
-    await page.getByRole("button", { name: "Close…", exact: true }).click();
-    const dialog = page.getByRole("dialog", { name: "Close", exact: true });
-    await dialog.getByText("One service", { exact: true }).click();
-    await dialog.getByRole("button", { name: "Christmas Eve · Thu, Dec 24" }).click();
-    await shot(page, "close-dialog-phone");
-  });
 
   test("PRD 11 demo: Christmas Eve lunch in 4 steps, one chip on the quiet December calendar", async ({
     mockedPage: page,
