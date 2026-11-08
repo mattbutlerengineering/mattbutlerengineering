@@ -45,6 +45,10 @@
 /* ── Authenticated layout (nav pinned, content scrolls) ── */
 
 .authLayout {
+  /* The containing block for absolutely positioned descendants with no other
+     positioned ancestor (visually hidden status lines), so `overflow: hidden`
+     clips them instead of letting them stretch the document (#8532). */
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;

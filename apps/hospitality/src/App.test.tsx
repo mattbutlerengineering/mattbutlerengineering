@@ -228,4 +228,21 @@ describe("App", () => {
       expect(focusRule).toMatch(/box-shadow:\s*var\(--rialto-shadow-focus\)/);
     });
   });
+
+  describe("authenticated layout contains its absolutely positioned descendants", () => {
+    // A visually hidden `position: absolute` status line with no positioned
+    // ancestor resolves against the initial containing block, so the shell's
+    // `overflow: hidden` never clips it: it kept its in-flow position deep in
+    // the scrolled content and stretched the document past the viewport
+    // (blank band under Availability in the hospitality visual baselines, #8532).
+    it("positions .authLayout so its overflow: hidden clips them", () => {
+      const css = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), "App.module.css"),
+        "utf-8"
+      );
+      const layoutRule = css.match(/\.authLayout\s*\{([^}]*)\}/)?.[1] ?? "";
+      expect(layoutRule).toMatch(/overflow:\s*hidden/);
+      expect(layoutRule).toMatch(/position:\s*relative/);
+    });
+  });
 });
