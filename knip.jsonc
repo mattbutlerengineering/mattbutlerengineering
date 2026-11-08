@@ -282,6 +282,7 @@
         "resource-audit.mjs",
         "revert-rca.mjs",
         "revert-watchdog.mjs",
+        "reviewed-merge.mjs",
         "rollback-smoke-test-gate.mjs",
         "routine-liveness.mjs",
         "routine-manifest.mjs",
