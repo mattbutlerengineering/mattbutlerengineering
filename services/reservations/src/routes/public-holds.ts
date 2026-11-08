@@ -10,6 +10,7 @@ import {
   createProblemDetails,
   publicHoldBodyJsonSchema,
   publicHoldConfirmBodyJsonSchema,
+  resolveGuestNoticeLocale,
 } from "@mbe/types";
 import { randomUUID } from "crypto";
 import { generateManageToken } from "./public-reservations.js";
@@ -242,6 +243,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
       notes?: string;
       occasion?: Occasion;
       seatingPreference?: SeatingPreference;
+      locale?: string;
     };
     Reply:
       | (ApiResponse<Reservation> & { manageToken?: string })
@@ -277,7 +279,7 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
         // Fastify leaves unknown properties on `request.body`, so spreading it
         // would let an anonymous caller smuggle a `guestId` and attach its
         // reservation to someone else's guest record.
-        const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference } =
+        const { guestName, guestEmail, guestPhone, notes, occasion, seatingPreference, locale } =
           request.body;
         // Only mint a manage token when an email was actually supplied: a
         // phone-only booking is stored with `guestEmail: null`, and a token
@@ -295,6 +297,8 @@ export const publicHoldRoutes: FastifyPluginAsync = async (fastify) => {
             actor: guestActor(null),
             // Captured from the request so later guest emails brand by it (#7892).
             originHost: resolveOriginHost(request.headers.origin),
+            // The widget's language, so later notices speak it; unsupported reads as en-US.
+            locale: resolveGuestNoticeLocale(locale),
           },
           {
             door: "public-hold",

@@ -319,6 +319,20 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Drawer">
+  <file path="src/components/Drawer/Drawer.catalog.ts">
+    <item priority="high">
+      export const drawerCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="DropdownMenu">
+  <file path="src/components/DropdownMenu/DropdownMenu.catalog.ts">
+    <item priority="high">
+      export const dropdownMenuCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="EmptyState">
   <file path="src/components/EmptyState/EmptyState.catalog.ts">
     <item priority="high">
@@ -454,6 +468,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="Handshake">
+  <file path="src/components/Handshake/Handshake.catalog.ts">
+    <item priority="high">
+      export const handshakeCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="IconButton">
   <file path="src/components/IconButton/IconButton.catalog.ts">
     <item priority="high">
@@ -508,10 +529,31 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="PinInput">
+  <file path="src/components/PinInput/PinInput.catalog.ts">
+    <item priority="high">
+      export const pinInputCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Popover">
+  <file path="src/components/Popover/Popover.catalog.ts">
+    <item priority="high">
+      export const popoverCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="ReservationList">
   <file path="src/components/ReservationList/ReservationList.catalog.ts">
     <item priority="high">
       export const reservationListCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="ScrollArea">
+  <file path="src/components/ScrollArea/ScrollArea.catalog.ts">
+    <item priority="high">
+      export const scrollAreaCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -588,6 +630,13 @@
     </item>
     <item priority="medium">
       function lerp(a: number, b: number, t: number): number { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Skeleton">
+  <file path="src/components/Skeleton/Skeleton.catalog.ts">
+    <item priority="high">
+      export const skeletonCatalogMeta: unknown;
     </item>
   </file>
   </section>
@@ -935,6 +984,13 @@
   <file path="src/components/Toggle/Toggle.catalog.ts">
     <item priority="high">
       export const toggleCatalogMeta: unknown;
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="Tooltip">
+  <file path="src/components/Tooltip/Tooltip.catalog.ts">
+    <item priority="high">
+      export const tooltipCatalogMeta: unknown;
     </item>
   </file>
   </section>

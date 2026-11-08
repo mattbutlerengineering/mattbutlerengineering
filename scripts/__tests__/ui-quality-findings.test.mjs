@@ -905,3 +905,154 @@ describe("findings.mjs seeds", () => {
     expect(p.seeds).toHaveLength(2);
   });
 });
+
+describe("findings.mjs plan/record — seeds close when their route is re-audited clean (#8445)", () => {
+  const NOW = ["--now", "2026-11-07T07:40:00Z"];
+  const AGENT = finding("marketing", "metrics", "agent-built/generic-hero-copy");
+  const seedKey = (f) => findingKey(f, 1);
+  const seedRecord = () => record(null, { carrier: "seed" });
+
+  /**
+   * One fire's audit evidence, as `ledger.mjs due` + capture + `detect.mjs judged`
+   * leave it: every `due` route is in due.json; those in `captured` have a
+   * manifest row with a screenshot; `judged` maps `<app>|<route>` → judge status.
+   */
+  function audit({
+    due,
+    captured = due,
+    judged = Object.fromEntries(due.map((k) => [k, "judged"])),
+  }) {
+    const row = (k) => ({ app: k.split("|")[0], route: k.split("|")[1] });
+    writeJson(".ui-quality/due.json", { due: due.map(row), unreachable_auth: [] });
+    for (const k of captured) {
+      const { app, route } = row(k);
+      const path = join(root, ".ui-quality/captures", app, "manifest.jsonl");
+      mkdirSync(dirname(path), { recursive: true });
+      const prior = existsSync(path) ? readFileSync(path, "utf8") : "";
+      writeFileSync(
+        path,
+        `${prior}${JSON.stringify({ route, screenshots: [{ file: "x.png" }] })}\n`
+      );
+    }
+    const routes = {};
+    for (const [k, status] of Object.entries(judged)) {
+      const { app, route } = row(k);
+      routes[app] = { ...routes[app], [route]: status };
+    }
+    writeJson(".ui-quality/judge-status.json", { routes, dropped: [] });
+  }
+
+  const planPass = (findings) => {
+    const r = plan([findings], {}, ["--calibration-status", "pass"]);
+    if (r.plan === null) throw new Error(r.err);
+    return r.plan;
+  };
+
+  /** `record` the plan, numbering any `create` the way the routine's step (6d) does. */
+  const recordExecuted = (p) =>
+    run([
+      "record",
+      "--executed",
+      writeJson("in/executed.json", {
+        ...p,
+        actions: p.actions.map((a) => (a.action === "create" ? { ...a, issue: 900 } : a)),
+      }),
+      ...NOW,
+    ]);
+
+  it("a seed re-observed stays open and last_seen bumps", () => {
+    writeJson(LEDGER, { [seedKey(ALT)]: seedRecord() });
+    audit({ due: ["marketing|acmm"] });
+    const p = planPass([ALT]);
+    expect(byAction(p, "close")).toEqual([]);
+    recordExecuted(p);
+    expect(readLedger()[seedKey(ALT)]).toMatchObject({
+      carrier: "seed",
+      state: "open",
+      first_seen: "2026-10-01",
+      last_seen: "2026-11-07",
+    });
+  });
+
+  it("a seed not observed on a re-audited route closes with closed_at and state_reason", () => {
+    writeJson(LEDGER, { [seedKey(ALT)]: seedRecord() });
+    audit({ due: ["marketing|acmm"] });
+    const p = planPass([AXE]);
+    expect(byAction(p, "close")).toMatchObject([
+      { key: seedKey(ALT), carrier: "seed", issue: null, state: "closed" },
+    ]);
+    recordExecuted(p);
+    const rec = readLedger()[seedKey(ALT)];
+    expect(rec).toMatchObject({
+      issue: null,
+      carrier: "seed",
+      state: "closed",
+      state_reason: "not_observed",
+      closed_at: "2026-11-07",
+      first_seen: "2026-10-01",
+      last_seen: "2026-10-01",
+    });
+  });
+
+  it("a closed seed that is observed again reopens and drops its closure fields", () => {
+    writeJson(LEDGER, {
+      [seedKey(ALT)]: {
+        ...seedRecord(),
+        state: "closed",
+        closed_at: "2026-11-01",
+        state_reason: "not_observed",
+      },
+    });
+    audit({ due: ["marketing|acmm"] });
+    const p = planPass([ALT]);
+    recordExecuted(p);
+    const rec = readLedger()[seedKey(ALT)];
+    expect(rec).toMatchObject({ state: "open", last_seen: "2026-11-07" });
+    expect(rec).not.toHaveProperty("closed_at");
+    expect(rec).not.toHaveProperty("state_reason");
+  });
+
+  it("a seed on a route not audited this fire is untouched", () => {
+    writeJson(LEDGER, { [seedKey(ALT)]: seedRecord() });
+    audit({ due: ["marketing|other"] });
+    const p = planPass([finding("marketing", "other", "accessibility/axe-moderate")]);
+    expect(byAction(p, "close")).toEqual([]);
+  });
+
+  it.each([
+    ["the capture failed", { due: ["marketing|acmm"], captured: [] }],
+    [
+      "the route was captured but not judged",
+      { due: ["marketing|acmm"], judged: { "marketing|acmm": "unjudged:malformed" } },
+    ],
+  ])("a seed is untouched when %s", (_, evidence) => {
+    writeJson(LEDGER, { [seedKey(ALT)]: seedRecord() });
+    audit(evidence);
+    expect(byAction(planPass([AXE]), "close")).toEqual([]);
+  });
+
+  it("a seed is untouched when the fire left no audit evidence", () => {
+    writeJson(LEDGER, { [seedKey(ALT)]: seedRecord() });
+    expect(byAction(planPass([AXE]), "close")).toEqual([]);
+  });
+
+  it("an agent-built seed is untouched while calibration has not passed", () => {
+    writeJson(LEDGER, { [seedKey(AGENT)]: seedRecord() });
+    audit({ due: ["marketing|metrics"] });
+    expect(byAction(plan([[AXE]], {}, ["--calibration-status", "failed"]).plan, "close")).toEqual(
+      []
+    );
+    expect(byAction(planPass([AXE]), "close")).toHaveLength(1);
+  });
+
+  it("never closes issue-carried or already-closed records", () => {
+    writeJson(LEDGER, {
+      [seedKey(ALT)]: record(700),
+      [seedKey(AGENT)]: { ...seedRecord(), state: "closed" },
+    });
+    audit({ due: ["marketing|acmm", "marketing|metrics"] });
+    expect(
+      byAction(plan([[AXE]], { 700: "open" }, ["--calibration-status", "pass"]).plan, "close")
+    ).toEqual([]);
+  });
+});

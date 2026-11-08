@@ -4,6 +4,14 @@ import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengin
 import type { AvailabilityConfig, AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useViewport } from "../../hooks/useViewport.js";
+import {
+  alsoApplyChangedSince,
+  alsoApplyOptions,
+  alsoApplyScheduleIds,
+  buildAlsoApplyChanges,
+  pruneAlsoApply,
+  type AlsoApplyPicks,
+} from "./also-apply.js";
 import { reapplyWeek, weekKey } from "./change-week-draft.js";
 import {
   coveredDays,
@@ -20,6 +28,7 @@ import {
   buildNewScheduleChanges,
   overlappingSchedules,
   datesOfUse,
+  replacesRegularWeek,
   scheduleSaveBlock,
   type Winner,
 } from "./schedule-changes.js";
@@ -32,6 +41,7 @@ import {
   SaveFailure,
   ScheduleDraftGuard,
 } from "./ScheduleFormParts.js";
+import { AlsoApplyTo } from "./AlsoApplyTo.js";
 import { DraftPreview, previewIds } from "./DraftPreview.js";
 import { NameSuggestionChip } from "./NameSuggestionChip.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
@@ -95,6 +105,17 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const [endsOn, setEndsOn] = useState<string | null>(null);
   const [winner, setWinner] = useState<Winner>("new");
   const [conflictMode, setConflictMode] = useState<ScopeConflictMode>("keep");
+  // The other schedules the edited times also go to, per service (ux.md F-X step 4).
+  const [picks, setPicks] = useState<AlsoApplyPicks>({});
+  // The picks the last save sent. A lost race blocks Save, which takes the options (and so the
+  // groups) away until the Manager answers, so the review names these, not what is offered now.
+  const [sent, setSent] = useState<AlsoApplyPicks>({});
+  // Most schedules are the regular week with a few changes (summer hours, a holiday stretch), so a
+  // New schedule can start from its services instead of retyping them: with no days, as a copy
+  // starts, so it is used where the Manager says. Offered until the draft is touched.
+  const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+  const startFromRegular = (regularId: string) =>
+    setDraft({ ...draftFromConfig(config, () => crypto.randomUUID(), regularId), days: [] });
 
   const editing = mode === "edit";
   const review = useConflictReview({
@@ -109,8 +130,10 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     clearConflict: saver.clearConflict,
     apply: (next) => {
       const gone = !state.config.schedules.some((s) => s.id === sourceScheduleId);
-      if (next.discarded) setDraft(seedDraft(state.config));
-      else if (!gone) {
+      if (next.discarded) {
+        setDraft(seedDraft(state.config));
+        setPicks({});
+      } else if (!gone) {
         setDraft(
           reapplyWeek({
             base: seedDraft(next.baseline),
@@ -128,6 +151,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
       setEndsOn(null);
       setWinner("new");
       setConflictMode("keep");
+      setPicks({});
     },
     onGone: onClose,
   });
@@ -147,25 +171,6 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   // A new or copied schedule is used on the days its services run.
   const weekdays = useMemo(() => coveredDays(draft), [draft]);
   const useOn = useMemo(() => ({ weekdays, startsOn, endsOn }), [weekdays, startsOn, endsOn]);
-  const dates = useMemo(
-    () =>
-      editing && sourceScheduleId
-        ? scopeDates(
-            { kind: "schedule", scheduleId: sourceScheduleId },
-            { config, timezone, today }
-          )
-        : datesOfUse(useOn, today),
-    [editing, sourceScheduleId, config, timezone, today, useOn]
-  );
-  const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
-  // What the preview reaches: the schedule's week plus the dates a use_schedule rule sends to it.
-  const reach = useMemo(
-    () =>
-      editing && sourceScheduleId
-        ? scheduleReach(sourceScheduleId, { config, timezone, today })
-        : [],
-    [editing, sourceScheduleId, config, timezone, today]
-  );
   const overlaps = useMemo(
     () => (editing ? [] : overlappingSchedules(config, useOn).map((s) => s.name)),
     [editing, config, useOn]
@@ -186,6 +191,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     services: draft.services,
     startsOn,
     endsOn,
+    // A copy of the regular week saved with no end would take it over for good.
+    replacesRegularWeek: !editing && replacesRegularWeek(config, useOn, today),
   });
   const firstIssue = issues[0];
   const blockedText = block
@@ -195,7 +202,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
       : null;
   const blocked = blockedText !== null;
   const blockedId = useId();
-  const previewChanges = useMemo(() => {
+  // The schedule's own edit, built the way Save builds it.
+  const editChanges = useMemo(() => {
     if (blocked || !dirty) return null;
     const makeId = previewIds();
     return editing && sourceScheduleId
@@ -220,10 +228,56 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     useOn,
     winner,
   ]);
+  // Services whose times the edit changed that other schedules run too.
+  const alsoOptions = useMemo(
+    () =>
+      editChanges && editing && sourceScheduleId
+        ? alsoApplyOptions(config, editChanges, sourceScheduleId)
+        : [],
+    [editChanges, editing, sourceScheduleId, config]
+  );
+  const alsoIds = useMemo(() => alsoApplyScheduleIds(alsoOptions, picks), [alsoOptions, picks]);
+  const previewChanges = useMemo(
+    () =>
+      editChanges && editing && sourceScheduleId
+        ? buildAlsoApplyChanges(config, editChanges, sourceScheduleId, picks)
+        : editChanges,
+    [editChanges, editing, sourceScheduleId, config, picks]
+  );
+  // Every schedule the save writes: the edited one and each picked, so the dates in scope, the
+  // own-changes choice and the preview cover them all.
+  const writtenIds = useMemo(
+    () => (editing && sourceScheduleId ? [sourceScheduleId, ...alsoIds] : []),
+    [editing, sourceScheduleId, alsoIds]
+  );
+  const dates = useMemo(
+    () =>
+      editing && sourceScheduleId
+        ? [
+            ...new Set(
+              writtenIds.flatMap((scheduleId) =>
+                scopeDates({ kind: "schedule", scheduleId }, { config, timezone, today })
+              )
+            ),
+          ]
+        : datesOfUse(useOn, today),
+    [editing, sourceScheduleId, writtenIds, config, timezone, today, useOn]
+  );
+  const own = useMemo(() => ownChangeDates(config, dates, null), [config, dates]);
+  // What the preview reaches: each schedule's week plus the dates a use_schedule rule sends to it.
+  const reach = useMemo(
+    () =>
+      [
+        ...new Set(
+          writtenIds.flatMap((scheduleId) => scheduleReach(scheduleId, { config, timezone, today }))
+        ),
+      ].sort(),
+    [writtenIds, config, timezone, today]
+  );
 
   const submit = async () => {
     const makeId = () => crypto.randomUUID();
-    const changes =
+    const edited =
       editing && sourceScheduleId
         ? buildEditScheduleChanges({
             config,
@@ -234,8 +288,13 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             baseline: review.baseline,
           })
         : buildNewScheduleChanges({ config, name: trimmed, draft, useOn, winner, makeId });
+    const changes =
+      editing && sourceScheduleId
+        ? buildAlsoApplyChanges(config, edited, sourceScheduleId, picks)
+        : edited;
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
+    setSent(pruneAlsoApply(alsoOptions, picks));
     const saved = await saver.save(
       venueId,
       { ...state, version: review.baselineVersion },
@@ -243,9 +302,22 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
       dates.length > 1 ? conflictMode : "replace"
     );
     if (!saved) return;
-    offerUndo({ venueId, saved, title: t("availabilitySchedules.saved", { name: trimmed }) });
+    offerUndo({
+      venueId,
+      saved,
+      title:
+        alsoIds.length > 0
+          ? t("availabilitySchedules.compare.saved", { count: alsoIds.length + 1 })
+          : t("availabilitySchedules.saved", { name: trimmed }),
+    });
     onClose();
   };
+
+  // The picked schedules a colleague changed or removed, said apart from this schedule's own lines.
+  const alsoApplySince = useMemo(
+    () => (review.review && editing ? alsoApplyChangedSince(review.baseline, config, sent) : null),
+    [review.review, review.baseline, editing, config, sent]
+  );
 
   const title =
     mode === "edit"
@@ -283,6 +355,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
           {review.review ? (
             <ConflictReviewPanel
               review={review.review}
+              alsoApply={alsoApplySince ?? undefined}
               onReapply={review.reapply}
               onDiscard={review.discard}
             />
@@ -326,8 +399,22 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
           <Text variant="caption" color="secondary">
             {weekdays.length === 0 && !editing
               ? t("availabilitySchedules.impactNone")
-              : t("availabilitySchedules.impact", { count: dates.length })}
+              : alsoIds.length > 0
+                ? t("availabilitySchedules.compare.impact", {
+                    schedules: t("availabilitySchedules.compare.impactSchedules", {
+                      count: alsoIds.length + 1,
+                    }),
+                    dates: t("availabilitySchedules.compare.impactDates", { count: dates.length }),
+                  })
+                : t("availabilitySchedules.impact", { count: dates.length })}
           </Text>
+          {mode === "new" && regular && !draftTouched && (
+            <div>
+              <Button variant="secondary" size="sm" onClick={() => startFromRegular(regular.id)}>
+                {t("availabilitySchedules.fromRegularWeek")}
+              </Button>
+            </div>
+          )}
           <QuickSetupForm
             draft={draft}
             onChange={setDraft}
@@ -336,6 +423,11 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             issues={draftTouched ? issues : NO_ISSUES}
             inDrawer
             fixedDays={editing}
+          />
+          <AlsoApplyTo
+            options={alsoOptions}
+            picks={pruneAlsoApply(alsoOptions, picks)}
+            onChange={setPicks}
           />
           <OverlapChoice
             name={trimmed || t("availabilitySchedules.thisSchedule")}

@@ -5,6 +5,14 @@ import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
 const reopen = vi.hoisted(() => vi.fn());
+vi.mock("../../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../../hooks/useAvailability.js", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
@@ -17,7 +25,17 @@ vi.mock("../../hooks/useClosures.js", () => ({
   useClosureSummaries: () => ({ data: [], error: null, isLoading: false, refetch: vi.fn() }),
   useReopenClosure: () => ({ mutateAsync: reopen, isPending: false }),
   usePreviewClosureImpact: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useClosureImpact: () => ({
+    data: { reservations: 0, covers: 0, depositsHeld: 0, groups: [] },
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  useCreateClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useClosureImpacts: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+  useCreateClosures: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability: () => vi.fn() }));
 vi.mock("./AvailabilityGuestPreview.js", () => ({ AvailabilityGuestPreview: () => null }));
 vi.mock("../../contexts/VenueContext.js", () => ({
@@ -85,6 +103,7 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
               onDirtyChange: vi.fn(),
               onFinished,
               onStale,
+              onCloseDay: vi.fn(),
             }}
           />
         </main>
@@ -232,9 +251,41 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
     expect(onFinished).not.toHaveBeenCalled();
   });
 
-  it("offers Remove, not Edit, on a one-date closure", () => {
+  it("offers Remove and Edit, not Edit dates, on a one-date closure", () => {
+    renderDrawer({ rules: [VENUE_CLOSURE] });
+    expect(screen.getByRole("button", { name: /Remove closure/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Edit closure for/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Edit dates/ })).toBeNull();
+  });
+
+  it("opens the closure in the Close dialog to edit it (#7984)", () => {
+    renderDrawer({ rules: [VENUE_CLOSURE] });
+    fireEvent.click(screen.getByRole("button", { name: /Edit closure for/ }));
+    const dialog = screen.getByRole("dialog", { name: "Edit closure" });
+    expect(within(dialog).getByRole("button", { name: "Save changes" })).toBeEnabled();
+  });
+
+  it("offers no Edit on a closure that ends within the day, which the form cannot say", () => {
     renderDrawer({ rules: [PARTY_CLOSURE] });
     expect(screen.getByRole("button", { name: /Remove closure/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Edit dates/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Edit closure for/ })).toBeNull();
+  });
+
+  it("offers no Edit on a repeating closure, which is edited as a series", () => {
+    renderDrawer({ rules: [WEEKLY_CLOSURE], today: "2026-10-20" });
+    expect(screen.queryByRole("button", { name: /Edit closure for/ })).toBeNull();
+  });
+
+  it("offers Close… on an open date that is not over", () => {
+    renderDrawer();
+    expect(screen.getByRole("button", { name: "Close…" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["already closed all day", { rules: [EARLY_DINNER, VENUE_CLOSURE] }],
+    ["over", { today: "2026-11-02" }],
+  ])("offers no Close… on a date that is %s", (_, opts) => {
+    renderDrawer(opts);
+    expect(screen.queryByRole("button", { name: "Close…" })).toBeNull();
   });
 });

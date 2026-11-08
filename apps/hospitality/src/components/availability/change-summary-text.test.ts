@@ -131,6 +131,14 @@ describe("changeSummaryText from a code", () => {
       weekdays: [0, 5, 6],
     });
     expect(await textOf("en-US", weekend)).toBe("Changed regular week from Nov 6: Fri–Sun");
+    // All seven read as the regular-week line and Schedules list say them.
+    const week = change("…", {
+      code: "regular_week_changed",
+      startsOn: "2026-11-06",
+      weekdays: [0, 1, 2, 3, 4, 5, 6],
+    });
+    expect(await textOf("en-US", week)).toBe("Changed regular week from Nov 6: every day");
+    expect(await textOf("fr-CA", week)).toMatch(/: tous les jours$/);
     expect(
       await textOf("en-US", { ...friday, detail: { ...friday.detail!, reverted: true } })
     ).toBe("Reverted: Changed regular week from Nov 6: Fri");

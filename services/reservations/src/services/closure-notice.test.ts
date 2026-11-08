@@ -27,6 +27,7 @@ const outcome = (over: Partial<NoticeOutcome> = {}): NoticeOutcome => ({
   venueName: "Bistro Lune",
   timezone: "UTC",
   originHost: null,
+  locale: "en-US",
   ...over,
 });
 

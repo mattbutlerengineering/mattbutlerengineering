@@ -130,8 +130,13 @@ the charter, and stop.
 - `PRODUCT.md` — themes, non-goals, guardrails (mandatory).
 - Signals: `metrics/process-metrics.jsonl`, `metrics/last-audit.json`,
   `metrics/pr-acceptance.json`, `metrics/agent-perf.jsonl`,
-  `metrics/queue-telemetry.jsonl`, `.claude/acmm/state.json`,
+  `metrics/queue-telemetry.jsonl`,
+  `metrics/audit-coverage.jsonl` (per-surface sweep status; zones with no row are
+  "never recorded" — `.audit-state/` is gitignored and invisible to you), `.claude/acmm/state.json`,
   `docs/incidents/` (if present).
+- `metrics/ui-quality-findings.json` (if consulted): only records with
+  `state: "open"` are signals — a `closed` seed (`closed_at`, `state_reason`)
+  was re-audited and no longer observed, and a `declined` one was vetoed.
 - Open issues labeled `audit`, `sentry`, `ci-fix`, `enhancement` — these ARE
   the committed outputs of site-audit and sentry-triage.
 - `git log --oneline --since="30 days ago"` — momentum and recency per app.
@@ -157,7 +162,9 @@ unless a signal is overwhelming; every proposal cites ≥1 signal; sized to
 decompose into 3-10 child issues).
 
 Per proposal — title `[Proposal] <app>: <feature>`, label `feature-proposal`
-**only**, body:
+**only**, body (write it to a temp file and create with
+`gh issue create --body-file <path>`; an `@<path>` value given to `--body`
+is posted as the literal string, only `--body-file` reads a file):
 
 ```markdown
 ## Problem & Evidence
@@ -195,7 +202,8 @@ proposals are decomposed automatically after ~72h (first morning run past
 
 Title `[Ideation] Batch <YYYY-MM-DD>`, labels `ideation-batch` + `tracking`.
 Body: PRODUCT.md git SHA it was grounded on, a 3-5 line signal summary, then
-the task-list:
+the task-list (create with `gh issue create --body-file <path>`, never
+an `@<path>` `--body` value):
 
 ```markdown
 - [ ] #<n1> — <title>

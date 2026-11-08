@@ -5,6 +5,8 @@ import type { AvailabilityConfigState } from "@mbe/types";
 import { useClosureSummaries } from "../../hooks/useClosures.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { CloseDialog } from "./CloseDialog.js";
+import { isEditableClosure } from "./close-draft.js";
+import { EditClosureDialog } from "./EditClosureDialog.js";
 import { skipInitialFocus, waitingProps } from "./draft-wait.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { closureSubject, DATE_FORMAT } from "./rule-subjects.js";
@@ -25,10 +27,10 @@ export interface ClosureLayerActionsProps {
   readonly onStale: () => void;
 }
 
-type Step = "reopen" | "series" | { readonly editDate: string } | null;
+type Step = "reopen" | "series" | "edit" | { readonly editDate: string } | null;
 
 /**
- * Remove (reopen) and, on a repeating closure, Edit dates… for the closure behind a layer: the
+ * Remove (reopen), Edit on a one-date or range closure and, on a repeating closure, Edit dates… for the closure behind a layer: the
  * Special dates tab's own dialogs, opened on this date, so the count, the notice and the stranded
  * check are the ones already there.
  */
@@ -57,6 +59,20 @@ export function ClosureLayerActions(props: ClosureLayerActionsProps) {
           }}
         >
           {t("availabilitySpecial.series.editDates")}
+        </Button>
+      )}
+      {isEditableClosure(rule) && (
+        <Button
+          variant="ghost"
+          size="sm"
+          {...skipInitialFocus}
+          {...waitingProps(waiting, reasonId)}
+          aria-label={t("availabilitySpecial.editClosureFor", { date: label })}
+          onClick={() => {
+            if (!waiting) setStep("edit");
+          }}
+        >
+          {t("availabilitySpecial.editClosure")}
         </Button>
       )}
       <Button
@@ -102,6 +118,16 @@ export function ClosureLayerActions(props: ClosureLayerActionsProps) {
           onStale={onStale}
           onSaved={onFinished}
           onEditDate={(_series, editDate) => setStep({ editDate })}
+          onClose={() => setStep(null)}
+        />
+      )}
+      {step === "edit" && (
+        <EditClosureDialog
+          venueId={venueId}
+          state={state}
+          timezone={props.timezone}
+          today={today}
+          rule={rule}
           onClose={() => setStep(null)}
         />
       )}

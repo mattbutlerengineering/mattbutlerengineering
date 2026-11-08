@@ -9,6 +9,7 @@ import {
   mergedWithin,
   normalizeCiRun,
   upsertSensorRow,
+  selectBaseline,
 } from "../collect-sdlc-speed.mjs";
 
 // Shape of a `gh api repos/{owner}/{repo}/pulls?state=closed` item (repo-scoped, carries head.ref).
@@ -269,5 +270,55 @@ describe("dedupeProposals", () => {
   });
   it("files at most one per run", () => {
     expect(dedupeProposals(proposals, [])).toHaveLength(1);
+  });
+});
+
+describe("selectBaseline (#8418: non-overlapping windows only)", () => {
+  const row = (date, over = {}) => ({
+    date,
+    sensor: "sdlcSpeed",
+    available: true,
+    days: 7,
+    ...over,
+  });
+
+  it("skips a row one day earlier whose 7-day window overlaps today's (11-05 vs 11-06)", () => {
+    const rows = [row("2026-10-26"), row("2026-11-02"), row("2026-11-05")];
+    expect(selectBaseline(rows, "2026-11-06", 7)?.date).toBe("2026-10-26");
+  });
+
+  it("returns the latest row at least `days` earlier", () => {
+    const rows = [row("2026-10-26"), row("2026-11-02"), row("2026-11-05")];
+    expect(selectBaseline(rows, "2026-11-09", 7)?.date).toBe("2026-11-02");
+  });
+
+  it("accepts a row exactly `days` earlier (adjacent, not overlapping)", () => {
+    expect(selectBaseline([row("2026-10-30")], "2026-11-06", 7)?.date).toBe("2026-10-30");
+  });
+
+  it("is null when only overlapping rows exist", () => {
+    expect(selectBaseline([row("2026-11-05")], "2026-11-06", 7)).toBeNull();
+  });
+
+  it("ignores unavailable, non-sdlcSpeed, and same-day rows", () => {
+    const rows = [
+      row("2026-10-20", { available: false }),
+      row("2026-10-21", { sensor: "ciHealth" }),
+      row("2026-11-06"),
+    ];
+    expect(selectBaseline(rows, "2026-11-06", 7)).toBeNull();
+  });
+
+  it("ignores the baseline row's own `days` (legacy rows without it work)", () => {
+    const { days: _d, ...legacy } = row("2026-10-30");
+    expect(selectBaseline([legacy], "2026-11-06", 7)?.date).toBe("2026-10-30");
+  });
+
+  it("only the prior row's end date matters, not its length", () => {
+    // prior covered 14 days ending 11-02 (starts 10-19); current 7-day window starts 10-30.
+    // Non-overlap only needs prior end <= current start, so a longer prior window is fine.
+    expect(selectBaseline([row("2026-10-30", { days: 14 })], "2026-11-06", 7)?.date).toBe(
+      "2026-10-30"
+    );
   });
 });

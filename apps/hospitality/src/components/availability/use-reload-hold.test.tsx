@@ -164,13 +164,22 @@ describe("the hold after the Manager's own save", () => {
 
   it("offers no reload during a normal reload: only once the hold has lasted", async () => {
     render(tree());
+    // The hold starts after this mark, so time since it is an upper bound on the hold's age. On a
+    // loaded runner the steps below can outlast the 2 s offer delay; a button that then appears
+    // is correct, so "no reload yet" is only asserted while the hold is provably still young.
+    const startedAt = performance.now();
+    const provablyYoung = (marginMs: number) => performance.now() - startedAt < 2000 - marginMs;
     await copyToFriday();
-    expect(screen.queryByRole("button", { name: "Reload hours" })).not.toBeInTheDocument();
+    if (provablyYoung(0)) {
+      expect(screen.queryByRole("button", { name: "Reload hours" })).not.toBeInTheDocument();
+    }
     const wellIntoTheHoldMs = 1000;
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, wellIntoTheHoldMs));
     });
-    expect(screen.queryByRole("button", { name: "Reload hours" })).not.toBeInTheDocument();
+    if (provablyYoung(0)) {
+      expect(screen.queryByRole("button", { name: "Reload hours" })).not.toBeInTheDocument();
+    }
     await findReload();
   });
 

@@ -471,6 +471,26 @@ describe("AddSpecialDatesSheet", () => {
     expect(dinner.closesAt).toBe(1200);
   });
 
+  it("waits for a date before filling in special hours, then starts from that date's weekday", async () => {
+    preview.mockResolvedValue([impact("2026-12-26", 0)]);
+    create.mockResolvedValue({ version: 8, results: [result("a", 0, 0)] });
+    renderSheet(withSaturday());
+    // Before a date there is no weekday: no hours to start from, so none are guessed.
+    fireEvent.click(screen.getByRole("radio", { name: "Special hours" }));
+    expect(
+      screen.getByText("Choose a date first: its usual hours fill in here to change.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Remove / })).not.toBeInTheDocument();
+    await pickDate(0, "2026-12-26"); // a Saturday: dinner closes at 8:00 PM
+    fireEvent.click(primary());
+
+    await waitFor(() => expect(preview).toHaveBeenCalledTimes(1));
+    const dinner = preview.mock.calls[0]![0].rules[0].payload.services.find(
+      (service: { venueServiceId: string }) => service.venueServiceId === "vs-dinner"
+    );
+    expect(dinner.closesAt).toBe(1200);
+  });
+
   describe("a save whose response was lost (#7978)", () => {
     const lost = () => new TypeError("Failed to fetch");
     const conflict = () => problem(409, "version-conflict");
@@ -621,10 +641,23 @@ describe("AddSpecialDatesSheet", () => {
 
   it("shows the character counter once per message field", () => {
     renderSheet();
-    expect(screen.getAllByText("0/200")).toHaveLength(1);
+    addRow();
+    expect(screen.getAllByText("0/200")).toHaveLength(2);
     fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
-    // The row's own message field goes away; the shared one takes its place.
+    // The rows' own message fields go away; the shared one takes their place.
     expect(screen.getAllByText(/^\d+\/200$/)).toHaveLength(1);
+  });
+
+  it("offers one message for every date only once there are two dates", () => {
+    renderSheet();
+    const share = () => screen.queryByRole("checkbox", { name: "Use one message for every date" });
+    expect(share()).toBeNull();
+    addRow();
+    fireEvent.click(share()!);
+    // Back to one date with it on: it stays, so the shared message is not hidden with no way back.
+    fireEvent.click(screen.getAllByRole("button", { name: /^Remove date/ })[1]!);
+    expect(share()).toBeChecked();
+    expect(screen.getByLabelText(/Message for guests \(every date\)/)).toBeInTheDocument();
   });
 
   it("moves focus to Copy hours from when the chosen weekday has no regular hours", async () => {
@@ -647,6 +680,7 @@ describe("AddSpecialDatesSheet", () => {
 
   it("explains an over-limit shared message", () => {
     renderSheet();
+    addRow();
     fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
     fireEvent.change(screen.getByLabelText(/Message for guests \(every date\)/), {
       target: { value: "x".repeat(201) },
@@ -656,6 +690,7 @@ describe("AddSpecialDatesSheet", () => {
 
   it("clears the shared-message error once the text is back under the limit", async () => {
     renderSheet();
+    addRow();
     await pickDate(0, "2026-12-24");
     fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
     const field = screen.getByLabelText(/Message for guests \(every date\)/);
@@ -675,6 +710,7 @@ describe("AddSpecialDatesSheet", () => {
 
   it("judges the shared message length trimmed, as Next does", () => {
     renderSheet();
+    addRow();
     fireEvent.click(screen.getByRole("checkbox", { name: "Use one message for every date" }));
     fireEvent.change(screen.getByLabelText(/Message for guests \(every date\)/), {
       target: { value: `${"x".repeat(199)}  ` },

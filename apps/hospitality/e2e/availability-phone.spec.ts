@@ -145,7 +145,6 @@ test.describe("the first screen", () => {
       /^Close…/,
       "Pause online booking",
       "Change regular week…",
-      "Create another schedule…",
     ]) {
       await expect(page.getByRole("main").getByRole("button", { name })).toHaveCount(0);
     }
@@ -156,9 +155,12 @@ test.describe("the first screen", () => {
       /^Close…/,
       "Pause online booking",
       "Change regular week…",
-      "Create another schedule…",
     ]) {
       await expect(menu.getByRole("menuitem", { name })).toBeVisible();
+    }
+    // What changes the hours leads the menu, so it is on screen the moment the menu opens.
+    for (const name of ["Change regular week…", "Booking rules…"]) {
+      await expect(menu.getByRole("menuitem", { name })).toBeInViewport();
     }
     await menu.getByRole("menuitem", { name: /^Close…/ }).click();
     await expect(page.getByRole("dialog", { name: "Close", exact: true })).toBeVisible();
@@ -208,16 +210,17 @@ test.describe("the first screen", () => {
     });
   }
 
-  test("Create another schedule… looks like something to press", async ({ mockedPage: page }) => {
+  test("the Schedules tab's New schedule looks like something to press", async ({
+    mockedPage: page,
+  }) => {
     await mockAvailability(page);
     await open(page, DESKTOP);
+    await page.getByRole("radio", { name: "Schedules" }).click();
     // A ghost button is transparent at rest, with a transparent border: it reads as plain text.
-    const fill = await page
-      .getByRole("button", { name: "Create another schedule…" })
-      .evaluate((button) => {
-        const { backgroundColor, backgroundImage } = getComputedStyle(button);
-        return { backgroundColor, backgroundImage };
-      });
+    const fill = await page.getByRole("button", { name: "New schedule" }).evaluate((button) => {
+      const { backgroundColor, backgroundImage } = getComputedStyle(button);
+      return { backgroundColor, backgroundImage };
+    });
     expect(fill.backgroundColor !== "rgba(0, 0, 0, 0)" || fill.backgroundImage !== "none").toBe(
       true
     );
@@ -260,6 +263,39 @@ test.describe("375 px: nothing scrolls sideways", () => {
     });
   }
 
+  // Its three segments once ran "Same as another day" off the edge; a phone stacks them as radios.
+  for (const locale of ["en-US", "fr-CA"]) {
+    test(`Add special dates fits, with every kind of date on screen (${locale})`, async ({
+      mockedPage: page,
+    }) => {
+      await mockAvailability(page);
+      await setLocale(page, locale);
+      await open(page);
+      await page.getByRole("radiogroup").first().getByRole("radio").nth(1).click({ force: true });
+      await page.getByRole("combobox").first().waitFor();
+      await page
+        .getByRole("main")
+        .getByRole("button")
+        .filter({ hasText: /^(Add special date|Ajouter une date spéciale)$/ })
+        .click();
+      const sheet = page.getByRole("dialog").first();
+      const kinds = sheet.getByRole("radio");
+      await expect(kinds).toHaveCount(3);
+      // The sheet slides in from the right: measure once it has settled.
+      await expect
+        .poll(() =>
+          kinds.evaluateAll((inputs) =>
+            Math.max(
+              ...inputs.map(
+                (input) => (input.closest("label") ?? input).getBoundingClientRect().right
+              )
+            )
+          )
+        )
+        .toBeLessThanOrEqual(PHONE.width);
+    });
+  }
+
   test("every Special dates filter can be reached, Past included", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await open(page);
@@ -290,7 +326,7 @@ test.describe("375 px: nothing scrolls sideways", () => {
   test("History and the schedule drawers take the whole screen", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await page.route(`${base}/availability/changes*`, (route) =>
-      route.fulfill(json({ items: [], total: 0 }))
+      route.fulfill(json({ items: [], total: 0, offset: 0 }))
     );
     await open(page);
     for (const item of ["History", "Change regular week…"]) {
@@ -472,7 +508,7 @@ test.describe("keyboard and focus", () => {
   }) => {
     await mockAvailability(page);
     await page.route(`${base}/availability/changes*`, (route) =>
-      route.fulfill(json({ items: [], total: 0 }))
+      route.fulfill(json({ items: [], total: 0, offset: 0 }))
     );
     await open(page);
     await (await moreMenu(page)).getByRole("menuitem", { name: "History" }).click();

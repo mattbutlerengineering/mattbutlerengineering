@@ -162,8 +162,12 @@ describe("Undo after a schedule save", () => {
           />
         </main>
       );
-      // A copy is used where the Manager says, so it needs days before it can save.
-      if (mode === "duplicate") fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+      // A copy is used where the Manager says, so it needs days before it can save, and an end
+      // so it does not take the regular week (Fridays here) over for good.
+      if (mode === "duplicate") {
+        fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+        fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
+      }
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       (await undoOffered())();
       await waitFor(() => expect(revert).toHaveBeenCalledWith(REVERT_ARGS));

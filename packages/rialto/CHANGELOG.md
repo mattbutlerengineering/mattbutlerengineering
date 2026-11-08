@@ -1,5 +1,25 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.6
+
+### Patch Changes
+
+- [#8459](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8459) [`5e562c6`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5e562c6daae8768bdf0b5f542cf9c54f226b7174) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Add co-located `.catalog.ts` metadata for Skeleton, Drawer, Tooltip, Popover, PinInput, DropdownMenu, ScrollArea, and Handshake so the AI generator can place them. Metadata only — no component behavior changes.
+
+## 0.10.5
+
+### Patch Changes
+
+- [#8442](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8442) [`e6dfac3`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/e6dfac34d1dc513587deb0a90abc7d6e8b7ee4d4) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A11y audit iteration 9: fix two axe `color-contrast` failures in the open DropdownMenu. The destructive item text is now an error/primary-text mix (the dark-theme error hue was 4.26:1 on the elevated menu), and the shortcut hint on the hovered, focused or active row uses `--rialto-text-secondary` (tertiary was 4.07:1 on the recessed row).
+
+## 0.10.4
+
+### Patch Changes
+
+- [#8340](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8340) [`0aea43b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0aea43b3304f54facf41d8992b5a729a39780131) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TextArea fills the width of its field, as Input does, instead of falling back to the browser's ~20-column default.
+
+- [#8365](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8365) [`1e42660`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/1e42660ec90d8648ff5dcfd61f57e2af45307d91) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Below 1024px, toasts no longer cover an open side Drawer's title and close button: they move to the bottom and sit above the drawer's footer, so its actions stay reachable too.
+
 ## 0.10.3
 
 ### Patch Changes

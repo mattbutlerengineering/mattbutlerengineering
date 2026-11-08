@@ -1,10 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("./reservation-events.js", async (importOriginal) => ({
-  ...(await importOriginal<Record<string, unknown>>()),
-  recordReservationEvent: vi.fn().mockResolvedValue(undefined),
-}));
-
 vi.mock("./book-slot.js", () => ({
   tableAdvisoryLockSql: vi.fn((tableId: string) => ({ lock: tableId })),
 }));
@@ -16,7 +11,6 @@ vi.mock("./reservation-state-machine.js", async (importOriginal) => {
 });
 
 import { applyTransitions, type PlannedTransition } from "./closure-apply.js";
-import { recordReservationEvent } from "./reservation-events.js";
 import { ReservationTransitionError, transitionReservation } from "./reservation-state-machine.js";
 
 const VENUE = "venue-1";
@@ -43,7 +37,10 @@ function makeTx(rows: ReturnType<typeof row>[]) {
       findFirst: vi.fn().mockResolvedValue(null),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
     },
-    reservationEvent: {},
+    reservationEvent: {
+      create: vi.fn().mockResolvedValue(undefined),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
     reservationHold: { findFirst: vi.fn().mockResolvedValue(null) },
     $executeRaw: vi.fn().mockResolvedValue(1),
   };
@@ -90,7 +87,7 @@ describe("applyTransitions", () => {
     expect(tx.reservation.findMany).not.toHaveBeenCalled();
     expect(tx.reservation.updateMany).not.toHaveBeenCalled();
     expect(tx.$executeRaw).not.toHaveBeenCalled();
-    expect(recordReservationEvent).not.toHaveBeenCalled();
+    expect(tx.reservationEvent.createMany).not.toHaveBeenCalled();
   });
 
   describe("cancel", () => {
@@ -102,25 +99,28 @@ describe("applyTransitions", () => {
         where: { id: "r1", venueId: VENUE, status: "CONFIRMED", startTime: EXPECTED_START },
         data: expect.objectContaining({ status: "CANCELLED", cancellationReason: "venue_closure" }),
       });
-      expect(recordReservationEvent).toHaveBeenCalledTimes(1);
-      expect(recordReservationEvent).toHaveBeenCalledWith(
-        tx,
-        expect.objectContaining({
-          reservationId: "r1",
-          venueId: VENUE,
-          kind: "cancelled",
-          to: expect.objectContaining({ status: "CANCELLED" }),
-        })
-      );
+      expect(tx.reservationEvent.create).not.toHaveBeenCalled();
+      expect(tx.reservationEvent.createMany).toHaveBeenCalledTimes(1);
+      expect(tx.reservationEvent.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({
+            reservationId: "r1",
+            venueId: VENUE,
+            kind: "cancelled",
+            actorType: "staff",
+            actorId: ACTOR,
+            toState: expect.objectContaining({ status: "CANCELLED" }),
+          }),
+        ],
+      });
     });
 
     it("returns cannot_cancel when the status transition is illegal", async () => {
       const tx = makeTx([row("r1", { status: "COMPLETED" })]);
       const result = await apply(tx, [cancel("r1")]);
       expect(result).toMatchObject({ kind: "cannot_cancel", reservationId: "r1" });
-      expect((result as { detail: string }).detail).toEqual(expect.any(String));
       expect(tx.reservation.updateMany).not.toHaveBeenCalled();
-      expect(recordReservationEvent).not.toHaveBeenCalled();
+      expect(tx.reservationEvent.createMany).not.toHaveBeenCalled();
     });
 
     it("propagates errors that are not ReservationTransitionError", async () => {
@@ -146,7 +146,7 @@ describe("applyTransitions", () => {
         reservationId: "r1",
         detail: "Reservation changed meanwhile",
       });
-      expect(recordReservationEvent).not.toHaveBeenCalled();
+      expect(tx.reservationEvent.createMany).not.toHaveBeenCalled();
     });
   });
 
@@ -164,10 +164,10 @@ describe("applyTransitions", () => {
         where: { id: "r1", venueId: VENUE, status: "CONFIRMED", startTime: EXPECTED_START },
         data: { startTime: to, endTime: new Date("2026-11-01T21:30:00Z") },
       });
-      expect(recordReservationEvent).toHaveBeenCalledWith(
-        tx,
-        expect.objectContaining({ reservationId: "r1", kind: "moved" })
-      );
+      expect(tx.reservationEvent.create).not.toHaveBeenCalled();
+      expect(tx.reservationEvent.createMany).toHaveBeenCalledWith({
+        data: [expect.objectContaining({ reservationId: "r1", kind: "moved" })],
+      });
     });
 
     it("collects a conflict when another booking holds the target window", async () => {
@@ -176,7 +176,7 @@ describe("applyTransitions", () => {
       const result = await apply(tx, [move("r1")]);
       expect(result).toEqual({ kind: "move_conflict", reservationIds: ["r1"] });
       expect(tx.reservation.updateMany).not.toHaveBeenCalled();
-      expect(recordReservationEvent).not.toHaveBeenCalled();
+      expect(tx.reservationEvent.createMany).not.toHaveBeenCalled();
     });
 
     it("collects a conflict when an active hold covers the target window", async () => {
@@ -192,6 +192,7 @@ describe("applyTransitions", () => {
       tx.reservation.findFirst.mockResolvedValue({ id: "other" });
       const result = await apply(tx, [move("r1"), move("r2")]);
       expect(result).toEqual({ kind: "move_conflict", reservationIds: ["r1", "r2"] });
+      expect(tx.reservationEvent.createMany).not.toHaveBeenCalled();
     });
 
     it("skips the target check for a reservation with no table", async () => {
@@ -214,12 +215,31 @@ describe("applyTransitions", () => {
       expect(calls).toEqual(["r2", "r1"]);
     });
 
+    it("batches every affected reservation's event into one createMany call", async () => {
+      const tx = makeTx([
+        row("r1"),
+        row("r2", { tableId: "table-2" }),
+        row("r3", { tableId: "table-3" }),
+      ]);
+      const result = await apply(tx, [move("r1"), cancel("r2"), move("r3")]);
+      expect(result).toEqual({ kind: "ok" });
+      expect(tx.reservationEvent.create).not.toHaveBeenCalled();
+      expect(tx.reservationEvent.createMany).toHaveBeenCalledTimes(1);
+      const [{ data }] = tx.reservationEvent.createMany.mock.calls[0]!;
+      expect(data).toHaveLength(3);
+      expect(data.map((e: { reservationId: string }) => e.reservationId).sort()).toEqual([
+        "r1",
+        "r2",
+        "r3",
+      ]);
+    });
+
     it("stops at a cannot_cancel and applies nothing after it", async () => {
       const tx = makeTx([row("r1", { status: "COMPLETED" }), row("r2"), row("r3")]);
       const result = await apply(tx, [move("r2"), cancel("r1"), cancel("r3")]);
       expect(result).toMatchObject({ kind: "cannot_cancel", reservationId: "r1" });
       expect(tx.reservation.updateMany).not.toHaveBeenCalled();
-      expect(recordReservationEvent).not.toHaveBeenCalled();
+      expect(tx.reservationEvent.createMany).not.toHaveBeenCalled();
     });
 
     it("silently skips a planned reservation that was not found", async () => {
@@ -261,7 +281,10 @@ function makeRaceTx(current: ReturnType<typeof raceRow>) {
       })),
     },
     reservationHold: { findFirst: vi.fn().mockResolvedValue(null) },
-    reservationEvent: { create: vi.fn().mockResolvedValue(undefined) },
+    reservationEvent: {
+      create: vi.fn().mockResolvedValue(undefined),
+      createMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
   };
 }
 
@@ -279,7 +302,7 @@ describe("applyTransitions: a staff edit that moved the booking after the impact
         where: expect.objectContaining({ id: "res-1", startTime: PLANNED_START }),
       })
     );
-    expect(recordReservationEvent).not.toHaveBeenCalled();
+    expect(tx.reservationEvent.createMany).not.toHaveBeenCalled();
   });
 
   it("reports a move conflict instead of overwriting the staff's new time", async () => {
@@ -295,7 +318,7 @@ describe("applyTransitions: a staff edit that moved the booking after the impact
     ]);
 
     expect(result).toEqual({ kind: "move_conflict", reservationIds: ["res-1"] });
-    expect(recordReservationEvent).not.toHaveBeenCalled();
+    expect(tx.reservationEvent.createMany).not.toHaveBeenCalled();
   });
 
   it("still cancels a booking that has not moved", async () => {

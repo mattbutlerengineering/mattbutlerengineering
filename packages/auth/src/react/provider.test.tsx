@@ -81,7 +81,7 @@ describe("AuthProvider", () => {
     expect(props.post_logout_redirect_uri).toBe("https://app.example.com/logout");
   });
 
-  it("defaults scope to 'openid profile email' when not provided", () => {
+  it("defaults scope to include offline_access so Auth0 issues a refresh token", () => {
     render(
       <AuthProvider config={baseConfig}>
         <div />
@@ -89,7 +89,30 @@ describe("AuthProvider", () => {
     );
 
     const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
-    expect(props.scope).toBe("openid profile email");
+    expect(props.scope).toBe("openid profile email offline_access");
+  });
+
+  it("leaves oidc-client-ts automaticSilentRenew at its default (the single renewer)", () => {
+    render(
+      <AuthProvider config={baseConfig}>
+        <div />
+      </AuthProvider>
+    );
+
+    const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(props.automaticSilentRenew).not.toBe(false);
+  });
+
+  it("revokes only the refresh token on sign-out", () => {
+    render(
+      <AuthProvider config={baseConfig}>
+        <div />
+      </AuthProvider>
+    );
+
+    const props = mockOIDCProvider.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(props.revokeTokensOnSignout).toBe(true);
+    expect(props.revokeTokenTypes).toEqual(["refresh_token"]);
   });
 
   it("uses custom scope when provided", () => {

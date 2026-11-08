@@ -1,13 +1,16 @@
 import type { TFunction } from "i18next";
 import {
   activeRules,
+  expandSectionRules,
   firstOccurrenceOnOrAfter,
   resolveDay,
   weekdayIndexOf,
 } from "@mbe/availability";
 import {
   GUEST_MESSAGE_MAX_LENGTH,
+  MAX_CLOSURE_BATCH,
   type ClosureAction,
+  type ClosureAlongside,
   type ClosureDecision,
   type ClosureImpactGroup,
   type ClosureImpactReservation,
@@ -24,11 +27,15 @@ export type BookingChannel = "online" | "phone" | "waitlist";
 export type CloseWhat =
   | { readonly kind: "venue" }
   | { readonly kind: "service"; readonly serviceId: string }
+  /** One floor-plan section: its tables as they are when the closure is saved, and then as they move (ADR-032). */
+  | { readonly kind: "section"; readonly sectionId: string }
   | { readonly kind: "booking"; readonly types: readonly BookingChannel[] };
 
 export type CloseWhen =
   | { readonly kind: "tonight" }
   | { readonly kind: "date"; readonly date: string }
+  /** Several picked dates, ascending: stored as one single-date closure each (#7981). */
+  | { readonly kind: "dates"; readonly dates: readonly string[] }
   | { readonly kind: "range"; readonly from: string; readonly to: string }
   | {
       readonly kind: "repeats";
@@ -75,6 +82,8 @@ function spanOf(when: CloseWhen, today: string): Span {
       return { startsOn: today, endsOn: today };
     case "date":
       return { startsOn: when.date, endsOn: when.date };
+    case "dates":
+      return { startsOn: when.dates[0] ?? "", endsOn: when.dates.at(-1) ?? "" };
     case "range":
       return { startsOn: when.from, endsOn: when.to };
     case "repeats":
@@ -86,11 +95,13 @@ function spanOf(when: CloseWhen, today: string): Span {
 
 function whatIsComplete(what: CloseWhat): boolean {
   if (what.kind === "service") return what.serviceId !== "";
+  if (what.kind === "section") return what.sectionId !== "";
   if (what.kind === "booking") return what.types.length > 0;
   return true;
 }
 
 function whenIsComplete(when: CloseWhen, today: string): boolean {
+  if (when.kind === "dates") return when.dates.length <= MAX_CLOSURE_BATCH && when.dates.length > 0;
   const span = spanOf(when, today);
   if (span.startsOn === "") return false;
   if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
@@ -139,18 +150,31 @@ function targetOf(what: CloseWhat) {
       return { targetKind: "venue" as const };
     case "service":
       return { targetKind: "service" as const, venueServiceId: what.serviceId };
+    case "section":
+      return { targetKind: "tables" as const, sectionId: what.sectionId, tableIds: [] };
     case "booking":
       return { targetKind: "booking" as const, bookingTypes: [...what.types] };
   }
 }
 
-/** The closure the form describes, or `null` while it is incomplete. */
-export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null {
-  if (validateClose(form, today) !== null) return null;
+/** Each section's table ids, for a section closure's `tableIds` (see `sectionMembership`). */
+type SectionMembership = ReadonlyMap<string, readonly string[]>;
+
+/**
+ * The closure the form describes, or `null` while it is incomplete. Several dates build one each:
+ * see `buildCloseRules`. A section closure carries the tables `membership` gives its section.
+ */
+export function buildCloseRule(
+  form: CloseForm,
+  id: string,
+  today: string,
+  membership: SectionMembership = new Map()
+): DateRule | null {
+  if (validateClose(form, today) !== null || form.when.kind === "dates") return null;
   const span = spanOf(form.when, today);
   const note = form.staffNote.trim();
   const message = form.guestMessage.trim();
-  return {
+  const rule: DateRule = {
     id,
     kind: "closure",
     ...targetOf(form.what),
@@ -164,6 +188,38 @@ export function buildCloseRule(form: CloseForm, id: string, today: string): Date
     ...(note ? { staffNote: note } : {}),
     ...(message ? { guestMessage: message } : {}),
   };
+  return expandSectionRules([rule], membership)[0] ?? null;
+}
+
+/**
+ * The closures the form describes, in date order, or none while it is incomplete. Several dates
+ * are one single-date closure each (Owner decision on #7981), so Undo, History, edit and reopen
+ * work per date; `idFor` names each date's rule.
+ */
+export function buildCloseRules(
+  form: CloseForm,
+  idFor: (date: string) => string,
+  today: string,
+  membership: SectionMembership = new Map()
+): readonly DateRule[] {
+  if (form.when.kind !== "dates") {
+    const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today, membership);
+    return rule ? [rule] : [];
+  }
+  return form.when.dates.flatMap((date) => {
+    const rule = buildCloseRule(
+      { ...form, when: { kind: "date", date } },
+      idFor(date),
+      today,
+      membership
+    );
+    return rule ? [rule] : [];
+  });
+}
+
+/** Picked dates with `date` added or removed, ascending, with no date twice. */
+export function toggleDate(dates: readonly string[], date: string): readonly string[] {
+  return dates.includes(date) ? dates.filter((d) => d !== date) : [...dates, date].sort();
 }
 
 const HALF_HOUR = 30;
@@ -287,12 +343,9 @@ export function settleStartMinute(
   if (!whenIsComplete(next.when, today)) return next;
   const { startsOn, endsOn, weekdays } = spanOf(next.when, today);
   const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
-  const [first = 0] = startMinutes(
-    config,
-    timezone,
-    closedDates({ startsOn, endsOn, repeat }),
-    null
-  );
+  const dates =
+    next.when.kind === "dates" ? next.when.dates : closedDates({ startsOn, endsOn, repeat });
+  const [first = 0] = startMinutes(config, timezone, dates, null);
   return next.fromMinute < first ? { ...next, fromMinute: null } : next;
 }
 
@@ -300,10 +353,56 @@ function whatOf(series: DateRule): CloseWhat {
   if (series.targetKind === "service" && series.venueServiceId) {
     return { kind: "service", serviceId: series.venueServiceId };
   }
+  if (series.targetKind === "tables" && series.sectionId) {
+    return { kind: "section", sectionId: series.sectionId };
+  }
   if (series.targetKind === "booking" && series.bookingTypes?.length) {
     return { kind: "booking", types: [...series.bookingTypes] };
   }
   return { kind: "venue" };
+}
+
+/**
+ * Whether the Close form can describe a saved closure and rebuild it: a one-date, range or open-
+ * ended closure of the venue, a service or booking channels, all day or from a set time. A
+ * repeating closure is edited as a series, and anything the form cannot say is not offered.
+ */
+export function isEditableClosure(rule: DateRule): boolean {
+  return (
+    rule.kind === "closure" &&
+    rule.repeat == null &&
+    rule.seriesId == null &&
+    (rule.targetKind === "venue" ||
+      (rule.targetKind === "service" && !!rule.venueServiceId) ||
+      (rule.targetKind === "tables" && !!rule.sectionId) ||
+      (rule.targetKind === "booking" && !!rule.bookingTypes?.length)) &&
+    (rule.window == null || rule.window.to === END_OF_SERVICE_DAY)
+  );
+}
+
+/** The form for editing the saved closure `rule`: everything it says, as the Manager set it. */
+export function closureForm(rule: DateRule): CloseForm {
+  const when: CloseWhen =
+    rule.endsOn == null
+      ? { kind: "until-reopen", from: rule.startsOn }
+      : rule.endsOn === rule.startsOn
+        ? { kind: "date", date: rule.startsOn }
+        : { kind: "range", from: rule.startsOn, to: rule.endsOn };
+  return {
+    what: whatOf(rule),
+    when,
+    fromMinute: rule.window?.from ?? null,
+    staffNote: rule.staffNote ?? "",
+    guestMessage: rule.guestMessage ?? "",
+  };
+}
+
+/**
+ * What an edit of the saved closure `rule` sends beside the edited closure: the saved one goes,
+ * and the row as it was read is named so a teammate's change since is refused, not overwritten.
+ */
+export function editAlongside(rule: DateRule): ClosureAlongside {
+  return { upsert: [], remove: [rule.id], replaces: rule };
 }
 
 /** The form for editing one date of `series`: the series' target and start time, on that date. */

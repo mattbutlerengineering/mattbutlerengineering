@@ -11,15 +11,22 @@ import { tellsById } from "./rubric.mjs";
 
 const byString = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
 
-function nextRecord(prev, { issue, carrier, severity, legacy, state = "open" }, today) {
+function nextRecord(
+  prev,
+  { issue, carrier, severity, legacy, state = "open", state_reason: stateReason },
+  today
+) {
   const legacyNumber = legacy ?? prev?.legacy;
+  const closure = state === "closed" && stateReason !== undefined;
   return {
     issue,
     carrier,
     state,
+    ...(closure ? { closed_at: today, state_reason: stateReason } : {}),
     severity: severity ?? prev?.severity,
     first_seen: prev?.first_seen ?? today,
-    last_seen: today,
+    // A closure is the fire that did NOT see the finding: last_seen stays the last sighting.
+    last_seen: closure ? (prev?.last_seen ?? today) : today,
     ...(legacyNumber === undefined ? {} : { legacy: legacyNumber }),
     escalated_at: prev?.escalated_at ?? null,
   };
@@ -46,6 +53,20 @@ export function applyExecuted(ledger, executed, now) {
     throw new Error(`no issue number for ${unnumbered.join(", ")} — was every create executed?`);
   }
   const updates = executed.actions.flatMap((a) => {
+    if (a.carrier === "seed" && a.action === "close") {
+      return [
+        [
+          a.key,
+          {
+            issue: null,
+            carrier: "seed",
+            severity: a.severity,
+            state: "closed",
+            state_reason: a.state_reason,
+          },
+        ],
+      ];
+    }
     if (a.carrier === "seed") {
       return [[a.key, { issue: null, carrier: "seed", severity: a.severity }]];
     }

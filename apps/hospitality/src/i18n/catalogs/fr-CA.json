@@ -22,7 +22,7 @@
       },
       "hours": {
         "label": "Heures",
-        "description": "Vos heures d’ouverture"
+        "description": "Votre semaine habituelle"
       },
       "settings": {
         "label": "Paramètres",
@@ -82,47 +82,22 @@
       }
     },
     "hours": {
-      "heading": "Heures d’ouverture",
+      "heading": "Semaine habituelle",
       "intro": "Pour que vos clients sachent quand vous êtes ouvert.",
-      "instructions": "Activez chaque jour pour fixer les heures d’ouverture et de fermeture. Les jours non activés seront marqués comme fermés.",
-      "closed": "Fermé",
-      "to": "à",
-      "openingTime": "Heure d’ouverture du {{day}}",
-      "closingTime": "Heure de fermeture du {{day}}",
-      "closeAfterOpen": "L’heure de fermeture doit être postérieure à l’heure d’ouverture",
-      "timesRequired": "Entrez une heure d’ouverture et une heure de fermeture",
-      "atLeastOne": "Au moins un jour doit être ouvert",
-      "closeDayTitle": "Fermer le {{day}} ?",
-      "closeDayDescription": "Cela effacera les heures d’ouverture et de fermeture personnalisées que vous avez définies pour ce jour.",
-      "closeDayConfirm": "Fermer le jour",
-      "closeDayCancel": "Garder ouvert"
-    },
-    "days": {
-      "monday": "lundi",
-      "tuesday": "mardi",
-      "wednesday": "mercredi",
-      "thursday": "jeudi",
-      "friday": "vendredi",
-      "saturday": "samedi",
-      "sunday": "dimanche"
+      "atLeastOne": "Au moins un jour doit être ouvert"
     },
     "settings": {
       "heading": "Paramètres de l’établissement",
       "intro": "Personnalisez le fonctionnement des réservations, ou utilisez nos valeurs par défaut recommandées.",
-      "stepIntro": "Personnalisez le fonctionnement des réservations, ou passez avec nos valeurs par défaut recommandées.",
       "useRecommended": "Utiliser les paramètres recommandés",
       "durationLabel": "Durée de réservation par défaut (minutes)",
-      "maxPartyLabel": "Taille maximale du groupe",
-      "advanceLabel": "Délai de réservation à l’avance (jours)",
       "defaultPlaceholder": "Par défaut : {{value}}",
       "durationHint": "Si laissé vide, la valeur par défaut est de {{value}} minutes",
       "maxPartyHint": "Si laissé vide, la valeur par défaut est de {{value}} convives",
       "advanceHint": "Si laissé vide, les clients peuvent réserver n’importe quelle date à venir",
       "advanceNoLimit": "Aucune limite",
       "errors": {
-        "durationInvalid": "La durée doit être un nombre positif",
-        "maxPartyInvalid": "La taille du groupe doit être un nombre positif",
-        "advanceInvalid": "Le nombre de jours à l’avance doit être un nombre positif"
+        "durationInvalid": "La durée doit être un nombre positif"
       }
     },
     "floorPlan": {
@@ -167,10 +142,8 @@
       "slug": "Identifiant (slug)",
       "timezone": "Fuseau horaire",
       "currency": "Devise",
-      "noHours": "Aucune heure d’ouverture définie",
       "settingsCard": "Paramètres",
       "defaultDuration": "Durée par défaut",
-      "maxPartySize": "Taille maximale du groupe",
       "advanceBooking": "Réservation à l’avance",
       "minutes_one": "{{count}} minute",
       "minutes_many": "{{count}} de minutes",
@@ -195,11 +168,13 @@
       "celebrationEmpty": "Votre établissement est en ligne — ajoutez des tables ensuite",
       "stages": {
         "venue": "Établissement",
+        "hours": "Heures",
         "floorPlan": "Plan de salle",
         "tables": "Tables",
         "activate": "Activation"
       },
-      "noLimit": "Aucune limite"
+      "noLimit": "Aucune limite",
+      "todayOnly": "Le jour même seulement"
     },
     "stagePanel": {
       "label": "Progression du lancement",
@@ -207,6 +182,9 @@
       "creating": "Création de {{name}}",
       "created": "{{name}} créé",
       "venueFailed": "Impossible de créer l’établissement",
+      "savingHours": "Enregistrement de vos heures",
+      "hoursSaved": "Heures enregistrées",
+      "hoursFailed": "Impossible d’enregistrer vos heures",
       "planFailed": "Impossible de créer le plan de salle",
       "toPlace": "{{count}} à placer",
       "placed_one": "{{count}} table placée",
@@ -323,16 +301,13 @@
       "profile": "Profil",
       "settings": "Paramètres",
       "users": "Utilisateurs",
-      "venueBasics": "Infos de l'établissement",
-      "setOperatingHours": "Définir les heures d'ouverture",
-      "createFloorPlan": "Créer un plan de salle",
       "tonightsService": "Service de ce soir",
       "timeline": "Chronologie",
       "reservations": "Réservations",
       "waitlist": "Liste d'attente",
       "guests": "Clients",
       "dashboard": "Tableau de bord",
-      "floorPlans": "Plans de salle",
+      "venueSetup": "Configuration de l'établissement",
       "bookingWidget": "Widget de réservation",
       "signOut": "Se déconnecter",
       "chat": "Clavardage",
@@ -351,15 +326,15 @@
       "guests": "Clients",
       "waitlist": "Liste d'attente",
       "briefing": "Service de ce soir",
-      "floorPlans": "Plans de salle",
+      "floorPlan": "Plan de salle",
       "bookingWidget": "Widget de réservation",
       "onboarding": "Nouvel établissement",
       "profile": "Profil",
       "settings": "Paramètres",
       "admin": "Administration",
       "dashboard": "Tableau de bord",
-      "setup": "Configuration",
-      "hours": "Heures d'ouverture",
+      "setup": "Configuration de l'établissement",
+      "hours": "Disponibilité",
       "menus": "Menus",
       "availability": "Disponibilité",
       "chat": "Clavardage"
@@ -377,10 +352,10 @@
   },
   "floorPlan": {
     "list": {
-      "title": "Plans de salle",
+      "title": "Plan de salle",
       "description": "Concevez et gérez l'agencement de votre établissement",
       "newButton": "Nouveau plan de salle",
-      "createButton": "Créer un plan de salle",
+      "createButton": "Ajouter un plan de salle",
       "loadFailed": "Impossible de charger les plans de salle.",
       "cloneFailed": "Le plan de salle n'a pas été cloné.",
       "cloned": "Plan de salle « {{name}} » cloné avec succès",
@@ -407,7 +382,7 @@
       "loading": "Chargement",
       "notFound": "Plan de salle introuvable",
       "notLoaded": "Le plan de salle n'est pas chargé",
-      "backToList": "Retour aux plans de salle",
+      "backToList": "Retour au plan de salle",
       "backAria": "Retour aux plans de salle",
       "active": "Actif",
       "setActive": "Définir comme actif",
@@ -440,6 +415,8 @@
       "maxCovers": "Couverts maximum",
       "tableNumberPlaceholder": "p. ex. 12",
       "locationPlaceholder": "p. ex. Fenêtre",
+      "section": "Section",
+      "noSection": "Aucune section",
       "activeDescription": "Les tables inactives restent sur le plan de salle mais ne peuvent pas être réservées.",
       "nameRequired": "Le nom de la table est obligatoire.",
       "capacityMin": "La capacité doit être d'au moins 1.",
@@ -632,7 +609,7 @@
       "closedOn_one": "Fermé, ouvre {{weekday}} à {{time}}",
       "closedOn_other": "Fermé, ouvre {{weekday}} à {{time}}",
       "closedOn_many": "Fermé, ouvre {{weekday}} à {{time}}",
-      "unset": "Aucun horaire d'ouverture défini",
+      "unset": "Aucune semaine habituelle définie",
       "weekdays": {
         "monday": "lundi",
         "tuesday": "mardi",
@@ -725,7 +702,7 @@
       "retry": "Réessayer",
       "noTablesHeading": "Aucune table pour l'instant.",
       "noTablesDescription": "Configurez un plan de salle et la grille se remplira.",
-      "floorPlans": "Plans de salle",
+      "floorPlans": "Plan de salle",
       "detailsTitle": "Détails de la réservation",
       "closeDetails": "Fermer les détails de la réservation",
       "loadBanner": "Impossible de charger les réservations de ce soir.",
@@ -1329,9 +1306,9 @@
     },
     "timeSlot": {
       "changeSearch": "← Changer la date ou le nombre de personnes",
-      "noHoursStaffHeading": "Aucune heure d’ouverture définie",
-      "noHoursStaffDescription": "Cet établissement n’a pas encore configuré ses heures d’ouverture, donc les clients ne peuvent ni voir les disponibilités ni réserver une table.",
-      "setHours": "Définir les heures d’ouverture",
+      "noHoursStaffHeading": "Aucune semaine habituelle définie",
+      "noHoursStaffDescription": "Cet établissement n’a pas encore de semaine habituelle, donc les clients ne peuvent ni voir les disponibilités ni réserver une table.",
+      "setHours": "Configurer la semaine habituelle",
       "noHoursGuestHeading": "Aucune réservation en ligne pour le moment",
       "noHoursGuestDescription": "Cet établissement n’a pas encore configuré la réservation en ligne. Veuillez communiquer directement avec lui pour réserver une table.",
       "noTimesHeading": "Aucune heure disponible",
@@ -1698,6 +1675,7 @@
     },
     "kind": {
       "closure": "Fermé",
+      "sectionClosed": "{{section}} fermée",
       "bookingPaused": "Réservations suspendues : {{channels}}",
       "specialHours": "Horaire spécial"
     },
@@ -1716,6 +1694,8 @@
     "callListFor": "Liste d'appels pour {{date}}",
     "remove": "Retirer",
     "removeClosureFor": "Retirer la fermeture pour {{date}}",
+    "editClosure": "Modifier",
+    "editClosureFor": "Modifier la fermeture pour {{date}}",
     "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Fermeture antérieure",
@@ -1848,6 +1828,7 @@
       "sameAsDay": "Comme le {{day}}",
       "sameEmpty": "La semaine habituelle n’a pas d’horaire le {{day}}. Choisissez un autre jour ou utilisez Fermé.",
       "hoursInvalid": "Ajoutez au moins un des services existants du lieu. Les nouveaux services s’ajoutent depuis l’éditeur de la journée.",
+      "hoursNeedDate": "Choisissez d’abord une date : ses heures habituelles s’affichent ici pour les modifier.",
       "removeRow": "Retirer la date {{n}}",
       "addRow": "Ajouter une autre date",
       "shareMessage": "Utiliser un seul message pour toutes les dates",
@@ -1911,11 +1892,11 @@
     "tabsLabel": "Vue des disponibilités",
     "tabCalendar": "Calendrier",
     "tabSchedules": "Horaires",
-    "createAnother": "Créer un autre horaire…",
     "title": "Horaires",
     "regularMarker": "Semaine habituelle",
     "new": "Nouvel horaire",
     "newTitle": "Nouvel horaire",
+    "fromRegularWeek": "Partir de votre semaine habituelle",
     "duplicateTitle": "Dupliquer l’horaire",
     "editTitle": "Modifier {{name}}",
     "editNamed": "Modifier {{name}}",
@@ -1966,6 +1947,9 @@
     "impact_one": "S’applique à {{count}} date à venir",
     "impact_other": "S’applique à {{count}} dates à venir",
     "impact_many": "S’applique à {{count}} de dates à venir",
+    "alsoApply": {
+      "legend": "Appliquer aussi à {{service}} dans :"
+    },
     "ownChanges_one": "{{count}} date a déjà ses propres changements",
     "ownChanges_other": "{{count}} dates ont déjà leurs propres changements",
     "ownChanges_many": "{{count}} de dates ont déjà leurs propres changements",
@@ -1976,6 +1960,8 @@
       "title": "Abandonner vos modifications ?"
     },
     "conflictReview": {
+      "alsoChanged": "Appliquer aussi à : {{names}} a changé en premier",
+      "alsoRemoved": "Appliquer aussi à : {{names}} n’offre plus ce service",
       "title": "Quelqu’un a modifié cet horaire avant vous",
       "loading": "Chargement de la dernière version…",
       "gone": "Cet horaire a été supprimé; vos modifications ne peuvent pas être enregistrées. Abandonnez-les pour fermer.",
@@ -2080,7 +2066,8 @@
       "nameRequired": "Nommez cet horaire pour enregistrer.",
       "nameRequiredPeriod": "Nommez cette période pour enregistrer.",
       "servicesRequired": "Ajoutez un service pour enregistrer.",
-      "serviceNameRequired": "Nommez le nouveau service pour enregistrer."
+      "serviceNameRequired": "Nommez le nouveau service pour enregistrer.",
+      "replacesRegularWeek": "Sans date de fin, cet horaire remplace votre semaine habituelle. Ajoutez une date de fin ou utilisez Modifier la semaine habituelle…"
     },
     "edit": "Modifier",
     "duplicate": "Dupliquer"
@@ -2088,6 +2075,7 @@
   "availability": {
     "title": "Disponibilité",
     "description": "Vos heures, jours fériés et changements ponctuels.",
+    "backToSetup": "Configuration de l'établissement",
     "hostNote": "Seuls les gérants modifient les heures. Pour ce soir, utilisez le panneau Ce soir.",
     "loadError": "Impossible de charger la disponibilité",
     "noVenue": "Sélectionnez un établissement pour voir sa disponibilité.",
@@ -2103,12 +2091,15 @@
       "goToDate": "Aller à une date",
       "goToDateLabel": "Date",
       "goToDateSubmit": "Aller",
-      "goToDateCancel": "Annuler"
+      "goToDateCancel": "Annuler",
+      "servicesFilter": "Services",
+      "allServices": "Tous les services"
     },
     "calendar": {
       "label": "Calendrier de disponibilité",
       "cellName": "{{date}} : {{details}}",
       "loadingDay": "chargement",
+      "serviceNotRunning": "Pas de {{name}}",
       "services_one": "{{count}} service",
       "services_other": "{{count}} services",
       "services_many": "{{count}} services",
@@ -2142,6 +2133,10 @@
       "tablesBlockedAllDayName": "tables bloquées toute la journée",
       "tablesBlockedBand": "Tables bloquées {{from}} – {{to}}",
       "tablesBlockedBandName": "tables bloquées {{from}} – {{to}}",
+      "sectionClosedAllDay": "{{section}} fermée toute la journée",
+      "sectionClosedAllDayName": "{{section}} fermée toute la journée",
+      "sectionClosedBand": "{{section}} fermée {{from}} – {{to}}",
+      "sectionClosedBandName": "{{section}} fermée {{from}} – {{to}}",
       "serviceLine": "{{name}} {{from}} – {{to}}",
       "nextDay": "{{time}} (lendemain)",
       "draftName": "changements non enregistrés",
@@ -2164,6 +2159,8 @@
       "changes_other": "{{count}} changements par rapport à votre {{weekday}} habituel.",
       "changes_many": "{{count}} changements par rapport à votre {{weekday}} habituel.",
       "whyTitle": "Pourquoi ce jour",
+      "guestMessage": "Message pour les clients : « {{message}} »",
+      "staffNote": "Note pour le personnel : {{note}}",
       "refreshError": "Impossible de vérifier s’il y a des horaires plus récents",
       "finishDraftFirst": "Enregistrez ou annulez d’abord vos modifications de ce jour.",
       "hoursDiffer": "Ces dates ont des horaires différents. Les lignes ci-dessous viennent du {{date}}.",
@@ -2171,6 +2168,27 @@
       "reloadHours": "Recharger les horaires",
       "ifRemoved": "Si retiré : {{result}}",
       "removalNone": "aucun changement pour ce jour",
+      "schedule": {
+        "spanRange": "{{from}} – {{to}}",
+        "spanFrom": "à partir du {{from}}",
+        "spanUntil": "jusqu’au {{to}}",
+        "subjectDated": "{{name}} ({{span}})",
+        "subjectRule": "« {{label}} » le {{date}}",
+        "editNamed": "Modifier {{name}}",
+        "changeFor": "Changer l’horaire du {{date}}",
+        "removeFor": "Retirer {{subject}}",
+        "removeTitle": "Retirer {{subject}} ?",
+        "removeDescriptionDated": "{{name}} cesse de s’appliquer à toutes les dates de cette période, pas seulement à celle-ci. Ces dates reviennent à votre semaine habituelle ou à un autre horaire qui les couvre. L’horaire reste dans l’onglet Horaires. Cela n’annule jamais de réservations.",
+        "removeDescriptionRule": "La date revient à l’horaire qui la couvre. Cela n’annule jamais de réservations.",
+        "removeDescriptionRuleMany": "Cela le retire de toutes les dates qu’il couvre, pas seulement d’une. Cela n’annule jamais de réservations.",
+        "keepSchedule": "Garder l’horaire",
+        "keep": "Garder",
+        "removedToast": "{{subject}} retiré",
+        "scope": {
+          "title": "Modifier {{name}}",
+          "all": "Toutes les dates que couvre {{name}}"
+        }
+      },
       "layer": {
         "tonight": "Ce soir",
         "allDay": "Toute la journée",
@@ -2182,6 +2200,7 @@
         "serviceFallback": "Service",
         "bookingClosed": "Réservation fermée : {{types}}",
         "tablesBlocked": "Tables bloquées",
+        "sectionClosed": "{{name}} fermée",
         "bookingType": {
           "online": "en ligne",
           "phone": "par téléphone",
@@ -2571,6 +2590,20 @@
     "close": {
       "open": "Fermer…",
       "title": "Fermer",
+      "edit": {
+        "title": "Modifier la fermeture",
+        "save": "Enregistrer les modifications",
+        "toast": "Fermeture du {{date}} modifiée",
+        "gone": "Cette fermeture a été retirée. Fermez cette fenêtre et consultez l'onglet des dates spéciales.",
+        "changed": "Quelqu'un a modifié cette fermeture pendant que vous l'aviez ouverte. Fermez cette fenêtre et rouvrez-la pour voir sa modification.",
+        "givenBackIntro": "Cette modification rouvre des dates où la fermeture avait annulé des réservations.",
+        "tellGivenBack_one": "Aviser le client ({{count}}) dont nous avons annulé la réservation à une date rouverte que la date est de nouveau ouverte, avec un lien pour réserver à nouveau",
+        "tellGivenBack_other": "Aviser les clients ({{count}}) dont nous avons annulé la réservation à des dates rouvertes que les dates sont de nouveau ouvertes, avec un lien pour réserver à nouveau",
+        "tellGivenBack_many": "Aviser les clients ({{count}}) dont nous avons annulé la réservation à des dates rouvertes que les dates sont de nouveau ouvertes, avec un lien pour réserver à nouveau",
+        "toastTold_one": "Fermeture du {{date}} modifiée · {{count}} client avisé que la date est de nouveau ouverte",
+        "toastTold_other": "Fermeture du {{date}} modifiée · {{count}} clients avisés que les dates sont de nouveau ouvertes",
+        "toastTold_many": "Fermeture du {{date}} modifiée · {{count}} clients avisés que les dates sont de nouveau ouvertes"
+      },
       "step": "Étape {{step}} sur 2",
       "next": "Suivant",
       "back": "Retour",
@@ -2617,6 +2650,11 @@
         "venue": "Tout l'établissement",
         "service": "Un service",
         "pickService": "Service",
+        "section": "Une section",
+        "pickSection": "Section",
+        "noSections": "Ajoutez d’abord une section à votre plan de salle",
+        "openFloorPlan": "Ouvrir le plan de salle",
+        "sectionsFailed": "Impossible de charger les sections.",
         "booking": "Réservations seulement",
         "channel": {
           "online": "En ligne",
@@ -2632,6 +2670,12 @@
         "range": "Plage de dates",
         "repeats": "Se répète",
         "untilReopen": "Jusqu'à la réouverture",
+        "dates": "Plusieurs dates",
+        "addDateLabel": "Ajouter une date",
+        "picked": "Dates à fermer",
+        "datesHint": "Jusqu'à {{max}} dates, une fermeture par date.",
+        "datesRequired": "Choisissez au moins une date.",
+        "datesTooMany": "Fermez jusqu'à {{max}} dates à la fois.",
         "dateLabel": "Date",
         "startingLabel": "À partir du",
         "fromLabel": "Du",
@@ -2653,10 +2697,17 @@
       "impact_many": "{{count}} de réservations · {{guests}} personnes sont réservées durant cette fermeture",
       "impactNone": "Aucune réservation durant cette fermeture.",
       "impactError": "Impossible de vérifier les réservations existantes. Modifiez un champ pour réessayer.",
+      "impactFailed": "Impossible de vérifier les réservations existantes.",
+      "checkAgain": "Vérifier de nouveau",
       "guestsWillSee": "Les clients verront : {{date}} · {{status}}",
       "guestsWillSeeMessage": "Les clients verront : {{date}} · {{status}} · « {{message}} »",
       "button": {
         "close": "Fermer le {{date}}",
+        "closeSection": "Fermer {{section}} le {{date}}",
+        "closeSectionNoDate": "Fermer {{section}}",
+        "closeMany_one": "Fermer {{count}} date",
+        "closeMany_other": "Fermer {{count}} dates",
+        "closeMany_many": "Fermer {{count}} dates",
         "pause": "Suspendre les réservations en ligne",
         "cancel_one": "Fermer et annuler {{count}}",
         "cancel_other": "Fermer et annuler {{count}}",
@@ -2692,11 +2743,21 @@
       },
       "toast": {
         "closed": "{{date}} fermé",
+        "closedSection": "{{section}} fermée le {{date}}",
         "paused": "Réservations en ligne en pause",
         "bookingPaused": "Réservations en pause le {{date}}",
         "notified_one": "{{date}} fermé · {{count}} réservation avisée",
         "notified_other": "{{date}} fermé · {{count}} réservations avisées",
-        "notified_many": "{{date}} fermé · {{count}} réservations avisées"
+        "notified_many": "{{date}} fermé · {{count}} réservations avisées",
+        "many_one": "{{count}} date fermée",
+        "many_other": "{{count}} dates fermées",
+        "many_many": "{{count}} dates fermées",
+        "manyNotified_one": "{{count}} date fermée · {{notified}} réservation avisée",
+        "manyNotified_other": "{{count}} dates fermées · {{notified}} réservations avisées",
+        "manyNotified_many": "{{count}} dates fermées · {{notified}} réservations avisées",
+        "manyBookingPaused_one": "Réservations en pause pour {{count}} date",
+        "manyBookingPaused_other": "Réservations en pause pour {{count}} dates",
+        "manyBookingPaused_many": "Réservations en pause pour {{count}} dates"
       },
       "step2": {
         "urgent": "Urgent : les clients recevront un texto et un courriel",
@@ -2743,7 +2804,7 @@
         "previewEmail": "Courriel",
         "previewFrom": "De : {{from}}",
         "previewSms": "Message texte",
-        "previewNote": "Chaque client reçoit son propre lien, et les heures libres pour réserver de nouveau sont ajoutées à l'envoi. Les messages sont en anglais.",
+        "previewNote": "Chaque client reçoit son propre lien, et les heures libres pour réserver de nouveau sont ajoutées à l'envoi. Chaque message est dans la langue dans laquelle ce client a réservé.",
         "previewFailed": "Impossible de charger le message.",
         "previewRetry": "Réessayer",
         "loading": "Chargement des réservations…",
@@ -2755,7 +2816,9 @@
         "closed": "Fermé",
         "closedFrom": "Fermé à partir de {{time}}",
         "serviceClosed": "{{service}} fermé",
-        "serviceClosedFrom": "{{service}} fermé à partir de {{time}}"
+        "serviceClosedFrom": "{{service}} fermé à partir de {{time}}",
+        "sectionClosed": "{{section}} fermée",
+        "sectionClosedFrom": "{{section}} fermée à partir de {{time}}"
       }
     },
     "paused": {
@@ -2783,10 +2846,13 @@
       "count_other": "{{count}} dates sélectionnées",
       "count_many": "{{count}} dates sélectionnées",
       "editHours": "Modifier les heures",
+      "close": "Fermer…",
       "clear": "Effacer la sélection",
       "selectMenu": "Sélectionner…",
       "weekdayInMonth": "Chaque {{weekday}} de {{month}}",
+      "selectWeekdayInMonth": "Sélectionner chaque {{weekday}} de {{month}}",
       "usingSchedule": "Toutes les dates avec {{schedule}}",
+      "selectUsingSchedule": "Sélectionner toutes les dates avec {{schedule}}",
       "pastDates": "Les dates passées ne peuvent pas être sélectionnées.",
       "useSchedule": "Utiliser un horaire",
       "useOtherDay": "Utiliser les heures d’un autre jour",
@@ -2821,7 +2887,8 @@
         "saved_many": "Modifications effacées pour {{count}} dates"
       },
       "selectDays": "Sélectionner des jours",
-      "selectingHint": "Touchez les jours voulus"
+      "selectingHint": "Touchez les jours voulus",
+      "selectingHintPointer": "Cliquez sur les jours voulus ou faites glisser dessus"
     },
     "tonight": {
       "title": "Ce soir",
@@ -2845,7 +2912,8 @@
       "block": {
         "label": "Bloquer des tables",
         "all": "Toutes les tables",
-        "location": "Toutes les tables : {{location}}",
+        "section": "Section : {{section}}",
+        "noSection": "Sans section",
         "button": "Bloquer",
         "pick": "Choisir des tables…",
         "pickLabel": "Tables à bloquer",
@@ -2894,6 +2962,7 @@
     "venueTime": "Heure de l'établissement ({{zone}})",
     "weekSummary": {
       "line": "Cette semaine : {{parts}}",
+      "lineForService": "Cette semaine, {{service}} : {{parts}}",
       "open_one": "ouvert {{count}} jour",
       "open_other": "ouvert {{count}} jours",
       "open_many": "ouvert {{count}} jours",
@@ -2957,34 +3026,128 @@
     }
   },
   "setup": {
-    "yourVenue": "votre établissement",
-    "welcome": "Bienvenue à {{venueName}}",
-    "intro": "Terminez quelques étapes de configuration pour commencer à prendre des réservations.",
-    "progress": "{{percent}} % terminé",
-    "stepsLabel": "Étapes de configuration",
-    "stepAria": "{{label}} — {{status}}",
-    "review": "Réviser",
-    "done": "Terminé — {{venueName}}",
-    "status": {
-      "completed": "Terminé",
-      "current": "Étape en cours",
-      "locked": "Pas encore disponible"
-    },
-    "steps": {
-      "onboarding": {
-        "label": "Infos de base de l'établissement",
-        "description": "Configurez le nom, le fuseau horaire et la devise de votre établissement.",
-        "cta": "Réviser les détails de l'établissement"
+    "hub": {
+      "title": "Configuration de l'établissement",
+      "description": "Tout ce qu'un client peut réserver, et comment cela s'articule. Chaque ligne ouvre l'endroit où vous le modifiez.",
+      "yourVenue": "votre établissement",
+      "loading": "Chargement de la configuration de l'établissement",
+      "loadError": "Impossible de charger la configuration de l'établissement.",
+      "groupError": "Impossible de charger « {{group}} ».",
+      "groups": {
+        "open": "Quand vous êtes ouvert",
+        "sit": "Où s'assoient les clients"
       },
-      "hours": {
-        "label": "Définir les heures d'ouverture",
-        "description": "Configurez les jours et les heures d'ouverture de votre établissement.",
-        "cta": "Définir les heures d'ouverture"
+      "notSetUp": "Non configuré",
+      "hostUnset": "Un gestionnaire s'en charge.",
+      "regularWeek": "Semaine habituelle",
+      "label": {
+        "schedules": "Horaires",
+        "specialDates": "Dates spéciales",
+        "booking": "Réservations",
+        "floorPlan": "Plan de salle",
+        "noSection": "Sans section"
       },
-      "floorPlan": {
-        "label": "Créer un plan de salle",
-        "description": "Ajoutez un plan de salle avec au moins une table pour activer les réservations.",
-        "cta": "Créer un plan de salle"
+      "caption": {
+        "schedule": "Horaire",
+        "service": "Service",
+        "section": "Section",
+        "table": "Table",
+        "floorPlan": "Plan de salle"
+      },
+      "channelLabel": {
+        "online": "Réservations en ligne",
+        "phone": "Réservations par téléphone",
+        "waitlist": "Liste d'attente"
+      },
+      "channel": {
+        "online": "En ligne",
+        "phone": "Téléphone",
+        "waitlist": "Liste d'attente"
+      },
+      "what": {
+        "regularWeek": "Les jours et les services que les clients peuvent réserver.",
+        "schedules": "Des semaines nommées que suit votre établissement. La semaine habituelle en est une.",
+        "specialDates": "Fermetures et heures spéciales pour une date ou une période.",
+        "bookingUnset": "Combien de temps à l'avance, quel préavis et quelle taille de groupe les clients peuvent réserver en ligne; les valeurs par défaut s'appliquent.",
+        "booking": "Comment les clients réservent : en ligne, par téléphone, sur la liste d'attente.",
+        "floorPlan": "Où se trouvent les tables; sans table, les clients ne peuvent pas réserver."
+      },
+      "count": {
+        "schedules_one": "{{count}} horaire",
+        "schedules_many": "{{count}} d'horaires",
+        "schedules_other": "{{count}} horaires",
+        "specialDates_one": "{{count}} à venir",
+        "specialDates_many": "{{count}} à venir",
+        "specialDates_other": "{{count}} à venir",
+        "channel_one": "fermé à {{count}} date à venir",
+        "channel_many": "fermé à {{count}} de dates à venir",
+        "channel_other": "fermé à {{count}} dates à venir"
+      },
+      "open": "Ouvert {{days}}",
+      "period": "{{range}}, {{days}}",
+      "until": "Jusqu'au {{date}}",
+      "from": "À partir du {{date}}",
+      "range": "{{from}} – {{to}}",
+      "serviceLine": "{{hours}} · {{days}}",
+      "rules": {
+        "daysAhead_one": "Jusqu'à {{count}} jour à l'avance",
+        "daysAhead_many": "Jusqu'à {{count}} de jours à l'avance",
+        "daysAhead_other": "Jusqu'à {{count}} jours à l'avance",
+        "noticeHours_one": "{{count}} heure de préavis",
+        "noticeHours_many": "{{count}} d'heures de préavis",
+        "noticeHours_other": "{{count}} heures de préavis",
+        "largestParty_one": "groupes jusqu'à {{count}} en ligne",
+        "largestParty_many": "groupes jusqu'à {{count}} en ligne",
+        "largestParty_other": "groupes jusqu'à {{count}} en ligne"
+      },
+      "closedRow": "{{target}} : fermé",
+      "specialHoursRow": "{{target}} : heures spéciales",
+      "target": {
+        "venue": "Tout l'établissement",
+        "service": "Un service",
+        "section": "Une section",
+        "tables_one": "{{count}} table",
+        "tables_many": "{{count}} de tables",
+        "tables_other": "{{count}} tables"
+      },
+      "sections_one": "{{count}} section",
+      "sections_many": "{{count}} de sections",
+      "sections_other": "{{count}} sections",
+      "tables_one": "{{count}} table",
+      "tables_many": "{{count}} de tables",
+      "tables_other": "{{count}} tables",
+      "seats_one": "{{count}} place",
+      "seats_many": "{{count}} de places",
+      "seats_other": "{{count}} places",
+      "floorPlanHint": "Les sections et les tables apparaissent ici une fois le plan de salle ajouté",
+      "actions": {
+        "setUpRegularWeek": "Configurer la semaine habituelle",
+        "changeRegularWeek": "Modifier la semaine habituelle…",
+        "editSchedule": "Modifier",
+        "compareServices": "Comparer les services",
+        "createSchedule": "Créer un autre horaire…",
+        "openCalendar": "Ouvrir le calendrier",
+        "openSpecialDates": "Ouvrir Dates spéciales",
+        "bookingRules": "Règles de réservation…",
+        "openFloorPlan": "Ouvrir le plan de salle",
+        "addFloorPlan": "Ajouter un plan de salle",
+        "addAnotherFloorPlan": "Ajouter un autre plan de salle",
+        "closeSection": "Fermer à une date…",
+        "moveToSection": "Placer dans une section"
+      },
+      "strip": {
+        "title": "Progression de la configuration de l'établissement",
+        "count": "{{done}} sur {{total}}",
+        "steps": {
+          "venueBasics": "Infos de base de l'établissement",
+          "regularWeek": "Semaine habituelle",
+          "floorPlan": "Plan de salle"
+        },
+        "state": {
+          "done": "Terminé",
+          "next": "Prochaine",
+          "later": "Pas encore"
+        }
       }
     }
   },
@@ -3127,7 +3290,7 @@
     "venue": {
       "title": "Établissement",
       "description": "Gérez les jours et les heures où votre établissement accepte les réservations.",
-      "operatingHours": "Heures d'ouverture"
+      "venueSetup": "Configuration de l'établissement"
     },
     "team": {
       "title": "Équipe",

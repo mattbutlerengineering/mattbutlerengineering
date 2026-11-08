@@ -1,6 +1,7 @@
 import type { TFunction } from "i18next";
 import type { AvailabilityDaySummary } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
+import { filterDays, type ServiceFilter } from "./service-filter.js";
 import { visibleDates, type CalendarView } from "./calendar-dates.js";
 
 /** The month ("October 2026") or the Monday-to-Sunday range ("Oct 26 – Nov 1, 2026") on show. */
@@ -27,15 +28,17 @@ export function periodLabel(
 /**
  * "This week: open 5 days · 1 closure · online booking on" for the anchor's week, from the days
  * already loaded; with no closures that part is left out. `null` until at least one day of that
- * week has arrived.
+ * week has arrived. With a `service` filter it counts that service's days and closures and
+ * names the service ("This week, Dinner: open 4 days").
  */
 export function weekSummary(
   anchor: string,
   days: readonly AvailabilityDaySummary[] | undefined,
-  t: TFunction
+  t: TFunction,
+  service?: ServiceFilter | null
 ): string | null {
   const week = new Set(visibleDates("week", anchor));
-  const loaded = (days ?? []).filter((d) => week.has(d.serviceDate));
+  const loaded = (filterDays(days, service ?? null) ?? []).filter((d) => week.has(d.serviceDate));
   if (loaded.length === 0) return null;
   // A whole-day venue closure already empties `serviceCount`; booking, service and tables
   // closures leave the day open.
@@ -52,5 +55,10 @@ export function weekSummary(
       : []),
     t(`availability.weekSummary.${online}`),
   ];
-  return t("availability.weekSummary.line", { parts: parts.join(" · ") });
+  return service
+    ? t("availability.weekSummary.lineForService", {
+        service: service.name,
+        parts: parts.join(" · "),
+      })
+    : t("availability.weekSummary.line", { parts: parts.join(" · ") });
 }

@@ -131,6 +131,18 @@ export const catalogMeta: Record<string, CatalogMeta> = {
       "Visual separator between content sections. Use orientation=horizontal (default) between vertical sections, orientation=vertical between horizontal items. Use label for short text like 'or' between form options.",
     charLimits: { label: 20 },
   },
+  Drawer: {
+    name: "Drawer",
+    description:
+      "Slide-out panel anchored to an edge for secondary tasks such as advanced settings, filters, or record details, without leaving the page. Provide open state and onClose handler, a title, and body content as children. Use side=right (default), left or bottom; size=compact, default, wide or full. Put action Buttons at the end of the body. A Button labelled 'Open ...' placed before the Drawer opens it; a Button labelled 'Close' inside closes it.",
+    slots: ["default"],
+    charLimits: { title: 60, description: 120 },
+  },
+  DropdownMenu: {
+    name: "DropdownMenu",
+    description:
+      "Click-to-open menu of actions, such as a per-row overflow or an account menu. Set trigger to the trigger button label (e.g. 'Actions') and items to the entries: items have id and label (optional shortcut, disabled, destructive=true for dangerous actions like Delete); use type=divider to separate groups and type=label for a section heading. Use align=right when the trigger sits at the right edge.",
+  },
   EmptyState: {
     name: "EmptyState",
     description:
@@ -163,6 +175,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "One card per matching guest, stacked: name, visit count, risk and tags. Required: guests, an array of cards, at most five. Each card needs name, visits (a number) and risk (the raw value from the tool, such as trusted, copied as is); tags is the guest's tags, optional. The element writes the visit count and risk in words itself. Never put email, phone, notes or spend on a card. A card missing name, visits or risk is left out.",
   },
+  Handshake: {
+    name: "Handshake",
+    description:
+      "Instrument showing a multi-party exchange such as an OIDC sign-in, webhook confirmation, or device pairing: named stations joined by legs with a credential pulse travelling along the active one. Set stations to 2+ unique short names in order, state=idle, negotiating (default), settled or failed, and lane to the index of the active leg (0 = first to second station). aria-label is required and names the exchange (e.g. 'Verifying your sign-in'). Pair it with Text, Badge or DataList for per-station results.",
+    charLimits: { "aria-label": 80 },
+  },
   IconButton: {
     name: "IconButton",
     description:
@@ -185,10 +203,29 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Mechanical rolling-counter that animates a numeric value digit-by-digit by composing SplitFlap. Use for hero metrics, KPIs, and live counters that should feel physical as they update. Reads a real number and formats it with locale grouping (Intl.NumberFormat); pass formatOptions for currency, percentages, or fraction digits. Respects prefers-reduced-motion (snaps, no roll) and announces the whole value to screen readers. Pairs with Stat for dashboard tiles.",
   },
+  PinInput: {
+    name: "PinInput",
+    description:
+      "Row of single-character cells for a short one-time code, PIN, or verification code. Set length to the number of cells (default 4; use 6 for SMS codes), type=numeric (default) or alphanumeric, and mask=true for secrets. Always give a label and optionally a hint such as where the code was sent.",
+    charLimits: { label: 40, hint: 120, disabledReason: 120 },
+  },
+  Popover: {
+    name: "Popover",
+    description:
+      "Click-to-open floating panel anchored to a trigger button; it opens from that trigger (there is no open prop to set). Set trigger to the trigger button label (e.g. 'Pick a time') and put the panel body as children — text, Inputs, or a short list of Buttons. Use for small contextual choices or details that should not take permanent space; use Dialog for anything that needs the user attention. title is an optional panel heading; placement is bottom (default), top, left or right.",
+    slots: ["default"],
+    charLimits: { title: 60 },
+  },
   ReservationList: {
     name: "ReservationList",
     description:
       "Bookings as aligned rows, in the order given (arrival order): time, guest, party size and status. Required: reservations, an array of rows. Each row needs time (the tool's localTime copied as is (HH:mm); the element writes it in the locale's clock. Only when the rows span more than one date, write the date and time together instead), partySize (a number) and status (the raw value from the tool, such as CONFIRMED, copied as is); guest is the guest name, left out for a walk-in. The element writes the party size and status in words itself. A row missing time, partySize or status is left out.",
+  },
+  ScrollArea: {
+    name: "ScrollArea",
+    description:
+      "Fixed-height region whose content scrolls independently of the page. Set maxHeight (CSS value, e.g. '320px') and put the long content — a feed, list, or log — as children. Use when a long list must stay inside a panel or Card instead of lengthening the page.",
+    slots: ["default"],
   },
   Select: {
     name: "Select",
@@ -200,6 +237,11 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     name: "Sidebar",
     description:
       "Vertical navigation panel for app-level navigation. Provide items (flat SidebarItem list or grouped SidebarSection array). Set collapsed=true for icon-only rail mode. Set active=true on the current page item.",
+  },
+  Skeleton: {
+    name: "Skeleton",
+    description:
+      "Pulsing placeholder shape shown while content loads. Use variant=text or heading with lines=3 for a paragraph, variant=circle for an avatar, variant=card or rect for images and cards. Set width and height as CSS values (e.g. '100%', '48px'). Put Skeletons where the real content will appear, not as decoration.",
   },
   Stack: {
     name: "Stack",
@@ -274,5 +316,12 @@ export const catalogMeta: Record<string, CatalogMeta> = {
     description:
       "Binary on/off switch. Use for settings and preferences that take effect immediately without a submit button. Always provide a label describing what is being toggled.",
     charLimits: { label: 30 },
+  },
+  Tooltip: {
+    name: "Tooltip",
+    description:
+      "Short hover/focus hint attached to one trigger element. Put the element being explained (a Button, IconButton, Badge, or Text) as the single child and the hint in content (one short sentence). Use for brief explanations of terms or icon-only controls; never for essential information, long text, or interactive content. placement is top (default), bottom, left or right.",
+    slots: ["default"],
+    charLimits: { content: 80 },
   },
 };

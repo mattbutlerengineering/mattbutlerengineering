@@ -86,6 +86,10 @@ export const METRICS = {
   // checkout can read (#7581). Builders: scripts/metrics-summary-rows.mjs.
   lighthouse: { file: "lighthouse.jsonl", format: "jsonl", durable: true },
   "mutation-score": { file: "mutation-score.jsonl", format: "jsonl", durable: true },
+  // One row per weekly audit-sweep.yml run: per-surface status for every zone,
+  // so "zone never recorded" is derivable from tracked files (#8419).
+  // Builder: scripts/audit-coverage.mjs.
+  "audit-coverage": { file: "audit-coverage.jsonl", format: "jsonl", durable: true },
   "review-burden": { file: "review-burden.json", format: "json-array", durable: true },
   // Latest-only snapshot, deliberately NOT durable: a 5 KB whole-file rewrite
   // in a merge=union directory is a conflict magnet and carries no trend. The
@@ -128,7 +132,8 @@ export const METRICS = {
  */
 export const DURABLE_OUTSIDE = {
   ".claude/improvement-loop/log.md": "human-readable loop audit narrative, merge=union",
-  ".claude/improvement-loop/revert-log.md": "written by .github/workflows/revert-rca-detection.yml",
+  ".claude/improvement-loop/revert-log.md":
+    "historical revert log; its writer (revert-rca-detection.yml) was retired",
   "apps/marketing/public/sensor-report.json":
     "public AI-health page copy, written by scripts/sensor-report.mjs",
   "apps/marketing/public/ai-health-trends.json":

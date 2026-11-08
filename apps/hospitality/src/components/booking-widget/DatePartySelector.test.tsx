@@ -320,5 +320,14 @@ describe("DatePartySelector", () => {
       fireEvent.focus(dayCell("2026-12-24"));
       expect(screen.getByRole("status").textContent).toContain("Closed for a private event");
     });
+
+    // Safari and touch give a pressed day no focus, so a press alone must name the reason.
+    it("shows the guest message when a closed date is tapped without taking focus, and clears it on an open one", () => {
+      render(<DatePartySelector {...closedProps} />);
+      fireEvent.click(dayCell("2026-12-24"));
+      expect(screen.getByRole("status").textContent).toContain("Closed for a private event");
+      fireEvent.click(dayCell("2026-12-23"));
+      expect(screen.getByRole("status").textContent).toBe("");
+    });
   });
 });

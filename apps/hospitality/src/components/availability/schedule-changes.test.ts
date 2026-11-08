@@ -11,6 +11,7 @@ import {
   isScheduleUnused,
   overlappingSchedules,
   datesOfUse,
+  replacesRegularWeek,
   weekdayRuns,
 } from "./schedule-changes.js";
 import { FIXTURE_TIMEZONE, fixtureConfig } from "./resolved-day-fixtures.js";
@@ -249,6 +250,61 @@ describe("overlap precedence", () => {
     // Outside the overlap each keeps its own dates.
     expect(resolve(next, "2026-12-05").scheduleId).toBe("new-1");
     expect(resolve(next, "2026-11-05").scheduleId).toBe("patio");
+  });
+});
+
+// The regular week always gives way to a schedule, so one with no end on all its days would
+// leave nothing that Change regular week could reach. The fixture's regular week runs Fridays.
+describe("a new schedule that would take the regular week over", () => {
+  const TODAY = "2026-10-25";
+  const everyDay = (): AvailabilityConfig => ({
+    ...fixtureConfig(),
+    assignments: [{ id: "as-regular", scheduleId: "regular", weekdays: EVERY_DAY, precedence: 0 }],
+  });
+
+  it("is refused with no end date when it runs on every day the regular week does", () => {
+    const config = fixtureConfig();
+    expect(replacesRegularWeek(config, { weekdays: [1, 2, 3, 4, 5] }, TODAY)).toBe(true);
+    // A later start only moves when the takeover begins.
+    expect(
+      replacesRegularWeek(config, { weekdays: [5], startsOn: "2026-12-01", endsOn: null }, TODAY)
+    ).toBe(true);
+  });
+
+  it("is allowed with an end date, on days that leave the regular week some of its own, or on none", () => {
+    const config = everyDay();
+    expect(replacesRegularWeek(config, { weekdays: [5, 6, 0] }, TODAY)).toBe(false);
+    expect(
+      replacesRegularWeek(
+        config,
+        { weekdays: EVERY_DAY, startsOn: null, endsOn: "2026-12-31" },
+        TODAY
+      )
+    ).toBe(false);
+    expect(replacesRegularWeek(config, { weekdays: [] }, TODAY)).toBe(false);
+  });
+
+  it("counts only versions of the regular week that have not ended", () => {
+    // Change regular week superseded an every-day version yesterday; the live one runs Fridays.
+    const base = fixtureConfig();
+    const config: AvailabilityConfig = {
+      ...base,
+      schedules: [
+        ...base.schedules,
+        { id: "old", name: "Regular week", kind: "regular", isRegular: false },
+      ],
+      assignments: [
+        ...base.assignments,
+        {
+          id: "as-old",
+          scheduleId: "old",
+          weekdays: EVERY_DAY,
+          endsOn: "2026-10-24",
+          precedence: 0,
+        },
+      ],
+    };
+    expect(replacesRegularWeek(config, { weekdays: [5] }, TODAY)).toBe(true);
   });
 });
 

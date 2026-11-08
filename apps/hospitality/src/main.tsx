@@ -12,6 +12,7 @@ import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
+import { RequireManager } from "./components/RequireManager";
 import { validateAuthConfig } from "./constants/auth";
 import { currentHostConfig, legacyPathRedirect } from "./lib/host-brand.js";
 import { I18nextProvider } from "react-i18next";
@@ -276,17 +277,21 @@ const router = createBrowserRouter(
             {
               path: "floor-plans",
               element: (
-                <Suspense fallback={<LoadingPage />}>
-                  <FloorPlansPage />
-                </Suspense>
+                <RequireManager>
+                  <Suspense fallback={<LoadingPage />}>
+                    <FloorPlansPage />
+                  </Suspense>
+                </RequireManager>
               ),
             },
             {
               path: "floor-plans/:id",
               element: (
-                <Suspense fallback={<LoadingPage />}>
-                  <FloorPlanEditorPage />
-                </Suspense>
+                <RequireManager>
+                  <Suspense fallback={<LoadingPage />}>
+                    <FloorPlanEditorPage />
+                  </Suspense>
+                </RequireManager>
               ),
             },
             {

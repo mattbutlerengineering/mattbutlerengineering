@@ -90,9 +90,10 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
 
 1. **Availability → Calendar → Month** (S2). Each day cell shows its schedule name ("Weekend"), "Closed", or "Special hours", plus a closure band where part of the day is closed and a "3 services" count for busy venues.
    - Above the grid: a week summary for the visible week ("This week: open 5 days · 1 closure · online booking on"), prev/next/Today, Month | Week, a Services filter (venues with 2+ services) and **Change regular week…**.
+   - **Services filter** (only when the venue has 2+ active services): it sits beside the week summary it narrows, not in the button row, which has no width to spare at 1280; on a phone it has its own row under Month | Week. "All services" or one service. It narrows how days _read_, in the grid, the agenda and the week summary, and never changes what a date or the drawer holds. Each cell shows that service's name and times and only the closure bands that overlap its hours (a 10–11 PM closure shows under Dinner, not Lunch; a whole-day closure of the venue shows under every service, and a closure of one service, even a whole-day one, shows under that service only). A day the service does not run reads "No Dinner" in the closed style, a day closed for the whole venue still reads "Closed", and the week summary counts that service's open days and closures and names it ("This week, Dinner: open 4 days · online booking on"). Online booking on/off is the day's own and is not narrowed. The choice is a view, not saved: it resets to All when the venue changes or the page reloads.
    - "Venue time (Pacific)" appears when the device's time zone differs.
 2. Activating a day opens the **day drawer** (S3). It reads top to bottom:
-   - **Plain summary.** "Open for lunch and dinner. One change from your regular Friday."
+   - **Plain summary.** "Open for lunch and dinner. One change from your regular Friday." When the day carries a message for guests, it follows in the Manager's words: "Message for guests: “Closed for a private event”". The booking widget shows that message only on a day with no online seatings left, so the drawer names it as the message, not as what guests see. A closure or special-hours layer below carries its staff note ("Staff note: Smith wedding"), for a Host as for a Manager.
    - **Why this day.** The active layers listed bottom-up, each with what removing it would do. A day made up of only the regular week shows just the plain summary; the stack appears once a second layer exists:
      - Regular week · Weekend · Lunch 11:30–2:30, Dinner 5:00–11:00
      - Summer hours (Jun 1 – Sep 15) · dinner until 11:30 · [Remove → back to 11:00]
@@ -135,13 +136,13 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
 
 2. A **selection bar** appears: "6 dates selected · **Edit hours** · **Close…** · **Use schedule / another day's hours** · **Clear changes** · ✕". The selection count is announced politely.
 3. **Edit hours** opens the drawer with "You're changing: 6 selected dates" fixed, and the same services editor, preview, keep/replace and stranded handling as F2.
-4. **Close…** opens F5 with those dates pre-filled.
+4. **Close…** (Managers) opens F5 on **Several dates** with those dates pre-filled, as chips that can be removed or added to. One date opens on One date. It is shown only to Managers, beside Edit hours.
 
 ### F3: Schedules (PRD 6, 7, 9, 11, 12)
 
 1. The **Schedules** tab (S5) lists each schedule with where it applies ("Weeknight · Mon–Thu", "Summer hours · Jun 1 – Sep 15, every day"). The regular week is marked.
-2. **New schedule** opens the S1 editor plus **Use on**: weekday toggles and an optional date range. Before saving, it shows the impact count and stranded list over every affected future date.
-3. **Duplicate** → "<name> (copy)", opened in the editor.
+2. **New schedule** opens the S1 editor plus **Use on**: weekday toggles and an optional date range. Until the form is touched it offers **Start from your regular week**, which fills in the regular week's services, times, own days and different hours; the schedule's name and days stay the Manager's to choose. Before saving, it shows the impact count and stranded list over every affected future date. A schedule always wins over the regular week, so one with no end date on every day the regular week still runs would take it over for good; Save stays off and says so: "With no end date, this replaces your regular week. Add an end date, or use Change regular week…".
+3. **Duplicate** → "<name> (copy)", opened in the editor, under the same rule.
 4. **Edit** works like F2 with the scope fixed to "Everywhere this schedule is used".
 5. **Delete** is offered only for schedules used nowhere. Otherwise a `DisabledTooltip` explains why ("Used on Mon–Thu; move those days to another schedule first").
 
@@ -150,7 +151,11 @@ The new-venue wizard's hours step renders S1 unchanged inside the wizard frame. 
 1. **Schedules → Compare services** shows a table-like grid. Rows are schedules; columns are one service's fields (opens, last seating, closes, interval, booking type, plus pacing and turn times from Phase 3). A service picker sits at the top ("Dinner").
 2. Edit any cell in place, or select rows and use **Set selected to…**.
 3. One combined impact line ("Changes 4 schedules · 118 future dates") and one combined stranded list, then **Save 4 schedules**. Undo works as in F2.
-4. When editing a service inside one schedule, **Also apply to Dinner in:** ☐ Weekend ☐ Summer hours ☐ Holiday prix-fixe offers the same change elsewhere without opening Compare.
+4. When editing a service inside one schedule (Edit schedule), **Also apply to Dinner in:** ☐ Weekend ☐ Summer hours ☐ Holiday prix-fixe offers the same change elsewhere without opening Compare.
+   - A group appears for each service whose opens, last seating or closes the edit changed, listing the other schedules that run it. Nothing is ticked by default. It is not offered in New schedule, Duplicate or Change regular week, which have no stored rows to match.
+   - Only the times the edit changed go across. The other schedule keeps its other times, seating, booking types, days and different hours.
+   - Ticking one makes the rest of the form multi-schedule: the impact line becomes "Changes 2 schedules · 118 future dates", the preview and the "dates already have their own changes" question cover every schedule written, and one Save is one change, so Undo and History treat it as one ("2 schedules updated").
+   - After a lost race the conflict review also names a ticked schedule a colleague changed or removed; reapplying lays the edited times on their version.
 
 ### F4: Copy a day (PRD 8)
 
@@ -173,7 +178,8 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 3. **When:**
    - Tonight
    - One date
-   - Several dates (from a selection or picked here)
+   - Several dates (from a selection or picked here): a date picker adds one date at a time to a list of removable chips, up to 20 dates ("Close up to 20 dates at once."). Each date is stored as **one single-date closure rule**, all sent as one command that saves all or none (Owner decision, #7981). Special dates lists one row per date, and Undo, History, edit and reopen work per date. What, the start time, the staff note and the guest message are shared by every date.
+     With several dates the live count adds up across them, "Already closed" and "has special hours" warnings cover every date, and Step 2 asks one question per date, as in Add special date.
    - Date range
    - Repeats (e.g. "Every Monday, Jan 1 – Mar 31")
    - Until I reopen
@@ -197,7 +203,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
      - **Booking-only closures** (online/phone): existing bookings aren't affected, so Step 2 is skipped.
      - Every case also offers **Keep, don't tell guests**, which reveals a required checkbox: "I understand 14 guests won't be told."
    - **Notice timing:** if the closure starts within 6 hours, the header shows "Urgent: guests will get a text and an email". Delivery is by SMS and email wherever the guest has that contact, within the contact policy. Otherwise each guest's preferred channel is used.
-   - **Preview message ▸** shows the email and SMS for the chosen option, rendered by the server with the same builders the notice job sends with, for the group's first booking (named above the message), from the sender of the host that booking was made on, and with that closure's own guest message (each date of Add special date has its own). Two parts of a real notice cannot exist before it is sent, so the preview says so: the guest's own link, and the open rebooking times a cancel offers. Notices are English only today (the guest's language is not stored), and the preview says that too.
+   - **Preview message ▸** shows the email and SMS for the chosen option, rendered by the server with the same builders the notice job sends with, for the group's first booking (named above the message), from the sender of the host that booking was made on, and with that closure's own guest message (each date of Add special date has its own). Two parts of a real notice cannot exist before it is sent, so the preview says so: the guest's own link, and the open rebooking times a cancel offers. Each notice is written in the language the guest booked in (en-US, es-MX or fr-CA, recorded from the booking widget's locale; bookings from before it was recorded, and any other locale, are en-US), the preview shows it in that language, and the preview says so.
    - **The button names the outcome:** "Close and cancel 14", "Close and move 9", "Close and keep 14". Beside it: "Guests are told right away. This can't be undone."
 8. **Result:**
    - Toast: "Thu, Dec 24 closed · 14 reservations notified" (it counts reservations told, not the guests booked).
@@ -208,7 +214,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 
 ### F-SER: Change one date of something that repeats (PRD 17; scenario e)
 
-1. Opening a date that belongs to a repeating closure or special hours shows it in "Why this day", with **Edit** and **Remove** (a Manager only, and not on a date that is over). Special hours: **Remove** is a destructive confirm that names the whole rule ("every Friday"), **Edit** asks which dates first when the rule repeats, then edits in the drawer's own editor. A closure: **Remove** is the Special dates reopen dialog; a repeating one also has **Edit dates…** (the series dialog, opened on this date). Both wait, with a reason, while an editor is open, and **Edit** on hours under an all-day closure is shut with the reason. Dated-schedule layers have no Edit or Remove yet.
+1. Opening a date that belongs to a repeating closure or special hours shows it in "Why this day", with **Edit** and **Remove** (a Manager only, and not on a date that is over). Special hours: **Remove** is a destructive confirm that names the whole rule ("every Friday"), **Edit** asks which dates first when the rule repeats, then edits in the drawer's own editor. A closure: **Remove** is the Special dates reopen dialog; a repeating one also has **Edit dates…** (the series dialog, opened on this date). Both wait, with a reason, while an editor is open, and **Edit** on hours under an all-day closure is shut with the reason. A dated schedule's layer ("Summer hours", Oct 1 – Dec 31) also gets both, and a day under one dated schedule alone shows its layer so they have somewhere to be. **Remove** is a destructive confirm that names the whole period and removes that period's assignment (the schedule stays on Schedules, unused, and every date of the period goes back to the regular week or another schedule). **Edit** asks "Only this date / All dates the schedule covers": the first edits that date's hours in the drawer's own editor, the second closes the drawer and opens the schedule's own editor (the Schedules tab's, scope fixed to everywhere it is used; there is no "this and following" for a schedule). Where hours written for one date would hide under an all-day closure, only "All dates" is offered. A "Use <schedule>" rule on the date gets **Remove** (a confirm; the date goes back to the schedule that covers it) and **Edit**, which opens the same Use schedule dialog the drawer's button does, on this date; a rule that covers several dates has Remove only, naming the whole rule.
 2. Either one asks first: "**Only Tue, Jan 13** / **This and following** / **All dates in the series**".
 3. **Only this date** → for a closure, choose **Skip this date** (bookable as usual) or **Edit this date** (for example, a different closure window). The series is untouched, and the date's "Why this day" shows "Skipped from: Mondays closed, Jan–Mar".
 4. Impact, stranded handling and Undo work as in F2 and F5.
@@ -223,6 +229,8 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 2. **Reopen**: row → **Remove closure** → `ConfirmDialog`: "Reopen Thu, Dec 24? Guests can book again. The 14 reservations you cancelled stay cancelled." A checkbox, on by default, reads "Tell the 14 cancelled guests we've reopened (with a link to rebook)". Buttons: **Reopen** / **Keep closed**.
 3. Toast "Thu, Dec 24 reopened". Removing a change that told no guests offers **Undo**.
 4. **A date another closure also closes** stays closed, and the dialog and the toast say so, naming it: "Stays closed on Fri, Dec 25: Whole venue." When every date stays closed, nothing comes back: the description says guests can't book them yet, the notice checkbox is gone, the server asks no notice even if one is requested, and the toast reads "Closure removed: Fri, Dec 25. Not reopened."
+
+5. **Edit a one-date or range closure** (a Manager only, and not on a closure that is over): row → **Edit**, or **Edit** beside the closure in the day drawer's "Why this day". It opens the Close dialog as **Edit closure**, filled in as the closure is saved (what, dates or range, start time, notes, message for guests). When offers One date, Date range and Until I reopen only: Tonight and Repeats are not offered, and the server refuses an edit that repeats, since a series carries its own outcomes and skips. Nothing is saved until the booking check is answered: with no booking to decide on the button reads **Save changes**; otherwise **Next** goes to the same Step 2 a new closure gets, and only the bookings on dates the edit newly closes are asked about (dates the closure already covered were decided when it was made, and a date it gives back asks only when the closure had cancelled a guest there whose booking has not started: Step 2 then asks, as a Reopen does, whether to tell those guests the date is open again with a link to rebook (on by default) or do nothing, and an edit that gives back no such guest asks nothing). The edited closure replaces the saved one in the same save, and what the closure did to each guest follows their date: a guest on a date that stays closed keeps their notice, call-list entry and refund with the new closure, and a guest on a date the edit gave back keeps theirs on the closure it came from. Telling them goes through the same reopen notice a Reopen sends, and the choice is recorded in the change. If a teammate changed or removed the closure since it was opened, the dialog says so and saves nothing. A save that told no guest offers **Undo** ("Closure on Thu, Dec 24 changed"); one that cancelled, moved or kept-and-notified guests, or told a given-back guest, does not, because History cannot take back a message. A repeating closure is not edited here: it has **Edit dates…** (F-SER), and a closure that ends partway through a day has no Edit, because the dialog cannot say an end time.
 
 ### F-RULES: Booking rules
 
@@ -259,7 +267,7 @@ Drawer overflow → **Copy to other days…** offers weekday toggles, From [date
 
 ### F9: Guest books (PRD 31, 32, 33)
 
-1. **The date step uses rialto `Calendar`** (S10). Closed dates are disabled with accessible names that include the reason ("December 24, closed, private event"). When a closed date is focused, its guest message shows below the calendar. Dates beyond the booking window are disabled.
+1. **The date step uses rialto `Calendar`** (S10). Closed dates are disabled with accessible names that include the reason ("December 24, closed, private event"). When a closed date is focused or pressed, its guest message shows below the calendar (a tap in Safari or on a phone gives the day no focus, so the press counts too). Dates beyond the booking window are disabled.
 2. **Arriving on a closed date anyway** (deep link, gen-UI): the time step shows the closure message plus "See other dates".
 3. **Online booking paused:** "Online booking is paused right now. Call (555) 123-4567." The phone number appears only while phone booking is open; otherwise the guest message shows alone (or "Not taking reservations right now" if there is none).
 4. **Nothing configured:** "Not taking online bookings yet", with the phone if set. Never an empty picker.
@@ -402,8 +410,8 @@ After tapping [Dinner] and [Weekdays]:
 
 ```
 Availability   [Calendar] Special dates  Schedules*        ⋯ History · Go to date · Create another schedule
-This week: open 5 days · 1 closure · online booking on            Venue time (Pacific)
-[◂] October 2026 [▸] [Today]   (Month|Week)  Services [All ▾]  [Select… ▾] [Change regular week…] [Close…]
+This week: open 5 days · 1 closure · online booking on   [All services ▾]   Venue time (Pacific)
+[◂] October 2026 [▸] [Today]   (Month|Week)  [Select… ▾] [Change regular week…] [Close…]
 ┌ Mon ───── Tue ───── Wed ───── Thu ───── Fri ───── Sat ───── Sun ─────┐
 │ Closed    Weeknight Weeknight Weeknight Weekend   Weekend   Closed   │
 │           Special hrs                   ▬ part closed                │

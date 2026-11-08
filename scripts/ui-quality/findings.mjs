@@ -27,6 +27,10 @@
  *         `needs-review` issue to open — unless an open escalation issue is
  *         already among the labelled issues.
  *         No --calibration-status is `stale`: agent-built findings drop.
+ *         A seed (carrier `seed`) on a route this fire audited — due.json's
+ *         rows that were captured and judged, as `ledger.mjs record` reads
+ *         them — whose tell no finding names becomes a `close` action; a seed
+ *         on any other route is never touched.
  *   record  --executed <json> [--now <iso>] — the executed plan (every create
  *           given its issue number, optional `fix_pr: { key, pr }`, optional
  *           `escalated: [issue]` from p1-age.mjs --escalate) written
@@ -51,8 +55,9 @@ import {
   reconcileLabelled,
   unmigratedKeys,
 } from "./findings-plan.mjs";
+import { auditedRoutes } from "./ledger-audit.mjs";
 import { loadRubric } from "./rubric.mjs";
-import { WORK_DIR } from "./work-dir.mjs";
+import { JUDGE_STATUS_FILE, WORK_DIR, readManifests } from "./work-dir.mjs";
 
 export { findingKey, parseKey } from "./findings-plan.mjs";
 
@@ -125,6 +130,24 @@ function readLabelledIssues(file) {
     );
   }
   return value;
+}
+
+/**
+ * The `<app>|<route>` keys this fire audited, from the same three files
+ * `ledger.mjs record` stamps `audited` from. A missing or unreadable `due.json`
+ * proves nothing was audited, so it yields none (no seed closes).
+ */
+function readAudited(root) {
+  const read = (file) => {
+    try {
+      return readJson(join(root, WORK_DIR, file));
+    } catch {
+      return null;
+    }
+  };
+  const dueFile = read("due.json");
+  if (!Array.isArray(dueFile?.due)) return [];
+  return auditedRoutes(dueFile, readManifests(root), read(JUDGE_STATUS_FILE));
 }
 
 function plan(ctx, argv) {
@@ -207,6 +230,7 @@ function plan(ctx, argv) {
     backlogLines: readBacklogLines(ctx.root),
     adopted: reconciled.adopted,
     declined: reconciled.declined,
+    audited: readAudited(ctx.root),
   });
   if (result.dropped.length > 0) {
     ctx.stderr(

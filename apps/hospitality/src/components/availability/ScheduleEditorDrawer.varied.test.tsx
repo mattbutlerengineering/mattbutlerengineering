@@ -88,6 +88,8 @@ describe("New and Edit schedule use the quick-setup rows", () => {
     fireEvent.click(within(lateBlock()).getByRole("checkbox", { name: "Fri" }));
     fireEvent.click(within(lateBlock()).getByLabelText("Closes"));
     fireEvent.click(screen.getByRole("option", { name: "11:00 PM" }));
+    // On every day the regular week runs (its Fridays), so it needs an end not to take it over.
+    fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
 

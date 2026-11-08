@@ -1864,13 +1864,13 @@ describe("TimelinePage", () => {
       expect(screen.queryByTestId("timeline-grid")).toBeNull();
     });
 
-    it("links the empty-state hint to the Floor Plans page instead of leaving it as inert text", async () => {
+    it("links the empty-state hint to the Floor Plan page instead of leaving it as inert text", async () => {
       vi.mocked(useTimelineData).mockReturnValue(
         makeTimelineData({ reservations: [], tables: [] })
       );
       renderPage();
       await waitFor(() => {
-        expect(screen.getByRole("link", { name: /floor plans/i })).toHaveAttribute(
+        expect(screen.getByRole("link", { name: "Floor Plan" })).toHaveAttribute(
           "href",
           "/floor-plans"
         );

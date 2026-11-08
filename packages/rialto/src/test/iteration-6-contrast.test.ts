@@ -102,6 +102,7 @@ const contrast = (tokens: Map<string, string>, fg: string, bg: string): number =
 const pagination = readCss("../components/Pagination/Pagination.module.css");
 const divider = readCss("../components/Divider/Divider.module.css");
 const dataList = readCss("../components/DataList/DataList.module.css");
+const dropdownMenu = readCss("../components/DropdownMenu/DropdownMenu.module.css");
 
 describe("Iteration 6 contrast (axe color-contrast, WCAG AA 4.5:1)", () => {
   for (const [theme, tokens] of Object.entries(THEMES)) {
@@ -119,6 +120,21 @@ describe("Iteration 6 contrast (axe color-contrast, WCAG AA 4.5:1)", () => {
 
     it(`DataList striped label meets 4.5:1 on the recessed stripe (${theme})`, () => {
       const fg = declaration(dataList, ".striped .label", "color");
+      expect(contrast(tokens, fg, "var(--rialto-surface-recessed)")).toBeGreaterThanOrEqual(4.5);
+    });
+
+    // Iteration 9 (#8416): the open DropdownMenu, which the closed-state audit never saw.
+    it(`DropdownMenu destructive item meets 4.5:1 on the elevated menu (${theme})`, () => {
+      const fg = declaration(dropdownMenu, ".destructive", "color");
+      expect(contrast(tokens, fg, "var(--rialto-surface-elevated)")).toBeGreaterThanOrEqual(4.5);
+    });
+
+    it(`DropdownMenu shortcut hint meets 4.5:1 on the active row (${theme})`, () => {
+      const fg = declaration(
+        dropdownMenu,
+        '.item:hover .shortcut,\n.item:focus-visible .shortcut,\n.item[data-active="true"] .shortcut',
+        "color"
+      );
       expect(contrast(tokens, fg, "var(--rialto-surface-recessed)")).toBeGreaterThanOrEqual(4.5);
     });
   }

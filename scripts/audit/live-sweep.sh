@@ -17,19 +17,31 @@
 #   GH_TOKEN     GitHub token with issues:write (for `gh issue`)
 # Optional env:
 #   MAX_ISSUES   Cap on new issues filed per run (default 5)
+#   SWEEP_RESULTS_FILE  Where to write `url<TAB>code<TAB>seconds` per surface
+#                (default audit-sweep-results/results.tsv). audit-sweep.yml
+#                uploads it; record-summary-rows.yml reduces it to a committed
+#                metrics/audit-coverage.jsonl row (#8419) — .audit-state/ is
+#                gitignored, so nothing else tracked records a check.
 #
 set -uo pipefail
 
 UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 MAX_ISSUES="${MAX_ISSUES:-5}"
 created=0
+SWEEP_RESULTS_FILE="${SWEEP_RESULTS_FILE:-audit-sweep-results/results.tsv}"
+mkdir -p "$(dirname "$SWEEP_RESULTS_FILE")"
+: > "$SWEEP_RESULTS_FILE"
 
-# name|url — top-level production surfaces (mirrors .audit-state/inventory.json)
+# name|url — production surfaces, one or more per zone (URLs must match
+# SURFACE_REGISTRY in packages/agent-core/src/audit-surface-registry.ts)
 SURFACES=(
   "marketing|https://mattbutlerengineering.com/"
   "hospitality|https://mattbutlerengineering.com/hospitality"
   "rialto|https://mattbutlerengineering.com/rialto"
   "gen|https://mattbutlerengineering.com/gen"
+  "api-users|https://mattbutlerengineering.com/api/v1/users/health"
+  "api-reservations|https://mattbutlerengineering.com/api/health"
+  "api-agent|https://mattbutlerengineering.com/api/gen/health"
 )
 
 # create_issue <title> <search-phrase> <body> <label>...
@@ -78,6 +90,7 @@ for entry in "${SURFACES[@]}"; do
     -A "$UA" -H "X-Audit-Token: ${AUDIT_TOKEN}" "$url" 2>/dev/null || echo "000 0")
   code="${metrics%% *}"
   ttime="${metrics##* }"
+  printf '%s\t%s\t%s\n' "$url" "$code" "$ttime" >> "$SWEEP_RESULTS_FILE"
   printf 'SWEEP %-12s %-4s %ss %s\n' "$name" "$code" "$ttime" "$url"
   if ! [[ "$code" =~ ^[23] ]]; then
     down=$((down + 1))
@@ -99,7 +112,8 @@ if [ "$total" -gt 0 ] && [ "$down" -gt $((total / 2)) ]; then
 fi
 
 # Otherwise one issue per down surface.
-for dl in "${DOWN_ENTRIES[@]}"; do
+# `${arr[@]+...}` guard: bash < 4.4 (macOS) treats an empty array as unbound under `set -u`.
+for dl in ${DOWN_ENTRIES[@]+"${DOWN_ENTRIES[@]}"}; do
   name="${dl%%|*}"
   rest="${dl#*|}"
   url="${rest%|*}"

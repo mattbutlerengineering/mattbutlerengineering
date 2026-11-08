@@ -20,6 +20,7 @@ import type { Prisma, PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { affectedRange, diffConfig, inverseOf } from "./availability-config-plan.js";
 import { carryOutcomes, type CarriedOutcomes } from "./closure-carry-outcomes.js";
+import { givenBackGuests, type GivenBackGuests } from "./closure-given-back.js";
 import { carryByDate, rangeAround, splitIssues } from "./closure-reopen-date.js";
 import { findStrandedReservations } from "./availability-config-checks.js";
 import {
@@ -47,6 +48,7 @@ import {
 } from "./closure-command-plan.js";
 import {
   checkAlongside,
+  isPlainClosure,
   ruleChangedSinceSeen,
   seriesChangedSinceRead,
 } from "./closure-alongside.js";
@@ -62,9 +64,11 @@ import { prisma } from "./database.js";
  * `ClosureOutcome` per affected reservation, the cancels and moves
  * (`closure-apply.ts`, with their reservation events) and the audit row.
  *
- * Not in this file, by design (#7523, #7524): the guest notices and the refund
- * jobs. A cancelled booking's deposit stays `held` and its outcome
- * `refund: pending` for the CLOSURE_REFUND job; no Stripe call is made here.
+ * Not in this file, by design (#7523, #7524): sending the guest notices and
+ * enqueueing the refund jobs. The command decides that work and returns it
+ * (`ClosurePostCommit`, `ReopenNotice`); the route runs it after the commit. A
+ * cancelled booking's deposit stays `held` and its outcome `refund: pending` for
+ * the CLOSURE_REFUND job; no Stripe call is made here.
  */
 
 type StoreClient = Pick<PrismaClient, "$transaction">;
@@ -110,8 +114,39 @@ function strandedIssues(stranded: readonly StrandedReservation[], message: strin
   }));
 }
 
+/**
+ * The work a saved closure owes once its transaction commits (`routes/closure-post-commit.ts` runs
+ * it): SSE and reminder re-timing for its cancels and moves, refund jobs, guest notices. Decided
+ * here, from what the save stores on its audit row, so a fresh save, its replay and a retried
+ * post-commit step do the same work. Internal to this service: never part of an HTTP answer.
+ */
+export interface ClosurePostCommit {
+  venueId: string;
+  ruleId: string;
+  /** Outcomes carried in from the series this save replaced: that save told and refunded them. */
+  carried: string[];
+  /** The save cancelled a booking, so its deposits may be owed back. */
+  refunds: boolean;
+  /** Guests an edit gave their date back to and chose to tell (#8413), on the removed closure. */
+  givenBack: GivenBackGuests | null;
+}
+
+/** The reopen notice a reopen owes once it commits (#7523), to the guests the closure cancelled. */
+export interface ReopenNotice {
+  venueId: string;
+  ruleId: string;
+  /** A one-date reopen: only the guests on this date. */
+  date?: string;
+}
+
+/** A saved closure's answer and the work it owes after commit; `null` when it owes none. */
+interface Saved {
+  result: ClosureResult;
+  postCommit: ClosurePostCommit | null;
+}
+
 export type CreateClosureOutcome =
-  | { kind: "saved"; result: ClosureResult }
+  | ({ kind: "saved" } & Saved)
   | { kind: "not_found" }
   | { kind: "forbidden" }
   | { kind: "too_long" }
@@ -143,6 +178,12 @@ interface ClosureMeta {
   batch?: BatchShape;
   /** A series edit's old rule outcomes that moved onto this rule, for Undo to return. */
   carried?: CarriedOutcomes;
+  /**
+   * An edit that gave dates back and told the guests the closure cancelled on them that the date is
+   * open again (#8413): the outcomes on the removed closure the reopen notice was requested for.
+   * Absent when none were told, so Undo is offered only when no guest was.
+   */
+  givenBack?: GivenBackGuests;
   /** What the save decided, per action: `outcome` merges the two keeps. Absent on older rows. */
   counts?: Record<ClosureAction, number>;
 }
@@ -235,12 +276,46 @@ async function findReplay(
   return change && closure ? { id: change.id, actorId: change.actorId, closure } : null;
 }
 
-/** The result a saved closure answers a replay with, counted from its outcome rows. */
-async function storedResult(
+/**
+ * A saved closure's answer and its post-commit work, from what its audit row stores. A fresh save
+ * and its replay both build them here, so they answer and owe the same.
+ */
+function savedOf(
+  venueId: string,
+  closure: Pick<ClosureMeta, "ruleId" | "version" | "carried" | "givenBack">,
+  changeId: string,
+  counts: Record<ClosureAction, number>
+): Saved {
+  const { ruleId, givenBack } = closure;
+  const result: ClosureResult = {
+    ruleId,
+    version: closure.version,
+    changeId,
+    outcomes: counts,
+    ...(givenBack ? { givenBackNotified: givenBack.outcomeIds.length } : {}),
+  };
+  // With no outcome of its own and no guest given a date back, there is nothing to publish,
+  // refund or tell: the outcomes it carried in were decided by the save it replaced.
+  const decided = counts.cancel + counts.move + counts.keep_notify + counts.keep_silent;
+  if (decided === 0 && !givenBack) return { result, postCommit: null };
+  return {
+    result,
+    postCommit: {
+      venueId,
+      ruleId,
+      carried: closure.carried?.outcomeIds ?? [],
+      refunds: counts.cancel > 0,
+      givenBack: givenBack ?? null,
+    },
+  };
+}
+
+/** What a saved closure answers a replay with and still owes, from its audit row. */
+async function storedSave(
   tx: Pick<PrismaClient, "closureOutcome">,
   venueId: string,
   replay: { id: string; closure: ClosureMeta }
-): Promise<ClosureResult> {
+): Promise<Saved> {
   const { closure } = replay;
   // What the save decided, as stored with it: the rule's rows can since have moved to a later
   // growth, and the ones it carried in were never its own.
@@ -254,12 +329,8 @@ async function storedResult(
         },
         select: { action: true },
       });
-  return {
-    ruleId: closure.ruleId,
-    version: closure.version,
-    changeId: replay.id,
-    outcomes: closure.counts ?? countActions(rows.map((r) => r.action)),
-  };
+  const counts = closure.counts ?? countActions(rows.map((r) => r.action));
+  return savedOf(venueId, closure, replay.id, counts);
 }
 
 interface Plan {
@@ -348,7 +419,7 @@ type CommitInput = {
  * the rule was reopened. It is authorised against the original save, not
  * today's date: a Manager always, a Host only for a closure they made.
  */
-async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | null> {
+async function replayOf(tx: Db, input: CommitInput): Promise<Saved | null> {
   const { venueId, caller, body, key } = input;
   const replay = await findReplay(tx, venueId, key);
   if (!replay) return null;
@@ -356,7 +427,7 @@ async function replayOf(tx: Db, input: CommitInput): Promise<ClosureResult | nul
   if (!caller.isManager && replay.actorId !== caller.actorId) {
     throw new Refused({ kind: "forbidden" });
   }
-  return storedResult(tx, venueId, replay);
+  return storedSave(tx, venueId, replay);
 }
 
 /**
@@ -418,7 +489,7 @@ async function preflight(tx: Db, input: CommitInput): Promise<void> {
   if (existing > 0) throw new Refused({ kind: "closure_exists" });
 }
 
-async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
+async function commit(tx: Db, input: CommitInput): Promise<Saved> {
   const { venueId, caller, body, key, now } = input;
   const { rule } = body;
   const replayed = await replayOf(tx, input);
@@ -468,16 +539,29 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
   const version = body.expectedVersion + 1;
   // A series that grows is saved under a new id: what the old one did follows it (#7984).
   const [replaced] = body.alongside?.remove ?? [];
-  const carried = replaced
-    ? await carryOutcomes(
-        tx,
-        venueId,
-        replaced,
-        rule.id,
-        plan.rows.map((r) => r.reservationId)
-      )
-    : null;
-  const range = affectedRange(state.stored, diff, civilDateIn(now, state.timezone));
+  const deciding = plan.rows.map((r) => r.reservationId);
+  const replacedRule = state.stored.dateRules.find((r) => r.id === replaced);
+  // An edited closure keeps what it did to each guest on the dates it still closes; the dates it
+  // gave back keep theirs on the removed closure, as a reopen of those dates would.
+  const today = civilDateIn(now, state.timezone);
+  // Guests the edit gave their date back to, when the Manager chose to tell them (as a reopen does).
+  const givenBack =
+    body.tellGivenBackGuests && replacedRule && isPlainClosure(replacedRule)
+      ? await givenBackGuests(tx, {
+          venueId,
+          stored: state.stored.dateRules,
+          replaced: replacedRule,
+          next: rule,
+          today,
+          now,
+        })
+      : null;
+  const carried = !replaced
+    ? null
+    : replacedRule && isPlainClosure(replacedRule)
+      ? await carryByDate(tx, venueId, replaced, [rule], deciding)
+      : await carryOutcomes(tx, venueId, replaced, rule.id, deciding);
+  const range = affectedRange(state.stored, diff, today);
   const meta: ClosureMeta = {
     ruleId: rule.id,
     idempotencyKey: key,
@@ -492,6 +576,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
     },
     ...(input.batch ? { batch: input.batch } : {}),
     ...(carried ? { carried } : {}),
+    ...(givenBack ? { givenBack } : {}),
     counts: plan.counts,
   };
   const inverse = { ...inverseOf(state.stored, diff, state.operatingHours), closure: meta };
@@ -507,7 +592,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       affectedFrom: toDbDate(range.from),
       affectedTo: toDbDate(range.to),
       inverse: inverse as unknown as Prisma.InputJsonValue,
-      notifiedGuests: plan.notifiedGuests,
+      notifiedGuests: plan.notifiedGuests || givenBack !== null,
       version,
     },
     select: { id: true },
@@ -543,7 +628,7 @@ async function commit(tx: Db, input: CommitInput): Promise<ClosureResult> {
       ],
     });
   }
-  return { ruleId: rule.id, version, changeId: change.id, outcomes: plan.counts };
+  return savedOf(venueId, meta, change.id, plan.counts);
 }
 
 export async function createClosure(
@@ -561,11 +646,11 @@ export async function createClosure(
   const { venueId, caller, body, idempotencyKey: key, now } = input;
   const ruleKinds = input.ruleKinds ?? CLOSURE_RULE_KINDS;
   try {
-    const result = await client.$transaction(async (tx) => {
+    const saved = await client.$transaction(async (tx) => {
       await setVenueContext(tx, venueId);
       return commit(tx, { venueId, caller, body, key, now, ruleKinds });
     });
-    return { kind: "saved", result };
+    return { kind: "saved", ...saved };
   } catch (error) {
     if (error instanceof Refused) return error.outcome;
     throw error;
@@ -573,14 +658,16 @@ export async function createClosure(
 }
 
 export type CreateClosuresOutcome =
-  { kind: "saved"; result: ClosuresResult } | Exclude<CreateClosureOutcome, { kind: "saved" }>;
+  | { kind: "saved"; result: ClosuresResult; postCommit: ClosurePostCommit[] }
+  | Exclude<CreateClosureOutcome, { kind: "saved" }>;
 
 /**
  * Several closures in one transaction (ux.md F6, "Add special date"). Each item commits exactly
  * as `createClosure` would, in order, from the version the one before it left, so a booking's
  * outcome, its notice and its refund stay keyed to its own rule. Any refusal rolls back every
  * item: no booking is cancelled for one date while another date fails. Item `i` replays under
- * `<key>#i`. Manager only; a Host's emergency close is a single `createClosure`.
+ * `<key>#i`. Manager only; a Host's emergency close is a single `createClosure`. `postCommit`
+ * holds each item's owed work, in order, leaving out the items that owe none.
  */
 export async function createClosures(
   input: {
@@ -595,9 +682,9 @@ export async function createClosures(
   const { venueId, caller, body, idempotencyKey: key, now } = input;
   if (!caller.isManager) return { kind: "forbidden" };
   try {
-    const results = await client.$transaction(async (tx) => {
+    const saved = await client.$transaction(async (tx) => {
       await setVenueContext(tx, venueId);
-      const saved: ClosureResult[] = [];
+      const items: Saved[] = [];
       const batch: BatchShape = {
         count: body.items.length,
         ruleIds: body.items.map((i) => i.rule.id),
@@ -610,7 +697,7 @@ export async function createClosures(
       }
       let expectedVersion = body.expectedVersion;
       for (const [i, item] of body.items.entries()) {
-        const result = await commit(tx, {
+        const committed = await commit(tx, {
           venueId,
           caller,
           body: { expectedVersion, rule: item.rule, decisions: item.decisions },
@@ -619,12 +706,17 @@ export async function createClosures(
           ruleKinds: CLOSURE_RULE_KINDS,
           batch,
         });
-        saved.push(result);
-        expectedVersion = result.version;
+        items.push(committed);
+        expectedVersion = committed.result.version;
       }
-      return saved;
+      return items;
     });
-    return { kind: "saved", result: { version: results.at(-1)!.version, results } };
+    const results = saved.map((s) => s.result);
+    return {
+      kind: "saved",
+      result: { version: results.at(-1)!.version, results },
+      postCommit: saved.flatMap((s) => (s.postCommit ? [s.postCommit] : [])),
+    };
   } catch (error) {
     if (error instanceof Refused) return error.outcome;
     throw error;
@@ -649,7 +741,7 @@ async function requireAuthor(
 }
 
 export type ReopenOutcome =
-  | { kind: "reopened"; result: ReopenResult }
+  | { kind: "reopened"; result: ReopenResult; notice: ReopenNotice | null }
   | { kind: "not_found" }
   | { kind: "forbidden" }
   | Extract<Refusal, { kind: "invalid" | "version_conflict" }>;
@@ -814,13 +906,14 @@ export async function reopenClosure(
         reopened,
         civilDateIn(now, state.timezone)
       );
-      // Only guests whose booking has not started get the notice (`listNotifiable`); the audit
-      // row, Undo and the caller's count must agree with who it actually reaches. With every date
-      // still closed by another closure there is nothing to rebook, so nobody is told to (#8006).
-      const notified =
+      // With every date still closed by another closure there is nothing to rebook, so nobody is
+      // told to (#8006). Only guests whose booking has not started get the notice
+      // (`listNotifiable`); the audit row, Undo and the caller's count agree with who it reaches.
+      const notice: ReopenNotice | null =
         input.tellCancelledGuests && !stillClosed.everyDate
-          ? await upcomingCancelled(db, venueId, ruleId, now)
-          : 0;
+          ? { venueId, ruleId, ...(input.date ? { date: input.date } : {}) }
+          : null;
+      const notified = notice ? await upcomingCancelled(db, venueId, ruleId, now) : 0;
       const change = await db.availabilityChange.create({
         data: {
           venueId,
@@ -845,6 +938,7 @@ export async function reopenClosure(
       return {
         kind: "reopened" as const,
         result: { version: bumped.availabilityVersion, changeId: change.id, notified, stillClosed },
+        notice,
       };
     });
   } catch (error) {

@@ -1,6 +1,6 @@
 {
   "name": "@mattbutlerengineering/rialto",
-  "version": "0.10.3",
+  "version": "0.10.6",
   "type": "module",
   "main": "./dist/lib/rialto.js",
   "module": "./dist/lib/rialto.js",
@@ -509,7 +509,7 @@
     {
       "name": "Locale fr-CA (subpath)",
       "path": "dist/lib/i18n/locales/fr-CA.js",
-      "limit": "2.2 kB"
+      "limit": "2.55 kB"
     },
     {
       "name": "Button (subpath)",
@@ -533,7 +533,7 @@
         "dist/lib/components/Dialog/index.js",
         "dist/lib/chunks/Dialog-*.js"
       ],
-      "limit": "1550 B"
+      "limit": "1.75 kB"
     },
     {
       "name": "Select (subpath)",
@@ -541,7 +541,7 @@
         "dist/lib/components/Select/index.js",
         "dist/lib/chunks/Select-*.js"
       ],
-      "limit": "2250 B"
+      "limit": "2.55 kB"
     },
     {
       "name": "Autocomplete (subpath)",
@@ -549,7 +549,7 @@
         "dist/lib/components/Autocomplete/index.js",
         "dist/lib/chunks/Autocomplete-*.js"
       ],
-      "limit": "2050 B"
+      "limit": "2.35 kB"
     },
     {
       "name": "CommandPalette (subpath)",
@@ -557,7 +557,7 @@
         "dist/lib/components/CommandPalette/index.js",
         "dist/lib/chunks/CommandPalette-*.js"
       ],
-      "limit": "2650 B"
+      "limit": "2.95 kB"
     },
     {
       "name": "Ferrofluid (subpath)",

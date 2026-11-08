@@ -1,0 +1,191 @@
+/* ── Venue Setup hub ──────────────────────────── */
+
+.root {
+  padding: var(--rialto-space-xl);
+  max-width: 880px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-lg);
+}
+
+.venueName {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rialto-text-secondary);
+  margin: 0;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.groupHeading {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+.skeletons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+/* ── Tree ─────────────────────────────────────── */
+
+.tree,
+.children {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+.children {
+  margin-block-start: var(--rialto-space-sm);
+  padding-inline-start: var(--rialto-space-lg);
+  border-inline-start: 1px solid var(--rialto-border);
+}
+
+.node {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  padding: var(--rialto-space-sm) var(--rialto-space-md);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-elevated);
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}
+
+.caption {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--rialto-text-tertiary);
+}
+
+.name,
+.disclosure {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-base);
+  font-weight: 600;
+  color: var(--rialto-text-primary);
+}
+
+.disclosure {
+  min-height: 44px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-align: start;
+}
+
+.disclosure::after {
+  content: "▸";
+  display: inline-block;
+  margin-inline-start: var(--rialto-space-xs);
+  transition: transform 0.15s ease;
+}
+
+.disclosure[aria-expanded="true"]::after {
+  transform: rotate(90deg);
+}
+
+.state,
+.stateUnset {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-secondary);
+}
+
+.stateUnset {
+  font-style: italic;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  margin-inline-start: auto;
+}
+
+.action {
+  min-height: 44px;
+}
+
+/* ── Setup progress strip ─────────────────────── */
+
+.strip {
+  padding: var(--rialto-space-md);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-surface-recessed);
+}
+
+.stripHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+}
+
+.steps {
+  list-style: none;
+  margin: var(--rialto-space-sm) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.step {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  color: var(--rialto-text-primary);
+}
+
+.stepState {
+  color: var(--rialto-text-secondary);
+}
+
+@media (max-width: 1023px) {
+  .root {
+    padding: var(--rialto-space-md);
+  }
+
+  .actions {
+    margin-inline-start: 0;
+    width: 100%;
+  }
+}
+
+/* Read by assistive tech after a button's visible label; never shown. */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

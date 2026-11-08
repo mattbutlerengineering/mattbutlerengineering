@@ -32,9 +32,6 @@ describe("QuickSetupForm per-service days", () => {
     renderCard();
     fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
     expect(screen.getAllByRole("button", { name: DIFFERENT_DAYS })).toHaveLength(2);
-    for (const button of screen.getAllByRole("button", { name: DIFFERENT_DAYS })) {
-      expect(button).toHaveAttribute("aria-expanded", "false");
-    }
     expect(screen.getAllByRole("group", { name: "Days" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Weekdays" })).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Dinner" })).toHaveLength(2); // one chip per service
@@ -63,7 +60,8 @@ describe("QuickSetupForm per-service days", () => {
     ).toHaveLength(7);
     fireEvent.click(within(lunchDays).getByRole("button", { name: "Weekdays" }));
 
-    fireEvent.click(screen.getAllByRole("button", { name: DIFFERENT_DAYS })[1]!);
+    // Lunch's opener gave way to "Use the shared days", so Brunch's is the one left.
+    fireEvent.click(screen.getByRole("button", { name: DIFFERENT_DAYS }));
     const brunchDays = screen.getByRole("group", { name: "Brunch runs on" });
     fireEvent.click(within(brunchDays).getByRole("button", { name: "Weekends" }));
 
@@ -78,20 +76,19 @@ describe("QuickSetupForm per-service days", () => {
     ]);
   });
 
-  it("moves focus into the days on open and back to the button on close", () => {
+  it("offers one control at a time, moving focus into the days and back to the opener", () => {
     renderCard();
     fireEvent.click(screen.getByRole("button", { name: "Dinner" }));
     fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
-    const toggle = screen.getByRole("button", { name: DIFFERENT_DAYS });
-    toggle.focus();
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(screen.getByRole("button", { name: DIFFERENT_DAYS }));
     const group = screen.getByRole("group", { name: "Dinner runs on" });
     expect(within(group).getAllByRole("checkbox")[0]).toHaveFocus();
+    // Open, only "Use the shared days" closes it: no second button doing the same.
+    expect(screen.queryByRole("button", { name: DIFFERENT_DAYS })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Use the shared days" }));
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(toggle).toHaveFocus();
+    expect(screen.getByRole("button", { name: DIFFERENT_DAYS })).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Use the shared days" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Dinner runs on" })).not.toBeInTheDocument();
   });
 

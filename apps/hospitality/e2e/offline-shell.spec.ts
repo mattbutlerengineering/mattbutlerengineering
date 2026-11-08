@@ -259,8 +259,9 @@ async function navigateToTimeline(page: Page): Promise<void> {
 }
 
 async function navigateToFloorPlanEditor(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Floor Plans", exact: true }).click();
-  await page.getByRole("button", { name: "Open floor plan: Main Floor" }).click();
+  // The floor plan is reached from its Venue Setup node (there is no Floor Plans nav item).
+  await page.getByRole("button", { name: "Venue Setup", exact: true }).click();
+  await page.getByRole("button", { name: "Open floor plan Main Floor" }).click();
   await expect(page.getByRole("heading", { name: "Main Floor" })).toBeVisible();
 }
 
@@ -275,7 +276,6 @@ test.describe("Offline-first shell (#4189)", () => {
   }) => {
     await mockApi(page);
     await mockTableStatusesSuccess(page, "available");
-    await page.addInitScript(`window.__fakeSSEConfig = { events: [] };`);
 
     // ── Phase 1: online — prime both caches ──────────────────────────
     await page.goto("timeline");

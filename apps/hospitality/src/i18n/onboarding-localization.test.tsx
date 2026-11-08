@@ -7,7 +7,6 @@ import esMX from "./catalogs/es-MX.json";
 import frCA from "./catalogs/fr-CA.json";
 import { WelcomeStep } from "../components/venue-onboarding/WelcomeStep.js";
 import { LocationTimeStep } from "../components/venue-onboarding/LocationTimeStep.js";
-import { OperatingHoursStep } from "../components/venue-onboarding/OperatingHoursStep.js";
 import { SettingsStep, RECOMMENDED_SETTINGS } from "../components/venue-onboarding/SettingsStep.js";
 import { FloorPlanStep } from "../components/venue-onboarding/FloorPlanStep.js";
 import { LaunchStep } from "../components/venue-onboarding/LaunchStep.js";
@@ -16,13 +15,21 @@ import { VerticalStepRail } from "../components/venue-onboarding/VerticalStepRai
 import { StepIndicator } from "../components/venue-onboarding/StepIndicator.js";
 import { validateBasicInfo } from "../components/venue-onboarding/BasicInfoStep.js";
 import { validateLocationTime } from "../components/venue-onboarding/LocationTimeStep.js";
-import { validateOperatingHours } from "../components/venue-onboarding/OperatingHoursStep.js";
 import {
   EMPTY_FLOOR_PLAN_DRAFT,
   type FloorPlanDraft,
 } from "../components/venue-onboarding/floor-plan-draft.js";
 import { draftFromTemplate } from "../components/venue-onboarding/floor-plan-templates.js";
 import { INITIAL_LAUNCH_PROGRESS } from "../components/venue-onboarding/launch-sequence.js";
+import {
+  emptyDraft,
+  validateQuickSetupHours,
+} from "../components/availability/quick-setup-draft.js";
+
+// LaunchStep's Guest preview reads no tables in the wizard (no venue yet); keep the hook inert.
+vi.mock("../hooks/useTables.js", () => ({
+  useTables: () => ({ data: undefined, isLoading: false, error: null, refetch: vi.fn() }),
+}));
 
 // The step's canvas draws the chosen room's zones (#7256), and SectionZone
 // reaches for Konva primitives (Label/Tag) and a texture loader this suite has
@@ -79,7 +86,6 @@ interface Expectations {
   currencyLabel: string;
   currencyOption: string;
   currencyRequired: string;
-  closedLabel: string;
   slugRequired: string;
   hoursAtLeastOne: string;
   recommendedButton: string;
@@ -101,7 +107,6 @@ const CASES: readonly Expectations[] = [
     currencyLabel: "Moneda",
     currencyOption: "MXN - peso mexicano",
     currencyRequired: "La moneda es obligatoria",
-    closedLabel: "Cerrado",
     slugRequired: "El identificador es obligatorio",
     hoursAtLeastOne: "Al menos un día debe estar abierto",
     recommendedButton: "Usar ajustes recomendados",
@@ -121,7 +126,6 @@ const CASES: readonly Expectations[] = [
     currencyLabel: "Devise",
     currencyOption: "MXN - peso mexicain",
     currencyRequired: "La devise est obligatoire",
-    closedLabel: "Fermé",
     slugRequired: "L’identifiant est obligatoire",
     hoursAtLeastOne: "Au moins un jour doit être ouvert",
     recommendedButton: "Utiliser les paramètres recommandés",
@@ -173,13 +177,12 @@ describe.each(CASES)("venue onboarding wizard in $tag", (c) => {
     expect(validateBasicInfo({ name: "Ok", slug: "", venueGroupId: "" }, "idle").slug).toBe(
       c.slugRequired
     );
-    expect(validateOperatingHours({})?.global).toBe(c.hoursAtLeastOne);
+    expect(validateQuickSetupHours({})?.global).toBe(c.hoursAtLeastOne);
   });
 
-  it("translates the hours, settings and floor plan steps", () => {
+  it("translates the settings and floor plan steps", () => {
     render(
       <>
-        <OperatingHoursStep data={{}} onChange={noop} />
         <SettingsStep data={RECOMMENDED_SETTINGS} errors={{}} onChange={noop} onAdvance={noop} />
         <FloorPlanStep
           draft={RESTAURANT_DRAFT}
@@ -192,7 +195,6 @@ describe.each(CASES)("venue onboarding wizard in $tag", (c) => {
         />
       </>
     );
-    expect(screen.getAllByText(c.closedLabel)).toHaveLength(7);
     expect(screen.getByRole("button", { name: c.recommendedButton })).toBeInTheDocument();
     expect(screen.getByText(c.floorPlanHeading)).toBeInTheDocument();
     // The room picker's own copy: a card named in the active locale, and the
@@ -209,7 +211,7 @@ describe.each(CASES)("venue onboarding wizard in $tag", (c) => {
         <LaunchStep
           basicInfo={{ name: "Casa", slug: "casa", venueGroupId: "" }}
           locationTime={{ ianaTimezone: "America/Mexico_City", currencyCode: "MXN" }}
-          operatingHours={{}}
+          hoursDraft={emptyDraft("s1")}
           settings={RECOMMENDED_SETTINGS}
           onLaunch={async () => undefined}
           onCelebrationDone={noop}

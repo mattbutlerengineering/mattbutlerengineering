@@ -61,7 +61,6 @@ Run on cron schedules for ongoing health and compliance.
 | `production-feedback.yml`      | scheduled | Collect production feedback signals      |
 | `reflection-review.yml`        | scheduled | Review and process reflections           |
 | `resource-audit.yml`           | scheduled | Find orphaned cloud resources            |
-| `revert-rca-detection.yml`     | scheduled | Detect reverted commits                  |
 | `secret-rotation-reminder.yml` | scheduled | Remind about secret rotation             |
 | `sentry-triage.yml`            | scheduled | Triage Sentry production errors          |
 | `stale-in-progress.yml`        | scheduled | Detect stale in-progress issues          |

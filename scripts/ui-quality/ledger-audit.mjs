@@ -131,6 +131,24 @@ function outcomeFor(d, captured, judgeStatus) {
 }
 
 /**
+ * The `<app>|<route>` keys of the due rows this fire audited — the same
+ * outcome `applyRecord` stamps `audited` (captured with a screenshot AND
+ * judged), so findings and the ledger never disagree on what was audited.
+ * @param {{ due: object[] }} dueFile
+ * @param {Record<string, object[]>} manifests - app → manifest rows
+ * @param {object|null} judgeStatus
+ * @returns {string[]}
+ */
+export function auditedRoutes(dueFile, manifests, judgeStatus) {
+  return dueFile.due
+    .filter((d) => {
+      const captured = (manifests[d.app] ?? []).find((m) => m.route === d.route);
+      return outcomeFor(d, captured, judgeStatus) === "audited";
+    })
+    .map(keyOf);
+}
+
+/**
  * Apply one fire's captures + judge-status to the ledger.
  * @param {object[]} rows - current ledger
  * @param {{ due: object[], unreachable_auth: object[] }} dueFile

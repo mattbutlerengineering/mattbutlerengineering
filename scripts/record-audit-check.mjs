@@ -22,9 +22,14 @@
  *   node scripts/record-audit-check.mjs --surface <id> \
  *     --performance <0-1> --accessibility <0-1> --best-practices <0-1> --seo <0-1>
  *   node scripts/record-audit-check.mjs --surface <id> --error "<message>"
+ *   node scripts/record-audit-check.mjs --surface <id> --auth-gated "<method>" [scores...]
+ *
+ * `--error` and `--auth-gated` persist a lastOutcome so a failed or auth0-gated
+ * surface still counts as checked (#8419) instead of keeping its zone at
+ * "never checked" forever.
  */
 
-import { loadInventory, saveInventory, updateSurfaceScore } from "@mbe/agent-core";
+import { loadInventory, saveInventory, recordSurfaceOutcome } from "@mbe/agent-core";
 
 const SCORE_FLAGS = {
   "--performance": "performance",
@@ -40,10 +45,10 @@ const SCORE_KEYS = Object.values(SCORE_FLAGS);
  * unless at least one score flag was passed.
  *
  * @param {string[]} argv
- * @returns {{ surface: string | null, scores: Record<string, number> | null, error: string | null }}
+ * @returns {{ surface: string | null, scores: Record<string, number> | null, error: string | null, authGated: string | null }}
  */
 export function parseArgs(argv) {
-  const args = { surface: null, scores: null, error: null };
+  const args = { surface: null, scores: null, error: null, authGated: null };
 
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -54,6 +59,9 @@ export function parseArgs(argv) {
       i += 1;
     } else if (flag === "--error") {
       args.error = value;
+      i += 1;
+    } else if (flag === "--auth-gated") {
+      args.authGated = value;
       i += 1;
     } else if (flag in SCORE_FLAGS) {
       args.scores = { ...(args.scores ?? {}), [SCORE_FLAGS[flag]]: Number(value) };
@@ -78,25 +86,44 @@ export function isCompleteScores(scores) {
 }
 
 /**
- * Pure merge: replace the matching surface's score/history via
- * `updateSurfaceScore()`, leave every other surface untouched.
+ * Pure merge: record one check outcome on the matching surface via
+ * `recordSurfaceOutcome()`, leave every other surface untouched.
  *
  * @param {import("@mbe/agent-core").AuditInventory} inventory
  * @param {string} surfaceId
- * @param {import("@mbe/agent-core").LighthouseScores} scores
+ * @param {import("@mbe/agent-core").LighthouseScores | null} scores
+ * @param {{ status?: import("@mbe/agent-core").CheckStatus, detail?: string | null }} [outcome]
  * @returns {{ inventory: import("@mbe/agent-core").AuditInventory, updated: boolean }}
  */
-export function applyScoreUpdate(inventory, surfaceId, scores) {
+export function applyScoreUpdate(inventory, surfaceId, scores, outcome = {}) {
   const index = inventory.surfaces.findIndex((s) => s.id === surfaceId);
   if (index === -1) return { inventory, updated: false };
 
-  const updatedSurface = updateSurfaceScore(inventory.surfaces[index], scores);
+  const updatedSurface = recordSurfaceOutcome(
+    inventory.surfaces[index],
+    outcome.status ?? "scored",
+    outcome.detail ?? null,
+    scores
+  );
   const surfaces = inventory.surfaces.map((s, i) => (i === index ? updatedSurface : s));
 
   return {
     inventory: { ...inventory, surfaces, lastUpdated: new Date().toISOString() },
     updated: true,
   };
+}
+
+/**
+ * Maps parsed flags to a check outcome: `--auth-gated` wins over `--error`,
+ * which wins over a plain scored check.
+ *
+ * @param {{ error: string | null, authGated: string | null }} args
+ * @returns {{ status: import("@mbe/agent-core").CheckStatus, detail: string | null }}
+ */
+export function resolveOutcome(args) {
+  if (args.authGated) return { status: "auth-gated", detail: args.authGated };
+  if (args.error) return { status: "error", detail: args.error };
+  return { status: "scored", detail: null };
 }
 
 /* c8 ignore start -- CLI entrypoint, exercised via unit tests on the pure functions above */
@@ -109,21 +136,30 @@ async function main() {
     return;
   }
 
-  if (!isCompleteScores(args.scores)) {
-    if (args.error) {
-      console.log(`SKIPPED: ${args.surface} check failed (${args.error}) — no scores to record`);
-      return;
-    }
+  const scored = isCompleteScores(args.scores);
+  if (args.scores && !scored) {
+    console.error("FAIL: partial scores — provide all four or none");
+    process.exitCode = 1;
+    return;
+  }
+  if (!scored && !args.error && !args.authGated) {
     console.error(
-      "FAIL: provide all four scores (--performance --accessibility --best-practices --seo) or --error <message>"
+      "FAIL: provide all four scores (--performance --accessibility --best-practices --seo), --auth-gated <method>, or --error <message>"
     );
     process.exitCode = 1;
     return;
   }
 
+  const outcome = resolveOutcome(args);
+
   const repoRoot = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
   const inventory = await loadInventory(repoRoot);
-  const { inventory: next, updated } = applyScoreUpdate(inventory, args.surface, args.scores);
+  const { inventory: next, updated } = applyScoreUpdate(
+    inventory,
+    args.surface,
+    scored ? args.scores : null,
+    outcome
+  );
 
   if (!updated) {
     console.error(`FAIL: no surface with id "${args.surface}" in inventory`);
@@ -132,7 +168,9 @@ async function main() {
   }
 
   await saveInventory(repoRoot, next);
-  console.log(`Recorded ${args.surface}: ${JSON.stringify(args.scores)}`);
+  console.log(
+    `Recorded ${args.surface} [${outcome.status}${outcome.detail ? `: ${outcome.detail}` : ""}]: ${JSON.stringify(scored ? args.scores : null)}`
+  );
 }
 
 const isMain = process.argv[1] && process.argv[1].endsWith("record-audit-check.mjs");

@@ -32,6 +32,8 @@ vi.mock("@mbe/auth/react", () => ({
 
 const mockVenuesCreate = vi.fn();
 const mockGetBySlug = vi.fn();
+const mockGetConfig = vi.fn();
+const mockSaveConfig = vi.fn();
 const mockFloorPlansCreate = vi.fn();
 const mockFloorPlansSetActive = vi.fn();
 const mockTablesCreate = vi.fn();
@@ -39,6 +41,7 @@ const mockTablesCreate = vi.fn();
 // which only recomputes when the access token changes.
 const mockApiClient = {
   venues: { create: mockVenuesCreate, getBySlug: mockGetBySlug },
+  availability: { getConfig: mockGetConfig, saveConfig: mockSaveConfig },
   floorPlans: { create: mockFloorPlansCreate, setActive: mockFloorPlansSetActive },
   tables: { create: mockTablesCreate },
 };
@@ -522,6 +525,19 @@ describe("VenueOnboardingPage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockVenuesFixture = [];
+    // The hours stage reads the new venue's (legacy-derived) config and saves the typed week over it.
+    mockGetConfig.mockResolvedValue({
+      config: {
+        schedules: [],
+        venueServices: [],
+        scheduleServices: [],
+        assignments: [],
+        dateRules: [],
+      },
+      version: 0,
+      source: "empty",
+    });
+    mockSaveConfig.mockResolvedValue({ version: 1, changeId: "change-1" });
   });
 
   it("should render step 1 (Welcome + Basic Info) by default", () => {
@@ -611,7 +627,7 @@ describe("VenueOnboardingPage", () => {
     fireEvent.click(screen.getByText("Next"));
 
     // Step 3 — operating hours (must toggle at least one day)
-    expect(screen.getByText("Operating Hours")).toBeTruthy();
+    expect(screen.getByText("Regular week")).toBeTruthy();
     fillRegularWeek();
     fireEvent.click(screen.getByText("Next"));
 
@@ -690,7 +706,7 @@ describe("VenueOnboardingPage", () => {
 
     expect(screen.getAllByText("Choose a time.")).toHaveLength(3);
     expect(screen.getByText("Give this service a name.")).toBeTruthy();
-    expect(screen.getByText("Operating Hours")).toBeTruthy();
+    expect(screen.getByText("Regular week")).toBeTruthy();
   });
 
   it("keeps Next gated while the quick-setup card is invalid, and says why", () => {
@@ -813,6 +829,10 @@ describe("VenueOnboardingPage", () => {
       order.push("venue");
       return makeVenue("venue-1");
     });
+    mockSaveConfig.mockImplementation(async () => {
+      order.push("hours");
+      return { version: 1, changeId: "change-1" };
+    });
     mockFloorPlansCreate.mockImplementation(async () => {
       order.push("floorPlan");
       return makeFloorPlan("plan-1", "venue-1");
@@ -839,7 +859,14 @@ describe("VenueOnboardingPage", () => {
       expect(mockFloorPlansSetActive).toHaveBeenCalledOnce();
     });
 
-    expect(order).toEqual(["venue", "floorPlan", "table:Table A", "table:Table B", "activate"]);
+    expect(order).toEqual([
+      "venue",
+      "hours",
+      "floorPlan",
+      "table:Table A",
+      "table:Table B",
+      "activate",
+    ]);
     expect(mockVenuesCreate).toHaveBeenCalledOnce();
     expect(mockFloorPlansCreate).toHaveBeenCalledOnce();
   });
@@ -1099,7 +1126,7 @@ describe("VenueOnboardingPage", () => {
       "Default Reservation Duration (minutes)"
     ) as HTMLInputElement;
     fireEvent.change(durationInput, { target: { value: "60" } });
-    const partyInput = screen.getByLabelText("Maximum Party Size") as HTMLInputElement;
+    const partyInput = screen.getByLabelText("Largest party online") as HTMLInputElement;
     fireEvent.change(partyInput, { target: { value: "8" } });
     fireEvent.click(screen.getByText("Next"));
 

@@ -210,6 +210,26 @@ describe("closure notice service: enqueue", () => {
     expect(scheduler.jobs[0]!.payload.urgent).toBe(false);
   });
 
+  it("a reopen notice can be limited to the guests an edit gave their date back to (#8413)", async () => {
+    const scheduler = fakeScheduler();
+    const service = createClosureNoticeService({
+      scheduler: scheduler as never,
+      store: {
+        ...laterClosure,
+        listNotifiable: async () => [{ outcomeId: "o0" }, { outcomeId: "o1" }, { outcomeId: "o2" }],
+      } as never,
+    });
+    const sent = await service.enqueueForReopen({
+      venueId: "v1",
+      ruleId: "r1",
+      now: NOW,
+      only: ["o1"],
+    });
+    expect(sent).toBe(1);
+    expect(scheduler.jobs.map((j) => j.payload.outcomeId)).toEqual(["o1"]);
+    expect(scheduler.jobs[0]!.payload.variant).toBe("reopened");
+  });
+
   it("job ids pass BullMQ's own option validation (no ':' outside its 3-part form)", async () => {
     const scheduler = fakeScheduler();
     const service = createClosureNoticeService({
@@ -326,6 +346,7 @@ describe("closure notices settle within 2 minutes (time-advanced)", () => {
     venueId: "v1",
     reservationId: `res-${id}`,
     originHost: null,
+    locale: "en-US",
   });
 
   /** A worker honouring the queue's attempts + exponential backoff against the fake clock. */

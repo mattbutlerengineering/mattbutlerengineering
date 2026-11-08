@@ -55,25 +55,26 @@ export function DialogControlProvider({
 }
 
 /**
- * Dialog `open` follows the plan (closed until its button is pressed) and
+ * Dialog and Drawer `open` follow the plan (closed until its button is pressed) and
  * Close / Esc / the ✕ — which only emit `"close"` — actually dismiss it.
  * Button presses run the planned open or close as well as `press`.
  */
 export function createInteractiveRegistry(base: ComponentRegistry): ComponentRegistry {
   const next: ComponentRegistry = { ...base };
-  const dialogView = base.Dialog;
   const buttonView = base.Button;
 
-  if (dialogView) {
-    const DialogView = dialogView;
-    function DialogEntry(props: ComponentRenderProps) {
+  for (const type of ["Dialog", "Drawer"] as const) {
+    const overlayView = base[type];
+    if (!overlayView) continue;
+    const OverlayView = overlayView;
+    function OverlayEntry(props: ComponentRenderProps) {
       const api = use(DialogControlContext);
       const key = genKeyOf(props.element);
       const managed = Boolean(api && key && api.plan.dialogs[key]);
       const current = props.element.props as { open?: unknown } | undefined;
       const open = managed && api && key ? api.isOpen(key) : current?.open === true;
       return (
-        <DialogView
+        <OverlayView
           {...props}
           element={{ ...props.element, props: { ...current, open } }}
           emit={(event: string) => {
@@ -83,8 +84,8 @@ export function createInteractiveRegistry(base: ComponentRegistry): ComponentReg
         />
       );
     }
-    DialogEntry.displayName = "DialogEntry";
-    next.Dialog = DialogEntry;
+    OverlayEntry.displayName = `${type}Entry`;
+    next[type] = OverlayEntry;
   }
 
   if (buttonView) {

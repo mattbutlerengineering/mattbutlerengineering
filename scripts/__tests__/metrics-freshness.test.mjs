@@ -129,6 +129,7 @@ describe("FRESHNESS_POLICY", () => {
   it("no longer watches domain-metrics — the collector was retired (#5561)", () => {
     expect(FRESHNESS_POLICY.map((p) => p.metric).sort()).toEqual([
       "ai-issue-feedback",
+      "audit-coverage", // weekly, #8419
       "lighthouse", // weekly, #7581
       "mutation-score", // weekly, #7581
       "process-metrics", // queueEfficiency
@@ -166,6 +167,7 @@ describe("FRESHNESS_POLICY", () => {
         sdlcSpeed: 14,
         lighthouse: 21,
         "mutation-score": 21,
+        "audit-coverage": 21,
         "shipped-features": 14,
       };
       expect(entry.maxAgeDays).toBeLessThanOrEqual(weekly[entry.label ?? entry.metric] ?? 7);

@@ -16,6 +16,7 @@ const offer = (label: string, slot: string) => ({
 
 const base: ClosureNoticeContent = {
   kind: "cancelled",
+  locale: "en-US",
   venueName: "Bistro Lune",
   guestName: "Ana Rivera",
   closureDate: "2026-12-24",

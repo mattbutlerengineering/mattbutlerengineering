@@ -886,6 +886,10 @@
           to: z.number().int(),
           /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
           bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
+          /** The service a `service` closure is for; absent for other targets and from an older API. */
+          venueServiceId: z.string().optional(),
+          /** The section a section closure is for; absent for other targets and from an older API. */
+          sectionId: z.string().optional(),
         })
       ),
       bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -903,6 +907,8 @@
        * names the series, the closure command refuses with the version conflict if the stored series
        * is no longer this row (a teammate changed its message, weekdays or end date since). Optional
        * for clients from before this field: without it only the draft's other fields are compared.
+       * Required when `remove` names a one-date or range closure (an edit of it): the closure is then
+       * compared as a whole, and the edit is refused as invalid without it.
        */
       replaces: DateRuleSchema.optional(),
     });
@@ -913,6 +919,13 @@
     export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
     export const BOOKING_ORIGIN_HOSTS = ["eat-sheet.com", "mattbutlerengineering.com"] as const;
     export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
+    export const GUEST_NOTICE_LOCALES = ["en-US", "es-MX", "fr-CA"] as const;
+    export const DEFAULT_GUEST_NOTICE_LOCALE = "en-US";
+    export const GuestNoticeLocaleSchema = z.enum(GUEST_NOTICE_LOCALES);
+    export type GuestNoticeLocale = z.infer<typeof GuestNoticeLocaleSchema>;
+    export function resolveGuestNoticeLocale(raw: unknown): GuestNoticeLocale {
+      return GuestNoticeLocaleSchema.catch(DEFAULT_GUEST_NOTICE_LOCALE).parse(raw);
+    }
     export const ClosureImpactReservationSchema = z.object({
       id: z.string(),
       startTime: z.string(),
@@ -925,6 +938,8 @@
       runsIntoClosure: z.boolean(),
       /** The host the guest booked on; it picks the brand of the notice they are sent. */
       originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+      /** The language the guest booked in; their notice is written in it. Absent reads as en-US. */
+      locale: GuestNoticeLocaleSchema.optional(),
       /**
        * Only on a `shortened` group: the start "Move to the nearest open time" would give this booking,
        * from the logic the closure command moves with. `null`: no open time, so a move is refused.
@@ -947,6 +962,12 @@
       depositsHeld: z.number().int(),
       /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
       groups: z.array(ClosureImpactGroupSchema),
+      /**
+       * An edit of a saved closure that gives dates back (ux.md F6 step 5): the guests it cancelled on
+       * those dates whose booking has not started, whom a reopen notice can still reach. Absent when
+       * none, and for anything but an edit.
+       */
+      givenBack: z.object({ guests: z.number().int().min(1) }).optional(),
     });
     export const CLOSURE_NOTICE_ACTIONS = ["cancel", "move", "keep_notify"] as const;
     export const ClosureNoticePreviewBodySchema = z.object({
@@ -966,6 +987,8 @@
         .nullable(),
       /** The booking's host: the notice is sent from, and links to, that host's brand. */
       originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+      /** The language the guest booked in; the notice is rendered in it. Absent reads as en-US. */
+      locale: GuestNoticeLocaleSchema.optional(),
     });
     export const ClosureNoticePreviewSchema = z.object({
       email: z.object({ from: z.string(), subject: z.string(), text: z.string() }),
@@ -1091,6 +1114,11 @@
       rule: DateRuleSchema,
       alongside: ClosureAlongsideSchema.optional(),
       decisions: z.array(ClosureDecisionSchema).default([]),
+      /**
+       * An edit that gives dates back: tell the guests the closure cancelled on those dates that they
+       * are open again, as a reopen's notice does. Ignored when the edit gives back no such guest.
+       */
+      tellGivenBackGuests: z.boolean().optional(),
     });
     export const MAX_CLOSURE_BATCH = 20;
     export const CreateClosuresBodySchema = z.object({
@@ -1123,6 +1151,11 @@
       version: z.number().int(),
       changeId: z.string(),
       outcomes: ClosureOutcomeCountsSchema,
+      /**
+       * Guests an edit's reopen notice was requested for on the dates it gave back. Absent when the
+       * edit gave back none, told none, and from an older API.
+       */
+      givenBackNotified: z.number().int().min(1).optional(),
     });
     export const ClosuresResultSchema = z.object({
       /** `Venue.availabilityVersion` after the last item. */
@@ -2295,6 +2328,11 @@
           .nullable()
           .describe("Floor plan to assign, or null to unassign")
           .optional(),
+        sectionId: z
+          .string()
+          .nullable()
+          .describe("Floor-plan section to put the table in, or null for no section")
+          .optional(),
         shapeMetadata: TableShapeMetadataSchema.nullable()
           .describe("Canvas shape/position, or null to clear")
           .optional(),
@@ -2404,6 +2442,8 @@
       notes: z.string().describe("Special requests or notes").optional(),
       occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
       seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+      /** The booking widget's locale tag; stored as the language of the guest's later notices. Unsupported tags read as en-US. */
+      locale: z.string().max(35).optional(),
     });
     export const PublicReservationBodySchema = z.object({
       holdId: z.string().min(1),
@@ -2411,6 +2451,8 @@
       guestEmail: z.string().min(1),
       guestPhone: z.string().optional(),
       specialRequests: z.string().max(500).optional(),
+      /** The booking widget's locale tag; stored as the language of the guest's later notices. Unsupported tags read as en-US. */
+      locale: z.string().max(35).optional(),
     });
     export const ModifyReservationBodySchema = z
       .object({
@@ -3262,6 +3304,8 @@
       isActive?: boolean;
       priority?: number;
       floorPlanId?: string | null;
+      /** The floor-plan section the table belongs to; `null` removes it from its section. */
+      sectionId?: string | null;
       shapeMetadata?: TableShapeMetadata | null;
     }
   </file>

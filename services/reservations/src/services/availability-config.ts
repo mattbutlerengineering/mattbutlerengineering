@@ -45,6 +45,8 @@ import { civilDateIn, planVenueMigration } from "./availability-migration.js";
 import { planPreview, type PreviewPlan } from "./availability-preview.js";
 import type { ConfigState, LegacyNotes } from "./availability-config-state.js";
 import { prisma } from "./database.js";
+import { onActivePlanWhere } from "./bookable-tables.js";
+import { loadSectionIndex, type SectionIndex } from "./section-index.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
 /**
@@ -69,7 +71,13 @@ import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 export type StoreDb = ConfigRowDb &
   Pick<
     PrismaClient,
-    "venue" | "reservation" | "availabilityChange" | "table" | "closureOutcome" | "$executeRaw"
+    | "venue"
+    | "reservation"
+    | "availabilityChange"
+    | "table"
+    | "floorPlanSection"
+    | "closureOutcome"
+    | "$executeRaw"
   >;
 export type StoreClient = Pick<PrismaClient, "$transaction">;
 
@@ -247,6 +255,7 @@ export function planSave(input: {
   bookings: readonly BookedReservation[];
   /** Every table of the venue, active or not: a date rule may only block these. */
   tableIds: ReadonlySet<string>;
+  sections?: SectionIndex;
   now: Date;
   newId?: () => string;
   /** Undoing a venue's first save returns it to no hours at all, which is not an error. */
@@ -261,6 +270,7 @@ export function planSave(input: {
     scopeConflicts: body.scopeConflicts,
     ...(input.exact ? { exact: true } : {}),
     tableIds: input.tableIds,
+    ...(input.sections ? { sections: input.sections } : {}),
     now,
     today: civilDateIn(now, state.timezone),
     newId: input.newId ?? randomUUID,
@@ -564,9 +574,10 @@ export async function commitSave(
   if (!state) throw new SaveRefused({ kind: "not_found" });
   const request = await resolve(state);
   const today = civilDateIn(now, state.timezone);
-  const [bookings, tables] = await Promise.all([
+  const [bookings, tables, sections] = await Promise.all([
     futureBookings(tx, venueId, today, now),
     tx.table.findMany({ where: { venueId }, select: { id: true } }),
+    loadSectionIndex(tx, venueId),
   ]);
   const tableIds = new Set(tables.map((t) => t.id));
   const plan = planSave({
@@ -574,6 +585,7 @@ export async function commitSave(
     body: { expectedVersion, changes: request.changes, scopeConflicts: request.scopeConflicts },
     bookings,
     tableIds,
+    sections,
     now,
     ...(request.allowNoHours ? { allowNoHours: true } : {}),
     ...(request.exact ? { exact: true } : {}),
@@ -663,10 +675,10 @@ export async function previewAvailabilityConfig(
     await setVenueContext(tx, venueId);
     const state = await loadConfigState(tx, venueId, now);
     if (!state) return { kind: "not_found" };
-    const [bookings, tables] = await Promise.all([
+    const [bookings, tables, sections] = await Promise.all([
       futureBookings(tx, venueId, civilDateIn(now, state.timezone), now),
       tx.table.findMany({
-        where: { venueId },
+        where: { venueId, ...onActivePlanWhere() },
         select: {
           id: true,
           name: true,
@@ -677,12 +689,14 @@ export async function previewAvailabilityConfig(
           priority: true,
         },
       }),
+      loadSectionIndex(tx, venueId),
     ]);
     return planPreview({
       state,
       body,
       bookings,
       tableIds: new Set(tables.map((t) => t.id)),
+      sections,
       tables,
       now,
     });

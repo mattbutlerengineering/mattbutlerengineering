@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { ApiResponse, ProblemDetails, Reservation } from "@mbe/types";
-import { AppError, publicReservationBodyJsonSchema } from "@mbe/types";
+import { AppError, publicReservationBodyJsonSchema, resolveGuestNoticeLocale } from "@mbe/types";
 import { createHmac, timingSafeEqual } from "crypto";
 import { resolveGuestLink } from "../services/guest-link.js";
 import { withoutGuestLink } from "../services/serializers.js";
@@ -90,6 +90,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
       guestEmail: string;
       guestPhone?: string;
       specialRequests?: string;
+      locale?: string;
     };
     Reply: ApiResponse<PublicReservationResponse> | ProblemDetails;
   }>(
@@ -135,7 +136,7 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
       // this booking (guest-link lookup, hold confirmation) runs inside that
       // venue's RLS context.
       async (request, reply, { venueId }) => {
-        const { holdId, guestName, guestEmail, guestPhone, specialRequests } = request.body;
+        const { holdId, guestName, guestEmail, guestPhone, specialRequests, locale } = request.body;
         const ip = request.ip;
         // Validated in `before`.
         const sessionId = request.headers[SESSION_ID_HEADER] as string;
@@ -164,6 +165,8 @@ export const publicReservationRoutes: FastifyPluginAsync = async (fastify) => {
             actor: guestActor(link.ok ? link.guestId : null),
             // Captured from the request so later guest emails brand by it (#7892).
             originHost: resolveOriginHost(request.headers.origin),
+            // The widget's language, so later notices speak it; unsupported reads as en-US.
+            locale: resolveGuestNoticeLocale(locale),
           },
           {
             door: "public-booking",

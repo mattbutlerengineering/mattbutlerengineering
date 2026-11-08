@@ -189,7 +189,7 @@ Predecessor F1 stands; changes are only these.
 
 ### F-ONB (amended): Onboarding hours step (PRD 1, 2, 3, 8)
 
-The wizard step renders the same form, including **Different days for this service** and **Different hours on some days**. The venue does not exist yet, so the Guest preview is its local mode: the same seven rows computed from the typed hours, with the title "Guest preview", the subtitle "From the hours you typed", no request and no **Party**. "At least one day open" still gates Next. The wizard keeps sending legacy hours (one window per day); how a varied week survives that projection is Architect's (see Dependencies).
+The wizard step renders the same form, including **Different days for this service** and **Different hours on some days**. The venue does not exist yet, so the Guest preview is its local mode: the same seven rows computed from the typed hours, with the title "Guest preview", the subtitle "From the hours you typed", no request and no **Party**. "At least one day open" still gates Next. The Launch review shows the same Guest preview under **Operating Hours**, and Launch saves the typed services as the regular week once the venue exists (a **Hours** row in the stage panel, between Venue and Floor plan; architecture.md decision (d), amended).
 
 ### F-UW (amended): Change regular week (PRD 5, 6, 7)
 

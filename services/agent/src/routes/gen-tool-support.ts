@@ -125,6 +125,68 @@ export function failedBeforeWrite<T extends object>(unsure: string | undefined, 
   return unsure === undefined ? notExecuted(result) : result;
 }
 
+export interface WriteFailureContext {
+  /** What the tool was doing, as a verb phrase: "seat the party". */
+  readonly action: string;
+  /** `saveUnsure(..)`, set by the tool just before its first write request is sent. */
+  readonly unsure: string | undefined;
+  /** What an earlier step of a multi-write tool already saved: "The arrival". */
+  readonly saved?: string;
+}
+
+/**
+ * A refused or failed chat write, in words the model can pass on. Marked
+ * not-executed iff `unsure` is undefined (no write was sent), and never says
+ * "nothing changed" once one was, or once `saved` names an earlier write.
+ */
+export function writeFailure(err: unknown, ctx: WriteFailureContext) {
+  return failedBeforeWrite(ctx.unsure, describeWriteFailure(err, ctx));
+}
+
+function describeWriteFailure(
+  err: unknown,
+  { action, unsure, saved }: WriteFailureContext
+): { readonly error: string; readonly refused?: true } {
+  const outcome = saved
+    ? `${saved} was already saved; check the timeline before trying again.`
+    : "Nothing was changed.";
+  const refusal = refusalOf(err);
+  if (!refusal) {
+    if (unsure) return { error: saved ? `${saved} was already saved. ${unsure}` : unsure };
+    return { error: `Couldn't ${action} right now. ${outcome} Ask the user to try again shortly.` };
+  }
+  if (refusal.status === 403) {
+    return { refused: true, error: `The user doesn't have permission to do this. ${outcome}` };
+  }
+  return { refused: true, error: `${refusal.detail} ${outcome}` };
+}
+
+/**
+ * A failed chat read, in words the model can pass on; never shaped like an empty
+ * result. `what` names what was read ("the menus"). With `notEmpty` ("there are no
+ * bookings"), a transient failure is marked unknown and forbids that reading.
+ */
+export function readFailure(
+  err: unknown,
+  what: string,
+  opts?: { readonly notEmpty?: string }
+):
+  | { readonly refused: true; readonly error: string }
+  | { readonly unknown?: true; readonly error: string } {
+  const refusal = refusalOf(err);
+  if (refusal?.status === 403) {
+    return { refused: true, error: `The user doesn't have permission to see ${what}.` };
+  }
+  if (refusal) return { refused: true, error: refusal.detail };
+  if (opts?.notEmpty) {
+    return {
+      unknown: true,
+      error: `Couldn't read ${what} right now. Tell the user you couldn't check and to try again shortly; do not say ${opts.notEmpty}.`,
+    };
+  }
+  return { error: `Couldn't read ${what}. Ask the user to try again.` };
+}
+
 export interface NamedTable {
   readonly id: string;
   readonly name?: string | null;

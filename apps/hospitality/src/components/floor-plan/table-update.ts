@@ -14,6 +14,8 @@ export interface TableDetailsFormValues {
   minCovers: string;
   maxCovers: string;
   location: string;
+  /** The section's id; an empty string means "No section". */
+  sectionId: string;
   isActive: boolean;
 }
 
@@ -31,6 +33,7 @@ export function tableToFormValues(table: Table): TableDetailsFormValues {
     // against these seeded values, so leaving the field alone sends nothing.
     maxCovers: String(table.maxCovers ?? table.capacity),
     location: table.location ?? "",
+    sectionId: table.sectionId ?? "",
     isActive: table.isActive,
   };
 }
@@ -56,6 +59,8 @@ export function buildTableUpdate(
 
   const location = current.location.trim();
   if (location !== initial.location.trim()) changes.location = location;
+
+  if (current.sectionId !== initial.sectionId) changes.sectionId = current.sectionId || null;
 
   if (current.isActive !== initial.isActive) changes.isActive = current.isActive;
 

@@ -1,6 +1,7 @@
 import type {
   AuditInventory,
   AuditSurface,
+  CheckStatus,
   LighthouseScores,
   Regression,
   ScoreEntry,
@@ -53,6 +54,28 @@ export function updateSurfaceScore(s: AuditSurface, scores: LighthouseScores): A
     lastScore: scores,
     checkHistory: history,
     checkCount: s.checkCount + 1,
+  };
+}
+
+/**
+ * Records a check that may have no scores (failed, or auth-gated and checked
+ * publicly). Always advances `lastChecked`/`checkCount` so the zone counts as
+ * checked; with `scores` it also appends to `checkHistory`.
+ */
+export function recordSurfaceOutcome(
+  s: AuditSurface,
+  status: CheckStatus,
+  detail: string | null,
+  scores: LighthouseScores | null = null
+): AuditSurface {
+  const base: AuditSurface =
+    scores !== null
+      ? updateSurfaceScore(s, scores)
+      : { ...s, lastChecked: new Date().toISOString(), checkCount: s.checkCount + 1 };
+
+  return {
+    ...base,
+    lastOutcome: { status, detail, timestamp: base.lastChecked ?? new Date().toISOString() },
   };
 }
 

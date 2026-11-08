@@ -198,6 +198,32 @@ describe("menu chat tools", () => {
     expect(api.menus.getById).toHaveBeenCalledWith("v1", "m2");
   });
 
+  it("says the user can't see the menus on a 403", async () => {
+    api.menus.list.mockRejectedValue(problem(403));
+
+    await expect(read("list_menus", {})).resolves.toEqual({
+      refused: true,
+      error: "The user doesn't have permission to see the menus.",
+    });
+  });
+
+  it("passes on a menu read's other refusals in the server's words", async () => {
+    api.menus.getById.mockRejectedValue(problem(404, { detail: "Menu not found." }));
+
+    await expect(read("get_menu", { menu: "dinner" })).resolves.toEqual({
+      refused: true,
+      error: "Menu not found.",
+    });
+  });
+
+  it("says a menu read couldn't be done rather than that there are none", async () => {
+    api.menus.getById.mockRejectedValue(problem(502));
+
+    await expect(read("get_menu", { menu: "dinner" })).resolves.toEqual({
+      error: "Couldn't read the menus. Ask the user to try again.",
+    });
+  });
+
   it("names the menus there are when one isn't found", async () => {
     const result = await read("get_menu", { menu: "Lunch" });
 

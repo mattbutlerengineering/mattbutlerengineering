@@ -9,6 +9,7 @@ import { shiftAnchor, visibleDates, type CalendarView } from "./calendar-dates.j
 import { columnDates } from "./selection.js";
 import { useDateSelection, type DateGestureHandlers } from "./useDateSelection.js";
 import { presentDay } from "./day-summary.js";
+import type { ServiceFilter } from "./service-filter.js";
 import { useHolidayNames } from "./use-holidays.js";
 import { periodLabel } from "./period.js";
 import { AvailabilityAgenda } from "./AvailabilityAgenda.js";
@@ -37,6 +38,10 @@ export interface AvailabilityCalendarProps {
   readonly onDragChange?: (dragging: boolean) => void;
   /** Select days is on: a tap picks a day rather than opening it. */
   readonly selecting?: boolean;
+  /** The one service every day reads for (the Services filter); `null`/absent shows all. */
+  readonly serviceFilter?: ServiceFilter | null;
+  /** Section names by id, so a section closure reads "Bar closed" (ADR-032). */
+  readonly sectionNames?: ReadonlyMap<string, string>;
 }
 
 interface CellProps {
@@ -54,6 +59,8 @@ interface CellProps {
   /** The holiday this date falls on ("Thanksgiving"), shown beside the day number. */
   readonly holiday: string | null;
   readonly format: VenueFormat;
+  readonly serviceFilter: ServiceFilter | null;
+  readonly sectionNames?: ReadonlyMap<string, string>;
   readonly handlers: DateGestureHandlers;
   readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>, date: string) => void;
 }
@@ -62,9 +69,9 @@ function Cell(props: CellProps) {
   const { date, summary, isLoading, detailed, isToday, isSelected, isPicked, isTabStop } = props;
   const { isMuted, handlers, isDraft, holiday } = props;
   const { t } = useTranslation();
-  const { format } = props;
+  const { format, serviceFilter, sectionNames } = props;
 
-  const view = presentDay(date, summary, detailed, t, format);
+  const view = presentDay(date, summary, detailed, t, format, serviceFilter, sectionNames);
 
   const className = [
     styles.cell,
@@ -161,7 +168,8 @@ function targetFor(key: string, date: string): string | null {
  */
 export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
   const { view, anchor, today, days, isLoading, selectedDate, draftDates } = props;
-  const { selection, onAnchorChange, loadFailed = false } = props;
+  const { selection, onAnchorChange, loadFailed = false, serviceFilter = null } = props;
+  const { sectionNames } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const gridRef = useRef<HTMLDivElement>(null);
@@ -261,6 +269,8 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
         loadFailed={loadFailed}
         handlersFor={handlersFor}
         holidays={holidays}
+        serviceFilter={serviceFilter}
+        sectionNames={sectionNames}
         onToggle={toggleSelected}
       />
     );
@@ -306,6 +316,8 @@ export function AvailabilityCalendar(props: AvailabilityCalendarProps) {
               isMuted={view === "month" && !date.startsWith(anchorMonth)}
               holiday={holidays.get(date) ?? null}
               format={format}
+              serviceFilter={serviceFilter}
+              sectionNames={sectionNames}
               handlers={handlersFor(date)}
               onKeyDown={handleKeyDown}
             />

@@ -1,17 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { buildClosureEmail, buildClosureSms, smsSegments } from "./closure-content.js";
-import {
-  previewClosureNotice,
-  PREVIEW_LINK_TEXT,
-  type ClosurePreviewInput,
-} from "./closure-preview.js";
+import { previewClosureNotice, type ClosurePreviewInput } from "./closure-preview.js";
 import { buildManageUrl } from "./manage-url.js";
 
 /** About the length of a real signed manage token (id, email, expiry and an HMAC, base64url). */
+const PREVIEW_LINK_TEXT = "[the guest's own link]";
 const REAL_TOKEN = "t".repeat(187);
 
 const BASE: ClosurePreviewInput = {
   action: "cancel",
+  locale: "en-US",
   venueName: "Rivera's <Bistro>",
   timezone: "America/Los_Angeles",
   closureDate: "2026-12-24",
@@ -29,6 +27,7 @@ const BASE: ClosurePreviewInput = {
 function sent(input: ClosurePreviewInput): string {
   return buildClosureSms({
     kind: { cancel: "cancelled", move: "moved", keep_notify: "kept" }[input.action] as never,
+    locale: input.locale,
     venueName: input.venueName,
     guestName: input.guestName,
     closureDate: input.closureDate,
@@ -57,6 +56,7 @@ describe("previewClosureNotice", () => {
     expect(email.subject).toBe(
       buildClosureEmail({
         kind: "cancelled",
+        locale: "en-US",
         venueName: BASE.venueName,
         guestName: BASE.guestName,
         closureDate: BASE.closureDate,

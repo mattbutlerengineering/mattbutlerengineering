@@ -73,4 +73,19 @@ describe("planDialogControls", () => {
     };
     expect(planDialogControls(spec).buttons.x).toEqual({ kind: "close", dialogKey: "dlg" });
   });
+  it("treats a Drawer like a Dialog: an opener starts it closed, a Close button dismisses it", () => {
+    const spec: Spec = {
+      root: "page",
+      elements: {
+        page: { type: "Stack", props: {}, children: ["open", "drw"] },
+        open: { type: "Button", props: { label: "Open advanced options" }, children: [] },
+        drw: { type: "Drawer", props: { open: true, title: "Advanced" }, children: ["x"] },
+        x: { type: "Button", props: { label: "Close" }, children: [] },
+      },
+    };
+    const plan = planDialogControls(spec);
+    expect(plan.dialogs.drw).toEqual({ initialOpen: false });
+    expect(plan.buttons.open).toEqual({ kind: "open", dialogKey: "drw" });
+    expect(plan.buttons.x).toEqual({ kind: "close", dialogKey: "drw" });
+  });
 });

@@ -1,10 +1,12 @@
-import { addDays, validateConfig } from "@mbe/availability";
+import { addDays, expandSectionRules, validateConfig } from "@mbe/availability";
 import type { ClosureAlongside, ClosureImpact, DateRule } from "@mbe/types";
 import type { PrismaClient } from "../generated/prisma/index.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 import { referenceIssues, SCOPE_CONFLICT_HORIZON_DAYS } from "./availability-config-plan.js";
 import { loadConfigState, stillToServeWhere, type ConfigState } from "./availability-config.js";
 import { civilDateIn } from "./availability-migration.js";
+import { isPlainClosure } from "./closure-alongside.js";
+import { givenBackGuests } from "./closure-given-back.js";
 import { owesRefund, refundOwedCents } from "./closure-deposit.js";
 import {
   computeClosureImpact,
@@ -13,6 +15,7 @@ import {
   type Occupancy,
 } from "./closure-impact.js";
 import { prisma } from "./database.js";
+import { loadSectionIndex } from "./section-index.js";
 import { activeHoldWindow, NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
 /**
@@ -22,7 +25,10 @@ import { activeHoldWindow, NOT_BOOKED_STATUSES } from "./slot-rules.js";
  */
 
 type StoreClient = Pick<PrismaClient, "$transaction">;
-type ImpactDb = Pick<PrismaClient, "table" | "reservation" | "reservationHold">;
+type ImpactDb = Pick<
+  PrismaClient,
+  "table" | "reservation" | "reservationHold" | "floorPlanSection"
+>;
 
 export type ClosureImpactOutcome =
   | { kind: "ok"; impact: ClosureImpact }
@@ -96,15 +102,25 @@ export async function impactInTransaction(
   tx: ImpactDb,
   venueId: string,
   state: ConfigState,
-  rule: DateRule,
+  draft: DateRule,
   now: Date,
-  alongside?: ClosureAlongside
+  draftAlongside?: ClosureAlongside
 ): Promise<ClosureImpactOutcome> {
-  const tables = await tx.table.findMany({ where: { venueId }, select: { id: true } });
+  const [tables, sections] = await Promise.all([
+    tx.table.findMany({ where: { venueId }, select: { id: true } }),
+    loadSectionIndex(tx, venueId),
+  ]);
+  // A section closure blocks its section's tables now, whatever tableIds the client sent (ADR-032).
+  const [expandedRule] = expandSectionRules([draft], sections.membership);
+  const rule = expandedRule ?? draft;
+  const alongside = draftAlongside && {
+    ...draftAlongside,
+    upsert: expandSectionRules(draftAlongside.upsert, sections.membership),
+  };
   const next = withClosure(state.effective, rule, alongside);
   const issues = [
     ...validateConfig(next),
-    ...referenceIssues(next, new Set(tables.map((t) => t.id))),
+    ...referenceIssues(next, new Set(tables.map((t) => t.id)), sections.ids),
   ];
   if (issues.length > 0) return { kind: "invalid", issues };
 
@@ -127,6 +143,7 @@ export async function impactInTransaction(
       partySize: true,
       guestName: true,
       originHost: true,
+      locale: true,
       deposit: {
         select: {
           amountCents: true,
@@ -161,6 +178,12 @@ export async function impactInTransaction(
   return { kind: "ok", impact };
 }
 
+/** The saved one-date, range or open-ended closure an edit replaces, if that is what it replaces. */
+function editedClosure(state: ConfigState, alongside: ClosureAlongside): DateRule | undefined {
+  const saved = state.stored.dateRules.find((r) => r.id === alongside.remove[0]);
+  return saved && isPlainClosure(saved) ? saved : undefined;
+}
+
 export async function getClosureImpact(
   venueId: string,
   rule: DateRule,
@@ -172,7 +195,24 @@ export async function getClosureImpact(
     await setVenueContext(tx, venueId);
     const state = await loadConfigState(tx, venueId, now);
     if (!state) return { kind: "not_found" as const };
-    return impactInTransaction(tx, venueId, state, rule, now, alongside);
+    const found = await impactInTransaction(tx, venueId, state, rule, now, alongside);
+    if (found.kind !== "ok") return found;
+    // An edit that gives dates back also asks about the guests the closure cancelled on them.
+    const replaced = alongside?.remove.length === 1 ? editedClosure(state, alongside) : undefined;
+    const given =
+      replaced && rule.kind === "closure" && rule.repeat == null
+        ? await givenBackGuests(tx, {
+            venueId,
+            stored: state.stored.dateRules,
+            replaced,
+            next: rule,
+            today: civilDateIn(now, state.timezone),
+            now,
+          })
+        : null;
+    return given
+      ? { kind: "ok", impact: { ...found.impact, givenBack: { guests: given.outcomeIds.length } } }
+      : found;
   });
 }
 

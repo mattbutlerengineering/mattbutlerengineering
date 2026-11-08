@@ -308,26 +308,6 @@ for (const { route } of pages) {
         /\/(api\/v1\/availability\/[^/?]+(\?|$)|public\/v1\/venues\/[^/]+\/availability)/,
         (r) => r.fulfill({ status: 200, contentType: "application/json", body: slots })
       );
-      if (route === "setup") {
-        // An operational venue is bounced off the /setup checklist; with no
-        // floor plan the venue is still in setup and the checklist renders.
-        await page.route(/\/api\/v1\/floor-plans\?/, (r) =>
-          r.fulfill({
-            status: 200,
-            json: {
-              data: [],
-              pagination: {
-                page: 1,
-                limit: 25,
-                total: 0,
-                totalPages: 0,
-                hasNext: false,
-                hasPrev: false,
-              },
-            },
-          })
-        );
-      }
       if (route === "admin") {
         // RequireAdmin reads the `admin` permission off the OIDC profile.
         await page.addInitScript(() => {

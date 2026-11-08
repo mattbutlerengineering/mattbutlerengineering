@@ -170,6 +170,157 @@
       };
     }
   </file>
+  <file path="src/components/availability/also-apply.ts">
+    export interface AlsoApplyTarget {
+      readonly scheduleId: string;
+      readonly scheduleName: string;
+    }
+    export interface AlsoApplyOption {
+      readonly venueServiceId: string;
+      readonly serviceName: string;
+      readonly targets: readonly AlsoApplyTarget[];
+    }
+    export type AlsoApplyPicks = Readonly<Record<string, readonly string[]>>;
+    function changedSourceRows(
+      config: AvailabilityConfig,
+      edit: AvailabilityConfigChanges,
+      sourceScheduleId: string
+    ): ScheduleService[] {
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      return (edit.upsert.scheduleServices ?? []).filter((row) => {
+        const was = stored.get(row.id);
+        return (
+          row.scheduleId === sourceScheduleId &&
+          was !== undefined &&
+          was.scheduleId === sourceScheduleId &&
+          timesOf(was) !== timesOf(row)
+        );
+      });
+    }
+    export function alsoApplyOptions(
+      config: AvailabilityConfig,
+      edit: AvailabilityConfigChanges,
+      sourceScheduleId: string
+    ): AlsoApplyOption[] {
+      const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
+      return changedSourceRows(config, edit, sourceScheduleId).flatMap((row) => {
+        const targets = compareRows(config, row.venueServiceId)
+          .filter((r) => r.scheduleId !== sourceScheduleId)
+          .map((r) => ({ scheduleId: r.scheduleId, scheduleName: r.scheduleName }));
+        return targets.length === 0
+          ? []
+          : [
+              {
+                venueServiceId: row.venueServiceId,
+                serviceName: names.get(row.venueServiceId) ?? row.venueServiceId,
+                targets,
+              },
+            ];
+      });
+    }
+    export function pruneAlsoApply(
+      options: readonly AlsoApplyOption[],
+      picks: AlsoApplyPicks
+    ): AlsoApplyPicks {
+      return Object.fromEntries(
+        options.flatMap((o) => {
+          const offered = new Set(o.targets.map((t) => t.scheduleId));
+          const kept = (picks[o.venueServiceId] ?? []).filter((id) => offered.has(id));
+          return kept.length > 0 ? [[o.venueServiceId, kept] as const] : [];
+        })
+      );
+    }
+    export function alsoApplyScheduleIds(
+      options: readonly AlsoApplyOption[],
+      picks: AlsoApplyPicks
+    ): string[] {
+      return [...new Set(Object.values(pruneAlsoApply(options, picks)).flat())];
+    }
+    export function buildAlsoApplyChanges(
+      config: AvailabilityConfig,
+      edit: AvailabilityConfigChanges,
+      sourceScheduleId: string,
+      picks: AlsoApplyPicks
+    ): AvailabilityConfigChanges {
+      const options = alsoApplyOptions(config, edit, sourceScheduleId);
+      const wanted = pruneAlsoApply(options, picks);
+      const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
+      const source = new Map(
+        changedSourceRows(config, edit, sourceScheduleId).map((r) => [r.venueServiceId, r])
+      );
+      const extra = Object.entries(wanted).flatMap(([venueServiceId, scheduleIds]) => {
+        const to = source.get(venueServiceId);
+        const was = to ? stored.get(to.id) : undefined;
+        if (!to || !was) return [];
+        const moved = Object.fromEntries(
+          TIME_FIELDS.filter((f) => to[f] !== was[f]).map((f) => [f, to[f]])
+        );
+        return config.scheduleServices
+          .filter((s) => s.venueServiceId === venueServiceId && scheduleIds.includes(s.scheduleId))
+          .map((s) => ({ ...s, ...moved }));
+      });
+      if (extra.length === 0) return edit;
+      return {
+        ...edit,
+        upsert: {
+          ...edit.upsert,
+          scheduleServices: [...(edit.upsert.scheduleServices ?? []), ...extra],
+        },
+      };
+    }
+    export function alsoApplyChangedSince(
+      before: AvailabilityConfig,
+      after: AvailabilityConfig,
+      picks: AlsoApplyPicks
+    ): { changed: string[]; removed: string[] } {
+      const rowOf = (config: AvailabilityConfig, vs: string, scheduleId: string) =>
+        config.scheduleServices.find((s) => s.venueServiceId === vs && s.scheduleId === scheduleId);
+      const live = (config: AvailabilityConfig, scheduleId: string) =>
+        config.schedules.find((s) => s.id === scheduleId && !s.archivedAt);
+      const changed: string[] = [];
+      const removed: string[] = [];
+      for (const [vs, scheduleIds] of Object.entries(picks)) {
+        for (const scheduleId of scheduleIds) {
+          const was = rowOf(before, vs, scheduleId);
+          const name = (live(before, scheduleId) ?? before.schedules.find((s) => s.id === scheduleId))
+            ?.name;
+          if (!was || name === undefined) continue;
+          const now = rowOf(after, vs, scheduleId);
+          if (!now || !live(after, scheduleId)) removed.push(name);
+          else if (JSON.stringify(was) !== JSON.stringify(now)) changed.push(name);
+        }
+      }
+      return { changed: [...new Set(changed)], removed: [...new Set(removed)] };
+    }
+  </file>
+  <file path="src/components/availability/availability-entry.ts">
+    export const AVAILABILITY_TABS = ["calendar", "special", "schedules"] as const;
+    export type AvailabilityTab = (typeof AVAILABILITY_TABS)[number];
+    export interface AvailabilityEntry {
+      readonly tab?: AvailabilityTab;
+      readonly closeSection?: string;
+      readonly from?: "setup";
+    }
+    export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry {
+      const params = typeof search === "string" ? new URLSearchParams(search) : search;
+      const entry: { -readonly [K in keyof AvailabilityEntry]: AvailabilityEntry[K] } = {};
+      const tab = FIELDS.tab.safeParse(params.get("tab"));
+      if (tab.success) entry.tab = tab.data;
+      const closeSection = FIELDS.closeSection.safeParse(params.get("closeSection"));
+      if (closeSection.success) entry.closeSection = closeSection.data;
+      const from = FIELDS.from.safeParse(params.get("from"));
+      if (from.success) entry.from = from.data;
+      return entry;
+    }
+    export function availabilityPath(entry: AvailabilityEntry): string {
+      const params = new URLSearchParams();
+      if (entry.tab) params.set("tab", entry.tab);
+      if (entry.closeSection) params.set("closeSection", entry.closeSection);
+      if (entry.from) params.set("from", entry.from);
+      const query = params.toString();
+      return query ? `${ROUTE}?${query}` : ROUTE;
+    }
+  </file>
   <file path="src/components/availability/booking-rules.ts">
     export interface BookingRulesForm {
       readonly daysAhead: string;
@@ -185,15 +336,14 @@
         largestParty: text(settings?.maxPartySize),
       };
     }
-    export function invalidBookingRule(form: BookingRulesForm): BookingRulesField | null {
-      for (const field of Object.keys(LIMITS) as BookingRulesField[]) {
+    export function invalidBookingRules(form: BookingRulesForm): readonly BookingRulesField[] {
+      return (Object.keys(LIMITS) as BookingRulesField[]).filter((field) => {
         const raw = form[field].trim();
-        if (raw === "") continue;
+        if (raw === "") return false;
         const n = Number(raw);
         const { min, max } = LIMITS[field];
-        if (!Number.isInteger(n) || n < min || n > max) return field;
-      }
-      return null;
+        return !Number.isInteger(n) || n < min || n > max;
+      });
     }
     export function withBookingRules(
       settings: VenueSettings | null | undefined,
@@ -294,11 +444,7 @@
     ): string | null {
       const { startsOn, weekdays } = detail;
       if (!startsOn || !weekdays || weekdays.length === 0) return null;
-      const name = (day: number) =>
-        format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" });
-      const days = new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
-        weekdayRuns(weekdays).map(([a, b]) => (a === b ? name(a) : `${name(a)}–${name(b)}`))
-      );
+      const days = weekdaySummary(weekdays, format, t);
       return t("availability.history.summary.regularWeekChanged", {
         from: format.formatCalendarDate(startsOn, { month: "short", day: "numeric" }),
         days,
@@ -443,10 +589,14 @@
     export type CloseWhat =
       | { readonly kind: "venue" }
       | { readonly kind: "service"; readonly serviceId: string }
+      /** One floor-plan section: its tables as they are when the closure is saved, and then as they move (ADR-032). */
+      | { readonly kind: "section"; readonly sectionId: string }
       | { readonly kind: "booking"; readonly types: readonly BookingChannel[] };
     export type CloseWhen =
       | { readonly kind: "tonight" }
       | { readonly kind: "date"; readonly date: string }
+      /** Several picked dates, ascending: stored as one single-date closure each (#7981). */
+      | { readonly kind: "dates"; readonly dates: readonly string[] }
       | { readonly kind: "range"; readonly from: string; readonly to: string }
       | {
           readonly kind: "repeats";
@@ -481,6 +631,8 @@
           return { startsOn: today, endsOn: today };
         case "date":
           return { startsOn: when.date, endsOn: when.date };
+        case "dates":
+          return { startsOn: when.dates[0] ?? "", endsOn: when.dates.at(-1) ?? "" };
         case "range":
           return { startsOn: when.from, endsOn: when.to };
         case "repeats":
@@ -491,10 +643,12 @@
     }
     function whatIsComplete(what: CloseWhat): boolean {
       if (what.kind === "service") return what.serviceId !== "";
+      if (what.kind === "section") return what.sectionId !== "";
       if (what.kind === "booking") return what.types.length > 0;
       return true;
     }
     function whenIsComplete(when: CloseWhen, today: string): boolean {
+      if (when.kind === "dates") return when.dates.length <= MAX_CLOSURE_BATCH && when.dates.length > 0;
       const span = spanOf(when, today);
       if (span.startsOn === "") return false;
       if (span.endsOn !== null && (span.endsOn === "" || span.endsOn < span.startsOn)) return false;
@@ -527,16 +681,24 @@
           return { targetKind: "venue" as const };
         case "service":
           return { targetKind: "service" as const, venueServiceId: what.serviceId };
+        case "section":
+          return { targetKind: "tables" as const, sectionId: what.sectionId, tableIds: [] };
         case "booking":
           return { targetKind: "booking" as const, bookingTypes: [...what.types] };
       }
     }
-    export function buildCloseRule(form: CloseForm, id: string, today: string): DateRule | null {
-      if (validateClose(form, today) !== null) return null;
+    type SectionMembership = ReadonlyMap<string, readonly string[]>;
+    export function buildCloseRule(
+      form: CloseForm,
+      id: string,
+      today: string,
+      membership: SectionMembership = new Map()
+    ): DateRule | null {
+      if (validateClose(form, today) !== null || form.when.kind === "dates") return null;
       const span = spanOf(form.when, today);
       const note = form.staffNote.trim();
       const message = form.guestMessage.trim();
-      return {
+      const rule: DateRule = {
         id,
         kind: "closure",
         ...targetOf(form.what),
@@ -550,6 +712,30 @@
         ...(note ? { staffNote: note } : {}),
         ...(message ? { guestMessage: message } : {}),
       };
+      return expandSectionRules([rule], membership)[0] ?? null;
+    }
+    export function buildCloseRules(
+      form: CloseForm,
+      idFor: (date: string) => string,
+      today: string,
+      membership: SectionMembership = new Map()
+    ): readonly DateRule[] {
+      if (form.when.kind !== "dates") {
+        const rule = buildCloseRule(form, idFor(firstDateOf(form.when, today)), today, membership);
+        return rule ? [rule] : [];
+      }
+      return form.when.dates.flatMap((date) => {
+        const rule = buildCloseRule(
+          { ...form, when: { kind: "date", date } },
+          idFor(date),
+          today,
+          membership
+        );
+        return rule ? [rule] : [];
+      });
+    }
+    export function toggleDate(dates: readonly string[], date: string): readonly string[] {
+      return dates.includes(date) ? dates.filter((d) => d !== date) : [...dates, date].sort();
     }
     type ClosureSpan = Pick<DateRule, "startsOn" | "endsOn" | "repeat">;
     export function firstDateOf(when: CloseWhen, today: string): string {
@@ -631,22 +817,52 @@
       if (!whenIsComplete(next.when, today)) return next;
       const { startsOn, endsOn, weekdays } = spanOf(next.when, today);
       const repeat = weekdays ? { version: 1 as const, weekdays: [...weekdays] } : null;
-      const [first = 0] = startMinutes(
-        config,
-        timezone,
-        closedDates({ startsOn, endsOn, repeat }),
-        null
-      );
+      const dates =
+        next.when.kind === "dates" ? next.when.dates : closedDates({ startsOn, endsOn, repeat });
+      const [first = 0] = startMinutes(config, timezone, dates, null);
       return next.fromMinute < first ? { ...next, fromMinute: null } : next;
     }
     function whatOf(series: DateRule): CloseWhat {
       if (series.targetKind === "service" && series.venueServiceId) {
         return { kind: "service", serviceId: series.venueServiceId };
       }
+      if (series.targetKind === "tables" && series.sectionId) {
+        return { kind: "section", sectionId: series.sectionId };
+      }
       if (series.targetKind === "booking" && series.bookingTypes?.length) {
         return { kind: "booking", types: [...series.bookingTypes] };
       }
       return { kind: "venue" };
+    }
+    export function isEditableClosure(rule: DateRule): boolean {
+      return (
+        rule.kind === "closure" &&
+        rule.repeat == null &&
+        rule.seriesId == null &&
+        (rule.targetKind === "venue" ||
+          (rule.targetKind === "service" && !!rule.venueServiceId) ||
+          (rule.targetKind === "tables" && !!rule.sectionId) ||
+          (rule.targetKind === "booking" && !!rule.bookingTypes?.length)) &&
+        (rule.window == null || rule.window.to === END_OF_SERVICE_DAY)
+      );
+    }
+    export function closureForm(rule: DateRule): CloseForm {
+      const when: CloseWhen =
+        rule.endsOn == null
+          ? { kind: "until-reopen", from: rule.startsOn }
+          : rule.endsOn === rule.startsOn
+            ? { kind: "date", date: rule.startsOn }
+            : { kind: "range", from: rule.startsOn, to: rule.endsOn };
+      return {
+        what: whatOf(rule),
+        when,
+        fromMinute: rule.window?.from ?? null,
+        staffNote: rule.staffNote ?? "",
+        guestMessage: rule.guestMessage ?? "",
+      };
+    }
+    export function editAlongside(rule: DateRule): ClosureAlongside {
+      return { upsert: [], remove: [rule.id], replaces: rule };
     }
     export function seriesForm(series: DateRule, date: string): CloseForm {
       return {
@@ -840,15 +1056,34 @@
         ],
       };
     }
+    function sectionCopy(name: string): Copy {
+      return {
+        allDay: (t) => [
+          t("availability.calendar.sectionClosedAllDay", { section: name }),
+          t("availability.calendar.sectionClosedAllDayName", { section: name }),
+        ],
+        band: (t, v) => [
+          t("availability.calendar.sectionClosedBand", { section: name, ...v }),
+          t("availability.calendar.sectionClosedBandName", { section: name, ...v }),
+        ],
+      };
+    }
     export function closureBandText(
       closure: Closure,
       t: TFunction,
-      format: VenueFormat
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
     ): ClosureBandText {
+      const section =
+        closure.targetKind === "tables" && closure.sectionId
+          ? sectionNames?.get(closure.sectionId)
+          : undefined;
       const copy =
         closure.targetKind === "booking"
           ? bookingCopy(channelSuffix(closure))
-          : COPY[closure.targetKind];
+          : section !== undefined
+            ? sectionCopy(section)
+            : COPY[closure.targetKind];
       if (isWholeDay(closure)) {
         const [text, name] = copy.allDay(t);
         return { key: closure.ruleId, text, name };
@@ -1257,12 +1492,19 @@
     }
     export function presentDay(
       date: string,
-      summary: AvailabilityDaySummary | undefined,
+      fullSummary: AvailabilityDaySummary | undefined,
       detailed: boolean,
       t: TFunction,
-      format: VenueFormat
+      format: VenueFormat,
+      service?: ServiceFilter | null,
+      sectionNames?: ReadonlyMap<string, string>
     ): DayPresentation {
-      const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format));
+      const summary = fullSummary && service ? filterDaySummary(fullSummary, service.id) : fullSummary;
+      const notRunningName =
+        service && fullSummary && fullSummary.serviceCount > 0 && summary?.serviceCount === 0
+          ? service.name
+          : null;
+      const bands = (summary?.closures ?? []).map((c) => closureBandText(c, t, format, sectionNames));
       const services = detailed
         ? (summary?.services ?? []).map((s) => serviceLineText(s, t, format))
         : [];
@@ -1289,7 +1531,11 @@
       );
       const onlineOff = summary !== undefined && !summary.bookingOpen.online && !bandNamesOnline;
     
-      const label = summary ? dayLabelText(summary.label, t) : null;
+      const label = notRunningName
+        ? t("availability.calendar.serviceNotRunning", { name: notRunningName })
+        : summary
+          ? dayLabelText(summary.label, t)
+          : null;
       const parts = summary
         ? [
             label,
@@ -1310,7 +1556,7 @@
         label,
         // The service's own en-US labels, as dayLabelText reads them.
         tone:
-          summary?.label === "Closed"
+          notRunningName !== null || summary?.label === "Closed"
             ? "closed"
             : summary?.label === "Special hours"
               ? "special"
@@ -1584,6 +1830,18 @@
           ),
         ],
       };
+    }
+    export function usualHours(
+      config: AvailabilityConfig,
+      venueServiceId: string
+    ): SeedService | undefined {
+      const live = new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
+      const row =
+        liveRegularWeek(config)?.rows.find((r) => r.venueServiceId === venueServiceId) ??
+        config.scheduleServices.find(
+          (r) => r.venueServiceId === venueServiceId && live.has(r.scheduleId)
+        );
+      return row ? hoursOf(row) : undefined;
     }
     function regularWeekdayRows(
       config: AvailabilityConfig,
@@ -1867,6 +2125,27 @@
       "newYearsDay",
     ]);
   </file>
+  <file path="src/components/availability/layer-rule-actions-props.ts">
+    export interface LayerRuleActionsProps {
+      readonly layer: Layer;
+      readonly date: string;
+      readonly day: ResolvedDay;
+      readonly venueId: string;
+      readonly state: AvailabilityConfigState;
+      readonly timezone: string;
+      readonly today: string;
+      /** An editor is open, or a reload is due: a save now would conflict with one of ours. */
+      readonly waiting: boolean;
+      readonly reasonId: string;
+      /** The rule was removed or its dates changed and saved; the drawer closes. */
+      readonly onFinished: () => void;
+      readonly onStale: () => void;
+      /** Edit special hours: focus the editor, for the whole rule or part of it when `scope` is set. */
+      readonly onEditHours: (scope?: { ruleId: string; mode: SeriesScope }) => void;
+      /** Edit a dated schedule everywhere it runs: the Schedules tab's editor, over the page. */
+      readonly onEditSchedule?: (scheduleId: string) => void;
+    }
+  </file>
   <file path="src/components/availability/layer-text.ts">
     function upperFirst(text: string, locale: string): string {
       return `${text.charAt(0).toLocaleUpperCase(locale)}${text.slice(1)}`;
@@ -1879,7 +2158,12 @@
       const names = types.map((type) => t(BOOKING_TYPE_NAME[type]));
       return new Intl.ListFormat(locale, { type: "conjunction" }).format(names);
     }
-    function targetText(target: LayerTarget, t: TFunction, format: VenueFormat): string {
+    function targetText(
+      target: LayerTarget,
+      t: TFunction,
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
+    ): string {
       switch (target.kind) {
         case "venue":
           return t("availability.calendar.dayLabel.closed");
@@ -1894,14 +2178,25 @@
             }),
             format.locale
           );
-        case "tables":
-          return t("availability.drawer.layer.tablesBlocked");
+        case "tables": {
+          const section = target.sectionId ? sectionNames?.get(target.sectionId) : undefined;
+          return section !== undefined
+            ? t("availability.drawer.layer.sectionClosed", { name: section })
+            : t("availability.drawer.layer.tablesBlocked");
+        }
       }
     }
-    function seriesText(series: LayerSeries, t: TFunction, format: VenueFormat): string {
+    function seriesText(
+      series: LayerSeries,
+      t: TFunction,
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
+    ): string {
       const days = series.weekdays?.map((d) => t(WEEKDAY_NAME[d] ?? WEEKDAY_NAME[0])).join(", ");
       const range = `${series.startsOn} – ${series.endsOn ?? t("availability.drawer.layer.untilReopened")}`;
-      return [targetText(series.target, t, format), days, range].filter(Boolean).join(" · ");
+      return [targetText(series.target, t, format, sectionNames), days, range]
+        .filter(Boolean)
+        .join(" · ");
     }
     function hoursText(hours: NonNullable<Layer["hours"]>, t: TFunction, format: VenueFormat): string {
       return hours.length === 0
@@ -1935,7 +2230,12 @@
       }
       return t("availability.drawer.layer.pacing", { count: tonight.pacingCovers });
     }
-    export function layerLabelText(layer: Layer, t: TFunction, format: VenueFormat): string {
+    export function layerLabelText(
+      layer: Layer,
+      t: TFunction,
+      format: VenueFormat,
+      sectionNames?: ReadonlyMap<string, string>
+    ): string {
       switch (layer.kind) {
         case "schedule":
           return layer.scheduleName !== undefined
@@ -1952,11 +2252,11 @@
         case "skip":
           return layer.skippedFrom
             ? t("availability.drawer.layer.skippedFrom", {
-                series: seriesText(layer.skippedFrom, t, format),
+                series: seriesText(layer.skippedFrom, t, format, sectionNames),
               })
             : t("availability.drawer.layer.skippedDate");
         case "closure":
-          return layer.target ? targetText(layer.target, t, format) : layer.label;
+          return layer.target ? targetText(layer.target, t, format, sectionNames) : layer.label;
         case "tonight":
           return t("availability.drawer.layer.tonight");
       }
@@ -2080,10 +2380,11 @@
     export function weekSummary(
       anchor: string,
       days: readonly AvailabilityDaySummary[] | undefined,
-      t: TFunction
+      t: TFunction,
+      service?: ServiceFilter | null
     ): string | null {
       const week = new Set(visibleDates("week", anchor));
-      const loaded = (days ?? []).filter((d) => week.has(d.serviceDate));
+      const loaded = (filterDays(days, service ?? null) ?? []).filter((d) => week.has(d.serviceDate));
       if (loaded.length === 0) return null;
       // A whole-day venue closure already empties `serviceCount`; booking, service and tables
       // closures leave the day open.
@@ -2100,7 +2401,12 @@
           : []),
         t(`availability.weekSummary.${online}`),
       ];
-      return t("availability.weekSummary.line", { parts: parts.join(" · ") });
+      return service
+        ? t("availability.weekSummary.lineForService", {
+            service: service.name,
+            parts: parts.join(" · "),
+          })
+        : t("availability.weekSummary.line", { parts: parts.join(" · ") });
     }
   </file>
   <file path="src/components/availability/quick-setup-demo.fixture.ts">
@@ -2715,6 +3021,10 @@
         },
       };
     }
+    export interface OperatingHoursValidationErrors {
+      readonly global?: string;
+      readonly days?: Readonly<Partial<Record<keyof OperatingHours, string>>>;
+    }
     export function validateQuickSetupHours(
       hours: OperatingHours,
       t: TFunction = localeRuntime.i18n.t
@@ -2788,7 +3098,7 @@
   <file path="src/components/availability/regular-week-line.ts">
     export interface LineHours {
       readonly opensAt: number;
-      readonly closesAt: number;
+      readonly lastSeatingAt: number;
     }
     export interface HoursChange extends LineHours {
       readonly weekdays: readonly number[];
@@ -2842,13 +3152,16 @@
             venueServiceId: row.venueServiceId,
             name,
             opensAt: row.opensAt,
-            closesAt: row.closesAt,
+            lastSeatingAt: row.lastSeatingAt,
             days: WEEK_DISPLAY_ORDER.filter((day) => week.days[day] !== null),
-            changes: row.dayHours.sets.map((set) => ({
-              weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
-              opensAt: set.opensAt,
-              closesAt: set.closesAt,
-            })),
+            changes: row.dayHours.sets
+              // A set that moves only the closing books the same times: nothing to say on this line.
+              .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+              .map((set) => ({
+                weekdays: WEEK_DISPLAY_ORDER.filter((day) => set.weekdays.includes(day)),
+                opensAt: set.opensAt,
+                lastSeatingAt: set.lastSeatingAt,
+              })),
           },
         ];
       });
@@ -3254,9 +3567,6 @@
       });
       return runs;
     }
-    export function hasOwnSchedules(config: AvailabilityConfig): boolean {
-      return liveSchedules(config).some((s) => s.kind !== "regular");
-    }
     export function isScheduleUnused(config: AvailabilityConfig, scheduleId: string): boolean {
       const schedule = config.schedules.find((s) => s.id === scheduleId);
       if (!schedule || schedule.isRegular) return false;
@@ -3274,7 +3584,8 @@
       | "endBeforeStart"
       | "nameRequired"
       | "servicesRequired"
-      | "serviceNameRequired";
+      | "serviceNameRequired"
+      | "replacesRegularWeek";
     export function scheduleSaveBlock(draft: {
       readonly conflicted: boolean;
       readonly name: string;
@@ -3285,6 +3596,8 @@
       readonly startRequired?: boolean;
       /** False for a change with no end date: it is the regular week itself and is named by nothing. */
       readonly nameRequired?: boolean;
+      /** A new schedule would take the regular week over for good (`replacesRegularWeek`). */
+      readonly replacesRegularWeek?: boolean;
     }): ScheduleSaveBlock | null {
       const { startsOn, endsOn, services } = draft;
       if (draft.conflicted) return "conflict";
@@ -3295,7 +3608,31 @@
       if (services.some((s) => s.venueServiceId === null && !s.name.trim())) {
         return "serviceNameRequired";
       }
+      if (draft.replacesRegularWeek) return "replacesRegularWeek";
       return null;
+    }
+    function regularWeekdays(config: AvailabilityConfig, today: string): number[] {
+      const regular = new Set(
+        liveSchedules(config)
+          .filter((s) => s.kind === "regular")
+          .map((s) => s.id)
+      );
+      return [
+        ...new Set(
+          config.assignments
+            .filter((a) => regular.has(a.scheduleId) && (a.endsOn == null || a.endsOn >= today))
+            .flatMap((a) => a.weekdays)
+        ),
+      ];
+    }
+    export function replacesRegularWeek(
+      config: AvailabilityConfig,
+      useOn: UseOn,
+      today: string
+    ): boolean {
+      if (useOn.endsOn != null || useOn.weekdays.length === 0) return false;
+      const days = regularWeekdays(config, today);
+      return days.length > 0 && days.every((day) => useOn.weekdays.includes(day));
     }
     function meets(a: UseOn, b: UseOn): boolean {
       const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
@@ -3792,6 +4129,18 @@
       };
     }
   </file>
+  <file path="src/components/availability/section-membership.ts">
+    export function sectionMembership(
+      tables: readonly Pick<Table, "id" | "sectionId">[]
+    ): ReadonlyMap<string, readonly string[]> {
+      const membership = new Map<string, string[]>();
+      for (const { id, sectionId } of tables) {
+        if (!sectionId) continue;
+        membership.set(sectionId, [...(membership.get(sectionId) ?? []), id]);
+      }
+      return membership;
+    }
+  </file>
   <file path="src/components/availability/selection-actions.ts">
     export function ownSingleDateRules(
       config: AvailabilityConfig,
@@ -4071,6 +4420,47 @@
         .map((r) => ({ ...r, seriesId: created.id }));
       const ended: DateRule = { ...series, endsOn: addDays(date, -1) };
       return { upsert: { dateRules: [ended, created, ...moved] }, remove: {} };
+    }
+  </file>
+  <file path="src/components/availability/service-filter.ts">
+    export interface ServiceFilter {
+      readonly id: string;
+      readonly name: string;
+    }
+    export function filterableServices(config: AvailabilityConfig): readonly ServiceFilter[] {
+      const active = [...config.venueServices.filter((s) => !s.archivedAt)]
+        .sort((a, b) => a.position - b.position)
+        .map((s) => ({ id: s.id, name: s.name }));
+      return active.length >= 2 ? active : [];
+    }
+    export function resolveServiceFilter(
+      services: readonly ServiceFilter[],
+      chosenId: string | null
+    ): ServiceFilter | null {
+      return services.find((s) => s.id === chosenId) ?? null;
+    }
+    export function filterDaySummary(
+      summary: AvailabilityDaySummary,
+      serviceId: string
+    ): AvailabilityDaySummary {
+      if (summary.services === undefined) return summary;
+      const services = summary.services.filter((s) => s.venueServiceId === serviceId);
+      const closures = summary.closures.filter((c) => {
+        // A service closure names its service: it belongs to that one alone, even on a day it
+        // closes the service for good (the service is then gone from `services`).
+        if (c.targetKind === "service" && c.venueServiceId !== undefined) {
+          return c.venueServiceId === serviceId;
+        }
+        return services.some((s) => c.from < s.closesAt && c.to > s.opensAt);
+      });
+      return { ...summary, services, serviceCount: services.length, closures };
+    }
+    export function filterDays(
+      days: readonly AvailabilityDaySummary[] | undefined,
+      service: ServiceFilter | null
+    ): readonly AvailabilityDaySummary[] | undefined {
+      if (!days || !service) return days;
+      return days.map((d) => filterDaySummary(d, service.id));
     }
   </file>
   <file path="src/components/availability/special-dates.ts">
@@ -4963,6 +5353,20 @@
       return { handlersFor, extendSelection, toggleSelected, pivot };
     }
   </file>
+  <file path="src/components/availability/weekday-summary.ts">
+    export function weekdaySummary(
+      weekdays: readonly number[],
+      format: VenueFormat,
+      t: TFunction
+    ): string {
+      if (weekdays.length === 7) return t("availabilitySchedules.everyDay");
+      const name = (day: number) =>
+        format.formatCalendarDate(addDays(SUNDAY, day), { weekday: "short" });
+      return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
+        weekdayRuns(weekdays).map(([a, b]) => (a === b ? name(a) : `${name(a)}–${name(b)}`))
+      );
+    }
+  </file>
   </section>
   <section priority="medium" role="booking-widget">
   <file path="src/components/booking-widget/effectiveDepositPolicy.ts">
@@ -5680,6 +6084,7 @@
                 guestEmail: details.email || undefined,
                 guestPhone: details.phone || undefined,
                 notes: details.notes || undefined,
+                locale: i18n.language,
               }
             );
             // `depositConfig` is the resolved output of effectiveDepositPolicy —
@@ -6520,7 +6925,9 @@
         });
       });
     }
-    export async function mockApi(page: Page): Promise<void> {
+    export type SseEventEntry = { type: string; data: unknown };
+    export type SseMock = { setEvents: (events: readonly SseEventEntry[]) => void };
+    export async function mockApi(page: Page): Promise<SseMock> {
       // Signal to QueryProvider to disable react-query retries so error states
       // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
       // instead of after the default 3x exponential backoff (~7s).
@@ -7343,20 +7750,16 @@
       // needed here.
       //
       // Tests can pre-configure named events to dispatch immediately after the
-      // "connected" event by setting:
-      //   window.__fakeSSEConfig = { events: [{ type, data }] }
-      // via a second addInitScript call before navigation (e.g. for realtime-collaboration tests).
-      type SseEventEntry = { type: string; data: unknown };
+      // "connected" event through the returned handle:
+      //   const sse = await mockApi(page); sse.setEvents([{ type, data }]);
+      // The config lives on the Node side and the handler never calls page.evaluate:
+      // the app opens this stream on every load, so an in-page read raced
+      // navigations ("Execution context was destroyed", #8164).
+      const sseState: { events: readonly SseEventEntry[] } = { events: [] };
       await page.route("**/api/v1/events/stream**", async (route) => {
-        const cfg = await page.evaluate(
-          () =>
-            (window as unknown as { __fakeSSEConfig?: { events?: SseEventEntry[] } }).__fakeSSEConfig
-        );
         const frames = [
           `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`,
-          ...(cfg?.events ?? []).map(
-            (evt) => `event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`
-          ),
+          ...sseState.events.map((evt) => `event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`),
         ];
         await route.fulfill({
           status: 200,
@@ -7371,6 +7774,12 @@
       );
     
       await mockMenus(page);
+    
+      return {
+        setEvents: (events) => {
+          sseState.events = [...events];
+        },
+      };
     }
     function buildAvailabilityConfigFixture() {
       const service = (id: string, opensAt: number, lastSeatingAt: number, closesAt: number) => ({
@@ -7824,11 +8233,10 @@
         // storageState provides auth — navigate to trigger OIDC session pickup.
         await page.goto("");
         await use(page);
-        // mockApi's SSE-stream handler calls page.evaluate; the app opens the
-        // stream on every load, so a request landing as the test ends makes the
-        // in-flight callback throw `"page.evaluate: Test ended."` and fail the
-        // test (run 29116315283). Drain routes with Playwright's documented
-        // remedy before teardown.
+        // Route handlers still in flight as the test ends can throw
+        // `"Test ended."` and fail the test (run 29116315283, when the SSE
+        // handler called page.evaluate). Drain routes with Playwright's
+        // documented remedy before teardown.
         await page.unrouteAll({ behavior: "ignoreErrors" });
       },
     });
@@ -8863,6 +9271,8 @@
       minCovers: string;
       maxCovers: string;
       location: string;
+      /** The section's id; an empty string means "No section". */
+      sectionId: string;
       isActive: boolean;
     }
     export function tableToFormValues(table: Table): TableDetailsFormValues {
@@ -8878,6 +9288,7 @@
         // against these seeded values, so leaving the field alone sends nothing.
         maxCovers: String(table.maxCovers ?? table.capacity),
         location: table.location ?? "",
+        sectionId: table.sectionId ?? "",
         isActive: table.isActive,
       };
     }
@@ -8895,6 +9306,8 @@
     
       const location = current.location.trim();
       if (location !== initial.location.trim()) changes.location = location;
+    
+      if (current.sectionId !== initial.sectionId) changes.sectionId = current.sectionId || null;
     
       if (current.isActive !== initial.isActive) changes.isActive = current.isActive;
     
@@ -10218,15 +10631,41 @@
   <file path="src/hooks/useClosures.ts">
     export const useClosureImpact = createQueryHook<
       ClosureImpact | null,
-      { venueId: string | null; rule: DateRule | null }
+      { venueId: string | null; rule: DateRule | null; alongside?: ClosureAlongside | undefined }
     >({
       key: CLOSURE_IMPACT_QUERY_KEY,
       fetcher: async (params, api) =>
         params?.venueId && params.rule
-          ? api.availability.getClosureImpact(params.venueId, params.rule)
+          ? api.availability.getClosureImpact(params.venueId, params.rule, params.alongside)
           : null,
       getEnabled: (params) => !!params?.venueId && !!params.rule && params.enabled !== false,
     });
+    export function useClosureImpacts(params: {
+      readonly venueId: string | null;
+      readonly rules: readonly DateRule[];
+    }): {
+      data: ClosureImpact[] | undefined;
+      isLoading: boolean;
+      error: Error | null;
+      refetch: () => Promise<unknown>;
+    } {
+      const api = useApiClient();
+      const { venueId, rules } = params;
+      const queries = useQueries({
+        queries: rules.map((rule) => ({
+          queryKey: buildQueryKey(CLOSURE_IMPACT_QUERY_KEY, { venueId, rule }),
+          queryFn: () => api.availability.getClosureImpact(venueId!, rule),
+          enabled: venueId !== null,
+        })),
+      });
+      const answered = queries.length > 0 && queries.every((q) => q.data !== undefined);
+      return {
+        data: answered ? queries.map((q) => q.data!) : undefined,
+        isLoading: queries.some((q) => q.isLoading),
+        error: queries.find((q) => q.error)?.error ?? null,
+        refetch: () => Promise.all(queries.map((q) => q.refetch())),
+      };
+    }
     export const useClosureNoticePreview = createQueryHook<
       ClosureNoticePreview | null,
       { venueId: string; body: ClosureNoticePreviewBody }
@@ -10668,6 +11107,14 @@
       key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
       fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!, params!.floorPlanId!),
       getEnabled: (params) => !!params?.venueId && !!params?.floorPlanId,
+    });
+    export const useVenueFloorPlanSections = createQueryHook<
+      FloorPlanSection[],
+      { venueId?: string | null }
+    >({
+      key: FLOOR_PLAN_SECTIONS_QUERY_KEY,
+      fetcher: (params, api) => api.floorPlanSections.list(params!.venueId!),
+      getEnabled: (params) => !!params?.venueId,
     });
     export const useUpdateFloorPlanSection = createMutationHook<
       { venueId: string; sectionId: string; data: UpdateFloorPlanSectionRequest },
@@ -11164,6 +11611,24 @@
       return (
         includesAdmin(accessTokenPermissions(accessToken)) || includesAdmin(user?.raw?.permissions)
       );
+    }
+  </file>
+  <file path="src/hooks/useIsManager.ts">
+    export interface ManagerAccess {
+      readonly isManager: boolean;
+      /** True while the venue list or the team read has not answered yet, so the role is unknown. */
+      readonly isPending: boolean;
+    }
+    export function useManagerAccess(): ManagerAccess {
+      const { selectedVenueId, isLoading: venueLoading } = useVenue();
+      const team = useVenueTeam({ venueId: selectedVenueId });
+      return {
+        isManager: team.data?.viewerRole === "manager",
+        isPending: venueLoading || team.isLoading,
+      };
+    }
+    export function useIsManager(): boolean {
+      return useManagerAccess().isManager;
     }
   </file>
   <file path="src/hooks/useMenus.ts">
@@ -14204,10 +14669,8 @@
       id: string;
       label: string;
       action: NavAction;
-      /** Setup step status — drives icon before the label */
-      stepStatus?: "completed" | "current" | "locked";
-      /** Prevents click and applies muted style */
-      disabled?: boolean;
+      /** Short status text after the label, e.g. the pre-launch progress count */
+      badge?: string;
     }
     export interface NavSection {
       /**
@@ -14247,38 +14710,20 @@
       isAdmin: boolean,
       t: TFunction
     ): readonly NavSection[] {
-      const STEP_ORDER: SetupStep[] = ["onboarding", "operating-hours", "floor-plan"];
-    
-      const STEP_LABELS: Record<SetupStep, string> = {
-        onboarding: t("nav.items.venueBasics"),
-        "operating-hours": t("nav.items.setOperatingHours"),
-        "floor-plan": t("nav.items.createFloorPlan"),
-      };
-    
-      const STEP_PATHS: Record<SetupStep, string> = {
-        onboarding: "/onboarding",
-        "operating-hours": "/availability",
-        "floor-plan": "/floor-plans",
-      };
-    
-      const items: NavItem[] = STEP_ORDER.map((step) => {
-        const isCompleted = readiness.completedSteps.includes(step);
-        const isCurrent = readiness.nextStep === step;
-        const isLocked = !isCompleted && !isCurrent;
-    
-        return {
-          id: `setup-${step}`,
-          label: STEP_LABELS[step],
-          action: { type: "route", path: STEP_PATHS[step] },
-          stepStatus: isCompleted ? "completed" : isCurrent ? "current" : "locked",
-          disabled: isLocked,
-        };
-      });
-    
       const setupSection: NavSection = {
         id: "Get Started",
         label: t("nav.sections.getStarted"),
-        items,
+        items: [
+          {
+            id: SETUP_ITEM_ID,
+            label: t("nav.items.venueSetup"),
+            action: { type: "route", path: SETUP_PATH },
+            badge: t("setup.hub.strip.count", {
+              done: readiness.completedSteps.length,
+              total: SETUP_STEP_COUNT,
+            }),
+          },
+        ],
       };
     
       const account = buildAccount(t);
@@ -14306,7 +14751,7 @@
         id: "Manage",
         label: t("nav.sections.manage"),
         items: [
-          route("floor-plans", t("nav.items.floorPlans"), "/floor-plans"),
+          route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
           route("availability", t("nav.items.availability"), "/availability"),
           route("menus", t("nav.items.menus"), "/menus"),
           route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
@@ -15957,11 +16402,32 @@
         .replace(/^-|-$/g, "");
     }
   </file>
+  <file path="src/components/venue-onboarding/launch-hours.ts">
+    export function launchHoursChanges(
+      draft: QuickSetupDraft,
+      derived: AvailabilityConfig,
+      newId: () => string
+    ): AvailabilityConfigChanges {
+      const changes = draftToChanges(draft, derived, newId);
+      const named = new Set((changes.upsert.scheduleServices ?? []).map((s) => s.venueServiceId));
+      const unused = derived.venueServices.filter((s) => !s.archivedAt && !named.has(s.id));
+      if (unused.length === 0) return changes;
+      return {
+        ...changes,
+        remove: { ...changes.remove, venueServices: unused.map((s) => s.id) },
+      };
+    }
+  </file>
   <file path="src/components/venue-onboarding/launch-sequence.ts">
-    export type LaunchStageId = "venue" | "floorPlan" | "tables" | "activate";
+    export type LaunchStageId = "venue" | "hours" | "floorPlan" | "tables" | "activate";
     export type LaunchStageState = "pending" | "in-flight" | "done" | "failed";
     export interface LaunchProgress {
       venueId: string | null;
+      /**
+       * True once the hours step's services are the venue's regular week. Absent means not yet: the
+       * venue still serves the one-window projection it was created with.
+       */
+      hoursSaved?: boolean;
       floorPlanId: string | null;
       /**
        * True once the plan's section rows exist and their zone rectangles are in
@@ -16015,6 +16481,8 @@
       switch (stage) {
         case "venue":
           return progress.venueId !== null;
+        case "hours":
+          return progress.hoursSaved === true;
         case "floorPlan":
           return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
@@ -16043,6 +16511,8 @@
       switch (stage) {
         case "venue":
           return progress.venueId !== null;
+        case "hours":
+          return progress.hoursSaved === true;
         case "floorPlan":
           return progress.floorPlanId !== null && progress.sectionsDone;
         case "tables":
@@ -16068,6 +16538,13 @@
     }
     export interface LaunchApi {
       venues: { create(data: CreateVenueRequest): Promise<Venue> };
+      availability: {
+        getConfig(venueId: string): Promise<AvailabilityConfigState>;
+        saveConfig(
+          venueId: string,
+          body: Pick<PutAvailabilityConfigBody, "expectedVersion" | "changes">
+        ): Promise<AvailabilityConfigSaveResult>;
+      };
       floorPlans: {
         create(data: CreateFloorPlanRequest): Promise<FloorPlan>;
         update(id: string, data: UpdateFloorPlanRequest): Promise<FloorPlan>;
@@ -16103,6 +16580,31 @@
         throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.venueFailed"));
       }
       const next: LaunchProgress = { ...progress, venueId: venue.id, inFlightStage: null };
+      onProgress(next);
+      return next;
+    }
+    async function runHoursStage(
+      api: LaunchApi,
+      hours: QuickSetupDraft,
+      progress: LaunchProgress,
+      onProgress: (next: LaunchProgress) => void
+    ): Promise<LaunchProgress> {
+      const venueId = progress.venueId;
+      // Invariant: nextStage only selects "hours" once "venue" is done (stagesFor's order is fixed).
+      if (venueId === null) {
+        throw new Error("runLaunchSequence: hours stage reached without a venueId");
+      }
+    
+      try {
+        const state = await api.availability.getConfig(venueId);
+        await api.availability.saveConfig(venueId, {
+          expectedVersion: state.version,
+          changes: launchHoursChanges(hours, state.config, () => crypto.randomUUID()),
+        });
+      } catch (err) {
+        throw withFallback(err, localeRuntime.i18n.t("onboarding.stagePanel.hoursFailed"));
+      }
+      const next: LaunchProgress = { ...progress, hoursSaved: true, inFlightStage: null };
       onProgress(next);
       return next;
     }
@@ -16302,12 +16804,15 @@
       stage: LaunchStageId,
       draft: FloorPlanDraft,
       venuePayload: CreateVenueRequest,
+      hours: QuickSetupDraft,
       progress: LaunchProgress,
       onProgress: (next: LaunchProgress) => void
     ): Promise<LaunchProgress> {
       switch (stage) {
         case "venue":
           return runVenueStage(api, venuePayload, progress, onProgress);
+        case "hours":
+          return runHoursStage(api, hours, progress, onProgress);
         case "floorPlan":
           return runFloorPlanStage(api, draft, progress, onProgress);
         case "tables":
@@ -16321,7 +16826,8 @@
       draft: FloorPlanDraft,
       venuePayload: CreateVenueRequest,
       progress: LaunchProgress,
-      onProgress: (next: LaunchProgress) => void
+      onProgress: (next: LaunchProgress) => void,
+      hours: QuickSetupDraft
     ): Promise<LaunchProgress> {
       let current = progress;
     
@@ -16332,13 +16838,13 @@
         }
     
         current = { ...current, inFlightStage: stage, failedStage: null, errorMessage: null };
-        // Emit before awaiting the stage — otherwise venue/floorPlan/activate
+        // Emit before awaiting the stage — otherwise venue/hours/floorPlan/activate
         // (which call onProgress only once, on completion) never surface an
         // in-flight value, and stageStateOf can never read "in-flight" for them.
         onProgress(current);
     
         try {
-          current = await runStage(api, stage, draft, venuePayload, current, onProgress);
+          current = await runStage(api, stage, draft, venuePayload, hours, current, onProgress);
         } catch (err) {
           // A LaunchStageError carries whatever progress accumulated before
           // the failure (e.g. tables created before the one that rejected) —
@@ -16371,6 +16877,12 @@
       { id: "floorPlan" },
       { id: "launch" },
     ];
+  </file>
+  <file path="src/components/venue-onboarding/settings-defaults.ts">
+    export const SETTINGS_DEFAULTS = {
+      defaultReservationDuration: 90,
+      maxPartySize: UNSET_LARGEST_PARTY,
+    } as const;
   </file>
   <file path="src/components/venue-onboarding/useOnboardingWizard.ts">
     export const TOTAL_STEPS = 6;
@@ -16918,6 +17430,667 @@
         errors[key] = errorCodeFor(issue.code, form[key]);
       }
       return { ok: false, errors };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="venue-setup">
+  <file path="src/components/venue-setup/setup-tree.ts">
+    export type Channel = (typeof CHANNELS)[number];
+    export type SetupNodeKind =
+      | "schedules"
+      | "schedule"
+      | "service"
+      | "specialDates"
+      | "specialDate"
+      | "booking"
+      | "channel"
+      | "floorPlan"
+      | "section"
+      | "noSection"
+      | "table";
+    export type ClosureTarget =
+      | { readonly kind: "venue" }
+      | { readonly kind: "service"; readonly name: string | null }
+      | { readonly kind: "section"; readonly name: string | null }
+      | { readonly kind: "booking"; readonly bookingTypes: readonly Channel[] }
+      | { readonly kind: "tables"; readonly count: number };
+    export type NodeState =
+      | { readonly kind: "unset" }
+      | { readonly kind: "count"; readonly count: number }
+      | { readonly kind: "week"; readonly weekdays: readonly number[] }
+      | {
+          readonly kind: "period";
+          readonly startsOn: string | null;
+          readonly endsOn: string | null;
+          readonly weekdays: readonly number[];
+        }
+      | {
+          readonly kind: "service";
+          readonly opensAt: number;
+          readonly lastSeatingAt: number;
+          readonly weekdays: readonly number[];
+          /** Days the service books other times on (a set that only moves the closing is left out). */
+          readonly changes: readonly {
+            readonly weekdays: readonly number[];
+            readonly opensAt: number;
+            readonly lastSeatingAt: number;
+          }[];
+        }
+      | {
+          readonly kind: "rules";
+          readonly daysAhead: number | null;
+          readonly noticeHours: number | null;
+          readonly largestParty: number | null;
+        }
+      | {
+          readonly kind: "closure";
+          readonly what: "closed" | "specialHours";
+          readonly startsOn: string;
+          readonly endsOn: string | null;
+          readonly target: ClosureTarget;
+        }
+      | { readonly kind: "floorPlan"; readonly sections: number; readonly tables: number }
+      | { readonly kind: "tables"; readonly count: number }
+      | { readonly kind: "seats"; readonly seats: number };
+    export type SetupActionId =
+      | "setUpRegularWeek"
+      | "changeRegularWeek"
+      | "editSchedule"
+      | "compareServices"
+      | "createSchedule"
+      | "openCalendar"
+      | "openSpecialDates"
+      | "bookingRules"
+      | "openFloorPlan"
+      | "addFloorPlan"
+      | "closeSection"
+      | "moveToSection";
+    export type SetupActionTarget =
+      | { readonly kind: "link"; readonly to: string }
+      | { readonly kind: "dialog"; readonly dialog: "changeRegularWeek" | "bookingRules" };
+    export interface SetupAction {
+      readonly id: SetupActionId;
+      readonly target: SetupActionTarget;
+      /** The button the Manager is steered to next, before launch. */
+      readonly primary: boolean;
+      /** The resource the action names, for its accessible name ("Close Bar for a date…"). */
+      readonly subject?: string;
+    }
+    export interface SetupNode {
+      readonly id: string;
+      readonly kind: SetupNodeKind;
+      /** The resource's own name; null when the kind's label is the name ("Special dates"). */
+      readonly name: string | null;
+      readonly state: NodeState;
+      readonly actions: readonly SetupAction[];
+      readonly children: readonly SetupNode[];
+    }
+    export type GroupLoad<T> =
+      | { readonly status: "loading" }
+      | { readonly status: "error"; readonly error: unknown }
+      | { readonly status: "ready"; readonly data: T };
+    export interface OpenData {
+      readonly config: AvailabilityConfig;
+      readonly settings: VenueSettings | null | undefined;
+    }
+    export interface SitData {
+      readonly floorPlans: readonly FloorPlan[];
+      readonly sections: readonly FloorPlanSection[];
+      readonly tables: readonly Table[];
+    }
+    export interface SetupTreeInput {
+      readonly venueName: string;
+      readonly isManager: boolean;
+      /** `setup` marks the first unset launch step as the primary action. */
+      readonly readiness: "setup" | "operational";
+      /** The venue's today, `YYYY-MM-DD`. */
+      readonly today: string;
+      readonly open: GroupLoad<OpenData>;
+      readonly sit: GroupLoad<SitData>;
+    }
+    export type GroupState =
+      | { readonly status: "loading" }
+      | { readonly status: "error"; readonly error: unknown }
+      | { readonly status: "ready" };
+    export interface SetupGroup {
+      readonly id: "open" | "sit";
+      readonly load: GroupState;
+      readonly nodes: readonly SetupNode[];
+    }
+    export interface SetupTree {
+      readonly venueName: string;
+      readonly groups: readonly [SetupGroup, SetupGroup];
+    }
+    type Link = { readonly kind: "link"; readonly to: string };
+    function scheduleNode(
+      schedule: Schedule,
+      config: AvailabilityConfig,
+      services: ReadonlyMap<string, { readonly name: string; readonly position: number }>,
+      manager: boolean
+    ): SetupNode {
+      const assignments = config.assignments.filter((a) => a.scheduleId === schedule.id);
+      const covered =
+        assignments.length > 0 ? sortedUnique(assignments.flatMap((a) => a.weekdays)) : ALL_WEEKDAYS;
+      const rows = config.scheduleServices
+        .filter((s) => s.scheduleId === schedule.id && services.has(s.venueServiceId))
+        .sort(
+          (a, b) =>
+            (services.get(a.venueServiceId)?.position ?? 0) -
+            (services.get(b.venueServiceId)?.position ?? 0)
+        );
+      const children: SetupNode[] = rows.map((row) => {
+        const sets = row.dayHours.sets;
+        const setDays = sets.flatMap((set) => set.weekdays);
+        const baseDays = row.weekdays.length > 0 ? row.weekdays : covered;
+        return {
+          id: `service:${schedule.id}:${row.venueServiceId}`,
+          kind: "service",
+          name: services.get(row.venueServiceId)?.name ?? null,
+          state: {
+            kind: "service",
+            opensAt: row.opensAt,
+            lastSeatingAt: row.lastSeatingAt,
+            weekdays: sortedUnique([...baseDays, ...setDays]),
+            changes: sets
+              .filter((set) => set.opensAt !== row.opensAt || set.lastSeatingAt !== row.lastSeatingAt)
+              .map((set) => ({
+                weekdays: sortedUnique(set.weekdays),
+                opensAt: set.opensAt,
+                lastSeatingAt: set.lastSeatingAt,
+              })),
+          },
+          actions: [],
+          children: [],
+        };
+      });
+      const weekdays = sortedUnique(
+        children.flatMap((c) => (c.state.kind === "service" ? c.state.weekdays : []))
+      );
+      const dated = assignments.filter((a) => a.startsOn || a.endsOn);
+      const starts = dated.map((a) => a.startsOn).filter((d): d is string => !!d);
+      const ends = dated.map((a) => a.endsOn);
+      const state: NodeState =
+        !schedule.isRegular && dated.length > 0
+          ? {
+              kind: "period",
+              startsOn: starts.length > 0 ? starts.reduce((a, b) => (a < b ? a : b)) : null,
+              endsOn: ends.some((d) => !d) ? null : latest(ends),
+              weekdays: covered.slice(),
+            }
+          : { kind: "week", weekdays };
+      const actions: SetupAction[] = !manager
+        ? []
+        : schedule.isRegular
+          ? [
+              action("changeRegularWeek", { kind: "dialog", dialog: "changeRegularWeek" }),
+              action("editSchedule", link(SETUP_SCHEDULES), schedule.name),
+            ]
+          : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
+      return {
+        id: `schedule:${schedule.id}`,
+        kind: "schedule",
+        name: schedule.name,
+        state,
+        actions,
+        children,
+      };
+    }
+    function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode {
+      const services = new Map(
+        active(config.venueServices).map((s) => [s.id, { name: s.name, position: s.position }])
+      );
+      const schedules = active(config.schedules).map((s) => scheduleNode(s, config, services, manager));
+      const regular = active(config.schedules).find((s) => s.isRegular);
+      const regularSet =
+        regular !== undefined &&
+        schedules.some((n) => n.id === `schedule:${regular.id}` && n.children.length > 0);
+      if (!regularSet) {
+        return {
+          id: "schedules",
+          kind: "schedules",
+          name: null,
+          state: UNSET,
+          actions: manager ? [action("setUpRegularWeek", link(SETUP_CALENDAR))] : [],
+          children: [],
+        };
+      }
+      return {
+        id: "schedules",
+        kind: "schedules",
+        name: null,
+        state: { kind: "count", count: schedules.length },
+        actions: manager
+          ? [
+              action("compareServices", link(SETUP_SCHEDULES)),
+              action("createSchedule", link(SETUP_SCHEDULES)),
+            ]
+          : [],
+        children: schedules,
+      };
+    }
+    function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] {
+      return rules
+        .filter((r) => r.kind === "closure" || r.kind === "special_hours")
+        .filter((r) => r.endsOn == null || r.endsOn >= today)
+        .sort((a, b) =>
+          a.startsOn === b.startsOn ? a.id.localeCompare(b.id) : a.startsOn < b.startsOn ? -1 : 1
+        );
+    }
+    function targetOf(
+      rule: DateRule,
+      services: ReadonlyMap<string, string>,
+      sections: ReadonlyMap<string, string> | null
+    ): ClosureTarget {
+      switch (rule.targetKind) {
+        case "service":
+          return { kind: "service", name: services.get(rule.venueServiceId ?? "") ?? null };
+        case "booking":
+          return {
+            kind: "booking",
+            bookingTypes: (rule.bookingTypes ?? []).filter((b): b is Channel => CHANNELS.includes(b)),
+          };
+        case "tables":
+          return rule.sectionId
+            ? { kind: "section", name: sections?.get(rule.sectionId) ?? null }
+            : { kind: "tables", count: rule.tableIds?.length ?? 0 };
+        default:
+          return { kind: "venue" };
+      }
+    }
+    function specialDatesNode(
+      config: AvailabilityConfig,
+      today: string,
+      sections: ReadonlyMap<string, string> | null,
+      manager: boolean
+    ): SetupNode {
+      const upcoming = upcomingRules(config.dateRules, today);
+      const services = new Map(config.venueServices.map((s) => [s.id, s.name]));
+      const children: SetupNode[] = upcoming.slice(0, SPECIAL_DATES_SHOWN).map((rule) => ({
+        id: `special-date:${rule.id}`,
+        kind: "specialDate",
+        name: null,
+        state: {
+          kind: "closure",
+          what: rule.kind === "closure" ? "closed" : "specialHours",
+          startsOn: rule.startsOn,
+          endsOn: rule.endsOn ?? null,
+          target: targetOf(rule, services, sections),
+        },
+        actions: [],
+        children: [],
+      }));
+      return {
+        id: "special-dates",
+        kind: "specialDates",
+        name: null,
+        state: upcoming.length === 0 ? UNSET : { kind: "count", count: upcoming.length },
+        actions: manager
+          ? [
+              action("openCalendar", link(SETUP_CALENDAR)),
+              action("openSpecialDates", link(SETUP_SPECIAL)),
+            ]
+          : [],
+        children,
+      };
+    }
+    function bookingNode(
+      config: AvailabilityConfig,
+      settings: VenueSettings | null | undefined,
+      today: string,
+      manager: boolean
+    ): SetupNode {
+      const daysAhead = numberOrNull(settings?.maxAdvanceBooking);
+      const noticeHours = numberOrNull(settings?.minAdvanceBooking);
+      const largestParty = numberOrNull(settings?.maxPartySize);
+      const anySet = daysAhead !== null || noticeHours !== null || largestParty !== null;
+      const closures = upcomingRules(config.dateRules, today).filter(
+        (r) => r.kind === "closure" && r.targetKind === "booking"
+      );
+      return {
+        id: "booking",
+        kind: "booking",
+        name: null,
+        state: anySet ? { kind: "rules", daysAhead, noticeHours, largestParty } : UNSET,
+        actions: manager ? [action("bookingRules", { kind: "dialog", dialog: "bookingRules" })] : [],
+        children: CHANNELS.map((channel) => ({
+          id: `channel:${channel}`,
+          kind: "channel",
+          name: channel,
+          state: {
+            kind: "count",
+            count: closures.filter((r) => r.bookingTypes?.includes(channel)).length,
+          },
+          actions: [],
+          children: [],
+        })),
+      };
+    }
+    function openNodes(
+      data: OpenData,
+      today: string,
+      sections: ReadonlyMap<string, string> | null,
+      manager: boolean
+    ): SetupNode[] {
+      return [
+        schedulesNode(data.config, manager),
+        specialDatesNode(data.config, today, sections, manager),
+        bookingNode(data.config, data.settings, today, manager),
+      ];
+    }
+    function tableNode(table: Table): SetupNode {
+      return {
+        id: `table:${table.id}`,
+        kind: "table",
+        name: table.name,
+        state: { kind: "seats", seats: table.capacity },
+        actions: [],
+        children: [],
+      };
+    }
+    function floorPlanNode(
+      plan: FloorPlan,
+      data: SitData,
+      manager: boolean,
+      hasTables: boolean
+    ): SetupNode {
+      const tables = data.tables.filter((t) => t.isActive && t.floorPlanId === plan.id);
+      const sections = data.sections
+        .filter((s) => s.floorPlanId === plan.id)
+        .sort((a, b) => a.displayOrder - b.displayOrder);
+      const sectionIds = new Set(sections.map((s) => s.id));
+      const sectionNodes: SetupNode[] = sections.map((section) => {
+        const own = tables.filter((t) => t.sectionId === section.id);
+        return {
+          id: `section:${section.id}`,
+          kind: "section",
+          name: section.name,
+          state: { kind: "tables", count: own.length },
+          actions: manager
+            ? [
+                action(
+                  "closeSection",
+                  link(availabilityPath({ closeSection: section.id, from: "setup" })),
+                  section.name
+                ),
+              ]
+            : [],
+          children: own.map(tableNode),
+        };
+      });
+      const loose = tables.filter((t) => !t.sectionId || !sectionIds.has(t.sectionId));
+      const planPath = `/floor-plans/${plan.id}`;
+      const noSection: SetupNode[] =
+        loose.length === 0
+          ? []
+          : [
+              {
+                id: `no-section:${plan.id}`,
+                kind: "noSection",
+                name: null,
+                state: { kind: "tables", count: loose.length },
+                actions: manager ? [action("moveToSection", link(planPath))] : [],
+                children: loose.map(tableNode),
+              },
+            ];
+      return {
+        id: `floor-plan:${plan.id}`,
+        kind: "floorPlan",
+        name: plan.name,
+        // Readiness counts the floor plan step done once any plan has an active table.
+        state: hasTables
+          ? { kind: "floorPlan", sections: sections.length, tables: tables.length }
+          : UNSET,
+        actions: manager
+          ? [
+              action("openFloorPlan", link(planPath), plan.name),
+              action("addFloorPlan", link("/floor-plans")),
+            ]
+          : [],
+        children: [...sectionNodes, ...noSection],
+      };
+    }
+    function sitNodes(data: SitData, manager: boolean): SetupNode[] {
+      const planIds = new Set(data.floorPlans.map((p) => p.id));
+      const hasTables = data.tables.some(
+        (t) => t.isActive && !!t.floorPlanId && planIds.has(t.floorPlanId)
+      );
+      if (data.floorPlans.length === 0) {
+        return [
+          {
+            id: "floor-plan-empty",
+            kind: "floorPlan",
+            name: null,
+            state: UNSET,
+            actions: manager ? [action("addFloorPlan", link("/floor-plans"))] : [],
+            children: [],
+          },
+        ];
+      }
+      return data.floorPlans.map((plan) => floorPlanNode(plan, data, manager, hasTables));
+    }
+    function withPrimary(nodes: readonly SetupNode[], targetId: string | null): SetupNode[] {
+      return nodes.map((node) =>
+        node.id === targetId
+          ? {
+              ...node,
+              actions: node.actions.map((a, i) => (i === 0 ? { ...a, primary: true } : a)),
+            }
+          : node
+      );
+    }
+    export function buildSetupTree(input: SetupTreeInput): SetupTree {
+      const { isManager, today } = input;
+      const sectionNames =
+        input.sit.status === "ready"
+          ? new Map(input.sit.data.sections.map((s) => [s.id, s.name]))
+          : null;
+      let open: readonly SetupNode[] =
+        input.open.status === "ready" ? openNodes(input.open.data, today, sectionNames, isManager) : [];
+      let sit: readonly SetupNode[] =
+        input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
+    
+      if (
+        isManager &&
+        input.readiness === "setup" &&
+        input.open.status === "ready" &&
+        input.sit.status === "ready"
+      ) {
+        const first = [...open, ...sit].find((n) => isLaunchGate(n) && n.state.kind === "unset");
+        open = withPrimary(open, first?.id ?? null);
+        sit = withPrimary(sit, first?.id ?? null);
+      }
+    
+      return {
+        venueName: input.venueName,
+        groups: [
+          { id: "open", load: input.open.status === "ready" ? ready : input.open, nodes: open },
+          { id: "sit", load: input.sit.status === "ready" ? ready : input.sit, nodes: sit },
+        ],
+      };
+    }
+  </file>
+  <file path="src/components/venue-setup/useSetupNodeText.ts">
+    export interface SetupNodeText {
+      /** The kind's word ("Schedule", "Section"), for nodes that carry a name. */
+      readonly caption: (node: SetupNode) => string | null;
+      readonly label: (node: SetupNode) => string;
+      /** One line on what the resource is, on the top-level nodes. */
+      readonly whatIs: (node: SetupNode) => string | null;
+      readonly state: (node: SetupNode) => string;
+      readonly actionLabel: (action: SetupAction, node: SetupNode) => string;
+      /** The target an action names, read after its visible label ("Close for a date… Bar"). */
+      readonly actionSubject: (action: SetupAction) => string | undefined;
+    }
+    export function useSetupNodeText(): SetupNodeText {
+      const { t } = useTranslation();
+      const format = useVenueFormat();
+      const summarize = useWeekdaySummary();
+    
+      const day = (date: string) =>
+        format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
+      const shortDay = (date: string) =>
+        format.formatCalendarDate(date, { month: "short", day: "numeric" });
+      const time = (minute: number) => minuteText(minute, t, format);
+    
+      const target = (value: ClosureTarget): string => {
+        switch (value.kind) {
+          case "venue":
+            return t("setup.hub.target.venue");
+          case "service":
+            return value.name ?? t("setup.hub.target.service");
+          case "section":
+            return value.name ?? t("setup.hub.target.section");
+          case "booking":
+            return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
+              value.bookingTypes.map((b) => t(`setup.hub.channel.${b}`))
+            );
+          case "tables":
+            return t("setup.hub.target.tables", { count: value.count });
+        }
+      };
+    
+      const when = (startsOn: string, endsOn: string | null): string => {
+        if (endsOn === startsOn) return day(startsOn);
+        if (endsOn === null) return t("setup.hub.from", { date: day(startsOn) });
+        return t("setup.hub.range", { from: shortDay(startsOn), to: shortDay(endsOn) });
+      };
+    
+      const state = (node: SetupNode): string => {
+        const value: NodeState = node.state;
+        switch (value.kind) {
+          case "unset":
+            return t("setup.hub.notSetUp");
+          case "count":
+            switch (node.kind) {
+              case "schedules":
+                return t("setup.hub.count.schedules", { count: value.count });
+              case "specialDates":
+                return t("setup.hub.count.specialDates", { count: value.count });
+              default:
+                return t("setup.hub.count.channel", { count: value.count });
+            }
+          case "week":
+            return t("setup.hub.open", { days: summarize(value.weekdays) });
+          case "period":
+            return t("setup.hub.period", {
+              range:
+                value.startsOn === null
+                  ? t("setup.hub.until", { date: shortDay(value.endsOn ?? "") })
+                  : when(value.startsOn, value.endsOn),
+              days: summarize(value.weekdays),
+            });
+          case "service": {
+            const hours = (opensAt: number, lastSeatingAt: number) =>
+              t("availability.regularWeekLine.hours", {
+                open: time(opensAt),
+                close: time(lastSeatingAt),
+              });
+            const base = t("setup.hub.serviceLine", {
+              hours: hours(value.opensAt, value.lastSeatingAt),
+              days: summarize(value.weekdays),
+            });
+            const changes = value.changes.map((c) =>
+              c.opensAt === value.opensAt
+                ? t("availability.regularWeekLine.closes", {
+                    days: summarize(c.weekdays),
+                    close: time(c.lastSeatingAt),
+                  })
+                : t("availability.regularWeekLine.different", {
+                    days: summarize(c.weekdays),
+                    hours: hours(c.opensAt, c.lastSeatingAt),
+                  })
+            );
+            return [base, ...changes].join(" · ");
+          }
+          case "rules": {
+            const parts = [
+              value.daysAhead !== null && t("setup.hub.rules.daysAhead", { count: value.daysAhead }),
+              value.noticeHours !== null &&
+                t("setup.hub.rules.noticeHours", { count: value.noticeHours }),
+              value.largestParty !== null &&
+                t("setup.hub.rules.largestParty", { count: value.largestParty }),
+            ].filter((part): part is string => part !== false);
+            return parts.join(" · ");
+          }
+          case "closure": {
+            const what = t(
+              value.what === "closed" ? "setup.hub.closedRow" : "setup.hub.specialHoursRow",
+              {
+                target: target(value.target),
+              }
+            );
+            return `${when(value.startsOn, value.endsOn)} · ${what}`;
+          }
+          case "floorPlan":
+            return `${t("setup.hub.sections", { count: value.sections })} · ${t("setup.hub.tables", { count: value.tables })}`;
+          case "tables":
+            return t("setup.hub.tables", { count: value.count });
+          case "seats":
+            return t("setup.hub.seats", { count: value.seats });
+        }
+      };
+    
+      return {
+        caption: (node) => {
+          if (node.name === null) return null;
+          switch (node.kind) {
+            case "schedule":
+              return t("setup.hub.caption.schedule");
+            case "service":
+              return t("setup.hub.caption.service");
+            case "section":
+              return t("setup.hub.caption.section");
+            case "table":
+              return t("setup.hub.caption.table");
+            case "floorPlan":
+              return t("setup.hub.caption.floorPlan");
+            default:
+              return null;
+          }
+        },
+        label: (node) => {
+          if (node.kind === "channel")
+            return t(
+              `setup.hub.channelLabel.${node.name === "phone" || node.name === "waitlist" ? node.name : "online"}`
+            );
+          if (node.name !== null) return node.name;
+          switch (node.kind) {
+            case "schedules":
+              return node.state.kind === "unset"
+                ? t("setup.hub.regularWeek")
+                : t("setup.hub.label.schedules");
+            case "specialDates":
+              return t("setup.hub.label.specialDates");
+            case "booking":
+              return t("setup.hub.label.booking");
+            case "noSection":
+              return t("setup.hub.label.noSection");
+            default:
+              return t("setup.hub.label.floorPlan");
+          }
+        },
+        whatIs: (node) => {
+          const unset = node.state.kind === "unset";
+          switch (node.kind) {
+            case "schedules":
+              return t(unset ? "setup.hub.what.regularWeek" : "setup.hub.what.schedules");
+            case "specialDates":
+              return t("setup.hub.what.specialDates");
+            case "booking":
+              return t(unset ? "setup.hub.what.bookingUnset" : "setup.hub.what.booking");
+            case "floorPlan":
+              return unset ? t("setup.hub.what.floorPlan") : null;
+            default:
+              return null;
+          }
+        },
+        state,
+        actionLabel: (action, node) =>
+          action.id === "addFloorPlan" && node.state.kind !== "unset"
+            ? t("setup.hub.actions.addAnotherFloorPlan")
+            : t(`setup.hub.actions.${action.id}`),
+        actionSubject: (action) => action.subject,
+      };
     }
   </file>
   </section>

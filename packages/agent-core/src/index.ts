@@ -9,6 +9,7 @@ export {
   allFilesNonAuditable,
   findStalestZone,
   updateSurfaceScore,
+  recordSurfaceOutcome,
   detectRegression,
   ZONES,
   BASE_URL,
@@ -19,6 +20,8 @@ export type {
   AuditInventory,
   AuditSurface,
   LighthouseScores,
+  CheckOutcome,
+  CheckStatus,
   ScoreEntry,
   Zone,
   Regression,
@@ -392,17 +395,6 @@ export type {
 // Synthetic bug seeding (chaos-agent testing, #2927)
 export { BUG_CATALOG, injectBug } from "./synthetic-bug-seeder.js";
 export type { BugType, BugInjector, InjectBugResult } from "./synthetic-bug-seeder.js";
-
-// Revert detection (revert-rca-loop)
-export {
-  detectRecentReverts,
-  detectAiAuthorReverts,
-  isPrAiAuthor,
-  extractPrNumberFromMessage,
-  getCommitDetails,
-  formatRevertForIssue,
-} from "./revert-detector.js";
-export type { RevertCommit, RevertedPR } from "./revert-detector.js";
 
 // Quality gate interface, runner, and built-in gate implementations
 export { GateRunner } from "./gate-runner.js";

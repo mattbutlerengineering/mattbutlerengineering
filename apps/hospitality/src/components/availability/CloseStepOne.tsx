@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router";
 import {
+  Button,
   Alert,
   Checkbox,
   DatePicker,
@@ -14,7 +16,13 @@ import {
   Text,
   TextArea,
 } from "@mattbutlerengineering/rialto";
-import { GUEST_MESSAGE_MAX_LENGTH, type ClosureImpact, type VenueService } from "@mbe/types";
+import {
+  GUEST_MESSAGE_MAX_LENGTH,
+  MAX_CLOSURE_BATCH,
+  type ClosureImpact,
+  type FloorPlanSection,
+  type VenueService,
+} from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays } from "../../utils/service-day.js";
 import { WEEK_STARTS_ON } from "./calendar-dates.js";
@@ -24,6 +32,7 @@ import {
   closeWhenId,
   firstDateOf,
   guestDateOf,
+  toggleDate,
   type BookingChannel,
   type CloseForm,
   type CloseWhat,
@@ -42,10 +51,16 @@ export interface CloseStepOneProps {
   readonly form: CloseForm;
   readonly onChange: (form: CloseForm) => void;
   readonly services: readonly VenueService[];
+  /** The venue's floor-plan sections, which One section chooses from. */
+  readonly sections: readonly FloorPlanSection[];
+  /** `failed`: One section is off, and says why; `loading`: it is off and says nothing yet. */
+  readonly sectionsStatus: "loading" | "failed" | "ready";
   readonly today: string;
   /** `true` while the impact lookup is in flight. */
   readonly impactLoading: boolean;
   readonly impactFailed: boolean;
+  /** Asks the bookings check again after it failed; Close waits on its answer. */
+  readonly onRetryImpact?: () => void;
   readonly impact: ClosureImpact | null | undefined;
   /** Dates in the closure that already carry special hours. */
   readonly replacedDate: string | null;
@@ -54,6 +69,8 @@ export interface CloseStepOneProps {
   readonly locked?: boolean;
   /** An edit of one date of a series: When is fixed to that single date (the engine applies it on its start only). */
   readonly dateLocked?: boolean;
+  /** An edit of a saved closure: it stays one date, a range or open-ended, so no Tonight, Several dates or Repeats. */
+  readonly closureEdit?: boolean;
   /** The start times "Starting at" offers, including after midnight on an overnight day. */
   readonly startOptions: readonly number[];
   /** The last edit turned a time before opening into All day. */
@@ -66,6 +83,8 @@ function whenKindDefaults(kind: CloseWhen["kind"], today: string): CloseWhen {
       return { kind };
     case "date":
       return { kind, date: today };
+    case "dates":
+      return { kind, dates: [today] };
     case "range":
       return { kind, from: today, to: addDays(today, 6) };
     case "repeats":
@@ -75,14 +94,19 @@ function whenKindDefaults(kind: CloseWhen["kind"], today: string): CloseWhen {
   }
 }
 
-function whatKindDefaults(kind: string, services: readonly VenueService[]): CloseWhat {
+function whatKindDefaults(
+  kind: string,
+  services: readonly VenueService[],
+  sections: readonly FloorPlanSection[]
+): CloseWhat {
   if (kind === "service") return { kind, serviceId: services[0]?.id ?? "" };
+  if (kind === "section") return { kind, sectionId: sections[0]?.id ?? "" };
   if (kind === "booking") return { kind, types: ["online"] };
   return { kind: "venue" };
 }
 
 export function CloseStepOne(props: CloseStepOneProps) {
-  const { form, onChange, services, today, impact, impactLoading, impactFailed } = props;
+  const { form, onChange, services, sections, today, impact, impactLoading, impactFailed } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const patch = (next: Partial<CloseForm>) => onChange({ ...form, ...next });
@@ -113,6 +137,8 @@ export function CloseStepOne(props: CloseStepOneProps) {
   // "Closed" for the whole day.
   const from = form.fromMinute === null ? null : minuteText(form.fromMinute, t, format);
   const service = what.kind === "service" ? services.find((s) => s.id === what.serviceId) : null;
+  const section =
+    what.kind === "section" ? sections.find((s) => s.id === what.sectionId) : undefined;
   const status = service
     ? t(
         from === null
@@ -120,10 +146,19 @@ export function CloseStepOne(props: CloseStepOneProps) {
           : "availability.close.status.serviceClosedFrom",
         { service: service.name, time: from }
       )
-    : t(
-        from === null ? "availability.close.status.closed" : "availability.close.status.closedFrom",
-        { time: from }
-      );
+    : section
+      ? t(
+          from === null
+            ? "availability.close.status.sectionClosed"
+            : "availability.close.status.sectionClosedFrom",
+          { section: section.name, time: from }
+        )
+      : t(
+          from === null
+            ? "availability.close.status.closed"
+            : "availability.close.status.closedFrom",
+          { time: from }
+        );
 
   return (
     <Stack gap="md">
@@ -141,13 +176,18 @@ export function CloseStepOne(props: CloseStepOneProps) {
             label={t("availability.close.what.label")}
             name="close-what"
             value={what.kind}
-            onChange={(kind) => patch({ what: whatKindDefaults(kind, services) })}
+            onChange={(kind) => patch({ what: whatKindDefaults(kind, services, sections) })}
           >
             <Radio value="venue" label={t("availability.close.what.venue")} />
             <Radio
               value="service"
               label={t("availability.close.what.service")}
               disabled={services.length === 0}
+            />
+            <Radio
+              value="section"
+              label={t("availability.close.what.section")}
+              disabled={sections.length === 0}
             />
             <Radio value="booking" label={t("availability.close.what.booking")} />
           </RadioGroup>
@@ -157,6 +197,26 @@ export function CloseStepOne(props: CloseStepOneProps) {
               value={what.serviceId}
               options={services.map((s) => ({ value: s.id, label: s.name }))}
               onChange={(serviceId) => patch({ what: { kind: "service", serviceId } })}
+            />
+          )}
+          {sections.length === 0 && props.sectionsStatus !== "loading" && (
+            <Text variant="caption" color="secondary">
+              {props.sectionsStatus === "failed" ? (
+                t("availability.close.what.sectionsFailed")
+              ) : (
+                <>
+                  {t("availability.close.what.noSections")}{" "}
+                  <Link to="/floor-plans">{t("availability.close.what.openFloorPlan")}</Link>
+                </>
+              )}
+            </Text>
+          )}
+          {what.kind === "section" && (
+            <Select
+              label={t("availability.close.what.pickSection")}
+              value={what.sectionId}
+              options={sections.map((s) => ({ value: s.id, label: s.name }))}
+              onChange={(sectionId) => patch({ what: { kind: "section", sectionId } })}
             />
           )}
           {what.kind === "booking" && (
@@ -201,10 +261,17 @@ export function CloseStepOne(props: CloseStepOneProps) {
                   patch({ when: whenKindDefaults(kind as CloseWhen["kind"], firstDate || today) })
                 }
               >
-                <Radio value="tonight" label={t("availability.close.when.tonight")} />
+                {!props.closureEdit && (
+                  <Radio value="tonight" label={t("availability.close.when.tonight")} />
+                )}
                 <Radio value="date" label={t("availability.close.when.date")} />
+                {!props.closureEdit && (
+                  <Radio value="dates" label={t("availability.close.when.dates")} />
+                )}
                 <Radio value="range" label={t("availability.close.when.range")} />
-                <Radio value="repeats" label={t("availability.close.when.repeats")} />
+                {!props.closureEdit && (
+                  <Radio value="repeats" label={t("availability.close.when.repeats")} />
+                )}
                 <Radio value="until-reopen" label={t("availability.close.when.untilReopen")} />
               </RadioGroup>
               <div className={styles.row} id={closeWhenId(when, false)}>
@@ -216,6 +283,45 @@ export function CloseStepOne(props: CloseStepOneProps) {
                   dateField(t("availability.close.when.startingLabel"), when.from, (from) =>
                     patch({ when: { kind: "until-reopen", from } })
                   )}
+                {when.kind === "dates" && (
+                  <Stack gap="xs">
+                    <DatePicker
+                      label={t("availability.close.when.addDateLabel")}
+                      value={null}
+                      min={today}
+                      locale={format.locale}
+                      weekStartsOn={WEEK_STARTS_ON}
+                      onChange={(v) =>
+                        v && !when.dates.includes(v)
+                          ? patch({ when: { kind: "dates", dates: toggleDate(when.dates, v) } })
+                          : undefined
+                      }
+                    />
+                    <div
+                      className={styles.chips}
+                      role="list"
+                      aria-label={t("availability.close.when.picked")}
+                    >
+                      {when.dates.map((date) => (
+                        <div role="listitem" key={date}>
+                          <Tag
+                            dismissible
+                            onDismiss={() =>
+                              patch({
+                                when: { kind: "dates", dates: toggleDate(when.dates, date) },
+                              })
+                            }
+                          >
+                            {fullDate(date)}
+                          </Tag>
+                        </div>
+                      ))}
+                    </div>
+                    <Text variant="caption" color="secondary">
+                      {t("availability.close.when.datesHint", { max: MAX_CLOSURE_BATCH })}
+                    </Text>
+                  </Stack>
+                )}
                 {(when.kind === "range" || when.kind === "repeats") && (
                   <>
                     {dateField(t("availability.close.when.fromLabel"), when.from, (from) =>
@@ -253,7 +359,14 @@ export function CloseStepOne(props: CloseStepOneProps) {
           )}
           {props.invalid === "when" && (
             <Text variant="caption" color="secondary" role="alert">
-              {t("availability.close.when.invalid")}
+              {when.kind === "dates"
+                ? t(
+                    when.dates.length === 0
+                      ? "availability.close.when.datesRequired"
+                      : "availability.close.when.datesTooMany",
+                    { max: MAX_CLOSURE_BATCH }
+                  )
+                : t("availability.close.when.invalid")}
             </Text>
           )}
         </>
@@ -341,9 +454,19 @@ export function CloseStepOne(props: CloseStepOneProps) {
         )}
         {impactLoading && <Skeleton variant="text" width="60%" />}
         {impactFailed && (
-          <Text variant="body" color="secondary">
-            {t("availability.close.impactError")}
-          </Text>
+          <Stack gap="xs">
+            <Text variant="body" color="secondary">
+              {t("availability.close.impactFailed")}
+            </Text>
+            {props.onRetryImpact && (
+              <div>
+                {/* Not `disabled` while asking: a disabled button drops the focus the click gave it. */}
+                <Button variant="secondary" size="sm" onClick={props.onRetryImpact}>
+                  {t("availability.close.checkAgain")}
+                </Button>
+              </div>
+            )}
+          </Stack>
         )}
         {impact && !impactLoading && (
           <Text variant="body" color="primary">

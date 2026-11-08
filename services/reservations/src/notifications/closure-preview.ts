@@ -1,10 +1,14 @@
+import type { GuestNoticeLocale } from "@mbe/types";
 import { buildClosureEmail, buildClosureSms, type ClosureNoticeKind } from "./closure-content.js";
+import { closureCatalog } from "./closure-catalogs/index.js";
 import { buildManageUrl } from "./manage-url.js";
 
 /**
  * What a guest would be sent for one closure outcome (docs/features/venue-availability/ux.md S7,
  * "Preview message"): the same `buildClosureEmail` / `buildClosureSms` the CLOSURE_NOTICE job calls,
- * with the email body as the plain text a guest reads. Nothing is worded here.
+ * with the email body as the plain text a guest reads, in the language the guest booked in. The
+ * guest's own link, made only when a notice is sent, stands as the catalog's `previewLink` text.
+ * Nothing is worded here.
  */
 
 export type PreviewAction = "cancel" | "move" | "keep_notify";
@@ -14,9 +18,6 @@ const KIND_OF_ACTION: Record<PreviewAction, ClosureNoticeKind> = {
   move: "moved",
   keep_notify: "kept",
 };
-
-/** Stands where the guest's own link goes: it is made, signed, only when a notice is sent. */
-export const PREVIEW_LINK_TEXT = "[the guest's own link]";
 
 export interface ClosurePreviewInput {
   action: PreviewAction;
@@ -28,6 +29,8 @@ export interface ClosurePreviewInput {
   startTime: string;
   partySize: number;
   guestName: string | null;
+  /** The language the guest booked in; the preview is worded in it, as the sent notice is. */
+  locale: GuestNoticeLocale;
   message: string | null;
   refund: { amountCents: number; currency: string } | null;
   /** The booking's origin host brand: where the link points. */
@@ -79,6 +82,7 @@ export function previewClosureNotice(input: ClosurePreviewInput): ClosurePreview
   const manageUrl = buildManageUrl(input.manageBaseUrl, input.manageToken);
   const content = {
     kind: KIND_OF_ACTION[input.action],
+    locale: input.locale,
     venueName: input.venueName,
     guestName: input.guestName,
     closureDate: input.closureDate,
@@ -94,6 +98,6 @@ export function previewClosureNotice(input: ClosurePreviewInput): ClosurePreview
   const { subject, html } = buildClosureEmail(content);
   return {
     email: { from: input.from, subject, text: emailText(html) },
-    sms: buildClosureSms(content).split(manageUrl).join(PREVIEW_LINK_TEXT),
+    sms: buildClosureSms(content).split(manageUrl).join(closureCatalog(input.locale).previewLink),
   };
 }

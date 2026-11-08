@@ -1,0 +1,75 @@
+name: Reviewed Merge
+
+# Merges PRs a cloud routine already reviewed. Routines cannot merge
+# themselves: the auto-mode classifier denies it (#6125). They post a verdict
+# comment (`reviewed-merge: <head sha> PASS <score>/10`) and add the
+# `reviewed` label; scripts/reviewed-merge.mjs decides, and this job merges
+# with AUTOMATION_PAT so main's push workflows (CI, deploys) still fire.
+#
+# SECURITY: runs on pull_request_target / workflow_run with secrets. It checks
+# out the BASE repo only (never the PR head), so the decision script cannot be
+# edited by the PR it judges, and every PR-derived value goes through `env:`.
+
+on:
+  pull_request_target:
+    types: [labeled]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  schedule:
+    - cron: "15,45 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+concurrency:
+  group: reviewed-merge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    if: github.event_name != 'pull_request_target' || github.event.label.name == 'reviewed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout base
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          persist-credentials: false
+
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -o pipefail
+          if [ "$EVENT_NAME" = "pull_request_target" ]; then
+            PRS="$EVENT_PR_NUMBER"
+          else
+            PRS=$(gh api "repos/$GITHUB_REPOSITORY/issues?state=open&labels=reviewed&per_page=100" --jq '.[] | select(.pull_request) | .number')
+          fi
+          : > decisions.jsonl
+          for pr in $PRS; do
+            node scripts/reviewed-merge.mjs decide --pr "$pr" | tee -a decisions.jsonl
+          done
+
+      - name: Merge
+        env:
+          MERGE_TOKEN: ${{ secrets.AUTOMATION_PAT }}
+        run: |
+          set -o pipefail
+          if [ -z "$MERGE_TOKEN" ]; then
+            echo "::error::AUTOMATION_PAT is not set; nothing can merge."
+            exit 1
+          fi
+          jq -c 'select(.action == "merge")' decisions.jsonl | while read -r d; do
+            pr=$(echo "$d" | jq -r .pr)
+            echo "$d" | jq '{merge_method: "squash", sha, commit_title: .commitTitle}' > "merge-$pr.json"
+            if ! GH_TOKEN="$MERGE_TOKEN" gh api -X PUT "repos/$GITHUB_REPOSITORY/pulls/$pr/merge" --input "merge-$pr.json" --jq '"merged #'"$pr"' as \(.sha)"'; then
+              echo "::warning::#$pr merge refused (head moved, conflict, or branch rules)"
+            fi
+          done

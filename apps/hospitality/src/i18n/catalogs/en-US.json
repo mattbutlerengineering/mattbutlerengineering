@@ -82,47 +82,22 @@
       }
     },
     "hours": {
-      "heading": "Operating Hours",
+      "heading": "Regular week",
       "intro": "So guests know when you're open.",
-      "instructions": "Toggle each day to set opening and closing times. Days left off will be marked as closed.",
-      "closed": "Closed",
-      "to": "to",
-      "openingTime": "{{day}} opening time",
-      "closingTime": "{{day}} closing time",
-      "closeAfterOpen": "Closing time must be after opening time",
-      "timesRequired": "Enter both an opening and a closing time",
-      "atLeastOne": "At least one day must be open",
-      "closeDayTitle": "Close {{day}}?",
-      "closeDayDescription": "This will clear the custom opening and closing times you set for this day.",
-      "closeDayConfirm": "Close Day",
-      "closeDayCancel": "Keep Open"
-    },
-    "days": {
-      "monday": "monday",
-      "tuesday": "tuesday",
-      "wednesday": "wednesday",
-      "thursday": "thursday",
-      "friday": "friday",
-      "saturday": "saturday",
-      "sunday": "sunday"
+      "atLeastOne": "At least one day must be open"
     },
     "settings": {
       "heading": "Venue Settings",
       "intro": "Customize how bookings work — or use our recommended defaults.",
-      "stepIntro": "Customize how bookings work — or skip with our recommended defaults.",
       "useRecommended": "Use recommended settings",
       "durationLabel": "Default Reservation Duration (minutes)",
-      "maxPartyLabel": "Maximum Party Size",
-      "advanceLabel": "Advance Booking Window (days)",
       "defaultPlaceholder": "Default: {{value}}",
       "durationHint": "If left blank, defaults to {{value}} minutes",
       "maxPartyHint": "If left blank, defaults to {{value}} guests",
       "advanceHint": "If left blank, guests can book any date ahead",
       "advanceNoLimit": "No limit",
       "errors": {
-        "durationInvalid": "Duration must be a positive number",
-        "maxPartyInvalid": "Party size must be a positive number",
-        "advanceInvalid": "Advance days must be a positive number"
+        "durationInvalid": "Duration must be a positive number"
       }
     },
     "floorPlan": {
@@ -165,10 +140,8 @@
       "slug": "Slug",
       "timezone": "Timezone",
       "currency": "Currency",
-      "noHours": "No operating hours set",
       "settingsCard": "Settings",
       "defaultDuration": "Default Duration",
-      "maxPartySize": "Max Party Size",
       "advanceBooking": "Advance Booking",
       "minutes_one": "{{count}} minute",
       "minutes_other": "{{count}} minutes",
@@ -189,11 +162,13 @@
       "celebrationEmpty": "Your venue is live — add tables next",
       "stages": {
         "venue": "Venue",
+        "hours": "Hours",
         "floorPlan": "Floor plan",
         "tables": "Tables",
         "activate": "Activate"
       },
-      "noLimit": "No limit"
+      "noLimit": "No limit",
+      "todayOnly": "Today only"
     },
     "stagePanel": {
       "label": "Launch progress",
@@ -201,6 +176,9 @@
       "creating": "Creating {{name}}",
       "created": "{{name}} created",
       "venueFailed": "Couldn't create the venue",
+      "savingHours": "Saving your hours",
+      "hoursSaved": "Hours saved",
+      "hoursFailed": "Couldn't save your hours",
       "planFailed": "Couldn't create the floor plan",
       "toPlace": "{{count}} to place",
       "placed_one": "{{count}} table placed",
@@ -316,16 +294,13 @@
       "profile": "Profile",
       "settings": "Settings",
       "users": "Users",
-      "venueBasics": "Venue Basics",
-      "setOperatingHours": "Set Operating Hours",
-      "createFloorPlan": "Create Floor Plan",
       "tonightsService": "Tonight's Service",
       "timeline": "Timeline",
       "reservations": "Reservations",
       "waitlist": "Waitlist",
       "guests": "Guests",
       "dashboard": "Dashboard",
-      "floorPlans": "Floor Plans",
+      "venueSetup": "Venue Setup",
       "bookingWidget": "Booking Widget",
       "signOut": "Sign Out",
       "chat": "Chat",
@@ -344,15 +319,15 @@
       "guests": "Guests",
       "waitlist": "Waitlist",
       "briefing": "Tonight's Service",
-      "floorPlans": "Floor Plans",
+      "floorPlan": "Floor Plan",
       "bookingWidget": "Booking Widget",
       "onboarding": "New Venue",
       "profile": "Profile",
       "settings": "Settings",
       "admin": "Admin",
       "dashboard": "Dashboard",
-      "setup": "Setup",
-      "hours": "Operating Hours",
+      "setup": "Venue Setup",
+      "hours": "Availability",
       "menus": "Menus",
       "availability": "Availability",
       "chat": "Chat"
@@ -370,10 +345,10 @@
   },
   "floorPlan": {
     "list": {
-      "title": "Floor Plans",
+      "title": "Floor Plan",
       "description": "Design and manage your venue layouts",
       "newButton": "New Floor Plan",
-      "createButton": "Create Floor Plan",
+      "createButton": "Add floor plan",
       "loadFailed": "Couldn't load floor plans.",
       "cloneFailed": "Floor plan not cloned.",
       "cloned": "Floor plan \"{{name}}\" cloned successfully",
@@ -399,7 +374,7 @@
       "loading": "Loading",
       "notFound": "Floor plan not found",
       "notLoaded": "Floor plan not loaded",
-      "backToList": "Back to Floor Plans",
+      "backToList": "Back to Floor Plan",
       "backAria": "Back to floor plans",
       "active": "Active",
       "setActive": "Set as Active",
@@ -432,6 +407,8 @@
       "maxCovers": "Max Covers",
       "tableNumberPlaceholder": "e.g. 12",
       "locationPlaceholder": "e.g. Window",
+      "section": "Section",
+      "noSection": "No section",
       "activeDescription": "Inactive tables stay on the floor plan but cannot be booked.",
       "nameRequired": "Table name is required.",
       "capacityMin": "Capacity must be at least 1.",
@@ -617,7 +594,7 @@
       "closedToday_other": "Closed, opens at {{time}}",
       "closedOn_one": "Closed, opens {{weekday}} at {{time}}",
       "closedOn_other": "Closed, opens {{weekday}} at {{time}}",
-      "unset": "No operating hours set",
+      "unset": "No regular week set",
       "weekdays": {
         "monday": "Monday",
         "tuesday": "Tuesday",
@@ -708,7 +685,7 @@
       "retry": "Retry",
       "noTablesHeading": "No tables yet.",
       "noTablesDescription": "Set up a floor plan and the grid fills in.",
-      "floorPlans": "Floor plans",
+      "floorPlans": "Floor Plan",
       "detailsTitle": "Reservation Details",
       "closeDetails": "Close reservation details",
       "loadBanner": "Couldn't load tonight's reservations.",
@@ -1301,9 +1278,9 @@
     },
     "timeSlot": {
       "changeSearch": "← Change date or party size",
-      "noHoursStaffHeading": "No operating hours set",
-      "noHoursStaffDescription": "This venue doesn't have any operating hours configured yet, so guests can't see availability or book a table.",
-      "setHours": "Set Operating Hours",
+      "noHoursStaffHeading": "No regular week set",
+      "noHoursStaffDescription": "This venue doesn't have a regular week yet, so guests can't see availability or book a table.",
+      "setHours": "Set up regular week",
       "noHoursGuestHeading": "Not taking online bookings yet",
       "noHoursGuestDescription": "This venue hasn't set up online reservations yet. Please contact them directly to book a table.",
       "noTimesHeading": "No available times",
@@ -1666,6 +1643,7 @@
     },
     "kind": {
       "closure": "Closed",
+      "sectionClosed": "{{section}} closed",
       "bookingPaused": "Booking paused: {{channels}}",
       "specialHours": "Special hours"
     },
@@ -1684,6 +1662,8 @@
     "callListFor": "Call list for {{date}}",
     "remove": "Remove",
     "removeClosureFor": "Remove closure for {{date}}",
+    "editClosure": "Edit",
+    "editClosureFor": "Edit closure for {{date}}",
     "hoursRange": "{{from}} – {{to}}",
     "ended": {
       "title": "Earlier closure",
@@ -1812,6 +1792,7 @@
       "sameAsDay": "Same as {{day}}",
       "sameEmpty": "The regular week has no hours on {{day}}. Choose another day or use Closed.",
       "hoursInvalid": "Add at least one of the venue's existing services. New services are added from the day editor.",
+      "hoursNeedDate": "Choose a date first: its usual hours fill in here to change.",
       "removeRow": "Remove date {{n}}",
       "addRow": "Add another date",
       "shareMessage": "Use one message for every date",
@@ -1874,11 +1855,11 @@
     "tabsLabel": "Availability view",
     "tabCalendar": "Calendar",
     "tabSchedules": "Schedules",
-    "createAnother": "Create another schedule…",
     "title": "Schedules",
     "regularMarker": "Regular week",
     "new": "New schedule",
     "newTitle": "New schedule",
+    "fromRegularWeek": "Start from your regular week",
     "duplicateTitle": "Duplicate schedule",
     "editTitle": "Edit {{name}}",
     "editNamed": "Edit {{name}}",
@@ -1927,6 +1908,9 @@
     "conflict": "Someone changed availability first. The latest version is loading. Check it, then try again.",
     "impact_one": "Applies to {{count}} future date",
     "impact_other": "Applies to {{count}} future dates",
+    "alsoApply": {
+      "legend": "Also apply to {{service}} in:"
+    },
     "ownChanges_one": "{{count}} date already has its own changes",
     "ownChanges_other": "{{count}} dates already have their own changes",
     "stranded_one": "{{count}} upcoming booking would fall outside the new hours.",
@@ -1935,6 +1919,8 @@
       "title": "Discard your changes?"
     },
     "conflictReview": {
+      "alsoChanged": "Also applying to: {{names}} changed first",
+      "alsoRemoved": "Also applying to: {{names}} no longer runs this service",
       "title": "Someone changed this schedule first",
       "loading": "Loading the latest version…",
       "gone": "This schedule was deleted, so your changes can’t be saved. Discard them to close.",
@@ -2031,7 +2017,8 @@
       "nameRequired": "Name this schedule to save.",
       "nameRequiredPeriod": "Name this period to save.",
       "servicesRequired": "Add a service to save.",
-      "serviceNameRequired": "Name the new service to save."
+      "serviceNameRequired": "Name the new service to save.",
+      "replacesRegularWeek": "With no end date, this replaces your regular week. Add an end date, or use Change regular week…"
     },
     "edit": "Edit",
     "duplicate": "Duplicate"
@@ -2039,6 +2026,7 @@
   "availability": {
     "title": "Availability",
     "description": "Your hours, holidays and one-off changes.",
+    "backToSetup": "Venue Setup",
     "hostNote": "Only managers change hours. For tonight, use the Tonight panel.",
     "loadError": "Couldn't load availability",
     "noVenue": "Select a venue to see its availability.",
@@ -2054,12 +2042,15 @@
       "goToDate": "Go to date",
       "goToDateLabel": "Date",
       "goToDateSubmit": "Go",
-      "goToDateCancel": "Cancel"
+      "goToDateCancel": "Cancel",
+      "servicesFilter": "Services",
+      "allServices": "All services"
     },
     "calendar": {
       "label": "Availability calendar",
       "cellName": "{{date}}: {{details}}",
       "loadingDay": "loading",
+      "serviceNotRunning": "No {{name}}",
       "services_one": "{{count}} service",
       "services_other": "{{count}} services",
       "services_many": "{{count}} services",
@@ -2093,6 +2084,10 @@
       "tablesBlockedAllDayName": "tables blocked all day",
       "tablesBlockedBand": "Tables blocked {{from}} – {{to}}",
       "tablesBlockedBandName": "tables blocked {{from}} – {{to}}",
+      "sectionClosedAllDay": "{{section}} closed all day",
+      "sectionClosedAllDayName": "{{section}} closed all day",
+      "sectionClosedBand": "{{section}} closed {{from}} – {{to}}",
+      "sectionClosedBandName": "{{section}} closed {{from}} – {{to}}",
       "serviceLine": "{{name}} {{from}}–{{to}}",
       "nextDay": "{{time}} (next day)",
       "draftName": "unsaved changes",
@@ -2115,6 +2110,8 @@
       "changes_other": "{{count}} changes from your regular {{weekday}}.",
       "changes_many": "{{count}} changes from your regular {{weekday}}.",
       "whyTitle": "Why this day",
+      "guestMessage": "Message for guests: “{{message}}”",
+      "staffNote": "Staff note: {{note}}",
       "refreshError": "Couldn’t check for newer hours",
       "finishDraftFirst": "Save or discard your changes to this day first.",
       "hoursDiffer": "These dates have different hours. The rows below are from {{date}}.",
@@ -2122,6 +2119,27 @@
       "reloadHours": "Reload hours",
       "ifRemoved": "If removed: {{result}}",
       "removalNone": "no change to this day",
+      "schedule": {
+        "spanRange": "{{from}} – {{to}}",
+        "spanFrom": "from {{from}}",
+        "spanUntil": "until {{to}}",
+        "subjectDated": "{{name}} ({{span}})",
+        "subjectRule": "“{{label}}” on {{date}}",
+        "editNamed": "Edit {{name}}",
+        "changeFor": "Change the schedule for {{date}}",
+        "removeFor": "Remove {{subject}}",
+        "removeTitle": "Remove {{subject}}?",
+        "removeDescriptionDated": "{{name}} stops applying on every date of this period, not just this one. Those dates go back to your regular week, or to another schedule that covers them. The schedule stays on the Schedules tab. Bookings are never cancelled by this.",
+        "removeDescriptionRule": "The date goes back to the schedule that covers it. Bookings are never cancelled by this.",
+        "removeDescriptionRuleMany": "This removes it from every date it covers, not just one. Bookings are never cancelled by this.",
+        "keepSchedule": "Keep schedule",
+        "keep": "Keep",
+        "removedToast": "{{subject}} removed",
+        "scope": {
+          "title": "Edit {{name}}",
+          "all": "All dates {{name}} covers"
+        }
+      },
       "layer": {
         "tonight": "Tonight",
         "allDay": "All day",
@@ -2133,6 +2151,7 @@
         "serviceFallback": "Service",
         "bookingClosed": "{{types}} booking closed",
         "tablesBlocked": "Tables blocked",
+        "sectionClosed": "{{name}} closed",
         "bookingType": {
           "online": "online",
           "phone": "phone",
@@ -2494,6 +2513,20 @@
     "close": {
       "open": "Close…",
       "title": "Close",
+      "edit": {
+        "title": "Edit closure",
+        "save": "Save changes",
+        "toast": "Closure on {{date}} changed",
+        "gone": "This closure was removed. Close this and check the Special dates tab.",
+        "changed": "Someone changed this closure while you had it open. Close this and open it again to see their change.",
+        "givenBackIntro": "This edit opens dates the closure had cancelled guests on.",
+        "tellGivenBack_one": "Tell the {{count}} guest we cancelled on a date this opens that it's open again, with a link to rebook",
+        "tellGivenBack_other": "Tell the {{count}} guests we cancelled on dates this opens that they're open again, with a link to rebook",
+        "tellGivenBack_many": "Tell the {{count}} guests we cancelled on dates this opens that they're open again, with a link to rebook",
+        "toastTold_one": "Closure on {{date}} changed · {{count}} guest told the date is open again",
+        "toastTold_other": "Closure on {{date}} changed · {{count}} guests told the dates are open again",
+        "toastTold_many": "Closure on {{date}} changed · {{count}} guests told the dates are open again"
+      },
       "step": "Step {{step}} of 2",
       "next": "Next",
       "back": "Back",
@@ -2539,6 +2572,11 @@
         "venue": "Whole venue",
         "service": "One service",
         "pickService": "Service",
+        "section": "One section",
+        "pickSection": "Section",
+        "noSections": "Add a section to your floor plan first",
+        "openFloorPlan": "Open Floor Plan",
+        "sectionsFailed": "Couldn't load the sections.",
         "booking": "Booking only",
         "channel": {
           "online": "Online",
@@ -2554,6 +2592,12 @@
         "range": "Date range",
         "repeats": "Repeats",
         "untilReopen": "Until I reopen",
+        "dates": "Several dates",
+        "addDateLabel": "Add a date",
+        "picked": "Dates to close",
+        "datesHint": "Up to {{max}} dates, one closure each.",
+        "datesRequired": "Pick at least one date.",
+        "datesTooMany": "Close up to {{max}} dates at once.",
         "dateLabel": "Date",
         "startingLabel": "Starting",
         "fromLabel": "From",
@@ -2575,10 +2619,17 @@
       "impact_many": "{{count}} reservations · {{guests}} guests are booked in this closure",
       "impactNone": "No reservations are booked in this closure.",
       "impactError": "Couldn't check existing reservations. Change a field to try again.",
+      "impactFailed": "Couldn't check existing reservations.",
+      "checkAgain": "Check again",
       "guestsWillSee": "Guests will see: {{date}} · {{status}}",
       "guestsWillSeeMessage": "Guests will see: {{date}} · {{status}} · “{{message}}”",
       "button": {
         "close": "Close {{date}}",
+        "closeSection": "Close {{section}} on {{date}}",
+        "closeSectionNoDate": "Close {{section}}",
+        "closeMany_one": "Close {{count}} date",
+        "closeMany_other": "Close {{count}} dates",
+        "closeMany_many": "Close {{count}} dates",
         "pause": "Pause online booking",
         "cancel_one": "Close and cancel {{count}}",
         "cancel_other": "Close and cancel {{count}}",
@@ -2614,11 +2665,21 @@
       },
       "toast": {
         "closed": "{{date}} closed",
+        "closedSection": "{{section}} closed on {{date}}",
         "paused": "Online booking paused",
         "bookingPaused": "Booking paused on {{date}}",
         "notified_one": "{{date}} closed · {{count}} reservation notified",
         "notified_other": "{{date}} closed · {{count}} reservations notified",
-        "notified_many": "{{date}} closed · {{count}} reservations notified"
+        "notified_many": "{{date}} closed · {{count}} reservations notified",
+        "many_one": "{{count}} date closed",
+        "many_other": "{{count}} dates closed",
+        "many_many": "{{count}} dates closed",
+        "manyNotified_one": "{{count}} date closed · {{notified}} reservation notified",
+        "manyNotified_other": "{{count}} dates closed · {{notified}} reservations notified",
+        "manyNotified_many": "{{count}} dates closed · {{notified}} reservations notified",
+        "manyBookingPaused_one": "Booking paused on {{count}} date",
+        "manyBookingPaused_other": "Booking paused on {{count}} dates",
+        "manyBookingPaused_many": "Booking paused on {{count}} dates"
       },
       "step2": {
         "urgent": "Urgent: guests will get a text and an email",
@@ -2663,7 +2724,7 @@
         "previewEmail": "Email",
         "previewFrom": "From: {{from}}",
         "previewSms": "Text message",
-        "previewNote": "Every guest gets their own link, and any open rebooking times are added when it is sent. Messages are in English.",
+        "previewNote": "Every guest gets their own link, and any open rebooking times are added when it is sent. Each message is in the language that guest booked in.",
         "previewFailed": "Couldn't load the message.",
         "previewRetry": "Try again",
         "loading": "Loading the bookings…",
@@ -2675,7 +2736,9 @@
         "closed": "Closed",
         "closedFrom": "Closed from {{time}}",
         "serviceClosed": "{{service}} closed",
-        "serviceClosedFrom": "{{service}} closed from {{time}}"
+        "serviceClosedFrom": "{{service}} closed from {{time}}",
+        "sectionClosed": "{{section}} closed",
+        "sectionClosedFrom": "{{section}} closed from {{time}}"
       }
     },
     "paused": {
@@ -2701,10 +2764,13 @@
       "count_other": "{{count}} dates selected",
       "count_many": "{{count}} dates selected",
       "editHours": "Edit hours",
+      "close": "Close…",
       "clear": "Clear selection",
       "selectMenu": "Select…",
       "weekdayInMonth": "Every {{weekday}} in {{month}}",
+      "selectWeekdayInMonth": "Select every {{weekday}} in {{month}}",
       "usingSchedule": "All dates using {{schedule}}",
+      "selectUsingSchedule": "Select all dates using {{schedule}}",
       "pastDates": "Past dates can’t be selected.",
       "useSchedule": "Use schedule",
       "useOtherDay": "Use another day’s hours",
@@ -2739,7 +2805,8 @@
         "saved_many": "Cleared changes on {{count}} dates"
       },
       "selectDays": "Select days",
-      "selectingHint": "Tap the days you want"
+      "selectingHint": "Tap the days you want",
+      "selectingHintPointer": "Click the days you want, or drag across them"
     },
     "tonight": {
       "title": "Tonight",
@@ -2763,7 +2830,8 @@
       "block": {
         "label": "Block tables",
         "all": "All tables",
-        "location": "All tables in {{location}}",
+        "section": "Section: {{section}}",
+        "noSection": "No section",
         "button": "Block",
         "pick": "Choose tables…",
         "pickLabel": "Tables to block",
@@ -2811,6 +2879,7 @@
     "venueTime": "Venue time ({{zone}})",
     "weekSummary": {
       "line": "This week: {{parts}}",
+      "lineForService": "This week, {{service}}: {{parts}}",
       "open_one": "open {{count}} day",
       "open_other": "open {{count}} days",
       "closures_one": "{{count}} closure",
@@ -2871,34 +2940,118 @@
     }
   },
   "setup": {
-    "yourVenue": "your venue",
-    "welcome": "Welcome to {{venueName}}",
-    "intro": "Complete a few setup steps to start taking reservations.",
-    "progress": "{{percent}}% complete",
-    "stepsLabel": "Setup steps",
-    "stepAria": "{{label}} — {{status}}",
-    "review": "Review",
-    "done": "Done — {{venueName}}",
-    "status": {
-      "completed": "Completed",
-      "current": "Current step",
-      "locked": "Not yet available"
-    },
-    "steps": {
-      "onboarding": {
-        "label": "Venue Basics",
-        "description": "Set up your venue name, timezone, and currency.",
-        "cta": "Review Venue Details"
+    "hub": {
+      "title": "Venue Setup",
+      "description": "Everything a guest can book, and how it fits together. Each line opens where you change it.",
+      "yourVenue": "your venue",
+      "loading": "Loading Venue Setup",
+      "loadError": "Couldn't load Venue Setup.",
+      "groupError": "Couldn't load {{group}}.",
+      "groups": {
+        "open": "When you're open",
+        "sit": "Where guests sit"
       },
-      "hours": {
-        "label": "Set Operating Hours",
-        "description": "Configure which days and hours your venue is open.",
-        "cta": "Set Operating Hours"
+      "notSetUp": "Not set up",
+      "hostUnset": "A manager sets this up.",
+      "regularWeek": "Regular week",
+      "label": {
+        "schedules": "Schedules",
+        "specialDates": "Special dates",
+        "booking": "Booking",
+        "floorPlan": "Floor plan",
+        "noSection": "No section"
       },
-      "floorPlan": {
-        "label": "Create Floor Plan",
-        "description": "Add a floor plan with at least one table to enable reservations.",
-        "cta": "Create Floor Plan"
+      "caption": {
+        "schedule": "Schedule",
+        "service": "Service",
+        "section": "Section",
+        "table": "Table",
+        "floorPlan": "Floor plan"
+      },
+      "channelLabel": {
+        "online": "Online booking",
+        "phone": "Phone booking",
+        "waitlist": "Waitlist"
+      },
+      "channel": {
+        "online": "Online",
+        "phone": "Phone",
+        "waitlist": "Waitlist"
+      },
+      "what": {
+        "regularWeek": "The days and services guests can book.",
+        "schedules": "Named weeks your venue runs. The regular week is one.",
+        "specialDates": "Closures and special hours for one date or a range.",
+        "bookingUnset": "How far ahead, how much notice and how large a party guests can book online; defaults apply.",
+        "booking": "How guests book: online, by phone, on the waitlist.",
+        "floorPlan": "Where tables sit; guests can't book without a table."
+      },
+      "count": {
+        "schedules_one": "{{count}} schedule",
+        "schedules_other": "{{count}} schedules",
+        "specialDates_one": "{{count}} upcoming",
+        "specialDates_other": "{{count}} upcoming",
+        "channel_one": "closed on {{count}} upcoming date",
+        "channel_other": "closed on {{count}} upcoming dates"
+      },
+      "open": "Open {{days}}",
+      "period": "{{range}}, {{days}}",
+      "until": "Until {{date}}",
+      "from": "From {{date}}",
+      "range": "{{from}} – {{to}}",
+      "serviceLine": "{{hours}} · {{days}}",
+      "rules": {
+        "daysAhead_one": "Up to {{count}} day ahead",
+        "daysAhead_other": "Up to {{count}} days ahead",
+        "noticeHours_one": "{{count}} hour notice",
+        "noticeHours_other": "{{count}} hours notice",
+        "largestParty_one": "parties up to {{count}} online",
+        "largestParty_other": "parties up to {{count}} online"
+      },
+      "closedRow": "{{target}} closed",
+      "specialHoursRow": "{{target}}: special hours",
+      "target": {
+        "venue": "Whole venue",
+        "service": "A service",
+        "section": "A section",
+        "tables_one": "{{count}} table",
+        "tables_other": "{{count}} tables"
+      },
+      "sections_one": "{{count}} section",
+      "sections_other": "{{count}} sections",
+      "tables_one": "{{count}} table",
+      "tables_other": "{{count}} tables",
+      "seats_one": "{{count}} seat",
+      "seats_other": "{{count}} seats",
+      "floorPlanHint": "Sections and tables appear here once you add a floor plan",
+      "actions": {
+        "setUpRegularWeek": "Set up regular week",
+        "changeRegularWeek": "Change regular week…",
+        "editSchedule": "Edit",
+        "compareServices": "Compare services",
+        "createSchedule": "Create another schedule…",
+        "openCalendar": "Open calendar",
+        "openSpecialDates": "Open Special dates",
+        "bookingRules": "Booking rules…",
+        "openFloorPlan": "Open floor plan",
+        "addFloorPlan": "Add floor plan",
+        "addAnotherFloorPlan": "Add another floor plan",
+        "closeSection": "Close for a date…",
+        "moveToSection": "Move to a section"
+      },
+      "strip": {
+        "title": "Venue Setup progress",
+        "count": "{{done}} of {{total}}",
+        "steps": {
+          "venueBasics": "Venue basics",
+          "regularWeek": "Regular week",
+          "floorPlan": "Floor plan"
+        },
+        "state": {
+          "done": "Done",
+          "next": "Next",
+          "later": "Not yet"
+        }
       }
     }
   },
@@ -3039,7 +3192,7 @@
     "venue": {
       "title": "Venue",
       "description": "Manage the days and times your venue is open for reservations.",
-      "operatingHours": "Operating Hours"
+      "venueSetup": "Venue Setup"
     },
     "team": {
       "title": "Team",

@@ -229,7 +229,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       base: state,
       scope: first,
       // "+ Add service" adds one: the Manager asked for a row, not for the editor around it.
-      services: addService ? [...seed, nextServiceRow(seed, config.venueServices)] : seed,
+      services: addService ? [...seed, nextServiceRow(seed, config)] : seed,
       baseline: seed,
       parked: [],
       unsaved: [],
@@ -372,7 +372,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
         <ul className={styles.services}>
           {day.services.map((service, row) => (
             <li key={service.venueServiceId} className={styles.service}>
-              <Text as="span" variant="body" color="primary">
+              <Text as="span" variant="body" color="primary" className={styles.serviceLine}>
                 {t("availability.editor.serviceLine", {
                   name: service.name,
                   from: minuteText(service.opensAt, t, format),
@@ -380,7 +380,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
                 })}
               </Text>
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 {...waitingProps(held, heldReasonId)}
                 onClick={() => begin(false, row)}
@@ -504,7 +504,7 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       <div ref={servicesRef}>
         <ServicesEditor
           services={edit.services}
-          venueServices={config.venueServices}
+          config={config}
           date={overnightHintDate(edit.scope, date, dates)}
           onChange={(services) => {
             // A name leaves the lines only with the hold it names: one dropped because its service

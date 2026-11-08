@@ -9,6 +9,8 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { Viewport } from "../../hooks/useViewport.js";
 import type { CalendarView } from "./calendar-dates.js";
+import type { ServiceFilter } from "./service-filter.js";
+import { ServicesFilterSelect } from "./ServicesFilterSelect.js";
 import styles from "./AvailabilityToolbar.module.css";
 
 type MenuItems = ComponentProps<typeof DropdownMenu>["items"];
@@ -31,9 +33,13 @@ export interface AvailabilityToolbarProps {
   readonly onClose?: () => void;
   /** Absent as above, and while online booking is already paused. */
   readonly onPause?: () => void;
-  /** Absent as above: the schedule actions the page's controls hold on a wider screen. */
+  /** Absent as above: the schedule action the page's controls hold on a wider screen. */
   readonly onChangeRegularWeek?: () => void;
-  readonly onCreateSchedule?: () => void;
+  /** Phone only: the services the Services filter offers; empty (or absent) hides it. */
+  readonly services?: readonly ServiceFilter[];
+  /** The service the calendar reads for, or `null` for all. */
+  readonly serviceFilterId?: string | null;
+  readonly onServiceFilterChange?: (id: string | null) => void;
   /** Booking rules… (Managers): how far ahead, notice, largest party. */
   readonly onBookingRules?: () => void;
 }
@@ -53,11 +59,14 @@ const DIVIDER: MenuEntry = { type: "divider" };
 /**
  * The calendar's controls, in three groups: where you are (date navigation), how you look at it
  * (Month | Week) and what you can do. On a phone the third group folds into one menu, so the
- * calendar keeps the first screen.
+ * calendar keeps the first screen. The menu leads with what changes the hours — the buttons a
+ * wider screen shows beside the tabs — then closing and pausing, then the ways to pick days, and
+ * ends with getting around (Go to date, History), so the configuration it holds is never below
+ * the fold.
  */
 export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
   const { viewport, view, period, selectItems, onClose, onPause } = props;
-  const { onChangeRegularWeek, onCreateSchedule, onHistory, onBookingRules } = props;
+  const { onChangeRegularWeek, onHistory, onBookingRules } = props;
   const { t } = useTranslation();
   const bookingRulesItems: MenuItems = onBookingRules
     ? [
@@ -68,6 +77,17 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
         },
       ]
     : [];
+
+  const { services = [], serviceFilterId = null, onServiceFilterChange } = props;
+  // A phone's toolbar holds the filter on a row of its own; wider screens put it beside the week
+  // summary (AvailabilityPage), where the toolbar has no width to spare.
+  const serviceFilter = onServiceFilterChange ? (
+    <ServicesFilterSelect
+      services={services}
+      value={serviceFilterId}
+      onChange={onServiceFilterChange}
+    />
+  ) : null;
 
   const dateNavigation = (
     <div className={styles.group}>
@@ -134,32 +154,23 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
             },
           ]
         : []),
-      ...(onCreateSchedule
-        ? [
-            {
-              id: "create-schedule",
-              label: t("availabilitySchedules.createAnother"),
-              onSelect: onCreateSchedule,
-            },
-          ]
-        : []),
       ...bookingRulesItems,
     ];
-    const items: MenuItems = [
-      {
-        id: "history",
-        label: t("availability.historyButton"),
-        onSelect: afterMenuCloses(onHistory),
-      },
+    const navigationItems: MenuItems = [
       {
         id: "go-to-date",
         label: t("availability.toolbar.goToDate"),
         onSelect: afterMenuCloses(props.onGoToDate),
       },
-      ...selectItems,
-      ...(actionItems.length > 0 ? [DIVIDER, ...actionItems] : []),
-      ...(scheduleItems.length > 0 ? [DIVIDER, ...scheduleItems] : []),
+      {
+        id: "history",
+        label: t("availability.historyButton"),
+        onSelect: afterMenuCloses(onHistory),
+      },
     ];
+    const items: MenuItems = [scheduleItems, actionItems, selectItems, navigationItems]
+      .filter((group) => group.length > 0)
+      .flatMap((group, i) => (i === 0 ? group : [DIVIDER, ...group]));
     return (
       <div className={styles.toolbar}>
         {dateNavigation}
@@ -171,6 +182,7 @@ export function AvailabilityToolbar(props: AvailabilityToolbarProps) {
             items={items}
           />
         </div>
+        {serviceFilter}
       </div>
     );
   }

@@ -131,9 +131,9 @@ overrides:
   launch-editor@<2.14.2: ^2.14.2
 
 patchedDependencies:
-  '@stryker-mutator/vitest-runner@10.0.0':
-    hash: u4pcapoem5uzjhiv2kkplmbani
-    path: patches/@stryker-mutator__vitest-runner@10.0.0.patch
+  '@stryker-mutator/vitest-runner@10.1.1':
+    hash: 4e3mc47k7aunnsroeisdzcpn6y
+    path: patches/@stryker-mutator__vitest-runner@10.1.1.patch
 
 importers:
 
@@ -1352,8 +1352,8 @@ importers:
         specifier: ^7.10.1
         version: 7.10.1
       bullmq:
-        specifier: ^6.5.2
-        version: 6.5.2(ioredis@6.0.0)(pg@8.23.1)
+        specifier: ^6.5.4
+        version: 6.7.1(ioredis@6.0.0)(pg@8.23.1)
       fastify:
         specifier: 'catalog:'
         version: 5.12.7
@@ -1529,8 +1529,8 @@ importers:
         specifier: ^10.1.1
         version: 10.1.1(@types/node@26.6.6)
       '@stryker-mutator/vitest-runner':
-        specifier: ^10.0.0
-        version: 10.0.0(patch_hash=u4pcapoem5uzjhiv2kkplmbani)(@stryker-mutator/core@10.1.1(@types/node@26.6.6))(vitest@5.0.5)
+        specifier: ^10.1.1
+        version: 10.1.1(patch_hash=4e3mc47k7aunnsroeisdzcpn6y)(@stryker-mutator/core@10.1.1(@types/node@26.6.6))(vitest@5.0.5)
       vitest:
         specifier: 'catalog:'
         version: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(jsdom@30.1.3)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -4961,10 +4961,6 @@ packages:
     resolution: {integrity: sha512-C0F6LKxvsa9ONtxfJ4JG/vo8XjramVyy7tOZNZvoaZkw0M82OTm9LD3Ifcvw0QMDI7qPA14h+IP3qagkuC3b2Q==}
     engines: {node: '>=12.16'}
 
-  '@stryker-mutator/api@10.0.0':
-    resolution: {integrity: sha512-ZtAJ0ZT3MVRCWJTBE2h90XB/6E+4lifHYtcTyNG6nU2nLekPgTo4gD5esjX6Okxo1b/JB4jJzyxYB54fwKAoJw==}
-    engines: {node: '>=22.0.0'}
-
   '@stryker-mutator/api@10.1.1':
     resolution: {integrity: sha512-3s/ECsrD1Tf1WEB7amBk0HxjN7zgkabKvmqnI2C831rTNszJ6o2HoV9PVxtElDEWxb2+t4iavK5x25G+DTUOUA==}
     engines: {node: '>=22.0.0'}
@@ -4978,17 +4974,14 @@ packages:
     resolution: {integrity: sha512-Vyude2i8LhDciLV1q6J55KtdA7gZpRuMfZcBcmWV6hLHAvWocoPKnCKc5BlZt1mwGWkX3Olc0457I7Ue6F1WEg==}
     engines: {node: '>=22.0.0'}
 
-  '@stryker-mutator/util@10.0.0':
-    resolution: {integrity: sha512-LzOpHiJaCp2ABQgnPMlrQQcsK43bd5Vo/2FGL78aN62yDoeRQ+4j3tzeuXxK5OAHdC3fUz6TDoy4IsoAuLAd3w==}
-
   '@stryker-mutator/util@10.1.1':
     resolution: {integrity: sha512-Z0zDzsmhoSykE1gT3DvD1knFxySgNMfBlpSSs1j87kWvjEMfeMqfLOk0bqEPRg/rTFIUNSEXLZapxePUhZmfZA==}
 
-  '@stryker-mutator/vitest-runner@10.0.0':
-    resolution: {integrity: sha512-SHK2/vfvRUpiz7jXPnQMBnr6zLdm69DK03Mo5mPhaZWcRSygrKUqYsPqWsXsK+5ySHzlMTfCyFK5NQ/X9sJFFw==}
+  '@stryker-mutator/vitest-runner@10.1.1':
+    resolution: {integrity: sha512-w/OmNt1vHD4Yeacy8Rxhl2Ue/9l662iyOW8XxM4rc9huixF6IySHW3cvhTs8JnMvG9tG7vS7ZZ52wUXx7xy1IQ==}
     engines: {node: '>=22.0.0'}
     peerDependencies:
-      '@stryker-mutator/core': 10.0.0
+      '@stryker-mutator/core': 10.1.1
       vitest: '>=2.0.0'
 
   '@surma/rollup-plugin-off-main-thread@2.2.3':
@@ -5769,8 +5762,8 @@ packages:
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
 
-  bullmq@6.5.2:
-    resolution: {integrity: sha512-6Zkv8TVEXG6JJpIHrKgYtx9UOH7hKOx6EgYm9zSWavMzdo8uFiL28ljD4Ee/mFlq6ppAKLBWbdMXXYd3ZkubPg==}
+  bullmq@6.7.1:
+    resolution: {integrity: sha512-WIm9+O2ULs4tcEeKBwlH2so7Vzs6/K2Ru+FFb0V/v3FAlBjj5yNk7kC2KOm0/yMpdE93SvgPR+FC0jznX6ce1g==}
     engines: {node: '>=14.18.0'}
     peerDependencies:
       bullmq-otel: '>=2.0.0'
@@ -6066,8 +6059,8 @@ packages:
     resolution: {integrity: sha512-tJtZBBHA6vjIAaF6EnIaq6laBBP9aq/Y3ouVJjEfoHbRBcHBAHYcMh/w8LDrk2PvIMMq8gmopa5D4V8RmbrxGw==}
     engines: {node: '>= 0.10'}
 
-  cron-parser@5.10.2:
-    resolution: {integrity: sha512-JfAYMY0LZaWQTuict8PhtF/ksSnq8xefSDmQUnnoqvkPYkU/y3UP0DTWzJKFBz0P1IXsDG8q0vY3zHkoFZOhvw==}
+  cron-parser@5.10.3:
+    resolution: {integrity: sha512-Fwlmlgiyoj5e7XDCy5T3ueFd3imgt714k7xjAzhkOBUrUgQxWtsjS7kWSEN3efDX34bebxBJAmPoCSisHvjlpw==}
     engines: {node: '>=18'}
 
   cross-spawn@7.0.6:
@@ -8002,8 +7995,8 @@ packages:
     resolution: {integrity: sha512-prUB8+Gc/1rEzaNo+3Rjo0Hdi6gFjQ9Td0mDsvAIkSGUyp6EADdEBiU71ZP5Mj4jCG+vai0qSNV+yisQAMYuSQ==}
     hasBin: true
 
-  msgpackr@2.1.2:
-    resolution: {integrity: sha512-JHAdwubWNEadHQsFAib6uXOzKFxY8QOWHu9LCCksOINMC+TjgaKS2Tdrw7dW5SY0LLz8YK2/YqLSi2vigQt05w==}
+  msgpackr@2.1.4:
+    resolution: {integrity: sha512-TvP18sX5U3MXoHHSUZen/FagaNTEJObyb8OlnJcNbqN6Ux/oCwYJrHhCOzi31bItyW/Efz1IDnRDKQ23j4ZuvA==}
 
   mutation-server-protocol@0.4.1:
     resolution: {integrity: sha512-SBGK0j8hLDne7bktgThKI8kGvGTx3rY3LAeQTmOKZ5bVnL/7TorLMvcVF7dIPJCu5RNUWhkkuF53kurygYVt3g==}
@@ -13701,13 +13694,6 @@ snapshots:
 
   '@stripe/stripe-js@10.2.0': {}
 
-  '@stryker-mutator/api@10.0.0':
-    dependencies:
-      mutation-testing-metrics: 3.8.4
-      mutation-testing-report-schema: 3.8.4
-      tslib: 2.8.1
-      typed-inject: 5.0.0
-
   '@stryker-mutator/api@10.1.1':
     dependencies:
       mutation-testing-metrics: 3.8.4
@@ -13763,16 +13749,14 @@ snapshots:
       tslib: 2.8.1
       weapon-regex: 2.0.6
 
-  '@stryker-mutator/util@10.0.0': {}
-
   '@stryker-mutator/util@10.1.1': {}
 
-  '@stryker-mutator/vitest-runner@10.0.0(patch_hash=u4pcapoem5uzjhiv2kkplmbani)(@stryker-mutator/core@10.1.1(@types/node@26.6.6))(vitest@5.0.5)':
+  '@stryker-mutator/vitest-runner@10.1.1(patch_hash=4e3mc47k7aunnsroeisdzcpn6y)(@stryker-mutator/core@10.1.1(@types/node@26.6.6))(vitest@5.0.5)':
     dependencies:
-      '@stryker-mutator/api': 10.0.0
+      '@stryker-mutator/api': 10.1.1
       '@stryker-mutator/core': 10.1.1(@types/node@26.6.6)
-      '@stryker-mutator/util': 10.0.0
-      semver: 7.8.5
+      '@stryker-mutator/util': 10.1.1
+      semver: 7.8.6
       tslib: 2.8.1
       vitest: 5.0.5(@opentelemetry/api@1.9.1)(@types/node@26.6.6)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(jsdom@30.1.3)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.15)(yaml@2.9.1))
 
@@ -14720,13 +14704,13 @@ snapshots:
 
   buffer-from@1.1.2: {}
 
-  bullmq@6.5.2(ioredis@6.0.0)(pg@8.23.1):
+  bullmq@6.7.1(ioredis@6.0.0)(pg@8.23.1):
     dependencies:
-      cron-parser: 5.10.2
-      msgpackr: 2.1.2
+      cron-parser: 5.10.3
+      msgpackr: 2.1.4
       node-abort-controller: 3.1.1
-      semver: 7.8.5
-      tslib: 2.8.1
+      semver: 7.8.6
+      tslib: 2.9.1
     optionalDependencies:
       ioredis: 6.0.0
       pg: 8.23.1
@@ -15020,7 +15004,7 @@ snapshots:
       object-assign: 4.1.1
       vary: 1.1.2
 
-  cron-parser@5.10.2:
+  cron-parser@5.10.3:
     dependencies:
       luxon: 3.7.2
 
@@ -17232,7 +17216,7 @@ snapshots:
       '@msgpackr-extract/msgpackr-extract-win32-x64': 3.0.6
     optional: true
 
-  msgpackr@2.1.2:
+  msgpackr@2.1.4:
     optionalDependencies:
       msgpackr-extract: 3.0.6
 

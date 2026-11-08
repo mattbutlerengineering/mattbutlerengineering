@@ -14,7 +14,7 @@ File map, `AuthProvider` and hook API tables, Fastify usage examples, the token 
 
 `signinReturnTo()` is where a `/callback` route should navigate once `ready`: the returnTo carried through the OIDC state (recorded by `AuthProvider`, re-validated with `isSafeReturnTo` on read), or `"/"`.
 
-The `user` object is typed as `AuthUser`: `{ id, email?, name?, picture?, emailVerified?, raw: JWTPayload }`. `useAccessToken()` proactively schedules a silent refresh 5 minutes before the token expires and re-arms whenever `expires_at` changes; a failed refresh is surfaced via `refreshError` (typed `AccessTokenState`) so callers can prompt re-login.
+The `user` object is typed as `AuthUser`: `{ id, email?, name?, picture?, emailVerified?, raw: JWTPayload }`. Renewal has exactly one owner: oidc-client-ts's `automaticSilentRenew` (library default, outside the React tree, polls the clock so it survives sleep/wake). `AuthProvider` requests `offline_access` so Auth0 issues a refresh token and the renew is a token-endpoint fetch rather than a CSP-blocked iframe, and revokes the refresh token on sign-out. `useAccessToken()` only reads state; a failed renew is surfaced via `refreshError` (typed `AccessTokenState`) so callers can prompt re-login.
 
 #### Lifecycle semantics (measured against react-oidc-context 3.3 / oidc-client-ts 3.5)
 

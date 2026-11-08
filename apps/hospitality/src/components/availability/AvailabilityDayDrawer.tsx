@@ -11,7 +11,7 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { Layer, ResolvedDay, ResolvedDaySummary } from "@mbe/availability";
-import type { AvailabilityConfigState, TeamRole } from "@mbe/types";
+import type { AvailabilityConfig, AvailabilityConfigState, DateRule, TeamRole } from "@mbe/types";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
@@ -24,6 +24,7 @@ import { CopyDayAction } from "./CopyDayAction.js";
 import { UseDayHoursAction } from "./UseDayHoursAction.js";
 import { closedAllDay } from "./closed-all-day.js";
 import { LayerRuleActions } from "./LayerRuleActions.js";
+import { datedAssignmentOf } from "./ScheduleLayerActions.js";
 import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
@@ -52,6 +53,8 @@ export interface DayEditing {
   readonly onStale?: () => void;
   /** "Close…" (F5): open the Close dialog for this date. */
   readonly onCloseDay?: (date: string) => void;
+  /** "Edit" on a dated schedule's layer: open that schedule's editor (the Schedules tab's). */
+  readonly onEditSchedule?: (scheduleId: string) => void;
   /**
    * With `fixedDates`: the picked dates do not all have the same hours, so the rows shown are
    * one date's and a save replaces the others' (said above the rows).
@@ -69,6 +72,10 @@ export interface AvailabilityDayDrawerProps {
   /** `undefined` while the Team read is in flight. Only a Manager edits; a Host never sees a control. */
   readonly viewerRole: TeamRole | undefined;
   readonly editing?: DayEditing;
+  /** The venue's date rules, so a closure or special hours shows its staff note (Hosts too). */
+  readonly dateRules?: readonly DateRule[];
+  /** Section names by id, so a section closure's layer reads "Bar closed" (ADR-032). */
+  readonly sectionNames?: ReadonlyMap<string, string>;
   readonly onClose: () => void;
 }
 
@@ -109,10 +116,17 @@ function summaryText(day: ResolvedDay, weekday: string, locale: string, t: TFunc
 function DayBody({
   day,
   date,
+  dateRules,
+  config,
+  sectionNames,
   layerActions,
 }: {
   readonly day: ResolvedDay;
   readonly date: string;
+  readonly dateRules?: readonly DateRule[];
+  /** With `layerActions`: a day under a dated schedule alone still shows its layer, to act on. */
+  readonly config?: Pick<AvailabilityConfig, "assignments" | "schedules">;
+  readonly sectionNames?: ReadonlyMap<string, string>;
   /** Remove / Edit beside a layer that stands for a saved rule; a Host and a past date get none. */
   readonly layerActions?: (layer: Layer) => ReactNode;
 }) {
@@ -120,7 +134,16 @@ function DayBody({
   const format = useVenueFormat();
   const weekday = format.formatCalendarDate(date, { weekday: "long" });
   // The stack appears once a second layer exists; the regular week alone is just the summary.
-  const showStack = day.explanation.length >= 2;
+  // A Manager's day under one dated schedule shows it too: Remove and Edit have nowhere else to be.
+  const [only] = day.explanation;
+  const showStack =
+    day.explanation.length >= 2 ||
+    (layerActions !== undefined &&
+      config !== undefined &&
+      only !== undefined &&
+      datedAssignmentOf(config, only) !== undefined);
+  // A rule's note for staff ("Smith wedding"): why the day is the way it is, for whoever opens it.
+  const noteOf = (layer: Layer) => dateRules?.find((rule) => rule.id === layer.id)?.staffNote;
 
   return (
     <Stack gap="md">
@@ -130,6 +153,12 @@ function DayBody({
             {sentence}
           </Text>
         ))}
+        {/* What guests are told about this day, in the words the Manager wrote. */}
+        {day.guestMessage && (
+          <Text variant="caption" color="secondary">
+            {t("availability.drawer.guestMessage", { message: day.guestMessage })}
+          </Text>
+        )}
       </Stack>
       {showStack && (
         <section aria-labelledby="why-this-day">
@@ -140,16 +169,25 @@ function DayBody({
             {day.explanation.map((layer) => (
               <li key={layer.id} className={styles.layer}>
                 <Text as="span" variant="body" color="primary" data-layer-label>
-                  {layerLabelText(layer, t, format)}
+                  {layerLabelText(layer, t, format, sectionNames)}
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
                   {layerEffectText(layer, t, format)}
                 </Text>
-                <Text as="span" variant="caption" color="secondary">
-                  {t("availability.drawer.ifRemoved", {
-                    result: removalText(day, layer, format, t),
-                  })}
-                </Text>
+                {/* The regular week is the floor every other layer sits on: nothing done on a
+                    date removes it, so "If removed" would describe an action that does not exist. */}
+                {!layer.regularWeek && (
+                  <Text as="span" variant="caption" color="secondary">
+                    {t("availability.drawer.ifRemoved", {
+                      result: removalText(day, layer, format, t),
+                    })}
+                  </Text>
+                )}
+                {noteOf(layer) && (
+                  <Text as="span" variant="caption" color="secondary">
+                    {t("availability.drawer.staffNote", { note: noteOf(layer) })}
+                  </Text>
+                )}
                 {layerActions?.(layer)}
               </li>
             ))}
@@ -168,7 +206,7 @@ function DayBody({
  */
 export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   const viewport = useViewport();
-  const { date, day, isLoading, error, viewerRole, editing, onClose } = props;
+  const { date, day, isLoading, error, viewerRole, editing, dateRules, onClose } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
 
@@ -243,6 +281,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
           <DayBody
             day={day}
             date={date}
+            dateRules={dateRules ?? editing?.state.config.dateRules}
+            config={editing?.state.config}
+            sectionNames={props.sectionNames}
             layerActions={
               viewerRole === "manager" && editing && date >= editing.today
                 ? (layer) => (
@@ -259,6 +300,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
                       onFinished={() => editing.onFinished(true)}
                       onStale={editing.onStale ?? noop}
                       onEditHours={editHours}
+                      onEditSchedule={editing.onEditSchedule}
                     />
                   )
                 : undefined
@@ -298,26 +340,29 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             />
           </div>
         )}
-        {viewerRole === "manager" && !picked && editing?.onCloseDay && (
-          <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
-            {t("availability.close.open")}
-          </Button>
-        )}
-        {viewerRole === "manager" && editing && !picked && date >= editing.today && (
-          <UseDayHoursAction
-            waiting={waiting}
-            reasonId={reasonId}
-            venueId={editing.venueId}
-            state={editing.state}
-            timezone={editing.timezone}
-            date={date}
-            closedReason={closedAllDay(day) ? t("availability.drawer.useBlockedClosed") : null}
-            onFinished={() => editing.onFinished(true)}
-            onStale={editing.onStale ?? noop}
-          />
-        )}
+        {/* The day's other actions, one row of equals under its hours: none outweighs Edit. */}
         {viewerRole === "manager" && editing && !picked && (
-          <>
+          <div className={styles.dayActions}>
+            {/* Nothing to close on a day already shut or over; the toolbar's Close… still reaches
+                ranges that start on one. */}
+            {editing.onCloseDay && date >= editing.today && day.services.length > 0 && (
+              <Button variant="secondary" onClick={() => editing.onCloseDay?.(date)}>
+                {t("availability.close.open")}
+              </Button>
+            )}
+            {date >= editing.today && (
+              <UseDayHoursAction
+                waiting={waiting}
+                reasonId={reasonId}
+                venueId={editing.venueId}
+                state={editing.state}
+                timezone={editing.timezone}
+                date={date}
+                closedReason={closedAllDay(day) ? t("availability.drawer.useBlockedClosed") : null}
+                onFinished={() => editing.onFinished(true)}
+                onStale={editing.onStale ?? noop}
+              />
+            )}
             <CopyDayAction
               waiting={waiting}
               reasonId={reasonId}
@@ -328,16 +373,18 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               day={day}
               onStale={editing.onStale ?? noop}
             />
-            <ScheduleNudge
-              waiting={waiting}
-              reasonId={reasonId}
-              venueId={editing.venueId}
-              state={editing.state}
-              date={date}
-              day={day}
-              onStale={editing.onStale ?? noop}
-            />
-          </>
+          </div>
+        )}
+        {viewerRole === "manager" && editing && !picked && (
+          <ScheduleNudge
+            waiting={waiting}
+            reasonId={reasonId}
+            venueId={editing.venueId}
+            state={editing.state}
+            date={date}
+            day={day}
+            onStale={editing.onStale ?? noop}
+          />
         )}
         {/* Below Copy and the nudge, so what a reload brings and takes away never moves a control
             under a pointer. */}

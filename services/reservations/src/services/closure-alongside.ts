@@ -122,6 +122,45 @@ export function ruleChangedSinceSeen(
   });
 }
 
+/**
+ * A one-date, range or open-ended closure: what an edit of a closure replaces (#7984). A repeating
+ * closure is a series, and a skip or one-date edit belongs to its series.
+ */
+export const isPlainClosure = (r: DateRule): boolean =>
+  r.kind === "closure" && r.repeat == null && r.seriesId == null;
+
+/**
+ * An edit of one plain closure: the draft is the edited closure under a new id and the stored one
+ * is removed beside it, with nothing else written. The stored row as the client read it
+ * (`replaces`) is required, so a closure a teammate changed since is refused rather than overwritten.
+ */
+function checkClosureEdit(
+  stored: DateRule,
+  draft: DateRule,
+  alongside: ClosureAlongside
+): AlongsideIssue | null {
+  if (draft.kind !== "closure" || draft.id === stored.id) {
+    return refuse("alongside", "An edited closure is saved as a new closure.");
+  }
+  if (draft.repeat != null) {
+    return refuse(
+      "rule.repeat",
+      "An edited closure is one date, a range or open-ended, not a repeat."
+    );
+  }
+  if (alongside.upsert.length > 0 || alongside.remove.length !== 1) {
+    return refuse("alongside", "Editing a closure replaces that closure and nothing else.");
+  }
+  if (!alongside.replaces) {
+    return {
+      path: "alongside.replaces",
+      code: "replaces_required",
+      message: "Editing a closure needs the closure as you saw it.",
+    };
+  }
+  return null;
+}
+
 /** Null when `alongside` is a series edit of one stored series for `draft`; else the first issue. */
 export function checkAlongside(
   stored: readonly DateRule[],
@@ -129,6 +168,9 @@ export function checkAlongside(
   alongside: ClosureAlongside
 ): AlongsideIssue | null {
   const byId = new Map(stored.map((r) => [r.id, r]));
+  const [removed] = alongside.remove;
+  const plain = removed ? byId.get(removed) : undefined;
+  if (plain && isPlainClosure(plain)) return checkClosureEdit(plain, draft, alongside);
   const touched = new Set([
     ...alongside.remove,
     ...alongside.upsert

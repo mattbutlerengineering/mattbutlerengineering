@@ -43,8 +43,9 @@ import { root } from "./dep-graph-discovery.mjs";
  */
 export const GUARDED_CALLS = [
   {
-    name: "updateSurfaceScore",
-    reason: "appends a live Lighthouse/curl score into a surface's checkHistory",
+    name: "recordSurfaceOutcome",
+    reason:
+      "persists a scored, failed, or auth-gated check (and appends scores to checkHistory) so a zone never reads as never-checked (#8419)",
   },
   {
     name: "saveInventory",

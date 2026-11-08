@@ -41,6 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       has_code: ${{ steps.filter.outputs.has_code }}
+      has_rialto: ${{ steps.filter.outputs.has_rialto }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
         with:
@@ -57,7 +58,16 @@ jobs:
           set -euo pipefail
           if [ "$EVENT_NAME" != "pull_request" ]; then
             echo "has_code=true" >> "$GITHUB_OUTPUT"
+            echo "has_rialto=true" >> "$GITHUB_OUTPUT"
             exit 0
+          fi
+          # Files that define the rialto Storybook browser-test suite
+          # (storybook-tests job, #8117). Only the storybook-tests job reads this.
+          RIALTO_CHANGES=$(git diff --name-only "origin/$BASE_REF"...HEAD -- packages/rialto/ scripts/storybook-test-gate.mjs scripts/lib/storybook-gate-reporter.mjs pnpm-lock.yaml .github/workflows/ci.yml | wc -l | tr -d ' ')
+          if [ "$RIALTO_CHANGES" -gt 0 ]; then
+            echo "has_rialto=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_rialto=false" >> "$GITHUB_OUTPUT"
           fi
           CODE_CHANGES=$(git diff --name-only "origin/$BASE_REF"...HEAD -- . ':!*.md' ':!docs/' ':!*.png' ':!.gitignore' ':!LICENSE' | wc -l | tr -d ' ')
           if [ "$CODE_CHANGES" -gt 0 ]; then
@@ -169,6 +179,13 @@ jobs:
       # pure file compare; it needs no CLI build.
       - name: Check .cursorrules drift
         run: node scripts/check-cursorrules-drift.mjs
+
+      # #8396: CLAUDE.md and gotchas.md are markdown, so a markdown-only PR is
+      # the one change that can breach their byte budget AND skips the Test job
+      # that runs instruction-budget.test.mjs (main sat 88 bytes over, green).
+      # Same limits as that test -- both import scripts/check-instruction-budget.mjs.
+      - name: Check instruction byte budget
+        run: node scripts/check-instruction-budget.mjs
 
   hadolint:
     name: Dockerfile Lint
@@ -954,6 +971,10 @@ jobs:
             src/services/closure-reopen-date.integration.test.ts \
             src/services/availability-day-scope.integration.test.ts \
             src/services/floor-plan-lifecycle.integration.test.ts \
+            src/services/bookable-tables.integration.test.ts \
+            src/services/venue-delete-availability-cascade.integration.test.ts \
+            src/services/date-rule-section-migration.integration.test.ts \
+            src/services/section-closure-delete.integration.test.ts \
             src/scripts/collapse-day-named-schedules.integration.test.ts \
             --reporter=default --reporter=json --outputFile=rls-integration-results.json
 
@@ -1160,6 +1181,33 @@ jobs:
 
           echo "✓ All migrations applied successfully"
 
+  # Storybook play functions and axe checks in real Chromium (#8088, promoted to
+  # a CI Gate dependency in #8117 after 28 green runs on main). jsdom has no
+  # layout, so Dialog.overlays.stories.tsx (an overlay is not clipped inside a
+  # Dialog) can only be guarded here. Skipped (a pass for the gate) when no
+  # rialto-relevant file changed. The gate script judges each story against
+  # packages/rialto/storybook-quarantine.json rather than trusting the exit
+  # code, and is itself the failing step.
+  storybook-tests:
+    name: Storybook browser tests (rialto)
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has_rialto == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+      - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm --dir packages/rialto exec playwright install --with-deps chromium
+      - name: Run Storybook browser tests
+        run: node scripts/storybook-test-gate.mjs
+
   ci-gate:
     name: CI Gate
     if: always()
@@ -1184,6 +1232,7 @@ jobs:
         visual-tolerance-check,
         a11y-attribution,
         docs-format,
+        storybook-tests,
       ]
     runs-on: ubuntu-latest
     permissions:

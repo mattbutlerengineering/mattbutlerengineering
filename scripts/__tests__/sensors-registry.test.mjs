@@ -1523,6 +1523,7 @@ describe("metricsFreshness sensor (#5529)", () => {
   const FRESH_COLLECTORS = {
     "lighthouse.jsonl": `${JSON.stringify({ date: "2026-09-20" })}\n`,
     "mutation-score.jsonl": `${JSON.stringify({ date: "2026-09-20" })}\n`,
+    "audit-coverage.jsonl": `${JSON.stringify({ date: "2026-09-20" })}\n`,
     "process-metrics.jsonl": `${JSON.stringify({ date: "2026-09-20", sensor: "queueEfficiency", available: true })}\n${JSON.stringify({ date: "2026-09-20", sensor: "sdlcSpeed", available: true })}\n`,
     "ai-issue-feedback.json": JSON.stringify({
       collected_at: "2026-09-20T00:00:00.000Z",
@@ -1563,11 +1564,12 @@ describe("metricsFreshness sensor (#5529)", () => {
     });
 
     expect(data.available).toBe(true);
-    expect(data.stale_count).toBe(8);
+    expect(data.stale_count).toBe(9);
 
     const regressions = sensor().detectRegression(data, undefined, {});
     expect(regressions.map((r) => r.metric).sort()).toEqual([
       "ai-issue-feedback",
+      "audit-coverage",
       "lighthouse",
       "mutation-score",
       "queue-telemetry",

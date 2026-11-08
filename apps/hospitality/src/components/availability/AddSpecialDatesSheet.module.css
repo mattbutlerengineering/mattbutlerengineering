@@ -1,6 +1,8 @@
 .row {
   display: flex;
   flex-direction: column;
+  /* A fieldset grows to its widest child by default; it must fit the sheet instead. */
+  min-width: 0;
   gap: var(--rialto-space-sm);
   margin: 0;
   padding: var(--rialto-space-md);

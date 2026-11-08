@@ -26,6 +26,9 @@ vi.mock("./database.js", async () => {
   });
 });
 
+const { materialise } = vi.hoisted(() => ({ materialise: vi.fn() }));
+vi.mock("./section-closure-materialise.js", () => ({ materialiseSectionClosures: materialise }));
+
 import { floorPlanService } from "./floor-plan.js";
 import { prisma } from "./database.js";
 
@@ -206,6 +209,7 @@ describe("floorPlanService", () => {
             $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-2" }),
+              count: vi.fn().mockResolvedValue(1),
               findUnique: vi.fn().mockResolvedValue(cloned),
             },
             table: {
@@ -227,10 +231,10 @@ describe("floorPlanService", () => {
       });
     });
 
-    it("creates cloned tables inactive so a clone adds no bookable capacity", async () => {
-      // Every active table in a venue is bookable whatever its plan, and
-      // activating a plan does not touch tables — an active copy would double
-      // online capacity while the cloned plan is still inactive.
+    it.each([
+      { activePlans: 1, expected: true, label: "keeps the source isActive flag (active plan)" },
+      { activePlans: 0, expected: false, label: "creates copies inactive (no active plan, #8255)" },
+    ])("clone $label", async ({ activePlans, expected }) => {
       const createMany = vi.fn().mockResolvedValue({ count: 1 });
       const source = makePrismaFloorPlan();
       vi.mocked(prisma.floorPlan.findFirst).mockResolvedValueOnce(source as never);
@@ -242,6 +246,7 @@ describe("floorPlanService", () => {
             $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-2" }),
+              count: vi.fn().mockResolvedValue(activePlans),
               findUnique: vi.fn().mockResolvedValue(makePrismaFloorPlan({ id: "fp-2" })),
             },
             table: { findMany: vi.fn().mockResolvedValue([]), createMany },
@@ -252,7 +257,7 @@ describe("floorPlanService", () => {
 
       const rows = createMany.mock.calls[0]![0].data as Array<{ isActive: boolean }>;
       expect(rows.length).toBeGreaterThan(0);
-      expect(rows.every((r) => r.isActive === false)).toBe(true);
+      expect(rows.every((r) => r.isActive === expected)).toBe(true);
     });
 
     it("handles name collisions by appending copy number", async () => {
@@ -276,6 +281,7 @@ describe("floorPlanService", () => {
             $executeRaw: vi.fn().mockResolvedValue(0),
             floorPlan: {
               create: vi.fn().mockResolvedValue({ id: "fp-3" }),
+              count: vi.fn().mockResolvedValue(1),
               findUnique: vi.fn().mockResolvedValue(cloned),
             },
             table: {
@@ -332,6 +338,7 @@ describe("floorPlanService", () => {
         $executeRawUnsafe: vi.fn().mockResolvedValue(0),
         $queryRaw: vi.fn().mockResolvedValue(opts.plan ? [opts.plan] : []),
         floorPlan: { delete: vi.fn(), update: vi.fn() },
+        floorPlanSection: { findMany: vi.fn().mockResolvedValue([]) },
         table: {
           findMany: vi
             .fn()
@@ -395,6 +402,31 @@ describe("floorPlanService", () => {
       expect(await floorPlanService.delete("fp-1")).toBe("deleted");
       expect(tx.table.deleteMany).toHaveBeenCalledWith({ where: { floorPlanId: "fp-1" } });
       expect(tx.floorPlan.delete).toHaveBeenCalledWith({ where: { id: "fp-1" } });
+    });
+
+    it("materialises live section closures before the plan's sections cascade away", async () => {
+      const tx = deleteTx({ plan: inactive });
+      const order: string[] = [];
+      tx.floorPlanSection.findMany.mockResolvedValue([{ id: "sec-1" }, { id: "sec-2" }]);
+      materialise.mockImplementation(async () => void order.push("materialise"));
+      tx.table.deleteMany.mockImplementation(async () => void order.push("tables"));
+
+      expect(await floorPlanService.delete("fp-1")).toBe("deleted");
+
+      expect(tx.floorPlanSection.findMany).toHaveBeenCalledWith({
+        where: { floorPlanId: "fp-1" },
+        select: { id: true },
+      });
+      expect(materialise).toHaveBeenCalledWith(tx, "venue-1", ["sec-1", "sec-2"], expect.any(Date));
+      expect(order).toEqual(["materialise", "tables"]);
+    });
+
+    it("leaves the sections of an archived plan, and their closures, alone", async () => {
+      deleteTx({ plan: inactive, history: 1 });
+
+      expect(await floorPlanService.delete("fp-1")).toBe("archived");
+
+      expect(materialise).not.toHaveBeenCalled();
     });
 
     it("archives a plan with history, freeing its table names", async () => {

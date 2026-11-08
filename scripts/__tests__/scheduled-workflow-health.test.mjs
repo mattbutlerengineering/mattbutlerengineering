@@ -11,7 +11,11 @@ import {
   DEFAULT_FLAPPING_RATE_PCT,
   DEPLOY_WORKFLOW_FILES,
   MAIN_PUSH_WORKFLOW_FILES,
+  CANCELLED_IS_FAILURE_WORKFLOW_FILES,
   findMainPushWorkflows,
+  findUnwatchedMainPushWorkflows,
+  MAIN_PUSH_WATCH_EXEMPT_FILES,
+  hasMainPushTrigger,
   mainPushRunArgs,
   mainPushRateRunArgs,
   classifyScheduledWorkflowHealth,
@@ -19,6 +23,9 @@ import {
   hasScheduleTrigger,
   findScheduledWorkflows,
   findDeployWorkflows,
+  findUnwatchedDeployWorkflows,
+  DEPLOY_WATCH_EXEMPT_FILES,
+  looksLikeDeployWorkflow,
   buildScheduledFailureTitle,
   buildDeployFailureTitle,
   extractWorkflowNameFromIssueTitle,
@@ -334,6 +341,19 @@ describe("buildScheduledFailureBody", () => {
   });
 });
 
+describe("buildScheduledFailureBody with cancelled runs counted (#8376)", () => {
+  it("says the cancelled (timed-out) runs are the streak instead of claiming they were excluded", () => {
+    const body = buildScheduledFailureBody({
+      workflowPath: ".github/workflows/nightly-compliance.yml",
+      streak: 3,
+      runs: [{ url: "https://github.com/x/y/actions/runs/1" }],
+      cancelledCountsAsFailure: true,
+    });
+    expect(body).not.toContain("`cancelled` or `skipped` are excluded");
+    expect(body).toContain("`cancelled` runs (job timeouts) count toward this streak");
+  });
+});
+
 describe("runScheduledWorkflowHealthCheck", () => {
   it("files one ci-fix issue for a failing-streak workflow and skips a healthy one", () => {
     const workflows = [
@@ -606,6 +626,130 @@ describe("findDeployWorkflows", () => {
       "deploy-static.yml",
       "pulumi-up.yml",
     ]);
+  });
+
+  // #8394: `findListedWorkflows()` filters to files that exist, so a renamed
+  // or deleted deploy workflow silently drops out of the watched set instead
+  // of failing anything — the same gap #7601 closed for the main-push arm.
+  it("every listed file exists in the real repo", () => {
+    const real = findDeployWorkflows(join(import.meta.dirname, "..", "..", ".github", "workflows"));
+    expect(real.map((w) => w.file)).toEqual([...DEPLOY_WORKFLOW_FILES].sort());
+  });
+});
+
+// #8394: deploy-arm completeness guard, mirroring `findUnwatchedMainPushWorkflows`
+// (#8393/#7601) for `DEPLOY_WORKFLOW_FILES`. Unlike the main-push arm, deploy-arm
+// membership cannot be derived from trigger shape (deploy workflows share
+// push/workflow_run/workflow_dispatch with ordinary CI workflows) -- the deploy
+// *command* is the only discriminating signal, and real deploy workflows never
+// spell it as a literal, unpinned string: `deploy-static.yml` invokes
+// `wrangler@3.114.17 deploy` (version-pinned), and `pulumi-up.yml` deploys
+// through `pulumi/actions` with `command: up`, not a shell `pulumi up`.
+describe("deploy workflow arm completeness (#8394)", () => {
+  let dir;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "deploy-watch-"));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("exempts only preview-deploy.yml, and states a reason for it", () => {
+    expect(Object.keys(DEPLOY_WATCH_EXEMPT_FILES)).toEqual(["preview-deploy.yml"]);
+    expect(DEPLOY_WATCH_EXEMPT_FILES["preview-deploy.yml"]).toMatch(/pull_request/);
+  });
+
+  it("recognizes a version-pinned wrangler deploy command", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\n    branches: [main]\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx wrangler@3.114.17 deploy --config apps/x/wrangler.toml\n"
+      )
+    ).toBe(true);
+  });
+
+  it("recognizes doctl apps create-deployment", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        'on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: doctl apps create-deployment "$APP_ID" --wait\n'
+      )
+    ).toBe(true);
+  });
+
+  it("recognizes a pulumi/actions step whose command is up", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: pulumi/actions@v7\n        with:\n          command: up\n"
+      )
+    ).toBe(true);
+  });
+
+  // pulumi-preview.yml and pulumi-r2-checksum-validation.yml both use
+  // `pulumi/actions`, but with `command: preview` or `refresh` -- neither
+  // mutates production, so neither must read as a deploy.
+  it("does not treat a pulumi/actions preview or refresh as a deploy", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: pulumi/actions@v7\n        with:\n          command: preview\n"
+      )
+    ).toBe(false);
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: pulumi/actions@v7\n        with:\n          command: refresh\n"
+      )
+    ).toBe(false);
+  });
+
+  it("does not treat a wrangler rollback as a deploy", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx wrangler@3.114.17 rollback --name x\n"
+      )
+    ).toBe(false);
+  });
+
+  it("does not treat an ordinary build/test workflow as a deploy", () => {
+    expect(
+      looksLikeDeployWorkflow(
+        "on:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm build\n      - run: pnpm test\n"
+      )
+    ).toBe(false);
+  });
+
+  it("reports a workflow that performs a deploy and is listed in neither set", () => {
+    writeFileSync(
+      join(dir, "stray-deploy.yml"),
+      "name: Stray Deploy\non:\n  push:\n    branches: [main]\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: doctl apps create-deployment stray --wait\n"
+    );
+    expect(findUnwatchedDeployWorkflows(dir)).toEqual([
+      {
+        name: "Stray Deploy",
+        file: "stray-deploy.yml",
+        path: ".github/workflows/stray-deploy.yml",
+      },
+    ]);
+  });
+
+  it("does not report listed, exempt, or non-deploy workflows", () => {
+    writeFileSync(
+      join(dir, "deploy-static.yml"),
+      "name: Deploy Static\non:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx wrangler@3.114.17 deploy\n"
+    );
+    writeFileSync(
+      join(dir, "preview-deploy.yml"),
+      "name: Preview Deploy\non:\n  pull_request:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npx wrangler@3.114.17 deploy\n"
+    );
+    writeFileSync(
+      join(dir, "ci.yml"),
+      "name: CI\non:\n  push:\njobs:\n  d:\n    runs-on: ubuntu-latest\n    steps:\n      - run: pnpm test\n"
+    );
+    expect(findUnwatchedDeployWorkflows(dir)).toEqual([]);
+  });
+
+  it("watches or exempts every deploy workflow in the real repo (#8394)", () => {
+    const workflowsDir = join(import.meta.dirname, "..", "..", ".github", "workflows");
+    expect(findUnwatchedDeployWorkflows(workflowsDir)).toEqual([]);
   });
 });
 
@@ -1247,10 +1391,16 @@ describe("main-push workflow arm (#6955)", () => {
 
   it("pins the exact list of watched advisory workflows", () => {
     expect(MAIN_PUSH_WORKFLOW_FILES).toEqual([
+      "adr-check.yml",
       "apps-visual.yml",
       "e2e-screenshots.yml",
+      "instruction-regression.yml",
+      "post-merge.yml",
+      "release.yml",
       "rialto-visual.yml",
       "rialto-web-e2e.yml",
+      "secret-scan.yml",
+      "storybook.yml",
     ]);
   });
 
@@ -1262,6 +1412,98 @@ describe("main-push workflow arm (#6955)", () => {
       expect(on, file).not.toHaveProperty("schedule");
       expect(DEPLOY_WORKFLOW_FILES, file).not.toContain(file);
     }
+  });
+
+  // #7601: the completeness direction. The tests above only assert that every
+  // LISTED workflow qualifies; nothing asserted that every QUALIFYING workflow
+  // is listed. That is the gap rialto-web-e2e.yml fell through for 5d 8h, and
+  // fixing #7601 by appending one file left the next new advisory workflow
+  // free to repeat it. A qualifying workflow must be watched or explicitly
+  // exempt -- never silently neither.
+  it("watches or exempts every push-to-main advisory workflow (#7601)", () => {
+    const workflowsDir = join(import.meta.dirname, "..", "..", ".github", "workflows");
+    expect(findUnwatchedMainPushWorkflows(workflowsDir)).toEqual([]);
+  });
+
+  it("exempts only ci.yml, and states a reason for it", () => {
+    expect(Object.keys(MAIN_PUSH_WATCH_EXEMPT_FILES)).toEqual(["ci.yml"]);
+    expect(MAIN_PUSH_WATCH_EXEMPT_FILES["ci.yml"]).toMatch(/CI Gate/);
+  });
+
+  it("detects a push-to-main trigger in both YAML list forms", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: [main]\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches:\n      - main\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: [release]\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  pull_request:\n    branches: [main]\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  schedule:\n    - cron: '0 0 * * *'\n")).toBe(false);
+  });
+
+  // Fail closed on an unfiltered push: `on: push` with no `branches` fires on
+  // EVERY branch, main included, so it must qualify. Reading it as "not a
+  // main-push workflow" would reintroduce the silent gap this guard exists to
+  // close -- the workflow would be watched by nothing and flagged by nothing.
+  it("treats an unfiltered push trigger as pushing to main", () => {
+    expect(hasMainPushTrigger("on: push\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    paths:\n      - src/**\n")).toBe(true);
+  });
+
+  // YAML allows a bare scalar where a sequence is expected. Pinned so the
+  // scalar and sequence forms cannot drift apart.
+  it("reads a scalar branch filter the same as a one-item list", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: main\n")).toBe(true);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches: release\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: main\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: docs\n")).toBe(true);
+  });
+
+  // A tag-only push never fires on a branch, so it is not a main-push
+  // workflow -- without this, the fail-closed default would report every
+  // future tag-triggered workflow as unwatched.
+  it("does not treat a tag-only push as pushing to main", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    tags: ['v*']\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    tags: ['v*']\n    branches: [main]\n")).toBe(true);
+  });
+
+  it("honours branches-ignore", () => {
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: [main]\n")).toBe(false);
+    expect(hasMainPushTrigger("on:\n  push:\n    branches-ignore: [docs]\n")).toBe(true);
+  });
+
+  it("reports a qualifying workflow that is listed in none of the sets", () => {
+    writeFileSync(join(dir, "stray.yml"), "name: Stray\non:\n  push:\n    branches: [main]\n");
+    expect(findUnwatchedMainPushWorkflows(dir)).toEqual([
+      { name: "Stray", file: "stray.yml", path: ".github/workflows/stray.yml" },
+    ]);
+  });
+
+  // The sort is a documented contract ("sorted by file name for deterministic
+  // output"), and it takes two entries to exercise the comparator at all --
+  // with 0 or 1 result the ordering claim is untested.
+  it("returns multiple unwatched workflows sorted by file name", () => {
+    writeFileSync(join(dir, "zeta.yml"), "name: Zeta\non:\n  push:\n    branches: [main]\n");
+    writeFileSync(join(dir, "alpha.yml"), "name: Alpha\non:\n  push:\n    branches: [main]\n");
+    expect(findUnwatchedMainPushWorkflows(dir).map((w) => w.file)).toEqual([
+      "alpha.yml",
+      "zeta.yml",
+    ]);
+  });
+
+  it("does not report scheduled, deploy, exempt, or already-listed workflows", () => {
+    writeFileSync(
+      join(dir, "cron.yml"),
+      "name: Cron\non:\n  push:\n    branches: [main]\n  schedule:\n    - cron: '0 0 * * *'\n"
+    );
+    writeFileSync(join(dir, "ci.yml"), "name: CI\non:\n  push:\n    branches: [main]\n");
+    writeFileSync(
+      join(dir, "deploy-static.yml"),
+      "name: Deploy Static\non:\n  push:\n    branches: [main]\n"
+    );
+    writeFileSync(
+      join(dir, "rialto-visual.yml"),
+      "name: Rialto Visual\non:\n  push:\n    branches: [main]\n"
+    );
+    expect(findUnwatchedMainPushWorkflows(dir)).toEqual([]);
   });
 
   it("every listed file exists in the real repo", () => {
@@ -1654,5 +1896,68 @@ describe("runWorkflowFailureRateCheck", () => {
 
     expect(createCalled).toBe(false);
     expect(results).toEqual([{ workflow: "new.yml", status: "insufficient-sample" }]);
+  });
+});
+
+describe("cancelled-as-failure workflows (#8376)", () => {
+  const cancelledRuns = [
+    { conclusion: "cancelled", url: "u1" },
+    { conclusion: "cancelled", url: "u2" },
+    { conclusion: "cancelled", url: "u3" },
+  ];
+
+  it("by default still excludes cancelled runs from the streak", () => {
+    expect(classifyScheduledWorkflowHealth({ runs: cancelledRuns, threshold: 3 }).status).toBe(
+      "insufficient-history"
+    );
+  });
+
+  it("counts cancelled runs as failures when cancelledCountsAsFailure is set", () => {
+    const health = classifyScheduledWorkflowHealth({
+      runs: cancelledRuns,
+      threshold: 3,
+      cancelledCountsAsFailure: true,
+    });
+    expect(health.status).toBe("failing-streak");
+    expect(health.streak).toBe(3);
+  });
+
+  it("still excludes skipped runs when cancelledCountsAsFailure is set", () => {
+    const runs = [{ conclusion: "skipped" }, ...cancelledRuns];
+    const health = classifyScheduledWorkflowHealth({
+      runs,
+      threshold: 3,
+      cancelledCountsAsFailure: true,
+    });
+    expect(health.status).toBe("failing-streak");
+    expect(health.failingRuns).toHaveLength(3);
+  });
+
+  it("lists nightly-compliance.yml and the real workflow is scheduled", () => {
+    expect(CANCELLED_IS_FAILURE_WORKFLOW_FILES).toContain("nightly-compliance.yml");
+    const scheduled = findScheduledWorkflows(
+      join(import.meta.dirname, "..", "..", ".github", "workflows")
+    );
+    const entry = scheduled.find((w) => w.file === "nightly-compliance.yml");
+    expect(entry).toBeDefined();
+  });
+
+  it("files a ci-fix issue for a listed workflow whose runs all timed out", () => {
+    const created = [];
+    const results = runScheduledWorkflowHealthCheck({
+      workflows: [
+        { name: "nightly-compliance", path: ".github/workflows/nightly-compliance.yml" },
+        { name: "other", path: ".github/workflows/other.yml" },
+      ],
+      threshold: 3,
+      getRuns: () => cancelledRuns,
+      createIssue: (title) => {
+        created.push(title);
+        return 7;
+      },
+    });
+    expect(created).toEqual(["ci-fix: nightly-compliance has failed 3 consecutive scheduled runs"]);
+    expect(results[0].status).toBe("failing-streak");
+    expect(results[1].status).toBe("insufficient-history");
   });
 });

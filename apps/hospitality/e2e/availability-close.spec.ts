@@ -335,7 +335,7 @@ test.describe("Availability close dialog (F5)", () => {
     await expect(region).toContainText("Rebook: https://example.com/m");
     await expect(region).toContainText("From: Matt Butler Engineering <reservations@example.com>");
     await expect(region).toContainText(/Example: Guest 1 at /);
-    await expect(region).toContainText("Messages are in English.");
+    await expect(region).toContainText("Each message is in the language that guest booked in.");
     expect(state.notices()).toEqual([
       expect.objectContaining({ action: "cancel", message: "Closed for a private event" }),
     ]);
@@ -357,13 +357,24 @@ test.describe("Availability close dialog (F5)", () => {
 
     const notifications = mockedPage.getByRole("region", { name: "Notifications" });
     await expect(notifications.getByText(/reservations notified/)).toBeVisible();
+    // Its drawer offers no Close… on a day already closed; the toolbar's reaches it by date.
     await mockedPage.locator(`[data-date="${CLOSE_DATE}"]`).click();
+    const drawer = mockedPage.getByRole("dialog");
+    await expect(drawer.getByText("Why this day")).toBeVisible();
+    await expect(drawer.getByRole("button", { name: "Close…", exact: true })).toHaveCount(0);
+    await mockedPage.keyboard.press("Escape");
+    await expect(drawer).toBeHidden();
+    await mockedPage.getByRole("button", { name: /^Close…/ }).click();
+    const again = mockedPage.getByRole("dialog", { name: "Close", exact: true });
+    await again.getByText("One date", { exact: true }).click();
+    await again.getByRole("combobox", { name: "Date" }).click();
+    await mockedPage.getByRole("button", { name: "Next month" }).click();
+    // The picker's grid is named for its month; the page's is "Availability calendar".
     await mockedPage
-      .getByRole("dialog")
-      .getByRole("button", { name: "Close…", exact: true })
+      .getByRole("grid", { name: /^\p{L}+ \d{4}$/u })
+      .locator(`[data-date="${CLOSE_DATE}"]`)
       .click();
 
-    const again = mockedPage.getByRole("dialog", { name: "Close", exact: true });
     await expect(again.getByRole("alert")).toContainText(/Already closed on .*: Whole venue\./);
     await expect(again.getByTestId("close-primary")).toBeEnabled();
   });

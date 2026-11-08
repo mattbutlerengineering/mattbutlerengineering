@@ -222,6 +222,30 @@ describe("resolveDay — closures", () => {
     ]);
   });
 
+  it("carries the section a section closure names", () => {
+    const day = resolveDay(
+      withRules({
+        id: "dr-bar",
+        kind: "closure",
+        targetKind: "tables",
+        sectionId: "sec-bar",
+        tableIds: ["t-1"],
+        startsOn: FRIDAY,
+      }),
+      FRIDAY
+    );
+    expect(day.closures).toEqual([
+      {
+        ruleId: "dr-bar",
+        targetKind: "tables",
+        sectionId: "sec-bar",
+        tableIds: ["t-1"],
+        from: 0,
+        to: 2880,
+      },
+    ]);
+  });
+
   it("covers every date of a range, inclusive", () => {
     const vacation = withRules({
       id: "dr-vacation",

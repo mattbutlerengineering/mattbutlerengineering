@@ -5,12 +5,11 @@ import type { FastifyBaseLogger } from "fastify";
 import {
   NO_REPLAY,
   NO_VENUE,
-  failedBeforeWrite,
   failureLog,
   notExecuted,
-  refusalOf,
   resolveTable,
   saveUnsure,
+  writeFailure,
   type ApiClient,
 } from "./gen-tool-support.js";
 
@@ -30,32 +29,6 @@ const TABLES_LIMIT = 100;
 const ReservationIdSchema = z.string().min(1).describe("The reservation's ID, from a lookup");
 
 type Reservation = Awaited<ReturnType<ApiClient["reservations"]["get"]>>;
-
-/**
- * A refused or failed booking write, in words the model can pass on. `saved` names
- * what an earlier step already wrote, so the model never says nothing changed when
- * something did. `unsure` is set once a write is on its way: until then a failure
- * can't have changed anything.
- */
-export function bookingWriteFailure(
-  err: unknown,
-  action: string,
-  unsure: string | undefined,
-  saved?: string
-) {
-  const outcome = saved
-    ? `${saved} was already saved; check the timeline before trying again.`
-    : "Nothing was changed.";
-  const refusal = refusalOf(err);
-  if (!refusal) {
-    if (unsure) return { error: saved ? `${saved} was already saved. ${unsure}` : unsure };
-    return { error: `Couldn't ${action} right now. ${outcome} Ask the user to try again shortly.` };
-  }
-  if (refusal.status === 403) {
-    return { refused: true, error: `The user doesn't have permission to do this. ${outcome}` };
-  }
-  return { refused: true, error: `${refusal.detail} ${outcome}` };
-}
 
 /** The booking, when it belongs to the selected venue; the user confirmed this venue's booking. */
 async function venueReservation(
@@ -101,7 +74,11 @@ export function createTimelineTools(
               error: `This booking is ${reservation.status.toLowerCase().replace(/_/g, " ")}, so it can't be seated.`,
             });
           }
-          const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+          const { data: tables } = await api.tables.list({
+            venueId,
+            limit: TABLES_LIMIT,
+            activeOnly: true,
+          });
           const chosen = tableRef ? resolveTable(tables, tableRef) : undefined;
           if (chosen && "error" in chosen) return notExecuted(chosen);
           const tableId = chosen?.table.id ?? reservation.tableId;
@@ -136,10 +113,7 @@ export function createTimelineTools(
           return { seated: true, table: tableLabel };
         } catch (err) {
           log.error({ ...failureLog(err), venueId, reservationId }, "seat_reservation failed");
-          return failedBeforeWrite(
-            unsure,
-            bookingWriteFailure(err, "seat the party", unsure, saved)
-          );
+          return writeFailure(err, { action: "seat the party", unsure, saved });
         }
       },
     }),
@@ -159,7 +133,7 @@ export function createTimelineTools(
           return { noShow: true, ...(warning ? { warning } : {}) };
         } catch (err) {
           log.error({ ...failureLog(err), venueId, reservationId }, "mark_no_show failed");
-          return failedBeforeWrite(unsure, bookingWriteFailure(err, "mark the no-show", unsure));
+          return writeFailure(err, { action: "mark the no-show", unsure });
         }
       },
     }),
@@ -197,11 +171,10 @@ export function createTimelineTools(
         } catch (err) {
           log.error({ ...failureLog(err), reservationId }, "cancel_reservation failed");
           // The write is the tool's first call, so any failure may have saved.
-          return bookingWriteFailure(
-            err,
-            "cancel the reservation",
-            saveUnsure("lookup_reservation")
-          );
+          return writeFailure(err, {
+            action: "cancel the reservation",
+            unsure: saveUnsure("lookup_reservation"),
+          });
         }
       },
     }),

@@ -366,6 +366,11 @@ export const UpdateTableBodySchema = z
       .nullable()
       .describe("Floor plan to assign, or null to unassign")
       .optional(),
+    sectionId: z
+      .string()
+      .nullable()
+      .describe("Floor-plan section to put the table in, or null for no section")
+      .optional(),
     shapeMetadata: TableShapeMetadataSchema.nullable()
       .describe("Canvas shape/position, or null to clear")
       .optional(),
@@ -501,6 +506,8 @@ export const PublicHoldConfirmBodySchema = z.object({
   notes: z.string().describe("Special requests or notes").optional(),
   occasion: OccasionSchema.describe("Occasion for the reservation").optional(),
   seatingPreference: SeatingPreferenceSchema.describe("Guest seating preference").optional(),
+  /** The booking widget's locale tag; stored as the language of the guest's later notices. Unsupported tags read as en-US. */
+  locale: z.string().max(35).optional(),
 });
 
 export const PublicReservationBodySchema = z.object({
@@ -509,6 +516,8 @@ export const PublicReservationBodySchema = z.object({
   guestEmail: z.string().min(1),
   guestPhone: z.string().optional(),
   specialRequests: z.string().max(500).optional(),
+  /** The booking widget's locale tag; stored as the language of the guest's later notices. Unsupported tags read as en-US. */
+  locale: z.string().max(35).optional(),
 });
 
 export const ModifyReservationBodySchema = z

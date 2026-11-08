@@ -19,6 +19,8 @@ interface EnqueueInput {
   now: Date;
   /** Outcomes moved in from a replaced series: told when they were decided, not again. */
   carried?: readonly string[];
+  /** Only these outcomes: an edit's reopen notice reaches the guests on the dates it gave back. */
+  only?: readonly string[];
   /** A reopen of this one date of a range: urgency is that date's, not the removed range's. */
   date?: string;
 }
@@ -85,9 +87,10 @@ export function createClosureNoticeService(deps: { scheduler: Scheduler; store?:
 
   async function enqueue(variant: NoticeVariant, input: EnqueueInput): Promise<number> {
     const carried = new Set(input.carried);
+    const only = input.only ? new Set(input.only) : null;
     const outcomes = (
       await store.listNotifiable(input.venueId, input.ruleId, variant, input.now)
-    ).filter((o) => !carried.has(o.outcomeId));
+    ).filter((o) => !carried.has(o.outcomeId) && (only === null || only.has(o.outcomeId)));
     if (outcomes.length === 0) return 0;
     const urgent = await isUrgent(store, input);
     await Promise.all(

@@ -14,7 +14,7 @@ import type {
   VenueService,
   VenueSettings,
 } from "@mbe/types";
-import { activeHoldWindow, addDays } from "@mbe/availability";
+import { activeHoldWindow, addDays, expandSectionRules } from "@mbe/availability";
 import type { BookingSnapshot, EngineSettings, ServiceDate } from "@mbe/availability";
 import type {
   PrismaClient,
@@ -25,6 +25,7 @@ import type {
 } from "../generated/prisma/index.js";
 import { planVenueMigration } from "./availability-migration.js";
 import { prisma } from "./database.js";
+import { bookableTableWhere } from "./bookable-tables.js";
 import { NOT_BOOKED_STATUSES } from "./slot-rules.js";
 
 /**
@@ -163,11 +164,20 @@ function failClosedRule(row: DateRuleRow): DateRule {
   };
 }
 
+/** What reads a date rule with its join rows and, for a section closure, its section's tables. */
+export const SECTION_RULE_INCLUDE = {
+  tables: { select: { tableId: true } },
+  section: { select: { tables: { select: { id: true } } } },
+} as const;
+
 export interface DateRuleRow {
   id: string;
   kind: string;
   targetKind: string;
   venueServiceId: string | null;
+  sectionId: string | null;
+  /** The section a section closure names, with its tables as of this read. */
+  section?: { tables: { id: string }[] } | null;
   bookingTypes: string[];
   startsOn: Date;
   endsOn: Date | null;
@@ -196,6 +206,7 @@ function dateRuleCandidate(row: DateRuleRow): unknown {
     targetKind: row.targetKind,
     venueServiceId: row.venueServiceId,
     bookingTypes,
+    sectionId: row.sectionId,
     tableIds: row.tables.map((t) => t.tableId),
     startsOn: toServiceDate(row.startsOn),
     endsOn: row.endsOn ? toServiceDate(row.endsOn) : null,
@@ -278,7 +289,20 @@ export interface ConfigRows {
   dateRules: DateRuleRow[];
 }
 
-/** Parses the five config tables' rows with the `@mbe/types` schemas (see the module doc). */
+/** Section id → its tables' ids, from the section each section-closure row was read with. */
+function sectionMembership(rows: readonly DateRuleRow[]): Map<string, string[]> {
+  return new Map(
+    rows.flatMap((r) =>
+      r.sectionId && r.section ? [[r.sectionId, r.section.tables.map((t) => t.id)] as const] : []
+    )
+  );
+}
+
+/**
+ * Parses the five config tables' rows with the `@mbe/types` schemas (see the module doc). A
+ * section closure's `tableIds` are the tables of the section its row was read with (ADR-032),
+ * never its join rows.
+ */
 export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): AvailabilityConfig {
   const { schedules, venueServices, scheduleServices, assignments, dateRules } = rows;
   return {
@@ -319,15 +343,18 @@ export function parseConfigRows(rows: ConfigRows, warnings: SnapshotWarning[]): 
       })),
       warnings
     ),
-    dateRules: parseRows<DateRule>(
-      "date_rules",
-      DateRuleSchema,
-      dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
-      warnings,
-      (id) => {
-        const row = dateRules.find((r) => r.id === id);
-        return row ? failClosedRule(row) : null;
-      }
+    dateRules: expandSectionRules(
+      parseRows<DateRule>(
+        "date_rules",
+        DateRuleSchema,
+        dateRules.map((r) => ({ id: r.id, value: dateRuleCandidate(r) })),
+        warnings,
+        (id) => {
+          const row = dateRules.find((r) => r.id === id);
+          return row ? failClosedRule(row) : null;
+        }
+      ),
+      sectionMembership(dateRules)
     ),
   };
 }
@@ -376,10 +403,10 @@ export async function loadAvailabilitySnapshot(
         startsOn: { lte: windowEnd },
         OR: [{ endsOn: null }, { endsOn: { gte: windowStart } }],
       },
-      include: { tables: { select: { tableId: true } } },
+      include: SECTION_RULE_INCLUDE,
     }),
     db.table.findMany({
-      where: { venueId, isActive: true },
+      where: bookableTableWhere(venueId),
       orderBy: [{ priority: "desc" }, { capacity: "asc" }],
       select: {
         id: true,

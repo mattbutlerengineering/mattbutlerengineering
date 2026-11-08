@@ -323,6 +323,19 @@ The three findings Iteration 7 deferred are fixed (TapeChart bar accessible name
 
 Still open and out of scope here: the avatar page load-state timeout (`a11y-pages.spec.ts:92`).
 
+## Iteration 9: the 8 oldest un-escalated P2 component findings (#8416)
+
+Re-ran the full axe rule set in light and dark against `components/aspect-ratio`, `avatar`, `breadcrumb`, `data-list`, `dialog`, `divider`, `drawer` and `dropdown-menu`, the eight `"carrier": "seed"` rows still `open` in `metrics/ui-quality-findings.json` (`last_seen` 2026-10-01 to 2026-10-14). All eight were already fixed or non-reproducible by Iteration 6 (#6883) and are asserted by `ITERATION_6_PAGES` in `a11y-pages.spec.ts`; the rows are stale because the ledger is only rewritten by the `mbe-ui-quality` routine on the `ui-quality/ledger` branch, so this PR does not edit it. The avatar page timeout noted under Iteration 8 no longer reproduces.
+
+Iteration 6 left one gap open: the overlay pages were only audited closed. Opening the first trigger on `dialog`, `drawer` and `dropdown-menu` and re-running axe found two real `color-contrast` failures, both on the open DropdownMenu:
+
+| Node                                                | Theme | Ratio  | Outcome                                                                                                   |
+| --------------------------------------------------- | ----- | ------ | --------------------------------------------------------------------------------------------------------- |
+| `.destructive` item ("Reset to Factory")            | dark  | 4.26:1 | **FIXED** (component): `color-mix(error 80%, text-primary)`; hue kept, clears 4.5:1 in both themes        |
+| `.shortcut` hint on the hovered/focused/active item | light | 4.07:1 | **FIXED** (component): `--rialto-text-secondary` on the recessed row (tertiary stays on the resting item) |
+
+The dialog (first trigger) and the right-hand drawer are clean open in both themes. Regression coverage: `a11y-pages.spec.ts` (`ITERATION_9_OVERLAYS`, open state, both themes) and `src/test/iteration-6-contrast.test.ts` (stylesheet-level 4.5:1 for both rules). Not covered: the other dialog/drawer variants and the menus below the first on the dropdown-menu page.
+
 ---
 
 ## Queue for next iterations

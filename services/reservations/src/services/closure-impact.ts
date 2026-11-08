@@ -5,7 +5,7 @@ import type {
   ReservationSlim,
   ResolvedClosure,
 } from "@mbe/availability";
-import { BOOKING_ORIGIN_HOSTS } from "@mbe/types";
+import { BOOKING_ORIGIN_HOSTS, resolveGuestNoticeLocale } from "@mbe/types";
 import type {
   AvailabilityConfig,
   ClosureAlongside,
@@ -38,6 +38,8 @@ export interface ImpactBooking {
   guestName: string | null;
   /** The host the guest booked on (#7892); anything but the allowlisted hosts reads as none. */
   originHost?: string | null;
+  /** The language the guest booked in (a notice locale); absent or unsupported reads as en-US. */
+  locale?: string | null;
   /** Set for a deposit a cancel owes a refund or void on: live (`pending`/`held`) or captured with a payment intent. `amountCents` is the estimate of what is still owed (the deposit less refunds already recorded; can be 0), not the deposit's amount. */
   heldDeposit: { amountCents: number; currency: string } | null;
 }
@@ -175,6 +177,7 @@ function toReservation(booking: ImpactBooking, runsInto: boolean): ClosureImpact
     deposit: booking.heldDeposit,
     runsIntoClosure: runsInto,
     originHost: BOOKING_ORIGIN_HOSTS.find((h) => h === booking.originHost) ?? null,
+    locale: resolveGuestNoticeLocale(booking.locale),
   };
 }
 

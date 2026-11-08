@@ -48,6 +48,17 @@ export const DEFAULT_THRESHOLD = 3;
 const EXCLUDED_CONCLUSIONS = new Set(["cancelled", "skipped"]);
 
 /**
+ * Workflow files whose `cancelled` conclusion means "the job hit its
+ * `timeout-minutes`", not "superseded". GitHub reports a timed-out job as
+ * `cancelled`, which the streak detector otherwise ignores, so
+ * `nightly-compliance.yml` was cancelled on 11 of 12 nights with no issue
+ * filed (#8376). Only list a workflow here if nothing else cancels its
+ * scheduled runs: give it a per-event concurrency group so a dispatch never
+ * supersedes the scheduled run (pinned by nightly-compliance-workflow.test.mjs).
+ */
+export const CANCELLED_IS_FAILURE_WORKFLOW_FILES = ["nightly-compliance.yml"];
+
+/**
  * True when the workflow file changed after every failing run in the window —
  * i.e. the evidence predates the fix, so the streak says nothing about the
  * workflow's current state.
@@ -94,6 +105,7 @@ export function classifyScheduledWorkflowHealth({
   runs,
   threshold = DEFAULT_THRESHOLD,
   workflowModifiedAt,
+  cancelledCountsAsFailure = false,
 }) {
   // Every comparison against NaN is false, so an unvalidated threshold does not
   // fail loudly — it falls through to `slice(0, NaN)` → [] → `[].every(...)`,
@@ -103,14 +115,19 @@ export function classifyScheduledWorkflowHealth({
   const effectiveThreshold =
     Number.isInteger(threshold) && threshold > 0 ? threshold : DEFAULT_THRESHOLD;
 
-  const relevant = (runs ?? []).filter((run) => !EXCLUDED_CONCLUSIONS.has(run?.conclusion));
+  const isFailure = (run) =>
+    run.conclusion === "failure" || (cancelledCountsAsFailure && run.conclusion === "cancelled");
+  const relevant = (runs ?? []).filter(
+    (run) =>
+      !EXCLUDED_CONCLUSIONS.has(run?.conclusion) || (cancelledCountsAsFailure && isFailure(run))
+  );
 
   if (relevant.length < effectiveThreshold) {
     return { status: "insufficient-history", streak: relevant.length, failingRuns: [] };
   }
 
   const window = relevant.slice(0, effectiveThreshold);
-  const isFailingStreak = window.every((run) => run.conclusion === "failure");
+  const isFailingStreak = window.every(isFailure);
 
   if (!isFailingStreak) {
     return { status: "healthy", streak: 0, failingRuns: [] };
@@ -187,6 +204,86 @@ export function findDeployWorkflows(workflowsDir) {
   return findListedWorkflows(workflowsDir, DEPLOY_WORKFLOW_FILES);
 }
 
+const DEPLOY_COMMAND_PATTERN =
+  /\bdoctl\s+apps\s+create-deployment\b|\bwrangler(?:@[\w.-]+)?\s+deploy\b|\bpulumi(?:@[\w.-]+)?\s+up\b/;
+
+/**
+ * True when `step` executes a real deploy, by either signal the repo's actual
+ * deploy workflows use: a version-pinned shell command (`wrangler@3.114.17
+ * deploy`, `doctl apps create-deployment`) that a literal, unpinned command
+ * string never matches, or a `pulumi/actions` step whose `command` input is
+ * `up` — `preview` and `refresh` are read-only/state-only and must not match,
+ * which is why this reads the action's own command rather than its mere
+ * presence (`pulumi-preview.yml` uses the same action with `command: preview`).
+ */
+function stepPerformsDeploy(step) {
+  if (typeof step.run === "string" && DEPLOY_COMMAND_PATTERN.test(step.run)) return true;
+  if (typeof step.uses === "string" && /^pulumi\/actions(?:@|$)/.test(step.uses)) {
+    return step.with?.command === "up";
+  }
+  return false;
+}
+
+/**
+ * Pure: true when `source` (a workflow YAML file's raw text) performs a real
+ * deploy, by inspecting every job's steps rather than grepping the raw text
+ * for a literal, unpinned command string (#8394). Membership in the deploy
+ * arm cannot be derived from trigger shape — deploy workflows share
+ * `push`/`workflow_run`/`workflow_dispatch` with ordinary CI workflows — so
+ * the deploy *command* is the only discriminating signal, and it must
+ * tolerate both a version-pinned shell invocation and an action-based one.
+ *
+ * @param {string} source
+ * @returns {boolean}
+ */
+export function looksLikeDeployWorkflow(source) {
+  const { jobs } = parseWorkflow(source);
+  return Object.values(jobs).some((job) => job.steps.some(stepPerformsDeploy));
+}
+
+/**
+ * Workflows whose content matches `looksLikeDeployWorkflow()` but
+ * deliberately need no deploy-arm watch, each mapped to the written reason.
+ * Mirrors `MAIN_PUSH_WATCH_EXEMPT_FILES`'s role for the main-push arm (#8393):
+ * `findUnwatchedDeployWorkflows()` reports anything that performs a deploy
+ * and is in neither set, so the exemption is a decision someone has to write
+ * down rather than an omission.
+ */
+export const DEPLOY_WATCH_EXEMPT_FILES = {
+  "preview-deploy.yml":
+    "pull_request-triggered only -- deploys ephemeral PR preview workers, never runs on main.",
+};
+
+/**
+ * The completeness guard for the deploy arm (#8394). `DEPLOY_WORKFLOW_FILES`
+ * is explicit by design, but nothing asserted that every workflow performing
+ * a deploy had joined it or an exemption — the same gap #7601 closed for the
+ * main-push arm, closed here for the deploy arm. Returns every workflow
+ * whose content performs a deploy and is in neither `DEPLOY_WORKFLOW_FILES`
+ * nor `DEPLOY_WATCH_EXEMPT_FILES`. A test asserts this is empty against the
+ * real `.github/workflows`, so a new deploy workflow fails CI until it is
+ * watched or exempted on purpose.
+ *
+ * @param {string} workflowsDir
+ * @returns {Array<{name: string, file: string, path: string}>}
+ */
+export function findUnwatchedDeployWorkflows(workflowsDir) {
+  return readdirSync(workflowsDir)
+    .filter((file) => /\.ya?ml$/.test(file))
+    .filter((file) => !DEPLOY_WORKFLOW_FILES.includes(file) && !(file in DEPLOY_WATCH_EXEMPT_FILES))
+    .map((file) => ({ file, source: readFileSync(join(workflowsDir, file), "utf-8") }))
+    .filter(({ source }) => looksLikeDeployWorkflow(source))
+    .map(({ file, source }) => {
+      const nameMatch = WORKFLOW_NAME_PATTERN.exec(source);
+      return {
+        name: nameMatch ? nameMatch[1].trim() : file,
+        file,
+        path: `.github/workflows/${file}`,
+      };
+    })
+    .sort((a, b) => a.file.localeCompare(b.file));
+}
+
 /**
  * Explicit, never-a-glob list of push-triggered ADVISORY workflows on `main`
  * (#6955). They are not in `CI Gate`'s `needs`, so nothing blocks on them, and
@@ -195,11 +292,112 @@ export function findDeployWorkflows(workflowsDir) {
  * issue filed. Same never-a-glob rationale as `DEPLOY_WORKFLOW_FILES`.
  */
 export const MAIN_PUSH_WORKFLOW_FILES = [
+  "adr-check.yml",
   "apps-visual.yml",
   "e2e-screenshots.yml",
+  "instruction-regression.yml",
+  "post-merge.yml",
+  "release.yml",
   "rialto-visual.yml",
   "rialto-web-e2e.yml",
+  "secret-scan.yml",
+  "storybook.yml",
 ];
+
+/**
+ * Workflows that push to `main` but deliberately need no streak watch, each
+ * mapped to the reason. Membership here is the ONLY sanctioned way for a
+ * push-to-main workflow to be absent from `MAIN_PUSH_WORKFLOW_FILES` --
+ * `findUnwatchedMainPushWorkflows()` reports anything in neither set, so the
+ * exemption is a decision someone has to write down rather than an omission.
+ */
+export const MAIN_PUSH_WATCH_EXEMPT_FILES = {
+  "ci.yml":
+    "CI Gate is the sole required check on main, so a red CI Gate blocks every " +
+    "merge and cannot sit red unnoticed (gotchas.md, ADR-027).",
+};
+
+/**
+ * Pure: true when `source` declares a `push:` trigger that can fire on `main`.
+ * Reads the parsed triggers, so every YAML form (flow list, block list, scalar
+ * `on: push`) is handled identically.
+ *
+ * Fails CLOSED on an unfiltered push. `on: push` with no `branches` fires on
+ * every branch, `main` included, so it qualifies -- reading it as "not a
+ * main-push workflow" would leave it watched by nothing and reported by
+ * nothing, which is the exact silent gap this arm exists to close. Only an
+ * explicit filter that excludes `main` makes it false.
+ *
+ * Filters are read through `asList`, so a scalar (`branches: main`) and a
+ * sequence (`branches: [main]`) take the same path and cannot drift apart.
+ *
+ * @param {string} source
+ * @returns {boolean}
+ */
+export function hasMainPushTrigger(source) {
+  const { push } = parseWorkflow(source).on;
+  if (push == null) return false;
+
+  const branches = asList(push.branches);
+  if (branches.length > 0) return branches.includes("main");
+
+  const ignored = asList(push["branches-ignore"]);
+  if (ignored.length > 0) return !ignored.includes("main");
+
+  // A tag filter with no branch filter fires only for matching tags, never on
+  // a branch push -- so it is not a main-push workflow, and reporting it as
+  // one would make this guard cry wolf on the next tag-triggered workflow.
+  if (asList(push.tags).length > 0 || asList(push["tags-ignore"]).length > 0) return false;
+
+  return true;
+}
+
+/** A YAML field that may be written as a scalar or a sequence, as a list. */
+function asList(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
+}
+
+/**
+ * The completeness guard for the main-push arm (#7601).
+ *
+ * The three watch lists are explicit by design, but nothing asserted that
+ * every QUALIFYING workflow had joined one: `rialto-web-e2e.yml` was in none
+ * of them and sat red on `main` for 5d 8h across 28 runs while the same
+ * detector filed issues for its listed siblings. Fixing that by appending one
+ * file left the next new advisory workflow free to repeat it.
+ *
+ * Returns every workflow that pushes to `main`, carries no `schedule:`
+ * trigger, is not a deploy workflow, and is in neither
+ * `MAIN_PUSH_WORKFLOW_FILES` nor `MAIN_PUSH_WATCH_EXEMPT_FILES` -- i.e. every
+ * workflow that can currently stay red on `main` with no issue filed. A test
+ * asserts this is empty against the real `.github/workflows`, so a new
+ * advisory workflow fails CI until it is watched or exempted on purpose.
+ *
+ * @param {string} workflowsDir
+ * @returns {Array<{name: string, file: string, path: string}>}
+ */
+export function findUnwatchedMainPushWorkflows(workflowsDir) {
+  return readdirSync(workflowsDir)
+    .filter((file) => /\.ya?ml$/.test(file))
+    .filter(
+      (file) =>
+        !MAIN_PUSH_WORKFLOW_FILES.includes(file) &&
+        !DEPLOY_WORKFLOW_FILES.includes(file) &&
+        !(file in MAIN_PUSH_WATCH_EXEMPT_FILES)
+    )
+    .map((file) => ({ file, source: readFileSync(join(workflowsDir, file), "utf-8") }))
+    .filter(({ source }) => hasMainPushTrigger(source) && !hasScheduleTrigger(source))
+    .map(({ file, source }) => {
+      const nameMatch = WORKFLOW_NAME_PATTERN.exec(source);
+      return {
+        name: nameMatch ? nameMatch[1].trim() : file,
+        file,
+        path: `.github/workflows/${file}`,
+      };
+    })
+    .sort((a, b) => a.file.localeCompare(b.file));
+}
 
 /** Mirrors `findDeployWorkflows` for `MAIN_PUSH_WORKFLOW_FILES`. */
 export function findMainPushWorkflows(workflowsDir) {
@@ -547,6 +745,7 @@ export function buildScheduledFailureBody({
   runs,
   workflowModifiedAt,
   kind = "scheduled",
+  cancelledCountsAsFailure = false,
 }) {
   const runLines = (runs ?? [])
     .map((run) => `- ${run.url ?? "(no url)"}${run.createdAt ? ` (${run.createdAt})` : ""}`)
@@ -565,13 +764,16 @@ export function buildScheduledFailureBody({
         ? "consecutive runs"
         : "consecutive scheduled runs";
   const workflowNoun = kind === "scheduled" ? "scheduled workflow" : "workflow";
+  const streakRule = cancelledCountsAsFailure
+    ? "For this workflow `cancelled` runs (job timeouts) count toward this streak; `skipped` runs are excluded"
+    : "Runs with conclusion `cancelled` or `skipped` are excluded from this streak";
 
   return `\`${workflowPath}\` has failed its last ${streak} ${runsNoun}.
 ${modifiedLine}
 ### Failing runs
 ${runLines}
 
-**Action Required:** investigate why this ${workflowNoun} is failing and fix the root cause. Runs with conclusion \`cancelled\` or \`skipped\` are excluded from this streak — see .claude/rules/gotchas.md.`;
+**Action Required:** investigate why this ${workflowNoun} is failing and fix the root cause. ${streakRule} — see .claude/rules/gotchas.md.`;
 }
 
 /** Pure: `buildScheduledFailureBody` with `kind: "deploy"` wording. */
@@ -611,7 +813,15 @@ export function runScheduledWorkflowHealthCheck({
   return workflows.map((workflow) => {
     const runs = getRuns(workflow.name);
     const workflowModifiedAt = getWorkflowModifiedAt(workflow.path);
-    const health = classifyScheduledWorkflowHealth({ runs, threshold, workflowModifiedAt });
+    const cancelledCountsAsFailure = CANCELLED_IS_FAILURE_WORKFLOW_FILES.some((file) =>
+      workflow.path?.endsWith(`/${file}`)
+    );
+    const health = classifyScheduledWorkflowHealth({
+      runs,
+      threshold,
+      workflowModifiedAt,
+      cancelledCountsAsFailure,
+    });
 
     if (health.status === "awaiting-rerun") {
       // Deliberately logged rather than silent: this is a suppressed
@@ -641,6 +851,7 @@ export function runScheduledWorkflowHealthCheck({
       runs: health.failingRuns,
       workflowModifiedAt,
       kind,
+      cancelledCountsAsFailure,
     });
     const labels = ["ci-fix", COORDINATION_LABELS.READY];
 

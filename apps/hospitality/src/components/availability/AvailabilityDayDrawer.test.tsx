@@ -11,9 +11,39 @@ import {
   ONLINE_WINDOW,
   PARTY_CLOSURE,
   SKIP_WEEKLY,
+  VENUE_CLOSURE,
   WEEKLY_CLOSURE,
   resolveFixtureDay,
 } from "./resolved-day-fixtures.js";
+
+// A closure as a Manager saves one: a message for guests and a note for staff.
+const NOTED_CLOSURE = {
+  ...VENUE_CLOSURE,
+  guestMessage: "Closed for a private event",
+  staffNote: "Smith wedding",
+};
+
+describe("a closed day says what guests are told and why, to a Host as to a Manager", () => {
+  it.each(["manager", "host"] as const)("for a %s", (viewerRole) => {
+    render(
+      <main>
+        <AvailabilityDayDrawer
+          date="2026-10-30"
+          day={resolveFixtureDay(NOTED_CLOSURE)}
+          isLoading={false}
+          error={null}
+          viewerRole={viewerRole}
+          dateRules={[NOTED_CLOSURE]}
+          onClose={vi.fn()}
+        />
+      </main>
+    );
+    expect(
+      screen.getByText("Message for guests: “Closed for a private event”")
+    ).toBeInTheDocument();
+    expect(screen.getByText("Staff note: Smith wedding")).toBeInTheDocument();
+  });
+});
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
@@ -91,14 +121,15 @@ describe("AvailabilityDayDrawer", () => {
     expect(within(dialog).getByText("3 changes from your regular Friday.")).toBeInTheDocument();
   });
 
-  it("lists the layer stack bottom-up, each with what removing it would do", () => {
+  it("lists the layer stack bottom-up, each change with what removing it would do", () => {
     renderDrawer();
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "Why this day" })).toBeInTheDocument();
     const layers = within(dialog).getAllByRole("listitem");
     expect(layers.map((l) => l.querySelector("[data-layer-label]")?.textContent)).toHaveLength(4);
     const removed = layers.map((l) => l.textContent ?? "");
-    expect(removed[0]).toContain("If removed: no change to this day");
+    // The regular week is the floor: nothing on a date removes it, so it says nothing of removal.
+    expect(removed[0]).not.toContain("If removed");
     expect(removed[1]).toContain(
       "If removed: Dinner back to 11:00 PM and Dinner last seating 9:00 PM"
     );

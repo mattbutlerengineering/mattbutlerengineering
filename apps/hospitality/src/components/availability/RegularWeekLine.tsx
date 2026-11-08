@@ -77,7 +77,10 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
 
   const time = (minute: number) => minuteText(minute, t, format);
   const hours = (h: LineHours) =>
-    t("availability.regularWeekLine.hours", { open: time(h.opensAt), close: time(h.closesAt) });
+    t("availability.regularWeekLine.hours", {
+      open: time(h.opensAt),
+      close: time(h.lastSeatingAt),
+    });
   const describe = (week: Line) =>
     week.services
       .map((service) => {
@@ -86,9 +89,9 @@ export function RegularWeekLine({ config, timeZone, now }: RegularWeekLineProps)
         const changes = service.changes
           .map((c) => {
             const days = summarize(c.weekdays);
-            // Same opening: only the close moved, so say only the close.
+            // Same opening: only the last seating moved, so say only that.
             return c.opensAt === service.opensAt
-              ? t("availability.regularWeekLine.closes", { days, close: time(c.closesAt) })
+              ? t("availability.regularWeekLine.closes", { days, close: time(c.lastSeatingAt) })
               : t("availability.regularWeekLine.different", { days, hours: hours(c) });
           })
           .join(", ");

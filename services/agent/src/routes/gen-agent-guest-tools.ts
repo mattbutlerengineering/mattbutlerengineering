@@ -4,11 +4,11 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import {
   NO_VENUE,
-  failedBeforeWrite,
   failureLog,
   notExecuted,
-  refusalOf,
+  readFailure,
   saveUnsure,
+  writeFailure,
   type ApiClient,
 } from "./gen-tool-support.js";
 
@@ -50,27 +50,6 @@ const GUEST_SAVE_UNSURE = saveUnsure("search_guests");
  */
 function winBackUnsure(name: string): string {
   return `Couldn't confirm the win-back message to ${name} was sent. Check ${name} in list_lapsing_guests: lastWinBackAt is the last send the email provider confirmed, and winBackAttemptedAt is an attempt that may not have gone out. The server won't send another for a week after either; both null means nothing was recorded. Tell the user which it is.`;
-}
-
-/**
- * A refused or failed guest write, in words the model can pass on. `unsure` is set
- * once the write is on its way: until then a failure can't have changed anything.
- */
-function guestFailure(err: unknown, action: string, unsure: string | undefined) {
-  const refusal = refusalOf(err);
-  if (!refusal) {
-    return {
-      error:
-        unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
-    };
-  }
-  if (refusal.status === 403) {
-    return {
-      refused: true,
-      error: "The user doesn't have permission to do this. Nothing was changed.",
-    };
-  }
-  return { refused: true, error: `${refusal.detail} Nothing was changed.` };
 }
 
 const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
@@ -163,7 +142,7 @@ export function createGuestTools(
           };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "list_lapsing_guests failed");
-          return { error: "Couldn't read lapsing guests. Ask the user to try again." };
+          return readFailure(err, "lapsing guests");
         }
       },
     }),
@@ -201,7 +180,7 @@ export function createGuestTools(
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "add_guest failed");
           // The write is the tool's first call, so any failure may have saved.
-          return guestFailure(err, "add the guest", GUEST_SAVE_UNSURE);
+          return writeFailure(err, { action: "add the guest", unsure: GUEST_SAVE_UNSURE });
         }
       },
     }),
@@ -239,7 +218,7 @@ export function createGuestTools(
           return { updated: true, guest: shown(updated) };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "update_guest failed");
-          return failedBeforeWrite(unsure, guestFailure(err, "update the guest", unsure));
+          return writeFailure(err, { action: "update the guest", unsure });
         }
       },
     }),
@@ -263,7 +242,7 @@ export function createGuestTools(
           return { noted: true, guest: found.guest.name };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "add_guest_note failed");
-          return failedBeforeWrite(unsure, guestFailure(err, "add the note", unsure));
+          return writeFailure(err, { action: "add the note", unsure });
         }
       },
     }),
@@ -300,7 +279,7 @@ export function createGuestTools(
               };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "send_win_back failed");
-          return failedBeforeWrite(unsure, guestFailure(err, "send the win-back message", unsure));
+          return writeFailure(err, { action: "send the win-back message", unsure });
         }
       },
     }),

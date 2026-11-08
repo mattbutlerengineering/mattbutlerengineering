@@ -20,14 +20,9 @@ const offCatalog = readdirSync(COMPONENTS_DIR).filter(
 // components at all, so "chart" is off-catalog even though no component says so).
 const OFF_CATALOG_CONCEPTS = [
   "chart",
-  "skeleton",
-  "drawer",
-  "tooltip",
-  "popover",
   "calendar",
   "date picker",
   "hover card",
-  "dropdown menu",
   "segmented control",
   "text area",
   "progress bar",
@@ -39,7 +34,8 @@ const OFF_CATALOG_CONCEPTS = [
 describe("TEMPLATES against the offered catalog", () => {
   it("audits the real catalog, not an empty one", () => {
     expect(offered.size).toBeGreaterThanOrEqual(30);
-    expect(offCatalog).toContain("Skeleton");
+    expect(offCatalog).toContain("Chalkboard");
+    expect(offered).toContain("Skeleton");
   });
 
   it("keeps the gallery close to its current size", () => {

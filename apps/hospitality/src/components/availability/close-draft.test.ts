@@ -5,6 +5,8 @@ import {
   actionsFor,
   shownOnlinePause,
   buildCloseRule,
+  buildCloseRules,
+  toggleDate,
   closedDates,
   closeWhenId,
   decisionsReady,
@@ -666,5 +668,61 @@ describe("startMinutes (#7978)", () => {
     it("still keeps a morning time the form already holds", () => {
       expect(startMinutes(overnight(), TZ, [FRIDAY], 60)).toContain(60);
     });
+  });
+});
+
+describe("Close on several dates (#7981)", () => {
+  const several = (dates: string[], patch: Partial<CloseForm> = {}) =>
+    form({ when: { kind: "dates", dates }, ...patch });
+  const ids = (date: string) => `id-${date}`;
+
+  it("builds one single-date closure rule per date, in order, sharing what, time and words", () => {
+    const rules = buildCloseRules(
+      several(["2026-12-24", "2026-12-26"], {
+        what: { kind: "service", serviceId: "vs-dinner" },
+        fromMinute: 1320,
+        staffNote: " Gomez wedding ",
+        guestMessage: "Closed for a private event",
+      }),
+      ids,
+      TODAY
+    );
+    expect(rules).toEqual(
+      ["2026-12-24", "2026-12-26"].map((date) => ({
+        id: `id-${date}`,
+        kind: "closure",
+        targetKind: "service",
+        venueServiceId: "vs-dinner",
+        startsOn: date,
+        endsOn: date,
+        window: { version: 1, from: 1320, to: 2880 },
+        staffNote: "Gomez wedding",
+        guestMessage: "Closed for a private event",
+      }))
+    );
+  });
+
+  it("builds the one rule of any other When, and none while the form is incomplete", () => {
+    expect(buildCloseRules(form(), () => "r1", TODAY)).toEqual([
+      buildCloseRule(form(), "r1", TODAY),
+    ]);
+    expect(buildCloseRules(several([]), ids, TODAY)).toEqual([]);
+  });
+
+  it("is not one rule: buildCloseRule gives none for several dates", () => {
+    expect(buildCloseRule(several(["2026-12-24", "2026-12-25"]), "r", TODAY)).toBeNull();
+  });
+
+  it("needs at least one date and at most what one command holds", () => {
+    expect(validateClose(several([]), TODAY)).toBe("when");
+    const dates = (n: number) =>
+      Array.from({ length: n }, (_, i) => `2027-01-${String(i + 1).padStart(2, "0")}`);
+    expect(validateClose(several(dates(20)), TODAY)).toBeNull();
+    expect(validateClose(several(dates(21)), TODAY)).toBe("when");
+  });
+
+  it("toggles a date in and out, ascending and without repeats", () => {
+    expect(toggleDate(["2026-12-26"], "2026-12-24")).toEqual(["2026-12-24", "2026-12-26"]);
+    expect(toggleDate(["2026-12-24", "2026-12-26"], "2026-12-24")).toEqual(["2026-12-26"]);
   });
 });

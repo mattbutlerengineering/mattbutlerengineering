@@ -119,6 +119,25 @@ describe("mergeInventory", () => {
     expect(merged.surfaces.length).toBe(fresh.surfaces.length);
   });
 
+  it("preserves lastOutcome across a merge (#8419)", () => {
+    const fresh = buildInventory();
+    const gen = fresh.surfaces.find((s) => s.id === "gen:playground")!;
+    const lastOutcome = {
+      status: "auth-gated" as const,
+      detail: "public login landing",
+      timestamp: "2026-11-07T00:00:00Z",
+    };
+    const existing: AuditInventory = {
+      surfaces: [{ ...gen, lastChecked: lastOutcome.timestamp, checkCount: 1, lastOutcome }],
+      lastUpdated: lastOutcome.timestamp,
+      version: 1,
+    };
+    const merged = mergeInventory(fresh, existing);
+    expect(merged.surfaces.find((s) => s.id === "gen:playground")?.lastOutcome).toEqual(
+      lastOutcome
+    );
+  });
+
   it("drops surfaces that no longer exist", () => {
     const fresh = buildInventory();
     const existing: AuditInventory = {

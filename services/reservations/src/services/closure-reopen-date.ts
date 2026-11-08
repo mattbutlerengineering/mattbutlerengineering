@@ -66,7 +66,9 @@ export async function carryByDate(
   tx: Db,
   venueId: string,
   from: string,
-  parts: readonly DateRule[]
+  parts: readonly DateRule[],
+  /** Bookings the same save gives a new outcome of their own: one outcome per booking and rule. */
+  deciding: readonly string[] = []
 ): Promise<CarriedOutcomes | null> {
   const moved: string[] = [];
   for (const part of parts) {
@@ -74,8 +76,13 @@ export async function carryByDate(
       where: {
         venueId,
         dateRuleId: from,
+        ...(deciding.length > 0 ? { reservationId: { notIn: [...deciding] } } : {}),
         reservation: {
-          date: { gte: toDbDate(part.startsOn)!, lte: toDbDate(part.endsOn ?? part.startsOn)! },
+          // An open-ended part has no last date: every booking from its start on is its.
+          date: {
+            gte: toDbDate(part.startsOn)!,
+            ...(part.endsOn != null ? { lte: toDbDate(part.endsOn)! } : {}),
+          },
         },
       },
       select: { id: true },

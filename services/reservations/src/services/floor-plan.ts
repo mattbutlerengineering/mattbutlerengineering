@@ -17,6 +17,7 @@ import {
 import { Prisma } from "../generated/prisma/index.js";
 import { prisma } from "./database.js";
 import { toTable } from "./serializers.js";
+import { materialiseSectionClosures } from "./section-closure-materialise.js";
 import { setVenueContext } from "../middleware/venue-context.js";
 
 type PrismaFloorPlan = {
@@ -223,6 +224,11 @@ export const floorPlanService = {
       });
 
       if (source.tables.length > 0) {
+        // Copies keep the source's flag only while the venue has an active
+        // plan. With none, every active table is bookable (#8276), so an
+        // active copy would double online capacity (#8255).
+        const venueHasActivePlan =
+          (await tx.floorPlan.count({ where: { venueId: source.venueId, isActive: true } })) > 0;
         const venueTables = await tx.table.findMany({
           where: { venueId: source.venueId },
           select: { name: true },
@@ -240,10 +246,7 @@ export const floorPlanService = {
             minCovers: t.minCovers,
             maxCovers: t.maxCovers,
             location: t.location,
-            // Inactive until the owner turns them on: any active table is
-            // bookable whatever its plan, so an active copy would double
-            // online capacity (#8255; plan-scoped bookability is #8276).
-            isActive: false,
+            isActive: venueHasActivePlan && t.isActive,
             priority: t.priority,
             status: "AVAILABLE",
             venueId: t.venueId,
@@ -335,6 +338,18 @@ export const floorPlanService = {
         ]);
 
         if (reservations + holds === 0) {
+          // The plan's sections go with it (ON DELETE CASCADE): a live section closure becomes a
+          // plain tables closure first (ADR-032), as when a section is deleted on its own.
+          const sections = await tx.floorPlanSection.findMany({
+            where: { floorPlanId: id },
+            select: { id: true },
+          });
+          await materialiseSectionClosures(
+            tx,
+            venueId,
+            sections.map((s) => s.id),
+            new Date()
+          );
           await tx.table.deleteMany({ where: { floorPlanId: id } });
           await tx.floorPlan.delete({ where: { id } });
           return "deleted" as const;

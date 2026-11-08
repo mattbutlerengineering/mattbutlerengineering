@@ -53,6 +53,15 @@ describe("ci.yml docs-only formatting gate", () => {
     expect(jobRunText(requireJob(JOB))).toMatch(/^node scripts\/check-cursorrules-drift\.mjs\s*$/m);
   });
 
+  it("also runs the instruction-budget check, which only a markdown-only PR can breach (#8396)", () => {
+    // CLAUDE.md and gotchas.md are markdown, so the one PR shape that can blow
+    // their byte budget is the shape that skips the Test job. Pure file read,
+    // no build output needed.
+    expect(jobRunText(requireJob(JOB))).toMatch(
+      /^node scripts\/check-instruction-budget\.mjs\s*$/m
+    );
+  });
+
   it("runs exactly when the Build chain does NOT, so it is not redundant work", () => {
     const block = requireJob(JOB);
     expect(block.needs).toEqual(["detect-changes"]);

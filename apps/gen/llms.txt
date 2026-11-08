@@ -284,6 +284,9 @@
       }
     </item>
     <item priority="medium">
+      function isOverlay(element: GenElement | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
       function elementsOf(spec: Spec | null): Record<string, GenElement> | null { /* ... */ }
     </item>
     <item priority="medium">

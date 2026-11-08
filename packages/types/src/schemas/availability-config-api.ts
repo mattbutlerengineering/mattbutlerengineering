@@ -353,6 +353,10 @@ export const AvailabilityDaySummarySchema = z.object({
       to: z.number().int(),
       /** Channels a `booking` closure pauses; absent for other targets and from an older API. */
       bookingTypes: z.array(z.enum(RULE_BOOKING_TYPES)).optional(),
+      /** The service a `service` closure is for; absent for other targets and from an older API. */
+      venueServiceId: z.string().optional(),
+      /** The section a section closure is for; absent for other targets and from an older API. */
+      sectionId: z.string().optional(),
     })
   ),
   bookingOpen: z.object({ online: z.boolean(), phone: z.boolean(), waitlist: z.boolean() }),
@@ -363,8 +367,9 @@ export const AvailabilityDaySummarySchema = z.object({
 
 /**
  * Date-rule rows a closure replaces in the same save (ux.md F-SER: a series edit that closes new
- * dates). Applied to the config before the draft `rule` is added, in the preview and in the
- * closure command's one transaction; Manager only.
+ * dates; ux.md F6: an edit of a one-date or range closure, which removes the saved closure and
+ * names it in `replaces`). Applied to the config before the draft `rule` is added, in the preview
+ * and in the closure command's one transaction; Manager only.
  */
 export const ClosureAlongsideSchema = z.object({
   /** Rows to write: the ended original series, and skips or one-date edits re-pointed. */
@@ -376,6 +381,8 @@ export const ClosureAlongsideSchema = z.object({
    * names the series, the closure command refuses with the version conflict if the stored series
    * is no longer this row (a teammate changed its message, weekdays or end date since). Optional
    * for clients from before this field: without it only the draft's other fields are compared.
+   * Required when `remove` names a one-date or range closure (an edit of it): the closure is then
+   * compared as a whole, and the edit is refused as invalid without it.
    */
   replaces: DateRuleSchema.optional(),
 });
@@ -393,6 +400,17 @@ export const CLOSURE_IMPACT_KINDS = ["closed", "shortened"] as const;
 export const BOOKING_ORIGIN_HOSTS = ["eat-sheet.com", "mattbutlerengineering.com"] as const;
 export const ClosureImpactKindSchema = z.enum(CLOSURE_IMPACT_KINDS);
 
+/** The languages a guest's notices are written in; the booking widget's locale picks one at booking. */
+export const GUEST_NOTICE_LOCALES = ["en-US", "es-MX", "fr-CA"] as const;
+export const DEFAULT_GUEST_NOTICE_LOCALE = "en-US";
+export const GuestNoticeLocaleSchema = z.enum(GUEST_NOTICE_LOCALES);
+export type GuestNoticeLocale = z.infer<typeof GuestNoticeLocaleSchema>;
+
+/** A booking's recorded locale as a notice language; anything unsupported or absent reads as en-US. */
+export function resolveGuestNoticeLocale(raw: unknown): GuestNoticeLocale {
+  return GuestNoticeLocaleSchema.catch(DEFAULT_GUEST_NOTICE_LOCALE).parse(raw);
+}
+
 export const ClosureImpactReservationSchema = z.object({
   id: z.string(),
   startTime: z.string(),
@@ -405,6 +423,8 @@ export const ClosureImpactReservationSchema = z.object({
   runsIntoClosure: z.boolean(),
   /** The host the guest booked on; it picks the brand of the notice they are sent. */
   originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+  /** The language the guest booked in; their notice is written in it. Absent reads as en-US. */
+  locale: GuestNoticeLocaleSchema.optional(),
   /**
    * Only on a `shortened` group: the start "Move to the nearest open time" would give this booking,
    * from the logic the closure command moves with. `null`: no open time, so a move is refused.
@@ -430,6 +450,12 @@ export const ClosureImpactSchema = z.object({
   depositsHeld: z.number().int(),
   /** By date, then kind. Empty when no booking is affected (e.g. a booking-only closure). */
   groups: z.array(ClosureImpactGroupSchema),
+  /**
+   * An edit of a saved closure that gives dates back (ux.md F6 step 5): the guests it cancelled on
+   * those dates whose booking has not started, whom a reopen notice can still reach. Absent when
+   * none, and for anything but an edit.
+   */
+  givenBack: z.object({ guests: z.number().int().min(1) }).optional(),
 });
 
 /** What a Step 2 outcome tells a guest; a kept-silent booking is told nothing. */
@@ -456,6 +482,8 @@ export const ClosureNoticePreviewBodySchema = z.object({
     .nullable(),
   /** The booking's host: the notice is sent from, and links to, that host's brand. */
   originHost: z.enum(BOOKING_ORIGIN_HOSTS).nullable().optional(),
+  /** The language the guest booked in; the notice is rendered in it. Absent reads as en-US. */
+  locale: GuestNoticeLocaleSchema.optional(),
 });
 
 export const ClosureNoticePreviewSchema = z.object({
@@ -621,6 +649,11 @@ export const CreateClosureBodySchema = z.object({
   rule: DateRuleSchema,
   alongside: ClosureAlongsideSchema.optional(),
   decisions: z.array(ClosureDecisionSchema).default([]),
+  /**
+   * An edit that gives dates back: tell the guests the closure cancelled on those dates that they
+   * are open again, as a reopen's notice does. Ignored when the edit gives back no such guest.
+   */
+  tellGivenBackGuests: z.boolean().optional(),
 });
 
 /** Most closures one batch save carries (the Add special date sheet's rows). */
@@ -677,6 +710,11 @@ export const ClosureResultSchema = z.object({
   version: z.number().int(),
   changeId: z.string(),
   outcomes: ClosureOutcomeCountsSchema,
+  /**
+   * Guests an edit's reopen notice was requested for on the dates it gave back. Absent when the
+   * edit gave back none, told none, and from an older API.
+   */
+  givenBackNotified: z.number().int().min(1).optional(),
 });
 
 export const ClosuresResultSchema = z.object({

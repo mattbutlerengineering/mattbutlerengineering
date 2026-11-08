@@ -1,5 +1,5 @@
 import { rebookOfferId } from "@mbe/availability";
-import type { CommunicationPreference } from "@mbe/types";
+import type { CommunicationPreference, GuestNoticeLocale } from "@mbe/types";
 import type { ClosureNoticePayload, JobContext } from "../jobs/index.js";
 import {
   buildClosureEmail,
@@ -51,6 +51,8 @@ export interface NoticeOutcome {
   timezone: string;
   /** The host the guest booked on (#7892); null keeps the mattbutlerengineering.com brand. */
   originHost: string | null;
+  /** The language the guest booked in; their notice is written in it. */
+  locale: GuestNoticeLocale;
 }
 
 export interface ClosureNoticeDeps {
@@ -99,6 +101,7 @@ async function contentFor(
     kind,
     venueName: o.venueName,
     guestName: o.guestName,
+    locale: o.locale,
     closureDate: o.closureDate,
     startTime: o.startTime.toISOString(),
     timezone: o.timezone,
@@ -107,7 +110,7 @@ async function contentFor(
     refund: kind === "cancelled" ? o.refund : null,
     manageUrl: deps.manageUrl(o),
     offers: slots.map((s) => ({
-      label: offerLabel(s, o.timezone),
+      label: offerLabel(s, o.timezone, o.locale),
       url: deps.manageUrl(o, rebookOfferId(s)),
     })),
   };

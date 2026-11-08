@@ -741,6 +741,16 @@ describe("Configuration Validation", () => {
       expect(refreshToken.expirationType).toBe("expiring");
     });
 
+    it("hospitality app tolerates two tabs renewing with the same refresh token (#8339)", () => {
+      // Every tab shares one stored refresh token and runs its own renewer. With a zero reuse
+      // interval, a second tab redeeming it moments later trips Auth0's reuse detection, which
+      // revokes the whole token family and signs every tab out.
+      const client = findResource("auth0:index/client:Client");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const refreshToken = client!.inputs.refreshToken as any;
+      expect(refreshToken.leeway).toBeGreaterThan(0);
+    });
+
     it("hospitality app callbacks include both local and production URLs", () => {
       const client = findResource("auth0:index/client:Client");
       const callbacks = client!.inputs.callbacks as string[];

@@ -36,6 +36,8 @@ export interface ResolvedClosure {
   targetKind: DateRule["targetKind"];
   venueServiceId?: string;
   tableIds?: string[];
+  /** The section a section closure names (ADR-032); `tableIds` is its live membership. */
+  sectionId?: string;
   bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
   from: number;
   to: number;
@@ -114,6 +116,7 @@ function closureOf(rule: DateRule, band: { from: number; to: number }): Resolved
       ? { venueServiceId: rule.venueServiceId }
       : {}),
     ...(rule.targetKind === "tables" && rule.tableIds ? { tableIds: rule.tableIds } : {}),
+    ...(rule.targetKind === "tables" && rule.sectionId ? { sectionId: rule.sectionId } : {}),
     ...(rule.targetKind === "booking" && rule.bookingTypes
       ? { bookingTypes: rule.bookingTypes }
       : {}),
@@ -259,6 +262,9 @@ function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Re
             id: assignment.id,
             label: scheduleName(assignment.scheduleId),
             ...scheduleDetail(assignment.scheduleId),
+            ...(schedules.get(assignment.scheduleId)?.isRegular
+              ? { regularWeek: true as const }
+              : {}),
           },
         ]
       : []),

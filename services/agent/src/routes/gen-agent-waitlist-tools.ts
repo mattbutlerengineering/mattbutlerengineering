@@ -4,13 +4,13 @@ import { z } from "zod";
 import type { FastifyBaseLogger } from "fastify";
 import {
   NO_VENUE,
-  failedBeforeWrite,
   failureLog,
   localTimeIn,
   notExecuted,
-  refusalOf,
+  readFailure,
   resolveTable,
   saveUnsure,
+  writeFailure,
   type ApiClient,
 } from "./gen-tool-support.js";
 
@@ -38,27 +38,6 @@ const PartySchema = {
 };
 
 const WAITLIST_SAVE_UNSURE = saveUnsure("list_waitlist");
-
-/**
- * A refused or failed waitlist write, in words the model can pass on. `unsure` is set
- * once the write is on its way: until then a failure can't have changed anything.
- */
-function waitlistFailure(err: unknown, action: string, unsure: string | undefined) {
-  const refusal = refusalOf(err);
-  if (!refusal) {
-    return {
-      error:
-        unsure ?? `Couldn't ${action} right now. Nothing was changed. Ask the user to try again.`,
-    };
-  }
-  if (refusal.status === 403) {
-    return {
-      refused: true,
-      error: "The user doesn't have permission to do this. Nothing was changed.",
-    };
-  }
-  return { refused: true, error: `${refusal.detail} Nothing was changed.` };
-}
 
 /**
  * The one active party called `guestName` (case-insensitive), narrowed by `partySize`
@@ -124,10 +103,7 @@ export function createWaitlistTools(
           return { parties };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "list_waitlist failed");
-          const refusal = refusalOf(err);
-          return refusal?.status === 403
-            ? { refused: true, error: "The user doesn't have permission to see the waitlist." }
-            : { error: "Couldn't read the waitlist. Ask the user to try again." };
+          return readFailure(err, "the waitlist");
         }
       },
     }),
@@ -154,7 +130,7 @@ export function createWaitlistTools(
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "add_to_waitlist failed");
           // The write is the tool's first call, so any failure may have saved.
-          return waitlistFailure(err, "add the party", WAITLIST_SAVE_UNSURE);
+          return writeFailure(err, { action: "add the party", unsure: WAITLIST_SAVE_UNSURE });
         }
       },
     }),
@@ -182,7 +158,7 @@ export function createWaitlistTools(
           return { notified: true, guestName: found.entry.guestName };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "notify_waitlist_party failed");
-          return failedBeforeWrite(unsure, waitlistFailure(err, "notify the party", unsure));
+          return writeFailure(err, { action: "notify the party", unsure });
         }
       },
     }),
@@ -203,7 +179,11 @@ export function createWaitlistTools(
           const found = await findParty(api, venueId, guestName, partySize);
           if ("error" in found) return notExecuted(found);
           const { entry } = found;
-          const { data: tables } = await api.tables.list({ venueId, limit: TABLES_LIMIT });
+          const { data: tables } = await api.tables.list({
+            venueId,
+            limit: TABLES_LIMIT,
+            activeOnly: true,
+          });
           const resolved = resolveTable(tables, tableRef);
           if ("error" in resolved) return notExecuted(resolved);
           const { table } = resolved;
@@ -235,7 +215,7 @@ export function createWaitlistTools(
               note: `The party is seated at ${seatedAt}, but they are still shown on the waitlist. Tell the user to remove them from the Waitlist page.`,
             };
           }
-          return failedBeforeWrite(unsure, waitlistFailure(err, "seat the party", unsure));
+          return writeFailure(err, { action: "seat the party", unsure });
         }
       },
     }),
@@ -256,7 +236,7 @@ export function createWaitlistTools(
           return { removed: true, guestName: found.entry.guestName };
         } catch (err) {
           log.error({ ...failureLog(err), venueId }, "remove_from_waitlist failed");
-          return failedBeforeWrite(unsure, waitlistFailure(err, "remove the party", unsure));
+          return writeFailure(err, { action: "remove the party", unsure });
         }
       },
     }),

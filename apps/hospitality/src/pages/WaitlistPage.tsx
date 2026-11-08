@@ -29,7 +29,7 @@ import {
 import { useTables } from "../hooks/useTables.js";
 import { useApiClient } from "../hooks/useApiClient.js";
 import { useStaffTonight } from "../hooks/useStaffTonight.js";
-import { useVenueTeam } from "../hooks/useVenueTeam.js";
+import { useIsManager } from "../hooks/useIsManager.js";
 import { WaitlistClosedNotice } from "../components/waitlist/WaitlistClosedNotice.js";
 import { isTonightOnlyWaitlistClosure, waitlistClosingRule } from "../utils/tonight-blocks.js";
 import { PageHeader } from "../components/PageHeader";
@@ -476,8 +476,7 @@ export function WaitlistPage() {
   });
 
   const tonight = useStaffTonight(selectedVenueId);
-  const { data: team } = useVenueTeam({ venueId: selectedVenueId });
-  const isManager = team?.viewerRole === "manager";
+  const isManager = useIsManager();
   const closingRule = tonight.serviceDate
     ? waitlistClosingRule(tonight.rules, tonight.serviceDate)
     : null;

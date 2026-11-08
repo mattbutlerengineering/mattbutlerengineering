@@ -16,6 +16,8 @@ export {
 export type {
   Zone,
   LighthouseScores,
+  CheckOutcome,
+  CheckStatus,
   ScoreEntry,
   AuditSurface,
   AuditInventory,
@@ -31,5 +33,6 @@ export { mapFilesToSurfaces } from "./audit-surface-mapper.js";
 export {
   findStalestZone,
   updateSurfaceScore,
+  recordSurfaceOutcome,
   detectRegression,
 } from "./audit-regression-detector.js";

@@ -589,7 +589,28 @@ describe("POST /public/v1/venues/:slug/holds/:holdId/confirm", () => {
       },
       actor: { type: "guest", id: null },
       originHost: null,
+      locale: "en-US",
     });
+  });
+
+  it.each([
+    ["fr-CA", "fr-CA"],
+    ["es-MX", "es-MX"],
+    ["en-GB", "en-US"],
+    ["xx-not-a-locale", "en-US"],
+  ])("records the widget locale %s as notice language %s", async (sent, recorded) => {
+    vi.mocked(venueService.getBySlug).mockResolvedValueOnce(mockVenue);
+    vi.mocked(confirmHold).mockResolvedValueOnce({ success: true, reservation: mockReservation });
+
+    const response = await app.inject({
+      method: "POST",
+      url: CONFIRM_URL,
+      headers: { "x-session-id": "sess_1" },
+      payload: { guestName: "Ada Lovelace", guestEmail: "ada@example.com", locale: sent },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(vi.mocked(confirmHold).mock.calls.at(-1)?.[0].locale).toBe(recorded);
   });
 
   // #7892: the booking's origin host is captured from the request so later

@@ -1,6 +1,4 @@
 import { Prisma, type PrismaClient } from "../generated/prisma/index.js";
-import { prisma } from "./database.js";
-import { runWithVenueContext } from "./venue-context-store.js";
 
 /**
  * A series edit that grows the series saves it under a new rule id and removes the old one beside
@@ -9,8 +7,9 @@ import { runWithVenueContext } from "./venue-context-store.js";
  * be left on a row the Manager no longer sees. They follow the series to its new id instead.
  *
  * Carried outcomes are not new: the save's own post-commit work (notices, refunds, SSE) and its
- * replay answer leave them out (`carriedOutcomeIds`). The ids moved are recorded in the change's
- * `closure` meta, so Undo of that change (offered only when it told no guest) puts each one back.
+ * replay answer leave them out (`ClosurePostCommit.carried`). The ids moved are recorded in the
+ * change's `closure` meta, so Undo of that change (offered only when it told no guest) puts each
+ * one back.
  */
 
 type Db = Pick<PrismaClient, "closureOutcome" | "$executeRaw">;
@@ -64,24 +63,4 @@ const carriedOf = (inverse: unknown): CarriedOutcomes | undefined =>
 export async function returnCarriedOutcomes(tx: Db, inverse: unknown): Promise<void> {
   const carried = carriedOf(inverse);
   if (carried) await rekey(tx, carried.outcomeIds, carried.from);
-}
-
-/** `carriedOutcomeIds` in the venue's own context, for a caller outside a transaction. */
-export const readCarriedOutcomeIds = (venueId: string, ruleId: string): Promise<string[]> =>
-  runWithVenueContext(venueId, () => carriedOutcomeIds(prisma, venueId, ruleId));
-
-/**
- * The outcomes a saved closure carried over from the series it replaced; `[]` for any other rule.
- * Read from the audit row that saved it, so a replay and a retried post-commit step agree.
- */
-export async function carriedOutcomeIds(
-  db: Pick<PrismaClient, "availabilityChange">,
-  venueId: string,
-  ruleId: string
-): Promise<string[]> {
-  const change = await db.availabilityChange.findFirst({
-    where: { venueId, kind: "closure", inverse: { path: ["closure", "ruleId"], equals: ruleId } },
-    select: { inverse: true },
-  });
-  return carriedOf(change?.inverse)?.outcomeIds ?? [];
 }

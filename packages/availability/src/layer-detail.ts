@@ -11,6 +11,8 @@ export interface LayerTarget {
   kind: DateRule["targetKind"];
   /** The service a `service` target closes, as stored. */
   serviceName?: string;
+  /** The section a section closure is for (ADR-032); a reader looks its name up. */
+  sectionId?: string;
   bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
 }
 
@@ -35,6 +37,8 @@ export type LayerTonight =
 export interface LayerDetail {
   /** `schedule` and `use_schedule`: the schedule's name as stored. */
   scheduleName?: string;
+  /** `schedule`: the venue's regular week, which nothing done on a date removes. */
+  regularWeek?: true;
   /** `schedule`, `use_schedule` and `special_hours`: the services in force; empty means closed. */
   hours?: LayerHoursService[];
   /** `closure`: what it closes. */
@@ -51,6 +55,7 @@ export function targetOf(rule: DateRule, serviceName: string | undefined): Layer
   return {
     kind: rule.targetKind,
     ...(serviceName !== undefined ? { serviceName } : {}),
+    ...(rule.targetKind === "tables" && rule.sectionId ? { sectionId: rule.sectionId } : {}),
     ...(rule.bookingTypes ? { bookingTypes: [...rule.bookingTypes] } : {}),
   };
 }

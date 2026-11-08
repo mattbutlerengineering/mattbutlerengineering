@@ -49,7 +49,7 @@ function textOf(element: Element | null): string {
 }
 
 describe("LaunchStagePanel", () => {
-  it("pending: renders four rows, all LEDs off, Tables reading '14 to place', no Progress", () => {
+  it("pending: renders five rows, all LEDs off, Tables reading '14 to place', no Progress", () => {
     render(
       <LaunchStagePanel
         progress={INITIAL_LAUNCH_PROGRESS}
@@ -60,12 +60,13 @@ describe("LaunchStagePanel", () => {
 
     const panel = screen.getByLabelText("Launch progress");
     const leds = panel.querySelectorAll("[data-variant]");
-    expect(leds).toHaveLength(4);
+    expect(leds).toHaveLength(5);
     for (const led of leds) {
       expect(led).toHaveAttribute("data-variant", "off");
     }
 
     expect(screen.getByText("Venue")).toBeInTheDocument();
+    expect(screen.getByText("Hours")).toBeInTheDocument();
     expect(screen.getByText("Floor plan")).toBeInTheDocument();
     expect(screen.getByText("Tables")).toBeInTheDocument();
     expect(screen.getByText("Activate")).toBeInTheDocument();
@@ -73,10 +74,11 @@ describe("LaunchStagePanel", () => {
     expect(screen.queryByRole("progressbar", { hidden: true })).not.toBeInTheDocument();
   });
 
-  it("mid-sequence: venue/floorPlan done, tables in flight, activate off, Progress at 43%", () => {
+  it("mid-sequence: venue/hours/floorPlan done, tables in flight, activate off, Progress at 43%", () => {
     const progress: LaunchProgress = {
       ...INITIAL_LAUNCH_PROGRESS,
       venueId: "venue-1",
+      hoursSaved: true,
       floorPlanId: "floor-plan-1",
       sectionsDone: true,
       createdTableNames: ["T1", "T2", "T3", "T4", "T5", "T6"],
@@ -85,12 +87,14 @@ describe("LaunchStagePanel", () => {
     render(<LaunchStagePanel progress={progress} draft={makeDraft()} venueName={VENUE_NAME} />);
 
     expect(screen.getByText(`${VENUE_NAME} created`)).toBeInTheDocument();
+    expect(screen.getByText("Hours saved")).toBeInTheDocument();
     expect(screen.getByText("Main Floor created")).toBeInTheDocument();
     expect(screen.getByText((_, el) => textOf(el) === "Placing table 7 of 14")).toBeInTheDocument();
 
     const panel = screen.getByLabelText("Launch progress");
     const leds = [...panel.querySelectorAll("[data-variant]")];
     expect(leds.map((led) => led.getAttribute("data-variant"))).toEqual([
+      "success",
       "success",
       "success",
       "accent",
@@ -102,10 +106,11 @@ describe("LaunchStagePanel", () => {
     expect(progressBar).toHaveAttribute("aria-valuenow", "43");
   });
 
-  it("failure at tables: exactly one row is danger, the two above stay success", () => {
+  it("failure at tables: exactly one row is danger, the three above stay success", () => {
     const progress: LaunchProgress = {
       ...INITIAL_LAUNCH_PROGRESS,
       venueId: "venue-1",
+      hoursSaved: true,
       floorPlanId: "floor-plan-1",
       sectionsDone: true,
       createdTableNames: ["T1", "T2", "T3", "T4", "T5", "T6"],
@@ -121,6 +126,7 @@ describe("LaunchStagePanel", () => {
     const panel = screen.getByLabelText("Launch progress");
     const leds = [...panel.querySelectorAll("[data-variant]")];
     expect(leds.map((led) => led.getAttribute("data-variant"))).toEqual([
+      "success",
       "success",
       "success",
       "danger",
@@ -146,7 +152,7 @@ describe("LaunchStagePanel", () => {
     expect(leds[0]).toHaveAttribute("data-variant", "danger");
   });
 
-  it("at N = 0: renders three rows and nothing matching /table/i", () => {
+  it("at N = 0: renders four rows and nothing matching /table/i", () => {
     render(
       <LaunchStagePanel
         progress={INITIAL_LAUNCH_PROGRESS}
@@ -157,13 +163,14 @@ describe("LaunchStagePanel", () => {
 
     const panel = screen.getByLabelText("Launch progress");
     const leds = panel.querySelectorAll("[data-variant]");
-    expect(leds).toHaveLength(3);
+    expect(leds).toHaveLength(4);
     expect(screen.queryByText(/table/i)).not.toBeInTheDocument();
   });
 
-  it("complete: four success rows, Activate reads Live, no Progress", () => {
+  it("complete: five success rows, Activate reads Live, no Progress", () => {
     const progress: LaunchProgress = {
       venueId: "venue-1",
+      hoursSaved: true,
       floorPlanId: "floor-plan-1",
       sectionsDone: true,
       createdTableNames: makeTables(14).map((t) => t.name),
@@ -181,6 +188,7 @@ describe("LaunchStagePanel", () => {
       "success",
       "success",
       "success",
+      "success",
     ]);
     const rows = panel.querySelector("ol") as HTMLElement;
     expect(within(rows).getByText("Live")).toBeInTheDocument();
@@ -191,6 +199,7 @@ describe("LaunchStagePanel", () => {
     const progress: LaunchProgress = {
       ...INITIAL_LAUNCH_PROGRESS,
       venueId: "venue-1",
+      hoursSaved: true,
       floorPlanId: "floor-plan-1",
       sectionsDone: true,
       createdTableNames: ["T1", "T2", "T3", "T4", "T5", "T6"],

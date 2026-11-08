@@ -495,7 +495,12 @@ async function mockMenus(page: Page): Promise<void> {
   });
 }
 
-export async function mockApi(page: Page): Promise<void> {
+export type SseEventEntry = { type: string; data: unknown };
+
+/** Handle returned by `mockApi` to configure the mocked SSE stream from Node. */
+export type SseMock = { setEvents: (events: readonly SseEventEntry[]) => void };
+
+export async function mockApi(page: Page): Promise<SseMock> {
   // Signal to QueryProvider to disable react-query retries so error states
   // (e.g. the dashboard 500 test) appear within the 5s E2E assertion window
   // instead of after the default 3x exponential backoff (~7s).
@@ -1318,20 +1323,16 @@ export async function mockApi(page: Page): Promise<void> {
   // needed here.
   //
   // Tests can pre-configure named events to dispatch immediately after the
-  // "connected" event by setting:
-  //   window.__fakeSSEConfig = { events: [{ type, data }] }
-  // via a second addInitScript call before navigation (e.g. for realtime-collaboration tests).
-  type SseEventEntry = { type: string; data: unknown };
+  // "connected" event through the returned handle:
+  //   const sse = await mockApi(page); sse.setEvents([{ type, data }]);
+  // The config lives on the Node side and the handler never calls page.evaluate:
+  // the app opens this stream on every load, so an in-page read raced
+  // navigations ("Execution context was destroyed", #8164).
+  const sseState: { events: readonly SseEventEntry[] } = { events: [] };
   await page.route("**/api/v1/events/stream**", async (route) => {
-    const cfg = await page.evaluate(
-      () =>
-        (window as unknown as { __fakeSSEConfig?: { events?: SseEventEntry[] } }).__fakeSSEConfig
-    );
     const frames = [
       `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`,
-      ...(cfg?.events ?? []).map(
-        (evt) => `event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`
-      ),
+      ...sseState.events.map((evt) => `event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`),
     ];
     await route.fulfill({
       status: 200,
@@ -1346,6 +1347,12 @@ export async function mockApi(page: Page): Promise<void> {
   );
 
   await mockMenus(page);
+
+  return {
+    setEvents: (events) => {
+      sseState.events = [...events];
+    },
+  };
 }
 
 /** One regular schedule, Lunch and Dinner every day, as `GET …/availability/config` returns it. */

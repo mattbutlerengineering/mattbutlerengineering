@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { applyChanges, collapseDayNamedSchedules } from "@mbe/availability";
+import { MemoryRouter } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig, VenueTeam } from "@mbe/types";
 import { DEMO_WEEK_CONFIG } from "../utils/demo-week.fixture.js";
@@ -17,6 +18,14 @@ const venue = vi.hoisted(() => ({
   selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
 }));
 
+vi.mock("../hooks/useFloorPlans.js", () => ({
+  useVenueFloorPlanSections: () => ({
+    data: [{ id: "sec-bar", name: "Bar" }],
+    isLoading: false,
+    error: null,
+  }),
+}));
+vi.mock("../hooks/useTables.js", () => ({ useTables: () => ({ data: [] }) }));
 vi.mock("../hooks/useAvailability.js", () => ({
   useAvailabilityDays: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
   useAvailabilityConfig: () => ({
@@ -66,11 +75,13 @@ import { AvailabilityPage } from "./AvailabilityPage.js";
 
 function renderPage() {
   return render(
-    <ToastProvider>
-      <main>
-        <AvailabilityPage />
-      </main>
-    </ToastProvider>
+    <MemoryRouter>
+      <ToastProvider>
+        <main>
+          <AvailabilityPage />
+        </main>
+      </ToastProvider>
+    </MemoryRouter>
   );
 }
 
@@ -89,7 +100,7 @@ describe("AvailabilityPage regular-week line", () => {
     renderPage();
     expect(
       screen.getByText(
-        "Regular week: Lunch 11:30 AM–3:00 PM Mon–Fri · Dinner 5:00 PM–11:00 PM Tue–Sun, Fri–Sat until 12:00 AM (next day) · Brunch 10:00 AM–2:00 PM Sat–Sun"
+        "Regular week: Lunch 11:30 AM–2:00 PM Mon–Fri · Dinner 5:00 PM–9:00 PM Tue–Sun, Fri–Sat until 10:00 PM · Brunch 10:00 AM–1:00 PM Sat–Sun"
       )
     ).toBeInTheDocument();
   });
@@ -123,7 +134,7 @@ describe("AvailabilityPage regular-week line", () => {
     };
     read.config = uniform;
     renderPage();
-    expect(screen.getByText("Regular week: Dinner 5:00 PM–11:00 PM every day")).toBeInTheDocument();
+    expect(screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM every day")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
   });
 
@@ -180,8 +191,8 @@ describe("AvailabilityPage regular-week line", () => {
       ],
     };
     renderPage();
-    expect(screen.getByText(/^Regular week: Lunch 11:30 AM–3:00 PM Mon–Fri/)).toBeInTheDocument();
-    expect(screen.getByText("From Dec 1: Dinner 5:00 PM–11:00 PM every day")).toBeInTheDocument();
+    expect(screen.getByText(/^Regular week: Lunch 11:30 AM–2:00 PM Mon–Fri/)).toBeInTheDocument();
+    expect(screen.getByText("From Dec 1: Dinner 5:00 PM–9:00 PM every day")).toBeInTheDocument();
   });
 });
 
@@ -247,14 +258,14 @@ describe("AvailabilityPage on a migrated venue", () => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
   });
 
-  it("reads a collapsed venue as one regular week, with no day-named schedule and no Schedules tab", () => {
+  it("reads a collapsed venue as one regular week, with no day-named schedule, and still offers the Schedules tab", () => {
     read.config = collapsed();
     const { container } = renderPage();
     expect(
-      screen.getByText("Regular week: Dinner 5:00 PM–10:00 PM Mon–Fri, Thu–Fri until 11:00 PM")
+      screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM Mon–Fri, Thu–Fri until 10:00 PM")
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Thu–Fri hours/);
-    expect(screen.queryByRole("radio", { name: "Schedules" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Schedules" })).toBeInTheDocument();
   });
 
   it("opens Change regular week pre-filled from the collapsed week", () => {
@@ -277,7 +288,7 @@ describe("AvailabilityPage on a migrated venue", () => {
     read.config = oldShapeMigrated();
     renderPage();
     expect(screen.getByRole("radio", { name: "Schedules" })).toBeInTheDocument();
-    expect(screen.getByText("Regular week: Dinner 5:00 PM–10:00 PM Mon–Wed")).toBeInTheDocument();
+    expect(screen.getByText("Regular week: Dinner 5:00 PM–9:00 PM Mon–Wed")).toBeInTheDocument();
   });
 
   it("still tells a venue with rows and no change that its hours were carried over", () => {
@@ -285,5 +296,74 @@ describe("AvailabilityPage on a migrated venue", () => {
     read.migrated = true;
     renderPage();
     expect(screen.getByText(/Your hours were carried over/)).toBeInTheDocument();
+  });
+});
+
+/** The demo week plus Summer hours: its services copied, run every day of November. */
+function withDatedSchedule(): AvailabilityConfig {
+  return {
+    ...DEMO_WEEK_CONFIG,
+    schedules: [
+      ...DEMO_WEEK_CONFIG.schedules,
+      { id: "summer", name: "Summer hours", kind: "alternate", isRegular: false },
+    ],
+    scheduleServices: [
+      ...DEMO_WEEK_CONFIG.scheduleServices,
+      ...DEMO_WEEK_CONFIG.scheduleServices.map((s) => ({
+        ...s,
+        id: `${s.id}-summer`,
+        scheduleId: "summer",
+      })),
+    ],
+    assignments: [
+      ...DEMO_WEEK_CONFIG.assignments,
+      {
+        id: "as-summer",
+        scheduleId: "summer",
+        weekdays: [0, 1, 2, 3, 4, 5, 6],
+        startsOn: "2026-11-01",
+        endsOn: "2026-11-30",
+        precedence: 1,
+      },
+    ],
+  };
+}
+
+describe("AvailabilityPage: Edit on a dated schedule's layer (#7981)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-11-04T20:00:00Z") });
+    read.source = "rows";
+    read.migrated = false;
+    team.value = { viewerRole: "manager" };
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    read.config = withDatedSchedule();
+  });
+
+  it("opens the schedule's editor over the page", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /Friday, November 6/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Summer hours" }));
+    const ask = screen.getByRole("dialog", { name: "Edit Summer hours" });
+    fireEvent.click(within(ask).getByRole("radio", { name: "All dates Summer hours covers" }));
+    fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
+    const editor = await screen.findByRole("dialog", { name: "Edit Summer hours" });
+    expect(within(editor).getByLabelText(/Schedule name/)).toHaveValue("Summer hours");
+  });
+
+  it("leaves focus in the editor once the day drawer's focus restore has run", async () => {
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /Friday, November 6/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Edit Summer hours" }));
+    const ask = screen.getByRole("dialog", { name: "Edit Summer hours" });
+    fireEvent.click(within(ask).getByRole("radio", { name: "All dates Summer hours covers" }));
+    fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
+    // The restore and the deferred open both ride animation frames: let a handful pass.
+    for (let frame = 0; frame < 6; frame++) {
+      await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+    }
+
+    const editor = screen.getByRole("dialog", { name: "Edit Summer hours" });
+    expect(editor).toContainElement(document.activeElement as HTMLElement);
   });
 });

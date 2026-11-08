@@ -24,6 +24,8 @@ import { AddSpecialDatesSheet, type PlannedDate } from "./AddSpecialDatesSheet.j
 import { minuteText } from "./closure-band.js";
 import { CallListDialog } from "./CallListDialog.js";
 import { CloseDialog } from "./CloseDialog.js";
+import { isEditableClosure } from "./close-draft.js";
+import { EditClosureDialog } from "./EditClosureDialog.js";
 import { UpcomingHolidays } from "./UpcomingHolidays.js";
 import { useHolidayNames } from "./use-holidays.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
@@ -58,6 +60,8 @@ export interface SpecialDatesTabProps {
   readonly reloadError?: string | null;
   /** Only a Manager can reopen or retry refunds; a Host views the list and the call list. */
   readonly isManager: boolean;
+  /** Section names by id, so a section closure reads "Bar closed" (ADR-032). */
+  readonly sectionNames?: ReadonlyMap<string, string>;
 }
 
 const FILTERS: readonly SpecialDatesFilter[] = [
@@ -83,12 +87,21 @@ function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): s
 }
 
 /** "Closed · From 10:00 PM", or "Booking paused: Online": what a closure really closes, and from when. */
-function closureDetail(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+function closureDetail(
+  rule: SpecialDateRule,
+  format: VenueFormat,
+  t: TFunction,
+  sectionNames?: ReadonlyMap<string, string>
+): string {
   const channels = (rule.bookingTypes ?? []).map((c) => t(`availability.close.what.channel.${c}`));
+  const section =
+    rule.targetKind === "tables" && rule.sectionId ? sectionNames?.get(rule.sectionId) : undefined;
   const what =
     rule.targetKind === "booking" && channels.length > 0
       ? t("availabilitySpecial.kind.bookingPaused", { channels: channels.join(", ") })
-      : t("availabilitySpecial.kind.closure");
+      : section !== undefined
+        ? t("availabilitySpecial.kind.sectionClosed", { section })
+        : t("availabilitySpecial.kind.closure");
   return rule.window
     ? [
         what,
@@ -109,6 +122,8 @@ interface RowProps {
   readonly ruleId: string;
   /** Present when the row can be reopened (a closure, not special hours). */
   readonly onRemove?: () => void;
+  /** Present on an upcoming one-date or range closure: Edit (ux.md F6). */
+  readonly onEdit?: () => void;
   /** Present on a repeating closure: Edit dates… (ux.md F-SER). */
   readonly onEditDates?: () => void;
   /** Skipped dates of a repeating closure, each with a Restore. */
@@ -190,6 +205,15 @@ function SpecialDateItem(props: RowProps) {
             {t("availabilitySpecial.retry")}
           </Button>
         )}
+        {isManager && props.onEdit && (
+          <Button
+            variant="ghost"
+            aria-label={t("availabilitySpecial.editClosureFor", { date: title })}
+            onClick={props.onEdit}
+          >
+            {t("availabilitySpecial.editClosure")}
+          </Button>
+        )}
         {isManager && props.onEditDates && (
           <Button variant="ghost" onClick={props.onEditDates}>
             {t("availabilitySpecial.series.editDates")}
@@ -250,6 +274,7 @@ function SpecialDateItem(props: RowProps) {
 export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const viewport = useViewport();
   const { venueId, state, timezone, today, onStale, reloadError, isManager } = props;
+  const { sectionNames } = props;
   const rules = state.config.dateRules;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -259,6 +284,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [filter, setFilter] = useState<SpecialDatesFilter>("all");
   const [callListFor, setCallListFor] = useState<string | null>(null);
   const [reopening, setReopening] = useState<SpecialDateRule | null>(null);
+  const [editingClosure, setEditingClosure] = useState<DateRule | null>(null);
   const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
   const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
   // The dates Add special date opens with: `[]` for one empty row, `null` while it is shut.
@@ -432,7 +458,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               detail={[
                 rule.endsOn === rule.startsOn && !rule.repeat ? holidays.get(rule.startsOn) : null,
                 rule.kind === "closure"
-                  ? closureDetail(rule, format, t)
+                  ? closureDetail(rule, format, t, sectionNames)
                   : t("availabilitySpecial.kind.specialHours"),
                 hoursRange(rule, format, t),
                 rule.repeat ? t("availabilitySpecial.repeating") : null,
@@ -444,6 +470,11 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               summary={summaryOf(rule.id)}
               retrying={retryingId === rule.id}
               onRemove={rule.kind === "closure" && !past ? () => setReopening(rule) : undefined}
+              onEdit={
+                rule.kind === "closure" && !past && isEditableClosure(rule)
+                  ? () => setEditingClosure(rule)
+                  : undefined
+              }
               onEditDates={isSeries(rule) ? () => setEditingSeries(rule) : undefined}
               skips={isSeries(rule) ? skipsOf(rule.id) : undefined}
               onRestore={(skipId) => void restoreSkip(skipId)}
@@ -513,6 +544,16 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           onClose={() => setEditingSeries(null)}
         />
       )}
+      {editingClosure && (
+        <EditClosureDialog
+          venueId={venueId}
+          state={state}
+          timezone={timezone}
+          today={today}
+          rule={editingClosure}
+          onClose={() => setEditingClosure(null)}
+        />
+      )}
       {editingDate && (
         <CloseDialog
           venueId={venueId}
@@ -549,6 +590,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           ruleScope={editingHours.ruleScope}
           onStale={onStale}
           reloadError={reloadError}
+          sectionNames={sectionNames}
           onClose={() => setEditingHours(null)}
         />
       )}

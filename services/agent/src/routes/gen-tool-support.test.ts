@@ -7,6 +7,8 @@ import {
   saveUnsure,
   notExecuted,
   failedBeforeWrite,
+  writeFailure,
+  readFailure,
   resolveTable,
   type NamedTable,
 } from "./gen-tool-support.js";
@@ -127,6 +129,84 @@ describe("failedBeforeWrite", () => {
 
   it("leaves the result as-is when a write may have gone out (unsure is set)", () => {
     expect(failedBeforeWrite("the guest list", { ok: false })).toEqual({ ok: false });
+  });
+});
+
+describe("writeFailure", () => {
+  const UNSURE = saveUnsure("list_waitlist");
+  const timeout = new Error("timeout");
+  const refused = (status: number, detail?: string) => ({ problemDetails: { status, detail } });
+
+  it("a transient error before any write: nothing changed, marked notExecuted", () => {
+    expect(writeFailure(timeout, { action: "seat the party", unsure: undefined })).toEqual({
+      error:
+        "Couldn't seat the party right now. Nothing was changed. Ask the user to try again shortly.",
+      notExecuted: true,
+    });
+  });
+
+  it("a transient error after a write was sent: the unsure text, never marked, never 'Nothing was changed'", () => {
+    const result = writeFailure(timeout, { action: "seat the party", unsure: UNSURE });
+    expect(result).toEqual({ error: UNSURE });
+    expect(result).not.toHaveProperty("notExecuted");
+    expect(result.error).not.toContain("Nothing was changed");
+  });
+
+  it("names what an earlier step already saved before the unsure text", () => {
+    const result = writeFailure(timeout, {
+      action: "seat the party",
+      unsure: UNSURE,
+      saved: "The arrival",
+    });
+    expect(result).toEqual({ error: `The arrival was already saved. ${UNSURE}` });
+  });
+
+  it("a 403 says the user lacks permission, and nothing changed", () => {
+    expect(writeFailure(refused(403), { action: "seat the party", unsure: undefined })).toEqual({
+      refused: true,
+      error: "The user doesn't have permission to do this. Nothing was changed.",
+      notExecuted: true,
+    });
+  });
+
+  it("another 4xx passes on the server's detail, and nothing changed", () => {
+    expect(
+      writeFailure(refused(422, "Table is occupied."), { action: "seat the party", unsure: UNSURE })
+    ).toEqual({ refused: true, error: "Table is occupied. Nothing was changed." });
+  });
+});
+
+describe("readFailure", () => {
+  const refused = (status: number, detail?: string) => ({ problemDetails: { status, detail } });
+
+  it("a 403 says the user can't see what was read", () => {
+    expect(readFailure(refused(403), "the menus")).toEqual({
+      refused: true,
+      error: "The user doesn't have permission to see the menus.",
+    });
+  });
+
+  it("another 4xx passes on the server's detail", () => {
+    expect(readFailure(refused(404, "Venue not found."), "the menus")).toEqual({
+      refused: true,
+      error: "Venue not found.",
+    });
+  });
+
+  it("a transient error says to try again, never shaped like an empty result", () => {
+    expect(readFailure(new Error("timeout"), "the menus")).toEqual({
+      error: "Couldn't read the menus. Ask the user to try again.",
+    });
+  });
+
+  it("a transient error with notEmpty is marked unknown and forbids the empty reading", () => {
+    expect(
+      readFailure(refused(503), "the briefing", { notEmpty: "there are no bookings" })
+    ).toEqual({
+      unknown: true,
+      error:
+        "Couldn't read the briefing right now. Tell the user you couldn't check and to try again shortly; do not say there are no bookings.",
+    });
   });
 });
 

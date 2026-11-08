@@ -2,7 +2,7 @@
 
 > This file contains mandates and skills specific to **Claude Code**.
 > For core project context, architecture, and code style, see [AGENTS.md](./AGENTS.md).
-> It loads into every session, so its size is budgeted by `scripts/__tests__/instruction-budget.test.mjs`. Reference tables (skills, subagents, `mbe` CLI, GitHub labels, the learning-loop directories) live in [docs/claude-reference.md](./docs/claude-reference.md). Read them there when you need them.
+> It loads into every session, so its size is budgeted by `scripts/check-instruction-budget.mjs`. Reference tables (skills, subagents, `mbe` CLI, GitHub labels, the learning-loop directories) live in [docs/claude-reference.md](./docs/claude-reference.md). Read them there when you need them.
 
 ## Communication
 

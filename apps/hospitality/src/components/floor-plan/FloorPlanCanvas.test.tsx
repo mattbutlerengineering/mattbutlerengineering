@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { StrictMode } from "react";
+import { StrictMode, memo } from "react";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { FloorPlan, Table, TableDisplayStatus } from "@mbe/types";
@@ -7,6 +7,12 @@ import type { FloorPlan, Table, TableDisplayStatus } from "@mbe/types";
 /* ── Mock react-konva ─────────────────────────────────────────── */
 
 const mockOnClick = vi.fn();
+const tableOnSelectSeen = vi.hoisted(() => [] as Array<(id: string) => void>);
+// Render counts per table id for the mocked (memoized) TableShape below —
+// lets AC #3-style tests assert an unrelated table's TableShape does NOT
+// re-render across a selection change, mirroring TableShape.test.tsx's own
+// "TableShape memoization" harness against the real memo(TableShapeComponent).
+const tableRenderCounts = vi.hoisted(() => new Map<string, number>());
 
 vi.mock("react-konva", () => ({
   Stage: ({
@@ -53,7 +59,10 @@ vi.mock("react-konva", () => ({
 /* ── Mock TableShape ──────────────────────────────────────────── */
 
 vi.mock("./TableShape.js", () => ({
-  TableShape: ({
+  // Wrapped in `memo` (default shallow prop comparison, same as the real
+  // `TableShape = memo(TableShapeComponent)`) so tests can assert on actual
+  // render-skipping behavior, not just prop-identity bookkeeping.
+  TableShape: memo(function TableShapeMock({
     table,
     isSelected,
     isDragging,
@@ -69,20 +78,24 @@ vi.mock("./TableShape.js", () => ({
     onDragStart: (id: string) => void;
     onDragEnd: (id: string, x: number, y: number) => void;
     status?: string;
-  }) => (
-    // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
-    <div
-      data-testid={`table-shape-${table.id}`}
-      data-selected={isSelected}
-      data-dragging={isDragging}
-      data-status={status}
-      onClick={() => onSelect(table.id)}
-      onMouseDown={() => onDragStart(table.id)}
-      onMouseUp={() => onDragEnd(table.id, 120, 240)}
-    >
-      {table.name}
-    </div>
-  ),
+  }) {
+    tableOnSelectSeen.push(onSelect);
+    tableRenderCounts.set(table.id, (tableRenderCounts.get(table.id) ?? 0) + 1);
+    return (
+      // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
+      <div
+        data-testid={`table-shape-${table.id}`}
+        data-selected={isSelected}
+        data-dragging={isDragging}
+        data-status={status}
+        onClick={() => onSelect(table.id)}
+        onMouseDown={() => onDragStart(table.id)}
+        onMouseUp={() => onDragEnd(table.id, 120, 240)}
+      >
+        {table.name}
+      </div>
+    );
+  }),
 }));
 
 vi.mock("./SectionZone.js", () => ({
@@ -285,6 +298,8 @@ describe("FloorPlanCanvas sections", () => {
 describe("FloorPlanCanvas", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    tableOnSelectSeen.length = 0;
+    tableRenderCounts.clear();
 
     // Mock getBoundingClientRect so container resize logic works
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockReturnValue({
@@ -302,6 +317,54 @@ describe("FloorPlanCanvas", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe("selection", () => {
+    it("keeps TableShape onSelect identity stable when only selectedTableId changes", () => {
+      const { rerender } = render(<FloorPlanCanvas {...defaultProps} selectedTableId={null} />);
+      const before = new Set(tableOnSelectSeen);
+      expect(before.size).toBe(1);
+      rerender(<FloorPlanCanvas {...defaultProps} selectedTableId="t1" />);
+      expect(new Set(tableOnSelectSeen).size).toBe(1);
+    });
+
+    it("re-renders only the previously-selected and newly-selected TableShape when selection changes, leaving an unrelated table's TableShape untouched", () => {
+      // Three tables so there is a genuinely unrelated one: t1 is the
+      // previously-selected table, t2 the newly-selected one, and t3 is
+      // neither — AC #3 of #8317 requires t3's TableShape not to re-render.
+      const TABLE_C = makeTable("t3", "Table 3");
+      const threeTables = [TABLE_A, TABLE_B, TABLE_C];
+
+      const { rerender } = render(
+        <FloorPlanCanvas {...defaultProps} tables={threeTables} selectedTableId="t1" />
+      );
+      const before = new Map(tableRenderCounts);
+      expect(before.get("t1")).toBeGreaterThan(0);
+      expect(before.get("t2")).toBeGreaterThan(0);
+      expect(before.get("t3")).toBeGreaterThan(0);
+
+      rerender(<FloorPlanCanvas {...defaultProps} tables={threeTables} selectedTableId="t2" />);
+
+      // Previously-selected (t1) and newly-selected (t2) re-render because
+      // their `isSelected` prop changed...
+      expect(tableRenderCounts.get("t1")).toBeGreaterThan(before.get("t1")!);
+      expect(tableRenderCounts.get("t2")).toBeGreaterThan(before.get("t2")!);
+      // ...but the unrelated t3's props are all still shallow-equal (same
+      // table/onSelect/onDragStart/onDragEnd references, isSelected still
+      // false), so its memoized TableShape must not re-render at all.
+      expect(tableRenderCounts.get("t3")).toBe(before.get("t3"));
+    });
+
+    it("deselects when the already-selected table is clicked again", () => {
+      const onTableSelect = vi.fn();
+      render(
+        <FloorPlanCanvas {...defaultProps} selectedTableId="t1" onTableSelect={onTableSelect} />
+      );
+      fireEvent.click(screen.getByTestId("table-shape-t1"));
+      expect(onTableSelect).toHaveBeenCalledWith(null);
+      fireEvent.click(screen.getByTestId("table-shape-t2"));
+      expect(onTableSelect).toHaveBeenCalledWith("t2");
+    });
   });
 
   describe("render", () => {

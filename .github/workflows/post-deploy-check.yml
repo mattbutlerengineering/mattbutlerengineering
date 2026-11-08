@@ -126,6 +126,10 @@ jobs:
 
       - name: Post results to PR
         if: always() && steps.find-pr.outputs.pr_number != ''
+        # Reporting is best-effort: a transient `gh pr comment` / GraphQL error
+        # must not turn a passing smoke run red (#8435 -- it opened a
+        # false-positive auto-rollback revert, #8429).
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ steps.find-pr.outputs.pr_number }}

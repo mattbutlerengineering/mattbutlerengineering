@@ -497,6 +497,41 @@ describe("schedule drawers", () => {
       expect(screen.getByText("Choose at least one day.")).toBeInTheDocument();
     });
 
+    it("New schedule can start from the regular week's services, and its days are still the Manager's", async () => {
+      renderNew("new", fixtureConfig());
+      fireEvent.click(screen.getByRole("button", { name: "Start from your regular week" }));
+      expect(
+        screen.queryByRole("button", { name: "Start from your regular week" })
+      ).not.toBeInTheDocument();
+      const names = screen
+        .getAllByRole("textbox", { name: /Service name/ })
+        .map((input) => (input as HTMLInputElement).value);
+      expect(names).toEqual(["Lunch", "Dinner"]);
+      // Not the regular week's Friday: a schedule is used where the Manager says.
+      expect(screen.getByRole("checkbox", { name: "Friday" })).not.toBeChecked();
+
+      fireEvent.change(screen.getByRole("textbox", { name: /Schedule name/ }), {
+        target: { value: "Weekend hours" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      const upsert = save.mock.calls[0]?.[0].body.changes.upsert;
+      expect(upsert.assignments.map((a: { weekdays: number[] }) => a.weekdays)).toEqual([[0, 6]]);
+      expect(
+        upsert.scheduleServices.map(
+          (r: { venueServiceId: string; opensAt: number; closesAt: number }) => [
+            r.venueServiceId,
+            r.opensAt,
+            r.closesAt,
+          ]
+        )
+      ).toEqual([
+        ["vs-lunch", 690, 900],
+        ["vs-dinner", 1020, 1380],
+      ]);
+    });
+
     it("New schedule: says availability changed, not that a schedule did, and Start over clears every field", async () => {
       const opened = fixtureConfig();
       save.mockRejectedValueOnce(conflict());
@@ -506,6 +541,7 @@ describe("schedule drawers", () => {
       });
       fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
       fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
 
@@ -532,6 +568,7 @@ describe("schedule drawers", () => {
       });
       fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
       fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
       rerenderWith(withBrunch(opened), 8);
@@ -546,6 +583,7 @@ describe("schedule drawers", () => {
       save.mockRejectedValueOnce(conflict());
       const { props, rerenderWith } = renderNew("duplicate", opened);
       fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
       const deleted = {
@@ -558,6 +596,32 @@ describe("schedule drawers", () => {
       expect(screen.getByRole("button", { name: "Keep my schedule" })).toBeEnabled();
       fireEvent.click(screen.getByRole("button", { name: "Keep my schedule" }));
       expect(screen.getByRole("button", { name: "Remove service 1" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    });
+
+    // The regular week always gives way to a schedule: a copy on all its days with no end would
+    // take it over for good, and Change regular week would reach no date afterwards.
+    it("Duplicate of the regular week cannot save with no end on every day it runs", () => {
+      renderNew("duplicate", fixtureConfig());
+      const saveButton = screen.getByRole("button", { name: "Save" });
+      fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+      expect(saveButton).toBeDisabled();
+      expect(
+        screen.getByText(
+          "With no end date, this replaces your regular week. Add an end date, or use Change regular week…"
+        )
+      ).toBeInTheDocument();
+      fireEvent.click(saveButton);
+      expect(save).not.toHaveBeenCalled();
+
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
+      expect(saveButton).toBeEnabled();
+    });
+
+    it("Duplicate of the regular week saves with no end on days that leave it its own", () => {
+      renderNew("duplicate", fixtureConfig());
+      // The fixture's regular week runs Fridays; Saturday and Sunday leave it that day.
+      fireEvent.click(screen.getByRole("button", { name: "Weekends" }));
       expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     });
 
@@ -660,6 +724,7 @@ describe("schedule drawers", () => {
 
       // Once the Manager chooses where it is used, it is used there and nowhere else.
       fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
+      fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
       expect(saveButton).toBeEnabled();
       fireEvent.click(saveButton);
       await waitFor(() => expect(save).toHaveBeenCalledTimes(1));

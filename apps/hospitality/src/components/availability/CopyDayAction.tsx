@@ -98,8 +98,7 @@ export function CopyDayAction(props: CopyDayActionProps) {
   return (
     <>
       <Button
-        variant="ghost"
-        size="sm"
+        variant="secondary"
         {...waitingProps(waiting, reasonId)}
         onClick={() => {
           if (!waiting) setOpen(true);

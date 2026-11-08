@@ -50,14 +50,24 @@
       "limit": "8 kB"
     },
     {
-      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving')",
+      "name": "Weekday summary + schedule changes (one hoisted chunk, shared by the schedule editor, Change regular week, the Schedules tab, History and quick setup)",
+      "path": "dist/assets/weekday-summary-*.js",
+      "limit": "2.9 kB"
+    },
+    {
+      "name": "Conflict problem parsing (shared by the availability page, timeline, waitlist and call list chunks)",
+      "path": "dist/assets/conflict-problem-*.js",
+      "limit": "3 kB"
+    },
+    {
+      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup names the chunk for CallListDialog; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list)",
       "path": "dist/assets/CallListDialog-*.js",
-      "limit": "10 kB"
+      "limit": "13.5 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
       "path": "dist/assets/close-draft-*.js",
-      "limit": "2.6 kB"
+      "limit": "3 kB"
     },
     {
       "name": "Service-day helpers (current-service-date, service-day-start and tonight-blocks, shared by the timeline's Tonight panel and the staff waitlist/booking form)",
@@ -65,9 +75,9 @@
       "limit": "3.5 kB"
     },
     {
-      "name": "Schedule changes (schedule-changes.ts, shared by the schedule editor, Change regular week and the Schedules tab)",
-      "path": "dist/assets/schedule-changes-*.js",
-      "limit": "3 kB"
+      "name": "Data layer (react-query + api-client + venue context, one hoisted chunk shared by the app entry and the lazy pages; split out once the RequireManager route guard in the entry began reading the venue team)",
+      "path": "dist/assets/venue-context-object-*.js",
+      "limit": "16 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",
@@ -115,9 +125,24 @@
       "limit": "8 kB"
     },
     {
-      "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page)",
+      "name": "Copilot context + catalog registry (shared by dashboard drawer and chat page; 13.5 kB since #8455 widened the catalog by 8 components, 11.24 kB before)",
       "path": "dist/assets/useRefreshingChatStream-*.js",
-      "limit": "11.3 kB"
+      "limit": "13.5 kB"
+    },
+    {
+      "name": "Venue Setup page (lazy chunk)",
+      "path": "dist/assets/SetupPage-*.js",
+      "limit": "6 kB"
+    },
+    {
+      "name": "Regular week line (shared by the availability page and Venue Setup, hoisted)",
+      "path": "dist/assets/RegularWeekLine-*.js",
+      "limit": "11 kB"
+    },
+    {
+      "name": "Discard guard (shared by the availability drawers and Venue Setup, hoisted)",
+      "path": "dist/assets/use-discard-guard-*.js",
+      "limit": "3 kB"
     }
   ],
   "dependencies": {

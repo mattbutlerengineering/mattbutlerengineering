@@ -3,41 +3,44 @@
 ## Catalog reality check (#7421)
 
 Everything below measures prompt **wording** against all 88 rialto components. The
-generator can only use the **30** components in the AI catalog
-(`catalog.componentNames` from `@mbe/rialto-catalog/catalog`): Accordion, Alert, AppBar,
-AspectRatio, Avatar, Badge, Banner, Breadcrumb, Button, Card, Checkbox, Combobox,
-DataList, DataTable, DepartureBoard, Dialog, Divider, EmptyState, Footer, IconButton,
-Input, NavigationMenu, Odometer, Select, Sidebar, Stack, Table, Tabs, Text, Toggle.
-Anything else the model improvises renders as a silent SeamFallback placeholder, so a
-"covered" row below for an off-catalog component (Skeleton, Drawer, Tooltip, Popover,
-PinInput, Handshake, ScrollArea, Calendar, DropdownMenu, charts, ...) is not real coverage.
+generator can only use the components in the AI catalog (`catalog.componentNames` from
+`@mbe/rialto-catalog/catalog`): Accordion, Alert, AppBar, AspectRatio, Avatar, Badge,
+Banner, BarChart, Breadcrumb, Button, Card, Checkbox, Combobox, DataList, DataTable,
+DepartureBoard, Dialog, Divider, Drawer, DropdownMenu, EmptyState, Footer, GuestCards,
+Handshake, IconButton, Input, NavigationMenu, Odometer, PinInput, Popover,
+ReservationList, ScrollArea, Select, Sidebar, Skeleton, Stack, Stat, StatusLED, Table,
+Tabs, Tag, Text, Timeline, TimeSlots, Toggle, Tooltip. Anything else the model
+improvises renders as a silent SeamFallback placeholder, so a "covered" row below for an
+off-catalog component (Calendar, charts, ...) is not real coverage.
 
-`src/components/TemplateGallery.catalog.test.tsx` now enforces this: no template
-description or prompt may name an off-catalog rialto component or a plain-language
-equivalent (chart, skeleton, drawer, tooltip, popover, calendar, ...). Adding a
-component to the catalog is a separate decision; do not widen the guard to dodge it.
+`src/components/TemplateGallery.catalog.test.tsx` enforces this: no template description
+or prompt may name an off-catalog rialto component or a plain-language equivalent
+(chart, calendar, date picker, hover card, segmented control, ...). Adding a component
+to the catalog is a separate decision; do not widen the guard to dodge it.
 
-Templates reworded onto on-catalog equivalents (none deleted, count stays 32):
+#8455 added `.catalog.ts` files (and registry adapters) for **Skeleton, Drawer, Tooltip,
+Popover, PinInput, DropdownMenu, ScrollArea, and Handshake**, which the #7421 reword had
+swapped out. Their templates are back on the components they describe
+(`loading-empty-states`, `settings-modal-flow`, `help-center-page`,
+`delete-confirmation-flow`, `appointment-scheduler` (popover only), `secure-verification`,
+`row-actions-menu`, `activity-log-panel`, `integration-handshake`), and the guard's
+off-catalog concept list no longer contains skeleton, drawer, tooltip, popover, or
+dropdown menu. Popover and DropdownMenu take a trigger _label_ in a spec (rendered as a
+Button); Drawer is opened and closed by the gen playground the same way Dialog is.
 
-| Template                      | Was asking for                 | Now uses                         |
-| ----------------------------- | ------------------------------ | -------------------------------- |
-| analytics-dashboard           | line chart, bar chart          | Card, Odometer, Badge, DataTable |
-| sales-dashboard               | revenue chart, funnel          | Odometer, Table, DataList        |
-| survey-form                   | text areas, progress bar       | Select, Input, Checkbox, Tabs    |
-| help-center-page              | help tooltips                  | Alert callouts                   |
-| preferences-panel             | segmented control              | Tabs                             |
-| loading-empty-states          | skeleton placeholders          | EmptyState variants only         |
-| settings-modal-flow           | slide-out drawer               | second Dialog                    |
-| capacity-monitor              | meters                         | Odometer, Badge                  |
-| app-shell                     | GlobalNav                      | AppBar, NavigationMenu           |
-| appointment-scheduler         | calendar, date picker, popover | Tabs, Input, Select              |
-| secure-verification           | PinInput                       | Input, Button, Text              |
-| restaurant-reservations-board | tape chart, chalkboard         | Table, Card                      |
-| command-search-palette        | hover cards, tooltips          | Dialog, Combobox, Badge          |
-| delete-confirmation-flow      | disabled tooltip               | Text hint, Checkbox, Dialog      |
-| integration-handshake         | Handshake instrument           | DataList, Badge, Alert           |
-| row-actions-menu              | DropdownMenu                   | IconButton actions column        |
-| activity-log-panel            | ScrollArea                     | Card, Text, Badge                |
+Templates still reworded onto on-catalog equivalents (none deleted, count stays 32):
+
+| Template                      | Was asking for           | Now uses                         |
+| ----------------------------- | ------------------------ | -------------------------------- |
+| analytics-dashboard           | line chart, bar chart    | Card, Odometer, Badge, DataTable |
+| sales-dashboard               | revenue chart, funnel    | Odometer, Table, DataList        |
+| survey-form                   | text areas, progress bar | Select, Input, Checkbox, Tabs    |
+| preferences-panel             | segmented control        | Tabs                             |
+| capacity-monitor              | meters                   | Odometer, Badge                  |
+| app-shell                     | GlobalNav                | AppBar, NavigationMenu           |
+| appointment-scheduler         | calendar, date picker    | Tabs, Input, Popover             |
+| restaurant-reservations-board | tape chart, chalkboard   | Table, Card                      |
+| command-search-palette        | hover cards              | Dialog, Combobox, Tooltip        |
 
 Regenerated for the fifth Template Gallery batch (#5441, this issue #5521 = part 1/5).
 `apps/gen/src/components/TemplateGallery.tsx` now ships **32** templates (verified via

@@ -13,9 +13,10 @@ import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { LeaveGuard } from "./LeaveGuard.js";
-import { weekdayRuns, type Winner } from "./schedule-changes.js";
+import { type Winner } from "./schedule-changes.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 import type { ConflictReview } from "./use-conflict-review.js";
+import { weekdaySummary } from "./weekday-summary.js";
 import styles from "./ScheduleFormParts.module.css";
 
 /** Monday-first display order of the stored weekday indexes. */
@@ -30,18 +31,11 @@ function useWeekdayName() {
     format.formatCalendarDate(addDays(SUNDAY, weekday), { weekday: width });
 }
 
-/** "Mon–Thu", "Sat–Sun, Wed", or "every day". */
+/** "Mon–Thu", "Wed and Sat–Sun", or "every day". */
 export function useWeekdaySummary() {
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const name = useWeekdayName();
-  return (weekdays: readonly number[]) => {
-    if (weekdays.length === 7) return t("availabilitySchedules.everyDay");
-    const runs = weekdayRuns(weekdays).map(([a, b]) =>
-      a === b ? name(a) : `${name(a)}–${name(b)}`
-    );
-    return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(runs);
-  };
+  return (weekdays: readonly number[]) => weekdaySummary(weekdays, format, t);
 }
 
 /** Seven weekday checkboxes, Monday first. */
@@ -143,8 +137,10 @@ export function ConflictReviewPanel(props: {
   readonly onDiscard: () => void;
   /** Replaces the title for surfaces that span several schedules. */
   readonly title?: string;
+  /** Other schedules the Manager ticked in Also apply to, changed or removed by the winning save. */
+  readonly alsoApply?: { readonly changed: readonly string[]; readonly removed: readonly string[] };
 }) {
-  const { review, onReapply, onDiscard } = props;
+  const { review, onReapply, onDiscard, alsoApply } = props;
   const { loaded, changes, kind } = review;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -186,6 +182,12 @@ export function ConflictReviewPanel(props: {
       t("availabilitySchedules.conflictReview.removed", { names: list(changes.removed) }),
     changes.changed.length > 0 &&
       t("availabilitySchedules.conflictReview.changed", { names: list(changes.changed) }),
+    alsoApply !== undefined &&
+      alsoApply.changed.length > 0 &&
+      t("availabilitySchedules.conflictReview.alsoChanged", { names: list(alsoApply.changed) }),
+    alsoApply !== undefined &&
+      alsoApply.removed.length > 0 &&
+      t("availabilitySchedules.conflictReview.alsoRemoved", { names: list(alsoApply.removed) }),
   ].filter((line): line is string => line !== false);
 
   return (
