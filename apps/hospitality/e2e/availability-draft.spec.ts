@@ -106,11 +106,21 @@ async function openSpecialDateRow(page: Page, navigate = true): Promise<Locator>
   return drawer;
 }
 
-async function copyToMonday(page: Page, drawer: Locator) {
+/**
+ * A week with one closed weekday, other than the 15th's: Copy leaves out the days that already
+ * have the copied hours, so a Copy that saves needs one day in the week that differs.
+ */
+function copyableWeek(): { weekdays: number[] } {
+  const closed = (utc(midNextMonth()).getUTCDay() + 3) % 7;
+  return { weekdays: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== closed) };
+}
+
+/** Copies the open drawer's day to every other day of its week that has different hours. */
+async function copyToOtherDays(page: Page, drawer: Locator) {
   await drawer.getByRole("button", { name: "Copy to other days…" }).click();
   const copy = page.getByRole("dialog", { name: /Copy .* to other days/ });
-  await copy.getByText("Mon", { exact: true }).click();
-  await copy.getByRole("button", { name: /^Copy to \d+ dates?$/ }).click();
+  await copy.getByRole("button", { name: "Every day" }).click();
+  await copy.getByRole("button", { name: /^Copy to / }).click();
   await expect(copy).toBeHidden();
 }
 
@@ -226,16 +236,12 @@ for (const size of SIZES) {
     test("a refresh error offers Retry, and clears once the reload succeeds", async ({
       mockedPage,
     }) => {
-      const mock = await mockAvailability(mockedPage);
+      const mock = await mockAvailability(mockedPage, copyableWeek());
       const drawer = await openNextMonthDay(mockedPage, midNextMonth());
 
       // Copy saves, but the reload after it fails.
       mock.failReads = true;
-      await drawer.getByRole("button", { name: "Copy to other days…" }).click();
-      const copy = mockedPage.getByRole("dialog", { name: /Copy .* to other days/ });
-      await copy.getByText("Mon", { exact: true }).click();
-      await copy.getByRole("button", { name: /^Copy to \d+ dates?$/ }).click();
-      await expect(copy).toBeHidden();
+      await copyToOtherDays(mockedPage, drawer);
       const alert = drawer.getByRole("alert").filter({ hasText: DRAFT_ERROR });
       await expect(alert).toBeVisible();
 
@@ -273,11 +279,11 @@ for (const size of SIZES) {
     test("a failed reload after Copy holds Edit until Retry brings the version, so the save is not a 409", async ({
       mockedPage,
     }) => {
-      const mock = await mockAvailability(mockedPage);
+      const mock = await mockAvailability(mockedPage, copyableWeek());
       const drawer = await openNextMonthDay(mockedPage, midNextMonth());
 
       mock.failReads = true;
-      await copyToMonday(mockedPage, drawer);
+      await copyToOtherDays(mockedPage, drawer);
       const alert = drawer.getByRole("alert").filter({ hasText: DRAFT_ERROR });
       await expect(alert).toBeVisible();
       await expectEditHeld(drawer);
@@ -296,11 +302,11 @@ for (const size of SIZES) {
     test("a slow reload after Copy holds Edit until it lands, so the save is not a 409", async ({
       mockedPage,
     }) => {
-      const mock = await mockAvailability(mockedPage);
+      const mock = await mockAvailability(mockedPage, copyableWeek());
       const drawer = await openNextMonthDay(mockedPage, midNextMonth());
 
       mock.holdReads();
-      await copyToMonday(mockedPage, drawer);
+      await copyToOtherDays(mockedPage, drawer);
       await expectEditHeld(drawer);
 
       mock.releaseReads();
@@ -334,9 +340,9 @@ for (const size of SIZES) {
     test("a colleague's save during a draft still conflicts, also after the Manager's own Copy", async ({
       mockedPage,
     }) => {
-      const mock = await mockAvailability(mockedPage);
+      const mock = await mockAvailability(mockedPage, copyableWeek());
       const drawer = await openNextMonthDay(mockedPage, midNextMonth());
-      await copyToMonday(mockedPage, drawer);
+      await copyToOtherDays(mockedPage, drawer);
       await removeDinner(drawer);
 
       mock.colleague();
@@ -350,9 +356,9 @@ for (const size of SIZES) {
     test("a slow reload after Undo holds Edit until it lands, so the Manager's own Undo is no conflict", async ({
       mockedPage,
     }) => {
-      const mock = await mockAvailability(mockedPage);
+      const mock = await mockAvailability(mockedPage, copyableWeek());
       const drawer = await openNextMonthDay(mockedPage, midNextMonth());
-      await copyToMonday(mockedPage, drawer);
+      await copyToOtherDays(mockedPage, drawer);
       await expect(drawer.getByText(WAIT_FOR_RELOAD)).toHaveCount(0);
 
       mock.holdReads();
@@ -373,11 +379,11 @@ for (const size of SIZES) {
     test("a read older than the Manager's save holds Edit with a way to reload, not a lockout", async ({
       mockedPage,
     }) => {
-      const mock = await mockAvailability(mockedPage);
+      const mock = await mockAvailability(mockedPage, copyableWeek());
       const drawer = await openNextMonthDay(mockedPage, midNextMonth());
 
       mock.readVersion = 7;
-      await copyToMonday(mockedPage, drawer);
+      await copyToOtherDays(mockedPage, drawer);
       await expect(drawer.getByRole("alert")).toHaveCount(0);
       await expectEditHeld(drawer);
 
@@ -398,7 +404,7 @@ for (const size of SIZES) {
       let drawer = await openSpecialDateRow(mockedPage);
 
       mock.failReads = true;
-      await copyToMonday(mockedPage, drawer);
+      await copyToOtherDays(mockedPage, drawer);
       const alert = () => drawer.getByRole("alert").filter({ hasText: DRAFT_ERROR });
       await expect(alert()).toBeVisible();
       await expectEditHeld(drawer);
@@ -427,7 +433,7 @@ for (const size of SIZES) {
       let drawer = await openSpecialDateRow(mockedPage);
 
       mock.holdReads();
-      await copyToMonday(mockedPage, drawer);
+      await copyToOtherDays(mockedPage, drawer);
       await mockedPage.keyboard.press("Escape");
       await expect(mockedPage.getByRole("dialog")).toHaveCount(0);
       drawer = await openSpecialDateRow(mockedPage, false);
