@@ -13,6 +13,8 @@ export interface HolidayLineProps {
   /** A decided line turned back into the three choices by Change. */
   readonly changing: boolean;
   readonly status: HolidayLineStatus | undefined;
+  /** Another holiday is saving: nothing is pressed until it settles. */
+  readonly blocked: boolean;
   readonly onChoose: (choice: HolidayChoice) => void;
   readonly onChange: () => void;
   readonly onRetry: () => void;
@@ -63,7 +65,7 @@ export function HolidayLine(props: HolidayLineProps) {
               variant={current === choice ? "primary" : "secondary"}
               size="sm"
               className={styles.choice}
-              disabled={saving}
+              disabled={saving || props.blocked}
               isLoading={saving && status.to === choice}
               {...(state.kind === "undecided" ? {} : { "aria-pressed": current === choice })}
               onClick={() => props.onChoose(choice)}

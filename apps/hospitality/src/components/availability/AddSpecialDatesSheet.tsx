@@ -220,7 +220,10 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
           savedTitle === undefined
             ? savedCount
             : notified > 0
-              ? t("availabilitySpecial.holidays.savedNotified", { title: savedTitle, notified })
+              ? t("availabilitySpecial.holidays.savedNotified", {
+                  title: savedTitle,
+                  count: notified,
+                })
               : savedTitle,
         variant: "success",
       });

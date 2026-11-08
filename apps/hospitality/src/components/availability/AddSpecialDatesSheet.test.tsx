@@ -801,7 +801,7 @@ describe("AddSpecialDatesSheet from a holiday (autoNext, savedTitle, onSaved)", 
 
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
     expect(
-      await screen.findByText(/Closed on Christmas Day, Fri, Dec 25 · 2 notified/)
+      await screen.findByText(/Closed on Christmas Day, Fri, Dec 25 · 2 guests notified/)
     ).toBeTruthy();
     expect(onSaved).toHaveBeenCalledTimes(1);
   });

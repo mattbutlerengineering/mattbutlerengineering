@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
 import type { AvailabilityConfigState, DateRule, HolidayDecision } from "@mbe/types";
@@ -32,7 +32,6 @@ vi.mock("../../hooks/useApiClient.js", () => ({
 }));
 
 import { VenueContext, type VenueContextValue } from "../../contexts/venue-context-object.js";
-import { holidayStates } from "./holiday-decisions.js";
 import { UpcomingHolidays, type UpcomingHolidaysProps } from "./UpcomingHolidays.js";
 
 const TODAY = "2026-11-08";
@@ -144,9 +143,9 @@ describe("UpcomingHolidays", () => {
         "New Year’s Day",
       ]);
 
-      const rest = holidayStates("US", TODAY, stateWith().config, []).length - 5;
-      fireEvent.click(screen.getByRole("button", { name: `Show ${rest} more holidays this year` }));
-      expect(within(panel()).getAllByRole("listitem")).toHaveLength(5 + rest);
+      // Thirteen holidays from Nov 8 to Nov 8: five shown, eight more.
+      fireEvent.click(screen.getByRole("button", { name: "Show 8 more holidays this year" }));
+      expect(within(panel()).getAllByRole("listitem")).toHaveLength(13);
       expect(screen.queryByRole("button", { name: /Show \d+ more/ })).toBeNull();
       // Later months name their year once it is not this one.
       expect(
@@ -202,9 +201,24 @@ describe("UpcomingHolidays", () => {
           { date: "2026-12-25", name: "Christmas Day", kind: "closed" },
           { date: "2027-01-01", name: "New Year’s Day", kind: "closed" },
         ],
-        "Closed on Thanksgiving, Christmas Day, and New Year’s Day"
+        "Closed on Thanksgiving, Christmas Day, and New Year’s Day",
+        { onSettled: expect.any(Function) }
       );
       expect(setDecision).not.toHaveBeenCalled();
+    });
+
+    it("marks all three lines saving, and blocks every other press, until the sheet closes", () => {
+      const { props } = setup();
+      fireEvent.click(within(panel()).getByRole("button", { name: "Close these 3" }));
+      for (const name of [THANKSGIVING, CHRISTMAS_DAY, "New Year’s Day, Fri, Jan 1"]) {
+        for (const b of within(choices(name)).getAllByRole("button")) expect(b).toBeDisabled();
+      }
+      expect(within(choices(CHRISTMAS_EVE)).getByRole("button", { name: "Closed" })).toBeDisabled();
+      expect(within(panel()).getByRole("button", { name: "Close these 3" })).toBeDisabled();
+
+      act(() => vi.mocked(props.onClose).mock.calls[0]![2].onSettled());
+      expect(within(choices(THANKSGIVING)).getByRole("button", { name: "Closed" })).toBeEnabled();
+      expect(within(panel()).getByRole("button", { name: "Close these 3" })).toBeEnabled();
     });
 
     it("counts only the undecided ones, and goes when one is left", () => {
@@ -363,10 +377,45 @@ describe("UpcomingHolidays", () => {
       expect(props.onClose).toHaveBeenCalledWith(
         [{ date: "2026-11-26", name: "Thanksgiving", kind: "closed" }],
         "Closed on Thanksgiving, Thu, Nov 26",
-        undefined
+        { onSettled: expect.any(Function) }
       );
       expect(setDecision).not.toHaveBeenCalled();
       expect(clearDecision).not.toHaveBeenCalled();
+    });
+
+    it("marks the line saving until the sheet closes, and blocks a second press meanwhile", () => {
+      const { props } = setup();
+      press(THANKSGIVING, "Closed");
+      // Group disabled, every choice: none can be pressed again.
+      for (const b of within(choices(THANKSGIVING)).getAllByRole("button")) {
+        expect(b).toBeDisabled();
+      }
+      // Another holiday's press is blocked, not dropped or sent to the first request.
+      const other = within(choices(CHRISTMAS_EVE)).getByRole("button", { name: "Closed" });
+      expect(other).toBeDisabled();
+      fireEvent.click(other);
+      expect(props.onClose).toHaveBeenCalledTimes(1);
+
+      // The sheet closed (saved or cancelled): the lines are live again, and the next press is
+      // its own request for its own date.
+      act(() => vi.mocked(props.onClose).mock.calls[0]![2].onSettled());
+      press(CHRISTMAS_EVE, "Closed");
+      expect(props.onClose).toHaveBeenCalledTimes(2);
+      expect(vi.mocked(props.onClose).mock.calls[1]![0]).toEqual([
+        { date: "2026-12-24", name: "Christmas Eve", kind: "closed" },
+      ]);
+    });
+
+    it("a Special hours… press is saving too, until its sheet closes", () => {
+      const { props } = setup();
+      press(THANKSGIVING, "Special hours…");
+      expect(
+        within(choices(CHRISTMAS_EVE)).getByRole("button", { name: "Special hours…" })
+      ).toBeDisabled();
+      act(() => vi.mocked(props.onSpecialHours).mock.calls[0]![1].onSettled());
+      expect(
+        within(choices(CHRISTMAS_EVE)).getByRole("button", { name: "Special hours…" })
+      ).toBeEnabled();
     });
 
     it("from Open as usual clears the decision only after the closure is saved", async () => {
@@ -376,7 +425,7 @@ describe("UpcomingHolidays", () => {
       fireEvent.click(screen.getByRole("button", { name: `Change ${CHRISTMAS_EVE}` }));
       press(CHRISTMAS_EVE, "Closed");
 
-      const [, , afterSaved] = vi.mocked(props.onClose).mock.calls[0]!;
+      const { afterSaved } = vi.mocked(props.onClose).mock.calls[0]![2];
       // Cancelling the sheet never calls it: the mark is untouched.
       expect(clearDecision).not.toHaveBeenCalled();
       await afterSaved!();
@@ -390,7 +439,9 @@ describe("UpcomingHolidays", () => {
       fireEvent.click(within(panel()).getByRole("button", { name: /Decided/ }));
       fireEvent.click(screen.getByRole("button", { name: `Change ${CHRISTMAS_EVE}` }));
       press(CHRISTMAS_EVE, "Closed");
-      await expect(vi.mocked(props.onClose).mock.calls[0]![2]!()).resolves.toBeUndefined();
+      await expect(
+        vi.mocked(props.onClose).mock.calls[0]![2].afterSaved!()
+      ).resolves.toBeUndefined();
     });
 
     it("from special hours removes the old hours afterwards, against a fresh version, best effort", async () => {
@@ -402,7 +453,7 @@ describe("UpcomingHolidays", () => {
       press(CHRISTMAS_EVE, "Closed");
 
       expect(saveConfig).not.toHaveBeenCalled();
-      await vi.mocked(props.onClose).mock.calls[0]![2]!();
+      await vi.mocked(props.onClose).mock.calls[0]![2].afterSaved!();
       expect(getConfig).toHaveBeenCalledWith("venue-1");
       expect(saveConfig).toHaveBeenCalledWith({
         venueId: "venue-1",
@@ -414,7 +465,9 @@ describe("UpcomingHolidays", () => {
       });
 
       saveConfig.mockRejectedValueOnce(problem(409, { code: "version-conflict" }));
-      await expect(vi.mocked(props.onClose).mock.calls[0]![2]!()).resolves.toBeUndefined();
+      await expect(
+        vi.mocked(props.onClose).mock.calls[0]![2].afterSaved!()
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -424,7 +477,7 @@ describe("UpcomingHolidays", () => {
       press(THANKSGIVING, "Special hours…");
       expect(props.onSpecialHours).toHaveBeenCalledWith(
         { date: "2026-11-26", name: "Thanksgiving", kind: "hours" },
-        undefined
+        { onSettled: expect.any(Function) }
       );
     });
 
@@ -435,22 +488,23 @@ describe("UpcomingHolidays", () => {
       fireEvent.click(screen.getByRole("button", { name: `Change ${CHRISTMAS_EVE}` }));
       press(CHRISTMAS_EVE, "Special hours…");
 
-      await vi.mocked(props.onSpecialHours).mock.calls[0]![1]!();
+      await vi.mocked(props.onSpecialHours).mock.calls[0]![1].afterSaved!();
       expect(clearDecision).toHaveBeenCalledWith({ venueId: "venue-1", serviceDate: "2026-12-24" });
     });
 
-    it("from closed reopens first, then opens the sheet", () => {
+    it("from closed opens the sheet first and reopens the closure only after the hours saved", async () => {
       const { props } = setup({ state: stateWith(rule("2026-11-26", "closure", "closure-1")) });
       fireEvent.click(within(panel()).getByRole("button", { name: /Decided/ }));
       fireEvent.click(screen.getByRole("button", { name: `Change ${THANKSGIVING}` }));
       press(THANKSGIVING, "Special hours…");
 
-      expect(props.onSpecialHours).not.toHaveBeenCalled();
-      vi.mocked(props.onReopen).mock.calls[0]![1]();
-      expect(props.onSpecialHours).toHaveBeenCalledWith(
-        { date: "2026-11-26", name: "Thanksgiving", kind: "hours" },
-        undefined
-      );
+      // Cancelling the sheet leaves the venue Closed: nothing was reopened.
+      expect(props.onSpecialHours).toHaveBeenCalledTimes(1);
+      expect(props.onReopen).not.toHaveBeenCalled();
+
+      await vi.mocked(props.onSpecialHours).mock.calls[0]![1].afterSaved!();
+      expect(props.onReopen).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(props.onReopen).mock.calls[0]![0]).toBe("closure-1");
     });
   });
 

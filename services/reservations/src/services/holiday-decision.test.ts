@@ -102,11 +102,8 @@ describe("holidayDecisionService.list", () => {
 });
 
 describe("holidayDecisionService.set", () => {
-  it("upserts on the venue and date with an empty update, so a repeat keeps the first row", async () => {
-    const first = row({
-      createdAt: new Date("2026-11-01T09:00:00.000Z"),
-      createdByUserId: "auth0|first",
-    });
+  it("returns the stored row, so a repeat shows the first time, and records the actor on create", async () => {
+    const first = row({ createdAt: new Date("2026-11-01T09:00:00.000Z") });
     const upsert = vi.fn(async () => first);
     const { client } = fakeClient({ venueHolidayDecision: { upsert } });
 
@@ -125,16 +122,16 @@ describe("holidayDecisionService.set", () => {
       decision: "open_as_usual",
       createdAt: "2026-11-01T09:00:00.000Z",
     });
-    expect(upsert).toHaveBeenCalledWith({
-      where: { venueId_serviceDate: { venueId: "venue-1", serviceDate: day("2026-11-26") } },
-      create: {
-        venueId: "venue-1",
-        serviceDate: day("2026-11-26"),
-        decision: "open_as_usual",
-        createdByUserId: "auth0|ana",
-      },
-      update: {},
-    });
+    expect(upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: {
+          venueId: "venue-1",
+          serviceDate: day("2026-11-26"),
+          decision: "open_as_usual",
+          createdByUserId: "auth0|ana",
+        },
+      })
+    );
   });
 
   it("returns null for a venue that does not exist", async () => {

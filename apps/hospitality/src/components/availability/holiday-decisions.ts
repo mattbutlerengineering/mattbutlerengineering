@@ -45,7 +45,14 @@ function classify(
   decided: ReadonlySet<string>,
   date: string
 ): HolidayState {
-  const covering = rules.filter((r) => covers(r, date));
+  const skipped = new Set(
+    rules
+      .filter((r) => r.kind === "skip" && r.seriesId != null && r.startsOn <= date)
+      .filter((r) => (r.endsOn ?? r.startsOn) >= date)
+      .map((r) => r.seriesId)
+  );
+  // A series skipped on this date does not cover it: the skip is not a decision either.
+  const covering = rules.filter((r) => covers(r, date) && !skipped.has(r.id));
   const closed = covering.find(
     (r) => r.kind === "closure" && r.window == null && isOwnedOneDate(r, date)
   );

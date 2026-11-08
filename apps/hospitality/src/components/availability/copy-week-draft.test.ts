@@ -6,6 +6,7 @@ import {
   copyWeekDraft,
   regularSameWeekdays,
   sameHoursAs,
+  splitCopyTargets,
   thisWeekTargets,
 } from "./copy-week-draft.js";
 import { coveredDays, draftToConfig, effectiveDays } from "./quick-setup-draft.js";
@@ -14,6 +15,8 @@ import {
   FIXTURE_DATE,
   FIXTURE_TIMEZONE,
   fixtureConfig,
+  PARTY_CLOSURE,
+  VENUE_CLOSURE,
   resolveFixtureDay,
 } from "./resolved-day-fixtures.js";
 
@@ -173,6 +176,85 @@ describe("regularSameWeekdays", () => {
     expect(
       regularSameWeekdays(config, FIXTURE_TIMEZONE, resolveFixtureDay(), [6, 0], FIXTURE_DATE)
     ).toEqual([]);
+  });
+});
+
+describe("regularSameWeekdays against a named schedule", () => {
+  // A named schedule with higher precedence runs on Saturday with the same hours as Friday.
+  const base = fixtureConfig();
+  const config = {
+    ...base,
+    schedules: [
+      ...base.schedules,
+      { id: "summer", name: "Summer", kind: "alternate" as const, isRegular: false },
+    ],
+    scheduleServices: [
+      ...base.scheduleServices,
+      ...base.scheduleServices.map((r) => ({ ...r, id: `${r.id}-summer`, scheduleId: "summer" })),
+    ],
+    assignments: [
+      ...base.assignments,
+      { id: "as-summer", scheduleId: "summer", weekdays: [6], precedence: 5 },
+    ],
+  };
+
+  it("compares with the regular week only, which is closed on Saturday", () => {
+    expect(
+      regularSameWeekdays(config, FIXTURE_TIMEZONE, resolveFixtureDay(), [6], FIXTURE_DATE)
+    ).toEqual([]);
+  });
+});
+
+describe("splitCopyTargets", () => {
+  const source = resolveFixtureDay();
+  const split = (config = fixtureConfig(), dates = ["2026-10-31", "2026-11-01"]) =>
+    splitCopyTargets(config, FIXTURE_TIMEZONE, source, dates);
+
+  it("puts dates with other hours under changed", () => {
+    expect(split()).toEqual({ changed: ["2026-10-31", "2026-11-01"], same: [], closed: [] });
+  });
+
+  it("names dates that already have the hours as same", () => {
+    const own: DateRule = {
+      ...EARLY_DINNER,
+      id: "own",
+      startsOn: "2026-11-01",
+      endsOn: "2026-11-01",
+    };
+    const early = fixtureConfig(EARLY_DINNER, own);
+    const earlySource = resolveDay({ timezone: FIXTURE_TIMEZONE, config: early }, FIXTURE_DATE);
+    const result = splitCopyTargets(early, FIXTURE_TIMEZONE, earlySource, [
+      "2026-10-31",
+      "2026-11-01",
+    ]);
+    expect(result.same).toEqual(["2026-11-01"]);
+    expect(result.changed).toEqual(["2026-10-31"]);
+  });
+
+  it("names a date under a whole-day venue closure as closed, not as changed", () => {
+    const shut: DateRule = {
+      ...VENUE_CLOSURE,
+      id: "shut",
+      startsOn: "2026-10-31",
+      endsOn: "2026-10-31",
+    };
+    expect(split(fixtureConfig(shut))).toEqual({
+      changed: ["2026-11-01"],
+      same: [],
+      closed: ["2026-10-31"],
+    });
+  });
+
+  it("does not call a date closed for a part-day closure or a regular-week day off", () => {
+    const party: DateRule = {
+      ...PARTY_CLOSURE,
+      id: "p",
+      startsOn: "2026-10-31",
+      endsOn: "2026-10-31",
+    };
+    expect(split(fixtureConfig(party)).closed).toEqual([]);
+    // Sunday is not in the fixture's regular week at all.
+    expect(split().closed).toEqual([]);
   });
 });
 

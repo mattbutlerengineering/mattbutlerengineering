@@ -41,6 +41,22 @@ describe.skipIf(!DATABASE_URL)("holiday decisions (real Postgres)", () => {
     return venueId;
   };
 
+  /** Creates `count` venues, runs `work`, and deletes them whether or not it threw. */
+  const withVenues = async (
+    count: number,
+    work: (venueIds: string[]) => Promise<void>
+  ): Promise<void> => {
+    const venueIds: string[] = [];
+    try {
+      for (let i = 0; i < count; i++) venueIds.push(await makeVenue());
+      await work(venueIds);
+    } finally {
+      for (const id of venueIds) {
+        await runWithVenueContext(id, () => venueService.delete(id)).catch(() => undefined);
+      }
+    }
+  };
+
   const set = (venueId: string, serviceDate: string, actorId = "auth0|ana") =>
     holidayDecisionService.set(
       { venueId, serviceDate, decision: "open_as_usual", actorId },
@@ -66,34 +82,63 @@ describe.skipIf(!DATABASE_URL)("holiday decisions (real Postgres)", () => {
   });
 
   it("sets, lists by date inside the range only, and keeps the first row on a repeat", async () => {
-    const venueId = await makeVenue();
-    const first = await set(venueId, "2026-12-25", "auth0|first");
-    await set(venueId, "2026-11-26");
-    await set(venueId, "2027-07-04"); // outside the range
+    await withVenues(1, async ([venueId]) => {
+      const first = await set(venueId!, "2026-12-25", "auth0|first");
+      await set(venueId!, "2026-11-26");
+      await set(venueId!, "2027-07-04"); // outside the range
 
-    const again = await set(venueId, "2026-12-25", "auth0|second");
+      const again = await set(venueId!, "2026-12-25", "auth0|second");
 
-    expect(again).toEqual(first);
-    const rows = await list(venueId);
-    expect(rows?.map((r) => r.serviceDate)).toEqual(["2026-11-26", "2026-12-25"]);
-    const stored = await inVenue(venueId, (tx) =>
-      tx.venueHolidayDecision.findMany({ where: { venueId, serviceDate: new Date("2026-12-25") } })
-    );
-    expect(stored).toHaveLength(1);
-    expect(stored[0]?.createdByUserId).toBe("auth0|first");
+      expect(again).toEqual(first);
+      const rows = await list(venueId!);
+      expect(rows?.map((r) => r.serviceDate)).toEqual(["2026-11-26", "2026-12-25"]);
+      const stored = await inVenue(venueId!, (tx) =>
+        tx.venueHolidayDecision.findMany({
+          where: { venueId: venueId!, serviceDate: new Date("2026-12-25") },
+        })
+      );
+      expect(stored).toHaveLength(1);
+      expect(stored[0]?.createdByUserId).toBe("auth0|first");
+    });
+  });
 
-    await runWithVenueContext(venueId, () => venueService.delete(venueId));
+  it("lets concurrent sets for one date all succeed, with one row and the first author kept", async () => {
+    await withVenues(1, async ([venueId]) => {
+      const results = await Promise.all(
+        Array.from({ length: 12 }, (_, i) => set(venueId!, "2026-11-26", `auth0|actor-${i}`))
+      );
+
+      expect(results.every((r) => r?.decision === "open_as_usual")).toBe(true);
+      expect(new Set(results.map((r) => r?.createdAt)).size).toBe(1);
+      const stored = await inVenue(venueId!, (tx) =>
+        tx.venueHolidayDecision.findMany({ where: { venueId: venueId! } })
+      );
+      expect(stored).toHaveLength(1);
+      expect(results[0]?.createdAt).toBe(stored[0]?.createdAt.toISOString());
+      expect(stored[0]?.createdByUserId).toMatch(/^auth0\|actor-\d+$/);
+      // A later set never changes the author or time.
+      await set(venueId!, "2026-11-26", "auth0|late");
+      const after = await inVenue(venueId!, (tx) =>
+        tx.venueHolidayDecision.findMany({ where: { venueId: venueId! } })
+      );
+      expect(after[0]?.createdByUserId).toBe(stored[0]?.createdByUserId);
+      expect(after[0]?.createdAt).toEqual(stored[0]?.createdAt);
+    });
   });
 
   it("clears a decision, and clearing a date with none still succeeds", async () => {
-    const venueId = await makeVenue();
-    await set(venueId, "2026-11-26");
+    await withVenues(1, async ([venueId]) => {
+      await set(venueId!, "2026-11-26");
 
-    expect(await holidayDecisionService.clear(venueId, "2026-11-26", client as never)).toBe(true);
-    expect(await holidayDecisionService.clear(venueId, "2026-11-26", client as never)).toBe(true);
+      expect(await holidayDecisionService.clear(venueId!, "2026-11-26", client as never)).toBe(
+        true
+      );
+      expect(await holidayDecisionService.clear(venueId!, "2026-11-26", client as never)).toBe(
+        true
+      );
 
-    expect(await list(venueId)).toEqual([]);
-    await runWithVenueContext(venueId, () => venueService.delete(venueId));
+      expect(await list(venueId!)).toEqual([]);
+    });
   });
 
   it("returns null and false for a venue that does not exist", async () => {
@@ -109,58 +154,62 @@ describe.skipIf(!DATABASE_URL)("holiday decisions (real Postgres)", () => {
   });
 
   it("does not show or clear another venue's rows (RLS)", async () => {
-    const a = await makeVenue();
-    const b = await makeVenue();
-    await set(b, "2026-11-26");
+    await withVenues(2, async ([a, b]) => {
+      await set(b!, "2026-11-26");
 
-    expect(await list(a)).toEqual([]);
-    await holidayDecisionService.clear(a, "2026-11-26", client as never);
-    expect((await list(b))?.map((r) => r.serviceDate)).toEqual(["2026-11-26"]);
+      expect(await list(a!)).toEqual([]);
+      await holidayDecisionService.clear(a!, "2026-11-26", client as never);
+      expect((await list(b!))?.map((r) => r.serviceDate)).toEqual(["2026-11-26"]);
 
-    // The database itself refuses a write for another venue under this venue's context.
-    await expect(
-      inVenue(a, (tx) =>
-        tx.venueHolidayDecision.create({
-          data: { venueId: b, serviceDate: new Date("2026-12-25"), decision: "open_as_usual" },
-        })
-      )
-    ).rejects.toThrow();
-
-    await runWithVenueContext(a, () => venueService.delete(a));
-    await runWithVenueContext(b, () => venueService.delete(b));
+      // The database itself refuses a write for another venue under this venue's context.
+      await expect(
+        inVenue(a!, (tx) =>
+          tx.venueHolidayDecision.create({
+            data: { venueId: b!, serviceDate: new Date("2026-12-25"), decision: "open_as_usual" },
+          })
+        )
+      ).rejects.toThrow();
+    });
   });
 
   it("skips a row whose decision it does not know, without failing the list", async () => {
-    const venueId = await makeVenue();
-    await set(venueId, "2026-11-26");
-    await inVenue(venueId, (tx) =>
-      tx.venueHolidayDecision.create({
-        data: { venueId, serviceDate: new Date("2026-12-25"), decision: "something_new" },
-      })
-    );
-    const warnings: object[] = [];
+    await withVenues(1, async ([venueId]) => {
+      await set(venueId!, "2026-11-26");
+      await inVenue(venueId!, (tx) =>
+        tx.venueHolidayDecision.create({
+          data: {
+            venueId: venueId!,
+            serviceDate: new Date("2026-12-25"),
+            decision: "something_new",
+          },
+        })
+      );
+      const warnings: object[] = [];
 
-    const rows = await holidayDecisionService.list(
-      venueId,
-      RANGE,
-      { warn: (obj) => warnings.push(obj) },
-      client as never
-    );
+      const rows = await holidayDecisionService.list(
+        venueId!,
+        RANGE,
+        { warn: (obj) => warnings.push(obj) },
+        client as never
+      );
 
-    expect(rows?.map((r) => r.serviceDate)).toEqual(["2026-11-26"]);
-    expect(warnings).toHaveLength(1);
-    await runWithVenueContext(venueId, () => venueService.delete(venueId));
+      expect(rows?.map((r) => r.serviceDate)).toEqual(["2026-11-26"]);
+      expect(warnings).toHaveLength(1);
+    });
   });
 
   it("removes a venue's decisions when the venue is deleted (FK cascade)", async () => {
-    const venueId = await makeVenue();
-    await set(venueId, "2026-11-26");
+    await withVenues(1, async ([venueId]) => {
+      await set(venueId!, "2026-11-26");
 
-    expect(await runWithVenueContext(venueId, () => venueService.delete(venueId))).toBe("deleted");
+      expect(await runWithVenueContext(venueId!, () => venueService.delete(venueId!))).toBe(
+        "deleted"
+      );
 
-    const left = await inVenue(venueId, (tx) =>
-      tx.venueHolidayDecision.count({ where: { venueId } })
-    );
-    expect(left).toBe(0);
+      const left = await inVenue(venueId!, (tx) =>
+        tx.venueHolidayDecision.count({ where: { venueId: venueId! } })
+      );
+      expect(left).toBe(0);
+    });
   });
 });

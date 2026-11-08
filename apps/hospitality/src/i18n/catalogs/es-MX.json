@@ -1855,11 +1855,13 @@
     "holidays": {
       "heading": "Próximos días festivos",
       "usualClosedLine": "Los restaurantes suelen cerrar en {{names}}.",
-      "closeUsual_one": "Cerrar {{count}}",
+      "closeUsual_one": "Cerrar este {{count}}",
       "closeUsual_other": "Cerrar estos {{count}}",
       "closeUsual_many": "Cerrar estos {{count}}",
       "closedToast": "Cerrado: {{names}}",
-      "savedNotified": "{{title}} · {{notified}} avisados",
+      "savedNotified_one": "{{title}} · {{count}} huésped avisado",
+      "savedNotified_other": "{{title}} · {{count}} huéspedes avisados",
+      "savedNotified_many": "{{title}} · {{count}} huéspedes avisados",
       "choice": {
         "closed": "Cerrado",
         "openAsUsual": "Horario habitual",
@@ -1874,7 +1876,7 @@
         "closed": "Cerrado",
         "openAsUsual": "Horario habitual",
         "specialHours": "Horario especial",
-        "other": "Tiene fechas especiales"
+        "other": "Fechas especiales"
       },
       "change": "Cambiar",
       "changeName": "Cambiar {{name}}, {{date}}",
@@ -2063,6 +2065,9 @@
       "passed_one": "{{days}} ya pasó esta semana.",
       "passed_many": "{{days}} ya pasaron esta semana.",
       "passed_other": "{{days}} ya pasaron esta semana.",
+      "closedOn_one": "{{days}} está cerrado el {{dates}}. Reábrelo para cambiar su horario.",
+      "closedOn_many": "{{days}} están cerrados el {{dates}}. Reábrelos para cambiar su horario.",
+      "closedOn_other": "{{days}} están cerrados el {{dates}}. Reábrelos para cambiar su horario.",
       "consequenceThisWeek": "{{days}} usarán el horario del {{weekday}} ({{hours}}) los días {{dates}}.",
       "alreadySame_one": "{{days}} ya tiene este horario.",
       "alreadySame_many": "{{days}} ya tienen este horario.",

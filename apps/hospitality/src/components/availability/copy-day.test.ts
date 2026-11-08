@@ -3,7 +3,7 @@ import type { DateRule } from "@mbe/types";
 import { singleDateChangeCount } from "./copy-day.js";
 import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 
-describe("the discovery nudge", () => {
+describe("singleDateChangeCount (the discovery nudge's trigger)", () => {
   const single = (id: string, date: string): DateRule => ({
     ...EARLY_DINNER,
     id,

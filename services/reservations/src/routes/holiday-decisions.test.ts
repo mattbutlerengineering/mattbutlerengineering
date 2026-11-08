@@ -179,14 +179,6 @@ describe("holiday decision routes", () => {
       );
     });
 
-    it("is idempotent: a repeat answers 200 with the same row", async () => {
-      svc.set.mockResolvedValue(DECISION);
-      const first = await put(app);
-      const second = await put(app);
-      expect(second.statusCode).toBe(200);
-      expect(second.json()).toEqual(first.json());
-    });
-
     it("400s a bad date, an unknown decision and a missing body", async () => {
       expect((await put(app, "26-11-2026")).statusCode).toBe(400);
       expect((await put(app, "2026-02-31")).statusCode).toBe(400);

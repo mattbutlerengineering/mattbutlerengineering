@@ -153,6 +153,32 @@ describe("holidayStates precedence", () => {
     ).toEqual({ kind: "openAsUsual" });
   });
 
+  describe("a series skipped on the holiday", () => {
+    const thursdays = rule("2026-12-01", {
+      id: "series",
+      endsOn: null,
+      repeat: { version: 1, weekdays: [4] },
+    });
+    const skip = rule("2026-12-24", { kind: "skip", id: "skip-1", seriesId: "series" });
+
+    it("is not a decision: the date is undecided again", () => {
+      expect(stateOf([thursdays], [], "2026-12-24")).toEqual({ kind: "other" });
+      expect(stateOf([thursdays, skip], [], "2026-12-24")).toEqual({ kind: "undecided" });
+    });
+
+    it("leaves an open mark standing, and the series on other Thursdays", () => {
+      expect(stateOf([thursdays, skip], [decision("2026-12-24")], "2026-12-24")).toEqual({
+        kind: "openAsUsual",
+      });
+      expect(stateOf([thursdays, skip], [], "2026-12-31")).toEqual({ kind: "other" });
+    });
+
+    it("is only the skipped series: another rule on the date still decides it", () => {
+      const other = rule("2026-12-20", { id: "range", endsOn: "2026-12-26" });
+      expect(stateOf([thursdays, skip, other], [], "2026-12-24")).toEqual({ kind: "other" });
+    });
+  });
+
   it("ignores decisions outside the holidays, and the year boundary holds", () => {
     expect(stateOf([], [decision("2026-11-27")], "2026-11-26")).toEqual({ kind: "undecided" });
     expect(stateOf([rule("2027-01-01")], [], "2027-01-01")).toMatchObject({ kind: "closed" });

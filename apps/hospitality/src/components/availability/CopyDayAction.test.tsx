@@ -40,6 +40,7 @@ import {
   FIXTURE_DATE,
   FIXTURE_TIMEZONE,
   fixtureConfig,
+  VENUE_CLOSURE,
   resolveFixtureDay,
 } from "./resolved-day-fixtures.js";
 
@@ -242,6 +243,54 @@ describe("Copy to other days", () => {
       expect(primary).toHaveAttribute("aria-describedby", reason.id);
       fireEvent.click(primary);
       expect(save).not.toHaveBeenCalled();
+    });
+  });
+  describe("a date under a whole-day closure", () => {
+    const shut = (date: string): DateRule => ({
+      ...VENUE_CLOSURE,
+      id: `shut-${date}`,
+      startsOn: date,
+      endsOn: date,
+    });
+
+    it("is left out and named, and the sentence and toast speak only of the others", async () => {
+      const dialog = renderCopy(fixtureConfig(shut("2026-10-31")));
+      pick(dialog, "Sat", "Sun");
+      expect(
+        within(dialog).getByText("Sat is closed on Oct 31. Reopen it to change its hours.")
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByText(/^Sun will use Friday’s hours .* on Sun, Nov 1\.$/)
+      ).toBeInTheDocument();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sun" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+      const sent = save.mock.calls[0]![0] as {
+        body: { changes: { upsert: { dateRules: DateRule[] } } };
+      };
+      expect(sent.body.changes.upsert.dateRules.map((r) => r.startsOn)).toEqual(["2026-11-01"]);
+      expect(toast.mock.calls[0]![0].title).toBe("Copied Friday’s hours to Sun, Nov 1");
+    });
+
+    it("disables the primary with that reason when every target is closed", () => {
+      const dialog = renderCopy(fixtureConfig(shut("2026-10-31")));
+      pick(dialog, "Sat");
+      const primary = within(dialog).getByRole("button", { name: "Copy" });
+      expect(primary).toBeDisabled();
+      const reason = within(dialog).getByText(
+        "Sat is closed on Oct 31. Reopen it to change its hours."
+      );
+      expect(primary).toHaveAttribute("aria-describedby", reason.id);
+      expect(within(dialog).getByRole("button", { name: "Every week…" })).toBeEnabled();
+    });
+
+    it("uses plural wording for several closed dates", () => {
+      const dialog = renderCopy(fixtureConfig(shut("2026-10-31"), shut("2026-11-01")));
+      pick(dialog, "Sat", "Sun");
+      expect(
+        within(dialog).getByText(
+          "Sat and Sun are closed on Oct 31 and Nov 1. Reopen them to change their hours."
+        )
+      ).toBeInTheDocument();
     });
   });
 

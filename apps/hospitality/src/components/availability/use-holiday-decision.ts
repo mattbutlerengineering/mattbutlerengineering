@@ -24,16 +24,24 @@ export interface HolidayLineStatus {
   readonly to: HolidayChoice;
 }
 
+/** What the closure sheet is told about one request from the panel. */
+export interface HolidaySheetRequest {
+  /** Runs once the sheet's rows are saved, not if it is cancelled. */
+  readonly afterSaved?: () => Promise<void>;
+  /** The sheet closed, saved or not: the lines are live again. */
+  readonly onSettled: () => void;
+}
+
 /** What the panel's host (the Special dates tab) opens for the chains that need a sheet or a dialog. */
 export interface HolidayFlow {
-  /** Close dates through the closure path; `afterSaved` runs once they are saved, not if cancelled. */
+  /** Close dates through the closure path. */
   readonly onClose: (
     rows: readonly PlannedDate[],
     title: string,
-    afterSaved?: () => Promise<void>
+    request: HolidaySheetRequest
   ) => void;
   /** Special hours for one date through the same sheet. */
-  readonly onSpecialHours: (row: PlannedDate, afterSaved?: () => Promise<void>) => void;
+  readonly onSpecialHours: (row: PlannedDate, request: HolidaySheetRequest) => void;
   /** Reopen a closure; `then` runs once it is reopened, not if cancelled. */
   readonly onReopen: (ruleId: string, then: () => void) => void;
   /** The rule's own edit, for a date that already has special hours. */
@@ -133,13 +141,17 @@ export function useHolidayDecision(options: UseHolidayDecisionOptions) {
     });
   };
 
-  /** After a closure or special hours is saved: the open mark and any old hours are outranked. */
+  /**
+   * After a closure or special hours is saved: the open mark, old hours or closure it replaces are
+   * outranked (or, for the closure, reopened through its own dialog, which can be cancelled).
+   */
   const tidyAfter = (holiday: NamedHoliday) => async (): Promise<void> => {
     const { state: from } = holiday;
-    // Best effort: the new rule outranks both, so a failure here leaves the line right.
+    // Best effort: the new rule outranks all of them, so a failure here leaves the line right.
     if (from.kind === "openAsUsual") {
       await clear.mutateAsync({ venueId, serviceDate: holiday.date }).catch(() => undefined);
     }
+    if (from.kind === "closed") flow.onReopen(from.ruleId, () => undefined);
     if (from.kind === "specialHours") {
       try {
         const fresh = await api.availability.getConfig(venueId);
@@ -169,20 +181,28 @@ export function useHolidayDecision(options: UseHolidayDecisionOptions) {
       return;
     }
     const row = plannedOf(holiday, to === "closed" ? "closed" : "hours");
-    const after =
-      from.kind === "openAsUsual" || from.kind === "specialHours" ? tidyAfter(holiday) : undefined;
-    const open = () =>
-      to === "closed"
-        ? flow.onClose(
-            [row],
-            t("availabilitySpecial.holidays.closedToast", {
-              names: `${holiday.name}, ${holiday.dateLabel}`,
-            }),
-            after
-          )
-        : flow.onSpecialHours(row, after);
-    if (from.kind === "closed") flow.onReopen(from.ruleId, open);
-    else open();
+    // The sheet is the save: the line is saving until it closes, and nothing else is pressed.
+    setStatus(holiday.date, { phase: "saving", to });
+    const request: HolidaySheetRequest = {
+      ...(from.kind === "undecided" ? {} : { afterSaved: tidyAfter(holiday) }),
+      onSettled: () => setStatus(holiday.date, null),
+    };
+    if (to === "closed") {
+      const names = `${holiday.name}, ${holiday.dateLabel}`;
+      flow.onClose([row], t("availabilitySpecial.holidays.closedToast", { names }), request);
+    } else {
+      flow.onSpecialHours(row, request);
+    }
+  };
+
+  /** Closes several holidays in one sheet: every one of them is saving until it closes. */
+  const closeMany = (holidays: readonly NamedHoliday[], title: string): void => {
+    for (const h of holidays) setStatus(h.date, { phase: "saving", to: "closed" });
+    flow.onClose(
+      holidays.map((h) => plannedOf(h, "closed")),
+      title,
+      { onSettled: () => holidays.forEach((h) => setStatus(h.date, null)) }
+    );
   };
 
   const retry = (holiday: NamedHoliday): void => {
@@ -190,5 +210,6 @@ export function useHolidayDecision(options: UseHolidayDecisionOptions) {
     if (to) decide(holiday, to);
   };
 
-  return { statuses, decide, retry };
+  const busy = [...statuses.values()].some((s) => s.phase === "saving");
+  return { statuses, busy, decide, closeMany, retry };
 }

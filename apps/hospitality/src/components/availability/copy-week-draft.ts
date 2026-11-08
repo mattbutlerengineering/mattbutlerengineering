@@ -2,6 +2,7 @@ import { addDays, applyChanges, resolveDay, weekdayIndexOf } from "@mbe/availabi
 import type { ResolvedDay } from "@mbe/availability";
 import type { AvailabilityConfig, AvailabilityConfigChanges } from "@mbe/types";
 import { buildDraftChanges, seedServices } from "./draft-changes.js";
+import { closedAllDay } from "./closed-all-day.js";
 import { draftFromConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
 
 /** Copy a day to other days (ux.md F2): the pure parts, so the dialog only lays them out. */
@@ -13,8 +14,8 @@ const serviceKey = (s: Service): string =>
 
 /**
  * Whether two days run the same services at the same times and last seatings, in any order.
- * Seating and booking types are not compared: a copy carries the source's, so a day that differs
- * only there is a change the Manager did not ask to skip.
+ * Seating and booking types are not compared (PRD 8 names services, times and last seating), so a
+ * day that differs only there counts as the same and is skipped, not rewritten.
  */
 export function sameHoursAs(source: ResolvedDay, target: ResolvedDay): boolean {
   const keys = (day: ResolvedDay) => day.services.map(serviceKey).sort();
@@ -65,8 +66,30 @@ export function buildCopySingleDates(input: {
 }
 
 /**
+ * Each date sorted by what copying would do: `closed` when a whole-day venue closure keeps it
+ * shut (special hours written under it would not show), `same` when it already has the copied
+ * day's hours, else `changed`. Dates stay in the order given.
+ */
+export function splitCopyTargets(
+  config: AvailabilityConfig,
+  timezone: string,
+  source: ResolvedDay,
+  dates: readonly string[]
+): { changed: string[]; same: string[]; closed: string[] } {
+  const result = { changed: [] as string[], same: [] as string[], closed: [] as string[] };
+  for (const date of dates) {
+    const target = resolveDay({ timezone, config }, date);
+    if (closedAllDay(target)) result.closed.push(date);
+    else if (sameHoursAs(source, target)) result.same.push(date);
+    else result.changed.push(date);
+  }
+  return result;
+}
+
+/**
  * The chosen weekdays whose regular hours already equal the copied day's. Each is compared on the
- * next date it falls on, resolved with date rules set aside (what the regular week says).
+ * next date it falls on, against the regular week alone: date rules and other schedules'
+ * assignments (a named schedule that outranks it) are set aside.
  */
 export function regularSameWeekdays(
   config: AvailabilityConfig,
@@ -75,7 +98,15 @@ export function regularSameWeekdays(
   weekdays: readonly number[],
   from: string
 ): number[] {
-  const week = { timezone, config: { ...config, dateRules: [] } };
+  const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+  const week = {
+    timezone,
+    config: {
+      ...config,
+      dateRules: [],
+      assignments: config.assignments.filter((a) => a.scheduleId === regular?.id),
+    },
+  };
   return weekdays.filter((weekday) => {
     const first = Array.from({ length: 7 }, (_, i) => addDays(from, i)).find(
       (d) => weekdayIndexOf(d) === weekday

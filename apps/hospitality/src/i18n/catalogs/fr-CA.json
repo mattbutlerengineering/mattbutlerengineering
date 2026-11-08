@@ -1855,11 +1855,13 @@
     "holidays": {
       "heading": "Jours fériés à venir",
       "usualClosedLine": "Les restaurants ferment habituellement pour {{names}}.",
-      "closeUsual_one": "Fermer {{count}} jour",
+      "closeUsual_one": "Fermer ce {{count}} jour",
       "closeUsual_other": "Fermer ces {{count}} jours",
       "closeUsual_many": "Fermer ces {{count}} jours",
       "closedToast": "Fermé : {{names}}",
-      "savedNotified": "{{title}} · {{notified}} avisés",
+      "savedNotified_one": "{{title}} · {{count}} client avisé",
+      "savedNotified_other": "{{title}} · {{count}} clients avisés",
+      "savedNotified_many": "{{title}} · {{count}} clients avisés",
       "choice": {
         "closed": "Fermé",
         "openAsUsual": "Heures habituelles",
@@ -1874,7 +1876,7 @@
         "closed": "Fermé",
         "openAsUsual": "Heures habituelles",
         "specialHours": "Horaire spécial",
-        "other": "A des dates spéciales"
+        "other": "Dates spéciales"
       },
       "change": "Modifier",
       "changeName": "Modifier {{name}}, {{date}}",
@@ -1901,7 +1903,7 @@
         "canadaDay": "Fête du Canada",
         "independenceDay": "Jour de l’Indépendance",
         "laborDay": "Fête du Travail",
-        "thanksgiving": "Action de grâce",
+        "thanksgiving": "Action de grâces",
         "dayOfTheDead": "Jour des Morts",
         "revolutionDay": "Jour de la Révolution",
         "christmasEve": "Veille de Noël",
@@ -2063,6 +2065,9 @@
       "passed_one": "{{days}} est déjà passé cette semaine.",
       "passed_many": "{{days}} sont déjà passés cette semaine.",
       "passed_other": "{{days}} sont déjà passés cette semaine.",
+      "closedOn_one": "{{days}} est fermé le {{dates}}. Rouvrez-le pour modifier son horaire.",
+      "closedOn_many": "{{days}} sont fermés le {{dates}}. Rouvrez-les pour modifier leur horaire.",
+      "closedOn_other": "{{days}} sont fermés le {{dates}}. Rouvrez-les pour modifier leur horaire.",
       "consequenceThisWeek": "{{days}} suivront l’horaire du {{weekday}} ({{hours}}) pour {{dates}}.",
       "alreadySame_one": "{{days}} a déjà cet horaire.",
       "alreadySame_many": "{{days}} ont déjà cet horaire.",

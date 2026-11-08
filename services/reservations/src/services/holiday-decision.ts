@@ -96,12 +96,16 @@ export function setHolidayDecision(
   const { venueId, decision, actorId } = input;
   const serviceDate = toDbDate(input.serviceDate)!;
   return inVenue(client, venueId, null, async (db) => {
+    // `update: { decision }`, not `{}`: Prisma compiles an upsert to one `INSERT … ON CONFLICT DO
+    // UPDATE` only when the update is non-empty (an empty one becomes SELECT then INSERT, which
+    // concurrent sets race into a unique violation, a 500). Re-writing the same value leaves
+    // `createdByUserId` and `createdAt`, the first author and time, untouched.
     const row = await db.venueHolidayDecision.upsert({
       where: { venueId_serviceDate: { venueId, serviceDate } },
       create: { venueId, serviceDate, decision, createdByUserId: actorId },
-      update: {},
+      update: { decision },
     });
-    return toWire({ ...row, decision });
+    return toWire({ ...row, decision: HolidayDecisionKindSchema.parse(row.decision) });
   });
 }
 

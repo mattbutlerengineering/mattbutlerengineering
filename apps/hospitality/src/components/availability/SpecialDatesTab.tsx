@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -27,6 +27,7 @@ import { CloseDialog } from "./CloseDialog.js";
 import { isEditableClosure } from "./close-draft.js";
 import { EditClosureDialog } from "./EditClosureDialog.js";
 import { UpcomingHolidays } from "./UpcomingHolidays.js";
+import type { HolidaySheetRequest } from "./use-holiday-decision.js";
 import { useHolidayNames } from "./use-holidays.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
@@ -291,13 +292,20 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
   // What Add special date opens with: `rows` is `[]` for one empty row; `null` while it is shut.
   // A holiday sent here is closed straight through (`autoNext`), named in the toast, and may need
-  // something done once it is saved (clear the open mark).
+  // something done once it is saved (clear the open mark). Each request has its own `id`, which
+  // keys the sheet: it reads its rows once, so a new request is a new sheet, never the old one.
   const [adding, setAdding] = useState<{
+    id: number;
     rows: readonly PlannedDate[];
     autoNext?: boolean;
     savedTitle?: string;
-    afterSaved?: () => Promise<void>;
+    request?: HolidaySheetRequest;
   } | null>(null);
+  const addRequestsRef = useRef(0);
+  const openSheet = (sheet: Omit<NonNullable<typeof adding>, "id">) => {
+    addRequestsRef.current += 1;
+    setAdding({ ...sheet, id: addRequestsRef.current });
+  };
   // What a holiday does once its closure is reopened (the reopen is one step of a chain).
   const [afterReopen, setAfterReopen] = useState<(() => void) | undefined>(undefined);
   const [retryingId, setRetryingId] = useState<string | null>(null);
@@ -426,7 +434,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           />
         )}
         {isManager && (
-          <Button variant="primary" onClick={() => setAdding({ rows: [] })}>
+          <Button variant="primary" onClick={() => openSheet({ rows: [] })}>
             {t("availabilitySpecial.add.open")}
           </Button>
         )}
@@ -449,10 +457,10 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           isManager={isManager}
           onStale={onStale}
           onOpenDay={(date) => onOpenDay?.(date)}
-          onClose={(rows, savedTitle, afterSaved) =>
-            setAdding({ rows, autoNext: true, savedTitle, afterSaved })
+          onClose={(rows, savedTitle, request) =>
+            openSheet({ rows, autoNext: true, savedTitle, request })
           }
-          onSpecialHours={(row, afterSaved) => setAdding({ rows: [row], afterSaved })}
+          onSpecialHours={(row, request) => openSheet({ rows: [row], request })}
           onReopen={(ruleId, then) => {
             const rule = rules.find((r): r is SpecialDateRule => r.id === ruleId);
             if (!rule) return;
@@ -537,6 +545,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
       )}
       {adding && (
         <AddSpecialDatesSheet
+          key={adding.id}
           venueId={venueId}
           state={state}
           timezone={timezone}
@@ -545,8 +554,13 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           initialRows={adding.rows}
           autoNext={adding.autoNext}
           savedTitle={adding.savedTitle}
-          onSaved={adding.afterSaved ? () => void adding.afterSaved?.() : undefined}
-          onClose={() => setAdding(null)}
+          onSaved={
+            adding.request?.afterSaved ? () => void adding.request?.afterSaved?.() : undefined
+          }
+          onClose={() => {
+            adding.request?.onSettled();
+            setAdding(null);
+          }}
         />
       )}
       {callListFor && (

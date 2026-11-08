@@ -345,6 +345,32 @@ describe("SpecialDatesTab", () => {
     expect(setDecision).not.toHaveBeenCalled();
   });
 
+  it("blocks a second Closed press while the first holiday's closure is in flight, then closes the second as its own", async () => {
+    let finish: (value: unknown[]) => void = () => undefined;
+    const promise = new Promise<unknown[]>((resolve) => {
+      finish = resolve;
+    });
+    previewImpact.mockReturnValueOnce(promise);
+    createClosure.mockResolvedValue({ version: 8, results: [] });
+    renderTab(true);
+    const closed = (name: string) =>
+      within(screen.getByRole("group", { name })).getByRole("button", { name: "Closed" });
+    fireEvent.click(closed("Christmas Day, Fri, Dec 25"));
+    expect(closed("Christmas Day, Fri, Dec 25")).toBeDisabled();
+    expect(closed("New Year’s Eve, Thu, Dec 31")).toBeDisabled();
+    fireEvent.click(closed("New Year’s Eve, Thu, Dec 31"));
+    expect(previewImpact).toHaveBeenCalledTimes(1);
+
+    finish([{ reservations: 0, covers: 0, depositsHeld: 0, groups: [] }]);
+    await waitFor(() => expect(createClosure).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(closed("New Year’s Eve, Thu, Dec 31")).toBeEnabled());
+
+    previewImpact.mockResolvedValue([{ reservations: 0, covers: 0, depositsHeld: 0, groups: [] }]);
+    fireEvent.click(closed("New Year’s Eve, Thu, Dec 31"));
+    await waitFor(() => expect(createClosure).toHaveBeenCalledTimes(2));
+    expect(createClosure.mock.calls[0]![0].body.items[0].rule.startsOn).toBe("2026-12-25");
+    expect(createClosure.mock.calls[1]![0].body.items[0].rule.startsOn).toBe("2026-12-31");
+  });
   it("Special hours… opens Add special date on that date, starting from an hours row", () => {
     renderTab(true);
     fireEvent.click(

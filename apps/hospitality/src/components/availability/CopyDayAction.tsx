@@ -1,7 +1,7 @@
 import { useId, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Dialog, Stack, Text } from "@mattbutlerengineering/rialto";
-import { addDays, resolveDay, weekdayIndexOf, type ResolvedDay } from "@mbe/availability";
+import { addDays, weekdayIndexOf, type ResolvedDay } from "@mbe/availability";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
@@ -10,7 +10,7 @@ import {
   buildCopySingleDates,
   copyWeekDraft,
   regularSameWeekdays,
-  sameHoursAs,
+  splitCopyTargets,
   thisWeekTargets,
 } from "./copy-week-draft.js";
 import { waitingProps } from "./draft-wait.js";
@@ -68,6 +68,7 @@ export function CopyDayAction(props: CopyDayActionProps) {
   const short = (weekday: number) => dayName(weekday, "short");
   const dateText = (d: string) =>
     format.formatCalendarDate(d, { weekday: "short", month: "short", day: "numeric" });
+  const shortDate = (d: string) => format.formatCalendarDate(d, { month: "short", day: "numeric" });
   const sourceName = dayName(source, "long");
   const heading = format.formatCalendarDate(date, {
     weekday: "long",
@@ -82,23 +83,30 @@ export function CopyDayAction(props: CopyDayActionProps) {
 
   const week = useMemo(() => thisWeekTargets({ date, weekdays, today }), [date, weekdays, today]);
   // At most six dates, each resolved once: cheap enough to settle on every render.
-  const sameWeekdays = week.dates
-    .filter((d) => sameHoursAs(day, resolveDay({ timezone, config: state.config }, d)))
-    .map(weekdayIndexOf);
-  const changedDates = week.dates.filter((d) => !sameWeekdays.includes(weekdayIndexOf(d)));
+  const split = splitCopyTargets(state.config, timezone, day, week.dates);
+  const changedDates = split.changed;
+  const sameWeekdays = split.same.map(weekdayIndexOf);
+  const closedWeekdays = split.closed.map(weekdayIndexOf);
   const changedWeekdays = changedDates.map(weekdayIndexOf);
   const regularSame = regularSameWeekdays(state.config, timezone, day, weekdays, startsOn);
   const changedRegular = weekdays.filter((weekday) => !regularSame.includes(weekday));
 
   const allSameText = t("availabilitySchedules.copy.allSame", { weekday: sourceName });
+  const closedText = t("availabilitySchedules.copy.closedOn", {
+    count: split.closed.length,
+    days: list(closedWeekdays.map(short)),
+    dates: list(split.closed.map(shortDate)),
+  });
   const weekReason =
     weekdays.length === 0
       ? t("availabilitySchedules.copy.blocked.daysRequired")
       : week.dates.length === 0
         ? t("availabilitySchedules.copy.blocked.noDates")
-        : changedDates.length === 0
-          ? allSameText
-          : null;
+        : changedDates.length > 0
+          ? null
+          : split.same.length > 0
+            ? allSameText
+            : closedText;
   const everyReason =
     weekdays.length === 0
       ? t("availabilitySchedules.copy.blocked.daysRequired")
@@ -229,6 +237,11 @@ export function CopyDayAction(props: CopyDayActionProps) {
                   count: sameWeekdays.length,
                   days: list(sameWeekdays.map(short)),
                 })}
+              </Text>
+            )}
+            {split.closed.length > 0 && weekReason !== closedText && (
+              <Text variant="caption" color="secondary">
+                {closedText}
               </Text>
             )}
             {week.past.length > 0 && (

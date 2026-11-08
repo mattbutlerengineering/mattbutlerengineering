@@ -63,7 +63,7 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
   const [decidedOpen, setDecidedOpen] = useState(false);
   // Lines turned back into the three choices by Change.
   const [changing, setChanging] = useState<ReadonlySet<string>>(() => new Set());
-  const { statuses, decide, retry } = useHolidayDecision({
+  const { statuses, busy, decide, closeMany, retry } = useHolidayDecision({
     venueId,
     state,
     onStale,
@@ -104,6 +104,7 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
       isManager={isManager}
       changing={changing.has(holiday.date) || statuses.has(holiday.date)}
       status={statuses.get(holiday.date)}
+      blocked={busy}
       onChoose={(choice) => {
         setChanging((prev) => new Set([...prev].filter((d) => d !== holiday.date)));
         decide(holiday, choice);
@@ -140,9 +141,10 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
                 variant="secondary"
                 size="sm"
                 className={styles.choice}
+                disabled={busy}
                 onClick={() =>
-                  flow.onClose(
-                    usual.map((h) => ({ date: h.date, name: h.name, kind: "closed" as const })),
+                  closeMany(
+                    usual,
                     t("availabilitySpecial.holidays.closedToast", { names: usualNames })
                   )
                 }
