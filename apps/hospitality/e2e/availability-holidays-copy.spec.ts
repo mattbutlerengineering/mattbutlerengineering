@@ -74,6 +74,27 @@ const holidays = (page: Page) => page.getByRole("region", { name: "Upcoming holi
 const choices = (page: Page, name: string) => holidays(page).getByRole("group", { name });
 const specialDates = (page: Page) => page.getByRole("radio", { name: "Special dates" });
 
+/**
+ * Pins the browser clock to `now` and re-dates the stored sign-in around it. In CI the session is a
+ * real Auth0 token that lapses within hours of the real date, so a clock set weeks ahead would sign
+ * the Manager out (the landing page). Same approach as `visual.spec.ts`.
+ */
+async function pinClock(page: Page, now: Date): Promise<void> {
+  await page.clock.setFixedTime(now);
+  await page.addInitScript(
+    (iat) => {
+      const exp = iat + 3600;
+      for (const key of Object.keys(localStorage)) {
+        if (!key.startsWith("oidc.user:")) continue;
+        const user = JSON.parse(localStorage.getItem(key) ?? "{}") as Record<string, unknown>;
+        const profile = { ...(user.profile as object), iat, exp };
+        localStorage.setItem(key, JSON.stringify({ ...user, expires_at: exp, profile }));
+      }
+    },
+    Math.floor(now.getTime() / 1000)
+  );
+}
+
 /** A second Manager: a context of its own, on the same venue. */
 async function newManager(
   browser: Browser,
@@ -84,14 +105,14 @@ async function newManager(
   const page = await context.newPage();
   await mockApi(page);
   await page.goto("");
-  await page.clock.setFixedTime(now);
+  await pinClock(page, now);
   await serveSharedConfig(page, store);
   return { context, page };
 }
 
 test.describe("Holiday decisions", () => {
   test.beforeEach(async ({ mockedPage }) => {
-    await mockedPage.clock.setFixedTime(NOON);
+    await pinClock(mockedPage, NOON);
   });
 
   test("H1: close Thanksgiving, Christmas Day and New Year's Day in one tap (budget 3)", async ({
@@ -175,7 +196,7 @@ test.describe("Holiday decisions", () => {
     mockedPage: page,
     browser,
   }) => {
-    await page.clock.setFixedTime(DEC_FIRST);
+    await pinClock(page, DEC_FIRST);
     const store = createSharedConfig(fOneConfig());
     await serveSharedConfig(page, store);
     const nudge = (p: Page) => p.getByText("Christmas Eve is Thu, Dec 24 and isn't planned yet.");
@@ -326,7 +347,7 @@ test.describe("Holiday decisions", () => {
 
 test.describe("Copy to other days", () => {
   test.beforeEach(async ({ mockedPage }) => {
-    await mockedPage.clock.setFixedTime(NOON);
+    await pinClock(mockedPage, NOON);
   });
 
   /** Tuesday, Nov 10 on the Calendar layer: the day drawer's Copy to other days… */
