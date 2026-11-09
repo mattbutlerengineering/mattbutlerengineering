@@ -41,8 +41,11 @@ ai-tooling suite where the rule is the same idea):
                      fenced output or discloses NOT RUN, in its OWN section
                      scope (an appendix fence vouches for nothing; a scoped
                      hedge is not a disclaimer; there is no roll-up excuse);
-                     and an artifact with neither output nor a written
-                     NOT-RUN disclaimer anywhere fails outright
+                     an artifact with neither output nor a written
+                     NOT-RUN disclaimer anywhere fails outright; and a
+                     `## Summary` dated on/after ROLLUP_ADOPTED (or
+                     undated) names the unknown kind whenever a section
+                     discloses NOT RUN under a labelled verdict (ADR-0107)
   I STALENESS      — no knowledge-plane doc links to a path that no longer
                      exists on disk
   K STANDARDS-DRIFT — docs/standards.json's ADR-derived entries match a
@@ -91,12 +94,13 @@ import factory_config
 import standards_index
 from cli import read_event, read_file, report
 from cost_ledger import COST_LEDGER
-from knowledge_plane import (ADR_TOKEN, CLOSES_TOKEN, PRD_TOKEN, WO_TOKEN,
+from knowledge_plane import (ADR_TOKEN, CLOSES_TOKEN, PLAIN_PATH, PRD_TOKEN,
+                             WO_TOKEN,
                              adr_record, breakdown_rows, fenced,
                              local_link_targets, parse_run, repo_root,
                              resolve_link, run_dirs, status_head, unfenced,
                              work_orders)
-from protocol import read_frontmatter
+from protocol import frontmatter_end, parse_frontmatter, read_frontmatter
 # Not every factory PR implements a work order: a governance or chore PR
 # (the merge-auth removal in #139, a docs fix) closes an issue but maps to no
 # `WO-####`. Such a PR declares that EXPLICITLY — the same "declared, never
@@ -175,12 +179,6 @@ RESULT_LINE = re.compile(
     r"|disposition|decision|ruling|appraisal)\**"
     r"\s*:\s*(\S.*?)\s*(?:\|\s*|</summary>\s*)?$",
     re.IGNORECASE)
-# YAML frontmatter is METADATA, not the author's assertion. `status: draft` is
-# a stage field, and reading it as a labelled verdict both false-positived on
-# an honest artifact ("(untitled)" asserts draft) and — worse — parked a
-# `results` entry in the artifact, which switched the artifact-wide backstop
-# off entirely. The frontmatter block is skipped, not scanned.
-FRONTMATTER_FENCE = re.compile(r"^---\s*$")
 # The disclaimer must be explicit, and it must be WRITTEN: read from body
 # text, never from a heading. TEMPLATE.md ships a `## Not verified` slot in
 # EVERY artifact, so a heading that counted as a disclosure would let the
@@ -220,6 +218,76 @@ DISCLOSURE_VERDICT = re.compile(
 # Emphasis and brackets are formatting, not claim: `**NOT RUN**` and `(N/A)`
 # are the disclosures they look like, so the head is read past them.
 VERDICT_LEAD = re.compile(r"^[\s*_`\"'“‘([]+")
+# H's Summary half (ADR-0107): unknown never rolls up to pass. When a
+# criterion discloses NOT RUN under a labelled verdict, a `## Summary`
+# must name the unknown kind somewhere outside a fence. The words are the
+# disclosure heads read anywhere in the line, plus `not yet`, `unknown`,
+# `unmet` and `unproven`: without them the honest "2 NOT YET VERIFIABLE"
+# Summary on main fails. Any word satisfies any disclosed head, because
+# every head is the same claim kind. A count carries its word ("1 NOT
+# RUN"), so naming covers counting, except at zero: "0 NOT RUN" says no
+# item is unknown, so a match SUMMARY_ZERO_COUNT ends right before names
+# nothing (ADR-0108). There is no pass-word scan.
+# The 2026-10-17 review widened it on evidence (ADR-0107's amendment):
+# Summary-only words that can only mean not examined (`not applicable`,
+# `not_run`/`notrun`, `unverifiable`, `unexercised`, `not be(en) run`,
+# and a contracted `n't (been) run`, which carries its own leading word
+# so it sits outside the leading boundary), and a trailing boundary that
+# lets a hyphen or slash follow ("skipped-by-design", "deferred/blocked").
+# The heads shared with DISCLOSURE_VERDICT stay spelled identically.
+SUMMARY_TITLE = "summary"
+SUMMARY_UNKNOWN_TERM = re.compile(
+    r"(?:(?<![\w/-])(?:n/?a|skip(?:ped)?|defer(?:red)?|untested|unverified"
+    r"|pending|todo|tbd|not[\s-]+(?:yet|run|ran|verified|executed|checked"
+    r"|tested|attempted)|unknown|unmet|unproven"
+    r"|not\s+applicable|not_?run|unverifiable|unexercised"
+    r"|not\s+be(?:en)?\s+run)"
+    r"|n['’]t\s+(?:been\s+)?run)(?!\w)",
+    re.IGNORECASE)
+# A zero count, read on the text right before a SUMMARY_UNKNOWN_TERM match
+# (ADR-0108): `0`, `zero`, `no`, `none` or `nothing` as a whole word (not
+# after a `.`, so "1.0" is one number), then at most one word ("criteria")
+# that is not a pass/fail count label, and an optional `was`/`were`, then
+# only spaces or emphasis. "0 NOT RUN", "zero skipped", "0 criteria
+# skipped" and "no criteria were skipped" name nothing; "10 NOT RUN",
+# "1.0 NOT RUN", "1 skipped" and "criterion 4 was not run" still name.
+# The 2026-10-18 review fix loop: "0 FAIL NOT RUN: criterion 9" counts
+# failures, so a word starting `pass`/`fail` is never the zero's noun; and
+# a spaced hyphen separates clauses as an em or en dash does, so "0 FAIL -
+# NOT RUN: ..." names ("0-skipped" never matched the term at all).
+# lean: a longer negation ("no live check was skipped") still names; widen
+# this on a real artifact that uses one, not before.
+SUMMARY_ZERO_COUNT = re.compile(
+    r"(?<![\w.])(?:0|zero|no|none|nothing)(?:\s+(?!pass|fail)[^\W\d_]+)?"
+    r"(?:\s+(?:were|was))?[\s*_`]*$",
+    re.IGNORECASE)
+# How far back from a SUMMARY_UNKNOWN_TERM match SUMMARY_ZERO_COUNT reads.
+# A zero count is a few words long, so a fixed window keeps the roll-up
+# linear in line length; reading the whole prefix for every match was
+# quadratic (a 22 kB line of "0 not run, " took 1.5 s). The search's `pos`
+# does not hide the text before it from the leading `(?<![\w.])`, so the
+# window's edge invents no word boundary. A count cut by the edge names,
+# so a narrow window fails open (H passes a stale Summary). 64 is
+# len("nothing") + 1 + 45 (the longest English dictionary word) + 1 +
+# len("were") + 6 for spaces and emphasis, so any one-word count fits
+# (maintenance:a-long-line-stalls-the-gate, review).
+# lean: a count wider than 64 (a run of spaces or markers) still names;
+# read the prefix in reverse instead on a real artifact that uses one.
+SUMMARY_ZERO_COUNT_WINDOW = 64
+# The roll-up's grandfather cutoff: ADR-0107's own date, compared with the
+# artifact's frontmatter `date:` through _grandfathered, as O and M compare
+# theirs. A verification.md shipped before the rule existed does not owe
+# it. A missing date is NOT grandfathered (fail closed), so omitting the
+# date cannot dodge the rule.
+ROLLUP_ADOPTED = "2026-10-17"
+# The one `date:` spelling a grandfather cutoff compares at all (H, O and
+# M, all through _grandfathered): an ISO `YYYY-MM-DD`, or a datetime read
+# by its date part, once surrounding quotes and whitespace are stripped. A
+# raw-string compare let a quoted, empty or non-ISO value sort before the
+# cutoff and switch the rule off (ADR-0107's 2026-10-17 amendments).
+FRONTMATTER_ISO_DATE = re.compile(
+    r"^(\d{4}-\d{2}-\d{2})(?:[T ]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?"
+    r"(?:Z|[+-]\d{2}:?\d{2})?)?$")
 # Unfilled TEMPLATE filler is not output — matched by its filler TEXT, not by
 # the shape `<...>`. That shape is also real evidence (a DOM dump's `<html>`,
 # a Python repr like `<class 'app.models.User'>`), and discarding it
@@ -261,8 +329,8 @@ ARCH_CLAIM = re.compile(
     r"^\s*(?P<verb>exists|absent)\s*:\s*(?P<path>\S+)\s*$", re.IGNORECASE)
 # A claim must name a plain repo path. A glob or a `..` is not resolvable
 # against the tree, and quietly resolving it anyway is how a detector starts
-# reporting things it did not check.
-ARCH_PLAIN_PATH = re.compile(r"^[\w.@/-]+$")
+# reporting things it did not check. knowledge_plane owns what "plain" means.
+ARCH_PLAIN_PATH = PLAIN_PATH
 
 
 def _scannable_files(root):
@@ -347,7 +415,14 @@ def check_pr_traceability(root, env=None):
         return [f"B: {error}"]
     if pr is None:
         return []
-    body = pr.get("body") or ""
+    return pr_body_problems(pr.get("body") or "")
+
+
+def pr_body_problems(body):
+    """B's body rule on a bare string: the one owner of it and of its two
+    problem strings, judged by check_pr_traceability on CI and by the
+    root-only pr_body_preflight hook before `gh pr create` runs.
+    `""` stands for a missing body."""
     problems = []
     if not WO_TOKEN.search(body) and not NO_WO_DECLARATION.search(body):
         problems.append("B: PR body cites no work-order id")
@@ -743,6 +818,11 @@ PRISTINE_PREFIXES = ("templates/tools/factory/",
 # manifest without the marker is a full stamp's, checked as always.
 INSTALL_KEY = "install"
 TOOLS_ONLY = "tools-only"
+# The payload a manifest records: factory_init copies these keys from the
+# source manifest into a tools-only stamp's, and conductor_plan reads them
+# back for `conductor.py --version` (one owner since the 2026-10-25
+# consolidation; the writer and the reader each named them before).
+MANIFEST_PAYLOAD_KEYS = ("plugin", "version")
 
 
 def install_destination(rel):
@@ -1040,6 +1120,12 @@ def _is_disclosure(verdict):
     return bool(DISCLOSURE_VERDICT.match(VERDICT_LEAD.sub("", verdict)))
 
 
+# YAML frontmatter is METADATA, not the author's assertion. `status: draft` is
+# a stage field, and reading it as a labelled verdict both false-positived on
+# an honest artifact ("(untitled)" asserts draft) and — worse — parked a
+# `results` entry in the artifact, which switched the artifact-wide backstop
+# off entirely. The frontmatter block is skipped, not scanned; where it ends
+# is protocol.frontmatter_end's answer (ADR-0118).
 def _skip_frontmatter(lines):
     """The index of the first BODY line of an artifact's LINES: content
     after a closing `---` fence, when the artifact opens with a YAML
@@ -1049,12 +1135,8 @@ def _skip_frontmatter(lines):
     same convention verification_sections has always used. Shared by
     every section-splitting caller (verification_sections for H,
     capture_sections for M) so frontmatter skipping has one home."""
-    if lines and FRONTMATTER_FENCE.match(lines[0]):
-        for index in range(1, len(lines)):
-            if FRONTMATTER_FENCE.match(lines[index]):
-                return index + 1
-        # An unterminated opener is not frontmatter: fall through to 0.
-    return 0
+    end = frontmatter_end(lines)
+    return 0 if end is None else end + 1
 
 
 def _walk_sections(lines, body_start):
@@ -1101,6 +1183,18 @@ def _walk_sections(lines, body_start):
         yield "line", lineno, (line, False)
 
 
+def _names_unknown(line):
+    """Does LINE name the unknown kind (ADR-0107, ADR-0108)? True when some
+    SUMMARY_UNKNOWN_TERM match in it is not directly preceded by a zero
+    count (SUMMARY_ZERO_COUNT), read within SUMMARY_ZERO_COUNT_WINDOW
+    characters before it. Judged per match, so "0 NOT RUN, 1 skipped"
+    names on its second mention."""
+    return any(not SUMMARY_ZERO_COUNT.search(
+                   line, max(0, match.start() - SUMMARY_ZERO_COUNT_WINDOW),
+                   match.start())
+               for match in SUMMARY_UNKNOWN_TERM.finditer(line))
+
+
 def verification_sections(text):
     """Split a verification artifact's TEXT into heading-delimited sections,
     each recording — IN ITS OWN SCOPE — whether it shows literal output,
@@ -1119,8 +1213,11 @@ def verification_sections(text):
     Public with evidence_problems: pure text in, structure out, so the H
     grammar is exercisable without a fixture tree. Returns (sections,
     unclosed), where each section is {"title", "lineno", "evidence",
-    "not_run", "results"} and `unclosed` is the line number of a fence that
-    is never closed, or None.
+    "not_run", "names_unknown", "results"} and `unclosed` is the line
+    number of a fence that is never closed, or None. `names_unknown` (an
+    unfenced SUMMARY_UNKNOWN_TERM word that no SUMMARY_ZERO_COUNT directly
+    precedes, judged per match: see _names_unknown) is recorded for every
+    section and read only for a Summary, by _rollup_problems.
 
     Built on the shared _skip_frontmatter/_walk_sections engine (also used
     by capture_sections, detector M's own reader): this function owns only
@@ -1130,7 +1227,7 @@ def verification_sections(text):
 
     def blank(title, lineno):
         return {"title": title, "lineno": lineno, "evidence": False,
-                "not_run": False, "results": []}
+                "not_run": False, "names_unknown": False, "results": []}
 
     lines = text.splitlines()
     body = _skip_frontmatter(lines)
@@ -1151,11 +1248,66 @@ def verification_sections(text):
                 continue
             if NOT_RUN_TOKEN.search(line):
                 current["not_run"] = True
+            if _names_unknown(line):
+                current["names_unknown"] = True
             result = RESULT_LINE.match(line)
             if result:
                 current["results"].append((lineno, result.group(1)))
     sections.append(current)
     return sections, unclosed
+
+
+def _grandfathered(date, cutoff):
+    """Does a frontmatter `date:` value predate CUTOFF? True only when
+    DATE, stripped of surrounding quotes and whitespace, is an ISO date
+    (or a datetime, read by its date part) before CUTOFF. A missing,
+    empty or non-ISO date is judged (fail closed). H, O and M all ask
+    this, so the answer has one owner."""
+    if not isinstance(date, str):
+        return False
+    value = date.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+        value = value[1:-1].strip()
+    iso = FRONTMATTER_ISO_DATE.match(value)
+    return bool(iso) and iso.group(1) < cutoff
+
+
+def _rollup_applies(text):
+    """Does the roll-up rule judge this artifact? False only when its
+    frontmatter `date:` is grandfathered against ROLLUP_ADOPTED (see
+    _grandfathered)."""
+    date = (parse_frontmatter(text) or {}).get("date")
+    return not _grandfathered(date, ROLLUP_ADOPTED)
+
+
+def _rollup_problems(sections):
+    """The roll-up rule over verification_sections' already-parsed
+    SECTIONS (ADR-0107): when a non-Summary section holds a labelled
+    verdict that _is_disclosure accepts, some Summary section must name
+    the unknown kind. Returns [] or one (lineno, suffix) at the first
+    Summary's heading. No Summary means no roll-up line to judge."""
+    def is_summary(section):
+        return section["title"].strip().casefold() == SUMMARY_TITLE
+
+    summaries = [s for s in sections if is_summary(s)]
+    if not summaries or any(s["names_unknown"] for s in summaries):
+        return []
+    disclosed = []
+    for section in sections:
+        if is_summary(section):
+            continue
+        lines = [lineno for lineno, verdict in section["results"]
+                 if _is_disclosure(verdict)]
+        if lines:
+            disclosed.append((section["title"], lines[0]))
+    if not disclosed:
+        return []
+    criterion, line = disclosed[0]
+    return [(summaries[0]["lineno"],
+             f'summary "{summaries[0]["title"]}" neither counts nor names'
+             f" the {len(disclosed)} criterion section(s) disclosed as not"
+             f' run (first: "{criterion}", line {line}); unknown never'
+             " rolls up to pass")]
 
 
 def evidence_problems(text):
@@ -1195,6 +1347,10 @@ def evidence_problems(text):
              f'criterion "{section["title"]}" asserts {verdict} with'
              " neither literal evidence nor a NOT-RUN disclaimer (evidence"
              " must be a fenced code block in this section)"))
+    # The Summary half (ADR-0107). It needs a labelled disclosure and the
+    # backstop below needs no labelled verdict at all, so never both.
+    if _rollup_applies(text):
+        problems.extend(_rollup_problems(sections))
     # An artifact that asserts no verdict at all escapes the per-criterion
     # rule; it still owes the reader output or a disclosure.
     if not any(s["results"] for s in sections) and not any(
@@ -1258,8 +1414,9 @@ SECTION_CITATION = re.compile(r"§\s*([^,;)§]+)")
 # PRD's own frontmatter `date:`, a fixed constant against a static field,
 # so the same tree always answers the same way. This repo's PRD-0001..
 # PRD-0005 predate it; PRD-0006, dated on it, carries its own waivers, as
-# ADR-0072's Consequences ask. A missing date is NOT grandfathered — fail
-# closed, so omitting the date cannot dodge O.
+# ADR-0072's Consequences ask. A missing, empty or non-ISO date is NOT
+# grandfathered — fail closed through _grandfathered (FRONTMATTER_ISO_DATE),
+# so neither omitting the date nor quoting or misspelling it can dodge O.
 COVERAGE_ADOPTED = "2026-09-21"
 
 
@@ -1322,8 +1479,9 @@ def check_prd_coverage(root, parsed=None):
 
     Coverage is a Decompose-time property, so a run with no breakdown.md
     yet (a PRD still at its approval gate) is out of scope, as is a PRD
-    whose `date:` predates COVERAGE_ADOPTED. `parsed` defaults to a fresh
-    parse of `root`, same convention as A, C, D, G, H and I."""
+    whose `date:` predates COVERAGE_ADOPTED (read by _grandfathered).
+    `parsed` defaults to a fresh parse of `root`, same convention as A,
+    C, D, G, H and I."""
     if parsed is None:
         parsed = parse_run(root)
     problems = []
@@ -1331,8 +1489,7 @@ def check_prd_coverage(root, parsed=None):
         prd_id = entry["prd_id"]
         if not prd_id or entry["prd"] is None or entry["breakdown"] is None:
             continue
-        date = entry["prd_date"]
-        if isinstance(date, str) and date < COVERAGE_ADOPTED:
+        if _grandfathered(entry["prd_date"], COVERAGE_ADOPTED):
             continue
         citations = [cited.strip().casefold()
                      for row in breakdown_rows(entry["breakdown"])
@@ -1512,7 +1669,10 @@ CAPTURE_PLACEHOLDER = re.compile(r"^\s*[-*+]?\s*<[^>]*>\s*$")
 # capture from here on carries today's date and is checked in full.
 # A missing or unparseable `date:` is NOT grandfathered — fail closed,
 # the same direction cost_ledger.line_problems takes on a bad `at`
-# field, so an author cannot dodge M by omitting the date.
+# field, so an author cannot dodge M by omitting the date. "Unparseable"
+# is _grandfathered's reading: anything but an ISO date (quoted or a
+# datetime is fine) is judged, so a quoted, empty or non-ISO value cannot
+# sort before the cutoff and switch M off.
 CAPTURE_ADOPTED = "2026-09-21"
 
 
@@ -1589,8 +1749,8 @@ def check_capture_completeness(root):
     elsewhere is not this detector's problem" discipline C already
     applies file-by-file. A defect.md whose own frontmatter `date:`
     predates CAPTURE_ADOPTED is grandfathered (see that constant's own
-    comment) — a missing or unparseable date is NOT grandfathered, fail
-    closed. Bare `root`, no `parsed`: defect.md is not one of
+    comment and _grandfathered) — a missing, empty, non-ISO or otherwise
+    unparseable date is NOT grandfathered, fail closed. Bare `root`, no `parsed`: defect.md is not one of
     parse_run's run-level artifacts (its own docstring says so), so
     threading `parsed` here would either grow that walk for one detector
     or leave M re-deriving the same thing under a different name — this
@@ -1601,8 +1761,7 @@ def check_capture_completeness(root):
         if not defect.is_file():
             continue
         frontmatter = read_frontmatter(defect) or {}
-        date = frontmatter.get("date")
-        if isinstance(date, str) and date < CAPTURE_ADOPTED:
+        if _grandfathered(frontmatter.get("date"), CAPTURE_ADOPTED):
             continue
         rel = defect.relative_to(root)
         text = defect.read_text(encoding="utf-8")

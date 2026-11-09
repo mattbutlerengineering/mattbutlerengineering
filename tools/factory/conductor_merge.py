@@ -42,7 +42,7 @@ import factory_config
 from cli import CLI_FAILURES, detail, gh_read
 from conductor import BLOCK, append, current_state, is_text, \
     item_view, load, stamp
-from cost_ledger import ISSUE_KEY
+from cost_ledger import COST_LEDGER, ISSUE_KEY, RUNS_DIR, run_ledger_path
 from knowledge_plane import adr_citation, adr_digits, adr_file_number
 
 def _refused(text):
@@ -69,22 +69,35 @@ def _reviewed_problems(rows, item):
 
 # What may change on the item branch after the review run's launch head:
 # the review and ship steps' own artifacts, in the run directory whose
-# VERIFICATION the item changed before the review, and spend rows
-# appended to COSTS. Anything else was never reviewed (review major 1,
-# re-review R4, breakdown Notes 2026-10-11).
-COSTS = "docs/factory/costs.jsonl"
+# VERIFICATION the item changed before the review, spend rows appended
+# to COST_LEDGER, and a run spend file a later run added (#954: one file
+# per run, at the path cost_ledger.run_ledger_path gives it). Anything
+# else was never reviewed (review major 1, re-review R4, breakdown Notes
+# 2026-10-11).
 VERIFICATION = re.compile(r"docs/(?:(?:features|fixes)/[^/]+/)?"
                           r"verification\.md")
 AFTER_REVIEW = ("review.md", "release.md")
 
 
-def review_drift(item, head, changed, own_dirs, appended):
+def run_spend_file(path):
+    """Is `path` a run spend file, exactly as run_ledger_path writes one?
+    A nested or non-.jsonl file under RUNS_DIR is read by no gate, so it
+    is not one. PURE."""
+    prefix, suffix = RUNS_DIR + "/", ".jsonl"
+    return (path.startswith(prefix) and path.endswith(suffix)
+            and run_ledger_path(path[len(prefix):-len(suffix)]) == path)
+
+
+def review_drift(item, head, changed, own_dirs, appended, added=()):
     """The stall reason when a path changed between the reviewed head and
     the branch other than a run directory in `own_dirs`' AFTER_REVIEW
-    artifacts, or COSTS when `appended` (its old text is a prefix of its
-    new one), else None. PURE."""
-    allowed = {run_dir + name for run_dir in own_dirs
-               for name in AFTER_REVIEW} | ({COSTS} if appended else set())
+    artifacts, COST_LEDGER when `appended` (its old text is a prefix of
+    its new one), or a run spend file that `added` names (absent at the
+    head), else None. PURE."""
+    allowed = ({run_dir + name for run_dir in own_dirs
+                for name in AFTER_REVIEW}
+               | ({COST_LEDGER} if appended else set())
+               | {path for path in added if run_spend_file(path)})
     unreviewed = sorted(path for path in changed if path not in allowed)
     if not unreviewed:
         return None
@@ -684,7 +697,12 @@ def _drift(rows, item, git, branch, worktree):
     head = [row for row in item_view(rows, item)["states"]
             if row["to"] == "reviewed"][-1]["reviewed_head"]
     try:
-        changed = git(["diff", "--name-only", head, branch]).stdout.split()
+        # --no-renames: a rename onto an allowed path would otherwise
+        # list only its new name and hide the deletion it carries.
+        changed = git(["diff", "--name-only", "--no-renames", head,
+                       branch]).stdout.split()
+        added = git(["diff", "--name-only", "--no-renames",
+                     "--diff-filter=A", head, branch]).stdout.split()
         verified = git(["diff", "--name-only",
                         f"origin/main...{head}"]).stdout.split()
     except CLI_FAILURES as err:
@@ -692,10 +710,11 @@ def _drift(rows, item, git, branch, worktree):
                       f" {detail(err, every_line=True)}"]
     own_dirs = {path[:-len("verification.md")] for path in verified
                 if VERIFICATION.fullmatch(path)}
-    grown = _show(git, branch, COSTS) if COSTS in changed else None
+    grown = (_show(git, branch, COST_LEDGER) if COST_LEDGER in changed
+             else None)
     appended = grown is not None and grown.startswith(
-        _show(git, head, COSTS) or "")
-    return review_drift(item, head, changed, own_dirs, appended), []
+        _show(git, head, COST_LEDGER) or "")
+    return review_drift(item, head, changed, own_dirs, appended, added), []
 
 
 def _show(git, ref, path):

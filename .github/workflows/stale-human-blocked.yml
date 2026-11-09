@@ -81,7 +81,7 @@ jobs:
         # automation branch instead — the pattern proven in pr-metrics.yml /
         # production-feedback.yml. Skipped on a dry run, which writes nothing.
         if: env.DRY_RUN != 'true'
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8 # v8.1.2
         env:
           # The action commits inside the runner, firing the husky pre-commit
           # hook; check-adr needs @mbe/agent-core built, which this job does

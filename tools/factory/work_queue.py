@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """work-queue: plan a batch of work orders to run in parallel.
 
-The `work-queue` skill's compute half (ADR-0023 utility skill; ADR-0032
-two planes). It COMPUTES and prices a batch; it never dispatches, never
+implement-queue's work-order planner under `source: work-orders`
+(ADR-0127, which retired the `work-queue` skill; ADR-0032 two planes). It COMPUTES and prices a batch; it never dispatches, never
 labels, never merges — the skill runs the agents, and a human merges the
 PRs (ADR-0033 gate 3). Same compute/mutate split as cost_report.py.
 

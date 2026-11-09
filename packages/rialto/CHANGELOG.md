@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.9
+
+### Patch Changes
+
+- [#8595](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8595) [`c12a876`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/c12a876ed8f1f0f6eac6ecc9dd821d2de9f55a84) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Rich footer link columns size to their text, so the column group centres under the wordmark. A 140px minimum width was wider than a short column and left the ink left of centre.
+
 ## 0.10.8
 
 ### Patch Changes

@@ -45,7 +45,7 @@ import conductor_spend
 import cost_ledger
 import factory_config
 import label_sync
-from cli import CLI_FAILURES, detail
+from cli import CLI_FAILURES, detail, json_lines
 from conductor import LEDGER, TERMINAL, answers, append, ask_row, \
     batch_branch, batch_dir, current_state, is_text, item_view, load, \
     numbered, parse, parsed_at, read_text, run_item, stamp, view
@@ -438,10 +438,8 @@ def history(root):
     if not path.is_file():
         return [], []
     rows = []
-    for lineno, line in numbered(path.read_text(encoding="utf-8")):
-        try:
-            row = json.loads(line)
-        except ValueError as err:
+    for lineno, row, err in json_lines(path.read_text(encoding="utf-8")):
+        if err is not None:
             return None, [f"cd: {SCORECARDS}:{lineno} is not valid JSON:"
                           f" {err}"]
         problems = scorecard_problems(row)

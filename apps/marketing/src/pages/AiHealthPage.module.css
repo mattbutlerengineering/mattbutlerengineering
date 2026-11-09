@@ -62,6 +62,18 @@
   gap: 1rem;
 }
 
+/* Queue Efficiency renders the size-tier table directly under the cards,
+   and the trend chart directly under that table. Each border was the only
+   separation. Headings sit 1rem above the next block and sections sit
+   2.5rem apart; 1.5rem is the step between those. It stays in rem so the
+   presenting vibe's --rialto-space-lg override does not open this one gap
+   past its neighbours. Both rules match only when the table follows the
+   cards, so a panel that is only a sensor list is unchanged. */
+.statGrid + .sensorGrid,
+.statGrid + .sensorGrid + * {
+  margin-block-start: 1.5rem;
+}
+
 .statCard {
   padding: 1.25rem;
   text-align: center;

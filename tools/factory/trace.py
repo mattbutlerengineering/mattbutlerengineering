@@ -37,6 +37,7 @@ import sys
 from pathlib import Path
 
 from cli import CLI_FAILURES, detail, gh_read, gh_runner, report, runner
+from cost_ledger import ISSUE_KEY
 from human_gates import read_timelines
 from knowledge_plane import (ADR_TOKEN, CLOSES_TOKEN, PRD_TOKEN, WO_TOKEN,
                              adr_paths, adr_records, breakdown_rows,
@@ -58,8 +59,9 @@ FEEDBACK_STAGES = {"verify", "review", "ship", "operate"}
 # The ADR's own `- Date:` line: the start of its validity window, and
 # the end of the window of any ADR it supersedes.
 ADR_DATE = re.compile(r"^-\s*Date:\s*(\d{4}-\d{2}-\d{2})\b")
+# one-owner: cost_ledger.AT_DATE (ADR-0061) — the --since argument's shape,
+# not a ledger row's at field; the pattern is shared, the fact is not
 DAY = re.compile(r"\d{4}-\d{2}-\d{2}")
-ISSUE_KEY = re.compile(r"#(\d+)")
 SCALES = ("feature:", "maintenance:")
 
 
@@ -230,10 +232,8 @@ def resolve(root, key, runs, state, run):
         return by_ref[key], [], []
     if key.startswith(SCALES) or key == "product":
         return None, [], [f"{LABEL}: {key} names no run directory"]
-    issue = ISSUE_KEY.fullmatch(key)
-    if issue:
-        found, said = resolve_issue(root, int(issue.group(1)), runs, state,
-                                    run)
+    if ISSUE_KEY.fullmatch(key):
+        found, said = resolve_issue(root, int(key[1:]), runs, state, run)
     elif any(t.fullmatch(key) for t in (PRD_TOKEN, ADR_TOKEN, WO_TOKEN)):
         found, said = resolve_id(root, key, runs)
         if not found:
