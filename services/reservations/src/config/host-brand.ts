@@ -45,12 +45,14 @@ export interface ReservationHostBrand {
 }
 
 export interface HostBrandEnv {
-  /**
-   * The verified Resend sending domain's address. Never varies by host:
-   * eat-sheet.com is not (yet) a verified sending domain, so the envelope
-   * from-address always stays here — only the display name changes (#7892).
-   */
+  /** mattbutlerengineering.com's sending address (a verified Resend domain). */
   readonly verifiedFromAddress: string;
+  /**
+   * eat-sheet.com's sending address. eat-sheet.com became a verified Resend
+   * sending domain on 2026-11-09 (#8012), so eat-sheet bookings no longer
+   * borrow the mattbutlerengineering.com envelope address (#7892).
+   */
+  readonly eatSheetFromAddress: string;
   readonly mbeManageBaseUrl: string;
   readonly eatSheetManageBaseUrl: string;
 }
@@ -74,7 +76,7 @@ export function hostBrandFor(originHost: string | null, env: HostBrandEnv): Rese
   if (originHost === "eat-sheet.com") {
     return {
       brandName: EAT_SHEET_BRAND_NAME,
-      fromAddress: withDisplayName(EAT_SHEET_BRAND_NAME, env.verifiedFromAddress),
+      fromAddress: withDisplayName(EAT_SHEET_BRAND_NAME, env.eatSheetFromAddress),
       manageBaseUrl: env.eatSheetManageBaseUrl,
     };
   }
@@ -86,18 +88,20 @@ export function hostBrandFor(originHost: string | null, env: HostBrandEnv): Rese
 }
 
 /**
- * Reads the brand env vars once (`EMAIL_FROM`, `MANAGE_BASE_URL`,
- * `EAT_SHEET_MANAGE_BASE_URL`) and returns a resolver closed over them, so
+ * Reads the brand env vars once (`EMAIL_FROM`, `EAT_SHEET_EMAIL_FROM`,
+ * `MANAGE_BASE_URL`, `EAT_SHEET_MANAGE_BASE_URL`) and returns a resolver closed over them, so
  * `notifications.ts` and `app.ts` share one source of truth instead of each
  * re-reading `process.env`.
  */
 export function createHostBrandResolver(env: {
   EMAIL_FROM?: string | undefined;
+  EAT_SHEET_EMAIL_FROM?: string | undefined;
   MANAGE_BASE_URL?: string | undefined;
   EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
 }): (originHost: string | null) => ReservationHostBrand {
   const brandEnv: HostBrandEnv = {
     verifiedFromAddress: env.EMAIL_FROM ?? "reservations@mattbutlerengineering.com",
+    eatSheetFromAddress: env.EAT_SHEET_EMAIL_FROM ?? "reservations@eat-sheet.com",
     mbeManageBaseUrl: resolveManageBaseUrl(env),
     eatSheetManageBaseUrl: resolveEatSheetManageBaseUrl(env),
   };

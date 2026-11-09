@@ -36,17 +36,17 @@ describe("resolveOriginHost", () => {
 describe("hostBrandFor", () => {
   const env = {
     verifiedFromAddress: "reservations@mattbutlerengineering.com",
+    eatSheetFromAddress: "reservations@eat-sheet.com",
     mbeManageBaseUrl: "https://mattbutlerengineering.com",
     eatSheetManageBaseUrl: "https://eat-sheet.com",
   };
 
-  it("brands eat-sheet.com bookings with the eat-sheet name and manage base, on the verified domain", () => {
+  it("brands eat-sheet.com bookings with the eat-sheet name, manage base and eat-sheet.com from-address", () => {
     const brand = hostBrandFor("eat-sheet.com", env);
     expect(brand.brandName).toBe("eat-sheet");
     expect(brand.manageBaseUrl).toBe("https://eat-sheet.com");
-    // Never sends from an unverified domain (#7892): the envelope address
-    // stays on mattbutlerengineering.com, only the display name changes.
-    expect(brand.fromAddress).toBe("eat-sheet <reservations@mattbutlerengineering.com>");
+    // eat-sheet.com is a verified Resend sending domain since 2026-11-09 (#8012).
+    expect(brand.fromAddress).toBe("eat-sheet <reservations@eat-sheet.com>");
   });
 
   it("keeps today's mattbutlerengineering.com behavior for a null origin host", () => {
@@ -62,12 +62,12 @@ describe("hostBrandFor", () => {
     expect(brand.fromAddress).toBe("reservations@mattbutlerengineering.com");
   });
 
-  it("preserves an already-named verified from-address's email when branding eat-sheet", () => {
+  it("preserves an already-named eat-sheet from-address's email when branding eat-sheet", () => {
     const brand = hostBrandFor("eat-sheet.com", {
       ...env,
-      verifiedFromAddress: "MBE <reservations@mattbutlerengineering.com>",
+      eatSheetFromAddress: "Bookings <hello@eat-sheet.com>",
     });
-    expect(brand.fromAddress).toBe("eat-sheet <reservations@mattbutlerengineering.com>");
+    expect(brand.fromAddress).toBe("eat-sheet <hello@eat-sheet.com>");
   });
 });
 
@@ -75,13 +75,14 @@ describe("createHostBrandResolver", () => {
   it("reads env vars once and resolves eat-sheet.com by brand name", () => {
     const resolver = createHostBrandResolver({
       EMAIL_FROM: "reservations@mattbutlerengineering.com",
+      EAT_SHEET_EMAIL_FROM: "bookings@eat-sheet.com",
       MANAGE_BASE_URL: "https://mattbutlerengineering.com",
       EAT_SHEET_MANAGE_BASE_URL: "https://eat-sheet.com",
     });
 
     expect(resolver("eat-sheet.com")).toEqual({
       brandName: "eat-sheet",
-      fromAddress: "eat-sheet <reservations@mattbutlerengineering.com>",
+      fromAddress: "eat-sheet <bookings@eat-sheet.com>",
       manageBaseUrl: "https://eat-sheet.com",
     });
     expect(resolver(null)).toEqual({
@@ -94,6 +95,7 @@ describe("createHostBrandResolver", () => {
   it("falls back to defaults when env vars are unset", () => {
     const resolver = createHostBrandResolver({});
     expect(resolver("eat-sheet.com").manageBaseUrl).toBe("https://eat-sheet.com");
+    expect(resolver("eat-sheet.com").fromAddress).toBe("eat-sheet <reservations@eat-sheet.com>");
     expect(resolver(null).fromAddress).toBe("reservations@mattbutlerengineering.com");
   });
 

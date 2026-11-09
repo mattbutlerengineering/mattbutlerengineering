@@ -90,6 +90,7 @@
     <item priority="low">
       interface HostBrandEnv {
         verifiedFromAddress: string;
+        eatSheetFromAddress: string;
         mbeManageBaseUrl: string;
         eatSheetManageBaseUrl: string;
       }
@@ -103,6 +104,7 @@
     <item priority="high">
       export function createHostBrandResolver(env: {
         EMAIL_FROM?: string | undefined;
+        EAT_SHEET_EMAIL_FROM?: string | undefined;
         MANAGE_BASE_URL?: string | undefined;
         EAT_SHEET_MANAGE_BASE_URL?: string | undefined;
       }): (originHost: string | null) => ReservationHostBrand { /* ... */ }
