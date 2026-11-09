@@ -215,6 +215,17 @@
     overflow-wrap: anywhere;
   }
 
+  /* Badge is inline-flex and nowrap. On a two-up phone grid a label such as
+     "2647 pull requests merged" is wider than the card and paints into the
+     next one. Wrap it inside the card. */
+  .stageCard .stageMetric {
+    display: inline-block;
+    box-sizing: border-box;
+    max-inline-size: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+  }
+
   .stageLayer {
     height: 170px;
   }

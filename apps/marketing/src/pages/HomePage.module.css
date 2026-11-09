@@ -140,9 +140,18 @@
   .metricsGrid {
     /* Single column on phones: even the md odometer's flip-board cells are
        em-sized boxes (~200px for a 4-digit figure) that cannot shrink, so a
-       two-up grid overflows the viewport on 360-412px screens. */
-    grid-template-columns: 1fr;
+       two-up grid overflows the viewport on 360-412px screens.
+       `1fr` is minmax(auto, 1fr). The presenting vibe sets --rialto-space-lg
+       to 32px, so a 320px viewport leaves a 256px content box, while the
+       figure plus card padding is about 280px of min-content. The track then
+       sits 32px from the left and 8px from the right. minmax(0, 1fr) keeps
+       the card inside the band and centred. */
+    grid-template-columns: minmax(0, 1fr);
     row-gap: var(--rialto-space-md);
+  }
+
+  .metricsGrid > * {
+    min-width: 0;
   }
 }
 

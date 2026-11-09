@@ -58,6 +58,14 @@
   gap: var(--rialto-space-xs);
 }
 
+/* The glyph is a Text node so it can be hidden from the name. Text's body
+   variant would otherwise enlarge it past the button's own type. */
+.wsHeader .toggleGlyph {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+}
+
 .wsTitle {
   display: flex;
   align-items: center;
