@@ -348,7 +348,8 @@ describe("UpcomingHolidays", () => {
 
       const retry = await screen.findByRole("button", { name: `Retry ${THANKSGIVING}` });
       expect(screen.getByText("Couldn't save.")).toBeTruthy();
-      expect(retry).toHaveFocus();
+      // Focus moves in an effect after the Retry button renders, so wait for it.
+      await waitFor(() => expect(retry).toHaveFocus());
       // Still undecided: the choices are there, nothing is drawn as decided, no toast.
       expect(choices(THANKSGIVING)).toBeTruthy();
       expect(screen.queryByRole("button", { name: /Decided/ })).toBeNull();
