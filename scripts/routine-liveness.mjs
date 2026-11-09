@@ -37,8 +37,14 @@
  * artifact had been observed at all. `describeMatchedArtifact()` fixes the
  * display; the `error -> dark` classification itself is unchanged.
  *
+ * #8551: reading this script from an environment that cannot see its own
+ * inputs (Claude Code Remote: `gh` GraphQL answers HTTP 403) used to file a
+ * false `dark` issue per routine. "I cannot see" is not "it is dead": a lookup
+ * blocked that way now classifies every routine `unverifiable` and writes
+ * nothing, and `--dry-run` prints the classification without any write.
+ *
  * Usage:
- *   node scripts/routine-liveness.mjs
+ *   node scripts/routine-liveness.mjs [--dry-run]
  */
 
 import { execFileSync } from "node:child_process";
@@ -48,6 +54,25 @@ import { ROUTINE_MANIFEST, HEARTBEAT_ISSUE_NUMBER } from "./routine-manifest.mjs
 import { issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Pure: true when `err` (or its `cause` chain) is the error `gh` prints when
+ * GitHub refuses GraphQL for the whole session. The sentence is copied
+ * verbatim from a real Claude Code Remote log (#8551, #6312) — the same shape
+ * `@mbe/gh-client`'s transport recognizes — and anything else (401, scope 403,
+ * non-HTTP failure) does not match.
+ *
+ * @param {unknown} err
+ * @returns {boolean}
+ */
+export function isGraphqlUnavailableError(err) {
+  for (let cur = err, depth = 0; cur instanceof Error && depth < 5; cur = cur.cause, depth++) {
+    const stderr = typeof cur.stderr === "string" ? cur.stderr : "";
+    const text = `${cur.message}\n${stderr}`;
+    if (/\b403\b/.test(text) && /GitHub GraphQL is not available/i.test(text)) return true;
+  }
+  return false;
+}
 
 /**
  * Pure: true when `artifact` matches `signature`.
@@ -386,6 +411,7 @@ export function buildRoutineFindingCreateArgs(title, body, status) {
  *   closeIssue?: (issueNumber: number, comment: string) => void,
  *   runId?: string|number,
  *   log?: (msg: string) => void,
+ *   dryRun?: boolean,
  * }} deps
  * @returns {Array<{routine: string, status: string, action?: string, issueNumber?: number}>}
  */
@@ -434,6 +460,7 @@ export function runRoutineLivenessCheck({
   closeIssue = () => {},
   runId,
   log = () => {},
+  dryRun = false,
 }) {
   const inScope = manifest.filter((entry) => !entry.outOfScope);
 
@@ -464,6 +491,21 @@ export function runRoutineLivenessCheck({
       observedCount: observedArtifacts.length,
     };
   });
+
+  // The lookup is blocked for the whole environment (GraphQL 403): none of the
+  // routines can be verified, including ones whose own lookup happened to
+  // return empty. Never `dark`, never a write (#8551).
+  if (observations.some((o) => isGraphqlUnavailableError(o.observeError))) {
+    log(
+      "artifact lookup is unavailable in this environment (GitHub GraphQL is not available) — " +
+        "every routine is unverifiable; filing and closing nothing this run (#8551)."
+    );
+    return observations.map(({ entry }) =>
+      entry.paused
+        ? { routine: entry.name, status: "paused" }
+        : { routine: entry.name, status: "unverifiable", action: "lookup-unavailable" }
+    );
+  }
 
   if (isObservationBlackout(observations)) {
     log(
@@ -583,6 +625,15 @@ export function runRoutineLivenessCheck({
         runId,
         matched: result.matched,
       });
+      if (dryRun) {
+        log(`[dry-run] would close #${decision.issueNumber} — ${entry.name} recovered to alive.`);
+        return {
+          routine: entry.name,
+          status: result.status,
+          action: "would-close",
+          issueNumber: decision.issueNumber,
+        };
+      }
       closeIssue(decision.issueNumber, comment);
       log(`Closed issue #${decision.issueNumber} — ${entry.name} recovered to alive.`);
       return {
@@ -607,6 +658,10 @@ export function runRoutineLivenessCheck({
       "ci-fix",
       result.status === "blocked" ? "ready-for-human" : COORDINATION_LABELS.READY,
     ];
+    if (dryRun) {
+      log(`[dry-run] would create "${title}"`);
+      return { routine: entry.name, status: result.status, action: "would-create" };
+    }
     const issueNumber = createIssue(title, body, labels, result.status);
     log(`Created issue #${issueNumber} for ${entry.name}'s ${result.status} liveness.`);
 
@@ -809,7 +864,47 @@ export function fetchObservedArtifactsViaGhClient(ghClient, entry, { apiGet = gh
   return [];
 }
 
+/**
+ * Pure: parses CLI arguments. `--dry-run` is the only flag; anything else is
+ * rejected rather than silently ignored, so a typo can never turn a read-only
+ * intent into a writing run.
+ *
+ * @param {string[]} argv
+ * @returns {{dryRun: boolean}}
+ */
+export function parseCliArgs(argv) {
+  let dryRun = false;
+  for (const arg of argv) {
+    if (arg === "--dry-run") dryRun = true;
+    else throw new Error(`routine-liveness: unknown argument "${arg}" (supported: --dry-run)`);
+  }
+  return { dryRun };
+}
+
+/**
+ * Pure: a plain-text table of `routine | status | action` for the results.
+ *
+ * @param {Array<{routine: string, status: string, action?: string}>} results
+ * @returns {string}
+ */
+export function formatClassificationTable(results) {
+  const rows = [
+    ["ROUTINE", "STATUS", "ACTION"],
+    ...results.map((r) => [r.routine, r.status, r.action ?? "-"]),
+  ];
+  const widths = [0, 1, 2].map((i) => Math.max(...rows.map((row) => row[i].length)));
+  return rows
+    .map((row) =>
+      row
+        .map((cell, i) => cell.padEnd(widths[i]))
+        .join("  ")
+        .trimEnd()
+    )
+    .join("\n");
+}
+
 function main() {
+  const { dryRun } = parseCliArgs(process.argv.slice(2));
   const ghClient = createGhClient();
 
   console.error(
@@ -846,7 +941,12 @@ function main() {
       ghClient.issue.close(issueNumber, ["--reason", "completed", "--comment", comment]),
     runId: process.env.GITHUB_RUN_ID,
     log: (msg) => console.error(msg),
+    dryRun,
   });
+
+  if (dryRun) {
+    console.error(`${formatClassificationTable(results)}\n(dry-run: nothing was written)`);
+  }
 
   const findings = results.filter(
     (r) => r.status === "dark" || r.status === "blocked" || r.status === "unverifiable"
