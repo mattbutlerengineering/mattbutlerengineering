@@ -49,7 +49,7 @@ working.
 still reads "`AUTOMATION_PAT` is still unset (`docs/SECRETS.md`)". That file
 loads into _every_ session, so as written it tells every future agent that the
 only working merge path is dead — the exact belief that produced 215 denied-merge
-heartbeats. One line, every session. Filed `ready`.
+heartbeats. One line, every session. Filed `ready` as #8550.
 
 ### Routine liveness
 
@@ -138,7 +138,7 @@ occurrence of this exact six-issue storm; the first is recorded in
 `scripts/check-workflow-pr-scope.mjs:18` as #5603/#5606/#5607/#5609/#5610/#5611.
 It is also a textbook instance of the gotcha already in the file — "when a
 script depends on ambient capability … assert it exists where the script runs"
-(#5527-#5531) — applied to a script that does not do so. Filed `ready`.
+(#5527-#5531) — applied to a script that does not do so. Filed `ready` as #8551.
 
 A near-miss worth recording for the next run of this routine: the correct Pass 2
 helper is `node scripts/stale-human-blocked-latest.mjs --open 8395,8012,…`, and
@@ -243,7 +243,7 @@ not the job conclusion`, merged 11-07).
 270.4 → 568.4 min (+110%, threshold +50%). The comparison is sound — the
 baseline is the 2026-11-02 row, and the 11-05 and 11-06 rows were correctly
 skipped as overlapping this window, which is #8439's non-overlap guard working
-as designed. Filed `ready` with title and body unchanged, per the pass contract,
+as designed. Filed `ready` as #8549 with title and body unchanged, per the pass contract,
 with a diagnostic comment attached: the cause is the merge blockade above
 (#8005's six denied merges are in this very sample), it is remediated as of
 11-08, and the metric should self-clear next week.
@@ -346,12 +346,12 @@ trusting this week is the issue ledger above, which comes from GitHub directly.
    opposite of `docs/SECRETS.md:248`. While it stands, every agent reads that the
    merge path is unavailable — the belief that generated 215 denied-merge
    heartbeats. Highest leverage per unit of effort available this week. _Filed
-   `ready`._
+   `ready` as #8550._
 2. **Make `scripts/routine-liveness.mjs` fail closed and add `--dry-run`.** It
    should assert GraphQL reachability before classifying and report
    `unverifiable` instead of `dark` when it cannot see its inputs. Prevents a
    third six-issue false-positive storm, and protects this retro's own Pass 1
-   from the sensor it depends on. _Filed `ready`._
+   from the sensor it depends on. _Filed `ready` as #8551._
 3. **Decide whether baseline-only PNG PRs may auto-merge.** 18 regen PRs in 7
    days, main visually red 5 of 7 days, and #8491 now opens them automatically —
    but each still waits on a hand merge, so the automation stops one step short
