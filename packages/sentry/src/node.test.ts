@@ -333,6 +333,19 @@ describe("sentryFastifyPlugin", () => {
 
       expect(reply.__sentryErrorCaptured).toBe(true);
     });
+
+    it("strips the query string from the url tag so capability tokens never reach Sentry", () => {
+      const scope = fakeScope();
+      withFakeScope(scope);
+      const error = Object.assign(new Error("Boom"), { statusCode: 500 });
+      const token = "d2FpdGxpc3Q6ZW50cnk6dmVudWU6MTIzNDU2OmFiY2RlZjAxMjM0NTY3ODk";
+      const request = buildFakeRequest({ url: `/public/waitlist/status?token=${token}` });
+
+      captureRequestError(error, request as never, buildFakeReply(500) as never);
+
+      expect(scope.setTag).toHaveBeenCalledWith("url", "/public/waitlist/status");
+      expect(JSON.stringify(scope.setTag.mock.calls)).not.toContain(token);
+    });
   });
 
   describe("onResponse hook", () => {
@@ -436,6 +449,34 @@ describe("sentryFastifyPlugin", () => {
 
       expect(fakeScope.setLevel).toHaveBeenCalledWith("warning");
     });
+
+    it.each([503, 409, 422, 429])(
+      "never sends the query string (capability token) to Sentry for a %i",
+      async (status) => {
+        const fakeFastify = await setupPlugin("https://key@sentry.io/123");
+        const hook = fakeFastify.getHook("onResponse")[0];
+        if (!hook) throw new Error("expected an onResponse hook");
+
+        const fakeScope = { setTag: vi.fn(), setUser: vi.fn(), setLevel: vi.fn() };
+        mockWithScope.mockImplementation((fn: (scope: typeof fakeScope) => void) => fn(fakeScope));
+
+        const token = "cmVzZXJ2YXRpb246YWJjOmd1ZXN0QGV4YW1wbGUuY29tOjE3MDAwMDAwMDA6ZGVhZGJlZWY";
+        const request = buildFakeRequest({
+          method: "GET",
+          url: `/public/reservations/manage?token=${token}#frag`,
+        });
+
+        await hook(request, buildFakeReply(status));
+
+        expect(mockCaptureMessage).toHaveBeenCalledWith(
+          `HTTP ${status}: GET /public/reservations/manage`
+        );
+        expect(fakeScope.setTag).toHaveBeenCalledWith("url", "/public/reservations/manage");
+        const sent = JSON.stringify([fakeScope.setTag.mock.calls, mockCaptureMessage.mock.calls]);
+        expect(sent).not.toContain(token);
+        expect(sent).not.toContain("token=");
+      }
+    );
 
     it("does NOT capture expected 4xx errors (400, 401, 403, 404)", async () => {
       const fakeFastify = await setupPlugin("https://key@sentry.io/123");
