@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.10
+
+### Patch Changes
+
+- [#8605](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8605) [`2fe48e7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/2fe48e7c9be1a0e704ba783c210784c041d54515) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Popover and Tooltip now stay inside the viewport ([#8569](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8569)). The Popover panel is always placed by the trigger's viewport rect (viewport-fixed, in the Dialog layer inside a Dialog), flips above/below to the roomier side, clamps horizontally, and caps its height so tall content scrolls inside the panel. The Tooltip bubble is nudged back inside the viewport and wraps long text instead of clipping.
+
 ## 0.10.9
 
 ### Patch Changes
