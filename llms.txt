@@ -26284,6 +26284,9 @@
       export function initSentry(options: InitOptions): void { /* ... */ }
     </item>
     <item priority="medium">
+      function pathOnly(url: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
       function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void { /* ... */ }
     </item>
     <item priority="high">

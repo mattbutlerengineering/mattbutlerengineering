@@ -115,11 +115,21 @@ export function initSentry(options: InitOptions): void {
 }
 
 /**
+ * The request path with the query string and fragment removed. Guest
+ * capability tokens (manage / waitlist-status / unsubscribe) travel in
+ * `?token=` and are single base64url blobs that no redaction pattern can
+ * recognise, so the query must never reach a Sentry tag or message.
+ */
+function pathOnly(url: string): string {
+  return url.split(/[?#]/)[0] ?? "";
+}
+
+/**
  * Attaches request metadata and user context to Sentry scope.
  */
 function setSentryContext(scope: Sentry.Scope, request: FastifyRequest): void {
   scope.setTag("method", request.method);
-  scope.setTag("url", request.url);
+  scope.setTag("url", pathOnly(request.url));
   scope.setTag("requestId", request.id ?? "unknown");
 
   const user = getRequestUser(request);
@@ -167,7 +177,7 @@ export const sentryFastifyPlugin = fp(
     // Response Hook for status-based logging (catches manual code(4xx).send())
     fastify.addHook("onResponse", async (request, reply) => {
       const status = reply.statusCode;
-      const path = request.url.split("?")[0];
+      const path = pathOnly(request.url);
 
       // GET /ready legitimately answers 503 while a dependency check (DB,
       // JWKS) is transiently failing or the service is still starting up
@@ -182,14 +192,14 @@ export const sentryFastifyPlugin = fp(
         Sentry.withScope((scope) => {
           setSentryContext(scope, request);
           scope.setLevel("error");
-          Sentry.captureMessage(`HTTP ${status}: ${request.method} ${request.url}`);
+          Sentry.captureMessage(`HTTP ${status}: ${request.method} ${path}`);
         });
       } else if (status >= 400 && status < 500 && NOTABLE_4XX.has(status)) {
         // Only capture notable 4xx — skip expected client errors (400, 401, 403, 404)
         Sentry.withScope((scope) => {
           setSentryContext(scope, request);
           scope.setLevel("warning");
-          Sentry.captureMessage(`HTTP ${status}: ${request.method} ${request.url}`);
+          Sentry.captureMessage(`HTTP ${status}: ${request.method} ${path}`);
         });
       }
     });
