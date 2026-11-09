@@ -5150,3 +5150,13 @@ Both quoted strings look like deprecation/config noise rather than a real assert
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to review.
+
+## 2026-11-09 — mbe-learning-loop
+
+**Sensors:** 17/18 available (e2eStability not available). Status: Healthy. acmm L5 (73/84), ciHealth 100% (17/17), mutationScore 99.07% PASS (107/389 killed), flakyTests 0 (29087 runs), metricsFreshness 0 unhealthy.
+**Regressions:** 0 detected, 0 issues created.
+**Sentry triage:** skipped — stored Sentry MCP token expired/unauthorized; no human available in this scheduled run to re-authorize.
+**Verifications:** 5 closed issues checked (48h window) — #8596 (acmm) verified (L5 73/84); #8581, #8579, #8577 (ci-fix) skipped, no success/failure CI runs to verify against; #8574 (audit) skipped, no Lighthouse inventory available. 1 verified, 0 failed, 0 reopened.
+**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — acmm 20% (5 total), ci-fix 14% (51 total), audit 4% (27 total), feature 6% (85 total), meta-improvement 0% (15 total), sentry 0% (14 total), dependencies 0% (3 total). All budgets stay at default 3.
+**Skill proposals:** 0 (Monday — Friday-only).
+**Threshold notes:** last-30-days verifications.jsonl: 11 non-skip verifications, 7 verified / 4 not-verified → fix-effectiveness 63.6% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above): weighted 14/200 = 7%, well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.545 → 1.574 (headroom).
