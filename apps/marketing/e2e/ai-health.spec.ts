@@ -40,6 +40,66 @@ function statCard(page: Page, label: string) {
   return page.getByText(label, { exact: true }).locator("..");
 }
 
+/** Persisted by Rialto's useThemeState (`THEME_STORAGE_KEY`). */
+const THEME_STORAGE_KEY = "mbe-theme-preference";
+
+const QUEUE_GAP_WIDTHS = [320, 375, 768, 1024, 1920] as const;
+
+/**
+ * Border-box edges for the Queue Efficiency stack and the two reference gaps
+ * the distribution table should stay consistent with. Measured in the page so
+ * a wrapping card row (narrow viewports) uses the grid's bottom, which is the
+ * lowest card, not the first card's.
+ */
+async function measureQueueSpacing(page: Page) {
+  return page.evaluate(() => {
+    const byExactText = (text: string) =>
+      [...document.querySelectorAll("p, span, h2")].find((el) => el.textContent === text);
+
+    const composite = byExactText("Composite Score");
+    const tier = byExactText("size:xs");
+    const keyHeading = byExactText("Key Metrics");
+    const queueHeading = byExactText("Queue Efficiency");
+    const passRate = byExactText("CI Pass Rate");
+    const chart = document.querySelector('[data-testid="queue-efficiency-trend"]');
+    if (!composite || !tier || !keyHeading || !queueHeading || !passRate || !chart) {
+      throw new Error("queue spacing landmarks missing");
+    }
+
+    const statGrid = composite.parentElement?.parentElement;
+    const distribution = tier.parentElement?.parentElement;
+    const keyCard = passRate.parentElement;
+    const keyGrid = keyCard?.parentElement;
+    if (!statGrid || !distribution || !keyGrid) {
+      throw new Error("queue spacing containers missing");
+    }
+    if (!distribution.contains(tier) || distribution === statGrid) {
+      throw new Error("size tier is not inside its own table");
+    }
+
+    const edge = (el: Element) => {
+      const box = el.getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom };
+    };
+    const stats = edge(statGrid);
+    const table = edge(distribution);
+    const heading = edge(keyHeading);
+    const cards = edge(keyGrid);
+    const queue = edge(queueHeading);
+    const trend = edge(chart);
+    const rootPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
+
+    return {
+      distributionGap: table.top - stats.bottom,
+      chartGap: trend.top - table.bottom,
+      headingToCards: cards.top - heading.bottom,
+      sectionGap: queue.top - cards.bottom,
+      rootPx,
+      theme: document.documentElement.getAttribute("data-theme"),
+    };
+  });
+}
+
 test.describe("AI Health page", () => {
   test("renders Key Metrics, Sensor Status, and Queue Efficiency from a fresh report", async ({
     page,
@@ -102,4 +162,44 @@ test.describe("AI Health page", () => {
     // The rest of the page still renders behind the banner.
     await expect(page.getByRole("heading", { name: "Key Metrics" })).toBeVisible();
   });
+});
+
+test.describe("Queue Efficiency distribution spacing", () => {
+  for (const theme of ["light", "dark"] as const) {
+    for (const width of QUEUE_GAP_WIDTHS) {
+      test(`size table sits a component gap below the cards at ${width}px (${theme})`, async ({
+        page,
+      }) => {
+        await page.addInitScript(
+          ({ key, value }) => {
+            localStorage.setItem(key, value);
+          },
+          { key: THEME_STORAGE_KEY, value: theme }
+        );
+        await page.emulateMedia({ colorScheme: theme });
+        await page.setViewportSize({ width, height: 900 });
+        await mockSensorReport(page, "sensor-report-fresh", new Date().toISOString());
+        await page.goto("/ai-health");
+
+        await expect(page.getByRole("heading", { name: "Queue Efficiency" })).toBeVisible();
+        await expect(page.getByText("size:xs", { exact: true })).toBeVisible();
+        await expect(page.getByTestId("queue-efficiency-trend")).toBeVisible();
+        await page.evaluate(() => document.fonts.ready);
+
+        const measured = await measureQueueSpacing(page);
+        const where = `${width}px ${theme}: ${JSON.stringify(measured)}`;
+        expect(measured.theme, where).toBe(theme);
+        // 1.5rem sits between the 1rem heading gap and the 2.5rem section
+        // gap — the ~24px the other blocks on this page already use. The
+        // table previously contributed only its own border.
+        expect(
+          Math.abs(measured.distributionGap - measured.rootPx * 1.5),
+          where
+        ).toBeLessThanOrEqual(1);
+        expect(Math.abs(measured.chartGap - measured.rootPx * 1.5), where).toBeLessThanOrEqual(1);
+        expect(Math.abs(measured.headingToCards - measured.rootPx), where).toBeLessThanOrEqual(1);
+        expect(Math.abs(measured.sectionGap - measured.rootPx * 2.5), where).toBeLessThanOrEqual(1);
+      });
+    }
+  }
 });
