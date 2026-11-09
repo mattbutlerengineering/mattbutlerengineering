@@ -144,9 +144,9 @@ describe("rialto-web adapter", () => {
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
   const registryRows = rows.filter((r) => /^(components|examples)\/|^dashboard$/.test(r.route));
 
-  it("yields every PAGE_REGISTRY path plus the 17 routeTree leaves (123 today)", () => {
+  it("yields every PAGE_REGISTRY path plus the 18 routeTree leaves (124 today)", () => {
     expect(registryRows).toHaveLength(106);
-    expect(rows).toHaveLength(106 + 17);
+    expect(rows).toHaveLength(106 + 18);
     expect(new Set(rows.map((r) => r.route)).size).toBe(rows.length);
   });
 
@@ -162,6 +162,7 @@ describe("rialto-web adapter", () => {
       "/",
       "privacy",
       "visual-test",
+      "demos",
       "demos/login",
       "demos/visual-test",
       "demos/drivers",
@@ -170,7 +171,7 @@ describe("rialto-web adapter", () => {
     ]) {
       expect(byRoute[route], route).toBeDefined();
     }
-    expect(byRoute["demos"]).toBeUndefined(); // a layout with no index is not a row
+    expect(byRoute["demos"].kind).toBe("page"); // index route (DemosIndexPage) is a routed page, not a redirect
     expect(byRoute["*"].kind).toBe("redirect");
     expect(rows.filter((r) => r.kind === "page")).toHaveLength(rows.length - 1);
     expect(rows.every((r) => r.auth === "public")).toBe(true);
@@ -203,7 +204,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(26 + 11 + 123);
+    expect(rows).toHaveLength(26 + 11 + 124);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([
