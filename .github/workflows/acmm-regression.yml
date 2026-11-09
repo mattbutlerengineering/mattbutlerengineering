@@ -135,7 +135,7 @@ jobs:
         # bare `git push` can never produce -- every direct push was rejected
         # (GH006). Route through a PR on an automation branch instead,
         # following the pattern already proven in drift-fix.yml.
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8 # v8.1.2
         with:
           # AUTOMATION_PAT (#3684): a commit pushed with the default
           # GITHUB_TOKEN is attributed to github-actions[bot], which forces
