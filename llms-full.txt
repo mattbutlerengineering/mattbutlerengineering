@@ -21668,6 +21668,34 @@
       };
     }
   </file>
+  <file path="apps/hospitality/e2e/helpers/editor-surfaces.ts">
+    export const RESOURCE_TYPES = [
+      "weeklyHours",
+      "services",
+      "specialDates",
+      "booking",
+      "floorPlan",
+      "sections",
+      "tables",
+    ] as const;
+    export type ResourceType = (typeof RESOURCE_TYPES)[number];
+    export const EDITOR_SIGNATURES: Readonly<Record<ResourceType, (page: Page) => Locator>> = {
+      weeklyHours: (page) => page.getByRole("combobox", { name: "Opens" }),
+      services: (page) => page.getByRole("textbox", { name: /^Service name/ }),
+      specialDates: (page) => page.getByRole("dialog", { name: "Close", exact: true }),
+      booking: (page) => page.getByRole("dialog", { name: "Booking rules" }),
+      floorPlan: (page) => page.getByRole("dialog", { name: /floor plan/i }),
+      sections: (page) => page.getByRole("radiogroup", { name: "Room template" }),
+      tables: (page) => page.getByRole("button", { name: /Add Table/i }),
+    };
+    export async function editorsVisibleOn(page: Page): Promise<ResourceType[]> {
+      const found: ResourceType[] = [];
+      for (const type of RESOURCE_TYPES) {
+        if (await EDITOR_SIGNATURES[type](page).first().isVisible()) found.push(type);
+      }
+      return found;
+    }
+  </file>
   <file path="apps/hospitality/e2e/helpers/empty-venue-mock.ts">
     function changedWeekdays(
       before: AvailabilityConfig,
@@ -21985,7 +22013,7 @@
       await page.getByRole("button", { name: "Every day" }).click();
       await page.getByRole("button", { name: "Save and open bookings" }).click();
     }
-    export async function setDemoWeek(page: Page, scope: Page | Locator = page) {
+    export async function setTwoServiceVariedWeek(page: Page, scope: Page | Locator = page) {
       await scope.getByRole("button", { name: "Lunch" }).click();
       await scope.getByRole("button", { name: "Every day" }).click();
       await scope.getByRole("button", { name: "Different days for this service" }).click();
@@ -22010,6 +22038,9 @@
         .getByRole("listbox", { name: "Closes" })
         .getByRole("option", { name: "12:00 AM", exact: true })
         .click();
+    }
+    export async function setDemoWeek(page: Page, scope: Page | Locator = page) {
+      await setTwoServiceVariedWeek(page, scope);
     
       await scope.getByRole("button", { name: "Add another service" }).click();
       await scope.getByRole("button", { name: "Brunch" }).last().click();
@@ -22020,6 +22051,7 @@
         .click();
     }
     export const DEMO_WEEK_VIA_SCHEDULES_COUNT = 26;
+    export const TWO_SERVICE_VARIED_WEEK_BASELINE_7C051456F = 14;
   </file>
   <file path="apps/hospitality/e2e/helpers/scenario-fixtures.ts">
     export function dinnerOnlyConfig(): AvailabilityConfig {

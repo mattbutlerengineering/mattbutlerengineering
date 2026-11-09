@@ -50,11 +50,11 @@ export async function setLargeSetup(page: Page) {
  * Day checkboxes are clicked by their label text: the checkbox input itself is visually hidden and a
  * forced click on it can land on the drawer's chrome without toggling.
  *
- * The PRD demo week through the quick-setup rows: Lunch Mon–Fri, Dinner Tue–Sun closing 12:00 AM
- * Fri–Sat, Brunch Sat–Sun. The same rows serve quick setup and the Schedules tab's New schedule,
- * so `scope` is the page for the first and the drawer for the second. It does not save.
+ * The two-service varied week of the setup scenario (PRD 3): Lunch Mon–Fri and Dinner Tue–Sun
+ * closing 12:00 AM Fri–Sat, entered through the quick-setup rows. `scope` is the page, or a drawer
+ * hosting the same rows. It does not save.
  */
-export async function setDemoWeek(page: Page, scope: Page | Locator = page) {
+export async function setTwoServiceVariedWeek(page: Page, scope: Page | Locator = page) {
   await scope.getByRole("button", { name: "Lunch" }).click();
   await scope.getByRole("button", { name: "Every day" }).click();
   await scope.getByRole("button", { name: "Different days for this service" }).click();
@@ -79,6 +79,15 @@ export async function setDemoWeek(page: Page, scope: Page | Locator = page) {
     .getByRole("listbox", { name: "Closes" })
     .getByRole("option", { name: "12:00 AM", exact: true })
     .click();
+}
+
+/**
+ * The PRD demo week through the quick-setup rows: the two-service varied week plus Brunch Sat–Sun.
+ * The same rows serve quick setup and the Schedules tab's New schedule, so `scope` is the page for
+ * the first and the drawer for the second. It does not save.
+ */
+export async function setDemoWeek(page: Page, scope: Page | Locator = page) {
+  await setTwoServiceVariedWeek(page, scope);
 
   await scope.getByRole("button", { name: "Add another service" }).click();
   await scope.getByRole("button", { name: "Brunch" }).last().click();
@@ -95,3 +104,10 @@ export async function setDemoWeek(page: Page, scope: Page | Locator = page) {
  * actions, local run, synthetic OIDC session). The guard asserts quick setup alone stays under it.
  */
 export const DEMO_WEEK_VIA_SCHEDULES_COUNT = 26;
+
+/**
+ * The two-service varied week (`setTwoServiceVariedWeek`) plus "Save and open bookings", counted on
+ * the unchanged quick-setup form of `origin/main` @ `7c051456f` (throwaway worktree, local run,
+ * synthetic OIDC session): 14 counted actions. The setup hierarchy scenario asserts "no more".
+ */
+export const TWO_SERVICE_VARIED_WEEK_BASELINE_7C051456F = 14;

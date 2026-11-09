@@ -3916,6 +3916,20 @@
       export async function mockClosures(page: Page, options: CloseMockOptions = {}): Promise<CloseMock> { /* ... */ }
     </item>
   </file>
+  <file path="e2e/helpers/editor-surfaces.ts">
+    <item priority="high">
+      export const RESOURCE_TYPES: unknown;
+    </item>
+    <item priority="low">
+      type ResourceType = (typeof RESOURCE_TYPES)[number];
+    </item>
+    <item priority="high">
+      export const EDITOR_SIGNATURES: Readonly<Record<ResourceType, (page: Page) => Locator>>;
+    </item>
+    <item priority="high">
+      export async function editorsVisibleOn(page: Page): Promise<ResourceType[]> { /* ... */ }
+    </item>
+  </file>
   <file path="e2e/helpers/empty-venue-mock.ts">
     <item priority="medium">
       function changedWeekdays(
@@ -4005,10 +4019,16 @@
       export async function setLargeSetup(page: Page) { /* ... */ }
     </item>
     <item priority="high">
+      export async function setTwoServiceVariedWeek(page: Page, scope: Page | Locator = page) { /* ... */ }
+    </item>
+    <item priority="high">
       export async function setDemoWeek(page: Page, scope: Page | Locator = page) { /* ... */ }
     </item>
     <item priority="high">
       export const DEMO_WEEK_VIA_SCHEDULES_COUNT: unknown;
+    </item>
+    <item priority="high">
+      export const TWO_SERVICE_VARIED_WEEK_BASELINE_7C051456F: unknown;
     </item>
   </file>
   <file path="e2e/helpers/scenario-fixtures.ts">
