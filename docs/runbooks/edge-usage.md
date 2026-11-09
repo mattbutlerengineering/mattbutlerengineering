@@ -203,14 +203,20 @@ The script needs a Cloudflare API token with **Account · Account Analytics ·
 Read**. This is a different token from `MBE_CLOUDFLARE_API_TOKEN`: that
 secret's documented scopes in [`docs/SECRETS.md`](../SECRETS.md) (Pages
 deploys, KV, DNS, Pulumi) do not include Account Analytics, and it should not
-be widened for a read-only report. Nothing in the repository or in GitHub
-Actions holds an Analytics Read token; this runbook and the weekly-review
-pointer are the trigger, not a cron.
+be widened for a read-only report.
 
-To create one: Cloudflare dashboard → My Profile → API Tokens → Create Token →
-Custom token → Permissions: _Account_ · _Account Analytics_ · _Read_ → Account
-Resources: the one account → Continue to summary → Create Token. Put it in
-`CLOUDFLARE_API_TOKEN` for the shell session only.
+GitHub Actions holds one as the repository secret `CLOUDFLARE_API_TOKEN`
+(account-owned token `mbe-api-failures-analytics-read`, provisioned 2026-11-09,
+#8395). `api-failures.yml` uses it for its Monday 15:00 UTC run and for
+`workflow_dispatch`.
+
+To create one for a local run, or to rotate the secret: Cloudflare dashboard →
+Manage Account → Account API Tokens → Create Token → Custom → Permissions:
+_Account Analytics_ · _Read_ → Entire account → Review token → Create token.
+Locally, put it in `CLOUDFLARE_API_TOKEN` for the shell session only. To
+rotate the secret, always pass `--body`:
+`gh secret set CLOUDFLARE_API_TOKEN --body "<token>"`. Without `--body` it
+silently sets an empty value.
 
 `CLOUDFLARE_ACCOUNT_ID` is not a credential ([`docs/SECRETS.md`](../SECRETS.md)
 lists it under Non-Rotating Secrets); it is the 32-character id shown on the
