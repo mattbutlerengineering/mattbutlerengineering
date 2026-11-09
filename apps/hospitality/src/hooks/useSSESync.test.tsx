@@ -171,6 +171,27 @@ describe("useSSESync — connection lifecycle", () => {
     unmount();
     expect(call.aborted).toBe(true);
   });
+
+  it("does not connect while no venue is selected yet (#8562: venue list still loading)", () => {
+    vi.mocked(useVenue).mockReturnValue({ selectedVenueId: null } as never);
+
+    renderHook(() => useSSESync(), { wrapper: makeWrapper() });
+
+    expect(fakeCalls).toHaveLength(0);
+  });
+
+  it("connects once a venueId resolves after starting with none selected (#8562)", () => {
+    vi.mocked(useVenue).mockReturnValue({ selectedVenueId: null } as never);
+
+    const { rerender } = renderHook(() => useSSESync(), { wrapper: makeWrapper() });
+    expect(fakeCalls).toHaveLength(0);
+
+    vi.mocked(useVenue).mockReturnValue({ selectedVenueId: "v1" } as never);
+    rerender();
+
+    expect(fakeCalls).toHaveLength(1);
+    expect(latest().url).toContain("venueId=v1");
+  });
 });
 
 describe("useSSEStatus — connection status via context", () => {

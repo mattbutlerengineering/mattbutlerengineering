@@ -299,7 +299,13 @@ export function useSSESync(): { reconnect: () => void } {
   }, []);
 
   useEffect(() => {
-    const client = buildClient(selectedVenueId ?? undefined);
+    // Wait for the venue context to resolve before connecting (#8562): while
+    // `selectedVenueId` is still null (venue list loading), connecting would
+    // send a request with no venueId, which the backend's requireVenueAccess
+    // guard answers 403 for every non-admin member.
+    if (!selectedVenueId) return;
+
+    const client = buildClient(selectedVenueId);
     clientRef.current = client;
     client.connect();
 
@@ -313,7 +319,9 @@ export function useSSESync(): { reconnect: () => void } {
     clientRef.current?.disconnect();
     dispatchRef.current({ type: "disconnected" });
 
-    const client = buildClient(selectedVenueIdRef.current ?? undefined);
+    if (!selectedVenueIdRef.current) return;
+
+    const client = buildClient(selectedVenueIdRef.current);
     clientRef.current = client;
     client.connect();
   }, [buildClient]);
