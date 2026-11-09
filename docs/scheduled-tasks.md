@@ -358,7 +358,7 @@ to a single worker without worktree isolation in cloud and keep the local
   and normalized path, and files one `ready` + `bug` + `production-health`
   issue (plus an `area:*` label) per breaching endpoint: 5xx rate >= 1% with
   > = 20 requests, 4xx rate >= 10% with >= 50 requests (401/404 on reads
-  > excluded), or p95 >= 2000 ms. An open issue carrying the hidden
+  > excluded), or p95 >= 2000 ms with >= 20 requests. An open issue carrying the hidden
   > `<!-- api-failures:METHOD path -->` marker gets a comment instead; at most 5
   > new issues per run. `sentry-triage.yml` covers thrown exceptions; this covers
   > failures that never throw.
