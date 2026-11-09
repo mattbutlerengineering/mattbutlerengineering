@@ -51,11 +51,10 @@
  * This deletes production infrastructure, so every decision fails closed:
  *
  *   - A worker is a sweep candidate only if its name matches
- *     `mbe-preview-<digits>-<app>` exactly, anchored at both ends. The two
- *     genuinely unmanaged Workers in this account — `butler-api` (legacy) and
- *     `eat-sheet` (a separate live project of the owner's) — cannot match, and
- *     are additionally recorded in `infrastructure/resource-allowlist.json`
- *     so the audit stops reporting them.
+ *     `mbe-preview-<digits>-<app>` exactly, anchored at both ends. The one
+ *     genuinely unmanaged Worker in this account, `butler-api` (legacy),
+ *     cannot match, and is additionally recorded in
+ *     `infrastructure/resource-allowlist.json` so the audit stops reporting it.
  *   - A candidate is deleted only on a PR state this script positively
  *     recognises as finished (`CLOSED` / `MERGED`). An open PR, an
  *     unrecognised state, an absent state, and a *failed lookup* all resolve
@@ -102,7 +101,7 @@ export const PREVIEW_WORKER_PATTERN = /^mbe-preview-(\d+)-([a-z0-9]+(?:-[a-z0-9]
  * @param {unknown} name - a live Cloudflare Worker script name
  * @returns {{pr: number, app: string} | null} null when the name is not one
  *   of ours — which is the only thing standing between this sweep and
- *   `eat-sheet`.
+ *   any Worker it does not own, such as `butler-api`.
  */
 export function parsePreviewWorkerName(name) {
   if (typeof name !== "string") return null;

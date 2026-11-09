@@ -37,7 +37,7 @@ describe("parsePreviewWorkerName", () => {
     });
   });
 
-  test("returns null for eat-sheet — a separate live project in the same account", () => {
+  test("returns null for a non-preview name such as eat-sheet", () => {
     expect(parsePreviewWorkerName("eat-sheet")).toBeNull();
   });
 
@@ -333,8 +333,12 @@ describe("runPreviewSweep", () => {
 // ---------------------------------------------------------------------------
 
 describe("resource-allowlist.json workers entries", () => {
-  test("suppress butler-api and eat-sheet through the real audit comparison", () => {
-    expect(findOrphanedWorkers(["butler-api", "eat-sheet"], new Set(), REAL_ALLOWLIST)).toEqual([]);
+  test("suppress butler-api through the real audit comparison", () => {
+    expect(findOrphanedWorkers(["butler-api"], new Set(), REAL_ALLOWLIST)).toEqual([]);
+  });
+
+  test("no longer suppress eat-sheet, whose Worker was deleted in the #7257 teardown", () => {
+    expect(findOrphanedWorkers(["eat-sheet"], new Set(), REAL_ALLOWLIST)).toEqual(["eat-sheet"]);
   });
 
   test("still flag a genuinely unexpected worker", () => {

@@ -5,10 +5,6 @@
     {
       "name": "butler-api",
       "reason": "Pre-existing legacy Worker — predates this repo's IaC, not managed here"
-    },
-    {
-      "name": "eat-sheet",
-      "reason": "Separate live side project in the same Cloudflare account — never delete"
     }
   ],
   "digitalocean_apps": [],
