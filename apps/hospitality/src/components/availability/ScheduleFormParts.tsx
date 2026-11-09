@@ -1,15 +1,7 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Alert,
-  Button,
-  Checkbox,
-  SegmentedControl,
-  Stack,
-  Text,
-} from "@mattbutlerengineering/rialto";
+import { Alert, Button, SegmentedControl, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { ScopeConflictMode, StrandedReservation } from "@mbe/types";
-import { addDays } from "@mbe/availability";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { LeaveGuard } from "./LeaveGuard.js";
@@ -19,50 +11,11 @@ import type { ConflictReview } from "./use-conflict-review.js";
 import { weekdaySummary } from "./weekday-summary.js";
 import styles from "./ScheduleFormParts.module.css";
 
-/** Monday-first display order of the stored weekday indexes. */
-const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0] as const;
-/** A known Sunday, so a weekday index plus this date names that weekday in any locale. */
-const SUNDAY = "2026-10-25";
-
-/** Short or long weekday name for a stored index (0 = Sunday). */
-function useWeekdayName() {
-  const format = useVenueFormat();
-  return (weekday: number, width: "short" | "long" = "short") =>
-    format.formatCalendarDate(addDays(SUNDAY, weekday), { weekday: width });
-}
-
 /** "Mon–Thu", "Wed and Sat–Sun", or "every day". */
 export function useWeekdaySummary() {
   const { t } = useTranslation();
   const format = useVenueFormat();
   return (weekdays: readonly number[]) => weekdaySummary(weekdays, format, t);
-}
-
-/** Seven weekday checkboxes, Monday first. */
-export function WeekdayToggles(props: {
-  readonly legend: string;
-  readonly value: readonly number[];
-  readonly onChange: (weekdays: number[]) => void;
-}) {
-  const { legend, value, onChange } = props;
-  const name = useWeekdayName();
-  return (
-    <fieldset className={styles.days}>
-      <legend className={styles.legend}>{legend}</legend>
-      <div className={styles.dayRow}>
-        {MONDAY_FIRST.map((day) => (
-          <Checkbox
-            key={day}
-            label={name(day)}
-            checked={value.includes(day)}
-            onCheckedChange={(on) =>
-              onChange(on ? [...value, day] : value.filter((d) => d !== day))
-            }
-          />
-        ))}
-      </div>
-    </fieldset>
-  );
 }
 
 /** "Summer hours overlaps Patio season. Summer wins / Patio season wins" (F-UW step 4). */

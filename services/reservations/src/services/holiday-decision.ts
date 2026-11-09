@@ -53,7 +53,7 @@ async function inVenue<T, M>(
 }
 
 /** Decisions from `range.from` to `range.to` inclusive, by date; a row with an unknown decision is skipped and logged. */
-export function listHolidayDecisions(
+function listHolidayDecisions(
   venueId: string,
   range: { from: string; to: string },
   logger?: DecisionLogger,
@@ -89,7 +89,7 @@ export interface SetHolidayDecisionInput {
 }
 
 /** An idempotent upsert: a repeat returns the existing row, its first author and time unchanged. */
-export function setHolidayDecision(
+function setHolidayDecision(
   input: SetHolidayDecisionInput,
   client: StoreClient = prisma
 ): Promise<HolidayDecision | null> {
@@ -110,7 +110,7 @@ export function setHolidayDecision(
 }
 
 /** Idempotent: a date with no decision still succeeds. `false` only when the venue does not exist. */
-export async function clearHolidayDecision(
+async function clearHolidayDecision(
   venueId: string,
   serviceDate: string,
   client: StoreClient = prisma

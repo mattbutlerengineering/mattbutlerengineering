@@ -2,7 +2,7 @@ import type { HolidayDecision, HolidayDecisionKind } from "@mbe/types";
 import { createMutationHook } from "./create-mutation-hook.js";
 import { createQueryHook } from "./create-query-hook.js";
 
-export const HOLIDAY_DECISIONS_QUERY_KEY = "holidayDecisions" as const;
+const HOLIDAY_DECISIONS_QUERY_KEY = "holidayDecisions" as const;
 
 /**
  * The venue's holiday decisions from `from` to `to` (<= 400 days). Any venue member can read
