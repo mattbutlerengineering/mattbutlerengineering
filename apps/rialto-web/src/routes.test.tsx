@@ -71,6 +71,7 @@ vi.mock("@mattbutlerengineering/rialto", () => {
 
 import { routeTree } from "./routes";
 import { DEMO_ROUTES } from "./data/demo-routes";
+import { DEMO_PAGES } from "./data/nav-sections";
 import { SignIn } from "./pages/auth/SignIn";
 import { SignUp } from "./pages/auth/SignUp";
 import { DriverList } from "./pages/drivers/DriverList";
@@ -172,5 +173,30 @@ describe("demo pages emit in-demos cross-links", () => {
     const href = rowLink!.getAttribute("href")!;
     expect(href.startsWith(`${BASENAME}/demos/drivers/`)).toBe(true);
     expect(leafFor(href)).toBe("drivers/:id");
+  });
+});
+
+describe("demos index route (#8535)", () => {
+  it("/rialto/demos/ resolves to an index route, not just the layout (empty <Outlet />)", () => {
+    const matches = matchRoutes(routeTree, `${BASENAME}/demos/`, BASENAME);
+    expect(matches?.at(-1)?.route.index).toBe(true);
+  });
+
+  it("the demos index renders a non-empty list linking to every demo page", () => {
+    const demos = routeTree.find((r) => r.path === "demos");
+    const indexRoute = demos?.children?.find((r) => r.index === true);
+    expect(indexRoute, "demos must have an index route").toBeTruthy();
+
+    render(
+      <MemoryRouter basename={BASENAME} initialEntries={[`${BASENAME}/demos/`]}>
+        {indexRoute!.element}
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("heading", { level: 1, name: /demos/i })).toBeTruthy();
+    for (const page of DEMO_PAGES) {
+      const link = screen.getByRole("link", { name: page.label });
+      expect(link.getAttribute("href")).toBe(`${BASENAME}${page.path}`);
+    }
   });
 });
