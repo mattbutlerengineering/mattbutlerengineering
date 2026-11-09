@@ -126,6 +126,7 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
       "schedules",
       "table_events",
       "tables",
+      "venue_holiday_decisions",
       "venue_services",
       "venues",
       "waitlist_entries",
