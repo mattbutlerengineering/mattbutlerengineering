@@ -161,8 +161,11 @@ export function AcmmPage() {
             size="sm"
             onClick={() => setExpanded((prev) => !prev)}
             aria-expanded={expanded}
+            aria-label={expanded ? "Hide criteria" : "Show criteria"}
           >
-            {expanded ? "▲" : "▼"}
+            <Text as="span" aria-hidden="true" className={styles.toggleGlyph}>
+              {expanded ? "▲" : "▼"}
+            </Text>
           </Button>
         </div>
         {repo.role && <Text className={styles.wsLevel}>{repo.role}</Text>}

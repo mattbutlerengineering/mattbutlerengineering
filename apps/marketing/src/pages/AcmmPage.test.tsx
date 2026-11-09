@@ -5,8 +5,8 @@ import { AcmmPage } from "./AcmmPage.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
   Badge: ({ children, variant }: any) => <span data-variant={variant}>{children}</span>,
-  Button: ({ children, onClick, "aria-expanded": expanded }: any) => (
-    <button onClick={onClick} aria-expanded={expanded}>
+  Button: ({ children, onClick, "aria-expanded": expanded, "aria-label": label }: any) => (
+    <button type="button" onClick={onClick} aria-expanded={expanded} aria-label={label}>
       {children}
     </button>
   ),
@@ -46,6 +46,7 @@ vi.mock("./AcmmPage.module.css", () => ({
     failIcon: "failIcon",
     criteriaId: "criteriaId",
     jsonLink: "jsonLink",
+    toggleGlyph: "toggleGlyph",
   },
 }));
 
@@ -251,13 +252,28 @@ describe("AcmmPage", () => {
     expect(screen.queryByText("Packages")).not.toBeInTheDocument();
   });
 
+  it("names the criteria toggle and sets aria-expanded", async () => {
+    mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
+    render(<AcmmPage />);
+    await waitFor(() => screen.getByText("Fully Autonomous"));
+
+    const toggleBtn = screen.getByRole("button", { name: "Show criteria" });
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "false");
+    expect(toggleBtn).not.toHaveAccessibleName("▼");
+
+    fireEvent.click(toggleBtn);
+
+    expect(toggleBtn).toHaveAttribute("aria-expanded", "true");
+    expect(toggleBtn).toHaveAccessibleName("Hide criteria");
+    expect(screen.getByText(/prereq-test-suite/)).toBeInTheDocument();
+  });
+
   it("expands criteria on toggle button click", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
     await waitFor(() => screen.getByText("Fully Autonomous"));
 
-    const toggleBtn = screen.getAllByRole("button")[0];
-    if (!toggleBtn) throw new Error("expected a toggle button");
+    const toggleBtn = screen.getByRole("button", { name: /criteria/i });
     fireEvent.click(toggleBtn);
 
     await waitFor(() => {
@@ -271,8 +287,7 @@ describe("AcmmPage", () => {
     render(<AcmmPage />);
     await waitFor(() => screen.getByText("Fully Autonomous"));
 
-    const toggleBtn = screen.getAllByRole("button")[0];
-    if (!toggleBtn) throw new Error("expected a toggle button");
+    const toggleBtn = screen.getByRole("button", { name: /criteria/i });
     fireEvent.click(toggleBtn);
 
     await waitFor(() => {
@@ -291,8 +306,7 @@ describe("AcmmPage", () => {
     render(<AcmmPage />);
     await waitFor(() => screen.getByText("Fully Autonomous"));
 
-    const toggleBtn = screen.getAllByRole("button")[0];
-    if (!toggleBtn) throw new Error("expected a toggle button");
+    const toggleBtn = screen.getByRole("button", { name: /criteria/i });
     fireEvent.click(toggleBtn);
 
     await waitFor(() => {
@@ -316,8 +330,7 @@ describe("AcmmPage", () => {
     render(<AcmmPage />);
     await waitFor(() => screen.getByText("Fully Autonomous"));
 
-    const toggleBtn = screen.getAllByRole("button")[0];
-    if (!toggleBtn) throw new Error("expected a toggle button");
+    const toggleBtn = screen.getByRole("button", { name: /criteria/i });
     fireEvent.click(toggleBtn);
 
     await waitFor(() => {
@@ -331,8 +344,7 @@ describe("AcmmPage", () => {
     render(<AcmmPage />);
     await waitFor(() => screen.getByText("Fully Autonomous"));
 
-    const toggleBtn = screen.getAllByRole("button")[0];
-    if (!toggleBtn) throw new Error("expected a toggle button");
+    const toggleBtn = screen.getByRole("button", { name: /criteria/i });
     fireEvent.click(toggleBtn);
     await waitFor(() => screen.getByText(/prereq-test-suite/));
 
