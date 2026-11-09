@@ -3,7 +3,7 @@
 docs/pipeline-protocol.md is the spec; this module is its one
 implementation. It owns the stage/skill taxonomy, the artifact tables
 (product/feature and maintenance, ADR-0025), artifact-frontmatter
-reading, the skill-file contract (path shape and frontmatter rules,
+reading and where a file's frontmatter ends (ADR-0118), the skill-file contract (path shape and frontmatter rules,
 ADR-0052), the UX conditional, the re-entry conditional, the Ship
 outcome (ADR-0101), the checkbox rule, the Operate population
 (ADR-0102), the retro short-circuit, and
@@ -27,13 +27,14 @@ TEMPLATED_STAGES = [s for s in STAGES + MAINTENANCE_STAGES
 # have no stage artifact and the router never routes to them, but they are
 # full skills for install, lint, ledger, and trigger-eval purposes.
 UTILITY_SKILLS = ["address-pr-review", "animated-diagram",
-                  "architecture-diagram", "audit", "automate", "autorun",
+                  "architecture-diagram", "assembly-line", "audit",
+                  "automate", "autorun",
                   "conduct", "deepen", "doctor", "factory-init",
-                  "implement-queue",
+                  "house-voice", "implement-queue",
                   "interactive-architecture-diagram", "knowledge-base",
                   "launch-demo", "lean", "mermaid", "pipeline-board",
                   "polish", "prisma-migrations", "ux-patterns",
-                  "ux-writing", "work-queue"]
+                  "ux-writing"]
 ALL_SKILLS = ["next"] + STAGES + MAINTENANCE_STAGES + UTILITY_SKILLS
 
 # (stage, artifact) rows in pipeline order; implement and the UX
@@ -75,12 +76,29 @@ MAINTENANCE_STAGE_ARTIFACTS = [
 RUN_ARTIFACTS = sorted({artifact for _, artifact
                         in STAGE_ARTIFACTS + MAINTENANCE_STAGE_ARTIFACTS})
 
-_FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
+# The one frontmatter fence (ADR-0118): `---` at column 0, trailing
+# whitespace allowed. `\s*` also absorbs a kept line end, so lines from
+# splitlines() and from splitlines(keepends=True) give one answer.
+_FENCE = re.compile(r"^---\s*$")
 # Bullet-and-whitespace shape aligned with knowledge_plane.ROW (the
 # dispatch-plane row grammar) so completion counting and dispatch agree
 # about the same line; separate owner by design — this seam stays
 # factory-agnostic and captures the checked state.
 _CHECKBOX = re.compile(r"^\s*[-*+]\s+\[([ xX])\]", re.MULTILINE)
+
+
+def frontmatter_end(lines):
+    """The index of the line that closes the frontmatter block opening
+    LINES, else None (ADR-0118). The block is lines[1:end] and the body
+    lines[end + 1:]. None when LINES is empty, its first line is not a
+    fence (an indented opener included), or no later line closes it;
+    the first closing fence wins, so an empty block ends at 1."""
+    if not lines or not _FENCE.match(lines[0]):
+        return None
+    for index in range(1, len(lines)):
+        if _FENCE.match(lines[index]):
+            return index
+    return None
 
 
 def read_frontmatter(path):
@@ -89,8 +107,8 @@ def read_frontmatter(path):
     Single error contract: returns None when the file has no frontmatter
     block; a present-but-fieldless block is an empty dict. Callers decide
     what a missing block means for them. Values may be `|` literal block
-    scalars (following indented lines joined with newlines); CRLF files
-    are normalized before matching.
+    scalars (following indented lines joined with newlines). The block
+    is the one frontmatter_end bounds; CRLF files split like LF ones.
     """
     return parse_frontmatter(path.read_text(encoding="utf-8"))
 
@@ -99,14 +117,14 @@ def parse_frontmatter(text):
     """read_frontmatter's parse of text a caller already read (ADR-0094:
     parse_run reads prd.md once, guarded, and parses its frontmatter
     from that text)."""
-    text = text.replace("\r\n", "\n")
-    match = _FRONTMATTER.match(text)
-    if not match:
+    lines = text.splitlines()
+    end = frontmatter_end(lines)
+    if end is None:
         return None
     fields = {}
     key = None
     block_lines = None
-    for line in match.group(1).splitlines():
+    for line in lines[1:end]:
         if block_lines is not None and (line.startswith("  ") or not line.strip()):
             block_lines.append(line[2:])
             continue

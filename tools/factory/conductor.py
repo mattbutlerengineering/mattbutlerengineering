@@ -120,7 +120,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 
 import factory_config  # noqa: E402
-from cli import gh_runner, report, runner  # noqa: E402
+from cli import gh_runner, json_lines, report, runner  # noqa: E402
 from cost_ledger import ISSUE_KEY
 from knowledge_plane import repo_root
 
@@ -371,10 +371,8 @@ def parse(text, shown):
     Rows are None when any line has a problem: the reader fails, it never
     skips a line."""
     rows, problems = [], []
-    for lineno, line in numbered(text):
-        try:
-            row = json.loads(line)
-        except (ValueError, RecursionError) as err:
+    for lineno, row, err in json_lines(text):
+        if err is not None:
             problems.append(f"cd: {shown}:{lineno} is not valid JSON: {err}")
             continue
         if not isinstance(row, dict):

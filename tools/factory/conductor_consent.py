@@ -109,6 +109,9 @@ def cover(rows, item, blobs, policy=None):
     return (OWED, problems) if problems else (COVERED, [])
 
 
+# one-owner: factory_config._standing_problems (ADR-0061) — this applies
+# the standing policy to one item; factory_config checks the policy's own
+# shape, and factory_config.STANDING_KEYS owns the keys both read
 def standing_problems(item, blobs, labels, policy):
     """Why the standing policy does not cover `item`, unprefixed; empty
     when it does. PURE over the gate files the item branch changes

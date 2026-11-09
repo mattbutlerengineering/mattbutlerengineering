@@ -37,10 +37,8 @@ from collections import namedtuple
 from datetime import datetime, timezone
 
 import cost_ledger
-from cli import CLI_FAILURES as GH_FAILURES
-from cli import detail as gh_detail
-from cli import gh_read, report, write_outputs
-from human_gates import gate_passages, open_queues, read_timelines
+from cli import marked_issue, report, upsert_pinned_issue, write_outputs
+from human_gates import gate_passages, open_queues, read_gate_issues
 from knowledge_plane import mirror_map, repo_root
 from cli import gh_runner
 
@@ -120,8 +118,6 @@ def compose_digest(queues, as_of, listing_truncated):
 # the limit it sends gh and the truncation it reports are the same
 # number, so the two can no longer drift apart.
 LIST_WINDOW = 1000
-LIST_ARGS = ("issue", "list", "--state", "all", "--json",
-             "number,title,state,labels,body")
 
 
 def _capture_latency(root, mirror, events_by_issue, problems):
@@ -151,37 +147,6 @@ def _queues(mirror, open_issues, events_by_issue, now):
                                              events_by_issue, now)]
 
 
-def _post_digest(digest, body, run, problems):
-    """Create-or-update the digest issue. The edit path re-pins and
-    tolerates the refusal: re-pinning a pinned issue fails, and gh gives
-    no cheap way to tell that steady state from a real one — the retry
-    exists so a human unpin heals on the next daily run instead of
-    rotting. The create path's pin failure IS a problem (nothing else
-    would ever retry a digest that was born unpinned and stayed so)."""
-    if digest is not None:
-        try:
-            run(["issue", "edit", str(digest), "--body", body])
-        except GH_FAILURES as err:
-            problems.append(f"gd: gh issue edit {digest} failed:"
-                            f" {gh_detail(err)}")
-            return
-        try:
-            run(["issue", "pin", str(digest)])
-        except GH_FAILURES:
-            pass
-        return
-    try:
-        url = run(["issue", "create", "--title", DIGEST_TITLE,
-                   "--body", body]).strip()
-    except GH_FAILURES as err:
-        problems.append(f"gd: gh issue create failed: {gh_detail(err)}")
-        return
-    try:
-        run(["issue", "pin", url.rsplit("/", 1)[-1]])
-    except GH_FAILURES as err:
-        problems.append(f"gd: gh issue pin failed: {gh_detail(err)}")
-
-
 def run_daily(root, run=gh_runner, clock=None):
     """(outputs, problems) for the daily command: capture new gate
     latency into the cost ledger, then create-or-update the pinned
@@ -197,30 +162,23 @@ def run_daily(root, run=gh_runner, clock=None):
     clock = clock or (lambda: datetime.now(timezone.utc))
     now = clock()
     mirror = mirror_map(root)
-    read = gh_read(list(LIST_ARGS), "gh issue list", label="gd", run=run,
-                   window=LIST_WINDOW)
-    if read.value is None:
-        return {"changed": "false"}, read.problems
-    listing, problems = read.value, list(read.problems)
-    mirrored = sorted(entry["number"] for entry in listing
-                      if entry.get("number") in mirror)
-    # A failed read is a problem, never a lost queue item: the digest
-    # still lists the issue, marked unaged, and the next daily run
+    issues = read_gate_issues(mirror, run, "gd", window=LIST_WINDOW)
+    if issues.listing is None:
+        return {"changed": "false"}, issues.problems
+    # A failed timeline read is a problem, never a lost queue item: the
+    # digest still lists the issue, marked unaged, and the next daily run
     # re-scans — dedup makes the catch-up safe.
-    events_by_issue, read_problems = read_timelines(mirrored, run, "gd")
-    problems.extend(read_problems)
+    listing, problems = issues.listing, issues.problems
+    events_by_issue = issues.events
     new_rows = _capture_latency(root, mirror, events_by_issue, problems)
 
     open_issues = [entry for entry in listing
                    if (entry.get("state") or "").upper() == "OPEN"]
     queues = _queues(mirror, open_issues, events_by_issue, now)
     body = compose_digest(queues, now.date().isoformat(),
-                          read.truncated)
-    digest = next((entry["number"] for entry in
-                   sorted(open_issues, key=lambda e: e["number"])
-                   if (entry.get("body") or "").startswith(DIGEST_MARKER)),
-                  None)
-    _post_digest(digest, body, run, problems)
+                          issues.truncated)
+    problems += upsert_pinned_issue(marked_issue(open_issues, DIGEST_MARKER),
+                                    DIGEST_TITLE, body, "gd", run)
 
     waiting = sum(len(items) for _, _, items in queues)
     return ({"changed": "true" if new_rows else "false",

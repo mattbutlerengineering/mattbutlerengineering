@@ -184,6 +184,34 @@ def read_timelines(numbers, run, label, slug="{owner}/{repo}"):
     return events, problems
 
 
+# The issue listing the gate readers start from: every state, with the
+# fields both the digest and the miner read.
+ISSUE_LIST_ARGS = ("issue", "list", "--state", "all", "--json",
+                   "number,title,state,labels,body")
+GateIssues = namedtuple("GateIssues",
+                        "listing truncated mirrored events problems")
+
+
+def read_gate_issues(mirror, run, label, window):
+    """GateIssues for a gate reader's startup: the issue listing through
+    cli.gh_read, then read_timelines for the issues the dispatch plane
+    mirrors (`mirror`, knowledge_plane.mirror_map). An unusable listing
+    reads no timelines and answers listing None. A full window is the
+    caller's to word (`truncated`). The gate digest and the rejection
+    miner share it (two copies until the 2026-10-25 consolidation)."""
+    read = gh_read(list(ISSUE_LIST_ARGS), "gh issue list", label=label,
+                   run=run, window=window)
+    if read.value is None:
+        return GateIssues(None, read.truncated, [], {}, list(read.problems))
+    mirrored = sorted(entry["number"] for entry in read.value
+                      if entry.get("number") in mirror)
+    # A failed timeline read is a problem, never a lost item: the issue
+    # stays listed and the next scheduled run re-scans.
+    events, problems = read_timelines(mirrored, run, label)
+    return GateIssues(read.value, read.truncated, mirrored, events,
+                      list(read.problems) + problems)
+
+
 def completed_stays(events, gate):
     """[(start, end, confirmed)] — every stay in one gate's queue that
     was entered AND left, with `confirmed` true when the gate's pass
