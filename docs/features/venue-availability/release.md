@@ -29,7 +29,7 @@ assumptions:
 
 # Release: Venue availability configuration, Phase 1
 
-**Status: prepared, ready for the Owner-only steps (re-confirmed 2026-11-03).** All 13 PRs in the train merged into main on 2026-10-26 (17:12Z–17:59Z); `pending-merge: []` is empty, so nothing is left to wait on. The pre-flight passes on main at bce6d761c. The train is deployed: `Deploy API Services` succeeded at f3ed4390b (#7703) and again at 37de61b8b, and most recently at 77f84aca5 on 2026-11-02 (see Deploy status). The Owner reported on 2026-11-03 that the Owner-only steps (confirm the migration, the backfill dry run then `--apply`, the production checks) have **not been run**, so they remain NOT RUN and the outcome stays `prepared`.
+**Status: prepared, ready for the Owner-only steps (re-confirmed 2026-11-03).** All 13 PRs in the train merged into main on 2026-10-26 (17:12Z–17:59Z); `pending-merge: []` is empty, so nothing is left to wait on. The pre-flight passes on main at bce6d761c. The train is deployed: `Deploy API Services` succeeded at f3ed4390b (#7703) and again at 37de61b8b, and most recently at 77f84aca5 on 2026-11-02 (see Deploy status). The Owner reported on 2026-11-03 that the Owner-only steps (confirm the migration, the backfill dry run then `--apply`, the production checks) had **not been run** at that time. **Update 2026-11-09:** the backfill dry run and `--apply` are done (step 3 result) and the migration is confirmed indirectly (step 2). The preview p95, setup-time walkthrough, live demo and post-deploy smoke check are still NOT RUN, so the outcome stays `prepared`.
 
 ## Review verdict and how each finding is carried
 
@@ -154,10 +154,14 @@ node --conditions production dist/scripts/backfill-availability.js --apply    # 
 - Read the dry run's `summary` line before applying: `errors` must be empty. Look at every `unrecognised` venue (left untouched, keeps its legacy reads) and at `notes.pastMidnightWindows` for typos.
 - Exit code 1 means a venue errored. Re-running is safe: venues with a regular schedule are skipped as `already_migrated`.
 
+**Result, 2026-11-09 (DONE, Owner-run).** Run from the reservations-api console on deployment `88826b3f`. The dry run at 03:42Z reported 6 venues: 4 `would_migrate`, 2 `already_migrated`, `errors: []`, `unrecognised: []`, and no `pastMidnightWindows`. The `--apply` run at 03:43Z reported 4 `migrated`, 2 `already_migrated`, `errors: []`. The full output of both runs is the backup. It is kept outside the repository, on the Owner's machine, because it holds production venue data. One venue's hours are copied as they were and look like a typo: it opens at `03:00` on one weekday and at `09:00` on the others. Guests saw the same slots before the backfill, so the backfill did not change them. The Owner can correct it on the Availability page.
+
+Step 2 (migration applied) is confirmed indirectly: deployment `88826b3f` is `ACTIVE`, and its `PRE_DEPLOY` `db-migrate-reservations` job must succeed for that. Its container log had expired by 2026-11-09, so the "reservations migrations complete." line could not be read.
+
 ### 4. Production-only checks verification.md left open
 
 - **Preview speed, p95 ≤ 1 s, end to end.** Time `POST …/availability/preview` against production (DO Managed Postgres, real network hop) on the largest venue, 20 or more calls, and record the p95. Only the spike (p95 190 ms on local Postgres) and the engine speed test exist.
-- **Migration over every real venue.** The backfill dry run in step 3 is the check: every venue `would_migrate` or `already_migrated`, zero `errors`, each `unrecognised` venue explained.
+- **Migration over every real venue.** The backfill dry run in step 3 is the check: every venue `would_migrate` or `already_migrated`, zero `errors`, each `unrecognised` venue explained. **PASS, 2026-11-09:** 6 of 6 venues, 0 errors, 0 unrecognised (step 3 result).
 - **Setup time, small.** A human-timed walkthrough by the Owner from an empty venue, without help text. NOT RUN.
 - **Demo against the live backend.** Close a date with bookings on a test venue, choose cancel and notify, and confirm the notices arrive (SES and Twilio) and the refunds settle within 2 minutes.
 
@@ -219,7 +223,7 @@ There is no feature flag, and the run is about 60 merged PRs, so reverting it on
 
 ## Post-release checks
 
-- Not run: nothing was released by this stage. Steps 1–5 above are the checks the Owner runs. The Owner reported on 2026-11-03 that they have not been run. Migration confirmation, backfill dry run, backfill `--apply`, preview p95, setup-time walkthrough, live demo and the post-deploy smoke check are all NOT RUN.
+- Not run: nothing was released by this stage. Steps 1–5 above are the checks the Owner runs. The Owner reported on 2026-11-03 that they have not been run. Migration confirmation (indirect), backfill dry run and backfill `--apply` were done on 2026-11-09 (step 3 result). Preview p95, setup-time walkthrough, live demo and the post-deploy smoke check are all NOT RUN.
 - Last successful production deploy: `Deploy Services` 41527058138 on 2026-11-02 (77f84aca5), Post-Deploy Verification success. That covers the whole train. The latest run, 41572104913 (f39c40ea3, 2026-11-03), failed at `Wait for CI` and deployed nothing.
 
 ## Outcome
