@@ -119,7 +119,7 @@ is an approximation across merged paths.
 | ------ | ----------------------------------------------------- |
 | 5xx    | rate >= 1% with >= 20 requests                        |
 | 4xx    | rate >= 10% with >= 50 requests, excl. 401/404 on GET |
-| Slow   | p95 `elapsedMs` >= 2000                               |
+| Slow   | p95 `elapsedMs` >= 2000 (and >= 20 requests)          |
 
 ```bash
 # Preview without filing (needs the same two env vars as edge-usage, plus gh auth)
