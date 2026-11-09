@@ -43,6 +43,14 @@ vi.mock("../hooks/useAvailability.js", () => ({
   AVAILABILITY_CONFIG_QUERY_KEY: "availabilityConfig",
   AVAILABILITY_DAYS_QUERY_KEY: "availabilityDays",
 }));
+vi.mock("../hooks/useHolidayDecisions.js", () => ({
+  useHolidayDecisions: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
+  useSetHolidayDecision: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useClearHolidayDecision: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("../hooks/useApiClient.js", () => ({
+  useApiClient: () => ({ availability: { getConfig: vi.fn() } }),
+}));
 vi.mock("../hooks/useClosures.js", () => ({
   useClosureImpact: () => ({ data: null, isLoading: false, error: null, refetch: vi.fn() }),
   useCreateClosure: () => ({ mutateAsync: vi.fn(), isPending: false }),

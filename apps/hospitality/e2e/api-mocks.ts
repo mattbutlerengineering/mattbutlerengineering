@@ -665,6 +665,14 @@ export async function mockApi(page: Page): Promise<SseMock> {
     jsonOk(route, [])
   );
 
+  // Holiday decisions ("open as usual"): none saved. Every /availability load asks for them, so
+  // without a mock the request reaches the real service in CI with a made-up venue id (the CI run
+  // showed the session-renew banner on pages that loaded it). Only GET; a spec's own stateful mock
+  // (helpers/shared-config-mock.ts) is registered later and answers first.
+  await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/holiday-decisions(\?|$)/, (route) =>
+    route.request().method() === "GET" ? jsonOk(route, []) : route.fallback()
+  );
+
   // Venue Groups
   await page.route("**/api/v1/venues/groups*", (route) => emptyPaginated(route));
 

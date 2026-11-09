@@ -44,6 +44,8 @@ export interface RegularWeekEditInput {
   readonly fixedStart?: string;
   /** Replaces the saved regular week as the starting draft (it is dirty when it differs). */
   readonly initialDraft?: QuickSetupDraft;
+  /** Starting, prefilled (Copy → Every week). The Manager can change it; it counts as an edit. */
+  readonly initialStartsOn?: string;
 }
 
 /**
@@ -52,7 +54,8 @@ export interface RegularWeekEditInput {
  * the Availability week panel) only lay it out.
  */
 export function useRegularWeekEdit(input: RegularWeekEditInput) {
-  const { venueId, state, onStale, onSaved, onGone, fixedStart, initialDraft } = input;
+  const { venueId, state, onStale, onSaved, onGone, fixedStart, initialDraft, initialStartsOn } =
+    input;
   const { config } = state;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -64,7 +67,7 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
   const [draft, setDraft] = useState<QuickSetupDraft>(() => initialDraft ?? weekOf(config));
   /** The weekday the Manager touched last: the preview opens on it. */
   const [edited, setEdited] = useState<number | null>(null);
-  const [pickedStart, setStartsOn] = useState<string | null>(null);
+  const [pickedStart, setStartsOn] = useState<string | null>(initialStartsOn ?? null);
   const [pickedEnd, setEndsOn] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [winner, setWinner] = useState<Winner>("new");

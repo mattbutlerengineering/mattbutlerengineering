@@ -1104,6 +1104,11 @@
       export const holdRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/holiday-decisions.ts">
+    <item priority="high">
+      export const holidayDecisionRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/load-reservation-for-manage.ts">
     <item priority="low">
       type ManagePreambleResult = { ok: true; reservation: Reser | { ok: false; status: 409; reas;
@@ -4297,8 +4302,8 @@
         availabilityService: typeof availabilityService;
         availabilityConfigService: typeof availabilityConfigService;
         availabilityChangesService: typeof availabilityChangesService;
+        holidayDecisionService: typeof holidayDecisionService;
         closureImpactService: typeof closureImpactService;
-        closureCommandService: typeof closureCommandService;
       }
     </item>
     <item priority="high">
@@ -4518,6 +4523,59 @@
     </item>
     <item priority="high">
       export const holdService: unknown;
+    </item>
+  </file>
+  <file path="src/services/holiday-decision.ts">
+    <item priority="high">
+      type StoreClient = Pick<PrismaClient, "$transaction">;
+    </item>
+    <item priority="high">
+      type Db = Pick<PrismaClient, "venue" | "venueHolidayDecision">;
+    </item>
+    <item priority="low">
+      interface DecisionLogger {
+        
+      }
+    </item>
+    <item priority="low">
+      async function inVenue<T, M>(
+        client: StoreClient,
+        venueId: string,
+        missing: M,
+        work: (db: Db) => Promise<T>
+      ): Promise<T | M> { /* ... */ }
+    </item>
+    <item priority="medium">
+      function listHolidayDecisions(
+        venueId: string,
+        range: { from: string; to: string },
+        logger?: DecisionLogger,
+        client: StoreClient = prisma
+      ): Promise<HolidayDecision[] | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface SetHolidayDecisionInput {
+        venueId: string;
+        serviceDate: string;
+        decision: HolidayDecisionKind;
+        actorId: string;
+      }
+    </item>
+    <item priority="medium">
+      function setHolidayDecision(
+        input: SetHolidayDecisionInput,
+        client: StoreClient = prisma
+      ): Promise<HolidayDecision | null> { /* ... */ }
+    </item>
+    <item priority="low">
+      async function clearHolidayDecision(
+        venueId: string,
+        serviceDate: string,
+        client: StoreClient = prisma
+      ): Promise<boolean> { /* ... */ }
+    </item>
+    <item priority="high">
+      export const holidayDecisionService: unknown;
     </item>
   </file>
   <file path="src/services/job-worker.ts">

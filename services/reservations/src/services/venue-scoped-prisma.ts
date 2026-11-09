@@ -33,6 +33,7 @@ export const RLS_MODELS: ReadonlySet<string> = new Set([
   "dateRule",
   "dateRuleTable",
   "availabilityChange",
+  "venueHolidayDecision",
   "closureOutcome",
   "guestWinBack",
 ]);

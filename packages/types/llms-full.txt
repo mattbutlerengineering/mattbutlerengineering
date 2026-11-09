@@ -576,6 +576,54 @@
       }),
     };
   </file>
+  <file path="src/endpoints/holiday-decisions.ts">
+    export const holidayDecisionEndpoints = {
+      list: defineEndpoint({
+        method: "GET",
+        path: BASE,
+        params: VenueParamsSchema,
+        query: HolidayDecisionsQuerySchema,
+        responses: {
+          200: {
+            description: "The venue's holiday decisions from `from` to `to` inclusive, by date",
+            body: z.object({ data: z.array(HolidayDecisionSchema) }),
+          },
+          400: problem("Bad date, `to` before `from`, or a range over 400 days"),
+          401: authRequired,
+          403: problem("Caller is not a member of this venue"),
+          404: venueNotFound,
+        },
+      }),
+      set: defineEndpoint({
+        method: "PUT",
+        path: `${BASE}/:serviceDate`,
+        params: DecisionParamsSchema,
+        body: SetHolidayDecisionBodySchema,
+        responses: {
+          200: {
+            description: "The decision; a repeat returns the existing row unchanged",
+            body: z.object({ data: HolidayDecisionSchema }),
+          },
+          400: problem("Bad date or body"),
+          401: authRequired,
+          403: notManager,
+          404: venueNotFound,
+        },
+      }),
+      clear: defineEndpoint({
+        method: "DELETE",
+        path: `${BASE}/:serviceDate`,
+        params: DecisionParamsSchema,
+        responses: {
+          204: { description: "Cleared; also when there was no decision", body: null },
+          400: problem("Bad date"),
+          401: authRequired,
+          403: notManager,
+          404: venueNotFound,
+        },
+      }),
+    };
+  </file>
   </section>
   <section priority="medium" role="schemas">
   <file path="src/schemas/agent.ts">
@@ -1714,6 +1762,32 @@
       subsystems: subsystemsSchema,
     });
     export type SystemHealth = z.infer<typeof systemHealthSchema>;
+  </file>
+  <file path="src/schemas/holiday-decisions.ts">
+    export const HolidayDecisionKindSchema = z.enum(["open_as_usual"]);
+    export type HolidayDecisionKind = z.infer<typeof HolidayDecisionKindSchema>;
+    export const HolidayDecisionSchema = z.object({
+      serviceDate: ServiceDateSchema,
+      decision: HolidayDecisionKindSchema,
+      /** ISO instant the decision was first made. */
+      createdAt: z.string(),
+    });
+    export type HolidayDecision = z.infer<typeof HolidayDecisionSchema>;
+    export const HOLIDAY_DECISIONS_MAX_RANGE = 400;
+    export const isRealServiceDate = (date: string): boolean => dayMs(date) !== null;
+    export const isHolidayDecisionsRange = ({ from, to }: { from: string; to: string }): boolean => {
+      const start = dayMs(from);
+      const end = dayMs(to);
+      if (start === null || end === null) return false;
+      const days = (end - start) / MS_PER_DAY + 1;
+      return days >= 1 && days <= HOLIDAY_DECISIONS_MAX_RANGE;
+    };
+    export const HolidayDecisionsQuerySchema = z
+      .object({ from: ServiceDateSchema, to: ServiceDateSchema })
+      .refine(isHolidayDecisionsRange, {
+        message: `\`from\` and \`to\` must be real dates, \`to\` on or after \`from\`, at most ${HOLIDAY_DECISIONS_MAX_RANGE} days in all.`,
+      });
+    export const SetHolidayDecisionBodySchema = z.object({ decision: HolidayDecisionKindSchema });
   </file>
   <file path="src/schemas/json-schema.ts">
     function stripAdditionalProperties(obj: Record<string, unknown>): Record<string, unknown> {

@@ -1,5 +1,4 @@
 import { addDays, weekdayIndexOf } from "@mbe/availability";
-import type { AvailabilityConfig } from "@mbe/types";
 
 /**
  * The public holidays and big restaurant days a venue usually plans for, by country, so the
@@ -121,37 +120,6 @@ export function holidaysIn(country: HolidayCountry, year: number): Holiday[] {
     ],
   };
   return [...common, ...own[country]].sort((x, y) => x.date.localeCompare(y.date));
-}
-
-/** A date rule already says something about the date: the Manager has planned it. */
-function isPlanned(config: AvailabilityConfig, date: string): boolean {
-  return config.dateRules.some(
-    (r) =>
-      r.kind !== "tonight" &&
-      r.kind !== "skip" &&
-      r.startsOn <= date &&
-      (r.endsOn == null || r.endsOn >= date) &&
-      (r.repeat == null || r.repeat.weekdays.includes(weekdayIndexOf(date)))
-  );
-}
-
-/** How far ahead the tab looks: far enough to plan a season, near enough to stay relevant. */
-const HOLIDAY_HORIZON_DAYS = 120;
-
-/**
- * The holidays from `today` (inclusive) to the horizon that no date rule covers yet, in date
- * order. A planned date drops out, so the list shrinks as the Manager works through it.
- */
-export function upcomingHolidays(
-  country: HolidayCountry,
-  today: string,
-  config: AvailabilityConfig
-): Holiday[] {
-  const end = addDays(today, HOLIDAY_HORIZON_DAYS);
-  const year = Number(today.slice(0, 4));
-  return [...holidaysIn(country, year), ...holidaysIn(country, year + 1)].filter(
-    (h) => h.date >= today && h.date <= end && !isPlanned(config, h.date)
-  );
 }
 
 /** How far ahead the Close dialog offers holiday chips. */

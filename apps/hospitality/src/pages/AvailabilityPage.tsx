@@ -758,6 +758,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           reloadError={config.error ? describeApiError(config.error).detail : null}
           isManager={isManager}
           sectionNames={sectionNames}
+          onOpenDay={(date) => changeTab({ tab: "calendar", then: { openDay: date } })}
         />
       ) : (
         loading

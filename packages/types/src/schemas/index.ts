@@ -18,3 +18,4 @@ export * from "./json-schema.js";
 export * from "./availability-config.js";
 export * from "./availability-response.js";
 export * from "./availability-config-api.js";
+export * from "./holiday-decisions.js";

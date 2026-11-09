@@ -1,0 +1,113 @@
+/* Upcoming holidays: a quiet panel above the list; months, then one line per holiday. */
+.holidays {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  padding: var(--rialto-space-md);
+  border: 1px dashed var(--rialto-border-strong);
+  border-radius: var(--rialto-radius-default);
+}
+
+/* Holds focus after Open as usual moves a line away; it is not a control, so no ring. */
+.holidays:focus {
+  outline: none;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.usual {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.month {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Name and date on the first row, the choices (or the decision and Change) on the second. */
+.holiday {
+  display: grid;
+  grid-template-columns: minmax(0, 14rem) minmax(0, 1fr) auto;
+  gap: var(--rialto-space-xs) var(--rialto-space-sm);
+  align-items: center;
+}
+
+.holidayName,
+.holidayDate {
+  min-width: 0;
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  justify-content: flex-end;
+}
+
+.decision {
+  display: flex;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.failure {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.choice {
+  min-block-size: 2.75rem;
+}
+
+.more {
+  align-self: flex-start;
+}
+
+/* A phone: name and date share the first row; the choices go full width under them. */
+@media (max-width: 767px) {
+  .holiday {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .choices {
+    grid-column: 1 / -1;
+    justify-content: stretch;
+  }
+
+  .decision {
+    grid-column: 1 / -1;
+    justify-content: space-between;
+  }
+
+  .choices > .choice {
+    flex: 1 1 auto;
+  }
+
+  .failure {
+    justify-content: flex-start;
+  }
+}

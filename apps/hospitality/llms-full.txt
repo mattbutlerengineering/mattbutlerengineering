@@ -1589,51 +1589,6 @@
     }
   </file>
   <file path="src/components/availability/copy-day.ts">
-    export interface CopyTarget {
-      readonly weekdays: readonly number[];
-      readonly from: string;
-      /** `null`: until changed again. */
-      readonly until: string | null;
-      /** Today on the venue clock: dates before it are history and are not copied to. */
-      readonly today?: string;
-    }
-    export function copyDayDates(target: CopyTarget): string[] {
-      const last = addDays(target.from, SCOPE_HORIZON_DAYS - 1);
-      const end = target.until !== null && target.until < last ? target.until : last;
-      const first =
-        target.today !== undefined && target.today > target.from ? target.today : target.from;
-      const dates: string[] = [];
-      for (let d = first; d <= end; d = addDays(d, 1)) {
-        if (target.weekdays.includes(weekdayIndexOf(d))) dates.push(d);
-      }
-      return dates;
-    }
-    export function buildCopyDayChanges(
-      input: CopyTarget & {
-        readonly config: AvailabilityConfig;
-        readonly services: readonly DraftService[];
-        readonly makeId: () => string;
-      }
-    ): AvailabilityConfigChanges {
-      const base = buildDraftChanges({
-        config: input.config,
-        scope: { kind: "weekday", from: input.from, until: input.until },
-        services: input.services,
-        makeId: input.makeId,
-        today: input.today,
-      });
-      const weekdays = [...input.weekdays].sort((a, b) => a - b);
-      return {
-        ...base,
-        upsert: {
-          ...base.upsert,
-          dateRules: base.upsert.dateRules?.map((rule) => ({
-            ...rule,
-            repeat: { version: 1 as const, weekdays },
-          })),
-        },
-      };
-    }
     export function singleDateChangeCount(config: AvailabilityConfig, weekday: number): number {
       return config.dateRules.filter(
         (r) =>
@@ -1647,6 +1602,132 @@
       ).length;
     }
     export const NUDGE_THRESHOLD = 3;
+  </file>
+  <file path="src/components/availability/copy-week-draft.ts">
+    type Service = ResolvedDay["services"][number];
+    export function sameHoursAs(source: ResolvedDay, target: ResolvedDay): boolean {
+      const keys = (day: ResolvedDay) => day.services.map(serviceKey).sort();
+      const a = keys(source);
+      const b = keys(target);
+      return a.length === b.length && a.every((key, i) => key === b[i]);
+    }
+    export function thisWeekTargets(input: {
+      readonly date: string;
+      readonly weekdays: readonly number[];
+      readonly today: string;
+    }): { dates: string[]; past: number[] } {
+      const { date, weekdays, today } = input;
+      const monday = addDays(date, -((weekdayIndexOf(date) + 6) % 7));
+      const dates: string[] = [];
+      const past: number[] = [];
+      for (let i = 0; i < 7; i += 1) {
+        const day = addDays(monday, i);
+        const weekday = weekdayIndexOf(day);
+        if (day === date || !weekdays.includes(weekday)) continue;
+        if (day < today) past.push(weekday);
+        else dates.push(day);
+      }
+      return { dates, past };
+    }
+    export function buildCopySingleDates(input: {
+      readonly config: AvailabilityConfig;
+      readonly source: ResolvedDay;
+      readonly date: string;
+      readonly dates: readonly string[];
+      readonly makeId: () => string;
+    }): AvailabilityConfigChanges {
+      const { config, source, date, dates, makeId } = input;
+      return buildDraftChanges({
+        config,
+        scope: { kind: "dates", dates },
+        services: seedServices(config, source, { kind: "date", date }),
+        makeId,
+      });
+    }
+    export function splitCopyTargets(
+      config: AvailabilityConfig,
+      timezone: string,
+      source: ResolvedDay,
+      dates: readonly string[]
+    ): { changed: string[]; same: string[]; closed: string[] } {
+      const result = { changed: [] as string[], same: [] as string[], closed: [] as string[] };
+      for (const date of dates) {
+        const target = resolveDay({ timezone, config }, date);
+        if (closedAllDay(target)) result.closed.push(date);
+        else if (sameHoursAs(source, target)) result.same.push(date);
+        else result.changed.push(date);
+      }
+      return result;
+    }
+    export function regularSameWeekdays(
+      config: AvailabilityConfig,
+      timezone: string,
+      source: ResolvedDay,
+      weekdays: readonly number[],
+      from: string
+    ): number[] {
+      const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+      const week = {
+        timezone,
+        config: {
+          ...config,
+          dateRules: [],
+          assignments: config.assignments.filter((a) => a.scheduleId === regular?.id),
+        },
+      };
+      return weekdays.filter((weekday) => {
+        const first = Array.from({ length: 7 }, (_, i) => addDays(from, i)).find(
+          (d) => weekdayIndexOf(d) === weekday
+        )!;
+        return sameHoursAs(source, resolveDay(week, first));
+      });
+    }
+    function withCoveredDays(
+      config: AvailabilityConfig,
+      weekdays: readonly number[],
+      makeId: () => string
+    ): AvailabilityConfig {
+      const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
+      if (!regular) return config;
+      const covered = new Set(
+        config.assignments.filter((a) => a.scheduleId === regular.id).flatMap((a) => a.weekdays)
+      );
+      const missing = weekdays.filter((weekday) => !covered.has(weekday));
+      if (missing.length === 0) return config;
+      const precedence = Math.max(0, ...config.assignments.map((a) => a.precedence));
+      return {
+        ...config,
+        assignments: [
+          ...config.assignments,
+          { id: makeId(), scheduleId: regular.id, weekdays: missing, precedence },
+        ],
+      };
+    }
+    export function copyWeekDraft(
+      config: AvailabilityConfig,
+      source: ResolvedDay,
+      date: string,
+      weekdays: readonly number[],
+      makeId: () => string
+    ): QuickSetupDraft {
+      const services = seedServices(config, source, { kind: "date", date });
+      const nowIso = new Date().toISOString();
+      const next = weekdays.reduce(
+        (current, weekday) =>
+          applyChanges(
+            current,
+            buildDraftChanges({
+              config: current,
+              scope: { kind: "regularWeekday", weekday },
+              services,
+              makeId,
+            }),
+            nowIso
+          ),
+        withCoveredDays(config, weekdays, makeId)
+      );
+      return draftFromConfig(next, makeId);
+    }
   </file>
   <file path="src/components/availability/day-summary.ts">
     export interface ServiceLineText {
@@ -2350,6 +2431,74 @@
     }
     export const useEditorOpen = (): boolean => useSyncExternalStore(subscribe, isEditorOpen);
   </file>
+  <file path="src/components/availability/holiday-decisions.ts">
+    export const HOLIDAY_HORIZON_DAYS = 365;
+    export type HolidayState =
+      | { readonly kind: "undecided" }
+      | { readonly kind: "closed"; readonly ruleId: string }
+      | { readonly kind: "openAsUsual" }
+      | { readonly kind: "specialHours"; readonly ruleId: string }
+      /** A rule this flow does not own covers the date. */
+      | { readonly kind: "other" };
+    export interface DecidedHoliday extends Holiday {
+      readonly state: HolidayState;
+    }
+    function covers(rule: DateRule, date: string): boolean {
+      return (
+        rule.kind !== "tonight" &&
+        rule.kind !== "skip" &&
+        rule.startsOn <= date &&
+        (rule.endsOn == null || rule.endsOn >= date) &&
+        (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date)))
+      );
+    }
+    function isOwnedOneDate(rule: DateRule, date: string): boolean {
+      return (
+        rule.targetKind === "venue" &&
+        rule.startsOn === date &&
+        rule.endsOn === date &&
+        rule.repeat == null &&
+        rule.seriesId == null
+      );
+    }
+    function classify(
+      rules: readonly DateRule[],
+      decided: ReadonlySet<string>,
+      date: string
+    ): HolidayState {
+      const skipped = new Set(
+        rules
+          .filter((r) => r.kind === "skip" && r.seriesId != null && r.startsOn <= date)
+          .filter((r) => (r.endsOn ?? r.startsOn) >= date)
+          .map((r) => r.seriesId)
+      );
+      // A series skipped on this date does not cover it: the skip is not a decision either.
+      const covering = rules.filter((r) => covers(r, date) && !skipped.has(r.id));
+      const closed = covering.find(
+        (r) => r.kind === "closure" && r.window == null && isOwnedOneDate(r, date)
+      );
+      if (closed) return { kind: "closed", ruleId: closed.id };
+      const special = covering.find((r) => r.kind === "special_hours" && isOwnedOneDate(r, date));
+      if (special) return { kind: "specialHours", ruleId: special.id };
+      // A covering rule outranks the open mark: the mark means "no change to the hours", and it
+      // never reopens a day another rule shuts.
+      if (covering.length > 0) return { kind: "other" };
+      return decided.has(date) ? { kind: "openAsUsual" } : { kind: "undecided" };
+    }
+    export function holidayStates(
+      country: HolidayCountry,
+      today: string,
+      config: AvailabilityConfig,
+      decisions: readonly HolidayDecision[]
+    ): DecidedHoliday[] {
+      const end = addDays(today, HOLIDAY_HORIZON_DAYS);
+      const year = Number(today.slice(0, 4));
+      const decided = new Set(decisions.map((d) => d.serviceDate));
+      return [...holidaysIn(country, year), ...holidaysIn(country, year + 1)]
+        .filter((h) => h.date >= today && h.date <= end)
+        .map((h) => ({ ...h, state: classify(config.dateRules, decided, h.date) }));
+    }
+  </file>
   <file path="src/components/availability/holidays.ts">
     export type HolidayCountry = "US" | "CA" | "MX";
     export type HolidayId =
@@ -2450,27 +2599,6 @@
         ],
       };
       return [...common, ...own[country]].sort((x, y) => x.date.localeCompare(y.date));
-    }
-    function isPlanned(config: AvailabilityConfig, date: string): boolean {
-      return config.dateRules.some(
-        (r) =>
-          r.kind !== "tonight" &&
-          r.kind !== "skip" &&
-          r.startsOn <= date &&
-          (r.endsOn == null || r.endsOn >= date) &&
-          (r.repeat == null || r.repeat.weekdays.includes(weekdayIndexOf(date)))
-      );
-    }
-    export function upcomingHolidays(
-      country: HolidayCountry,
-      today: string,
-      config: AvailabilityConfig
-    ): Holiday[] {
-      const end = addDays(today, HOLIDAY_HORIZON_DAYS);
-      const year = Number(today.slice(0, 4));
-      return [...holidaysIn(country, year), ...holidaysIn(country, year + 1)].filter(
-        (h) => h.date >= today && h.date <= end && !isPlanned(config, h.date)
-      );
     }
     export function holidaysWithin(
       country: HolidayCountry,
@@ -2684,24 +2812,6 @@
               !day.closures.some((band) => closesOnline(band, minute, service.venueServiceId))
           )
       );
-    }
-  </file>
-  <file path="src/components/availability/open-as-usual.ts">
-    export function readOpenAsUsual(venueId: string): readonly string[] {
-      try {
-        const parsed: unknown = JSON.parse(window.localStorage.getItem(storageKey(venueId)) ?? "[]");
-        return Array.isArray(parsed) ? parsed.filter((d): d is string => typeof d === "string") : [];
-      } catch {
-        // Storage blocked or garbled: every holiday is offered again, which is harmless.
-        return [];
-      }
-    }
-    export function writeOpenAsUsual(venueId: string, dates: readonly string[]): void {
-      try {
-        window.localStorage.setItem(storageKey(venueId), JSON.stringify(dates));
-      } catch {
-        // Blocked storage: the choice lasts until the page reloads.
-      }
     }
   </file>
   <file path="src/components/availability/outcome-label.ts">
@@ -5827,6 +5937,189 @@
       return { editorRef, bannerRef, reloadRef, track };
     }
   </file>
+  <file path="src/components/availability/use-holiday-decision.ts">
+    export type HolidayChoice = "closed" | "openAsUsual" | "specialHours";
+    export interface NamedHoliday extends DecidedHoliday {
+      readonly name: string;
+      readonly dateLabel: string;
+    }
+    export interface HolidayLineStatus {
+      readonly phase: "saving" | "failed";
+      /** The choice being saved, or the one a Retry repeats. */
+      readonly to: HolidayChoice;
+    }
+    export interface HolidaySheetRequest {
+      /** Runs once the sheet's rows are saved, not if it is cancelled. */
+      readonly afterSaved?: () => Promise<void>;
+      /** The sheet closed, saved or not: the lines are live again. */
+      readonly onSettled: () => void;
+    }
+    export interface HolidayFlow {
+      /** Close dates through the closure path. */
+      readonly onClose: (
+        rows: readonly PlannedDate[],
+        title: string,
+        request: HolidaySheetRequest
+      ) => void;
+      /** Special hours for one date through the same sheet. */
+      readonly onSpecialHours: (row: PlannedDate, request: HolidaySheetRequest) => void;
+      /** Reopen a closure; `then` runs once it is reopened, not if cancelled. */
+      readonly onReopen: (ruleId: string, then: () => void) => void;
+      /** The rule's own edit, for a date that already has special hours. */
+      readonly onEditHours: (date: string) => void;
+    }
+    export interface UseHolidayDecisionOptions {
+      readonly venueId: string;
+      readonly state: AvailabilityConfigState;
+      readonly onStale: () => void;
+      readonly flow: HolidayFlow;
+      /** An Open as usual was saved: the line has left the list, so the panel keeps focus. */
+      readonly onDecided: () => void;
+    }
+    export function useHolidayDecision(options: UseHolidayDecisionOptions) {
+      const { venueId, state, onStale, flow, onDecided } = options;
+      const { t } = useTranslation();
+      const { toast } = useToast();
+      const api = useApiClient();
+      const set = useSetHolidayDecision();
+      const clear = useClearHolidayDecision();
+      const saveConfig = useSaveAvailabilityConfig();
+      const [statuses, setStatuses] = useState<ReadonlyMap<string, HolidayLineStatus>>(() => new Map());
+      const setStatus = (date: string, status: HolidayLineStatus | null) =>
+        setStatuses((prev) => {
+          const next = new Map(prev);
+          if (status === null) next.delete(date);
+          else next.set(date, status);
+          return next;
+        });
+    
+      const removeRule = (ruleId: string, version: number) =>
+        saveConfig.mutateAsync({
+          venueId,
+          body: {
+            expectedVersion: version,
+            changes: { upsert: {}, remove: { dateRules: [ruleId] } },
+            scopeConflicts: "keep",
+          },
+        });
+    
+      /** Runs `steps` as one save of `date`: saving, then settled or failed. Resolves true when saved. */
+      const run = async (
+        date: string,
+        to: HolidayChoice,
+        steps: () => Promise<void>
+      ): Promise<boolean> => {
+        setStatus(date, { phase: "saving", to });
+        try {
+          await steps();
+          setStatus(date, null);
+          return true;
+        } catch (error) {
+          if (availabilityProblemOf(error)?.code === "version-conflict") onStale();
+          setStatus(date, { phase: "failed", to });
+          return false;
+        }
+      };
+    
+      const openAsUsual = async (holiday: NamedHoliday): Promise<void> => {
+        const { state: from } = holiday;
+        const saved = await run(holiday.date, "openAsUsual", async () => {
+          // What was there goes first: if this fails nothing changed.
+          if (from.kind === "specialHours") await removeRule(from.ruleId, state.version);
+          await set.mutateAsync({ venueId, serviceDate: holiday.date, decision: "open_as_usual" });
+        });
+        if (!saved) return;
+        onDecided();
+        toast({
+          title: t("availabilitySpecial.holidays.openAsUsualToast", { name: holiday.name }),
+          // A removed special-hours rule has its own History entry; only the mark can be taken back.
+          ...(from.kind === "specialHours"
+            ? {}
+            : {
+                action: {
+                  label: t("availability.undo.action"),
+                  onClick: () =>
+                    void clear.mutateAsync({ venueId, serviceDate: holiday.date }).catch(() => {
+                      // The mark stays: the line still reads Open as usual, which is true.
+                    }),
+                },
+              }),
+        });
+      };
+    
+      /**
+       * After a closure or special hours is saved: the open mark, old hours or closure it replaces are
+       * outranked (or, for the closure, reopened through its own dialog, which can be cancelled).
+       */
+      const tidyAfter = (holiday: NamedHoliday) => async (): Promise<void> => {
+        const { state: from } = holiday;
+        // Best effort: the new rule outranks all of them, so a failure here leaves the line right.
+        if (from.kind === "openAsUsual") {
+          await clear.mutateAsync({ venueId, serviceDate: holiday.date }).catch(() => undefined);
+        }
+        if (from.kind === "closed") flow.onReopen(from.ruleId, () => undefined);
+        if (from.kind === "specialHours") {
+          try {
+            const fresh = await api.availability.getConfig(venueId);
+            await removeRule(from.ruleId, fresh.version);
+          } catch {
+            // The closure outranks the old hours; nothing is wrong on screen.
+          }
+        }
+      };
+    
+      /** Presses `to` on `holiday`: a save, or the sheet or dialog that makes it. */
+      const decide = (holiday: NamedHoliday, to: HolidayChoice): void => {
+        const { state: from } = holiday;
+        if (to === from.kind) {
+          if (to === "specialHours") flow.onEditHours(holiday.date);
+          return;
+        }
+        if (to === "openAsUsual") {
+          if (from.kind === "closed") {
+            flow.onReopen(
+              from.ruleId,
+              () => void openAsUsual({ ...holiday, state: { kind: "undecided" } })
+            );
+          } else {
+            void openAsUsual(holiday);
+          }
+          return;
+        }
+        const row = plannedOf(holiday, to === "closed" ? "closed" : "hours");
+        // The sheet is the save: the line is saving until it closes, and nothing else is pressed.
+        setStatus(holiday.date, { phase: "saving", to });
+        const request: HolidaySheetRequest = {
+          ...(from.kind === "undecided" ? {} : { afterSaved: tidyAfter(holiday) }),
+          onSettled: () => setStatus(holiday.date, null),
+        };
+        if (to === "closed") {
+          const names = `${holiday.name}, ${holiday.dateLabel}`;
+          flow.onClose([row], t("availabilitySpecial.holidays.closedToast", { names }), request);
+        } else {
+          flow.onSpecialHours(row, request);
+        }
+      };
+    
+      /** Closes several holidays in one sheet: every one of them is saving until it closes. */
+      const closeMany = (holidays: readonly NamedHoliday[], title: string): void => {
+        for (const h of holidays) setStatus(h.date, { phase: "saving", to: "closed" });
+        flow.onClose(
+          holidays.map((h) => plannedOf(h, "closed")),
+          title,
+          { onSettled: () => holidays.forEach((h) => setStatus(h.date, null)) }
+        );
+      };
+    
+      const retry = (holiday: NamedHoliday): void => {
+        const to = statuses.get(holiday.date)?.to;
+        if (to) decide(holiday, to);
+      };
+    
+      const busy = [...statuses.values()].some((s) => s.phase === "saving");
+      return { statuses, busy, decide, closeMany, retry };
+    }
+  </file>
   <file path="src/components/availability/use-holidays.ts">
     function addressCountry(profile: unknown): string | undefined {
       if (typeof profile !== "object" || profile === null) return undefined;
@@ -5872,9 +6165,12 @@
       readonly fixedStart?: string;
       /** Replaces the saved regular week as the starting draft (it is dirty when it differs). */
       readonly initialDraft?: QuickSetupDraft;
+      /** Starting, prefilled (Copy → Every week). The Manager can change it; it counts as an edit. */
+      readonly initialStartsOn?: string;
     }
     export function useRegularWeekEdit(input: RegularWeekEditInput) {
-      const { venueId, state, onStale, onSaved, onGone, fixedStart, initialDraft } = input;
+      const { venueId, state, onStale, onSaved, onGone, fixedStart, initialDraft, initialStartsOn } =
+        input;
       const { config } = state;
       const { t } = useTranslation();
       const format = useVenueFormat();
@@ -5886,7 +6182,7 @@
       const [draft, setDraft] = useState<QuickSetupDraft>(() => initialDraft ?? weekOf(config));
       /** The weekday the Manager touched last: the preview opens on it. */
       const [edited, setEdited] = useState<number | null>(null);
-      const [pickedStart, setStartsOn] = useState<string | null>(null);
+      const [pickedStart, setStartsOn] = useState<string | null>(initialStartsOn ?? null);
       const [pickedEnd, setEndsOn] = useState<string | null>(null);
       const [name, setName] = useState("");
       const [winner, setWinner] = useState<Winner>("new");
@@ -8146,6 +8442,14 @@
       );
       await page.route(/\/api\/v1\/venues\/[^/?]+\/closures\/[^/?]+\/call-list$/, (route) =>
         jsonOk(route, [])
+      );
+    
+      // Holiday decisions ("open as usual"): none saved. Every /availability load asks for them, so
+      // without a mock the request reaches the real service in CI with a made-up venue id (the CI run
+      // showed the session-renew banner on pages that loaded it). Only GET; a spec's own stateful mock
+      // (helpers/shared-config-mock.ts) is registered later and answers first.
+      await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/holiday-decisions(\?|$)/, (route) =>
+        route.request().method() === "GET" ? jsonOk(route, []) : route.fallback()
       );
     
       // Venue Groups
@@ -11063,6 +11367,140 @@
       return { requests: () => requests };
     }
   </file>
+  <file path="e2e/helpers/shared-config-mock.ts">
+    export interface DecisionCall {
+      readonly method: "PUT" | "DELETE";
+      readonly date: string;
+      readonly body: unknown;
+    }
+    export interface ConfigPut {
+      readonly expectedVersion: number;
+      readonly changes: AvailabilityConfigChanges;
+    }
+    export interface SharedConfigStore {
+      config: AvailabilityConfig;
+      version: number;
+      /** `serviceDate` to the instant it was decided. */
+      readonly decisions: Map<string, string>;
+      readonly decisionCalls: DecisionCall[];
+      readonly configPuts: ConfigPut[];
+      /** The bodies `POST …/closures/batch` carried. */
+      readonly batches: Array<{ items: Array<{ rule: DateRule }> }>;
+      /** The next this many `PUT` decisions answer 404, as a server without the routes would. */
+      failDecisionPuts: number;
+      /** Reads of the decision list, to show a page asked once. */
+      decisionReads: number;
+    }
+    export function createSharedConfig(config: AvailabilityConfig, version = 7): SharedConfigStore {
+      return {
+        config,
+        version,
+        decisions: new Map(),
+        decisionCalls: [],
+        configPuts: [],
+        batches: [],
+        failDecisionPuts: 0,
+        decisionReads: 0,
+      };
+    }
+    export async function serveSharedConfig(page: Page, store: SharedConfigStore): Promise<void> {
+      const venues = JSON.parse(loadFixture("venues-list")) as {
+        data: Array<{ id: string; ianaTimezone: string }>;
+      };
+      const venueId = String(venues.data[0]?.id);
+      const timezone = String(venues.data[0]?.ianaTimezone);
+      const base = `**/api/v1/venues/${venueId}`;
+    
+      await page.route(`${base}/availability/config`, (route) => {
+        if (route.request().method() === "PUT") {
+          const body = route.request().postDataJSON() as ConfigPut;
+          store.configPuts.push(body);
+          store.config = applyChanges(store.config, body.changes, new Date().toISOString());
+          store.version += 1;
+          return route.fulfill(json({ version: store.version, changeId: `change-${store.version}` }));
+        }
+        return route.fulfill(json({ config: store.config, version: store.version, source: "rows" }));
+      });
+      await serveDaysAndPreview(page, base, timezone, () => ({
+        config: store.config,
+        version: store.version,
+      }));
+      await page.route(`${base}/availability/changes*`, (route) =>
+        route.fulfill(json({ total: 0, offset: 0, items: [], undoable: null }))
+      );
+    
+      await page.route(`${base}/closures/impact`, (route) =>
+        route.fulfill(json({ reservations: 0, covers: 0, depositsHeld: 0, groups: [] }))
+      );
+      await page.route(`${base}/closures/batch`, (route) => {
+        const body = route.request().postDataJSON() as { items: Array<{ rule: DateRule }> };
+        store.batches.push(body);
+        store.config = {
+          ...store.config,
+          dateRules: [...store.config.dateRules, ...body.items.map((item) => item.rule)],
+        };
+        store.version += 1;
+        return route.fulfill(
+          json({
+            version: store.version,
+            results: body.items.map((item) => ({
+              ruleId: item.rule.id,
+              version: store.version,
+              changeId: `change-${store.version}`,
+              outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+            })),
+          })
+        );
+      });
+    
+      await page.route(
+        new RegExp(
+          `/api/v1/venues/${venueId}/availability/holiday-decisions(?:/(\\d{4}-\\d{2}-\\d{2}))?(?:\\?.*)?$`
+        ),
+        (route) => {
+          const request = route.request();
+          const date = /holiday-decisions\/(\d{4}-\d{2}-\d{2})/.exec(request.url())?.[1];
+          if (request.method() === "GET") {
+            store.decisionReads += 1;
+            const { searchParams } = new URL(request.url());
+            const from = searchParams.get("from") ?? "0000-00-00";
+            const to = searchParams.get("to") ?? addDays(from, 400);
+            const rows = [...store.decisions]
+              .filter(([d]) => d >= from && d <= to)
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([serviceDate, createdAt]) => ({
+                serviceDate,
+                decision: "open_as_usual",
+                createdAt,
+              }));
+            return route.fulfill(json(rows));
+          }
+          if (date === undefined) return route.fallback();
+          const method = request.method() === "DELETE" ? "DELETE" : "PUT";
+          store.decisionCalls.push({
+            method,
+            date,
+            body: method === "PUT" ? request.postDataJSON() : null,
+          });
+          if (method === "DELETE") {
+            store.decisions.delete(date);
+            return route.fulfill({ status: 204 });
+          }
+          if (store.failDecisionPuts > 0) {
+            store.failDecisionPuts -= 1;
+            return route.fulfill({
+              status: 404,
+              contentType: "application/problem+json",
+              body: JSON.stringify({ type: "about:blank", title: "Not Found", status: 404 }),
+            });
+          }
+          const createdAt = store.decisions.get(date) ?? new Date().toISOString();
+          store.decisions.set(date, createdAt);
+          return route.fulfill(json({ serviceDate: date, decision: "open_as_usual", createdAt }));
+        }
+      );
+    }
+  </file>
   <file path="e2e/helpers/week-dates.ts">
     export const WEEKDAYS = [
       "Monday",
@@ -13007,6 +13445,35 @@
       onSuccess: (queryClient, _data, variables) => {
         queryClient.invalidateQueries({ queryKey: [GUESTS_QUERY_KEY, { id: variables.guestId }] });
       },
+    });
+  </file>
+  <file path="src/hooks/useHolidayDecisions.ts">
+    export const useHolidayDecisions = createQueryHook<
+      HolidayDecision[] | null,
+      { venueId: string | null; from: string; to: string }
+    >({
+      key: HOLIDAY_DECISIONS_QUERY_KEY,
+      fetcher: async (params, api) =>
+        params?.venueId
+          ? api.availability.listHolidayDecisions(params.venueId, { from: params.from, to: params.to })
+          : null,
+      getEnabled: (params) => !!params?.venueId && params.enabled !== false,
+    });
+    export const useSetHolidayDecision = createMutationHook<
+      { venueId: string; serviceDate: string; decision: HolidayDecisionKind },
+      HolidayDecision
+    >({
+      invalidateKeys: [HOLIDAY_DECISIONS_QUERY_KEY],
+      mutationFn: (api, { venueId, serviceDate, decision }) =>
+        api.availability.setHolidayDecision(venueId, serviceDate, decision),
+    });
+    export const useClearHolidayDecision = createMutationHook<
+      { venueId: string; serviceDate: string },
+      void
+    >({
+      invalidateKeys: [HOLIDAY_DECISIONS_QUERY_KEY],
+      mutationFn: (api, { venueId, serviceDate }) =>
+        api.availability.clearHolidayDecision(venueId, serviceDate),
     });
   </file>
   <file path="src/hooks/useIsAdmin.ts">

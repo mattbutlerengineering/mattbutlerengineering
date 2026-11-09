@@ -19,6 +19,12 @@ const failure = {
 
 const NEVER_RETRIED = 15_000;
 
+/**
+ * A week with a closed Sunday: Copy leaves out the days that already have the copied hours, so a
+ * Copy that saves needs one day that differs.
+ */
+const COPYABLE = { weekdays: [1, 2, 3, 4, 5, 6] };
+
 async function openDay(page: Page, label: RegExp) {
   await page.goto("availability?tab=calendar");
   await page.locator("[data-date]").first().waitFor();
@@ -160,22 +166,24 @@ test("a stranded list stays out of the alert, and a long name wraps", async ({
 });
 
 test.describe("Reload hours", () => {
-  async function copyToMonday(page: Page) {
+  async function copyToOtherDays(page: Page) {
     await page.getByRole("button", { name: "Copy to other days…" }).click();
     const copy = page.getByRole("dialog", { name: /to other days/ });
-    await copy.locator("label").filter({ hasText: /^Mon/ }).click();
-    await copy.getByRole("button", { name: /^Copy to \d+/ }).click();
+    // Every day: the copied hours reach the closed Sunday of that week (the days that already
+    // have them are left out), so the copy saves a one-off for it.
+    await copy.getByRole("button", { name: "Every day" }).click();
+    await copy.getByRole("button", { name: /^Copy to / }).click();
     await expect(copy).toHaveCount(0);
   }
 
   test("a normal reload moves nothing and offers no button", async ({ mockedPage: page }) => {
-    const mock = await mockAvailability(page);
+    const mock = await mockAvailability(page, COPYABLE);
     await openDay(page, /Regular week/);
     const copy = page.getByRole("button", { name: "Copy to other days…" });
     const before = await copy.boundingBox();
 
     mock.holdReads();
-    await copyToMonday(page);
+    await copyToOtherDays(page);
     await expect(page.getByText("Edit once the newest hours have loaded.")).toBeVisible();
     expect((await copy.boundingBox())?.y).toBe(before?.y);
     await expect(page.getByRole("button", { name: "Reload hours" })).toHaveCount(0);
@@ -188,11 +196,11 @@ test.describe("Reload hours", () => {
   test("a hold that lasts offers it, and a click that ends the hold lands on Edit", async ({
     mockedPage: page,
   }) => {
-    const mock = await mockAvailability(page);
+    const mock = await mockAvailability(page, COPYABLE);
     await openDay(page, /Regular week/);
     // A replica behind the writes: the read answers with a version older than the save.
     mock.readVersion = mock.version;
-    await copyToMonday(page);
+    await copyToOtherDays(page);
     const reload = page.getByRole("button", { name: "Reload hours" });
     await expect(reload).toBeVisible({ timeout: 4000 });
 
@@ -205,10 +213,10 @@ test.describe("Reload hours", () => {
   test("a read answering after the Manager moved on leaves focus where it is", async ({
     mockedPage: page,
   }) => {
-    const mock = await mockAvailability(page);
+    const mock = await mockAvailability(page, COPYABLE);
     await openDay(page, /Regular week/);
     mock.holdReads();
-    await copyToMonday(page);
+    await copyToOtherDays(page);
     const reload = page.getByRole("button", { name: "Reload hours" });
     await expect(reload).toBeVisible({ timeout: 4000 });
     await reload.click();
@@ -223,10 +231,10 @@ test.describe("Reload hours", () => {
   test("the hold ending under focus on Reload lands on Edit, with no click", async ({
     mockedPage: page,
   }) => {
-    const mock = await mockAvailability(page);
+    const mock = await mockAvailability(page, COPYABLE);
     await openDay(page, /Regular week/);
     mock.holdReads();
-    await copyToMonday(page);
+    await copyToOtherDays(page);
     const reload = page.getByRole("button", { name: "Reload hours" });
     await expect(reload).toBeVisible({ timeout: 4000 });
     await reload.focus();
@@ -239,9 +247,9 @@ test.describe("Reload hours", () => {
   test("a double-clicked Undo sends one revert and keeps focus in the drawer", async ({
     mockedPage: page,
   }) => {
-    const mock = await mockAvailability(page);
+    const mock = await mockAvailability(page, COPYABLE);
     const dialog = await openDay(page, /Regular week/);
-    await copyToMonday(page);
+    await copyToOtherDays(page);
 
     await page.getByRole("button", { name: "Undo" }).dblclick();
     await expect(page.getByText("Change undone")).toBeVisible();
@@ -338,7 +346,7 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
 test("a refused Undo lists its bookings above the Close dialog that is open (#8042)", async ({
   mockedPage: page,
 }) => {
-  await mockAvailability(page);
+  await mockAvailability(page, COPYABLE);
   await page.route("**/availability/changes/*/revert", (route) =>
     route.fulfill({
       status: 409,
@@ -365,8 +373,8 @@ test("a refused Undo lists its bookings above the Close dialog that is open (#80
   const day = await openDay(page, /Regular week/);
   await page.getByRole("button", { name: "Copy to other days…" }).click();
   const copy = page.getByRole("dialog", { name: /to other days/ });
-  await copy.locator("label").filter({ hasText: /^Mon/ }).click();
-  await copy.getByRole("button", { name: /^Copy to \d+/ }).click();
+  await copy.getByRole("button", { name: "Every day" }).click();
+  await copy.getByRole("button", { name: /^Copy to / }).click();
   await expect(copy).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(day).toHaveCount(0);

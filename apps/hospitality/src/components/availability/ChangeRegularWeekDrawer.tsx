@@ -34,6 +34,8 @@ export interface ChangeRegularWeekDrawerProps {
   readonly onSaved?: (saved: AvailabilityConfigSaveResult) => void;
   /** Replaces the saved regular week as the draft (Starting later… from the week panel). */
   readonly initialDraft?: QuickSetupDraft;
+  /** Starting, prefilled (Copy → Every week). It counts as a change, so Cancel asks first. */
+  readonly initialStartsOn?: string;
 }
 
 /**
@@ -45,7 +47,7 @@ export interface ChangeRegularWeekDrawerProps {
  */
 export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
   const viewport = useViewport();
-  const { venueId, state, today, onStale, onClose, onSaved, initialDraft } = props;
+  const { venueId, state, today, onStale, onClose, onSaved, initialDraft, initialStartsOn } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const dayName = useWeekdayName();
@@ -92,6 +94,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
     },
     onGone: onClose,
     initialDraft,
+    initialStartsOn,
   });
   // Escape, the backdrop and Cancel all ask first while there is something to lose.
   const guard = useDiscardGuard<void>(onClose, dirty);

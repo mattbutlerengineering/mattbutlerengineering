@@ -24,6 +24,9 @@ const retry = vi.hoisted(() => vi.fn());
 const saveConfig = vi.hoisted(() => vi.fn());
 const previewImpact = vi.hoisted(() => vi.fn());
 const createClosure = vi.hoisted(() => vi.fn());
+const holidayDecisions = vi.hoisted(() => ({ value: [] as unknown[] }));
+const setDecision = vi.hoisted(() => vi.fn());
+const clearDecision = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useClosures.js", () => ({
   useClosureSummaries: () => ({
@@ -47,6 +50,19 @@ vi.mock("../../hooks/useRefreshAvailability.js", () => ({ useRefreshAvailability
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: saveConfig, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: revertChange, isPending: false }),
+}));
+vi.mock("../../hooks/useHolidayDecisions.js", () => ({
+  useHolidayDecisions: () => ({
+    data: holidayDecisions.value,
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  }),
+  useSetHolidayDecision: () => ({ mutateAsync: setDecision, isPending: false }),
+  useClearHolidayDecision: () => ({ mutateAsync: clearDecision, isPending: false }),
+}));
+vi.mock("../../hooks/useApiClient.js", () => ({
+  useApiClient: () => ({ availability: { getConfig: vi.fn() } }),
 }));
 vi.mock("./AvailabilityGuestPreview.js", () => ({
   AvailabilityGuestPreview: () => <div data-testid="guest-preview" />,
@@ -214,107 +230,263 @@ describe("SpecialDatesTab", () => {
     expect(screen.queryByRole("button", { name: "Add special date" })).toBeNull();
   });
 
-  it("offers a Manager the coming holidays no rule covers, each opening Add special date on it", () => {
+  it("shows a Manager the coming holidays and a Host the same panel read-only", () => {
     const { unmount } = renderTab(true);
     const panel = screen.getByRole("region", { name: "Upcoming holidays" });
-    const names = within(panel)
-      .getAllByRole("listitem")
-      .map((li) => li.firstChild?.textContent);
-    // Dec 24 is already closed; Easter (Mar 28) is the last date inside 120 days of Dec 1.
-    expect(names).toEqual([
-      "Christmas Day",
-      "New Year’s Eve",
-      "New Year’s Day",
-      "Valentine’s Day",
-      "Easter Sunday",
-    ]);
+    // Dec 24 is already closed, so it is decided; the first five undecided show.
+    expect(
+      within(panel)
+        .getAllByRole("listitem")
+        .filter((li) => within(li).queryByRole("group"))
+        .slice(0, 4)
+        .map((li) => li.firstChild?.textContent)
+    ).toEqual(["Christmas Day", "New Year’s Eve", "New Year’s Day", "Valentine’s Day"]);
+    expect(within(panel).getByRole("button", { name: "Decided (1)" })).toBeTruthy();
+    unmount();
 
+    renderTab(false);
+    const host = screen.getByRole("region", { name: "Upcoming holidays" });
+    expect(within(host).queryByRole("group")).toBeNull();
+    expect(within(host).getAllByText("Not decided").length).toBeGreaterThan(0);
+  });
+
+  it("Closed on a holiday saves it straight through the closure path when no booking is affected", async () => {
+    previewImpact.mockResolvedValue([{ reservations: 0, covers: 0, depositsHeld: 0, groups: [] }]);
+    createClosure.mockResolvedValue({
+      version: 8,
+      results: [
+        {
+          ruleId: "r",
+          version: 8,
+          changeId: "c",
+          outcomes: { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0 },
+        },
+      ],
+    });
+    renderTab(true);
     fireEvent.click(
-      within(panel).getByRole("button", { name: "Plan Christmas Day, Fri, Dec 25…" })
+      within(screen.getByRole("group", { name: "Christmas Day, Fri, Dec 25" })).getByRole(
+        "button",
+        {
+          name: "Closed",
+        }
+      )
+    );
+
+    await waitFor(() => expect(createClosure).toHaveBeenCalledTimes(1));
+    expect(createClosure.mock.calls[0]![0].body.items[0].rule).toMatchObject({
+      kind: "closure",
+      targetKind: "venue",
+      startsOn: "2026-12-25",
+      endsOn: "2026-12-25",
+    });
+    expect(await screen.findByText("Closed on Christmas Day, Fri, Dec 25")).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Add special dates" })).toBeNull();
+  });
+
+  it("Closed with bookings affected shows the sheet's one question first", async () => {
+    previewImpact.mockResolvedValue([
+      {
+        reservations: 1,
+        covers: 2,
+        depositsHeld: 0,
+        groups: [
+          {
+            groupKey: "2026-12-25:closed",
+            date: "2026-12-25",
+            kind: "closed",
+            covers: 2,
+            depositsHeld: 0,
+            reservations: [
+              {
+                id: "b1",
+                startTime: "2026-12-25T17:30:00Z",
+                endTime: "2026-12-25T19:00:00Z",
+                partySize: 2,
+                guestName: "Guest One",
+                deposit: null,
+                runsIntoClosure: false,
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    renderTab(true);
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Christmas Day, Fri, Dec 25" })).getByRole(
+        "button",
+        {
+          name: "Closed",
+        }
+      )
+    );
+    const sheet = await screen.findByRole("dialog", { name: "Add special dates" });
+    expect(within(sheet).getByRole("radiogroup", { name: /What should happen/ })).toBeTruthy();
+    expect(createClosure).not.toHaveBeenCalled();
+  });
+
+  it("Close these 3 closes the usually-closed holidays still undecided in one save", async () => {
+    // From Dec 1 the twelve months hold Christmas Day, New Year's Day and next year's Thanksgiving.
+    previewImpact.mockResolvedValue(
+      Array.from({ length: 3 }, () => ({ reservations: 0, covers: 0, depositsHeld: 0, groups: [] }))
+    );
+    createClosure.mockResolvedValue({ version: 8, results: [] });
+    renderTab(true);
+    fireEvent.click(screen.getByRole("button", { name: "Close these 3" }));
+
+    await waitFor(() => expect(createClosure).toHaveBeenCalledTimes(1));
+    expect(
+      createClosure.mock.calls[0]![0].body.items.map((i: { rule: DateRule }) => i.rule.startsOn)
+    ).toEqual(["2026-12-25", "2027-01-01", "2027-11-25"]);
+    expect(
+      await screen.findByText("Closed on Christmas Day, New Year’s Day, and Thanksgiving")
+    ).toBeTruthy();
+    expect(setDecision).not.toHaveBeenCalled();
+  });
+
+  it("blocks a second Closed press while the first holiday's closure is in flight, then closes the second as its own", async () => {
+    let finish: (value: unknown[]) => void = () => undefined;
+    const promise = new Promise<unknown[]>((resolve) => {
+      finish = resolve;
+    });
+    previewImpact.mockReturnValueOnce(promise);
+    createClosure.mockResolvedValue({ version: 8, results: [] });
+    renderTab(true);
+    const closed = (name: string) =>
+      within(screen.getByRole("group", { name })).getByRole("button", { name: "Closed" });
+    fireEvent.click(closed("Christmas Day, Fri, Dec 25"));
+    expect(closed("Christmas Day, Fri, Dec 25")).toBeDisabled();
+    expect(closed("New Year’s Eve, Thu, Dec 31")).toBeDisabled();
+    fireEvent.click(closed("New Year’s Eve, Thu, Dec 31"));
+    expect(previewImpact).toHaveBeenCalledTimes(1);
+
+    finish([{ reservations: 0, covers: 0, depositsHeld: 0, groups: [] }]);
+    await waitFor(() => expect(createClosure).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(closed("New Year’s Eve, Thu, Dec 31")).toBeEnabled());
+
+    previewImpact.mockResolvedValue([{ reservations: 0, covers: 0, depositsHeld: 0, groups: [] }]);
+    fireEvent.click(closed("New Year’s Eve, Thu, Dec 31"));
+    await waitFor(() => expect(createClosure).toHaveBeenCalledTimes(2));
+    expect(createClosure.mock.calls[0]![0].body.items[0].rule.startsOn).toBe("2026-12-25");
+    expect(createClosure.mock.calls[1]![0].body.items[0].rule.startsOn).toBe("2026-12-31");
+  });
+  it("Special hours… opens Add special date on that date, starting from an hours row", () => {
+    renderTab(true);
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Christmas Day, Fri, Dec 25" })).getByRole(
+        "button",
+        {
+          name: "Special hours…",
+        }
+      )
     );
     const sheet = screen.getByRole("dialog", { name: "Add special dates" });
     const dates = within(sheet).getAllByLabelText("Date") as HTMLInputElement[];
     expect(dates.map((d) => d.value)).toEqual(["Dec 25, 2026"]);
     expect(within(sheet).getByRole("group", { name: "Date 1: Christmas Day" })).toBeTruthy();
-    // The row offers the holiday's message, as the Close dialog does.
-    fireEvent.click(within(sheet).getByText("Closed for Christmas Day"));
-    expect(within(sheet).getByLabelText(/Message for guests/)).toHaveValue(
-      "Closed for Christmas Day"
-    );
-    unmount();
-
-    renderTab(false);
-    expect(screen.queryByRole("region", { name: "Upcoming holidays" })).toBeNull();
+    // No regular week here: there are no usual hours to start from, so the row starts Closed.
+    expect(within(sheet).getByRole("radio", { name: "Closed", checked: true })).toBeTruthy();
   });
 
-  it("plans every coming holiday at once, one row each, named for its holiday", () => {
-    renderTab(true);
-    fireEvent.click(screen.getByRole("button", { name: "Plan all 5…" }));
-    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
-    expect(within(sheet).getAllByLabelText("Date")).toHaveLength(5);
-    expect(within(sheet).getByRole("group", { name: "Date 5: Easter Sunday" })).toBeTruthy();
-    // No regular week here: there are no usual hours to start from, so every row starts Closed.
-    expect(within(sheet).getAllByRole("radio", { name: "Closed", checked: true })).toHaveLength(5);
-  });
-
-  it("starts a day most venues open from its usual hours, and a usual closing day as Closed", () => {
+  it("starts a Special hours… row from the weekday's usual hours", () => {
     renderTab(true, {
       ...STATE,
       config: { ...DEMO_WEEK_CONFIG, dateRules: RULES },
     } as AvailabilityConfigState);
-    fireEvent.click(screen.getByRole("button", { name: "Plan all 5…" }));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Valentine’s Day, Sun, Feb 14" })).getByRole(
+        "button",
+        { name: "Special hours…" }
+      )
+    );
     const sheet = screen.getByRole("dialog", { name: "Add special dates" });
-    const kind = (legend: string) =>
-      within(within(sheet).getByRole("group", { name: legend }))
-        .getAllByRole("radio")
-        .find((r) => r.getAttribute("aria-checked") === "true")?.textContent;
-    expect(kind("Date 1: Christmas Day")).toBe("Closed");
-    expect(kind("Date 3: New Year’s Day")).toBe("Closed");
-    expect(kind("Date 2: New Year’s Eve")).toBe("Special hours");
-    expect(kind("Date 4: Valentine’s Day")).toBe("Special hours");
+    expect(within(sheet).getByRole("radio", { name: "Special hours", checked: true })).toBeTruthy();
     // Valentine's Day is a Sunday: the row starts from Sunday's Brunch and Dinner.
-    const valentines = within(sheet).getByRole("group", { name: "Date 4: Valentine’s Day" });
     expect(
-      within(valentines)
+      within(sheet)
         .getAllByLabelText("Closes")
         .map((c) => (c as HTMLInputElement).value)
     ).toEqual(["2:00 PM", "11:00 PM"]);
   });
 
-  it("Open as usual drops a holiday for this venue, and it stays dropped across a reload", () => {
-    localStorage.clear();
-    const names = () =>
-      within(screen.getByRole("region", { name: "Upcoming holidays" }))
-        .getAllByRole("listitem")
-        .map((li) => li.firstChild?.textContent);
-    const { unmount } = renderTab(true);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Valentine’s Day, Sun, Feb 14: open as usual" })
-    );
-    expect(names()).not.toContain("Valentine’s Day");
-    expect(screen.getByRole("region", { name: "Upcoming holidays" })).toHaveFocus();
-    expect(screen.getByRole("button", { name: "Plan all 4…" })).toBeTruthy();
-    unmount();
-
-    // A fresh mount reads the mark back.
+  it("Open as usual saves the decision for the date", async () => {
+    setDecision.mockResolvedValue({
+      serviceDate: "2026-12-24",
+      decision: "open_as_usual",
+      createdAt: "2026-12-01T00:00:00Z",
+    });
     renderTab(true);
-    expect(names()).not.toContain("Valentine’s Day");
-    localStorage.clear();
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Valentine’s Day, Sun, Feb 14" })).getByRole(
+        "button",
+        { name: "Open as usual" }
+      )
+    );
+    await waitFor(() =>
+      expect(setDecision).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        serviceDate: "2027-02-14",
+        decision: "open_as_usual",
+      })
+    );
+    expect(await screen.findByText("Valentine’s Day: open as usual")).toBeTruthy();
   });
 
-  it("Undo after Open as usual offers the holiday again", async () => {
-    localStorage.clear();
+  it("changing a closed holiday to Open as usual reopens the closure, then writes the decision", async () => {
+    setDecision.mockResolvedValue({
+      serviceDate: "2026-12-24",
+      decision: "open_as_usual",
+      createdAt: "2026-12-01T00:00:00Z",
+    });
     renderTab(true);
-    fireEvent.click(
-      screen.getByRole("button", { name: "Christmas Day, Fri, Dec 25: open as usual" })
-    );
-    expect(await screen.findByText("Christmas Day: open as usual")).toBeTruthy();
-    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
     const panel = screen.getByRole("region", { name: "Upcoming holidays" });
-    expect(within(panel).getByText("Christmas Day")).toBeTruthy();
-    expect(
-      JSON.parse(localStorage.getItem("mbe-availability-open-as-usual:venue-1") ?? "[]")
-    ).toEqual([]);
+    fireEvent.click(within(panel).getByRole("button", { name: "Decided (1)" }));
+    fireEvent.click(
+      within(panel).getByRole("button", { name: "Change Christmas Eve, Thu, Dec 24" })
+    );
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Christmas Eve, Thu, Dec 24" })).getByRole(
+        "button",
+        {
+          name: "Open as usual",
+        }
+      )
+    );
+
+    // The closure's own Reopen dialog comes first; the decision waits for it.
+    const dialog = await screen.findByRole("dialog");
+    expect(setDecision).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole("button", { name: /^Reopen/ }));
+    await waitFor(() => expect(reopen).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(setDecision).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        serviceDate: "2026-12-24",
+        decision: "open_as_usual",
+      })
+    );
+  });
+
+  it("leaves the decision unwritten when the Reopen dialog is cancelled", async () => {
+    renderTab(true);
+    const panel = screen.getByRole("region", { name: "Upcoming holidays" });
+    fireEvent.click(within(panel).getByRole("button", { name: "Decided (1)" }));
+    fireEvent.click(
+      within(panel).getByRole("button", { name: "Change Christmas Eve, Thu, Dec 24" })
+    );
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Christmas Eve, Thu, Dec 24" })).getByRole(
+        "button",
+        {
+          name: "Open as usual",
+        }
+      )
+    );
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: /^Keep/ }));
+    expect(setDecision).not.toHaveBeenCalled();
+    expect(reopen).not.toHaveBeenCalled();
   });
 
   it("skips one date of a repeating closure and leaves the series alone", async () => {

@@ -366,6 +366,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             <CopyDayAction
               waiting={waiting}
               reasonId={reasonId}
+              timezone={editing.timezone}
               today={editing.today}
               venueId={editing.venueId}
               state={editing.state}

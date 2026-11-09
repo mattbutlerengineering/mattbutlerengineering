@@ -85,8 +85,14 @@ export interface DayPickerProps {
   readonly legend: string;
   readonly days: readonly number[];
   readonly onChange: (days: readonly number[]) => void;
-  readonly draft: QuickSetupDraft;
-  readonly problems: readonly QuickSetupIssue[];
+  /** With `problems`: where the problems with these days are said. Without them, none are. */
+  readonly draft?: QuickSetupDraft;
+  readonly problems?: readonly QuickSetupIssue[];
+  /**
+   * Days shown ticked and unchangeable (Copy's own weekday). `onChange` never includes them, so
+   * the caller keeps only the days it can still choose.
+   */
+  readonly lockedDays?: readonly number[];
   /** The fieldset's DOM id, so the card can move focus to it. */
   readonly id: string;
   readonly ref?: Ref<HTMLFieldSetElement>;
@@ -123,24 +129,39 @@ export function DayShortcuts({
 }
 
 /** A group of day shortcuts and the seven weekdays: the shared Days and a service's own days. */
-export function DayPicker({ legend, days, onChange, draft, problems, id, ref }: DayPickerProps) {
+export function DayPicker({
+  legend,
+  days,
+  onChange,
+  draft,
+  problems,
+  lockedDays = [],
+  id,
+  ref,
+}: DayPickerProps) {
   const dayName = useWeekdayName();
+  const choose = (next: readonly number[]) =>
+    onChange(next.filter((day) => !lockedDays.includes(day)));
   return (
     <fieldset className={styles.days} id={id} ref={ref} tabIndex={-1}>
       <legend className={styles.legend}>{legend}</legend>
       <Stack gap="sm">
-        <DayShortcuts onChange={onChange} />
+        <DayShortcuts onChange={choose} />
         <div className={styles.dayToggles}>
-          {WEEK_DISPLAY_ORDER.map((day) => (
-            <Checkbox
-              key={day}
-              label={dayName(day)}
-              checked={days.includes(day)}
-              onCheckedChange={() => onChange(toggleDayIn(days, day))}
-            />
-          ))}
+          {WEEK_DISPLAY_ORDER.map((day) => {
+            const locked = lockedDays.includes(day);
+            return (
+              <Checkbox
+                key={day}
+                label={dayName(day)}
+                checked={locked || days.includes(day)}
+                disabled={locked}
+                onCheckedChange={() => choose(toggleDayIn(days, day))}
+              />
+            );
+          })}
         </div>
-        <IssueText problems={problems} draft={draft} />
+        {draft && problems && <IssueText problems={problems} draft={draft} />}
       </Stack>
     </fieldset>
   );

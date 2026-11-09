@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -27,6 +27,7 @@ import { CloseDialog } from "./CloseDialog.js";
 import { isEditableClosure } from "./close-draft.js";
 import { EditClosureDialog } from "./EditClosureDialog.js";
 import { UpcomingHolidays } from "./UpcomingHolidays.js";
+import type { HolidaySheetRequest } from "./use-holiday-decision.js";
 import { useHolidayNames } from "./use-holidays.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
@@ -62,6 +63,8 @@ export interface SpecialDatesTabProps {
   readonly isManager: boolean;
   /** Section names by id, so a section closure reads "Bar closed" (ADR-032). */
   readonly sectionNames?: ReadonlyMap<string, string>;
+  /** Opens a date in the day drawer (Calendar): where a holiday decided by a rule this tab does not own is changed. */
+  readonly onOpenDay?: (date: string) => void;
 }
 
 const FILTERS: readonly SpecialDatesFilter[] = [
@@ -273,7 +276,7 @@ function SpecialDateItem(props: RowProps) {
  */
 export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const viewport = useViewport();
-  const { venueId, state, timezone, today, onStale, reloadError, isManager } = props;
+  const { venueId, state, timezone, today, onStale, reloadError, isManager, onOpenDay } = props;
   const { sectionNames } = props;
   const rules = state.config.dateRules;
   const { t } = useTranslation();
@@ -287,8 +290,24 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [editingClosure, setEditingClosure] = useState<DateRule | null>(null);
   const [editingSeries, setEditingSeries] = useState<DateRule | null>(null);
   const [editingDate, setEditingDate] = useState<{ series: DateRule; date: string } | null>(null);
-  // The dates Add special date opens with: `[]` for one empty row, `null` while it is shut.
-  const [adding, setAdding] = useState<readonly PlannedDate[] | null>(null);
+  // What Add special date opens with: `rows` is `[]` for one empty row; `null` while it is shut.
+  // A holiday sent here is closed straight through (`autoNext`), named in the toast, and may need
+  // something done once it is saved (clear the open mark). Each request has its own `id`, which
+  // keys the sheet: it reads its rows once, so a new request is a new sheet, never the old one.
+  const [adding, setAdding] = useState<{
+    id: number;
+    rows: readonly PlannedDate[];
+    autoNext?: boolean;
+    savedTitle?: string;
+    request?: HolidaySheetRequest;
+  } | null>(null);
+  const addRequestsRef = useRef(0);
+  const openSheet = (sheet: Omit<NonNullable<typeof adding>, "id">) => {
+    addRequestsRef.current += 1;
+    setAdding({ ...sheet, id: addRequestsRef.current });
+  };
+  // What a holiday does once its closure is reopened (the reopen is one step of a chain).
+  const [afterReopen, setAfterReopen] = useState<(() => void) | undefined>(undefined);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const [editingHours, setEditingHours] = useState<{
     date: string;
@@ -415,7 +434,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           />
         )}
         {isManager && (
-          <Button variant="primary" onClick={() => setAdding([])}>
+          <Button variant="primary" onClick={() => openSheet({ rows: [] })}>
             {t("availabilitySpecial.add.open")}
           </Button>
         )}
@@ -429,13 +448,26 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
       )}
       {/* Outside the alert, which would read every row aloud. */}
       {rowSave.failure.length > 0 && <StrandedBookings reservations={rowSave.stranded} />}
-      {isManager && filter !== "past" && (
+      {filter !== "past" && (
         <UpcomingHolidays
           key={venueId}
           venueId={venueId}
-          config={state.config}
+          state={state}
           today={today}
-          onPlan={setAdding}
+          isManager={isManager}
+          onStale={onStale}
+          onOpenDay={(date) => onOpenDay?.(date)}
+          onClose={(rows, savedTitle, request) =>
+            openSheet({ rows, autoNext: true, savedTitle, request })
+          }
+          onSpecialHours={(row, request) => openSheet({ rows: [row], request })}
+          onReopen={(ruleId, then) => {
+            const rule = rules.find((r): r is SpecialDateRule => r.id === ruleId);
+            if (!rule) return;
+            setAfterReopen(() => then);
+            setReopening(rule);
+          }}
+          onEditHours={(date) => setEditingHours({ date })}
         />
       )}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
@@ -513,13 +545,22 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
       )}
       {adding && (
         <AddSpecialDatesSheet
+          key={adding.id}
           venueId={venueId}
           state={state}
           timezone={timezone}
           today={today}
           onStale={onStale}
-          initialRows={adding}
-          onClose={() => setAdding(null)}
+          initialRows={adding.rows}
+          autoNext={adding.autoNext}
+          savedTitle={adding.savedTitle}
+          onSaved={
+            adding.request?.afterSaved ? () => void adding.request?.afterSaved?.() : undefined
+          }
+          onClose={() => {
+            adding.request?.onSettled();
+            setAdding(null);
+          }}
         />
       )}
       {callListFor && (
@@ -636,7 +677,11 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           isSeriesEdit={
             reopening.seriesId != null && rules.some((r) => r.id === reopening.seriesId)
           }
-          onClose={() => setReopening(null)}
+          onDone={afterReopen}
+          onClose={() => {
+            setReopening(null);
+            setAfterReopen(undefined);
+          }}
         />
       )}
     </Stack>

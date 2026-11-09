@@ -34,8 +34,10 @@ import type {
   PreviewAvailabilityBody,
   PreviewResult,
   PutAvailabilityConfigBodySchema,
+  HolidayDecision,
+  HolidayDecisionKind,
 } from "@mbe/types";
-import { availabilityConfigEndpoints } from "@mbe/types";
+import { availabilityConfigEndpoints, holidayDecisionEndpoints } from "@mbe/types";
 import type { ApiClient, PerRequestOptions, QueryParams } from "./client.js";
 
 export interface GetTimeSlotsParams {
@@ -365,6 +367,38 @@ export class AvailabilityClient {
       query: { from: range.from, to: range.to },
     });
     return response.data;
+  }
+
+  /** The venue's holiday decisions from `from` to `to` inclusive (≤400 days), by date. Any member may read. */
+  async listHolidayDecisions(
+    venueId: string,
+    range: { from: string; to: string }
+  ): Promise<HolidayDecision[]> {
+    const response = await this.client.call(holidayDecisionEndpoints.list, {
+      params: { id: venueId },
+      query: { from: range.from, to: range.to },
+    });
+    return response.data;
+  }
+
+  /** Records a Manager's answer for one date. Idempotent: a repeat returns the existing row. */
+  async setHolidayDecision(
+    venueId: string,
+    serviceDate: string,
+    decision: HolidayDecisionKind
+  ): Promise<HolidayDecision> {
+    const response = await this.client.call(holidayDecisionEndpoints.set, {
+      params: { id: venueId, serviceDate },
+      body: { decision },
+    });
+    return response.data;
+  }
+
+  /** Clears the answer for one date. Idempotent: a date with no decision is still a success. */
+  async clearHolidayDecision(venueId: string, serviceDate: string): Promise<void> {
+    await this.client.call(holidayDecisionEndpoints.clear, {
+      params: { id: venueId, serviceDate },
+    });
   }
 
   /**

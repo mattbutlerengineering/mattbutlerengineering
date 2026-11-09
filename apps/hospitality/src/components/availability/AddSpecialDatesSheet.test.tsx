@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
@@ -98,7 +99,10 @@ function withSaturday() {
   };
 }
 
-function renderSheet(config = fixtureConfig()) {
+function renderSheet(
+  config = fixtureConfig(),
+  extra: Partial<ComponentProps<typeof AddSpecialDatesSheet>> = {}
+) {
   const onStale = vi.fn();
   const onClose = vi.fn();
   const element = (next: typeof config, version: number) => (
@@ -111,6 +115,7 @@ function renderSheet(config = fixtureConfig()) {
           today="2026-12-01"
           onStale={onStale}
           onClose={onClose}
+          {...extra}
         />
       </main>
     </ToastProvider>
@@ -732,5 +737,93 @@ describe("AddSpecialDatesSheet", () => {
     renderSheet();
     fireEvent.click(screen.getAllByLabelText("Date")[0]!);
     expect(screen.getAllByRole("columnheader")[0]!.textContent).toMatch(/^Mo/);
+  });
+});
+
+describe("AddSpecialDatesSheet from a holiday (autoNext, savedTitle, onSaved)", () => {
+  beforeAll(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  });
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-12-01T12:00:00"));
+    preview.mockReset();
+    create.mockReset();
+    saveConfig.mockReset();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const christmas = [{ date: "2026-12-25", name: "Christmas Day", kind: "closed" as const }];
+
+  it("saves straight away with no drawer when nothing is affected, and names the holiday in the toast", async () => {
+    preview.mockResolvedValue([impact("2026-12-25", 0)]);
+    create.mockResolvedValue({ version: 8, results: [result("c", 0, 0)] });
+    const onSaved = vi.fn();
+    const { onClose } = renderSheet(fixtureConfig(), {
+      initialRows: christmas,
+      autoNext: true,
+      savedTitle: "Closed on Christmas Day, Fri, Dec 25",
+      onSaved,
+    });
+    // The drawer is never shown while there is nothing to decide.
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(create.mock.calls[0]![0].body.items[0].rule).toMatchObject({
+      kind: "closure",
+      startsOn: "2026-12-25",
+    });
+    expect(await screen.findByText("Closed on Christmas Day, Fri, Dec 25")).toBeTruthy();
+    expect(screen.queryByText(/special date saved/)).toBeNull();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("opens the drawer on Step 2 when bookings are affected, and saves with the choice", async () => {
+    preview.mockResolvedValue([impact("2026-12-25", 2)]);
+    create.mockResolvedValue({ version: 8, results: [result("c", 2, 0)] });
+    const onSaved = vi.fn();
+    renderSheet(fixtureConfig(), {
+      initialRows: christmas,
+      autoNext: true,
+      savedTitle: "Closed on Christmas Day, Fri, Dec 25",
+      onSaved,
+    });
+
+    await screen.findByText(/closed · 2 bookings/);
+    expect(create).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(primary());
+
+    await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
+    expect(
+      await screen.findByText(/Closed on Christmas Day, Fri, Dec 25 · 2 guests notified/)
+    ).toBeTruthy();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the drawer with the failure when the impact lookup fails, and calls onSaved on no save", async () => {
+    preview.mockRejectedValue(new Error("down"));
+    const onSaved = vi.fn();
+    renderSheet(fixtureConfig(), { initialRows: christmas, autoNext: true, onSaved });
+
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(screen.getByText(/couldn.t check/i)).toBeTruthy();
+    expect(create).not.toHaveBeenCalled();
+    expect(onSaved).not.toHaveBeenCalled();
+  });
+
+  it("keeps the count toast and the drawer when autoNext is off", async () => {
+    preview.mockResolvedValue([impact("2026-12-25", 0)]);
+    create.mockResolvedValue({ version: 8, results: [result("c", 0, 0)] });
+    renderSheet(fixtureConfig(), { initialRows: christmas });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(preview).not.toHaveBeenCalled();
+    fireEvent.click(primary());
+    expect(await screen.findByText("1 special date saved")).toBeTruthy();
   });
 });

@@ -1019,6 +1019,9 @@ function okAvailabilityByParam(urlFor: (venueId: string) => string): RouteFixtur
   });
 }
 
+const HOLIDAY_DECISIONS_BASE = (venueId: string): string =>
+  `${AVAILABILITY_CONFIG_PREFIX}/${venueId}/availability/holiday-decisions`;
+
 const availabilityFixtures: Record<string, RouteFixture> = {
   "GET /api/v1/availability/:venueId": okAvailabilityByParam(
     (venueId) => `/api/v1/availability/${venueId}?date=2026-10-01&partySize=2`
@@ -1413,6 +1416,64 @@ const availabilityFixtures: Record<string, RouteFixture> = {
       }),
       "member venue B"
     );
+  }),
+  "GET /api/v1/venues/:id/availability/holiday-decisions": okAvailabilityByParam(
+    (venueId) => `${HOLIDAY_DECISIONS_BASE(venueId)}?from=2026-11-01&to=2026-12-31`
+  ),
+  // Own-row writes on venues A and B, which the sweep's cleanup cascades away. Each is idempotent.
+  // The Manager member writes their own venue and is denied venue B's; a row written under one
+  // venue is not visible under the other (RLS), whichever route reads it.
+  "PUT /api/v1/venues/:id/availability/holiday-decisions/:serviceDate": ok(async (ctx) => {
+    const put = (venueId: string) => ({
+      method: "PUT" as const,
+      url: `${HOLIDAY_DECISIONS_BASE(venueId)}/2026-11-26`,
+      payload: { decision: "open_as_usual" },
+    });
+    const range = "?from=2026-11-01&to=2026-12-31";
+    expectOk(await asAdmin(ctx, put(ctx.venueB.id)), "admin venue B");
+    expectOk(await asMember(ctx, put(ctx.venueA.id)), "member venue A (own venue)");
+    expectDenied(await asMember(ctx, put(ctx.venueB.id)), "member venue B (not a member)");
+    const underB = await asAdmin(ctx, {
+      method: "GET",
+      url: `${HOLIDAY_DECISIONS_BASE(ctx.venueB.id)}${range}`,
+    });
+    expectOk(underB, "admin read venue B");
+    expect(JSON.parse(underB.body).data).toHaveLength(1);
+    // A second PUT is the same row, not a duplicate.
+    expectOk(await asAdmin(ctx, put(ctx.venueB.id)), "admin venue B repeat");
+    const again = await asAdmin(ctx, {
+      method: "GET",
+      url: `${HOLIDAY_DECISIONS_BASE(ctx.venueB.id)}${range}`,
+    });
+    expect(JSON.parse(again.body).data).toHaveLength(1);
+  }),
+  "DELETE /api/v1/venues/:id/availability/holiday-decisions/:serviceDate": ok(async (ctx) => {
+    const remove = (venueId: string) => ({
+      method: "DELETE" as const,
+      url: `${HOLIDAY_DECISIONS_BASE(venueId)}/2026-11-26`,
+    });
+    const read = (venueId: string) => ({
+      method: "GET" as const,
+      url: `${HOLIDAY_DECISIONS_BASE(venueId)}?from=2026-11-01&to=2026-12-31`,
+    });
+    expectOk(
+      await asAdmin(ctx, {
+        method: "PUT",
+        url: `${HOLIDAY_DECISIONS_BASE(ctx.venueB.id)}/2026-11-26`,
+        payload: { decision: "open_as_usual" },
+      }),
+      "admin venue B set"
+    );
+    // A member of A cannot clear B's row: denied, and the row is still there.
+    expectDenied(await asMember(ctx, remove(ctx.venueB.id)), "member venue B (not a member)");
+    expect(JSON.parse((await asAdmin(ctx, read(ctx.venueB.id))).body).data).toHaveLength(1);
+    // Clearing is idempotent: the second call finds nothing and still answers 204.
+    for (const label of ["admin venue B clear", "admin venue B clear again"]) {
+      const cleared = await asAdmin(ctx, remove(ctx.venueB.id));
+      expect(cleared.statusCode, `${label}: ${cleared.body}`).toBe(204);
+    }
+    expect(JSON.parse((await asAdmin(ctx, read(ctx.venueB.id))).body).data).toEqual([]);
+    expect((await asMember(ctx, remove(ctx.venueA.id))).statusCode).toBe(204);
   }),
 };
 

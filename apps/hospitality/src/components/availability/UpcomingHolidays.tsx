@@ -1,119 +1,193 @@
 import { useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Heading, Text, useToast } from "@mattbutlerengineering/rialto";
-import type { AvailabilityConfig } from "@mbe/types";
+import { Alert, Button, Collapsible, Heading, Skeleton, Text } from "@mattbutlerengineering/rialto";
+import { addDays } from "@mbe/availability";
+import type { AvailabilityConfigState } from "@mbe/types";
+import { useHolidayDecisions } from "../../hooks/useHolidayDecisions.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { upcomingHolidays, USUALLY_CLOSED } from "./holidays.js";
-import { readOpenAsUsual, writeOpenAsUsual } from "./open-as-usual.js";
+import { HolidayLine } from "./HolidayLine.js";
+import { holidayStates, HOLIDAY_HORIZON_DAYS } from "./holiday-decisions.js";
+import { USUALLY_CLOSED } from "./holidays.js";
 import { useHolidayCountry } from "./use-holidays.js";
-import type { PlannedDate } from "./AddSpecialDatesSheet.js";
-import styles from "./SpecialDatesTab.module.css";
+import { useHolidayDecision, type HolidayFlow, type NamedHoliday } from "./use-holiday-decision.js";
+import styles from "./UpcomingHolidays.module.css";
 
-export interface UpcomingHolidaysProps {
+/** Undecided holidays shown before "Show N more". */
+const FIRST_SHOWN = 5;
+
+export interface UpcomingHolidaysProps extends HolidayFlow {
   readonly venueId: string;
-  readonly config: AvailabilityConfig;
+  readonly state: AvailabilityConfigState;
   /** Today on the venue clock. */
   readonly today: string;
-  /** Opens Add special date with one Closed row per holiday; each row can become special hours. */
-  readonly onPlan: (rows: readonly PlannedDate[]) => void;
+  /** Only a Manager decides; a Host reads the decisions. */
+  readonly isManager: boolean;
+  /** A concurrent change was refused; reload the config. */
+  readonly onStale: () => void;
+  /** Opens a date in the day drawer, for a holiday a rule this flow does not own decides. */
+  readonly onOpenDay: (date: string) => void;
+}
+
+/** Groups consecutive holidays by their month. */
+function byMonth(holidays: readonly NamedHoliday[]): { month: string; holidays: NamedHoliday[] }[] {
+  return holidays.reduce<{ month: string; holidays: NamedHoliday[] }[]>((groups, h) => {
+    const month = h.date.slice(0, 7);
+    const last = groups.at(-1);
+    return last?.month === month
+      ? [...groups.slice(0, -1), { month, holidays: [...last.holidays, h] }]
+      : [...groups, { month, holidays: [h] }];
+  }, []);
 }
 
 /**
- * Special dates: the holidays coming up that no date rule covers yet, each one click from Add
- * special date, so a Manager plans Thanksgiving before the first booking for it lands. Planned
- * dates drop out, and so do the ones marked **Open as usual**. Nothing renders for a country the
- * holiday calendar does not know. Mount it keyed by venue: the marks are read once per venue.
+ * Special dates (ux.md F1): the holidays of the next twelve months, grouped by month, each with
+ * Closed, Open as usual or Special hours…; the ones decided fold into Decided with a Change. A
+ * decision is the venue's, shared by everyone: Closed and Special hours are date rules, Open as
+ * usual is a decision the server stores (`useHolidayDecisions`). A holiday is never drawn
+ * undecided because the decisions could not be read: that shows the failure and no lines. A
+ * Host sees the same panel read-only. Nothing renders for a country the calendar does not know.
  */
-export function UpcomingHolidays({ venueId, config, today, onPlan }: UpcomingHolidaysProps) {
+export function UpcomingHolidays(props: UpcomingHolidaysProps) {
+  const { venueId, state, today, isManager, onStale, onOpenDay, ...flow } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const { toast } = useToast();
   const headingId = useId();
   const sectionRef = useRef<HTMLElement>(null);
   const country = useHolidayCountry();
-  const [openAsUsual, setOpenAsUsual] = useState(() => readOpenAsUsual(venueId));
-  const holidays = useMemo(
+  const decisions = useHolidayDecisions({
+    venueId,
+    from: today,
+    to: addDays(today, HOLIDAY_HORIZON_DAYS),
+  });
+  const [showAll, setShowAll] = useState(false);
+  const [decidedOpen, setDecidedOpen] = useState(false);
+  // Lines turned back into the three choices by Change.
+  const [changing, setChanging] = useState<ReadonlySet<string>>(() => new Set());
+  const { statuses, busy, decide, closeMany, retry } = useHolidayDecision({
+    venueId,
+    state,
+    onStale,
+    flow,
+    // The line has left the list; the panel keeps focus rather than dropping it to the page.
+    onDecided: () => sectionRef.current?.focus(),
+  });
+
+  const holidays = useMemo<NamedHoliday[]>(
     () =>
-      (country ? upcomingHolidays(country, today, config) : [])
-        .filter((h) => !openAsUsual.includes(h.date))
-        .map((h) => ({
-          ...h,
-          name: t(`availabilitySpecial.holidays.name.${h.id}`),
-          kind: USUALLY_CLOSED.has(h.id) ? ("closed" as const) : ("hours" as const),
-        })),
-    [country, today, config, openAsUsual, t]
+      country && decisions.data
+        ? holidayStates(country, today, state.config, decisions.data).map((h) => ({
+            ...h,
+            name: t(`availabilitySpecial.holidays.name.${h.id}`),
+            dateLabel: format.formatCalendarDate(h.date, {
+              weekday: "short",
+              month: "short",
+              day: "numeric",
+            }),
+          }))
+        : [],
+    [country, today, state.config, decisions.data, format, t]
   );
+  if (!country) return null;
 
-  const mark = (next: readonly string[]) => {
-    // Past dates are dropped as they go, so the list never grows past a season.
-    const kept = next.filter((d) => d >= today);
-    writeOpenAsUsual(venueId, kept);
-    setOpenAsUsual(kept);
-  };
-  const keepUsualHours = (holiday: PlannedDate) => {
-    mark([...openAsUsual, holiday.date]);
-    // The row is gone; the panel keeps focus rather than dropping it to the page.
-    sectionRef.current?.focus();
-    toast({
-      title: t("availabilitySpecial.holidays.openAsUsualToast", { name: holiday.name }),
-      action: {
-        label: t("availability.undo.action"),
-        onClick: () => mark(readOpenAsUsual(venueId).filter((d) => d !== holiday.date)),
-      },
-    });
-  };
+  const undecided = holidays.filter((h) => h.state.kind === "undecided");
+  const decided = holidays.filter((h) => h.state.kind !== "undecided");
+  const shown = showAll ? undecided : undecided.slice(0, FIRST_SHOWN);
+  const usual = undecided.filter((h) => USUALLY_CLOSED.has(h.id));
+  const list = new Intl.ListFormat(format.locale, { style: "long", type: "conjunction" });
+  const usualNames = list.format(usual.map((h) => h.name));
+  const year = today.slice(0, 4);
 
-  if (holidays.length === 0) return null;
+  const line = (holiday: NamedHoliday) => (
+    <HolidayLine
+      key={`${holiday.id}-${holiday.date}`}
+      holiday={holiday}
+      isManager={isManager}
+      changing={changing.has(holiday.date) || statuses.has(holiday.date)}
+      status={statuses.get(holiday.date)}
+      blocked={busy}
+      onChoose={(choice) => {
+        setChanging((prev) => new Set([...prev].filter((d) => d !== holiday.date)));
+        decide(holiday, choice);
+      }}
+      onChange={() => setChanging((prev) => new Set([...prev, holiday.date]))}
+      onRetry={() => retry(holiday)}
+      onOpenDay={() => onOpenDay(holiday.date)}
+    />
+  );
 
   return (
     <section ref={sectionRef} tabIndex={-1} className={styles.holidays} aria-labelledby={headingId}>
-      <div className={styles.holidaysHead}>
-        {/* Level 2: the page's h1 is the last heading above it (axe heading-order). */}
-        <Heading level={2} size={6} id={headingId}>
-          {t("availabilitySpecial.holidays.heading")}
-        </Heading>
-        {holidays.length > 1 && (
-          <Button variant="secondary" size="sm" onClick={() => onPlan(holidays)}>
-            {t("availabilitySpecial.holidays.planAll", { count: holidays.length })}
+      {/* Level 2: the page's h1 is the last heading above it (axe heading-order). */}
+      <Heading level={2} size={6} id={headingId}>
+        {t("availabilitySpecial.holidays.heading")}
+      </Heading>
+      {decisions.data == null && decisions.error ? (
+        <Alert variant="error">
+          <Text>{t("availabilitySpecial.holidays.loadError")}</Text>
+          <Button variant="secondary" size="sm" onClick={() => void decisions.refetch()}>
+            {t("availabilitySpecial.holidays.retry")}
           </Button>
-        )}
-      </div>
-      <ul className={styles.list}>
-        {holidays.map((holiday) => {
-          const { name } = holiday;
-          const date = format.formatCalendarDate(holiday.date, {
-            weekday: "short",
-            month: "short",
-            day: "numeric",
-          });
-          return (
-            <li key={`${holiday.id}-${holiday.date}`} className={styles.holiday}>
-              <Text variant="body">{name}</Text>
+        </Alert>
+      ) : decisions.data == null ? (
+        <Skeleton variant="text" lines={4} />
+      ) : (
+        <>
+          {isManager && usual.length >= 2 && (
+            <div className={styles.usual}>
               <Text variant="caption" color="secondary">
-                {date}
+                {t("availabilitySpecial.holidays.usualClosedLine", { names: usualNames })}
               </Text>
-              <div className={styles.holidayActions}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t("availabilitySpecial.holidays.openAsUsualName", { name, date })}
-                  onClick={() => keepUsualHours(holiday)}
-                >
-                  {t("availabilitySpecial.holidays.openAsUsual")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  aria-label={t("availabilitySpecial.holidays.planName", { name, date })}
-                  onClick={() => onPlan([holiday])}
-                >
-                  {t("availabilitySpecial.holidays.plan")}
-                </Button>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={styles.choice}
+                disabled={busy}
+                onClick={() =>
+                  closeMany(
+                    usual,
+                    t("availabilitySpecial.holidays.closedToast", { names: usualNames })
+                  )
+                }
+              >
+                {t("availabilitySpecial.holidays.closeUsual", { count: usual.length })}
+              </Button>
+            </div>
+          )}
+          {byMonth(shown).map(({ month, holidays: inMonth }) => (
+            <div key={month} className={styles.month}>
+              <Heading level={3} size={6}>
+                {format.formatCalendarDate(`${month}-01`, {
+                  month: "long",
+                  ...(month.startsWith(year) ? {} : { year: "numeric" }),
+                })}
+              </Heading>
+              <ul className={styles.list}>{inMonth.map(line)}</ul>
+            </div>
+          ))}
+          {!showAll && undecided.length > FIRST_SHOWN && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`${styles.more} ${styles.choice}`}
+              onClick={() => setShowAll(true)}
+            >
+              {t("availabilitySpecial.holidays.showMore", {
+                count: undecided.length - FIRST_SHOWN,
+              })}
+            </Button>
+          )}
+          {decided.length > 0 && (
+            <Collapsible
+              open={decidedOpen}
+              onOpenChange={setDecidedOpen}
+              headingTag="h3"
+              trigger={t("availabilitySpecial.holidays.decided", { count: decided.length })}
+            >
+              <ul className={styles.list}>{decided.map(line)}</ul>
+            </Collapsible>
+          )}
+        </>
+      )}
     </section>
   );
 }

@@ -138,6 +138,7 @@ model Venue {
   dateRules                 DateRule[]
   dateRuleTables            DateRuleTable[]
   availabilityChanges       AvailabilityChange[]
+  holidayDecisions          VenueHolidayDecision[]
   closureOutcomes           ClosureOutcome[]
   guestWinBacks             GuestWinBack[]
   /// Per-venue compare-and-set counter for availability config saves (ADR-030).
@@ -760,6 +761,22 @@ model AvailabilityChange {
   @@index([venueId, version])
   @@index([revertedById])
   @@map("availability_changes")
+}
+
+/// A Manager's answer for one holiday that does not change the hours: today, "open as usual".
+/// Not availability config: nothing in the engine reads it. One row per venue per service date.
+model VenueHolidayDecision {
+  id              String   @id @default(cuid())
+  venueId         String   @map("venue_id")
+  venue           Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  serviceDate     DateTime @map("service_date") @db.Date
+  /// `open_as_usual`. A string, validated by `HolidayDecisionKindSchema` at the boundary.
+  decision        String
+  createdByUserId String?  @map("created_by_user_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([venueId, serviceDate])
+  @@map("venue_holiday_decisions")
 }
 
 /// What happened to each reservation overlapping a saved closure.
