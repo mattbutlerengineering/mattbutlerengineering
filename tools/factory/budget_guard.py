@@ -52,6 +52,8 @@ from cli import detail as _git_detail
 from cli import read_execution, report, runner
 from knowledge_plane import repo_root
 
+# one-owner: cost_report.CONTINUE (ADR-0061) — one word, two verdict sets:
+# this breaker's other verdict is HARD-STOP, the report's is PAUSE
 CONTINUE = "CONTINUE"
 HARD_STOP = "HARD-STOP"
 

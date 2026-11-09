@@ -312,6 +312,8 @@ def _label_map_problems(key, table, values):
             for label, kind in table.items() if kind not in values]
 
 
+# one-owner: conductor_consent.standing_problems (ADR-0061) — this checks
+# the policy's shape; conductor_consent applies it to an item
 def _standing_problems(policy):
     prefix = "conductor.standing_consent"
     if not isinstance(policy, dict):

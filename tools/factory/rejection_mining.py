@@ -54,10 +54,9 @@ from datetime import datetime, timezone
 import conductor_close
 from conductor_flow import CHANGES_AGAIN, review_change
 
-from cli import CLI_FAILURES as GH_FAILURES
-from cli import detail as gh_detail
-from cli import gh_read, gh_runner, report, write_outputs
-from human_gates import gate_rejections, read_timelines
+from cli import (gh_read, gh_runner, marked_issue, report,
+                 upsert_pinned_issue, write_outputs)
+from human_gates import gate_rejections, read_gate_issues
 from knowledge_plane import CLOSES_TOKEN, mirror_map, repo_root, sanitize
 
 # First line of the queue issue's body — how the weekly run finds its
@@ -69,8 +68,6 @@ QUEUE_TITLE = "Toolsmith queue — mined rejections"
 # the limit it sends gh and the truncation it reports are the same
 # number, so the two can no longer drift apart.
 LIST_WINDOW = 1000
-ISSUE_ARGS = ("issue", "list", "--state", "all", "--json",
-              "number,title,state,labels,body")
 PR_ARGS = ("pr", "list", "--state", "all", "--json",
            "number,state,body,reviews")
 
@@ -229,35 +226,6 @@ def _change_requests(mirror, run, problems, truncated):
     return change_requests(read.value, mirror)
 
 
-def _post_queue(existing, body, run, problems):
-    """Create-or-update the queue issue — gate_digest._post_digest's
-    contract: the edit path re-pins and tolerates the refusal (a human
-    unpin heals next week), the create path's pin failure IS a
-    problem."""
-    if existing is not None:
-        try:
-            run(["issue", "edit", str(existing), "--body", body])
-        except GH_FAILURES as err:
-            problems.append(f"rm: gh issue edit {existing} failed:"
-                            f" {gh_detail(err)}")
-            return
-        try:
-            run(["issue", "pin", str(existing)])
-        except GH_FAILURES:
-            pass
-        return
-    try:
-        url = run(["issue", "create", "--title", QUEUE_TITLE,
-                   "--body", body]).strip()
-    except GH_FAILURES as err:
-        problems.append(f"rm: gh issue create failed: {gh_detail(err)}")
-        return
-    try:
-        run(["issue", "pin", url.rsplit("/", 1)[-1]])
-    except GH_FAILURES as err:
-        problems.append(f"rm: gh issue pin failed: {gh_detail(err)}")
-
-
 def _sources(mirrored, events_by_issue, requests, truncated, ledgers):
     """What this harvest could read, worded for the queue body.
 
@@ -306,20 +274,15 @@ def run_mine(root, run=gh_runner, clock=None):
     clock = clock or (lambda: datetime.now(timezone.utc))
     now = clock()
     mirror = mirror_map(root)
-    read = gh_read(list(ISSUE_ARGS), "gh issue list", label="rm", run=run,
-                   window=LIST_WINDOW)
-    if read.value is None:
-        return {}, read.problems
-    listing, problems = read.value, list(read.problems)
-    truncated = ["the issue listing"] if read.truncated else []
-
-    mirrored = sorted(entry["number"] for entry in listing
-                      if entry.get("number") in mirror)
-    # A failed read is a problem, never a silently thinner harvest: the
-    # queue still posts, _sources counts the gap, and next week's
-    # re-scan catches up (the upsert is idempotent).
-    events_by_issue, read_problems = read_timelines(mirrored, run, "rm")
-    problems.extend(read_problems)
+    issues = read_gate_issues(mirror, run, "rm", window=LIST_WINDOW)
+    if issues.listing is None:
+        return {}, issues.problems
+    # A failed timeline read is a problem, never a silently thinner
+    # harvest: the queue still posts, _sources counts the gap, and next
+    # week's re-scan catches up (the upsert is idempotent).
+    listing, problems = issues.listing, issues.problems
+    mirrored, events_by_issue = issues.mirrored, issues.events
+    truncated = ["the issue listing"] if issues.truncated else []
     rejections_by_wo = {}
     for number, events in sorted(events_by_issue.items()):
         for rejection in gate_rejections(events):
@@ -340,11 +303,8 @@ def run_mine(root, run=gh_runner, clock=None):
                          rework_by_wo=rework_by_wo)
     open_issues = [entry for entry in listing
                    if (entry.get("state") or "").upper() == "OPEN"]
-    existing = next((entry["number"] for entry in
-                     sorted(open_issues, key=lambda e: e["number"])
-                     if (entry.get("body") or "").startswith(MARKER)),
-                    None)
-    _post_queue(existing, body, run, problems)
+    problems += upsert_pinned_issue(marked_issue(open_issues, MARKER),
+                                    QUEUE_TITLE, body, "rm", run)
 
     candidates = set(rejections_by_wo) | set(requests_by_wo) | \
         set(rework_by_wo)

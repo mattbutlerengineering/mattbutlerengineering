@@ -28,7 +28,8 @@ from collections import namedtuple
 from pathlib import Path
 
 from cli import read_file
-from protocol import parse_frontmatter
+from protocol import (RUN_ARTIFACTS, frontmatter_end, next_stage,
+                      parse_frontmatter)
 
 PRD_TOKEN = re.compile(r"\bPRD-\d{4}\b")
 ADR_TOKEN = re.compile(r"\bADR-(\d{4})\b")
@@ -188,6 +189,42 @@ def resolve_link(root, doc, target):
     if path.startswith("/"):
         return Path(root) / path.lstrip("/")
     return Path(doc).parent / path
+
+
+# A plain repo path: no glob, placeholder, whitespace, quote or URL
+# scheme. `+` is allowed: routing conventions name real files with it
+# (SvelteKit's `+page.ts`). gates' tree-claims and repo_path below both
+# read it.
+PLAIN_PATH = re.compile(r"^[\w.@+/-]+$")
+# What a doc appends to a path it cites: a line (:12), a line and column
+# (:12:4) or a line range (:12-20).
+LINE_SUFFIX = re.compile(r":\d+(?:[:-]\d+)?$")
+PATH_EXTENSIONS = frozenset((
+    "md", "mdx", "py", "js", "mjs", "cjs", "ts", "tsx", "jsx", "json",
+    "jsonl", "sh", "bash", "zsh", "yml", "yaml", "toml", "txt", "html",
+    "css", "scss", "sql", "go", "rs", "rb", "java", "kt", "swift", "lock",
+    "cfg", "ini", "csv", "xml", "svg", "png", "prisma", "graphql", "tf"))
+
+
+def repo_path(token, top_level_dirs=True):
+    """The repo path a markdown token names, normalized (fragment, line
+    suffix and a leading ./ dropped), or None when it names none. A file
+    needs a named stem and a known extension; a directory needs its
+    trailing slash, and a top-level one (`docs/`) counts only when the
+    caller says so. One owner for kb_drift and md_claims, which held
+    diverging copies until the 2026-10-25 consolidation."""
+    token = LINE_SUFFIX.sub("", token.strip().split("#", 1)[0])
+    if token.startswith("./"):
+        token = token[2:]
+    if not PLAIN_PATH.match(token) or token.startswith(("-", "/", "@")):
+        return None
+    if token.endswith("/"):
+        inner = token[:-1]
+        return token if inner and (top_level_dirs or "/" in inner) else None
+    name = token.rsplit("/", 1)[-1]
+    stem, dot, ext = name.rpartition(".")
+    return token if dot and stem and ext.lower() in PATH_EXTENSIONS \
+        else None
 
 # A breakdown row is a checkbox bullet line; its work order is its FIRST
 # WO token (later tokens are blocking edges). Notes and Accept: sub-bullets
@@ -410,6 +447,31 @@ def run_dirs(root):
     return [d for d in dirs if d.is_dir()]
 
 
+def active_runs(root):
+    """[(run_dir, stage, error)] for the protocol's active runs: a
+    candidate directory holding at least one run artifact whose next
+    stage is not `complete`. A run whose artifacts cannot be read
+    (unreadable, undecodable) is still listed, with stage None and the
+    error, so a reader reports it instead of aborting on it. board and
+    dashboard share it (two walks until the 2026-10-25 consolidation;
+    the dashboard's had no per-run guard)."""
+    found = []
+    for run_dir in run_dirs(Path(root)):
+        try:
+            # Inside the guard: before 3.14, is_file() raises on a
+            # directory the walk cannot enter rather than answering False.
+            if not any((run_dir / artifact).is_file()
+                       for artifact in RUN_ARTIFACTS):
+                continue
+            stage = next_stage(run_dir)
+        except (OSError, ValueError) as err:
+            found.append((run_dir, None, err))
+            continue
+        if stage != "complete":
+            found.append((run_dir, stage, None))
+    return found
+
+
 def breakdown_files(root):
     """(breakdown path, its lines) per run that has a breakdown.md.
 
@@ -580,15 +642,15 @@ def standing(text):
 
 def _declared_status(lines):
     """(lineno, raw status text) from the `- Status:` line, else from a
-    frontmatter `status:` field, else (0, None)."""
+    frontmatter `status:` field, else (0, None). The block is the one
+    protocol.frontmatter_end bounds (ADR-0118)."""
     for lineno, line in enumerate(lines, 1):
         match = ADR_STATUS_LINE.match(line)
         if match:
             return lineno, match.group(1)
-    if lines and lines[0].strip() == "---":
-        for lineno, line in enumerate(lines[1:], 2):
-            if line.strip() == "---":
-                break
+    end = frontmatter_end(lines)
+    if end is not None:
+        for lineno, line in enumerate(lines[1:end], 2):
             match = _FRONTMATTER_STATUS.match(line)
             if match and match.group(1):
                 return lineno, match.group(1)

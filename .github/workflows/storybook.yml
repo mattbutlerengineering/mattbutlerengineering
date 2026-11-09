@@ -6,12 +6,14 @@ on:
       - main
     paths:
       - "packages/rialto/**"
+      - "docs/assembly-line/**"
       - ".github/workflows/storybook.yml"
   pull_request:
     branches:
       - main
     paths:
       - "packages/rialto/**"
+      - "docs/assembly-line/**"
       - ".github/workflows/storybook.yml"
   workflow_dispatch:
 
@@ -45,6 +47,11 @@ jobs:
 
       - name: Build Storybook
         run: pnpm turbo build-storybook --filter=@mattbutlerengineering/rialto
+
+      - name: Add the assembly line page
+        run: |
+          mkdir -p packages/rialto/storybook-static/assembly-line
+          cp docs/assembly-line/index.html packages/rialto/storybook-static/assembly-line/index.html
 
       - name: Upload artifact
         if: github.event_name != 'pull_request'

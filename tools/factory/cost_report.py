@@ -41,6 +41,8 @@ from cli import report, write_outputs
 from knowledge_plane import repo_root
 
 PAUSE = "PAUSE"
+# one-owner: budget_guard.CONTINUE (ADR-0061) — one word, two verdict sets:
+# the report's other verdict is PAUSE, the breaker's is HARD-STOP
 CONTINUE = "CONTINUE"
 
 # guard's named result. Still a tuple (positional unpacking keeps
