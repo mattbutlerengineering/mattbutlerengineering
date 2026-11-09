@@ -96449,35 +96449,128 @@
       readonly pattern: string;
       readonly title: string;
       readonly description: string;
+      /** False for the soft-404 catch-all: no canonical, robots noindex. */
+      readonly indexable?: boolean;
+    }
+    interface HeadSnapshot {
+      readonly title: string;
+      readonly description: string;
+      readonly canonical: string | null;
+      readonly ogTitle: string;
+      readonly ogDescription: string;
+      readonly ogUrl: string | null;
+      readonly twitterTitle: string;
+      readonly twitterDescription: string;
+      readonly robots: string;
     }
     function findRouteMeta(pathname: string): RouteMeta | undefined {
       if (pathname === "/") return undefined;
       return ROUTE_META.find((meta) => matchPath({ path: meta.pattern, end: true }, pathname));
     }
-    function setDescription(content: string): void {
-      let tag = document.head.querySelector<HTMLMetaElement>('meta[name="description"]');
+    function readMeta(selector: string): string {
+      return document.head.querySelector<HTMLMetaElement>(selector)?.getAttribute("content") ?? "";
+    }
+    function readHeadDefaults(): HeadSnapshot {
+      const canonical =
+        document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.getAttribute("href") ??
+        "";
+      const ogUrl = readMeta('meta[property="og:url"]');
+      return {
+        title: document.title,
+        description: readMeta('meta[name="description"]'),
+        canonical: canonical || null,
+        ogTitle: readMeta('meta[property="og:title"]'),
+        ogDescription: readMeta('meta[property="og:description"]'),
+        ogUrl: ogUrl || null,
+        twitterTitle: readMeta('meta[name="twitter:title"]'),
+        twitterDescription: readMeta('meta[name="twitter:description"]'),
+        robots: readMeta('meta[name="robots"]') || "index, follow",
+      };
+    }
+    function upsertMeta(attribute: "name" | "property", key: string, content: string): void {
+      const selector = `meta[${attribute}="${key}"]`;
+      let tag = document.head.querySelector<HTMLMetaElement>(selector);
       if (!tag) {
         tag = document.createElement("meta");
-        tag.name = "description";
+        tag.setAttribute(attribute, key);
         document.head.appendChild(tag);
       }
-      tag.content = content;
+      tag.setAttribute("content", content);
+    }
+    function removeMeta(attribute: "name" | "property", key: string): void {
+      document.head.querySelector(`meta[${attribute}="${key}"]`)?.remove();
+    }
+    function setCanonical(href: string | null): void {
+      const tag = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+      if (href === null) {
+        tag?.remove();
+        return;
+      }
+      const link = tag ?? document.createElement("link");
+      if (tag === null) {
+        link.rel = "canonical";
+        document.head.appendChild(link);
+      }
+      link.setAttribute("href", href);
+    }
+    function setOgUrl(content: string | null): void {
+      if (content === null) {
+        removeMeta("property", "og:url");
+        return;
+      }
+      upsertMeta("property", "og:url", content);
+    }
+    function absoluteUrl(pathname: string): string {
+      return new URL(pathname, `${SITE_ORIGIN}/`).href;
+    }
+    function applyHead(head: HeadSnapshot): void {
+      document.title = head.title;
+      upsertMeta("name", "description", head.description);
+      setCanonical(head.canonical);
+      upsertMeta("property", "og:title", head.ogTitle);
+      upsertMeta("property", "og:description", head.ogDescription);
+      setOgUrl(head.ogUrl);
+      upsertMeta("name", "twitter:title", head.twitterTitle);
+      upsertMeta("name", "twitter:description", head.twitterDescription);
+      upsertMeta("name", "robots", head.robots);
+    }
+    function headForPath(pathname: string, defaults: HeadSnapshot): HeadSnapshot {
+      const meta = findRouteMeta(pathname);
+      if (!meta) return defaults;
+      if (meta.indexable === false) {
+        return {
+          title: meta.title,
+          description: meta.description,
+          canonical: null,
+          ogTitle: meta.title,
+          ogDescription: meta.description,
+          ogUrl: null,
+          twitterTitle: meta.title,
+          twitterDescription: meta.description,
+          robots: NOT_FOUND_ROBOTS,
+        };
+      }
+      const url = absoluteUrl(pathname);
+      return {
+        title: meta.title,
+        description: meta.description,
+        canonical: url,
+        ogTitle: meta.title,
+        ogDescription: meta.description,
+        ogUrl: url,
+        twitterTitle: meta.title,
+        twitterDescription: meta.description,
+        robots: defaults.robots,
+      };
     }
     export function useRouteMeta(): void {
       const { pathname } = useLocation();
-      // index.html's title and description, captured before this hook first
-      // overwrites them, so unmapped paths (e.g. "/") can restore them.
-      const defaultsRef = useRef<{ title: string; description: string } | null>(null);
+      // Captured during the first render, before child effects (NotFoundPage
+      // writes document.title) and before this hook overwrites the shell.
+      const [defaults] = useState(readHeadDefaults);
       useEffect(() => {
-        defaultsRef.current ??= {
-          title: document.title,
-          description:
-            document.head.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? "",
-        };
-        const meta = findRouteMeta(pathname) ?? defaultsRef.current;
-        document.title = meta.title;
-        setDescription(meta.description);
-      }, [pathname]);
+        applyHead(headForPath(pathname, defaults));
+      }, [pathname, defaults]);
     }
   </file>
   <file path="packages/rialto/src/utils/class-composer.ts">

@@ -610,13 +610,47 @@
         pattern: string;
         title: string;
         description: string;
+        indexable?: boolean;
+      }
+    </item>
+    <item priority="high">
+      interface HeadSnapshot {
+        title: string;
+        description: string;
+        canonical: string | null;
+        ogTitle: string;
+        ogDescription: string;
       }
     </item>
     <item priority="medium">
       function findRouteMeta(pathname: string): RouteMeta | undefined { /* ... */ }
     </item>
     <item priority="medium">
-      function setDescription(content: string): void { /* ... */ }
+      function readMeta(selector: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function readHeadDefaults(): HeadSnapshot { /* ... */ }
+    </item>
+    <item priority="medium">
+      function upsertMeta(attribute: "name" | "property", key: string, content: string): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function removeMeta(attribute: "name" | "property", key: string): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setCanonical(href: string | null): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setOgUrl(content: string | null): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function absoluteUrl(pathname: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyHead(head: HeadSnapshot): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function headForPath(pathname: string, defaults: HeadSnapshot): HeadSnapshot { /* ... */ }
     </item>
     <item priority="high">
       export function useRouteMeta(): void { /* ... */ }
