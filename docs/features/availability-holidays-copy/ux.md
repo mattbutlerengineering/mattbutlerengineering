@@ -117,6 +117,7 @@ Thu already has these hours.                               [Cancel]  [Copy to We
 ### Amended at Implement (2026-11-08): the choice is the action
 
 The "How often" radio group is gone.
+
 - **Footer:** [Cancel] [Every week…] [Copy to Wed and Thu].
   - The primary applies just this week.
   - "Every week…" opens Change regular week prefilled, with Starting at the copied date's week or today, whichever is later.
@@ -128,6 +129,7 @@ Why: K1 measured 8 interactions with the radio, against 6 before. Making the cho
 ## Copy (en-US; es-MX and fr-CA in the catalogs)
 
 Upcoming holidays (`availabilitySpecial.holidays.*`):
+
 - `usualClosedLine`: "Restaurants usually close {{names}}."
 - `closeUsual_other`: "Close these {{count}}"
 - `closedToast`: "Closed on {{names}}"
@@ -148,6 +150,7 @@ Upcoming holidays (`availabilitySpecial.holidays.*`):
 - `retry`: "Retry"
 
 Copy (`availabilitySchedules.copy.*`):
+
 - `howOften`: "How often"
 - `thisWeek`: "Just this week"
 - `thisWeekDates`: "{{dates}}"

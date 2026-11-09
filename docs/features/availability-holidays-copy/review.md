@@ -62,6 +62,7 @@ assumptions:
 ## Passes with no findings
 
 Per the reviewer:
+
 - **Auth and scoping:** the role comes from the membership; a Host gets 403 on writes and 200 on reads; cross-venue access is denied.
 - **The migration:** additive; RLS policy, FORCE and grants match the prior tables; the cascade is proven; rollback drops the table.
 - **Dates:** UTC-midnight DATE handling matches `closure-notice-store`; real-date validation; the 400-day cap is enforced server-side.

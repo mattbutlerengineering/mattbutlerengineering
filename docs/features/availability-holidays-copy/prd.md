@@ -53,6 +53,7 @@ Checks by component test (C), engine or server test (S), e2e (E), or a combinati
   - Lines are grouped by month.
 
   C + E.
+
 - [ ] 2. **The usual closures in one tap.** When the usually-closed holidays (Thanksgiving, Christmas Day, New Year's Day for the venue's country) are undecided in the horizon, one action closes all of them and names them first. C + E.
 - [ ] 3. **Saved to the venue.** "Open as usual" is stored with the venue. A second Manager, or the same Manager on another device, sees the holiday as decided, and the calendar's holiday nudge does not ask about it. S + E (two browser contexts).
 - [ ] 4. **Guests unaffected.** An Open-as-usual holiday resolves exactly like the same day without the decision: same hours, booking and preview. S (engine).
@@ -62,17 +63,19 @@ Checks by component test (C), engine or server test (S), e2e (E), or a combinati
   - Every week opens Change regular week prefilled, with the chosen weekdays taking the copied day's hours from the copied date's week, and its usual preview and Save.
 
   Copy never creates a never-ending repeat. C + E.
+
 - [ ] 7. **Copy says what changes.** Before saving, Copy states the consequence in one sentence naming the days and the start, e.g. "Wed and Thu will use Tuesday's hours from Nov 17, every week. This changes your regular week." The toast names the dates or the weekdays, never a count of future dates. C.
 - [ ] 8. **Already the same.** Target days whose resolved hours already equal the copied day's are left out and named ("Thu already has these hours"). When every target already matches, Copy saves nothing and says "These days already have Tuesday's hours." C.
 - [ ] 9. **Scenario budgets** (E, from first paint; "before" measured at Implement):
 
-  | # | Catalogue | Job | Budget |
-  |---|---|---|---|
-  | H1 | D27 | Close Thanksgiving, Christmas Day, New Year's Day | ≤ 3 |
-  | H2 | D33 | Christmas Eve open as usual, seen by a second Manager | ≤ 3, 0 for the second Manager |
-  | H3 | D22 | Special hours on New Year's Eve | ≤ before |
-  | K1 | C15 | Tuesday's hours on Wed and Thu every week | ≤ 7, with no special-hours rule created (amended at Implement: before = 6, but that path wrote a never-ending rule without saying so; the +1 is Change regular week's preview and Save) |
-  | K2 | C15 | Just this week | ≤ before |
+  | #   | Catalogue | Job                                                   | Budget                                                                                                                                                                                  |
+  | --- | --------- | ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+  | H1  | D27       | Close Thanksgiving, Christmas Day, New Year's Day     | ≤ 3                                                                                                                                                                                     |
+  | H2  | D33       | Christmas Eve open as usual, seen by a second Manager | ≤ 3, 0 for the second Manager                                                                                                                                                           |
+  | H3  | D22       | Special hours on New Year's Eve                       | ≤ before                                                                                                                                                                                |
+  | K1  | C15       | Tuesday's hours on Wed and Thu every week             | ≤ 7, with no special-hours rule created (amended at Implement: before = 6, but that path wrote a never-ending rule without saying so; the +1 is Change regular week's preview and Save) |
+  | K2  | C15       | Just this week                                        | ≤ before                                                                                                                                                                                |
+
 - [ ] 10. **Honest failure.** If the server rejects the venue decision (an older server during a deploy window, or any error), the line says the save failed with Retry and does not show the holiday as decided. C.
 - [ ] 11. **Locales.** New strings in en-US, es-MX and fr-CA; key parity. C.
 - [ ] 12. **No regressions.** The availability, onboarding, Venue Setup, a11y, fold-budget and locale e2e suites, plus the engine and reservations service suites, pass. Changed expectations are listed. E + S.

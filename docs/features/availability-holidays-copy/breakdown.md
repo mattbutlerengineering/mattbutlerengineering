@@ -14,12 +14,13 @@ PRD criteria are numbered as in prd.md.
 
 ## Slice A: the holiday-decision store (migration, routes, types, api-client)
 
-- [x] **A1. Table, types, endpoints.** *Land first, alone.*
+- [x] **A1. Table, types, endpoints.** _Land first, alone._
   - `schema.prisma`: `VenueHolidayDecision` (`@@unique([venueId, serviceDate])`, `decision` a string, FK cascade); migration `<ts>_add_venue_holiday_decision` with the `CREATE TABLE`, `ENABLE`/`FORCE ROW LEVEL SECURITY`, the `venue_holiday_decision_isolation` policy and the `app_reservations` grant (as `20261025000000_add_venue_availability` `:287-359`). Regenerate the Prisma client.
   - `packages/types`: `schemas/holiday-decisions.ts` and `endpoints/holiday-decisions.ts` exactly as the shared contract; exported from the indexes.
   - `packages/api-client/src/availability.ts`: `listHolidayDecisions`, `setHolidayDecision`, `clearHolidayDecision`.
 
   Acceptance: `tsc` passes in `packages/types`, `packages/api-client`, `services/reservations`. PRD 3.
+
 - [x] **A2. Service and routes.** `services/holiday-decision.ts` (`list`, `set` idempotent upsert, `clear` idempotent delete; skips a row whose `decision` it cannot parse), added to `domain-services.ts`; `routes/holiday-decisions.ts` with `registerEndpoint` (list: any member; set and clear: Manager), registered in `app.ts` under `AVAILABILITY_CONFIG_PREFIX`; RFC 7807 errors; OpenAPI docs. PRD 3.
 - [x] **A3. Tests.** Route and service tests, the three `rls-route-sweep` fixtures and the RLS isolation and cascade checks, schema tests, the api-client tests (architecture.md § E "A"). PRD 3.
 - [x] **A4. Docs.** The three routes and the table in `services/reservations/docs/reference.md`.
@@ -62,6 +63,7 @@ Files owned: `copy-week-draft.ts`, `copy-day.ts`, `CopyDayAction.tsx` (+tests), 
   - a Host sees decisions read-only.
 
   Counts are recorded as agent stand-in annotations through `countInteractions`; "before" is measured on this run's base at Implement. PRD 1–3, 5, 6, 8, 9, 10.
+
 - [x] **D2. Regressions.** Update, deliberately and in the notes below, the specs whose counts or selectors change (`availability-setup-hierarchy.spec.ts`, the fold-budget spec, `availability-dead-ends.spec.ts`, `availability-draft.spec.ts`); run the availability, onboarding, Venue Setup, a11y, fold-budget and locale e2e suites, the engine and reservations suites. PRD 12.
 
 Files owned: `e2e/**` only.
@@ -98,4 +100,3 @@ A1 ──┬─► B1,B2 ─► B3 ─► B4 ─► B5,B6 ──┐
     - The How often radio was replaced by the buttons [Every week…] and [Copy to …]. K1 measured 8 with the radio. ux.md is amended, and the PRD's K1 budget is now ≤ 7.
     - Chosen weekdays the regular week doesn't open are added to the regular assignment in the prefill.
   - **D1:** the dead-ends and draft Copy specs use a week with a differing day, because Copy now refuses to copy hours a day already has.
-

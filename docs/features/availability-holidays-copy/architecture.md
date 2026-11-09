@@ -118,11 +118,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE "venue_holiday_decisions" TO app_r
 
 Defined in `packages/types/src/endpoints/holiday-decisions.ts` with `defineEndpoint` (the pattern of `availabilityConfigEndpoints`, `endpoints/availability-config.ts`), under the same prefix `AVAILABILITY_CONFIG_PREFIX = "/api/v1/venues"` and the same `:id` venue param (not `:venueId`: every route in that prefix uses `:id`, `VenueParamsSchema`). Routes in a new `services/reservations/src/routes/holiday-decisions.ts`, registered beside the others at `app.ts:317-320` with `fastify.register(holidayDecisionRoutes, { prefix: AVAILABILITY_CONFIG_PREFIX })`, using `registerEndpoint` (`@mbe/service-bootstrap`), `requireAuth` and `venueScoped`, exactly as the small `routes/availability-changes.ts` does.
 
-| | Path | Access | Request | Success | Errors (RFC 7807, `createProblemDetails`) |
-|---|---|---|---|---|---|
-| `list` | `GET /api/v1/venues/:id/availability/holiday-decisions?from&to` | any venue member (Host included): `venueScoped(VENUE_FROM_ID)`, as `getConfig` | `HolidayDecisionsQuerySchema`; `from ≤ to`, at most `HOLIDAY_DECISIONS_MAX_RANGE` days | 200 `{ data: HolidayDecision[] }`, by date | 400 bad or too long range, 401, 403 not a member, 404 venue |
-| `set` | `PUT …/holiday-decisions/:serviceDate` | Manager: `venueScoped({ ...VENUE_FROM_ID, access: "manager" })`, as `putConfig` | body `{ decision: "open_as_usual" }`; `:serviceDate` is `ServiceDateSchema` | 200 `{ data: HolidayDecision }` | 400 bad date or body, 401, 403 not a Manager, 404 venue |
-| `clear` | `DELETE …/holiday-decisions/:serviceDate` | Manager, as `set` | none | 204, no body (`body: null`, as `define.test.ts:43`) | 400, 401, 403, 404 venue |
+|         | Path                                                            | Access                                                                          | Request                                                                                | Success                                             | Errors (RFC 7807, `createProblemDetails`)                   |
+| ------- | --------------------------------------------------------------- | ------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------------------------- | ----------------------------------------------------------- |
+| `list`  | `GET /api/v1/venues/:id/availability/holiday-decisions?from&to` | any venue member (Host included): `venueScoped(VENUE_FROM_ID)`, as `getConfig`  | `HolidayDecisionsQuerySchema`; `from ≤ to`, at most `HOLIDAY_DECISIONS_MAX_RANGE` days | 200 `{ data: HolidayDecision[] }`, by date          | 400 bad or too long range, 401, 403 not a member, 404 venue |
+| `set`   | `PUT …/holiday-decisions/:serviceDate`                          | Manager: `venueScoped({ ...VENUE_FROM_ID, access: "manager" })`, as `putConfig` | body `{ decision: "open_as_usual" }`; `:serviceDate` is `ServiceDateSchema`            | 200 `{ data: HolidayDecision }`                     | 400 bad date or body, 401, 403 not a Manager, 404 venue     |
+| `clear` | `DELETE …/holiday-decisions/:serviceDate`                       | Manager, as `set`                                                               | none                                                                                   | 204, no body (`body: null`, as `define.test.ts:43`) | 400, 401, 403, 404 venue                                    |
 
 - **`set` is an idempotent upsert** on `(venueId, serviceDate)` with an empty update: a repeat returns the existing row unchanged (its original `createdByUserId` and `createdAt`), never a 409.
 - **`clear` is idempotent**: `deleteMany` by the pair; a missing row is still 204.
@@ -143,11 +143,11 @@ Defined in `packages/types/src/endpoints/holiday-decisions.ts` with `defineEndpo
 
 None. `DateRuleSchema`, the `DateRuleKind` enum, `resolveDay`, closure-overlap, `slots.ts`, `validateConfig`, the config-plan, the row writer and reader, the closures route, booking availability and every `kind` switch in the app are unchanged; there is no new kind to learn. The one consumer that changes meaning is the app's holiday code:
 
-| Consumer | Today | Now | Action |
-|---|---|---|---|
-| `holidays.ts` `isPlanned` (`:131-142`), `upcomingHolidays` (`:149-157`) | any other rule = planned | replaced by `holidayStates` (B1), which also reads the decisions list | **Handle**: delete both |
-| `UpcomingHolidays.tsx`, `NextHolidayNudge.tsx`, `open-as-usual.ts` | localStorage marks (`open-as-usual.ts:2`) | read `useHolidayDecisions` | **Handle** (B) |
-| everything else listed in the first draft's table (engine, server config path, Special dates list and filters, day drawer, calendar summary) | | not touched | Ignore |
+| Consumer                                                                                                                                     | Today                                     | Now                                                                   | Action                  |
+| -------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- | --------------------------------------------------------------------- | ----------------------- |
+| `holidays.ts` `isPlanned` (`:131-142`), `upcomingHolidays` (`:149-157`)                                                                      | any other rule = planned                  | replaced by `holidayStates` (B1), which also reads the decisions list | **Handle**: delete both |
+| `UpcomingHolidays.tsx`, `NextHolidayNudge.tsx`, `open-as-usual.ts`                                                                           | localStorage marks (`open-as-usual.ts:2`) | read `useHolidayDecisions`                                            | **Handle** (B)          |
+| everything else listed in the first draft's table (engine, server config path, Special dates list and filters, day drawer, calendar summary) |                                           | not touched                                                           | Ignore                  |
 
 Because nothing in the config changes, PRD 4 (guests unaffected) holds by construction. Slice A still records it as a test: the engine and snapshot code do not import the new table (a source-level guard is not needed; the table is only read by `holidayDecisionService`), and the booking-path tests are untouched.
 
@@ -171,11 +171,11 @@ The calendar nudge (`NextHolidayNudge`) becomes `holidayStates(...).find(h => h.
 
 Every transition is a composition of four existing or new calls: `set`/`clear` (the decision endpoints), the closure path (`AddSpecialDatesSheet` → `POST …/closures`), the reopen command (`ReopenClosureDialog`), and the config `PUT` (`useSaveAvailabilityConfig`, removing a rule). Each is ordered so **a failure part-way leaves the holiday undecided, never wrongly decided**.
 
-| To | From undecided | From `openAsUsual` | From `specialHours` (one-date rule this flow owns) | From `closed` (one-date closure this flow owns) |
-|---|---|---|---|---|
-| **Open as usual** | `set` | (no-op) | config `PUT` removing the rule, **then** `set` | `ReopenClosureDialog`, **then** `set` |
-| **Closed** | sheet (B3) | sheet, **then** `clear` | sheet (a closure outranks it); then a config `PUT` removing the old special hours, best-effort | (no-op) |
-| **Special hours…** | sheet with an `hours` row | sheet, **then** `clear` | (the Change opens the rule's own edit, unchanged) | `ReopenClosureDialog`, **then** the sheet |
+| To                 | From undecided            | From `openAsUsual`      | From `specialHours` (one-date rule this flow owns)                                             | From `closed` (one-date closure this flow owns) |
+| ------------------ | ------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| **Open as usual**  | `set`                     | (no-op)                 | config `PUT` removing the rule, **then** `set`                                                 | `ReopenClosureDialog`, **then** `set`           |
+| **Closed**         | sheet (B3)                | sheet, **then** `clear` | sheet (a closure outranks it); then a config `PUT` removing the old special hours, best-effort | (no-op)                                         |
+| **Special hours…** | sheet with an `hours` row | sheet, **then** `clear` | (the Change opens the rule's own edit, unchanged)                                              | `ReopenClosureDialog`, **then** the sheet       |
 
 - **To Open as usual** removes what was there first, then writes the mark. If the removal fails, nothing changed; if the removal succeeded and `set` fails, the day has usual hours and no decision: undecided, with `Couldn't save.` and Retry. (A removed special-hours rule leaves the day on its regular hours, which is the "open as usual" the Manager wanted; the stranded-bookings check on that `PUT` can refuse, in which case the line says so and nothing changed.)
 - **To Closed or Special hours** writes the new rule first, then `clear`s the mark. If the sheet is cancelled at step two, the mark is untouched. If `clear` fails after the rule saved, the rule outranks the mark (B1), so the line is right; the failed `clear` is retried silently on the next Change, and is harmless until then.
@@ -217,11 +217,11 @@ This is a deviation from ux.md's wording only: the user sees the same step two a
 ```ts
 buildDraftChanges({
   config: state.config,
-  scope: { kind: "dates", dates: targets },                    // one single-date special_hours rule per date
-  services: seedServices(state.config, day, { kind: "date", date }),   // the copied day's resolved hours
+  scope: { kind: "dates", dates: targets }, // one single-date special_hours rule per date
+  services: seedServices(state.config, day, { kind: "date", date }), // the copied day's resolved hours
   makeId: () => crypto.randomUUID(),
   today,
-})
+});
 ```
 
 `scope.kind === "dates"` maps each date through `dateRule(config, d, payload, makeId)` (`draft-changes.ts`), so: no repeat, no end-date hunting, `startsOn === endsOn`. Saved with `useScheduleSave` as today, scope-conflict mode `"keep"` (no longer a user choice: the one-off rule on a date that already has its own hours is left out by `hasOwnHours`-style reasoning inside `dateRule`; see Risks, and `OwnChangesChoice` is removed from this dialog). Toast: `availabilitySchedules.copy.copied` with weekday names and dates, via `Intl.ListFormat`.
@@ -254,6 +254,7 @@ For "Every week" the comparison is against the **regular week's** weekday, resol
 ## D. Files
 
 Slice A (decision store: migration, schema, routes, types, api-client):
+
 - `services/reservations/prisma/schema.prisma`, `…/migrations/<ts>_add_venue_holiday_decision/migration.sql`
 - `services/reservations/src/routes/holiday-decisions.ts` (+test), `src/services/holiday-decision.ts` (+test), `src/services/domain-services.ts` (the seam), `src/app.ts` (one `register` line)
 - `services/reservations/src/routes/rls-route-sweep.fixtures.ts` (three fixtures), the RLS isolation test coverage the sweep requires, `services/reservations/docs/reference.md` (the three routes)
@@ -261,6 +262,7 @@ Slice A (decision store: migration, schema, routes, types, api-client):
 - `packages/api-client/src/availability.ts` (+`availability-config.test.ts` or a sibling test)
 
 Slice B (holidays):
+
 - `holiday-decisions.ts` (+test), `holidays.ts` (delete `isPlanned`, `upcomingHolidays`), `holidays.test.ts`
 - `hooks/useHolidayDecisions.ts` (+test)
 - `UpcomingHolidays.tsx` (+test), `HolidayLine.tsx` (+module.css), `use-holiday-decision.ts` (+test), `NextHolidayNudge.tsx`
@@ -280,6 +282,7 @@ Shared by B and C: the three catalogs only, each under its own namespace.
 ## E. Tests
 
 **A: store (slice A).**
+
 - `packages/types`: schema parse and reject cases (a bad date, a decision other than `open_as_usual`, `to < from`, a range over 400 days); the endpoint definitions satisfy `defineEndpoint`'s one-2xx rule.
 - `services/reservations` route tests in the style of `availability-changes.test.ts`:
   - `set` then `list` returns the row;
@@ -295,6 +298,7 @@ Shared by B and C: the three catalogs only, each under its own namespace.
 - **PRD 4 trivially:** no existing availability file changed, and the availability suites run unchanged.
 
 **B (slice B), component.**
+
 - `holiday-decisions.test.ts`: every precedence row in § B1 (closed over a mark; `other` over a mark; special hours over a mark; ranges, repeating, section and service closures are `other`; a one-date edit of a series; `skip` and `tonight` ignored), the 365-day horizon and the year boundary.
 - `UpcomingHolidays.test.tsx`:
   - three choices per line; the header action's visibility rules (two or more undecided of `USUALLY_CLOSED`);
@@ -308,6 +312,7 @@ Shared by B and C: the three catalogs only, each under its own namespace.
 **C (slice C), component.** `copy-week-draft.test.ts`: `sameHoursAs` (services, times, last seating, order, different seating only), `thisWeekTargets` (week boundaries, past days, the source weekday, Sunday), `copyWeekDraft` (the chosen weekdays take the day's services; a missing service loses the weekday; a new service is added; the result round-trips through `draftToConfig` to the same week). `CopyDayAction.test.tsx`: this-week saves one rule per date with no `repeat` and no `endsOn` beyond the date; every-week opens the drawer with the prefilled draft and Starting; all-same disables the primary with the reason; the toast names dates, never a count; no From/Until.
 
 **E2E (slice D).** On the e2e fixtures with today pinned to Sun, Nov 8, 2026 (`helpers/scenario-fixtures.ts`), annotated with interaction counts through `countInteractions`: H1, H2, H3, K1, K2 as PRD 9's table.
+
 - **Mocks.** The config routes are mocked per page today (`mockApi`). `helpers/shared-config-mock.ts` serves `GET`/`PUT …/availability/config` and the three `…/holiday-decisions` routes for several pages from one in-memory object (Playwright route handlers run in the test process).
 - **H2's two contexts.** Two `browser.newContext({ storageState })` pages (the `realtime-collaboration.spec.ts:94-107` pattern) share that store. Page A decides Christmas Eve (assert the `PUT …/holiday-decisions/2026-12-24` body `{decision:"open_as_usual"}`; count ≤ 3); page B loads Special dates and sees Christmas Eve under Decided with 0 decisions made, and the calendar nudge does not name it.
 - **K1.** Copy Tuesday to Wed and Thu every week: the drawer opens prefilled; Save; assert the PUT has `scheduleServices`/`assignments` and **no** `dateRules` upsert. Copy onto matching days: no PUT at all.

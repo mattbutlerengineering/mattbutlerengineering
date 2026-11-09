@@ -21,10 +21,12 @@ assumptions:
 ## Who has it
 
 The Manager, doing the catalogue's holiday jobs and copy jobs:
+
 - **Holidays:** D27 plan the year's holidays, D33 decide which holidays to open, D22 and D24.
 - **Copy:** C15 copy one day's hours to other days, C17 use another day's hours, C18, A3.
 
 A second Manager or device suffers too, because it re-sees every decision. They cope by:
+
 - planning holidays one by one;
 - re-deciding holidays on each device;
 - ignoring "Special hours" labels that aren't special.
@@ -51,10 +53,12 @@ Rounds 1–3 made the week, the Close dialog, the calendar and tonight easy; the
 Chosen: Showstopper (default; the Owner delegated), in the user's words: "make the ux easy for them and use our scenarios to support."
 
 Not taken:
+
 - **Solid:** sync "Open as usual" to the venue, and change Copy's default Until to the end of this week.
 - **Moonshot:** a venue-type holiday template ("restaurants like yours close these 3"), learned across venues. That needs data across venues the product doesn't hold. The weekly digest is already seeded.
 
 The four tests:
+
 - **Demo: pass.** On Special dates, Upcoming holidays shows one line per holiday with **Closed · Open as usual · Special hours**. The Manager taps "Close these 3" for Thanksgiving, Christmas Day and New Year's Day, then "Open as usual" on Christmas Eve. On the iPad, the floor manager sees all four decided. Then "Copy Tuesday to Wed, Thu" → "Every week" → "Wed and Thu will use Tuesday's hours from Nov 17. This changes your regular week." → Save, and the calendar keeps saying nothing special about Wednesdays.
 - **Removes a step: pass.** Re-deciding on each device is gone, as is the 83-control plan sheet for the common choices. "Copied to 105 dates" and the cleanup of false "Special hours" labels go too.
 - **Only this product: pass.** It holds the venue's holiday list, its regular week and the resolver that knows when two days' hours are already the same.
@@ -65,6 +69,7 @@ The four tests:
 **Before:** the Manager marks "Open as usual" on Christmas Eve, and a colleague's device still nags. Copying Tuesday to Wed–Thu says "Copied to 105 dates", and every Wednesday reads "Special hours".
 
 **After:**
+
 - Holidays are one line each. Three are closed in one tap; Christmas Eve is open as usual for everyone.
 - Copy offers "Just this week" or "Every week (changes your regular week)". It says exactly what will change before Save, and says "Already the same" when nothing would.
 
@@ -82,12 +87,14 @@ If either fails, the change is cosmetic.
 ## Solution hunch
 
 **Holidays:**
+
 - Upcoming holidays as one line per holiday with a three-way choice: Closed (saves a closure), Open as usual (saves an `open_as_usual` rule), Special hours (opens the existing sheet for that date).
 - A header action closes the usual three in one tap.
 - Decided holidays fold into a "Decided" group, each with a Change action.
 - Horizon of the next 12 months, grouped by month.
 
 **Copy:**
+
 - After choosing days, a consequence line and a choice: Just this week, or Every week, which opens Change regular week prefilled.
 - Days already equal are skipped, and "Already the same" when all are.
 

@@ -28,6 +28,7 @@ assumptions:
 **Door:** the code is two-way. The table is additive, so reverting leaves an unused table with no effect. Dropping it is optional and separate.
 
 **Blast radius:**
+
 - Managers see the new holiday lines and the Copy dialog; Hosts see decisions read-only.
 - Guests, the engine, booking availability and the availability config are untouched.
 - No availability data needs repair.
@@ -57,6 +58,7 @@ git push origin HEAD:refs/heads/revert-8541 && gh pr create --base main --head r
 ## Post-release checks
 
 Not run: nothing has reached users. After the PR merges and the migration, service and web have deployed, check as a Manager at https://mattbutlerengineering.com/hospitality/availability:
+
 - Special dates shows one line per holiday, and "Open as usual" on one holiday shows as Decided on a second device.
 - Copy offers Copy to … and Every week….
 

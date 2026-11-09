@@ -82,14 +82,14 @@ No path in the dialog builds a `repeat`.
 
 ### 9. Scenario budgets: PASS
 
-| # | Job | Before (round-3 tree) | After | Budget |
-|---|---|---|---|---|
-| H1 | Close Thanksgiving, Christmas Day, New Year's Day | 6 | 2 | ≤ 3 |
-| H2 | Christmas Eve open as usual | 2 | 2 | ≤ 3 |
-| H2b | The second Manager | re-decide on each device | 0 | 0 |
-| H3 | Special hours on New Year's Eve | 5 | 5 | ≤ 5 |
-| K1 | Tuesday to Wed and Thu, every week | 6 (silently wrote a never-ending rule) | 7 | ≤ 7 (amended) |
-| K2 | Just this week | 8 | 6 | ≤ 8 |
+| #   | Job                                               | Before (round-3 tree)                  | After | Budget        |
+| --- | ------------------------------------------------- | -------------------------------------- | ----- | ------------- |
+| H1  | Close Thanksgiving, Christmas Day, New Year's Day | 6                                      | 2     | ≤ 3           |
+| H2  | Christmas Eve open as usual                       | 2                                      | 2     | ≤ 3           |
+| H2b | The second Manager                                | re-decide on each device               | 0     | 0             |
+| H3  | Special hours on New Year's Eve                   | 5                                      | 5     | ≤ 5           |
+| K1  | Tuesday to Wed and Thu, every week                | 6 (silently wrote a never-ending rule) | 7     | ≤ 7 (amended) |
+| K2  | Just this week                                    | 8                                      | 6     | ≤ 8           |
 
 These are agent stand-in counts.
 
@@ -111,6 +111,7 @@ These are agent stand-in counts.
 ## Failures
 
 None open. Found and fixed during Implement and Review:
+
 - K1 over budget with a radio, fixed by making the choice the action;
 - the gate failures: 2 type errors, the antipattern ratchet, lint and the parity check;
 - review majors M1–M4 and minors.
