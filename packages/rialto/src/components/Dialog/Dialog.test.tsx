@@ -430,15 +430,15 @@ describe("Dialog", () => {
   });
 
   describe("floating Popover styles", () => {
-    it("fixes a dialog-hosted popover and lets it scroll when capped", () => {
+    it("fixes every popover to the viewport and lets it scroll when capped", () => {
       const popoverCss = fs.readFileSync(
         path.join(__dirname, "../Popover/Popover.module.css"),
         "utf-8"
       );
-      const floating = /\n\.floating\s*\{([^}]*)\}/.exec(popoverCss)?.[1] ?? "";
-      expect(floating).toMatch(/position:\s*fixed/);
-      expect(floating).toMatch(/inset:\s*auto/);
-      expect(floating).toMatch(/overflow-y:\s*auto/);
+      const panel = /\n\.panel\s*\{([^}]*)\}/.exec(popoverCss)?.[1] ?? "";
+      expect(panel).toMatch(/position:\s*fixed/);
+      expect(panel).toMatch(/inset:\s*auto/);
+      expect(panel).toMatch(/overflow-y:\s*auto/);
     });
   });
 

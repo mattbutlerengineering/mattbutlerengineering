@@ -1101,6 +1101,9 @@
       ): number { /* ... */ }
     </item>
     <item priority="high">
+      export function shiftIntoViewport(left: number, panelWidth: number, viewportWidth: number): number { /* ... */ }
+    </item>
+    <item priority="high">
       export function placeVertical(
         anchor: DOMRect,
         panelHeight: number,

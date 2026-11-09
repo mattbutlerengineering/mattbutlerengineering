@@ -131,15 +131,16 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
 
   const origin = motionOrigin[placement];
 
-  // Inside a Dialog the panel would be clipped by the dialog's scrolling body
-  // (position: absolute is trapped by any overflow ancestor). Lift it into the
-  // dialog's layer, beside the panel, and place it by the wrapper's viewport
-  // rect, as Select does. Outside a Dialog nothing changes. Imperative style
-  // writes (no setState), re-run on resize, on any scroll (including the dialog
-  // body's) and when the panel's content grows, so the panel tracks its trigger.
+  // The panel is always viewport-fixed and placed by the wrapper's viewport rect
+  // (as Select does), so it can never be cut off by the page edge or trapped by an
+  // overflow ancestor: placePopover flips to the roomier side, clamps horizontally
+  // and caps max-height so tall content scrolls inside the panel. Inside a Dialog it
+  // is lifted into the dialog's layer, beside the panel; elsewhere it stays in place
+  // (portaling to body would escape a Drawer's focus trap and stacking). Imperative style writes (no setState), re-run on resize, on any
+  // scroll and when the panel's content grows, so the panel tracks its trigger.
   const dialogLayer = useContext(DialogLayerContext);
   const place = useMemo(() => placePopover(placement), [placement]);
-  useLayerFloating(open && dialogLayer !== null, wrapperRef, panelRef, place);
+  useLayerFloating(open, wrapperRef, panelRef, place);
 
   const panelNode = (
     <AnimatePresence>

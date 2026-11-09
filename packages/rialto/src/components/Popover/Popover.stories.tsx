@@ -80,3 +80,18 @@ export const WithRichContent: Story = {
     </Popover>
   ),
 };
+
+/** Tall content near the viewport edge: the panel flips, clamps and scrolls inside itself (#8569). */
+export const TallContentStaysInViewport: Story = {
+  render: () => (
+    <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: "50vh" }}>
+      <Popover trigger={<Button>Tonight</Button>} title="Tonight" solid>
+        <Stack gap="sm">
+          {Array.from({ length: 24 }, (_, index) => (
+            <Text key={index}>Control {index + 1}</Text>
+          ))}
+        </Stack>
+      </Popover>
+    </div>
+  ),
+};
