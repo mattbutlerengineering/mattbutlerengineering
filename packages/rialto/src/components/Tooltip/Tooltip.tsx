@@ -4,6 +4,7 @@ import {
   useRef,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useId,
   cloneElement,
   isValidElement,
@@ -13,6 +14,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { useEscapeKey } from "../../hooks/useEscapeKey";
+import { shiftIntoViewport } from "../../hooks/floating-position";
 import { cn } from "../../utils/class-composer";
 import styles from "./Tooltip.module.css";
 
@@ -49,6 +51,31 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
     const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
     const { precision, reduced: shouldReduceMotion } = useMotionPreset();
     const tooltipId = useId();
+    const bubbleRef = useRef<HTMLDivElement>(null);
+
+    // Keep the bubble inside the viewport horizontally: measure where it landed and
+    // nudge it by a margin (it stays absolutely positioned, so ancestors with a
+    // transform cannot skew it). The margin is reset first so each pass measures
+    // the natural position. Centre-based, so the in-progress scale animation does
+    // not skew the result.
+    useLayoutEffect(() => {
+      const bubble = bubbleRef.current;
+      if (!open || !bubble) return;
+      const fit = () => {
+        bubble.style.marginLeft = "";
+        const box = bubble.getBoundingClientRect();
+        const width = bubble.offsetWidth;
+        const shift = shiftIntoViewport(
+          box.left + box.width / 2 - width / 2,
+          width,
+          document.documentElement.clientWidth
+        );
+        if (shift !== 0) bubble.style.marginLeft = `${shift}px`;
+      };
+      fit();
+      window.addEventListener("resize", fit);
+      return () => window.removeEventListener("resize", fit);
+    }, [open]);
 
     // A single trigger fires both mouseEnter and focus (pointing at a button,
     // then clicking it). Arming a second timer would orphan the first, which
@@ -123,6 +150,7 @@ export const Tooltip = forwardRef<HTMLDivElement, TooltipProps>(
         <AnimatePresence>
           {open && (
             <motion.div
+              ref={bubbleRef}
               id={tooltipId}
               className={cn(styles.tooltip, styles[placement])}
               role="tooltip"

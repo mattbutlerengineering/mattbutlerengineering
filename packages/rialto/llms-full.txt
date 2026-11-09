@@ -2580,6 +2580,9 @@
       const max = Math.max(FLOAT_MARGIN, viewportWidth - panelWidth - FLOAT_MARGIN);
       return clamp(desired, FLOAT_MARGIN, max);
     }
+    export function shiftIntoViewport(left: number, panelWidth: number, viewportWidth: number): number {
+      return placeHorizontal(left, panelWidth, viewportWidth) - left;
+    }
     export function placeVertical(
       anchor: DOMRect,
       panelHeight: number,

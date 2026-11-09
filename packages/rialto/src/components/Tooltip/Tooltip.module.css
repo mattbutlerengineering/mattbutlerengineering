@@ -14,10 +14,10 @@
   font-size: var(--rialto-text-xs);
   font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   pointer-events: none;
   width: max-content;
-  max-width: 240px;
+  max-width: min(240px, calc(100vw - 16px));
 }
 
 :global([data-theme="dark"]) .tooltip {

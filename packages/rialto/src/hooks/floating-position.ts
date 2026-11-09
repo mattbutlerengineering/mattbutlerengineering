@@ -27,6 +27,15 @@ export function placeHorizontal(
 }
 
 /**
+ * Signed px to move a panel at `left` (width `panelWidth`) so it sits inside the
+ * viewport margin. 0 when it already fits. For panels that stay in flow (absolute)
+ * and only need a horizontal nudge, as Tooltip.
+ */
+export function shiftIntoViewport(left: number, panelWidth: number, viewportWidth: number): number {
+  return placeHorizontal(left, panelWidth, viewportWidth) - left;
+}
+
+/**
  * Top/bottom placement against `anchor`. Opens on `side`; when the panel does
  * not fit there it flips to the roomier side, and is capped (scrolling) to the
  * room it has so the viewport never cuts it off. `panelHeight` is the height
