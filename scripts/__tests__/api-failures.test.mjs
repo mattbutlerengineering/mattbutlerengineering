@@ -161,6 +161,12 @@ describe("classify", () => {
     expect(classify({ ...base, p95: 1999 })).toEqual([]);
   });
 
+  it("ignores p95 breaches on fewer than 20 requests (single scanner probe)", () => {
+    expect(classify({ ...base, total: 1, p95: 2291 })).toEqual([]);
+    expect(classify({ ...base, total: 19, p95: 5000 })).toEqual([]);
+    expect(classify({ ...base, total: 20, p95: 5000 })[0]).toMatch(/p95/);
+  });
+
   it("exposes the thresholds as named constants", () => {
     expect(THRESHOLDS).toMatchObject({
       rate5xx: 0.01,
@@ -168,6 +174,7 @@ describe("classify", () => {
       rate4xx: 0.1,
       min4xx: 50,
       p95Ms: 2000,
+      minP95: 20,
     });
   });
 });
