@@ -13,10 +13,9 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 describe("deepmerge advisory ignore (#8123)", () => {
   const pkg = JSON.parse(readFileSync(resolve(ROOT, "package.json"), "utf8"));
 
-  it("ignores GHSA-gcqx-w48m-w2h4 and keeps the existing ignores", () => {
+  it("ignores GHSA-gcqx-w48m-w2h4 and keeps the other ignores", () => {
     const ignored = pkg.pnpm.auditConfig?.ignoreGhsas ?? [];
     expect(ignored).toContain("GHSA-gcqx-w48m-w2h4");
-    expect(ignored).toContain("GHSA-ch52-4w7c-c8xp");
     expect(ignored).toContain("GHSA-mrhx-c7xc-m3w5");
   });
 });
