@@ -95,7 +95,12 @@ async function pinClock(page: Page, now: Date): Promise<void> {
   );
 }
 
-/** A second Manager: a context of its own, on the same venue. */
+/**
+ * A second Manager: a context of its own, on the same venue. The clock is pinned before the app's
+ * first load: a real Auth0 token has lapsed by a clock set weeks ahead, so an app that had already
+ * booted on the real clock would read its session as long expired when the clock jumped, and clear
+ * it (the landing page, "Sign In") before the page this returns is opened.
+ */
 async function newManager(
   browser: Browser,
   store: SharedConfigStore,
@@ -104,8 +109,8 @@ async function newManager(
   const context = await browser.newContext({ storageState: "e2e/.auth/user.json" });
   const page = await context.newPage();
   await mockApi(page);
-  await page.goto("");
   await pinClock(page, now);
+  await page.goto("");
   await serveSharedConfig(page, store);
   return { context, page };
 }
