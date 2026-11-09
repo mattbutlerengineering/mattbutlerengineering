@@ -5117,6 +5117,7 @@ Both quoted strings look like deprecation/config noise rather than a real assert
 **queueEfficiency:** composite 0.896 (baseline n/a) — healthy
 **Difficulty distribution:** size:xs:15, size:s:38, size:l:15, size:xl:16, size:m:12
 **Issues filed:** 0
+
 ### Metrics
 
 | Metric                                      | Value                                                                                                              |
