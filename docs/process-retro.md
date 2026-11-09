@@ -11,6 +11,390 @@ no retro.
 
 ---
 
+## 2026-11-09
+
+Window: **2026-11-02 → 2026-11-08**. Sources, all queried live this run: `node
+scripts/collect-sdlc-speed.mjs --days 7 --regressions`, `node
+scripts/stale-human-blocked-latest.mjs --open <membership>`, `node
+scripts/main-strictness.mjs`, `node scripts/routine-liveness.mjs`, GitHub REST
+via `gh api` (`search/issues`, `actions/runs`, `actions/workflows/*/runs`,
+`pulls`, `issues`, `commits/*/status`), heartbeat issue #6211 (271 comments
+in-window), `scripts/routine-manifest.mjs`,
+`metrics/stale-human-blocked.jsonl`, `metrics/process-metrics.jsonl`,
+`.claude/improvement-loop/log.md`, `docs/SECRETS.md`, and the working tree at
+`426445f`.
+
+**The week's one story: the CCR auto-mode merge classifier blocked the factory
+for six days, and the fix landed on the seventh.** Of 271 heartbeats on #6211,
+**215 (79%) mention a denied merge**, and **184 (68%) are `mbe-feature-drain
+throttled`** — the routine fired ~96×/day, re-reviewed PRs that were already
+green and already review-passed, and was refused the merge every time by
+`[Merge Without Review]` (#6125). `mbe-daily-issue` logged `error` on 5 of its 8
+fires, four of them verbatim "green + reviewed … merge denied … awaiting human
+merge" (11-03 #8196, 11-04 #8241, 11-05 #8324, 11-08 #8516). This is the
+documented gotcha, not a new discovery — but this is the first week it was
+measured end to end, and it is the direct cause of the agent-class p90
+regression in Friction below.
+
+**It is now fixed, and the fix is armed and proven.** #8501
+(`feat(automation): merge routine-reviewed PRs from a workflow with
+AUTOMATION_PAT`) merged 2026-11-08T07:04Z; `docs/SECRETS.md:248` records
+`AUTOMATION_PAT` as **Set 2026-11-08**; `reviewed-merge.yml` has 119 runs,
+succeeding through 11-08T23:34Z. End-to-end confirmation is in the heartbeat
+ledger itself — `mbe-daily-issue`'s last fire of the week flipped from `error` to
+`ok`: "PR #8516 merged via reviewed-merge.yml". Six days blocked, one day
+working.
+
+**The highest-leverage fix left is one stale clause.** `.claude/rules/gotchas.md:65`
+still reads "`AUTOMATION_PAT` is still unset (`docs/SECRETS.md`)". That file
+loads into _every_ session, so as written it tells every future agent that the
+only working merge path is dead — the exact belief that produced 215 denied-merge
+heartbeats. One line, every session. Filed `ready` as #8550.
+
+### Routine liveness
+
+**No routine is dark.** Every routine in the catalog either produced its
+expected artifact in-window or is intentionally paused. The 2026-07-10 failure
+mode (silent death, 19 days unnoticed) did not recur.
+
+| Routine                  | Expected artifact                                 | Observed in-window                                                                     | Verdict                                  |
+| ------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------- |
+| `mbe-evening`            | progress-tracker + optimize-implement-queue PRs   | #8074, #8170, #8220, #8306, #8352, #8495 (6) + 6 optimize rows                         | **alive** (no 11-07 row)                 |
+| `mbe-night`              | implement-queue PRs                               | —                                                                                      | **paused** since 2026-09-25              |
+| `mbe-midday`             | implement-queue PRs                               | —                                                                                      | **paused** since 2026-09-25              |
+| `mbe-auditor`            | issues                                            | 6 `ok` + 1 `noop` heartbeats; filed #8122                                              | **alive**                                |
+| `mbe-daily-issue`        | 1 merged PR `… (mbe-daily-issue #N)`              | #8196, #8241, #8324, #8399, #8516                                                      | **alive but blocked** (5 `error` fires)  |
+| `mbe-morning`            | issues (`/ideate`)                                | 5 `ok` + 2 `noop`                                                                      | **alive**                                |
+| `mbe-learning-loop`      | sensor report + metrics PR                        | 7 `chore(metrics): learning-loop` PRs                                                  | **alive**                                |
+| `mbe-ui-quality`         | `chore(ui-quality): ledger <date>`                | #8107, #8190, #8233, #8315, #8507 (5 of 7 days)                                        | **alive**, missing 11-06 + 11-07         |
+| `mbe-feature-drain`      | `… (mbe-feature-drain #N)` + heartbeat            | 24 PRs; 236 heartbeats (184 throttled / 44 ok / 4 noop / 4 error)                      | **alive but throttled**                  |
+| `mbe-prune`              | `… (mbe-prune)` PRs + heartbeat                   | **0 PRs**, 8 `noop` heartbeats                                                         | **alive** — see below                    |
+| `mbe-weekly-improve`     | `<type>(<scope>): weekly improve <date> — <desc>` | #8393 `fix(ci): weekly improve 2026-11-06 — pin main-push workflow watch completeness` | **alive**, signature + log both verified |
+| `mbe-doc-rot`            | 1 PR                                              | #8412 `docs: weekly rot sweep 2026-11-06`                                              | **alive**                                |
+| `mbe-weekly-retro`       | 1 PR + ≤3 issues                                  | this entry                                                                             | **alive**                                |
+| `mbe-monthly-meta-audit` | monthly                                           | not due in-window                                                                      | n/a                                      |
+
+`mbe-prune` produced **zero PRs in 7 days and is still alive** — this is the
+"ran but produced nothing" case the pass exists to separate, and here the
+distinction holds in the routine's favour. Its contract
+(`docs/routines/mbe-prune.md:126`, `:181`) makes `noop` a first-class state: the
+STEP 0 gate exits early when `last_sha` equals `origin/main` and today's lens is
+already done, and it posts at most one `noop` heartbeat per day across ~96
+fires. Eight `noop` heartbeats across seven days is exactly the contract being
+honoured on a repo with nothing to prune. **Not** a finding.
+
+`mbe-weekly-improve` is the one routine Pass 1 requires a double check on, and
+it passes both halves: PR #8393 carries the required
+`<type>(<scope>): weekly improve <date> — <short description>` signature, and
+`.claude/improvement-loop/log.md:4977-4979` carries a matching
+`## 2026-11-06 — mbe-weekly-improve` section naming #8393 by number. Credited
+alive, not dark.
+
+**GitHub Actions half** — all green, no gaps:
+
+| Workflow                  | Runs in-window | Conclusions                              |
+| ------------------------- | -------------- | ---------------------------------------- |
+| `drift-fix.yml`           | 7              | 7 success (one per day)                  |
+| `metrics-collectors.yml`  | 9              | 9 success                                |
+| `routine-liveness.yml`    | 7              | 7 success; **0 open `is dark` findings** |
+| `stale-human-blocked.yml` | 1 (Sun)        | success                                  |
+| `audit-sweep.yml`         | 1 (Mon)        | success                                  |
+
+**Two of the three implement-queue drains have been off for 45 days.**
+`scripts/routine-manifest.mjs:158,220` mark both `mbe-night` and `mbe-midday`
+`paused` since **2026-09-25**, reason "its auto-merge raced the local merge
+train. RemoteTrigger is `enabled:false`." Only `mbe-evening` still drains. The
+stated reason is plausibly obsolete now that `reviewed-merge.yml` owns merging —
+escalated below as a decision, not filed. Separately, the catalog rows for both
+still advertise live daily schedules ("Daily 9:47pm", "Daily 1:07pm") with no
+paused marker, which is why Pass 1 cannot use the catalog alone as the
+membership source; that row-level staleness overlaps #8411 and belongs to
+`mbe-doc-rot`, noted and left alone.
+
+#### Incident: this retro filed six false `ready` issues, then closed them
+
+Pass 1 ran `node scripts/routine-liveness.mjs`. **The script has no dry-run mode
+— reading the sensor wrote six issues** (#8542–#8547, each `ci-fix` + `ready`,
+00:13Z), every one a false `dark` verdict. All six are now closed
+`not_planned`, `ready` removed, each with a comment carrying the contradicting
+REST evidence. Net effect on the backlog: zero. Reported here because the
+mechanism is a live defect, not because the cleanup needs review.
+
+Root cause, confirmed by direct probe this run: the script resolves heartbeat
+and PR artifacts through `@mbe/gh-client`, which shells out to
+`gh issue view 6211 --json comments` and `gh pr list --search`. Both are
+GraphQL-backed, and in a Claude Code Remote session both return
+
+```
+HTTP 403: GitHub GraphQL is not available from Claude Code sessions; use the REST API
+```
+
+The artifact lookup therefore returns nothing for every routine, and
+`resultWhenNoArtifact()` maps "no usable artifact" to `dark` — so the script
+**fails open and files** rather than reporting `unverifiable`. Inside
+`routine-liveness.yml` (Actions, where GraphQL works) it is unaffected, which is
+why its 7 scheduled runs are green and filed nothing. This is the second
+occurrence of this exact six-issue storm; the first is recorded in
+`scripts/check-workflow-pr-scope.mjs:18` as #5603/#5606/#5607/#5609/#5610/#5611.
+It is also a textbook instance of the gotcha already in the file — "when a
+script depends on ambient capability … assert it exists where the script runs"
+(#5527-#5531) — applied to a script that does not do so. Filed `ready` as #8551.
+
+A near-miss worth recording for the next run of this routine: the correct Pass 2
+helper is `node scripts/stale-human-blocked-latest.mjs --open 8395,8012,…`, and
+`--open` takes a **comma-separated membership list**. Invoked as a bare `--open`
+it parses to an empty set and reports `verdict: "all-closed", usable: false` —
+which reads exactly like "the backlog is clear" and would have silently emptied
+this pass. Re-run with the real membership it returned `fresh`.
+
+### Blockers (human-blocked backlog)
+
+Membership from the label query (`ready-for-human`, `needs-review`, `blocked`,
+`agent-failed`, `stealable`): **10 open issues** — 8 `ready-for-human`, 1
+`needs-review`, 2 `blocked` (#6881 carries both). `agent-failed` and `stealable`
+are both empty.
+
+Ordering and age come from the latest `detected_at` batch in
+`metrics/stale-human-blocked.jsonl` (**2026-11-08T19:48:09.770Z**), never from
+`updatedAt`. `stale-human-blocked.yml` ran 11-08 at 19:48Z — hours before this
+retro and against these very issues — so `updatedAt` is unusable by
+construction (#4274). The helper returned `verdict: "fresh", usable: true`.
+
+**That batch contains exactly one row, so 9 of 10 blockers carry no measured
+age.** Reported as `unknown` rather than back-filled, as the pass requires.
+
+| Issue | Age                                                      | The specific thing a human must do                                                                                                                                                       |
+| ----- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #6881 | **22 days** (measured, `last_human_touch_at` 2026-10-16) | Mint a new Postgres credential in DigitalOcean and set it as `DATABASE_URL` on the DO app and in Pulumi config — no agent can hold a production credential.                              |
+| #8395 | unknown                                                  | Provision the token `api-failures.yml` was never given (or point it at `AUTOMATION_PAT`) — it has failed 100% of runs since #7545 and its weekly cron hides it from the streak detector. |
+| #8509 | unknown                                                  | Confirm severity and approve a fix approach for guest capability tokens reaching Sentry unredacted on 5xx/409/422/429.                                                                   |
+| #8012 | unknown                                                  | Add the Resend sending-domain DNS records for `eat-sheet.com` at the registrar.                                                                                                          |
+| #4670 | unknown                                                  | Review the 11 flagged orphaned cloud resources and approve (or refuse) their deletion.                                                                                                   |
+| #7715 | unknown                                                  | Decide whether to take the OpenTelemetry 3.0 major upgrade now or defer it.                                                                                                              |
+| #7995 | unknown                                                  | Decide build-or-drop on `persistent-nav-host` now that the Architect stage and spike are the remaining gate.                                                                             |
+| #7493 | unknown                                                  | Confirm these three remain open **as trackers** (venue-availability Phase 1) rather than actionable asks, or close them.                                                                 |
+| #7257 | unknown                                                  | — as above (eat-sheet migration tracker).                                                                                                                                                |
+| #7074 | unknown                                                  | — as above (menus / eat-sheet port tracker).                                                                                                                                             |
+
+The four issues this routine's prompt still names as ~20 days stale —
+**#3253, #3277, #3388, #3389 — are all closed** (2026-08-17 through 2026-09-25;
+#3253 `not_planned`, the other three `completed`). That list is stale and should
+stop being carried forward.
+
+Two measurement gaps in this pass, both worth naming:
+
+- **The detector covers 10% of its own pass.** 1 row vs 10 label-query members.
+  Nine blockers are invisible to `days_stale` because they have not crossed the
+  detector's own threshold, so the pass cannot rank most of what it lists.
+- **`detected_at` jumps 2026-09-20 → 2026-11-01** — five missed Sundays
+  (09-27, 10-04, 10-11, 10-18, 10-25) in an append-only weekly file. The
+  workflow is green now (11-08 success), so this is historical, but the
+  four-Sundays-old-batch hazard the helper guards against was real for a month.
+
+### Friction (PR flow)
+
+From `node scripts/collect-sdlc-speed.mjs --days 7 --regressions`, run live this
+session. Open-to-merge minutes, **per author class** — a blended p90 would be
+dominated by Dependabot's tail:
+
+| Class          | n   | p50   | p90       | max        | 3 slowest           |
+| -------------- | --- | ----- | --------- | ---------- | ------------------- |
+| human          | 143 | 54.7  | 406.1     | 1296       | #8183, #8051, #8048 |
+| agent          | 95  | 68.3  | **568.4** | 2161       | #7972, #8167, #8227 |
+| dependabot     | 5   | 381.1 | 1917.5    | 1917.5     | #8001, #8002, #8166 |
+| github-actions | 66  | 10.7  | 681.1     | **3305.6** | #8005, #8024, #8049 |
+
+`ci.yml` `pull_request` wall clock: **457 runs, p50 11.2 min, p90 38 min**.
+Slowest job by median: **`Test (Node 22, hospitality)`, 5.8 min**. Share of
+sampled runs touching `pnpm-lock.yaml`: **0** — no cold-turbo-cache tax this
+week.
+
+**`mainStrict` is unmeasured, and must not be filled in.** The sensor reported
+`mainStrict: null` with `mainStrictSource: "unavailable"`. Re-measuring here
+does not help: `gh api …/branches/main/protection/required_status_checks`
+returns `403 Resource not accessible by integration`. `node
+scripts/main-strictness.mjs` returned `{"strictMain":true}`, but per ADR-027
+that script **treats any error as strict**, so on a 403 that `true` is a
+fail-closed default and not a measurement. Recorded as unknown. Consequence:
+`gh pr update-branch` churn **cannot be priced this week** — it is only the
+N-squared tax of stacking same-zone PRs when `strict` is genuinely `true`.
+Escalated.
+
+Measured by hand, beyond the sensor:
+
+- **Red before merge: ≥79 of 324 merged PRs (≥24%).** 79 distinct non-`main`
+  branches had at least one failed run. A floor, not a figure: the failure query
+  capped at 500 of 784 runs and newest-first coverage reaches back only to
+  11-04, so 11-02 and 11-03 are under-counted.
+- **Reverts: 5 opened, 0 merged.** `github-actions[bot]` auto-rollback opened
+  #8102 and #8104 (11-02, both "fixes broken main"), #8226 and #8296 (11-04),
+  and #8429 (11-06, "auto-rollback agent commit abb9e47"). **None merged** —
+  main was forward-fixed instead, so all five were false rollbacks. Cause
+  addressed mid-week by #8437 (`fix(ci): gate auto-rollback on the smoke step,
+not the job conclusion`, merged 11-07).
+- **Slowest PR of the week: #8005, 3305.6 min (~55 h)** —
+  `chore: version packages`, the rialto 0.10.0 changeset-release PR. It was not
+  slow in CI. The heartbeat ledger shows it reviewed `PASS 9/10` with the merge
+  denied on 11-02 at 04:06, 13:40, 14:50, 16:03, 17:28 and 21:07 — six separate
+  fires re-reviewing one green PR and being refused. It waited on a human, which
+  is the same blockade as the headline.
+
+**Regression filed.** `proposals` was non-empty: agent-class p90 rose
+270.4 → 568.4 min (+110%, threshold +50%). The comparison is sound — the
+baseline is the 2026-11-02 row, and the 11-05 and 11-06 rows were correctly
+skipped as overlapping this window, which is #8439's non-overlap guard working
+as designed. Filed `ready` as #8549 with title and body unchanged, per the pass contract,
+with a diagnostic comment attached: the cause is the merge blockade above
+(#8005's six denied merges are in this very sample), it is remediated as of
+11-08, and the metric should self-clear next week.
+
+### Recurring causes
+
+**784 failed runs in-window** (sample: 500, newest-first, covering 11-04 → 11-08).
+Grouped by cause, not count:
+
+**1. Visual-baseline drift — real, and the dominant tax.** `Apps Visual
+Regression` accounts for 128 sampled failures, **36 of them on `main` across 5
+distinct days** (11-04 ×17, 11-05 ×5, 11-06 ×8, 11-07 ×2, 11-08 ×4) — main was
+visually red most of the week. The repo absorbed **18 baseline-regen PRs in 7
+days** (#8078, #8084, #8143, #8154, #8253, #8267, #8277, #8289, #8297, #8300,
+#8309, #8343, #8348, #8375, #8427, #8434, #8449, #8532): 16 merged, #8253 closed
+unmerged, #8532 still open. Fully documented in `gotchas.md` (shared-primitive
+`line-height` flipping ±1px baselines; Linux-runner-specific baselines; cloud
+routines lacking `actions: write` to regenerate). #8491
+(`chore(automation): dispatch visual-baseline-regen when main's visual job goes
+red`, merged 11-08) automates **opening** the regen PR — not merging it, which
+is the actual stall. See Escalations.
+
+**2. `changeset-release/main` runs that fail with zero jobs — systemic, and not
+in `gotchas.md`.** 75 of 500 sampled failures sit on that branch. Four workflows
+— `Secret Scan` (43), `Auto Review` (39), `ADR check` (39), `ai-attribution`
+(38) — conclude `failure` with **`total_count: 0` jobs**, and `0` of these
+failures occur on `main`. Example: run `42517105522` (`Secret Scan`,
+19:51Z → 20:35Z, 44 minutes wall clock, zero jobs created). Nothing executed, so
+there is no log to read and no code defect behind them; they are pure noise in
+every failure-rate denominator, including this section's. Bitten ≥4 workflows ×
+~39 runs in one week and undocumented — proposed entry below.
+
+**3. E2E / screenshot churn — mixed, mostly genuine flake, being fixed.** `E2E
+Tests` 34, `E2E Screenshots` 31, `Rialto Web E2E` 16 (6 on main), `Rialto Visual
+Regression` 11. Two real flake fixes merged this week — #8451 (reload-hold test
+failing on a slow runner) and #8424 (Close date-picker focus test made
+order-independent). One was a genuine defect, not flake: #8227's Gen E2E red
+(focus not restored to the history toggle after Escape), correctly labeled
+`agent-failed` rather than retried.
+
+**4. Half the failure signal is automation watching automation.** 252 of 500
+sampled failures (**50%**) are on bot branches: `changeset-release/main` 75,
+`automation/visual-baseline-regen/hospitality` 71,
+`automation/production-feedback` 46, `automation/acmm-regression` 24,
+`automation/metrics-collectors` 20,
+`automation/visual-baseline-regen/marketing` 16. Only 57 were on `main`, and the
+highest human feature branch in the sample was 11. Not a defect in itself, but
+it means raw CI-failure counts are a poor health signal for this repo, and any
+sensor that reads them without excluding automation branches will mis-triage.
+
+**Proposed `gotchas.md` entries** (wording for human review, not written by this
+run — Pass 4 proposes, it does not edit):
+
+> - **A `changeset-release/main` PR fires workflows that conclude `failure` with
+>   zero jobs** — `Secret Scan`, `Auto Review`, `ADR check` and `ai-attribution`
+>   each logged ~39 such runs in one week (e.g. run `42517105522`, 44 min,
+>   `total_count: 0`). No job is created, so there is no log and no code fix;
+>   treat these as noise and exclude bot branches from any CI failure-rate
+>   denominator.
+
+> - **`scripts/routine-liveness.mjs` has no dry-run and fails open outside
+>   Actions.** Its artifact lookup is GraphQL-backed (`gh issue view --json`,
+>   `gh pr list --search`), which 403s in a CCR session; every routine then
+>   reads `dark` and the script **files** `ci-fix`/`ready` issues. Twice now:
+>   #5603-#5611, then #8542-#8547. Never run it from a cloud session.
+
+The stale-clause correction in `gotchas.md:65` is tracked as a filed `ready`
+issue rather than proposed wording, because it is a deletion of a now-false
+statement rather than a new entry.
+
+### Throughput
+
+Backlog is **shrinking**, and the queue is close to drained:
+
+| Measure                        | Value                                                              |
+| ------------------------------ | ------------------------------------------------------------------ |
+| Issues filed 11-02 → 11-08     | 133                                                                |
+| Issues closed 11-02 → 11-08    | 161                                                                |
+| Net                            | **−28**                                                            |
+| Open issues now                | 18                                                                 |
+| Open `ready` now               | 2 (#8514, #8411)                                                   |
+| Open PRs now                   | 3 (#8541 red/in-flight, #8540 green, #8532 green + `needs-review`) |
+| PRs created in-window / merged | 339 / 324 (95.6%)                                                  |
+
+Counts are unaffected by this run's six accidental issues: they were created
+2026-11-09, outside the window.
+
+**Do not read a multi-week trend into the speed numbers.**
+`metrics/process-metrics.jsonl` holds only **6** `sdlcSpeed` rows, the first
+dated 2026-10-15, and three of them (11-02, 11-05, 11-06) overlap one another —
+which is exactly why #8439 added the non-overlap guard. Agent p90 across those
+rows reads 1170.5 → 477.6 → 17.6 → 270.4 → 568.4 → 853.2, a series whose shape
+is partly an artefact of overlapping windows and sample sizes between 68 and 216. Two usable non-overlapping points is not a trend. The direction worth
+trusting this week is the issue ledger above, which comes from GitHub directly.
+
+### Top 3 changes
+
+1. **Delete the false `AUTOMATION_PAT` clause from `.claude/rules/gotchas.md:65`.**
+   One line, in a file that loads into every session, currently asserting the
+   opposite of `docs/SECRETS.md:248`. While it stands, every agent reads that the
+   merge path is unavailable — the belief that generated 215 denied-merge
+   heartbeats. Highest leverage per unit of effort available this week. _Filed
+   `ready` as #8550._
+2. **Make `scripts/routine-liveness.mjs` fail closed and add `--dry-run`.** It
+   should assert GraphQL reachability before classifying and report
+   `unverifiable` instead of `dark` when it cannot see its inputs. Prevents a
+   third six-issue false-positive storm, and protects this retro's own Pass 1
+   from the sensor it depends on. _Filed `ready` as #8551._
+3. **Decide whether baseline-only PNG PRs may auto-merge.** 18 regen PRs in 7
+   days, main visually red 5 of 7 days, and #8491 now opens them automatically —
+   but each still waits on a hand merge, so the automation stops one step short
+   of clearing the red it was built to clear. Needs a human policy call, not an
+   agent. _Escalated, not filed._
+
+### Escalations
+
+Everything here needs a human decision or a human credential. None is filed as
+`ready`.
+
+1. **Decide whether to re-enable `mbe-night` and `mbe-midday`.** Paused 45 days
+   (since 2026-09-25) because "auto-merge raced the local merge train". That
+   reason is plausibly obsolete now that `reviewed-merge.yml` + `AUTOMATION_PAT`
+   own merging. Two of three implement-queue drains are off; re-enable, or
+   retire them from the catalog and remove the `paused` blocks.
+2. **Allow or refuse auto-merge for visual-baseline PNG PRs** (Top-3 item 3).
+   #8532 has been sitting green, `tier:standard` + `needs-review`, since
+   2026-11-08T19:19Z.
+3. **Re-measure `main`'s branch-protection `strict` flag with an admin token**,
+   or from a local session. Both this environment and the Monday Actions row lack
+   `Administration:read`, and `main-strictness.mjs` fail-closes to `true` on
+   error, so the value is currently unknowable from any automated path. Until
+   it is measured, update-branch cost cannot be priced.
+4. **#6881 — rotate `DATABASE_URL`** (22 days, the only measured blocker): mint
+   a new DO Postgres credential and set it on the DO app and in Pulumi config.
+5. **#8395 — provision `api-failures.yml`'s token**; it has failed 100% of runs
+   since #7545 and its weekly cron hides it from the streak detector.
+6. **#8509 — triage the guest-capability-token leak to Sentry**: confirm
+   severity and approve a fix approach.
+7. **#8012 — add Resend sending-domain DNS records for `eat-sheet.com`.**
+8. **#4670 — approve or refuse deletion of the 11 orphaned cloud resources.**
+9. **#7715 — decide on the OpenTelemetry 3.0 major upgrade** (take now or defer).
+10. **#7995 — build-or-drop decision on `persistent-nav-host`.**
+11. **#7493 / #7257 / #7074 — confirm these stay open as trackers** rather than
+    actionable asks, or close them; they currently occupy 3 of the 10
+    human-blocked slots and distort the blocker count.
+12. _(No action — for the record.)_ This run filed #8542-#8547 by invoking
+    `routine-liveness.mjs`, and closed all six `not_planned` with evidence. Net
+    backlog effect zero; the defect is Top-3 item 2.
+
+---
+
 ## 2026-11-01
 
 Window: **2026-10-25 → 2026-11-01**. Sources: `node scripts/collect-sdlc-speed.mjs
