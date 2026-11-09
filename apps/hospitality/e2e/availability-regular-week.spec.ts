@@ -383,6 +383,10 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
       await mockedPage.getByRole("menuitem", { name: c.goTo }).click();
       const dialog = mockedPage.getByRole("dialog", { name: c.goTo });
       await expect(dialog).toBeVisible();
+      // Visible is not yet listening: the dialog paints (at opacity 0) a commit before its effects
+      // attach the Escape handler and move focus in. Focus inside is the sign it is ready, and
+      // an Escape sent earlier is dropped, leaving the dialog open for good.
+      await expect(dialog.getByLabel(c.date)).toBeFocused();
       await mockedPage.keyboard.press("Escape");
       await expect(dialog).toBeHidden();
       await expect(more).toBeFocused();
