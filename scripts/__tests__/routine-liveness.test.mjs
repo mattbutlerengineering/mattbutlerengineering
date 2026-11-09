@@ -1808,3 +1808,143 @@ describe("heartbeat comments as actually posted (#6524, #6525, #6526)", () => {
     expect(fetchObservedArtifactsViaGhClient(ghClient, entry)).toEqual([]);
   });
 });
+
+// #8551: reading the sensor from an environment blind to its inputs (Claude
+// Code Remote: GraphQL is blocked) filed six false `dark` issues. A lookup that
+// cannot run is `unverifiable` and writes nothing; `--dry-run` never writes.
+describe("fails closed when the artifact lookup is unavailable (#8551)", async () => {
+  const { isGraphqlUnavailableError, formatClassificationTable, parseCliArgs } =
+    await import("../routine-liveness.mjs");
+
+  // Copied verbatim from a real Claude Code Remote session (gotchas.md, #6312).
+  const GRAPHQL_403 =
+    "HTTP 403: GitHub GraphQL is not available from Claude Code sessions; use the REST API (gh api repos/{owner}/{repo}/...)";
+  const NOW = "2026-11-08T12:00:00Z";
+  const HEARTBEAT = { type: "heartbeat" };
+  const manifest = [
+    { name: "mbe-a", triggerId: "t_a", periodDays: 1, signature: HEARTBEAT },
+    {
+      name: "mbe-b",
+      triggerId: "t_b",
+      periodDays: 7,
+      signature: { type: "pr-title", pattern: "b \\d+", searchTerm: "b" },
+    },
+    {
+      name: "mbe-c",
+      triggerId: "t_c",
+      periodDays: 7,
+      signature: { type: "issue-label", label: "audit" },
+    },
+  ];
+
+  it("recognizes the verbatim GraphQL 403 shape, and nothing looser", () => {
+    expect(isGraphqlUnavailableError(new Error(GRAPHQL_403))).toBe(true);
+    expect(isGraphqlUnavailableError(new Error("HTTP 403: Resource not accessible"))).toBe(false);
+    expect(isGraphqlUnavailableError(new Error("HTTP 401: Bad credentials"))).toBe(false);
+    expect(isGraphqlUnavailableError("nope")).toBe(false);
+    const wrapped = new Error("gh-client: GraphQL unavailable", { cause: new Error(GRAPHQL_403) });
+    expect(isGraphqlUnavailableError(wrapped)).toBe(true);
+  });
+
+  it("classifies every routine unverifiable, never dark, and files nothing", () => {
+    const created = [];
+    const closed = [];
+    const results = runRoutineLivenessCheck({
+      manifest,
+      fetchObservedArtifacts: (entry) => {
+        // First routine's lookup is blocked; the others would read as empty.
+        if (entry.name === "mbe-a") throw new Error(GRAPHQL_403);
+        return [];
+      },
+      now: NOW,
+      searchCiFixIssues: () => [],
+      createIssue: (title) => {
+        created.push(title);
+        return 1;
+      },
+      closeIssue: (n) => closed.push(n),
+    });
+    expect(results.map((r) => r.status)).toEqual(["unverifiable", "unverifiable", "unverifiable"]);
+    expect(results.some((r) => r.status === "dark")).toBe(false);
+    expect(created).toEqual([]);
+    expect(closed).toEqual([]);
+  });
+
+  it("does not file when the lookup throws for every routine", () => {
+    let calls = 0;
+    const results = runRoutineLivenessCheck({
+      manifest,
+      fetchObservedArtifacts: () => {
+        throw new Error(GRAPHQL_403);
+      },
+      now: NOW,
+      createIssue: () => {
+        calls += 1;
+        return 1;
+      },
+    });
+    expect(results.every((r) => r.status === "unverifiable")).toBe(true);
+    expect(calls).toBe(0);
+  });
+
+  it("dry-run: classifies a dark routine but never calls createIssue or closeIssue", () => {
+    let writes = 0;
+    const results = runRoutineLivenessCheck({
+      manifest: [manifest[1]],
+      fetchObservedArtifacts: () => [{ type: "pr", title: "unrelated", observedAt: NOW }],
+      now: NOW,
+      searchCiFixIssues: () => [],
+      dryRun: true,
+      createIssue: () => {
+        writes += 1;
+        return 1;
+      },
+      closeIssue: () => {
+        writes += 1;
+      },
+    });
+    expect(results).toEqual([{ routine: "mbe-b", status: "dark", action: "would-create" }]);
+    expect(writes).toBe(0);
+  });
+
+  it("dry-run: a dark->alive recovery reports would-close without closing", () => {
+    let writes = 0;
+    const results = runRoutineLivenessCheck({
+      manifest: [manifest[1]],
+      fetchObservedArtifacts: () => [{ type: "pr", title: "b 1", observedAt: NOW }],
+      now: NOW,
+      searchCiFixIssues: () => [
+        { number: 9, title: "ci-fix: routine mbe-b is dark — no expected artifact observed" },
+      ],
+      getIssueState: () => "open",
+      dryRun: true,
+      closeIssue: () => {
+        writes += 1;
+      },
+      createIssue: () => {
+        writes += 1;
+        return 1;
+      },
+    });
+    expect(results).toEqual([
+      { routine: "mbe-b", status: "alive", action: "would-close", issueNumber: 9 },
+    ]);
+    expect(writes).toBe(0);
+  });
+
+  it("parseCliArgs reads --dry-run and rejects unknown flags", () => {
+    expect(parseCliArgs([])).toEqual({ dryRun: false });
+    expect(parseCliArgs(["--dry-run"])).toEqual({ dryRun: true });
+    expect(() => parseCliArgs(["--wat"])).toThrow(/--wat/);
+  });
+
+  it("formatClassificationTable prints one row per routine", () => {
+    const table = formatClassificationTable([
+      { routine: "mbe-b", status: "dark", action: "would-create" },
+      { routine: "mbe-c", status: "alive" },
+    ]);
+    expect(table).toContain("mbe-b");
+    expect(table).toContain("would-create");
+    expect(table.split("\n").filter((l) => l.includes("mbe-c"))).toHaveLength(1);
+  });
+});
