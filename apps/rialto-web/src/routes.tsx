@@ -5,6 +5,7 @@ import { Spinner } from "@mattbutlerengineering/rialto";
 import { ShowcaseLayout } from "./layouts/ShowcaseLayout";
 import { OverviewPage } from "./pages/OverviewPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
+import { DemosIndexPage } from "./pages/DemosIndexPage";
 import { PAGE_REGISTRY } from "./data/page-registry";
 
 /* ── Lazy-loaded demo pages ──────────────────────── */
@@ -107,6 +108,7 @@ export const routeTree: RouteObject[] = [
     path: "demos",
     element: suspended(DemoLayout),
     children: [
+      { index: true, element: <DemosIndexPage /> },
       { path: "login", element: suspended(SignIn) },
       { path: "signup", element: suspended(SignUp) },
       { path: "session-expired", element: suspended(SessionExpired) },
