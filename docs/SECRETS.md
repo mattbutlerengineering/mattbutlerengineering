@@ -12,30 +12,32 @@ Production infrastructure secrets are injected by Pulumi at deploy time (see `in
 
 ## Rotation Schedule
 
-| Secret                        | Purpose                                                                                                  | Cadence                         | Next Rotation |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------- |
-| `DIGITALOCEAN_TOKEN`          | DigitalOcean API (deploy-services, Pulumi)                                                               | Quarterly                       | —             |
-| `MBE_CLOUDFLARE_API_TOKEN`    | Cloudflare API (Pages deploys, KV, DNS, Pulumi)                                                          | Quarterly                       | —             |
-| `DATABASE_URL`                | PostgreSQL connection string -- Pulumi config `mbe-infrastructure:databaseUrl`, **not** a GitHub secret  | Quarterly                       | —             |
-| `R2_ACCESS_KEY_ID`            | Cloudflare R2 / S3-compat access key (Pulumi state backend)                                              | Quarterly                       | —             |
-| `R2_SECRET_ACCESS_KEY`        | Cloudflare R2 / S3-compat secret key (Pulumi state backend)                                              | Quarterly                       | —             |
-| `PULUMI_ACCESS_TOKEN`         | Pulumi Cloud API (if used; currently state is in R2)                                                     | Semi-annually                   | —             |
-| `PULUMI_CONFIG_PASSPHRASE`    | Encrypts Pulumi stack config values                                                                      | Semi-annually                   | —             |
-| `AUTH0_CLIENT_SECRET`         | Auth0 Machine-to-Machine secret (Pulumi provider)                                                        | Semi-annually                   | —             |
-| `LANGFUSE_SECRET_KEY`         | Langfuse observability API secret                                                                        | Semi-annually                   | —             |
-| `GITLEAKS_LICENSE`            | Gitleaks commercial license key (secret-scan workflow)                                                   | Semi-annually                   | —             |
-| `SENTRY_DSN`                  | Sentry ingest endpoint (public identifier)                                                               | No rotation needed              | N/A           |
-| `GITHUB_TOKEN`                | GitHub Actions built-in token                                                                            | Auto-rotated by Actions         | N/A           |
-| `CLOUDFLARE_ACCOUNT_ID`       | Cloudflare account identifier (not a secret per se)                                                      | No rotation needed              | N/A           |
-| `HEALTH_KV_NAMESPACE_ID`      | Cloudflare KV namespace ID for health checks                                                             | No rotation needed              | N/A           |
-| `AUTH0_DOMAIN`                | Auth0 tenant domain (e.g. `xxx.auth0.com`)                                                               | No rotation needed              | N/A           |
-| `AUTH0_CLIENT_ID`             | Auth0 application client ID (public)                                                                     | No rotation needed              | N/A           |
-| `AUTH0_GEN_CLIENT_ID`         | Auth0 general SPA client ID (public)                                                                     | No rotation needed              | N/A           |
-| `AUTH0_HOSPITALITY_CLIENT_ID` | Auth0 hospitality app client ID (public)                                                                 | No rotation needed              | N/A           |
-| `TURBO_TOKEN`                 | Turborepo remote cache token                                                                             | Semi-annually                   | —             |
-| `AGENT_API_URL`               | Agent service API base URL (not a credential)                                                            | No rotation needed              | N/A           |
-| `AUTOMATION_PAT`              | PAT/bot-token for scheduled automation that pushes commits (see below)                                   | Semi-annually                   | —             |
-| `RIALTO_PACKAGES_TOKEN`       | Classic PAT (`write:packages`) publishing `@mattbutlerengineering/rialto` to GitHub Packages (see below) | Optional -- unset skips publish | —             |
+| Secret                        | Purpose                                                                                                   | Cadence                         | Next Rotation |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------- | ------------- |
+| `DIGITALOCEAN_TOKEN`          | DigitalOcean API (deploy-services, Pulumi)                                                                | Quarterly                       | —             |
+| `MBE_CLOUDFLARE_API_TOKEN`    | Cloudflare API (Pages deploys, KV, DNS, Pulumi)                                                           | Quarterly                       | —             |
+| `DATABASE_URL`                | PostgreSQL connection string -- Pulumi config `mbe-infrastructure:databaseUrl`, **not** a GitHub secret   | Quarterly                       | —             |
+| `R2_ACCESS_KEY_ID`            | Cloudflare R2 / S3-compat access key (Pulumi state backend)                                               | Quarterly                       | —             |
+| `R2_SECRET_ACCESS_KEY`        | Cloudflare R2 / S3-compat secret key (Pulumi state backend)                                               | Quarterly                       | —             |
+| `PULUMI_ACCESS_TOKEN`         | Pulumi Cloud API (if used; currently state is in R2)                                                      | Semi-annually                   | —             |
+| `PULUMI_CONFIG_PASSPHRASE`    | Encrypts Pulumi stack config values                                                                       | Semi-annually                   | —             |
+| `AUTH0_CLIENT_SECRET`         | Auth0 Machine-to-Machine secret (Pulumi provider)                                                         | Semi-annually                   | —             |
+| `LANGFUSE_SECRET_KEY`         | Langfuse observability API secret                                                                         | Semi-annually                   | —             |
+| `RESEND_API_KEY`              | Resend sending-only key for guest email -- DO app-spec env on `reservations-api`, **not** a GitHub secret | Semi-annually                   | —             |
+| `CLOUDFLARE_API_TOKEN`        | Cloudflare Account Analytics Read only, for `api-failures.yml` (#8395)                                    | Semi-annually                   | —             |
+| `GITLEAKS_LICENSE`            | Gitleaks commercial license key (secret-scan workflow)                                                    | Semi-annually                   | —             |
+| `SENTRY_DSN`                  | Sentry ingest endpoint (public identifier)                                                                | No rotation needed              | N/A           |
+| `GITHUB_TOKEN`                | GitHub Actions built-in token                                                                             | Auto-rotated by Actions         | N/A           |
+| `CLOUDFLARE_ACCOUNT_ID`       | Cloudflare account identifier (not a secret per se)                                                       | No rotation needed              | N/A           |
+| `HEALTH_KV_NAMESPACE_ID`      | Cloudflare KV namespace ID for health checks                                                              | No rotation needed              | N/A           |
+| `AUTH0_DOMAIN`                | Auth0 tenant domain (e.g. `xxx.auth0.com`)                                                                | No rotation needed              | N/A           |
+| `AUTH0_CLIENT_ID`             | Auth0 application client ID (public)                                                                      | No rotation needed              | N/A           |
+| `AUTH0_GEN_CLIENT_ID`         | Auth0 general SPA client ID (public)                                                                      | No rotation needed              | N/A           |
+| `AUTH0_HOSPITALITY_CLIENT_ID` | Auth0 hospitality app client ID (public)                                                                  | No rotation needed              | N/A           |
+| `TURBO_TOKEN`                 | Turborepo remote cache token                                                                              | Semi-annually                   | —             |
+| `AGENT_API_URL`               | Agent service API base URL (not a credential)                                                             | No rotation needed              | N/A           |
+| `AUTOMATION_PAT`              | PAT/bot-token for scheduled automation that pushes commits (see below)                                    | Semi-annually                   | —             |
+| `RIALTO_PACKAGES_TOKEN`       | Classic PAT (`write:packages`) publishing `@mattbutlerengineering/rialto` to GitHub Packages (see below)  | Optional -- unset skips publish | —             |
 
 ## Rotation Runbooks
 
@@ -230,6 +232,14 @@ Revert the Pulumi config PR afterwards to keep config in sync.
 2. Renew or re-download the license key if needed.
 3. In GitHub, update `GITLEAKS_LICENSE`.
 4. **Verify:** Trigger the `secret-scan` workflow; confirm it runs without license errors.
+
+### RESEND_API_KEY
+
+Resend key `mbe-reservations-api-prod`, **Sending access** only, all domains. Both `mattbutlerengineering.com` and `eat-sheet.com` are verified sending domains (DNS added via Resend's Cloudflare Domain Connect, 2026-11-09). It lives only in the live DO app spec, as an encrypted `SECRET` env on the `reservations-api` service. Pulumi sets `ignoreChanges: ["spec.services"]`, so Pulumi config cannot set or rotate it. Without it, `reservations-api` sends no email at all.
+
+1. In Resend, open API keys and create a new Sending-access key.
+2. In DO, open App, then `reservations-api`, then Settings, then Environment Variables. Replace `RESEND_API_KEY`, keep it encrypted, and save. Saving redeploys.
+3. Confirm the new deployment is `ACTIVE`, then delete the old key in Resend.
 
 ### TURBO_TOKEN
 
