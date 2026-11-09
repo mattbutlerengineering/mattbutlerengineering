@@ -68,7 +68,9 @@
 }
 
 .column {
-  min-width: 140px;
+  /* Hug the text. A floor wider than the shorter column (the old 140px
+     min-width) leaves empty space on the trailing side, so centering the
+     tracks sits the ink left of the wordmark and the copyright line. */
   text-align: start;
 }
 
