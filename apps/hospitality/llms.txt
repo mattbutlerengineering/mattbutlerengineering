@@ -4931,9 +4931,6 @@
   </file>
   <file path="src/hooks/useHolidayDecisions.ts">
     <item priority="high">
-      export const HOLIDAY_DECISIONS_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useHolidayDecisions: unknown;
     </item>
     <item priority="high">

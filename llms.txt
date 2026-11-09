@@ -8526,9 +8526,6 @@
   </file>
   <file path="apps/hospitality/src/hooks/useHolidayDecisions.ts">
     <item priority="high">
-      export const HOLIDAY_DECISIONS_QUERY_KEY: unknown;
-    </item>
-    <item priority="high">
       export const useHolidayDecisions: unknown;
     </item>
     <item priority="high">
@@ -19443,8 +19440,8 @@
         work: (db: Db) => Promise<T>
       ): Promise<T | M> { /* ... */ }
     </item>
-    <item priority="high">
-      export function listHolidayDecisions(
+    <item priority="medium">
+      function listHolidayDecisions(
         venueId: string,
         range: { from: string; to: string },
         logger?: DecisionLogger,
@@ -19459,14 +19456,14 @@
         actorId: string;
       }
     </item>
-    <item priority="high">
-      export function setHolidayDecision(
+    <item priority="medium">
+      function setHolidayDecision(
         input: SetHolidayDecisionInput,
         client: StoreClient = prisma
       ): Promise<HolidayDecision | null> { /* ... */ }
     </item>
-    <item priority="high">
-      export async function clearHolidayDecision(
+    <item priority="low">
+      async function clearHolidayDecision(
         venueId: string,
         serviceDate: string,
         client: StoreClient = prisma

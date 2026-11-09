@@ -20823,7 +20823,7 @@
         return venue ? work(db) : missing;
       });
     }
-    export function listHolidayDecisions(
+    function listHolidayDecisions(
       venueId: string,
       range: { from: string; to: string },
       logger?: DecisionLogger,
@@ -20856,7 +20856,7 @@
       decision: HolidayDecisionKind;
       actorId: string;
     }
-    export function setHolidayDecision(
+    function setHolidayDecision(
       input: SetHolidayDecisionInput,
       client: StoreClient = prisma
     ): Promise<HolidayDecision | null> {
@@ -20875,7 +20875,7 @@
         return toWire({ ...row, decision: HolidayDecisionKindSchema.parse(row.decision) });
       });
     }
-    export async function clearHolidayDecision(
+    async function clearHolidayDecision(
       venueId: string,
       serviceDate: string,
       client: StoreClient = prisma
