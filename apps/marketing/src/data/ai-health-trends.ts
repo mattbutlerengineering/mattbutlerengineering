@@ -14,10 +14,12 @@
  * throwing.
  *
  * A day the collector could not measure arrives as `value: null` plus the
- * recorded `note`. It stays a hole all the way to the rendered chart: never
- * dropped, never interpolated. This is the page whose stated purpose is
- * honesty about self-improvement, so an unmeasured day has to read as
- * unmeasured.
+ * recorded `note`. A calendar day inside the first-to-last span that has no
+ * row at all is the same kind of hole: it is inserted here, with no note,
+ * so the caption, the table, and the chart count and draw it. Neither kind
+ * of hole is dropped, and neither is interpolated. This is the page whose
+ * stated purpose is honesty about self-improvement, so an unmeasured day
+ * has to read as unmeasured.
  */
 
 /** One published reading. `value: null` is an explicitly unmeasured day. */
@@ -65,7 +67,7 @@ export interface TrendSeries {
   readonly points: readonly TrendPoint[];
   /** Days carrying a measurement. */
   readonly reported: number;
-  /** Days present in the window but explicitly unmeasured. */
+  /** Calendar days in the span with no measurement, including dates with no row. */
   readonly missing: number;
   /** Oldest measured reading, skipping leading holes. */
   readonly first: TrendReading | null;
@@ -86,6 +88,55 @@ const DEFAULT_LABELS = {
   acmmLevel: "ACMM maturity level",
   queueEfficiency: "Queue efficiency composite",
 } as const;
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function utcDay(isoDate: string): number {
+  return Date.parse(`${isoDate}T00:00:00Z`);
+}
+
+function formatUtcDay(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/** True when `isoDate` is a real UTC calendar day, not an overflow like Feb 31. */
+function isRealIsoDay(isoDate: string): boolean {
+  if (!ISO_DATE.test(isoDate)) return false;
+  const ms = utcDay(isoDate);
+  return Number.isFinite(ms) && formatUtcDay(ms) === isoDate;
+}
+
+/**
+ * One point per calendar day from the earliest reading to the latest.
+ *
+ * The axis labels that span, so the caption and the table have to span it
+ * too. A date with no row becomes `{ value: null, note: null }`. A repeated
+ * date keeps its last reading, the same rule `selectTrendWindow` uses when
+ * it writes the file. A date that is not a real `YYYY-MM-DD` cannot be
+ * placed, so the series is left as published rather than inventing days
+ * around it.
+ */
+function fillCalendarSpan(points: readonly TrendPoint[]): readonly TrendPoint[] {
+  if (points.length === 0 || !points.every((point) => isRealIsoDay(point.date))) {
+    return points;
+  }
+
+  const byDate = new Map<string, TrendPoint>();
+  for (const point of points) byDate.set(point.date, point);
+
+  const dates = [...byDate.keys()].sort();
+  const start = dates[0];
+  const end = dates[dates.length - 1];
+  if (start === undefined || end === undefined) return points;
+
+  const filled: TrendPoint[] = [];
+  for (let ms = utcDay(start); ms <= utcDay(end); ms += MS_PER_DAY) {
+    const date = formatUtcDay(ms);
+    filled.push(byDate.get(date) ?? { date, value: null, note: null });
+  }
+  return filled;
+}
 
 function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
@@ -114,9 +165,9 @@ function normalizePoint(raw: unknown): TrendPoint | null {
 function normalizeSeries(raw: unknown, defaultLabel: string): TrendSeries {
   const series = asRecord(raw);
   const rawPoints = Array.isArray(series.points) ? series.points : [];
-  const points = rawPoints
-    .map(normalizePoint)
-    .filter((point): point is TrendPoint => point !== null);
+  const points = fillCalendarSpan(
+    rawPoints.map(normalizePoint).filter((point): point is TrendPoint => point !== null)
+  );
   const measured = points.filter((point) => point.value !== null);
 
   const toReading = (point: TrendPoint | undefined): TrendReading | null =>
