@@ -86,6 +86,7 @@ export function NumberInputPage() {
             onChange={setLapCount}
             min={1}
             max={99}
+            step={1}
             hint="1–99 laps"
           />
           <NumberInput

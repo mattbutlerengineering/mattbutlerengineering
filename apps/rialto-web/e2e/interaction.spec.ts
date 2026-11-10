@@ -129,6 +129,33 @@ test("Number input page — pit strategy steps inside its bounds and Reset resto
   await expect(page.getByLabel("Lap Count")).toHaveValue("6");
 });
 
+test("Number input page — a decimal lap count commits to a whole number", async ({ page }) => {
+  await consent(page);
+  await page.goto("components/number-input");
+  await page.waitForLoadState("networkidle");
+
+  const laps = page.getByLabel("Lap Count");
+  await laps.fill("3.7");
+  await expect(laps).toHaveValue("3.7");
+  await laps.blur();
+  await expect(laps).toHaveValue("4");
+  await laps.locator("xpath=..").getByRole("button", { name: "Increase" }).click();
+  await expect(laps).toHaveValue("5");
+
+  await laps.fill("07");
+  await expect(laps).toHaveValue("07");
+  await laps.blur();
+  await expect(laps).toHaveValue("7");
+
+  await laps.fill("500");
+  await laps.blur();
+  await expect(laps).toHaveValue("99");
+
+  await laps.fill("0");
+  await laps.blur();
+  await expect(laps).toHaveValue("1");
+});
+
 async function glyphIsVisible(page: Page, name: string) {
   const button = page.getByRole("button", { name, exact: true });
   const svg = button.locator("svg");
