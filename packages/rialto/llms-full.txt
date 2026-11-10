@@ -658,6 +658,133 @@
         "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
     } satisfies CatalogMeta;
   </file>
+  <file path="src/components/DatePicker/fit-below.ts">
+    export function scrollDeltaToFitBelow(options: {
+      anchorTop: number;
+      anchorBottom: number;
+      panelHeight: number;
+      viewportHeight: number;
+      scrollerTop: number;
+      scrollTop: number;
+      scrollHeight: number;
+      clientHeight: number;
+      gap?: number;
+      margin?: number;
+    }): number {
+      const gap = options.gap ?? POPOVER_ANCHOR_GAP;
+      const margin = options.margin ?? EDGE_MARGIN;
+      if (options.panelHeight <= 0) return 0;
+      const room = options.viewportHeight - options.anchorBottom - gap;
+      if (options.panelHeight <= room) return 0;
+      const deficit = options.panelHeight - room;
+      const spare = options.anchorTop - options.scrollerTop - margin;
+      const scrollRoom = options.scrollHeight - options.clientHeight - options.scrollTop;
+      return Math.max(0, Math.min(deficit, spare, scrollRoom));
+    }
+    export function sheetMaxHeight(options: {
+      panelScrollHeight: number;
+      sheetOffsetHeight: number;
+      anchorBottom: number;
+      viewportHeight: number;
+      gap?: number;
+      minRoom?: number;
+      minSheet?: number;
+    }): number | null {
+      const gap = options.gap ?? POPOVER_ANCHOR_GAP;
+      const minRoom = options.minRoom ?? MIN_ROOM_BELOW;
+      const minSheet = options.minSheet ?? MIN_SHEET;
+      const room = options.viewportHeight - options.anchorBottom - gap;
+      if (options.panelScrollHeight <= room + 0.5) return null;
+      if (room < minRoom) return null;
+      const chrome = Math.max(0, options.panelScrollHeight - options.sheetOffsetHeight);
+      const inner = Math.floor(room - chrome);
+      if (inner < minSheet) return null;
+      return inner;
+    }
+    function isVerticalScroller(node: HTMLElement): boolean {
+      const { overflowY } = getComputedStyle(node);
+      return (
+        (overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight + 1
+      );
+    }
+    function anchorForPanel(panel: HTMLElement): HTMLElement | null {
+      const trigger = document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(panel.id)}"]`);
+      // The trigger sits in an inner presentation wrapper. Its parent is the
+      // popover anchor useLayerFloating measures, including when the panel is
+      // portaled out of that anchor.
+      const nearest = trigger?.closest("[role='presentation']")?.parentElement;
+      return nearest instanceof HTMLElement ? nearest : null;
+    }
+    function applyFit(sheet: HTMLElement, allowScroll: boolean): void {
+      const panel = sheet.closest<HTMLElement>("[role='dialog']");
+      if (!panel?.id) return;
+      const anchor = anchorForPanel(panel);
+      if (!anchor) return;
+    
+      sheet.style.maxHeight = "";
+      sheet.style.overflowY = "";
+      sheet.style.overscrollBehavior = "";
+    
+      const viewportHeight = document.documentElement.clientHeight;
+      let anchorBottom = anchor.getBoundingClientRect().bottom;
+      const needed = panel.scrollHeight;
+      const room = viewportHeight - anchorBottom - POPOVER_ANCHOR_GAP;
+    
+      if (allowScroll && needed > room && room < MIN_ROOM_BELOW) {
+        let node = anchor.parentElement;
+        while (node) {
+          if (isVerticalScroller(node)) {
+            const rect = anchor.getBoundingClientRect();
+            const delta = scrollDeltaToFitBelow({
+              anchorTop: rect.top,
+              anchorBottom: rect.bottom,
+              panelHeight: needed,
+              viewportHeight,
+              scrollerTop: node.getBoundingClientRect().top,
+              scrollTop: node.scrollTop,
+              scrollHeight: node.scrollHeight,
+              clientHeight: node.clientHeight,
+            });
+            if (delta >= 1) {
+              node.scrollTop += delta;
+              break;
+            }
+          }
+          node = node.parentElement;
+        }
+        anchorBottom = anchor.getBoundingClientRect().bottom;
+      }
+    
+      // scrollHeight ignores the panel border, so a cap that fills the room
+      // exactly still paints the border past the viewport edge.
+      const frame = Math.max(0, panel.offsetHeight - panel.clientHeight);
+      const max = sheetMaxHeight({
+        panelScrollHeight: panel.scrollHeight,
+        sheetOffsetHeight: sheet.offsetHeight,
+        anchorBottom,
+        viewportHeight: viewportHeight - frame,
+      });
+      if (max == null) return;
+      sheet.style.maxHeight = `${max}px`;
+      sheet.style.overflowY = "auto";
+      sheet.style.overscrollBehavior = "contain";
+    }
+    export function bindCalendarFit(sheet: HTMLElement): () => void {
+      const onScroll = (event: Event) => {
+        const panel = sheet.closest("[role='dialog']");
+        if (panel && event.target instanceof Node && panel.contains(event.target)) return;
+        applyFit(sheet, false);
+      };
+      const onResize = () => applyFit(sheet, true);
+      applyFit(sheet, true);
+      window.addEventListener("resize", onResize);
+      window.addEventListener("scroll", onScroll, true);
+      return () => {
+        window.removeEventListener("resize", onResize);
+        window.removeEventListener("scroll", onScroll, true);
+      };
+    }
+  </file>
   </section>
   <section priority="medium" role="DateRange">
   <file path="src/components/DateRange/DateRange.catalog.ts">
