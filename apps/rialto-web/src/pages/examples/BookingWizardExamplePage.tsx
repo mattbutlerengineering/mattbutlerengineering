@@ -89,7 +89,7 @@ function DatesStep({ state, errors, onChange }: DatesStepProps) {
   return (
     <Stack gap="lg">
       <div className={styles.dateGrid}>
-        <div>
+        <div className={styles.dateField}>
           <DatePicker
             label="Check-in"
             placeholder="Select date"
@@ -99,7 +99,7 @@ function DatesStep({ state, errors, onChange }: DatesStepProps) {
           />
           <FieldError message={errors.checkIn} />
         </div>
-        <div>
+        <div className={styles.dateField}>
           <DatePicker
             label="Check-out"
             placeholder="Select date"

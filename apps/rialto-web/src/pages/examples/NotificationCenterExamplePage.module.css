@@ -30,18 +30,48 @@
   gap: var(--rialto-space-sm);
 }
 
+.list > li {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
 .item {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   gap: var(--rialto-space-2xs);
   width: 100%;
+  max-inline-size: 100%;
+  min-inline-size: 0;
   padding: var(--rialto-space-md);
   border: 1px solid var(--rialto-border);
   border-radius: var(--rialto-radius-soft);
   background: var(--rialto-card-flat-bg);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
+}
+
+/* Button's own rules are single-class and set nowrap + inline-flex. Two
+   classes here win, so the row can shrink to the card and wrap. */
+.list .item {
+  white-space: normal;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* Button wraps its children in one span, so the column layout on the button
+   never reaches the title and body — they sit inline and run together.
+   Stack that span, and blockify the title and message, so a title like
+   "New reservation confirmed" stays on its own line. */
+.list .item > span {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--rialto-space-2xs);
+  width: 100%;
+  min-inline-size: 0;
+  white-space: normal;
+  text-align: start;
 }
 
 /* Unread rows are set apart by more than colour: a heavier left border, an
@@ -55,8 +85,11 @@
 
 .itemHeader {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--rialto-space-xs);
+  width: 100%;
+  min-inline-size: 0;
 }
 
 .time {
@@ -64,9 +97,19 @@
 }
 
 .title {
+  display: block;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: var(--rialto-text-primary);
 }
 
 .message {
+  display: block;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: var(--rialto-text-secondary);
 }

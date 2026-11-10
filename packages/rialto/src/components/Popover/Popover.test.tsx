@@ -30,6 +30,25 @@ describe("Popover", () => {
     expect(screen.getByText("Popover content")).toBeInTheDocument();
   });
 
+  it("portals the panel to document.body and keeps a click inside it", async () => {
+    const onPick = vi.fn();
+    render(
+      <div style={{ transform: "translateZ(0)" }}>
+        <Popover trigger={<Button>Open</Button>}>
+          <button type="button" onClick={onPick}>
+            Inside
+          </button>
+        </Popover>
+      </div>
+    );
+    await user.click(screen.getByRole("button", { name: /open/i }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.parentElement).toBe(document.body);
+    await user.click(screen.getByRole("button", { name: "Inside" }));
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
   it("closes when trigger is clicked again", async () => {
     render(
       <Popover trigger={<Button>Toggle</Button>}>

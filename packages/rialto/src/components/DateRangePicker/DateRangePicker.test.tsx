@@ -26,8 +26,9 @@ function renderPicker(overrides: Partial<React.ComponentProps<typeof DateRangePi
   return { onChange, trigger: screen.getByLabelText("Dates"), ...utils };
 }
 
-function cell(container: HTMLElement, iso: string): HTMLElement {
-  const el = container.querySelector<HTMLElement>(`[data-date="${iso}"]`);
+function cell(_container: HTMLElement, iso: string): HTMLElement {
+  // The range grid is portaled to document.body, outside the render container.
+  const el = document.body.querySelector<HTMLElement>(`[data-date="${iso}"]`);
   if (!el) throw new Error(`No day cell for ${iso}`);
   return el;
 }
@@ -56,9 +57,9 @@ describe("DateRangePicker", () => {
   it("picking only a start date keeps the popover open", async () => {
     // No start yet — the first click always sets a fresh start (never an end),
     // so the popover must stay open regardless of which day is clicked.
-    const { trigger, onChange, container } = renderPicker();
+    const { trigger, onChange } = renderPicker();
     await user.click(trigger);
-    const firstCell = container.querySelector<HTMLElement>("[data-date]");
+    const firstCell = document.body.querySelector<HTMLElement>("[data-date]");
     if (!firstCell) throw new Error("No day cells rendered");
     const iso = firstCell.getAttribute("data-date");
 

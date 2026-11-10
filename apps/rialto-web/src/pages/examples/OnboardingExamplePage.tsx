@@ -15,16 +15,17 @@ import {
 } from "@mattbutlerengineering/rialto";
 import { CompositionNote, ExamplePageLayout } from "./ExamplePageLayout";
 import {
+  attemptAdvance,
   completionPercent,
   FIRST_STEP_INDEX,
   INITIAL_ONBOARDING_STATE,
   isFinalStep,
   launchSummary,
   ONBOARDING_STEPS,
-  nextStep,
   previousStep,
   PROPERTY_TYPES,
   SPACE_PRESETS,
+  type FieldErrors,
   type OnboardingState,
   type PropertyType,
 } from "./onboarding";
@@ -58,8 +59,10 @@ const COMPOSITION_NOTES: ReactNode = (
     </CompositionNote>
     <CompositionNote>
       Only one step renders at a time, but every answer lives in one piece of state above the
-      panels, so <code>Back</code> returns to a step with its values intact. Advancing and
-      retreating are the pure <code>nextStep</code> / <code>previousStep</code> functions in{" "}
+      panels, so <code>Back</code> returns to a step with its values intact. Advancing is blocked
+      until the property name is non-empty after trimming — the same required check the booking
+      wizard uses for its text fields. Advancing and retreating are the pure{" "}
+      <code>attemptAdvance</code> / <code>previousStep</code> functions in{" "}
       <code>onboarding.ts</code>, unit-tested without React; there are no network calls and no
       router coupling.
     </CompositionNote>
@@ -76,16 +79,19 @@ const COMPOSITION_NOTES: ReactNode = (
 
 interface PanelProps {
   answers: OnboardingState;
+  errors: FieldErrors;
   onChange: (patch: Partial<OnboardingState>) => void;
 }
 
-function PropertyPanel({ answers, onChange }: PanelProps) {
+function PropertyPanel({ answers, errors, onChange }: PanelProps) {
   return (
     <Stack gap="lg">
       <Input
         label="Property name"
         value={answers.propertyName}
         onChange={(e) => onChange({ propertyName: e.target.value })}
+        error={Boolean(errors.propertyName)}
+        hint={errors.propertyName}
       />
       <div className={styles.field}>
         <Text as="span" variant="label" color="secondary">
@@ -102,7 +108,7 @@ function PropertyPanel({ answers, onChange }: PanelProps) {
   );
 }
 
-function SpacesPanel({ answers, onChange }: PanelProps) {
+function SpacesPanel({ answers, onChange }: Omit<PanelProps, "errors">) {
   return (
     <Select
       label="Spaces you offer"
@@ -113,7 +119,7 @@ function SpacesPanel({ answers, onChange }: PanelProps) {
   );
 }
 
-function PreferencesPanel({ answers, onChange }: PanelProps) {
+function PreferencesPanel({ answers, onChange }: Omit<PanelProps, "errors">) {
   return (
     <div className={styles.toggles}>
       <Toggle
@@ -151,6 +157,7 @@ const HEADING_ID = "onboarding-step-heading";
 export function OnboardingExamplePage() {
   const [index, setIndex] = useState(FIRST_STEP_INDEX);
   const [answers, setAnswers] = useState<OnboardingState>(INITIAL_ONBOARDING_STATE);
+  const [errors, setErrors] = useState<FieldErrors>({});
 
   const headingRef = useRef<HTMLElement>(null);
   const announcedIndexRef = useRef(index);
@@ -166,10 +173,26 @@ export function OnboardingExamplePage() {
   }, [index]);
 
   const step = ONBOARDING_STEPS[index]!;
-  const patch = (next: Partial<OnboardingState>) =>
+  const patch = (next: Partial<OnboardingState>) => {
     setAnswers((previous) => ({ ...previous, ...next }));
+    setErrors({});
+  };
+  const handleNext = () => {
+    const result = attemptAdvance(index, answers);
+    setErrors(result.errors);
+    if (!result.advanced) return;
+    if (step.id === "property") {
+      setAnswers((previous) => ({ ...previous, propertyName: previous.propertyName.trim() }));
+    }
+    setIndex(result.step);
+  };
+  const handleBack = () => {
+    setErrors({});
+    setIndex(previousStep(index));
+  };
   const handleRestart = () => {
     setAnswers(INITIAL_ONBOARDING_STATE);
+    setErrors({});
     setIndex(FIRST_STEP_INDEX);
   };
 
@@ -201,7 +224,9 @@ export function OnboardingExamplePage() {
                   {step.blurb}
                 </Text>
               </div>
-              {step.id === "property" && <PropertyPanel answers={answers} onChange={patch} />}
+              {step.id === "property" && (
+                <PropertyPanel answers={answers} errors={errors} onChange={patch} />
+              )}
               {step.id === "spaces" && <SpacesPanel answers={answers} onChange={patch} />}
               {step.id === "preferences" && <PreferencesPanel answers={answers} onChange={patch} />}
               {step.id === "launch" && <LaunchPanel answers={answers} />}
@@ -209,11 +234,7 @@ export function OnboardingExamplePage() {
           </Card>
 
           <div className={styles.actions}>
-            <Button
-              variant="ghost"
-              disabled={index === FIRST_STEP_INDEX}
-              onClick={() => setIndex(previousStep(index))}
-            >
+            <Button variant="ghost" disabled={index === FIRST_STEP_INDEX} onClick={handleBack}>
               Back
             </Button>
             {isFinalStep(index) ? (
@@ -221,7 +242,7 @@ export function OnboardingExamplePage() {
                 Start over
               </Button>
             ) : (
-              <Button variant="primary" onClick={() => setIndex(nextStep(index))}>
+              <Button variant="primary" onClick={handleNext}>
                 Next
               </Button>
             )}

@@ -19275,6 +19275,29 @@
     ];
     export const FIRST_STEP_INDEX = 0;
     export const LAST_STEP_INDEX = ONBOARDING_STEPS.length - 1;
+    export type FieldErrors = Partial<Record<"propertyName", string>>;
+    export function validateProperty(state: OnboardingState): FieldErrors {
+      if (!state.propertyName.trim()) {
+        return { propertyName: "Property name is required." };
+      }
+      return {};
+    }
+    export function validateStep(index: number, state: OnboardingState): FieldErrors {
+      return ONBOARDING_STEPS[index]?.id === "property" ? validateProperty(state) : {};
+    }
+    export interface AdvanceResult {
+      step: number;
+      errors: FieldErrors;
+      advanced: boolean;
+    }
+    export function attemptAdvance(current: number, state: OnboardingState): AdvanceResult {
+      const errors = validateStep(current, state);
+      if (Object.keys(errors).length > 0) {
+        return { step: current, errors, advanced: false };
+      }
+      const step = nextStep(current);
+      return { step, errors: {}, advanced: step !== current };
+    }
     export function nextStep(index: number): number {
       return Math.min(index + 1, LAST_STEP_INDEX);
     }
@@ -19328,7 +19351,7 @@
     }
     export function launchSummary(state: OnboardingState): SummaryRow[] {
       return [
-        { label: "Property", value: state.propertyName },
+        { label: "Property", value: state.propertyName.trim() },
         { label: "Type", value: labelFor(PROPERTY_TYPES, (t) => t.id === state.propertyType) },
         { label: "Spaces", value: labelFor(SPACE_PRESETS, (p) => p.value === state.spacePreset) },
         { label: "Instant booking", value: state.instantBooking ? "On" : "Off" },

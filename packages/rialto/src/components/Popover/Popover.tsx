@@ -127,18 +127,35 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   useEscapeKey(close, open);
   useFocusTrap(panelRef, open);
 
-  useDismiss(wrapperRef, close, { enabled: open, isInside: isPortaledPress });
+  // A press inside the panel counts as inside even when the panel is portaled
+  // to document.body (outside wrapperRef). The event-identity check still
+  // covers a descendant that portals further, such as a Select listbox.
+  const isInsideOverlay = useCallback(
+    (event: MouseEvent) => {
+      if (isPortaledPress(event)) return true;
+      const panel = panelRef.current;
+      return Boolean(panel?.contains(event.target as Node));
+    },
+    [isPortaledPress]
+  );
+
+  useDismiss(wrapperRef, close, { enabled: open, isInside: isInsideOverlay });
 
   const origin = motionOrigin[placement];
 
-  // The panel is always viewport-fixed and placed by the wrapper's viewport rect
-  // (as Select does), so it can never be cut off by the page edge or trapped by an
-  // overflow ancestor: placePopover flips to the roomier side, clamps horizontally
-  // and caps max-height so tall content scrolls inside the panel. Inside a Dialog it
-  // is lifted into the dialog's layer, beside the panel; elsewhere it stays in place
-  // (portaling to body would escape a Drawer's focus trap and stacking). Imperative style writes (no setState), re-run on resize, on any
-  // scroll and when the panel's content grows, so the panel tracks its trigger.
+  // The panel is viewport-fixed and placed from the trigger's viewport rect:
+  // placePopover flips to the roomier side, clamps horizontally, and caps
+  // max-height so tall content scrolls inside the panel. It is portaled to
+  // document.body so a transformed ancestor (Card is a motion element, and an
+  // identity transform is still a containing block) cannot shift those
+  // viewport coordinates or trap the panel under a later sibling such as the
+  // page footer. Inside a Dialog it is lifted into the dialog's layer instead,
+  // so it stays in that dialog's focus trap and stacking context. Escape and
+  // Tab already stack by open order, so a popover over a Drawer still closes
+  // on its own. Imperative style writes (no setState), re-run on resize, on
+  // any scroll and when the panel's content grows, so the panel tracks its trigger.
   const dialogLayer = useContext(DialogLayerContext);
+  const portalTarget = dialogLayer ?? (typeof document === "undefined" ? null : document.body);
   const place = useMemo(() => placePopover(placement), [placement]);
   useLayerFloating(open, wrapperRef, panelRef, place);
 
@@ -221,7 +238,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
       </div>
 
       {/* Panel */}
-      {dialogLayer ? createPortal(panelNode, dialogLayer) : panelNode}
+      {portalTarget ? createPortal(panelNode, portalTarget) : panelNode}
     </div>
   );
 });

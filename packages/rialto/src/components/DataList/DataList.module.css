@@ -30,14 +30,20 @@
 
 .horizontal .row {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
   gap: var(--rialto-space-md);
   min-inline-size: 0;
 }
 
+/* 140px when the row has room. It may shrink, and the pair wraps, so a value
+   never collapses to 0 — a 0-wide value with overflow-wrap:anywhere turns
+   each glyph into its own line and the price disappears. */
 .horizontal .label {
-  flex-shrink: 0;
-  width: 140px;
+  flex: 0 1 140px;
+  width: auto;
+  min-inline-size: min(8rem, 100%);
+  overflow-wrap: anywhere;
 }
 
 /* ── Vertical ───────────────────────────────── */
@@ -69,4 +75,9 @@
      min size lets the flex item actually shrink to that width. */
   min-inline-size: 0;
   overflow-wrap: anywhere;
+}
+
+.horizontal .value {
+  flex: 1 1 auto;
+  min-inline-size: min(5.5rem, 100%);
 }

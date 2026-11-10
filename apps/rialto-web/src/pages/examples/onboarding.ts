@@ -59,6 +59,41 @@ export const FIRST_STEP_INDEX = 0;
 /** Index of the terminal launch step, which shows a completion state instead of Next. */
 export const LAST_STEP_INDEX = ONBOARDING_STEPS.length - 1;
 
+export type FieldErrors = Partial<Record<"propertyName", string>>;
+
+/** Property name is required. Whitespace alone does not count. */
+export function validateProperty(state: OnboardingState): FieldErrors {
+  if (!state.propertyName.trim()) {
+    return { propertyName: "Property name is required." };
+  }
+  return {};
+}
+
+/** Field errors for a step. Only the property step collects a required answer. */
+export function validateStep(index: number, state: OnboardingState): FieldErrors {
+  return ONBOARDING_STEPS[index]?.id === "property" ? validateProperty(state) : {};
+}
+
+export interface AdvanceResult {
+  step: number;
+  errors: FieldErrors;
+  advanced: boolean;
+}
+
+/**
+ * Move forward only when the current step validates. Otherwise the step is
+ * unchanged and the field errors are returned so the UI can surface them.
+ * Never advances past the launch step.
+ */
+export function attemptAdvance(current: number, state: OnboardingState): AdvanceResult {
+  const errors = validateStep(current, state);
+  if (Object.keys(errors).length > 0) {
+    return { step: current, errors, advanced: false };
+  }
+  const step = nextStep(current);
+  return { step, errors: {}, advanced: step !== current };
+}
+
 /** The next step, clamped at the launch step. */
 export function nextStep(index: number): number {
   return Math.min(index + 1, LAST_STEP_INDEX);
@@ -137,7 +172,7 @@ function labelFor<T extends { label: string }>(
 /** Restates every answer the flow collected, for the launch step's summary list. */
 export function launchSummary(state: OnboardingState): SummaryRow[] {
   return [
-    { label: "Property", value: state.propertyName },
+    { label: "Property", value: state.propertyName.trim() },
     { label: "Type", value: labelFor(PROPERTY_TYPES, (t) => t.id === state.propertyType) },
     { label: "Spaces", value: labelFor(SPACE_PRESETS, (p) => p.value === state.spacePreset) },
     { label: "Instant booking", value: state.instantBooking ? "On" : "Off" },

@@ -17,8 +17,9 @@ function renderPicker(overrides: Partial<React.ComponentProps<typeof DatePicker>
   return { onChange, trigger: screen.getByLabelText("Date"), ...utils };
 }
 
-function cell(container: HTMLElement, iso: string): HTMLElement {
-  const el = container.querySelector<HTMLElement>(`[data-date="${iso}"]`);
+function cell(_container: HTMLElement, iso: string): HTMLElement {
+  // The calendar is portaled to document.body, outside the render container.
+  const el = document.body.querySelector<HTMLElement>(`[data-date="${iso}"]`);
   if (!el) throw new Error(`No day cell for ${iso}`);
   return el;
 }

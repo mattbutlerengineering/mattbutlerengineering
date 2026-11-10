@@ -13,7 +13,11 @@
 
   position: fixed;
   inset: auto;
-  z-index: 100;
+  /* Tied with the Drawer panel (9999) and under the Dialog overlay (10000).
+     On document.body a later portal paints over a drawer; a dialog still
+     covers a page-level popover. Inside a dialog the panel is portaled into
+     that layer, so this only competes with the dialog's own content. */
+  z-index: 9999;
   min-width: min(200px, calc(100vw - 16px));
   max-width: min(320px, calc(100vw - 16px));
   max-height: calc(100dvh - 16px);

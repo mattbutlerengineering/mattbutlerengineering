@@ -20,6 +20,7 @@ export default defineVitestConfig({
     "e2e/theme-color-meta.test.ts",
     "e2e/auth-footer-link-contrast.test.ts",
     "e2e/overview-stats-layout.test.ts",
+    "e2e/example-layout.contract.test.ts",
     "e2e/telemetry-ticker-layout.test.ts",
     "e2e/telemetry-label-contrast.test.ts",
   ],
