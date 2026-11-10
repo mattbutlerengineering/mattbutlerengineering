@@ -1,4 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { useState } from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { Tag, AnimatedTag, TagGroup } from "./Tag";
@@ -58,6 +61,35 @@ describe("Tag", () => {
         </Tag>
       );
       expect(container.querySelector("[class*='selected']")).toBeInTheDocument();
+    });
+
+    it("exposes aria-pressed on toggle tags and omits it on plain clickable tags", () => {
+      render(
+        <>
+          <Tag onClick={() => {}} selected>
+            V6
+          </Tag>
+          <Tag onClick={() => {}} selected={false}>
+            V8
+          </Tag>
+          <Tag onClick={() => {}}>Plain</Tag>
+        </>
+      );
+      expect(screen.getByRole("button", { name: "V6" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("button", { name: "V8" })).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByRole("button", { name: "Plain" })).not.toHaveAttribute("aria-pressed");
+    });
+
+    it("exposes aria-pressed on the label when a toggle tag is also dismissible", () => {
+      render(
+        <Tag onClick={() => {}} dismissible onDismiss={() => {}} selected>
+          V6
+        </Tag>
+      );
+      expect(screen.getByRole("button", { name: "V6" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("button", { name: /remove v6/i })).not.toHaveAttribute(
+        "aria-pressed"
+      );
     });
   });
 
@@ -185,6 +217,51 @@ describe("AnimatedTag", () => {
     );
     await user.click(screen.getByRole("button", { name: /remove removable/i }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("AnimatedTag rapid dismiss", () => {
+  function DismissList() {
+    const [tags, setTags] = useState(["Fiorano", "Monza", "Mugello", "Imola", "Spa"]);
+    return (
+      <>
+        <TagGroup>
+          {tags.map((tag) => (
+            <AnimatedTag
+              key={tag}
+              id={tag}
+              dismissible
+              onDismiss={() => setTags((prev) => prev.filter((item) => item !== tag))}
+            >
+              {tag}
+            </AnimatedTag>
+          ))}
+        </TagGroup>
+        <span data-testid="left">{tags.join(",")}</span>
+      </>
+    );
+  }
+
+  it("removes every tag when each dismiss is clicked before the exit animation ends", async () => {
+    render(<DismissList />);
+    for (const name of ["Fiorano", "Monza", "Mugello", "Imola", "Spa"]) {
+      fireEvent.click(screen.getByRole("button", { name: `Remove ${name}` }));
+    }
+    expect(screen.getByTestId("left").textContent).toBe("");
+    await waitFor(() => {
+      expect(screen.queryAllByRole("button", { name: /Remove / })).toHaveLength(0);
+    });
+  });
+
+  it("does not layout-animate chips, so a dismiss reflow cannot slide the rest out from under a click", () => {
+    const source = readFileSync(join(import.meta.dirname, "Tag.tsx"), "utf8");
+    const start = source.indexOf("export const AnimatedTag");
+    const end = source.indexOf("AnimatedTag.displayName");
+    const animated = source
+      .slice(start, end)
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    expect(animated).not.toMatch(/\blayout\b/);
   });
 });
 
