@@ -6,7 +6,15 @@
 
 .header {
   composes: darkSurface from "../../styles/surfaces.module.css";
-  padding: var(--rialto-space-xl) var(--rialto-space-lg);
+  /* A shell may set --rialto-page-header-padding-block-start so the breadcrumb
+     clears fixed chrome (the demo controls). max() keeps the design padding
+     when that variable is missing or smaller. */
+  padding-block-start: max(
+    var(--rialto-space-xl),
+    var(--rialto-page-header-padding-block-start, 0px)
+  );
+  padding-block-end: var(--rialto-space-xl);
+  padding-inline: var(--rialto-space-lg);
 }
 
 .atmosphere {
@@ -72,6 +80,11 @@
 
 @media (max-width: 640px) {
   .header {
-    padding: var(--rialto-space-lg) var(--rialto-space-md);
+    padding-block-start: max(
+      var(--rialto-space-lg),
+      var(--rialto-page-header-padding-block-start, 0px)
+    );
+    padding-block-end: var(--rialto-space-lg);
+    padding-inline: var(--rialto-space-md);
   }
 }
