@@ -4,6 +4,7 @@ import {
   useState,
   useRef,
   useEffect,
+  useLayoutEffect,
   useCallback,
   type ReactNode,
   type HTMLAttributes,
@@ -77,25 +78,69 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
     const shouldReduceMotion = motionPreset.reduced;
     const baseId = useId();
 
-    const updateIndicator = useCallback(() => {
-      const el = tabRefs.current.get(activeId);
+    const tabSignature = tabs
+      .map((tab) => `${tab.id}:${tab.label}:${tab.disabled ? 1 : 0}`)
+      .join("|");
+
+    // Layout offsets, not viewport coordinates. The indicator is positioned
+    // inside the list, so a scrolled list would slide the underline off the
+    // tab if we used the visual left edge.
+    const revealActiveTabRef = useRef(false);
+
+    const syncList = useCallback(() => {
       const list = listRef.current;
-      if (!el || !list) return;
-      const listRect = list.getBoundingClientRect();
-      const tabRect = el.getBoundingClientRect();
-      setIndicator({
-        left: tabRect.left - listRect.left,
-        width: tabRect.width,
-      });
+      const el = tabRefs.current.get(activeId);
+      if (!list || !el) return;
+      const overflowing = list.scrollWidth > list.clientWidth + 1;
+      const next = overflowing ? "true" : "false";
+      if (list.dataset.overflowing !== next) list.dataset.overflowing = next;
+      if (revealActiveTabRef.current) {
+        revealActiveTabRef.current = false;
+        if (list.scrollWidth > list.clientWidth + 1) {
+          el.scrollIntoView({ inline: "nearest", block: "nearest" });
+        }
+      }
+      const left = el.offsetLeft;
+      const width = el.offsetWidth;
+      setIndicator((prev) => (prev.left === left && prev.width === width ? prev : { left, width }));
     }, [activeId]);
 
+    useLayoutEffect(() => {
+      syncList();
+    }, [syncList, tabSignature]);
+
     useEffect(() => {
-      updateIndicator();
-      window.addEventListener("resize", updateIndicator);
-      return () => window.removeEventListener("resize", updateIndicator);
-    }, [updateIndicator]);
+      const list = listRef.current;
+      window.addEventListener("resize", syncList);
+      const observer =
+        typeof ResizeObserver === "undefined" || !list
+          ? null
+          : new ResizeObserver(() => {
+              syncList();
+            });
+      if (list && observer) {
+        observer.observe(list);
+        for (const button of list.querySelectorAll("button")) observer.observe(button);
+      }
+      let cancelled = false;
+      const fonts = document.fonts?.ready;
+      if (fonts) {
+        void fonts.then(
+          () => {
+            if (!cancelled) syncList();
+          },
+          () => undefined
+        );
+      }
+      return () => {
+        cancelled = true;
+        window.removeEventListener("resize", syncList);
+        observer?.disconnect();
+      };
+    }, [syncList, tabSignature]);
 
     const selectTab = (id: string) => {
+      revealActiveTabRef.current = true;
       setActiveId(id);
       onTabChange?.(id);
     };
@@ -135,7 +180,7 @@ export const Tabs = forwardRef<HTMLDivElement, TabsProps>(
     const tabStopId = activeTab ? activeId : tabs.find((t) => !t.disabled)?.id;
 
     return (
-      <div ref={ref} className={className} {...props}>
+      <div ref={ref} className={cn(styles.root, className)} {...props}>
         <div
           ref={listRef}
           className={styles.tabList}
