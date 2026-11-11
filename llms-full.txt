@@ -43976,6 +43976,50 @@
       );
     };
   </file>
+  <file path="services/reservations/src/routes/manage-signal.ts">
+    type SignalBody = { kind: GuestSignalKind; minutes?: 5 | 15 | 30 };
+    export const manageSignalRoutes: FastifyPluginAsync = async (fastify) => {
+      const { venueService } = fastify.services;
+    
+      fastify.post<{ Body: SignalBody }>(
+        "/public/v1/reservations/manage/signal",
+        {
+          schema: { body: signalBodySchema },
+          config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+        },
+        manageTokenScoped(
+          { missing: (reply) => reply.status(404).send(reservationNotFoundProblem()) },
+          async (request, reply, { venueId, reservation }) => {
+            const venue = await venueService.getById(venueId);
+            if (!venue) return reply.status(404).send(reservationNotFoundProblem());
+    
+            const { kind, minutes } = request.body;
+            const verdict = canSignal({
+              status: reservation.status,
+              startTime: reservation.startTime,
+              timezone: venue.ianaTimezone,
+              now: new Date(),
+              kind,
+              priorSignals: await countGuestSignals(reservation.id),
+            });
+            if (!verdict.ok) {
+              const r = REFUSALS[verdict.reason];
+              return reply.status(r.status).send(createProblemDetails(r.status, r.title, r.detail));
+            }
+    
+            await recordGuestSignal({
+              reservationId: reservation.id,
+              venueId,
+              guestId: reservation.guestId,
+              kind,
+              minutes,
+            });
+            return reply.status(200).send({ data: { kind, ...(minutes ? { minutes } : {}) } });
+          }
+        )
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/manage-token-scope.ts">
     type Handler<RG extends RouteGenericInterface> = RouteHandlerMethod<
       RawServerDefault,
@@ -58965,6 +59009,49 @@
     }
     export const briefingService = { getBriefing };
   </file>
+  <file path="services/reservations/src/services/can-signal.ts">
+    export const MAX_LATE_SIGNALS = 3;
+    export const MAX_ARRIVED_SIGNALS = 1;
+    export const SIGNAL_WINDOW_BEFORE_MS = 3 * 60 * 60 * 1000;
+    export const SIGNAL_WINDOW_AFTER_MS = 45 * 60 * 1000;
+    export type GuestSignalKind = "running-late" | "arrived";
+    export type CanSignalResult =
+      { ok: true } | { ok: false; reason: "not-confirmed" | "outside-window" | "cap-reached" };
+    export interface CanSignalInput {
+      status: string;
+      /** Reservation start instant (ISO string). */
+      startTime: string;
+      /** Venue IANA timezone; "today" is decided in it. */
+      timezone: string;
+      now: Date;
+      kind: GuestSignalKind;
+      priorSignals: { late: number; arrived: number };
+    }
+    function localDay(instant: Date, timezone: string): string {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: timezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(instant);
+    }
+    export function canSignal(input: CanSignalInput): CanSignalResult {
+      if (input.status !== "CONFIRMED") return { ok: false, reason: "not-confirmed" };
+    
+      const start = new Date(input.startTime);
+      const delta = input.now.getTime() - start.getTime();
+      const inWindow = delta >= -SIGNAL_WINDOW_BEFORE_MS && delta <= SIGNAL_WINDOW_AFTER_MS;
+      if (!inWindow || localDay(input.now, input.timezone) !== localDay(start, input.timezone)) {
+        return { ok: false, reason: "outside-window" };
+      }
+    
+      const capped =
+        input.kind === "arrived"
+          ? input.priorSignals.arrived >= MAX_ARRIVED_SIGNALS
+          : input.priorSignals.late >= MAX_LATE_SIGNALS;
+      return capped ? { ok: false, reason: "cap-reached" } : { ok: true };
+    }
+  </file>
   <file path="services/reservations/src/services/closure-alongside.ts">
     export interface AlongsideIssue {
       path: string;
@@ -64498,6 +64585,44 @@
       return noShowCount;
     }
   </file>
+  <file path="services/reservations/src/services/guest-signal.ts">
+    export async function countGuestSignals(
+      reservationId: string
+    ): Promise<{ late: number; arrived: number }> {
+      const rows = await prisma.reservationEvent.findMany({
+        where: { reservationId, kind: "guest_signal" },
+        select: { toState: true },
+      });
+      let late = 0;
+      let arrived = 0;
+      for (const row of rows) {
+        const signal = (row.toState as { signal?: string } | null)?.signal;
+        if (signal === "arrived") arrived += 1;
+        else if (signal === "running-late") late += 1;
+      }
+      return { late, arrived };
+    }
+    export async function recordGuestSignal(input: {
+      reservationId: string;
+      venueId: string;
+      guestId: string | null;
+      kind: GuestSignalKind;
+      minutes?: number;
+    }): Promise<void> {
+      await prisma.$transaction(async (tx) => {
+        await recordReservationEvent(tx, {
+          reservationId: input.reservationId,
+          venueId: input.venueId,
+          kind: "guest_signal",
+          actor: guestActor(input.guestId),
+          to: {
+            signal: input.kind,
+            ...(input.minutes === undefined ? {} : { minutes: input.minutes }),
+          },
+        });
+      });
+    }
+  </file>
   <file path="services/reservations/src/services/guest.ts">
     function mapPrismaGuest(guest: {
       id: string;
@@ -66901,6 +67026,7 @@
       "updated",
       "deposit_transition",
       "transition_rejected",
+      "guest_signal",
     ] as const;
     export type ReservationEventKind = (typeof RESERVATION_EVENT_KINDS)[number];
     export type ReservationEventActor =
@@ -66924,6 +67050,7 @@
       /** Present when a staff override passed a soft limit to book this slot. */
       override?: { reason: string; limits: string[] };
     };
+    export type GuestSignalEventState = { signal: "running-late" | "arrived"; minutes?: number };
     export type DepositEventState = { depositStatus: string };
     export function toEventState(row: {
       status: string;
@@ -66955,7 +67082,7 @@
         kind: ReservationEventKind;
         actor: ReservationEventActor;
         from?: EventState | DepositEventState | null;
-        to?: EventState | DepositEventState | null;
+        to?: EventState | DepositEventState | GuestSignalEventState | null;
       }
     ) {
       if (input.venueId === null) return null;
@@ -90601,6 +90728,7 @@
       await fastify.register(manageReservationRoutes);
       await fastify.register(manageRebookRoutes);
       await fastify.register(cancelReservationRoutes);
+      await fastify.register(manageSignalRoutes);
       await fastify.register(modifyReservationRoutes);
       await fastify.register(publicUnsubscribeRoutes);
     

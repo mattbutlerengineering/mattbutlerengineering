@@ -1151,6 +1151,14 @@
       export const manageReservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/manage-signal.ts">
+    <item priority="high">
+      type SignalBody = { kind: GuestSignalKind; minutes?: 5 | 15 | 30 };
+    </item>
+    <item priority="high">
+      export const manageSignalRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/manage-token-scope.ts">
     <item priority="high">
       type Handler = RouteHandlerMethod<
@@ -3005,6 +3013,41 @@
       export const briefingService: unknown;
     </item>
   </file>
+  <file path="src/services/can-signal.ts">
+    <item priority="high">
+      export const MAX_LATE_SIGNALS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_ARRIVED_SIGNALS: unknown;
+    </item>
+    <item priority="high">
+      export const SIGNAL_WINDOW_BEFORE_MS: unknown;
+    </item>
+    <item priority="high">
+      export const SIGNAL_WINDOW_AFTER_MS: unknown;
+    </item>
+    <item priority="low">
+      type GuestSignalKind = "running-late" | "arrived";
+    </item>
+    <item priority="low">
+      type CanSignalResult = { ok: true } | { ok: false; reason: "not-conf;
+    </item>
+    <item priority="low">
+      interface CanSignalInput {
+        status: string;
+        startTime: string;
+        timezone: string;
+        now: Date;
+        kind: GuestSignalKind;
+      }
+    </item>
+    <item priority="medium">
+      function localDay(instant: Date, timezone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function canSignal(input: CanSignalInput): CanSignalResult { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/closure-alongside.ts">
     <item priority="low">
       interface AlongsideIssue {
@@ -4480,6 +4523,22 @@
       function applyDecay(noShowCount: number, lastNoShowDate: Date | null): number { /* ... */ }
     </item>
   </file>
+  <file path="src/services/guest-signal.ts">
+    <item priority="high">
+      export async function countGuestSignals(
+        reservationId: string
+      ): Promise<{ late: number; arrived: number }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recordGuestSignal(input: {
+        reservationId: string;
+        venueId: string;
+        guestId: string | null;
+        kind: GuestSignalKind;
+        minutes?: number;
+      }): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/guest.ts">
     <item priority="medium">
       function mapPrismaGuest(guest: {
@@ -5010,6 +5069,9 @@
         ...;
     </item>
     <item priority="low">
+      type GuestSignalEventState = { signal: "running-late" | "arrived"; minutes?: number };
+    </item>
+    <item priority="low">
       type DepositEventState = { depositStatus: string };
     </item>
     <item priority="high">
@@ -5033,7 +5095,7 @@
           kind: ReservationEventKind;
           actor: ReservationEventActor;
           from?: EventState | DepositEventState | null;
-          to?: EventState | DepositEventState | null;
+          to?: EventState | DepositEventState | GuestSignalEventState | null;
         }
       ) { /* ... */ }
     </item>

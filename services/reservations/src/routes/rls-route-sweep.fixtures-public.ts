@@ -632,6 +632,21 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
       expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
     },
   },
+  "POST /public/v1/reservations/manage/signal": {
+    kind: "ok",
+    run: async (ctx) => {
+      const { generateManageToken } = await loadTokenHelpers();
+      // A signal only records history inside a live time window, so the sweep
+      // proves the scope: a token for a reservation that does not exist is a 404.
+      const goneToken = generateManageToken("rls-sweep-no-such-reservation", "nobody@example.com");
+      const denied = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/reservations/manage/signal?token=${goneToken}`,
+        payload: { kind: "arrived" },
+      });
+      expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
+    },
+  },
   "DELETE /public/v1/reservations/manage": {
     kind: "ok",
     run: async (ctx) => {

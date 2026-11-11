@@ -10,6 +10,7 @@ export const RESERVATION_EVENT_KINDS = [
   "updated",
   "deposit_transition",
   "transition_rejected",
+  "guest_signal",
 ] as const;
 
 export type ReservationEventKind = (typeof RESERVATION_EVENT_KINDS)[number];
@@ -47,6 +48,9 @@ export type EventState = {
   /** Present when a staff override passed a soft limit to book this slot. */
   override?: { reason: string; limits: string[] };
 };
+
+/** A guest night-of signal, stored in `to_state` of a `guest_signal` event. Information only. */
+export type GuestSignalEventState = { signal: "running-late" | "arrived"; minutes?: number };
 
 /** Deposit status snapshot stored in `from_state` / `to_state` of a `deposit_transition` event. */
 export type DepositEventState = { depositStatus: string };
@@ -87,7 +91,7 @@ export async function recordReservationEvent(
     kind: ReservationEventKind;
     actor: ReservationEventActor;
     from?: EventState | DepositEventState | null;
-    to?: EventState | DepositEventState | null;
+    to?: EventState | DepositEventState | GuestSignalEventState | null;
   }
 ) {
   if (input.venueId === null) return null;
