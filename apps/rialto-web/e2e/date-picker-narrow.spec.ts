@@ -12,7 +12,7 @@ async function openEventDate(page: Page) {
   await page.goto("components/date-picker");
   await page.waitForLoadState("networkidle");
   await page.getByRole("combobox", { name: "Event date" }).click();
-  const panel = page.getByRole("dialog");
+  const panel = page.getByRole("dialog", { name: "Popover" });
   await expect(panel).toBeVisible();
   return panel;
 }
@@ -52,7 +52,7 @@ test.describe("date picker at 375px", () => {
     expect(alphaOf(background)).toBe(1);
     expect(background).not.toMatch(/0\.85/);
 
-    await panel.getByRole("gridcell", { name: "20" }).click();
+    await panel.getByRole("gridcell", { name: "20", exact: true }).click();
     await expect(panel).toBeHidden();
     await expect(field).toHaveValue(/Jul 20, 2026/);
   });
@@ -98,9 +98,10 @@ test.describe("date picker at 375px", () => {
     await page.goto("components/date-picker");
     await page.waitForLoadState("networkidle");
     const toggle = page.getByRole("button", { name: "Switch to dark mode" });
-    if (await toggle.isVisible()) await toggle.click();
+    await expect(toggle).toBeVisible();
+    await toggle.click();
     await page.getByRole("combobox", { name: "Event date" }).click();
-    const panel = page.getByRole("dialog");
+    const panel = page.getByRole("dialog", { name: "Popover" });
     await expect(panel).toBeVisible();
 
     const field = page.getByRole("combobox", { name: "Event date" });
