@@ -15442,6 +15442,9 @@
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
     <item priority="high">
+      export const TONIGHT_NOTE_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
       export const ListReservationsQuerySchema: unknown;
     </item>
     <item priority="high">
@@ -20062,6 +20065,28 @@
         reservationId: string,
         { limit = DEFAULT_EVENT_PAGE_SIZE, cursor }: { limit?: number; cursor?: string } = {}
       ): Promise<{ data: ReservationEventDto[]; nextCursor: string | null }> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/reservation-invite.ts">
+    <item priority="high">
+      export function hashInviteToken(token: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function createInvite(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<{ id: string; token: string }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function findLiveInviteByToken(
+        token: string
+      ): Promise<{ id: string; venueId: string; reservationId: string } | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function revokeInvitesForReservation(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<number> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">

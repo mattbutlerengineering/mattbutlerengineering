@@ -22,6 +22,7 @@ import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { LanguageRegionCard } from "../components/LanguageRegionCard.js";
 import { VenueProfileCard } from "../components/venue-profile/VenueProfileCard.js";
+import { TonightNoteCard } from "../components/venue-tonight-note/TonightNoteCard.js";
 import { VenueThemeCard } from "../components/venue-theme/VenueThemeCard.js";
 import { TeamRolesCard } from "../components/venue-team/TeamRolesCard.js";
 import { describeApiError } from "../lib/describe-api-error.js";
@@ -280,6 +281,9 @@ export function SettingsPage() {
 
             {/* Venue Profile — what guests see on the public booking page */}
             <VenueProfileCard />
+
+            {/* Tonight note — owner-only line shown on the night-of manage page */}
+            <TonightNoteCard />
 
             {/* Team — Manager / Host roles and the Host emergency-close grant */}
             <TeamRolesCard />

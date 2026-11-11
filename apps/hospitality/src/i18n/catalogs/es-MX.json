@@ -3481,6 +3481,14 @@
       "emergencyCloseOn": "Los anfitriones pueden cerrar todo el establecimiento esta noche en una emergencia.",
       "emergencyCloseOff": "Solo los gerentes pueden cerrar el establecimiento."
     },
+    "tonightNote": {
+      "title": "Nota de esta noche",
+      "label": "Nota de esta noche",
+      "hint": "Se muestra a los comensales el día de su reservación. Hasta {{max}} caracteres; déjala vacía para borrarla.",
+      "save": "Guardar nota",
+      "saving": "Guardando…",
+      "saved": "Nota de esta noche guardada."
+    },
     "profile": {
       "title": "Perfil del local",
       "description": "Quién eres, tal como lo ven tus comensales en tu página pública de reservas.",

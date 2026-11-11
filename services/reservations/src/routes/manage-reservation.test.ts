@@ -179,7 +179,11 @@ describe("GET /public/v1/reservations/manage", () => {
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce({
       ...mockVenue,
-      settings: { guestModificationCutoffHours: 24, guestMaxPartySizeChange: 2 },
+      settings: {
+        guestModificationCutoffHours: 24,
+        guestMaxPartySizeChange: 2,
+        tonightNote: "Park on Elm St",
+      },
     } as never);
     const configured = await app.inject({
       method: "GET",
@@ -187,6 +191,7 @@ describe("GET /public/v1/reservations/manage", () => {
     });
     expect(configured.json().data.venue.modificationCutoffHours).toBe(24);
     expect(configured.json().data.venue.maxPartySizeChange).toBe(2);
+    expect(configured.json().data.venue.tonightNote).toBe("Park on Elm St");
 
     vi.mocked(reservationService.getById).mockResolvedValueOnce(mockReservation as never);
     vi.mocked(venueService.getById).mockResolvedValueOnce({ ...mockVenue, settings: {} } as never);
@@ -196,6 +201,7 @@ describe("GET /public/v1/reservations/manage", () => {
     });
     expect(unset.json().data.venue.modificationCutoffHours).toBeNull();
     expect(unset.json().data.venue.maxPartySizeChange).toBeNull();
+    expect(unset.json().data.venue.tonightNote).toBeNull();
   });
 
   it("adds venueCancellation (refund status and offers) for a booking the venue cancelled", async () => {

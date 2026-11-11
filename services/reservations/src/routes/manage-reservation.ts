@@ -58,6 +58,7 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
                   modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
                   maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
                   ...nightOfVenueFields(venue.settings),
+                  tonightNote: nightOfVenueFields(venue.settings).tonightNote ?? null,
                 }
               : null,
           },

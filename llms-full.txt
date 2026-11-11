@@ -43973,6 +43973,7 @@
                       modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
                       maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
                       ...nightOfVenueFields(venue.settings),
+                      tonightNote: nightOfVenueFields(venue.settings).tonightNote ?? null,
                     }
                   : null,
               },
@@ -49155,6 +49156,32 @@
         venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
           const { venueGroupId } = request.body;
     
+          // The tonight note is guest-facing copy, so only an owner (or an admin)
+          // may change it. `settings` is replaced wholesale, so any write that
+          // would alter the stored note counts, including one that omits it.
+          if (request.body.settings !== undefined && !isAdmin) {
+            const callerRole = await request.server.venueRoleLookup(
+              request.user?.raw.sub ?? "",
+              venueId
+            );
+            if (callerRole !== "owner") {
+              const current = await venueService.getById(venueId);
+              const storedNote = current?.settings?.tonightNote ?? "";
+              const incomingNote = request.body.settings?.tonightNote ?? "";
+              if (storedNote !== incomingNote) {
+                return reply
+                  .code(403)
+                  .send(
+                    createProblemDetails(
+                      403,
+                      "Forbidden",
+                      "Owner role required to edit the tonight note"
+                    )
+                  );
+              }
+            }
+          }
+    
           const hoursError = operatingHoursError(request.body.operatingHours);
           if (hoursError) {
             return reply.code(400).send(createProblemDetails(400, "Bad Request", hoursError));
@@ -51492,6 +51519,7 @@
     export type ReorderMenuRequest = z.infer<typeof ReorderMenuRequestSchema>;
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
+    export const TONIGHT_NOTE_MAX_LENGTH = 200;
     export const ListReservationsQuerySchema = z.object({
       page: z.string().default("1").describe("Page number (1-indexed)"),
       limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
@@ -67059,6 +67087,19 @@
         };
       }
     
+      // A cancelled reservation's party invite must stop working (The Invitation, #8661).
+      // Best effort: the cancel (and any money moved) already succeeded, so never fail it here.
+      if (reservation.venueId) {
+        try {
+          await revokeInvitesForReservation({
+            venueId: reservation.venueId,
+            reservationId: reservation.id,
+          });
+        } catch (err) {
+          deps.logger.warn({ err, reservationId: reservation.id }, "Could not revoke party invites");
+        }
+      }
+    
       return { success: true, reservation: updated };
     }
   </file>
@@ -67203,6 +67244,52 @@
         })),
         nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]!) : null,
       };
+    }
+  </file>
+  <file path="services/reservations/src/services/reservation-invite.ts">
+    export function hashInviteToken(token: string): string {
+      return createHash("sha256").update(token).digest("hex");
+    }
+    export async function createInvite(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<{ id: string; token: string }> {
+      const token = `${input.venueId}.${randomBytes(SECRET_BYTES).toString("base64url")}`;
+      const row = await runWithVenueContext(input.venueId, () =>
+        prisma.reservationInvite.create({
+          data: {
+            venueId: input.venueId,
+            reservationId: input.reservationId,
+            tokenHash: hashInviteToken(token),
+          },
+        })
+      );
+      return { id: row.id, token };
+    }
+    export async function findLiveInviteByToken(
+      token: string
+    ): Promise<{ id: string; venueId: string; reservationId: string } | null> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return null;
+      const venueId = token.slice(0, dot);
+      const row = await runWithVenueContext(venueId, () =>
+        prisma.reservationInvite.findFirst({
+          where: { tokenHash: hashInviteToken(token), revokedAt: null },
+        })
+      );
+      return row ? { id: row.id, venueId, reservationId: row.reservationId } : null;
+    }
+    export async function revokeInvitesForReservation(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<number> {
+      const { count } = await runWithVenueContext(input.venueId, () =>
+        prisma.reservationInvite.updateMany({
+          where: { reservationId: input.reservationId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        })
+      );
+      return count;
     }
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
@@ -70516,6 +70603,7 @@
       "venueHolidayDecision",
       "closureOutcome",
       "guestWinBack",
+      "reservationInvite",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -90138,6 +90226,8 @@
        * `VenueProfileSchema` and `PublicVenueConfig.profile`.
        */
       profile?: VenueProfile;
+      /** Owner-editable note shown to guests on the night-of manage page (max 200 chars). */
+      tonightNote?: string;
       /** Per-venue palette; validate with `VenueThemeSchema` before use. */
       theme?: VenueTheme;
     }
