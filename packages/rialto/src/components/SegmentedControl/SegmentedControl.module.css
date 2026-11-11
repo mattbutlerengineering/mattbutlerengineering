@@ -1,10 +1,5 @@
 .container {
-  display: flex;
-  /* Shrink to the segments when they fit. A narrow column caps the row so
-     "Segment C" scrolls inside the track instead of widening the page. */
-  width: max-content;
-  max-inline-size: 100%;
-  min-inline-size: 0;
+  display: inline-flex;
 }
 
 .track {
@@ -15,17 +10,6 @@
   padding: var(--rialto-space-2xs);
   border-radius: var(--rialto-radius-round);
   gap: 2px;
-  min-inline-size: 0;
-  max-inline-size: 100%;
-}
-
-/* Overflow stays visible while the segments fit, so the focus glow is not
-   clipped on a control that does not scroll. */
-.track[data-overflowing="true"] {
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scroll-padding-inline: var(--rialto-space-xs);
 }
 
 /* ── Indicator ──────────────────────────────── */

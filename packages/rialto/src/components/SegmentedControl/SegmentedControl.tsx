@@ -1,12 +1,4 @@
-import {
-  forwardRef,
-  useRef,
-  useEffect,
-  useLayoutEffect,
-  useState,
-  useCallback,
-  type HTMLAttributes,
-} from "react";
+import { forwardRef, useRef, useEffect, useState, useCallback, type HTMLAttributes } from "react";
 import { motion } from "framer-motion";
 import { useMotionPreset } from "../../providers/useMotionPreset";
 import { cn, variantClass } from "../../utils/class-composer";
@@ -70,48 +62,24 @@ export const SegmentedControl = forwardRef<HTMLDivElement, SegmentedControlProps
 
     const measure = useCallback(() => {
       const container = containerRef.current;
-      if (!container) return;
-      // Overflow stays visible until the segments actually exceed the track,
-      // so a fitting control does not clip its focus glow.
-      const overflowing = container.scrollWidth > container.clientWidth + 1;
-      const next = overflowing ? "true" : "false";
-      if (container.dataset.overflowing !== next) container.dataset.overflowing = next;
       const el = segmentRefs.current.get(value);
-      if (!el) return;
+      if (!container || !el) return;
       const cRect = container.getBoundingClientRect();
       const eRect = el.getBoundingClientRect();
       // Round to whole pixels: an un-rounded offset/width anti-aliases its
       // edge differently run to run even when nothing visually changed,
       // which flaked the `light / segmentedcontrol-default` visual snapshot
-      // in CI (#8515). scrollLeft keeps that same number when the track has
-      // not scrolled, and keeps the indicator under the segment once it has.
-      const scrollAdjust = dir === "rtl" ? 0 : container.scrollLeft;
+      // in CI (#8515).
       setIndicator({
-        offset: Math.round(
-          (dir === "rtl" ? cRect.right - eRect.right : eRect.left - cRect.left) + scrollAdjust
-        ),
+        offset: Math.round(dir === "rtl" ? cRect.right - eRect.right : eRect.left - cRect.left),
         width: Math.round(eRect.width),
       });
     }, [value, dir]);
 
-    useLayoutEffect(() => {
-      measure();
-    }, [measure]);
-
     useEffect(() => {
-      const container = containerRef.current;
+      measure();
       window.addEventListener("resize", measure);
-      const observer =
-        typeof ResizeObserver === "undefined" || !container
-          ? null
-          : new ResizeObserver(() => {
-              measure();
-            });
-      if (container) observer?.observe(container);
-      return () => {
-        window.removeEventListener("resize", measure);
-        observer?.disconnect();
-      };
+      return () => window.removeEventListener("resize", measure);
     }, [measure]);
 
     const handleKeyDown = (e: React.KeyboardEvent) => {

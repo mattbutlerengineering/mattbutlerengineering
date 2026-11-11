@@ -3,20 +3,6 @@
   display: flex;
   align-items: center;
   isolation: isolate;
-  /* A column flex parent sizes this to its buttons. The floor lets a narrow
-     column win, so the page row scrolls here instead of widening the page. */
-  min-inline-size: 0;
-  max-inline-size: 100%;
-}
-
-/* Overflow stays visible while the buttons fit, so the focus glow is not
-   clipped on a row that does not scroll. Once they don't fit, the nav itself
-   is the scrollport — a click must not slide the page sideways. */
-.pagination[data-overflowing="true"] {
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: thin;
-  scroll-padding-inline: var(--rialto-space-xs);
 }
 
 /* ── List (resets UA list styles; layout matches the old flat nav) ── */

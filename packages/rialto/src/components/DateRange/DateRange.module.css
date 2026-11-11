@@ -3,19 +3,7 @@
   display: inline-flex;
   flex-direction: column;
   gap: var(--rialto-space-sm);
-  box-sizing: border-box;
-  /* A definite 34px-cell width, capped at the card. The cap only bites in a
-     container narrower than seven columns (a padded card at 375px), where the
-     columns share what is left. A percentage preferred width would instead make
-     an auto-width parent such as the DateRangePicker popover panel size itself
-     from the shrunken calendar and render ~24px cells. */
-  --date-range-cell: 34px;
-  --date-range-gap: 2px;
-  inline-size: calc(
-    7 * var(--date-range-cell) + 6 * var(--date-range-gap) + 2 * var(--rialto-space-xs)
-  );
-  max-inline-size: 100%;
-  min-inline-size: 0;
+  inline-size: fit-content;
   padding: var(--rialto-space-xs);
   font-family: var(--rialto-font-sans);
   color: var(--rialto-text-primary);
@@ -72,22 +60,20 @@
 .monthGrid {
   display: flex;
   flex-direction: column;
-  gap: var(--date-range-gap);
-  inline-size: 100%;
+  gap: 2px;
 }
 
 .weekdays,
 .week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--date-range-gap);
+  grid-template-columns: repeat(7, 34px);
+  gap: 2px;
 }
 
 .weekday {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-inline-size: 0;
   block-size: 28px;
   font-size: var(--rialto-text-xs);
   font-weight: 500;
@@ -101,9 +87,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-inline-size: 0;
-  inline-size: 100%;
-  aspect-ratio: 1;
+  inline-size: 34px;
+  block-size: 34px;
   padding: 0;
   border: 1px solid transparent;
   border-radius: var(--rialto-radius-default);

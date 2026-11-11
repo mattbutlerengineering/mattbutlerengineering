@@ -94,11 +94,3 @@
     padding: var(--rialto-space-md);
   }
 }
-
-/* An open Drawer renders in place, so .body's isolation traps its z-index
-   under the sticky nav (a sibling of this column). Lift the column while the
-   panel is open. data-rialto-drawer is set by Drawer only while it is open.
-   Dialog uses its own attribute, so the two lifts can land independently. */
-.body:has([data-rialto-drawer]) {
-  z-index: calc(var(--rialto-z-sticky) + 1);
-}
