@@ -1,13 +1,11 @@
 /* ── Scroll wrapper ──────────────────────────── */
-/* Same containment as Table: a nowrap grid must scroll inside this frame
-   instead of widening the page. */
+/* Same cap as Table. A nowrap grid scrolls inside this frame. */
 .wrapper {
   position: relative;
   overflow-x: auto;
   overscroll-behavior-x: contain;
   max-inline-size: 100%;
   min-inline-size: 0;
-  contain: inline-size;
   border-radius: var(--rialto-radius-soft);
   border: 1px solid var(--rialto-border);
 }

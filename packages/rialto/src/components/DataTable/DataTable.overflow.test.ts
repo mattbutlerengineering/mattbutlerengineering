@@ -6,12 +6,12 @@ import { describe, expect, it } from "vitest";
 describe("DataTable narrow-column overflow", () => {
   const css = readFileSync(path.join(__dirname, "DataTable.module.css"), "utf8");
 
-  it("sizes the scroll wrapper from its container, not the grid", () => {
+  it("caps the scroll wrapper at its container without inline-size containment", () => {
     const wrapper = /\.wrapper\s*\{([^}]+)\}/.exec(css)?.[1] ?? "";
     expect(wrapper).toMatch(/overflow-x:\s*auto/);
     expect(wrapper).toMatch(/position:\s*relative/);
-    expect(wrapper).toMatch(/contain:\s*inline-size/);
     expect(wrapper).toMatch(/max-inline-size:\s*100%/);
     expect(wrapper).toMatch(/min-inline-size:\s*0/);
+    expect(wrapper).not.toMatch(/contain:\s*inline-size/);
   });
 });
