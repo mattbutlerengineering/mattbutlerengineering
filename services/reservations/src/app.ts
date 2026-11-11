@@ -31,6 +31,7 @@ import { confirmAttendanceRoutes } from "./routes/confirm-attendance.js";
 import { manageReservationRoutes } from "./routes/manage-reservation.js";
 import { manageRebookRoutes } from "./routes/manage-rebook.js";
 import { cancelReservationRoutes } from "./routes/cancel-reservation.js";
+import { manageSignalRoutes } from "./routes/manage-signal.js";
 import { modifyReservationRoutes } from "./routes/modify-reservation.js";
 import { depositRoutes } from "./routes/deposits.js";
 import { publicDepositRoutes } from "./routes/public-deposits.js";
@@ -352,6 +353,7 @@ export async function buildApp(options: ReservationsAppOptions = {}): Promise<Fa
   await fastify.register(manageReservationRoutes);
   await fastify.register(manageRebookRoutes);
   await fastify.register(cancelReservationRoutes);
+  await fastify.register(manageSignalRoutes);
   await fastify.register(modifyReservationRoutes);
   await fastify.register(publicUnsubscribeRoutes);
 
