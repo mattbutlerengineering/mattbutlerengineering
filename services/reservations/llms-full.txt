@@ -20211,6 +20211,8 @@
       minutes?: number;
     }): Promise<void> {
       await prisma.$transaction(async (tx) => {
+        // `$transaction` bypasses the auto-scoped model wrapper, so the venue (RLS) context must be set explicitly.
+        await setVenueContext(tx, input.venueId);
         await recordReservationEvent(tx, {
           reservationId: input.reservationId,
           venueId: input.venueId,
