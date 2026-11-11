@@ -826,3 +826,40 @@ describe("ReservationsClient.manageReservation modification limits", () => {
     await expect(makeClient().manageReservation("tok")).resolves.toEqual(base);
   });
 });
+
+describe("ReservationsClient invites", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  const invite = {
+    venue: { name: "The Oak Table", slug: "the-oak-table" },
+    date: "2026-06-15",
+    time: "19:00",
+    partySize: 4,
+    rsvps: [{ firstName: "Sam", status: "IN" }],
+    status: "CONFIRMED",
+  };
+
+  it("GETs /public/v1/invites/:token with the URL-encoded token and unwraps data", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: invite }));
+
+    const result = await makeClient().getInvite("v1.tok/en");
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/invites/v1.tok%2Fen");
+    expect(options?.method ?? "GET").toBe("GET");
+    expect(result).toEqual(invite);
+  });
+
+  it("POSTs the first name and status to /public/v1/invites/:token/rsvp", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { ok: true } }, 201));
+
+    await makeClient().rsvpInvite("v1.tok", { firstName: "Sam", status: "IN" });
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/invites/v1.tok/rsvp");
+    expect(options?.method).toBe("POST");
+    expect(JSON.parse(options?.body as string)).toEqual({ firstName: "Sam", status: "IN" });
+  });
+});

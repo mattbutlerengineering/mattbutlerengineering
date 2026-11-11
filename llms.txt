@@ -24305,6 +24305,21 @@
         guestSignals?: { late: number; arrived: number };
       }
     </item>
+    <item priority="low">
+      interface InviteRsvp {
+        firstName: string;
+        status: "IN" | "OUT";
+      }
+    </item>
+    <item priority="low">
+      interface InviteData {
+        venue: { name: string; slug: string };
+        date: string;
+        time: string;
+        partySize: number;
+        rsvps: InviteRsvp[];
+      }
+    </item>
     <item priority="high">
       class ReservationsClient {
         async list(): Promise<unknown>;

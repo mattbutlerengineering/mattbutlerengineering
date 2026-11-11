@@ -1533,6 +1533,29 @@
       }
     }
   },
+  "invite": {
+    "documentTitle": "You're invited — Hospitality",
+    "venueDocumentTitle": "You're invited to {{venue}}",
+    "loading": "Loading invitation...",
+    "heading": "You're invited",
+    "cardLabel": "Invitation to {{venue}}",
+    "rsvpTitle": "Who's coming",
+    "noReplies": "No replies yet. Be the first.",
+    "statusIn": "Coming",
+    "statusOut": "Can't make it",
+    "firstNameLabel": "First name",
+    "firstNamePlaceholder": "Your first name",
+    "firstNameRequired": "Enter your first name.",
+    "imIn": "I'm in",
+    "cantMakeIt": "Can't make it",
+    "replied": "Thanks, {{name}}. Your reply is on the list.",
+    "full": "This invitation has no spots left.",
+    "error": "Something went wrong. Please try again.",
+    "endedHeading": "This invitation has ended",
+    "endedDescription": "The reservation was cancelled or has already passed.",
+    "notFoundHeading": "Invitation not found",
+    "notFoundDescription": "Check the link you were sent."
+  },
   "offlineBanner": {
     "cached": "Showing cached data from last sync",
     "cachedWithTime": "Showing cached data from last sync — last synced {{time}}"
