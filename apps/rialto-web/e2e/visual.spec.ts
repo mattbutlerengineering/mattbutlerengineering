@@ -160,10 +160,10 @@ test.describe("neon sign shapes", () => {
  */
 test.describe("telemetry HUD", () => {
   // Tall enough to hold the whole HUD without scrolling. Playwright scrolls an
-  // element into view before screenshotting it, and DemoLayout's controls are
-  // `position: fixed` — so on a short viewport they ride down over the HUD and
-  // land in the frame. Fitting the element removes the scroll, and with it the
-  // overlay.
+  // element into view before screenshotting it. The display controls are
+  // anchored over the top of the page at rest, so a short viewport would
+  // scroll the HUD up under them and into the frame. Fitting the element
+  // removes that scroll.
   test.use({ viewport: { width: 1280, height: 1000 } });
 
   test.beforeEach(async ({ page }) => {

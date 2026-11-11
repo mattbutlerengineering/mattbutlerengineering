@@ -1,6 +1,18 @@
 /* ── Scroll wrapper ──────────────────────────── */
+/* A nowrap table's min-content escapes `overflow-x: auto` when `width: 100%`
+   is cyclic with the wrapper, and the page grows (drivers at 375px was 567px
+   wide). inline-size containment sizes the wrapper from its container, so the
+   columns scroll here. */
 .wrapper {
+  /* position anchors the visually-hidden header label. It is absolute, and
+     without a containing block inside this scrollport it escapes to the page
+     and widens the document by the full table. */
+  position: relative;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  max-inline-size: 100%;
+  min-inline-size: 0;
+  contain: inline-size;
   border-radius: var(--rialto-radius-soft);
   border: 1px solid var(--rialto-border);
 }

@@ -11,6 +11,7 @@
 /* ── Content ──────────────────────────────── */
 .content {
   max-width: 1200px;
+  min-inline-size: 0;
   margin: 0 auto;
   padding: var(--rialto-space-xl);
 }
@@ -18,14 +19,21 @@
 /* ── Stat cards row ───────────────────────── */
 .statGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--rialto-space-md);
+}
+
+.statGrid > *,
+.mainGrid > * {
+  /* Default min-inline-size: auto lets a nowrap tab row or table set the
+     column's minimum, which pushed the Speed Data card past 375px. */
+  min-inline-size: 0;
 }
 
 /* ── Main grid ────────────────────────────── */
 .mainGrid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: var(--rialto-space-md);
   margin-top: var(--rialto-space-md);
 }
@@ -68,11 +76,11 @@
 /* Tablet: 768–1024px */
 @media (max-width: 1024px) {
   .statGrid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .mainGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -83,7 +91,7 @@
   }
 
   .statGrid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .footer {

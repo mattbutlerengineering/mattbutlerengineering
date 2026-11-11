@@ -116,8 +116,18 @@
   transform-origin: top center;
 }
 
-:global([data-theme="dark"]) .dropdown {
+/* `.dropdown` composes `.glass` (`rgb(253 252 250 / 0.85)`, and
+   `rgb(42 39 37 / 0.9)` in dark). Backdrop-filter computes to none on this
+   portaled list, so the fields and buttons under an open menu show through
+   the options. Doubling the class beats the composed glass rules in either
+   bundle order, in both themes — the same opaque elevated surface Popover's
+   `solid` prop paints. Option rows stay transparent so the hover tint sits
+   on this fill. */
+.dropdown.dropdown,
+:global([data-theme="dark"]) .dropdown.dropdown {
   background: var(--rialto-surface-elevated);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ── Option ──────────────────────────────────── */
