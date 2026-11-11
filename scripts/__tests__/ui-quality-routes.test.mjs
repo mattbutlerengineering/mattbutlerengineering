@@ -47,9 +47,9 @@ describe("hospitality adapter", () => {
   const rows = extractApp("hospitality", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 26 route templates (25 leaf paths + 2 index routes, one of which shares `onboarding`)", () => {
-    expect(rows).toHaveLength(26);
-    expect(new Set(rows.map((r) => r.route)).size).toBe(26);
+  it("yields 27 route templates (26 leaf paths + 2 index routes, one of which shares `onboarding`)", () => {
+    expect(rows).toHaveLength(27);
+    expect(new Set(rows.map((r) => r.route)).size).toBe(27);
   });
 
   it("marks the two routes outside <App /> public and everything under it auth0", () => {
@@ -64,7 +64,7 @@ describe("hospitality adapter", () => {
     expect(byRoute["callback"].kind).toBe("redirect");
     expect(byRoute["*"].kind).toBe("not-found");
     expect(byRoute["timeline"].kind).toBe("page");
-    expect(rows.filter((r) => r.kind === "page")).toHaveLength(23);
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(24);
     // /setup/hours moved to the Availability page (#7513); the old path stays as a <Navigate>.
     expect(byRoute["setup/hours"].kind).toBe("redirect");
   });
@@ -204,7 +204,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(26 + 11 + 124);
+    expect(rows).toHaveLength(27 + 11 + 124);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([
