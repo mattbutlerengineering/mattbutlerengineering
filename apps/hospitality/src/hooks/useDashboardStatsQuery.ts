@@ -123,7 +123,7 @@ export function computeDepositStats(deposits: readonly Deposit[]): DepositStats 
 /* ── Hook ────────────────────────────────────────────── */
 
 export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
-  const { selectedVenueId } = useVenue();
+  const { selectedVenueId, isLoading: venueLoading } = useVenue();
   const api = useApiClient();
   const today = getTodayString();
 
@@ -137,6 +137,9 @@ export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
       });
       return response.data;
     },
+    // `selectedVenueId` is null until the venue list resolves, and the list
+    // route 403s a non-admin request that names no venue (#8563).
+    enabled: Boolean(selectedVenueId),
   });
 
   const waitlistQuery = useQuery({
@@ -164,7 +167,9 @@ export function useDashboardStatsQuery(): UseDashboardStatsQueryResult {
   return {
     reservations,
     stats,
-    isLoading: reservationsQuery.isLoading,
+    // The reservations query is held until a venue is selected; that wait is
+    // still a load, not an empty day.
+    isLoading: reservationsQuery.isLoading || venueLoading === true,
     error: reservationsQuery.error ?? null,
     refetch: reservationsQuery.refetch,
   };

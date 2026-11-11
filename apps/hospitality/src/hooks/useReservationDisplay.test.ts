@@ -55,6 +55,36 @@ function createWrapper() {
 /* ── Tests ──────────────────────────────────────────── */
 
 describe("useReservationDisplay", () => {
+  // #8563: the list route 403s a non-admin request naming no venue, and the
+  // venue is undefined until the venue list resolves.
+  it("disables the reservations query until a venue is known", () => {
+    renderHook(
+      () =>
+        useReservationDisplay({
+          date: "2026-01-15",
+          venueId: undefined,
+          statusFilter: "all",
+          searchQuery: "",
+        }),
+      { wrapper: createWrapper() }
+    );
+    expect(mockUseReservations).toHaveBeenCalledWith(expect.objectContaining({ enabled: false }));
+  });
+
+  it("enables the reservations query once a venue is known", () => {
+    renderHook(
+      () =>
+        useReservationDisplay({
+          date: "2026-01-15",
+          venueId: "venue-1",
+          statusFilter: "all",
+          searchQuery: "",
+        }),
+      { wrapper: createWrapper() }
+    );
+    expect(mockUseReservations).toHaveBeenCalledWith(expect.objectContaining({ enabled: true }));
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseReservations.mockReturnValue({

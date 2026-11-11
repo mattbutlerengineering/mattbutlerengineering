@@ -112,7 +112,7 @@ export function ReservationsPage() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const fmt = useVenueFormat();
-  const { selectedVenueId } = useVenue();
+  const { selectedVenueId, isLoading: venueLoading } = useVenue();
   const { params, setParam } = useUrlParams(reservationsFilterSchema, RESERVATIONS_DEFAULTS);
   const selectedDate = params.date;
   const statusFilter = params.status;
@@ -137,7 +137,7 @@ export function ReservationsPage() {
     data,
     stats,
     filteredData: filteredReservations,
-    isLoading,
+    isLoading: queryLoading,
     error: queryError,
     refetch,
   } = useReservationDisplay({
@@ -206,6 +206,8 @@ export function ReservationsPage() {
 
   const lastUpdatedDisplay = lastUpdated ? formatRelativeTime(lastUpdated, t) : "";
 
+  // The list query is held until a venue is selected; that wait is still a load.
+  const isLoading = queryLoading || venueLoading;
   const showLoading = isLoading && (data === undefined || data.length === 0);
   const loaded = !isLoading && !errorDescription;
   // KPIs are honest about not knowing: "—" (spoken "unavailable") until data lands, never 0.

@@ -52,6 +52,9 @@ export function useReservationDisplay({
     date,
     venueId,
     limit,
+    // The list route 403s a non-admin request that names no venue (#8563);
+    // `venueId` is undefined until the venue list resolves.
+    enabled: venueId !== undefined,
   });
 
   const allReservations = useMemo(() => data ?? [], [data]);
