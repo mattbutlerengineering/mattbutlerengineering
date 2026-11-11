@@ -88,9 +88,8 @@ const mockGuestSignalBadges = vi.fn(
 );
 
 vi.mock("../hooks/useTableGuestSignalBadges.js", () => ({
-  useTableGuestSignalBadges: (venueId: string | undefined, tables: readonly Table[]) => {
+  useTableGuestSignalBadges: (venueId: string | undefined) => {
     void venueId;
-    void tables;
     return mockGuestSignalBadges();
   },
 }));

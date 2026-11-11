@@ -147,7 +147,7 @@ function LiveFloorPlanEditorPage() {
     isSaving,
     saveFailure,
   } = useFloorPlanDraft({ serverTables: floorPlan?.tables, persist });
-  const guestSignalBadges = useTableGuestSignalBadges(floorPlan?.venueId, tables);
+  const guestSignalBadges = useTableGuestSignalBadges(floorPlan?.venueId);
   const draftSaveError = saveFailure
     ? saveFailure.error instanceof Error
       ? saveFailure.error.message

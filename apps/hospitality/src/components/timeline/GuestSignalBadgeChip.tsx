@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
+import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import type { GuestSignalBadge } from "./guest-signal-badge.js";
 import styles from "./GuestSignalBadgeChip.module.css";
 
@@ -19,6 +20,7 @@ export function useGuestSignalBadgeLabel(badge: GuestSignalBadge): string {
   return t(badge.held ? "onMyWayBadge.aria" : "onMyWayBadge.ariaPast", {
     minutes: badge.minutes,
     time,
+    count: clockHourOfInstant(badge.eta, fmt),
   });
 }
 

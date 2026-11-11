@@ -33,6 +33,8 @@ const SENTENCES = [
   ["home.openSign.closedToday", "a"],
   ["home.openSign.closedOn", "a"],
   ["timeline.block.title", "a"],
+  ["onMyWayBadge.aria", "a"],
+  ["onMyWayBadge.ariaPast", "a"],
   ["manageReservation.venueCancelled.rebook", "a"],
 ] as const;
 

@@ -25656,8 +25656,7 @@
   </file>
   <file path="apps/hospitality/src/hooks/useTableGuestSignalBadges.ts">
     export function useTableGuestSignalBadges(
-      venueId: string | undefined,
-      tables: readonly Table[]
+      venueId: string | undefined
     ): ReadonlyMap<string, GuestSignalBadge> {
       const now = useNow();
       const tonight = useStaffTonight(venueId);
@@ -25667,9 +25666,10 @@
         limit: 200,
         enabled: !!venueId,
       });
+      const { data: tables } = useTables({ venueId, limit: 100, enabled: !!venueId });
       const reservations = useMemo(() => data ?? [], [data]);
       const seatedIds = useMemo(
-        () => seatedReservationIds(reservations, tables, now),
+        () => seatedReservationIds(reservations, tables ?? [], now),
         [reservations, tables, now]
       );
       const badges = useGuestSignalBadges(reservations, seatedIds, now);

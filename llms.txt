@@ -8884,8 +8884,7 @@
   <file path="apps/hospitality/src/hooks/useTableGuestSignalBadges.ts">
     <item priority="high">
       export function useTableGuestSignalBadges(
-        venueId: string | undefined,
-        tables: readonly Table[]
+        venueId: string | undefined
       ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
     </item>
   </file>

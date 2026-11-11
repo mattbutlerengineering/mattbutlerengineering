@@ -8,8 +8,10 @@ const START = "2026-11-11T19:30:00.000Z";
 const state = vi.hoisted(() => ({
   reservations: [] as unknown[],
   signals: new Map<string, unknown>(),
+  tables: [] as unknown[],
 }));
 const useReservations = vi.hoisted(() => vi.fn());
+const useTables = vi.hoisted(() => vi.fn());
 
 vi.mock("./useNow.js", () => ({ useNow: () => NOW }));
 vi.mock("./useStaffTonight.js", () => ({ useStaffTonight: () => ({ serviceDate: "2026-11-11" }) }));
@@ -17,6 +19,12 @@ vi.mock("./useReservations.js", () => ({
   useReservations: (params: unknown) => {
     useReservations(params);
     return { data: state.reservations };
+  },
+}));
+vi.mock("./useTables.js", () => ({
+  useTables: (params: unknown) => {
+    useTables(params);
+    return { data: state.tables };
   },
 }));
 vi.mock("./useSSESync.js", () => ({ useGuestSignals: () => state.signals }));
@@ -36,13 +44,16 @@ const reservation = {
   startTime: START,
   endTime: "2026-11-11T21:30:00.000Z",
 };
-const tables = (status: Table["status"]) => [{ id: "t1", status } as Table];
+const setTable = (status: Table["status"]) => {
+  state.tables = [{ id: "t1", status } as Table];
+};
 
 describe("useTableGuestSignalBadges", () => {
   it("reads tonight's reservations for the venue and badges the signalled table", () => {
     state.reservations = [reservation as unknown as Reservation];
     state.signals = new Map([["r1", lateSignal]]);
-    const { result } = renderHook(() => useTableGuestSignalBadges("v1", tables("AVAILABLE")));
+    setTable("AVAILABLE");
+    const { result } = renderHook(() => useTableGuestSignalBadges("v1"));
     expect(useReservations).toHaveBeenCalledWith(
       expect.objectContaining({ venueId: "v1", date: "2026-11-11" })
     );
@@ -56,7 +67,28 @@ describe("useTableGuestSignalBadges", () => {
   it("clears the badge once the party is seated (its table is occupied)", () => {
     state.reservations = [reservation as unknown as Reservation];
     state.signals = new Map([["r1", lateSignal]]);
-    const { result } = renderHook(() => useTableGuestSignalBadges("v1", tables("OCCUPIED")));
+    setTable("OCCUPIED");
+    const { result } = renderHook(() => useTableGuestSignalBadges("v1"));
+    expect(result.current.size).toBe(0);
+  });
+
+  it("reads the live tables list the Timeline shares, scoped to the venue", () => {
+    state.reservations = [];
+    setTable("AVAILABLE");
+    renderHook(() => useTableGuestSignalBadges("v1"));
+    expect(useTables).toHaveBeenCalledWith(
+      expect.objectContaining({ venueId: "v1", limit: 100, enabled: true })
+    );
+  });
+
+  it("clears the badge when the table turns occupied after the first render", () => {
+    state.reservations = [reservation as unknown as Reservation];
+    state.signals = new Map([["r1", lateSignal]]);
+    setTable("AVAILABLE");
+    const { result, rerender } = renderHook(() => useTableGuestSignalBadges("v1"));
+    expect(result.current.get("t1")?.held).toBe(true);
+    setTable("OCCUPIED");
+    rerender();
     expect(result.current.size).toBe(0);
   });
 });
