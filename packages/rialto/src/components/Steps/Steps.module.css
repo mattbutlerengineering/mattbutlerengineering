@@ -251,6 +251,8 @@
   .horizontal .stepLabel {
     font-size: var(--rialto-text-xs);
     white-space: nowrap;
+    /* The step is only as wide as the word. Without this, adjacent labels touch. */
+    padding-inline: var(--rialto-space-xs);
   }
 }
 
