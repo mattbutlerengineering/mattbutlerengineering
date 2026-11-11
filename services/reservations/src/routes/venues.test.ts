@@ -1648,6 +1648,7 @@ describe("Venue Routes — venueGroupId reassignment is admin-only (#5515)", () 
 describe("Venue Routes — settings.tonightNote is owner-only (#8652)", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
+  const NOTE_URL = `/api/v1/venues/${"venue-123"}`;
 
   beforeEach(() => {
     vi.mocked(jwtVerify).mockReset();
@@ -1681,7 +1682,7 @@ describe("Venue Routes — settings.tonightNote is owner-only (#8652)", () => {
   const patch = (note: string) =>
     app.inject({
       method: "PATCH",
-      url: "/api/v1/venues/venue-123",
+      url: NOTE_URL,
       headers: { authorization: "Bearer t" },
       payload: { settings: { tonightNote: note } },
     });
@@ -1692,6 +1693,41 @@ describe("Venue Routes — settings.tonightNote is owner-only (#8652)", () => {
     const res = await patch("Park on Elm St");
     expect(res.statusCode).toBe(403);
     expect(venueService.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects a manager whose settings replacement would wipe the stored note", async () => {
+    vi.mocked(venueService.getById).mockResolvedValue({
+      ...mockVenue,
+      settings: { tonightNote: "Park on Elm St" },
+    });
+    vi.mocked(venueService.update).mockResolvedValue(mockVenue);
+    app = await buildAppAs("manager");
+    for (const settings of [{}, null, { maxPartySize: 8 }]) {
+      const res = await app.inject({
+        method: "PATCH",
+        url: NOTE_URL,
+        headers: { authorization: "Bearer t" },
+        payload: { settings },
+      });
+      expect(res.statusCode).toBe(403);
+    }
+    expect(venueService.update).not.toHaveBeenCalled();
+  });
+
+  it("lets a manager save settings that keep the stored note unchanged", async () => {
+    vi.mocked(venueService.getById).mockResolvedValue({
+      ...mockVenue,
+      settings: { tonightNote: "Park on Elm St" },
+    });
+    vi.mocked(venueService.update).mockResolvedValue(mockVenue);
+    app = await buildAppAs("manager");
+    const res = await app.inject({
+      method: "PATCH",
+      url: NOTE_URL,
+      headers: { authorization: "Bearer t" },
+      payload: { settings: { maxPartySize: 8, tonightNote: "Park on Elm St" } },
+    });
+    expect(res.statusCode).toBe(200);
   });
 
   it("lets an owner set a tonight note", async () => {
