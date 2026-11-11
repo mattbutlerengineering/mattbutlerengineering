@@ -27213,6 +27213,14 @@
   </file>
   <file path="packages/types/src/sse-events.ts">
     <item priority="low">
+      interface GuestSignalEventData {
+        reservationId: string;
+        kind: "running-late" | "arrived";
+        minutes?: number;
+        eta?: string;
+      }
+    </item>
+    <item priority="low">
       interface SsePayloadMap {
         "reservation:created": Reservation;
         "reservation:updated": Reservation;

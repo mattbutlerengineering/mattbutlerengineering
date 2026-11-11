@@ -45,6 +45,7 @@ const REFUSALS = {
  */
 export const manageSignalRoutes: FastifyPluginAsync = async (fastify) => {
   const { venueService } = fastify.services;
+  const { reservationEvents } = fastify;
 
   fastify.post<{ Body: SignalBody }>(
     "/public/v1/reservations/manage/signal",
@@ -78,6 +79,19 @@ export const manageSignalRoutes: FastifyPluginAsync = async (fastify) => {
           guestId: reservation.guestId,
           kind,
           minutes,
+        });
+        // Only after the signal has persisted; every refusal above returns first.
+        reservationEvents.emitGuestSignal(venueId, {
+          reservationId: reservation.id,
+          kind,
+          ...(minutes === undefined
+            ? {}
+            : {
+                minutes,
+                eta: new Date(
+                  new Date(reservation.startTime).getTime() + minutes * 60_000
+                ).toISOString(),
+              }),
         });
         return reply.status(200).send({ data: { kind, ...(minutes ? { minutes } : {}) } });
       }

@@ -903,7 +903,9 @@ function catalogPayload(type: string): Record<string, unknown> {
   const data =
     type === "guest:lapsing" || type === "table-status:changed"
       ? []
-      : { id: "x-1", guestName: "Test", startTime: "2026-01-01T18:00:00Z", venueId: "v1" };
+      : type === "reservation:guest-signal"
+        ? { reservationId: "x-1", kind: "arrived" }
+        : { id: "x-1", guestName: "Test", startTime: "2026-01-01T18:00:00Z", venueId: "v1" };
   return { type, venueId: "v1", timestamp: "2026-01-01T00:00:00Z", data };
 }
 
@@ -944,6 +946,7 @@ describe("useSSESync — per-event invalidation contract", () => {
     ["floor-plan:created", ["floorPlans"]],
     ["guest:lapsing", ["lapsingGuests"]],
     ["table-status:changed", []],
+    ["reservation:guest-signal", ["reservations", "tables"]],
   ];
 
   it.each(EXPECTED_INVALIDATIONS)("%s invalidates exactly %j", (name, expectedKeys) => {

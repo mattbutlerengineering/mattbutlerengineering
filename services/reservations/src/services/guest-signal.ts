@@ -1,4 +1,5 @@
 import { prisma } from "./database.js";
+import { setVenueContext } from "../middleware/venue-context.js";
 import { recordReservationEvent, guestActor } from "./reservation-events.js";
 import type { GuestSignalKind } from "./can-signal.js";
 
@@ -29,6 +30,8 @@ export async function recordGuestSignal(input: {
   minutes?: number;
 }): Promise<void> {
   await prisma.$transaction(async (tx) => {
+    // `$transaction` bypasses the auto-scoped model wrapper, so the venue (RLS) context must be set explicitly.
+    await setVenueContext(tx, input.venueId);
     await recordReservationEvent(tx, {
       reservationId: input.reservationId,
       venueId: input.venueId,

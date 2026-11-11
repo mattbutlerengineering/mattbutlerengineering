@@ -257,6 +257,7 @@ export function useSSESync(): { reconnect: () => void } {
         case "floor-plan:created":
         case "guest:lapsing":
         case "table-status:changed":
+        case "reservation:guest-signal":
           break;
         default: {
           // A catalog name with no case above is a type error here.

@@ -7,6 +7,7 @@ import type {
   LapsingGuest,
   TableStatusDelta,
   SseEvent,
+  GuestSignalEventData,
 } from "@mbe/types";
 
 /** Wire envelope, owned by the shared catalog in @mbe/types. */
@@ -146,6 +147,16 @@ export class ReservationEventEmitter extends EventEmitter {
       venueId,
       timestamp: new Date().toISOString(),
       data: changes,
+    });
+  }
+
+  /** Emit a guest night-of signal, scoped to the venue that owns the reservation. */
+  emitGuestSignal(venueId: string, data: GuestSignalEventData): void {
+    this.emitChange({
+      type: "reservation:guest-signal",
+      venueId,
+      timestamp: new Date().toISOString(),
+      data,
     });
   }
 }
