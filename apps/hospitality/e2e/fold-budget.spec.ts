@@ -25,6 +25,15 @@ const FOLD_BUDGET_PX = 720;
 const CONTENT_START_RATCHET_PX = 312;
 const GUARD_VIEWPORT_LABEL = "1280x720";
 
+// The Timeline header prints the selected day in full ("Wednesday, November 11,
+// 2026"), and its date row wraps onto extra lines when that label outgrows the
+// column, so the reading moved with the calendar: CI's fallback font put the
+// longest labels 34px lower and tripped the ratchet on those days only (#8683).
+// Every reading is taken on one fixed day so the ratchet compares like with
+// like. Local noon keeps it the same calendar day in any runner zone, and a
+// past instant leaves the stored auth session unexpired.
+const MEASUREMENT_NOW = new Date("2026-06-15T12:00:00");
+
 // Route path (relative to baseURL) per page. Six are the PRD-1 key pages;
 // the rest round out "every route" for the audit.
 const ROUTES: readonly { page: string; path: string; guarded: boolean }[] = [
@@ -43,6 +52,7 @@ test.describe("Fold budget measurement", () => {
     for (const viewport of VIEWPORTS) {
       test(`${pageName} @ ${viewport.label}`, async ({ mockedPage }, testInfo) => {
         await mockedPage.setViewportSize({ width: viewport.width, height: viewport.height });
+        await mockedPage.clock.setFixedTime(MEASUREMENT_NOW);
         await mockedPage.goto(path);
 
         const primaryContent = mockedPage.getByTestId("primary-content");
