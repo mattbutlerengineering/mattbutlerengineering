@@ -5,6 +5,7 @@ import type { ManagedVenueCancellation } from "@mbe/api-client";
 import { VenueContext, type VenueContextValue } from "../contexts/venue-context-object.js";
 import { localeRuntime } from "../i18n/runtime.js";
 import esMX from "../i18n/catalogs/es-MX.json";
+import { GuestSignalBadgeChip } from "../components/timeline/GuestSignalBadgeChip.js";
 import { ReservationBlock } from "../components/timeline/ReservationBlock.js";
 import { VenueCancelledCard } from "../components/manage-reservation/VenueCancelledCard.js";
 import { formatVenueOpenLabel } from "./venueOpenLabel.js";
@@ -58,6 +59,26 @@ describe("timeline block title", () => {
       );
       expect(screen.getByRole("button").getAttribute("title")).toContain(article);
       unmount();
+    }
+  });
+});
+
+describe("on my way badge label", () => {
+  it("says 'a la' at one o'clock and 'a las' at two on the venue's clock, held or past", async () => {
+    await useSpanish();
+    for (const held of [true, false]) {
+      for (const [eta, article] of [
+        [AT_ONE_FIFTEEN, "a la 1:15"],
+        [AT_TWO, "a las 2:00"],
+      ] as const) {
+        const { unmount } = render(
+          <VenueContext.Provider value={VENUE}>
+            <GuestSignalBadgeChip badge={{ minutes: 15, eta, held }} />
+          </VenueContext.Provider>
+        );
+        expect(screen.getByRole("status").getAttribute("aria-label")).toContain(article);
+        unmount();
+      }
     }
   });
 });

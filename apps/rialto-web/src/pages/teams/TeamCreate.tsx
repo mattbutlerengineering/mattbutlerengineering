@@ -83,6 +83,10 @@ const STEP_ITEMS = [
 
 const STEP_HEADING_ID = "register-team-step-heading";
 
+const CHASSIS_REQUIRED = "Chassis designation is required.";
+const ENGINE_REQUIRED = "Engine supplier is required.";
+const LIVERY_REQUIRED = "Livery color is required.";
+
 function validateStep(step: number, data: TeamFormData): string[] {
   if (step === 0) {
     const errs: string[] = [];
@@ -94,9 +98,9 @@ function validateStep(step: number, data: TeamFormData): string[] {
   }
   if (step === 1) {
     const errs: string[] = [];
-    if (!data.chassis.trim()) errs.push("Chassis designation is required.");
-    if (!data.engine) errs.push("Engine supplier is required.");
-    if (!data.liveryColor) errs.push("Livery color is required.");
+    if (!data.chassis.trim()) errs.push(CHASSIS_REQUIRED);
+    if (!data.engine) errs.push(ENGINE_REQUIRED);
+    if (!data.liveryColor) errs.push(LIVERY_REQUIRED);
     return errs;
   }
   return [];
@@ -112,6 +116,9 @@ export function TeamCreate() {
   const [errors, setErrors] = useState<string[]>([]);
   const [phase, setPhase] = useState<RegisterPhase>("idle");
   const isSubmitting = phase !== "idle";
+  // After a failed Next, re-check the live values so a corrected field drops
+  // its invalid state before the next submit.
+  const visibleErrors = errors.length > 0 ? validateStep(currentStep, data) : [];
   const stepHeadingRef = useRef<HTMLHeadingElement>(null);
   const announcedStepRef = useRef(currentStep);
 
@@ -190,10 +197,10 @@ export function TeamCreate() {
             {STEP_ITEMS[currentStep]?.label}
           </Heading>
         </div>
-        {errors.length > 0 && (
+        {visibleErrors.length > 0 && (
           <Alert variant="error" title="Please fix the following:">
             <ul style={{ margin: 0, paddingLeft: "var(--rialto-space-md)" }}>
-              {errors.map((err) => (
+              {visibleErrors.map((err) => (
                 <li key={err}>{err}</li>
               ))}
             </ul>
@@ -252,6 +259,8 @@ export function TeamCreate() {
               value={data.chassis}
               onChange={(e) => update("chassis", e.target.value)}
               required
+              error={visibleErrors.includes(CHASSIS_REQUIRED)}
+              hint={visibleErrors.includes(CHASSIS_REQUIRED) ? CHASSIS_REQUIRED : undefined}
               placeholder="e.g. SF-24"
             />
             <div className={styles.fieldRow}>
@@ -260,12 +269,18 @@ export function TeamCreate() {
                 value={data.engine}
                 onChange={(v) => update("engine", v)}
                 options={ENGINES}
+                required
+                error={visibleErrors.includes(ENGINE_REQUIRED)}
+                hint={visibleErrors.includes(ENGINE_REQUIRED) ? ENGINE_REQUIRED : undefined}
               />
               <Select
                 label="Primary Livery Color"
                 value={data.liveryColor}
                 onChange={(v) => update("liveryColor", v)}
                 options={COLORS}
+                required
+                error={visibleErrors.includes(LIVERY_REQUIRED)}
+                hint={visibleErrors.includes(LIVERY_REQUIRED) ? LIVERY_REQUIRED : undefined}
               />
             </div>
             <div className={styles.formActions}>

@@ -129,6 +129,33 @@ test("Number input page — pit strategy steps inside its bounds and Reset resto
   await expect(page.getByLabel("Lap Count")).toHaveValue("6");
 });
 
+test("Number input page — a decimal lap count commits to a whole number", async ({ page }) => {
+  await consent(page);
+  await page.goto("components/number-input");
+  await page.waitForLoadState("networkidle");
+
+  const laps = page.getByLabel("Lap Count");
+  await laps.fill("3.7");
+  await expect(laps).toHaveValue("3.7");
+  await laps.blur();
+  await expect(laps).toHaveValue("4");
+  await laps.locator("xpath=..").getByRole("button", { name: "Increase" }).click();
+  await expect(laps).toHaveValue("5");
+
+  await laps.fill("07");
+  await expect(laps).toHaveValue("07");
+  await laps.blur();
+  await expect(laps).toHaveValue("7");
+
+  await laps.fill("500");
+  await laps.blur();
+  await expect(laps).toHaveValue("99");
+
+  await laps.fill("0");
+  await laps.blur();
+  await expect(laps).toHaveValue("1");
+});
+
 async function glyphIsVisible(page: Page, name: string) {
   const button = page.getByRole("button", { name, exact: true });
   const svg = button.locator("svg");
@@ -305,4 +332,106 @@ test.describe("Dialog layout", () => {
     });
     await expect(dialog.getByRole("button", { name: "Confirm" })).toBeInViewport({ ratio: 1 });
   });
+
+  test("a max-height dialog paints above the sticky site header", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    const dialog = await openDialog(page, "Long Content Dialog");
+    await page.evaluate(() => document.fonts.ready);
+
+    const covered = await dialog.evaluate((el) => {
+      const dialogBox = el.getBoundingClientRect();
+      const nav = document.querySelector('nav[aria-label="Global navigation"]');
+      const navBox = nav?.getBoundingClientRect();
+      if (!navBox || dialogBox.top >= navBox.bottom) {
+        return { samples: 0, allInDialog: false, top: dialogBox.top, navBottom: navBox?.bottom };
+      }
+      const hits: boolean[] = [];
+      for (let y = dialogBox.top + 1; y < navBox.bottom; y += 4) {
+        const node = document.elementFromPoint(dialogBox.left + dialogBox.width / 2, y);
+        hits.push(Boolean(node?.closest('[role="dialog"]')));
+      }
+      return {
+        samples: hits.length,
+        allInDialog: hits.every(Boolean),
+        top: dialogBox.top,
+        navBottom: navBox.bottom,
+      };
+    });
+
+    expect(covered.top).toBeLessThan(covered.navBottom ?? 0);
+    expect(covered.samples).toBeGreaterThan(0);
+    expect(covered.allInDialog).toBe(true);
+    await expect(dialog.getByRole("heading", { name: "Technical Regulations" })).toBeInViewport({
+      ratio: 1,
+    });
+  });
+});
+
+function colorAlpha(color: string): number {
+  const match = color.match(/rgba?\(([^)]+)\)/);
+  if (!match?.[1]) return 1;
+  const parts = match[1].split(",").map((part) => part.trim());
+  const alpha = parts[3];
+  return alpha === undefined ? 1 : Number(alpha);
+}
+
+test("combobox empty listbox is opaque in dark mode", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("mbe-theme-preference", "dark");
+    localStorage.setItem(
+      "rialto-cookie-consent",
+      JSON.stringify({
+        consented: true,
+        preferences: { essential: true, analytics: true, functional: true, marketing: true },
+      })
+    );
+  });
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await page.goto("components/combobox");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+  const fruit = page.getByRole("combobox", { name: "Fruit" }).first();
+  await fruit.click();
+  const openList = page.getByRole("listbox");
+  await expect(openList.getByRole("option").first()).toBeVisible();
+  const resultsAlpha = await openList.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(colorAlpha(resultsAlpha)).toBe(1);
+
+  await fruit.fill("zzz");
+  const emptyList = page.getByRole("listbox");
+  await expect(emptyList.getByText("No results")).toBeVisible();
+  const empty = await emptyList.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { backgroundColor: style.backgroundColor, backdropFilter: style.backdropFilter };
+  });
+  expect(colorAlpha(empty.backgroundColor)).toBe(1);
+  expect(empty.backdropFilter).toBe("none");
+});
+
+test("combobox empty listbox stays a light surface in light mode", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("mbe-theme-preference", "light");
+    localStorage.setItem(
+      "rialto-cookie-consent",
+      JSON.stringify({
+        consented: true,
+        preferences: { essential: true, analytics: true, functional: true, marketing: true },
+      })
+    );
+  });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await page.goto("components/combobox");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  const fruit = page.getByRole("combobox", { name: "Fruit" }).first();
+  await fruit.fill("zzz");
+  const emptyList = page.getByRole("listbox");
+  await expect(emptyList.getByText("No results")).toBeVisible();
+  const background = await emptyList.evaluate((el) => getComputedStyle(el).backgroundColor);
+  // Dark glass is rgb(42 39 37 / 0.9). Light mode must not inherit that fill.
+  expect(background).not.toBe("rgba(42, 39, 37, 0.9)");
+  expect(colorAlpha(background)).toBeGreaterThan(0);
 });

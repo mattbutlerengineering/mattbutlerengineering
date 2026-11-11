@@ -768,6 +768,32 @@ export const venueRoutes: FastifyPluginAsync = async (fastify) => {
     venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
       const { venueGroupId } = request.body;
 
+      // The tonight note is guest-facing copy, so only an owner (or an admin)
+      // may change it. `settings` is replaced wholesale, so any write that
+      // would alter the stored note counts, including one that omits it.
+      if (request.body.settings !== undefined && !isAdmin) {
+        const callerRole = await request.server.venueRoleLookup(
+          request.user?.raw.sub ?? "",
+          venueId
+        );
+        if (callerRole !== "owner") {
+          const current = await venueService.getById(venueId);
+          const storedNote = current?.settings?.tonightNote ?? "";
+          const incomingNote = request.body.settings?.tonightNote ?? "";
+          if (storedNote !== incomingNote) {
+            return reply
+              .code(403)
+              .send(
+                createProblemDetails(
+                  403,
+                  "Forbidden",
+                  "Owner role required to edit the tonight note"
+                )
+              );
+          }
+        }
+      }
+
       const hoursError = operatingHoursError(request.body.operatingHours);
       if (hoursError) {
         return reply.code(400).send(createProblemDetails(400, "Bad Request", hoursError));

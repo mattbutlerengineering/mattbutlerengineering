@@ -632,6 +632,42 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
       expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
     },
   },
+  "GET /public/v1/invites/:token": {
+    kind: "ok",
+    run: async (ctx) => {
+      const { createInvite } = await import("../services/reservation-invite.js");
+      const { token } = await createInvite({
+        venueId: ctx.venueA.id,
+        reservationId: ctx.reservationA,
+      });
+      const found = await asAdmin(ctx, { method: "GET", url: `/public/v1/invites/${token}` });
+      // The shared reservation may be past or cancelled (410); the scope proof is that
+      // the invite resolved inside its venue instead of 404ing.
+      expect([200, 410], `expected 200/410, got ${found.statusCode}: ${found.body}`).toContain(
+        found.statusCode
+      );
+
+      // The same secret under another venue's prefix must not resolve.
+      const foreign = `${ctx.venueB.id}.${token.slice(token.indexOf(".") + 1)}`;
+      const denied = await asAdmin(ctx, { method: "GET", url: `/public/v1/invites/${foreign}` });
+      expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
+    },
+  },
+  "POST /public/v1/reservations/manage/signal": {
+    kind: "ok",
+    run: async (ctx) => {
+      const { generateManageToken } = await loadTokenHelpers();
+      // A signal only records history inside a live time window, so the sweep
+      // proves the scope: a token for a reservation that does not exist is a 404.
+      const goneToken = generateManageToken("rls-sweep-no-such-reservation", "nobody@example.com");
+      const denied = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/reservations/manage/signal?token=${goneToken}`,
+        payload: { kind: "arrived" },
+      });
+      expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
+    },
+  },
   "DELETE /public/v1/reservations/manage": {
     kind: "ok",
     run: async (ctx) => {

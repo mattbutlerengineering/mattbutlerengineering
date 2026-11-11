@@ -53,6 +53,8 @@ export type {
   ManagedReservation,
   ManagedReservationChanges,
   ManagedReservationVenue,
+  ManagedVenueAddress,
+  GuestSignal,
 } from "./reservations.js";
 
 import { ApiClient } from "./client.js";

@@ -4,6 +4,8 @@ import { StatusLED } from "@mattbutlerengineering/rialto";
 import type { Reservation, ReservationStatus } from "@mbe/types";
 import { RESERVATION_STATUS_KEYS } from "./status-keys.js";
 import { visitLabel } from "./visit-label.js";
+import { GuestSignalBadgeChip, useGuestSignalBadgeLabel } from "./GuestSignalBadgeChip.js";
+import type { GuestSignalBadge } from "./guest-signal-badge.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import styles from "./ReservationBlock.module.css";
@@ -15,6 +17,8 @@ export interface ReservationBlockProps {
   isFocused?: boolean;
   /** The party is on its table now (derived by the page, ux.md Decision (a)). */
   isSeated?: boolean;
+  /** The party said it is running late (On My Way); null/absent = no badge. */
+  guestSignalBadge?: GuestSignalBadge | null;
   onClick?: (reservation: Reservation) => void;
 }
 
@@ -26,12 +30,19 @@ const STATUS_CLASS: Record<ReservationStatus, string> = {
   NO_SHOW: styles.statusNoShow ?? "",
 };
 
+/** Placeholder so the label hook runs unconditionally; its output is used only with a real badge. */
+/** Horizontal gap between the block's left edge and its badge, and the badge's right margin. */
+const CHIP_INSET = 8;
+
+const NO_BADGE: GuestSignalBadge = { minutes: 0, eta: new Date(0).toISOString(), held: false };
+
 function ReservationBlockComponent({
   reservation,
   style,
   isSelected = false,
   isFocused = false,
   isSeated = false,
+  guestSignalBadge = null,
   onClick,
 }: ReservationBlockProps) {
   const fmt = useVenueFormat();
@@ -54,6 +65,7 @@ function ReservationBlockComponent({
   ]
     .filter(Boolean)
     .join(" · ");
+  const lateLabel = useGuestSignalBadgeLabel(guestSignalBadge ?? NO_BADGE);
   const overrideReason = reservation.overrideReason?.trim() || null;
   const spokenLabel = [
     guestName,
@@ -61,6 +73,7 @@ function ReservationBlockComponent({
     startTime,
     t(RESERVATION_STATUS_KEYS[reservation.status]).toLocaleLowerCase(fmt.locale),
     isSeated ? t("timeline.block.seatedWord") : null,
+    guestSignalBadge ? lateLabel : null,
     visitText,
     overrideReason ? t("timeline.block.overrideLabel", { reason: overrideReason }) : null,
   ]
@@ -69,42 +82,52 @@ function ReservationBlockComponent({
   const handleClick = () => onClick?.(reservation);
 
   return (
-    /* eslint-disable mbe-local/prefer-rialto-components -- timeline block uses custom CSS module classes that require a native button element */
-    <button
-      type="button"
-      data-testid={`reservation-block-${reservation.id}`}
-      onClick={handleClick}
-      className={[
-        styles.block,
-        statusClass,
-        isSelected ? styles.blockSelected : "",
-        isFocused ? styles.blockFocused : "",
-      ].join(" ")}
-      style={{
-        left: style.left,
-        width: style.width,
-      }}
-      title={title}
-      aria-label={spokenLabel}
-      aria-pressed={isSelected}
-    >
-      <div className={styles.content}>
-        <div className={styles.guestName} data-truncate>
-          {isSeated && <StatusLED variant="success" size="xs" className={styles.seatedLed} />}
-          <span>{guestName}</span>
-        </div>
-        <div className={styles.details} data-truncate>
-          {reservation.partySize} · {startTime}
-          {visitText !== null && ` · ${visitText}`}
-        </div>
-        {overrideReason !== null && (
-          <div className={styles.overrideTag} data-truncate title={overrideReason}>
-            {t("timeline.block.overrideTag")}
+    <>
+      {/* eslint-disable-next-line mbe-local/prefer-rialto-components -- timeline block uses custom CSS module classes that require a native button element */}
+      <button
+        type="button"
+        data-testid={`reservation-block-${reservation.id}`}
+        onClick={handleClick}
+        className={[
+          styles.block,
+          statusClass,
+          isSelected ? styles.blockSelected : "",
+          isFocused ? styles.blockFocused : "",
+        ].join(" ")}
+        style={{
+          left: style.left,
+          width: style.width,
+        }}
+        title={title}
+        aria-label={spokenLabel}
+        aria-pressed={isSelected}
+      >
+        <div className={styles.content}>
+          <div className={styles.guestName} data-truncate>
+            {isSeated && <StatusLED variant="success" size="xs" className={styles.seatedLed} />}
+            <span>{guestName}</span>
           </div>
-        )}
-      </div>
-    </button>
-    /* eslint-enable mbe-local/prefer-rialto-components */
+          <div className={styles.details} data-truncate>
+            {reservation.partySize} · {startTime}
+            {visitText !== null && ` · ${visitText}`}
+          </div>
+          {overrideReason !== null && (
+            <div className={styles.overrideTag} data-truncate title={overrideReason}>
+              {t("timeline.block.overrideTag")}
+            </div>
+          )}
+        </div>
+      </button>
+      {/* Sibling, not a child: a button's children are presentational, and a status region must be
+          exposed to be announced. It sits in the block's bottom strip, clear of the name/details. */}
+      {guestSignalBadge && (
+        <GuestSignalBadgeChip
+          badge={guestSignalBadge}
+          className={styles.guestSignalBadge}
+          style={{ left: style.left + CHIP_INSET, maxWidth: style.width - 2 * CHIP_INSET }}
+        />
+      )}
+    </>
   );
 }
 
@@ -116,6 +139,9 @@ function arePropsEqual(prev: ReservationBlockProps, next: ReservationBlockProps)
     prev.isSelected === next.isSelected &&
     prev.isFocused === next.isFocused &&
     prev.isSeated === next.isSeated &&
+    prev.guestSignalBadge?.minutes === next.guestSignalBadge?.minutes &&
+    prev.guestSignalBadge?.eta === next.guestSignalBadge?.eta &&
+    prev.guestSignalBadge?.held === next.guestSignalBadge?.held &&
     prev.onClick === next.onClick
   );
 }

@@ -5063,6 +5063,18 @@
       }
     </item>
     <item priority="medium">
+      function utcDay(isoDate: string): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function formatUtcDay(ms: number): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isRealIsoDay(isoDate: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function fillCalendarSpan(points: readonly TrendPoint[]): readonly TrendPoint[] { /* ... */ }
+    </item>
+    <item priority="medium">
       function asRecord(value: unknown): Record<string, unknown> { /* ... */ }
     </item>
     <item priority="medium">
@@ -8498,6 +8510,15 @@
       }: UseGuestRecognitionParams): UseGuestRecognitionReturn { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useGuestSignalBadges.ts">
+    <item priority="high">
+      export function useGuestSignalBadges(
+        reservations: readonly Pick<Reservation, "id" | "status" | "startTime">[],
+        seatedIds: ReadonlySet<string>,
+        now: Date
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useGuests.ts">
     <item priority="high">
       export const GUESTS_QUERY_KEY: unknown;
@@ -8897,6 +8918,13 @@
     </item>
     <item priority="high">
       export function useStatusMessage(): StatusMessageApi { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useTableGuestSignalBadges.ts">
+    <item priority="high">
+      export function useTableGuestSignalBadges(
+        venueId: string | undefined
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
@@ -13589,6 +13617,14 @@
       export const manageReservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="services/reservations/src/routes/manage-signal.ts">
+    <item priority="high">
+      type SignalBody = { kind: GuestSignalKind; minutes?: 5 | 15 | 30 };
+    </item>
+    <item priority="high">
+      export const manageSignalRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/manage-token-scope.ts">
     <item priority="high">
       type Handler = RouteHandlerMethod<
@@ -13720,6 +13756,11 @@
     </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/public-invites.ts">
+    <item priority="high">
+      export const publicInviteRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/public-menus.ts">
@@ -15460,6 +15501,9 @@
     </item>
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
+    <item priority="high">
+      export const TONIGHT_NOTE_MAX_LENGTH: unknown;
+    </item>
     <item priority="high">
       export const ListReservationsQuerySchema: unknown;
     </item>
@@ -17962,6 +18006,35 @@
       export const briefingService: unknown;
     </item>
   </file>
+  <file path="services/reservations/src/services/can-signal.ts">
+    <item priority="high">
+      export const MAX_LATE_SIGNALS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_ARRIVED_SIGNALS: unknown;
+    </item>
+    <item priority="low">
+      type GuestSignalKind = "running-late" | "arrived";
+    </item>
+    <item priority="low">
+      type CanSignalResult = { ok: true } | { ok: false; reason: "not-conf;
+    </item>
+    <item priority="low">
+      interface CanSignalInput {
+        status: string;
+        startTime: string;
+        timezone: string;
+        now: Date;
+        kind: GuestSignalKind;
+      }
+    </item>
+    <item priority="medium">
+      function localDay(instant: Date, timezone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function canSignal(input: CanSignalInput): CanSignalResult { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/closure-alongside.ts">
     <item priority="low">
       interface AlongsideIssue {
@@ -19437,6 +19510,22 @@
       function applyDecay(noShowCount: number, lastNoShowDate: Date | null): number { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/guest-signal.ts">
+    <item priority="high">
+      export async function countGuestSignals(
+        reservationId: string
+      ): Promise<{ late: number; arrived: number }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recordGuestSignal(input: {
+        reservationId: string;
+        venueId: string;
+        guestId: string | null;
+        kind: GuestSignalKind;
+        minutes?: number;
+      }): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/guest.ts">
     <item priority="medium">
       function mapPrismaGuest(guest: {
@@ -19818,6 +19907,17 @@
       export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/night-of-venue.ts">
+    <item priority="high">
+      type VenueAddress = NonNullable<VenueProfile["address"]>;
+    </item>
+    <item priority="high">
+      export function nightOfVenueFields(settings: unknown): {
+        address?: VenueAddress;
+        tonightNote?: string;
+      } { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
@@ -19967,6 +20067,9 @@
         ...;
     </item>
     <item priority="low">
+      type GuestSignalEventState = { signal: "running-late" | "arrived"; minutes?: number };
+    </item>
+    <item priority="low">
       type DepositEventState = { depositStatus: string };
     </item>
     <item priority="high">
@@ -19990,7 +20093,7 @@
           kind: ReservationEventKind;
           actor: ReservationEventActor;
           from?: EventState | DepositEventState | null;
-          to?: EventState | DepositEventState | null;
+          to?: EventState | DepositEventState | GuestSignalEventState | null;
         }
       ) { /* ... */ }
     </item>
@@ -20022,6 +20125,49 @@
         reservationId: string,
         { limit = DEFAULT_EVENT_PAGE_SIZE, cursor }: { limit?: number; cursor?: string } = {}
       ): Promise<{ data: ReservationEventDto[]; nextCursor: string | null }> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/reservation-invite.ts">
+    <item priority="high">
+      export function hashInviteToken(token: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function createInvite(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<{ id: string; token: string }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function findLiveInviteByToken(
+        token: string
+      ): Promise<{ id: string; venueId: string; reservationId: string } | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function revokeInvitesForReservation(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InvitePublicView {
+        venue: { name: string; slug: string };
+        date: string;
+        time: string;
+        partySize: number;
+        rsvps: Array<{ firstName: string; status: string }>;
+      }
+    </item>
+    <item priority="low">
+      type InviteLookup = { kind: "ok"; view: InvitePubl | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="medium">
+      function localParts(at: Date, timeZone: string): { date: string; time: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getInvitePublicView(
+        token: string,
+        now: Date = new Date()
+      ): Promise<InviteLookup> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
@@ -24129,6 +24275,18 @@
       }
     </item>
     <item priority="low">
+      interface ManagedVenueAddress {
+        line1: string;
+        line2?: string;
+        city: string;
+        region: string;
+        postalCode: string;
+      }
+    </item>
+    <item priority="low">
+      type GuestSignal = { kind: "running-late"; minute | { kind: "arrived" };
+    </item>
+    <item priority="low">
       interface ManagedReservationChanges {
         date?: string;
         startTime?: string;
@@ -24165,6 +24323,7 @@
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;
         venueCancellation?: ManagedVenueCancellation | null;
+        guestSignals?: { late: number; arrived: number };
       }
     </item>
     <item priority="high">
@@ -27181,6 +27340,14 @@
   </file>
   <file path="packages/types/src/sse-events.ts">
     <item priority="low">
+      interface GuestSignalEventData {
+        reservationId: string;
+        kind: "running-late" | "arrived";
+        minutes?: number;
+        eta?: string;
+      }
+    </item>
+    <item priority="low">
       interface SsePayloadMap {
         "reservation:created": Reservation;
         "reservation:updated": Reservation;
@@ -28725,6 +28892,43 @@
   </file>
   </section>
   <section priority="medium" role="timeline">
+  <file path="apps/hospitality/src/components/timeline/guest-signal-badge.ts">
+    <item priority="low">
+      interface GuestSignalBadge {
+        minutes: number;
+        eta: string;
+        held: boolean;
+      }
+    </item>
+    <item priority="low">
+      type GuestSignals = ReadonlyMap<string, GuestSignalEventData>;
+    </item>
+    <item priority="high">
+      export function reduceGuestSignals(signals: GuestSignals, event: SseEvent): GuestSignals { /* ... */ }
+    </item>
+    <item priority="low">
+      interface GuestSignalBadgeInput {
+        signal: GuestSignalEventData | undefined;
+        reservation: Pick<Reservation, "status" | "startTime">;
+        seated: boolean;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function deriveGuestSignalBadge({
+        signal,
+        reservation,
+        seated,
+        now,
+      }: GuestSignalBadgeInput): GuestSignalBadge | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function badgesByTableId(
+        reservations: readonly Pick<Reservation, "id" | "tableId">[],
+        badges: ReadonlyMap<string, GuestSignalBadge>
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/timeline/reservationLayout.ts">
     <item priority="low">
       interface ReservationLayoutParams {
@@ -29553,6 +29757,14 @@
       export const DINNER_TZ: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/directions-url.ts">
+    <item priority="high">
+      export function buildDirectionsUrl(
+        venueName: string,
+        address: ManagedVenueAddress | undefined
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     <item priority="medium">
       function defaultReport(timeZone: string): void { /* ... */ }
@@ -29648,6 +29860,38 @@
     </item>
     <item priority="high">
       export function sameTimeZone(a: string, b: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatDurationLabel(ms: number, locale: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/guest-signal.ts">
+    <item priority="high">
+      export const MAX_LATE_SIGNALS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_ARRIVED_SIGNALS: unknown;
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailabilityInput {
+        status: string;
+        startTime: string;
+        timezone: string;
+        now: Date;
+        priorSignals: { late: number; arrived: number };
+      }
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailability {
+        lateAllowed: boolean;
+        arrivedAllowed: boolean;
+        reason: "not-confirmed" | "outside-window" | null;
+      }
+    </item>
+    <item priority="high">
+      export function guestSignalAvailability(
+        input: GuestSignalAvailabilityInput
+      ): GuestSignalAvailability { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

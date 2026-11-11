@@ -1,5 +1,25 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.11
+
+### Patch Changes
+
+- [#8614](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8614) [`a0d7bd7`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a0d7bd78211bb86680e0295f22ba6ff33854f258) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DropdownMenu opens from ArrowDown on a closed trigger and moves focus to the first enabled item, matching the WAI-ARIA menu button pattern.
+
+- [#8621](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8621) [`dc76e6f`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/dc76e6f4e21ef38f37b13b974b0c1361c61bc511) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Close GlobalNav's mobile menu and desktop dropdown when the page is frozen or restored by the back-forward cache, so browser Back no longer leaves the menu open over the page.
+
+- [#8623](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8623) [`a8b822b`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a8b822bfd8a44e15455e1cb7e87623c7417d8469) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - NumberInput snaps a committed value onto its step, so the default integer step rounds a decimal such as 3.7 to a whole number while a fractional step still keeps decimals. Select paints the error color on its trigger and hint when `error` is set.
+
+- [#8638](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8638) [`a5bc3f0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a5bc3f0bd16d2e61396f2f689fe2ca191529cfbf) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Pagination no longer shows an ellipsis that stands in for a single page. Near either end of a long range (for example page 4 of 20), that page number is shown instead.
+
+- [#8633](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8633) [`863dbbf`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/863dbbf23e33ad2dca0c462031523c3ff43011aa) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - PageHeader accepts `--rialto-page-header-padding-block-start` so a shell can clear fixed chrome without shrinking the design padding. In dark mode the Combobox listbox paints the opaque elevated surface, including the empty "No results" row, instead of the translucent glass fill. Dialog's overlay carries `data-rialto-dialog-overlay` so a sticky header can sit beneath the modal.
+
+- [#8639](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8639) [`8ab4f55`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/8ab4f559291778a3147780c2112a56d9d96a699d) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Clickable Steps stay in the tab order and put aria-current="step" on the current step. NavigationMenu Enter, Space, and click toggle an open dropdown closed. HoverCard gives a non-focusable trigger a tab stop so keyboard focus opens the card.
+
+- [#8635](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8635) [`770e039`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/770e039a553f5ee3f278b35ee182c1f1ea2cd078) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Tabs keep a long label row inside its column. When the labels are wider than the row, the list scrolls on its own instead of widening the page, and the gold indicator stays under the active tab.
+
+- [#8625](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8625) [`540e5e9`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/540e5e98f87dfa289e7b0484dfb4dd0db1e48801) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - PinInput shows digits typed into an uncontrolled field. Dismissible tags no longer layout-slide the chips that remain, which was dropping clicks aimed at them. Selectable tags expose aria-pressed.
+
 ## 0.10.10
 
 ### Patch Changes

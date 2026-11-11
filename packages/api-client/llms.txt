@@ -379,6 +379,18 @@
       }
     </item>
     <item priority="low">
+      interface ManagedVenueAddress {
+        line1: string;
+        line2?: string;
+        city: string;
+        region: string;
+        postalCode: string;
+      }
+    </item>
+    <item priority="low">
+      type GuestSignal = { kind: "running-late"; minute | { kind: "arrived" };
+    </item>
+    <item priority="low">
       interface ManagedReservationChanges {
         date?: string;
         startTime?: string;
@@ -415,6 +427,7 @@
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;
         venueCancellation?: ManagedVenueCancellation | null;
+        guestSignals?: { late: number; arrived: number };
       }
     </item>
     <item priority="high">

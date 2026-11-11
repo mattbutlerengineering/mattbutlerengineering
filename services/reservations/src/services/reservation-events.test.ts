@@ -44,6 +44,7 @@ describe("reservation-events", () => {
       "updated",
       "deposit_transition",
       "transition_rejected",
+      "guest_signal",
     ]);
   });
 

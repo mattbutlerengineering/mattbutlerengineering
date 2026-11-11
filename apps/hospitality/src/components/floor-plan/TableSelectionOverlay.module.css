@@ -21,3 +21,10 @@
   outline: 2px solid var(--rialto-accent);
   outline-offset: 2px;
 }
+
+/* Sits on the table's top edge, centred; the layer ignores the pointer, so it never blocks a drag. */
+.guestSignalBadge {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+}
