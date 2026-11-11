@@ -413,6 +413,81 @@ describe("FloorPlanCanvas", () => {
     });
   });
 
+  describe("guest signal badges", () => {
+    const held = { minutes: 15, eta: "2026-11-11T19:45:00.000Z", held: true };
+
+    it("shows the amber badge on the table as a status region with an accessible name", () => {
+      render(<FloorPlanCanvas {...defaultProps} guestSignalBadges={new Map([["t1", held]])} />);
+      const badge = screen.getByRole("status", { name: /Running 15 min late, expected at/ });
+      expect(badge.textContent).toMatch(/^\+15 · ETA /);
+      expect(screen.getAllByTestId("guest-signal-badge")).toHaveLength(1);
+    });
+
+    it("reads the table as held (reserved-soon) through the ETA, whatever the feed says", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "available"]]);
+      render(
+        <FloorPlanCanvas
+          {...defaultProps}
+          tableStatuses={tableStatuses}
+          guestSignalBadges={new Map([["t1", held]])}
+        />
+      );
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBe(
+        "reserved-soon"
+      );
+      expect(screen.getByRole("button", { name: /Table T1.*Reserved soon/i })).toBeDefined();
+      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBeNull();
+    });
+
+    it("holds a table the feed has not reported yet", () => {
+      render(<FloorPlanCanvas {...defaultProps} guestSignalBadges={new Map([["t1", held]])} />);
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBe(
+        "reserved-soon"
+      );
+    });
+
+    it("keeps the badge but stops holding once the ETA has passed", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([["t1", "available"]]);
+      render(
+        <FloorPlanCanvas
+          {...defaultProps}
+          tableStatuses={tableStatuses}
+          guestSignalBadges={new Map([["t1", { ...held, held: false }]])}
+        />
+      );
+      expect(screen.getByRole("status").getAttribute("aria-label")).toContain("ETA has passed");
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBe("available");
+    });
+
+    it("never overrides a seated or needs-bussing table", () => {
+      const tableStatuses = new Map<string, TableDisplayStatus>([
+        ["t1", "seated"],
+        ["t2", "needs-bussing"],
+      ]);
+      render(
+        <FloorPlanCanvas
+          {...defaultProps}
+          tableStatuses={tableStatuses}
+          guestSignalBadges={
+            new Map([
+              ["t1", held],
+              ["t2", held],
+            ])
+          }
+        />
+      );
+      expect(screen.getByTestId("table-shape-t1").getAttribute("data-status")).toBe("seated");
+      expect(screen.getByTestId("table-shape-t2").getAttribute("data-status")).toBe(
+        "needs-bussing"
+      );
+    });
+
+    it("renders no badge when none is supplied", () => {
+      render(<FloorPlanCanvas {...defaultProps} />);
+      expect(screen.queryByTestId("guest-signal-badge")).toBeNull();
+    });
+  });
+
   describe("live status threading", () => {
     it("passes each table's status from tableStatuses to its TableShape", () => {
       const tableStatuses = new Map<string, TableDisplayStatus>([

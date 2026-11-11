@@ -893,6 +893,15 @@
       "seating": "Installation…"
     }
   },
+  "onMyWayBadge": {
+    "text": "+{{minutes}} · ARR. {{time}}",
+    "aria_one": "En retard de {{minutes}} min, attendu à {{time}}",
+    "aria_other": "En retard de {{minutes}} min, attendu à {{time}}",
+    "aria_many": "En retard de {{minutes}} min, attendu à {{time}}",
+    "ariaPast_one": "En retard de {{minutes}} min, attendu à {{time}}, l’heure d’arrivée est passée",
+    "ariaPast_other": "En retard de {{minutes}} min, attendu à {{time}}, l’heure d’arrivée est passée",
+    "ariaPast_many": "En retard de {{minutes}} min, attendu à {{time}}, l’heure d’arrivée est passée"
+  },
   "errorBanner": {
     "retry": "Réessayer",
     "showDetails": "Afficher les détails"

@@ -23,6 +23,7 @@ import {
 } from "./floor-plan-geometry.js";
 import { floorPlanGridStyle } from "./floor-plan-grid.js";
 import type { TableDisplayStatus } from "./table-status.js";
+import type { GuestSignalBadge } from "../timeline/guest-signal-badge.js";
 import { TableStatusLegend } from "./TableStatusLegend.js";
 import styles from "./FloorPlanCanvas.module.css";
 
@@ -34,6 +35,25 @@ const ARROW_DELTAS: Readonly<Record<string, readonly [number, number]>> = {
 };
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+
+/**
+ * A late party's table reads as held through the ETA: `reserved-soon`, the floor's existing "a
+ * party is expected here" treatment. Statuses that already say more (seated, needs bussing) win.
+ */
+function withHeldTables(
+  statuses: ReadonlyMap<string, TableDisplayStatus> | undefined,
+  badges: ReadonlyMap<string, GuestSignalBadge> | undefined
+): ReadonlyMap<string, TableDisplayStatus> | undefined {
+  if (!badges || badges.size === 0) return statuses;
+  const next = new Map(statuses);
+  for (const [tableId, badge] of badges) {
+    const current = next.get(tableId);
+    if (badge.held && (current === undefined || current === "available")) {
+      next.set(tableId, "reserved-soon");
+    }
+  }
+  return next;
+}
 
 export interface FloorPlanCanvasProps {
   floorPlan: FloorPlan;
@@ -57,6 +77,12 @@ export interface FloorPlanCanvasProps {
    * no-regression contract above.
    */
   isStale?: boolean;
+  /**
+   * "+15 · ETA 7:45" badges by table id (On My Way). A badged table whose ETA has not passed reads
+   * as held — the `reserved-soon` treatment — unless it is already seated or being bussed. Omitted
+   * in editor-only usage — no badge, statuses untouched.
+   */
+  guestSignalBadges?: ReadonlyMap<string, GuestSignalBadge>;
   /**
    * Called when Delete/Backspace is pressed while focus is inside the
    * canvas with a table selected. Omitted = the canvas does not handle
@@ -85,6 +111,7 @@ export function FloorPlanCanvas({
   readOnly = false,
   tableStatuses,
   isStale = false,
+  guestSignalBadges,
   onDeleteRequest,
   onAnnounce,
   sections = [],
@@ -112,6 +139,10 @@ export function FloorPlanCanvas({
   );
   const floorTextures = useFloorTextures(floorMaterials);
   const sectionLabelTheme = useSectionLabelTheme();
+  const displayStatuses = useMemo(
+    () => withHeldTables(tableStatuses, guestSignalBadges),
+    [tableStatuses, guestSignalBadges]
+  );
   const gridStyle = floorPlanGridStyle({ readOnly, scale });
 
   /**
@@ -328,7 +359,7 @@ export function FloorPlanCanvas({
                 onSelect={handleSelect}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
-                status={tableStatuses?.get(table.id)}
+                status={displayStatuses?.get(table.id)}
                 stageScale={scale}
               />
             ))}
@@ -347,7 +378,8 @@ export function FloorPlanCanvas({
           scale={scale}
           selectedTableId={selectedTableId}
           onSelect={handleSelect}
-          tableStatuses={tableStatuses}
+          tableStatuses={displayStatuses}
+          guestSignalBadges={guestSignalBadges}
         />
 
         {/* Empty state */}
@@ -360,7 +392,7 @@ export function FloorPlanCanvas({
           </div>
         )}
       </div>
-      <TableStatusLegend statuses={tableStatuses} />
+      <TableStatusLegend statuses={displayStatuses} />
     </>
   );
 }

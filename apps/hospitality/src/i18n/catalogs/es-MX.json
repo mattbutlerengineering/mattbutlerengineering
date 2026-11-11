@@ -893,6 +893,15 @@
       "seating": "Sentando…"
     }
   },
+  "onMyWayBadge": {
+    "text": "+{{minutes}} · LLEGA {{time}}",
+    "aria_one": "Llega {{minutes}} min tarde, esperado a la {{time}}",
+    "aria_other": "Llega {{minutes}} min tarde, esperado a las {{time}}",
+    "aria_many": "Llega {{minutes}} min tarde, esperado a las {{time}}",
+    "ariaPast_one": "Llega {{minutes}} min tarde, esperado a la {{time}}, la hora estimada ya pasó",
+    "ariaPast_other": "Llega {{minutes}} min tarde, esperado a las {{time}}, la hora estimada ya pasó",
+    "ariaPast_many": "Llega {{minutes}} min tarde, esperado a las {{time}}, la hora estimada ya pasó"
+  },
   "errorBanner": {
     "retry": "Reintentar",
     "showDetails": "Mostrar detalles"

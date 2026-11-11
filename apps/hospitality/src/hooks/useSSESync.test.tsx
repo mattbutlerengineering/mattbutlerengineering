@@ -11,6 +11,7 @@ import {
   useSSEStatus,
   useSSEEventFeed,
   useTableStatuses,
+  useGuestSignals,
 } from "./useSSESync.js";
 import { SSE_INVALIDATION_QUERY_KEYS } from "./sse-query-keys.js";
 import type { UseTableStatusesResult } from "./useSSESync.js";
@@ -441,6 +442,42 @@ describe("useSSEEventFeed — event feed via context", () => {
     expect(result.current.feed).toHaveLength(1);
     expect(result.current.feed[0]?.type).toBe("table-status:changed");
     expect(result.current.feed[0]?.data).toEqual([{ tableId: "t1", status: "seated" }]);
+  });
+});
+
+describe("useGuestSignals — latest guest signal per reservation", () => {
+  const lateSignal = {
+    reservationId: "r1",
+    kind: "running-late",
+    minutes: 15,
+    eta: "2026-11-11T19:45:00.000Z",
+  };
+
+  it("holds the latest signal by reservation id and drops it when the reservation changes", () => {
+    const { result } = renderHook(
+      () => {
+        useSSESync();
+        return useGuestSignals();
+      },
+      { wrapper: makeWrapper() }
+    );
+    act(() => {
+      void simulateOpen();
+    });
+    expect(result.current.size).toBe(0);
+
+    act(() => {
+      simulateEvent("reservation:guest-signal", {
+        type: "reservation:guest-signal",
+        data: lateSignal,
+      });
+    });
+    expect(result.current.get("r1")).toEqual(lateSignal);
+
+    act(() => {
+      simulateEvent("reservation:updated", { type: "reservation:updated", data: { id: "r1" } });
+    });
+    expect(result.current.has("r1")).toBe(false);
   });
 });
 

@@ -286,4 +286,59 @@ describe("ReservationBlock", () => {
       expect(screen.queryByText(/visit/)).toBeNull();
     });
   });
+
+  describe("guest signal badge", () => {
+    const badge = { minutes: 15, eta: "2026-05-14T18:15:00.000Z", held: true };
+
+    it("shows an amber +15 · ETA badge as a status region with an accessible name", () => {
+      render(
+        <ReservationBlock
+          reservation={makeReservation()}
+          style={defaultStyle}
+          guestSignalBadge={badge}
+        />
+      );
+      const status = screen.getByRole("status", { name: /Running 15 min late, expected at/ });
+      expect(status.textContent).toMatch(/^\+15 · ETA /);
+      expect(status.className).toContain("chip");
+    });
+
+    it("speaks the late signal on the block itself", () => {
+      render(
+        <ReservationBlock
+          reservation={makeReservation()}
+          style={defaultStyle}
+          guestSignalBadge={badge}
+        />
+      );
+      expect(screen.getByRole("button").getAttribute("aria-label")).toContain(
+        "Running 15 min late"
+      );
+    });
+
+    it("says the ETA has passed once the table is no longer held", () => {
+      render(
+        <ReservationBlock
+          reservation={makeReservation()}
+          style={defaultStyle}
+          guestSignalBadge={{ ...badge, held: false }}
+        />
+      );
+      expect(screen.getByRole("status").getAttribute("aria-label")).toContain("ETA has passed");
+    });
+
+    it("shows no badge without a signal or after it cleared", () => {
+      const { rerender } = render(
+        <ReservationBlock
+          reservation={makeReservation()}
+          style={defaultStyle}
+          guestSignalBadge={badge}
+        />
+      );
+      expect(screen.queryByRole("status")).not.toBeNull();
+      rerender(<ReservationBlock reservation={makeReservation()} style={defaultStyle} />);
+      expect(screen.queryByRole("status")).toBeNull();
+      expect(screen.getByRole("button").getAttribute("aria-label")).not.toContain("late");
+    });
+  });
 });
