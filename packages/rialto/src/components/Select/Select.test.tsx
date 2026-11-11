@@ -357,6 +357,16 @@ describe("Select — required marker + aria-live announcements", () => {
     render(<Select options={options} error hint="Selection required" />);
     expect(screen.getAllByText("Selection required")).toHaveLength(1);
   });
+
+  it("marks the combobox invalid and associates the error hint", () => {
+    const { container } = render(
+      <Select options={options} label="Country" error hint="Selection required" />
+    );
+    const combobox = screen.getByRole("combobox");
+    expect(combobox).toHaveAttribute("aria-invalid", "true");
+    expect(combobox).toHaveAccessibleDescription("Selection required");
+    expect(container.querySelector("[class*='error']")).toBeTruthy();
+  });
 });
 
 describe("Select — ARIA semantics audit", () => {

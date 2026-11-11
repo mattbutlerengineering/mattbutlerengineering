@@ -71,6 +71,63 @@ test("team review keeps a long unbreakable value inside the card", async ({ page
   expect(pageOverflow).toBeLessThanOrEqual(1);
 });
 
+test("team car setup marks engine and livery required when they block Next", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("demos/teams/new");
+  await page.waitForLoadState("networkidle");
+
+  await page.getByLabel("Team Name").fill("Team QA");
+  await page.getByLabel("Base City").fill("Maranello");
+  await page.getByLabel("Team Principal").fill("A. Rossi");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+
+  const chassis = page.getByLabel("Chassis Designation");
+  const engine = page.getByRole("combobox", { name: "Engine Supplier" });
+  const livery = page.getByRole("combobox", { name: "Primary Livery Color" });
+
+  await expect(chassis).toHaveAttribute("required", "");
+  await expect(engine).toHaveAttribute("aria-required", "true");
+  await expect(livery).toHaveAttribute("aria-required", "true");
+  await expect(page.locator("label", { hasText: "Engine Supplier" })).toContainText("*");
+  await expect(page.locator("label", { hasText: "Primary Livery Color" })).toContainText("*");
+
+  await chassis.fill("X");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+
+  await expect(page.getByText("Please fix the following:")).toBeVisible();
+  await expect(engine).toHaveAttribute("aria-invalid", "true");
+  await expect(livery).toHaveAttribute("aria-invalid", "true");
+  await expect(chassis).not.toHaveAttribute("aria-invalid");
+
+  const engineDescribedBy = await engine.getAttribute("aria-describedby");
+  const liveryDescribedBy = await livery.getAttribute("aria-describedby");
+  expect(engineDescribedBy).toBeTruthy();
+  expect(liveryDescribedBy).toBeTruthy();
+  await expect(page.locator(`[id="${engineDescribedBy}"]`)).toHaveText(
+    "Engine supplier is required."
+  );
+  await expect(page.locator(`[id="${liveryDescribedBy}"]`)).toHaveText("Livery color is required.");
+
+  const engineBorder = await engine.evaluate((el) => getComputedStyle(el).borderColor);
+  const errorColor = await page.evaluate(() => {
+    const hex = getComputedStyle(document.documentElement)
+      .getPropertyValue("--rialto-error")
+      .trim();
+    const value = hex.replace("#", "");
+    const r = Number.parseInt(value.slice(0, 2), 16);
+    const g = Number.parseInt(value.slice(2, 4), 16);
+    const b = Number.parseInt(value.slice(4, 6), 16);
+    return `rgb(${r}, ${g}, ${b})`;
+  });
+  expect(engineBorder).toBe(errorColor);
+
+  await engine.click();
+  await page.getByRole("option", { name: "Ferrari", exact: true }).click();
+  await expect(engine).not.toHaveAttribute("aria-invalid");
+  await expect(page.getByText("Engine supplier is required.")).toHaveCount(0);
+  await expect(livery).toHaveAttribute("aria-invalid", "true");
+});
+
 test("opening one mobile overlay closes the other", async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 800 });
   await page.goto("components/button");
