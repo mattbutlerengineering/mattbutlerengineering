@@ -13,7 +13,13 @@ describe("DateRange card fit", () => {
 
   it("caps the calendar at the card and lets the seven columns share that width", () => {
     const calendar = /\.calendar\s*\{([^}]+)\}/.exec(css)?.[1] ?? "";
-    expect(calendar).toMatch(/inline-size:\s*min\(\s*100%/);
+    // A definite preferred width: a percentage-based inline-size would make an
+    // auto-width parent (the DateRangePicker popover panel) size itself from
+    // the shrunken calendar and render 24px cells instead of 34px.
+    expect(calendar).toMatch(
+      /inline-size:\s*calc\(\s*7 \* var\(--date-range-cell\) \+ 6 \* var\(--date-range-gap\) \+ 2 \* var\(--rialto-space-xs\)\s*\)/
+    );
+    expect(calendar).not.toMatch(/(?<!max-)inline-size:\s*min\(/);
     expect(calendar).toMatch(/max-inline-size:\s*100%/);
     expect(calendar).toMatch(/box-sizing:\s*border-box/);
     const columns = /\.weekdays,\s*\n\.week\s*\{([^}]+)\}/.exec(css)?.[1] ?? "";

@@ -4,14 +4,15 @@
   flex-direction: column;
   gap: var(--rialto-space-sm);
   box-sizing: border-box;
-  /* 34px cells when the card has room. A padded card at 375px is narrower
-     than seven fixed columns, so the calendar caps at the card and the
-     columns share that width instead of painting past the border. */
+  /* A definite 34px-cell width, capped at the card. The cap only bites in a
+     container narrower than seven columns (a padded card at 375px), where the
+     columns share what is left. A percentage preferred width would instead make
+     an auto-width parent such as the DateRangePicker popover panel size itself
+     from the shrunken calendar and render ~24px cells. */
   --date-range-cell: 34px;
   --date-range-gap: 2px;
-  inline-size: min(
-    100%,
-    calc(7 * var(--date-range-cell) + 6 * var(--date-range-gap) + 2 * var(--rialto-space-xs))
+  inline-size: calc(
+    7 * var(--date-range-cell) + 6 * var(--date-range-gap) + 2 * var(--rialto-space-xs)
   );
   max-inline-size: 100%;
   min-inline-size: 0;

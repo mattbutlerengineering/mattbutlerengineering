@@ -17,4 +17,12 @@ describe("Steps label collision", () => {
     expect(narrow).toMatch(/\.horizontal \.step\s*\{[^}]*min-width:\s*max-content/);
     expect(narrow).toMatch(/\.horizontal \.stepLabel\s*\{[^}]*white-space:\s*nowrap/);
   });
+
+  it("pads the scrollport by the current step's focus ring and cancels it with margin", () => {
+    const narrow = css.slice(css.indexOf("@media (max-width: 640px)"));
+    const rule = /\.horizontal\s*\{([^}]+)\}/.exec(narrow)?.[1] ?? "";
+    // The ring is 5px; overflow-x:auto clips y too, so 4px of room cut it.
+    expect(rule).toMatch(/padding-block:\s*var\(--rialto-space-xs\)/);
+    expect(rule).toMatch(/margin-block:\s*calc\(-1 \* var\(--rialto-space-xs\)\)/);
+  });
 });

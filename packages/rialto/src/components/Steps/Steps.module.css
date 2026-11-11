@@ -236,10 +236,11 @@
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: thin;
-    /* overflow-x:auto also clips y, so pad the focus ring's room back in and
-       cancel it with a matching margin: a row that fits keeps its old height. */
-    padding-block: var(--rialto-space-2xs);
-    margin-block: calc(-1 * var(--rialto-space-2xs));
+    /* overflow-x:auto also clips y, so pad room for the current step's 5px
+       ring back in and cancel it with a matching margin: a row that fits keeps
+       its old height. */
+    padding-block: var(--rialto-space-xs);
+    margin-block: calc(-1 * var(--rialto-space-xs));
   }
 
   /* Basis 0 keeps equal columns whenever the labels fit; max-content only
