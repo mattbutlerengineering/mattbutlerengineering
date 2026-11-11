@@ -7111,6 +7111,40 @@
       );
     };
   </file>
+  <file path="src/routes/public-invites.ts">
+    export const publicInviteRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Params: { token: string } }>(
+        "/public/v1/invites/:token",
+        { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+        async (request, reply) => {
+          const result = await getInvitePublicView(request.params.token);
+          if (result.kind === "missing") {
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", "This invitation was not found"));
+          }
+          if (result.kind === "gone") {
+            return reply
+              .status(410)
+              .send(
+                createProblemDetails(410, "Invitation Ended", "This invitation is no longer available")
+              );
+          }
+          const { venue, date, time, partySize, rsvps, status } = result.view;
+          return reply.status(200).send({
+            data: {
+              venue: { name: venue.name, slug: venue.slug },
+              date,
+              time,
+              partySize,
+              rsvps: rsvps.map((r) => ({ firstName: r.firstName, status: r.status })),
+              status,
+            },
+          });
+        }
+      );
+    };
+  </file>
   <file path="src/routes/public-menus.ts">
     export const publicMenuRoutes: FastifyPluginAsync = async (fastify) => {
       const { menuService, venueService } = fastify.services;
@@ -22893,6 +22927,76 @@
       );
       return count;
     }
+    export interface InvitePublicView {
+      venue: { name: string; slug: string };
+      date: string;
+      time: string;
+      partySize: number;
+      rsvps: Array<{ firstName: string; status: string }>;
+      status: string;
+    }
+    export type InviteLookup =
+      { kind: "ok"; view: InvitePublicView } | { kind: "gone" } | { kind: "missing" };
+    function localParts(at: Date, timeZone: string): { date: string; time: string } {
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        })
+          .formatToParts(at)
+          .map((p) => [p.type, p.value])
+      );
+      return {
+        date: `${parts.year}-${parts.month}-${parts.day}`,
+        time: `${parts.hour}:${parts.minute}`,
+      };
+    }
+    export async function getInvitePublicView(
+      token: string,
+      now: Date = new Date()
+    ): Promise<InviteLookup> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
+      const venueId = token.slice(0, dot);
+      return runWithVenueContext(venueId, async (): Promise<InviteLookup> => {
+        const invite = await prisma.reservationInvite.findFirst({
+          where: { tokenHash: hashInviteToken(token) },
+        });
+        if (!invite) return { kind: "missing" };
+        if (invite.revokedAt) return { kind: "gone" };
+        const reservation = await prisma.reservation.findFirst({
+          where: { id: invite.reservationId, venueId },
+          select: {
+            startTime: true,
+            endTime: true,
+            partySize: true,
+            status: true,
+            venue: { select: { name: true, slug: true, ianaTimezone: true } },
+          },
+        });
+        if (!reservation?.venue) return { kind: "missing" };
+        if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
+          return { kind: "gone" };
+        }
+        const { date, time } = localParts(reservation.startTime, reservation.venue.ianaTimezone);
+        return {
+          kind: "ok",
+          view: {
+            venue: { name: reservation.venue.name, slug: reservation.venue.slug },
+            date,
+            time,
+            partySize: reservation.partySize,
+            rsvps: [],
+            status: reservation.status,
+          },
+        };
+      });
+    }
   </file>
   <file path="src/services/reservation-modification.ts">
     export interface ReservationChanges {
@@ -28068,6 +28172,7 @@
       await fastify.register(manageRebookRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(manageSignalRoutes);
+      await fastify.register(publicInviteRoutes);
       await fastify.register(modifyReservationRoutes);
       await fastify.register(publicUnsubscribeRoutes);
     
