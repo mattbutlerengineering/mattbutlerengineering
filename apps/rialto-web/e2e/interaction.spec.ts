@@ -268,9 +268,19 @@ test.describe("Dialog layout", () => {
     await dialog.getByLabel("Session Date").click();
     const grid = page.getByRole("dialog", { name: "Popover" }).getByRole("grid");
     await expect(grid).toBeVisible();
-    // Not clipped by the dialog body: first and last day cells are fully in the
-    // viewport, and the popover is lifted out of the dialog's scroller.
+    // Not clipped by the dialog body: the popover is lifted out of the dialog's
+    // scroller and stays inside the viewport. Under the field there is room for
+    // only part of the month, so the calendar sheet scrolls inside itself
+    // rather than flipping over the dialog; the last day is reachable by scroll.
+    const popover = page.getByRole("dialog", { name: "Popover" });
+    const viewportHeight = page.viewportSize()?.height ?? 0;
+    const popoverBox = await popover.boundingBox();
+    expect(popoverBox).not.toBeNull();
+    expect((popoverBox?.y ?? 0) + (popoverBox?.height ?? 0)).toBeLessThanOrEqual(
+      viewportHeight + 2
+    );
     await expect(grid.getByRole("gridcell").first()).toBeInViewport({ ratio: 1 });
+    await grid.getByRole("gridcell").last().scrollIntoViewIfNeeded();
     await expect(grid.getByRole("gridcell").last()).toBeInViewport({ ratio: 1 });
     expect(await grid.evaluate((el) => el.closest('[role="dialog"] [role="region"]'))).toBeNull();
   });

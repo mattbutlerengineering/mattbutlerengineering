@@ -20,8 +20,8 @@ async function openEventDate(page: Page) {
 function alphaOf(color: string): number {
   const match = color.match(/rgba?\(([^)]+)\)/);
   if (!match) return 1;
-  const parts = match[1].split(",").map((part) => Number.parseFloat(part.trim()));
-  return parts.length === 4 ? parts[3] : 1;
+  const parts = (match[1] ?? "").split(",").map((part) => Number.parseFloat(part.trim()));
+  return parts.length === 4 ? (parts[3] ?? 1) : 1;
 }
 
 test.describe("date picker at 375px", () => {
