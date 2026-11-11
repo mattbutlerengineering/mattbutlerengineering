@@ -17377,6 +17377,28 @@
     };
     export const DINNER_TZ = "America/Los_Angeles";
   </file>
+  <file path="src/utils/directions-url.ts">
+    export function buildDirectionsUrl(
+      venueName: string,
+      address: ManagedVenueAddress | undefined
+    ): string {
+      const parts = address
+        ? [
+            venueName,
+            address.line1,
+            address.line2,
+            address.city,
+            `${address.region} ${address.postalCode}`,
+            address.country,
+          ]
+        : [venueName];
+      const params = new URLSearchParams({
+        api: "1",
+        query: parts.filter((part): part is string => Boolean(part)).join(", "),
+      });
+      return `${MAPS_SEARCH_URL}?${params.toString()}`;
+    }
+  </file>
   <file path="src/utils/format.ts">
     function defaultReport(timeZone: string): void {
       console.warn(`Invalid IANA time zone "${timeZone}"; falling back to the device zone.`);
@@ -17553,6 +17575,58 @@
     }
     export function sameTimeZone(a: string, b: string): boolean {
       return canonicalTimeZone(a) === canonicalTimeZone(b);
+    }
+    export function formatDurationLabel(ms: number, locale: string): string {
+      const totalMinutes = Math.floor(Math.abs(ms) / MINUTE_MS);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      const unit = (value: number, name: "hour" | "minute"): string =>
+        new Intl.NumberFormat(locale, { style: "unit", unit: name, unitDisplay: "short" }).format(
+          value
+        );
+      const parts = [
+        ...(hours > 0 ? [unit(hours, "hour")] : []),
+        ...(minutes > 0 || hours === 0 ? [unit(minutes, "minute")] : []),
+      ];
+      return new Intl.ListFormat(locale, { type: "unit", style: "narrow" }).format(parts);
+    }
+  </file>
+  <file path="src/utils/guest-signal.ts">
+    export const MAX_LATE_SIGNALS = 3;
+    export const MAX_ARRIVED_SIGNALS = 1;
+    export interface GuestSignalAvailabilityInput {
+      status: string;
+      /** Reservation start instant (ISO string). */
+      startTime: string;
+      /** Venue IANA timezone; "today" is decided in it. */
+      timezone: string;
+      now: Date;
+      priorSignals: { late: number; arrived: number };
+    }
+    export interface GuestSignalAvailability {
+      readonly lateAllowed: boolean;
+      readonly arrivedAllowed: boolean;
+      /** Why neither can be sent (a cap only disables its own button); null when the booking and clock allow signals. */
+      readonly reason: "not-confirmed" | "outside-window" | null;
+    }
+    export function guestSignalAvailability(
+      input: GuestSignalAvailabilityInput
+    ): GuestSignalAvailability {
+      if (input.status !== "CONFIRMED") {
+        return { lateAllowed: false, arrivedAllowed: false, reason: "not-confirmed" };
+      }
+      const start = new Date(input.startTime);
+      const delta = input.now.getTime() - start.getTime();
+      const inWindow =
+        delta >= -SIGNAL_WINDOW_BEFORE_MS &&
+        delta <= SIGNAL_WINDOW_AFTER_MS &&
+        venueDate(input.now, input.timezone) === venueDate(start, input.timezone);
+      if (!inWindow) return { lateAllowed: false, arrivedAllowed: false, reason: "outside-window" };
+      return {
+        lateAllowed: input.priorSignals.late < MAX_LATE_SIGNALS,
+        arrivedAllowed: input.priorSignals.arrived < MAX_ARRIVED_SIGNALS,
+        reason: null,
+      };
     }
   </file>
   <file path="src/utils/ics.ts">

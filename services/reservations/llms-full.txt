@@ -5748,6 +5748,11 @@
               data: {
                 reservation: serializeManagedReservation(reservation),
                 venueCancellation,
+                // Only a confirmed booking can signal, so only it pays for the history read.
+                guestSignals:
+                  reservation.status === "CONFIRMED"
+                    ? await countGuestSignals(reservation.id)
+                    : { late: 0, arrived: 0 },
                 venue: venue
                   ? {
                       id: venue.id,
@@ -5757,6 +5762,7 @@
                       phone: venue.settings?.phone,
                       modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
                       maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
+                      ...nightOfVenueFields(venue.settings),
                     }
                   : null,
               },
@@ -22092,6 +22098,22 @@
       }
     
       return { success: true, reservation: toReservation(result.value) };
+    }
+  </file>
+  <file path="src/services/night-of-venue.ts">
+    type VenueAddress = NonNullable<VenueProfile["address"]>;
+    export function nightOfVenueFields(settings: unknown): {
+      address?: VenueAddress;
+      tonightNote?: string;
+    } {
+      const record = typeof settings === "object" && settings !== null ? settings : {};
+      const { address } = toPublicVenueProfile((record as { profile?: unknown }).profile);
+      const rawNote = (record as { tonightNote?: unknown }).tonightNote;
+      const note = typeof rawNote === "string" ? rawNote.trim() : "";
+      return {
+        ...(address ? { address } : {}),
+        ...(note.length > 0 && note.length <= TONIGHT_NOTE_MAX_LENGTH ? { tonightNote: note } : {}),
+      };
     }
   </file>
   <file path="src/services/notifier-runtime.ts">

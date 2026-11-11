@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, fireEvent, within, act } from "@testing-library/react";
 import { ManageReservationPage } from "./ManageReservationPage.js";
 import React from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -699,5 +699,227 @@ describe("ManageReservationPage focus return (#8234, WCAG 2.4.3)", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: /^cancel reservation$/i }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() => expect(screen.getByRole("heading", { level: 1 })).toHaveFocus());
+  });
+});
+
+describe("ManageReservationPage night-of layout", () => {
+  const MIN = 60_000;
+  const LA = "America/Los_Angeles";
+  const AUCKLAND = "Pacific/Auckland";
+
+  /** A confirmed 19:00-21:00 (venue wall clock) booking on `date`, as the manage endpoint serves it. */
+  function nightPayload(options: {
+    date: string;
+    startTime: string;
+    timezone: string;
+    status?: string;
+    venueExtras?: Record<string, unknown>;
+    guestSignals?: { late: number; arrived: number };
+  }) {
+    const end = new Date(Date.parse(options.startTime) + 120 * MIN).toISOString();
+    return {
+      data: {
+        reservation: {
+          ...validReservation,
+          date: options.date,
+          startTime: options.startTime,
+          endTime: end,
+          status: options.status ?? "CONFIRMED",
+        },
+        venue: { ...validVenue, ianaTimezone: options.timezone, ...options.venueExtras },
+        ...(options.guestSignals ? { guestSignals: options.guestSignals } : {}),
+      },
+    };
+  }
+
+  const NIGHT = {
+    date: "2026-06-14",
+    startTime: "2026-06-15T02:00:00.000Z", // 19:00 PDT on 06-14
+    timezone: LA,
+  };
+
+  function setNow(iso: string) {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(iso));
+  }
+
+  beforeEach(() => {
+    mockSearchParams.set("token", "valid-token-abc");
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function renderLoaded(payload: unknown) {
+    mockFetch.mockResolvedValueOnce(makeOkResponse(payload));
+    renderPage();
+    await screen.findByRole("heading", { level: 1, name: "The Oak Table" });
+  }
+
+  it("shows the night-of layout on the reservation date, replacing the details card", async () => {
+    setNow("2026-06-15T01:00:00.000Z"); // 18:00 PDT, T-1h
+    await renderLoaded(nightPayload(NIGHT));
+    expect(screen.getByRole("heading", { name: "Tonight at The Oak Table" })).toBeDefined();
+    expect(screen.getByText("Your reservation starts in 1 hr")).toBeDefined();
+    expect(screen.queryByRole("heading", { name: "Reservation Details" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Running 15 min late" })).toBeDefined();
+    expect(screen.getByRole("button", { name: "We're here" })).toBeDefined();
+  });
+
+  it("keeps the standard layout on any other day", async () => {
+    setNow("2026-06-14T01:00:00.000Z"); // 18:00 PDT on 06-13
+    await renderLoaded(nightPayload(NIGHT));
+    expect(screen.getByRole("heading", { name: "Reservation Details" })).toBeDefined();
+    expect(screen.queryByRole("button", { name: "We're here" })).toBeNull();
+  });
+
+  it.each([["PENDING"], ["CANCELLED"], ["NO_SHOW"]])(
+    "keeps the standard layout for a %s booking on the day",
+    async (status) => {
+      setNow("2026-06-15T01:00:00.000Z");
+      await renderLoaded(nightPayload({ ...NIGHT, status }));
+      expect(screen.queryByRole("button", { name: "We're here" })).toBeNull();
+    }
+  );
+
+  describe("day boundary is the venue's midnight, not the runner's or UTC's", () => {
+    it.each([
+      // [label, venue tz, reservation date, now, night-of?]
+      ["LA: 23:59:59 on the day", LA, "2026-06-14", "2026-06-15T06:59:59.000Z", true],
+      ["LA: 00:00:00 the next day", LA, "2026-06-14", "2026-06-15T07:00:00.000Z", false],
+      ["LA: 23:59:59 the day before", LA, "2026-06-14", "2026-06-14T06:59:59.000Z", false],
+      ["LA: 00:00:00 on the day", LA, "2026-06-14", "2026-06-14T07:00:00.000Z", true],
+      [
+        "Auckland: 23:59:59 the day before",
+        AUCKLAND,
+        "2026-06-15",
+        "2026-06-14T11:59:59.000Z",
+        false,
+      ],
+      ["Auckland: 00:00:00 on the day", AUCKLAND, "2026-06-15", "2026-06-14T12:00:00.000Z", true],
+      // Spring forward (LA 2026-03-08, a 23-hour day: PST until 02:00, PDT after).
+      ["LA spring-forward: 23:59:59 before", LA, "2026-03-08", "2026-03-08T07:59:59.000Z", false],
+      [
+        "LA spring-forward: 00:00:00 starts the day",
+        LA,
+        "2026-03-08",
+        "2026-03-08T08:00:00.000Z",
+        true,
+      ],
+      [
+        "LA spring-forward: 23:59:59 ends the day",
+        LA,
+        "2026-03-08",
+        "2026-03-09T06:59:59.000Z",
+        true,
+      ],
+      ["LA spring-forward: 00:00:00 after", LA, "2026-03-08", "2026-03-09T07:00:00.000Z", false],
+      // Fall back (LA 2026-11-01, a 25-hour day: PDT until 02:00, PST after).
+      ["LA fall-back: 23:59:59 before", LA, "2026-11-01", "2026-11-01T06:59:59.000Z", false],
+      ["LA fall-back: 00:00:00 starts the day", LA, "2026-11-01", "2026-11-01T07:00:00.000Z", true],
+      [
+        "LA fall-back: 23:59:59 PST ends the day",
+        LA,
+        "2026-11-01",
+        "2026-11-02T07:59:59.000Z",
+        true,
+      ],
+      ["LA fall-back: 00:00:00 after", LA, "2026-11-01", "2026-11-02T08:00:00.000Z", false],
+    ] as const)("%s", async (_label, timezone, date, now, nightOf) => {
+      setNow(now);
+      // The start time only has to be a plausible instant on `date`; the layout keys on the date.
+      await renderLoaded(nightPayload({ date, timezone, startTime: `${date}T20:00:00.000Z` }));
+      expect(screen.queryByRole("heading", { name: /^Tonight at/ }) !== null).toBe(nightOf);
+      expect(screen.queryByRole("heading", { name: "Reservation Details" }) === null).toBe(nightOf);
+    });
+  });
+
+  it("switches layout while the page stays open, when the venue's clock passes midnight", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
+    vi.setSystemTime(new Date("2026-06-15T06:59:50.000Z")); // 23:59:50 PDT on the day
+    await renderLoaded(nightPayload(NIGHT));
+    expect(screen.queryByRole("heading", { name: /^Tonight at/ })).not.toBeNull();
+    await act(async () => {
+      vi.advanceTimersByTime(20_000);
+    });
+    expect(screen.queryByRole("heading", { name: /^Tonight at/ })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Reservation Details" })).toBeDefined();
+  });
+
+  it("shows tonight's note and a directions link built from the venue address", async () => {
+    setNow("2026-06-15T01:00:00.000Z");
+    await renderLoaded(
+      nightPayload({
+        ...NIGHT,
+        venueExtras: {
+          tonightNote: "Patio's open, dress warm",
+          address: {
+            line1: "1 Oak St",
+            city: "Portland",
+            region: "OR",
+            postalCode: "97201",
+            country: "US",
+          },
+        },
+      })
+    );
+    expect(screen.getByText("Patio's open, dress warm")).toBeDefined();
+    const link = screen.getByRole("link", { name: /Get directions/ });
+    expect(new URL(link.getAttribute("href")!).searchParams.get("query")).toBe(
+      "The Oak Table, 1 Oak St, Portland, OR 97201, US"
+    );
+  });
+
+  it("posts the signal with the manage token and confirms it", async () => {
+    setNow("2026-06-15T01:00:00.000Z");
+    await renderLoaded(nightPayload(NIGHT));
+    mockFetch.mockResolvedValueOnce(
+      makeOkResponse({ data: { kind: "running-late", minutes: 15 } })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Running 15 min late" }));
+    await waitFor(() =>
+      expect(screen.getByText(/knows you're running about 15 minutes late/)).toBeDefined()
+    );
+    const [url, init] = mockFetch.mock.calls[1]! as [string, RequestInit];
+    expect(new URL(url, "http://localhost").pathname).toBe("/public/v1/reservations/manage/signal");
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer valid-token-abc");
+    expect(JSON.parse(init.body as string)).toEqual({ kind: "running-late", minutes: 15 });
+  });
+
+  it("shows the server's refusal when it disagrees with the client window", async () => {
+    setNow("2026-06-15T01:00:00.000Z");
+    await renderLoaded(nightPayload(NIGHT));
+    mockFetch.mockResolvedValueOnce(
+      makeErrorResponse(409, {
+        type: "about:blank",
+        title: "Cannot Signal",
+        status: 409,
+        detail: "Signals are only accepted around the reservation time",
+      })
+    );
+    mockFetch.mockResolvedValueOnce(makeOkResponse(nightPayload(NIGHT)));
+    fireEvent.click(screen.getByRole("button", { name: "We're here" }));
+    expect((await screen.findByRole("alert")).textContent).toMatch(
+      /isn't taking updates right now/
+    );
+    // The page itself did not fall into its dead-end error state.
+    expect(screen.getByRole("heading", { name: "Tonight at The Oak Table" })).toBeDefined();
+  });
+
+  it("disables each button by the server's signal counts and the T-3h..T+45m window", async () => {
+    setNow("2026-06-15T01:00:00.000Z");
+    await renderLoaded(nightPayload({ ...NIGHT, guestSignals: { late: 3, arrived: 0 } }));
+    expect(screen.getByRole("button", { name: "Running 15 min late" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "We're here" })).toBeEnabled();
+  });
+
+  it("disables both buttons before the window opens", async () => {
+    setNow(new Date(Date.parse(NIGHT.startTime) - 3 * 60 * MIN - 1).toISOString());
+    await renderLoaded(nightPayload(NIGHT));
+    expect(screen.getByRole("button", { name: "We're here" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Running 15 min late" })).toBeDisabled();
+    expect(screen.getByText(/open 3 hours before/)).toBeDefined();
   });
 });

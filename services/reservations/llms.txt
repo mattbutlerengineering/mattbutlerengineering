@@ -4914,6 +4914,17 @@
       export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/night-of-venue.ts">
+    <item priority="high">
+      type VenueAddress = NonNullable<VenueProfile["address"]>;
+    </item>
+    <item priority="high">
+      export function nightOfVenueFields(settings: unknown): {
+        address?: VenueAddress;
+        tonightNote?: string;
+      } { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;

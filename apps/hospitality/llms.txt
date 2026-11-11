@@ -6705,6 +6705,14 @@
       export const DINNER_TZ: unknown;
     </item>
   </file>
+  <file path="src/utils/directions-url.ts">
+    <item priority="high">
+      export function buildDirectionsUrl(
+        venueName: string,
+        address: ManagedVenueAddress | undefined
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/format.ts">
     <item priority="medium">
       function defaultReport(timeZone: string): void { /* ... */ }
@@ -6800,6 +6808,38 @@
     </item>
     <item priority="high">
       export function sameTimeZone(a: string, b: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatDurationLabel(ms: number, locale: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/guest-signal.ts">
+    <item priority="high">
+      export const MAX_LATE_SIGNALS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_ARRIVED_SIGNALS: unknown;
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailabilityInput {
+        status: string;
+        startTime: string;
+        timezone: string;
+        now: Date;
+        priorSignals: { late: number; arrived: number };
+      }
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailability {
+        lateAllowed: boolean;
+        arrivedAllowed: boolean;
+        reason: "not-confirmed" | "outside-window" | null;
+      }
+    </item>
+    <item priority="high">
+      export function guestSignalAvailability(
+        input: GuestSignalAvailabilityInput
+      ): GuestSignalAvailability { /* ... */ }
     </item>
   </file>
   <file path="src/utils/ics.ts">
