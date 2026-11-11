@@ -4862,6 +4862,15 @@
       }: UseGuestRecognitionParams): UseGuestRecognitionReturn { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useGuestSignalBadges.ts">
+    <item priority="high">
+      export function useGuestSignalBadges(
+        reservations: readonly Pick<Reservation, "id" | "status" | "startTime">[],
+        seatedIds: ReadonlySet<string>,
+        now: Date
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useGuests.ts">
     <item priority="high">
       export const GUESTS_QUERY_KEY: unknown;
@@ -5261,6 +5270,14 @@
     </item>
     <item priority="high">
       export function useStatusMessage(): StatusMessageApi { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useTableGuestSignalBadges.ts">
+    <item priority="high">
+      export function useTableGuestSignalBadges(
+        venueId: string | undefined,
+        tables: readonly Table[]
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useTables.ts">
@@ -6449,6 +6466,43 @@
   </file>
   </section>
   <section priority="medium" role="timeline">
+  <file path="src/components/timeline/guest-signal-badge.ts">
+    <item priority="low">
+      interface GuestSignalBadge {
+        minutes: number;
+        eta: string;
+        held: boolean;
+      }
+    </item>
+    <item priority="low">
+      type GuestSignals = ReadonlyMap<string, GuestSignalEventData>;
+    </item>
+    <item priority="high">
+      export function reduceGuestSignals(signals: GuestSignals, event: SseEvent): GuestSignals { /* ... */ }
+    </item>
+    <item priority="low">
+      interface GuestSignalBadgeInput {
+        signal: GuestSignalEventData | undefined;
+        reservation: Pick<Reservation, "status" | "startTime">;
+        seated: boolean;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function deriveGuestSignalBadge({
+        signal,
+        reservation,
+        seated,
+        now,
+      }: GuestSignalBadgeInput): GuestSignalBadge | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function badgesByTableId(
+        reservations: readonly Pick<Reservation, "id" | "tableId">[],
+        badges: ReadonlyMap<string, GuestSignalBadge>
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/timeline/reservationLayout.ts">
     <item priority="low">
       interface ReservationLayoutParams {

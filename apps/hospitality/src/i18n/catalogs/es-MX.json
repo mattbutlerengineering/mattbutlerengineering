@@ -893,6 +893,11 @@
       "seating": "Sentando…"
     }
   },
+  "onMyWayBadge": {
+    "text": "+{{minutes}} · LLEGA {{time}}",
+    "aria": "Llega {{minutes}} min tarde, esperado a las {{time}}",
+    "ariaPast": "Llega {{minutes}} min tarde, esperado a las {{time}}, la hora estimada ya pasó"
+  },
   "errorBanner": {
     "retry": "Reintentar",
     "showDetails": "Mostrar detalles"

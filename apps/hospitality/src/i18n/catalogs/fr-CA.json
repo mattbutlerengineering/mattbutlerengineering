@@ -893,6 +893,11 @@
       "seating": "Installation…"
     }
   },
+  "onMyWayBadge": {
+    "text": "+{{minutes}} · ARR. {{time}}",
+    "aria": "En retard de {{minutes}} min, attendu à {{time}}",
+    "ariaPast": "En retard de {{minutes}} min, attendu à {{time}}, l’heure d’arrivée est passée"
+  },
   "errorBanner": {
     "retry": "Réessayer",
     "showDetails": "Afficher les détails"

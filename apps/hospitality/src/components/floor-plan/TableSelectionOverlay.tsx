@@ -1,9 +1,12 @@
+import { Fragment } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import type { Table } from "@mbe/types";
 import { SHAPE_DEFAULTS } from "./floor-plan-geometry.js";
 import type { TableDisplayStatus } from "./table-status.js";
 import { STATUS_LABEL_KEY, glyphKeyFor, type StatusGlyphKey } from "./table-status-glyph.js";
+import { GuestSignalBadgeChip } from "../timeline/GuestSignalBadgeChip.js";
+import type { GuestSignalBadge } from "../timeline/guest-signal-badge.js";
 import styles from "./TableSelectionOverlay.module.css";
 
 export interface TableSelectionOverlayProps {
@@ -17,6 +20,8 @@ export interface TableSelectionOverlayProps {
    * and nothing is announced twice. Omitted in editor-only usage.
    */
   tableStatuses?: ReadonlyMap<string, TableDisplayStatus>;
+  /** On My Way badges by table id, drawn above the table's top edge. */
+  guestSignalBadges?: ReadonlyMap<string, GuestSignalBadge>;
 }
 
 function tableAriaLabel(t: TFunction, label: string, status: StatusGlyphKey | null): string {
@@ -43,6 +48,7 @@ export function TableSelectionOverlay({
   selectedTableId,
   onSelect,
   tableStatuses,
+  guestSignalBadges,
 }: TableSelectionOverlayProps) {
   const { t } = useTranslation();
   return (
@@ -55,28 +61,38 @@ export function TableSelectionOverlay({
         const height = table.shapeMetadata?.height ?? SHAPE_DEFAULTS[shape].height;
         const isSelected = table.id === selectedTableId;
 
+        const badge = guestSignalBadges?.get(table.id);
+
         return (
-          /* eslint-disable-next-line mbe-local/prefer-rialto-components -- invisible, Konva-shape-coincident hit target requires a native, unstyled button element */
-          <button
-            key={table.id}
-            type="button"
-            className={styles.tableButton}
-            style={{
-              left: x * scale,
-              top: y * scale,
-              width: width * scale,
-              height: height * scale,
-            }}
-            aria-pressed={isSelected}
-            aria-label={tableAriaLabel(
-              t,
-              table.tableNumber || table.name,
-              // A table the feed has not reported (before the first snapshot) has no
-              // known status: say nothing rather than a guess.
-              glyphKeyFor(tableStatuses?.get(table.id), table.isActive)
+          <Fragment key={table.id}>
+            {badge && (
+              <GuestSignalBadgeChip
+                badge={badge}
+                className={styles.guestSignalBadge}
+                style={{ left: x * scale, top: (y - height / 2) * scale }}
+              />
             )}
-            onClick={() => onSelect(table.id)}
-          />
+            {/* eslint-disable-next-line mbe-local/prefer-rialto-components -- invisible, Konva-shape-coincident hit target requires a native, unstyled button element */}
+            <button
+              type="button"
+              className={styles.tableButton}
+              style={{
+                left: x * scale,
+                top: y * scale,
+                width: width * scale,
+                height: height * scale,
+              }}
+              aria-pressed={isSelected}
+              aria-label={tableAriaLabel(
+                t,
+                table.tableNumber || table.name,
+                // A table the feed has not reported (before the first snapshot) has no
+                // known status: say nothing rather than a guess.
+                glyphKeyFor(tableStatuses?.get(table.id), table.isActive)
+              )}
+              onClick={() => onSelect(table.id)}
+            />
+          </Fragment>
         );
       })}
     </div>

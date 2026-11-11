@@ -874,6 +874,11 @@
       "seating": "Seating…"
     }
   },
+  "onMyWayBadge": {
+    "text": "+{{minutes}} · ETA {{time}}",
+    "aria": "Running {{minutes}} min late, expected at {{time}}",
+    "ariaPast": "Running {{minutes}} min late, expected at {{time}}, ETA has passed"
+  },
   "errorBanner": {
     "retry": "Retry",
     "showDetails": "Show details"

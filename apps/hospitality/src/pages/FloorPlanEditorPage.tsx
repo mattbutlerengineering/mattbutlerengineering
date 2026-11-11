@@ -33,6 +33,7 @@ import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { useFloorPlanDraft, type PositionUpdate } from "../hooks/useFloorPlanDraft.js";
 import { REHEARSAL_PARAM } from "../utils/timeline-intent.js";
 import { useTableStatuses } from "../hooks/useSSESync.js";
+import { useTableGuestSignalBadges } from "../hooks/useTableGuestSignalBadges.js";
 import styles from "./FloorPlanEditorPage.module.css";
 
 function LiveFloorPlanEditorPage() {
@@ -146,6 +147,7 @@ function LiveFloorPlanEditorPage() {
     isSaving,
     saveFailure,
   } = useFloorPlanDraft({ serverTables: floorPlan?.tables, persist });
+  const guestSignalBadges = useTableGuestSignalBadges(floorPlan?.venueId, tables);
   const draftSaveError = saveFailure
     ? saveFailure.error instanceof Error
       ? saveFailure.error.message
@@ -382,6 +384,7 @@ function LiveFloorPlanEditorPage() {
             onWallSelect={setSelectedWallId}
             onWallEndpointMove={handleWallEndpointMove}
             tableStatuses={tableStatuses}
+            guestSignalBadges={guestSignalBadges}
             isStale={isStale}
           />
         </div>

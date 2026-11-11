@@ -3,6 +3,7 @@ import { useMemo, useState, useEffect, useRef, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import type { Reservation, Table, TableStatus } from "@mbe/types";
 import { ReservationBlock } from "./ReservationBlock";
+import type { GuestSignalBadge } from "./guest-signal-badge.js";
 import { TableStatusMenu } from "./TableStatusMenu.js";
 import { TimelineEmptyNight, type TimelineEmptyNightProps } from "./TimelineEmptyNight.js";
 import { useScrollToNow } from "./useScrollToNow.js";
@@ -36,6 +37,8 @@ export interface TimelineGridProps {
   onTableStatusChange?: (tableId: string, status: TableStatus) => void;
   /** Parties on their (OCCUPIED) table right now — the block's success LED (ux.md Screen 2). */
   seatedIds?: ReadonlySet<string>;
+  /** "+15 · ETA 7:45" badges by reservation id (On My Way); absent = none. */
+  guestSignalBadges?: ReadonlyMap<string, GuestSignalBadge>;
   /** Height, as a CSS length, of a sheet covering the grid's bottom edge (ux.md Screen 4). */
   bottomInset?: string;
   /** The quiet night over the hour columns (ux.md Screen 7); null or absent renders nothing. */
@@ -89,6 +92,7 @@ export function TimelineGrid({
   selectedReservationId,
   onTableStatusChange,
   seatedIds,
+  guestSignalBadges,
   bottomInset,
   emptyNight,
   pendingTableId,
@@ -329,6 +333,7 @@ export function TimelineGrid({
                       isSelected={reservation.id === selectedReservationId}
                       isFocused={isFocused}
                       isSeated={seatedIds?.has(reservation.id) ?? false}
+                      guestSignalBadge={guestSignalBadges?.get(reservation.id)}
                       onClick={onReservationClick}
                     />
                   );
