@@ -16,6 +16,18 @@ import type { FloorPlan } from "./floor-plan.js";
 import type { LapsingGuest } from "./guest.js";
 import type { TableStatusDelta } from "./table-status.js";
 
+/**
+ * A guest's night-of signal ("running late" / "arrived"). Information only —
+ * the reservation is never mutated. `minutes` and `eta` (ISO instant) are
+ * present only for `running-late`.
+ */
+export interface GuestSignalEventData {
+  reservationId: string;
+  kind: "running-late" | "arrived";
+  minutes?: number;
+  eta?: string;
+}
+
 /** Payload carried in `data` for each SSE event name. */
 export interface SsePayloadMap {
   "reservation:created": Reservation;
@@ -28,6 +40,7 @@ export interface SsePayloadMap {
   "floor-plan:created": FloorPlan;
   "guest:lapsing": LapsingGuest[];
   "table-status:changed": TableStatusDelta[];
+  "reservation:guest-signal": GuestSignalEventData;
 }
 
 /** Every SSE event name the server can emit. */
@@ -57,6 +70,8 @@ export const SSE_EVENT_CATALOG = {
   "floor-plan:created": { invalidates: ["floorPlans"] },
   "guest:lapsing": { invalidates: ["lapsingGuests"] },
   "table-status:changed": { invalidates: [] },
+  // Timeline bars read reservations; the floor plan reads tables + reservations.
+  "reservation:guest-signal": { invalidates: ["reservations", "tables"] },
 } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
 
 /** Every catalog event name, in catalog order — the client's subscription list. */

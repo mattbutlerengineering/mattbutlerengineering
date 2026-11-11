@@ -49,6 +49,7 @@ vi.mock("../services/guest-signal.js", () => ({
 
 import { countGuestSignals, recordGuestSignal } from "../services/guest-signal.js";
 import { venueService } from "../services/venue.js";
+import type { SseEvent } from "@mbe/types";
 import type { DepositService } from "../services/deposit.js";
 
 /** The injected DepositService fake, passed as `buildApp({ services: { depositService } })`. */
@@ -165,37 +166,72 @@ describe("POST /public/v1/reservations/manage/signal", () => {
     delete process.env.AUTH_BYPASS_IN_TESTS;
   });
 
-  it("records a running-late signal and leaves the booking untouched", async () => {
+  const captureEvents = (): SseEvent[] => {
+    const events: SseEvent[] = [];
+    app.reservationEvents.onChange((e) => events.push(e));
+    return events;
+  };
+
+  it("emits nothing when persisting the signal fails", async () => {
+    vi.mocked(recordGuestSignal).mockRejectedValue(new Error("db down"));
+    const events = captureEvents();
+    const res = await post({ kind: "arrived" });
+    expect(res.statusCode).toBe(500);
+    expect(events).toEqual([]);
+  });
+
+  it("records a running-late signal, emits it for the owning venue, and leaves the booking untouched", async () => {
+    const events = captureEvents();
     const res = await post({ kind: "running-late", minutes: 15 });
     expect(res.statusCode).toBe(200);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "reservation:guest-signal",
+      venueId: "venue_1",
+      data: {
+        reservationId: "res_1",
+        kind: "running-late",
+        minutes: 15,
+        eta: "2026-07-10T22:15:00.000Z",
+      },
+    });
     expect(recordGuestSignal).toHaveBeenCalledWith(
       expect.objectContaining({ reservationId: "res_1", kind: "running-late", minutes: 15 })
     );
     expect(reservationService.update).not.toHaveBeenCalled();
   });
 
-  it("records an arrived signal", async () => {
+  it("records an arrived signal and emits it without minutes or eta", async () => {
+    const events = captureEvents();
     const res = await post({ kind: "arrived" });
     expect(res.statusCode).toBe(200);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.data).toEqual({ reservationId: "res_1", kind: "arrived" });
     expect(recordGuestSignal).toHaveBeenCalledWith(expect.objectContaining({ kind: "arrived" }));
   });
 
   it("401s on a malformed token", async () => {
+    const events = captureEvents();
     const res = await post({ kind: "arrived" }, "garbage");
     expect(res.statusCode).toBe(401);
     expect(recordGuestSignal).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
   });
 
   it("400s on an unsupported late duration", async () => {
+    const events = captureEvents();
     const res = await post({ kind: "running-late", minutes: 7 });
     expect(res.statusCode).toBe(400);
+    expect(events).toEqual([]);
   });
 
   it("409s outside the signal window", async () => {
     vi.setSystemTime(new Date("2026-07-10T10:00:00Z"));
+    const events = captureEvents();
     const res = await post({ kind: "arrived" });
     expect(res.statusCode).toBe(409);
     expect(recordGuestSignal).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
   });
 
   it("409s for a cancelled reservation", async () => {
@@ -203,15 +239,19 @@ describe("POST /public/v1/reservations/manage/signal", () => {
       ...mockReservation,
       status: "CANCELLED",
     } as never);
+    const events = captureEvents();
     const res = await post({ kind: "arrived" });
     expect(res.statusCode).toBe(409);
     expect(recordGuestSignal).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
   });
 
   it("429s once the late-signal cap is reached", async () => {
     vi.mocked(countGuestSignals).mockResolvedValue({ late: 3, arrived: 0 });
+    const events = captureEvents();
     const res = await post({ kind: "running-late", minutes: 5 });
     expect(res.statusCode).toBe(429);
     expect(recordGuestSignal).not.toHaveBeenCalled();
+    expect(events).toEqual([]);
   });
 });

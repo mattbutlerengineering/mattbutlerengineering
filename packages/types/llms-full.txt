@@ -3507,6 +3507,12 @@
     }
   </file>
   <file path="src/sse-events.ts">
+    export interface GuestSignalEventData {
+      reservationId: string;
+      kind: "running-late" | "arrived";
+      minutes?: number;
+      eta?: string;
+    }
     export interface SsePayloadMap {
       "reservation:created": Reservation;
       "reservation:updated": Reservation;
@@ -3518,6 +3524,7 @@
       "floor-plan:created": FloorPlan;
       "guest:lapsing": LapsingGuest[];
       "table-status:changed": TableStatusDelta[];
+      "reservation:guest-signal": GuestSignalEventData;
     }
     export type SseEventName = keyof SsePayloadMap;
     export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "lapsingGuests";
@@ -3536,6 +3543,8 @@
       "floor-plan:created": { invalidates: ["floorPlans"] },
       "guest:lapsing": { invalidates: ["lapsingGuests"] },
       "table-status:changed": { invalidates: [] },
+      // Timeline bars read reservations; the floor plan reads tables + reservations.
+      "reservation:guest-signal": { invalidates: ["reservations", "tables"] },
     } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
     export const SSE_EVENT_NAMES = Object.keys(SSE_EVENT_CATALOG) as readonly SseEventName[];
     export type SseEvent<K extends SseEventName = SseEventName> = {
