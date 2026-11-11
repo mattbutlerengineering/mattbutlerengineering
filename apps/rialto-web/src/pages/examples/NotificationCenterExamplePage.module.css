@@ -28,6 +28,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--rialto-space-sm);
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .list > li {
@@ -38,7 +40,7 @@
 .item {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: flex-start;
   gap: var(--rialto-space-2xs);
   width: 100%;
   max-inline-size: 100%;
@@ -51,18 +53,15 @@
   cursor: pointer;
 }
 
-/* Button's own rules are single-class and set nowrap + inline-flex. Two
-   classes here win, so the row can shrink to the card and wrap. */
+/* Button is a single class with nowrap, and it wraps every child in one
+   span. Two classes here win on the button, and the span becomes the
+   column, so the title, message, and timestamp stay inside the card. */
 .list .item {
   white-space: normal;
   align-items: stretch;
   justify-content: flex-start;
 }
 
-/* Button wraps its children in one span, so the column layout on the button
-   never reaches the title and body — they sit inline and run together.
-   Stack that span, and blockify the title and message, so a title like
-   "New reservation confirmed" stays on its own line. */
 .list .item > span {
   display: flex;
   flex-direction: column;
@@ -70,6 +69,7 @@
   gap: var(--rialto-space-2xs);
   width: 100%;
   min-inline-size: 0;
+  max-inline-size: 100%;
   white-space: normal;
   text-align: start;
 }
@@ -90,6 +90,7 @@
   gap: var(--rialto-space-xs);
   width: 100%;
   min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .time {
@@ -101,7 +102,7 @@
   max-inline-size: 100%;
   min-inline-size: 0;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: var(--rialto-text-primary);
 }
 
@@ -110,6 +111,6 @@
   max-inline-size: 100%;
   min-inline-size: 0;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   color: var(--rialto-text-secondary);
 }
