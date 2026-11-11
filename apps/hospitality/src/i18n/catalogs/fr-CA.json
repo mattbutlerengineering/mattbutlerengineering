@@ -1565,6 +1565,29 @@
       }
     }
   },
+  "invite": {
+    "documentTitle": "Vous êtes invité — Hospitality",
+    "venueDocumentTitle": "Vous êtes invité à {{venue}}",
+    "loading": "Chargement de l'invitation...",
+    "heading": "Vous êtes invité",
+    "cardLabel": "Invitation à {{venue}}",
+    "rsvpTitle": "Qui vient",
+    "noReplies": "Aucune réponse pour l'instant. Soyez le premier.",
+    "statusIn": "Présent",
+    "statusOut": "Ne peut pas venir",
+    "firstNameLabel": "Prénom",
+    "firstNamePlaceholder": "Votre prénom",
+    "firstNameRequired": "Entrez votre prénom.",
+    "imIn": "Je viens",
+    "cantMakeIt": "Je ne peux pas venir",
+    "replied": "Merci, {{name}}. Votre réponse figure sur la liste.",
+    "full": "Il ne reste plus de places pour cette invitation.",
+    "error": "Une erreur s'est produite. Veuillez réessayer.",
+    "endedHeading": "Cette invitation est terminée",
+    "endedDescription": "La réservation a été annulée ou est déjà passée.",
+    "notFoundHeading": "Invitation introuvable",
+    "notFoundDescription": "Vérifiez le lien que vous avez reçu."
+  },
   "offlineBanner": {
     "cached": "Affichage des données en cache de la dernière synchronisation",
     "cachedWithTime": "Affichage des données en cache de la dernière synchronisation — dernière synchronisation : {{time}}"

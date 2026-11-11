@@ -40,6 +40,7 @@ export const UNBUDGETED_CHUNK_ALLOWLIST = [
   "dist/assets/FloorPlansPage-*.js",
   "dist/assets/GuestsPage-*.js",
   "dist/assets/HomePage-*.js",
+  "dist/assets/InvitePage-*.js",
   "dist/assets/ManageReservationPage-*.js",
   "dist/assets/MenusPage-*.js",
   "dist/assets/ProfilePage-*.js",
