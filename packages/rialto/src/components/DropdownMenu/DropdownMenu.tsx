@@ -59,7 +59,9 @@ type MenuEntry = MenuItemDef | MenuDividerDef | MenuLabelDef;
 
 /**
  * A click-triggered dropdown menu for presenting a list of actions.
- * Supports keyboard navigation (arrow keys, Home/End, Enter, Escape),
+ * Supports keyboard navigation (ArrowDown, Enter, and Space open from the
+ * trigger onto the first enabled item; arrows, Home/End, Enter, and Escape
+ * operate the open menu),
  * item icons, shortcut hints, dividers, section labels, and destructive items.
  *
  * @example
@@ -305,7 +307,23 @@ export const DropdownMenu = forwardRef<HTMLDivElement, DropdownMenuProps>(functi
             const button = (e.target as Element).closest("button");
             if (button) button.click();
             else handleTriggerClick();
-          } else if (open) {
+            return;
+          }
+          // ArrowDown while closed opens onto the first enabled item (APG menu
+          // button). It is not activation, so it does not synthesize a click —
+          // Enter/Space already do, and a consumer such as TableStatusMenu turns
+          // ArrowDown into its own click. A disabled <button> stays shut:
+          // browsers never deliver the key, and a synthetic event must not open
+          // it either. ArrowUp is the optional "open on the last item" key;
+          // this menu's closed opener set is ArrowDown, Enter, and Space only,
+          // the same set handleKeyDown already uses when the menu is closed.
+          if (!open && e.key === "ArrowDown") {
+            const button = (e.target as Element).closest("button");
+            if (button?.disabled) return;
+            handleKeyDown(e);
+            return;
+          }
+          if (open) {
             handleKeyDown(e);
           }
         }}

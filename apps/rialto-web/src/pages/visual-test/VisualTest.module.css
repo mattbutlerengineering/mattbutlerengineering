@@ -1,5 +1,7 @@
 .page {
-  padding: var(--rialto-space-lg);
+  padding-block-start: max(var(--rialto-space-lg), var(--demo-controls-clearance, 0px));
+  padding-block-end: var(--rialto-space-lg);
+  padding-inline: var(--rialto-space-lg);
   background: var(--rialto-surface);
   font-family: var(--rialto-font-sans);
 }

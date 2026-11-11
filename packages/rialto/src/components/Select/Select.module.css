@@ -53,6 +53,19 @@
   cursor: not-allowed;
 }
 
+.error .trigger {
+  border-color: var(--rialto-error);
+}
+
+.error .trigger:focus-visible,
+.error .trigger[data-open="true"] {
+  border-color: var(--rialto-error);
+  box-shadow:
+    0 0 0 2px var(--rialto-surface),
+    0 0 0 4px var(--rialto-error),
+    0 0 12px rgb(184 74 60 / 0.2);
+}
+
 .lockIcon {
   opacity: 0.5;
   flex-shrink: 0;
@@ -159,6 +172,10 @@
 .hint {
   font-size: var(--rialto-text-xs);
   color: var(--rialto-text-tertiary);
+}
+
+.error .hint {
+  color: var(--rialto-error);
 }
 
 .optional {

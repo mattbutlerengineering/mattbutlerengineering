@@ -2,6 +2,7 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { axe } from "vitest-axe";
 import { HoverCard } from "./HoverCard";
+import { Text } from "../Text";
 
 describe("HoverCard", () => {
   describe("rendering", () => {
@@ -47,6 +48,61 @@ describe("HoverCard", () => {
       await waitFor(() => expect(screen.getByText("Preview content")).toBeInTheDocument());
       fireEvent.mouseLeave(wrapper);
       await waitFor(() => expect(screen.queryByText("Preview content")).not.toBeInTheDocument());
+    });
+
+    it("does not add tabindex to a native button or link", () => {
+      const { rerender } = render(
+        <HoverCard content={<p>Preview content</p>}>
+          <button type="button">Go</button>
+        </HoverCard>
+      );
+      expect(screen.getByRole("button", { name: "Go" })).not.toHaveAttribute("tabindex");
+
+      rerender(
+        <HoverCard content={<p>Preview content</p>}>
+          <a href="/driver">Driver</a>
+        </HoverCard>
+      );
+      expect(screen.getByRole("link", { name: "Driver" })).not.toHaveAttribute("tabindex");
+    });
+
+    it("gives a non-focusable trigger a tab stop and opens the card on focus", async () => {
+      const user = userEvent.setup();
+      render(
+        <>
+          <button type="button">Before</button>
+          <HoverCard content={<p>Preview content</p>} openDelay={0}>
+            <span>Charles Leclerc</span>
+          </HoverCard>
+        </>
+      );
+      const trigger = screen.getByText("Charles Leclerc");
+      expect(trigger).toHaveAttribute("tabindex", "0");
+
+      await user.tab();
+      await user.tab();
+      expect(trigger).toHaveFocus();
+      await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    });
+
+    it("opens a Text trigger on focus and closes it on Escape", async () => {
+      const user = userEvent.setup();
+      render(
+        <HoverCard content={<p>Preview content</p>} openDelay={0}>
+          <Text>1:25.410</Text>
+        </HoverCard>
+      );
+      const trigger = screen.getByText("1:25.410");
+      expect(trigger.tagName).toBe("P");
+      expect(trigger).toHaveAttribute("tabindex", "0");
+
+      await user.tab();
+      expect(trigger).toHaveFocus();
+      await waitFor(() => expect(screen.getByText("Preview content")).toBeInTheDocument());
+
+      await user.keyboard("{Escape}");
+      await waitFor(() => expect(screen.queryByText("Preview content")).not.toBeInTheDocument());
+      expect(trigger).toHaveFocus();
     });
 
     it("closes on Escape key when open", async () => {

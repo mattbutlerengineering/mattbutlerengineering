@@ -2,6 +2,7 @@ import { Avatar, Badge, Button, DataList, HoverCard, Text } from "@mattbutlereng
 import { ComponentPageLayout, Section } from "../components/ComponentPageLayout";
 import { PropsTable } from "../components/PropsTable";
 import styles from "../components/ComponentPageLayout.module.css";
+import local from "./HoverCardPage.module.css";
 
 // ---------------------------------------------------------------------------
 // Page
@@ -57,6 +58,8 @@ export function HoverCardPage() {
             }
           >
             <Text
+              className={local.trigger}
+              tabIndex={0}
               style={{
                 fontSize: "var(--rialto-text-sm)",
                 color: "var(--rialto-text-primary)",
@@ -170,6 +173,8 @@ export function HoverCardPage() {
             }
           >
             <Text
+              className={local.trigger}
+              tabIndex={0}
               style={{
                 fontSize: "var(--rialto-text-sm)",
                 fontFamily: "var(--rialto-font-mono)",
@@ -237,8 +242,11 @@ export function HoverCardPage() {
         <DataList
           items={[
             { label: "Role", value: "Hover card content is in a dialog region" },
-            { label: "Focus", value: "Not focused on open — hover mechanic only" },
-            { label: "Keyboard", value: "Tab into the card to interact with its content" },
+            {
+              label: "Focus",
+              value: "Focusing the trigger opens the card; focus stays on the trigger",
+            },
+            { label: "Keyboard", value: "Tab to the trigger to open; Escape closes" },
             { label: "Close delay", value: "Grace period prevents accidental dismissal" },
             {
               label: "Screen reader",

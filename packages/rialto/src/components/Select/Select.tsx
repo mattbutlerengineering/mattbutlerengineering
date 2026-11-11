@@ -187,7 +187,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(
     };
 
     return (
-      <div ref={mergeRef} className={cn(styles.wrapper, className)}>
+      <div ref={mergeRef} className={cn(styles.wrapper, error && styles.error, className)}>
         {label && (
           <label htmlFor={triggerId} className={styles.label}>
             {label}

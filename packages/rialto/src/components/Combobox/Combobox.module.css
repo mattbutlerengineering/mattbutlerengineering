@@ -120,8 +120,15 @@
   overscroll-behavior: contain;
 }
 
-:global([data-theme="dark"]) .dropdown {
+/* `.dropdown` composes `.glass`. The dark glass fill is rgb(42 39 37 / 0.9)
+   at the same specificity as a single `[data-theme="dark"] .dropdown` rule, so
+   bundle order was letting the page caption show through the short empty row.
+   Doubling the class beats that rule in either bundle order. Drop the blur:
+   an opaque fill hides it, and a leftover blur is what made "No results" ghost. */
+:global([data-theme="dark"]) .dropdown.dropdown {
   background: var(--rialto-surface-elevated);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* Inside a Dialog: lifted into the dialog's layer and placed by inline

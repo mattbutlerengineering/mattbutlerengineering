@@ -116,7 +116,10 @@ export function NavigationMenuPage() {
           items={[
             { label: "Role", value: "role=navigation with role=menubar" },
             { label: "Trigger", value: "aria-haspopup=true, aria-expanded on dropdown triggers" },
-            { label: "Keyboard", value: "Enter/Space opens dropdown; Arrow Down moves into panel" },
+            {
+              label: "Keyboard",
+              value: "Enter/Space toggles the dropdown; Arrow Down moves into the panel",
+            },
             { label: "Keyboard", value: "Escape closes dropdown and returns focus to trigger" },
             {
               label: "Delay",

@@ -1,7 +1,9 @@
 .page {
   max-width: 960px;
   margin-inline: auto;
-  padding: var(--rialto-space-2xl) var(--rialto-space-lg);
+  padding-block-start: max(var(--rialto-space-2xl), var(--demo-controls-clearance, 0px));
+  padding-block-end: var(--rialto-space-2xl);
+  padding-inline: var(--rialto-space-lg);
   color: var(--rialto-text-primary);
   font-family: var(--rialto-font-sans);
 }

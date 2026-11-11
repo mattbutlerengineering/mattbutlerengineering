@@ -23,6 +23,7 @@ export default defineVitestConfig({
     "e2e/telemetry-ticker-layout.test.ts",
     "e2e/telemetry-label-contrast.test.ts",
     "e2e/narrow-example-overflow.test.ts",
+    "e2e/showcase-layout-stacking.test.ts",
   ],
   coverage: {
     include: ["src/**/*.ts", "src/**/*.tsx"],

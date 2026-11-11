@@ -17,7 +17,9 @@
   --rialto-text-tertiary: rgb(253 252 250 / 0.38);
   --rialto-border: rgb(255 255 255 / 0.1);
   --rialto-border-strong: rgb(255 255 255 / 0.18);
-  padding: var(--rialto-space-2xl) var(--rialto-space-xl) var(--rialto-space-xl);
+  padding-block-start: max(var(--rialto-space-2xl), var(--demo-controls-clearance, 0px));
+  padding-block-end: var(--rialto-space-xl);
+  padding-inline: var(--rialto-space-xl);
 }
 
 .headerInner {
@@ -109,7 +111,9 @@
 /* ── Responsive ──────────────────────────────── */
 @media (max-width: 767px) {
   .header {
-    padding: var(--rialto-space-xl) var(--rialto-space-md) var(--rialto-space-md);
+    padding-block-start: max(var(--rialto-space-xl), var(--demo-controls-clearance, 0px));
+    padding-block-end: var(--rialto-space-md);
+    padding-inline: var(--rialto-space-md);
   }
 
   .content {
