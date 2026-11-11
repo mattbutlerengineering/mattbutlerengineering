@@ -117,6 +117,11 @@ export const Dialog = forwardRef<HTMLDivElement, DialogProps>(
           <motion.div
             ref={attachLayer}
             className={styles.overlay}
+            // The showcase shell's content column is `isolation: isolate`, which
+            // traps this overlay's z-index under the sticky nav. The shell lifts
+            // that column while this attribute is present. Popovers also set
+            // aria-modal, so the attribute — not the ARIA state — is the signal.
+            data-rialto-dialog-overlay=""
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

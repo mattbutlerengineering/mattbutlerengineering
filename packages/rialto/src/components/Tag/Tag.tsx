@@ -26,7 +26,7 @@ export interface TagProps {
   onDismiss?: () => void;
   /** Clickable tag (for filters) */
   onClick?: () => void;
-  /** Selected state (gold fill) */
+  /** Selected state (gold fill). When set, the button exposes `aria-pressed`. */
   selected?: boolean;
   /** Icon rendered before label */
   icon?: ReactNode;
@@ -42,7 +42,7 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
       dismissible = false,
       onDismiss,
       onClick,
-      selected = false,
+      selected,
       icon,
       className = "",
     },
@@ -50,11 +50,13 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
   ) => {
     const { messages } = useRialtoLocale();
     const isInteractive = !!onClick;
+    const isSelected = selected === true;
+    const pressedProps = selected === undefined ? {} : { "aria-pressed": selected };
     const classes = cn(
       styles.tag,
       variantClass(styles, variant, "default"),
       isInteractive && styles.interactive,
-      selected && styles.selected,
+      isSelected && styles.selected,
       className
     );
 
@@ -69,6 +71,7 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
             className={styles.labelButton}
             onClick={onClick}
             type="button"
+            {...pressedProps}
           >
             {icon && <span className={styles.icon}>{icon}</span>}
             {children}
@@ -102,6 +105,7 @@ export const Tag = forwardRef<HTMLElement, TagProps>(
           className={classes}
           onClick={onClick}
           type="button"
+          {...pressedProps}
         >
           {icon && <span className={styles.icon}>{icon}</span>}
           {children}
@@ -144,7 +148,7 @@ Tag.displayName = "Tag";
 
 /* ── Animated Tag (for dismissible lists) ───── */
 /**
- * A Tag wrapped in a Framer Motion layout animation for smooth enter/exit transitions.
+ * A Tag wrapped in a Framer Motion enter/exit animation.
  * Use inside a `TagGroup` so that `AnimatePresence` can track additions and removals.
  *
  * @example
@@ -167,9 +171,10 @@ export const AnimatedTag = forwardRef<HTMLDivElement, AnimatedTagProps>(
     const shouldReduceMotion = motionPreset.reduced;
 
     return (
+      // No `layout` prop. A shared layout slide translates the chips that are
+      // still there while a dismiss click is in flight, and the click misses.
       <motion.div
         ref={ref}
-        layout
         initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, scale: 0.9 }}

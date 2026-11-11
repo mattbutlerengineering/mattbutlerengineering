@@ -16,10 +16,11 @@ import styles from "./TrendChart.module.css";
  * Three rules hold this component to the page's stated purpose — honesty about
  * self-improvement:
  *
- * 1. **A gap is drawn as a gap.** A published day carrying no measurement gets
- *    its own dashed mark and breaks the line; the line is never drawn through
- *    it. Days the collector never recorded at all are simply absent from the
- *    series, so the line breaks there too rather than joining across them.
+ * 1. **A gap is drawn as a gap.** The series is one point per calendar day.
+ *    A day with no measurement — an explicit hole, or a date that had no row
+ *    and was filled in as one — gets its own dashed mark and breaks the line.
+ *    The line is never drawn through it. A raw skip that arrives without a
+ *    point still breaks the line rather than joining across it.
  * 2. **The drawing is never the only carrier.** The SVG is `aria-hidden`; the
  *    series is also stated as a sentence in the visible caption and published
  *    in full as a visually-hidden table, one row per day.

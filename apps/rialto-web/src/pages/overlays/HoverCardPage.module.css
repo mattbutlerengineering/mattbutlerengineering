@@ -1,0 +1,5 @@
+.trigger:focus-visible {
+  outline: none;
+  border-radius: var(--rialto-radius-sharp);
+  box-shadow: var(--rialto-shadow-focus);
+}

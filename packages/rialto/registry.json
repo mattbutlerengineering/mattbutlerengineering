@@ -113,7 +113,7 @@
     },
     {
       "name": "AnimatedTag",
-      "description": "A Tag wrapped in a Framer Motion layout animation for smooth enter/exit transitions.\nUse inside a `TagGroup` so that `AnimatePresence` can track additions and removals.",
+      "description": "A Tag wrapped in a Framer Motion enter/exit animation.\nUse inside a `TagGroup` so that `AnimatePresence` can track additions and removals.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -154,7 +154,7 @@
           "name": "selected",
           "type": "boolean | undefined",
           "required": false,
-          "description": "Selected state (gold fill)"
+          "description": "Selected state (gold fill). When set, the button exposes `aria-pressed`."
         },
         {
           "name": "icon",
@@ -1820,7 +1820,7 @@
     },
     {
       "name": "DropdownMenu",
-      "description": "A click-triggered dropdown menu for presenting a list of actions.\nSupports keyboard navigation (arrow keys, Home/End, Enter, Escape),\nitem icons, shortcut hints, dividers, section labels, and destructive items.",
+      "description": "A click-triggered dropdown menu for presenting a list of actions.\nSupports keyboard navigation (ArrowDown, Enter, and Space open from the\ntrigger onto the first enabled item; arrows, Home/End, Enter, and Escape\noperate the open menu),\nitem icons, shortcut hints, dividers, section labels, and destructive items.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -3041,7 +3041,7 @@
     },
     {
       "name": "NumberInput",
-      "description": "Numeric input with increment/decrement stepper buttons and hold-to-repeat.\nAlways controlled — requires `value` and `onChange`. Stepper buttons and arrow keys\nclamp on each press. Typed text stays as entered and is clamped to `min`/`max`\nwhen the field commits (blur).",
+      "description": "Numeric input with increment/decrement stepper buttons and hold-to-repeat.\nAlways controlled — requires `value` and `onChange`. Stepper buttons and arrow keys\nclamp on each press. Typed text stays as entered until the field commits (blur),\nwhen it snaps to the `step` grid — whole numbers when `step` is an integer —\nand is clamped to `min`/`max`. A fractional `step` keeps decimal values.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -3053,7 +3053,7 @@
           "name": "onChange",
           "type": "(value: number) => void",
           "required": true,
-          "description": "Called with the clamped numeric value when the field commits, or when a\nstepper or arrow key changes it. Not called for each keystroke."
+          "description": "Called with the snapped, clamped numeric value when the field commits, or\nwhen a stepper or arrow key changes it. Not called for each keystroke."
         },
         {
           "name": "min",
@@ -3069,7 +3069,7 @@
           "name": "step",
           "type": "number | undefined",
           "required": false,
-          "description": "Increment/decrement amount per step (default 1)"
+          "description": "Increment/decrement amount. Commits snap to this grid (default 1, so a\ntyped decimal becomes a whole number). Use a fraction such as `0.5` to\nkeep decimal values."
         },
         {
           "name": "label",
@@ -4503,7 +4503,7 @@
           "name": "selected",
           "type": "boolean | undefined",
           "required": false,
-          "description": "Selected state (gold fill)"
+          "description": "Selected state (gold fill). When set, the button exposes `aria-pressed`."
         },
         {
           "name": "icon",

@@ -18,8 +18,9 @@ import styles from "./NumberInput.module.css";
 /**
  * Numeric input with increment/decrement stepper buttons and hold-to-repeat.
  * Always controlled — requires `value` and `onChange`. Stepper buttons and arrow keys
- * clamp on each press. Typed text stays as entered and is clamped to `min`/`max`
- * when the field commits (blur).
+ * clamp on each press. Typed text stays as entered until the field commits (blur),
+ * when it snaps to the `step` grid — whole numbers when `step` is an integer —
+ * and is clamped to `min`/`max`. A fractional `step` keeps decimal values.
  *
  * @example
  * <NumberInput label="Quantity" value={qty} onChange={setQty} min={0} max={99} />
@@ -32,13 +33,17 @@ export interface NumberInputProps extends Pick<
 > {
   value: number;
   /**
-   * Called with the clamped numeric value when the field commits, or when a
-   * stepper or arrow key changes it. Not called for each keystroke.
+   * Called with the snapped, clamped numeric value when the field commits, or
+   * when a stepper or arrow key changes it. Not called for each keystroke.
    */
   onChange: (value: number) => void;
   min?: number;
   max?: number;
-  /** Increment/decrement amount per step (default 1) */
+  /**
+   * Increment/decrement amount. Commits snap to this grid (default 1, so a
+   * typed decimal becomes a whole number). Use a fraction such as `0.5` to
+   * keep decimal values.
+   */
   step?: number;
   label?: string;
   hint?: string;
@@ -60,6 +65,40 @@ const REPEAT_INTERVAL = 80;
  * Number in an in-progress field, or null while it is empty or only a sign
  * or decimal point — the next keystroke can still complete those.
  */
+/** Decimal places implied by `step`: `1` → 0, `0.5` → 1, `1e-7` → 7. */
+function stepPrecision(step: number): number {
+  if (!Number.isFinite(step) || step === 0) return 0;
+  const text = Math.abs(step).toString().toLowerCase();
+  const expIndex = text.indexOf("e");
+  if (expIndex !== -1) {
+    const mantissa = text.slice(0, expIndex);
+    const exponent = Number(text.slice(expIndex + 1));
+    const dot = mantissa.indexOf(".");
+    const mantissaPlaces = dot === -1 ? 0 : mantissa.length - dot - 1;
+    return Math.max(0, mantissaPlaces - exponent);
+  }
+  const dot = text.indexOf(".");
+  return dot === -1 ? 0 : text.length - dot - 1;
+}
+
+function roundToPrecision(value: number, decimals: number): number {
+  if (decimals <= 0) return Math.round(value);
+  const factor = 10 ** Math.min(decimals, 12);
+  return Math.round(value * factor) / factor;
+}
+
+/**
+ * Nearest multiple of `step`, measured from `min` when set (otherwise 0).
+ * An integer step therefore commits whole numbers; a fractional step keeps
+ * that many decimal places.
+ */
+function snapToStep(value: number, step: number, min?: number): number {
+  if (!Number.isFinite(value) || !Number.isFinite(step) || step <= 0) return value;
+  const origin = min != null && Number.isFinite(min) ? min : 0;
+  const stepsFromOrigin = Math.round((value - origin) / step);
+  return roundToPrecision(origin + stepsFromOrigin * step, stepPrecision(step));
+}
+
 function parseTypedNumber(raw: string): number | null {
   const trimmed = raw.trim();
   if (
@@ -107,6 +146,16 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
     const [draft, setDraft] = useState<string | null>(null);
     // Mirrors `draft` so a stepper press and the blur it causes can't both commit.
     const draftRef = useRef<string | null>(null);
+    // Last value this field emitted. A blur commits before the click that
+    // caused it, and the parent `value` may not have re-rendered yet. Follow
+    // `value` only when the parent actually changes it, so that render does
+    // not wipe a commit the parent has not applied.
+    const committedRef = useRef(value);
+    const seenValueRef = useRef(value);
+    if (seenValueRef.current !== value) {
+      seenValueRef.current = value;
+      committedRef.current = value;
+    }
     const setDraftText = useCallback((next: string | null) => {
       draftRef.current = next;
       setDraft(next);
@@ -122,22 +171,33 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
       [min, max]
     );
 
+    const quantize = useCallback(
+      (v: number) => clamp(snapToStep(v, step, min)),
+      [clamp, step, min]
+    );
+
     /** Committed value a step should start from, dropping any in-progress text. */
     const baseForStep = useCallback((): number => {
       const raw = draftRef.current;
-      if (raw === null) return value;
+      if (raw === null) return committedRef.current;
       setDraftText(null);
       const parsed = parseTypedNumber(raw);
-      return parsed === null ? value : clamp(parsed);
-    }, [value, clamp, setDraftText]);
+      const next = parsed === null ? committedRef.current : quantize(parsed);
+      committedRef.current = next;
+      return next;
+    }, [quantize, setDraftText]);
 
-    const increment = useCallback(() => {
-      onChange(clamp(baseForStep() + step));
-    }, [onChange, clamp, baseForStep, step]);
+    const stepBy = useCallback(
+      (direction: 1 | -1) => {
+        const next = quantize(baseForStep() + direction * step);
+        committedRef.current = next;
+        onChange(next);
+      },
+      [onChange, quantize, baseForStep, step]
+    );
 
-    const decrement = useCallback(() => {
-      onChange(clamp(baseForStep() - step));
-    }, [onChange, clamp, baseForStep, step]);
+    const increment = useCallback(() => stepBy(1), [stepBy]);
+    const decrement = useCallback(() => stepBy(-1), [stepBy]);
 
     /* ── Hold-to-repeat ──────────────────────── */
     const stopRepeat = useCallback(() => {
@@ -174,9 +234,10 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
       setDraftText(null);
       const parsed = parseTypedNumber(raw);
       if (parsed === null) return;
-      const next = clamp(parsed);
+      const next = quantize(parsed);
+      committedRef.current = next;
       if (next !== value) onChange(next);
-    }, [clamp, value, onChange, setDraftText]);
+    }, [quantize, value, onChange, setDraftText]);
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
@@ -237,7 +298,7 @@ export const NumberInput = forwardRef<HTMLDivElement, NumberInputProps>(
             <input
               {...field.controlProps}
               type="text"
-              inputMode="decimal"
+              inputMode={stepPrecision(step) === 0 ? "numeric" : "decimal"}
               className={styles.input}
               value={shown}
               onChange={handleInputChange}

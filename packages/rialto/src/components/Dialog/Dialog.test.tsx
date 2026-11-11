@@ -59,6 +59,13 @@ describe("Dialog", () => {
       expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
     });
 
+    it("marks the overlay so a sticky header can sit beneath the modal", () => {
+      render(<Dialog open onClose={() => {}} />);
+      expect(screen.getByRole("dialog").parentElement).toHaveAttribute(
+        "data-rialto-dialog-overlay"
+      );
+    });
+
     it("renders role=alertdialog when asked", () => {
       render(<Dialog open onClose={() => {}} role="alertdialog" />);
       expect(screen.getByRole("alertdialog")).toHaveAttribute("aria-modal", "true");
