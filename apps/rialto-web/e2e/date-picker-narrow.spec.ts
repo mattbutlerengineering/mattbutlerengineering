@@ -78,6 +78,20 @@ test.describe("date picker at 375px", () => {
     expect(alphaOf(background)).toBe(1);
   });
 
+  test("scrolls the page to fit the whole month, leaving no scroll area in the sheet", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 667 });
+    const panel = await openEventDate(page);
+    expect(await page.locator("main").evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+    const sheet = panel.locator("[data-calendar-sheet]");
+    const metrics = await sheet.evaluate((el) => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+    }));
+    expect(metrics.scrollHeight).toBeLessThanOrEqual(metrics.clientHeight);
+  });
+
   test("opens an opaque month under the field in dark mode", async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.emulateMedia({ reducedMotion: "reduce", colorScheme: "dark" });

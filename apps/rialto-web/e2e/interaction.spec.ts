@@ -312,6 +312,23 @@ test.describe("Dialog layout", () => {
     expect(await grid.evaluate((el) => el.closest('[role="dialog"] [role="region"]'))).toBeNull();
   });
 
+  for (const size of [
+    { width: 1280, height: 520 },
+    { width: 375, height: 560 },
+    { width: 320, height: 568 },
+  ]) {
+    test(`a DatePicker in a dialog does not scroll the page behind it at ${size.width}x${size.height}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(size);
+      const dialog = await openDialog(page, "Session Settings");
+      const before = await page.locator("main").evaluate((el) => el.scrollTop);
+      await dialog.getByLabel("Session Date").click();
+      await expect(page.getByRole("dialog", { name: "Popover" })).toBeVisible();
+      expect(await page.locator("main").evaluate((el) => el.scrollTop)).toBe(before);
+    });
+  }
+
   test("footer actions stay reachable at the 320x256 reflow size", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 256 });
     const dialog = await openDialog(page, "Open Dialog");

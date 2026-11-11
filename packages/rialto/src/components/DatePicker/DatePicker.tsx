@@ -13,13 +13,14 @@ import styles from "./DatePicker.module.css";
  * the panel is measured and placed. That is what lets a slightly-too-tall
  * month stay under the field instead of flipping over the page title.
  */
-function CalendarSheet({ children }: { children: ReactNode }) {
+function CalendarSheet({ children, fitBelow }: { children: ReactNode; fitBelow: boolean }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const sheet = sheetRef.current;
-    if (!sheet) return;
+    // The fit only knows how to make room under the field.
+    if (!sheet || !fitBelow) return;
     return bindCalendarFit(sheet);
-  }, []);
+  }, [fitBelow]);
   return (
     <div ref={sheetRef} role="presentation" className={styles.panel} data-calendar-sheet="">
       {children}
@@ -125,7 +126,7 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
   return (
     <div ref={ref} className={cn(styles.wrapper, className)}>
       <Popover solid open={open} onOpenChange={setOpen} trigger={trigger} placement={placement}>
-        <CalendarSheet>
+        <CalendarSheet fitBelow={placement === "bottom"}>
           <Calendar
             value={value}
             onChange={handleSelect}

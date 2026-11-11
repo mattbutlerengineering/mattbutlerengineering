@@ -114,7 +114,20 @@ describe("DatePicker placement at a phone viewport", () => {
       this: HTMLElement
     ) {
       if (this.dataset.scrollport === "true") return rect(113, 699);
-      return rect(anchorTop, anchorHeight);
+      // The anchor moves with the scroller the way it does in a browser.
+      const scroller = document.querySelector<HTMLElement>("[data-scrollport]");
+      return rect(anchorTop - (scroller?.scrollTop ?? 0), anchorHeight);
+    });
+    // jsdom never scrolls; keep a per-element offset so the fit can move the anchor.
+    const offsets = new WeakMap<Element, number>();
+    vi.spyOn(Element.prototype, "scrollTop", "get").mockImplementation(function (this: Element) {
+      return offsets.get(this) ?? 0;
+    });
+    vi.spyOn(Element.prototype, "scrollTop", "set").mockImplementation(function (
+      this: Element,
+      value: number
+    ) {
+      offsets.set(this, value);
     });
     vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(function (
       this: HTMLElement
@@ -179,5 +192,76 @@ describe("DatePicker placement at a phone viewport", () => {
     const sheet = dialog.querySelector<HTMLElement>("[data-calendar-sheet]");
     expect(sheet?.style.maxHeight ?? "").toBe("");
     expect(dialog.style.top).toBe("auto");
+  });
+
+  it("scrolls the page to open the month under a field that is too low", async () => {
+    // Anchor y=600–666: room below is 138, so the scroller moves the field up.
+    mockPhoneGeometry(600, 66);
+    render(
+      <div data-scrollport="true" style={{ overflowY: "auto", height: 699 }}>
+        <DatePicker label="Date" value="2024-06-10" onChange={vi.fn()} locale="en-US" />
+      </div>
+    );
+    await user.click(screen.getByLabelText("Date"));
+    const scroller = document.querySelector<HTMLElement>("[data-scrollport]");
+    expect(scroller?.scrollTop).toBeGreaterThan(0);
+  });
+
+  it("does not scroll the page behind a fixed modal layer", async () => {
+    mockPhoneGeometry(600, 66);
+    render(
+      <div data-scrollport="true" style={{ overflowY: "auto", height: 699 }}>
+        <div style={{ position: "fixed" }}>
+          <DatePicker label="Date" value="2024-06-10" onChange={vi.fn()} locale="en-US" />
+        </div>
+      </div>
+    );
+    await user.click(screen.getByLabelText("Date"));
+    const scroller = document.querySelector<HTMLElement>("[data-scrollport]");
+    expect(scroller?.scrollTop).toBe(0);
+  });
+
+  it("leaves no scroll area on a sheet whose month fits after the page scroll", async () => {
+    // Anchor y=500–566: room 238 is just under the 240 floor, so the page
+    // scrolls 96px and the 332px panel (330 + 2px border) then fits exactly.
+    mockPhoneGeometry(500, 66);
+    render(
+      <div data-scrollport="true" style={{ overflowY: "auto", height: 699 }}>
+        <DatePicker label="Date" value="2024-06-10" onChange={vi.fn()} locale="en-US" />
+      </div>
+    );
+    await user.click(screen.getByLabelText("Date"));
+    const sheet = screen.getByRole("dialog").querySelector<HTMLElement>("[data-calendar-sheet]");
+    expect(document.querySelector<HTMLElement>("[data-scrollport]")?.scrollTop).toBeGreaterThan(0);
+    expect(sheet?.style.maxHeight ?? "").toBe("");
+    expect(sheet?.style.overflowY ?? "").toBe("");
+  });
+
+  it("does not cap a top-placed calendar to the room below the field", async () => {
+    // Anchor y=460–526: 278px below, 452px above. The full month fits above.
+    mockPhoneGeometry(460, 66);
+    renderPicker({ placement: "top" });
+    await user.click(screen.getByLabelText("Date"));
+
+    const sheet = screen.getByRole("dialog").querySelector<HTMLElement>("[data-calendar-sheet]");
+    expect(sheet?.style.maxHeight ?? "").toBe("");
+    expect(sheet?.style.overflowY ?? "").toBe("");
+  });
+
+  it("does not scroll the page for a top-placed calendar", async () => {
+    mockPhoneGeometry(600, 66);
+    render(
+      <div data-scrollport="true" style={{ overflowY: "auto", height: 699 }}>
+        <DatePicker
+          label="Date"
+          value="2024-06-10"
+          onChange={vi.fn()}
+          locale="en-US"
+          placement="top"
+        />
+      </div>
+    );
+    await user.click(screen.getByLabelText("Date"));
+    expect(document.querySelector<HTMLElement>("[data-scrollport]")?.scrollTop).toBe(0);
   });
 });

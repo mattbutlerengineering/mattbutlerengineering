@@ -819,6 +819,9 @@
       const viewportHeight = document.documentElement.clientHeight;
       let anchorBottom = anchor.getBoundingClientRect().bottom;
       const needed = panel.scrollHeight;
+      // scrollHeight ignores the panel border: add it to what the page scroll
+      // makes room for, and take it off the cap below.
+      const frame = Math.max(0, panel.offsetHeight - panel.clientHeight);
       const room = viewportHeight - anchorBottom - POPOVER_ANCHOR_GAP;
     
       if (allowScroll && needed > room && room < MIN_ROOM_BELOW) {
@@ -829,7 +832,7 @@
             const delta = scrollDeltaToFitBelow({
               anchorTop: rect.top,
               anchorBottom: rect.bottom,
-              panelHeight: needed,
+              panelHeight: needed + frame,
               viewportHeight,
               scrollerTop: node.getBoundingClientRect().top,
               scrollTop: node.scrollTop,
@@ -841,14 +844,13 @@
               break;
             }
           }
+          // A fixed layer (Dialog, Drawer) does not move with the page behind it.
+          if (getComputedStyle(node).position === "fixed") break;
           node = node.parentElement;
         }
         anchorBottom = anchor.getBoundingClientRect().bottom;
       }
     
-      // scrollHeight ignores the panel border, so a cap that fills the room
-      // exactly still paints the border past the viewport edge.
-      const frame = Math.max(0, panel.offsetHeight - panel.clientHeight);
       const max = sheetMaxHeight({
         panelScrollHeight: panel.scrollHeight,
         sheetOffsetHeight: sheet.offsetHeight,
