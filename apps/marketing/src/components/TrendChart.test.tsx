@@ -75,7 +75,8 @@ describe("TrendChart", () => {
   it("does not bridge a stretch of days the collector never recorded at all", () => {
     // 2026-08-16 -> 2026-08-26 is a real ten-day hole in process-metrics.jsonl:
     // those days have no row, so joining them would draw a line through
-    // measurements that were never taken.
+    // measurements that were never taken. 08-17 through 08-25 are the nine
+    // calendar days with no row.
     const { container } = renderChart([
       { date: "2026-08-15", value: 1, note: null },
       { date: "2026-08-16", value: 0.98, note: null },
@@ -85,6 +86,36 @@ describe("TrendChart", () => {
 
     expect(container.querySelectorAll('[data-testid="trend-line"]')).toHaveLength(2);
     expect(container.querySelectorAll('[data-testid="trend-dot"]')).toHaveLength(4);
+    expect(container.querySelectorAll('[data-testid="trend-gap"]')).toHaveLength(9);
+    expect(screen.getByText(/over 13 days/)).toBeInTheDocument();
+    expect(screen.getByText(/4 days measured, 9 days with no measurement/)).toBeInTheDocument();
+
+    const table = screen.getByRole("table", { name: /by day/ });
+    expect(within(table).getAllByRole("row")).toHaveLength(14);
+    expect(within(table).getByRole("cell", { name: "2026-08-20" })).toBeInTheDocument();
+    expect(within(table).getAllByRole("cell", { name: "No data" })).toHaveLength(9);
+  });
+
+  it("marks a multi-day hole the same way as an explicit unmeasured day", () => {
+    const { container } = renderChart([
+      { date: "2026-09-27", value: 0.9, note: null },
+      { date: "2026-09-28", value: 0.91, note: null },
+      { date: "2026-10-08", value: 0.8, note: null },
+      { date: "2026-10-09", value: 0.81, note: null },
+    ]);
+
+    // 09-29 through 10-07: nine days with no row, each its own gap mark.
+    expect(container.querySelectorAll('[data-testid="trend-gap"]')).toHaveLength(9);
+    expect(container.querySelectorAll('[data-testid="trend-line"]')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-testid="trend-dot"]')).toHaveLength(4);
+
+    const lines = [...container.querySelectorAll('[data-testid="trend-line"]')].map((line) =>
+      line.getAttribute("points")
+    );
+    expect(lines.every((points) => points?.split(" ").length === 2)).toBe(true);
+
+    expect(screen.getByText(/over 13 days/)).toBeInTheDocument();
+    expect(screen.getByText(/4 days measured, 9 days with no measurement/)).toBeInTheDocument();
   });
 
   it("marks every published day that carries no measurement", () => {
