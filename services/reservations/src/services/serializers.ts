@@ -35,6 +35,8 @@ export interface PrismaTableRow {
  * guest is optional so callers that do not include the relation still type-check.
  */
 export interface PrismaReservationRow {
+  /** Optional so callers that do not include the relation still type-check (#8667). */
+  invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
   id: string;
   date: Date;
   startTime: Date;
@@ -156,8 +158,16 @@ export function toReservation(row: PrismaReservationRow): Reservation {
     tableId: row.tableId,
     table: row.table ? toTable(row.table) : undefined,
     guest: row.guest ?? null,
+    inviteRsvp: toInviteRsvp(row),
     venueId: row.venueId,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
+}
+
+/** IN count of the reservation's first live invite against the party size; null with no live invite. */
+function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] {
+  const live = row.invites?.find((invite) => invite.revokedAt === null);
+  if (!live) return null;
+  return { in: live.rsvps.filter((r) => r.status === "IN").length, partySize: row.partySize };
 }

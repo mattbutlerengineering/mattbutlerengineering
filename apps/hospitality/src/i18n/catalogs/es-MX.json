@@ -686,6 +686,9 @@
       "noShowExposure": "Exposición por inasistencias"
     }
   },
+  "inviteRsvpChip": {
+    "text": "{{in}} de {{total}} confirmados"
+  },
   "timeline": {
     "page": {
       "title": "Cronograma",

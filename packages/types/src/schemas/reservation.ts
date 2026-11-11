@@ -61,6 +61,8 @@ export const ReservationSchema = z.object({
     })
     .nullable()
     .optional(),
+  /** RSVP tally of the live party invite (#8667); null or absent when there is none. */
+  inviteRsvp: z.object({ in: z.number(), partySize: z.number() }).nullable().optional(),
   venueId: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
