@@ -97,10 +97,54 @@ function localParts(at: Date, timeZone: string): { date: string; time: string } 
   };
 }
 
+type LiveInvite =
+  | {
+      kind: "ok";
+      inviteId: string;
+      venueId: string;
+      reservation: {
+        startTime: Date;
+        partySize: number;
+        status: string;
+        venue: { name: string; slug: string; ianaTimezone: string };
+      };
+    }
+  | { kind: "gone" }
+  | { kind: "missing" };
+
+/** Must run inside the venue context. Unknown: `missing`. Revoked, cancelled or past: `gone`. */
+async function resolveLiveInvite(token: string, venueId: string, now: Date): Promise<LiveInvite> {
+  const invite = await prisma.reservationInvite.findFirst({
+    where: { tokenHash: hashInviteToken(token) },
+  });
+  if (!invite) return { kind: "missing" };
+  if (invite.revokedAt) return { kind: "gone" };
+  const reservation = await prisma.reservation.findFirst({
+    where: { id: invite.reservationId, venueId },
+    select: {
+      startTime: true,
+      endTime: true,
+      partySize: true,
+      status: true,
+      venue: { select: { name: true, slug: true, ianaTimezone: true } },
+    },
+  });
+  if (!reservation?.venue) return { kind: "missing" };
+  if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
+    return { kind: "gone" };
+  }
+  return {
+    kind: "ok",
+    inviteId: invite.id,
+    venueId,
+    reservation: { ...reservation, venue: reservation.venue },
+  };
+}
+
 /**
  * Resolves an invite token to its public view (The Invitation, #8662). Unknown or malformed
- * token: `missing`. Revoked, cancelled or past reservation: `gone`. RSVPs arrive with #8663,
- * so the list is empty until then.
+ * token: `missing`. Revoked, cancelled or past reservation: `gone`. RSVPs are first name and
+ * status only (#8663).
  */
 export async function getInvitePublicView(
   token: string,
@@ -110,25 +154,13 @@ export async function getInvitePublicView(
   if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
   const venueId = token.slice(0, dot);
   return runWithVenueContext(venueId, async (): Promise<InviteLookup> => {
-    const invite = await prisma.reservationInvite.findFirst({
-      where: { tokenHash: hashInviteToken(token) },
+    const live = await resolveLiveInvite(token, venueId, now);
+    if (live.kind !== "ok") return live;
+    const { reservation } = live;
+    const rsvps = await prisma.reservationRsvp.findMany({
+      where: { inviteId: live.inviteId },
+      orderBy: { createdAt: "asc" },
     });
-    if (!invite) return { kind: "missing" };
-    if (invite.revokedAt) return { kind: "gone" };
-    const reservation = await prisma.reservation.findFirst({
-      where: { id: invite.reservationId, venueId },
-      select: {
-        startTime: true,
-        endTime: true,
-        partySize: true,
-        status: true,
-        venue: { select: { name: true, slug: true, ianaTimezone: true } },
-      },
-    });
-    if (!reservation?.venue) return { kind: "missing" };
-    if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
-      return { kind: "gone" };
-    }
     const { date, time } = localParts(reservation.startTime, reservation.venue.ianaTimezone);
     return {
       kind: "ok",
@@ -137,9 +169,44 @@ export async function getInvitePublicView(
         date,
         time,
         partySize: reservation.partySize,
-        rsvps: [],
+        rsvps: rsvps.map((r) => ({ firstName: r.firstName, status: r.status })),
         status: reservation.status,
       },
     };
+  });
+}
+
+/** Guests may RSVP up to this many beyond the booked party size (plus-ones). */
+const RSVP_EXTRA_SLOTS = 2;
+
+export type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
+
+/**
+ * Records one RSVP (first name and IN/OUT only, no contact data) on a live invite (#8663).
+ * Capped at partySize + {@link RSVP_EXTRA_SLOTS}. The cap check is count-then-insert, so two
+ * simultaneous writes at the boundary can overshoot by one; the per-IP rate limit bounds it.
+ */
+export async function addInviteRsvp(
+  token: string,
+  input: { firstName: string; status: "IN" | "OUT" },
+  now: Date = new Date()
+): Promise<RsvpResult> {
+  const dot = token.indexOf(".");
+  if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
+  const venueId = token.slice(0, dot);
+  return runWithVenueContext(venueId, async (): Promise<RsvpResult> => {
+    const live = await resolveLiveInvite(token, venueId, now);
+    if (live.kind !== "ok") return live;
+    const taken = await prisma.reservationRsvp.count({ where: { inviteId: live.inviteId } });
+    if (taken >= live.reservation.partySize + RSVP_EXTRA_SLOTS) return { kind: "full" };
+    await prisma.reservationRsvp.create({
+      data: {
+        venueId,
+        inviteId: live.inviteId,
+        firstName: input.firstName,
+        status: input.status,
+      },
+    });
+    return { kind: "ok" };
   });
 }

@@ -40,9 +40,10 @@ vi.mock("../services/reservation-invite.js", () => ({
   findLiveInviteByToken: vi.fn(),
   revokeInvitesForReservation: vi.fn(),
   hashInviteToken: vi.fn(),
+  addInviteRsvp: vi.fn(),
 }));
 
-import { getInvitePublicView } from "../services/reservation-invite.js";
+import { getInvitePublicView, addInviteRsvp } from "../services/reservation-invite.js";
 
 function stubNotifications(): never {
   return {
@@ -150,6 +151,73 @@ describe("GET /public/v1/invites/:token", () => {
     vi.mocked(getInvitePublicView).mockResolvedValue({ kind: "missing" });
     const reverse = await get(generateManageToken("res_1", "jane@example.com"));
     expect([404, 414]).toContain(reverse.statusCode);
+  });
+
+  describe("POST /public/v1/invites/:token/rsvp", () => {
+    const post = (payload: object, token = "venue_1.secret") =>
+      app.inject({ method: "POST", url: `/public/v1/invites/${token}/rsvp`, payload });
+
+    it("stores a valid RSVP", async () => {
+      vi.mocked(addInviteRsvp).mockResolvedValue({ kind: "ok" });
+      const res = await post({ firstName: "Sam", status: "IN" });
+      expect(res.statusCode).toBe(201);
+      expect(addInviteRsvp).toHaveBeenCalledWith("venue_1.secret", {
+        firstName: "Sam",
+        status: "IN",
+      });
+    });
+
+    it.each([
+      [{ firstName: "x".repeat(41), status: "IN" }],
+      [{ firstName: "", status: "IN" }],
+      [{ firstName: "   ", status: "IN" }],
+      [{ firstName: "<script>", status: "IN" }],
+      [{ firstName: "Sam", status: "MAYBE" }],
+      [{ status: "IN" }],
+    ])("rejects invalid body %j with 400", async (body) => {
+      const res = await post(body);
+      expect(res.statusCode).toBe(400);
+      expect(addInviteRsvp).not.toHaveBeenCalled();
+    });
+
+    it("drops unknown body fields instead of storing them", async () => {
+      vi.mocked(addInviteRsvp).mockResolvedValue({ kind: "ok" });
+      await post({ firstName: "Sam", status: "IN", email: "a@b.co" });
+      expect(addInviteRsvp).toHaveBeenCalledWith("venue_1.secret", {
+        firstName: "Sam",
+        status: "IN",
+      });
+    });
+
+    it("answers 404 for an unknown token", async () => {
+      vi.mocked(addInviteRsvp).mockResolvedValue({ kind: "missing" });
+      expect((await post({ firstName: "Sam", status: "IN" })).statusCode).toBe(404);
+    });
+
+    it("answers 410 for a revoked or cancelled invite", async () => {
+      vi.mocked(addInviteRsvp).mockResolvedValue({ kind: "gone" });
+      expect((await post({ firstName: "Sam", status: "IN" })).statusCode).toBe(410);
+    });
+
+    it("answers 409 once the RSVP cap is reached", async () => {
+      vi.mocked(addInviteRsvp).mockResolvedValue({ kind: "full" });
+      expect((await post({ firstName: "Sam", status: "IN" })).statusCode).toBe(409);
+    });
+  });
+
+  it("rate limits the RSVP write with 429", async () => {
+    vi.mocked(addInviteRsvp).mockResolvedValue({ kind: "ok" });
+    let last = 0;
+    for (let i = 0; i < 21; i += 1) {
+      last = (
+        await app.inject({
+          method: "POST",
+          url: "/public/v1/invites/venue_1.other/rsvp",
+          payload: { firstName: "Sam", status: "IN" },
+        })
+      ).statusCode;
+    }
+    expect(last).toBe(429);
   });
 
   // Last: it spends the per-IP budget the other cases share.
