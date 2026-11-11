@@ -669,6 +669,9 @@
       "noShowExposure": "No-show exposure"
     }
   },
+  "inviteRsvpChip": {
+    "text": "{{in}} of {{total}} in"
+  },
   "timeline": {
     "page": {
       "title": "Timeline",

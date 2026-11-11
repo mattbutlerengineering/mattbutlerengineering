@@ -2051,6 +2051,12 @@
       }
     </item>
     <item priority="low">
+      interface InviteRsvpSummary {
+        in: number;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
       interface CreateReservationRequest {
         date: string;
         startTime: string;

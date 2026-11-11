@@ -189,6 +189,35 @@ describe("toReservation", () => {
   });
 });
 
+describe("toReservation inviteRsvp", () => {
+  const invite = (rsvps: string[], revokedAt: Date | null = null) => ({
+    revokedAt,
+    rsvps: rsvps.map((status) => ({ status })),
+  });
+
+  it("counts IN rsvps against the party size on a live invite", () => {
+    const result = toReservation(
+      makePrismaReservation({ partySize: 6, invites: [invite(["IN", "OUT", "IN"])] })
+    );
+    expect(result.inviteRsvp).toEqual({ in: 2, partySize: 6 });
+  });
+
+  it("is null when the reservation has no invite", () => {
+    expect(toReservation(makePrismaReservation()).inviteRsvp).toBeNull();
+    expect(toReservation(makePrismaReservation({ invites: [] })).inviteRsvp).toBeNull();
+  });
+
+  it("ignores a revoked invite", () => {
+    const result = toReservation(makePrismaReservation({ invites: [invite(["IN"], NOW)] }));
+    expect(result.inviteRsvp).toBeNull();
+  });
+
+  it("is zero IN for a live invite nobody has answered", () => {
+    const result = toReservation(makePrismaReservation({ invites: [invite([])] }));
+    expect(result.inviteRsvp).toEqual({ in: 0, partySize: 2 });
+  });
+});
+
 describe("serializeManagedReservation", () => {
   it("withholds cancellation fields and phone from the guest-facing manage view", () => {
     const reservation = toReservation(

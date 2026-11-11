@@ -52236,6 +52236,8 @@
         })
         .nullable()
         .optional(),
+      /** RSVP tally of the live party invite (#8667); null or absent when there is none. */
+      inviteRsvp: z.object({ in: z.number(), partySize: z.number() }).nullable().optional(),
       venueId: z.string().nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -68371,6 +68373,7 @@
               guest: {
                 select: { visitCount: true, communicationPreference: true, unsubscribed: true },
               },
+              invites: INVITE_RSVP_SELECT,
             },
           }),
           prisma.reservation.count({ where }),
@@ -68439,6 +68442,7 @@
           include: {
             table: true,
             guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
+            invites: INVITE_RSVP_SELECT,
           },
         });
         return reservation ? toReservation(reservation) : null;
@@ -69357,6 +69361,8 @@
       updatedAt: Date;
     }
     export interface PrismaReservationRow {
+      /** Optional so callers that do not include the relation still type-check (#8667). */
+      invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
       id: string;
       date: Date;
       startTime: Date;
@@ -69458,10 +69464,16 @@
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
+        inviteRsvp: toInviteRsvp(row),
         venueId: row.venueId,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
       };
+    }
+    function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] {
+      const live = row.invites?.find((invite) => invite.revokedAt === null);
+      if (!live) return null;
+      return { in: live.rsvps.filter((r) => r.status === "IN").length, partySize: row.partySize };
     }
   </file>
   <file path="services/reservations/src/services/slot-rules.ts">
@@ -90161,9 +90173,19 @@
         communicationPreference: string | null;
         unsubscribed?: boolean;
       } | null;
+      /**
+       * RSVP tally of the reservation's live party invite (The Invitation, #8667): how many invitees
+       * said IN against the party size. Null or absent when there is no live invite. Counts only,
+       * never invitee names.
+       */
+      inviteRsvp?: InviteRsvpSummary | null;
       venueId: string | null;
       createdAt: string;
       updatedAt: string;
+    }
+    export interface InviteRsvpSummary {
+      in: number;
+      partySize: number;
     }
     export interface CreateReservationRequest {
       date: string;
