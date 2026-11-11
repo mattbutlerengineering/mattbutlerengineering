@@ -5,8 +5,8 @@
 
 export const MAX_LATE_SIGNALS = 3;
 export const MAX_ARRIVED_SIGNALS = 1;
-export const SIGNAL_WINDOW_BEFORE_MS = 3 * 60 * 60 * 1000;
-export const SIGNAL_WINDOW_AFTER_MS = 45 * 60 * 1000;
+const SIGNAL_WINDOW_BEFORE_MS = 3 * 60 * 60 * 1000;
+const SIGNAL_WINDOW_AFTER_MS = 45 * 60 * 1000;
 
 export type GuestSignalKind = "running-late" | "arrived";
 

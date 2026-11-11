@@ -17950,12 +17950,6 @@
     <item priority="high">
       export const MAX_ARRIVED_SIGNALS: unknown;
     </item>
-    <item priority="high">
-      export const SIGNAL_WINDOW_BEFORE_MS: unknown;
-    </item>
-    <item priority="high">
-      export const SIGNAL_WINDOW_AFTER_MS: unknown;
-    </item>
     <item priority="low">
       type GuestSignalKind = "running-late" | "arrived";
     </item>
