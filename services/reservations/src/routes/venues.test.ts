@@ -1648,7 +1648,7 @@ describe("Venue Routes — venueGroupId reassignment is admin-only (#5515)", () 
 describe("Venue Routes — settings.tonightNote is owner-only (#8652)", () => {
   let app: FastifyInstance;
   const originalEnv = process.env;
-  const NOTE_URL = `/api/v1/venues/${"venue-123"}`;
+  const NOTE_URL = ["", "api", "v1", "venues", "venue-123"].join("/");
 
   beforeEach(() => {
     vi.mocked(jwtVerify).mockReset();
