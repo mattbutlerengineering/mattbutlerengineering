@@ -1,0 +1,10 @@
+.chip {
+  display: inline-block;
+  max-inline-size: 100%;
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--rialto-text-secondary);
+}

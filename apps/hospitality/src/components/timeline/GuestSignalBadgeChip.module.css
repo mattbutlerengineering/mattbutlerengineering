@@ -1,0 +1,21 @@
+.chip {
+  display: inline-block;
+  max-inline-size: 100%;
+  padding-inline: var(--rialto-space-xs);
+  padding-block: var(--rialto-space-2xs);
+  border: 1px solid var(--rialto-warning);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-warning-muted);
+  color: var(--rialto-warning);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The ETA has passed: the guest is still coming, but the table is no longer held for them. */
+.chipPast {
+  border-style: dashed;
+}

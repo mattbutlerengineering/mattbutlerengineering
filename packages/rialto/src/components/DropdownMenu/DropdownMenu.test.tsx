@@ -98,6 +98,84 @@ describe("DropdownMenu", () => {
     expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveAttribute("data-active", "true");
   });
 
+  it("keyboard: ArrowDown on the focused trigger opens on the first enabled item", () => {
+    render(<DropdownMenu trigger={<Button>Actions</Button>} items={basicItems} />);
+    const btn = screen.getByRole("button", { name: /actions/i });
+    act(() => btn.focus());
+    // The key lands on the trigger itself, the same path as Tab then ArrowDown.
+    fireEvent.keyDown(btn, { key: "ArrowDown" });
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    const first = screen.getByRole("menuitem", { name: /edit/i });
+    expect(first).toHaveAttribute("data-active", "true");
+    expect(first).toHaveFocus();
+    expect(btn).toHaveAttribute("aria-expanded", "true");
+    basicItems.forEach((item) => expect(item.onSelect).not.toHaveBeenCalled());
+  });
+
+  it("keyboard: ArrowDown from the trigger moves inside the menu instead of toggling it shut", async () => {
+    const onClick = vi.fn();
+    render(
+      <DropdownMenu trigger={<Button onClick={onClick}>Actions</Button>} items={basicItems} />
+    );
+    const btn = screen.getByRole("button", { name: /actions/i });
+    btn.focus();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveFocus();
+    expect(onClick).not.toHaveBeenCalled();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /copy/i })).toHaveFocus();
+    expect(btn).toHaveAttribute("aria-expanded", "true");
+    expect(onClick).not.toHaveBeenCalled();
+  });
+
+  it("keyboard: ArrowDown on the trigger skips a leading disabled item", () => {
+    render(
+      <DropdownMenu
+        trigger={<Button>Actions</Button>}
+        items={[
+          { id: "disabled", label: "Disabled", disabled: true, onSelect: vi.fn() },
+          { id: "edit", label: "Edit", onSelect: vi.fn() },
+          { id: "copy", label: "Copy", onSelect: vi.fn() },
+        ]}
+      />
+    );
+    const btn = screen.getByRole("button", { name: /actions/i });
+    act(() => btn.focus());
+    fireEvent.keyDown(btn, { key: "ArrowDown" });
+    const edit = screen.getByRole("menuitem", { name: /^edit$/i });
+    expect(edit).toHaveAttribute("data-active", "true");
+    expect(edit).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: /disabled/i })).toHaveAttribute(
+      "data-active",
+      "false"
+    );
+  });
+
+  it("keyboard: ArrowDown on a disabled trigger leaves the menu closed", () => {
+    render(<DropdownMenu trigger={<Button disabled>Actions</Button>} items={basicItems} />);
+    const btn = screen.getByRole("button", { name: /actions/i });
+    fireEvent.keyDown(btn, { key: "ArrowDown" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("keyboard: ArrowDown opens a non-button trigger on the first item", () => {
+    render(
+      <DropdownMenu
+        trigger={
+          <span role="button" tabIndex={0}>
+            Actions
+          </span>
+        }
+        items={basicItems}
+      />
+    );
+    const trigger = screen.getByRole("button", { name: /actions/i });
+    act(() => trigger.focus());
+    fireEvent.keyDown(trigger, { key: "ArrowDown" });
+    expect(screen.getByRole("menuitem", { name: /edit/i })).toHaveFocus();
+  });
+
   it("keyboard: ArrowDown/ArrowUp navigates items (data-active)", () => {
     render(<DropdownMenu trigger={<Button>Actions</Button>} items={basicItems} />);
     const btn = screen.getByRole("button", { name: /actions/i });

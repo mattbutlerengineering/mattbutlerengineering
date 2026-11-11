@@ -129,6 +129,33 @@ test("Number input page — pit strategy steps inside its bounds and Reset resto
   await expect(page.getByLabel("Lap Count")).toHaveValue("6");
 });
 
+test("Number input page — a decimal lap count commits to a whole number", async ({ page }) => {
+  await consent(page);
+  await page.goto("components/number-input");
+  await page.waitForLoadState("networkidle");
+
+  const laps = page.getByLabel("Lap Count");
+  await laps.fill("3.7");
+  await expect(laps).toHaveValue("3.7");
+  await laps.blur();
+  await expect(laps).toHaveValue("4");
+  await laps.locator("xpath=..").getByRole("button", { name: "Increase" }).click();
+  await expect(laps).toHaveValue("5");
+
+  await laps.fill("07");
+  await expect(laps).toHaveValue("07");
+  await laps.blur();
+  await expect(laps).toHaveValue("7");
+
+  await laps.fill("500");
+  await laps.blur();
+  await expect(laps).toHaveValue("99");
+
+  await laps.fill("0");
+  await laps.blur();
+  await expect(laps).toHaveValue("1");
+});
+
 async function glyphIsVisible(page: Page, name: string) {
   const button = page.getByRole("button", { name, exact: true });
   const svg = button.locator("svg");
@@ -268,12 +295,39 @@ test.describe("Dialog layout", () => {
     await dialog.getByLabel("Session Date").click();
     const grid = page.getByRole("dialog", { name: "Popover" }).getByRole("grid");
     await expect(grid).toBeVisible();
-    // Not clipped by the dialog body: first and last day cells are fully in the
-    // viewport, and the popover is lifted out of the dialog's scroller.
+    // Not clipped by the dialog body: the popover is lifted out of the dialog's
+    // scroller and stays inside the viewport. Under the field there is room for
+    // only part of the month, so the calendar sheet scrolls inside itself
+    // rather than flipping over the dialog; the last day is reachable by scroll.
+    const popover = page.getByRole("dialog", { name: "Popover" });
+    const viewportHeight = page.viewportSize()?.height ?? 0;
+    const popoverBox = await popover.boundingBox();
+    expect(popoverBox).not.toBeNull();
+    expect((popoverBox?.y ?? 0) + (popoverBox?.height ?? 0)).toBeLessThanOrEqual(
+      viewportHeight + 2
+    );
     await expect(grid.getByRole("gridcell").first()).toBeInViewport({ ratio: 1 });
+    await grid.getByRole("gridcell").last().scrollIntoViewIfNeeded();
     await expect(grid.getByRole("gridcell").last()).toBeInViewport({ ratio: 1 });
     expect(await grid.evaluate((el) => el.closest('[role="dialog"] [role="region"]'))).toBeNull();
   });
+
+  for (const size of [
+    { width: 1280, height: 520 },
+    { width: 375, height: 560 },
+    { width: 320, height: 568 },
+  ]) {
+    test(`a DatePicker in a dialog does not scroll the page behind it at ${size.width}x${size.height}`, async ({
+      page,
+    }) => {
+      await page.setViewportSize(size);
+      const dialog = await openDialog(page, "Session Settings");
+      const before = await page.locator("main").evaluate((el) => el.scrollTop);
+      await dialog.getByLabel("Session Date").click();
+      await expect(page.getByRole("dialog", { name: "Popover" })).toBeVisible();
+      expect(await page.locator("main").evaluate((el) => el.scrollTop)).toBe(before);
+    });
+  }
 
   test("footer actions stay reachable at the 320x256 reflow size", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 256 });
@@ -295,4 +349,106 @@ test.describe("Dialog layout", () => {
     });
     await expect(dialog.getByRole("button", { name: "Confirm" })).toBeInViewport({ ratio: 1 });
   });
+
+  test("a max-height dialog paints above the sticky site header", async ({ page }) => {
+    await page.setViewportSize({ width: 768, height: 1024 });
+    await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+    const dialog = await openDialog(page, "Long Content Dialog");
+    await page.evaluate(() => document.fonts.ready);
+
+    const covered = await dialog.evaluate((el) => {
+      const dialogBox = el.getBoundingClientRect();
+      const nav = document.querySelector('nav[aria-label="Global navigation"]');
+      const navBox = nav?.getBoundingClientRect();
+      if (!navBox || dialogBox.top >= navBox.bottom) {
+        return { samples: 0, allInDialog: false, top: dialogBox.top, navBottom: navBox?.bottom };
+      }
+      const hits: boolean[] = [];
+      for (let y = dialogBox.top + 1; y < navBox.bottom; y += 4) {
+        const node = document.elementFromPoint(dialogBox.left + dialogBox.width / 2, y);
+        hits.push(Boolean(node?.closest('[role="dialog"]')));
+      }
+      return {
+        samples: hits.length,
+        allInDialog: hits.every(Boolean),
+        top: dialogBox.top,
+        navBottom: navBox.bottom,
+      };
+    });
+
+    expect(covered.top).toBeLessThan(covered.navBottom ?? 0);
+    expect(covered.samples).toBeGreaterThan(0);
+    expect(covered.allInDialog).toBe(true);
+    await expect(dialog.getByRole("heading", { name: "Technical Regulations" })).toBeInViewport({
+      ratio: 1,
+    });
+  });
+});
+
+function colorAlpha(color: string): number {
+  const match = color.match(/rgba?\(([^)]+)\)/);
+  if (!match?.[1]) return 1;
+  const parts = match[1].split(",").map((part) => part.trim());
+  const alpha = parts[3];
+  return alpha === undefined ? 1 : Number(alpha);
+}
+
+test("combobox empty listbox is opaque in dark mode", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("mbe-theme-preference", "dark");
+    localStorage.setItem(
+      "rialto-cookie-consent",
+      JSON.stringify({
+        consented: true,
+        preferences: { essential: true, analytics: true, functional: true, marketing: true },
+      })
+    );
+  });
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await page.goto("components/combobox");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+
+  const fruit = page.getByRole("combobox", { name: "Fruit" }).first();
+  await fruit.click();
+  const openList = page.getByRole("listbox");
+  await expect(openList.getByRole("option").first()).toBeVisible();
+  const resultsAlpha = await openList.evaluate((el) => getComputedStyle(el).backgroundColor);
+  expect(colorAlpha(resultsAlpha)).toBe(1);
+
+  await fruit.fill("zzz");
+  const emptyList = page.getByRole("listbox");
+  await expect(emptyList.getByText("No results")).toBeVisible();
+  const empty = await emptyList.evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { backgroundColor: style.backgroundColor, backdropFilter: style.backdropFilter };
+  });
+  expect(colorAlpha(empty.backgroundColor)).toBe(1);
+  expect(empty.backdropFilter).toBe("none");
+});
+
+test("combobox empty listbox stays a light surface in light mode", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem("mbe-theme-preference", "light");
+    localStorage.setItem(
+      "rialto-cookie-consent",
+      JSON.stringify({
+        consented: true,
+        preferences: { essential: true, analytics: true, functional: true, marketing: true },
+      })
+    );
+  });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await page.goto("components/combobox");
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+
+  const fruit = page.getByRole("combobox", { name: "Fruit" }).first();
+  await fruit.fill("zzz");
+  const emptyList = page.getByRole("listbox");
+  await expect(emptyList.getByText("No results")).toBeVisible();
+  const background = await emptyList.evaluate((el) => getComputedStyle(el).backgroundColor);
+  // Dark glass is rgb(42 39 37 / 0.9). Light mode must not inherit that fill.
+  expect(background).not.toBe("rgba(42, 39, 37, 0.9)");
+  expect(colorAlpha(background)).toBeGreaterThan(0);
 });

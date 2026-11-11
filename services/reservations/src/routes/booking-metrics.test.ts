@@ -114,6 +114,7 @@ const mockMetrics = {
       updated: 2,
       deposit_transition: 4,
       transition_rejected: 2,
+      guest_signal: 0,
     },
     rejectedTransitions: 2,
   },

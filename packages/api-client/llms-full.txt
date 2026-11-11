@@ -1787,7 +1787,20 @@
       modificationCutoffHours?: number | null;
       /** Largest party-size change a guest may make; null = unlimited (#6907). */
       maxPartySizeChange?: number | null;
+      /** Public postal address from the venue profile; absent when the venue has not set one. */
+      address?: ManagedVenueAddress;
+      /** The venue's short note for tonight (≤200 chars); absent when none. Render as text only. */
+      tonightNote?: string;
     }
+    export interface ManagedVenueAddress {
+      line1: string;
+      line2?: string;
+      city: string;
+      region: string;
+      postalCode: string;
+      country: string;
+    }
+    export type GuestSignal = { kind: "running-late"; minutes: 5 | 15 | 30 } | { kind: "arrived" };
     export interface ManagedReservationChanges {
       date?: string;
       startTime?: string;
@@ -1822,6 +1835,22 @@
       reservation: ManagedReservation;
       venue: ManagedReservationVenue | null;
       venueCancellation?: ManagedVenueCancellation | null;
+      /** Night-of signals this booking has already sent (caps: 3 late, 1 arrived); absent from an older API. */
+      guestSignals?: { late: number; arrived: number };
+    }
+    export interface InviteRsvp {
+      firstName: string;
+      status: "IN" | "OUT";
+    }
+    export interface InviteData {
+      venue: { name: string; slug: string };
+      /** Venue-local calendar date, YYYY-MM-DD. */
+      date: string;
+      /** Venue-local start time, HH:mm. */
+      time: string;
+      partySize: number;
+      rsvps: InviteRsvp[];
+      status: string;
     }
     export class ReservationsClient {
       constructor(private client: ApiClient) {}
@@ -1947,6 +1976,24 @@
         );
       }
     
+      /** Read a shareable party invite (public, unauthenticated). 404 unknown, 410 ended. */
+      async getInvite(token: string): Promise<InviteData> {
+        return this.client.getOne<InviteData>(
+          `/public/v1/invites/${encodeURIComponent(token)}`,
+          undefined,
+          inviteDataSchema
+        );
+      }
+    
+      /** RSVP to a party invite with a first name only. 404 unknown, 409 full, 410 ended. */
+      async rsvpInvite(token: string, rsvp: InviteRsvp): Promise<void> {
+        await this.client.postOne(
+          `/public/v1/invites/${encodeURIComponent(token)}/rsvp`,
+          rsvp,
+          z.object({ ok: z.literal(true) })
+        );
+      }
+    
       /**
        * Cancel a reservation via a guest-facing manage token (public, unauthenticated).
        * The token is sent as an `Authorization: Bearer` header rather than a query
@@ -1965,6 +2012,34 @@
             body: reason ? JSON.stringify(reason) : undefined,
           },
           z.object({ data: schema })
+        );
+        return response.data;
+      }
+    
+      /**
+       * Tell the venue the party is running late or has arrived (public,
+       * token-authenticated). Information only: the booking is never changed.
+       * Refusals surface as `ApiClientError`: 400/401/403/404/410 token problems,
+       * 409 (not confirmed / outside the signal window), 429 (cap or rate limit).
+       */
+      async signalManaged(token: string, signal: GuestSignal): Promise<GuestSignal> {
+        const schema = z.object({
+          data: z.union([
+            z.object({ kind: z.literal("arrived") }),
+            z.object({
+              kind: z.literal("running-late"),
+              minutes: z.union([z.literal(5), z.literal(15), z.literal(30)]),
+            }),
+          ]),
+        });
+        const response = await this.client.request<{ data: GuestSignal }>(
+          "/public/v1/reservations/manage/signal",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify(signal),
+          },
+          schema
         );
         return response.data;
       }

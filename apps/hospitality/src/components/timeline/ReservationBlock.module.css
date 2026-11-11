@@ -99,3 +99,16 @@
   text-overflow: ellipsis;
   color: var(--rialto-warning);
 }
+
+/* The On My Way badge sits in the block's bottom strip, clear of the centred name and details. */
+.guestSignalBadge {
+  position: absolute;
+  inset-block-end: calc(4px + var(--rialto-space-2xs));
+  /* The chip is a sibling of the block, so it must not eat the block's clicks. */
+  pointer-events: none;
+}
+
+/* Staff-facing "N of M in" for a reservation with a party invite; absent otherwise, so no shift. */
+.inviteRsvp {
+  display: block;
+}

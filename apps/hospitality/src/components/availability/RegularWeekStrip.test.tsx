@@ -17,7 +17,11 @@ type TablesRead = {
   error: Error | null;
   refetch: () => Promise<{ error: Error | null }>;
 };
-const tables = vi.hoisted(() => ({ read: {} as unknown, calls: [] as unknown[] }));
+const tables = vi.hoisted(() => ({
+  read: {} as unknown,
+  calls: [] as unknown[],
+  venue: null as { id: string; ianaTimezone: string; currencyCode: string } | null,
+}));
 
 vi.mock("../../hooks/useTables.js", () => ({
   useTables: (params: unknown) => {
@@ -27,9 +31,7 @@ vi.mock("../../hooks/useTables.js", () => ({
 }));
 // The venue's zone, so the week is the same on a UTC runner and a Pacific laptop.
 vi.mock("../../contexts/venue-context-object.js", () => ({
-  useOptionalVenue: () => ({
-    selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
-  }),
+  useOptionalVenue: () => ({ selectedVenue: tables.venue }),
 }));
 
 import { RegularWeekStrip } from "./RegularWeekStrip.js";
@@ -82,6 +84,7 @@ describe("RegularWeekStrip", () => {
   beforeEach(() => {
     tables.read = read();
     tables.calls = [];
+    tables.venue = { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" };
   });
 
   it("lists the seven weekdays Monday first with each service's first and last time", () => {
@@ -110,6 +113,22 @@ describe("RegularWeekStrip", () => {
     expect(monday).toHaveTextContent("Lunch 11:30 AM – 2:00 PM");
     expect(monday).not.toHaveTextContent(/Dinner \d/);
     expect(monday).toHaveTextContent("Not offered: Dinner, Brunch");
+  });
+
+  it("names the selected venue on the tables read: the server answers a venue-less read 403", () => {
+    render(<RegularWeekStrip draft={demoDraft()} />);
+    expect(tables.calls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ venueId: "venue-1", activeOnly: true, enabled: true }),
+      ])
+    );
+  });
+
+  it("does not read tables while no venue is selected", () => {
+    tables.venue = null;
+    render(<RegularWeekStrip draft={demoDraft()} />);
+    expect(tables.calls).toEqual([expect.objectContaining({ enabled: false })]);
+    expect(screen.getByText("Monday")).toBeInTheDocument();
   });
 
   it("moves Friday's last time as the close is edited, with no request but the tables read", () => {

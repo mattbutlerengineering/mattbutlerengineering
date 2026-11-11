@@ -1,0 +1,40 @@
+.inset {
+  padding: var(--rialto-space-lg);
+}
+
+.directions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: var(--rialto-space-xs) var(--rialto-space-md);
+  border: 1px solid var(--rialto-border);
+  border-radius: var(--rialto-radius-default);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-sm);
+  font-weight: var(--rialto-weight-medium);
+  color: var(--rialto-text-primary);
+  text-decoration: none;
+}
+
+.directions:hover,
+.directions:focus-visible {
+  border-color: var(--rialto-accent);
+  color: var(--rialto-accent);
+}
+
+/* The venue's own line breaks are kept; the text is rendered as text, never markup */
+.note {
+  white-space: pre-wrap;
+}
+
+.signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+}
+
+.signals > * {
+  flex: 1 1 10rem;
+  min-height: 3rem;
+}

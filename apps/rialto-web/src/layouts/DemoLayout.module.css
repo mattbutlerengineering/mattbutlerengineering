@@ -1,3 +1,17 @@
+/* ── Shell tokens ───────────────────────────── */
+/* The controls are position:fixed, so they do not reserve flow space.
+   --demo-controls-clearance is how far below the sticky nav the first line
+   of a demo must start. Nav block-size is --rialto-space-3xl plus a 1px
+   border; the bar's top is 3xl + md and its block size is the variable
+   below, then an xs gap. PageHeader reads the rialto-prefixed alias. */
+.root {
+  --demo-controls-block-size: 36px;
+  --demo-controls-clearance: calc(
+    var(--rialto-space-md) + var(--demo-controls-block-size) + var(--rialto-space-xs) - 1px
+  );
+  --rialto-page-header-padding-block-start: var(--demo-controls-clearance);
+}
+
 /* ── Floating controls bar ──────────────────── */
 /* Positioned below GlobalNav's 64px (--rialto-space-3xl) bar instead of
    sharing its top-16px corner — GlobalNav's brand link and its trailing
@@ -17,8 +31,8 @@
 }
 
 .controlButton {
-  width: 36px;
-  height: 36px;
+  width: var(--demo-controls-block-size);
+  height: var(--demo-controls-block-size);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -42,7 +56,7 @@
 }
 
 .vibeSelect {
-  height: 36px;
+  height: var(--demo-controls-block-size);
   padding: 0 var(--rialto-space-xl) 0 var(--rialto-space-sm);
   appearance: none;
   background: var(--rialto-surface-elevated)

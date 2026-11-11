@@ -11,6 +11,9 @@
   flex-direction: column;
   align-items: center;
   position: relative;
+  /* A clickable step's label is wider than an equal slice of a narrow row.
+     Let the column shrink below that min-content so the row stays on the page. */
+  min-width: 0;
 }
 
 /* Connector line — horizontal */
@@ -156,12 +159,25 @@
 /* ── Clickable steps ─────────────────────────── */
 .stepButton {
   all: unset;
-  display: contents;
+  /* A button with no box is skipped in Chromium's tab order, even with no
+     tabindex. Keep a real flex box so each step stays keyboard-reachable. */
+  display: flex;
   cursor: pointer;
 }
 
-/* Focus ring on the node when stepButton is keyboard-focused.
-   display:contents means the button is invisible — target its child node. */
+.horizontal .stepButton {
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+}
+
+.vertical .stepButton {
+  align-items: flex-start;
+  gap: var(--rialto-space-md);
+}
+
+/* Focus ring on the node when the step button is keyboard-focused. */
 .stepButton:focus-visible .node {
   outline: none;
   box-shadow: var(--rialto-shadow-focus);
@@ -212,6 +228,28 @@
 
 /* ── Responsive: horizontal → stacked on mobile ─ */
 @media (max-width: 640px) {
+  /* Labels such as "Scrutineering" are wider than an equal slice of a 375px
+     column. Scroll the row instead of letting those words collide or break. */
+  .horizontal {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    /* overflow-x:auto also clips y, so pad room for the current step's 5px
+       ring back in and cancel it with a matching margin: a row that fits keeps
+       its old height. */
+    padding-block: var(--rialto-space-xs);
+    margin-block: calc(-1 * var(--rialto-space-xs));
+  }
+
+  /* Basis 0 keeps equal columns whenever the labels fit; max-content only
+     takes over (and the row scrolls) when they do not. */
+  .horizontal .step {
+    flex: 1 0 0;
+    min-width: max-content;
+  }
+
   .horizontal .stepDescription {
     display: none;
   }
@@ -222,6 +260,9 @@
 
   .horizontal .stepLabel {
     font-size: var(--rialto-text-xs);
+    white-space: nowrap;
+    /* The step is only as wide as the word. Without this, adjacent labels touch. */
+    padding-inline: var(--rialto-space-xs);
   }
 }
 

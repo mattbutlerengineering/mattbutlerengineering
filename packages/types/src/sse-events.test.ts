@@ -16,6 +16,7 @@ const SERVER_DECLARED_NAMES = [
   "floor-plan:created",
   "guest:lapsing",
   "table-status:changed",
+  "reservation:guest-signal",
 ];
 
 describe("SSE event catalog", () => {
@@ -65,6 +66,13 @@ describe("SseEvent type", () => {
   it("narrows data when switching on type", () => {
     const count = (e: SseEvent): number => (e.type === "guest:lapsing" ? e.data.length : 0);
     expect(count({ type: "guest:lapsing", venueId: "v", timestamp: "t", data: [] })).toBe(0);
+  });
+
+  it("reservation:guest-signal refreshes the reservation (timeline) and table (floor-plan) queries", () => {
+    expect(SSE_EVENT_CATALOG["reservation:guest-signal"].invalidates).toEqual([
+      "reservations",
+      "tables",
+    ]);
   });
 
   it("floor-plan:created invalidates only the list query", () => {

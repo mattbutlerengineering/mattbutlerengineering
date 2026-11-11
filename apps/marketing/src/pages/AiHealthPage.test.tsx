@@ -730,8 +730,8 @@ describe("AiHealthPage", () => {
       renderPage();
 
       const panel = await screen.findByTestId("queue-efficiency-trend");
-      expect(panel).toHaveTextContent("1 day with no measurement");
-      expect(panel.querySelectorAll('[data-testid="trend-gap"]')).toHaveLength(1);
+      expect(panel).toHaveTextContent("2 days with no measurement");
+      expect(panel.querySelectorAll('[data-testid="trend-gap"]')).toHaveLength(2);
       expect(
         within(panel).getByRole("cell", { name: "No data (query_error)" })
       ).toBeInTheDocument();
@@ -751,7 +751,7 @@ describe("AiHealthPage", () => {
       renderPage();
 
       const panel = await screen.findByTestId("queue-efficiency-trend");
-      expect(panel).toHaveTextContent("2 days measured, 1 day with no measurement");
+      expect(panel).toHaveTextContent("2 days measured, 2 days with no measurement");
     });
 
     it("says the trend history is unavailable rather than showing an empty chart", async () => {

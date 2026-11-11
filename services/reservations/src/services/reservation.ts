@@ -38,6 +38,11 @@ import { isTableInVenue, loadTableFit, TABLE_NOT_IN_VENUE_DETAIL } from "./table
 
 export { ReservationTransitionError };
 
+/** What the staff reservation payload needs of an invite: whether it is live and its RSVP statuses (#8667). */
+const INVITE_RSVP_SELECT = {
+  select: { revokedAt: true, rsvps: { select: { status: true } } },
+} as const;
+
 /** The result every write returns when its table belongs to another venue. */
 const TABLE_NOT_IN_VENUE = {
   success: false,
@@ -166,6 +171,7 @@ export const reservationService = {
           guest: {
             select: { visitCount: true, communicationPreference: true, unsubscribed: true },
           },
+          invites: INVITE_RSVP_SELECT,
         },
       }),
       prisma.reservation.count({ where }),
@@ -234,6 +240,7 @@ export const reservationService = {
       include: {
         table: true,
         guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
+        invites: INVITE_RSVP_SELECT,
       },
     });
     return reservation ? toReservation(reservation) : null;

@@ -129,6 +129,20 @@ describe("ReservationDetails", () => {
     });
   });
 
+  describe("invite RSVP chip (#8667)", () => {
+    it("shows the IN count against the party size when an invite exists", () => {
+      renderDetails({
+        reservation: makeReservation({ partySize: 6, inviteRsvp: { in: 2, partySize: 6 } }),
+      });
+      expect(screen.getByTestId("invite-rsvp-chip").textContent).toBe("2 of 6 in");
+    });
+
+    it("renders nothing without an invite", () => {
+      renderDetails({ reservation: makeReservation() });
+      expect(screen.queryByTestId("invite-rsvp-chip")).toBeNull();
+    });
+  });
+
   describe("deposit visibility (#5725 item 1)", () => {
     it("passes the reservation id and fetched deposit down to StaffDepositSection", () => {
       mockUseDepositByReservation.mockReturnValue({

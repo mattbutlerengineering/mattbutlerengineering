@@ -40,6 +40,10 @@ import { useAuth } from "@mbe/auth/react";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useVenueFormat } from "./useVenueFormat.js";
 import { liveReservationToast } from "./live-reservation-toast.js";
+import {
+  reduceGuestSignals,
+  type GuestSignals,
+} from "../components/timeline/guest-signal-badge.js";
 import { useApiClient } from "./useApiClient.js";
 import { SseClient } from "../lib/sse-client.js";
 import { getCachedFloorPlanSnapshot, setCachedFloorPlanSnapshot } from "../lib/offline-cache.js";
@@ -97,6 +101,7 @@ interface SSESyncContextValue {
   connectionState: SSEConnectionState;
   dispatchConnection: (action: SSEConnectionAction) => void;
   feedListeners: Set<(event: ReservationEvent) => void>;
+  guestSignals: GuestSignals;
   toastTimestampsRef: MutableRefObject<number[]>;
 }
 
@@ -116,6 +121,17 @@ function connectionReducer(
   }
 }
 
+/** Adds `listener` to the feed's listener set; returns the unsubscribe. */
+function subscribeToFeed(
+  listeners: Set<(event: ReservationEvent) => void>,
+  listener: (event: ReservationEvent) => void
+): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
 /** Mount once above DashboardLayoutInner (alongside VenueProvider). */
 export function SSESyncProvider({ children }: { children: ReactNode }) {
   const [connectionState, dispatchConnection] = useReducer(connectionReducer, {
@@ -129,9 +145,26 @@ export function SSESyncProvider({ children }: { children: ReactNode }) {
 
   const toastTimestampsRef = useRef<number[]>([]);
 
+  // Guest signals are not on the reservation DTO, so the latest one per reservation lives here,
+  // above every page: a signal that lands while staff are on another screen is still there when
+  // they open the Timeline or floor plan. A page reload starts empty (no read path yet).
+  const [guestSignals, setGuestSignals] = useState<GuestSignals>(() => new Map());
+  useEffect(() => {
+    const listener = (event: ReservationEvent) => {
+      setGuestSignals((prev) => reduceGuestSignals(prev, event));
+    };
+    return subscribeToFeed(feedListeners, listener);
+  }, [feedListeners]);
+
   return (
     <SSESyncContext.Provider
-      value={{ connectionState, dispatchConnection, feedListeners, toastTimestampsRef }}
+      value={{
+        connectionState,
+        dispatchConnection,
+        feedListeners,
+        guestSignals,
+        toastTimestampsRef,
+      }}
     >
       {children}
     </SSESyncContext.Provider>
@@ -257,6 +290,7 @@ export function useSSESync(): { reconnect: () => void } {
         case "floor-plan:created":
         case "guest:lapsing":
         case "table-status:changed":
+        case "reservation:guest-signal":
           break;
         default: {
           // A catalog name with no case above is a type error here.
@@ -369,6 +403,16 @@ export function useSSEEventFeed(options: UseSSEEventFeedOptions = {}): readonly 
   }, [feedListeners, maxItems]);
 
   return events;
+}
+
+/* ── useGuestSignals ────────────────────────────────────────────── */
+
+/**
+ * The latest `reservation:guest-signal` per reservation id, cleared when the reservation
+ * changes (see `reduceGuestSignals`). Feed this to `deriveGuestSignalBadge`.
+ */
+export function useGuestSignals(): GuestSignals {
+  return useSSESyncContext().guestSignals;
 }
 
 /* ── useTableStatuses ───────────────────────────────────────────── */

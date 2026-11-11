@@ -40,8 +40,10 @@ vi.mock("./ReservationBlock", () => ({
     isSelected,
     isFocused,
     isSeated,
+    guestSignalBadge,
     onClick,
   }: {
+    guestSignalBadge?: { minutes: number } | null;
     reservation: Reservation;
     style: { left: number; width: number };
     isSelected?: boolean;
@@ -54,6 +56,7 @@ vi.mock("./ReservationBlock", () => ({
       data-selected={isSelected}
       data-focused={isFocused}
       data-seated={isSeated}
+      data-late-minutes={guestSignalBadge?.minutes}
       style={{ left: style.left, width: style.width }}
       onClick={() => onClick?.(reservation)}
     >
@@ -687,6 +690,20 @@ describe("TimelineGrid", () => {
 
     it("gives the scroller room for the last row's open menu", () => {
       expect(css).toMatch(/\.gridWrapper:has\(\[role="menu"\]\)\s*\{[^}]*padding-block-end/);
+    });
+  });
+
+  describe("guest signal badges", () => {
+    it("hands each block its badge from guestSignalBadges by reservation id", () => {
+      const badge = { minutes: 15, eta: "2026-05-14T18:15:00.000Z", held: true };
+      render(<TimelineGrid {...defaultProps} guestSignalBadges={new Map([["res-1", badge]])} />);
+      expect(screen.getByTestId("reservation-res-1")).toHaveAttribute("data-late-minutes", "15");
+      expect(screen.getByTestId("reservation-res-2")).not.toHaveAttribute("data-late-minutes");
+    });
+
+    it("hands no block a badge when guestSignalBadges is absent", () => {
+      render(<TimelineGrid {...defaultProps} />);
+      expect(screen.getByTestId("reservation-res-1")).not.toHaveAttribute("data-late-minutes");
     });
   });
 

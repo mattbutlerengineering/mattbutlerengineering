@@ -64,7 +64,6 @@ function ToastItem({ toast: t, onDismiss }: { toast: ToastData; onDismiss: (id: 
 
   return (
     <motion.div
-      layout
       className={cn(styles.toast, styles[t.variant ?? "default"])}
       initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, y: 8, scale: 0.96 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -123,8 +122,10 @@ export interface ToastAnimatedProps {
 }
 
 export function ToastAnimated({ toasts, onDismiss }: ToastAnimatedProps) {
+  // Stay in normal flow. popLayout takes each toast out of flow, and a burst
+  // of them then overlap with the last one left at a stuck offset.
   return (
-    <AnimatePresence mode="popLayout">
+    <AnimatePresence>
       {toasts.map((t) => (
         <ToastItem key={t.id} toast={t} onDismiss={onDismiss} />
       ))}

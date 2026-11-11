@@ -83,6 +83,100 @@ test("floating controls remain clickable when an unrelated Collapsible is open a
   await expect(themeToggle).toBeVisible();
 });
 
+// The fixed controls sit at y=80–116, over the start of a demo page. A
+// PageHeader breadcrumb used to begin at y=97, so the bar covered "Home >
+// Telemetry > Dashboard" and stole its hit target. DriverLayout, the demos
+// index, and the auth-flow title only cleared that band by a few pixels.
+function boxesOverlap(
+  a: { x: number; y: number; width: number; height: number },
+  b: { x: number; y: number; width: number; height: number }
+): boolean {
+  const overlapX = Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x);
+  const overlapY = Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y);
+  return overlapX > 0 && overlapY > 0;
+}
+
+const CLEARANCE_PAGES = [
+  { path: "demos/dashboard", kind: "breadcrumb" },
+  { path: "demos/layouts", kind: "breadcrumb" },
+  { path: "demos/drivers", kind: "breadcrumb" },
+  { path: "demos/teams/new", kind: "breadcrumb" },
+  { path: "demos", kind: "heading" },
+  { path: "demos/auth-flow", kind: "heading" },
+] as const;
+
+for (const viewport of [
+  { width: 768, height: 1024, label: "768" },
+  { width: 375, height: 812, label: "375" },
+  { width: 1280, height: 800, label: "1280" },
+]) {
+  for (const { path, kind } of CLEARANCE_PAGES) {
+    test(`floating controls do not cover the ${path} ${kind} at ${viewport.label}px`, async ({
+      page,
+    }) => {
+      await page.addInitScript(() => {
+        localStorage.setItem("mbe-theme-preference", "dark");
+        localStorage.setItem(
+          "rialto-cookie-consent",
+          JSON.stringify({
+            consented: true,
+            preferences: { essential: true, analytics: true, functional: true, marketing: true },
+          })
+        );
+      });
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto(path);
+      await page.waitForLoadState("networkidle");
+      await page.evaluate(() => document.fonts.ready);
+
+      const controls = page.getByTestId("demo-floating-controls");
+      const target =
+        kind === "breadcrumb"
+          ? page.getByRole("navigation", { name: /breadcrumb/i })
+          : page.getByRole("heading", { level: 1 });
+      const controlsBox = await controls.boundingBox();
+      const targetBox = await target.boundingBox();
+      expect(controlsBox).not.toBeNull();
+      expect(targetBox).not.toBeNull();
+      expect(boxesOverlap(controlsBox!, targetBox!)).toBe(false);
+
+      // The first glyph, not the padding box: a negative-margin breadcrumb
+      // link can stick out above the nav.
+      const hit = await target.evaluate((el) => {
+        const rect = el.getBoundingClientRect();
+        const x = rect.left + Math.min(24, rect.width / 2);
+        const y = rect.top + Math.min(8, rect.height / 2);
+        const top = document.elementFromPoint(x, y);
+        return top === el || Boolean(el.contains(top));
+      });
+      expect(hit).toBe(true);
+    });
+  }
+}
+
+test("floating controls do not cover the dashboard breadcrumb in RTL", async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "rialto-cookie-consent",
+      JSON.stringify({
+        consented: true,
+        preferences: { essential: true, analytics: true, functional: true, marketing: true },
+      })
+    );
+  });
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto("demos/dashboard");
+  await page.waitForLoadState("networkidle");
+  await page.getByLabel("Switch to RTL").click();
+  await expect(page.locator("[dir='rtl']")).toBeVisible();
+
+  const controlsBox = await page.getByTestId("demo-floating-controls").boundingBox();
+  const crumbBox = await page.getByRole("navigation", { name: /breadcrumb/i }).boundingBox();
+  expect(controlsBox).not.toBeNull();
+  expect(crumbBox).not.toBeNull();
+  expect(boxesOverlap(controlsBox!, crumbBox!)).toBe(false);
+});
+
 test("all floating demo controls remain visible and clickable", async ({ page }) => {
   await page.goto("demos/login");
   await page.waitForLoadState("networkidle");

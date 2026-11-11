@@ -254,6 +254,34 @@ describe("SignUp — password strength", () => {
     setField("Password", "Abcdefghijk1"); // gitleaks:allow — synthetic demo password fixture
     expect(requirementRow(/at least 12 characters/i)).toHaveAttribute("data-satisfied", "true");
   });
+
+  it("wires the strength label and each requirement mark to the checklist classes", () => {
+    // Layout (one line per requirement, xs score word) is asserted in
+    // e2e/password-strength.spec.ts. jsdom does not apply the stylesheet,
+    // and a CSS-module class name is not proof the rule won.
+    renderSignUp();
+    setField("Password", "abc");
+
+    const label = screen.getByText("Too weak");
+    expect(label).toHaveClass("strengthLabel");
+    expect(label.closest("[data-variant]")).toHaveAttribute("data-variant", "error");
+
+    const list = label.closest("form")?.querySelector("ul");
+    expect(list).toHaveClass("checklist");
+
+    const unmet = requirementRow(/at least 12 characters/i);
+    expect(unmet).toHaveClass("checklistItem");
+    expect(unmet.querySelector(":scope > svg")).not.toBeNull();
+
+    setField("Password", "Abcdef1"); // gitleaks:allow — synthetic demo password fixture
+    const met = requirementRow(/upper and lower case/i);
+    expect(met).toHaveClass("checklistItemMet");
+    expect(met.querySelector(":scope > svg")).not.toBeNull();
+    expect(screen.getByText("Fair").closest("[data-variant]")).toHaveAttribute(
+      "data-variant",
+      "default"
+    );
+  });
 });
 
 describe("SignUp — confirm password", () => {

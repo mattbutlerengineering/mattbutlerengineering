@@ -71,6 +71,29 @@ describe("PinInput", () => {
   });
 
   describe("interactions", () => {
+    it("shows typed digits when value and onChange are omitted", () => {
+      const { container } = render(<PinInput label="4-digit (default)" />);
+      const inputs = getInputs(container);
+      inputs[0]!.focus();
+      fireEvent.change(inputs[0]!, { target: { value: "1" } });
+      fireEvent.change(inputs[1]!, { target: { value: "2" } });
+      const next = getInputs(container);
+      expect(next[0]!.value).toBe("1");
+      expect(next[1]!.value).toBe("2");
+      expect(next[2]!.value).toBe("");
+      expect(next[3]!.value).toBe("");
+      expect(document.activeElement).toBe(next[2]);
+    });
+
+    it("keeps a provided value when the parent does not update it", () => {
+      const { container } = render(<PinInput label="With value" value="42" />);
+      const inputs = getInputs(container);
+      fireEvent.change(inputs[0]!, { target: { value: "9" } });
+      const next = getInputs(container);
+      expect(next[0]!.value).toBe("4");
+      expect(next[1]!.value).toBe("2");
+    });
+
     it("calls onChange when digit entered", () => {
       const onChange = vi.fn();
       const { container } = render(<PinInput value="1" length={4} onChange={onChange} />);

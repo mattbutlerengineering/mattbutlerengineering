@@ -9,7 +9,7 @@ import { TimelinePage } from "./TimelinePage.js";
 import { SHEET_BLOCK_SIZE } from "../components/timeline/sheet-size.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import type { VenueContextValue } from "../contexts/VenueContext.js";
-import { useSSEStatus } from "../hooks/useSSESync.js";
+import { useGuestSignals, useSSEStatus } from "../hooks/useSSESync.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
 import { useStaffTonight } from "../hooks/useStaffTonight.js";
 import { useTables } from "../hooks/useTables.js";
@@ -22,6 +22,7 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSEStatus: vi.fn(),
   useSSESync: vi.fn(() => ({ reconnect: vi.fn() })),
   useSSEEventFeed: vi.fn(() => []),
+  useGuestSignals: vi.fn(() => new Map()),
 }));
 vi.mock("../hooks/useTimelineData.js", () => ({ useTimelineData: vi.fn() }));
 vi.mock("../hooks/useStaffTonight.js", () => ({ useStaffTonight: vi.fn() }));
@@ -68,7 +69,9 @@ vi.mock("../components/timeline", () => ({
     bottomInset,
     emptyNight,
     pendingTableId,
+    guestSignalBadges,
   }: {
+    guestSignalBadges?: ReadonlyMap<string, { minutes: number }>;
     tables?: Table[];
     reservations?: Reservation[];
     onReservationClick?: (r: Reservation) => void;
@@ -90,6 +93,9 @@ vi.mock("../components/timeline", () => ({
       {/* Item 16's grid props, echoed so the page's derivations can be asserted. */}
       <span data-testid="seated-ids">{[...(seatedIds ?? [])].join(",")}</span>
       <span data-testid="bottom-inset">{bottomInset ?? ""}</span>
+      <span data-testid="late-badges">
+        {[...(guestSignalBadges ?? [])].map(([id, badge]) => `${id}:${badge.minutes}`).join(",")}
+      </span>
       <span data-testid="pending-table-id">{pendingTableId ?? ""}</span>
       {emptyNight && (
         <div data-testid="timeline-empty-night" data-variant={emptyNight.variant}>
@@ -648,6 +654,7 @@ describe("TimelinePage", () => {
     );
 
     vi.mocked(useSSEStatus).mockReturnValue({ isConnected: true, error: null });
+    vi.mocked(useGuestSignals).mockReturnValue(new Map());
     vi.mocked(useTimelineData).mockReturnValue(makeTimelineData());
     vi.mocked(useStaffTonight).mockReturnValue({
       serviceDate: null,
@@ -849,6 +856,37 @@ describe("TimelinePage", () => {
           expect.objectContaining({ date: today })
         );
       });
+    });
+  });
+
+  describe("On My Way badges", () => {
+    it("hands the grid a badge for a reservation with a live late signal", () => {
+      const startTime = new Date(Date.now() + 10 * 60_000).toISOString();
+      vi.mocked(useTimelineData).mockReturnValue(
+        makeTimelineData({
+          reservations: [makeReservation({ id: "r1", startTime, status: "CONFIRMED" })],
+        })
+      );
+      vi.mocked(useGuestSignals).mockReturnValue(
+        new Map([
+          [
+            "r1",
+            {
+              reservationId: "r1",
+              kind: "running-late",
+              minutes: 15,
+              eta: new Date(new Date(startTime).getTime() + 15 * 60_000).toISOString(),
+            },
+          ],
+        ])
+      );
+      renderPage();
+      expect(screen.getByTestId("late-badges").textContent).toBe("r1:15");
+    });
+
+    it("hands the grid no badge without a signal", () => {
+      renderPage();
+      expect(screen.getByTestId("late-badges").textContent).toBe("");
     });
   });
 

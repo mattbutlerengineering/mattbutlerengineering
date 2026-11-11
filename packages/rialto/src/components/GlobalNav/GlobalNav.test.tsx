@@ -1,8 +1,22 @@
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { axe } from "vitest-axe";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { GlobalNav } from "./GlobalNav";
+
+function restorePage(type: "pagehide" | "pageshow", persisted: boolean) {
+  act(() => {
+    window.dispatchEvent(new PageTransitionEvent(type, { persisted }));
+  });
+}
+
+function expectMobileMenuClosed() {
+  const button = screen.getByRole("button", { name: "Open menu" });
+  expect(button.getAttribute("aria-expanded")).toBe("false");
+  expect(button.getAttribute("aria-label")).toBe("Open menu");
+  expect(document.getElementById(button.getAttribute("aria-controls")!)).toBeNull();
+}
 
 describe("GlobalNav", () => {
   it("renders all navigation links", () => {
@@ -181,6 +195,132 @@ describe("GlobalNav", () => {
     // Press Escape
     await user.keyboard("{Escape}");
     expect(document.getElementById(menuId)).toBeNull();
+  });
+
+  describe("back-forward cache", () => {
+    const engineering = {
+      label: "Engineering",
+      items: [
+        { label: "Metrics", href: "/metrics" },
+        { label: "Shipped", href: "/shipped" },
+      ],
+    };
+
+    it("closes the mobile menu on pagehide so a frozen page does not restore it open", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" currentPath="/" menu={engineering} />);
+
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      expect(screen.getByRole("link", { name: "Metrics" })).toBeTruthy();
+
+      restorePage("pagehide", true);
+
+      expectMobileMenuClosed();
+      expect(screen.queryByRole("link", { name: "Metrics" })).toBeNull();
+    });
+
+    it("closes a menu that a persisted pageshow still restored open", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" currentPath="/" menu={engineering} />);
+
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      expect(screen.getByRole("button", { name: "Close menu" }).getAttribute("aria-expanded")).toBe(
+        "true"
+      );
+
+      restorePage("pageshow", true);
+
+      expectMobileMenuClosed();
+    });
+
+    it("leaves the menu open on a non-bfcache pageshow", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" />);
+
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      restorePage("pageshow", false);
+
+      const button = screen.getByRole("button", { name: "Close menu" });
+      expect(button.getAttribute("aria-expanded")).toBe("true");
+      expect(button.getAttribute("aria-label")).toBe("Close menu");
+    });
+
+    it("can open, close with Escape, and open again after a bfcache close", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" />);
+
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      restorePage("pageshow", true);
+      expectMobileMenuClosed();
+
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      expect(screen.getByRole("button", { name: "Close menu" }).getAttribute("aria-expanded")).toBe(
+        "true"
+      );
+      await user.keyboard("{Escape}");
+      expectMobileMenuClosed();
+    });
+
+    it("does not notify a controlled parent while the menu is already closed", () => {
+      const onMobileMenuOpenChange = vi.fn();
+      render(
+        <GlobalNav
+          currentApp="marketing"
+          mobileMenuOpen={false}
+          onMobileMenuOpenChange={onMobileMenuOpenChange}
+        />
+      );
+
+      restorePage("pagehide", true);
+      restorePage("pageshow", true);
+
+      expect(onMobileMenuOpenChange).not.toHaveBeenCalled();
+    });
+
+    it("closes a controlled mobile menu when the page is restored", async () => {
+      const user = userEvent.setup();
+
+      function ControlledNav() {
+        const [open, setOpen] = useState(false);
+        return (
+          <GlobalNav
+            currentApp="marketing"
+            mobileMenuOpen={open}
+            onMobileMenuOpenChange={setOpen}
+          />
+        );
+      }
+
+      render(<ControlledNav />);
+      await user.click(screen.getByRole("button", { name: "Open menu" }));
+      expect(screen.getByRole("button", { name: "Close menu" }).getAttribute("aria-expanded")).toBe(
+        "true"
+      );
+
+      restorePage("pageshow", true);
+
+      expectMobileMenuClosed();
+    });
+
+    it("closes the desktop dropdown on pagehide and still returns focus on Escape", async () => {
+      const user = userEvent.setup();
+      render(<GlobalNav currentApp="marketing" menu={engineering} />);
+
+      const trigger = screen.getByRole("button", { name: "Engineering" });
+      await user.click(trigger);
+      expect(screen.getByRole("link", { name: "Metrics" })).toBeTruthy();
+
+      restorePage("pagehide", true);
+
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(screen.queryByRole("link", { name: "Metrics" })).toBeNull();
+
+      await user.click(trigger);
+      await user.keyboard("{ArrowDown}");
+      await user.keyboard("{Escape}");
+      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+      expect(document.activeElement).toBe(trigger);
+    });
   });
 
   it("has accessible navigation landmark", () => {

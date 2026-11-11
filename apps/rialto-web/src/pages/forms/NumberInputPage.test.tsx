@@ -68,6 +68,46 @@ describe("NumberInputPage pit strategy", () => {
     expect(screen.getByLabelText("Lap Count")).toHaveValue("6");
   });
 
+  it("rounds a decimal lap count on commit and then steps whole laps", () => {
+    render(<NumberInputPage />);
+    const laps = screen.getByLabelText("Lap Count");
+
+    fireEvent.change(laps, { target: { value: "3.7" } });
+    expect(laps).toHaveValue("3.7");
+    fireEvent.blur(laps);
+    expect(laps).toHaveValue("4");
+
+    step("Lap Count", "Increase");
+    expect(laps).toHaveValue("5");
+  });
+
+  it("still clamps lap count on commit without rewriting a leading zero while typing", () => {
+    render(<NumberInputPage />);
+    const laps = screen.getByLabelText("Lap Count") as HTMLInputElement;
+
+    fireEvent.change(laps, { target: { value: "07" } });
+    expect(laps.value).toBe("07");
+    fireEvent.blur(laps);
+    expect(laps.value).toBe("7");
+
+    // Clearing does not jump to min; the last committed value stays.
+    fireEvent.change(laps, { target: { value: "" } });
+    fireEvent.blur(laps);
+    expect(laps.value).toBe("7");
+
+    fireEvent.change(laps, { target: { value: "500" } });
+    fireEvent.blur(laps);
+    expect(laps.value).toBe("99");
+
+    fireEvent.change(laps, { target: { value: "0" } });
+    fireEvent.blur(laps);
+    expect(laps.value).toBe("1");
+
+    fireEvent.change(laps, { target: { value: "-5" } });
+    fireEvent.blur(laps);
+    expect(laps.value).toBe("1");
+  });
+
   it("leaves the static Small example on 7", () => {
     render(<NumberInputPage />);
 
