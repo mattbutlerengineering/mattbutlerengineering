@@ -1520,6 +1520,7 @@
       "sentLate": "Gracias — {{venue}} sabe que llegarás unos {{minutes}} minutos tarde. Tu mesa sigue reservada.",
       "sentArrived": "Gracias — {{venue}} sabe que ya llegaste.",
       "outsideWindow": "Los avisos se habilitan 3 horas antes de tu reservación y se cierran 45 minutos después de su hora.",
+      "outsideWindowAfterMidnight": "Los avisos se habilitan a la medianoche, pero no antes de 3 horas antes de tu reservación, y se cierran 45 minutos después de su hora.",
       "lateCapped": "Ya enviaste el máximo de avisos de retraso ({{max}}). Llama a {{venue}} si necesitas más tiempo.",
       "arrivedDone": "Ya avisaste a {{venue}} que llegaste.",
       "errors": {

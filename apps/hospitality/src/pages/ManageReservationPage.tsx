@@ -215,10 +215,15 @@ function ManageReservationPageContent() {
   const canChange = canCancel && venue !== null && !pastCutoff;
   // ADR-029: `reservation.date` is the service day; "today" is read on the venue's clock, never
   // the browser's. Only a confirmed booking can send night-of signals, so only it gets the layout.
+  // An after-midnight seating (service day 06-14, starts 00:30 on 06-15) is night-of through both
+  // its service day and the calendar day it starts on: the server accepts signals only on the
+  // latter (`canSignal`), so dropping the layout at midnight would hide the buttons just as they open.
+  const venueToday = venue !== null ? venueDate(now, venue.ianaTimezone) : null;
   const isNightOf =
     venue !== null &&
     reservation.status === "CONFIRMED" &&
-    venueDate(now, venue.ianaTimezone) === reservation.date;
+    (venueToday === reservation.date ||
+      venueToday === venueDate(new Date(reservation.startTime), venue.ianaTimezone));
 
   return (
     <main>

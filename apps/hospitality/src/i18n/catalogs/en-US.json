@@ -1489,6 +1489,7 @@
       "sentLate": "Thanks — {{venue}} knows you're running about {{minutes}} minutes late. Your table is still booked.",
       "sentArrived": "Thanks — {{venue}} knows you've arrived.",
       "outsideWindow": "Updates open 3 hours before your reservation and close 45 minutes after it starts.",
+      "outsideWindowAfterMidnight": "Updates open at midnight, but no earlier than 3 hours before your reservation, and close 45 minutes after it starts.",
       "lateCapped": "You've sent the most late updates allowed ({{max}}). Call {{venue}} if you need more time.",
       "arrivedDone": "You've already let {{venue}} know you're here.",
       "errors": {

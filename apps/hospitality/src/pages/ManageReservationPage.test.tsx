@@ -835,6 +835,64 @@ describe("ManageReservationPage night-of layout", () => {
     });
   });
 
+  describe("after-midnight seating (ADR-029: service day 06-14, starts 00:30 on 06-15 PDT)", () => {
+    const AFTER_MIDNIGHT = {
+      date: "2026-06-14",
+      startTime: "2026-06-15T07:30:00.000Z", // 00:30 PDT on 06-15
+      timezone: LA,
+    };
+    const lateButton = () => screen.getByRole("button", { name: "Running 15 min late" });
+    const hereButton = () => screen.getByRole("button", { name: "We're here" });
+    const MIDNIGHT_HINT =
+      "Updates open at midnight, but no earlier than 3 hours before your reservation, and close 45 minutes after it starts.";
+
+    it.each([
+      ["23:00 on the service day (T-90m)", "2026-06-15T06:00:00.000Z"],
+      ["23:59:59 on the service day", "2026-06-15T06:59:59.000Z"],
+    ])("%s: layout shows, buttons wait for midnight and the hint says so", async (_l, now) => {
+      setNow(now);
+      await renderLoaded(nightPayload(AFTER_MIDNIGHT));
+      expect(screen.getByRole("heading", { name: "Tonight at The Oak Table" })).toBeDefined();
+      expect(screen.queryByRole("heading", { name: "Reservation Details" })).toBeNull();
+      expect(lateButton()).toBeDisabled();
+      expect(hereButton()).toBeDisabled();
+      expect(screen.getByText(MIDNIGHT_HINT)).toBeDefined();
+      expect(screen.queryByText(/^Updates open 3 hours before/)).toBeNull();
+    });
+
+    it.each([
+      ["00:00 exactly (T-30m)", "2026-06-15T07:00:00.000Z"],
+      ["00:15 (T-15m)", "2026-06-15T07:15:00.000Z"],
+      ["00:30 (start)", "2026-06-15T07:30:00.000Z"],
+      ["01:15 (T+45m)", "2026-06-15T08:15:00.000Z"],
+    ])("%s: layout stays on the start's calendar day and buttons are enabled", async (_l, now) => {
+      setNow(now);
+      await renderLoaded(nightPayload(AFTER_MIDNIGHT));
+      expect(screen.getByRole("heading", { name: "Tonight at The Oak Table" })).toBeDefined();
+      expect(screen.queryByRole("heading", { name: "Reservation Details" })).toBeNull();
+      expect(lateButton()).toBeEnabled();
+      expect(hereButton()).toBeEnabled();
+      expect(screen.queryByText(MIDNIGHT_HINT)).toBeNull();
+    });
+
+    it("after T+45m the buttons close with the standard hint, still on the layout", async () => {
+      setNow("2026-06-15T08:16:00.000Z"); // 01:16 PDT
+      await renderLoaded(nightPayload(AFTER_MIDNIGHT));
+      expect(lateButton()).toBeDisabled();
+      expect(
+        screen.getByText(
+          "Updates open 3 hours before your reservation and close 45 minutes after it starts."
+        )
+      ).toBeDefined();
+    });
+
+    it("reverts to the standard layout once the calendar day has passed", async () => {
+      setNow("2026-06-16T07:00:00.000Z"); // 00:00 PDT on 06-16
+      await renderLoaded(nightPayload(AFTER_MIDNIGHT));
+      expect(screen.getByRole("heading", { name: "Reservation Details" })).toBeDefined();
+    });
+  });
+
   it("switches layout while the page stays open, when the venue's clock passes midnight", async () => {
     vi.useFakeTimers({ toFake: ["Date", "setInterval", "clearInterval"] });
     vi.setSystemTime(new Date("2026-06-15T06:59:50.000Z")); // 23:59:50 PDT on the day

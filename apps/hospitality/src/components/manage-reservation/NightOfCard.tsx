@@ -6,6 +6,7 @@ import { usePublicApiClient } from "../../hooks/usePublicApiClient.js";
 import { buildDirectionsUrl } from "../../utils/directions-url.js";
 import { formatDurationLabel } from "../../utils/format.js";
 import { guestSignalAvailability, MAX_LATE_SIGNALS } from "../../utils/guest-signal.js";
+import { venueDate } from "../../utils/service-day.js";
 import styles from "./NightOfCard.module.css";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
@@ -128,6 +129,13 @@ export function NightOfCard({
 
   const busy = pending !== null;
   const outsideWindow = availability.reason === "outside-window";
+  // An after-midnight seating's service day is the day before its start: until the venue's clock
+  // reaches the start's calendar day the server refuses, even inside the 3-hour window.
+  const awaitsMidnight =
+    outsideWindow &&
+    untilStart > 0 &&
+    venueDate(now, venue.ianaTimezone) !==
+      venueDate(new Date(reservation.startTime), venue.ianaTimezone);
   const lateCapped = availability.reason === null && !availability.lateAllowed;
   const arrivedDone = availability.reason === null && !availability.arrivedAllowed;
   const venueName = venue.name;
@@ -209,7 +217,11 @@ export function NightOfCard({
 
           {outsideWindow && (
             <Text id={hintId} variant="caption" color="secondary">
-              {t("manageReservation.nightOf.outsideWindow")}
+              {t(
+                awaitsMidnight
+                  ? "manageReservation.nightOf.outsideWindowAfterMidnight"
+                  : "manageReservation.nightOf.outsideWindow"
+              )}
             </Text>
           )}
           {lateCapped && (

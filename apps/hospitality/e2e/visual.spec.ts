@@ -69,6 +69,15 @@ const isAppApi = (url: URL) =>
 const DAY = FIXED_NOW.toISOString().slice(0, 10);
 const at = (hhmm: string) => `${DAY}T${hhmm}:00.000Z`;
 
+/**
+ * The manage page swaps its details and calendar cards for the night-of card on the booking's
+ * venue day (ADR-029). The manage fixture is dated on FIXED_NOW's day, and the committed
+ * `reservations-manage` baselines show the standard layout, so that row reads a clock one day
+ * earlier: same booking, same strings, standard layout. The night-of layout is covered by
+ * ManageReservationPage.test.tsx; a screenshot row for it needs a new baseline (a human step).
+ */
+const MANAGE_STANDARD_LAYOUT_NOW = new Date(FIXED_NOW.getTime() - 24 * 60 * 60 * 1000);
+
 const VENUE = { id: "ven_e2e_001", name: "E2E Test Bistro", slug: "e2e-test-bistro" } as const;
 
 function briefingEntry(id: string, start: string, end: string, guestName: string, extra: object) {
@@ -321,7 +330,9 @@ for (const { route } of pages) {
       }
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ reducedMotion: "reduce" });
-      await page.clock.setFixedTime(FIXED_NOW);
+      await page.clock.setFixedTime(
+        route === "reservations/manage" ? MANAGE_STANDARD_LAYOUT_NOW : FIXED_NOW
+      );
       await page.goto(`${path ?? ""}${QUERY[route] ?? ""}`);
       await page.waitForLoadState("networkidle");
       const landing = LANDS_ON[route] ?? path ?? "";
