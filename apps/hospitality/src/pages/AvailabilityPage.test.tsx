@@ -233,6 +233,23 @@ function page(url = "/availability?tab=calendar") {
   );
 }
 
+// Dialog and Popover exits are real-time springs in jsdom (~0.75 s to unmount), which put
+// the Go to date tests right at waitFor's 1 s limit. Reduced motion makes them instant; no
+// other media query matches, so the layout stays desktop.
+Object.defineProperty(window, "matchMedia", {
+  writable: true,
+  value: (query: string) => ({
+    matches: query === "(prefers-reduced-motion: reduce)",
+    media: query,
+    onchange: null,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    dispatchEvent: () => false,
+  }),
+});
+
 function renderPage(url?: string) {
   return render(page(url));
 }
