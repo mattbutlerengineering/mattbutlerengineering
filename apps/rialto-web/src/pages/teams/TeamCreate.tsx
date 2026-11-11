@@ -126,8 +126,7 @@ export function TeamCreate() {
   // focus on document.body. Move it to the new step's heading so the step
   // name is announced and the next Tab starts at that step's first field.
   // The ref starts equal to the current step, so the first mount is left
-  // alone. An empty step 1 never reaches this: native validation rejects
-  // the submit before the step changes.
+  // alone. A failed Next stays on the same step, so this effect does not run.
   useEffect(() => {
     if (announcedStepRef.current === currentStep) return;
     announcedStepRef.current = currentStep;
@@ -208,7 +207,12 @@ export function TeamCreate() {
         )}
 
         {currentStep === 0 && (
-          <form onSubmit={handleNext} className={styles.form}>
+          // noValidate: the page owns validation so an empty required field
+          // still reaches handleNext. Native constraint validation cancels
+          // the submit (and shows "Please fill out this field") before the
+          // summary can render; whitespace passes `required`, which is why
+          // only the untouched case was missing the summary.
+          <form onSubmit={handleNext} className={styles.form} noValidate>
             <div className={styles.fieldRow}>
               <Input
                 label="Team Name"
@@ -253,7 +257,7 @@ export function TeamCreate() {
         )}
 
         {currentStep === 1 && (
-          <form onSubmit={handleNext} className={styles.form}>
+          <form onSubmit={handleNext} className={styles.form} noValidate>
             <Input
               label="Chassis Designation"
               value={data.chassis}
