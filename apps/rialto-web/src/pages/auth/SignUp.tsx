@@ -68,18 +68,15 @@ const REQUIREMENT_LINES: { key: keyof PasswordRequirements; text: string }[] = [
 
 function PasswordStrength({ password }: { password: string }) {
   const { score, satisfied } = scorePassword(password);
+  const variant = meterVariantForScore(score);
 
   return (
     <div className={styles.strengthBlock}>
-      <div className={styles.strengthHeader}>
-        <Meter
-          label="Password strength"
-          value={score}
-          max={4}
-          size="sm"
-          variant={meterVariantForScore(score)}
-        />
-        <Text className={styles.strengthLabel}>{STRENGTH_LABELS[score]}</Text>
+      <div className={styles.strengthHeader} data-variant={variant}>
+        <Meter label="Password strength" value={score} max={4} size="sm" variant={variant} />
+        <Text variant="detail" className={styles.strengthLabel}>
+          {STRENGTH_LABELS[score]}
+        </Text>
       </div>
       <ul className={styles.checklist}>
         {REQUIREMENT_LINES.map(({ key, text }) => (
