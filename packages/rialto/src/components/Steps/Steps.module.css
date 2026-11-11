@@ -236,11 +236,16 @@
     overflow-x: auto;
     overscroll-behavior-x: contain;
     scrollbar-width: thin;
+    /* overflow-x:auto also clips y, so pad the focus ring's room back in and
+       cancel it with a matching margin: a row that fits keeps its old height. */
     padding-block: var(--rialto-space-2xs);
+    margin-block: calc(-1 * var(--rialto-space-2xs));
   }
 
+  /* Basis 0 keeps equal columns whenever the labels fit; max-content only
+     takes over (and the row scrolls) when they do not. */
   .horizontal .step {
-    flex: 1 0 auto;
+    flex: 1 0 0;
     min-width: max-content;
   }
 
