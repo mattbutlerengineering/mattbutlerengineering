@@ -113,6 +113,49 @@ describe("NavigationMenu", () => {
       expect(document.activeElement).toBe(screen.getByRole("menuitem", { name: "Widgets" }));
     });
 
+    it.each(["Enter", " "])("closes on a second %s from the trigger and does not reopen", (key) => {
+      vi.useFakeTimers();
+      render(<NavigationMenu items={items} />);
+      const trigger = screen.getByRole("button", { name: /products/i });
+      act(() => {
+        trigger.focus();
+      });
+      fireEvent.keyDown(trigger, { key });
+      expect(trigger).toHaveAttribute("aria-expanded", "true");
+      expect(document.activeElement).toBe(trigger);
+
+      fireEvent.keyDown(trigger, { key });
+
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(document.activeElement).toBe(trigger);
+    });
+
+    it("closes a hover-opened menu on click and does not reopen while the pointer stays", () => {
+      vi.useFakeTimers();
+      render(<NavigationMenu items={items} />);
+      const trigger = screen.getByRole("button", { name: /products/i });
+      fireEvent.mouseEnter(trigger.parentElement!);
+      act(() => {
+        vi.advanceTimersByTime(200);
+      });
+      expect(screen.getByRole("menu")).toBeInTheDocument();
+
+      fireEvent.click(trigger);
+
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      act(() => {
+        vi.advanceTimersByTime(300);
+      });
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    });
+
     it("Escape closes a hover-opened menu when focus is outside it and does not reopen", () => {
       vi.useFakeTimers();
       render(
@@ -196,6 +239,24 @@ describe("NavigationMenu", () => {
       await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument(), {
         timeout: 1500,
       });
+    });
+
+    it("Enter on the open trigger toggles the menu closed and leaves focus there", async () => {
+      const user = userEvent.setup();
+      render(<NavigationMenu items={items} />);
+      await user.tab();
+      await user.tab();
+      await waitFor(() => expect(screen.getByRole("menu")).toBeInTheDocument(), { timeout: 1000 });
+      const trigger = screen.getByRole("button", { name: /products/i });
+      expect(trigger).toHaveFocus();
+
+      await user.keyboard("{Enter}");
+
+      await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument(), {
+        timeout: 1000,
+      });
+      expect(trigger).toHaveFocus();
+      expect(trigger).toHaveAttribute("aria-expanded", "false");
     });
 
     it("closes on Escape", async () => {

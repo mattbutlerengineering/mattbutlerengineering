@@ -350,4 +350,102 @@ describe("NumberInput — clamp on commit, not on each keystroke", () => {
     expect(onChange).toHaveBeenCalledWith(41);
     expect(input.value).toBe("41");
   });
+
+  it("rejects letters without committing and restores the previous value", () => {
+    const onChange = vi.fn();
+    render(<LapCount initial={5} onChange={onChange} />);
+    const input = screen.getByLabelText("Lap Count") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "abc" } });
+    fireEvent.blur(input);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input.value).toBe("5");
+  });
+});
+
+/**
+ * Default step is 1, so a whole-number field (lap count) snaps a decimal
+ * onto that grid when it commits. Fractional `step` keeps decimal support.
+ */
+describe("NumberInput — snap to step on commit", () => {
+  function Controlled({
+    label,
+    initial,
+    min,
+    max,
+    step,
+    onChange,
+  }: {
+    label: string;
+    initial: number;
+    min?: number;
+    max?: number;
+    step?: number;
+    onChange?: (value: number) => void;
+  }) {
+    const [value, setValue] = useState(initial);
+    return (
+      <NumberInput
+        label={label}
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onChange={(next) => {
+          onChange?.(next);
+          setValue(next);
+        }}
+      />
+    );
+  }
+
+  it("rounds 3.7 to a whole lap on blur and steps in whole numbers", () => {
+    const onChange = vi.fn();
+    render(<Controlled label="Lap Count" initial={5} min={1} max={99} onChange={onChange} />);
+    const input = screen.getByLabelText("Lap Count") as HTMLInputElement;
+
+    fireEvent.change(input, { target: { value: "3.7" } });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input.value).toBe("3.7");
+
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenCalledTimes(1);
+    expect(onChange).toHaveBeenCalledWith(4);
+    expect(input.value).toBe("4");
+
+    fireEvent.pointerDown(screen.getByLabelText("Increase"));
+    expect(onChange).toHaveBeenLastCalledWith(5);
+    expect(input.value).toBe("5");
+  });
+
+  it("steps a typed decimal to a whole number before blur", () => {
+    render(<Controlled label="Lap Count" initial={5} min={1} max={99} />);
+    const input = screen.getByLabelText("Lap Count") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "3.7" } });
+    fireEvent.pointerDown(screen.getByLabelText("Increase"));
+    expect(input.value).toBe("5");
+  });
+
+  it("keeps a fractional step on its grid", () => {
+    const onChange = vi.fn();
+    render(
+      <Controlled
+        label="Fuel Load (kg)"
+        initial={45}
+        min={0}
+        max={110}
+        step={0.5}
+        onChange={onChange}
+      />
+    );
+    const input = screen.getByLabelText("Fuel Load (kg)") as HTMLInputElement;
+
+    fireEvent.pointerDown(screen.getByLabelText("Decrease"));
+    expect(onChange).toHaveBeenLastCalledWith(44.5);
+    expect(input.value).toBe("44.5");
+
+    fireEvent.change(input, { target: { value: "3.7" } });
+    fireEvent.blur(input);
+    expect(onChange).toHaveBeenLastCalledWith(3.5);
+    expect(input.value).toBe("3.5");
+  });
 });

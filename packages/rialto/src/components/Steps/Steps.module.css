@@ -11,6 +11,9 @@
   flex-direction: column;
   align-items: center;
   position: relative;
+  /* A clickable step's label is wider than an equal slice of a narrow row.
+     Let the column shrink below that min-content so the row stays on the page. */
+  min-width: 0;
 }
 
 /* Connector line — horizontal */
@@ -156,16 +159,17 @@
 /* ── Clickable steps ─────────────────────────── */
 .stepButton {
   all: unset;
+  /* A button with no box is skipped in Chromium's tab order, even with no
+     tabindex. Keep a real flex box so each step stays keyboard-reachable. */
   display: flex;
   cursor: pointer;
 }
 
-/* A real box, not display:contents, so the step's min-content includes the
-   label. contents dropped the label out of that measurement and the words
-   painted through each other once the row got narrow. */
 .horizontal .stepButton {
   flex-direction: column;
   align-items: center;
+  width: 100%;
+  min-width: 0;
 }
 
 .vertical .stepButton {

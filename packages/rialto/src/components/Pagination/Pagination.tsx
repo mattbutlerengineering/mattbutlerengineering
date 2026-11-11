@@ -73,8 +73,12 @@ function buildPages(
   const leftSibling = Math.max(page - siblingCount, 1);
   const rightSibling = Math.min(page + siblingCount, totalPages);
 
-  const showLeftEllipsis = leftSibling > 2;
-  const showRightEllipsis = rightSibling < totalPages - 1;
+  // Pages strictly between the boundary (1 or totalPages) and the sibling window.
+  // An ellipsis that stands in for a single page is pointless — show that page.
+  const hiddenOnLeft = leftSibling - 2;
+  const hiddenOnRight = totalPages - rightSibling - 1;
+  const showLeftEllipsis = hiddenOnLeft > 1;
+  const showRightEllipsis = hiddenOnRight > 1;
 
   if (!showLeftEllipsis && showRightEllipsis) {
     // Show expanded left, collapsed right

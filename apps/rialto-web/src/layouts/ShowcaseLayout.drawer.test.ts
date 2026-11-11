@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * `.body` is `isolation: isolate`, so a Drawer's fixed z-index never competes
  * with the sticky nav (a sibling of this column). The same lift Dialog uses

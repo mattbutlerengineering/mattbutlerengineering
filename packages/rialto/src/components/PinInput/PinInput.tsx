@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useRef,
+  useState,
   useCallback,
   type KeyboardEvent,
   type ClipboardEvent,
@@ -63,7 +64,7 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
     required,
     disabled = false,
     disabledReason,
-    value = "",
+    value: valueProp,
     onChange,
     onComplete,
     className = "",
@@ -74,6 +75,12 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
   const field = useField({ error, required, hint });
   const cellRefs = useRef<(HTMLInputElement | null)[]>([]);
   const { spring, reduced: shouldReduceMotion } = useMotionPreset();
+  // Omitting `value` is uncontrolled, which is how the docs demos are written.
+  // Defaulting it to "" made those demos controlled-and-stuck: focus advanced
+  // and every cell stayed empty.
+  const [uncontrolledValue, setUncontrolledValue] = useState("");
+  const isControlled = valueProp !== undefined;
+  const value = isControlled ? valueProp : uncontrolledValue;
 
   const chars = Array.from({ length }, (_, i) => value[i] ?? "");
 
@@ -88,12 +95,13 @@ export const PinInput = forwardRef<HTMLDivElement, PinInputProps>(function PinIn
   const updateValue = useCallback(
     (newChars: string[]) => {
       const next = newChars.join("").slice(0, length);
+      if (!isControlled) setUncontrolledValue(next);
       onChange?.(next);
       if (next.length === length) {
         onComplete?.(next);
       }
     },
-    [length, onChange, onComplete]
+    [isControlled, length, onChange, onComplete]
   );
 
   const isValidChar = useCallback(

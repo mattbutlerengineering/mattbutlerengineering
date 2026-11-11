@@ -1,6 +1,8 @@
 /**
  * Unit tests for the Steps component.
  */
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -119,6 +121,51 @@ describe("Steps", () => {
     render(<Steps steps={steps} currentStep={3} />);
     const reviewItem = screen.getByText("Review").closest("[role='listitem']");
     expect(reviewItem).toHaveAttribute("aria-current", "step");
+  });
+
+  it("keeps clickable steps in the tab order (display:contents is not focusable)", () => {
+    // Chromium will not focus an element whose box was removed with
+    // display:contents, even when it is a real <button> with no tabindex.
+    // jsdom still tabs to that button, so the stylesheet is the regression lock.
+    const css = readFileSync(resolve(import.meta.dirname, "./Steps.module.css"), "utf8");
+    const block = css.match(/\.stepButton\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(block).not.toMatch(/display:\s*contents/);
+    expect(block).toMatch(/display:\s*flex/);
+  });
+
+  it("tabs through every clickable step and back from the control after them", async () => {
+    render(
+      <>
+        <Steps steps={steps} currentStep={1} onStepClick={vi.fn()} />
+        <button type="button">After</button>
+      </>
+    );
+    const stepButtons = screen.getAllByRole("button").slice(0, steps.length);
+    expect(stepButtons).toHaveLength(steps.length);
+    const first = stepButtons[0];
+    const last = stepButtons.at(-1);
+    if (!first || !last) throw new Error("expected a step button");
+
+    await user.tab();
+    expect(first).toHaveFocus();
+    for (const button of stepButtons.slice(1)) {
+      await user.tab();
+      expect(button).toHaveFocus();
+    }
+    await user.tab();
+    expect(screen.getByRole("button", { name: "After" })).toHaveFocus();
+    await user.tab({ shift: true });
+    expect(last).toHaveFocus();
+  });
+
+  it("exposes aria-current=step on the current step button", () => {
+    render(<Steps steps={steps} currentStep={1} onStepClick={vi.fn()} />);
+    const [cart, shipping, payment, review] = screen.getAllByRole("button");
+    if (!cart || !shipping || !payment || !review) throw new Error("expected step buttons");
+    expect(shipping).toHaveAttribute("aria-current", "step");
+    expect(cart).not.toHaveAttribute("aria-current");
+    expect(payment).not.toHaveAttribute("aria-current");
+    expect(review).not.toHaveAttribute("aria-current");
   });
 
   it("does not emit 'undefined' in container or step className", () => {

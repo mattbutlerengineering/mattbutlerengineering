@@ -24,17 +24,33 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     value,
     onChange,
     required,
+    error,
+    hint,
   }: {
     label?: string;
     value?: string;
     onChange?: (event: ChangeEvent<HTMLInputElement>) => void;
     required?: boolean;
-  }) => (
-    <label>
-      {label}
-      <input aria-label={label} value={value} onChange={onChange} required={required} />
-    </label>
-  );
+    error?: boolean;
+    hint?: string;
+  }) => {
+    const hintId = hint && label ? `${label.replaceAll(" ", "-")}-hint` : undefined;
+    return (
+      <label>
+        {label}
+        {required ? <span aria-hidden="true"> *</span> : null}
+        <input
+          aria-label={label}
+          value={value}
+          onChange={onChange}
+          required={required}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error && hintId ? hintId : undefined}
+        />
+        {error && hint ? <span id={hintId}>{hint}</span> : null}
+      </label>
+    );
+  };
 
   const NumberInput = ({
     label,
@@ -61,23 +77,45 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     value,
     onChange,
     options,
+    required,
+    error,
+    hint,
   }: {
     label?: string;
     value?: string;
     onChange?: (value: string) => void;
     options: { value: string; label: string }[];
-  }) => (
-    <label>
-      {label}
-      <select aria-label={label} value={value} onChange={(e) => onChange?.(e.target.value)}>
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+    required?: boolean;
+    error?: boolean;
+    hint?: string;
+  }) => {
+    const hintId = hint && label ? `${label.replaceAll(" ", "-")}-hint` : undefined;
+    return (
+      <label>
+        {label}
+        {required ? <span aria-hidden="true"> *</span> : null}
+        <select
+          aria-label={label}
+          aria-required={required ? true : undefined}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error && hintId ? hintId : undefined}
+          value={value}
+          onChange={(e) => onChange?.(e.target.value)}
+        >
+          {options.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        {error && hint ? (
+          <span id={hintId} role="alert">
+            {hint}
+          </span>
+        ) : null}
+      </label>
+    );
+  };
 
   const Steps = ({ steps, currentStep }: { steps: { label: string }[]; currentStep: number }) => (
     <ol data-testid="steps">
@@ -385,9 +423,41 @@ describe("TeamCreate — step-change focus", () => {
     next.focus();
     fireEvent.click(next);
 
-    expect(screen.getByRole("alert")).toHaveTextContent(/engine supplier/i);
+    expect(screen.getByText("Please fix the following:")).toBeInTheDocument();
+    expect(screen.getAllByText(/engine supplier is required/i).length).toBeGreaterThan(0);
     expect(next).toHaveFocus();
     expect(stepHeading("Car Setup")).not.toHaveFocus();
+  });
+
+  it("marks engine and livery required, and invalid when they block Next", () => {
+    renderTeamCreate();
+    fillTeamInfoStep();
+    advanceStep();
+
+    const chassis = screen.getByLabelText("Chassis Designation");
+    const engine = screen.getByLabelText("Engine Supplier");
+    const livery = screen.getByLabelText("Primary Livery Color");
+
+    expect(chassis).toBeRequired();
+    expect(engine).toHaveAttribute("aria-required", "true");
+    expect(livery).toHaveAttribute("aria-required", "true");
+    expect(screen.getAllByText("*", { exact: false }).length).toBeGreaterThanOrEqual(3);
+
+    fireEvent.change(chassis, { target: { value: "X" } });
+    fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+
+    expect(screen.getByText("Please fix the following:")).toBeInTheDocument();
+    expect(engine).toHaveAttribute("aria-invalid", "true");
+    expect(livery).toHaveAttribute("aria-invalid", "true");
+    expect(engine).toHaveAccessibleDescription("Engine supplier is required.");
+    expect(livery).toHaveAccessibleDescription("Livery color is required.");
+    expect(chassis).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByRole("heading", { name: "Review" })).not.toBeInTheDocument();
+
+    fireEvent.change(engine, { target: { value: "Ferrari" } });
+    expect(engine).not.toHaveAttribute("aria-invalid");
+    expect(screen.queryByText("Engine supplier is required.")).not.toBeInTheDocument();
+    expect(livery).toHaveAttribute("aria-invalid", "true");
   });
 
   it("moves focus with Enter and Space from Next", async () => {

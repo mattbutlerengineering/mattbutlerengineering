@@ -32,7 +32,6 @@ export const FourDigit: Story = {
   args: {
     label: "PIN",
     length: 4,
-    value: "",
   },
 };
 
@@ -41,7 +40,6 @@ export const SixDigit: Story = {
     label: "Verification code",
     length: 6,
     hint: "Enter the 6-digit code from your authenticator app.",
-    value: "",
   },
 };
 
@@ -51,7 +49,6 @@ export const WithMask: Story = {
     length: 4,
     mask: true,
     hint: "Your PIN is hidden for security.",
-    value: "",
   },
 };
 
@@ -61,7 +58,6 @@ export const Alphanumeric: Story = {
     length: 6,
     type: "alphanumeric",
     hint: "Letters and numbers accepted.",
-    value: "",
   },
 };
 

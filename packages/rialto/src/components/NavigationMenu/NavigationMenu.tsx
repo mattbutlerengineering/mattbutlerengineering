@@ -179,14 +179,34 @@ function NavTrigger({
     [closeAndReturnFocus]
   );
 
+  // A pending hover/focus timer must not reopen a menu the trigger just
+  // toggled shut (focus runs on mousedown, before the click that closes).
+  const closeFromTrigger = () => {
+    clearTimeout(openTimeout.current);
+    clearTimeout(closeTimeout.current);
+    onClose();
+  };
+
+  const handleTriggerClick = () => {
+    if (isOpen) closeFromTrigger();
+    else openImmediately();
+  };
+
   const handleTriggerKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (!isOpen && (e.key === "Enter" || e.key === " " || e.key === "ArrowDown")) {
+    if (e.key === "Enter" || e.key === " ") {
+      // preventDefault suppresses the native click so keyboard activation
+      // toggles once instead of opening and immediately closing.
       e.preventDefault();
-      if (e.key === "ArrowDown") focusFirstOnOpenRef.current = true;
+      handleTriggerClick();
+      return;
+    }
+    if (!isOpen && e.key === "ArrowDown") {
+      e.preventDefault();
+      focusFirstOnOpenRef.current = true;
       openImmediately();
       return;
     }
-    handlePanelKeyDown(e);
+    if (isOpen) handlePanelKeyDown(e);
   };
 
   const handleTriggerFocus = () => {
@@ -213,6 +233,7 @@ function NavTrigger({
         className={styles.trigger}
         aria-haspopup="menu"
         aria-expanded={isOpen}
+        onClick={handleTriggerClick}
         onFocus={handleTriggerFocus}
         onBlur={startClose}
         onKeyDown={handleTriggerKeyDown}
