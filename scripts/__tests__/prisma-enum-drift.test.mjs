@@ -153,7 +153,9 @@ describe("real sources", () => {
     // this with value-set greps, not just name greps). Adding a Prisma enum
     // lands its name here — decide whether it should get a same-named
     // schema, a CROSS_NAME_PAIRS entry, or genuinely stay server-internal.
+    // RsvpStatus (#8663) stays server-internal: the public invite route validates
+    // IN/OUT with an inline JSON-schema enum and no client schema consumes it yet.
     const { unpaired } = findEnumDrift(realPrismaEnums(), realZodEnums(), CROSS_NAME_PAIRS);
-    expect(unpaired.sort()).toEqual(["EmailStatus", "VenueRole"]);
+    expect(unpaired.sort()).toEqual(["EmailStatus", "RsvpStatus", "VenueRole"]);
   });
 });
