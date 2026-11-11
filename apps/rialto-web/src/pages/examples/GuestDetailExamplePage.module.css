@@ -29,7 +29,14 @@
 
 .panelGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  /* 300px is the side-by-side floor. min(100%, …) lets one column shrink
+     to the example column (~279px at 375px) instead of painting past it. */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   gap: var(--rialto-space-lg);
   align-items: start;
+  min-inline-size: 0;
+}
+
+.panelGrid > * {
+  min-inline-size: 0;
 }

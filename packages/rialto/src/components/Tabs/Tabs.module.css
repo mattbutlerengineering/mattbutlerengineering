@@ -1,9 +1,29 @@
+/* ── Root ────────────────────────────────────── */
+/* A column flex parent sizes this to its content. The floor lets a narrow
+   column win, so the tab labels scroll here instead of widening the page. */
+.root {
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
 /* ── Tab list container ──────────────────────── */
 .tabList {
   display: flex;
   gap: var(--rialto-space-2xs);
   position: relative;
   border-bottom: 1px solid var(--rialto-border);
+  min-inline-size: 0;
+  max-inline-size: 100%;
+}
+
+/* Overflow stays visible while the labels fit, so the focus glow is not
+   clipped on a row that does not scroll. Once they don't fit, the list
+   itself is the scrollport — a click must not slide the page sideways. */
+.tabList[data-overflowing="true"] {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scroll-padding-inline: var(--rialto-space-xs);
 }
 
 /* ── Individual tab trigger ──────────────────── */
