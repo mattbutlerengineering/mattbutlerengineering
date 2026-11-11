@@ -7143,6 +7143,38 @@
           });
         }
       );
+    
+      fastify.post<{ Params: { token: string }; Body: { firstName: string; status: "IN" | "OUT" } }>(
+        "/public/v1/invites/:token/rsvp",
+        {
+          schema: { body: rsvpBodySchema },
+          config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+        },
+        async (request, reply) => {
+          const result = await addInviteRsvp(request.params.token, {
+            firstName: request.body.firstName.trim(),
+            status: request.body.status,
+          });
+          if (result.kind === "missing") {
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", "This invitation was not found"));
+          }
+          if (result.kind === "gone") {
+            return reply
+              .status(410)
+              .send(
+                createProblemDetails(410, "Invitation Ended", "This invitation is no longer available")
+              );
+          }
+          if (result.kind === "full") {
+            return reply
+              .status(409)
+              .send(createProblemDetails(409, "Invitation Full", "This invitation has no spots left"));
+          }
+          return reply.status(201).send({ data: { ok: true } });
+        }
+      );
     };
   </file>
   <file path="src/routes/public-menus.ts">
@@ -22956,6 +22988,47 @@
         time: `${parts.hour}:${parts.minute}`,
       };
     }
+    type LiveInvite =
+      | {
+          kind: "ok";
+          inviteId: string;
+          venueId: string;
+          reservation: {
+            startTime: Date;
+            partySize: number;
+            status: string;
+            venue: { name: string; slug: string; ianaTimezone: string };
+          };
+        }
+      | { kind: "gone" }
+      | { kind: "missing" };
+    async function resolveLiveInvite(token: string, venueId: string, now: Date): Promise<LiveInvite> {
+      const invite = await prisma.reservationInvite.findFirst({
+        where: { tokenHash: hashInviteToken(token) },
+      });
+      if (!invite) return { kind: "missing" };
+      if (invite.revokedAt) return { kind: "gone" };
+      const reservation = await prisma.reservation.findFirst({
+        where: { id: invite.reservationId, venueId },
+        select: {
+          startTime: true,
+          endTime: true,
+          partySize: true,
+          status: true,
+          venue: { select: { name: true, slug: true, ianaTimezone: true } },
+        },
+      });
+      if (!reservation?.venue) return { kind: "missing" };
+      if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
+        return { kind: "gone" };
+      }
+      return {
+        kind: "ok",
+        inviteId: invite.id,
+        venueId,
+        reservation: { ...reservation, venue: reservation.venue },
+      };
+    }
     export async function getInvitePublicView(
       token: string,
       now: Date = new Date()
@@ -22964,25 +23037,13 @@
       if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
       const venueId = token.slice(0, dot);
       return runWithVenueContext(venueId, async (): Promise<InviteLookup> => {
-        const invite = await prisma.reservationInvite.findFirst({
-          where: { tokenHash: hashInviteToken(token) },
+        const live = await resolveLiveInvite(token, venueId, now);
+        if (live.kind !== "ok") return live;
+        const { reservation } = live;
+        const rsvps = await prisma.reservationRsvp.findMany({
+          where: { inviteId: live.inviteId },
+          orderBy: { createdAt: "asc" },
         });
-        if (!invite) return { kind: "missing" };
-        if (invite.revokedAt) return { kind: "gone" };
-        const reservation = await prisma.reservation.findFirst({
-          where: { id: invite.reservationId, venueId },
-          select: {
-            startTime: true,
-            endTime: true,
-            partySize: true,
-            status: true,
-            venue: { select: { name: true, slug: true, ianaTimezone: true } },
-          },
-        });
-        if (!reservation?.venue) return { kind: "missing" };
-        if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
-          return { kind: "gone" };
-        }
         const { date, time } = localParts(reservation.startTime, reservation.venue.ianaTimezone);
         return {
           kind: "ok",
@@ -22991,10 +23052,36 @@
             date,
             time,
             partySize: reservation.partySize,
-            rsvps: [],
+            rsvps: rsvps.map((r) => ({ firstName: r.firstName, status: r.status })),
             status: reservation.status,
           },
         };
+      });
+    }
+    export const RSVP_EXTRA_SLOTS = 2;
+    export type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
+    export async function addInviteRsvp(
+      token: string,
+      input: { firstName: string; status: "IN" | "OUT" },
+      now: Date = new Date()
+    ): Promise<RsvpResult> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
+      const venueId = token.slice(0, dot);
+      return runWithVenueContext(venueId, async (): Promise<RsvpResult> => {
+        const live = await resolveLiveInvite(token, venueId, now);
+        if (live.kind !== "ok") return live;
+        const taken = await prisma.reservationRsvp.count({ where: { inviteId: live.inviteId } });
+        if (taken >= live.reservation.partySize + RSVP_EXTRA_SLOTS) return { kind: "full" };
+        await prisma.reservationRsvp.create({
+          data: {
+            venueId,
+            inviteId: live.inviteId,
+            firstName: input.firstName,
+            status: input.status,
+          },
+        });
+        return { kind: "ok" };
       });
     }
   </file>
@@ -26310,6 +26397,7 @@
       "closureOutcome",
       "guestWinBack",
       "reservationInvite",
+      "reservationRsvp",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
