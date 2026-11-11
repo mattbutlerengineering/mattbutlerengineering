@@ -5512,11 +5512,11 @@
     </item>
     <item priority="low">
       interface PrismaReservationRow {
+        invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
         id: string;
         date: Date;
         startTime: Date;
         endTime: Date;
-        partySize: number;
       }
     </item>
     <item priority="high">
@@ -5539,6 +5539,9 @@
     </item>
     <item priority="high">
       export function toReservation(row: PrismaReservationRow): Reservation { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] { /* ... */ }
     </item>
   </file>
   <file path="src/services/slot-rules.ts">

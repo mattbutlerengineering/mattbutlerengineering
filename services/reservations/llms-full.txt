@@ -23800,6 +23800,7 @@
               guest: {
                 select: { visitCount: true, communicationPreference: true, unsubscribed: true },
               },
+              invites: INVITE_RSVP_SELECT,
             },
           }),
           prisma.reservation.count({ where }),
@@ -23868,6 +23869,7 @@
           include: {
             table: true,
             guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
+            invites: INVITE_RSVP_SELECT,
           },
         });
         return reservation ? toReservation(reservation) : null;
@@ -24786,6 +24788,8 @@
       updatedAt: Date;
     }
     export interface PrismaReservationRow {
+      /** Optional so callers that do not include the relation still type-check (#8667). */
+      invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
       id: string;
       date: Date;
       startTime: Date;
@@ -24887,10 +24891,16 @@
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
+        inviteRsvp: toInviteRsvp(row),
         venueId: row.venueId,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
       };
+    }
+    function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] {
+      const live = row.invites?.find((invite) => invite.revokedAt === null);
+      if (!live) return null;
+      return { in: live.rsvps.filter((r) => r.status === "IN").length, partySize: row.partySize };
     }
   </file>
   <file path="src/services/slot-rules.ts">

@@ -334,7 +334,9 @@ export function SignIn() {
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault();
     const emailInvalid = !isValidEmail(email);
-    const passwordInvalid = password === "";
+    // A password of only spaces is blank. The field keeps what was typed;
+    // trimming is only the emptiness check, so a real password may contain spaces.
+    const passwordInvalid = password.trim() === "";
     setEmailError(emailInvalid);
     setPasswordError(passwordInvalid);
     if (emailInvalid || passwordInvalid) {

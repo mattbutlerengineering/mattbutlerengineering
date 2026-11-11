@@ -1,3 +1,4 @@
+import { InviteRsvpChip } from "./InviteRsvpChip.js";
 import { useTranslation } from "react-i18next";
 import { Button, Divider, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { Reservation, Table } from "@mbe/types";
@@ -139,6 +140,7 @@ export function ReservationDetails({
         <Text variant="body" as="div">
           {t("timeline.guests", { count: reservation.partySize })}
         </Text>
+        <InviteRsvpChip rsvp={reservation.inviteRsvp} />
       </div>
 
       <div>

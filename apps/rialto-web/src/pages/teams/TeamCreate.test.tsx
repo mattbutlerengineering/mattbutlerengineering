@@ -401,16 +401,67 @@ describe("TeamCreate — step-change focus", () => {
     expect(screen.getByLabelText("Chassis Designation")).toHaveValue("SN-01");
   });
 
-  it("leaves an empty step 1 to native validation instead of focusing the heading", () => {
+  it("shows the field summary when Next is clicked with every field empty", () => {
     renderTeamCreate();
     const next = screen.getByRole("button", { name: /^next$/i });
+    expect(next.closest("form")).toHaveAttribute("novalidate");
     next.focus();
     fireEvent.click(next);
 
+    expect(screen.getByText("Please fix the following:")).toBeInTheDocument();
+    expect(screen.getByText("Team name is required.")).toBeInTheDocument();
+    expect(screen.getByText("Base city is required.")).toBeInTheDocument();
+    expect(screen.getByText("Team principal is required.")).toBeInTheDocument();
     expect(screen.queryByLabelText("Chassis Designation")).not.toBeInTheDocument();
     expect(stepHeading("Team Info")).not.toHaveFocus();
-    const active = document.activeElement;
-    expect(active === next || active === screen.getByLabelText("Team Name")).toBe(true);
+    expect(next).toHaveFocus();
+
+    fireEvent.click(next);
+    expect(screen.getByText("Team name is required.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Chassis Designation")).not.toBeInTheDocument();
+  });
+
+  it("shows the same summary when the text fields hold only whitespace", () => {
+    renderTeamCreate();
+    fireEvent.change(screen.getByLabelText("Team Name"), { target: { value: "   " } });
+    fireEvent.change(screen.getByLabelText("Base City"), { target: { value: " \t " } });
+    fireEvent.change(screen.getByLabelText("Team Principal"), { target: { value: "  " } });
+    fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+
+    expect(screen.getByText("Please fix the following:")).toBeInTheDocument();
+    expect(screen.getByText("Team name is required.")).toBeInTheDocument();
+    expect(screen.getByText("Base city is required.")).toBeInTheDocument();
+    expect(screen.getByText("Team principal is required.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Chassis Designation")).not.toBeInTheDocument();
+  });
+
+  it("drops a corrected team-info field from the summary before the next submit", () => {
+    renderTeamCreate();
+    fireEvent.click(screen.getByRole("button", { name: /^next$/i }));
+    expect(screen.getByText("Team name is required.")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Team Name"), { target: { value: "Scuderia Nova" } });
+
+    expect(screen.queryByText("Team name is required.")).not.toBeInTheDocument();
+    expect(screen.getByText("Base city is required.")).toBeInTheDocument();
+    expect(screen.getByText("Team principal is required.")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Chassis Designation")).not.toBeInTheDocument();
+  });
+
+  it("shows the car-setup summary when Next is clicked with that step empty", () => {
+    renderTeamCreate();
+    fillTeamInfoStep();
+    advanceStep();
+
+    const next = screen.getByRole("button", { name: /^next$/i });
+    expect(next.closest("form")).toHaveAttribute("novalidate");
+    fireEvent.click(next);
+
+    expect(screen.getByText("Please fix the following:")).toBeInTheDocument();
+    expect(screen.getAllByText("Chassis designation is required.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Engine supplier is required.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Livery color is required.").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "Review" })).not.toBeInTheDocument();
   });
 
   it("keeps the step-2 error alert and leaves focus on Next when the step does not change", () => {
