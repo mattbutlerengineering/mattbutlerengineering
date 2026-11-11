@@ -30,8 +30,15 @@
     0 0 1px rgb(0 0 0 / 0.2);
 }
 
-:global([data-theme="dark"]) .panel {
+/* `.panel` composes `.glass`. The dark glass fill is rgb(42 39 37 / 0.9) at
+   the same specificity as a single `[data-theme="dark"] .panel` rule, so
+   bundle order was letting the page title show through the empty state.
+   Doubling the class beats that rule in either bundle order. Drop the blur:
+   an opaque fill hides it, and a leftover blur is what made the panel ghost. */
+:global([data-theme="dark"]) .panel.panel {
   background: var(--rialto-surface-elevated);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ── Search input area ───────────────────────── */

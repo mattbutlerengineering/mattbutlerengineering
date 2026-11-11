@@ -156,12 +156,24 @@
 /* ── Clickable steps ─────────────────────────── */
 .stepButton {
   all: unset;
-  display: contents;
+  display: flex;
   cursor: pointer;
 }
 
-/* Focus ring on the node when stepButton is keyboard-focused.
-   display:contents means the button is invisible — target its child node. */
+/* A real box, not display:contents, so the step's min-content includes the
+   label. contents dropped the label out of that measurement and the words
+   painted through each other once the row got narrow. */
+.horizontal .stepButton {
+  flex-direction: column;
+  align-items: center;
+}
+
+.vertical .stepButton {
+  align-items: flex-start;
+  gap: var(--rialto-space-md);
+}
+
+/* Focus ring on the node when the step button is keyboard-focused. */
 .stepButton:focus-visible .node {
   outline: none;
   box-shadow: var(--rialto-shadow-focus);
@@ -212,6 +224,22 @@
 
 /* ── Responsive: horizontal → stacked on mobile ─ */
 @media (max-width: 640px) {
+  /* Labels such as "Scrutineering" are wider than an equal slice of a 375px
+     column. Scroll the row instead of letting those words collide or break. */
+  .horizontal {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    padding-block: var(--rialto-space-2xs);
+  }
+
+  .horizontal .step {
+    flex: 1 0 auto;
+    min-width: max-content;
+  }
+
   .horizontal .stepDescription {
     display: none;
   }
@@ -222,6 +250,7 @@
 
   .horizontal .stepLabel {
     font-size: var(--rialto-text-xs);
+    white-space: nowrap;
   }
 }
 
