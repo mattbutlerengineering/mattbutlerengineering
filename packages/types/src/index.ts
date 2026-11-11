@@ -146,6 +146,7 @@ export type {
 // SSE event catalog (shared server/client event vocabulary)
 export type {
   SsePayloadMap,
+  GuestSignalEventData,
   SseEventName,
   SseQueryKey,
   SseEventDefinition,
