@@ -43967,6 +43967,7 @@
                       phone: venue.settings?.phone,
                       modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
                       maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
+                      tonightNote: venue.settings?.tonightNote || null,
                     }
                   : null,
               },
@@ -49149,6 +49150,32 @@
         venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
           const { venueGroupId } = request.body;
     
+          // The tonight note is guest-facing copy, so only an owner (or an admin)
+          // may change it. `settings` is replaced wholesale, so any write that
+          // would alter the stored note counts, including one that omits it.
+          if (request.body.settings !== undefined && !isAdmin) {
+            const callerRole = await request.server.venueRoleLookup(
+              request.user?.raw.sub ?? "",
+              venueId
+            );
+            if (callerRole !== "owner") {
+              const current = await venueService.getById(venueId);
+              const storedNote = current?.settings?.tonightNote ?? "";
+              const incomingNote = request.body.settings?.tonightNote ?? "";
+              if (storedNote !== incomingNote) {
+                return reply
+                  .code(403)
+                  .send(
+                    createProblemDetails(
+                      403,
+                      "Forbidden",
+                      "Owner role required to edit the tonight note"
+                    )
+                  );
+              }
+            }
+          }
+    
           const hoursError = operatingHoursError(request.body.operatingHours);
           if (hoursError) {
             return reply.code(400).send(createProblemDetails(400, "Bad Request", hoursError));
@@ -51486,6 +51513,7 @@
     export type ReorderMenuRequest = z.infer<typeof ReorderMenuRequestSchema>;
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
+    export const TONIGHT_NOTE_MAX_LENGTH = 200;
     export const ListReservationsQuerySchema = z.object({
       page: z.string().default("1").describe("Page number (1-indexed)"),
       limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
@@ -90073,6 +90101,8 @@
        * `VenueProfileSchema` and `PublicVenueConfig.profile`.
        */
       profile?: VenueProfile;
+      /** Owner-editable note shown to guests on the night-of manage page (max 200 chars). */
+      tonightNote?: string;
       /** Per-venue palette; validate with `VenueThemeSchema` before use. */
       theme?: VenueTheme;
     }

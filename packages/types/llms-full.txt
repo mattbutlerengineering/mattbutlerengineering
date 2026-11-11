@@ -2137,6 +2137,7 @@
     export type ReorderMenuRequest = z.infer<typeof ReorderMenuRequestSchema>;
   </file>
   <file path="src/schemas/reservation-requests.ts">
+    export const TONIGHT_NOTE_MAX_LENGTH = 200;
     export const ListReservationsQuerySchema = z.object({
       page: z.string().default("1").describe("Page number (1-indexed)"),
       limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
@@ -3768,6 +3769,8 @@
        * `VenueProfileSchema` and `PublicVenueConfig.profile`.
        */
       profile?: VenueProfile;
+      /** Owner-editable note shown to guests on the night-of manage page (max 200 chars). */
+      tonightNote?: string;
       /** Per-venue palette; validate with `VenueThemeSchema` before use. */
       theme?: VenueTheme;
     }

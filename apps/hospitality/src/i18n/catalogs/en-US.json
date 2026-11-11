@@ -3355,6 +3355,14 @@
       "emergencyCloseOn": "Hosts can close the whole venue for tonight in an emergency.",
       "emergencyCloseOff": "Only managers can close the venue."
     },
+    "tonightNote": {
+      "title": "Tonight Note",
+      "label": "Tonight note",
+      "hint": "Shown to guests on the day of their booking. Up to {{max}} characters; leave empty to clear.",
+      "save": "Save note",
+      "saving": "Saving…",
+      "saved": "Tonight note saved."
+    },
     "profile": {
       "title": "Venue Profile",
       "description": "Who you are, as guests see you on your public booking page.",

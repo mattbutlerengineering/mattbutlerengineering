@@ -57,6 +57,10 @@ vi.mock("../components/venue-profile/VenueProfileCard.js", () => ({
   VenueProfileCard: () => <div data-testid="venue-profile-card" />,
 }));
 
+vi.mock("../components/venue-tonight-note/TonightNoteCard.js", () => ({
+  TonightNoteCard: () => <div data-testid="tonight-note-card" />,
+}));
+
 // Settings → Team has its own suite at components/venue-team/TeamRolesCard.test.tsx.
 vi.mock("../components/venue-team/TeamRolesCard.js", () => ({
   TeamRolesCard: () => <div data-testid="team-roles-card" />,

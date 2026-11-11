@@ -3453,6 +3453,14 @@
       "emergencyCloseOn": "Les hôtes peuvent fermer tout l'établissement ce soir en cas d'urgence.",
       "emergencyCloseOff": "Seuls les gérants peuvent fermer l'établissement."
     },
+    "tonightNote": {
+      "title": "Note du soir",
+      "label": "Note du soir",
+      "hint": "Affichée aux clients le jour de leur réservation. Jusqu'à {{max}} caractères; laissez vide pour l'effacer.",
+      "save": "Enregistrer la note",
+      "saving": "Enregistrement…",
+      "saved": "Note du soir enregistrée."
+    },
     "profile": {
       "title": "Profil de l'établissement",
       "description": "Qui vous êtes, tel que les clients vous voient sur votre page de réservation publique.",
