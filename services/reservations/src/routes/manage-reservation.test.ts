@@ -69,6 +69,10 @@ vi.mock("../services/manage-rebook.js", () => ({
 
 import { loadVenueCancellation } from "../services/manage-rebook.js";
 
+vi.mock("../services/guest-signal.js", () => ({
+  countGuestSignals: vi.fn().mockResolvedValue({ late: 0, arrived: 0 }),
+}));
+
 const mockReservation = {
   id: "res_1",
   venueId: "venue_1",

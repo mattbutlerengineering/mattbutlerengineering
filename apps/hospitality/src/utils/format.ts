@@ -314,3 +314,24 @@ function canonicalTimeZone(timeZone: string): string {
 export function sameTimeZone(a: string, b: string): boolean {
   return canonicalTimeZone(a) === canonicalTimeZone(b);
 }
+
+const MINUTE_MS = 60_000;
+
+/**
+ * "2 hr 15 min" in `locale`: whole hours and minutes of `ms` (floored, sign ignored), through
+ * `Intl` so units and spacing follow the guest's language. Under a minute reads "0 min".
+ */
+export function formatDurationLabel(ms: number, locale: string): string {
+  const totalMinutes = Math.floor(Math.abs(ms) / MINUTE_MS);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const unit = (value: number, name: "hour" | "minute"): string =>
+    new Intl.NumberFormat(locale, { style: "unit", unit: name, unitDisplay: "short" }).format(
+      value
+    );
+  const parts = [
+    ...(hours > 0 ? [unit(hours, "hour")] : []),
+    ...(minutes > 0 || hours === 0 ? [unit(minutes, "minute")] : []),
+  ];
+  return new Intl.ListFormat(locale, { type: "unit", style: "narrow" }).format(parts);
+}

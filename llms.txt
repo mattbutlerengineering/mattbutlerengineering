@@ -19847,6 +19847,17 @@
       export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/night-of-venue.ts">
+    <item priority="high">
+      type VenueAddress = NonNullable<VenueProfile["address"]>;
+    </item>
+    <item priority="high">
+      export function nightOfVenueFields(settings: unknown): {
+        address?: VenueAddress;
+        tonightNote?: string;
+      } { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
@@ -24183,6 +24194,18 @@
       }
     </item>
     <item priority="low">
+      interface ManagedVenueAddress {
+        line1: string;
+        line2?: string;
+        city: string;
+        region: string;
+        postalCode: string;
+      }
+    </item>
+    <item priority="low">
+      type GuestSignal = { kind: "running-late"; minute | { kind: "arrived" };
+    </item>
+    <item priority="low">
       interface ManagedReservationChanges {
         date?: string;
         startTime?: string;
@@ -24219,6 +24242,7 @@
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;
         venueCancellation?: ManagedVenueCancellation | null;
+        guestSignals?: { late: number; arrived: number };
       }
     </item>
     <item priority="high">
@@ -29615,6 +29639,14 @@
       export const DINNER_TZ: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/directions-url.ts">
+    <item priority="high">
+      export function buildDirectionsUrl(
+        venueName: string,
+        address: ManagedVenueAddress | undefined
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     <item priority="medium">
       function defaultReport(timeZone: string): void { /* ... */ }
@@ -29710,6 +29742,38 @@
     </item>
     <item priority="high">
       export function sameTimeZone(a: string, b: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatDurationLabel(ms: number, locale: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/guest-signal.ts">
+    <item priority="high">
+      export const MAX_LATE_SIGNALS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_ARRIVED_SIGNALS: unknown;
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailabilityInput {
+        status: string;
+        startTime: string;
+        timezone: string;
+        now: Date;
+        priorSignals: { late: number; arrived: number };
+      }
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailability {
+        lateAllowed: boolean;
+        arrivedAllowed: boolean;
+        reason: "not-confirmed" | "outside-window" | null;
+      }
+    </item>
+    <item priority="high">
+      export function guestSignalAvailability(
+        input: GuestSignalAvailabilityInput
+      ): GuestSignalAvailability { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

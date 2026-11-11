@@ -43958,6 +43958,11 @@
               data: {
                 reservation: serializeManagedReservation(reservation),
                 venueCancellation,
+                // Only a confirmed booking can signal, so only it pays for the history read.
+                guestSignals:
+                  reservation.status === "CONFIRMED"
+                    ? await countGuestSignals(reservation.id)
+                    : { late: 0, arrived: 0 },
                 venue: venue
                   ? {
                       id: venue.id,
@@ -43967,7 +43972,8 @@
                       phone: venue.settings?.phone,
                       modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
                       maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
-                      tonightNote: venue.settings?.tonightNote || null,
+                      ...nightOfVenueFields(venue.settings),
+                      tonightNote: nightOfVenueFields(venue.settings).tonightNote ?? null,
                     }
                   : null,
               },
@@ -66519,6 +66525,22 @@
       return { success: true, reservation: toReservation(result.value) };
     }
   </file>
+  <file path="services/reservations/src/services/night-of-venue.ts">
+    type VenueAddress = NonNullable<VenueProfile["address"]>;
+    export function nightOfVenueFields(settings: unknown): {
+      address?: VenueAddress;
+      tonightNote?: string;
+    } {
+      const record = typeof settings === "object" && settings !== null ? settings : {};
+      const { address } = toPublicVenueProfile((record as { profile?: unknown }).profile);
+      const rawNote = (record as { tonightNote?: unknown }).tonightNote;
+      const note = typeof rawNote === "string" ? rawNote.trim() : "";
+      return {
+        ...(address ? { address } : {}),
+        ...(note.length > 0 && note.length <= TONIGHT_NOTE_MAX_LENGTH ? { tonightNote: note } : {}),
+      };
+    }
+  </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
     export class JobQueueUnavailableError extends Error {
@@ -82282,7 +82304,20 @@
       modificationCutoffHours?: number | null;
       /** Largest party-size change a guest may make; null = unlimited (#6907). */
       maxPartySizeChange?: number | null;
+      /** Public postal address from the venue profile; absent when the venue has not set one. */
+      address?: ManagedVenueAddress;
+      /** The venue's short note for tonight (≤200 chars); absent when none. Render as text only. */
+      tonightNote?: string;
     }
+    export interface ManagedVenueAddress {
+      line1: string;
+      line2?: string;
+      city: string;
+      region: string;
+      postalCode: string;
+      country: string;
+    }
+    export type GuestSignal = { kind: "running-late"; minutes: 5 | 15 | 30 } | { kind: "arrived" };
     export interface ManagedReservationChanges {
       date?: string;
       startTime?: string;
@@ -82317,6 +82352,8 @@
       reservation: ManagedReservation;
       venue: ManagedReservationVenue | null;
       venueCancellation?: ManagedVenueCancellation | null;
+      /** Night-of signals this booking has already sent (caps: 3 late, 1 arrived); absent from an older API. */
+      guestSignals?: { late: number; arrived: number };
     }
     export class ReservationsClient {
       constructor(private client: ApiClient) {}
@@ -82460,6 +82497,34 @@
             body: reason ? JSON.stringify(reason) : undefined,
           },
           z.object({ data: schema })
+        );
+        return response.data;
+      }
+    
+      /**
+       * Tell the venue the party is running late or has arrived (public,
+       * token-authenticated). Information only: the booking is never changed.
+       * Refusals surface as `ApiClientError`: 400/401/403/404/410 token problems,
+       * 409 (not confirmed / outside the signal window), 429 (cap or rate limit).
+       */
+      async signalManaged(token: string, signal: GuestSignal): Promise<GuestSignal> {
+        const schema = z.object({
+          data: z.union([
+            z.object({ kind: z.literal("arrived") }),
+            z.object({
+              kind: z.literal("running-late"),
+              minutes: z.union([z.literal(5), z.literal(15), z.literal(30)]),
+            }),
+          ]),
+        });
+        const response = await this.client.request<{ data: GuestSignal }>(
+          "/public/v1/reservations/manage/signal",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify(signal),
+          },
+          schema
         );
         return response.data;
       }
@@ -95877,6 +95942,28 @@
     };
     export const DINNER_TZ = "America/Los_Angeles";
   </file>
+  <file path="apps/hospitality/src/utils/directions-url.ts">
+    export function buildDirectionsUrl(
+      venueName: string,
+      address: ManagedVenueAddress | undefined
+    ): string {
+      const parts = address
+        ? [
+            venueName,
+            address.line1,
+            address.line2,
+            address.city,
+            `${address.region} ${address.postalCode}`,
+            address.country,
+          ]
+        : [venueName];
+      const params = new URLSearchParams({
+        api: "1",
+        query: parts.filter((part): part is string => Boolean(part)).join(", "),
+      });
+      return `${MAPS_SEARCH_URL}?${params.toString()}`;
+    }
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     function defaultReport(timeZone: string): void {
       console.warn(`Invalid IANA time zone "${timeZone}"; falling back to the device zone.`);
@@ -96053,6 +96140,58 @@
     }
     export function sameTimeZone(a: string, b: string): boolean {
       return canonicalTimeZone(a) === canonicalTimeZone(b);
+    }
+    export function formatDurationLabel(ms: number, locale: string): string {
+      const totalMinutes = Math.floor(Math.abs(ms) / MINUTE_MS);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      const unit = (value: number, name: "hour" | "minute"): string =>
+        new Intl.NumberFormat(locale, { style: "unit", unit: name, unitDisplay: "short" }).format(
+          value
+        );
+      const parts = [
+        ...(hours > 0 ? [unit(hours, "hour")] : []),
+        ...(minutes > 0 || hours === 0 ? [unit(minutes, "minute")] : []),
+      ];
+      return new Intl.ListFormat(locale, { type: "unit", style: "narrow" }).format(parts);
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/guest-signal.ts">
+    export const MAX_LATE_SIGNALS = 3;
+    export const MAX_ARRIVED_SIGNALS = 1;
+    export interface GuestSignalAvailabilityInput {
+      status: string;
+      /** Reservation start instant (ISO string). */
+      startTime: string;
+      /** Venue IANA timezone; "today" is decided in it. */
+      timezone: string;
+      now: Date;
+      priorSignals: { late: number; arrived: number };
+    }
+    export interface GuestSignalAvailability {
+      readonly lateAllowed: boolean;
+      readonly arrivedAllowed: boolean;
+      /** Why neither can be sent (a cap only disables its own button); null when the booking and clock allow signals. */
+      readonly reason: "not-confirmed" | "outside-window" | null;
+    }
+    export function guestSignalAvailability(
+      input: GuestSignalAvailabilityInput
+    ): GuestSignalAvailability {
+      if (input.status !== "CONFIRMED") {
+        return { lateAllowed: false, arrivedAllowed: false, reason: "not-confirmed" };
+      }
+      const start = new Date(input.startTime);
+      const delta = input.now.getTime() - start.getTime();
+      const inWindow =
+        delta >= -SIGNAL_WINDOW_BEFORE_MS &&
+        delta <= SIGNAL_WINDOW_AFTER_MS &&
+        venueDate(input.now, input.timezone) === venueDate(start, input.timezone);
+      if (!inWindow) return { lateAllowed: false, arrivedAllowed: false, reason: "outside-window" };
+      return {
+        lateAllowed: input.priorSignals.late < MAX_LATE_SIGNALS,
+        arrivedAllowed: input.priorSignals.arrived < MAX_ARRIVED_SIGNALS,
+        reason: null,
+      };
     }
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

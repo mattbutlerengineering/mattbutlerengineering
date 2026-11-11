@@ -1503,6 +1503,34 @@
       "cutoff": "Les modifications ferment {{hours}} heures avant votre visite. Appelez {{venue}} pour modifier cette réservation.",
       "success": "Votre réservation a été mise à jour."
     },
+    "nightOf": {
+      "title": "Ce soir chez {{venue}}",
+      "countdownBefore": "Votre réservation commence dans {{duration}}",
+      "countdownNow": "C’est l’heure de votre réservation",
+      "countdownAfter": "Votre réservation a commencé il y a {{duration}}",
+      "partyAndTime": "{{party}} · {{time}}",
+      "directions": "Obtenir l’itinéraire",
+      "directionsLabel": "Obtenir l’itinéraire vers {{venue}} (s’ouvre dans un nouvel onglet)",
+      "noteHeading": "Un mot de {{venue}}",
+      "signalsHeading": "Prévenez {{venue}}",
+      "signalsHint": "Dites à l’équipe si vos plans changent ce soir. Votre réservation n’est jamais modifiée.",
+      "runningLate": "En retard de {{minutes}} min",
+      "arrived": "Nous sommes arrivés",
+      "sending": "Envoi en cours…",
+      "sentLate": "Merci — {{venue}} sait que vous aurez environ {{minutes}} minutes de retard. Votre table est toujours réservée.",
+      "sentArrived": "Merci — {{venue}} sait que vous êtes arrivés.",
+      "outsideWindow": "Les avis sont possibles dès 3 heures avant votre réservation et jusqu’à 45 minutes après son début.",
+      "outsideWindowAfterMidnight": "Les avis sont possibles à partir de minuit, mais pas plus de 3 heures avant votre réservation, et jusqu’à 45 minutes après son début.",
+      "lateCapped": "Vous avez envoyé le nombre maximal d’avis de retard ({{max}}). Appelez {{venue}} si vous avez besoin de plus de temps.",
+      "arrivedDone": "Vous avez déjà prévenu {{venue}} de votre arrivée.",
+      "errors": {
+        "link": "Nous n’avons pas pu vérifier ce lien. Veuillez le rouvrir depuis votre courriel de confirmation.",
+        "expired": "Ce lien a expiré. Veuillez appeler {{venue}}.",
+        "window": "{{venue}} n’accepte pas d’avis en ce moment. Veuillez l’appeler si vos plans ont changé.",
+        "limit": "Vous avez envoyé le nombre maximal d’avis, ou vous en envoyez trop rapidement. Attendez une minute ou appelez {{venue}}.",
+        "failed": "Nous n’avons pas pu envoyer l’avis. Vérifiez votre connexion et réessayez, ou appelez {{venue}}."
+      }
+    },
     "venueCancelled": {
       "heading": "Votre réservation a été annulée",
       "intro": "{{venue}} a dû annuler cette réservation.",

@@ -1472,6 +1472,34 @@
       "cutoff": "Changes close {{hours}} hours before your visit. Call {{venue}} to change this booking.",
       "success": "Your booking has been updated."
     },
+    "nightOf": {
+      "title": "Tonight at {{venue}}",
+      "countdownBefore": "Your reservation starts in {{duration}}",
+      "countdownNow": "Your reservation time is now",
+      "countdownAfter": "Your reservation started {{duration}} ago",
+      "partyAndTime": "{{party}} · {{time}}",
+      "directions": "Get directions",
+      "directionsLabel": "Get directions to {{venue}} (opens in a new tab)",
+      "noteHeading": "A note from {{venue}}",
+      "signalsHeading": "Let {{venue}} know",
+      "signalsHint": "Tell the host if your plans change tonight. This never changes your booking.",
+      "runningLate": "Running {{minutes}} min late",
+      "arrived": "We're here",
+      "sending": "Sending…",
+      "sentLate": "Thanks — {{venue}} knows you're running about {{minutes}} minutes late. Your table is still booked.",
+      "sentArrived": "Thanks — {{venue}} knows you've arrived.",
+      "outsideWindow": "Updates open 3 hours before your reservation and close 45 minutes after it starts.",
+      "outsideWindowAfterMidnight": "Updates open at midnight, but no earlier than 3 hours before your reservation, and close 45 minutes after it starts.",
+      "lateCapped": "You've sent the most late updates allowed ({{max}}). Call {{venue}} if you need more time.",
+      "arrivedDone": "You've already let {{venue}} know you're here.",
+      "errors": {
+        "link": "We couldn't verify this link. Please reopen it from your confirmation email.",
+        "expired": "This link has expired. Please call {{venue}}.",
+        "window": "{{venue}} isn't taking updates right now. Please call them if your plans changed.",
+        "limit": "You've sent the maximum number of updates, or are sending too quickly. Please wait a minute, or call {{venue}}.",
+        "failed": "We couldn't send that. Check your connection and try again, or call {{venue}}."
+      }
+    },
     "venueCancelled": {
       "heading": "Your reservation was cancelled",
       "intro": "{{venue}} had to cancel this reservation.",
