@@ -1820,7 +1820,7 @@
     },
     {
       "name": "DropdownMenu",
-      "description": "A click-triggered dropdown menu for presenting a list of actions.\nSupports keyboard navigation (arrow keys, Home/End, Enter, Escape),\nitem icons, shortcut hints, dividers, section labels, and destructive items.",
+      "description": "A click-triggered dropdown menu for presenting a list of actions.\nSupports keyboard navigation (ArrowDown, Enter, and Space open from the\ntrigger onto the first enabled item; arrows, Home/End, Enter, and Escape\noperate the open menu),\nitem icons, shortcut hints, dividers, section labels, and destructive items.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

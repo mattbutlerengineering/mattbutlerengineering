@@ -201,6 +201,29 @@ describe("DropdownMenu — non-modal menu", () => {
     return { ...utils, trigger };
   }
 
+  it("ArrowDown on the closed trigger opens the menu and focuses the first enabled item", () => {
+    const { getByText } = render(
+      <>
+        <button>Before</button>
+        <DropdownMenu trigger={<button>Actions</button>} items={menuItems} />
+        <button>After</button>
+      </>
+    );
+    const trigger = getByText("Actions");
+    trigger.focus();
+    // preventDefault keeps the page from scrolling while the menu opens.
+    expect(press("ArrowDown")).toBe(false);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    // "Off" is disabled, so the first enabled item takes focus.
+    expect(active().textContent).toBe("One");
+    press("ArrowDown");
+    expect(active().textContent).toBe("Two");
+    press("Escape");
+    flush();
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    expect(active()).toBe(trigger);
+  });
+
   it("focuses the first enabled item and skips disabled items with arrows, Home and End", () => {
     setup();
     expect(active().textContent).toBe("One");
