@@ -372,6 +372,25 @@ export function useSSEEventFeed(options: UseSSEEventFeedOptions = {}): readonly 
   return events;
 }
 
+/**
+ * Run `listener` for every SSE event, for side effects that are not a rolling
+ * list (alerts). Latest callback is used without resubscribing.
+ */
+export function useSSEEventListener(listener: (event: ReservationEvent) => void): void {
+  const { feedListeners } = useSSESyncContext();
+  const listenerRef = useRef(listener);
+  useEffect(() => {
+    listenerRef.current = listener;
+  });
+  useEffect(() => {
+    const forward = (event: ReservationEvent) => listenerRef.current(event);
+    feedListeners.add(forward);
+    return () => {
+      feedListeners.delete(forward);
+    };
+  }, [feedListeners]);
+}
+
 /* ── useTableStatuses ───────────────────────────────────────────── */
 
 export interface UseTableStatusesResult {

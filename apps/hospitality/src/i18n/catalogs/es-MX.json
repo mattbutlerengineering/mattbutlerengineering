@@ -3381,6 +3381,14 @@
       "emailStatus": "Estado del correo"
     }
   },
+  "arrivalAlerts": {
+    "title": "Grupo llegó",
+    "description": "{{name}} · grupo de {{size}}",
+    "descriptionUnknown": "Un invitado llegó al puesto de recepción.",
+    "settingsTitle": "Alertas de llegada",
+    "muteLabel": "Silenciar el timbre de llegada",
+    "muteHint": "Silencia el timbre solo en este dispositivo. El aviso de llegada se sigue mostrando."
+  },
   "settings": {
     "title": "Configuración",
     "description": "Administra los ajustes y las preferencias de tu cuenta",

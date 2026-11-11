@@ -180,6 +180,17 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   SkeletonGroup: ({ children }: any) => <div data-testid="skeleton-group">{children}</div>,
   Stack: ({ children }: any) => <div>{children}</div>,
   Text: ({ children }: any) => <span>{children}</span>,
+  Toggle: ({ label, checked, onCheckedChange }: any) => (
+    <label>
+      {label}
+      <input
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        onChange={(e) => onCheckedChange?.(e.target.checked)}
+      />
+    </label>
+  ),
 }));
 
 import { ProfilePage } from "./ProfilePage.js";
@@ -575,6 +586,21 @@ describe("ProfilePage", () => {
       await waitFor(() => {
         expect(screen.getAllByText("7d ago").length).toBeGreaterThan(0);
       });
+    });
+  });
+
+  describe("arrival chime mute", () => {
+    beforeEach(() => localStorage.clear());
+
+    it("persists the per-device mute choice from a labelled switch", async () => {
+      renderPage();
+      const toggle = await screen.findByRole("switch", { name: "Mute arrival chime" });
+      expect((toggle as HTMLInputElement).checked).toBe(false);
+
+      fireEvent.click(toggle);
+
+      expect(localStorage.getItem("mbe-hospitality-arrival-chime-muted")).toBe("true");
+      expect((toggle as HTMLInputElement).checked).toBe(true);
     });
   });
 

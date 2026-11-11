@@ -35,6 +35,7 @@ import type { NavAction } from "../nav-actions.js";
 import { VenueProvider, useVenue } from "../contexts/VenueContext.js";
 import { VenueThemeProvider } from "../providers/VenueTheme.js";
 import { SSESyncProvider, useSSESync } from "../hooks/useSSESync.js";
+import { useArrivalAlerts } from "../hooks/useArrivalAlerts.js";
 import { useIsAdmin } from "../hooks/useIsAdmin.js";
 import { LoadingPage } from "../pages/LoadingPage.js";
 import { describeApiError } from "../lib/describe-api-error.js";
@@ -101,6 +102,7 @@ function DashboardLayoutInner() {
   const describeChatAction = useDescribeChatAction();
   const chatStream = useRefreshingChatStream();
   useSSESync();
+  useArrivalAlerts();
 
   const [chatOpen, setChatOpen] = useState(false);
   const [chatMounted, setChatMounted] = useState(false);
