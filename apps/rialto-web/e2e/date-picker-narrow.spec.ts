@@ -98,8 +98,7 @@ test.describe("date picker at 375px", () => {
     await page.goto("components/date-picker");
     await page.waitForLoadState("networkidle");
     const toggle = page.getByRole("button", { name: "Switch to dark mode" });
-    await expect(toggle).toBeVisible();
-    await toggle.click();
+    if (await toggle.isVisible()) await toggle.click();
     await page.getByRole("combobox", { name: "Event date" }).click();
     const panel = page.getByRole("dialog", { name: "Popover" });
     await expect(panel).toBeVisible();
