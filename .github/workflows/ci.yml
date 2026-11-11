@@ -1205,7 +1205,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
-        run: pnpm --dir packages/rialto exec playwright install --with-deps chromium
+        # #8678: an apt mirror hang inside --with-deps silently ate the whole
+        # 15-minute job budget with zero retry, so the job was just cancelled.
+        # Bound each attempt and retry instead of hanging once.
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 300 pnpm --dir packages/rialto exec playwright install --with-deps chromium; then
+              exit 0
+            fi
+            echo "playwright install attempt $attempt failed or timed out, retrying..."
+            sleep 10
+          done
+          echo "::error::playwright install --with-deps chromium failed after 3 attempts"
+          exit 1
       - name: Run Storybook browser tests
         run: node scripts/storybook-test-gate.mjs
 

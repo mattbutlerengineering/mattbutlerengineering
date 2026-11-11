@@ -242,6 +242,19 @@ describe("ci.yml — storybook-tests job (promoted from rialto-visual.yml, #8117
     expect(run).toContain("node scripts/storybook-test-gate.mjs");
   });
 
+  it("bounds each Playwright install attempt with timeout and retries it (#8678)", () => {
+    // #8678: `playwright install --with-deps` hung retrying an unreachable
+    // apt mirror for the job's entire 15-minute budget with zero retry, so
+    // the job was cancelled with no actionable signal. A single bounded,
+    // retried attempt turns that into a fast, visible failure or a recovery.
+    const installStep = job.steps.find((step) =>
+      (step.run ?? "").includes("playwright install --with-deps chromium")
+    );
+    expect(installStep, "no step runs playwright install --with-deps chromium").not.toBeNull();
+    expect(installStep.run).toMatch(/\btimeout\s+\d+/);
+    expect(installStep.run).toMatch(/for attempt in 1 2 3/);
+  });
+
   it("is never silenced with continue-on-error", () => {
     expect(job["continue-on-error"]).toBeUndefined();
     expect(job.steps.filter((step) => "continue-on-error" in step)).toEqual([]);
