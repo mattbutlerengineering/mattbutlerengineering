@@ -1,4 +1,11 @@
-import { forwardRef, useCallback, useEffect, useRef, type ForwardedRef } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  type ForwardedRef,
+} from "react";
 import { motion } from "framer-motion";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { cn } from "../../utils/class-composer";
@@ -145,6 +152,27 @@ export const Pagination = forwardRef<HTMLElement, PaginationProps>(
       },
       [ref]
     );
+
+    const syncOverflow = useCallback(() => {
+      const nav = navRef.current;
+      if (!nav) return;
+      const overflowing = nav.scrollWidth > nav.clientWidth + 1;
+      const next = overflowing ? "true" : "false";
+      if (nav.dataset.overflowing !== next) nav.dataset.overflowing = next;
+    }, []);
+
+    useLayoutEffect(() => {
+      syncOverflow();
+      const nav = navRef.current;
+      window.addEventListener("resize", syncOverflow);
+      const observer =
+        typeof ResizeObserver === "undefined" || !nav ? null : new ResizeObserver(syncOverflow);
+      if (nav) observer?.observe(nav);
+      return () => {
+        window.removeEventListener("resize", syncOverflow);
+        observer?.disconnect();
+      };
+    }, [syncOverflow, page, totalPages, siblingCount]);
 
     // Activating an arrow can land on the first/last page and disable that very
     // button, dropping focus to <body>. Hand focus to the current page instead,

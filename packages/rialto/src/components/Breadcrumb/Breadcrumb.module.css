@@ -2,16 +2,23 @@
 .nav {
   display: flex;
   align-items: center;
+  /* A column flex parent would otherwise size this to the full trail and
+     widen the page. The floor lets the column win so crumbs wrap inside it. */
+  min-width: 0;
+  max-width: 100%;
 }
 
 /* ── Ordered list ────────────────────────────── */
 .list {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--rialto-space-2xs);
   list-style: none;
   margin: 0;
   padding: 0;
+  width: 100%;
+  min-width: 0;
 }
 
 /* ── Item ────────────────────────────────────── */
@@ -19,6 +26,10 @@
   display: flex;
   align-items: center;
   gap: var(--rialto-space-2xs);
+  /* Keep a crumb and its chevron together. A crumb wider than the column
+     still shrinks to the column via max-width, then the label wraps. */
+  flex-shrink: 0;
+  max-width: 100%;
 }
 
 /* ── Link ────────────────────────────────────── */
@@ -48,6 +59,12 @@
   font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-primary);
   padding: 2px 0;
+}
+
+.link,
+.current {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ── Separator chevron ───────────────────────── */
