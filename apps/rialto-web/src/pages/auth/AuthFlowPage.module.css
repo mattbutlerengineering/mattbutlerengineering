@@ -1,7 +1,8 @@
 .page {
   max-inline-size: 880px;
   margin-inline: auto;
-  padding-block: var(--rialto-space-2xl);
+  padding-block-start: max(var(--rialto-space-2xl), var(--demo-controls-clearance, 0px));
+  padding-block-end: var(--rialto-space-2xl);
   padding-inline: var(--rialto-space-lg);
   display: flex;
   flex-direction: column;
