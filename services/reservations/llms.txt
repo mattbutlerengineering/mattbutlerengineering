@@ -1292,6 +1292,11 @@
       export const publicHoldRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/public-invites.ts">
+    <item priority="high">
+      export const publicInviteRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/public-menus.ts">
     <item priority="high">
       export const publicMenuRoutes: FastifyPluginAsync;
@@ -5154,6 +5159,27 @@
         venueId: string;
         reservationId: string;
       }): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InvitePublicView {
+        venue: { name: string; slug: string };
+        date: string;
+        time: string;
+        partySize: number;
+        rsvps: Array<{ firstName: string; status: string }>;
+      }
+    </item>
+    <item priority="low">
+      type InviteLookup = { kind: "ok"; view: InvitePubl | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="medium">
+      function localParts(at: Date, timeZone: string): { date: string; time: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getInvitePublicView(
+        token: string,
+        now: Date = new Date()
+      ): Promise<InviteLookup> { /* ... */ }
     </item>
   </file>
   <file path="src/services/reservation-modification.ts">

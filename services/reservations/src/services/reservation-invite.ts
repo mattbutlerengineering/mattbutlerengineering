@@ -63,3 +63,83 @@ export async function revokeInvitesForReservation(input: {
   );
   return count;
 }
+
+/** The only fields an invite link may reveal. Never the booker's identity, notes or ids. */
+export interface InvitePublicView {
+  venue: { name: string; slug: string };
+  date: string;
+  time: string;
+  partySize: number;
+  rsvps: Array<{ firstName: string; status: string }>;
+  status: string;
+}
+
+export type InviteLookup =
+  { kind: "ok"; view: InvitePublicView } | { kind: "gone" } | { kind: "missing" };
+
+function localParts(at: Date, timeZone: string): { date: string; time: string } {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(at)
+      .map((p) => [p.type, p.value])
+  );
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    time: `${parts.hour}:${parts.minute}`,
+  };
+}
+
+/**
+ * Resolves an invite token to its public view (The Invitation, #8662). Unknown or malformed
+ * token: `missing`. Revoked, cancelled or past reservation: `gone`. RSVPs arrive with #8663,
+ * so the list is empty until then.
+ */
+export async function getInvitePublicView(
+  token: string,
+  now: Date = new Date()
+): Promise<InviteLookup> {
+  const dot = token.indexOf(".");
+  if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
+  const venueId = token.slice(0, dot);
+  return runWithVenueContext(venueId, async (): Promise<InviteLookup> => {
+    const invite = await prisma.reservationInvite.findFirst({
+      where: { tokenHash: hashInviteToken(token) },
+    });
+    if (!invite) return { kind: "missing" };
+    if (invite.revokedAt) return { kind: "gone" };
+    const reservation = await prisma.reservation.findFirst({
+      where: { id: invite.reservationId, venueId },
+      select: {
+        startTime: true,
+        endTime: true,
+        partySize: true,
+        status: true,
+        venue: { select: { name: true, slug: true, ianaTimezone: true } },
+      },
+    });
+    if (!reservation?.venue) return { kind: "missing" };
+    if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
+      return { kind: "gone" };
+    }
+    const { date, time } = localParts(reservation.startTime, reservation.venue.ianaTimezone);
+    return {
+      kind: "ok",
+      view: {
+        venue: { name: reservation.venue.name, slug: reservation.venue.slug },
+        date,
+        time,
+        partySize: reservation.partySize,
+        rsvps: [],
+        status: reservation.status,
+      },
+    };
+  });
+}
