@@ -1645,6 +1645,74 @@ describe("Venue Routes — venueGroupId reassignment is admin-only (#5515)", () 
   });
 });
 
+describe("Venue Routes — settings.tonightNote is owner-only (#8652)", () => {
+  let app: FastifyInstance;
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    vi.mocked(jwtVerify).mockReset();
+  });
+
+  afterEach(async () => {
+    await app?.close();
+    vi.clearAllMocks();
+    process.env = originalEnv;
+  });
+
+  async function buildAppAs(role: "owner" | "manager"): Promise<FastifyInstance> {
+    process.env = {
+      ...originalEnv,
+      AUTH_AUTHORITY: "https://test.auth0.com",
+      AUTH_AUDIENCE: "https://api.example.com",
+    };
+    vi.mocked(jwtVerify).mockResolvedValue({
+      payload: { ...mockJWTPayload, sub: "auth0|venue-member", permissions: ["staff"] },
+      protectedHeader: { alg: "RS256" },
+    } as never);
+    const built = await buildApp({
+      logger: false,
+      venueMembershipLookup: vi.fn<VenueMembershipLookup>().mockResolvedValue(true),
+      venueRoleLookup: vi.fn<VenueRoleLookup>().mockResolvedValue(role),
+    });
+    await built.ready();
+    return built;
+  }
+
+  const patch = (note: string) =>
+    app.inject({
+      method: "PATCH",
+      url: "/api/v1/venues/venue-123",
+      headers: { authorization: "Bearer t" },
+      payload: { settings: { tonightNote: note } },
+    });
+
+  it("rejects a manager who sets a tonight note with 403", async () => {
+    vi.mocked(venueService.update).mockResolvedValue(mockVenue);
+    app = await buildAppAs("manager");
+    const res = await patch("Park on Elm St");
+    expect(res.statusCode).toBe(403);
+    expect(venueService.update).not.toHaveBeenCalled();
+  });
+
+  it("lets an owner set a tonight note", async () => {
+    vi.mocked(venueService.update).mockResolvedValue(mockVenue);
+    app = await buildAppAs("owner");
+    const res = await patch("Park on Elm St");
+    expect(res.statusCode).toBe(200);
+    expect(venueService.update).toHaveBeenCalledWith("venue-123", {
+      settings: { tonightNote: "Park on Elm St" },
+    });
+  });
+
+  it("rejects a note over 200 characters with a 400 naming the limit", async () => {
+    app = await buildAppAs("owner");
+    const res = await patch("x".repeat(201));
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toContain("200");
+    expect(venueService.update).not.toHaveBeenCalled();
+  });
+});
+
 /**
  * Venue-authorization pins (docs/fixes/venue-scoped-routes, PR 3), written
  * against the pre-`venueScoped` routes so the migration has to keep every

@@ -5757,6 +5757,7 @@
                       phone: venue.settings?.phone,
                       modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
                       maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
+                      tonightNote: venue.settings?.tonightNote || null,
                     }
                   : null,
               },
@@ -10924,6 +10925,22 @@
         // #7509); staff/Host members are refused, admins bypass.
         venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
           const { venueGroupId } = request.body;
+    
+          // The tonight note is guest-facing copy, so only an owner (or an admin)
+          // may write it; managers keep the rest of the venue configuration.
+          if (request.body.settings?.tonightNote !== undefined && !isAdmin) {
+            const callerRole = await request.server.venueRoleLookup(
+              request.user?.raw.sub ?? "",
+              venueId
+            );
+            if (callerRole !== "owner") {
+              return reply
+                .code(403)
+                .send(
+                  createProblemDetails(403, "Forbidden", "Owner role required to edit the tonight note")
+                );
+            }
+          }
     
           const hoursError = operatingHoursError(request.body.operatingHours);
           if (hoursError) {

@@ -1344,6 +1344,9 @@
   </file>
   <file path="src/schemas/reservation-requests.ts">
     <item priority="high">
+      export const TONIGHT_NOTE_MAX_LENGTH: unknown;
+    </item>
+    <item priority="high">
       export const ListReservationsQuerySchema: unknown;
     </item>
     <item priority="high">

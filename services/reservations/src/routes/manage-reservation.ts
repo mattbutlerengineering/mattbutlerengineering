@@ -50,6 +50,7 @@ export const manageReservationRoutes: FastifyPluginAsync = async (fastify) => {
                   phone: venue.settings?.phone,
                   modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
                   maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
+                  tonightNote: venue.settings?.tonightNote || null,
                 }
               : null,
           },
