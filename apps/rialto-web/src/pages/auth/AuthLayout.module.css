@@ -181,8 +181,9 @@
   gap: var(--rialto-space-2xs);
 }
 
-/* Doubled class beats Text's `.text.body` / `.text.detail`
-   (two classes) so the score word stays on the xs scale. */
+/* Text applies `.text` and `.detail` as separate single-class rules.
+   Doubling `.strengthLabel` and nesting it under `.strengthBlock`
+   outranks both, so the score word stays on the xs scale. */
 .strengthBlock .strengthLabel.strengthLabel {
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-xs);

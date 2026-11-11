@@ -1,23 +1,9 @@
-import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ChangeEvent, FocusEvent, ReactNode } from "react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { SignUp, SIGN_UP_PHASES } from "./SignUp";
-
-function readAuthLayoutCss(): string {
-  const candidates = [
-    resolve(process.cwd(), "src/pages/auth/AuthLayout.module.css"),
-    resolve(process.cwd(), "apps/rialto-web/src/pages/auth/AuthLayout.module.css"),
-  ];
-  const found = candidates.find((path) => existsSync(path));
-  if (!found) {
-    throw new Error(`AuthLayout.module.css not found from ${process.cwd()}`);
-  }
-  return readFileSync(found, "utf8");
-}
 
 const toastSpy = vi.hoisted(() => vi.fn());
 const deviceContextRef = vi.hoisted(() => ({ reducedMotion: false }));
@@ -269,28 +255,10 @@ describe("SignUp — password strength", () => {
     expect(requirementRow(/at least 12 characters/i)).toHaveAttribute("data-satisfied", "true");
   });
 
-  it("styles the strength label and lays each requirement mark on the same line as its text", () => {
-    // jsdom does not apply CSS modules, so the rules are read from the
-    // stylesheet the component imports. The render checks wire those rules
-    // to the nodes: the score word carries strengthLabel, and each mark is
-    // a child of its requirement row (the reset's `svg { display: block }`
-    // would otherwise put the mark on its own line).
-    const css = readAuthLayoutCss();
-    expect(css).toMatch(/\.checklist\s*\{[^}]*list-style:\s*none/);
-    expect(css).toMatch(
-      /\.checklistItem,\s*\.checklistItemMet\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*row[^}]*align-items:\s*center/
-    );
-    expect(css).toMatch(/\.checklistItem svg,\s*\.checklistItemMet svg\s*\{[^}]*flex:\s*none/);
-    expect(css).toMatch(
-      /\.strengthLabel\.strengthLabel\s*\{[^}]*font-size:\s*var\(--rialto-text-xs\)/
-    );
-    expect(css).toMatch(
-      /\.strengthHeader\[data-variant="error"\] \.strengthLabel\s*\{[^}]*color:\s*var\(--rialto-error\)/
-    );
-    expect(css).toMatch(
-      /\.strengthHeader\[data-variant="success"\] \.strengthLabel\s*\{[^}]*color:\s*var\(--rialto-success\)/
-    );
-
+  it("wires the strength label and each requirement mark to the checklist classes", () => {
+    // Layout (one line per requirement, xs score word) is asserted in
+    // e2e/password-strength.spec.ts. jsdom does not apply the stylesheet,
+    // and a CSS-module class name is not proof the rule won.
     renderSignUp();
     setField("Password", "abc");
 
