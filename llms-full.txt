@@ -67037,6 +67037,19 @@
         };
       }
     
+      // A cancelled reservation's party invite must stop working (The Invitation, #8661).
+      // Best effort: the cancel (and any money moved) already succeeded, so never fail it here.
+      if (reservation.venueId) {
+        try {
+          await revokeInvitesForReservation({
+            venueId: reservation.venueId,
+            reservationId: reservation.id,
+          });
+        } catch (err) {
+          deps.logger.warn({ err, reservationId: reservation.id }, "Could not revoke party invites");
+        }
+      }
+    
       return { success: true, reservation: updated };
     }
   </file>
@@ -67181,6 +67194,52 @@
         })),
         nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]!) : null,
       };
+    }
+  </file>
+  <file path="services/reservations/src/services/reservation-invite.ts">
+    export function hashInviteToken(token: string): string {
+      return createHash("sha256").update(token).digest("hex");
+    }
+    export async function createInvite(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<{ id: string; token: string }> {
+      const token = `${input.venueId}.${randomBytes(SECRET_BYTES).toString("base64url")}`;
+      const row = await runWithVenueContext(input.venueId, () =>
+        prisma.reservationInvite.create({
+          data: {
+            venueId: input.venueId,
+            reservationId: input.reservationId,
+            tokenHash: hashInviteToken(token),
+          },
+        })
+      );
+      return { id: row.id, token };
+    }
+    export async function findLiveInviteByToken(
+      token: string
+    ): Promise<{ id: string; venueId: string; reservationId: string } | null> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return null;
+      const venueId = token.slice(0, dot);
+      const row = await runWithVenueContext(venueId, () =>
+        prisma.reservationInvite.findFirst({
+          where: { tokenHash: hashInviteToken(token), revokedAt: null },
+        })
+      );
+      return row ? { id: row.id, venueId, reservationId: row.reservationId } : null;
+    }
+    export async function revokeInvitesForReservation(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<number> {
+      const { count } = await runWithVenueContext(input.venueId, () =>
+        prisma.reservationInvite.updateMany({
+          where: { reservationId: input.reservationId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        })
+      );
+      return count;
     }
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
@@ -70494,6 +70553,7 @@
       "venueHolidayDecision",
       "closureOutcome",
       "guestWinBack",
+      "reservationInvite",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {

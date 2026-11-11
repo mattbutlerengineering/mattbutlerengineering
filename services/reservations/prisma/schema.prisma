@@ -139,6 +139,7 @@ model Venue {
   dateRuleTables            DateRuleTable[]
   availabilityChanges       AvailabilityChange[]
   holidayDecisions          VenueHolidayDecision[]
+  reservationInvites        ReservationInvite[]
   closureOutcomes           ClosureOutcome[]
   guestWinBacks             GuestWinBack[]
   /// Per-venue compare-and-set counter for availability config saves (ADR-030).
@@ -343,6 +344,7 @@ model Reservation {
   venue              Venue?             @relation(fields: [venueId], references: [id])
   deposit            Deposit?
   events             ReservationEvent[]
+  invites            ReservationInvite[]
   /// Booking-widget session (`ReservationHold.sessionId`) that confirmed this
   /// reservation. Proof of ownership for the public deposit route (#6304).
   /// Null for reservations created outside the widget.
@@ -777,6 +779,22 @@ model VenueHolidayDecision {
 
   @@unique([venueId, serviceDate])
   @@map("venue_holiday_decisions")
+}
+
+/// A forwardable party invite for one reservation (The Invitation, #8661). Only the SHA-256
+/// of the token is stored; the token never grants manage/cancel rights.
+model ReservationInvite {
+  id            String      @id @default(cuid())
+  venueId       String      @map("venue_id")
+  venue         Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  reservationId String      @map("reservation_id")
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  tokenHash     String      @unique @map("token_hash")
+  revokedAt     DateTime?   @map("revoked_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([reservationId])
+  @@map("reservation_invites")
 }
 
 /// What happened to each reservation overlapping a saved closure.

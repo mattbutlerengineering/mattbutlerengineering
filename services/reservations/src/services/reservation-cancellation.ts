@@ -4,6 +4,7 @@ import type { Deposit } from "../generated/prisma/index.js";
 import { reservationService } from "./reservation.js";
 import type { ReservationEventActor } from "./reservation-events.js";
 import { venueService } from "./venue.js";
+import { revokeInvitesForReservation } from "./reservation-invite.js";
 import {
   type DepositService,
   DepositCaptureAmbiguousError,
@@ -486,6 +487,19 @@ export async function cancelReservationWithDeposit(
       title: "Conflict",
       detail: "Reservation was already cancelled by a concurrent request",
     };
+  }
+
+  // A cancelled reservation's party invite must stop working (The Invitation, #8661).
+  // Best effort: the cancel (and any money moved) already succeeded, so never fail it here.
+  if (reservation.venueId) {
+    try {
+      await revokeInvitesForReservation({
+        venueId: reservation.venueId,
+        reservationId: reservation.id,
+      });
+    } catch (err) {
+      deps.logger.warn({ err, reservationId: reservation.id }, "Could not revoke party invites");
+    }
   }
 
   return { success: true, reservation: updated };
