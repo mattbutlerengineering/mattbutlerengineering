@@ -5189,9 +5189,6 @@
         now: Date = new Date()
       ): Promise<InviteLookup> { /* ... */ }
     </item>
-    <item priority="high">
-      export const RSVP_EXTRA_SLOTS: unknown;
-    </item>
     <item priority="low">
       type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
     </item>

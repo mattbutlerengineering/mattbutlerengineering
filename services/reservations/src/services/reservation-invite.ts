@@ -177,7 +177,7 @@ export async function getInvitePublicView(
 }
 
 /** Guests may RSVP up to this many beyond the booked party size (plus-ones). */
-export const RSVP_EXTRA_SLOTS = 2;
+const RSVP_EXTRA_SLOTS = 2;
 
 export type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
 
