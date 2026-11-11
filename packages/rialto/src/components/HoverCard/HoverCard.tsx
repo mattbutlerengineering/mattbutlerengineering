@@ -3,6 +3,9 @@ import {
   useState,
   useRef,
   useCallback,
+  cloneElement,
+  isValidElement,
+  Fragment,
   type ReactNode,
   type ReactElement,
 } from "react";
@@ -39,6 +42,27 @@ export interface HoverCardProps {
   closeDelay?: number;
   /** Additional class on the panel */
   className?: string;
+}
+
+const NATIVE_FOCUSABLE = new Set(["button", "input", "select", "textarea", "summary"]);
+
+/**
+ * HoverCard opens from focus on its trigger, but it used to render whatever
+ * element it was given. A `<span>`, `<p>`, or Text (a paragraph) is not in the
+ * tab order, so keyboard users could never focus it. Native buttons and links
+ * already are; an explicit tabIndex is left alone (including -1).
+ */
+function withFocusableTrigger(child: ReactElement): ReactElement {
+  if (!isValidElement(child) || child.type === Fragment) return child;
+  const props = child.props as { tabIndex?: number; href?: unknown };
+  if (props.tabIndex != null) return child;
+  if (typeof child.type === "string") {
+    if (child.type === "a" && typeof props.href === "string" && props.href.length > 0) {
+      return child;
+    }
+    if (NATIVE_FOCUSABLE.has(child.type)) return child;
+  }
+  return cloneElement(child as ReactElement<{ tabIndex?: number }>, { tabIndex: 0 });
 }
 
 /* ── Motion origins per placement ────────────── */
@@ -100,7 +124,7 @@ export const HoverCard = forwardRef<HTMLDivElement, HoverCardProps>(
         onFocus={scheduleOpen}
         onBlur={scheduleClose}
       >
-        {children}
+        {withFocusableTrigger(children)}
         <AnimatePresence>
           {open && (
             <motion.div
