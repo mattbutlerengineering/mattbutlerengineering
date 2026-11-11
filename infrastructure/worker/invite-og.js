@@ -21,6 +21,7 @@
 const INVITE_PATH = /^\/i\/([A-Za-z0-9._-]{1,200})$/;
 const VENUE_SLUG = /^[a-z0-9][a-z0-9-]{0,63}$/;
 const INVITE_FETCH_TIMEOUT_MS = 1500;
+const IMAGE_HEAD_TIMEOUT_MS = 1500;
 const GENERIC_IMAGE_PATH = "/og-hospitality.png";
 const GENERIC_TITLE = "You're invited";
 const GENERIC_DESCRIPTION =
@@ -70,7 +71,10 @@ async function venueImageExists(slug, staticBinding, bindingOrigin) {
   if (typeof slug !== "string" || !VENUE_SLUG.test(slug)) return false;
   try {
     const response = await staticBinding.fetch(
-      new Request(new URL(`/og/venues/${slug}.png`, bindingOrigin), { method: "HEAD" })
+      new Request(new URL(`/og/venues/${slug}.png`, bindingOrigin), {
+        method: "HEAD",
+        signal: AbortSignal.timeout(IMAGE_HEAD_TIMEOUT_MS),
+      })
     );
     return (
       response.status === 200 && (response.headers.get("Content-Type") ?? "").includes("image/png")
@@ -113,7 +117,7 @@ function buildInviteMeta({ invite, pageUrl, imageUrl }) {
     `<meta name="twitter:title" content="${t}">`,
     `<meta name="twitter:description" content="${d}">`,
     `<meta name="twitter:image" content="${img}">`,
-    `<meta name="robots" content="noindex">`,
+    `<meta name="robots" content="noindex, nofollow">`,
   ].join("");
 }
 

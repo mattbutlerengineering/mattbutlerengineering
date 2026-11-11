@@ -56,17 +56,23 @@ globalThis.HTMLRewriter = MockHTMLRewriter;
 import edgeRouter from "./edge-router.js";
 import { buildCspDirectives } from "./csp.js";
 
-const TOKEN = "venue_1.abcDEF123-_xyz";
+const TOKEN = "fixture-invite-token";
 const SPA_HTML =
   '<html><head><title>App</title><meta property="og:title" content="Hospitality">' +
   '<meta property="og:image" content="https://mattbutlerengineering.com/hospitality/og-hospitality.png">' +
   '<meta name="twitter:title" content="Hospitality"></head><body><script src="/a.js"></script></body></html>';
 
-function createHospitalityBinding({ venuePng = true } = {}) {
+function createHospitalityBinding({ venuePng = true, hangHead = false } = {}) {
   return {
     fetch: vi.fn(async (request) => {
       const { pathname } = new URL(request.url);
       if (pathname.startsWith("/og/venues/")) {
+        if (hangHead) {
+          // Never settles on its own: only the request's abort signal ends it.
+          return new Promise((_resolve, reject) => {
+            request.signal.addEventListener("abort", () => reject(new Error("aborted")));
+          });
+        }
         return venuePng
           ? new Response(null, { status: 200, headers: { "Content-Type": "image/png" } })
           : new Response(SPA_HTML, { status: 200, headers: { "Content-Type": "text/html" } });
@@ -166,6 +172,67 @@ describe("/i/:token link preview", () => {
     const html = await (await edgeRouter.fetch(getReq("eat-sheet.com", `/i/${TOKEN}`), env)).text();
     expect(html).toContain('content="https://eat-sheet.com/og-hospitality.png"');
     expect(html).toContain("You&#39;re invited to Casa Rosa");
+  });
+
+  it("falls back to the generic image when the asset HEAD is 200 text/html (SPA catch-all)", async () => {
+    mockInvite(inviteJson());
+    const env = createEnv(createHospitalityBinding({ venuePng: false }));
+    const html = await (await edgeRouter.fetch(getReq("eat-sheet.com", `/i/${TOKEN}`), env)).text();
+    expect(env.HOSPITALITY.fetch.mock.calls.some(([r]) => r.method === "HEAD")).toBe(true);
+    expect(html).toContain(
+      'property="og:image" content="https://eat-sheet.com/og-hospitality.png"'
+    );
+    expect(html).not.toContain("/og/venues/casa-rosa.png");
+  });
+
+  it('keeps robots "noindex, nofollow" and replaces the SPA robots tag', async () => {
+    mockInvite(inviteJson());
+    const spa = SPA_HTML.replace("<title>", '<meta name="robots" content="index"><title>');
+    const env = createEnv();
+    env.HOSPITALITY.fetch.mockImplementation(
+      async () => new Response(spa, { status: 200, headers: { "Content-Type": "text/html" } })
+    );
+    const html = await (await edgeRouter.fetch(getReq("eat-sheet.com", `/i/${TOKEN}`), env)).text();
+    expect(html).toContain('<meta name="robots" content="noindex, nofollow">');
+    expect(html.match(/name="robots"/g)).toHaveLength(1);
+  });
+
+  describe("subrequest timeouts", () => {
+    // Deterministic stand-in for AbortSignal.timeout: fires after 10ms.
+    let timeoutSpy;
+    beforeEach(() => {
+      timeoutSpy = vi.spyOn(AbortSignal, "timeout").mockImplementation(() => {
+        const controller = new globalThis.AbortController();
+        globalThis.setTimeout(() => controller.abort(), 10);
+        return controller.signal;
+      });
+      vi.spyOn(console, "error").mockImplementation(() => {});
+    });
+
+    it("aborts a hung invite fetch via its timeout signal and serves generic tags", async () => {
+      fetchSpy.mockImplementation(
+        (_url, init) =>
+          new Promise((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
+          })
+      );
+      const res = await edgeRouter.fetch(getReq("eat-sheet.com", `/i/${TOKEN}`), createEnv());
+      const html = await res.text();
+      expect(timeoutSpy).toHaveBeenCalledWith(1500);
+      expect(html).toContain('property="og:title" content="You&#39;re invited"');
+    }, 2000);
+
+    it("aborts a hung venue-image HEAD via its timeout signal and uses the generic image", async () => {
+      mockInvite(inviteJson());
+      const env = createEnv(createHospitalityBinding({ hangHead: true }));
+      const res = await edgeRouter.fetch(getReq("eat-sheet.com", `/i/${TOKEN}`), env);
+      const html = await res.text();
+      expect(timeoutSpy).toHaveBeenCalledTimes(2);
+      expect(html).toContain("You&#39;re invited to Casa Rosa");
+      expect(html).toContain(
+        'property="og:image" content="https://eat-sheet.com/og-hospitality.png"'
+      );
+    }, 2000);
   });
 
   it("escapes venue data for attribute context (quotes and angle brackets)", async () => {
