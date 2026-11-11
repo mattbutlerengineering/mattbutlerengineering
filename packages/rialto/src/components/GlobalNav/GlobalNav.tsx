@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useEffect,
   useId,
   useRef,
   useState,
@@ -153,6 +154,36 @@ export const GlobalNav = forwardRef<HTMLElement, GlobalNavProps>(
     const handleDropdownBlur = useCallback((e: FocusEvent<HTMLDivElement>) => {
       if (!e.currentTarget.contains(e.relatedTarget)) setDropdownOpen(false);
     }, []);
+
+    // Full <a href> loads can freeze this document in the back-forward cache
+    // with the menu still open. Close on pagehide so the frozen page is shut
+    // when that update commits in time, and again on a persisted pageshow —
+    // the signal that the browser restored the frozen document — so Back
+    // never leaves the panel up. The button name and aria-expanded are the
+    // same state as the panel, so they stay in sync when it closes.
+    useEffect(() => {
+      if (!menuOpen && !dropdownOpen) return;
+
+      const closeOverlays = () => {
+        if (menuOpen) setMenuOpen(false);
+        if (dropdownOpen) setDropdownOpen(false);
+      };
+
+      const onPageHide = () => {
+        closeOverlays();
+      };
+
+      const onPageShow = (event: PageTransitionEvent) => {
+        if (event.persisted) closeOverlays();
+      };
+
+      window.addEventListener("pagehide", onPageHide);
+      window.addEventListener("pageshow", onPageShow);
+      return () => {
+        window.removeEventListener("pagehide", onPageHide);
+        window.removeEventListener("pageshow", onPageShow);
+      };
+    }, [menuOpen, dropdownOpen, setMenuOpen]);
 
     const classes = cn(styles.globalNav, className);
     const items = NAV_ITEMS.map((item) => ({ ...item, label: labels?.[item.app] ?? item.label }));
