@@ -98,15 +98,22 @@ export const Steps = forwardRef<HTMLDivElement, StepsProps>(
             </>
           );
 
+          const current = state === "current" ? "step" : undefined;
+
           return (
             <div
               key={i}
               className={stepClass}
               role="listitem"
-              aria-current={state === "current" ? "step" : undefined}
+              aria-current={onStepClick ? undefined : current}
             >
               {onStepClick ? (
-                <button className={styles.stepButton} onClick={() => onStepClick(i)} type="button">
+                <button
+                  className={styles.stepButton}
+                  onClick={() => onStepClick(i)}
+                  type="button"
+                  aria-current={current}
+                >
                   {inner}
                 </button>
               ) : (
