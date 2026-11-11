@@ -113,7 +113,7 @@
     },
     {
       "name": "AnimatedTag",
-      "description": "A Tag wrapped in a Framer Motion layout animation for smooth enter/exit transitions.\nUse inside a `TagGroup` so that `AnimatePresence` can track additions and removals.",
+      "description": "A Tag wrapped in a Framer Motion enter/exit animation.\nUse inside a `TagGroup` so that `AnimatePresence` can track additions and removals.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -154,7 +154,7 @@
           "name": "selected",
           "type": "boolean | undefined",
           "required": false,
-          "description": "Selected state (gold fill)"
+          "description": "Selected state (gold fill). When set, the button exposes `aria-pressed`."
         },
         {
           "name": "icon",
@@ -4503,7 +4503,7 @@
           "name": "selected",
           "type": "boolean | undefined",
           "required": false,
-          "description": "Selected state (gold fill)"
+          "description": "Selected state (gold fill). When set, the button exposes `aria-pressed`."
         },
         {
           "name": "icon",
