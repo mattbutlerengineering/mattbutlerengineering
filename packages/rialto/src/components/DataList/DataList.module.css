@@ -41,7 +41,7 @@
    each glyph into its own line and the price disappears. */
 .horizontal .label {
   flex: 0 1 140px;
-  width: auto;
+  width: 140px;
   min-inline-size: min(8rem, 100%);
   overflow-wrap: anywhere;
 }
@@ -78,6 +78,6 @@
 }
 
 .horizontal .value {
-  flex: 1 1 auto;
+  flex: 1 1 5.5rem;
   min-inline-size: min(5.5rem, 100%);
 }

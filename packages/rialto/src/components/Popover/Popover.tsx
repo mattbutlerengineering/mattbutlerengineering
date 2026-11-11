@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useId,
+  useLayoutEffect,
   useMemo,
   forwardRef,
   cloneElement,
@@ -155,7 +156,22 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   // on its own. Imperative style writes (no setState), re-run on resize, on
   // any scroll and when the panel's content grows, so the panel tracks its trigger.
   const dialogLayer = useContext(DialogLayerContext);
-  const portalTarget = dialogLayer ?? (typeof document === "undefined" ? null : document.body);
+  // Outside a dialog the panel leaves the trigger's subtree, so it would lose
+  // what the subtree supplies: RialtoProvider's wrapper (theme + vibe/reduced-
+  // data/reduced-motion variables) and any [dir] ancestor. Portal into that
+  // provider wrapper when one exists (it is untransformed), else document.body,
+  // and copy the trigger's resolved direction onto the panel.
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  const [dir, setDir] = useState<"ltr" | "rtl" | undefined>(undefined);
+  useLayoutEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const provider = el.parentElement?.closest<HTMLElement>("[data-theme]") ?? null;
+    setHost(provider === document.documentElement ? null : provider);
+    setDir(getComputedStyle(el).direction === "rtl" ? "rtl" : "ltr");
+  }, [open]);
+  const portalTarget =
+    dialogLayer ?? host ?? (typeof document === "undefined" ? null : document.body);
   const place = useMemo(() => placePopover(placement), [placement]);
   useLayerFloating(open, wrapperRef, panelRef, place);
 
@@ -165,6 +181,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
         <motion.div
           ref={panelRef}
           id={panelId}
+          dir={dialogLayer ? undefined : dir}
           className={cn(styles.panel, styles[placement], (dialogLayer || solid) && styles.floating)}
           role="dialog"
           aria-modal="true"

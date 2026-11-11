@@ -64,11 +64,13 @@
   transform-origin: center left;
 }
 
-[dir="rtl"] .left {
+[dir="rtl"] .left,
+.left[dir="rtl"] {
   transform-origin: center left;
 }
 
-[dir="rtl"] .right {
+[dir="rtl"] .right,
+.right[dir="rtl"] {
   transform-origin: center right;
 }
 
