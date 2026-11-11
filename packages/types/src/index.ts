@@ -30,6 +30,7 @@ export type {
   Table,
   TableStatus,
   Reservation,
+  InviteRsvpSummary,
   Occasion,
   SeatingPreference,
   CreateReservationRequest,

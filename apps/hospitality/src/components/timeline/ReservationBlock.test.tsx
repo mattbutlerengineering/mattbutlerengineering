@@ -52,6 +52,21 @@ describe("ReservationBlock", () => {
     );
   });
 
+  it("shows an RSVP chip with the IN count against the party size when an invite exists", () => {
+    render(
+      <ReservationBlock
+        reservation={makeReservation({ partySize: 6, inviteRsvp: { in: 3, partySize: 6 } })}
+        style={defaultStyle}
+      />
+    );
+    expect(screen.getByTestId("invite-rsvp-chip").textContent).toBe("3 of 6 in");
+  });
+
+  it("renders no RSVP chip without an invite", () => {
+    render(<ReservationBlock reservation={makeReservation()} style={defaultStyle} />);
+    expect(screen.queryByTestId("invite-rsvp-chip")).toBeNull();
+  });
+
   it("shows no Override tag on an ordinary booking", () => {
     render(<ReservationBlock reservation={makeReservation()} style={defaultStyle} />);
     expect(screen.queryByText("Override")).toBeNull();
