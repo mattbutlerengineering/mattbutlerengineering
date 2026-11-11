@@ -70,7 +70,7 @@ export function validateProperty(state: OnboardingState): FieldErrors {
 }
 
 /** Field errors for a step. Only the property step collects a required answer. */
-export function validateStep(index: number, state: OnboardingState): FieldErrors {
+function validateStep(index: number, state: OnboardingState): FieldErrors {
   return ONBOARDING_STEPS[index]?.id === "property" ? validateProperty(state) : {};
 }
 

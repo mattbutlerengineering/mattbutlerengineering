@@ -503,8 +503,8 @@
     <item priority="high">
       export function validateProperty(state: OnboardingState): FieldErrors { /* ... */ }
     </item>
-    <item priority="high">
-      export function validateStep(index: number, state: OnboardingState): FieldErrors { /* ... */ }
+    <item priority="medium">
+      function validateStep(index: number, state: OnboardingState): FieldErrors { /* ... */ }
     </item>
     <item priority="low">
       interface AdvanceResult {

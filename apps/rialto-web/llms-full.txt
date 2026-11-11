@@ -1107,7 +1107,7 @@
       }
       return {};
     }
-    export function validateStep(index: number, state: OnboardingState): FieldErrors {
+    function validateStep(index: number, state: OnboardingState): FieldErrors {
       return ONBOARDING_STEPS[index]?.id === "property" ? validateProperty(state) : {};
     }
     export interface AdvanceResult {
