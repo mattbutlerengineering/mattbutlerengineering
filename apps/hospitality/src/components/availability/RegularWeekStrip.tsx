@@ -17,6 +17,7 @@ import {
   type Table,
 } from "@mbe/types";
 import { useTables } from "../../hooks/useTables.js";
+import { useOptionalVenue } from "../../contexts/venue-context-object.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { minuteText } from "./closure-band.js";
 import {
@@ -113,7 +114,10 @@ export function RegularWeekStrip({ draft, local = false, labelledBy }: RegularWe
   const format = useVenueFormat();
   const dayName = useWeekdayName();
   const [partySize, setPartySize] = useState(PREVIEW_PARTY_DEFAULT);
-  const tablesRead = useTables({ activeOnly: true, enabled: !local });
+  // The tables route answers a read that names no venue 403 for everyone but a platform admin
+  // (`requireVenueAccess`), so the read names the selected venue and waits for one.
+  const venueId = useOptionalVenue()?.selectedVenue?.id;
+  const tablesRead = useTables({ venueId, activeOnly: true, enabled: !local && !!venueId });
   const [now] = useState(() => new Date());
   const timeZone = format.timeZone || FALLBACK_TIME_ZONE;
 

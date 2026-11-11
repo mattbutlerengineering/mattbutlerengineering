@@ -48,7 +48,18 @@
   display: flex;
   flex: 1;
   overflow: hidden;
+  /* Keeps in-page popovers under the sticky nav. It also traps a Dialog's
+     z-index (the overlay renders in place, so vibe variables and dir stay on
+     the provider). A max-height dialog is centered with its top at 48px, and
+     the nav — z-index: sticky, a sibling of this column — then paints over
+     that top edge. Lift the column while the overlay is open. The attribute
+     is Dialog's, not aria-modal: Popover sets aria-modal on a small panel
+     and must not raise the whole page over the nav. */
   isolation: isolate;
+}
+
+.body:has([data-rialto-dialog-overlay]) {
+  z-index: calc(var(--rialto-z-sticky) + 1);
 }
 
 /* ── Main content ─────────────────────────────── */
