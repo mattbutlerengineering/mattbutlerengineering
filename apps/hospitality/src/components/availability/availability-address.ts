@@ -168,6 +168,10 @@ const TAB_PATH: Readonly<Record<AvailabilityTab, string>> = {
 /**
  * The new address for a search that holds an old param (`?tab=`, `?action=addSchedule`,
  * `?closeSection=`), with `from=setup` carried; `null` when it holds none, so nothing redirects.
+ *
+ * It returns the final addresses of architecture.md "Old addresses". Those routes do not exist
+ * until later items build them, so do not wire a row to a route before its target view exists:
+ * H1.2 stages the views not built yet to today's page, mounted at `calendar`.
  */
 export function legacyRedirect(search: string): string | null {
   const entry = parseAvailabilityEntry(search);

@@ -206,6 +206,7 @@ describe("parseAvailabilityEntry", () => {
     expect(parseAvailabilityEntry("?action=deleteEverything&tab=special")).toEqual({
       tab: "special",
     });
+    expect(parseAvailabilityEntry("?action=")).toEqual({});
   });
 
   it("keeps the valid params when others are garbage", () => {
