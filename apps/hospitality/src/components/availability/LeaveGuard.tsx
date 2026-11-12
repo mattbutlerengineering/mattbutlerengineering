@@ -10,6 +10,11 @@ export interface LeaveGuardProps {
   readonly date: string | null;
   /** Names a draft that is not a day's. */
   readonly title?: string;
+  /**
+   * Saves the draft. The prompt then offers Save beside Discard; the route change goes ahead
+   * once it resolves `true` and the draft stays (the prompt closes) when it resolves `false`.
+   */
+  readonly onSave?: () => Promise<boolean>;
 }
 
 /**
@@ -17,7 +22,7 @@ export interface LeaveGuardProps {
  * blocker registered, so this mounts only while a draft exists: a clean guard that registered
  * later would otherwise shadow a dirty one and let its edits go without asking.
  */
-function RouteBlocker({ date, title }: Omit<LeaveGuardProps, "active">) {
+function RouteBlocker({ date, title, onSave }: Omit<LeaveGuardProps, "active">) {
   const { t } = useTranslation();
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) => currentLocation.pathname !== nextLocation.pathname
@@ -31,6 +36,12 @@ function RouteBlocker({ date, title }: Omit<LeaveGuardProps, "active">) {
       description={t("availability.discard.leavePage")}
       onDiscard={() => blocker.proceed?.()}
       onKeepEditing={() => blocker.reset?.()}
+      {...(onSave
+        ? {
+            onSave: () =>
+              void onSave().then((saved) => (saved ? blocker.proceed?.() : blocker.reset?.())),
+          }
+        : {})}
     />
   );
 }
@@ -50,5 +61,7 @@ export function LeaveGuard(props: LeaveGuardProps) {
     return () => window.removeEventListener("beforeunload", warn);
   }, [active]);
 
-  return inDataRouter && active ? <RouteBlocker date={props.date} title={props.title} /> : null;
+  return inDataRouter && active ? (
+    <RouteBlocker date={props.date} title={props.title} onSave={props.onSave} />
+  ) : null;
 }

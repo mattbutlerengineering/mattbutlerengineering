@@ -331,6 +331,8 @@ describe("AvailabilityPage on a migrated venue", () => {
     read.config = collapsed();
     renderPage("/availability");
     const form = screen.getByTestId("week-panel");
+    // The one Dinner service is a line: its summary names the Thu–Fri block, and opening it shows the fields.
+    fireEvent.click(within(form).getByRole("button", { name: /^Dinner, / }));
     expect(within(form).getByDisplayValue("Dinner")).toBeInTheDocument();
     // The Thu–Fri close is a block of different hours on the one Dinner row, not a schedule.
     const block = within(form).getByRole("group", { name: "Dinner: different hours" });

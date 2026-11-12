@@ -2182,8 +2182,7 @@
       "closeCompare": "Fermer",
       "appliesFrom": "Les changements s’appliquent dès aujourd’hui, {{date}}.",
       "startLater": "Commencer plus tard…",
-      "discard": "Abandonner",
-      "whatChanges": "Ce qui change pour vos clients"
+      "discard": "Abandonner"
     }
   },
   "availability": {

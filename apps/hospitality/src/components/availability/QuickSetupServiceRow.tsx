@@ -135,6 +135,11 @@ export function ServiceRow({
     hoursButtonRef.current?.focus();
   };
   const offeredDays = effectiveDays(draft, service);
+  // The chip that was pressed leaves with the chips: focus goes to the name it filled in.
+  const pickPreset = (id: (typeof SERVICE_PRESET_IDS)[number]) => {
+    onChange(placePreset(draft, service.id, id, presetName(id)));
+    document.getElementById(fieldId(service.id, "name"))?.focus();
+  };
 
   return (
     <fieldset className={styles.service}>
@@ -142,20 +147,20 @@ export function ServiceRow({
         {t("availability.quickSetup.serviceN", { n: index + 1 })}
       </legend>
       <Stack gap="sm">
-        <div
-          className={styles.chips}
-          role="group"
-          aria-label={t("availability.quickSetup.presetsLabel")}
-        >
-          {SERVICE_PRESET_IDS.map((id) => (
-            <Tag
-              key={id}
-              onClick={() => onChange(placePreset(draft, service.id, id, presetName(id)))}
-            >
-              {presetName(id)}
-            </Tag>
-          ))}
-        </div>
+        {/* Suggestions are for a service with no name yet; a named one has no use for them. */}
+        {service.name.trim() === "" && (
+          <div
+            className={styles.chips}
+            role="group"
+            aria-label={t("availability.quickSetup.presetsLabel")}
+          >
+            {SERVICE_PRESET_IDS.map((id) => (
+              <Tag key={id} onClick={() => pickPreset(id)}>
+                {presetName(id)}
+              </Tag>
+            ))}
+          </div>
+        )}
         <Input
           id={fieldId(service.id, "name")}
           label={t("availability.quickSetup.nameLabel")}
@@ -185,7 +190,7 @@ export function ServiceRow({
         {ownDays ? (
           <>
             <div>
-              <Button variant="ghost" size="sm" onClick={() => setOwnDays(false)}>
+              <Button variant="secondary" size="sm" onClick={() => setOwnDays(false)}>
                 {t("availability.quickSetup.useSharedDays")}
               </Button>
             </div>
@@ -201,13 +206,18 @@ export function ServiceRow({
           </>
         ) : (
           <div>
-            <Button ref={daysButtonRef} variant="ghost" size="sm" onClick={() => setOwnDays(true)}>
+            <Button
+              ref={daysButtonRef}
+              variant="secondary"
+              size="sm"
+              onClick={() => setOwnDays(true)}
+            >
               {t("availability.quickSetup.differentDays")}
             </Button>
           </div>
         )}
         <div>
-          <Button ref={hoursButtonRef} variant="ghost" size="sm" onClick={addHours}>
+          <Button ref={hoursButtonRef} variant="secondary" size="sm" onClick={addHours}>
             {t("availability.quickSetup.differentHours")}
           </Button>
         </div>
@@ -228,7 +238,7 @@ export function ServiceRow({
         ))}
         {removable && (
           <div>
-            <Button variant="ghost" size="sm" onClick={onRemove}>
+            <Button variant="secondary" size="sm" onClick={onRemove}>
               {t("availability.quickSetup.removeService", { n: index + 1 })}
             </Button>
           </div>

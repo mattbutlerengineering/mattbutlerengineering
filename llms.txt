@@ -7584,7 +7584,7 @@
     <item priority="high">
       export async function countFirstPaintControls(
         page: Page,
-        region: Locator
+        region: Locator | null
       ): Promise<FirstPaintCount> { /* ... */ }
     </item>
     <item priority="high">

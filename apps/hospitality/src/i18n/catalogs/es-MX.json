@@ -2182,8 +2182,7 @@
       "closeCompare": "Cerrar",
       "appliesFrom": "Los cambios se aplican desde hoy, {{date}}.",
       "startLater": "Empezar más tarde…",
-      "discard": "Descartar",
-      "whatChanges": "Qué cambia para tus invitados"
+      "discard": "Descartar"
     }
   },
   "availability": {

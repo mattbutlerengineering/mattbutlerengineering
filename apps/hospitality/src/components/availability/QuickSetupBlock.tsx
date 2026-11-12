@@ -44,11 +44,17 @@ export function HoursBlockFieldset({
   const { t } = useTranslation();
   const dayName = useWeekdayName();
   const matchesBase =
+    block.days.length > 0 &&
     block.opens === service.opens &&
     block.lastSeating === service.lastSeating &&
     block.closes === service.closes;
   return (
-    <fieldset className={styles.block} id={fieldId(service.id, "days", block.id)} tabIndex={-1}>
+    <fieldset
+      className={styles.block}
+      id={fieldId(service.id, "days", block.id)}
+      tabIndex={-1}
+      data-hours-block=""
+    >
       <legend className={styles.legend}>
         {t("availability.quickSetup.blockLegend", { service: serviceName })}
       </legend>
@@ -79,7 +85,7 @@ export function HoursBlockFieldset({
           </Text>
         )}
         <div>
-          <Button variant="ghost" size="sm" onClick={onRemove}>
+          <Button variant="secondary" size="sm" onClick={onRemove}>
             {t("availability.quickSetup.removeBlock")}
           </Button>
         </div>

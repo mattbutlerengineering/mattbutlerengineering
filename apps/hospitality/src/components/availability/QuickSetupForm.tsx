@@ -46,8 +46,11 @@ export interface QuickSetupFormProps {
   /**
    * Each service is a closed line on a phone (ux.md F2): one open at a time, plus any with a
    * problem. Never set in onboarding. The owner re-keys the form after a save to close every line.
+   * On every viewport the lines stack over a single column: the closed preview row follows them.
    */
   readonly collapsible?: boolean;
+  /** The owner shows the preview itself (a draft preview while dirty): none is rendered here. */
+  readonly hidePreview?: boolean;
 }
 
 /** A service nothing has been typed into: there is no line to read, so it starts open. */
@@ -109,6 +112,7 @@ export function QuickSetupForm({
   fixedDays = false,
   idScope,
   collapsible = false,
+  hidePreview = false,
 }: QuickSetupFormProps) {
   const { t } = useTranslation();
   // Field ids carry the form instance: the week panel and the drawer opened from it can hold the
@@ -186,7 +190,7 @@ export function QuickSetupForm({
   return (
     <QuickSetupIdScopeContext value={scope}>
       <QuickSetupFixContext value={applyFix}>
-        <div className={inDrawer ? styles.layoutSingle : styles.layout}>
+        <div className={inDrawer || collapsible ? styles.layoutSingle : styles.layout}>
           <Stack gap="md">
             {draft.services.map((service, index) => {
               const open = !collapsible || isOpen(service.id);
@@ -241,8 +245,8 @@ export function QuickSetupForm({
               {announcement.repeat ? "\u00a0" : ""}
             </Text>
           </Stack>
-          {!inDrawer && (
-            <div className={styles.stripColumn}>
+          {!inDrawer && !hidePreview && (
+            <div className={collapsible ? styles.previewBelow : styles.stripColumn}>
               {collapsible ? (
                 <PreviewRow draft={draft} local={local} />
               ) : (

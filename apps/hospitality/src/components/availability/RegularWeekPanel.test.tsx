@@ -1,11 +1,8 @@
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 
 const save = vi.hoisted(() => vi.fn());
-/** What `useViewport` answers; the lines are a phone-only mode. */
-const viewport = vi.hoisted(() => ({ current: "desktop" }));
-vi.mock("../../hooks/useViewport.js", () => ({ useViewport: () => viewport.current }));
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
@@ -71,15 +68,25 @@ function panel(
   );
 }
 
-const dinnerTuesday = () =>
-  within(screen.getByRole("group", { name: "Dinner runs on" })).getByRole("checkbox", {
+/** A service is a closed line at every width: open the one to edit (one is open at a time). */
+const openService = (name: string) => {
+  const line = screen.getByRole("button", { name: new RegExp(`^${name}, `) });
+  if (line.getAttribute("aria-expanded") === "false") fireEvent.click(line);
+};
+
+const dinnerTuesday = () => {
+  openService("Dinner");
+  return within(screen.getByRole("group", { name: "Dinner runs on" })).getByRole("checkbox", {
     name: "Tuesday",
   });
+};
 
-const lunchMonday = () =>
-  within(screen.getByRole("group", { name: "Lunch runs on" })).getByRole("checkbox", {
+const lunchMonday = () => {
+  openService("Lunch");
+  return within(screen.getByRole("group", { name: "Lunch runs on" })).getByRole("checkbox", {
     name: "Monday",
   });
+};
 
 describe("RegularWeekPanel", () => {
   beforeAll(() => {
@@ -90,16 +97,20 @@ describe("RegularWeekPanel", () => {
     save.mockResolvedValue({ version: 8, changeId: "chg" });
   });
 
-  it("shows the saved services, times, days and the guest preview", () => {
+  it("shows each saved service as one line with its times and days, and the guest preview closed", () => {
     render(panel(stateOf(demoConfig())));
+    for (const name of [/^Lunch, 11:30 AM–3:00 PM · Mon–Fri/, /^Dinner, /, /^Brunch, /]) {
+      expect(screen.getByRole("button", { name })).toHaveAttribute("aria-expanded", "false");
+    }
+    expect(screen.queryAllByLabelText("Closes")).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "Guest preview" })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+    expect(lunchMonday()).toBeChecked();
     expect(screen.getAllByLabelText("Closes").map((c) => (c as HTMLInputElement).value)).toEqual([
       "3:00 PM",
-      "11:00 PM",
-      "12:00 AM",
-      "2:00 PM",
     ]);
-    expect(lunchMonday()).toBeChecked();
-    expect(screen.getByText("Guest preview")).toBeInTheDocument();
   });
 
   it("says when changes apply and offers Starting later… before any edit", () => {
@@ -127,14 +138,16 @@ describe("RegularWeekPanel", () => {
     expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
     expect(screen.getByText("This becomes your regular week: open Tue–Sun.")).toBeInTheDocument();
     expect(screen.getByText("Monday is closed.")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "What changes for guests" })).toBeInTheDocument();
   });
 
-  it("a dirty panel has one Guest preview (the form's) and one What changes for guests", () => {
+  it("a dirty panel has exactly one guest preview: the draft's, not the form's and a second panel", () => {
     render(panel(stateOf(demoConfig())));
     fireEvent.click(lunchMonday());
     expect(screen.getAllByRole("heading", { name: "Guest preview" })).toHaveLength(1);
-    expect(screen.getAllByRole("heading", { name: "What changes for guests" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Guest preview" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "What changes for guests" })).toBeNull();
+    // The one preview keeps the comparison with the saved week inside it.
+    expect(screen.getByRole("radio", { name: "Last saved" })).toBeInTheDocument();
   });
 
   it("Discard returns the form to the saved week", () => {
@@ -224,11 +237,7 @@ describe("RegularWeekPanel", () => {
 
     it("does not replace the form's edits, and offers no Save of its own, while it is dirty", () => {
       const { rerender } = render(panel(stateOf(demoConfig())));
-      fireEvent.click(
-        within(screen.getByRole("group", { name: "Dinner runs on" })).getByRole("checkbox", {
-          name: "Tuesday",
-        })
-      );
+      fireEvent.click(dinnerTuesday());
       rerender(panel(stateOf(lunchWithoutMonday(), 9)));
       expect(discard()).toBeInTheDocument();
       // Still the Manager's week, not the colleague's.
@@ -266,7 +275,12 @@ describe("RegularWeekPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(onStale).toHaveBeenCalledTimes(1));
       rerender(panel(stateOf(lunchWithoutMonday(), 8), { onStale }));
-      fireEvent.click(await screen.findByRole("button", { name: "Reapply my changes" }));
+      // The message the Save waits on sits in the pinned bar, with the Save.
+      const reapply = await screen.findByRole("button", { name: "Reapply my changes" });
+      expect(reapply.closest("[data-pinned]")).toBe(
+        screen.getByRole("button", { name: "Save" }).closest("[data-pinned]")
+      );
+      fireEvent.click(reapply);
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
       expect(save.mock.calls[1]![0].body.expectedVersion).toBe(8);
@@ -319,53 +333,91 @@ describe("RegularWeekPanel service lines", () => {
     vi.clearAllMocks();
     save.mockResolvedValue({ version: 8, changeId: "chg" });
   });
-  afterEach(() => {
-    viewport.current = "desktop";
-  });
 
-  it("on a phone shows each service as a closed line", () => {
-    viewport.current = "phone";
+  it("shows each service as a closed line, one open at a time", () => {
     render(panel(stateOf(demoConfig())));
     expect(lunchLine()).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryAllByLabelText("Service name")).toHaveLength(0);
     fireEvent.click(lunchLine());
     expect(screen.getAllByLabelText("Service name")).toHaveLength(1);
+    openService("Dinner");
+    expect(lunchLine()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getAllByLabelText("Service name")).toHaveLength(1);
   });
 
-  it("on a desktop shows every service open, with no lines", () => {
+  it("an opened service that has a name shows no name chips", () => {
     render(panel(stateOf(demoConfig())));
-    expect(screen.queryByRole("button", { name: /^Lunch, / })).not.toBeInTheDocument();
-    expect(screen.getAllByLabelText("Service name")).toHaveLength(3);
+    fireEvent.click(lunchLine());
+    expect(screen.getByLabelText("Service name")).toHaveValue("Lunch");
+    expect(screen.queryByRole("group", { name: "Service names" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dinner" })).not.toBeInTheDocument();
   });
 
-  it("on a tablet shows every service open, with no lines", () => {
-    viewport.current = "tablet";
+  it("the per-service actions are bordered buttons", () => {
     render(panel(stateOf(demoConfig())));
-    expect(screen.queryByRole("button", { name: /^Lunch, / })).not.toBeInTheDocument();
-  });
-
-  it.each(["phone", "desktop"])(
-    "a Save refused for a problem focuses the first invalid field (%s)",
-    (width) => {
-      viewport.current = width;
-      render(panel(stateOf(demoConfig())));
-      if (width === "phone") fireEvent.click(lunchLine());
-      const name = screen.getAllByLabelText("Service name")[0] as HTMLInputElement;
-      expect(name.value).toBe("Lunch");
-      fireEvent.change(name, { target: { value: "" } });
-      screen.getByRole("button", { name: "Starting later…" }).focus();
-
-      const saveButton = screen.getByRole("button", { name: "Save" });
-      expect(saveButton).toHaveAttribute("aria-disabled", "true");
-      fireEvent.click(saveButton);
-
-      expect(save).not.toHaveBeenCalled();
-      expect(screen.getAllByLabelText("Service name")[0]).toHaveFocus();
+    fireEvent.click(lunchLine());
+    for (const name of ["Use the shared days", "Different hours on some days", /^Remove service/]) {
+      expect(screen.getByRole("button", { name }).className).toMatch(/secondary/);
     }
-  );
+  });
+
+  it("a Save refused for a problem focuses the first invalid field", () => {
+    render(panel(stateOf(demoConfig())));
+    fireEvent.click(lunchLine());
+    const name = screen.getAllByLabelText("Service name")[0] as HTMLInputElement;
+    expect(name.value).toBe("Lunch");
+    fireEvent.change(name, { target: { value: "" } });
+    screen.getByRole("button", { name: "Starting later…" }).focus();
+
+    const saveButton = screen.getByRole("button", { name: "Save" });
+    expect(saveButton).toHaveAttribute("aria-disabled", "true");
+    fireEvent.click(saveButton);
+
+    expect(save).not.toHaveBeenCalled();
+    expect(screen.getAllByLabelText("Service name")[0]).toHaveFocus();
+  });
+
+  describe("Different hours on some days", () => {
+    const openNewBlock = () => {
+      render(panel(stateOf(demoConfig())));
+      fireEvent.click(lunchLine());
+      fireEvent.click(screen.getByRole("button", { name: "Different hours on some days" }));
+    };
+
+    it("opens with no error, no required-fields message and a Save that says nothing yet", () => {
+      openNewBlock();
+      expect(screen.getByRole("group", { name: "Lunch: different hours" })).toBeInTheDocument();
+      expect(screen.queryByText("Choose at least one day for these hours.")).toBeNull();
+      expect(screen.queryByText("These match the other days. Remove them.")).toBeNull();
+      expect(screen.queryByText(/Fill in the required fields/)).toBeNull();
+      expect(screen.queryByRole("alert")).toBeNull();
+      expect(screen.getByRole("button", { name: "Save" })).not.toHaveAccessibleDescription(
+        /at least one day/
+      );
+    });
+
+    it("says what is missing once Save is pressed, and goes to it", () => {
+      openNewBlock();
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      expect(save).not.toHaveBeenCalled();
+      expect(
+        screen.getAllByText("Choose at least one day for these hours.").length
+      ).toBeGreaterThan(0);
+    });
+
+    it("says what is missing once a field of the block is left", () => {
+      openNewBlock();
+      const block = screen.getByRole("group", { name: "Lunch: different hours" });
+      const checkbox = within(block).getAllByRole("checkbox")[0] as HTMLElement;
+      checkbox.focus();
+      fireEvent.blur(checkbox, { relatedTarget: document.body });
+      expect(
+        screen.getAllByText("Choose at least one day for these hours.").length
+      ).toBeGreaterThan(0);
+    });
+  });
 
   it("closes every line once a save has landed", async () => {
-    viewport.current = "phone";
     const config = demoConfig();
     const { rerender } = render(panel(stateOf(config)));
     fireEvent.click(lunchLine());

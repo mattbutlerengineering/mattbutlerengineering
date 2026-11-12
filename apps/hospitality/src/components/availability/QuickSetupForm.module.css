@@ -10,6 +10,10 @@
   display: block;
 }
 
+.previewBelow {
+  margin-top: var(--rialto-space-md);
+}
+
 .service,
 .days,
 .block {
