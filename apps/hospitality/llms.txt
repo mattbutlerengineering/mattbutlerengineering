@@ -5821,6 +5821,135 @@
       ): DateAnswer | null { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/hub/hub-rows.ts">
+    <item priority="high">
+      type HubRowNumber = DateAnswerHubRow | 5;
+    </item>
+    <item priority="high">
+      interface Numbered {
+        row: N;
+      }
+    </item>
+    <item priority="low">
+      interface HubRowsInput {
+        state: Pick<AvailabilityConfigState, "config" | "source">;
+        settings: VenueSettings | null | undefined;
+        holidays: readonly { readonly state: HolidayState }[];
+        sectionNames: ReadonlyMap<string, string>;
+        timezone: string;
+      }
+    </item>
+    <item priority="low">
+      interface RegularHoursRow {
+        services: readonly RegularWeekLineService[];
+        upcoming: {
+          readonly startsOn: string;
+          /** `null` when the ...;
+      }
+    </item>
+    <item priority="low">
+      interface SeasonalHoursSet {
+        scheduleId: string;
+        name: string;
+        usage: ScheduleUsage;
+      }
+    </item>
+    <item priority="low">
+      interface SeasonalHoursRow {
+        sets: readonly SeasonalHoursSet[];
+        more: number;
+      }
+    </item>
+    <item priority="low">
+      interface HubSpecialDate {
+        ruleId: string;
+        kind: "closed" | "specialHours" | "useHours";
+        startsOn: string;
+        endsOn: string | null;
+        weekdays: readonly number[] | null;
+      }
+    </item>
+    <item priority="low">
+      interface SpecialDatesRow {
+        next: readonly HubSpecialDate[];
+        holidaysNotPlanned: number;
+      }
+    </item>
+    <item priority="low">
+      interface HubClosure {
+        ruleId: string;
+        what: ClosureKind;
+        startsOn: string;
+        endsOn: string | null;
+        weekdays: readonly number[] | null;
+      }
+    </item>
+    <item priority="low">
+      interface HubOnlinePause {
+        ruleId: string;
+        inForce: boolean;
+        fromMinute: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface ClosuresRow {
+        pause: HubOnlinePause | null;
+        now: readonly HubClosure[];
+        next: HubClosure | null;
+      }
+    </item>
+    <item priority="low">
+      interface BookingRulesRow {
+        rules: BookingRulesValues | null;
+      }
+    </item>
+    <item priority="low">
+      type HubRowModels = readonly [
+        RegularHoursRow,
+        SeasonalHoursRow,
+        Speci...;
+    </item>
+    <item priority="low">
+      type HubRows = { readonly kind: "emptyVenue"  | { readonly kind: "rows"; reado;
+    </item>
+    <item priority="medium">
+      function regularHoursRow(config: AvailabilityConfig, today: string): RegularHoursRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seasonalHoursRow(config: AvailabilityConfig): SeasonalHoursRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialDateKind(rule: DateRule): HubSpecialDate["kind"] | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialDatesRow(
+        rules: readonly DateRule[],
+        today: string,
+        holidays: HubRowsInput["holidays"]
+      ): SpecialDatesRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closesToday(rule: DateRule, rules: readonly DateRule[], today: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nextDateOf(rule: DateRule, today: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureOf(rule: SpecialDateRule, sectionNames: ReadonlyMap<string, string>): HubClosure { /* ... */ }
+    </item>
+    <item priority="medium">
+      function onlinePause(input: HubRowsInput): { rule: DateRule; model: HubOnlinePause } | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closuresRow(input: HubRowsInput): ClosuresRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingRulesRow(settings: HubRowsInput["settings"]): BookingRulesRow { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hubRows(input: HubRowsInput): HubRows { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="i18n">
   <file path="src/i18n/availability-glossary.ts">
