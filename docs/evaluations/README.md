@@ -8,6 +8,7 @@ Point-in-time evaluations of third-party tools, providers, and architectural cho
 
 | Date       | Evaluation                                                                           | Topic                                                                          |
 | ---------- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
+| 2026-11-11 | [Dynamic Invite og:image](./2026-11-11-dynamic-invite-og-image.md)                   | Satori + resvg-wasm at the edge (#8668): fits size, fails Free-plan 10 ms CPU  |
 | 2026-10-24 | [Generative UI Bake-off: Claude Haiku 5.5](./2026-10-24-gen-ui-bakeoff-anthropic.md) | Deciding bake-off arm (#6948): 100%/100%, $0.70/1k cached; Haiku 5.5 confirmed |
 | 2026-10-22 | [Generative UI Bake-off: Gemini Free Tier](./2026-10-22-gen-ui-bakeoff-gemini.md)    | First live bake-off arm (#6948): valid-spec rates at $0 on the free tier       |
 | 2026-06-14 | [Popular AI Dev Repos (Skills, Agents, Harnesses)](./2026-06-14-ai-dev-repos.md)     | Ruflo, mattpocock/skills, CodeGraph + skill collections; mapped to our stack   |
