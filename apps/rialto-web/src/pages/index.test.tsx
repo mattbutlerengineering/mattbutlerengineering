@@ -140,6 +140,12 @@ describe("OverviewPage — Hero, headings, and manifest-driven stats", () => {
     expect(screen.getByRole("heading", { level: 2, name: /getting started/i })).toBeInTheDocument();
   });
 
+  it("explains that category numbers count documentation pages, not the component total", () => {
+    renderOverview();
+    const note = screen.getByText(/numbers on the cards count documentation pages/i);
+    expect(note.textContent).toContain(String(__RIALTO_COMPONENT_COUNT__));
+  });
+
   it("renders a primary conversion CTA", () => {
     renderOverview();
     expect(screen.getByRole("button", { name: /get started/i })).toBeInTheDocument();
