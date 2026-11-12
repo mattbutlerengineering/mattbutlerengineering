@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.13
+
+### Patch Changes
+
+- [#8700](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8700) [`9a1e867`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/9a1e8677c9d42cf23d1f2057ad2b0eaf170a3513) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Select menus paint an opaque elevated surface in light and dark mode, so the options are readable over the fields they cover. Tables and data tables scroll inside their own frame when the columns are wider than that frame.
+
+- [#8634](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8634) [`6204d5d`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6204d5dc72ce426882f71ce3d21af34a4c898852) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Popover panels portal to the page so a transformed card cannot shift a date picker off its field or bury clicks under later content. Horizontal DataList rows keep a readable value width when the row is narrow, instead of collapsing the price to zero.
+
 ## 0.10.12
 
 ### Patch Changes
