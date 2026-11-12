@@ -60,9 +60,9 @@
       "limit": "3 kB"
     },
     {
-      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup named the chunk for CallListDialog until #8538 and now names it for tonight-state; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list; +1 kB at #8528 for the Tonight/Tomorrow/holiday chips and the opening-to-close Starting-at list, 14.19 kB measured; +0.5 kB at #8538 for tonight-state, which the header Today line now shares with this chunk, 14.73 kB measured)",
+      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup named the chunk for CallListDialog until #8538 and now names it for tonight-state; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list; +1 kB at #8528 for the Tonight/Tomorrow/holiday chips and the opening-to-close Starting-at list, 14.19 kB measured; +0.5 kB at #8538 for tonight-state, which the header Today line now shares with this chunk, 14.73 kB measured; +0.4 kB at #8689 for the date-first Close dialog: the incomplete-label text, the What summary line, the end-date and holiday fields, the note disclosure and the post-save focus, 15.1 kB measured)",
       "path": "dist/assets/tonight-state-*.js",
-      "limit": "15 kB"
+      "limit": "15.2 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
