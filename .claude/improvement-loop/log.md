@@ -5246,3 +5246,36 @@ Both are candidates for a human-owned `meta-improvement` issue proposing a rubri
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to review.
+
+## 2026-11-12 — mbe-ui-quality
+
+**State:** `state.mjs checkout` source `branch` (head c3fe83da, `merged_main` 890c469e, 1 conflict resolved by rule in `metrics/ui-quality-ledger.jsonl`). All three app builds succeeded, so no rows were recorded `unreachable:build`.
+
+**Routes:** 40 due / 40 captured / 40 audited — 39 `rialto-web` (`components/*`) and 1 `hospitality` (`i/:token`). Marketing had 0 routes due, so its capture run skipped with "no marketing routes planned". 20 hospitality rows `unreachable:auth`, 0 `unreachable:build`. Unjudged 0, dropped tells 0.
+
+**Findings:** 2 mechanical, 0 judged.
+
+- Mechanical, both on `hospitality i/:token`: `accessibility/axe-moderate` (page-has-heading-one, 1 node, selector `html`) and `bugs/failed-request` (4 failed requests to `/public/v1/invites/ui-quality-invite` — 2x HTTP 502, 2x `net::ERR_ABORTED`; the invites API is not running behind the local `vite preview`, so this is a local-fixture artefact rather than a shipped-route defect, but the detector decides and it was filed as written).
+- Judged: all 40 routes judged clean against rubric v1's judged tells (the 7 agent-built and 3 semantic-accessibility tells). The rialto-web component docs pages hold up — token surfaces rather than decorative gradients, the rialto display face rather than Inter, domain-specific prose, and section headings that title their sections. `components/icon-vocabulary` is a grid of icon cards but shows the real icon set rather than filler, so it is not `agent-built/icon-card-grid`; `components/master-override`'s three variant cards are the component's actual variants, not a `three-feature-card-row`.
+
+**Calibration:** stamp `stale`. `calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still carries no labelled pairs (the Verify-stage task of labelling >= 10 pairs remains unowned by this routine). Not retried. Re-queried after: still `stale`. Fourth consecutive fire in this condition (2026-11-05, 2026-11-08, 2026-11-11, today). No judged findings were produced this fire, so the suppression changed nothing in practice.
+
+**Rating:** 8 pairs over 2 apps rated and recorded — rialto-web 5, hospitality 0. Ours won 5 of 8. The three rialto-web pages (`components/page-header`, `components/neon-sign`, `components/meter`) beat both Mantine's and Chakra's Button docs on restraint, type and the absence of promo chrome (Chakra still fronts its page with a two-hue purple gradient banner). Both `hospitality i/:token` pairs were lost, correctly: the page paints nothing but an unstyled "Loading invitation..." line against two dense, finished dashboards (shadcn-dashboard-01, tremor-overview).
+
+**Filing:** plan exit 0 — 2 `create`, 5 ledger-internal `close` actions (`carrier: seed`, `issue: null`, `state_reason: not_observed`, for `components/aspect-ratio`, `components/breadcrumb`, `components/pagination` and two on `components/scroll-area`), 0 seeds, 0 `reopen`/`comment`/`adopt`/`skip`. **2 issues created:** #8762 (`accessibility/axe-moderate`) and #8763 (`bugs/failed-request`), both on `hospitality i/:token`; each verified to carry the `ui-quality` label after creation, so filing continued. 0 reopened, 0 commented, 0 seeds. All 35 issue numbers in the findings ledger resolved; 37 `ui-quality`-labelled issues read across one complete page (`hasNextPage: false`), none unknown to the plan beyond the two closed escalation issues (#7477, #7908). No escalation file written. No rubric migration — every ledger key is `r1` and the rubric is at v1. Checkpoint commit `336a1f867` pushed before step g as required.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+
+**Coverage before this fire:** 99.2% (136/137 reachable rows covered, not provisional). `coverage.mjs --json` exited 1 — a coverage breach, with one uncovered row: `hospitality i/:token`. That row was captured and judged this fire, so the next fire should read 100%.
+
+**Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so both issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion (`totalCount` 37 and 0). Issue states for the 35 ledger issues were taken from that complete single-page label listing rather than 35 individual `issue_read` calls — every ledger issue appeared in it, so the listing is an authoritative read of all 35 and no number needed `missing`.
+
+Three defects were seen that rubric v1 has no tell for, so none could be filed (recording them here rather than losing them):
+
+1. **Several rialto-web routes truncate their content and paint a long blank tail at both viewports** — `components/letterboard` (content ends mid "MENU BOARD", ~1.2k blank px below, header repeated at the bottom), `components/master-override` (ends mid "SIZES", ~2.9k blank px at 1280 and ~4.7k at 375) and to a lesser degree `components/odometer`, `components/pin-input` and `components/page-header`. The pages are not blank — `detect.mjs mechanical` correctly saw text and painted ratio 1 — but a reader scrolls into dead space. No judged tell covers a layout/overflow fault.
+2. **`components/navbar` at 375x812 renders its demo navbar outside its container**, over the top of the page: the page title and intro are pushed off-screen, the demo sits above the "FULL NAVBAR (CONTAINED)" label, and the bordered box beneath it is empty.
+3. **`components/input-group` does not demonstrate its own documented behaviour** in the "SELECT + INPUT" example: the select and the input are separated by a visible gap and the input sits a few px proud of the select, while the caption beneath reads "borders collapse at the join".
+
+All three are candidates for a human-owned `meta-improvement` issue proposing a rubric v2 tell (a layout/overflow face, which 2026-11-11's note also asked for); this routine does not file those itself.
