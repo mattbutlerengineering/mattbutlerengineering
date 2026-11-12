@@ -285,6 +285,52 @@ describe("SignIn — credentials step", () => {
     expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
   });
 
+  it("rejects a password made only of spaces the same way as an empty password", () => {
+    renderSignIn();
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "test@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    expect(screen.getByLabelText("Password")).toHaveAttribute("aria-invalid", "true");
+    expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText("Email address")).not.toHaveAttribute("aria-invalid");
+    expect(screen.getByRole("status")).not.toHaveTextContent("Sending your credentials");
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /signing in/i })).not.toBeInTheDocument();
+  });
+
+  it("clears the whitespace-password error once the password is no longer blank", () => {
+    renderSignIn();
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "test@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+    expect(screen.getByText(/enter your password/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "   a" } });
+    expect(screen.queryByText(/enter your password/i)).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Password")).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("accepts a password that contains spaces when it is not only spaces", async () => {
+    renderSignIn();
+    fillCredentials("test@example.com", " a ");
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(screen.queryByText(/enter your password/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Sending your credentials");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+  });
+
   it("offers a passkey affordance above the social sign-in row", () => {
     renderSignIn();
     const passkey = screen.getByRole("button", { name: /use a passkey instead/i });

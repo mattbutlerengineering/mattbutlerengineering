@@ -1,0 +1,81 @@
+.page {
+  display: flex;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--rialto-space-lg);
+  background: var(--rialto-surface);
+}
+
+.column {
+  width: 100%;
+  max-width: 28rem;
+}
+
+.cardInset {
+  padding: var(--rialto-space-lg);
+}
+
+.card[data-reveal="animated"] {
+  animation: inviteReveal 600ms ease-out both;
+}
+
+@keyframes inviteReveal {
+  from {
+    opacity: 0;
+    transform: translateY(var(--rialto-space-md));
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card[data-reveal] {
+    animation: none;
+  }
+}
+
+.rsvpList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rsvpRow {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--rialto-space-md);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+}
+
+.actions > * {
+  flex: 1 1 auto;
+}
+
+.homeLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: var(--rialto-space-sm);
+  padding-inline: var(--rialto-space-lg);
+  border-radius: var(--rialto-radius-default);
+  background: var(--rialto-accent);
+  color: var(--rialto-text-on-accent);
+  font: inherit;
+  text-decoration: none;
+}
+
+.homeLink:hover,
+.homeLink:focus-visible {
+  text-decoration: underline;
+}

@@ -242,10 +242,10 @@ describe("UpdateVenueBodySchema.settings.profile — the PATCH boundary", () => 
     expect(at(profile, ["website"]).format).toBeUndefined();
   });
 
-  it("keeps the rest of settings free-form (no AJV constraint beyond profile)", () => {
+  it("keeps the rest of settings free-form (no AJV constraint beyond profile and tonightNote)", () => {
     const branch = settingsObjectBranch(updateVenueBodyJsonSchema);
 
-    expect(Object.keys(at(branch, ["properties"]))).toEqual(["profile"]);
+    expect(Object.keys(at(branch, ["properties"]))).toEqual(["profile", "tonightNote"]);
     // `toRequestJsonSchema` strips `additionalProperties`, so every other
     // operational key still reaches the service untouched.
     expect(branch.additionalProperties).toBeUndefined();

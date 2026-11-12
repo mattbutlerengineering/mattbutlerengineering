@@ -1151,6 +1151,14 @@
       export const manageReservationRoutes: FastifyPluginAsync;
     </item>
   </file>
+  <file path="src/routes/manage-signal.ts">
+    <item priority="high">
+      type SignalBody = { kind: GuestSignalKind; minutes?: 5 | 15 | 30 };
+    </item>
+    <item priority="high">
+      export const manageSignalRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="src/routes/manage-token-scope.ts">
     <item priority="high">
       type Handler = RouteHandlerMethod<
@@ -1282,6 +1290,11 @@
     </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="src/routes/public-invites.ts">
+    <item priority="high">
+      export const publicInviteRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="src/routes/public-menus.ts">
@@ -3005,6 +3018,35 @@
       export const briefingService: unknown;
     </item>
   </file>
+  <file path="src/services/can-signal.ts">
+    <item priority="high">
+      export const MAX_LATE_SIGNALS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_ARRIVED_SIGNALS: unknown;
+    </item>
+    <item priority="low">
+      type GuestSignalKind = "running-late" | "arrived";
+    </item>
+    <item priority="low">
+      type CanSignalResult = { ok: true } | { ok: false; reason: "not-conf;
+    </item>
+    <item priority="low">
+      interface CanSignalInput {
+        status: string;
+        startTime: string;
+        timezone: string;
+        now: Date;
+        kind: GuestSignalKind;
+      }
+    </item>
+    <item priority="medium">
+      function localDay(instant: Date, timezone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function canSignal(input: CanSignalInput): CanSignalResult { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/closure-alongside.ts">
     <item priority="low">
       interface AlongsideIssue {
@@ -4480,6 +4522,22 @@
       function applyDecay(noShowCount: number, lastNoShowDate: Date | null): number { /* ... */ }
     </item>
   </file>
+  <file path="src/services/guest-signal.ts">
+    <item priority="high">
+      export async function countGuestSignals(
+        reservationId: string
+      ): Promise<{ late: number; arrived: number }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function recordGuestSignal(input: {
+        reservationId: string;
+        venueId: string;
+        guestId: string | null;
+        kind: GuestSignalKind;
+        minutes?: number;
+      }): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/guest.ts">
     <item priority="medium">
       function mapPrismaGuest(guest: {
@@ -4861,6 +4919,17 @@
       export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> { /* ... */ }
     </item>
   </file>
+  <file path="src/services/night-of-venue.ts">
+    <item priority="high">
+      type VenueAddress = NonNullable<VenueProfile["address"]>;
+    </item>
+    <item priority="high">
+      export function nightOfVenueFields(settings: unknown): {
+        address?: VenueAddress;
+        tonightNote?: string;
+      } { /* ... */ }
+    </item>
+  </file>
   <file path="src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
@@ -5010,6 +5079,9 @@
         ...;
     </item>
     <item priority="low">
+      type GuestSignalEventState = { signal: "running-late" | "arrived"; minutes?: number };
+    </item>
+    <item priority="low">
       type DepositEventState = { depositStatus: string };
     </item>
     <item priority="high">
@@ -5033,7 +5105,7 @@
           kind: ReservationEventKind;
           actor: ReservationEventActor;
           from?: EventState | DepositEventState | null;
-          to?: EventState | DepositEventState | null;
+          to?: EventState | DepositEventState | GuestSignalEventState | null;
         }
       ) { /* ... */ }
     </item>
@@ -5065,6 +5137,67 @@
         reservationId: string,
         { limit = DEFAULT_EVENT_PAGE_SIZE, cursor }: { limit?: number; cursor?: string } = {}
       ): Promise<{ data: ReservationEventDto[]; nextCursor: string | null }> { /* ... */ }
+    </item>
+  </file>
+  <file path="src/services/reservation-invite.ts">
+    <item priority="high">
+      export function hashInviteToken(token: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function createInvite(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<{ id: string; token: string }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function findLiveInviteByToken(
+        token: string
+      ): Promise<{ id: string; venueId: string; reservationId: string } | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function revokeInvitesForReservation(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InvitePublicView {
+        venue: { name: string; slug: string };
+        date: string;
+        time: string;
+        partySize: number;
+        rsvps: Array<{ firstName: string; status: string }>;
+      }
+    </item>
+    <item priority="low">
+      type InviteLookup = { kind: "ok"; view: InvitePubl | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="medium">
+      function localParts(at: Date, timeZone: string): { date: string; time: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      type LiveInvite = {
+            kind: "ok";
+            invi | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="low">
+      async function resolveLiveInvite(token: string, venueId: string, now: Date): Promise<LiveInvite> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getInvitePublicView(
+        token: string,
+        now: Date = new Date()
+      ): Promise<InviteLookup> { /* ... */ }
+    </item>
+    <item priority="low">
+      type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="high">
+      export async function addInviteRsvp(
+        token: string,
+        input: { firstName: string; status: "IN" | "OUT" },
+        now: Date = new Date()
+      ): Promise<RsvpResult> { /* ... */ }
     </item>
   </file>
   <file path="src/services/reservation-modification.ts">
@@ -5379,11 +5512,11 @@
     </item>
     <item priority="low">
       interface PrismaReservationRow {
+        invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
         id: string;
         date: Date;
         startTime: Date;
         endTime: Date;
-        partySize: number;
       }
     </item>
     <item priority="high">
@@ -5406,6 +5539,9 @@
     </item>
     <item priority="high">
       export function toReservation(row: PrismaReservationRow): Reservation { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] { /* ... */ }
     </item>
   </file>
   <file path="src/services/slot-rules.ts">

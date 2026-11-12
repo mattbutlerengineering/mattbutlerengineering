@@ -669,6 +669,9 @@
       "noShowExposure": "No-show exposure"
     }
   },
+  "inviteRsvpChip": {
+    "text": "{{in}} of {{total}} in"
+  },
   "timeline": {
     "page": {
       "title": "Timeline",
@@ -873,6 +876,15 @@
       "seatNow": "Seat now",
       "seating": "Seating…"
     }
+  },
+  "onMyWayBadge": {
+    "text": "+{{minutes}} · ETA {{time}}",
+    "aria_one": "Running {{minutes}} min late, expected at {{time}}",
+    "aria_other": "Running {{minutes}} min late, expected at {{time}}",
+    "aria_many": "Running {{minutes}} min late, expected at {{time}}",
+    "ariaPast_one": "Running {{minutes}} min late, expected at {{time}}, ETA has passed",
+    "ariaPast_other": "Running {{minutes}} min late, expected at {{time}}, ETA has passed",
+    "ariaPast_many": "Running {{minutes}} min late, expected at {{time}}, ETA has passed"
   },
   "errorBanner": {
     "retry": "Retry",
@@ -1472,6 +1484,34 @@
       "cutoff": "Changes close {{hours}} hours before your visit. Call {{venue}} to change this booking.",
       "success": "Your booking has been updated."
     },
+    "nightOf": {
+      "title": "Tonight at {{venue}}",
+      "countdownBefore": "Your reservation starts in {{duration}}",
+      "countdownNow": "Your reservation time is now",
+      "countdownAfter": "Your reservation started {{duration}} ago",
+      "partyAndTime": "{{party}} · {{time}}",
+      "directions": "Get directions",
+      "directionsLabel": "Get directions to {{venue}} (opens in a new tab)",
+      "noteHeading": "A note from {{venue}}",
+      "signalsHeading": "Let {{venue}} know",
+      "signalsHint": "Tell the host if your plans change tonight. This never changes your booking.",
+      "runningLate": "Running {{minutes}} min late",
+      "arrived": "We're here",
+      "sending": "Sending…",
+      "sentLate": "Thanks — {{venue}} knows you're running about {{minutes}} minutes late. Your table is still booked.",
+      "sentArrived": "Thanks — {{venue}} knows you've arrived.",
+      "outsideWindow": "Updates open 3 hours before your reservation and close 45 minutes after it starts.",
+      "outsideWindowAfterMidnight": "Updates open at midnight, but no earlier than 3 hours before your reservation, and close 45 minutes after it starts.",
+      "lateCapped": "You've sent the most late updates allowed ({{max}}). Call {{venue}} if you need more time.",
+      "arrivedDone": "You've already let {{venue}} know you're here.",
+      "errors": {
+        "link": "We couldn't verify this link. Please reopen it from your confirmation email.",
+        "expired": "This link has expired. Please call {{venue}}.",
+        "window": "{{venue}} isn't taking updates right now. Please call them if your plans changed.",
+        "limit": "You've sent the maximum number of updates, or are sending too quickly. Please wait a minute, or call {{venue}}.",
+        "failed": "We couldn't send that. Check your connection and try again, or call {{venue}}."
+      }
+    },
     "venueCancelled": {
       "heading": "Your reservation was cancelled",
       "intro": "{{venue}} had to cancel this reservation.",
@@ -1495,6 +1535,29 @@
         "failed": "We couldn't rebook that time. Please try again."
       }
     }
+  },
+  "invite": {
+    "documentTitle": "You're invited — Hospitality",
+    "venueDocumentTitle": "You're invited to {{venue}}",
+    "loading": "Loading invitation...",
+    "heading": "You're invited",
+    "cardLabel": "Invitation to {{venue}}",
+    "rsvpTitle": "Who's coming",
+    "noReplies": "No replies yet. Be the first.",
+    "statusIn": "Coming",
+    "statusOut": "Can't make it",
+    "firstNameLabel": "First name",
+    "firstNamePlaceholder": "Your first name",
+    "firstNameRequired": "Enter your first name.",
+    "imIn": "I'm in",
+    "cantMakeIt": "Can't make it",
+    "replied": "Thanks, {{name}}. Your reply is on the list.",
+    "full": "This invitation has no spots left.",
+    "error": "Something went wrong. Please try again.",
+    "endedHeading": "This invitation has ended",
+    "endedDescription": "The reservation was cancelled or has already passed.",
+    "notFoundHeading": "Invitation not found",
+    "notFoundDescription": "Check the link you were sent."
   },
   "offlineBanner": {
     "cached": "Showing cached data from last sync",
@@ -3354,6 +3417,14 @@
       "emergencyCloseHint": "Hosts can close the whole venue for tonight only. Anything longer needs a manager.",
       "emergencyCloseOn": "Hosts can close the whole venue for tonight in an emergency.",
       "emergencyCloseOff": "Only managers can close the venue."
+    },
+    "tonightNote": {
+      "title": "Tonight Note",
+      "label": "Tonight note",
+      "hint": "Shown to guests on the day of their booking. Up to {{max}} characters; leave empty to clear.",
+      "save": "Save note",
+      "saving": "Saving…",
+      "saved": "Tonight note saved."
     },
     "profile": {
       "title": "Venue Profile",

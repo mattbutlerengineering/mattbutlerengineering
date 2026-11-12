@@ -37,6 +37,7 @@ import { OfflineBanner } from "../components/OfflineBanner.js";
 import { PageHeader } from "../components/PageHeader";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useSSEStatus } from "../hooks/useSSESync.js";
+import { useGuestSignalBadges } from "../hooks/useGuestSignalBadges.js";
 import { useTimelineData } from "../hooks/useTimelineData.js";
 import { useCancellationQuote } from "../hooks/useCancellationQuote.js";
 import { UNLESS_COVERED, useFocusAfter } from "../hooks/useFocusAfter.js";
@@ -208,6 +209,8 @@ function LiveTimelinePage() {
     () => seatedReservationIds(reservations, tables, now),
     [reservations, tables, now]
   );
+
+  const guestSignalBadges = useGuestSignalBadges(reservations, seatedIds, now);
 
   // Derive the cancellation quote (fee + label) from the venue policy and the
   // selected reservation's time — one source for both the dialog display and
@@ -534,6 +537,7 @@ function LiveTimelinePage() {
         selectedReservationId={selectedId ?? undefined}
         onTableStatusChange={handleTableStatusChange}
         seatedIds={seatedIds}
+        guestSignalBadges={guestSignalBadges}
         pendingTableId={pendingTableId}
         bottomInset={
           viewport === "tablet" && selectedReservation

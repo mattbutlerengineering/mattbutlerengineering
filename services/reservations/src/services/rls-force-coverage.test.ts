@@ -120,6 +120,8 @@ describe("committed reservations migrations (ADR-026 / #5369)", () => {
       "menu_sections",
       "menus",
       "reservation_events",
+      "reservation_invites",
+      "reservation_rsvps",
       "reservations",
       "schedule_assignments",
       "schedule_services",

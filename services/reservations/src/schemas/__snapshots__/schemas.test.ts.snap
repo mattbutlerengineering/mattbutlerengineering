@@ -741,6 +741,28 @@ exports[`Reservation service schemas > ReservationSchema matches snapshot 1`] = 
     "id": {
       "type": "string",
     },
+    "inviteRsvp": {
+      "anyOf": [
+        {
+          "properties": {
+            "in": {
+              "type": "number",
+            },
+            "partySize": {
+              "type": "number",
+            },
+          },
+          "required": [
+            "in",
+            "partySize",
+          ],
+          "type": "object",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
     "notes": {
       "type": [
         "string",

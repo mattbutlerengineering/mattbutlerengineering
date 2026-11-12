@@ -109,6 +109,9 @@ const ManageReservationPage = lazy(() =>
     default: m.ManageReservationPage,
   }))
 );
+const InvitePage = lazy(() =>
+  import("./pages/InvitePage.js").then((m) => ({ default: m.InvitePage }))
+);
 const ChatPage = lazy(() => import("./pages/ChatPage.js").then((m) => ({ default: m.ChatPage })));
 const BriefingPage = lazy(() =>
   import("./pages/BriefingPage.js").then((m) => ({ default: m.BriefingPage }))
@@ -184,6 +187,14 @@ const router = createBrowserRouter(
       element: (
         <Suspense fallback={<LoadingPage />}>
           <ManageReservationPage />
+        </Suspense>
+      ),
+    },
+    {
+      path: "i/:token",
+      element: (
+        <Suspense fallback={<LoadingPage />}>
+          <InvitePage />
         </Suspense>
       ),
     },
