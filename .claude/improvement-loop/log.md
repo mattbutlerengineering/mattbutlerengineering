@@ -5279,3 +5279,13 @@ Three defects were seen that rubric v1 has no tell for, so none could be filed (
 3. **`components/input-group` does not demonstrate its own documented behaviour** in the "SELECT + INPUT" example: the select and the input are separated by a visible gap and the input sits a few px proud of the select, while the caption beneath reads "borders collapse at the join".
 
 All three are candidates for a human-owned `meta-improvement` issue proposing a rubric v2 tell (a layout/overflow face, which 2026-11-11's note also asked for); this routine does not file those itself.
+
+## 2026-11-12 — mbe-learning-loop
+
+**Sensors:** 17/18 available (e2eStability not available). Status: ✅ Healthy. acmm L5 (73/84), ciHealth 100% (25/25), mutationScore 99.07% PASS (107/389 killed), flakyTests 0 (71630 runs, 4 SHAs), metricsFreshness 0 unhealthy (all 9 watched metrics fresh), queueEfficiency composite 0.916 (fps 0.874, ttm 0.5h, no baseline yet).
+**Sentry triage:** skipped — stored Sentry MCP token rejected (`whoami` → "Authorization Expired"); no human available in this scheduled run to re-authorize. Same as 2026-11-09 and 2026-11-11.
+**Regressions:** 0 detected, 0 issues created.
+**Verifications:** 5 closed issues checked (48h window) — #8739, #8734, #8729 (ci-fix, "Broken Main"), #8728 (ci-fix, marketing visual baseline), #8720 (ci-fix, post-deploy-check) all skipped, no success/failure CI runs found after closure to verify against. 0 verified, 0 failed, 5 skipped.
+**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — feature 1% (72 total), ci-fix 11% (63 total), audit 3% (29 total), meta-improvement 0% (16 total), acmm 25% (4 total), sentry 0% (13 total), dependencies 0% (3 total). All budgets stay at default 3. One linked-PR lookup failed on a blocked GraphQL call (known sandbox limitation); did not affect the category rates above.
+**Skill proposals:** 0 (Thursday — Friday-only).
+**Threshold notes:** last-30-days verifications.jsonl: 127 records, 116 `skip` (no automated verifier available), 7 verified / 4 not-verified among the 11 non-skip → fix-effectiveness 63.6% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above, all ≤25%) stays well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.604 → 1.634 (headroom).
