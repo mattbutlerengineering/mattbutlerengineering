@@ -25,7 +25,7 @@ const CONVENTIONAL_TYPES = new Set([
   "style",
 ]);
 
-export const WATCHED_ISSUE_LABELS = [
+const WATCHED_ISSUE_LABELS = [
   "feature",
   "ci-fix",
   "bug",
@@ -89,7 +89,7 @@ function gh(args) {
 }
 
 /** GitHub search never returns more than this many results. */
-export const SEARCH_CAP = 1000;
+const SEARCH_CAP = 1000;
 
 /**
  * @param {string} what what was searched, for the message
