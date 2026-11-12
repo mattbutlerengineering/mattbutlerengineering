@@ -165,6 +165,20 @@ The command encodes the ordering, in this precedence: dist untrusted or unloadab
 
 **Why the specialist gate wins.** `qualifiesForLowRiskFastPath` requires **both** `isLowRiskPR(files)` **and** `reviewersForDiff(files).length === 0`. `isLowRiskPR` and `reviewersForDiff` are independent functions over the same file list and can both fire on the same diff: a pure dependency bump (every file matches `isLowRiskFile` in `packages/agent-core/src/file-classifier.ts`) can simultaneously match `dependency-update-reviewer` via `reviewersForDiff` (`packages/agent-core/src/pr-risk-classifier.ts`) — PR #4058 is exactly this shape. Calling `isLowRiskPR` alone would enqueue that PR with zero review, silently dropping the specialist its own sibling function selected (#4063). A low-risk-but-specialist-matched PR gets `fastPath: false` with its specialists listed, so it falls through to the `reviewers` hook even though the universal reviewer is still skipped. This doc intentionally does not enumerate the underlying globs so the doc and the code cannot drift apart (see #3887, #3916). Move to the next PR.
 
+## verdict
+
+Owner's standing consent (2026-11-12): every PR that passes this gate may merge under `merge: auto`, not only fast-path PRs. The hook runs on the universal reviewer's `score` (one quoted argument, already validated as a bare finite number 0-10) and the orchestrator acts on its exit code only (ADR-0123). The threshold lives here and nowhere else: 7 or above passes, matching the reviewer contract's "every criterion met, minor nits only" band.
+
+```bash
+score="$1"
+if [ "$#" -ne 1 ]; then echo "reviewer-verdict: error (wrong argument count)"; exit 2; fi
+if awk -v s="$score" 'BEGIN { exit !(s >= 7) }'; then
+  echo "reviewer-verdict: pass (score $score, threshold 7)"; exit 0
+else
+  echo "reviewer-verdict: flag (score $score, threshold 7)"; exit 1
+fi
+```
+
 ## reviewers
 
 **Reviewer sub-agent (non-low-risk PRs).** Build `ReviewInput` from the PR diff and dispatch:
