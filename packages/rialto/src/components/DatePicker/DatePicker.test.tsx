@@ -265,6 +265,28 @@ describe("DatePicker typed dates (editable)", () => {
     expect(field()).not.toHaveAttribute("aria-invalid", "true");
     expect(field().value).not.toBe("nope");
   });
+
+  it("ArrowDown reads the typed text first, so the calendar opens on the typed date", async () => {
+    render(<Controlled value="2024-06-10" />);
+    await user.clear(field());
+    await user.type(field(), "Dec 26, 2031");
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("grid")).toHaveAccessibleName("December 2031");
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-date", "2031-12-26"));
+    expect(document.activeElement).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("ArrowDown on refused text opens the calendar and shows the problem", async () => {
+    render(<Controlled value="2024-06-10" />);
+    await user.clear(field());
+    await user.type(field(), "nope");
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("grid")).toBeInTheDocument();
+    expect(field()).toHaveAttribute("aria-invalid", "true");
+    expect(document.body.querySelector('[aria-selected="true"]')).toBeNull();
+  });
 });
 
 /**

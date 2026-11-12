@@ -11,12 +11,21 @@
  *   `20 juin 2024`), which covers what the field itself displays
  *
  * The year may be left off (`Dec 26`, `1/4`): the date is then its next
- * occurrence on or after `today`. A year, when typed, must have four digits.
+ * occurrence on or after `today`. A year, when typed, must have four digits
+ * and be 1000 or later.
  */
 import { parseIsoDate, toIsoDate } from "../Calendar/date-grid";
 
-const SEPARATORS = /[\s,./-]+/;
+/**
+ * Exactly one separator between parts: spaces (after an optional comma or
+ * period, as in `Jun 20, 2024` or `20. Juni`), or a single `,` `.` `/` `-`.
+ * A doubled or leading separator leaves an empty part, which is refused, so a
+ * sign (`-5/3`) never reads as a date.
+ */
+const SEPARATOR = /[,.]?\s+|[,./-]/;
 const DIGITS = /^\d{1,4}$/;
+/** Below this, `Date.UTC` rewrites the year (0-99 become 1900-1999). */
+const EARLIEST_YEAR = 1000;
 /** A leap day typed without a year is at most eight years away. */
 const YEARS_TO_SEARCH = 8;
 
@@ -26,19 +35,20 @@ interface DayOfYear {
   readonly year: number | null;
 }
 
-function normalise(word: string): string {
-  return word.toLocaleLowerCase().replace(/\.$/, "");
+function normalise(word: string, locale: string | undefined): string {
+  return word.toLocaleLowerCase(locale).replace(/\.$/, "");
 }
 
 /** 1-12 for a short or long month name in `locale`, or `null`. */
 function monthFromName(word: string, locale: string | undefined): number | null {
-  const wanted = normalise(word);
+  const wanted = normalise(word, locale);
   const formats = (["short", "long"] as const).map(
     (month) => new Intl.DateTimeFormat(locale, { month, timeZone: "UTC" })
   );
   for (let month = 0; month < 12; month += 1) {
     const date = new Date(Date.UTC(2023, month, 1));
-    if (formats.some((format) => normalise(format.format(date)) === wanted)) return month + 1;
+    if (formats.some((format) => normalise(format.format(date), locale) === wanted))
+      return month + 1;
   }
   return null;
 }
@@ -83,7 +93,8 @@ function numeric(numbers: readonly string[], locale: string | undefined): DayOfY
 }
 
 function read(text: string, locale: string | undefined): DayOfYear | null {
-  const tokens = text.trim().split(SEPARATORS).filter(Boolean);
+  const tokens = text.trim().split(SEPARATOR);
+  if (tokens.includes("")) return null;
   const numbers = tokens.filter((token) => DIGITS.test(token));
   const words = tokens.filter((token) => !DIGITS.test(token));
   if (numbers.length === 0 || numbers.length > 3 || words.length > 1) return null;
@@ -94,10 +105,11 @@ function read(text: string, locale: string | undefined): DayOfYear | null {
 
 /** The ISO date for these parts, or `null` when no such day exists. */
 function realDate(year: number, month: number, day: number): string | null {
-  if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+  if (year < EARLIEST_YEAR || month < 1 || month > 12 || day < 1 || day > 31) return null;
   const iso = toIsoDate(year, month - 1, day);
   const parts = parseIsoDate(iso);
-  return parts && parts.month === month && parts.day === day ? iso : null;
+  const same = parts && parts.year === year && parts.month === month && parts.day === day;
+  return same ? iso : null;
 }
 
 function nextOccurrence(month: number, day: number, today: string): string | null {

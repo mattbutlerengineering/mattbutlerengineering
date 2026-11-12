@@ -362,7 +362,7 @@
       }
     </item>
     <item priority="medium">
-      function normalise(word: string): string { /* ... */ }
+      function normalise(word: string, locale: string | undefined): string { /* ... */ }
     </item>
     <item priority="medium">
       function monthFromName(word: string, locale: string | undefined): number | null { /* ... */ }

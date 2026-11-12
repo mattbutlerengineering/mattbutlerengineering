@@ -793,17 +793,18 @@
       readonly day: number;
       readonly year: number | null;
     }
-    function normalise(word: string): string {
-      return word.toLocaleLowerCase().replace(/\.$/, "");
+    function normalise(word: string, locale: string | undefined): string {
+      return word.toLocaleLowerCase(locale).replace(/\.$/, "");
     }
     function monthFromName(word: string, locale: string | undefined): number | null {
-      const wanted = normalise(word);
+      const wanted = normalise(word, locale);
       const formats = (["short", "long"] as const).map(
         (month) => new Intl.DateTimeFormat(locale, { month, timeZone: "UTC" })
       );
       for (let month = 0; month < 12; month += 1) {
         const date = new Date(Date.UTC(2023, month, 1));
-        if (formats.some((format) => normalise(format.format(date)) === wanted)) return month + 1;
+        if (formats.some((format) => normalise(format.format(date), locale) === wanted))
+          return month + 1;
       }
       return null;
     }
@@ -843,7 +844,8 @@
       };
     }
     function read(text: string, locale: string | undefined): DayOfYear | null {
-      const tokens = text.trim().split(SEPARATORS).filter(Boolean);
+      const tokens = text.trim().split(SEPARATOR);
+      if (tokens.includes("")) return null;
       const numbers = tokens.filter((token) => DIGITS.test(token));
       const words = tokens.filter((token) => !DIGITS.test(token));
       if (numbers.length === 0 || numbers.length > 3 || words.length > 1) return null;
@@ -852,10 +854,11 @@
       return numeric(numbers, locale);
     }
     function realDate(year: number, month: number, day: number): string | null {
-      if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) return null;
+      if (year < EARLIEST_YEAR || month < 1 || month > 12 || day < 1 || day > 31) return null;
       const iso = toIsoDate(year, month - 1, day);
       const parts = parseIsoDate(iso);
-      return parts && parts.month === month && parts.day === day ? iso : null;
+      const same = parts && parts.year === year && parts.month === month && parts.day === day;
+      return same ? iso : null;
     }
     function nextOccurrence(month: number, day: number, today: string): string | null {
       const start = parseIsoDate(today)?.year;

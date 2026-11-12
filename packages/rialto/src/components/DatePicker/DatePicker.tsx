@@ -138,6 +138,8 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === "ArrowDown") {
       event.preventDefault();
+      // Read the text first, so the calendar opens on the date just typed.
+      typed.commit();
       setOpen(true);
     } else if (event.key === "Enter") {
       event.preventDefault();

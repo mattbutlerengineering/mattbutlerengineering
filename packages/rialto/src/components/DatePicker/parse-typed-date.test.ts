@@ -53,8 +53,31 @@ describe("parseTypedDate", () => {
     ["Jun Jul 20"],
     ["1 2 3 4"],
     ["0/0/0000"],
+    // Date.UTC maps years 0-99 onto 1900-1999; a typed year is never rewritten.
+    ["0050-06-20"],
+    ["6/20/0024"],
+    ["Jun 20, 0099"],
+    ["0999-06-20"],
+    // A sign or a doubled separator is not a date.
+    ["-5/3"],
+    ["-5/3/2027"],
+    ["6//20//2027"],
+    ["6/20/2027/"],
+    ["2027--06--20"],
+    ["Jun 20,, 2027"],
   ])("returns null for %j", (text) => {
     expect(parseTypedDate(text, "en-US", TODAY)).toBeNull();
+  });
+
+  it("still reads the earliest and a comma-without-space form", () => {
+    expect(parseTypedDate("1000-01-01", "en-US", TODAY)).toBe("1000-01-01");
+    expect(parseTypedDate("Jun 20,2027", "en-US", TODAY)).toBe("2027-06-20");
+    expect(parseTypedDate("20. Juni 2027", "de-DE", TODAY)).toBe("2027-06-20");
+  });
+
+  it("lower-cases month names by the field's locale, not the runtime's", () => {
+    // Turkish upper-case dotted İ only folds to "i" under the tr locale.
+    expect(parseTypedDate("20 HAZİRAN 2027", "tr-TR", TODAY)).toBe("2027-06-20");
   });
 
   it("returns null instead of throwing on a locale Intl rejects", () => {
