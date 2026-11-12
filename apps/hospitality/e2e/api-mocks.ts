@@ -1399,3 +1399,152 @@ export function buildAvailabilityConfigFixture() {
     source: "rows",
   };
 }
+
+// ── Cross-context live events + night-of guest signals (On My Way, #8653) ──────────────────
+//
+// Two independent browser contexts (a guest and a staff member) share one Node-side
+// `LiveEventBus`. The guest context's signal endpoint publishes onto it; the staff context's
+// event stream delivers what was published. Nothing here touches `mockApi`'s own SSE handler:
+// the helpers register later, so they win Playwright's last-registered-first routing.
+
+/** Node-side log of server events, shared by every context that should see the same venue feed. */
+export interface LiveEventBus {
+  publish: (event: SseEventEntry) => void;
+  /** Number of events published so far. */
+  size: () => number;
+  /** Resolves once more than `count` events have been published. */
+  whenPast: (count: number) => Promise<void>;
+  /** Events at index `from` and later. */
+  since: (from: number) => readonly SseEventEntry[];
+}
+
+export function createLiveEventBus(): LiveEventBus {
+  const log: SseEventEntry[] = [];
+  const waiters = new Set<() => void>();
+  return {
+    publish: (event) => {
+      log.push(event);
+      for (const wake of [...waiters]) wake();
+    },
+    size: () => log.length,
+    whenPast: (count) =>
+      new Promise<void>((resolve) => {
+        const check = (): void => {
+          if (log.length > count) {
+            waiters.delete(check);
+            resolve();
+          }
+        };
+        waiters.add(check);
+        check();
+      }),
+    since: (from) => log.slice(from),
+  };
+}
+
+/**
+ * Serve the staff event stream from `bus`. The request is held open until the bus has an event
+ * this page has not seen, then answered with `connected` plus the new events.
+ *
+ * `route.fulfill` is one-shot and `fetchEventSource` does not reopen a cleanly closed stream, so a
+ * page receives one delivery per load. Register after `mockApi`; reload the page for another.
+ */
+export async function mockLiveEventStream(page: Page, bus: LiveEventBus): Promise<void> {
+  let delivered = bus.size();
+  await page.route("**/api/v1/events/stream**", async (route) => {
+    await bus.whenPast(delivered);
+    const events = bus.since(delivered);
+    delivered += events.length;
+    const frames = [
+      `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`,
+      ...events.map((evt) => `event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`),
+    ];
+    // The page may have gone away while the request was held.
+    await route
+      .fulfill({
+        status: 200,
+        headers: { "content-type": "text/event-stream" },
+        body: frames.join(""),
+      })
+      .catch(() => undefined);
+  });
+}
+
+export type NightOfSignal = { kind: "running-late"; minutes: 5 | 15 | 30 } | { kind: "arrived" };
+
+export interface NightOfReservation {
+  id: string;
+  startTime: string;
+  endTime: string;
+  partySize: number;
+  guestName: string;
+}
+
+/** Handle for the guest's manage-page mock: every signal the guest actually posted. */
+export interface NightOfMock {
+  posted: readonly NightOfSignal[];
+}
+
+/**
+ * The guest's manage page for one CONFIRMED booking, plus `POST …/manage/signal`. A posted signal
+ * is recorded, counted into later `GET`s (the server's caps) and published on `bus` as the
+ * `reservation:guest-signal` event the real API emits. The venue clock is the runner's zone, like
+ * the staff venues fixture.
+ */
+export async function mockNightOfManage(
+  page: Page,
+  bus: LiveEventBus,
+  reservation: NightOfReservation
+): Promise<NightOfMock> {
+  const posted: NightOfSignal[] = [];
+  const counts = { late: 0, arrived: 0 };
+  const ianaTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  await page.route(/\/public\/v1\/reservations\/manage(\?.*)?$/, (route) =>
+    jsonOk(route, {
+      reservation: {
+        ...reservation,
+        date: localDay(),
+        guestEmail: null,
+        status: "CONFIRMED",
+        notes: null,
+      },
+      venue: { id: "ven_e2e_001", name: "E2E Test Bistro", slug: "e2e-test-bistro", ianaTimezone },
+      guestSignals: { ...counts },
+    })
+  );
+
+  await page.route("**/public/v1/reservations/manage/signal", (route) => {
+    const signal = route.request().postDataJSON() as NightOfSignal;
+    posted.push(signal);
+    if (signal.kind === "arrived") counts.arrived += 1;
+    else counts.late += 1;
+    const data =
+      signal.kind === "arrived"
+        ? { reservationId: reservation.id, kind: signal.kind }
+        : {
+            reservationId: reservation.id,
+            kind: signal.kind,
+            minutes: signal.minutes,
+            eta: new Date(
+              Date.parse(reservation.startTime) + signal.minutes * 60_000
+            ).toISOString(),
+          };
+    bus.publish({
+      type: "reservation:guest-signal",
+      data: {
+        type: "reservation:guest-signal",
+        venueId: "ven_e2e_001",
+        timestamp: new Date().toISOString(),
+        data,
+      },
+    });
+    return jsonOk(route, signal);
+  });
+
+  return {
+    get posted() {
+      return posted;
+    },
+  };
+}
