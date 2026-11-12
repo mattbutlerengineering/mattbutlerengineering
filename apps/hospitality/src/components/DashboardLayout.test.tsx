@@ -46,10 +46,6 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSEEventFeed: vi.fn(() => []),
 }));
 
-vi.mock("../hooks/useArrivalAlerts.js", () => ({
-  useArrivalAlerts: vi.fn(),
-}));
-
 vi.mock("../hooks/use-command-palette.js", () => ({
   useCommandPalette: vi.fn(() => ({
     open: false,

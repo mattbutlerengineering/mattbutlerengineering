@@ -20,14 +20,11 @@ import {
   Stack,
   StatusLED,
   Text,
-  Toggle,
 } from "@mattbutlerengineering/rialto";
 import type { DataListItem } from "@mattbutlerengineering/rialto";
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { describeApiError } from "../lib/describe-api-error.js";
-import { useArrivalChimeMuted } from "../hooks/useArrivalAlerts.js";
-import { setArrivalChimeMuted } from "../lib/arrival-chime.js";
 import { useCurrentUser, useUpdateCurrentUser } from "../hooks/useUsers.js";
 import {
   computeElapsedPercent,
@@ -133,7 +130,6 @@ function SessionCluster({ remainingMs, phase, elapsedPercent }: SessionClusterPr
 export function ProfilePage() {
   const fmt = useVenueFormat();
   const { t } = useTranslation();
-  const arrivalChimeMuted = useArrivalChimeMuted();
   const { user: authUser } = useAuth();
   // Session timing comes from the token claims @mbe/auth/react surfaces via
   // `user.raw` (`exp`/`iat`, epoch seconds). react-oidc-context's access-token
@@ -356,23 +352,6 @@ export function ProfilePage() {
               elapsedPercent={sessionElapsedPercent}
             />
           )}
-        </Card>
-
-        {/* Arrival alerts — per-device */}
-        <Card>
-          <div className={styles.sectionHeader}>
-            <Text variant="label" color="primary">
-              {t("arrivalAlerts.settingsTitle")}
-            </Text>
-          </div>
-          <Toggle
-            label={t("arrivalAlerts.muteLabel")}
-            checked={arrivalChimeMuted}
-            onCheckedChange={setArrivalChimeMuted}
-          />
-          <Text variant="caption" color="secondary">
-            {t("arrivalAlerts.muteHint")}
-          </Text>
         </Card>
 
         {/* Edit form */}

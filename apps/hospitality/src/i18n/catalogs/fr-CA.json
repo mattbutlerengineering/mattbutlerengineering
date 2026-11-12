@@ -3453,14 +3453,6 @@
       "emailStatus": "État du courriel"
     }
   },
-  "arrivalAlerts": {
-    "title": "Groupe arrivé",
-    "description": "{{name}} · groupe de {{size}}",
-    "descriptionUnknown": "Un invité est arrivé au poste d'accueil.",
-    "settingsTitle": "Alertes d'arrivée",
-    "muteLabel": "Couper le carillon d'arrivée",
-    "muteHint": "Coupe le carillon sur cet appareil seulement. La notification d'arrivée s'affiche toujours."
-  },
   "settings": {
     "title": "Paramètres",
     "description": "Gérez les paramètres et les préférences de votre compte",

@@ -4356,26 +4356,6 @@
       export function useApiClient() { /* ... */ }
     </item>
   </file>
-  <file path="src/hooks/useArrivalAlerts.ts">
-    <item priority="high">
-      interface Party {
-        name: string | null;
-        size: number;
-      }
-    </item>
-    <item priority="medium">
-      function toParty(value: unknown, reservationId: string): Party | null { /* ... */ }
-    </item>
-    <item priority="medium">
-      function findCachedParty(queryClient: QueryClient, reservationId: string): Party | null { /* ... */ }
-    </item>
-    <item priority="high">
-      export function useArrivalChimeMuted(): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function useArrivalAlerts(): void { /* ... */ }
-    </item>
-  </file>
   <file path="src/hooks/useAvailability.ts">
     <item priority="high">
       export const AVAILABILITY_DAYS_QUERY_KEY: unknown;
@@ -5734,32 +5714,6 @@
   </file>
   </section>
   <section priority="medium" role="lib">
-  <file path="src/lib/arrival-chime.ts">
-    <item priority="high">
-      export const ARRIVAL_CHIME_MUTED_KEY: unknown;
-    </item>
-    <item priority="high">
-      export function isArrivalChimeMuted(): boolean { /* ... */ }
-    </item>
-    <item priority="medium">
-      function persistMuted(muted: boolean): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function setArrivalChimeMuted(muted: boolean): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export function subscribeArrivalChimeMuted(listener: () => void): () => void { /* ... */ }
-    </item>
-    <item priority="medium">
-      function getAudioContext(): AudioContext | null { /* ... */ }
-    </item>
-    <item priority="high">
-      export function resetArrivalChimeAudioForTests(): void { /* ... */ }
-    </item>
-    <item priority="high">
-      export function playArrivalChime(): boolean { /* ... */ }
-    </item>
-  </file>
   <file path="src/lib/describe-api-error.ts">
     <item priority="low">
       type ApiErrorCategory = ErrorCategory | "network" | "timeout";

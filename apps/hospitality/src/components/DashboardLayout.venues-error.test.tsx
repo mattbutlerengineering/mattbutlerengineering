@@ -43,8 +43,6 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSESync: vi.fn(() => ({ reconnect: vi.fn() })),
 }));
 
-vi.mock("../hooks/useArrivalAlerts.js", () => ({ useArrivalAlerts: vi.fn() }));
-
 vi.mock("../hooks/useIsAdmin.js", () => ({ useIsAdmin: () => false }));
 vi.mock("../hooks/useTables.js", () => ({ useTables: () => ({ data: undefined }) }));
 vi.mock("../hooks/useRefreshingChatStream.js", () => ({

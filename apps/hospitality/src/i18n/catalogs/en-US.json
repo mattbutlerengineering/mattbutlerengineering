@@ -3356,14 +3356,6 @@
       "emailStatus": "Email Status"
     }
   },
-  "arrivalAlerts": {
-    "title": "Party arrived",
-    "description": "{{name}} · party of {{size}}",
-    "descriptionUnknown": "A guest has arrived at the host stand.",
-    "settingsTitle": "Arrival alerts",
-    "muteLabel": "Mute arrival chime",
-    "muteHint": "Silences the chime on this device only. The arrival toast still appears."
-  },
   "settings": {
     "title": "Settings",
     "description": "Manage your account settings and preferences",
