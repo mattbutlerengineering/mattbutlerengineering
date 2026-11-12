@@ -253,7 +253,7 @@ describe("AvailabilityDayDrawer: dated-schedule layers (#7981)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit Summer hours" }));
     const ask = screen.getByRole("dialog", { name: "Edit Summer hours" });
     expect(within(ask).getByRole("radio", { name: "Only Fri, Oct 30" })).toBeChecked();
-    fireEvent.click(within(ask).getByRole("radio", { name: "All dates Summer hours covers" }));
+    fireEvent.click(within(ask).getByRole("radio", { name: "All dates" }));
     fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
     expect(onEditSchedule).toHaveBeenCalledWith("summer");
   });

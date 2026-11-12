@@ -25,6 +25,7 @@ import { describeApiError } from "../../lib/describe-api-error.js";
 import { addDays } from "../../utils/service-day.js";
 import { overlapLines } from "./closure-overlap-text.js";
 import { availabilityProblemOf, conflictOf } from "./conflict-problem.js";
+import type { ClosureKind } from "./rule-subjects.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 
 const NOTHING_STAYS: ClosureOverlap = { everyDate: false, by: [] };
@@ -34,6 +35,8 @@ export interface ReopenClosureDialogProps {
   readonly ruleId: string;
   /** What is reopened, named whole: "Thu, Dec 24", "Thu, Dec 24 to Tue, Jan 5", "every Monday (…)". */
   readonly subject: string;
+  /** What the closure closes, so the dialog's words fit it: "Reopen the Bar", "Resume online booking". */
+  readonly closes?: ClosureKind;
   /**
    * Bookings the closure cancelled; the opt-in notice goes to these guests. `null` when the
    * count could not be read: Reopen waits for it, because the notice is not undoable.
@@ -129,6 +132,45 @@ function descriptionKey(
 }
 
 /**
+ * The words that depend on what is reopened (ux.md F6 step 2): a venue closure is "reopened", a
+ * section is "reopened" by name, an online-booking pause is "resumed". A series edit going back
+ * to its series keeps its own words whatever the closure closes.
+ */
+function kindWords(props: ReopenClosureDialogProps, t: TFunction) {
+  const closes = props.closes ?? { kind: "venue" as const };
+  if (props.isSeriesEdit || closes.kind === "venue") return null;
+  if (closes.kind === "section") {
+    const values = { section: closes.section };
+    return {
+      title: t("availabilitySpecial.reopen.section.title", values),
+      description: t("availabilitySpecial.reopen.section.description", values),
+      confirm: t("availabilitySpecial.reopen.section.confirm", values),
+      keep: t("availabilitySpecial.reopen.keep"),
+      done: (date: string) => t("availabilitySpecial.reopen.section.done", { ...values, date }),
+      dateLabel: undefined,
+      descriptionDate: undefined,
+      countLoading: undefined,
+      countUnknown: t("availabilitySpecial.reopen.countUnknown"),
+    };
+  }
+  const values = {
+    channels: closes.channels.map((c) => t(`availability.drawer.removal.channel.${c}`)).join(", "),
+  };
+  return {
+    title: t("availabilitySpecial.reopen.booking.title", values),
+    description: t("availabilitySpecial.reopen.booking.description", values),
+    confirm: t("availabilitySpecial.reopen.booking.confirm"),
+    keep: t("availabilitySpecial.reopen.booking.keep"),
+    done: (date: string) => t("availabilitySpecial.reopen.booking.done", { ...values, date }),
+    dateLabel: t("availabilitySpecial.reopen.booking.dateLabel"),
+    descriptionDate: (date: string) =>
+      t("availabilitySpecial.reopen.booking.descriptionDate", { date }),
+    countLoading: t("availabilitySpecial.reopen.booking.countLoading"),
+    countUnknown: t("availabilitySpecial.reopen.booking.countUnknown"),
+  };
+}
+
+/**
  * Reopen a closure (ux.md F6 step 2). The guests it cancelled stay cancelled; the checkbox,
  * on by default, sends them the opt-in "we've reopened, rebook" notice.
  */
@@ -158,6 +200,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
   const stays = isSeriesEdit
     ? NOTHING_STAYS
     : stillClosedAfterReopen(props.rules, reopening, props.today);
+  const words = kindWords(props, t);
   const staysLines = (overlap: ClosureOverlap) =>
     overlapLines(overlap, "stays", props.services, t, format);
 
@@ -186,7 +229,9 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
         : one && toldCount > 0
           ? // The server's count of the guests on this date, not the range's.
             t("availabilitySpecial.reopen.doneTold", { date: subject, count: toldCount })
-          : t(`availabilitySpecial.reopen.${one ? "done" : doneKey(props)}`, { date: subject });
+          : words
+            ? words.done(subject)
+            : t(`availabilitySpecial.reopen.${one ? "done" : doneKey(props)}`, { date: subject });
       const title =
         final.by.length === 0
           ? done
@@ -221,25 +266,32 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
     <Dialog
       open
       onClose={onClose}
-      title={t(`availabilitySpecial.reopen.${one ? "title" : titleKey(props)}`, { date: subject })}
+      title={
+        words?.title ??
+        t(`availabilitySpecial.reopen.${one ? "title" : titleKey(props)}`, { date: subject })
+      }
       description={
         one && !stays.everyDate
-          ? t(
+          ? (words?.descriptionDate?.(subject) ??
+            t(
               (cancelled ?? 0) > 0
                 ? "availabilitySpecial.reopen.descriptionDateCancelled"
                 : "availabilitySpecial.reopen.descriptionDate",
               { date: subject }
-            )
-          : t(descriptionKey(props, stays.everyDate))
+            ))
+          : words && !stays.everyDate && (cancelled ?? 0) === 0
+            ? words.description
+            : t(descriptionKey(props, stays.everyDate))
       }
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
-            {t(
-              isSeriesEdit
-                ? "availabilitySpecial.reopen.keepSeriesEdit"
-                : "availabilitySpecial.reopen.keep"
-            )}
+            {words?.keep ??
+              t(
+                isSeriesEdit
+                  ? "availabilitySpecial.reopen.keepSeriesEdit"
+                  : "availabilitySpecial.reopen.keep"
+              )}
           </Button>
           <Button
             variant="primary"
@@ -247,11 +299,12 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
             isLoading={isPending}
             disabled={cancelled === null}
           >
-            {t(
-              isSeriesEdit
-                ? "availabilitySpecial.reopen.confirmSeriesEdit"
-                : "availabilitySpecial.reopen.confirm"
-            )}
+            {words?.confirm ??
+              t(
+                isSeriesEdit
+                  ? "availabilitySpecial.reopen.confirmSeriesEdit"
+                  : "availabilitySpecial.reopen.confirm"
+              )}
           </Button>
         </>
       }
@@ -263,7 +316,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       )}
       {dates.length > 1 && (
         <Select
-          label={t("availabilitySpecial.reopen.dateLabel")}
+          label={words?.dateLabel ?? t("availabilitySpecial.reopen.dateLabel")}
           value={date}
           options={[
             { value: "", label: t("availabilitySpecial.reopen.allDates") },
@@ -280,11 +333,11 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
         </Alert>
       )}
       {cancelled === null && !props.countFailed && (
-        <Text>{t("availabilitySpecial.reopen.countLoading")}</Text>
+        <Text>{words?.countLoading ?? t("availabilitySpecial.reopen.countLoading")}</Text>
       )}
       {cancelled === null && props.countFailed && (
         <Alert variant="error">
-          <Text>{t("availabilitySpecial.reopen.countUnknown")}</Text>
+          <Text>{words?.countUnknown ?? t("availabilitySpecial.reopen.countUnknown")}</Text>
           <Button variant="secondary" onClick={props.onRetryCount}>
             {t("availabilitySpecial.reopen.retryCount")}
           </Button>

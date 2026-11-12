@@ -282,7 +282,7 @@ test.describe("375 px: nothing scrolls sideways", () => {
       await page
         .getByRole("main")
         .getByRole("button")
-        .filter({ hasText: /^(Add special date|Ajouter une date spéciale)$/ })
+        .filter({ hasText: /^(Add special dates|Ajouter des dates spéciales)$/ })
         .click();
       const sheet = page.getByRole("dialog").first();
       const kinds = sheet.getByRole("radio");

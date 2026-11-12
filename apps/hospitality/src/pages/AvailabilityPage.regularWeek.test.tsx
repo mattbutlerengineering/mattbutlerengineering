@@ -416,7 +416,7 @@ describe("AvailabilityPage: Edit on a dated schedule's layer (#7981)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Friday, November 6/ }));
     fireEvent.click(screen.getByRole("button", { name: "Edit Summer hours" }));
     const ask = screen.getByRole("dialog", { name: "Edit Summer hours" });
-    fireEvent.click(within(ask).getByRole("radio", { name: "All dates Summer hours covers" }));
+    fireEvent.click(within(ask).getByRole("radio", { name: "All dates" }));
     fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
     const editor = await screen.findByRole("dialog", { name: "Edit Summer hours" });
     expect(within(editor).getByLabelText(/Schedule name/)).toHaveValue("Summer hours");
@@ -427,7 +427,7 @@ describe("AvailabilityPage: Edit on a dated schedule's layer (#7981)", () => {
     fireEvent.click(screen.getByRole("button", { name: /Friday, November 6/ }));
     fireEvent.click(screen.getByRole("button", { name: "Edit Summer hours" }));
     const ask = screen.getByRole("dialog", { name: "Edit Summer hours" });
-    fireEvent.click(within(ask).getByRole("radio", { name: "All dates Summer hours covers" }));
+    fireEvent.click(within(ask).getByRole("radio", { name: "All dates" }));
     fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
     // The restore and the deferred open both ride animation frames: let a handful pass.
     for (let frame = 0; frame < 6; frame++) {

@@ -9266,6 +9266,19 @@
       );
       return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days);
     }
+    export function rowTitle(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+      if (rule.repeat == null) return rangeLabel(rule, format, t);
+      const days = weekdayList(rule, format);
+      const short = { month: "short", day: "numeric" } as const;
+      const from = format.formatCalendarDate(rule.startsOn, short);
+      return rule.endsOn == null
+        ? t("availabilitySpecial.repeatFrom", { days, from })
+        : t("availabilitySpecial.repeatRange", {
+            days,
+            from,
+            to: format.formatCalendarDate(rule.endsOn, short),
+          });
+    }
     export function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
       if (rule.repeat != null) {
         return t("availabilitySpecial.hours.subjectRepeat", { days: weekdayList(rule, format) });
@@ -9290,6 +9303,22 @@
         });
       }
       return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
+    }
+    export type ClosureKind =
+      | { readonly kind: "venue" }
+      | { readonly kind: "section"; readonly section: string }
+      | { readonly kind: "booking"; readonly channels: NonNullable<SpecialDateRule["bookingTypes"]> };
+    export function closureKindOf(
+      rule: SpecialDateRule,
+      sectionNames?: ReadonlyMap<string, string>
+    ): ClosureKind {
+      const channels = rule.bookingTypes ?? [];
+      if (rule.targetKind === "booking" && channels.length > 0) {
+        return { kind: "booking", channels };
+      }
+      const section =
+        rule.targetKind === "tables" && rule.sectionId ? sectionNames?.get(rule.sectionId) : undefined;
+      return section !== undefined ? { kind: "section", section } : { kind: "venue" };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/schedule-changes.ts">

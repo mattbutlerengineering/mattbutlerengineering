@@ -3,7 +3,7 @@ import { fireEvent, screen, within } from "@testing-library/react";
 /** The Close dialog: the first dialog, since an open date picker adds its own popover dialog. */
 const dialog = () => screen.getAllByRole("dialog")[0]!;
 
-/** Picks a When kind ("Tonight", "One date", "Repeats", ...) from the When select. */
+/** Picks a When kind ("Tonight", "One date", "Repeating", ...) from the When select. */
 export function chooseWhen(name: string) {
   fireEvent.click(within(dialog()).getByRole("combobox", { name: "When" }));
   fireEvent.click(screen.getByRole("option", { name }));

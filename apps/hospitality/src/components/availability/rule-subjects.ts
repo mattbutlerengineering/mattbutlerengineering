@@ -33,6 +33,24 @@ function weekdayList(rule: SpecialDateRule, format: VenueFormat): string {
   return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days);
 }
 
+/**
+ * What a row of Special dates is titled: the dates, and for a repeat the weekdays too ("Every
+ * Monday, Nov 19 to Mar 11"), so a repeating row says which days it reaches.
+ */
+export function rowTitle(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+  if (rule.repeat == null) return rangeLabel(rule, format, t);
+  const days = weekdayList(rule, format);
+  const short = { month: "short", day: "numeric" } as const;
+  const from = format.formatCalendarDate(rule.startsOn, short);
+  return rule.endsOn == null
+    ? t("availabilitySpecial.repeatFrom", { days, from })
+    : t("availabilitySpecial.repeatRange", {
+        days,
+        from,
+        to: format.formatCalendarDate(rule.endsOn, short),
+      });
+}
+
 /** What removing a special-hours rule takes away, named whole: "for Thu, Dec 31", a range, or a repeat. */
 export function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
   if (rule.repeat != null) {
@@ -63,4 +81,24 @@ export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TF
     });
   }
   return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
+}
+
+/** What a closure closes: the whole venue, one section (ADR-032), or only some ways of booking. */
+export type ClosureKind =
+  | { readonly kind: "venue" }
+  | { readonly kind: "section"; readonly section: string }
+  | { readonly kind: "booking"; readonly channels: NonNullable<SpecialDateRule["bookingTypes"]> };
+
+/** Reads the kind off the rule; a section whose name is not known reads as the venue. */
+export function closureKindOf(
+  rule: SpecialDateRule,
+  sectionNames?: ReadonlyMap<string, string>
+): ClosureKind {
+  const channels = rule.bookingTypes ?? [];
+  if (rule.targetKind === "booking" && channels.length > 0) {
+    return { kind: "booking", channels };
+  }
+  const section =
+    rule.targetKind === "tables" && rule.sectionId ? sectionNames?.get(rule.sectionId) : undefined;
+  return section !== undefined ? { kind: "section", section } : { kind: "venue" };
 }

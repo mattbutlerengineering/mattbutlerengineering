@@ -1,14 +1,6 @@
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Alert,
-  Button,
-  ConfirmDialog,
-  Dialog,
-  Radio,
-  RadioGroup,
-  Text,
-} from "@mattbutlerengineering/rialto";
+import { Alert, Button, ConfirmDialog, Text } from "@mattbutlerengineering/rialto";
 import type { TFunction } from "i18next";
 import type { Layer } from "@mbe/availability";
 import type { AvailabilityConfig, DateRule, ScheduleAssignment } from "@mbe/types";
@@ -20,10 +12,10 @@ import { layerLabelText } from "./layer-text.js";
 import type { LayerRuleActionsProps } from "./layer-rule-actions-props.js";
 import { DATE_FORMAT } from "./rule-subjects.js";
 import { coversManyDates } from "./special-dates.js";
+import { ScopeDialog } from "./ScopeDialog.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 import { UseScheduleDialog } from "./UseScheduleDialog.js";
 import { useScheduleSave } from "./use-schedule-save.js";
-import styles from "./CloseDialog.module.css";
 
 /**
  * The assignment behind a layer of a schedule that runs over dates, not the regular week. A
@@ -68,43 +60,15 @@ function EditScopeChoice(props: {
 }) {
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const [choice, setChoice] = useState<EditChoice>(props.offerOnly ? "only" : "all");
   return (
-    <Dialog
-      open
-      onClose={props.onClose}
+    <ScopeDialog
       title={t("availability.drawer.schedule.scope.title", { name: props.name })}
-      footer={
-        <div className={styles.footer}>
-          <Button variant="secondary" onClick={props.onClose}>
-            {t("availabilitySpecial.series.cancel")}
-          </Button>
-          <Button variant="primary" onClick={() => props.onChoose(choice)}>
-            {t("availabilitySpecial.hours.scope.continue")}
-          </Button>
-        </div>
-      }
-    >
-      <RadioGroup
-        label={t("availabilitySpecial.series.scopeLabel")}
-        name="layer-schedule-scope"
-        value={choice}
-        onChange={(value) => setChoice(value as EditChoice)}
-      >
-        {props.offerOnly && (
-          <Radio
-            value="only"
-            label={t("availabilitySpecial.series.scopeOnly", {
-              date: format.formatCalendarDate(props.date, DATE_FORMAT),
-            })}
-          />
-        )}
-        <Radio
-          value="all"
-          label={t("availability.drawer.schedule.scope.all", { name: props.name })}
-        />
-      </RadioGroup>
-    </Dialog>
+      name="layer-schedule-scope"
+      dateLabel={format.formatCalendarDate(props.date, DATE_FORMAT)}
+      offer={props.offerOnly ? ["only", "all"] : ["all"]}
+      onClose={props.onClose}
+      onContinue={(scope) => props.onChoose(scope === "only" ? "only" : "all")}
+    />
   );
 }
 

@@ -13,6 +13,22 @@
   outline: none;
 }
 
+/* One line: how many holidays are not planned, and the button that opens them in place. */
+.collapsed {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.headingRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: space-between;
+}
+
 .head {
   display: flex;
   flex-wrap: wrap;

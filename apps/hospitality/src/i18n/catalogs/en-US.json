@@ -1780,17 +1780,30 @@
       "descriptionDateCancelled": "Guests can book {{date}} again. The other dates in this range stay closed. The reservations you cancelled stay cancelled.",
       "tellDate": "Tell any guests we cancelled on {{date}} that we've reopened, with a link to rebook",
       "doneTold_one": "{{date}} reopened. {{count}} guest told.",
-      "doneTold_other": "{{date}} reopened. {{count}} guests told."
+      "doneTold_other": "{{date}} reopened. {{count}} guests told.",
+      "section": {
+        "title": "Reopen the {{section}}?",
+        "description": "Guests can book the {{section}} again.",
+        "confirm": "Reopen the {{section}}",
+        "done": "{{section}} reopened: {{date}}"
+      },
+      "booking": {
+        "title": "Resume {{channels}}?",
+        "description": "Guests can book this way again.",
+        "confirm": "Resume",
+        "keep": "Keep paused",
+        "done": "Resumed {{channels}}: {{date}}",
+        "countUnknown": "Couldn't check how many guests this pause affected. Resume waits until the count loads.",
+        "dateLabel": "Which dates to resume",
+        "descriptionDate": "Booking resumes on {{date}}. The other dates in this range stay paused.",
+        "countLoading": "Checking how many guests this pause affected…"
+      }
     },
     "series": {
       "editDates": "Edit dates…",
       "editDatesFor": "Edit dates of the closure on {{date}}",
       "title": "Edit dates",
       "dateLabel": "Date",
-      "scopeLabel": "Change",
-      "scopeOnly": "Only {{date}}",
-      "scopeFollowing": "This and following",
-      "scopeAll": "All dates in the series",
       "skip": "Skip this date",
       "editThis": "Edit this date…",
       "save": "Save",
@@ -1820,10 +1833,7 @@
       "editMany": "Edit…",
       "editRule": "Edit special hours {{subject}}",
       "scope": {
-        "title": "Edit special hours",
-        "following": "This and following from {{date}}",
-        "all": "All dates",
-        "continue": "Continue"
+        "title": "Edit special hours"
       },
       "subjectDates": "for {{dates}}",
       "subjectRepeat": "every {{days}}",
@@ -1848,7 +1858,7 @@
       "date": "Date"
     },
     "add": {
-      "open": "Add special date",
+      "open": "Add special dates",
       "title": "Add special dates",
       "rowLegend": "Date {{n}}",
       "rowLegendNamed": "Date {{n}}: {{name}}",
@@ -1946,8 +1956,36 @@
         "christmasDay": "Christmas Day",
         "boxingDay": "Boxing Day",
         "newYearsEve": "New Year’s Eve"
-      }
-    }
+      },
+      "notPlanned_one": "{{count}} holiday not planned",
+      "notPlanned_other": "{{count}} holidays not planned",
+      "notPlanned_many": "{{count}} holidays not planned",
+      "allPlanned": "Every upcoming holiday is planned",
+      "plan": "Plan holidays",
+      "view": "View holidays",
+      "hide": "Hide holidays",
+      "closeManyTitle_one": "Close this {{count}} date?",
+      "closeManyTitle_other": "Close these {{count}} dates?",
+      "closeManyTitle_many": "Close these {{count}} dates?",
+      "closeManyDescription": "Guests won't be able to book {{dates}}. If bookings are affected, you choose what happens to them next.",
+      "closeManyConfirm_one": "Close {{count}} date",
+      "closeManyConfirm_other": "Close {{count}} dates",
+      "closeManyConfirm_many": "Close {{count}} dates",
+      "closeManyCancel": "Not now",
+      "closeOneTitle": "Close {{name}}?",
+      "closeOneDescription": "This replaces what is planned for {{name}}, {{date}}. Guests can't book that date.",
+      "closeOneConfirm": "Close {{name}}"
+    },
+    "scope": {
+      "label": "Change",
+      "only": "Only {{date}}",
+      "following": "This and following from {{date}}",
+      "all": "All dates",
+      "continue": "Continue"
+    },
+    "repeatRange": "Every {{days}}, {{from}} to {{to}}",
+    "repeatFrom": "Every {{days}}, from {{from}}",
+    "listLabel": "Your special dates"
   },
   "availabilitySchedules": {
     "tabsLabel": "Availability view",
@@ -2266,8 +2304,7 @@
         "keep": "Keep",
         "removedToast": "{{subject}} removed",
         "scope": {
-          "title": "Edit {{name}}",
-          "all": "All dates {{name}} covers"
+          "title": "Edit {{name}}"
         }
       },
       "layer": {
@@ -2731,7 +2768,7 @@
         "tonight": "Tonight",
         "date": "One date",
         "range": "Date range",
-        "repeats": "Repeats",
+        "repeats": "Repeating",
         "untilReopen": "Until I reopen",
         "dates": "Several dates",
         "addDateLabel": "Add a date",
