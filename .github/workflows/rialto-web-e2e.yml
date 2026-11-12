@@ -240,7 +240,9 @@ jobs:
             apps/rialto-web/e2e/demo-nav.spec.ts \
             apps/rialto-web/e2e/telemetry.spec.ts \
             apps/rialto-web/e2e/narrow-component-demos.spec.ts \
-            apps/rialto-web/e2e/narrow-example-overflow.spec.ts
+            apps/rialto-web/e2e/narrow-example-overflow.spec.ts \
+            apps/rialto-web/e2e/password-strength.spec.ts \
+            apps/rialto-web/e2e/date-picker-narrow.spec.ts
       - name: Build rialto-web (the CSP suite runs against built output)
         # vite dev serves a module graph that never ships; a violation
         # introduced by bundling or minification would be invisible there.

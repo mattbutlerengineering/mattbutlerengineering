@@ -107,3 +107,8 @@
   /* The chip is a sibling of the block, so it must not eat the block's clicks. */
   pointer-events: none;
 }
+
+/* Staff-facing "N of M in" for a reservation with a party invite; absent otherwise, so no shift. */
+.inviteRsvp {
+  display: block;
+}

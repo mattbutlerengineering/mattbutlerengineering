@@ -22,6 +22,7 @@ import {
   addHeaders,
   brandedErrorPage,
 } from "./response-formatter.js";
+import { inviteTokenFrom, injectInviteMeta } from "./invite-og.js";
 import { handleHealthSystem } from "./health/system.js";
 import { handleHealthUptime } from "./health/uptime.js";
 import { handleHealthPerformance } from "./health/performance.js";
@@ -315,6 +316,25 @@ export default {
     }
 
     writeAnalytics(env, request, routeName, response.status, startTime);
+
+    // ── Invite link preview (#8666): /i/:token on the hospitality app ─
+    // Crawlers read og: tags from the served HTML, so inject them here. Fails
+    // open to generic tags; the page is always served.
+    const inviteToken =
+      routeName === "hospitality" && request.method === "GET" && response.status === 200
+        ? inviteTokenFrom(strippedPath)
+        : null;
+    if (inviteToken && (response.headers.get("Content-Type") ?? "").includes("text/html")) {
+      const withMeta = await injectInviteMeta(response, {
+        token: inviteToken,
+        env,
+        staticBinding: binding,
+        bindingOrigin,
+        url,
+        publicPrefix: prefix,
+      });
+      return addHeaders(withMeta, url.pathname, nonce, kvPolicy, extraConnectSrc);
+    }
     return addHeaders(response, url.pathname, nonce, kvPolicy, extraConnectSrc);
   },
 };

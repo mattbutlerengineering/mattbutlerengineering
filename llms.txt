@@ -314,6 +314,45 @@
       export const datePickerCatalogMeta: unknown;
     </item>
   </file>
+  <file path="packages/rialto/src/components/DatePicker/fit-below.ts">
+    <item priority="high">
+      export function scrollDeltaToFitBelow(options: {
+        anchorTop: number;
+        anchorBottom: number;
+        panelHeight: number;
+        viewportHeight: number;
+        scrollerTop: number;
+        scrollTop: number;
+        scrollHeight: number;
+        clientHeight: number;
+        gap?: number;
+        margin?: number;
+      }): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sheetMaxHeight(options: {
+        panelScrollHeight: number;
+        sheetOffsetHeight: number;
+        anchorBottom: number;
+        viewportHeight: number;
+        gap?: number;
+        minRoom?: number;
+        minSheet?: number;
+      }): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isVerticalScroller(node: HTMLElement): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function anchorForPanel(panel: HTMLElement): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyFit(sheet: HTMLElement, allowScroll: boolean): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bindCalendarFit(sheet: HTMLElement): () => void { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="DateRange">
   <file path="packages/rialto/src/components/DateRange/DateRange.catalog.ts">
@@ -20461,11 +20500,11 @@
     </item>
     <item priority="low">
       interface PrismaReservationRow {
+        invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
         id: string;
         date: Date;
         startTime: Date;
         endTime: Date;
-        partySize: number;
       }
     </item>
     <item priority="high">
@@ -20488,6 +20527,9 @@
     </item>
     <item priority="high">
       export function toReservation(row: PrismaReservationRow): Reservation { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/slot-rules.ts">
@@ -27246,6 +27288,12 @@
         date: string;
         startTime: string;
         endTime: string;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
+      interface InviteRsvpSummary {
+        in: number;
         partySize: number;
       }
     </item>
