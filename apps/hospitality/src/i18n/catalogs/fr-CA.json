@@ -686,6 +686,9 @@
       "noShowExposure": "Exposition aux absences"
     }
   },
+  "inviteRsvpChip": {
+    "text": "{{in}} sur {{total}} confirmés"
+  },
   "timeline": {
     "page": {
       "title": "Chronologie",
