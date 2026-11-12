@@ -5821,6 +5821,263 @@
       ): DateAnswer | null { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/hub/hub-closures.ts">
+    <item priority="high">
+      type BookingChannel = NonNullable<DateRule["bookingTypes"]>[number];
+    </item>
+    <item priority="low">
+      type HubClosureTarget = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "section"; re | { readonly kind: "tables"; rea | { readonly kind: "booking"; re;
+    </item>
+    <item priority="low">
+      interface HubClosure {
+        ruleId: string;
+        target: HubClosureTarget;
+        nextOn: string;
+        startsOn: string;
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface HubOnlinePause {
+        ruleId: string;
+        inForce: boolean;
+        fromMinute: number | null;
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface HubTonightChange {
+        ruleId: string;
+        closeAt: number | null;
+        window: { readonly from: number; readonly to: number } | null;
+      }
+    </item>
+    <item priority="low">
+      interface ClosuresRow {
+        row: 4;
+        pause: HubOnlinePause | null;
+        tonight: readonly HubTonightChange[];
+        now: readonly HubClosure[];
+        next: HubClosure | null;
+      }
+    </item>
+    <item priority="low">
+      interface ClosuresRowInput {
+        config: AvailabilityConfig;
+        sectionNames: ReadonlyMap<string, string>;
+        timezone: string;
+        today: string;
+        nowMinute: number;
+      }
+    </item>
+    <item priority="high">
+      type ClosureRule = Extract<DateRule, { kind: "closure" }>;
+    </item>
+    <item priority="high">
+      interface Clock {
+        rules: readonly DateRule[];
+        yesterday: string;
+        lateMinute: number | null;
+      }
+    </item>
+    <item priority="medium">
+      function clockOf(input: ClosuresRowInput): Clock { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isOnlinePause(rule: DateRule): rule is ClosureRule { /* ... */ }
+    </item>
+    <item priority="medium">
+      function onlinePause(clock: Clock): HubOnlinePause | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightChanges(rules: readonly DateRule[], today: string): HubTonightChange[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function inForceOn(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function waitingOn(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function targetOf(rule: ClosureRule, clock: Clock): HubClosureTarget { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureOf(rule: ClosureRule, nextOn: string, clock: Clock): HubClosure { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closuresRow(input: ClosuresRowInput): ClosuresRow { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-rows-test-helpers.ts">
+    <item priority="high">
+      export const EVERY_DAY: unknown;
+    </item>
+    <item priority="high">
+      export const TODAY: unknown;
+    </item>
+    <item priority="high">
+      type Schedule = AvailabilityConfig["schedules"][number];
+    </item>
+    <item priority="high">
+      type ScheduleService = AvailabilityConfig["scheduleServices"][number];
+    </item>
+    <item priority="high">
+      type Assignment = AvailabilityConfig["assignments"][number];
+    </item>
+    <item priority="high">
+      export const dinnerRow: unknown;
+    </item>
+    <item priority="high">
+      export function seasonal(id: string, name: string, ...uses: Partial<Assignment>[]) { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Parts {
+        schedules?: readonly Schedule[];
+        scheduleServices?: readonly ScheduleService[];
+        assignments?: readonly Assignment[];
+        regularClosesAt?: number;
+      }
+    </item>
+    <item priority="high">
+      export function valid(config: AvailabilityConfig): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venue(dateRules: DateRule[] = [], ...added: Parts[]): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function input(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}): HubRowsInput { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rowsOf(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const rule: unknown;
+    </item>
+    <item priority="high">
+      export const specialHours: unknown;
+    </item>
+    <item priority="high">
+      export const window: unknown;
+    </item>
+    <item priority="high">
+      export const THURSDAYS: Partial<DateRule>;
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-rows.ts">
+    <item priority="low">
+      interface HubRowsInput {
+        state: Pick<AvailabilityConfigState, "config" | "source">;
+        settings: VenueSettings | null | undefined;
+        holidays: readonly { readonly state: HolidayState }[];
+        sectionNames: ReadonlyMap<string, string>;
+        timezone: string;
+      }
+    </item>
+    <item priority="low">
+      interface RegularHoursRow {
+        row: 1;
+        services: readonly RegularWeekLineService[];
+        upcoming: {
+          readonly startsOn: string;
+          /** `null` when the ...;
+      }
+    </item>
+    <item priority="low">
+      interface SeasonalHoursSet {
+        scheduleId: string;
+        name: string;
+        usage: ScheduleUsage;
+      }
+    </item>
+    <item priority="low">
+      interface SeasonalHoursRow {
+        row: 2;
+        sets: readonly SeasonalHoursSet[];
+        more: number;
+      }
+    </item>
+    <item priority="low">
+      interface BookingRulesRow {
+        row: 5;
+        rules: BookingRulesValues | null;
+      }
+    </item>
+    <item priority="high">
+      type HubRowNumber = DateAnswerHubRow | 5;
+    </item>
+    <item priority="high">
+      type Numbered = Row;
+    </item>
+    <item priority="low">
+      type HubRowModels = readonly [
+        Numbered<1, RegularHoursRow>,
+        Numbered<2, ...;
+    </item>
+    <item priority="low">
+      type HubRows = { readonly kind: "emptyVenue"  | { readonly kind: "rows"; reado;
+    </item>
+    <item priority="medium">
+      function regularHoursRow(config: AvailabilityConfig, today: string): RegularHoursRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seasonalHoursRow(config: AvailabilityConfig): SeasonalHoursRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingRulesRow(settings: HubRowsInput["settings"]): BookingRulesRow { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hubRows(input: HubRowsInput): HubRows { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-special-dates.ts">
+    <item priority="low">
+      interface HubSpecialDate {
+        ruleId: string;
+        kind: "closed" | "specialHours" | "useHours";
+        nextOn: string;
+        startsOn: string;
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface SpecialDatesRow {
+        row: 3;
+        next: readonly HubSpecialDate[];
+        holidaysNotPlanned: number;
+      }
+    </item>
+    <item priority="medium">
+      function specialDateKind(rule: DateRule): HubSpecialDate["kind"] | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function specialDatesRow(
+        rules: readonly DateRule[],
+        today: string,
+        holidays: readonly { readonly state: HolidayState }[]
+      ): SpecialDatesRow { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/rule-dates.ts">
+    <item priority="medium">
+      function reaches(rule: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function replacesOn(override: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overridesOf(rule: DateRule, rules: readonly DateRule[]): readonly DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function coversOn(rule: DateRule, rules: readonly DateRule[], date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextDateOn(
+        rule: DateRule,
+        rules: readonly DateRule[],
+        from: string
+      ): string | null { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="i18n">
   <file path="src/i18n/availability-glossary.ts">
