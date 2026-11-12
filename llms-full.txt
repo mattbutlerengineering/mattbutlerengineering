@@ -5242,7 +5242,32 @@
       return { changed: [...new Set(changed)], removed: [...new Set(removed)] };
     }
   </file>
-  <file path="apps/hospitality/src/components/availability/availability-entry.ts">
+  <file path="apps/hospitality/src/components/availability/availability-address.ts">
+    export type CloseTarget =
+      | { readonly kind: "tonight" }
+      | { readonly kind: "date"; readonly date: string }
+      | { readonly kind: "range"; readonly from: string; readonly to: string }
+      | { readonly kind: "dates"; readonly dates: readonly string[] }
+      | { readonly kind: "section"; readonly sectionId: string };
+    type AvailabilityView =
+      | { readonly view: "hub" }
+      | { readonly view: "hours"; readonly service?: string }
+      | { readonly view: "seasonal"; readonly screen?: "new" | "compare" }
+      | { readonly view: "seasonal"; readonly screen: "edit"; readonly scheduleId: string }
+      | { readonly view: "specialDates" }
+      | { readonly view: "closures" }
+      | {
+          readonly view: "calendar";
+          readonly calendarView?: "month" | "week";
+          readonly date?: string;
+        }
+      | { readonly view: "bookingRules" }
+      | { readonly view: "history" };
+    export type AvailabilityTarget = AvailabilityView & {
+      readonly close?: CloseTarget;
+      readonly pause?: boolean;
+      readonly from?: "setup";
+    };
     export const AVAILABILITY_TABS = ["calendar", "special", "schedules"] as const;
     export type AvailabilityTab = (typeof AVAILABILITY_TABS)[number];
     export interface AvailabilityEntry {
@@ -5254,25 +5279,65 @@
     }
     export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry {
       const params = typeof search === "string" ? new URLSearchParams(search) : search;
-      const entry: { -readonly [K in keyof AvailabilityEntry]: AvailabilityEntry[K] } = {};
-      const tab = FIELDS.tab.safeParse(params.get("tab"));
-      if (tab.success) entry.tab = tab.data;
-      const closeSection = FIELDS.closeSection.safeParse(params.get("closeSection"));
-      if (closeSection.success) entry.closeSection = closeSection.data;
-      const action = FIELDS.action.safeParse(params.get("action"));
-      if (action.success) entry.action = action.data;
-      const from = FIELDS.from.safeParse(params.get("from"));
-      if (from.success) entry.from = from.data;
-      return entry;
+      const tab = params.get("tab");
+      const closeSection = params.get("closeSection");
+      return {
+        ...(isTab(tab) && { tab }),
+        ...(closeSection && { closeSection }),
+        ...(params.get("action") === "addSchedule" && { action: "addSchedule" as const }),
+        ...(params.get("from") === "setup" && { from: "setup" as const }),
+      };
     }
-    export function availabilityPath(entry: AvailabilityEntry): string {
+    export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
-      if (entry.tab) params.set("tab", entry.tab);
-      if (entry.closeSection) params.set("closeSection", entry.closeSection);
-      if (entry.action) params.set("action", entry.action);
+      const tab = PAGE_TAB[target.view];
+      if (tab) params.set("tab", tab);
+      if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
+      if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
+      if (target.from) params.set("from", target.from);
+      return withSearch(ROUTE, params);
+    }
+    function parseCloseTarget(value: string | null): CloseTarget | null {
+      if (!value) return null;
+      if (value === "tonight") return { kind: "tonight" };
+      if (isDate(value)) return { kind: "date", date: value };
+      if (value.startsWith(SECTION_PREFIX)) {
+        const sectionId = value.slice(SECTION_PREFIX.length);
+        return sectionId ? { kind: "section", sectionId } : null;
+      }
+      if (value.startsWith(DATES_PREFIX)) {
+        const dates = value.slice(DATES_PREFIX.length).split(",");
+        return dates.length <= MAX_CLOSE_DATES && dates.every(isDate) ? { kind: "dates", dates } : null;
+      }
+      const [from, to, ...rest] = value.split(RANGE_SEPARATOR);
+      if (from === undefined || to === undefined || rest.length > 0) return null;
+      // Dates in this shape sort as text.
+      return isDate(from) && isDate(to) && from <= to ? { kind: "range", from, to } : null;
+    }
+    export interface AvailabilityAddress {
+      /** `null` when there is no close target, or it does not parse: no dialog. */
+      readonly close: CloseTarget | null;
+      readonly pause: boolean;
+      readonly from: "setup" | null;
+    }
+    export function readAvailabilityAddress(location: {
+      readonly search: string;
+    }): AvailabilityAddress {
+      const params = new URLSearchParams(location.search);
+      return {
+        close: parseCloseTarget(params.get("close")),
+        pause: params.get("pause") === "1",
+        from: params.get("from") === "setup" ? "setup" : null,
+      };
+    }
+    export function legacyRedirect(search: string): string | null {
+      const entry = parseAvailabilityEntry(search);
+      if (!entry.tab && !entry.action && !entry.closeSection) return null;
+      const path = entry.action ? `${ROUTE}/seasonal/new` : entry.tab ? TAB_PATH[entry.tab] : ROUTE;
+      const params = new URLSearchParams();
+      if (entry.closeSection) params.set("close", `${SECTION_PREFIX}${entry.closeSection}`);
       if (entry.from) params.set("from", entry.from);
-      const query = params.toString();
-      return query ? `${ROUTE}?${query}` : ROUTE;
+      return withSearch(path, params);
     }
   </file>
   <file path="apps/hospitality/src/components/availability/booking-rules.ts">
@@ -74105,7 +74170,7 @@
         label: t("nav.sections.manage"),
         items: [
           route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
-          route("availability", t("nav.items.availability"), "/availability"),
+          route("availability", t("nav.items.availability"), availabilityPath({ view: "hub" })),
           route("menus", t("nav.items.menus"), "/menus"),
           route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
         ],
@@ -100069,7 +100134,13 @@
             ? [
                 action(
                   "closeSection",
-                  link(availabilityPath({ closeSection: section.id, from: "setup" })),
+                  link(
+                    availabilityPath({
+                      view: "hub",
+                      close: { kind: "section", sectionId: section.id },
+                      from: "setup",
+                    })
+                  ),
                   section.name
                 ),
               ]
