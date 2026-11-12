@@ -117,6 +117,42 @@ describe("TimePicker", () => {
     expect(onChange).toHaveBeenCalledWith("10:00");
   });
 
+  it("ArrowDown on the closed field opens the list with the current time active", async () => {
+    const { trigger } = renderPicker({ step: 60, value: "09:00" });
+    await user.tab();
+    expect(document.activeElement).toBe(trigger);
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    // Opening does not also rove: the active option is still the current time.
+    expect(option("09:00")).toHaveAttribute("data-active", "true");
+    expect(document.querySelectorAll("[data-active]")).toHaveLength(1);
+    await waitFor(() => expect(document.activeElement).toBe(option("09:00")));
+  });
+
+  it("ArrowDown on an empty closed field opens the list on the first enabled time, as a click does", async () => {
+    const { trigger } = renderPicker({ step: 60, value: null, min: "09:00" });
+    await user.tab();
+    expect(document.activeElement).toBe(trigger);
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(option("09:00")).toHaveAttribute("data-active", "true");
+    expect(document.querySelectorAll("[data-active]")).toHaveLength(1);
+    await waitFor(() => expect(document.activeElement).toBe(option("09:00")));
+  });
+
+  it("ArrowDown on the closed field does not change the value", async () => {
+    const { onChange } = renderPicker({ step: 60, value: "09:00" });
+    await user.tab();
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   it("skips disabled options during keyboard navigation", async () => {
     const { trigger } = renderPicker({
       step: 60,

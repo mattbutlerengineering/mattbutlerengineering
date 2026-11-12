@@ -4906,7 +4906,7 @@
     },
     {
       "name": "TimePicker",
-      "description": "A time field: a read-only trigger \n{@link \nInput \n}\n that opens a \n{@link \nPopover \n}\n\ncontaining a listbox of interval slots. Controlled via a 24h `HH:mm` string —\nno `Date` objects cross the public boundary. Selecting a time (or pressing\nEscape) closes the popover and returns focus to the trigger.",
+      "description": "A time field: a read-only trigger \n{@link \nInput \n}\n that opens a \n{@link \nPopover \n}\n\ncontaining a listbox of interval slots. Controlled via a 24h `HH:mm` string —\nno `Date` objects cross the public boundary. The list opens on click, Enter,\nSpace or ArrowDown, with the selected time active. Selecting a time (or\npressing Escape) closes the popover and returns focus to the trigger.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
