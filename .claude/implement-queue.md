@@ -3,7 +3,7 @@ merge: auto
 max_workers: 3
 required_check: CI Gate
 hold_labels: [needs-review]
-priority: [security, ci-fix, feature, audit]
+priority: [security, feature, ci-fix, audit]
 ---
 
 # Implement-queue profile — mattbutlerengineering
@@ -21,8 +21,10 @@ the public skills repo and follow `skills/implement-queue/SKILL.md` by path,
 with this file as the profile. Local sessions run `/idea-to-prod:implement-queue`
 (recurring: `/loop 30m /idea-to-prod:implement-queue`).
 
-**Priority principle: Security > CI fixes > Features > Audit findings.** Security
-covers `fix(security):` titles and Dependabot-sourced `ci-fix`.
+**Priority principle: Security > Features > CI fixes > Audit findings.** Security
+covers `fix(security):` titles and Dependabot-sourced `ci-fix`. A red main is not
+a `ci-fix` tier question: `preflight` makes fixing it the whole iteration. Other
+`ci-fix` issues are monitor-filed chores and sort after features (#8741).
 
 ## preflight
 
@@ -39,7 +41,7 @@ State transitions (`ready`/`in-progress`/`has-pr`/`agent-failed`/`agent-skip`) a
 
 ## compose
 
-**Compose the batch — spread across zones (ADR-023, amended by ADR-027).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > ci-fix > feature > audit), takes at most one issue per zone when main is strict (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch.
+**Compose the batch — spread across zones (ADR-023, amended by ADR-027).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > feature > ci-fix > audit), takes at most one issue per zone when main is strict (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch.
 
 **Probe main's strictness every iteration** (branch protection is repo state, not code) with `scripts/main-strictness.mjs` and pass the result as `strictMain`. The probe fails closed: only a successfully parsed literal `strict: false` yields `strictMain: false`; an error, non-JSON, or missing field yields `true`. When `strictMain` is `false`, a zone may admit further issues whose extracted file paths are non-empty and prefix-aware disjoint from those already admitted in that zone; the per-zone merge-train lock still serializes the merges themselves. Even when `strictMain` is `false`, `selectZoneSpreadBatch` admits at most one issue per shared registry path — `.claude/rules/gotchas.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/implement-queue.md`, `docs/scheduled-tasks.md`, `scripts/routine-manifest.mjs`, `docs/factory/costs.jsonl` — and per `.github/workflows/*.yml` file, across zones.
 
