@@ -34,7 +34,7 @@ PRD criteria are numbered as in `prd.md`. Walkthroughs are numbered as in `ux.md
 
 ## Milestone 1: The hub is the landing page, and every row leads somewhere that works
 
-- [ ] **H1.1 Address module** — `components/availability/availability-address.ts` replaces `availability-entry.ts`: `availabilityPath(target)`, `readAvailabilityAddress(location)`, `legacyRedirect(search)`. Targets not built yet resolve to the old page's tab. `setup-tree.ts`, `nav-sections.ts`, `WaitlistClosedNotice.tsx` and `BookingWidgetDemoPage.tsx` build addresses only through it.
+- [x] **H1.1 Address module** — `components/availability/availability-address.ts` replaces `availability-entry.ts`: `availabilityPath(target)`, `readAvailabilityAddress(location)`, `legacyRedirect(search)`. Targets not built yet resolve to the old page's tab. `setup-tree.ts`, `nav-sections.ts`, `WaitlistClosedNotice.tsx` and `BookingWidgetDemoPage.tsx` build addresses only through it.
   - Accept: unit tests cover every target, every row of the architecture's old-address table with `from=setup` carried, an unparseable close target, and a close target of 21 dates read as "no dialog". No file outside the module contains the string `"/availability`. PRD 15.
   - Blocked by: —
 - [ ] **H1.2 Layout and route table** — `pages/AvailabilityLayout.tsx` with an outlet and `useAvailabilityScope()` (`venueId`, `timezone`, `today`, `state`, `isManager`, `refresh`). `main.tsx`: `availability` gains children; today's page mounts unchanged at `calendar`; old search params redirect with a replace. `RequireManager` gains `redirectTo`. `ROUTE_LABEL_KEYS` gains the new segments. Ledger, size budgets and chunk coverage updated.
@@ -145,7 +145,7 @@ PRD criteria are numbered as in `prd.md`. Walkthroughs are numbered as in `ux.md
 
 ## Design gaps found
 
-none.
+- `?from=` collision on `seasonal/new` (see Notes, 2026-11-12). Open.
 
 ## Notes
 
@@ -153,3 +153,5 @@ none.
 - 2026-11-12: #8693, #8694 and #8695 are folded into this run. Their acceptance criteria map to: #8693 → E4.5, E4.6, E4.7, C2.1; #8694 → C2.1, C2.2, C2.4, D5.3, E4.4, P6.5; #8695 → H1.7, E4.3, P6.1.
 - 2026-11-12: `idea.md` names a two-day spike for the day drawer. The Architect stage removed the need for it (one set of fields, two forms), so no item carries it.
 - 2026-11-12: H1.5 review decision: a rule decides a date only when it changes the services or a venue-wide closed band. Section closures, booking-channel closures, pacing changes and online pauses are never named by the date check. The alternative, a field saying what such a rule changed, was not built.
+- 2026-11-12: H1.1: the "no "/availability" literal outside the address module" rule is enforced for production source only; test files keep literal addresses so they pin the module independently.
+- 2026-11-12: H1.1 found that architecture.md uses `?from=` twice: `seasonal/new?from=<scheduleId>` and `?from=setup` on every address. Recommendation: the duplicate source becomes `?copy=<scheduleId>`. Needs the Owner's answer before E4.6.

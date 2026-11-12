@@ -4,6 +4,7 @@ import { Button, Card, Stack, Text, useToast } from "@mattbutlerengineering/rial
 import type { DateRule } from "@mbe/types";
 import { useReopenClosure } from "../../hooks/useClosures.js";
 import { useRefreshAvailability } from "../../hooks/useRefreshAvailability.js";
+import { availabilityPath } from "../availability/availability-address.js";
 import { conflictOf } from "../availability/conflict-problem.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 
@@ -80,7 +81,9 @@ export function WaitlistClosedNotice({
             {t("waitlist.closed.reopen")}
           </Button>
         )}
-        {manageInAvailability && <Link to="/availability">{t("waitlist.closed.manage")}</Link>}
+        {manageInAvailability && (
+          <Link to={availabilityPath({ view: "hub" })}>{t("waitlist.closed.manage")}</Link>
+        )}
       </Stack>
     </Card>
   );

@@ -18,6 +18,7 @@ import { currentHostConfig, legacyPathRedirect } from "./lib/host-brand.js";
 import { I18nextProvider } from "react-i18next";
 import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
+import { availabilityPath } from "./components/availability/availability-address.js";
 
 initSentry({
   appName: "hospitality",
@@ -381,7 +382,7 @@ const router = createBrowserRouter(
             },
             {
               path: "setup/hours",
-              element: <Navigate to="/availability" replace />,
+              element: <Navigate to={availabilityPath({ view: "hub" })} replace />,
             },
             {
               path: "*",

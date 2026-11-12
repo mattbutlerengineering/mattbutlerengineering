@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { AvailabilityTab } from "./availability-entry.js";
+import type { AvailabilityTab } from "./availability-address.js";
 import { AvailabilityScheduleControls } from "./AvailabilityScheduleControls.js";
 
 function renderControls(isManager = true, tab: AvailabilityTab = "schedules") {
