@@ -162,6 +162,78 @@
   margin-right: calc(-1 * var(--rialto-space-2xs));
 }
 
+/* ── Password strength ────────────────────
+   The meter draws its own label and bar. The
+   score word sits under the bar; the checklist
+   sits under that. The reset sets `svg { display:
+   block }`, so each mark would otherwise land on
+   its own line above the requirement text.
+   ────────────────────────────────────────── */
+.strengthBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+}
+
+.strengthHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+}
+
+/* Text applies `.text` and `.detail` as separate single-class rules.
+   Doubling `.strengthLabel` and nesting it under `.strengthBlock`
+   outranks both, so the score word stays on the xs scale. */
+.strengthBlock .strengthLabel.strengthLabel {
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  font-weight: var(--rialto-weight-medium);
+  line-height: var(--rialto-leading-normal);
+  letter-spacing: var(--rialto-tracking-normal);
+  color: var(--rialto-text-secondary);
+}
+
+.strengthHeader[data-variant="error"] .strengthLabel {
+  color: var(--rialto-error);
+}
+
+.strengthHeader[data-variant="success"] .strengthLabel {
+  color: var(--rialto-success);
+}
+
+.checklist {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xs);
+  margin: 0;
+  padding: 0;
+}
+
+.checklistItem,
+.checklistItemMet {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--rialto-space-xs);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  line-height: var(--rialto-leading-normal);
+  color: var(--rialto-text-secondary);
+}
+
+.checklistItemMet {
+  color: var(--rialto-text-primary);
+}
+
+.checklistItem svg,
+.checklistItemMet svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  max-width: none;
+}
+
 .terms {
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-xs);

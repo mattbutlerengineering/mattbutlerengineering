@@ -6,6 +6,7 @@ import { RESERVATION_STATUS_KEYS } from "./status-keys.js";
 import { visitLabel } from "./visit-label.js";
 import { GuestSignalBadgeChip, useGuestSignalBadgeLabel } from "./GuestSignalBadgeChip.js";
 import type { GuestSignalBadge } from "./guest-signal-badge.js";
+import { InviteRsvpChip } from "./InviteRsvpChip.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { clockHourOfInstant } from "../../utils/clock-hour.js";
 import styles from "./ReservationBlock.module.css";
@@ -111,6 +112,7 @@ function ReservationBlockComponent({
             {reservation.partySize} · {startTime}
             {visitText !== null && ` · ${visitText}`}
           </div>
+          <InviteRsvpChip rsvp={reservation.inviteRsvp} className={styles.inviteRsvp} />
           {overrideReason !== null && (
             <div className={styles.overrideTag} data-truncate title={overrideReason}>
               {t("timeline.block.overrideTag")}
