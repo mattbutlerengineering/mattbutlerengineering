@@ -11392,8 +11392,9 @@
         : "";
       const scopeConflicts: ScopeConflictMode = dates.length > 1 ? conflictMode : "replace";
     
-      const submit = async () => {
-        if (!startsOn) return;
+      /** Saves the draft; `true` when it was saved (and Undo offered), `false` when it was not. */
+      const submit = async (): Promise<boolean> => {
+        if (!startsOn) return false;
         const changes = buildRegularWeekChanges({
           config,
           name: trimmed,
@@ -11406,7 +11407,7 @@
         // Checked against the version the draft was built from, so a change made since is a
         // conflict the Manager reviews, not something this save quietly rebases.
         const saved = await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
-        if (!saved) return;
+        if (!saved) return false;
         offerUndo({
           venueId,
           saved,
@@ -11416,6 +11417,7 @@
               : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
         });
         onSaved?.(saved);
+        return true;
       };
     
       return {
@@ -22400,9 +22402,9 @@
     }
     export async function countFirstPaintControls(
       page: Page,
-      region: Locator
+      region: Locator | null
     ): Promise<FirstPaintCount> {
-      const regionHandle = await region.elementHandle();
+      const regionHandle = region ? await region.elementHandle() : null;
       return page.evaluate(
         ({ selector, shell, outside }) => {
           const main = document.querySelector("main#main-content");

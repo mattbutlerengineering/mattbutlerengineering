@@ -323,14 +323,22 @@ test.describe("Availability on a phone (P1, P2)", () => {
 });
 
 test.describe("Availability on a desktop", () => {
-  test("no service lines: the form is as before", async ({ mockedPage: page }) => {
+  test("the services are closed lines too, one open at a time (#8690)", async ({
+    mockedPage: page,
+  }) => {
     await page.clock.setFixedTime(new Date(`${TODAY}T12:00:00`));
     await page.setViewportSize(DESKTOP);
     await firstPaint(page);
     const panel = weekPanel(page);
-    await expect(panel.getByRole("textbox", { name: "Service name" })).toHaveCount(2);
+    await expect(panel.locator('button[id$="-line-header"]')).toHaveCount(2);
+    await expect(line(page, "Lunch")).toHaveAttribute("aria-expanded", "false");
+    await expect(panel.getByRole("textbox", { name: "Service name" })).toHaveCount(0);
+    await line(page, "Lunch").click();
+    await expect(panel.getByRole("textbox", { name: "Service name" })).toHaveCount(1);
     await expect(panel.getByRole("combobox", { name: "Closes" }).first()).toBeVisible();
-    await expect(panel.locator('button[id$="-line-header"]')).toHaveCount(0);
+    await line(page, "Dinner").click();
+    await expect(line(page, "Lunch")).toHaveAttribute("aria-expanded", "false");
+    await expect(panel.getByRole("textbox", { name: "Service name" })).toHaveCount(1);
   });
 });
 

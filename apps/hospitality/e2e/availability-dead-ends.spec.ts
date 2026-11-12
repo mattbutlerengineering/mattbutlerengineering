@@ -333,7 +333,12 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
   // Add a schedule… opens the schedule editor, seeded from the regular week.
   await page.getByRole("button", { name: "Add a schedule…" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
-  await page.getByRole("dialog").getByRole("button", { name: "Brunch", exact: true }).click();
+  // The seeded service is named, so it offers no chips: rename it by hand.
+  await page
+    .getByRole("dialog")
+    .getByRole("textbox", { name: "Service name" })
+    .first()
+    .fill("Brunch");
   await page.getByRole("dialog").getByRole("button", { name: "Weekdays", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Spare saved")).toBeVisible();
@@ -430,7 +435,12 @@ test("a refused Undo names each stranded booking with a link, outside the alert 
   // Add a schedule… opens the schedule editor, seeded from the regular week.
   await page.getByRole("button", { name: "Add a schedule…" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
-  await page.getByRole("dialog").getByRole("button", { name: "Brunch", exact: true }).click();
+  // The seeded service is named, so it offers no chips: rename it by hand.
+  await page
+    .getByRole("dialog")
+    .getByRole("textbox", { name: "Service name" })
+    .first()
+    .fill("Brunch");
   await page.getByRole("dialog").getByRole("button", { name: "Weekdays", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Spare saved")).toBeVisible();

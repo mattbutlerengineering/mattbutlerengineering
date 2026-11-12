@@ -276,6 +276,10 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Venue Setup" })).toBeVisible();
     await visit("Venue Setup hub");
     await firstPaint(page);
+    // The services are closed lines; the one Manager opens is the week panel's own editor.
+    await weekPanel(page)
+      .getByRole("button", { name: /^Lunch ?, / })
+      .click();
     await visit(PRIMARY_WEEK);
     await page.getByRole("button", { name: "Starting later…" }).click();
     await expect(page.getByRole("dialog", { name: "Change regular week" })).toBeVisible();
@@ -405,7 +409,8 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await mockNoopPreview(page);
     await firstPaint(page);
 
-    // Guest-view strip: beside the week form, and it moves with an edit.
+    // Guest-view strip: one closed row under the week form until the Manager asks for it.
+    await weekPanel(page).getByRole("button", { name: "Guest preview" }).click();
     const strip = page.getByRole("complementary", { name: "Guest preview" });
     await expect(strip).toBeVisible();
 
@@ -424,7 +429,10 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await page.keyboard.press("Escape");
 
     // Change regular week: edit in place and save (today's date), no drawer.
-    await weekPanel(page).getByRole("combobox", { name: "Closes" }).nth(1).click();
+    await weekPanel(page)
+      .getByRole("button", { name: /^Dinner ?, / })
+      .click();
+    await weekPanel(page).getByRole("combobox", { name: "Closes" }).first().click();
     await page
       .getByRole("listbox", { name: "Closes" })
       .getByRole("option", { name: "10:00 PM", exact: true })
@@ -575,9 +583,9 @@ test.describe("The demo runs as written (PRD 23)", () => {
     const panel = weekPanel(page);
     await expect(panel).toBeVisible();
     await expect(layerOption(page, "Schedules")).toBeChecked();
-    await expect(panel.getByRole("textbox", { name: "Service name" }).first()).toHaveValue("Lunch");
-    await expect(panel.getByRole("textbox", { name: "Service name" }).last()).toHaveValue("Dinner");
-    await expect(page.getByRole("complementary", { name: "Guest preview" })).toBeVisible();
+    await expect(panel.getByRole("button", { name: /^Lunch ?, 11:30 AM/ })).toBeVisible();
+    await expect(panel.getByRole("button", { name: /^Dinner ?, 5:00 PM/ })).toBeVisible();
+    await expect(panel.getByRole("button", { name: "Guest preview" })).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     // First paint meets criterion 15.
@@ -590,7 +598,7 @@ test.describe("The demo runs as written (PRD 23)", () => {
     expect(down.count()).toBe(1);
     await expect(layerOption(page, "Special dates")).toBeChecked();
     await layerOption(page, "Schedules").click();
-    await expect(panel.getByRole("textbox", { name: "Service name" })).toHaveCount(2);
+    await expect(panel.locator('button[id$="-line-header"]')).toHaveCount(2);
 
     // Schedules: one interaction to the editor, closed again, the same first layer.
     const schedules = countInteractions(page);
@@ -600,6 +608,7 @@ test.describe("The demo runs as written (PRD 23)", () => {
     expect(schedules.count()).toBe(1);
     await drawer.getByRole("button", { name: "Cancel" }).click();
     await expect(drawer).toBeHidden();
+    await panel.getByRole("button", { name: /^Lunch ?, / }).click();
     await expect(panel.getByRole("textbox", { name: "Service name" }).first()).toHaveValue("Lunch");
   });
 });
@@ -631,7 +640,8 @@ test.describe("The demo runs as written (PRD 9)", () => {
     await page.getByRole("button", { name: "Save and open bookings" }).click();
     await expect.poll(() => venue.savedBody()).not.toBeNull();
 
-    // The guest-view strip shows the result of the week just set.
+    // The guest-view strip shows the result of the week just set (a closed row until asked).
+    await weekPanel(page).getByRole("button", { name: "Guest preview" }).click();
     const strip = page.getByRole("complementary", { name: "Guest preview" });
     await expect(strip).toBeVisible();
     await expect(strip).toContainText("Lunch");

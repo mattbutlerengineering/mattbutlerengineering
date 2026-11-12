@@ -210,11 +210,10 @@ describe("SchedulesTab", () => {
     expect(within(drawer).getAllByRole("textbox", { name: /Service name/ }).length).toBeGreaterThan(
       0
     );
-    // The panel's own fields keep their names too.
-    expect(
-      within(screen.getByTestId("week-panel")).getAllByRole("textbox", { name: /Service name/ })
-        .length
-    ).toBeGreaterThan(0);
+    // The panel's own fields keep their names too (a service opens from its line).
+    const panelBody = within(screen.getByTestId("week-panel"));
+    fireEvent.click(panelBody.getAllByRole("button", { name: /^[^,]+, / })[0] as HTMLElement);
+    expect(panelBody.getAllByRole("textbox", { name: /Service name/ }).length).toBeGreaterThan(0);
   });
 
   it("Starting later… opens Change regular week with Starting empty", () => {

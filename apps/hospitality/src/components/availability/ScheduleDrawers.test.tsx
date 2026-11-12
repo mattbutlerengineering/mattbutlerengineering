@@ -361,7 +361,14 @@ describe("schedule drawers", () => {
         target: { value: "Brunch" },
       });
       expect(whySaveIsOff()).toBe("Choose a time.");
-      fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
+      fireEvent.click(screen.getByLabelText("Opens"));
+      fireEvent.click(screen.getByRole("option", { name: "11:30 AM" }));
+      fireEvent.click(screen.getByLabelText("Closes"));
+      fireEvent.click(
+        within(screen.getByRole("listbox", { name: "Closes" })).getByRole("option", {
+          name: "3:00 PM",
+        })
+      );
       expect(whySaveIsOff()).toBe("Choose at least one day.");
       fireEvent.click(screen.getByRole("button", { name: "Weekdays" }));
       expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();

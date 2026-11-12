@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { RouterProvider, createMemoryRouter } from "react-router";
 import { LeaveGuard } from "./LeaveGuard.js";
 
@@ -49,6 +49,47 @@ describe("LeaveGuard", () => {
     const dialog = screen.getByRole("alertdialog");
     expect(dialog).toHaveTextContent("All unsaved changes on this page will be lost.");
     expect(dialog).not.toHaveTextContent("these hours");
+  });
+
+  describe("with a way to save", () => {
+    function renderSaving(onSave: () => Promise<boolean>) {
+      const router = createMemoryRouter([
+        {
+          path: "/",
+          element: (
+            <main>
+              <LeaveGuard active date={null} title="Regular week" onSave={onSave} />
+            </main>
+          ),
+        },
+        { path: "/other", element: <p>Other page</p> },
+      ]);
+      render(<RouterProvider router={router} />);
+      return router;
+    }
+
+    it("offers Save, and leaves once it has saved", async () => {
+      const onSave = vi.fn(() => Promise.resolve(true));
+      const router = renderSaving(onSave);
+      await act(() => router.navigate("/other"));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(screen.getByText("Other page")).toBeInTheDocument());
+      expect(onSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("stays on the page, with the draft, when the save did not go through", async () => {
+      const router = renderSaving(() => Promise.resolve(false));
+      await act(() => router.navigate("/other"));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
+      expect(screen.queryByText("Other page")).not.toBeInTheDocument();
+    });
+  });
+
+  it("offers no Save when the guard cannot save", async () => {
+    const router = renderGuards([{ active: true, title: "Compare edits" }]);
+    await act(() => router.navigate("/other"));
+    expect(screen.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
   });
 
   it("does not stop navigation when nothing is unsaved", async () => {

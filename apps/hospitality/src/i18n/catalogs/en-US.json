@@ -2171,8 +2171,7 @@
       "closeCompare": "Close",
       "appliesFrom": "Changes apply from today, {{date}}.",
       "startLater": "Starting later…",
-      "discard": "Discard",
-      "whatChanges": "What changes for guests"
+      "discard": "Discard"
     }
   },
   "availability": {

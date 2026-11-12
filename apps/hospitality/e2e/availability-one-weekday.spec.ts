@@ -36,6 +36,7 @@ test.describe("Change one weekday of the regular week", () => {
     // saved from today without a drawer or a date.
     await page.getByRole("radio", { name: "Schedules" }).click();
     const panel = weekPanel(page);
+    await panel.getByRole("button", { name: /^Lunch ?, / }).click();
     await panel.getByRole("button", { name: "Different hours on some days" }).first().click();
     const block = panel.getByRole("group", { name: "Lunch: different hours" });
     await block.getByText("Wed", { exact: true }).click();

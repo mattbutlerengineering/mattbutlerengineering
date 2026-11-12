@@ -418,8 +418,8 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
       const counter = countInteractions(page);
       const panel = weekPanel(counter.page);
 
-      // At 375 the services are closed lines (availability-phone-tonight): open Lunch's first.
-      if (name === "phone") await panel.getByRole("button", { name: /^Lunch ?, / }).click();
+      // The services are closed lines at every width (#8690): open Lunch's first.
+      await panel.getByRole("button", { name: /^Lunch ?, / }).click();
       await chooseTime(counter.page, panel, "Closes", 0, "2:30 PM");
       const footer = panel.locator("[data-pinned]");
       await expect(footer).toBeVisible();
