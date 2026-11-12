@@ -5203,6 +5203,12 @@ Both are candidates for a human-owned `meta-improvement` issue proposing a rubri
 **Skill proposals:** 0 (Wednesday — Friday-only).
 **Threshold notes:** last-30-days verifications.jsonl: 11 non-skip verifications, 7 verified / 4 not-verified → fix-effectiveness 63.6% (>50%, healthy, no review needed). 116/127 records this window are `skip` (no automated verifier available), so the skip-inclusive rate (7/127 = 5.5%) is not used — it would misread verifier coverage gaps as fix failures. False-positive proxy (category rejection rates above): weighted ~16/200 ≈ 8%, well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.574 → 1.604 (headroom).
 
+## 2026-11-12
+
+**queueEfficiency:** composite 0.921 (baseline n/a) — healthy
+**Difficulty distribution:** size:l:10, size:xs:18, size:s:24, size:m:17, size:xl:7
+**Issues filed:** 0
+
 ## 2026-11-12 — mbe-evening (progress-tracker)
 
 ### Metrics (7d; `audit`+`ci-fix` labels, REST issue search sorted by `created_at`/`closed_at`, exact)
