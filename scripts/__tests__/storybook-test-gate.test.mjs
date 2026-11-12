@@ -242,6 +242,39 @@ describe("ci.yml — storybook-tests job (promoted from rialto-visual.yml, #8117
     expect(run).toContain("node scripts/storybook-test-gate.mjs");
   });
 
+  it("bounds each Playwright install attempt with timeout and retries it (#8678)", () => {
+    // #8678: `playwright install --with-deps` hung retrying an unreachable
+    // apt mirror for the job's entire 15-minute budget with zero retry, so
+    // the job was cancelled with no actionable signal. Confirmed live on
+    // #8682: three short (300s) bounded attempts weren't long enough for apt
+    // to fail over from the dead primary mirror, so one long attempt (time
+    // for apt to fail over) plus one short retry (a genuine transient blip)
+    // replaces that, bounded by two separate `timeout` invocations.
+    const installStep = job.steps.find((step) =>
+      (step.run ?? "").includes("playwright install --with-deps chromium")
+    );
+    expect(installStep, "no step runs playwright install --with-deps chromium").not.toBeNull();
+    const timeoutCalls = installStep.run.match(/\btimeout\s+\d+/g) ?? [];
+    expect(timeoutCalls.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("gives the install step's bounded attempts room inside the job timeout (#8678)", () => {
+    // Worst case install time (every `timeout N` bound, plus retry sleeps)
+    // must fit well inside the job's own timeout-minutes, with headroom left
+    // for checkout/setup/deps-install before it and the actual test run after.
+    const installStep = job.steps.find((step) =>
+      (step.run ?? "").includes("playwright install --with-deps chromium")
+    );
+    const timeoutSeconds = [...installStep.run.matchAll(/\btimeout\s+(\d+)/g)].map((m) =>
+      Number(m[1])
+    );
+    const sleepSeconds = [...installStep.run.matchAll(/\bsleep\s+(\d+)/g)].map((m) => Number(m[1]));
+    const worstCaseSeconds =
+      timeoutSeconds.reduce((a, b) => a + b, 0) + sleepSeconds.reduce((a, b) => a + b, 0);
+    const jobTimeoutSeconds = job["timeout-minutes"] * 60;
+    expect(worstCaseSeconds).toBeLessThan(jobTimeoutSeconds - 180);
+  });
+
   it("is never silenced with continue-on-error", () => {
     expect(job["continue-on-error"]).toBeUndefined();
     expect(job.steps.filter((step) => "continue-on-error" in step)).toEqual([]);

@@ -445,6 +445,14 @@
         rsvps: InviteRsvp[];
       }
     </item>
+    <item priority="low">
+      interface ManagedInviteSummary {
+        invited: boolean;
+        confirmed: number;
+        declined: number;
+        partySize: number;
+      }
+    </item>
     <item priority="high">
       class ReservationsClient {
         async list(): Promise<unknown>;

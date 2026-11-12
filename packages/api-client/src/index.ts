@@ -48,6 +48,7 @@ export { HealthClient } from "./health.js";
 export type {
   ManageReservationData,
   InviteData,
+  ManagedInviteSummary,
   InviteRsvp,
   ManagedRebookOffer,
   ManagedVenueCancellation,

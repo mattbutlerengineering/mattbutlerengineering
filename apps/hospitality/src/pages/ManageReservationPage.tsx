@@ -13,6 +13,7 @@ import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { ChangeBookingDialog } from "../components/manage-reservation/ChangeBookingDialog.js";
 import { NightOfCard } from "../components/manage-reservation/NightOfCard.js";
+import { PartyInviteCard } from "../components/manage-reservation/PartyInviteCard.js";
 import { VenueCancelledCard } from "../components/manage-reservation/VenueCancelledCard.js";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog.js";
 import { buildReservationIcs, downloadIcsFile } from "../utils/ics.js";
@@ -321,6 +322,8 @@ function ManageReservationPageContent() {
               </Stack>
             </Card>
           )}
+
+          {canCancel && <PartyInviteCard token={token} />}
 
           {venue && !isNightOf && reservation.status !== "CANCELLED" && (
             <Card>

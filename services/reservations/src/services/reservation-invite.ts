@@ -210,3 +210,35 @@ export async function addInviteRsvp(
     return { kind: "ok" };
   });
 }
+
+export interface InviteSummary {
+  /** Whether the booker has shared at least one live invite. */
+  invited: boolean;
+  confirmed: number;
+  declined: number;
+}
+
+/**
+ * RSVP counts across every live invite on a reservation, for the booker's manage page
+ * (#8665). Counts only; first names stay on the invite page.
+ */
+export async function getInviteSummaryForReservation(input: {
+  venueId: string;
+  reservationId: string;
+}): Promise<InviteSummary> {
+  return runWithVenueContext(input.venueId, async () => {
+    const invites = await prisma.reservationInvite.findMany({
+      where: { reservationId: input.reservationId, revokedAt: null },
+      select: { id: true },
+    });
+    if (invites.length === 0) return { invited: false, confirmed: 0, declined: 0 };
+    const grouped = await prisma.reservationRsvp.groupBy({
+      by: ["status"],
+      where: { inviteId: { in: invites.map((i) => i.id) } },
+      _count: { _all: true },
+    });
+    const count = (status: "IN" | "OUT"): number =>
+      grouped.find((g) => g.status === status)?._count._all ?? 0;
+    return { invited: true, confirmed: count("IN"), declined: count("OUT") };
+  });
+}
