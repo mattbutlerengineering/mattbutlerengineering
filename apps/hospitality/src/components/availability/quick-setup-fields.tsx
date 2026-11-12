@@ -40,7 +40,7 @@ export function IssueText({
   const movable = [
     ...new Set(
       problems.flatMap((p) =>
-        p.code === "overlap" && p.blockId === undefined ? [p.serviceId] : []
+        p.code === "overlap" && p.blockId === undefined && !p.mirrored ? [p.serviceId] : []
       )
     ),
   ];

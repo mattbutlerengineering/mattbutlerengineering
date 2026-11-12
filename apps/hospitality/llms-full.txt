@@ -2957,6 +2957,15 @@
       /** `null` follows the shared {@link QuickSetupDraft.days}. */
       readonly days: readonly number[] | null;
       readonly blocks: readonly HoursBlock[];
+      /**
+       * Set when a name chip moved the service off its preset times to follow the others (Late
+       * after Dinner), with the times it gave; while they are untouched a change of days re-places it.
+       */
+      readonly autoPlaced?: {
+        readonly preset: ServicePresetId;
+        readonly opens: string;
+        readonly closes: string;
+      };
     }
     export interface QuickSetupDraft {
       readonly services: readonly ServiceDraft[];
@@ -3516,9 +3525,10 @@
       preset: ServicePresetId,
       name: string
     ): ServiceDraft {
-      const service = draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
+      const { autoPlaced: _previous, ...service } =
+        draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
       const defaults = applyPreset(service, preset, name);
-      if (isClear(draft, defaults)) return defaults;
+      if (preset !== "late" || isClear(draft, defaults)) return defaults;
       const days = effectiveDays(draft, service);
       const closes = draft.services
         .filter((s) => s.id !== serviceId)
@@ -3539,7 +3549,19 @@
         closes: toClock(end),
         lastSeating: autoLastSeating(toClock(end), toClock(start)),
       };
-      return isClear(draft, placed) ? placed : defaults;
+      return isClear(draft, placed)
+        ? { ...placed, autoPlaced: { preset, opens: placed.opens, closes: placed.closes } }
+        : defaults;
+    }
+    export function setDaysAndReplace(
+      draft: QuickSetupDraft,
+      service: ServiceDraft,
+      days: readonly number[] | null
+    ): ServiceDraft {
+      const next = setServiceDays(service, days, draft.days);
+      const placed = service.autoPlaced;
+      if (!placed || service.opens !== placed.opens || service.closes !== placed.closes) return next;
+      return placePreset(replaceService(draft, next), next.id, placed.preset, next.name);
     }
     export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft {
       if (service.opens === null || service.closes === null) return service;
@@ -3586,6 +3608,8 @@
       /** `overlap` on some weekdays only: the weekday (0 = Sunday) and the service it overlaps. */
       readonly weekday?: number;
       readonly otherServiceId?: string;
+      /** An overlap said again on the other service's row (`overlapsAgainst`); it offers no fix there. */
+      readonly mirrored?: true;
     }
     interface IssueOwner {
       readonly serviceId: string;
@@ -3689,11 +3713,22 @@
               ...(block ? { blockId: block.id } : {}),
               field: "opens",
               code: "overlap",
-              ...(weekday !== undefined && other ? { weekday, otherServiceId: other.id } : {}),
+              ...(weekday !== undefined ? { weekday } : {}),
+              ...(other ? { otherServiceId: other.id } : {}),
             },
           ];
         });
       return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
+    }
+    export function overlapsAgainst(
+      issues: readonly QuickSetupIssue[],
+      serviceId: string
+    ): QuickSetupIssue[] {
+      return issues.flatMap(({ blockId: _block, ...issue }) =>
+        issue.code === "overlap" && issue.otherServiceId === serviceId && issue.serviceId !== null
+          ? [{ ...issue, serviceId, otherServiceId: issue.serviceId, mirrored: true as const }]
+          : []
+      );
     }
     export function serviceLabel(
       draft: QuickSetupDraft,
