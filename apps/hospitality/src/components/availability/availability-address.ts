@@ -12,6 +12,10 @@ const ROUTE = "/availability";
 /** Where today's page is mounted until the calendar page replaces it (breakdown D5.3). */
 const TODAYS_PAGE = `${ROUTE}/calendar`;
 
+/** Whether a pathname is today's page, which mounts its own blocked-undo dialog until D5.3. */
+export const isTodaysPage = (pathname: string): boolean =>
+  pathname.replace(/\/+$/, "") === TODAYS_PAGE;
+
 /** What the Close dialog opens on, as `?close=` names it. */
 export type CloseTarget =
   | { readonly kind: "tonight" }

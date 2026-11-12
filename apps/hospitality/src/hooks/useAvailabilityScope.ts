@@ -1,5 +1,5 @@
 import { useOutletContext } from "react-router";
-import type { AvailabilityConfigState } from "@mbe/types";
+import type { AvailabilityConfigSaveResult, AvailabilityConfigState } from "@mbe/types";
 
 /** What every Availability child route is given (availability-hub architecture.md "Layout context"). */
 export interface AvailabilityScope {
@@ -15,6 +15,11 @@ export interface AvailabilityScope {
   readonly isManager: boolean;
   /** Refetches the config, after a refused save. */
   readonly refresh: () => void;
+  /**
+   * Shows the 10-second Undo for a save, under `title`. The layout owns the offer, so it still
+   * works after the child that saved has unmounted.
+   */
+  readonly offerUndo: (title: string, saved: AvailabilityConfigSaveResult) => void;
 }
 
 /** The scope `AvailabilityLayout` provides, for a child route of `availability`. */

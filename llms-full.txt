@@ -5408,6 +5408,8 @@
     }
   </file>
   <file path="apps/hospitality/src/components/availability/availability-address.ts">
+    export const isTodaysPage = (pathname: string): boolean =>
+      pathname.replace(/\/+$/, "") === TODAYS_PAGE;
     export type CloseTarget =
       | { readonly kind: "tonight" }
       | { readonly kind: "date"; readonly date: string }
@@ -24558,6 +24560,11 @@
       readonly isManager: boolean;
       /** Refetches the config, after a refused save. */
       readonly refresh: () => void;
+      /**
+       * Shows the 10-second Undo for a save, under `title`. The layout owns the offer, so it still
+       * works after the child that saved has unmounted.
+       */
+      readonly offerUndo: (title: string, saved: AvailabilityConfigSaveResult) => void;
     }
     export function useAvailabilityScope(): AvailabilityScope {
       return useOutletContext<AvailabilityScope>();

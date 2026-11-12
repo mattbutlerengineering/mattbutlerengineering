@@ -140,6 +140,9 @@
     </item>
   </file>
   <file path="src/components/availability/availability-address.ts">
+    <item priority="high">
+      export const isTodaysPage: unknown;
+    </item>
     <item priority="low">
       type CloseTarget = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | { readonly kind: "dates"; read | { readonly kind: "section"; re;
     </item>

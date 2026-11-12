@@ -3,6 +3,7 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   availabilityPath,
+  isTodaysPage,
   legacyRedirect,
   parseAvailabilityEntry,
   readAvailabilityAddress,
@@ -91,6 +92,19 @@ describe("availabilityPath", () => {
       "/availability/calendar?tab=calendar"
     );
   });
+});
+
+describe("isTodaysPage", () => {
+  it.each(["/availability/calendar", "/availability/calendar/"])("is true for %s", (pathname) => {
+    expect(isTodaysPage(pathname)).toBe(true);
+  });
+
+  it.each(["/availability", "/availability/hours", "/availability/calendar/2026-10-30"])(
+    "is false for %s",
+    (pathname) => {
+      expect(isTodaysPage(pathname)).toBe(false);
+    }
+  );
 });
 
 describe("readAvailabilityAddress", () => {
