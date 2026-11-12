@@ -70,6 +70,12 @@ Eligible: open, `feature-proposal`, not `vetoed`, `createdAt` older than
 **66 hours** (nominal 72h window; 66h ensures the third daily run flips it
 instead of slipping to day 4).
 
+**Feature-run WIP cap (#8743):** first count open issues labeled `tracking`
+whose title starts with `[Feature]` and that are not labeled `ideation-batch`.
+If the count is 2 or more, flip nothing this run and say so; proposals stay
+eligible and flip once a feature run closes. Otherwise flip at most
+`2 - count` proposals.
+
 For each eligible proposal, oldest first, **at most 2 per run** (bounds run
 cost):
 
