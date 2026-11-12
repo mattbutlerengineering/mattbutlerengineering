@@ -19,11 +19,16 @@ describe("http-cache-semantics override (#5995)", () => {
     expect(String(pkg.pnpm.overrides["http-cache-semantics@<=4.2.0"])).not.toMatch(/^>=/);
   });
 
-  it("does not resolve http-cache-semantics@4.2.0", () => {
+  it("does not resolve a vulnerable http-cache-semantics (<=4.2.0)", () => {
+    // No entry at all is fine: the override only matters while something depends on the
+    // package, and the override line above stays so a later dependent cannot bring 4.2.0 back.
     const resolved = [...lockfile.matchAll(/^ {2}http-cache-semantics@(\S+):$/gm)].map(
       (match) => match[1]
     );
-    expect(resolved).not.toContain("4.2.0");
-    expect(resolved.some((version) => version.startsWith("4.3."))).toBe(true);
+    const vulnerable = resolved.filter((version) => {
+      const [major, minor, patch] = version.split(".").map(Number);
+      return major < 4 || (major === 4 && (minor < 2 || (minor === 2 && patch <= 0)));
+    });
+    expect(vulnerable).toEqual([]);
   });
 });
