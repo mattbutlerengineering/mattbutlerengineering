@@ -1,6 +1,11 @@
-import { resolveDay, type Layer, type ResolvedDay } from "@mbe/availability";
+import {
+  resolveDay,
+  type Layer,
+  type ResolvedClosure,
+  type ResolvedDay,
+  type ResolvedDaySummary,
+} from "@mbe/availability";
 import type { AvailabilityConfig } from "@mbe/types";
-import { diffRemoval } from "../removal-diff.js";
 
 /**
  * The hub's date check as data: what happens on one date, the rule that decided it, and the one
@@ -116,13 +121,58 @@ function scheduleBeneath(
   return lower ? ruleOf(without, lower) : null;
 }
 
-function closedBandOf(day: ResolvedDay): DateAnswer["closedBand"] {
-  return day.closures
-    .filter((c) => c.targetKind === "venue")
-    .reduce<DateAnswer["closedBand"]>(
-      (first, c) => (first === null || c.from < first.from ? { from: c.from, to: c.to } : first),
-      null
+function venueBandsOf(day: ResolvedDaySummary): ResolvedClosure[] {
+  return day.closures.filter((c) => c.targetKind === "venue");
+}
+
+/**
+ * What an answer reports, as a comparable key: the services with their hours, and the bands the
+ * whole venue is closed for. Section and booking-channel closures, pacing and online pauses are
+ * not reported, so a rule that changes only those never decides a date.
+ */
+function reportKey(day: ResolvedDaySummary): string {
+  const services = day.services.map((s) => [s.name, s.opensAt, s.closesAt]);
+  const bands = [...new Set(venueBandsOf(day).map((c) => `${c.from}-${c.to}`))].sort();
+  return JSON.stringify([services, bands]);
+}
+
+/**
+ * The closures and tonight changes that change the report, top first. Each is tested with every
+ * rule above it already removed, so of two rules that do the same thing the lower one is named.
+ */
+function decidingOverlays(
+  config: AvailabilityConfig,
+  timezone: string,
+  day: ResolvedDay,
+  overlays: readonly Layer[]
+): Layer[] {
+  return overlays.reduce(
+    (state, layer) => {
+      const without = {
+        ...state.config,
+        dateRules: state.config.dateRules.filter((r) => r.id !== layer.id),
+      };
+      const key = reportKey(resolveDay({ timezone, config: without }, day.serviceDate));
+      return {
+        config: without,
+        key,
+        found: key === state.key ? state.found : [...state.found, layer],
+      };
+    },
+    { config, key: reportKey(day), found: [] as Layer[] }
+  ).found;
+}
+
+/** The deciding rule's own venue-wide band when it has one, else the earliest on the date. */
+function closedBandOf(day: ResolvedDay, top: Layer | undefined): DateAnswer["closedBand"] {
+  const bands = venueBandsOf(day);
+  const band =
+    bands.find((c) => c.ruleId === top?.id) ??
+    bands.reduce<ResolvedClosure | undefined>(
+      (first, c) => (first === undefined || c.from < first.from ? c : first),
+      undefined
     );
+  return band ? { from: band.from, to: band.to } : null;
 }
 
 /** What happens on `date` and which rule decided it; `null` for a date that is not a real one. */
@@ -135,10 +185,15 @@ export function dateAnswer(
   const day = resolveDay({ timezone, config }, date);
   // Top first. A skip is never named: the engine has already removed the rule it skips.
   const layers = day.explanation.filter((l) => l.kind !== "skip").reverse();
-  const at = layers.findIndex((l) => setsHours(l) || diffRemoval(day, l.removalResult).length > 0);
-  const top = at === -1 ? undefined : layers[at];
+  const overlays = layers.filter((l) => !setsHours(l));
+  // The rules that could be named, top first: the hours layers always can.
+  const candidates = [
+    ...decidingOverlays(config, timezone, day, overlays),
+    ...layers.filter(setsHours),
+  ];
+  const top = candidates.at(0);
   const deciding = top ? ruleOf(config, top) : null;
-  const lower = top ? layers.slice(at + 1).find((l) => l.kind !== top.kind) : undefined;
+  const lower = top ? candidates.slice(1).find((l) => l.kind !== top.kind) : undefined;
   const beneath =
     top?.kind === "schedule"
       ? scheduleBeneath(config, timezone, date, top)
@@ -148,7 +203,7 @@ export function dateAnswer(
   return {
     date,
     services: day.services.map(({ name, opensAt, closesAt }) => ({ name, opensAt, closesAt })),
-    closedBand: closedBandOf(day),
+    closedBand: closedBandOf(day, top),
     deciding,
     beneath,
     hubRow: deciding ? HUB_ROW[deciding.kind] : null,

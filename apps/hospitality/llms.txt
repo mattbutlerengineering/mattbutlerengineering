@@ -5720,7 +5720,21 @@
       ): DateAnswerRule | null { /* ... */ }
     </item>
     <item priority="medium">
-      function closedBandOf(day: ResolvedDay): DateAnswer["closedBand"] { /* ... */ }
+      function venueBandsOf(day: ResolvedDaySummary): ResolvedClosure[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reportKey(day: ResolvedDaySummary): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function decidingOverlays(
+        config: AvailabilityConfig,
+        timezone: string,
+        day: ResolvedDay,
+        overlays: readonly Layer[]
+      ): Layer[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closedBandOf(day: ResolvedDay, top: Layer | undefined): DateAnswer["closedBand"] { /* ... */ }
     </item>
     <item priority="high">
       export function dateAnswer(

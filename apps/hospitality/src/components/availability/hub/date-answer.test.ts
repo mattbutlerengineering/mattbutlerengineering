@@ -209,3 +209,100 @@ describe("dateAnswer", () => {
     }
   );
 });
+
+/** A rule on Nov 12, a regular Dinner day. */
+const onNov12 = { startsOn: NOV_12, endsOn: NOV_12 } as const;
+const closure = (id: string, rest: Partial<DateRule> = {}): DateRule =>
+  ({ ...onNov12, id, kind: "closure", targetKind: "venue", ...rest }) as DateRule;
+
+const TABLES_CLOSURE = closure("r-tables", { targetKind: "tables", tableIds: ["t-1", "t-2"] });
+
+describe("dateAnswer: a rule decides only when it changes the services or a venue-wide closed band", () => {
+  it("names a closure when two whole-day venue closures overlap", () => {
+    const config = venue(closure("r-first"), closure("r-second"));
+    expect(dateAnswer(config, TIMEZONE, NOV_12)).toEqual({
+      date: NOV_12,
+      services: [],
+      closedBand: { from: 0, to: 2880 },
+      deciding: { kind: "closure", ruleId: "r-first" },
+      beneath: REGULAR,
+      hubRow: 4,
+    });
+  });
+
+  it("names a closure when two whole-day closures of one service overlap", () => {
+    const dinnerClosed = { targetKind: "service", venueServiceId: "vs-dinner" } as const;
+    const config = venue(closure("r-first", dinnerClosed), closure("r-second", dinnerClosed));
+    expect(dateAnswer(config, TIMEZONE, NOV_12)).toMatchObject({
+      services: [],
+      closedBand: null,
+      deciding: { kind: "closure", ruleId: "r-first" },
+      beneath: REGULAR,
+      hubRow: 4,
+    });
+  });
+
+  it.each<[string, DateRule]>([
+    ["a section closure", TABLES_CLOSURE],
+    [
+      "an online booking closure",
+      closure("r-online", { targetKind: "booking", bookingTypes: ["online"] }),
+    ],
+    [
+      "a tonight pacing change",
+      {
+        ...onNov12,
+        id: "r-pacing",
+        kind: "tonight",
+        targetKind: "venue",
+        payload: { version: 1, pacing: { covers: 6 } },
+      },
+    ],
+    [
+      "a whole-day online pause",
+      {
+        ...onNov12,
+        id: "r-pause",
+        kind: "tonight",
+        targetKind: "booking",
+        bookingTypes: ["online"],
+        payload: { version: 1, stop: { from: 0, to: 2880 } },
+      },
+    ],
+  ])("never names %s: the hours rule decides", (_name, rule) => {
+    expect(dateAnswer(venue(rule), TIMEZONE, NOV_12)).toEqual({
+      date: NOV_12,
+      services: [{ name: "Dinner", opensAt: 1020, closesAt: 1320 }],
+      closedBand: null,
+      deciding: REGULAR,
+      beneath: null,
+      hubRow: 1,
+    });
+  });
+
+  it("names the hours rule beneath a tonight change, not a section closure between them", () => {
+    const config = venue(TABLES_CLOSURE, TONIGHT_CLOSE_AT_EIGHT);
+    expect(dateAnswer(config, TIMEZONE, NOV_12)).toMatchObject({
+      deciding: { kind: "tonight", ruleId: "r-tonight" },
+      beneath: REGULAR,
+      hubRow: 4,
+    });
+  });
+
+  it("reports the deciding closure's own band, whichever order two venue closures are listed in", () => {
+    const afternoon = closure("r-afternoon", { window: { version: 1, from: 840, to: 900 } });
+    const evening = closure("r-evening", { window: { version: 1, from: 1200, to: 2880 } });
+    expect(dateAnswer(venue(afternoon, evening), TIMEZONE, NOV_12)).toMatchObject({
+      deciding: { kind: "closure", ruleId: "r-evening" },
+      closedBand: { from: 1200, to: 2880 },
+      beneath: REGULAR,
+      hubRow: 4,
+    });
+    expect(dateAnswer(venue(evening, afternoon), TIMEZONE, NOV_12)).toMatchObject({
+      deciding: { kind: "closure", ruleId: "r-afternoon" },
+      closedBand: { from: 840, to: 900 },
+      beneath: REGULAR,
+      hubRow: 4,
+    });
+  });
+});
