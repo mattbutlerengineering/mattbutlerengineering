@@ -23772,6 +23772,87 @@
       );
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useArrivalAlerts.ts">
+    interface Party {
+      readonly name: string | null;
+      readonly size: number;
+    }
+    function toParty(value: unknown, reservationId: string): Party | null {
+      if (typeof value !== "object" || value === null) return null;
+      const r = value as { id?: unknown; guestName?: unknown; partySize?: unknown };
+      if (r.id !== reservationId || typeof r.partySize !== "number") return null;
+      return {
+        name: typeof r.guestName === "string" && r.guestName !== "" ? r.guestName : null,
+        size: r.partySize,
+      };
+    }
+    function findCachedParty(queryClient: QueryClient, reservationId: string): Party | null {
+      for (const [, data] of queryClient.getQueriesData<unknown>({
+        queryKey: [RESERVATIONS_QUERY_KEY],
+      })) {
+        const candidates: unknown[] = Array.isArray(data) ? data : [data];
+        for (const candidate of candidates) {
+          const party = toParty(candidate, reservationId);
+          if (party) return party;
+        }
+      }
+      return null;
+    }
+    export function useArrivalChimeMuted(): boolean {
+      return useSyncExternalStore(subscribeArrivalChimeMuted, isArrivalChimeMuted, () => false);
+    }
+    export function useArrivalAlerts(): void {
+      const queryClient = useQueryClient();
+      const api = useApiClient();
+      const { toast } = useToast();
+      const { t } = useTranslation();
+      const announcedRef = useRef(new Set<string>());
+    
+      const latestRef = useRef({ queryClient, api, toast, t });
+      useEffect(() => {
+        latestRef.current = { queryClient, api, toast, t };
+      });
+    
+      const onEvent = useCallback((event: SseEvent) => {
+        if (event.type !== "reservation:guest-signal" || event.data.kind !== "arrived") return;
+        const { reservationId } = event.data;
+        if (announcedRef.current.has(reservationId)) return;
+        announcedRef.current.add(reservationId);
+        if (announcedRef.current.size > MAX_REMEMBERED) {
+          const oldest = announcedRef.current.values().next().value;
+          if (oldest !== undefined) announcedRef.current.delete(oldest);
+        }
+    
+        if (!isArrivalChimeMuted()) playArrivalChime();
+    
+        void (async () => {
+          const { queryClient: qc, api: client } = latestRef.current;
+          let party = findCachedParty(qc, reservationId);
+          if (!party) {
+            try {
+              party = toParty(await client.reservations.get(reservationId), reservationId);
+            } catch {
+              party = null; // already reported by useApiClient's onError
+            }
+          }
+          const { toast: show, t: translate } = latestRef.current;
+          show({
+            title: translate("arrivalAlerts.title"),
+            description: party
+              ? translate("arrivalAlerts.description", {
+                  name: party.name ?? translate("reservations.guestFallback"),
+                  size: party.size,
+                })
+              : translate("arrivalAlerts.descriptionUnknown"),
+            variant: "accent",
+            duration: 8000,
+          });
+        })();
+      }, []);
+    
+      useSSEEventListener(onEvent);
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailability.ts">
     export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
     export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
@@ -29591,6 +29672,77 @@
       };
     
       return walk(spec.root);
+    }
+  </file>
+  <file path="apps/hospitality/src/lib/arrival-chime.ts">
+    export const ARRIVAL_CHIME_MUTED_KEY = "mbe-hospitality-arrival-chime-muted";
+    export function isArrivalChimeMuted(): boolean {
+      try {
+        return localStorage.getItem(ARRIVAL_CHIME_MUTED_KEY) === "true";
+      } catch {
+        return false;
+      }
+    }
+    function persistMuted(muted: boolean): boolean {
+      try {
+        localStorage.setItem(ARRIVAL_CHIME_MUTED_KEY, String(muted));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    export function setArrivalChimeMuted(muted: boolean): boolean {
+      const persisted = persistMuted(muted);
+      for (const listener of listeners) listener();
+      return persisted;
+    }
+    export function subscribeArrivalChimeMuted(listener: () => void): () => void {
+      listeners.add(listener);
+      const onStorage = (event: StorageEvent) => {
+        if (event.key === ARRIVAL_CHIME_MUTED_KEY || event.key === null) listener();
+      };
+      window.addEventListener("storage", onStorage);
+      return () => {
+        listeners.delete(listener);
+        window.removeEventListener("storage", onStorage);
+      };
+    }
+    function getAudioContext(): AudioContext | null {
+      if (audioContext) return audioContext;
+      const Ctor: typeof AudioContext | undefined =
+        typeof AudioContext === "undefined" ? undefined : AudioContext;
+      if (!Ctor) return null;
+      audioContext = new Ctor();
+      return audioContext;
+    }
+    export function resetArrivalChimeAudioForTests(): void {
+      audioContext = null;
+    }
+    export function playArrivalChime(): boolean {
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return false;
+        if (ctx.state === "suspended") {
+          ctx.resume().catch(() => undefined);
+        }
+        const start = ctx.currentTime;
+        for (const { hz, offset } of NOTES) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(hz, start + offset);
+          gain.gain.setValueAtTime(0.0001, start + offset);
+          gain.gain.linearRampToValueAtTime(PEAK_GAIN, start + offset + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + NOTE_SECONDS);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start + offset);
+          osc.stop(start + offset + NOTE_SECONDS);
+        }
+        return true;
+      } catch {
+        return false; // blocked or unsupported audio must never break the SSE handler
+      }
     }
   </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">

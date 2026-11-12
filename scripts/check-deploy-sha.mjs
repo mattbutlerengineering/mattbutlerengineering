@@ -92,12 +92,25 @@ export function isShaVerifiableTrigger(triggerName) {
  * already treats as "skipped" -- run smoke tests against whatever's live
  * without waiting on a match that can never happen.
  *
- * @param {{ triggerName: string|null, headSha: string|null }} args
+ * @param {{ triggerName: string|null, headSha: string|null, marketingDeployed?: boolean }} args
  * @returns {string|null}
  */
-export function resolveExpectedSha({ triggerName, headSha }) {
+export function resolveExpectedSha({ triggerName, headSha, marketingDeployed = true }) {
   if (!headSha) return null;
-  return isShaVerifiableTrigger(triggerName) ? headSha : null;
+  if (!isShaVerifiableTrigger(triggerName)) return null;
+  // #8720: deploy-static.yml skips the marketing job when a commit does not
+  // touch apps/marketing, so its build-id never becomes this SHA.
+  return marketingDeployed ? headSha : null;
+}
+
+/**
+ * True when the triggering "Deploy Static Sites" run actually redeployed the
+ * marketing site (the one whose build-id is polled).
+ * @param {Array<{ name: string, conclusion: string|null }>} jobs
+ * @returns {boolean}
+ */
+export function isMarketingDeployed(jobs) {
+  return jobs.some((job) => job.name === "Deploy Marketing" && job.conclusion === "success");
 }
 
 /**
@@ -168,6 +181,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const expectedShortSha = resolveExpectedSha({
     triggerName,
     headSha: readFlag(args, "--expected-sha") || null,
+    // Absent flag = true (fail closed: keep polling).
+    marketingDeployed: readFlag(args, "--marketing-deployed") !== "false",
   });
   const maxAttempts = Number(readFlag(args, "--max-attempts") ?? 48);
   const sleepSecs = Number(readFlag(args, "--sleep-secs") ?? 15);
