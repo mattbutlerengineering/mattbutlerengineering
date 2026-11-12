@@ -21,14 +21,18 @@ name: Rialto Web E2E
 #                 the visual verdict.
 #   - functional: every other e2e/*.spec.ts — accessibility, navigation,
 #                 search, theme, and component-interaction assertions.
-#                 Listed explicitly (never a glob), so a newly added spec
-#                 either gets wired in here deliberately or fails the
-#                 coverage check in apps/rialto-web/e2e/workflow-coverage.
-#                 test.ts (part of `pnpm --dir apps/rialto-web test`). See
-#                 #3955. demo-nav.spec.ts ships with #3954 — listing it here
-#                 ahead of that merge is a no-op (a missing spec path is
-#                 silently skipped by playwright) until the file lands, then
-#                 it starts running automatically.
+#                 The spec list is computed at run time by the step itself:
+#                 every apps/rialto-web/e2e/*.spec.ts (sorted) EXCEPT
+#                 visual.spec.ts (the `visual` job) and csp.spec.ts (the CSP
+#                 steps below). The step fails if the list comes out empty.
+#                 It used to name each spec, which made the list a merge-
+#                 conflict hotspot (#8723): concurrent PRs adding specs all
+#                 edited the same lines. A new spec now needs no workflow
+#                 edit. apps/rialto-web/e2e/workflow-coverage.test.ts pins
+#                 the contract: the exclusions are exactly visual + csp, each
+#                 of those two is run by its own job/step, and no spec file
+#                 can fall outside the three groups. See #3955 (original gap)
+#                 and #8723.
 #
 # The functional job carries one extra pair of steps for e2e/csp.spec.ts:
 # a `build` and a second playwright invocation against
@@ -227,24 +231,26 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --dir apps/rialto-web exec playwright install --with-deps chromium
       - name: Run functional e2e tests
-        # Explicit spec list — see the header comment above for why this is
-        # never a glob.
+        # The spec list is computed here, not enumerated — see the header
+        # comment. Exclusions are explicit: visual.spec.ts belongs to the
+        # `visual` job, csp.spec.ts to the CSP steps below. Anything else
+        # added under e2e/ is picked up automatically.
         run: |
-          pnpm exec playwright test --config apps/rialto-web/playwright.config.ts \
-            apps/rialto-web/e2e/a11y-pages.spec.ts \
-            apps/rialto-web/e2e/interaction.spec.ts \
-            apps/rialto-web/e2e/navigation.spec.ts \
-            apps/rialto-web/e2e/review-and-overlays.spec.ts \
-            apps/rialto-web/e2e/search.spec.ts \
-            apps/rialto-web/e2e/theme.spec.ts \
-            apps/rialto-web/e2e/demo-nav.spec.ts \
-            apps/rialto-web/e2e/telemetry.spec.ts \
-            apps/rialto-web/e2e/narrow-component-demos.spec.ts \
-            apps/rialto-web/e2e/example-pages-layout.spec.ts \
-            apps/rialto-web/e2e/narrow-demo-pages.spec.ts \
-            apps/rialto-web/e2e/narrow-example-overflow.spec.ts \
-            apps/rialto-web/e2e/password-strength.spec.ts \
-            apps/rialto-web/e2e/date-picker-narrow.spec.ts
+          export LC_ALL=C
+          specs=()
+          for spec in apps/rialto-web/e2e/*.spec.ts; do
+            case "$(basename "$spec")" in
+              visual.spec.ts | csp.spec.ts) continue ;;
+            esac
+            specs+=("$spec")
+          done
+          if [ "${#specs[@]}" -eq 0 ]; then
+            echo "::error::No functional e2e specs found under apps/rialto-web/e2e/ — refusing to run an empty suite" >&2
+            exit 1
+          fi
+          echo "Functional specs (${#specs[@]}):"
+          printf '  %s\n' "${specs[@]}"
+          pnpm exec playwright test --config apps/rialto-web/playwright.config.ts "${specs[@]}"
       - name: Build rialto-web (the CSP suite runs against built output)
         # vite dev serves a module graph that never ships; a violation
         # introduced by bundling or minification would be invisible there.
