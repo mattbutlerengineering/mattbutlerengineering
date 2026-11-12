@@ -25,7 +25,7 @@
     "db:collapse-day-named-schedules": "tsx src/scripts/collapse-day-named-schedules.ts"
   },
   "dependencies": {
-    "@fastify/rate-limit": "^11.2.1",
+    "@fastify/rate-limit": "^11.2.2",
     "@mbe/auth": "workspace:*",
     "@mbe/availability": "workspace:*",
     "@mbe/cancellation-policy": "workspace:*",
@@ -36,14 +36,14 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@prisma/client-runtime-utils": "^7.10.1",
-    "bullmq": "^6.5.4",
+    "bullmq": "^6.7.2",
     "fastify": "catalog:",
     "ioredis": "^6.0.0",
-    "jose": "^6.2.14",
+    "jose": "^6.2.16",
     "pg": "^8.23.1",
-    "resend": "^6.36.1",
+    "resend": "^6.37.0",
     "stripe": "^23.1.0",
-    "twilio": "^6.2.0"
+    "twilio": "^6.3.0"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

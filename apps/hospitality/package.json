@@ -102,7 +102,7 @@
     {
       "name": "Rialto Vendor (design system)",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "90.4 kB"
+      "limit": "91.8 kB"
     },
     {
       "name": "Router Vendor (react-router)",
@@ -161,7 +161,7 @@
     }
   ],
   "dependencies": {
-    "@json-render/react": "^0.21.2",
+    "@json-render/react": "^0.22.0",
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/api-client": "workspace:*",
     "@mbe/availability": "workspace:*",
@@ -172,11 +172,11 @@
     "@mbe/types": "workspace:*",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@stripe/react-stripe-js": "^7.0.1",
-    "@stripe/stripe-js": "^10.2.0",
-    "@tanstack/react-query": "^5.104.5",
+    "@stripe/stripe-js": "^10.2.1",
+    "@tanstack/react-query": "^5.107.1",
     "i18next": "27.0.1",
     "idb": "^8.0.4",
-    "konva": "^10.9.0",
+    "konva": "^10.9.1",
     "qrcode": "^1.5.4",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -190,7 +190,7 @@
     "@mbe/config": "workspace:*",
     "@mbe/ui-quality-capture": "workspace:*",
     "@playwright/test": "^1.65.0",
-    "@sentry/vite-plugin": "^11.10.0",
+    "@sentry/vite-plugin": "^11.11.0",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.8",
@@ -200,7 +200,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "axe-core": "^4.14.0",
-    "fake-indexeddb": "^6.2.7",
+    "fake-indexeddb": "^6.2.8",
     "jsdom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
