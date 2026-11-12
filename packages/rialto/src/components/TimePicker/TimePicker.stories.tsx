@@ -49,7 +49,7 @@ export const Default: Story = {
     const canvas = within(canvasElement);
     const trigger = canvas.getByLabelText("Arrival");
     await userEvent.click(trigger);
-    await expect(canvas.getByRole("listbox")).toBeInTheDocument();
+    await expect(within(document.body).getByRole("listbox")).toBeInTheDocument();
   },
 };
 

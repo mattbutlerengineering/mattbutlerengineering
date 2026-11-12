@@ -3,6 +3,10 @@
   flex-direction: column;
   gap: var(--rialto-space-xl);
   max-width: 720px;
+  /* 768px with the sidebar open leaves this column ~380px. A 30rem viewport
+     query never fires there, and each date field is then ~145px — too narrow
+     for "Nov 20, 2026" plus the calendar icon. */
+  container-type: inline-size;
 }
 
 .panel {
@@ -17,7 +21,24 @@
   gap: var(--rialto-space-lg);
 }
 
+.dateField {
+  min-inline-size: 0;
+}
+
+/* Beats DatePicker's fit-content wrapper (one class) so the field uses the
+   cell. A fit-content field in a ~145px cell clips the formatted date. */
+.dateField > :first-child {
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
 @media (max-width: 30rem) {
+  .dateGrid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (max-width: 30rem) {
   .dateGrid {
     grid-template-columns: minmax(0, 1fr);
   }

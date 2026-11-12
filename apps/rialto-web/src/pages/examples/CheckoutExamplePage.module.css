@@ -1,12 +1,20 @@
+/* At a 768px viewport the showcase sidebar is still open, so this row is
+   about 380px — narrower than the old 45rem viewport query, which never
+   fired. A container on the frame keys off that width. Querying .layout
+   itself would not match .layout. */
+.frame {
+  container-type: inline-size;
+  max-width: 960px;
+}
+
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   gap: var(--rialto-space-xl);
   align-items: start;
-  max-width: 960px;
 }
 
-@media (max-width: 45rem) {
+@container (max-width: 45rem) {
   .layout {
     grid-template-columns: minmax(0, 1fr);
   }

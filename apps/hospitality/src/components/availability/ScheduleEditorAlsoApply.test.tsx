@@ -259,8 +259,12 @@ describe("Also apply to in the schedule editor (F-X step 4)", () => {
     fireEvent.click(screen.getAllByLabelText("Closes")[1]!);
     fireEvent.click(screen.getByRole("option", { name: "11:00 PM" }));
     // Another change keeps Save on.
-    fireEvent.click(screen.getAllByLabelText("Closes")[0]!);
-    fireEvent.click(screen.getAllByRole("option", { name: "4:30 PM" })[0]!);
+    // The picker panel is portaled to body, and the one closed a moment ago may still be
+    // animating out ahead of it in DOM order: read the option from the panel this trigger owns.
+    const firstCloses = screen.getAllByLabelText("Closes")[0]!;
+    fireEvent.click(firstCloses);
+    const ownPanel = document.getElementById(firstCloses.getAttribute("aria-controls") ?? "")!;
+    fireEvent.click(within(ownPanel).getByRole("option", { name: "4:30 PM" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(p.onStale).toHaveBeenCalledTimes(1));
     const theirs: AvailabilityConfig = {

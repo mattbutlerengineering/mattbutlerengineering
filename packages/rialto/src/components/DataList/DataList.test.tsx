@@ -115,6 +115,22 @@ describe("DataList", () => {
       expect(list).toMatch(/min-inline-size:\s*0/);
     });
 
+    it("keeps a horizontal value from collapsing to zero width", () => {
+      const css = readFileSync(cssPath, "utf8");
+      const row = css.match(/\.horizontal \.row\s*\{([^}]+)\}/)?.[1] ?? "";
+      const label = css.match(/\.horizontal \.label\s*\{([^}]+)\}/)?.[1] ?? "";
+      const value = css.match(/\.horizontal \.value\s*\{([^}]+)\}/)?.[1] ?? "";
+      expect(row).toMatch(/flex-wrap:\s*wrap/);
+      expect(label).toMatch(/flex:\s*0 1 140px/);
+      expect(label).not.toMatch(/flex-shrink:\s*0/);
+      // A content-sized list (flex-start column) has no definite width to
+      // resolve the flex basis against; an explicit width keeps the label at
+      // 140px so the value stays beside it instead of wrapping under it.
+      expect(label).toMatch(/(?<![-\w])width:\s*140px/);
+      expect(value).toMatch(/flex:\s*1 1 5\.5rem/);
+      expect(value).toMatch(/min-inline-size:\s*min\(5\.5rem,\s*100%\)/);
+    });
+
     it("applies striped and vertical classes together", () => {
       const { container } = render(<DataList items={items} orientation="vertical" striped />);
       const cls = container.querySelector("dl")?.className ?? "";

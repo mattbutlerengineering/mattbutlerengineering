@@ -25,7 +25,7 @@
   /* The three tokens below are the scale's nominal tiers. The overlay components that sit above
      page content do not use them: they stack by fixed values in their own stylesheets, because
      they share one root stacking context and must clear each other's literals. From lowest:
-     Drawer 9998-9999, Dialog 10000, CommandPalette 10001, Select menu 10002, Toast 10003
+     Drawer 9998-9999, Popover panel 9999, Dialog 10000, CommandPalette 10001, Select menu 10002, Toast 10003
      (pinned by Dialog.layering.test.ts). Change those together, not these tokens. */
   /* Toast notifications (nominal) */
   --rialto-z-toast: 200;

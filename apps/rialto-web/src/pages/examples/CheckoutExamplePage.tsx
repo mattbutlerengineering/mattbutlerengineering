@@ -331,22 +331,24 @@ export function CheckoutExamplePage() {
       sourceJsx={SOURCE_JSX}
       compositionNotes={COMPOSITION_NOTES}
     >
-      <div className={styles.layout}>
-        <OrderSummary />
-        <Card title="Payment details" headingLevel={2}>
-          {status === "success" ? (
-            <SuccessPanel amount={formatMoney(total)} onReset={handleReset} />
-          ) : (
-            <PaymentForm
-              payment={payment}
-              errors={errors}
-              status={status}
-              total={formatMoney(total)}
-              onChange={patchPayment}
-              onSubmit={handleSubmit}
-            />
-          )}
-        </Card>
+      <div className={styles.frame}>
+        <div className={styles.layout}>
+          <OrderSummary />
+          <Card title="Payment details" headingLevel={2}>
+            {status === "success" ? (
+              <SuccessPanel amount={formatMoney(total)} onReset={handleReset} />
+            ) : (
+              <PaymentForm
+                payment={payment}
+                errors={errors}
+                status={status}
+                total={formatMoney(total)}
+                onChange={patchPayment}
+                onSubmit={handleSubmit}
+              />
+            )}
+          </Card>
+        </div>
       </div>
     </ExamplePageLayout>
   );

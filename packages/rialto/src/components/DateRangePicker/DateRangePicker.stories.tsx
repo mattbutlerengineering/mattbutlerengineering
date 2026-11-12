@@ -45,7 +45,7 @@ export const Default: Story = {
     const canvas = within(canvasElement);
     const trigger = canvas.getByLabelText("Stay dates");
     await userEvent.click(trigger);
-    await expect(canvas.getByRole("grid")).toBeInTheDocument();
+    await expect(within(document.body).getByRole("grid")).toBeInTheDocument();
   },
 };
 

@@ -34,7 +34,7 @@ export const Default: Story = {
     const canvas = within(canvasElement);
     const button = canvas.getByRole("button", { name: "Options" });
     await userEvent.click(button);
-    await expect(canvas.getByText("Filter Settings")).toBeInTheDocument();
+    await expect(within(document.body).getByText("Filter Settings")).toBeInTheDocument();
   },
 };
 

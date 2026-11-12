@@ -13,6 +13,8 @@ import {
   launchSummary,
   nextStep,
   previousStep,
+  attemptAdvance,
+  validateProperty,
 } from "./onboarding.js";
 
 // ---------------------------------------------------------------------------
@@ -105,14 +107,17 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     label,
     value,
     onChange,
+    hint,
   }: {
     label?: string;
     value?: string;
     onChange?: (e: ChangeEvent<HTMLInputElement>) => void;
+    hint?: string;
   }) => (
     <label>
       {label}
-      <input value={value} onChange={onChange} />
+      <input value={value} onChange={onChange} aria-invalid={hint ? true : undefined} />
+      {hint ? <span role="alert">{hint}</span> : null}
     </label>
   );
 
@@ -380,6 +385,32 @@ describe("OnboardingExamplePage — back navigation", () => {
     expect(screen.getByTestId("steps")).toHaveAttribute("data-current", "1");
   });
 
+  it("blocks Next when the property name is empty or only spaces", async () => {
+    const user = userEvent.setup();
+    render(<OnboardingExamplePage />);
+
+    await user.clear(screen.getByLabelText(/property name/i));
+    await user.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(
+      screen.getByRole("heading", { level: 2, name: PROPERTY_STEP.heading })
+    ).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent(/property name is required/i);
+
+    await user.type(screen.getByLabelText(/property name/i), "   ");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", { level: 2, name: PROPERTY_STEP.heading })
+    ).toBeInTheDocument();
+
+    await user.clear(screen.getByLabelText(/property name/i));
+    await user.type(screen.getByLabelText(/property name/i), "Cedar Lodge");
+    await user.click(screen.getByRole("button", { name: "Next" }));
+    expect(
+      screen.getByRole("heading", { level: 2, name: SPACES_STEP.heading })
+    ).toBeInTheDocument();
+  });
+
   it("preserves answers entered on an earlier step", async () => {
     const user = userEvent.setup();
     render(<OnboardingExamplePage />);
@@ -484,5 +515,33 @@ describe("onboarding — step machine", () => {
   it("launchSummary reflects the entered property name", () => {
     const rows = launchSummary({ ...INITIAL_ONBOARDING_STATE, propertyName: "Cedar Lodge" });
     expect(rows.some((row) => row.value === "Cedar Lodge")).toBe(true);
+  });
+
+  it("validateProperty rejects an empty or whitespace-only name", () => {
+    expect(validateProperty({ ...INITIAL_ONBOARDING_STATE, propertyName: "" })).toEqual({
+      propertyName: "Property name is required.",
+    });
+    expect(validateProperty({ ...INITIAL_ONBOARDING_STATE, propertyName: "   " })).toEqual({
+      propertyName: "Property name is required.",
+    });
+    expect(validateProperty(INITIAL_ONBOARDING_STATE)).toEqual({});
+  });
+
+  it("attemptAdvance stays on the property step when the name is blank", () => {
+    const blank = { ...INITIAL_ONBOARDING_STATE, propertyName: "  " };
+    expect(attemptAdvance(0, blank)).toEqual({
+      step: 0,
+      errors: { propertyName: "Property name is required." },
+      advanced: false,
+    });
+    expect(attemptAdvance(0, INITIAL_ONBOARDING_STATE).advanced).toBe(true);
+    expect(attemptAdvance(1, { ...INITIAL_ONBOARDING_STATE, propertyName: "" }).advanced).toBe(
+      true
+    );
+  });
+
+  it("launchSummary trims the property name", () => {
+    const rows = launchSummary({ ...INITIAL_ONBOARDING_STATE, propertyName: "  Cedar Lodge  " });
+    expect(rows.find((row) => row.label === "Property")?.value).toBe("Cedar Lodge");
   });
 });

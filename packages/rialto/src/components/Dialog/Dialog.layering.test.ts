@@ -28,6 +28,12 @@ describe("overlay layering", () => {
     expect(zIndex("CommandPalette", "overlay")).toBeGreaterThan(dialog);
   });
 
+  it("paints a page Popover over a Drawer and under a Dialog", () => {
+    const popover = zIndex("Popover", "panel");
+    expect(popover).toBeGreaterThanOrEqual(zIndex("Drawer", "panel"));
+    expect(popover).toBeLessThan(dialog);
+  });
+
   it("keeps a Select menu above a Dialog and the palette, and a Toast above all of them", () => {
     const palette = zIndex("CommandPalette", "overlay");
     expect(zIndex("Select", "dropdown")).toBeGreaterThan(palette);

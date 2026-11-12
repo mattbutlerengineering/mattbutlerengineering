@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useId,
+  useLayoutEffect,
   useMemo,
   forwardRef,
   cloneElement,
@@ -127,18 +128,50 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
   useEscapeKey(close, open);
   useFocusTrap(panelRef, open);
 
-  useDismiss(wrapperRef, close, { enabled: open, isInside: isPortaledPress });
+  // A press inside the panel counts as inside even when the panel is portaled
+  // to document.body (outside wrapperRef). The event-identity check still
+  // covers a descendant that portals further, such as a Select listbox.
+  const isInsideOverlay = useCallback(
+    (event: MouseEvent) => {
+      if (isPortaledPress(event)) return true;
+      const panel = panelRef.current;
+      return Boolean(panel?.contains(event.target as Node));
+    },
+    [isPortaledPress]
+  );
+
+  useDismiss(wrapperRef, close, { enabled: open, isInside: isInsideOverlay });
 
   const origin = motionOrigin[placement];
 
-  // The panel is always viewport-fixed and placed by the wrapper's viewport rect
-  // (as Select does), so it can never be cut off by the page edge or trapped by an
-  // overflow ancestor: placePopover flips to the roomier side, clamps horizontally
-  // and caps max-height so tall content scrolls inside the panel. Inside a Dialog it
-  // is lifted into the dialog's layer, beside the panel; elsewhere it stays in place
-  // (portaling to body would escape a Drawer's focus trap and stacking). Imperative style writes (no setState), re-run on resize, on any
-  // scroll and when the panel's content grows, so the panel tracks its trigger.
+  // The panel is viewport-fixed and placed from the trigger's viewport rect:
+  // placePopover flips to the roomier side, clamps horizontally, and caps
+  // max-height so tall content scrolls inside the panel. It is portaled to
+  // document.body so a transformed ancestor (Card is a motion element, and an
+  // identity transform is still a containing block) cannot shift those
+  // viewport coordinates or trap the panel under a later sibling such as the
+  // page footer. Inside a Dialog it is lifted into the dialog's layer instead,
+  // so it stays in that dialog's focus trap and stacking context. Escape and
+  // Tab already stack by open order, so a popover over a Drawer still closes
+  // on its own. Imperative style writes (no setState), re-run on resize, on
+  // any scroll and when the panel's content grows, so the panel tracks its trigger.
   const dialogLayer = useContext(DialogLayerContext);
+  // Outside a dialog the panel leaves the trigger's subtree, so it would lose
+  // what the subtree supplies: RialtoProvider's wrapper (theme + vibe/reduced-
+  // data/reduced-motion variables) and any [dir] ancestor. Portal into that
+  // provider wrapper when one exists (it is untransformed), else document.body,
+  // and copy the trigger's resolved direction onto the panel.
+  const [host, setHost] = useState<HTMLElement | null>(null);
+  const [dir, setDir] = useState<"ltr" | "rtl" | undefined>(undefined);
+  useLayoutEffect(() => {
+    const el = wrapperRef.current;
+    if (!el) return;
+    const provider = el.parentElement?.closest<HTMLElement>("[data-theme]") ?? null;
+    setHost(provider === document.documentElement ? null : provider);
+    setDir(getComputedStyle(el).direction === "rtl" ? "rtl" : "ltr");
+  }, [open]);
+  const portalTarget =
+    dialogLayer ?? host ?? (typeof document === "undefined" ? null : document.body);
   const place = useMemo(() => placePopover(placement), [placement]);
   useLayerFloating(open, wrapperRef, panelRef, place);
 
@@ -148,6 +181,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
         <motion.div
           ref={panelRef}
           id={panelId}
+          dir={dialogLayer ? undefined : dir}
           className={cn(styles.panel, styles[placement], (dialogLayer || solid) && styles.floating)}
           role="dialog"
           aria-modal="true"
@@ -221,7 +255,7 @@ export const Popover = forwardRef<HTMLDivElement, PopoverProps>(function Popover
       </div>
 
       {/* Panel */}
-      {dialogLayer ? createPortal(panelNode, dialogLayer) : panelNode}
+      {portalTarget ? createPortal(panelNode, portalTarget) : panelNode}
     </div>
   );
 });
