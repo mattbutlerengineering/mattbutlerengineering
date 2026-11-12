@@ -371,16 +371,6 @@
       function dayComesFirst(locale: string | undefined): boolean { /* ... */ }
     </item>
     <item priority="medium">
-      function withNamedMonth(
-        numbers: readonly string[],
-        word: string,
-        locale: string | undefined
-      ): DayOfYear | null { /* ... */ }
-    </item>
-    <item priority="medium">
-      function numeric(numbers: readonly string[], locale: string | undefined): DayOfYear | null { /* ... */ }
-    </item>
-    <item priority="medium">
       function read(text: string, locale: string | undefined): DayOfYear | null { /* ... */ }
     </item>
     <item priority="medium">

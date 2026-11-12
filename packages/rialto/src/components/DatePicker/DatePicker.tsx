@@ -10,7 +10,7 @@ import {
 import { Calendar as CalendarIcon } from "lucide-react";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { Popover } from "../Popover/Popover";
-import { Input } from "../Input/Input";
+import { Input, type InputProps } from "../Input/Input";
 import { Calendar } from "../Calendar/Calendar";
 import { cn } from "../../utils/class-composer";
 import { bindCalendarFit } from "./fit-below";
@@ -150,43 +150,39 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
     }
   };
 
-  const trigger = editable ? (
-    <Input
-      id={id}
-      label={label}
-      value={typed.text}
-      placeholder={placeholder}
-      role="combobox"
-      autoComplete="off"
-      error={typed.problem !== null}
-      hint={typed.problem ?? undefined}
-      onChange={(event) => typed.type(event.target.value)}
-      onBlur={typed.commit}
-      onClick={(event) => event.stopPropagation()}
-      onKeyDown={handleKeyDown}
-      endIcon={
-        <button
-          type="button"
-          // ArrowDown in the field is the keyboard path; this keeps one tab stop.
-          tabIndex={-1}
-          className={styles.calendarButton}
-          aria-label={messages.chooseDate}
-        >
-          <CalendarIcon size={16} aria-hidden="true" />
-        </button>
+  // A read-only field gets none of the typing props, so it renders as it always has.
+  const typing: InputProps = editable
+    ? {
+        autoComplete: "off",
+        error: typed.problem !== null,
+        hint: typed.problem ?? undefined,
+        onChange: (event) => typed.type(event.target.value),
+        onBlur: typed.commit,
+        onClick: (event) => event.stopPropagation(),
+        onKeyDown: handleKeyDown,
+        endIcon: (
+          <button
+            type="button"
+            // ArrowDown in the field is the keyboard path; this keeps one tab stop.
+            tabIndex={-1}
+            className={styles.calendarButton}
+            aria-label={messages.chooseDate}
+          >
+            <CalendarIcon size={16} aria-hidden="true" />
+          </button>
+        ),
       }
-      aria-label={label ? undefined : messages.chooseDate}
-    />
-  ) : (
+    : { readOnly: true, endIcon: <CalendarIcon size={16} /> };
+
+  const trigger = (
     <Input
       id={id}
       label={label}
       value={typed.text}
       placeholder={placeholder}
-      readOnly
       role="combobox"
-      endIcon={<CalendarIcon size={16} />}
       aria-label={label ? undefined : messages.chooseDate}
+      {...typing}
     />
   );
 

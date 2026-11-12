@@ -100,9 +100,9 @@
       "limit": "64 kB"
     },
     {
-      "name": "Rialto Vendor (design system)",
+      "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured)",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "91.9 kB"
+      "limit": "93.3 kB"
     },
     {
       "name": "Router Vendor (react-router)",

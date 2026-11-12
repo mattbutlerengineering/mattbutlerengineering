@@ -14,7 +14,7 @@
  * occurrence on or after `today`. A year, when typed, must have four digits
  * and be 1000 or later.
  */
-import { parseIsoDate, toIsoDate } from "../Calendar/date-grid";
+import { parseIsoDate } from "../Calendar/date-grid";
 
 /**
  * Exactly one separator between parts: spaces (after an optional comma or
@@ -61,55 +61,41 @@ function dayComesFirst(locale: string | undefined): boolean {
   return parts.indexOf("day") < parts.indexOf("month");
 }
 
-function withNamedMonth(
-  numbers: readonly string[],
-  word: string,
-  locale: string | undefined
-): DayOfYear | null {
-  const month = monthFromName(word, locale);
-  const years = numbers.filter((token) => token.length === 4);
-  const days = numbers.filter((token) => token.length <= 2);
-  const day = days[0];
-  if (month === null || day === undefined || days.length !== 1 || years.length > 1) return null;
-  if (days.length + years.length !== numbers.length) return null;
-  return { month, day: Number(day), year: years[0] === undefined ? null : Number(years[0]) };
-}
-
-function numeric(numbers: readonly string[], locale: string | undefined): DayOfYear | null {
-  const [first, second, third] = numbers;
-  if (first === undefined || second === undefined) return null;
-  if (first.length === 4) {
-    if (third === undefined || second.length > 2 || third.length > 2) return null;
-    return { year: Number(first), month: Number(second), day: Number(third) };
-  }
-  if (first.length > 2 || second.length > 2) return null;
-  if (third !== undefined && third.length !== 4) return null;
-  const [day, month] = dayComesFirst(locale) ? [first, second] : [second, first];
-  return {
-    month: Number(month),
-    day: Number(day),
-    year: third === undefined ? null : Number(third),
-  };
-}
-
+/**
+ * Sort the parts into a year (the one four-digit number, if any), and the one
+ * or two short numbers beside it. An empty part (a doubled or leading
+ * separator) counts as a word that names no month, so it is refused.
+ */
 function read(text: string, locale: string | undefined): DayOfYear | null {
   const tokens = text.trim().split(SEPARATOR);
-  if (tokens.includes("")) return null;
   const numbers = tokens.filter((token) => DIGITS.test(token));
   const words = tokens.filter((token) => !DIGITS.test(token));
-  if (numbers.length === 0 || numbers.length > 3 || words.length > 1) return null;
+  const years = numbers.filter((token) => token.length === 4);
+  const rest = numbers.filter((token) => token.length < 3);
+  if (words.length > 1 || years.length > 1 || years.length + rest.length < numbers.length) {
+    return null;
+  }
+  const year = years[0] === undefined ? null : Number(years[0]);
+  const [first, second] = rest;
   const word = words[0];
-  if (word !== undefined) return numbers.length > 2 ? null : withNamedMonth(numbers, word, locale);
-  return numeric(numbers, locale);
+  if (word !== undefined) {
+    const month = monthFromName(word, locale);
+    if (month === null || first === undefined || second !== undefined) return null;
+    return { year, month, day: Number(first) };
+  }
+  // Numbers only: a year leads (ISO order) or trails (the locale's order), never sits between.
+  if (first === undefined || second === undefined || rest.length > 2) return null;
+  if (numbers[1] === years[0]) return null;
+  const dayFirst = numbers[0] !== years[0] && dayComesFirst(locale);
+  return { year, month: Number(dayFirst ? second : first), day: Number(dayFirst ? first : second) };
 }
 
 /** The ISO date for these parts, or `null` when no such day exists. */
 function realDate(year: number, month: number, day: number): string | null {
-  if (year < EARLIEST_YEAR || month < 1 || month > 12 || day < 1 || day > 31) return null;
-  const iso = toIsoDate(year, month - 1, day);
-  const parts = parseIsoDate(iso);
-  const same = parts && parts.year === year && parts.month === month && parts.day === day;
-  return same ? iso : null;
+  if (year < EARLIEST_YEAR) return null;
+  // parseIsoDate refuses a month or day that does not survive the round trip.
+  const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  return parseIsoDate(iso) ? iso : null;
 }
 
 function nextOccurrence(month: number, day: number, today: string): string | null {

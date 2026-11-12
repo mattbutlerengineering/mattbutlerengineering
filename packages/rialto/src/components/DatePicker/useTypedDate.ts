@@ -62,22 +62,17 @@ export function useTypedDate({
   const active = draft && draft.forValue === value ? draft : null;
 
   // Mirrors Calendar: the predicate, when given, wins over min/max.
-  const refusal = useCallback(
-    (iso: string): string | null => {
-      if (isDateDisabled) return isDateDisabled(iso) ? messages.dateUnavailable : null;
-      if (min && iso < min) return messages.dateTooEarly(formatDate(min, locale));
-      if (max && iso > max) return messages.dateTooLate(formatDate(max, locale));
-      return null;
-    },
-    [isDateDisabled, min, max, locale, messages]
-  );
+  const refusal = (iso: string): string | null => {
+    if (isDateDisabled) return isDateDisabled(iso) ? messages.dateUnavailable : null;
+    if (min && iso < min) return messages.dateTooEarly(formatDate(min, locale));
+    if (max && iso > max) return messages.dateTooLate(formatDate(max, locale));
+    return null;
+  };
 
-  const type = useCallback(
-    (text: string) => setDraft({ text, problem: null, forValue: value }),
-    [value]
-  );
+  // These go straight onto the native input, so a stable identity buys nothing.
+  const type = (text: string) => setDraft({ text, problem: null, forValue: value });
 
-  const commit = useCallback(() => {
+  const commit = () => {
     if (!active) return;
     const iso = parseTypedDate(active.text, locale, localToday());
     const empty = active.text.trim() === "";
@@ -86,8 +81,9 @@ export function useTypedDate({
     // A refused date leaves no value behind, so a form cannot save the old one unseen.
     setDraft(problem === null ? null : { text: active.text, problem, forValue: null });
     if (next !== value) onChange(next);
-  }, [active, locale, messages, refusal, value, onChange]);
+  };
 
+  // Stable, because DatePicker's day-select callback depends on it.
   const discard = useCallback(() => setDraft(null), []);
 
   return {
