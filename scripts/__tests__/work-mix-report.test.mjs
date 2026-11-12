@@ -3,6 +3,8 @@ import {
   classifyTitle,
   countIssueLabels,
   openTrackingAges,
+  parseArgs,
+  searchCapWarning,
   summarizeWorkMix,
 } from "../work-mix-report.mjs";
 
@@ -69,5 +71,35 @@ describe("openTrackingAges", () => {
       { number: 2, title: "old", ageDays: 23.5 },
       { number: 1, title: "young", ageDays: 1 },
     ]);
+  });
+});
+
+describe("parseArgs", () => {
+  it("accepts a real date and a positive limit", () => {
+    expect(parseArgs(["--since", "2026-10-28", "--json"])).toEqual({
+      since: "2026-10-28",
+      limit: 100,
+      json: true,
+    });
+  });
+
+  it("rejects a flag with no value instead of falling back silently", () => {
+    expect(() => parseArgs(["--since"])).toThrow(/--since needs a value/);
+    expect(() => parseArgs(["--limit"])).toThrow(/--limit needs a value/);
+  });
+
+  it("rejects a date that matches the pattern but does not exist", () => {
+    expect(() => parseArgs(["--since", "2026-13-45"])).toThrow(/not a real date/);
+    expect(() => parseArgs(["--since", "2026-02-30"])).toThrow(/not a real date/);
+  });
+});
+
+describe("searchCapWarning", () => {
+  it("warns when a search returned GitHub's 1000-result maximum", () => {
+    expect(searchCapWarning("merged PRs", 1000)).toMatch(/1000.*merged PRs.*incomplete/);
+  });
+
+  it("says nothing below the cap", () => {
+    expect(searchCapWarning("merged PRs", 999)).toBeNull();
   });
 });

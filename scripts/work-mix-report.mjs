@@ -88,17 +88,44 @@ function gh(args) {
   return JSON.parse(execFileSync("gh", args, { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 }));
 }
 
-function parseArgs(argv) {
+/** GitHub search never returns more than this many results. */
+export const SEARCH_CAP = 1000;
+
+/**
+ * @param {string} what what was searched, for the message
+ * @param {number} count results returned
+ * @returns {string|null} a warning when the search hit the cap, else null
+ */
+export function searchCapWarning(what, count) {
+  return count >= SEARCH_CAP
+    ? `warning: ${SEARCH_CAP} ${what} returned, GitHub's search maximum; the counts are incomplete. Use a shorter --since window.`
+    : null;
+}
+
+function takeValue(argv, i, flag) {
+  const value = argv[i + 1];
+  if (value === undefined || value.startsWith("--")) throw new Error(`${flag} needs a value`);
+  return value;
+}
+
+/** @param {string[]} argv */
+export function parseArgs(argv) {
   const opts = { since: null, limit: 100, json: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--json") opts.json = true;
-    else if (arg === "--since") opts.since = argv[++i];
-    else if (arg === "--limit") opts.limit = Number(argv[++i]);
+    else if (arg === "--since") opts.since = takeValue(argv, i++, arg);
+    else if (arg === "--limit") opts.limit = Number(takeValue(argv, i++, arg));
     else throw new Error(`Unknown argument: ${arg}`);
   }
-  if (opts.since && !/^\d{4}-\d{2}-\d{2}$/.test(opts.since)) {
-    throw new Error(`--since must be YYYY-MM-DD, got ${opts.since}`);
+  if (opts.since !== null) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(opts.since)) {
+      throw new Error(`--since must be YYYY-MM-DD, got ${opts.since}`);
+    }
+    const parsed = new Date(`${opts.since}T00:00:00Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== opts.since) {
+      throw new Error(`--since ${opts.since} is not a real date`);
+    }
   }
   if (!Number.isInteger(opts.limit) || opts.limit < 1) {
     throw new Error(`--limit must be a positive integer`);
@@ -114,7 +141,7 @@ function collect({ since, limit }) {
     "--state",
     "merged",
     "--limit",
-    String(since ? 1000 : limit),
+    String(since ? SEARCH_CAP : limit),
     ...window,
     "--json",
     "title",
@@ -126,7 +153,7 @@ function collect({ since, limit }) {
         "--state",
         "closed",
         "--limit",
-        "1000",
+        String(SEARCH_CAP),
         "--search",
         `closed:>=${since}`,
         "--json",
@@ -145,6 +172,12 @@ function collect({ since, limit }) {
     "--json",
     "number,title,createdAt",
   ]);
+  for (const warning of [
+    since ? searchCapWarning("merged PRs", prs.length) : null,
+    searchCapWarning("closed issues", closed.length),
+  ]) {
+    if (warning) process.stderr.write(`${warning}\n`);
+  }
   return {
     window: since ? `since ${since}` : `last ${limit} merged PRs`,
     workMix: summarizeWorkMix(prs),
