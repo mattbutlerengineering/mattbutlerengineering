@@ -9713,6 +9713,59 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="hub">
+  <file path="apps/hospitality/src/components/availability/hub/date-answer.ts">
+    <item priority="low">
+      type DateAnswerRule = {
+            readonly kind: "regula | {
+            readonly kind: "useHou;
+    </item>
+    <item priority="low">
+      type DateAnswerHubRow = 1 | 2 | 3 | 4;
+    </item>
+    <item priority="low">
+      interface DateAnswer {
+        date: string;
+        services: readonly {
+          readonly name: string;
+          readonly opensA...;
+        closedBand: { readonly from: number; readonly to: number } | null;
+        deciding: DateAnswerRule | null;
+        beneath: DateAnswerRule | null;
+      }
+    </item>
+    <item priority="medium">
+      function isRealDate(value: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setsHours(layer: Layer): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleIdOf(config: AvailabilityConfig, layer: Layer): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ruleOf(config: AvailabilityConfig, layer: Layer): DateAnswerRule | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleBeneath(
+        config: AvailabilityConfig,
+        timezone: string,
+        date: string,
+        layer: Layer
+      ): DateAnswerRule | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closedBandOf(day: ResolvedDay): DateAnswer["closedBand"] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dateAnswer(
+        config: AvailabilityConfig,
+        timezone: string,
+        date: string
+      ): DateAnswer | null { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="i18n">
   <file path="apps/hospitality/src/i18n/default-t.ts">
     <item priority="high">
