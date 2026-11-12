@@ -125,15 +125,50 @@ function venueBandsOf(day: ResolvedDaySummary): ResolvedClosure[] {
   return day.closures.filter((c) => c.targetKind === "venue");
 }
 
+interface Span {
+  readonly from: number;
+  readonly to: number;
+}
+
+/** The minutes the whole venue is closed for, as disjoint spans in order. */
+function closedSpansOf(day: ResolvedDaySummary): Span[] {
+  return venueBandsOf(day)
+    .map(({ from, to }) => ({ from, to }))
+    .sort((a, b) => a.from - b.from)
+    .reduce<Span[]>((merged, span) => {
+      const last = merged.at(-1);
+      return last && span.from <= last.to
+        ? [...merged.slice(0, -1), { from: last.from, to: Math.max(last.to, span.to) }]
+        : [...merged, span];
+    }, []);
+}
+
+/** What is left of `open` once the closed spans are taken out. */
+function openSpans(open: Span, closed: readonly Span[]): Span[] {
+  return closed.reduce<Span[]>(
+    (left, band) =>
+      left.flatMap((span) =>
+        [
+          { from: span.from, to: Math.min(span.to, band.from) },
+          { from: Math.max(span.from, band.to), to: span.to },
+        ].filter((piece) => piece.from < piece.to)
+      ),
+    [open]
+  );
+}
+
 /**
- * What an answer reports, as a comparable key: the services with their hours, and the bands the
- * whole venue is closed for. Section and booking-channel closures, pacing and online pauses are
- * not reported, so a rule that changes only those never decides a date.
+ * What an answer reports, as a comparable key: the minutes the whole venue is closed for, and
+ * the minutes each service is open outside them. A band another band already covers, or hours
+ * moved inside a closed band, change nothing. Section and booking-channel closures, pacing and
+ * online pauses are not reported, so a rule that changes only those never decides a date.
  */
 function reportKey(day: ResolvedDaySummary): string {
-  const services = day.services.map((s) => [s.name, s.opensAt, s.closesAt]);
-  const bands = [...new Set(venueBandsOf(day).map((c) => `${c.from}-${c.to}`))].sort();
-  return JSON.stringify([services, bands]);
+  const closed = closedSpansOf(day);
+  const services = day.services
+    .map((s) => [s.name, openSpans({ from: s.opensAt, to: s.closesAt }, closed)] as const)
+    .filter(([, open]) => open.length > 0);
+  return JSON.stringify([closed, services]);
 }
 
 /**

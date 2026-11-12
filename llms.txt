@@ -9757,6 +9757,18 @@
     <item priority="medium">
       function venueBandsOf(day: ResolvedDaySummary): ResolvedClosure[] { /* ... */ }
     </item>
+    <item priority="high">
+      interface Span {
+        from: number;
+        to: number;
+      }
+    </item>
+    <item priority="medium">
+      function closedSpansOf(day: ResolvedDaySummary): Span[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function openSpans(open: Span, closed: readonly Span[]): Span[] { /* ... */ }
+    </item>
     <item priority="medium">
       function reportKey(day: ResolvedDaySummary): string { /* ... */ }
     </item>

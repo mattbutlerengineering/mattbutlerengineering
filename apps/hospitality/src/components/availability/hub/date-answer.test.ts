@@ -306,3 +306,61 @@ describe("dateAnswer: a rule decides only when it changes the services or a venu
     });
   });
 });
+
+const FROM_SIX = closure("r-from-six", { window: { version: 1, from: 1080, to: 2880 } });
+const FROM_EIGHT = closure("r-from-eight", { window: { version: 1, from: 1200, to: 2880 } });
+const ALL_DAY = closure("r-all-day");
+
+describe("dateAnswer: a rule that changes nothing a guest could book does not decide", () => {
+  it("still names a whole-day venue closure on a date no hours cover", () => {
+    const before = "2025-12-01";
+    const closed = closure("r-before", { startsOn: before, endsOn: before });
+    expect(dateAnswer(venue(closed), TIMEZONE, before)).toMatchObject({
+      services: [],
+      closedBand: { from: 0, to: 2880 },
+      deciding: { kind: "closure", ruleId: "r-before" },
+      beneath: null,
+      hubRow: 4,
+    });
+  });
+
+  it.each([
+    ["the longer one first", [FROM_SIX, FROM_EIGHT]],
+    ["the longer one last", [FROM_EIGHT, FROM_SIX]],
+  ])("names the longer of two nested venue closures, %s", (_order, rules) => {
+    expect(dateAnswer(venue(...rules), TIMEZONE, NOV_12)).toMatchObject({
+      deciding: { kind: "closure", ruleId: "r-from-six" },
+      closedBand: { from: 1080, to: 2880 },
+      beneath: REGULAR,
+      hubRow: 4,
+    });
+  });
+
+  it.each([
+    ["the whole day first", [ALL_DAY, FROM_SIX]],
+    ["the whole day last", [FROM_SIX, ALL_DAY]],
+  ])("names a whole-day venue closure over a window inside it, %s", (_order, rules) => {
+    expect(dateAnswer(venue(...rules), TIMEZONE, NOV_12)).toMatchObject({
+      services: [],
+      deciding: { kind: "closure", ruleId: "r-all-day" },
+      closedBand: { from: 0, to: 2880 },
+      beneath: REGULAR,
+      hubRow: 4,
+    });
+  });
+
+  it.each([
+    ["the closure first", [FROM_SIX, TONIGHT_CLOSE_AT_EIGHT]],
+    ["the closure last", [TONIGHT_CLOSE_AT_EIGHT, FROM_SIX]],
+  ])(
+    "names a closure from 6:00 PM, not a tonight close at 8:00 PM above it, %s",
+    (_order, rules) => {
+      expect(dateAnswer(venue(...rules), TIMEZONE, NOV_12)).toMatchObject({
+        deciding: { kind: "closure", ruleId: "r-from-six" },
+        closedBand: { from: 1080, to: 2880 },
+        beneath: REGULAR,
+        hubRow: 4,
+      });
+    }
+  );
+});

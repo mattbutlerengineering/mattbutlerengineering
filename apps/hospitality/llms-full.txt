@@ -15309,10 +15309,39 @@
     function venueBandsOf(day: ResolvedDaySummary): ResolvedClosure[] {
       return day.closures.filter((c) => c.targetKind === "venue");
     }
+    interface Span {
+      readonly from: number;
+      readonly to: number;
+    }
+    function closedSpansOf(day: ResolvedDaySummary): Span[] {
+      return venueBandsOf(day)
+        .map(({ from, to }) => ({ from, to }))
+        .sort((a, b) => a.from - b.from)
+        .reduce<Span[]>((merged, span) => {
+          const last = merged.at(-1);
+          return last && span.from <= last.to
+            ? [...merged.slice(0, -1), { from: last.from, to: Math.max(last.to, span.to) }]
+            : [...merged, span];
+        }, []);
+    }
+    function openSpans(open: Span, closed: readonly Span[]): Span[] {
+      return closed.reduce<Span[]>(
+        (left, band) =>
+          left.flatMap((span) =>
+            [
+              { from: span.from, to: Math.min(span.to, band.from) },
+              { from: Math.max(span.from, band.to), to: span.to },
+            ].filter((piece) => piece.from < piece.to)
+          ),
+        [open]
+      );
+    }
     function reportKey(day: ResolvedDaySummary): string {
-      const services = day.services.map((s) => [s.name, s.opensAt, s.closesAt]);
-      const bands = [...new Set(venueBandsOf(day).map((c) => `${c.from}-${c.to}`))].sort();
-      return JSON.stringify([services, bands]);
+      const closed = closedSpansOf(day);
+      const services = day.services
+        .map((s) => [s.name, openSpans({ from: s.opensAt, to: s.closesAt }, closed)] as const)
+        .filter(([, open]) => open.length > 0);
+      return JSON.stringify([closed, services]);
     }
     function decidingOverlays(
       config: AvailabilityConfig,
