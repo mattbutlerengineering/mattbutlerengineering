@@ -2652,7 +2652,7 @@
     },
     "close": {
       "open": "Close…",
-      "title": "Close",
+      "title": "Close the venue",
       "edit": {
         "title": "Edit closure",
         "save": "Save changes",
@@ -2714,16 +2714,17 @@
         "pickService": "Service",
         "section": "One section",
         "pickSection": "Section",
-        "noSections": "Add a section to your floor plan first",
-        "openFloorPlan": "Open Floor Plan",
-        "sectionsFailed": "Couldn't load the sections.",
         "booking": "Booking only",
         "channel": {
           "online": "Online",
           "phone": "Phone",
           "waitlist": "Waitlist"
         },
-        "channelRequired": "Choose at least one way of booking."
+        "channelRequired": "Choose at least one way of booking.",
+        "change": "Change",
+        "summaryService": "One service: {{name}}",
+        "summarySection": "One section: {{name}}",
+        "summaryBooking": "Booking only"
       },
       "when": {
         "label": "When",
@@ -2747,7 +2748,9 @@
         "tomorrow": "Tomorrow",
         "quickDates": "Quick dates",
         "holidayChip": "{{name}} · {{date}}",
-        "endRequired": "Choose an end date to close."
+        "holidayLabel": "Holiday",
+        "holidayPlaceholder": "Choose a holiday",
+        "endOptionalLabel": "End date (optional)"
       },
       "window": {
         "label": "Starting at",
@@ -2812,7 +2815,12 @@
         "closeWhen": "Close {{when}}",
         "closeTargetWhen": "Close {{target}} {{when}}",
         "closeFromWhen": "Close from {{time}} {{when}}",
-        "closeTargetFromWhen": "Close {{target}} from {{time}} {{when}}"
+        "closeTargetFromWhen": "Close {{target}} from {{time}} {{when}}",
+        "chooseDate": "Choose a date",
+        "chooseDates": "Choose dates",
+        "chooseEnd": "Choose an end date",
+        "chooseDays": "Choose days",
+        "chooseDaysAndEnd": "Choose days and an end date"
       },
       "toast": {
         "paused": "Online booking paused",
@@ -2838,9 +2846,6 @@
           "phone_waitlist": "Phone and waitlist booking",
           "all": "All booking"
         },
-        "withNotified_one": "{{text}} · {{count}} reservation notified",
-        "withNotified_other": "{{text}} · {{count}} reservations notified",
-        "withNotified_many": "{{text}} · {{count}} reservations notified",
         "closed": "Closed {{when}}",
         "namedClosed": "{{name}} closed {{when}}",
         "namedClosedFrom": "{{name}} closed from {{time}} {{when}}",
@@ -2856,6 +2861,21 @@
           "tonight": "tonight",
           "range": "on {{from}} – {{to}}",
           "untilReopen": "on {{date}} until you reopen"
+        },
+        "withOutcomes": "{{text}} · {{outcomes}}",
+        "outcome": {
+          "cancel_one": "{{count}} booking cancelled and notified",
+          "cancel_other": "{{count}} bookings cancelled and notified",
+          "cancel_many": "{{count}} bookings cancelled and notified",
+          "move_one": "{{count}} booking moved and notified",
+          "move_other": "{{count}} bookings moved and notified",
+          "move_many": "{{count}} bookings moved and notified",
+          "keep_notify_one": "{{count}} booking kept, guest notified",
+          "keep_notify_other": "{{count}} bookings kept, guests notified",
+          "keep_notify_many": "{{count}} bookings kept, guests notified",
+          "keep_silent_one": "{{count}} booking kept, guest not told",
+          "keep_silent_other": "{{count}} bookings kept, guests not told",
+          "keep_silent_many": "{{count}} bookings kept, guests not told"
         }
       },
       "step2": {
@@ -2916,6 +2936,11 @@
         "serviceClosedFrom": "{{service}} closed from {{time}}",
         "sectionClosed": "{{section}} closed",
         "sectionClosedFrom": "{{section}} closed from {{time}}"
+      },
+      "titleTarget": "Close {{target}}",
+      "titleBooking": "Pause booking",
+      "note": {
+        "add": "Add a note or message"
       }
     },
     "paused": {

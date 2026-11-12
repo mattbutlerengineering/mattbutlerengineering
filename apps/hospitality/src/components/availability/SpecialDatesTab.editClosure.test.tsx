@@ -126,6 +126,6 @@ describe("SpecialDatesTab: Edit on a one-date or range closure (#7984)", () => {
     renderTab([RANGE]);
     fireEvent.click(screen.getByRole("button", { name: /^Edit closure for / }));
     const dialog = screen.getByRole("dialog", { name: "Edit closure" });
-    expect(within(dialog).getByRole("radio", { name: "Date range" })).toBeChecked();
+    expect(within(dialog).getByRole("combobox", { name: "When" })).toHaveTextContent("Date range");
   });
 });

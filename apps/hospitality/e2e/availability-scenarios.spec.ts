@@ -211,8 +211,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
-    const dialog = counter.page.getByRole("dialog", { name: "Close", exact: true });
-    await dialog.getByText("One date", { exact: true }).click();
+    const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     await dialog.getByRole("combobox", { name: "Date" }).click();
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, holiday).click();
@@ -238,8 +237,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
-    const dialog = counter.page.getByRole("dialog", { name: "Close", exact: true });
-    await dialog.getByText("One date", { exact: true }).click();
+    const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     await dialog.getByRole("combobox", { name: "Date" }).click();
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, holiday).click();
@@ -295,13 +293,13 @@ test.describe("Availability scenarios (PRD 18)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
-    const dialog = counter.page.getByRole("dialog", { name: "Close", exact: true });
-    await dialog.getByText("Date range", { exact: true }).click();
-    await dialog.getByRole("combobox", { name: "From" }).click();
+    const dialog = counter.page.getByRole("dialog", { name: /^Close / });
+    // A date, then an end date: the dialog reads that as a range, with no kind to choose first.
+    await dialog.getByRole("combobox", { name: "Date" }).click();
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, from).click();
-    await dialog.getByRole("combobox", { name: "To" }).click();
-    // The To picker opens on From's month: no month move.
+    await dialog.getByRole("combobox", { name: "End date (optional)" }).click();
+    // The end picker opens on the start's month: no month move.
     await expect(pickerDay(page, to)).toBeVisible();
     await pickerDay(counter.page, to).click();
     await dialog.getByTestId("close-primary").click();
@@ -321,13 +319,13 @@ test.describe("Availability scenarios (PRD 18)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
-    const dialog = counter.page.getByRole("dialog", { name: "Close", exact: true });
-    await dialog.getByText("Date range", { exact: true }).click();
-    await dialog.getByRole("combobox", { name: "From" }).click();
+    const dialog = counter.page.getByRole("dialog", { name: /^Close / });
+    // A date, then an end date: the dialog reads that as a range, with no kind to choose first.
+    await dialog.getByRole("combobox", { name: "Date" }).click();
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, from).click();
-    await dialog.getByRole("combobox", { name: "To" }).click();
-    // The To picker opens on From's month: no month move.
+    await dialog.getByRole("combobox", { name: "End date (optional)" }).click();
+    // The end picker opens on the start's month: no month move.
     await expect(pickerDay(page, to)).toBeVisible();
     await pickerDay(counter.page, to).click();
     await dialog.getByTestId("close-primary").click(); // Next

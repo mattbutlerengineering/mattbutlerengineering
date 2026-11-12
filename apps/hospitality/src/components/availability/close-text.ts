@@ -101,8 +101,53 @@ function whenPhrase(
 }
 
 /**
+ * What the primary says while the form is not yet a closure: the one thing still to choose. `null`
+ * once the dates are complete. Never formats an empty date, so it never reads "Invalid Date" or
+ * "every ,".
+ */
+export function closeIncompleteText(form: CloseForm, t: TFunction): string | null {
+  const { when } = form;
+  switch (when.kind) {
+    case "tonight":
+      return null;
+    case "date":
+      return when.date === "" ? t("availability.close.button.chooseDate") : null;
+    case "dates":
+      return when.dates.length === 0 ? t("availability.close.button.chooseDates") : null;
+    case "until-reopen":
+      return when.from === "" ? t("availability.close.button.chooseDate") : null;
+    case "range":
+      if (when.from === "") return t("availability.close.button.chooseDate");
+      return when.to === "" || when.to < when.from
+        ? t("availability.close.button.chooseEnd")
+        : null;
+    case "repeats": {
+      if (when.from === "") return t("availability.close.button.chooseDate");
+      const endMissing = when.to === "" || when.to < when.from;
+      if (when.weekdays.length === 0) {
+        return t(
+          endMissing
+            ? "availability.close.button.chooseDaysAndEnd"
+            : "availability.close.button.chooseDays"
+        );
+      }
+      if (endMissing) return t("availability.close.button.chooseEnd");
+      // Days chosen, but none of them falls between From and To: nothing would close.
+      return closedDates({
+        startsOn: when.from,
+        endsOn: when.to,
+        repeat: { version: 1, weekdays: [...when.weekdays] },
+      }).length === 0
+        ? t("availability.close.button.chooseDays")
+        : null;
+    }
+  }
+}
+
+/**
  * The Close button once nothing is left to decide (ux.md S-Close): what it closes, from when, and
- * on which dates. A booking-only closure has its own labels.
+ * on which dates. A booking-only closure has its own labels. While the dates are incomplete it
+ * names what is missing instead.
  */
 export function closeButtonText(
   draft: { readonly form: CloseForm; readonly date: string; readonly name: string | undefined },
@@ -110,6 +155,8 @@ export function closeButtonText(
   format: CloseFormat
 ): string {
   const { form, name } = draft;
+  const incomplete = closeIncompleteText(form, t);
+  if (incomplete !== null) return incomplete;
   const { when } = form;
   const tonight = when.kind === "tonight";
   const oneDay = tonight || when.kind === "date";
@@ -142,10 +189,17 @@ export function closeButtonText(
     : t("availability.close.button.closeWhen", { when: phrase });
 }
 
-/** The sentence after a save (ux.md F4.7): what closed, when, and how many guests were told. */
+/** How many bookings Step 2 ended each way, from the save's outcomes. */
+export type ToastOutcome = Readonly<
+  Record<"cancel" | "move" | "keep_notify" | "keep_silent", number>
+>;
+
+const OUTCOME_ORDER = ["cancel", "move", "keep_notify", "keep_silent"] as const;
+
+/** The sentence after a save (ux.md F4.7): what closed, when, and what became of the bookings. */
 export function closeToastText(
   draft: CloseToastDraft,
-  outcome: { readonly notified: number },
+  outcome: ToastOutcome,
   t: TFunction,
   format: CloseFormat
 ): string {
@@ -189,7 +243,10 @@ export function closeToastText(
   };
 
   const sentence = base();
-  return outcome.notified > 0
-    ? t("availability.close.toast.withNotified", { text: sentence, count: outcome.notified })
-    : sentence;
+  const outcomes = OUTCOME_ORDER.filter((key) => outcome[key] > 0)
+    .map((key) => t(`availability.close.toast.outcome.${key}`, { count: outcome[key] }))
+    .join(" · ");
+  return outcomes === ""
+    ? sentence
+    : t("availability.close.toast.withOutcomes", { text: sentence, outcomes });
 }

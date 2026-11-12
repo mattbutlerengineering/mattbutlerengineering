@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { mockClosures } from "./helpers/close-mock.js";
+import { countInteractions } from "./helpers/interaction-counter.js";
+import { pickerDay } from "./helpers/scenario-fixtures.js";
 import type { CloseConnection } from "./helpers/close-mock.js";
 import { localDay } from "./local-day.js";
 
@@ -42,12 +44,14 @@ async function openCloseStepTwo(page: Page, closeDate: string, theme: "light" | 
   const drawer = page.getByRole("dialog");
   await drawer.getByRole("button", { name: "Close…", exact: true }).click();
 
-  const dialog = page.getByRole("dialog", { name: "Close", exact: true });
+  const dialog = page.getByRole("dialog", { name: /^Close / });
   await expect(dialog.getByText("Step 1 of 2")).toBeVisible();
   await expect(
     dialog.getByText(new RegExp(`${BOOKINGS} reservations · ${GUESTS} guests`))
   ).toBeVisible();
 
+  // The note and the canned messages sit under one disclosure.
+  await dialog.getByRole("button", { name: "Add a note or message" }).click();
   await dialog.getByRole("button", { name: "Closed for a private event" }).click();
   await dialog.getByRole("button", { name: "Next", exact: true }).click();
   await expect(dialog.getByText("Step 2 of 2")).toBeVisible();
@@ -155,7 +159,7 @@ test.describe("Availability close dialog (F5)", () => {
 
     const notifications = mockedPage.getByRole("region", { name: "Notifications" });
     await expect(
-      notifications.getByText(new RegExp(`${BOOKINGS} reservations notified`))
+      notifications.getByText(new RegExp(`${BOOKINGS} bookings cancelled and notified`))
     ).toBeVisible();
     expect(state.saved()).toMatchObject({
       expectedVersion: 7,
@@ -209,7 +213,7 @@ test.describe("Availability close dialog (F5)", () => {
     await expect(dialog).toBeHidden();
 
     const notifications = mockedPage.getByRole("region", { name: "Notifications" });
-    await expect(notifications.getByText(/reservations notified/)).toBeVisible();
+    await expect(notifications.getByText(/bookings cancelled and notified/)).toBeVisible();
     // Its drawer offers no Close… on a day already closed; the toolbar's reaches it by date.
     await mockedPage.locator(`[data-date="${CLOSE_DATE}"]`).click();
     const drawer = mockedPage.getByRole("dialog");
@@ -218,8 +222,7 @@ test.describe("Availability close dialog (F5)", () => {
     await mockedPage.keyboard.press("Escape");
     await expect(drawer).toBeHidden();
     await mockedPage.getByRole("button", { name: /^Close…/ }).click();
-    const again = mockedPage.getByRole("dialog", { name: "Close", exact: true });
-    await again.getByText("One date", { exact: true }).click();
+    const again = mockedPage.getByRole("dialog", { name: /^Close / });
     await again.getByRole("combobox", { name: "Date" }).click();
     await mockedPage.getByRole("button", { name: "Next month" }).click();
     // The picker's grid is named for its month; the page's is "Availability calendar".
@@ -230,6 +233,139 @@ test.describe("Availability close dialog (F5)", () => {
 
     await expect(again.getByRole("alert")).toContainText(/Already closed on .*: Whole venue\./);
     await expect(again.getByTestId("close-primary")).toBeEnabled();
+  });
+
+  test.describe("date first (#8689)", () => {
+    const openClose = async (page: Page, closeDate: string, bookings = 0) => {
+      await page.clock.setFixedTime(pinnedNoon());
+      const state = await mockClosures(page, { closeDate, bookings });
+      await page.goto("availability?tab=calendar");
+      await expect(page.locator("[data-date]").first()).toBeVisible();
+      return state;
+    };
+
+    test("closes one date in at most 5 interactions", async ({ mockedPage }) => {
+      const CLOSE_DATE = midNextMonth();
+      const state = await openClose(mockedPage, CLOSE_DATE);
+
+      const one = countInteractions(mockedPage);
+      await one.page.getByRole("button", { name: "Close…", exact: true }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+      // The dialog opens on the date, with nothing armed until one is chosen.
+      await expect(dialog.getByTestId("close-primary")).toBeDisabled();
+      await expect(dialog.getByTestId("close-primary")).toHaveText("Choose a date");
+      await dialog.getByRole("combobox", { name: "Date" }).click();
+      await one.page.getByRole("button", { name: "Next month" }).click();
+      await pickerDay(one.page, CLOSE_DATE).click();
+      await dialog.getByTestId("close-primary").click();
+      await expect.poll(() => state.saved()).not.toBeNull();
+      expect(one.count()).toBeLessThanOrEqual(5);
+      expect(state.saved()).toMatchObject({
+        rule: { kind: "closure", startsOn: CLOSE_DATE, endsOn: CLOSE_DATE },
+      });
+    });
+
+    test("closes a week in at most 7 interactions: a date, then an end date", async ({
+      mockedPage,
+    }) => {
+      const CLOSE_DATE = midNextMonth();
+      const WEEK_START = `${CLOSE_DATE.slice(0, 8)}02`;
+      const WEEK_END = `${CLOSE_DATE.slice(0, 8)}08`;
+      const state = await openClose(mockedPage, CLOSE_DATE);
+
+      const week = countInteractions(mockedPage);
+      await week.page.getByRole("button", { name: /^Close…/ }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+      await dialog.getByRole("combobox", { name: "Date" }).click();
+      await week.page.getByRole("button", { name: "Next month" }).click();
+      await pickerDay(week.page, WEEK_START).click();
+      await dialog.getByRole("combobox", { name: "End date (optional)" }).click();
+      await pickerDay(week.page, WEEK_END).click();
+      await expect(dialog.getByTestId("close-primary")).toContainText(" – ");
+      await dialog.getByTestId("close-primary").click();
+      await expect.poll(() => state.saved()).not.toBeNull();
+      expect(week.count()).toBeLessThanOrEqual(7);
+      expect(state.saved()).toMatchObject({
+        rule: { kind: "closure", startsOn: WEEK_START, endsOn: WEEK_END },
+      });
+    });
+
+    test("every What and When option is still reachable", async ({ mockedPage }) => {
+      await openClose(mockedPage, midNextMonth());
+      await mockedPage.getByRole("button", { name: "Close…", exact: true }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+
+      await dialog.getByRole("combobox", { name: "When" }).click();
+      await expect(mockedPage.getByRole("option")).toHaveText([
+        "Tonight",
+        "One date",
+        "Several dates",
+        "Date range",
+        "Repeats",
+        "Until I reopen",
+      ]);
+      await mockedPage.keyboard.press("Escape");
+
+      await expect(dialog.getByText("Whole venue", { exact: true })).toBeVisible();
+      await expect(dialog.getByRole("radio")).toHaveCount(0);
+      await dialog.getByRole("button", { name: "Change" }).click();
+      const what = await dialog
+        .getByRole("radio")
+        .evaluateAll((radios) => radios.map((r) => (r as HTMLInputElement).value));
+      expect(what).toContain("venue");
+      expect(what).toContain("service");
+      expect(what).toContain("booking");
+      // A choice that cannot be used is left out, not shown disabled.
+      await expect(dialog.getByRole("radio", { disabled: true })).toHaveCount(0);
+
+      await dialog.getByRole("button", { name: "Add a note or message" }).click();
+      await expect(dialog.getByLabel(/Note for staff/)).toBeVisible();
+      await expect(dialog.getByLabel(/Message for guests/)).toBeVisible();
+    });
+
+    test("keyboard: focus is in the dialog on open, one date needs at most 12 Tabs, and focus is not on the body after the save", async ({
+      mockedPage,
+    }) => {
+      const CLOSE_DATE = midNextMonth();
+      const state = await openClose(mockedPage, CLOSE_DATE);
+      await mockedPage.getByRole("button", { name: "Close…", exact: true }).click();
+      const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+
+      // On the date field, inside the dialog.
+      await expect(dialog.getByRole("combobox", { name: "Date", exact: true })).toBeFocused();
+      let tabs = 0;
+      const tab = async (key = "Tab") => {
+        if (key === "Tab") tabs += 1;
+        await mockedPage.keyboard.press(key);
+      };
+      // Open the picker and choose the date with the keyboard.
+      await tab("Enter");
+      await expect(mockedPage.getByRole("grid", { name: /^\p{L}+ \d{4}$/u })).toBeVisible();
+      await mockedPage.getByRole("button", { name: "Next month" }).focus();
+      await mockedPage.keyboard.press("Enter");
+      await pickerDay(mockedPage, CLOSE_DATE).focus();
+      await mockedPage.keyboard.press("Enter");
+      await expect(dialog.getByTestId("close-primary")).toBeEnabled();
+      // From the date field to the primary: End date, Change, note, Cancel, then the primary.
+      await dialog.getByRole("combobox", { name: "Date", exact: true }).focus();
+      for (let i = 0; i < 12; i += 1) {
+        await tab();
+        if (
+          await dialog.getByTestId("close-primary").evaluate((el) => el === document.activeElement)
+        )
+          break;
+      }
+      await expect(dialog.getByTestId("close-primary")).toBeFocused();
+      expect(tabs).toBeLessThanOrEqual(12);
+
+      await mockedPage.keyboard.press("Enter");
+      await expect.poll(() => state.saved()).not.toBeNull();
+      await expect(dialog).toBeHidden();
+      // Not on the page body: on the control that opened the dialog, or the main region.
+      await expect
+        .poll(() => mockedPage.evaluate(() => document.activeElement === document.body))
+        .toBe(false);
+    });
   });
 
   test("a close whose response was lost reports success when retried, under the same key", async ({
@@ -252,7 +388,7 @@ test.describe("Availability close dialog (F5)", () => {
     const drawer = mockedPage.getByRole("dialog");
     await drawer.getByRole("button", { name: "Close…", exact: true }).click();
 
-    const dialog = mockedPage.getByRole("dialog", { name: "Close", exact: true });
+    const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
     await dialog.getByRole("button", { name: "Next", exact: true }).click();
     const cancelRadio = mockedPage.getByRole("radio", { name: /Cancel, notify & refund/ });
     await dialog.locator("label").filter({ has: cancelRadio }).click();
@@ -268,7 +404,7 @@ test.describe("Availability close dialog (F5)", () => {
 
     const notifications = mockedPage.getByRole("region", { name: "Notifications" });
     await expect(
-      notifications.getByText(new RegExp(`${BOOKINGS} reservations notified`))
+      notifications.getByText(new RegExp(`${BOOKINGS} bookings cancelled and notified`))
     ).toBeVisible();
     const attempts = state.posts();
     const [first, last] = [attempts[0], attempts.at(-1)];

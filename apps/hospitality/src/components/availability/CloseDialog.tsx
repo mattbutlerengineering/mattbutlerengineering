@@ -24,6 +24,7 @@ import { serviceMinuteOf } from "../../utils/service-day.js";
 import {
   buildCloseRules,
   closedDates,
+  closeFieldId,
   closureForm,
   decisionsReady,
   editAlongside,
@@ -47,7 +48,7 @@ import {
   type CloseField,
   type CloseForm,
 } from "./close-draft.js";
-import { closeButtonText, closeToastText } from "./close-text.js";
+import { closeButtonText, closeIncompleteText, closeToastText } from "./close-text.js";
 import { combineImpacts, decisionsFor } from "./add-dates-draft.js";
 import { AlreadyClosedNotice } from "./AlreadyClosedNotice.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
@@ -62,7 +63,25 @@ import { sameRow } from "./series-edit.js";
 import { refusalOf, refusalText } from "./step-two-refusal.js";
 import styles from "./CloseDialog.module.css";
 
-const endRequiredId = "close-end-required";
+/**
+ * After a save the dialog hands focus back to the control that opened it. When that control is
+ * gone (the page re-rendered without it), focus would fall to the page body: put it on the main
+ * region instead, once the dialog has left and its own restore has had its frame.
+ */
+function settleFocusAfterSave(frames = 60) {
+  requestAnimationFrame(() => {
+    if (document.querySelector('[role="dialog"]') !== null && frames > 0) {
+      settleFocusAfterSave(frames - 1);
+      return;
+    }
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (active === null || active === document.body) {
+        document.getElementById("main-content")?.focus();
+      }
+    });
+  });
+}
 
 export interface CloseDialogProps {
   readonly venueId: string;
@@ -96,6 +115,8 @@ export interface CloseDialogProps {
   readonly onSavedQuietly?: (saved: ClosureResult) => void;
   /** A Host's emergency close (ux.md F7): Whole venue and Tonight, shown as text and not editable. */
   readonly hostLocked?: boolean;
+  /** Open on Tonight, armed: the Tonight popover's emergency close. Otherwise the date is asked first. */
+  readonly startTonight?: boolean;
   readonly onClose: () => void;
   /** The closure was saved; called just before `onClose`. */
   readonly onSaved?: () => void;
@@ -130,7 +151,9 @@ function initialForm(props: CloseDialogProps): CloseForm {
           ? { kind: "date", date: initialDates[0]! }
           : initialDate
             ? { kind: "date", date: initialDate }
-            : { kind: "tonight" },
+            : props.startTonight
+              ? { kind: "tonight" }
+              : { kind: "date", date: "" },
     fromMinute: null,
     staffNote: "",
     guestMessage: "",
@@ -184,6 +207,14 @@ export function CloseDialog(props: CloseDialogProps) {
   useEffect(() => {
     if (missingSection) setForm((prev) => ({ ...prev, what: { kind: "venue" } }));
   }, [missingSection]);
+  // Focus opens on the date: the first thing the dialog asks. Where there is no date field (a
+  // Host's Tonight), the dialog's own focus trap has already placed focus inside.
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      document.getElementById(closeFieldId("when"))?.querySelector("input")?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, []);
   const [step, setStep] = useState<1 | 2>(1);
   const [choices, setChoices] = useState<ChoiceMap>({});
   // Asked only when an edit gives back dates holding cancelled guests; like a Reopen, told by default.
@@ -302,9 +333,8 @@ export function CloseDialog(props: CloseDialogProps) {
   );
 
   const stepTwo = willHaveStepTwo(groups, givenBack);
-  // Range and Repeats start with To empty: the closure is not one until the Manager picks it.
-  const toMissing =
-    (form.when.kind === "range" || form.when.kind === "repeats") && form.when.to === "";
+  // Until the dates are complete the primary names what is missing, and stays off.
+  const incomplete = closeIncompleteText(form, t);
   const targetName =
     what.kind === "service"
       ? services.find((s) => s.id === what.serviceId)?.name
@@ -376,7 +406,7 @@ export function CloseDialog(props: CloseDialogProps) {
       const date = fullDate(firstDate);
       const title = closeToastText(
         { form, date: firstDate, count: rules.length, name: targetName },
-        { notified },
+        saved.outcomes,
         t,
         format
       );
@@ -394,6 +424,7 @@ export function CloseDialog(props: CloseDialogProps) {
       }
       props.onSaved?.();
       onClose();
+      settleFocusAfterSave();
     } catch (error) {
       const refused = refusalOf(error);
       setFailure(refusalText(refused, t, { groups, format }));
@@ -427,8 +458,6 @@ export function CloseDialog(props: CloseDialogProps) {
   );
   // Guests are only told right away when something tells them: a booking group or the given-back choice.
   const showStepTwoNote = step === 2 && (groups.length > 0 || (givenBack && tellGivenBack));
-  // A disabled primary says why where it is: a disabled button cannot say it for itself.
-  const showEndRequired = step === 1 && toMissing;
   const impactFailed = impactError !== null;
   // Step 2 decides on bookings it must be showing: with none loaded, `groups` is empty and the
   // choices would read as complete.
@@ -437,23 +466,25 @@ export function CloseDialog(props: CloseDialogProps) {
     editState !== null ||
     (step === 2
       ? !impact || !decisionsReady(groups, choices)
-      : impactLoading || impactFailed || toMissing);
+      : impactLoading || impactFailed || incomplete !== null);
   const label =
-    step === 2
-      ? groups.length === 0
-        ? t("availability.close.edit.save")
-        : outcomeLabel(counts, t)
-      : stepTwo
-        ? t("availability.close.next")
-        : editing
+    step === 1 && incomplete !== null
+      ? incomplete
+      : step === 2
+        ? groups.length === 0
           ? t("availability.close.edit.save")
-          : form.what.kind === "booking"
-            ? pauseLabel(form.what.types, t)
-            : several
-              ? t("availability.close.button.closeMany", {
-                  count: form.when.kind === "dates" ? form.when.dates.length : 0,
-                })
-              : closeButtonText({ form, date: startsOn, name: targetName }, t, format);
+          : outcomeLabel(counts, t)
+        : stepTwo
+          ? t("availability.close.next")
+          : editing
+            ? t("availability.close.edit.save")
+            : form.what.kind === "booking"
+              ? pauseLabel(form.what.types, t)
+              : several
+                ? t("availability.close.button.closeMany", {
+                    count: form.when.kind === "dates" ? form.when.dates.length : 0,
+                  })
+                : closeButtonText({ form, date: startsOn, name: targetName }, t, format);
 
   return (
     <>
@@ -465,7 +496,11 @@ export function CloseDialog(props: CloseDialogProps) {
             ? t("availability.close.edit.title")
             : props.pauseOnline
               ? t("availability.close.button.pause")
-              : t("availability.close.title")
+              : what.kind === "booking"
+                ? t("availability.close.titleBooking")
+                : targetName
+                  ? t("availability.close.titleTarget", { target: targetName })
+                  : t("availability.close.title")
         }
         description={
           savedEarlier || (step === 1 && !stepTwo)
@@ -491,16 +526,6 @@ export function CloseDialog(props: CloseDialogProps) {
                   {stepTwoNote(decisionsReady(groups, choices), t)}
                 </Text>
               )}
-              {showEndRequired && (
-                <Text
-                  id={endRequiredId}
-                  variant="caption"
-                  color="secondary"
-                  className={styles.footerNote}
-                >
-                  {t("availability.close.when.endRequired")}
-                </Text>
-              )}
               <Button
                 variant="secondary"
                 disabled={isPending}
@@ -511,9 +536,7 @@ export function CloseDialog(props: CloseDialogProps) {
               <Button
                 variant="primary"
                 data-testid="close-primary"
-                aria-describedby={
-                  showStepTwoNote ? stepTwoNoteId : showEndRequired ? endRequiredId : undefined
-                }
+                aria-describedby={showStepTwoNote ? stepTwoNoteId : undefined}
                 onClick={step === 2 ? () => void save() : next}
                 isLoading={isPending}
                 disabled={primaryDisabled}
@@ -558,7 +581,6 @@ export function CloseDialog(props: CloseDialogProps) {
               onChange={edit}
               services={services}
               sections={sections}
-              sectionsStatus={sectionsStatus}
               today={today}
               impact={impact}
               impactLoading={impactLoading}
