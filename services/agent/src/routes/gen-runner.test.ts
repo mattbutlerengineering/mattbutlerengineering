@@ -570,4 +570,85 @@ describe("createGenRunner", () => {
       expect(call.providerOptions).toBeUndefined();
     });
   });
+
+  describe("parallel render_component calls", () => {
+    // Shape captured from a live gemini-3.1-flash-lite run (2026-11-12): a forced
+    // call answered with several parallel calls, each whole in one delta, that
+    // repeat element keys.
+    const root = { key: "root", type: "Stack" };
+    const card = { key: "card", parentKey: "root", type: "Card" };
+    const renderCall = (id: string, elements: unknown[]) => [
+      { type: "tool-input-start", id, toolName: "render_component" },
+      { type: "tool-input-delta", id, delta: JSON.stringify({ elements }) },
+      { type: "tool-input-end", id },
+      { type: "tool-call", toolCallId: id, toolName: "render_component", input: { elements } },
+    ];
+    const twoCalls = () =>
+      ({
+        fullStream: mockAsyncIterable([
+          ...renderCall("call-1", [root, card]),
+          ...renderCall("call-2", [root]),
+        ]),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+        providerMetadata: Promise.resolve({}),
+      }) as never;
+
+    it("renders only the first call when render_component is the forced tool", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(twoCalls());
+      const forcedRunner = createGenRunner({
+        ...baseConfig,
+        toolChoice: { type: "tool", toolName: "render_component" },
+      });
+
+      const events: GenStreamEvent[] = [];
+      await forcedRunner.run([{ role: "user", content: "a card" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events).toEqual([
+        { type: "element", element: root },
+        { type: "element", element: card },
+      ]);
+    });
+
+    it("renders only the first call when the provider sends no input deltas", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          renderCall("call-1", [root, card])[3],
+          renderCall("call-2", [root])[3],
+        ]),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+      const forcedRunner = createGenRunner({
+        ...baseConfig,
+        toolChoice: { type: "tool", toolName: "render_component" },
+      });
+
+      const events: GenStreamEvent[] = [];
+      await forcedRunner.run([{ role: "user", content: "a card" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events).toEqual([
+        { type: "element", element: root },
+        { type: "element", element: card },
+      ]);
+    });
+
+    it("keeps every call when render_component is not forced", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(twoCalls());
+
+      const events: GenStreamEvent[] = [];
+      await runner.run([{ role: "user", content: "a card" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events).toEqual([
+        { type: "element", element: root },
+        { type: "element", element: card },
+        { type: "element", element: root },
+      ]);
+    });
+  });
 });
