@@ -81,6 +81,19 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useTableStatuses: () => mockUseTableStatuses(),
 }));
 
+/* ── Mock the On My Way badge source (needs reservations + the SSE provider) ── */
+
+const mockGuestSignalBadges = vi.fn(
+  (): ReadonlyMap<string, { minutes: number; eta: string; held: boolean }> => new Map()
+);
+
+vi.mock("../hooks/useTableGuestSignalBadges.js", () => ({
+  useTableGuestSignalBadges: (venueId: string | undefined) => {
+    void venueId;
+    return mockGuestSignalBadges();
+  },
+}));
+
 /* ── Mock floor-plan components ───────────────────────────────── */
 
 const mockFloorPlanCanvasOnTableMove = vi.fn();
@@ -96,6 +109,7 @@ vi.mock("../components/floor-plan/index.js", () => ({
     readOnly: _ro,
     tableStatuses,
     isStale,
+    guestSignalBadges,
     onDeleteRequest,
     sections,
   }: {
@@ -109,6 +123,7 @@ vi.mock("../components/floor-plan/index.js", () => ({
     readOnly?: boolean;
     tableStatuses?: ReadonlyMap<string, string>;
     isStale?: boolean;
+    guestSignalBadges?: ReadonlyMap<string, { minutes: number }>;
   }) => (
     <div
       data-testid="floor-plan-canvas"
@@ -127,6 +142,7 @@ vi.mock("../components/floor-plan/index.js", () => ({
           key={t.id}
           data-testid={`canvas-table-${t.id}`}
           data-status={tableStatuses?.get(t.id)}
+          data-late-minutes={guestSignalBadges?.get(t.id)?.minutes}
           onClick={() => {
             onTableMove(t.id, 200, 300);
             mockFloorPlanCanvasOnTableMove(t.id, 200, 300);
@@ -437,6 +453,7 @@ let FloorPlanEditorPage: (...args: any[]) => React.ReactNode;
 beforeEach(async () => {
   vi.clearAllMocks();
   mockUseTableStatuses.mockReturnValue({ statuses: new Map(), isStale: false });
+  mockGuestSignalBadges.mockReturnValue(new Map());
   mockSectionsList.mockResolvedValue([]);
   const mod = await import("./FloorPlanEditorPage.js");
   FloorPlanEditorPage = mod.FloorPlanEditorPage;
@@ -1217,6 +1234,19 @@ describe("FloorPlanEditorPage", () => {
 
       // Reset for other tests
       mockBlocker.mockReturnValue({ state: "unblocked" });
+    });
+  });
+
+  describe("guest signal badges", () => {
+    it("threads the On My Way badges, keyed by table, through to the canvas", async () => {
+      mockGuestSignalBadges.mockReturnValue(
+        new Map([["table-a", { minutes: 15, eta: "2026-11-11T19:45:00.000Z", held: true }]])
+      );
+      mockGetById.mockResolvedValue({ ...FLOOR_PLAN, tables: [TABLE_A] });
+      renderPage();
+
+      const tableButton = await screen.findByTestId("canvas-table-table-a");
+      expect(tableButton.getAttribute("data-late-minutes")).toBe("15");
     });
   });
 

@@ -5748,6 +5748,11 @@
               data: {
                 reservation: serializeManagedReservation(reservation),
                 venueCancellation,
+                // Only a confirmed booking can signal, so only it pays for the history read.
+                guestSignals:
+                  reservation.status === "CONFIRMED"
+                    ? await countGuestSignals(reservation.id)
+                    : { late: 0, arrived: 0 },
                 venue: venue
                   ? {
                       id: venue.id,
@@ -5757,6 +5762,8 @@
                       phone: venue.settings?.phone,
                       modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
                       maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
+                      ...nightOfVenueFields(venue.settings),
+                      tonightNote: nightOfVenueFields(venue.settings).tonightNote ?? null,
                     }
                   : null,
               },
@@ -7101,6 +7108,72 @@
             return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
           }
         )
+      );
+    };
+  </file>
+  <file path="src/routes/public-invites.ts">
+    export const publicInviteRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Params: { token: string } }>(
+        "/public/v1/invites/:token",
+        { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+        async (request, reply) => {
+          const result = await getInvitePublicView(request.params.token);
+          if (result.kind === "missing") {
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", "This invitation was not found"));
+          }
+          if (result.kind === "gone") {
+            return reply
+              .status(410)
+              .send(
+                createProblemDetails(410, "Invitation Ended", "This invitation is no longer available")
+              );
+          }
+          const { venue, date, time, partySize, rsvps, status } = result.view;
+          return reply.status(200).send({
+            data: {
+              venue: { name: venue.name, slug: venue.slug },
+              date,
+              time,
+              partySize,
+              rsvps: rsvps.map((r) => ({ firstName: r.firstName, status: r.status })),
+              status,
+            },
+          });
+        }
+      );
+    
+      fastify.post<{ Params: { token: string }; Body: { firstName: string; status: "IN" | "OUT" } }>(
+        "/public/v1/invites/:token/rsvp",
+        {
+          schema: { body: rsvpBodySchema },
+          config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+        },
+        async (request, reply) => {
+          const result = await addInviteRsvp(request.params.token, {
+            firstName: request.body.firstName.trim(),
+            status: request.body.status,
+          });
+          if (result.kind === "missing") {
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", "This invitation was not found"));
+          }
+          if (result.kind === "gone") {
+            return reply
+              .status(410)
+              .send(
+                createProblemDetails(410, "Invitation Ended", "This invitation is no longer available")
+              );
+          }
+          if (result.kind === "full") {
+            return reply
+              .status(409)
+              .send(createProblemDetails(409, "Invitation Full", "This invitation has no spots left"));
+          }
+          return reply.status(201).send({ data: { ok: true } });
+        }
       );
     };
   </file>
@@ -10938,6 +11011,32 @@
         // #7509); staff/Host members are refused, admins bypass.
         venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
           const { venueGroupId } = request.body;
+    
+          // The tonight note is guest-facing copy, so only an owner (or an admin)
+          // may change it. `settings` is replaced wholesale, so any write that
+          // would alter the stored note counts, including one that omits it.
+          if (request.body.settings !== undefined && !isAdmin) {
+            const callerRole = await request.server.venueRoleLookup(
+              request.user?.raw.sub ?? "",
+              venueId
+            );
+            if (callerRole !== "owner") {
+              const current = await venueService.getById(venueId);
+              const storedNote = current?.settings?.tonightNote ?? "";
+              const incomingNote = request.body.settings?.tonightNote ?? "";
+              if (storedNote !== incomingNote) {
+                return reply
+                  .code(403)
+                  .send(
+                    createProblemDetails(
+                      403,
+                      "Forbidden",
+                      "Owner role required to edit the tonight note"
+                    )
+                  );
+              }
+            }
+          }
     
           const hoursError = operatingHoursError(request.body.operatingHours);
           if (hoursError) {
@@ -22094,6 +22193,22 @@
       return { success: true, reservation: toReservation(result.value) };
     }
   </file>
+  <file path="src/services/night-of-venue.ts">
+    type VenueAddress = NonNullable<VenueProfile["address"]>;
+    export function nightOfVenueFields(settings: unknown): {
+      address?: VenueAddress;
+      tonightNote?: string;
+    } {
+      const record = typeof settings === "object" && settings !== null ? settings : {};
+      const { address } = toPublicVenueProfile((record as { profile?: unknown }).profile);
+      const rawNote = (record as { tonightNote?: unknown }).tonightNote;
+      const note = typeof rawNote === "string" ? rawNote.trim() : "";
+      return {
+        ...(address ? { address } : {}),
+        ...(note.length > 0 && note.length <= TONIGHT_NOTE_MAX_LENGTH ? { tonightNote: note } : {}),
+      };
+    }
+  </file>
   <file path="src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
     export class JobQueueUnavailableError extends Error {
@@ -22640,6 +22755,19 @@
         };
       }
     
+      // A cancelled reservation's party invite must stop working (The Invitation, #8661).
+      // Best effort: the cancel (and any money moved) already succeeded, so never fail it here.
+      if (reservation.venueId) {
+        try {
+          await revokeInvitesForReservation({
+            venueId: reservation.venueId,
+            reservationId: reservation.id,
+          });
+        } catch (err) {
+          deps.logger.warn({ err, reservationId: reservation.id }, "Could not revoke party invites");
+        }
+      }
+    
       return { success: true, reservation: updated };
     }
   </file>
@@ -22784,6 +22912,176 @@
         })),
         nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]!) : null,
       };
+    }
+  </file>
+  <file path="src/services/reservation-invite.ts">
+    export function hashInviteToken(token: string): string {
+      return createHash("sha256").update(token).digest("hex");
+    }
+    export async function createInvite(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<{ id: string; token: string }> {
+      const token = `${input.venueId}.${randomBytes(SECRET_BYTES).toString("base64url")}`;
+      const row = await runWithVenueContext(input.venueId, () =>
+        prisma.reservationInvite.create({
+          data: {
+            venueId: input.venueId,
+            reservationId: input.reservationId,
+            tokenHash: hashInviteToken(token),
+          },
+        })
+      );
+      return { id: row.id, token };
+    }
+    export async function findLiveInviteByToken(
+      token: string
+    ): Promise<{ id: string; venueId: string; reservationId: string } | null> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return null;
+      const venueId = token.slice(0, dot);
+      const row = await runWithVenueContext(venueId, () =>
+        prisma.reservationInvite.findFirst({
+          where: { tokenHash: hashInviteToken(token), revokedAt: null },
+        })
+      );
+      return row ? { id: row.id, venueId, reservationId: row.reservationId } : null;
+    }
+    export async function revokeInvitesForReservation(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<number> {
+      const { count } = await runWithVenueContext(input.venueId, () =>
+        prisma.reservationInvite.updateMany({
+          where: { reservationId: input.reservationId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        })
+      );
+      return count;
+    }
+    export interface InvitePublicView {
+      venue: { name: string; slug: string };
+      date: string;
+      time: string;
+      partySize: number;
+      rsvps: Array<{ firstName: string; status: string }>;
+      status: string;
+    }
+    export type InviteLookup =
+      { kind: "ok"; view: InvitePublicView } | { kind: "gone" } | { kind: "missing" };
+    function localParts(at: Date, timeZone: string): { date: string; time: string } {
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        })
+          .formatToParts(at)
+          .map((p) => [p.type, p.value])
+      );
+      return {
+        date: `${parts.year}-${parts.month}-${parts.day}`,
+        time: `${parts.hour}:${parts.minute}`,
+      };
+    }
+    type LiveInvite =
+      | {
+          kind: "ok";
+          inviteId: string;
+          venueId: string;
+          reservation: {
+            startTime: Date;
+            partySize: number;
+            status: string;
+            venue: { name: string; slug: string; ianaTimezone: string };
+          };
+        }
+      | { kind: "gone" }
+      | { kind: "missing" };
+    async function resolveLiveInvite(token: string, venueId: string, now: Date): Promise<LiveInvite> {
+      const invite = await prisma.reservationInvite.findFirst({
+        where: { tokenHash: hashInviteToken(token) },
+      });
+      if (!invite) return { kind: "missing" };
+      if (invite.revokedAt) return { kind: "gone" };
+      const reservation = await prisma.reservation.findFirst({
+        where: { id: invite.reservationId, venueId },
+        select: {
+          startTime: true,
+          endTime: true,
+          partySize: true,
+          status: true,
+          venue: { select: { name: true, slug: true, ianaTimezone: true } },
+        },
+      });
+      if (!reservation?.venue) return { kind: "missing" };
+      if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
+        return { kind: "gone" };
+      }
+      return {
+        kind: "ok",
+        inviteId: invite.id,
+        venueId,
+        reservation: { ...reservation, venue: reservation.venue },
+      };
+    }
+    export async function getInvitePublicView(
+      token: string,
+      now: Date = new Date()
+    ): Promise<InviteLookup> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
+      const venueId = token.slice(0, dot);
+      return runWithVenueContext(venueId, async (): Promise<InviteLookup> => {
+        const live = await resolveLiveInvite(token, venueId, now);
+        if (live.kind !== "ok") return live;
+        const { reservation } = live;
+        const rsvps = await prisma.reservationRsvp.findMany({
+          where: { inviteId: live.inviteId },
+          orderBy: { createdAt: "asc" },
+        });
+        const { date, time } = localParts(reservation.startTime, reservation.venue.ianaTimezone);
+        return {
+          kind: "ok",
+          view: {
+            venue: { name: reservation.venue.name, slug: reservation.venue.slug },
+            date,
+            time,
+            partySize: reservation.partySize,
+            rsvps: rsvps.map((r) => ({ firstName: r.firstName, status: r.status })),
+            status: reservation.status,
+          },
+        };
+      });
+    }
+    export type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
+    export async function addInviteRsvp(
+      token: string,
+      input: { firstName: string; status: "IN" | "OUT" },
+      now: Date = new Date()
+    ): Promise<RsvpResult> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
+      const venueId = token.slice(0, dot);
+      return runWithVenueContext(venueId, async (): Promise<RsvpResult> => {
+        const live = await resolveLiveInvite(token, venueId, now);
+        if (live.kind !== "ok") return live;
+        const taken = await prisma.reservationRsvp.count({ where: { inviteId: live.inviteId } });
+        if (taken >= live.reservation.partySize + RSVP_EXTRA_SLOTS) return { kind: "full" };
+        await prisma.reservationRsvp.create({
+          data: {
+            venueId,
+            inviteId: live.inviteId,
+            firstName: input.firstName,
+            status: input.status,
+          },
+        });
+        return { kind: "ok" };
+      });
     }
   </file>
   <file path="src/services/reservation-modification.ts">
@@ -23502,6 +23800,7 @@
               guest: {
                 select: { visitCount: true, communicationPreference: true, unsubscribed: true },
               },
+              invites: INVITE_RSVP_SELECT,
             },
           }),
           prisma.reservation.count({ where }),
@@ -23570,6 +23869,7 @@
           include: {
             table: true,
             guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
+            invites: INVITE_RSVP_SELECT,
           },
         });
         return reservation ? toReservation(reservation) : null;
@@ -24488,6 +24788,8 @@
       updatedAt: Date;
     }
     export interface PrismaReservationRow {
+      /** Optional so callers that do not include the relation still type-check (#8667). */
+      invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
       id: string;
       date: Date;
       startTime: Date;
@@ -24589,10 +24891,16 @@
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
+        inviteRsvp: toInviteRsvp(row),
         venueId: row.venueId,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
       };
+    }
+    function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] {
+      const live = row.invites?.find((invite) => invite.revokedAt === null);
+      if (!live) return null;
+      return { in: live.rsvps.filter((r) => r.status === "IN").length, partySize: row.partySize };
     }
   </file>
   <file path="src/services/slot-rules.ts">
@@ -26097,6 +26405,8 @@
       "venueHolidayDecision",
       "closureOutcome",
       "guestWinBack",
+      "reservationInvite",
+      "reservationRsvp",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -27959,6 +28269,7 @@
       await fastify.register(manageRebookRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(manageSignalRoutes);
+      await fastify.register(publicInviteRoutes);
       await fastify.register(modifyReservationRoutes);
       await fastify.register(publicUnsubscribeRoutes);
     

@@ -542,6 +542,130 @@ describe("ReservationsClient.manageReservation", () => {
   });
 });
 
+describe("ReservationsClient.manageReservation night-of venue fields", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  const payload = {
+    reservation: {
+      id: "res_1",
+      date: "2026-06-15",
+      startTime: "2026-06-15T19:00:00.000Z",
+      endTime: "2026-06-15T21:00:00.000Z",
+      partySize: 4,
+      guestName: "Jane Doe",
+      guestEmail: "jane@example.com",
+      status: "CONFIRMED",
+      notes: null,
+    },
+    venue: {
+      id: "venue_1",
+      name: "The Oak Table",
+      slug: "the-oak-table",
+      ianaTimezone: "America/Los_Angeles",
+    },
+  };
+
+  it("carries the venue address and tonight note through", async () => {
+    const address = {
+      line1: "1 Oak St",
+      city: "Portland",
+      region: "OR",
+      postalCode: "97201",
+      country: "US",
+    };
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({
+        data: { ...payload, venue: { ...payload.venue, address, tonightNote: "Patio's open" } },
+      })
+    );
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venue?.address).toEqual(address);
+    expect(result.venue?.tonightNote).toBe("Patio's open");
+  });
+
+  it("carries how many signals the booking already sent, undefined from an older API", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { ...payload, guestSignals: { late: 2, arrived: 1 } } })
+    );
+    expect((await makeClient().manageReservation("tok")).guestSignals).toEqual({
+      late: 2,
+      arrived: 1,
+    });
+
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: payload }));
+    expect((await makeClient().manageReservation("tok")).guestSignals).toBeUndefined();
+  });
+
+  it("leaves them undefined when the venue has none", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: payload }));
+
+    const result = await makeClient().manageReservation("tok");
+    expect(result.venue?.address).toBeUndefined();
+    expect(result.venue?.tonightNote).toBeUndefined();
+  });
+});
+
+describe("ReservationsClient.signalManaged", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("POSTs a running-late signal with the token as a Bearer header", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { kind: "running-late", minutes: 15 } }));
+
+    const result = await makeClient().signalManaged("tok-abc", {
+      kind: "running-late",
+      minutes: 15,
+    });
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/reservations/manage/signal");
+    expect(options?.method).toBe("POST");
+    expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer tok-abc");
+    expect(JSON.parse(options?.body as string)).toEqual({ kind: "running-late", minutes: 15 });
+    expect(result).toEqual({ kind: "running-late", minutes: 15 });
+  });
+
+  it("POSTs an arrived signal without minutes", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { kind: "arrived" } }));
+
+    const result = await makeClient().signalManaged("tok-abc", { kind: "arrived" });
+
+    const [, options] = mockFetch.mock.calls[0]!;
+    expect(JSON.parse(options?.body as string)).toEqual({ kind: "arrived" });
+    expect(result).toEqual({ kind: "arrived" });
+  });
+
+  it("surfaces a server refusal as an ApiClientError carrying the status", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse(
+        {
+          type: "about:blank",
+          title: "Cannot Signal",
+          status: 409,
+          detail: "Signals are only accepted around the reservation time",
+        },
+        409
+      )
+    );
+
+    await expect(makeClient().signalManaged("tok", { kind: "arrived" })).rejects.toMatchObject({
+      statusCode: 409,
+    });
+  });
+
+  it("rejects a malformed success body", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { kind: "bogus" } }));
+
+    await expect(makeClient().signalManaged("tok", { kind: "arrived" })).rejects.toBeInstanceOf(
+      ApiValidationError
+    );
+  });
+});
+
 describe("ReservationsClient.cancelManaged", () => {
   beforeEach(() => {
     mockFetch.mockReset();
@@ -700,5 +824,42 @@ describe("ReservationsClient.manageReservation modification limits", () => {
     mockFetch.mockResolvedValueOnce(jsonResponse({ data: base }));
 
     await expect(makeClient().manageReservation("tok")).resolves.toEqual(base);
+  });
+});
+
+describe("ReservationsClient invites", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  const invite = {
+    venue: { name: "The Oak Table", slug: "the-oak-table" },
+    date: "2026-06-15",
+    time: "19:00",
+    partySize: 4,
+    rsvps: [{ firstName: "Sam", status: "IN" }],
+    status: "CONFIRMED",
+  };
+
+  it("GETs /public/v1/invites/:token with the URL-encoded token and unwraps data", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: invite }));
+
+    const result = await makeClient().getInvite("v1.tok/en");
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/invites/v1.tok%2Fen");
+    expect(options?.method ?? "GET").toBe("GET");
+    expect(result).toEqual(invite);
+  });
+
+  it("POSTs the first name and status to /public/v1/invites/:token/rsvp", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { ok: true } }, 201));
+
+    await makeClient().rsvpInvite("v1.tok", { firstName: "Sam", status: "IN" });
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/invites/v1.tok/rsvp");
+    expect(options?.method).toBe("POST");
+    expect(JSON.parse(options?.body as string)).toEqual({ firstName: "Sam", status: "IN" });
   });
 });

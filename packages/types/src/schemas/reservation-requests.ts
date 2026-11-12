@@ -35,8 +35,17 @@ const JsonObjectSchema = z.record(z.string(), z.unknown());
  * 400 rather than a silently-stored value. `looseObject` is what keeps the
  * rest of the blob through the parse.
  */
+export const TONIGHT_NOTE_MAX_LENGTH = 200;
+
 const VenueSettingsBodySchema = z.looseObject({
   profile: VenueProfileSchema.optional(),
+  tonightNote: z
+    .string()
+    .max(
+      TONIGHT_NOTE_MAX_LENGTH,
+      `Tonight note must be at most ${TONIGHT_NOTE_MAX_LENGTH} characters`
+    )
+    .optional(),
 });
 
 // ── Reservations (routes/reservations.ts) ─────────────────────

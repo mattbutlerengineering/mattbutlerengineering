@@ -49,6 +49,10 @@ vi.mock("./reservation.js", () => ({
   },
 }));
 
+vi.mock("./reservation-invite.js", () => ({
+  revokeInvitesForReservation: vi.fn().mockResolvedValue(1),
+}));
+
 vi.mock("./venue.js", () => ({
   venueService: {
     getById: vi.fn(),
@@ -58,6 +62,7 @@ vi.mock("./venue.js", () => ({
 
 import { reservationService } from "./reservation.js";
 import { venueService } from "./venue.js";
+import { revokeInvitesForReservation } from "./reservation-invite.js";
 import type { VenuePolicy } from "./venue.js";
 import {
   DepositCaptureAmbiguousError,
@@ -845,5 +850,22 @@ describe("cancelReservationWithDeposit", () => {
         expect(depositRows.get("dep_1")?.status).toBe("refunded");
       }
     );
+  });
+
+  it("revokes the reservation's party invites once the cancel succeeds, and never fails the cancel if revoke throws", async () => {
+    depositService.getByReservationId.mockResolvedValue(null);
+    vi.mocked(reservationService.update).mockResolvedValue(
+      makeReservation({ status: "CANCELLED" })
+    );
+    const ok = await cancelReservationWithDeposit(makeReservation(), "tok", makeDeps());
+    expect(ok.success).toBe(true);
+    expect(revokeInvitesForReservation).toHaveBeenCalledWith({
+      venueId: "venue_1",
+      reservationId: "res_1",
+    });
+
+    vi.mocked(revokeInvitesForReservation).mockRejectedValueOnce(new Error("db down"));
+    const again = await cancelReservationWithDeposit(makeReservation(), "tok", makeDeps());
+    expect(again.success).toBe(true);
   });
 });

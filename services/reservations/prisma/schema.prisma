@@ -139,6 +139,8 @@ model Venue {
   dateRuleTables            DateRuleTable[]
   availabilityChanges       AvailabilityChange[]
   holidayDecisions          VenueHolidayDecision[]
+  reservationInvites        ReservationInvite[]
+  reservationRsvps          ReservationRsvp[]
   closureOutcomes           ClosureOutcome[]
   guestWinBacks             GuestWinBack[]
   /// Per-venue compare-and-set counter for availability config saves (ADR-030).
@@ -343,6 +345,7 @@ model Reservation {
   venue              Venue?             @relation(fields: [venueId], references: [id])
   deposit            Deposit?
   events             ReservationEvent[]
+  invites            ReservationInvite[]
   /// Booking-widget session (`ReservationHold.sessionId`) that confirmed this
   /// reservation. Proof of ownership for the public deposit route (#6304).
   /// Null for reservations created outside the widget.
@@ -777,6 +780,44 @@ model VenueHolidayDecision {
 
   @@unique([venueId, serviceDate])
   @@map("venue_holiday_decisions")
+}
+
+/// A forwardable party invite for one reservation (The Invitation, #8661). Only the SHA-256
+/// of the token is stored; the token never grants manage/cancel rights.
+model ReservationInvite {
+  id            String      @id @default(cuid())
+  venueId       String      @map("venue_id")
+  venue         Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  reservationId String      @map("reservation_id")
+  reservation   Reservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  tokenHash     String      @unique @map("token_hash")
+  revokedAt     DateTime?   @map("revoked_at")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  rsvps         ReservationRsvp[]
+
+  @@index([reservationId])
+  @@map("reservation_invites")
+}
+
+enum RsvpStatus {
+  IN
+  OUT
+}
+
+/// A guest's reply to a party invite (The Invitation, #8663). First name only, no contact data.
+model ReservationRsvp {
+  id        String            @id @default(cuid())
+  venueId   String            @map("venue_id")
+  venue     Venue             @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  inviteId  String            @map("invite_id")
+  invite    ReservationInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  firstName String            @map("first_name") @db.VarChar(40)
+  status    RsvpStatus
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  @@index([inviteId])
+  @@map("reservation_rsvps")
 }
 
 /// What happened to each reservation overlapping a saved closure.

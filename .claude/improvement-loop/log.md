@@ -5160,3 +5160,45 @@ Both quoted strings look like deprecation/config noise rather than a real assert
 **AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — acmm 20% (5 total), ci-fix 14% (51 total), audit 4% (27 total), feature 6% (85 total), meta-improvement 0% (15 total), sentry 0% (14 total), dependencies 0% (3 total). All budgets stay at default 3.
 **Skill proposals:** 0 (Monday — Friday-only).
 **Threshold notes:** last-30-days verifications.jsonl: 11 non-skip verifications, 7 verified / 4 not-verified → fix-effectiveness 63.6% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above): weighted 14/200 = 7%, well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.545 → 1.574 (headroom).
+
+## 2026-11-11 — mbe-ui-quality
+
+**State:** `state.mjs checkout` source `main` (head 81f2e51, `merged_main` null, 0 conflicts) — the `ui-quality/ledger` branch did not exist on the remote and was created fresh from `origin/main` this fire.
+
+**Routes:** 40 due / 40 captured / 40 audited, all `rialto-web`. Marketing and hospitality had 0 routes due, so both capture runs skipped with "no routes planned". 20 hospitality rows `unreachable:auth`, 0 `unreachable:build` — all three app builds succeeded. Unjudged 0, dropped tells 0.
+
+**Findings:** 2 mechanical, 1 judged (dropped by the calibration gate).
+
+- Mechanical: `accessibility/axe-serious` on `demos/dashboard` (color-contrast, 1 node, `._overflowText_yhejd_133`) and on `demos/telemetry` (color-contrast, 4 nodes, the `._deltaDown_` delta cells). Both already carry open issues.
+- Judged: `agent-built/gray-card-border` on `demos/drivers/:id` — the three stat tiles (CAREER POINTS / RACE WINS / PODIUMS) and the Profile attribute table are each a 1px gray-bordered box nested inside another 1px gray-bordered card, at both viewports. Suppressed as an agent-built tell under a `stale` calibration stamp, as designed.
+
+**Calibration:** stamp `stale`. `calibration-status --model-id claude-opus-5` returned exit 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still carries no labelled pairs (the Verify-stage task of labelling >= 10 pairs remains unowned by this routine). Not retried. Re-queried after: still `stale`. Agent-built findings stay suppressed until a human labels the set. Third consecutive fire in this condition (2026-11-05, 2026-11-08, today).
+
+**Rating:** 6 pairs over 1 app rated and recorded — rialto-web 3.33. Ours won 4 of 6: the `components/button` and `components/hero` docs pages beat both Mantine's and Chakra's Button docs on restraint and sectioning (Mantine's floating widget stack overlaps its own table of contents; Chakra fronts its page with a purple promo gradient and an AI-tip callout). Ours lost both pairs for `demos/session-expired`, which is a thin centred auth card against two dense, well-composed dashboards (shadcn-dashboard-01, tremor-overview).
+
+**Filing:** plan exit 0 — 2 `skip` (open issues #6422, #7268 for the two mechanical findings), 9 ledger-internal `close` actions (`carrier: seed`, `issue: null`, `state_reason: not_observed`), 0 seeds, 0 `create`/`reopen`/`comment`/`adopt`. No GitHub writes were required. 0 issues created / 0 reopened / 0 commented, 0 seeds. All 35 issue numbers in the findings ledger resolved; 37 `ui-quality`-labelled issues read across one complete page (`hasNextPage: false`), none unknown to the plan beyond the two closed escalation issues (#7477, #7908). No escalation file written. Checkpoint commit `cf7e6bc04` pushed before step g as required.
+
+**Fix PR:** none — the plan carried no `fix_pr_candidate`.
+
+**P1 SLA:** 0 open `ui-quality:p1` issues, 0 breaches, 0 escalated.
+
+**Coverage before this fire:** 99.2% (135/136 reachable rows covered, not provisional). `coverage.mjs --json` exited 1 — a coverage breach, with one uncovered row: `rialto-web demos`. That row was captured and judged this fire, so the next fire should read 100%.
+
+**Notes:** no blocker, no stopped filing, no pipeline bug. `mcp__github__search_issues` is not exposed in this sandbox, so both issue searches used `mcp__github__list_issues` with the same label filters, paginated to completion (`totalCount` 37 and 0).
+
+Two real defects were seen that rubric v1 has no tell for, so neither could be filed (recording them here rather than losing them):
+
+1. **The cookie-consent banner is broken at 375x812 on every rialto-web route.** Its body text collapses to a ~40px column (one word per line) inside a ~340px banner, and the banner overlaps the page content behind it — on `demos` it covers the Pit Wall, Drivers CRUD and Layout Demo cards. Visible in every mobile capture this fire; it is app-shell chrome, not route-specific. No judged tell covers a mobile layout/overlap fault, and it is not one of the mechanical tells either.
+2. **`components/color` swatches render as an alpha checkerboard rather than their token colour** at both viewports (`--rialto-surface`, `--rialto-surface-elevated`, `--rialto-surface-matte`, `--rialto-surface-deep`; `--rialto-surface-recessed` renders solid). Lower confidence than (1) — it may be an intentional backdrop — but on a page whose whole job is showing colour values it reads as a defect.
+
+Both are candidates for a human-owned `meta-improvement` issue proposing a rubric v2 tell (a layout/overflow face); this routine does not file those itself.
+
+## 2026-11-11 — mbe-learning-loop
+
+**Sensors:** 17/18 available (e2eStability not available). Status: ⚠️ 1 regression. acmm L5 (73/84), ciHealth 94% (16/17), mutationScore 99.07% PASS (107/389 killed), flakyTests 0 (12464 runs), metricsFreshness 0 unhealthy (all 9 watched metrics fresh).
+**Sentry triage:** skipped — stored Sentry MCP token rejected (`whoami` → "Authorization Expired"); no human available in this scheduled run to re-authorize. Same as 2026-11-09.
+**Regressions:** 1 detected (ciHealth.pass_rate_pct: 100 → 94, high), 0 issues created. Root-caused to the single `failure` run on commit `699e916e` (2026-11-11T14:08), already tracked and closed as `completed` by #8678 (labels `ci-fix`, `has-pr`) at 17:36 the same day — a backward-looking artifact of an already-fixed incident still inside the rolling window, not a live fault. Confirmed current main HEAD (`fc74b11`) combined commit status = `success`. No open issue exists for `ciHealth pass_rate` (REST search via `gh api search/issues`, GraphQL `gh issue list` blocked in this sandbox per known gotcha); skipped creating one as a duplicate-of-resolved rather than filing noise.
+**Verifications:** 5 closed issues checked (48h window) — #8702, #8678 (ci-fix, "Broken Main") skipped, no success/failure CI runs found after closure to verify against; #8663, #8662, #8661 (feature) skipped, no automated security verifier (cors-audit.mjs needs manual re-run). 0 verified, 0 failed, 5 skipped.
+**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — ci-fix 12% (57 total), feature 6% (81 total), acmm 25% (4 total), audit 4% (27 total), meta-improvement 0% (15 total), sentry 0% (13 total), dependencies 0% (3 total). All budgets stay at default 3.
+**Skill proposals:** 0 (Wednesday — Friday-only).
+**Threshold notes:** last-30-days verifications.jsonl: 11 non-skip verifications, 7 verified / 4 not-verified → fix-effectiveness 63.6% (>50%, healthy, no review needed). 116/127 records this window are `skip` (no automated verifier available), so the skip-inclusive rate (7/127 = 5.5%) is not used — it would misread verifier coverage gaps as fix failures. False-positive proxy (category rejection rates above): weighted ~16/200 ≈ 8%, well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.574 → 1.604 (headroom).

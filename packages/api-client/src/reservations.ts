@@ -51,7 +51,24 @@ export interface ManagedReservationVenue {
   modificationCutoffHours?: number | null;
   /** Largest party-size change a guest may make; null = unlimited (#6907). */
   maxPartySizeChange?: number | null;
+  /** Public postal address from the venue profile; absent when the venue has not set one. */
+  address?: ManagedVenueAddress;
+  /** The venue's short note for tonight (≤200 chars); absent when none. Render as text only. */
+  tonightNote?: string;
 }
+
+/** Postal address as the venue profile stores it (`VenueAddressSchema`). */
+export interface ManagedVenueAddress {
+  line1: string;
+  line2?: string;
+  city: string;
+  region: string;
+  postalCode: string;
+  country: string;
+}
+
+/** A guest night-of signal: running late by a fixed number of minutes, or arrived. */
+export type GuestSignal = { kind: "running-late"; minutes: 5 | 15 | 30 } | { kind: "arrived" };
 
 /** Fields a guest may change through the manage token. */
 export interface ManagedReservationChanges {
@@ -95,6 +112,8 @@ export interface ManageReservationData {
   reservation: ManagedReservation;
   venue: ManagedReservationVenue | null;
   venueCancellation?: ManagedVenueCancellation | null;
+  /** Night-of signals this booking has already sent (caps: 3 late, 1 arrived); absent from an older API. */
+  guestSignals?: { late: number; arrived: number };
 }
 
 const managedReservationSchema: z.ZodSchema<ManagedReservation> = z.object({
@@ -109,6 +128,32 @@ const managedReservationSchema: z.ZodSchema<ManagedReservation> = z.object({
   notes: z.string().nullable(),
 });
 
+/** Guest-safe party-invite view (The Invitation). No booker identity, notes or ids. */
+export interface InviteRsvp {
+  firstName: string;
+  status: "IN" | "OUT";
+}
+
+export interface InviteData {
+  venue: { name: string; slug: string };
+  /** Venue-local calendar date, YYYY-MM-DD. */
+  date: string;
+  /** Venue-local start time, HH:mm. */
+  time: string;
+  partySize: number;
+  rsvps: InviteRsvp[];
+  status: string;
+}
+
+const inviteDataSchema: z.ZodSchema<InviteData> = z.object({
+  venue: z.object({ name: z.string(), slug: z.string() }),
+  date: z.string(),
+  time: z.string(),
+  partySize: z.number(),
+  rsvps: z.array(z.object({ firstName: z.string(), status: z.enum(["IN", "OUT"]) })),
+  status: z.string(),
+});
+
 const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object({
   reservation: managedReservationSchema,
   venue: z
@@ -120,8 +165,20 @@ const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object
       phone: z.string().optional(),
       modificationCutoffHours: z.number().nullable().optional(),
       maxPartySizeChange: z.number().nullable().optional(),
+      address: z
+        .object({
+          line1: z.string(),
+          line2: z.string().optional(),
+          city: z.string(),
+          region: z.string(),
+          postalCode: z.string(),
+          country: z.string(),
+        })
+        .optional(),
+      tonightNote: z.string().optional(),
     })
     .nullable(),
+  guestSignals: z.object({ late: z.number(), arrived: z.number() }).optional(),
   venueCancellation: z
     .object({
       refundStatus: z.enum(["none", "pending", "done", "failed"]),
@@ -260,6 +317,24 @@ export class ReservationsClient {
     );
   }
 
+  /** Read a shareable party invite (public, unauthenticated). 404 unknown, 410 ended. */
+  async getInvite(token: string): Promise<InviteData> {
+    return this.client.getOne<InviteData>(
+      `/public/v1/invites/${encodeURIComponent(token)}`,
+      undefined,
+      inviteDataSchema
+    );
+  }
+
+  /** RSVP to a party invite with a first name only. 404 unknown, 409 full, 410 ended. */
+  async rsvpInvite(token: string, rsvp: InviteRsvp): Promise<void> {
+    await this.client.postOne(
+      `/public/v1/invites/${encodeURIComponent(token)}/rsvp`,
+      rsvp,
+      z.object({ ok: z.literal(true) })
+    );
+  }
+
   /**
    * Cancel a reservation via a guest-facing manage token (public, unauthenticated).
    * The token is sent as an `Authorization: Bearer` header rather than a query
@@ -278,6 +353,34 @@ export class ReservationsClient {
         body: reason ? JSON.stringify(reason) : undefined,
       },
       z.object({ data: schema })
+    );
+    return response.data;
+  }
+
+  /**
+   * Tell the venue the party is running late or has arrived (public,
+   * token-authenticated). Information only: the booking is never changed.
+   * Refusals surface as `ApiClientError`: 400/401/403/404/410 token problems,
+   * 409 (not confirmed / outside the signal window), 429 (cap or rate limit).
+   */
+  async signalManaged(token: string, signal: GuestSignal): Promise<GuestSignal> {
+    const schema = z.object({
+      data: z.union([
+        z.object({ kind: z.literal("arrived") }),
+        z.object({
+          kind: z.literal("running-late"),
+          minutes: z.union([z.literal(5), z.literal(15), z.literal(30)]),
+        }),
+      ]),
+    });
+    const response = await this.client.request<{ data: GuestSignal }>(
+      "/public/v1/reservations/manage/signal",
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify(signal),
+      },
+      schema
     );
     return response.data;
   }

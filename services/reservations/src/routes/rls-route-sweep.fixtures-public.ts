@@ -632,6 +632,57 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
       expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
     },
   },
+  "GET /public/v1/invites/:token": {
+    kind: "ok",
+    run: async (ctx) => {
+      const { createInvite } = await import("../services/reservation-invite.js");
+      const { token } = await createInvite({
+        venueId: ctx.venueA.id,
+        reservationId: ctx.reservationA,
+      });
+      const found = await asAdmin(ctx, { method: "GET", url: `/public/v1/invites/${token}` });
+      // The shared reservation may be past or cancelled (410); the scope proof is that
+      // the invite resolved inside its venue instead of 404ing.
+      expect([200, 410], `expected 200/410, got ${found.statusCode}: ${found.body}`).toContain(
+        found.statusCode
+      );
+
+      // The same secret under another venue's prefix must not resolve.
+      const foreign = `${ctx.venueB.id}.${token.slice(token.indexOf(".") + 1)}`;
+      const denied = await asAdmin(ctx, { method: "GET", url: `/public/v1/invites/${foreign}` });
+      expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
+    },
+  },
+  "POST /public/v1/invites/:token/rsvp": {
+    kind: "ok",
+    run: async (ctx) => {
+      const { createInvite } = await import("../services/reservation-invite.js");
+      const { token } = await createInvite({
+        venueId: ctx.venueA.id,
+        reservationId: ctx.reservationA,
+      });
+      const payload = { firstName: "Sam", status: "IN" };
+      const found = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/invites/${token}/rsvp`,
+        payload,
+      });
+      // The shared reservation may be past or cancelled (410); the scope proof is that the
+      // invite resolved inside its venue instead of 404ing.
+      expect([201, 410], `expected 201/410, got ${found.statusCode}: ${found.body}`).toContain(
+        found.statusCode
+      );
+
+      // The same secret under another venue's prefix must not resolve.
+      const foreign = `${ctx.venueB.id}.${token.slice(token.indexOf(".") + 1)}`;
+      const denied = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/invites/${foreign}/rsvp`,
+        payload,
+      });
+      expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
+    },
+  },
   "POST /public/v1/reservations/manage/signal": {
     kind: "ok",
     run: async (ctx) => {
