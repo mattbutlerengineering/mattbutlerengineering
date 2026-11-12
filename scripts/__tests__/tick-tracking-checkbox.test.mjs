@@ -4,6 +4,7 @@ import {
   tickTrackingCheckbox,
   planTrackingUpdates,
   parseCliArgs,
+  shouldAutoClose,
 } from "../tick-tracking-checkbox.mjs";
 
 const BODY = `## Summary
@@ -182,5 +183,39 @@ describe("parseCliArgs", () => {
 
   it("throws when --issue is the last argument with no value", () => {
     expect(() => parseCliArgs(["--closed", "--issue"])).toThrow("--issue <number> is required");
+  });
+});
+
+describe("shouldAutoClose", () => {
+  const done = "## Implementation Plan\n\n- [x] #1 — a\n- [X] #2 — b\n\n## Notes\n- not a task\n";
+
+  it("closes when a child closed and every task line is ticked", () => {
+    expect(shouldAutoClose({ body: done, labels: ["feature", "tracking"] }, true)).toBe(true);
+  });
+
+  it("never closes on a reopen", () => {
+    expect(shouldAutoClose({ body: done, labels: ["tracking"] }, false)).toBe(false);
+  });
+
+  it("stays open while any child box is unticked", () => {
+    const body = "- [x] #1 — a\n- [ ] #2 — b\n";
+    expect(shouldAutoClose({ body, labels: ["tracking"] }, true)).toBe(false);
+  });
+
+  it("stays open while a non-issue task line, such as an Owner step, is unticked", () => {
+    const body = "- [x] #1 — a\n- [ ] Tear down the old stack (Owner)\n";
+    expect(shouldAutoClose({ body, labels: ["tracking"] }, true)).toBe(false);
+  });
+
+  it("stays open when the body has no task lines at all", () => {
+    expect(shouldAutoClose({ body: "## Notes\n- nothing\n", labels: ["tracking"] }, true)).toBe(
+      false
+    );
+  });
+
+  it("leaves ideation batches to /ideate's completion sweep", () => {
+    expect(shouldAutoClose({ body: done, labels: ["tracking", "ideation-batch"] }, true)).toBe(
+      false
+    );
   });
 });
