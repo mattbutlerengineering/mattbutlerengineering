@@ -64,7 +64,7 @@ For each proposal issue:
 A veto wins right up to the moment of decomposition — always re-check
 closed/`vetoed` state immediately before flipping.
 
-### 3. Flip proposals past the veto window (max 2 per run)
+### 3. Flip proposals past the veto window (max 2 per run, minus open feature runs)
 
 Eligible: open, `feature-proposal`, not `vetoed`, `createdAt` older than
 **66 hours** (nominal 72h window; 66h ensures the third daily run flips it
@@ -76,8 +76,8 @@ If the count is 2 or more, flip nothing this run and say so; proposals stay
 eligible and flip once a feature run closes. Otherwise flip at most
 `2 - count` proposals.
 
-For each eligible proposal, oldest first, **at most 2 per run** (bounds run
-cost):
+For each eligible proposal, oldest first, **at most `2 - count` per run**
+(never more than 2; bounds run cost and feature-run WIP):
 
 1. Comment: "Veto window elapsed — decomposing into implementation issues."
 2. Run `/decompose` with the proposal body as the feature description (its
