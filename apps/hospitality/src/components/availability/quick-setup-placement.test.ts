@@ -10,6 +10,7 @@ import {
 import {
   firstClearStart,
   moveServiceStart,
+  overlapDayFix,
   placePreset,
   setDaysAndReplace,
 } from "./quick-setup-placement.js";
@@ -52,6 +53,14 @@ describe("placePreset", () => {
     expect(late).toMatchObject({ opens: "23:00", closes: "02:00", lastSeatingLinked: true });
     expect(late.lastSeating).toBe(autoLastSeating("02:00", "23:00"));
     expect(validateDraft(replaceService(draft, late))).toEqual([]);
+  });
+
+  it("keeps Dinner's preset times beside a Lunch it would overlap, with the overlap on the new row", () => {
+    const lunch = draftService("s1", "Lunch", ["11:30", "16:45", "17:30"]);
+    const draft = withEmpty(lunch);
+    const dinner = place(draft, "new", "dinner");
+    expect(dinner).toMatchObject({ opens: "17:00", closes: "22:00" });
+    expect(validateDraft(replaceService(draft, dinner)).map((i) => i.code)).toContain("overlap");
   });
 
   it("keeps Brunch's preset times beside every-day Lunch and Dinner", () => {
@@ -127,5 +136,32 @@ describe("firstClearStart and moveServiceStart", () => {
       closes: "23:00",
       lastSeating: "22:15",
     });
+  });
+});
+
+describe("overlapDayFix", () => {
+  it("offers weekends only for a new Brunch overlapping a weekday-only Lunch", () => {
+    const lunch = draftService("s1", "Lunch", ["11:30", "14:15", "15:00"], { days: WEEKDAYS });
+    const brunch = draftService("s2", "Brunch", ["10:00", "13:15", "14:00"]);
+    const draft: QuickSetupDraft = { days: [0, 1, 2, 3, 4, 5, 6], services: [lunch, brunch] };
+    expect(overlapDayFix(draft, "s2")).toEqual({ shortcut: "weekends", days: [6, 0] });
+  });
+
+  it("offers weekdays only for a Lunch overlapping a weekend-only Brunch", () => {
+    const brunch = draftService("s2", "Brunch", ["10:00", "13:15", "14:00"], { days: [6, 0] });
+    const lunch = draftService("s1", "Lunch", ["11:30", "14:15", "15:00"]);
+    const draft: QuickSetupDraft = { days: [0, 1, 2, 3, 4, 5, 6], services: [lunch, brunch] };
+    expect(overlapDayFix(draft, "s1")).toEqual({ shortcut: "weekdays", days: WEEKDAYS });
+  });
+
+  it("offers nothing when every day shortcut still overlaps", () => {
+    const lunch = draftService("s1", "Lunch", ["11:30", "14:15", "15:00"]);
+    const dinner = draftService("s2", "Dinner", ["12:00", "15:00", "16:00"]);
+    const draft: QuickSetupDraft = { days: [0, 1, 2, 3, 4, 5, 6], services: [lunch, dinner] };
+    expect(overlapDayFix(draft, "s2")).toBeNull();
+  });
+
+  it("returns null for a service that is not in the draft", () => {
+    expect(overlapDayFix({ days: [], services: [] }, "missing")).toBeNull();
   });
 });

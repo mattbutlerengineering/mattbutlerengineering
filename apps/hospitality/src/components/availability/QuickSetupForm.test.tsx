@@ -386,6 +386,33 @@ describe("QuickSetupForm overlap fix", () => {
     expect(within(rows[2]!).getByText("This service overlaps another one.")).toBeInTheDocument();
   });
 
+  it("offers a day fix named for the row being edited, and pressing it changes only that service", () => {
+    render(
+      <DrawerForm
+        initial={{
+          days: [0, 1, 2, 3, 4, 5, 6],
+          services: [
+            draftService("s1", "Lunch", ["11:30", "14:15", "15:00"], { days: [1, 2, 3, 4, 5] }),
+            {
+              ...draftService("s2", "", ["11:00", "11:00", "11:00"]),
+              opens: null,
+              lastSeating: null,
+              closes: null,
+            },
+          ],
+        }}
+      />
+    );
+    const rows = screen.getAllByRole("group", { name: /^Service \d$/ });
+    fireEvent.click(within(rows[1]!).getByRole("button", { name: "Brunch" }));
+    const fix = screen.getByRole("button", { name: "Run Brunch on weekends only" });
+    fireEvent.click(fix);
+    expect(screen.queryByText(/overlaps/)).not.toBeInTheDocument();
+    const own = screen.getByRole("group", { name: "Brunch runs on" });
+    expect(checkedDays(own)).toEqual(["Saturday", "Sunday"]);
+    expect(within(rows[0]!).getByLabelText("Opens")).toHaveValue("11:30 AM");
+  });
+
   it("offers no action when no later start clears the overlap", () => {
     render(
       <DrawerForm

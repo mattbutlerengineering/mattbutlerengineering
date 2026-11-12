@@ -2374,6 +2374,11 @@
       "everyServiceOwnDays": "Every service has its own days.",
       "daysSummary": "Days: {{days}}",
       "moveTo": "Move {{service}} to {{time}}",
+      "restrictDays": {
+        "weekdays": "Run {{service}} on weekdays only",
+        "weekends": "Run {{service}} on weekends only",
+        "fridaySaturday": "Run {{service}} on Friday and Saturday only"
+      },
       "differentHours": "Different hours on some days",
       "blockLegend": "{{service}}: different hours",
       "removeBlock": "Remove these hours",
