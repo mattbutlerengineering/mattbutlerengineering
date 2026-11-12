@@ -154,6 +154,21 @@ const inviteDataSchema: z.ZodSchema<InviteData> = z.object({
   status: z.string(),
 });
 
+/** The booker's view of their party invite: RSVP counts only, no names. */
+export interface ManagedInviteSummary {
+  invited: boolean;
+  confirmed: number;
+  declined: number;
+  partySize: number;
+}
+
+const managedInviteSummarySchema: z.ZodSchema<ManagedInviteSummary> = z.object({
+  invited: z.boolean(),
+  confirmed: z.number(),
+  declined: z.number(),
+  partySize: z.number(),
+});
+
 const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object({
   reservation: managedReservationSchema,
   venue: z
@@ -333,6 +348,29 @@ export class ReservationsClient {
       rsvp,
       z.object({ ok: z.literal(true) })
     );
+  }
+
+  /**
+   * Mint a shareable party invite for the reservation the manage token opens. Returns the
+   * invite token (never derived from the manage token). 409 when the booking is cancelled.
+   */
+  async createManagedInvite(token: string): Promise<string> {
+    const response = await this.client.request<{ data: { inviteToken: string } }>(
+      "/public/v1/reservations/manage/invite",
+      { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+      z.object({ data: z.object({ inviteToken: z.string() }) })
+    );
+    return response.data.inviteToken;
+  }
+
+  /** RSVP counts across the reservation's live invites. */
+  async getManagedInviteSummary(token: string): Promise<ManagedInviteSummary> {
+    const response = await this.client.request<{ data: ManagedInviteSummary }>(
+      "/public/v1/reservations/manage/invite",
+      { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+      z.object({ data: managedInviteSummarySchema })
+    );
+    return response.data;
   }
 
   /**

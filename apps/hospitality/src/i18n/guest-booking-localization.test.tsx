@@ -32,7 +32,11 @@ vi.mock("react-router", () => ({
 vi.mock("../hooks/usePublicApiClient.js", () => ({
   usePublicApiClient: () => ({
     venues: { getBySlug: mockGetBySlug },
-    reservations: { manageReservation: mockManage },
+    reservations: {
+      manageReservation: mockManage,
+      getManagedInviteSummary: () =>
+        Promise.resolve({ invited: false, confirmed: 0, declined: 0, partySize: 2 }),
+    },
   }),
 }));
 vi.mock("../components/booking-widget/useBookingFlow.js", () => ({

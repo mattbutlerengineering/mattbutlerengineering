@@ -263,6 +263,7 @@ export function BookingWidget({
             cancellationUrl ??
             (data.manageToken ? manageReservationUrl(data.manageToken) : undefined)
           }
+          manageToken={data.manageToken ?? undefined}
           venueConfig={data.venueConfig}
           venueTimezone={venueTimezone}
         />

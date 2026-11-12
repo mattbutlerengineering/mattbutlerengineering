@@ -5632,6 +5632,42 @@
       return problemFromMessage(preamble.status, ACTION_MESSAGES[action][preamble.reason]);
     }
   </file>
+  <file path="src/routes/manage-invite.ts">
+    export const manageInviteRoutes: FastifyPluginAsync = async (fastify) => {
+      const missing = {
+        missing: (reply: { status: (n: number) => { send: (b: unknown) => unknown } }) =>
+          reply.status(404).send(reservationNotFoundProblem()),
+      };
+    
+      fastify.post(
+        "/public/v1/reservations/manage/invite",
+        { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
+        manageTokenScoped(missing, async (_request, reply, { venueId, reservation }) => {
+          if (reservation.status === "CANCELLED") {
+            return reply
+              .status(409)
+              .send(
+                createProblemDetails(409, "Cannot Invite", "A cancelled reservation cannot be shared")
+              );
+          }
+          const { token } = await createInvite({ venueId, reservationId: reservation.id });
+          return reply.status(201).send({ data: { inviteToken: token } });
+        })
+      );
+    
+      fastify.get(
+        "/public/v1/reservations/manage/invite",
+        { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+        manageTokenScoped(missing, async (_request, reply, { venueId, reservation }) => {
+          const summary = await getInviteSummaryForReservation({
+            venueId,
+            reservationId: reservation.id,
+          });
+          return reply.status(200).send({ data: { ...summary, partySize: reservation.partySize } });
+        })
+      );
+    };
+  </file>
   <file path="src/routes/manage-rebook.ts">
     export const manageRebookRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.post<{ Body: { offerId: string } }>(
@@ -23083,6 +23119,32 @@
         return { kind: "ok" };
       });
     }
+    export interface InviteSummary {
+      /** Whether the booker has shared at least one live invite. */
+      invited: boolean;
+      confirmed: number;
+      declined: number;
+    }
+    export async function getInviteSummaryForReservation(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<InviteSummary> {
+      return runWithVenueContext(input.venueId, async () => {
+        const invites = await prisma.reservationInvite.findMany({
+          where: { reservationId: input.reservationId, revokedAt: null },
+          select: { id: true },
+        });
+        if (invites.length === 0) return { invited: false, confirmed: 0, declined: 0 };
+        const grouped = await prisma.reservationRsvp.groupBy({
+          by: ["status"],
+          where: { inviteId: { in: invites.map((i) => i.id) } },
+          _count: { _all: true },
+        });
+        const count = (status: "IN" | "OUT"): number =>
+          grouped.find((g) => g.status === status)?._count._all ?? 0;
+        return { invited: true, confirmed: count("IN"), declined: count("OUT") };
+      });
+    }
   </file>
   <file path="src/services/reservation-modification.ts">
     export interface ReservationChanges {
@@ -28269,6 +28331,7 @@
       await fastify.register(manageRebookRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(manageSignalRoutes);
+      await fastify.register(manageInviteRoutes);
       await fastify.register(publicInviteRoutes);
       await fastify.register(modifyReservationRoutes);
       await fastify.register(publicUnsubscribeRoutes);

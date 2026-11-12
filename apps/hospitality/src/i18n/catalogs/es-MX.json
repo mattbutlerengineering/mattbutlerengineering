@@ -1568,6 +1568,15 @@
       }
     }
   },
+  "partyInvite": {
+    "heading": "Invita a tu grupo",
+    "hint": "Envía un enlace para que tus invitados confirmen si asistirán. Nadie podrá modificar ni cancelar tu reservación con él.",
+    "share": "Invita a tu grupo",
+    "shareTitle": "Estás invitado a cenar",
+    "copied": "Enlace copiado",
+    "failed": "No pudimos crear tu enlace de invitación. Inténtalo de nuevo.",
+    "summary": "{{confirmed}} de {{total}} confirmados"
+  },
   "invite": {
     "documentTitle": "Estás invitado — Hospitality",
     "venueDocumentTitle": "Estás invitado a {{venue}}",

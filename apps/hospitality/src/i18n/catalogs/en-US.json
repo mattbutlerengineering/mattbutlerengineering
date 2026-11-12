@@ -1536,6 +1536,15 @@
       }
     }
   },
+  "partyInvite": {
+    "heading": "Invite your party",
+    "hint": "Send a link so your guests can say whether they're coming. It never lets anyone change or cancel your booking.",
+    "share": "Invite your party",
+    "shareTitle": "You're invited to dinner",
+    "copied": "Link copied",
+    "failed": "We couldn't create your invitation link. Please try again.",
+    "summary": "{{confirmed}} of {{total}} confirmed"
+  },
   "invite": {
     "documentTitle": "You're invited — Hospitality",
     "venueDocumentTitle": "You're invited to {{venue}}",

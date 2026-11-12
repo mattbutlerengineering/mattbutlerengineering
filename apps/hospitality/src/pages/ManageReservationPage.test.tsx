@@ -34,6 +34,12 @@ vi.mock("../components/manage-reservation/ChangeBookingDialog.js", () => ({
   ),
 }));
 
+// Stand-in for the invite card (covered by its own suite): its summary fetch would otherwise
+// consume the queued fetch responses these tests script.
+vi.mock("../components/manage-reservation/PartyInviteCard.js", () => ({
+  PartyInviteCard: ({ token }: { token: string }) => <div data-testid="party-invite">{token}</div>,
+}));
+
 const mockBuildIcs = vi.fn();
 vi.mock("../utils/ics.js", async (importOriginal) => {
   const actual = await importOriginal<Record<string, unknown>>();
@@ -150,6 +156,25 @@ describe("ManageReservationPage", () => {
       expect(screen.getByText("No Access Link")).toBeDefined();
       expect(screen.getByText("Please check the link in your confirmation email.")).toBeDefined();
       expect(screen.getByRole("link", { name: /matt butler engineering/i })).toBeDefined();
+    });
+  });
+
+  describe("party invite (#8665)", () => {
+    it("offers the invite card, authorised by the manage token, on an active booking", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(makeOkResponse(makeManagedPayload()));
+      renderPage();
+      expect((await screen.findByTestId("party-invite")).textContent).toBe("valid-token-abc");
+    });
+
+    it("hides the invite card on a cancelled booking", async () => {
+      mockSearchParams.set("token", "valid-token-abc");
+      mockFetch.mockResolvedValueOnce(
+        makeOkResponse(makeManagedPayload({ reservation: { status: "CANCELLED" } }))
+      );
+      renderPage();
+      await screen.findByText("This reservation has been cancelled.");
+      expect(screen.queryByTestId("party-invite")).toBeNull();
     });
   });
 
