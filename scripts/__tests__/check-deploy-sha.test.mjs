@@ -5,6 +5,7 @@ import {
   isShaVerifiableTrigger,
   pollForDeploy,
   resolveExpectedSha,
+  isMarketingDeployed,
 } from "../check-deploy-sha.mjs";
 
 describe("extractBuildId", () => {
@@ -207,5 +208,51 @@ describe("resolveExpectedSha", () => {
   it("passes an empty/absent head SHA through unchanged (workflow_dispatch has nothing to confirm)", () => {
     expect(resolveExpectedSha({ triggerName: null, headSha: "" })).toBe(null);
     expect(resolveExpectedSha({ triggerName: "", headSha: null })).toBe(null);
+  });
+
+  it("skips confirmation when the marketing site was not redeployed (#8720)", () => {
+    // deploy-static.yml skips the marketing job on a hospitality-only commit,
+    // so the marketing build-id never becomes that SHA.
+    expect(
+      resolveExpectedSha({
+        triggerName: "Deploy Static Sites",
+        headSha: "501f6af0000",
+        marketingDeployed: false,
+      })
+    ).toBe(null);
+  });
+
+  it("still confirms when the marketing site was redeployed", () => {
+    expect(
+      resolveExpectedSha({
+        triggerName: "Deploy Static Sites",
+        headSha: "501f6af0000",
+        marketingDeployed: true,
+      })
+    ).toBe("501f6af0000");
+  });
+});
+
+describe("isMarketingDeployed", () => {
+  it("is true only when the Deploy Marketing job succeeded", () => {
+    expect(
+      isMarketingDeployed([
+        { name: "Deploy Marketing", conclusion: "success" },
+        { name: "Deploy Hospitality", conclusion: "success" },
+      ])
+    ).toBe(true);
+  });
+
+  it("is false when the Deploy Marketing job was skipped", () => {
+    expect(
+      isMarketingDeployed([
+        { name: "Deploy Marketing", conclusion: "skipped" },
+        { name: "Deploy Hospitality", conclusion: "success" },
+      ])
+    ).toBe(false);
+  });
+
+  it("is false when no job redeployed anything", () => {
+    expect(isMarketingDeployed([])).toBe(false);
   });
 });
