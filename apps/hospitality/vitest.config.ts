@@ -10,6 +10,7 @@ export default defineVitestConfig({
     "e2e/fixtures/**/*.test.ts",
     "e2e/journeys/**/*.test.ts",
     "e2e/workflow-coverage.test.ts",
+    "e2e/ui-quality-invite-mock.test.ts",
   ],
   coverage: {
     include: ["src/**/*.ts", "src/**/*.tsx"],
