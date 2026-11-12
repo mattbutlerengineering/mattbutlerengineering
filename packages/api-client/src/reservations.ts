@@ -128,6 +128,32 @@ const managedReservationSchema: z.ZodSchema<ManagedReservation> = z.object({
   notes: z.string().nullable(),
 });
 
+/** Guest-safe party-invite view (The Invitation). No booker identity, notes or ids. */
+export interface InviteRsvp {
+  firstName: string;
+  status: "IN" | "OUT";
+}
+
+export interface InviteData {
+  venue: { name: string; slug: string };
+  /** Venue-local calendar date, YYYY-MM-DD. */
+  date: string;
+  /** Venue-local start time, HH:mm. */
+  time: string;
+  partySize: number;
+  rsvps: InviteRsvp[];
+  status: string;
+}
+
+const inviteDataSchema: z.ZodSchema<InviteData> = z.object({
+  venue: z.object({ name: z.string(), slug: z.string() }),
+  date: z.string(),
+  time: z.string(),
+  partySize: z.number(),
+  rsvps: z.array(z.object({ firstName: z.string(), status: z.enum(["IN", "OUT"]) })),
+  status: z.string(),
+});
+
 const manageReservationDataSchema: z.ZodSchema<ManageReservationData> = z.object({
   reservation: managedReservationSchema,
   venue: z
@@ -288,6 +314,24 @@ export class ReservationsClient {
       `/public/v1/reservations/manage?token=${encodeURIComponent(token)}`,
       undefined,
       manageReservationDataSchema
+    );
+  }
+
+  /** Read a shareable party invite (public, unauthenticated). 404 unknown, 410 ended. */
+  async getInvite(token: string): Promise<InviteData> {
+    return this.client.getOne<InviteData>(
+      `/public/v1/invites/${encodeURIComponent(token)}`,
+      undefined,
+      inviteDataSchema
+    );
+  }
+
+  /** RSVP to a party invite with a first name only. 404 unknown, 409 full, 410 ended. */
+  async rsvpInvite(token: string, rsvp: InviteRsvp): Promise<void> {
+    await this.client.postOne(
+      `/public/v1/invites/${encodeURIComponent(token)}/rsvp`,
+      rsvp,
+      z.object({ ok: z.literal(true) })
     );
   }
 

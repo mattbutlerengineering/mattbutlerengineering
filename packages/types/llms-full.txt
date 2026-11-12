@@ -2615,6 +2615,8 @@
         })
         .nullable()
         .optional(),
+      /** RSVP tally of the live party invite (#8667); null or absent when there is none. */
+      inviteRsvp: z.object({ in: z.number(), partySize: z.number() }).nullable().optional(),
       venueId: z.string().nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -3308,9 +3310,19 @@
         communicationPreference: string | null;
         unsubscribed?: boolean;
       } | null;
+      /**
+       * RSVP tally of the reservation's live party invite (The Invitation, #8667): how many invitees
+       * said IN against the party size. Null or absent when there is no live invite. Counts only,
+       * never invitee names.
+       */
+      inviteRsvp?: InviteRsvpSummary | null;
       venueId: string | null;
       createdAt: string;
       updatedAt: string;
+    }
+    export interface InviteRsvpSummary {
+      in: number;
+      partySize: number;
     }
     export interface CreateReservationRequest {
       date: string;

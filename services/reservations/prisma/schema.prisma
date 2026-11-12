@@ -140,6 +140,7 @@ model Venue {
   availabilityChanges       AvailabilityChange[]
   holidayDecisions          VenueHolidayDecision[]
   reservationInvites        ReservationInvite[]
+  reservationRsvps          ReservationRsvp[]
   closureOutcomes           ClosureOutcome[]
   guestWinBacks             GuestWinBack[]
   /// Per-venue compare-and-set counter for availability config saves (ADR-030).
@@ -793,8 +794,30 @@ model ReservationInvite {
   revokedAt     DateTime?   @map("revoked_at")
   createdAt     DateTime    @default(now()) @map("created_at")
 
+  rsvps         ReservationRsvp[]
+
   @@index([reservationId])
   @@map("reservation_invites")
+}
+
+enum RsvpStatus {
+  IN
+  OUT
+}
+
+/// A guest's reply to a party invite (The Invitation, #8663). First name only, no contact data.
+model ReservationRsvp {
+  id        String            @id @default(cuid())
+  venueId   String            @map("venue_id")
+  venue     Venue             @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  inviteId  String            @map("invite_id")
+  invite    ReservationInvite @relation(fields: [inviteId], references: [id], onDelete: Cascade)
+  firstName String            @map("first_name") @db.VarChar(40)
+  status    RsvpStatus
+  createdAt DateTime          @default(now()) @map("created_at")
+
+  @@index([inviteId])
+  @@map("reservation_rsvps")
 }
 
 /// What happened to each reservation overlapping a saved closure.

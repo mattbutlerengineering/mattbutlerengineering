@@ -749,6 +749,135 @@
         "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
     } satisfies CatalogMeta;
   </file>
+  <file path="packages/rialto/src/components/DatePicker/fit-below.ts">
+    export function scrollDeltaToFitBelow(options: {
+      anchorTop: number;
+      anchorBottom: number;
+      panelHeight: number;
+      viewportHeight: number;
+      scrollerTop: number;
+      scrollTop: number;
+      scrollHeight: number;
+      clientHeight: number;
+      gap?: number;
+      margin?: number;
+    }): number {
+      const gap = options.gap ?? POPOVER_ANCHOR_GAP;
+      const margin = options.margin ?? EDGE_MARGIN;
+      if (options.panelHeight <= 0) return 0;
+      const room = options.viewportHeight - options.anchorBottom - gap;
+      if (options.panelHeight <= room) return 0;
+      const deficit = options.panelHeight - room;
+      const spare = options.anchorTop - options.scrollerTop - margin;
+      const scrollRoom = options.scrollHeight - options.clientHeight - options.scrollTop;
+      return Math.max(0, Math.min(deficit, spare, scrollRoom));
+    }
+    export function sheetMaxHeight(options: {
+      panelScrollHeight: number;
+      sheetOffsetHeight: number;
+      anchorBottom: number;
+      viewportHeight: number;
+      gap?: number;
+      minRoom?: number;
+      minSheet?: number;
+    }): number | null {
+      const gap = options.gap ?? POPOVER_ANCHOR_GAP;
+      const minRoom = options.minRoom ?? MIN_ROOM_BELOW;
+      const minSheet = options.minSheet ?? MIN_SHEET;
+      const room = options.viewportHeight - options.anchorBottom - gap;
+      if (options.panelScrollHeight <= room + 0.5) return null;
+      if (room < minRoom) return null;
+      const chrome = Math.max(0, options.panelScrollHeight - options.sheetOffsetHeight);
+      const inner = Math.floor(room - chrome);
+      if (inner < minSheet) return null;
+      return inner;
+    }
+    function isVerticalScroller(node: HTMLElement): boolean {
+      const { overflowY } = getComputedStyle(node);
+      return (
+        (overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight + 1
+      );
+    }
+    function anchorForPanel(panel: HTMLElement): HTMLElement | null {
+      const trigger = document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(panel.id)}"]`);
+      // The trigger sits in an inner presentation wrapper. Its parent is the
+      // popover anchor useLayerFloating measures, including when the panel is
+      // portaled out of that anchor.
+      const nearest = trigger?.closest("[role='presentation']")?.parentElement;
+      return nearest instanceof HTMLElement ? nearest : null;
+    }
+    function applyFit(sheet: HTMLElement, allowScroll: boolean): void {
+      const panel = sheet.closest<HTMLElement>("[role='dialog']");
+      if (!panel?.id) return;
+      const anchor = anchorForPanel(panel);
+      if (!anchor) return;
+    
+      sheet.style.maxHeight = "";
+      sheet.style.overflowY = "";
+      sheet.style.overscrollBehavior = "";
+    
+      const viewportHeight = document.documentElement.clientHeight;
+      let anchorBottom = anchor.getBoundingClientRect().bottom;
+      const needed = panel.scrollHeight;
+      // scrollHeight ignores the panel border: add it to what the page scroll
+      // makes room for, and take it off the cap below.
+      const frame = Math.max(0, panel.offsetHeight - panel.clientHeight);
+      const room = viewportHeight - anchorBottom - POPOVER_ANCHOR_GAP;
+    
+      if (allowScroll && needed > room && room < MIN_ROOM_BELOW) {
+        let node = anchor.parentElement;
+        while (node) {
+          if (isVerticalScroller(node)) {
+            const rect = anchor.getBoundingClientRect();
+            const delta = scrollDeltaToFitBelow({
+              anchorTop: rect.top,
+              anchorBottom: rect.bottom,
+              panelHeight: needed + frame,
+              viewportHeight,
+              scrollerTop: node.getBoundingClientRect().top,
+              scrollTop: node.scrollTop,
+              scrollHeight: node.scrollHeight,
+              clientHeight: node.clientHeight,
+            });
+            if (delta >= 1) {
+              node.scrollTop += delta;
+              break;
+            }
+          }
+          // A fixed layer (Dialog, Drawer) does not move with the page behind it.
+          if (getComputedStyle(node).position === "fixed") break;
+          node = node.parentElement;
+        }
+        anchorBottom = anchor.getBoundingClientRect().bottom;
+      }
+    
+      const max = sheetMaxHeight({
+        panelScrollHeight: panel.scrollHeight,
+        sheetOffsetHeight: sheet.offsetHeight,
+        anchorBottom,
+        viewportHeight: viewportHeight - frame,
+      });
+      if (max == null) return;
+      sheet.style.maxHeight = `${max}px`;
+      sheet.style.overflowY = "auto";
+      sheet.style.overscrollBehavior = "contain";
+    }
+    export function bindCalendarFit(sheet: HTMLElement): () => void {
+      const onScroll = (event: Event) => {
+        const panel = sheet.closest("[role='dialog']");
+        if (panel && event.target instanceof Node && panel.contains(event.target)) return;
+        applyFit(sheet, false);
+      };
+      const onResize = () => applyFit(sheet, true);
+      applyFit(sheet, true);
+      window.addEventListener("resize", onResize);
+      window.addEventListener("scroll", onScroll, true);
+      return () => {
+        window.removeEventListener("resize", onResize);
+        window.removeEventListener("scroll", onScroll, true);
+      };
+    }
+  </file>
   </section>
   <section priority="medium" role="DateRange">
   <file path="packages/rialto/src/components/DateRange/DateRange.catalog.ts">
@@ -45397,6 +45526,38 @@
           });
         }
       );
+    
+      fastify.post<{ Params: { token: string }; Body: { firstName: string; status: "IN" | "OUT" } }>(
+        "/public/v1/invites/:token/rsvp",
+        {
+          schema: { body: rsvpBodySchema },
+          config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+        },
+        async (request, reply) => {
+          const result = await addInviteRsvp(request.params.token, {
+            firstName: request.body.firstName.trim(),
+            status: request.body.status,
+          });
+          if (result.kind === "missing") {
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", "This invitation was not found"));
+          }
+          if (result.kind === "gone") {
+            return reply
+              .status(410)
+              .send(
+                createProblemDetails(410, "Invitation Ended", "This invitation is no longer available")
+              );
+          }
+          if (result.kind === "full") {
+            return reply
+              .status(409)
+              .send(createProblemDetails(409, "Invitation Full", "This invitation has no spots left"));
+          }
+          return reply.status(201).send({ data: { ok: true } });
+        }
+      );
     };
   </file>
   <file path="services/reservations/src/routes/public-menus.ts">
@@ -52075,6 +52236,8 @@
         })
         .nullable()
         .optional(),
+      /** RSVP tally of the live party invite (#8667); null or absent when there is none. */
+      inviteRsvp: z.object({ in: z.number(), partySize: z.number() }).nullable().optional(),
       venueId: z.string().nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -67398,6 +67561,47 @@
         time: `${parts.hour}:${parts.minute}`,
       };
     }
+    type LiveInvite =
+      | {
+          kind: "ok";
+          inviteId: string;
+          venueId: string;
+          reservation: {
+            startTime: Date;
+            partySize: number;
+            status: string;
+            venue: { name: string; slug: string; ianaTimezone: string };
+          };
+        }
+      | { kind: "gone" }
+      | { kind: "missing" };
+    async function resolveLiveInvite(token: string, venueId: string, now: Date): Promise<LiveInvite> {
+      const invite = await prisma.reservationInvite.findFirst({
+        where: { tokenHash: hashInviteToken(token) },
+      });
+      if (!invite) return { kind: "missing" };
+      if (invite.revokedAt) return { kind: "gone" };
+      const reservation = await prisma.reservation.findFirst({
+        where: { id: invite.reservationId, venueId },
+        select: {
+          startTime: true,
+          endTime: true,
+          partySize: true,
+          status: true,
+          venue: { select: { name: true, slug: true, ianaTimezone: true } },
+        },
+      });
+      if (!reservation?.venue) return { kind: "missing" };
+      if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
+        return { kind: "gone" };
+      }
+      return {
+        kind: "ok",
+        inviteId: invite.id,
+        venueId,
+        reservation: { ...reservation, venue: reservation.venue },
+      };
+    }
     export async function getInvitePublicView(
       token: string,
       now: Date = new Date()
@@ -67406,25 +67610,13 @@
       if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
       const venueId = token.slice(0, dot);
       return runWithVenueContext(venueId, async (): Promise<InviteLookup> => {
-        const invite = await prisma.reservationInvite.findFirst({
-          where: { tokenHash: hashInviteToken(token) },
+        const live = await resolveLiveInvite(token, venueId, now);
+        if (live.kind !== "ok") return live;
+        const { reservation } = live;
+        const rsvps = await prisma.reservationRsvp.findMany({
+          where: { inviteId: live.inviteId },
+          orderBy: { createdAt: "asc" },
         });
-        if (!invite) return { kind: "missing" };
-        if (invite.revokedAt) return { kind: "gone" };
-        const reservation = await prisma.reservation.findFirst({
-          where: { id: invite.reservationId, venueId },
-          select: {
-            startTime: true,
-            endTime: true,
-            partySize: true,
-            status: true,
-            venue: { select: { name: true, slug: true, ianaTimezone: true } },
-          },
-        });
-        if (!reservation?.venue) return { kind: "missing" };
-        if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
-          return { kind: "gone" };
-        }
         const { date, time } = localParts(reservation.startTime, reservation.venue.ianaTimezone);
         return {
           kind: "ok",
@@ -67433,10 +67625,35 @@
             date,
             time,
             partySize: reservation.partySize,
-            rsvps: [],
+            rsvps: rsvps.map((r) => ({ firstName: r.firstName, status: r.status })),
             status: reservation.status,
           },
         };
+      });
+    }
+    export type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
+    export async function addInviteRsvp(
+      token: string,
+      input: { firstName: string; status: "IN" | "OUT" },
+      now: Date = new Date()
+    ): Promise<RsvpResult> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
+      const venueId = token.slice(0, dot);
+      return runWithVenueContext(venueId, async (): Promise<RsvpResult> => {
+        const live = await resolveLiveInvite(token, venueId, now);
+        if (live.kind !== "ok") return live;
+        const taken = await prisma.reservationRsvp.count({ where: { inviteId: live.inviteId } });
+        if (taken >= live.reservation.partySize + RSVP_EXTRA_SLOTS) return { kind: "full" };
+        await prisma.reservationRsvp.create({
+          data: {
+            venueId,
+            inviteId: live.inviteId,
+            firstName: input.firstName,
+            status: input.status,
+          },
+        });
+        return { kind: "ok" };
       });
     }
   </file>
@@ -68156,6 +68373,7 @@
               guest: {
                 select: { visitCount: true, communicationPreference: true, unsubscribed: true },
               },
+              invites: INVITE_RSVP_SELECT,
             },
           }),
           prisma.reservation.count({ where }),
@@ -68224,6 +68442,7 @@
           include: {
             table: true,
             guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
+            invites: INVITE_RSVP_SELECT,
           },
         });
         return reservation ? toReservation(reservation) : null;
@@ -69142,6 +69361,8 @@
       updatedAt: Date;
     }
     export interface PrismaReservationRow {
+      /** Optional so callers that do not include the relation still type-check (#8667). */
+      invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
       id: string;
       date: Date;
       startTime: Date;
@@ -69243,10 +69464,16 @@
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
+        inviteRsvp: toInviteRsvp(row),
         venueId: row.venueId,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
       };
+    }
+    function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] {
+      const live = row.invites?.find((invite) => invite.revokedAt === null);
+      if (!live) return null;
+      return { in: live.rsvps.filter((r) => r.status === "IN").length, partySize: row.partySize };
     }
   </file>
   <file path="services/reservations/src/services/slot-rules.ts">
@@ -70752,6 +70979,7 @@
       "closureOutcome",
       "guestWinBack",
       "reservationInvite",
+      "reservationRsvp",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -82503,6 +82731,20 @@
       /** Night-of signals this booking has already sent (caps: 3 late, 1 arrived); absent from an older API. */
       guestSignals?: { late: number; arrived: number };
     }
+    export interface InviteRsvp {
+      firstName: string;
+      status: "IN" | "OUT";
+    }
+    export interface InviteData {
+      venue: { name: string; slug: string };
+      /** Venue-local calendar date, YYYY-MM-DD. */
+      date: string;
+      /** Venue-local start time, HH:mm. */
+      time: string;
+      partySize: number;
+      rsvps: InviteRsvp[];
+      status: string;
+    }
     export class ReservationsClient {
       constructor(private client: ApiClient) {}
     
@@ -82624,6 +82866,24 @@
           `/public/v1/reservations/manage?token=${encodeURIComponent(token)}`,
           undefined,
           manageReservationDataSchema
+        );
+      }
+    
+      /** Read a shareable party invite (public, unauthenticated). 404 unknown, 410 ended. */
+      async getInvite(token: string): Promise<InviteData> {
+        return this.client.getOne<InviteData>(
+          `/public/v1/invites/${encodeURIComponent(token)}`,
+          undefined,
+          inviteDataSchema
+        );
+      }
+    
+      /** RSVP to a party invite with a first name only. 404 unknown, 409 full, 410 ended. */
+      async rsvpInvite(token: string, rsvp: InviteRsvp): Promise<void> {
+        await this.client.postOne(
+          `/public/v1/invites/${encodeURIComponent(token)}/rsvp`,
+          rsvp,
+          z.object({ ok: z.literal(true) })
         );
       }
     
@@ -89913,9 +90173,19 @@
         communicationPreference: string | null;
         unsubscribed?: boolean;
       } | null;
+      /**
+       * RSVP tally of the reservation's live party invite (The Invitation, #8667): how many invitees
+       * said IN against the party size. Null or absent when there is no live invite. Counts only,
+       * never invitee names.
+       */
+      inviteRsvp?: InviteRsvpSummary | null;
       venueId: string | null;
       createdAt: string;
       updatedAt: string;
+    }
+    export interface InviteRsvpSummary {
+      in: number;
+      partySize: number;
     }
     export interface CreateReservationRequest {
       date: string;

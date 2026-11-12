@@ -5176,10 +5176,28 @@
       function localParts(at: Date, timeZone: string): { date: string; time: string } { /* ... */ }
     </item>
     <item priority="high">
+      type LiveInvite = {
+            kind: "ok";
+            invi | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="low">
+      async function resolveLiveInvite(token: string, venueId: string, now: Date): Promise<LiveInvite> { /* ... */ }
+    </item>
+    <item priority="high">
       export async function getInvitePublicView(
         token: string,
         now: Date = new Date()
       ): Promise<InviteLookup> { /* ... */ }
+    </item>
+    <item priority="low">
+      type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="high">
+      export async function addInviteRsvp(
+        token: string,
+        input: { firstName: string; status: "IN" | "OUT" },
+        now: Date = new Date()
+      ): Promise<RsvpResult> { /* ... */ }
     </item>
   </file>
   <file path="src/services/reservation-modification.ts">
@@ -5494,11 +5512,11 @@
     </item>
     <item priority="low">
       interface PrismaReservationRow {
+        invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
         id: string;
         date: Date;
         startTime: Date;
         endTime: Date;
-        partySize: number;
       }
     </item>
     <item priority="high">
@@ -5521,6 +5539,9 @@
     </item>
     <item priority="high">
       export function toReservation(row: PrismaReservationRow): Reservation { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] { /* ... */ }
     </item>
   </file>
   <file path="src/services/slot-rules.ts">

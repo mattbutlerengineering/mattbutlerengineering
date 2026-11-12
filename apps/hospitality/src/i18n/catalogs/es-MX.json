@@ -686,6 +686,9 @@
       "noShowExposure": "Exposición por inasistencias"
     }
   },
+  "inviteRsvpChip": {
+    "text": "{{in}} de {{total}} confirmados"
+  },
   "timeline": {
     "page": {
       "title": "Cronograma",
@@ -1564,6 +1567,29 @@
         "failed": "No pudimos reservar ese horario. Inténtalo de nuevo."
       }
     }
+  },
+  "invite": {
+    "documentTitle": "Estás invitado — Hospitality",
+    "venueDocumentTitle": "Estás invitado a {{venue}}",
+    "loading": "Cargando invitación...",
+    "heading": "Estás invitado",
+    "cardLabel": "Invitación a {{venue}}",
+    "rsvpTitle": "Quién viene",
+    "noReplies": "Aún no hay respuestas. Sé el primero.",
+    "statusIn": "Asiste",
+    "statusOut": "No puede ir",
+    "firstNameLabel": "Nombre",
+    "firstNamePlaceholder": "Tu nombre",
+    "firstNameRequired": "Escribe tu nombre.",
+    "imIn": "Me apunto",
+    "cantMakeIt": "No puedo ir",
+    "replied": "Gracias, {{name}}. Tu respuesta ya está en la lista.",
+    "full": "Esta invitación ya no tiene lugares disponibles.",
+    "error": "Algo salió mal. Inténtalo de nuevo.",
+    "endedHeading": "Esta invitación ha terminado",
+    "endedDescription": "La reservación fue cancelada o ya pasó.",
+    "notFoundHeading": "Invitación no encontrada",
+    "notFoundDescription": "Revisa el enlace que recibiste."
   },
   "offlineBanner": {
     "cached": "Mostrando datos en caché de la última sincronización",

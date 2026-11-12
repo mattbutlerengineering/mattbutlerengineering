@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { rows, reservation } = vi.hoisted(() => ({
+const { rows, rsvpRows, reservation } = vi.hoisted(() => ({
   rows: [] as Array<Record<string, unknown>>,
+  rsvpRows: [] as Array<Record<string, unknown>>,
   reservation: { current: null as Record<string, unknown> | null },
 }));
 
@@ -10,6 +11,20 @@ vi.mock("./database.js", async () => {
   return createMockDatabaseService({
     prisma: {
       reservation: { findFirst: vi.fn(async () => reservation.current) },
+      reservationRsvp: {
+        findMany: vi.fn(async ({ where }: { where: Record<string, unknown> }) =>
+          rsvpRows.filter((r) => r.inviteId === where.inviteId).map((r) => ({ ...r }))
+        ),
+        count: vi.fn(
+          async ({ where }: { where: Record<string, unknown> }) =>
+            rsvpRows.filter((r) => r.inviteId === where.inviteId).length
+        ),
+        create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+          const row = { id: `rsvp-${rsvpRows.length + 1}`, createdAt: new Date(), ...data };
+          rsvpRows.push(row);
+          return { ...row };
+        }),
+      },
       reservationInvite: {
         findFirst: vi.fn(async ({ where }: { where: Record<string, unknown> }) => {
           const hit = rows.find(
@@ -54,10 +69,12 @@ import {
   revokeInvitesForReservation,
   hashInviteToken,
   getInvitePublicView,
+  addInviteRsvp,
 } from "./reservation-invite.js";
 
 beforeEach(() => {
   rows.length = 0;
+  rsvpRows.length = 0;
   reservation.current = {
     startTime: new Date("2026-07-10T22:00:00Z"),
     endTime: new Date("2026-07-10T23:30:00Z"),
@@ -132,6 +149,49 @@ describe("reservation invite", () => {
       reservation.current!.status = "CONFIRMED";
       await revokeInvitesForReservation({ venueId: "v1", reservationId: "r1" });
       expect((await getInvitePublicView(token, now)).kind).toBe("gone");
+    });
+  });
+
+  describe("addInviteRsvp", () => {
+    const now = new Date("2026-07-10T20:00:00Z");
+
+    it("stores a first-name-only RSVP and the public view reflects it", async () => {
+      const { token } = await createInvite({ venueId: "v1", reservationId: "r1" });
+      const res = await addInviteRsvp(token, { firstName: "Sam", status: "IN" }, now);
+      expect(res).toEqual({ kind: "ok" });
+      expect(rsvpRows).toHaveLength(1);
+      expect(Object.keys(rsvpRows[0]!).sort()).toEqual(
+        ["createdAt", "firstName", "id", "inviteId", "status", "venueId"].sort()
+      );
+      const view = await getInvitePublicView(token, now);
+      expect(view.kind === "ok" && view.view.rsvps).toEqual([{ firstName: "Sam", status: "IN" }]);
+    });
+
+    it("caps RSVPs at partySize + 2", async () => {
+      const { token } = await createInvite({ venueId: "v1", reservationId: "r1" });
+      for (let i = 0; i < 6; i += 1) {
+        expect(await addInviteRsvp(token, { firstName: `G${i}`, status: "IN" }, now)).toEqual({
+          kind: "ok",
+        });
+      }
+      expect(await addInviteRsvp(token, { firstName: "Late", status: "IN" }, now)).toEqual({
+        kind: "full",
+      });
+      expect(rsvpRows).toHaveLength(6);
+    });
+
+    it("is missing for unknown tokens and gone when revoked, cancelled or past", async () => {
+      expect(await addInviteRsvp("v1.nope", { firstName: "A", status: "IN" }, now)).toEqual({
+        kind: "missing",
+      });
+      const { token } = await createInvite({ venueId: "v1", reservationId: "r1" });
+      const later = new Date("2026-07-11T00:00:00Z");
+      expect((await addInviteRsvp(token, { firstName: "A", status: "IN" }, later)).kind).toBe(
+        "gone"
+      );
+      reservation.current!.status = "CANCELLED";
+      expect((await addInviteRsvp(token, { firstName: "A", status: "IN" }, now)).kind).toBe("gone");
+      expect(rsvpRows).toHaveLength(0);
     });
   });
 });
