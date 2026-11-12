@@ -1,101 +1,17 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { validateConfig } from "@mbe/availability";
-import type { AvailabilityConfig, DateRule } from "@mbe/types";
-import { hubRows, type HubRowsInput } from "./hub-rows.js";
-
-const TIMEZONE = "America/Los_Angeles";
-const SEATING = { version: 1, interval: 15 } as const;
-const BOOKING_TYPES: ("online" | "phone")[] = ["online", "phone"];
-const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
-const MONDAY_FIRST = [1, 2, 3, 4, 5, 6, 0];
-
-/** A Thursday. */
-const TODAY = "2026-11-12";
-/** 10:00 AM, before Dinner opens. */
-const NOW = 600;
-
-type Schedule = AvailabilityConfig["schedules"][number];
-type ScheduleService = AvailabilityConfig["scheduleServices"][number];
-type Assignment = AvailabilityConfig["assignments"][number];
-
-const dinnerRow = (scheduleId: string, closesAt = 1320): ScheduleService => ({
-  id: `ss-${scheduleId}`,
-  scheduleId,
-  venueServiceId: "vs-dinner",
-  opensAt: 1020,
-  lastSeatingAt: closesAt - 60,
-  closesAt,
-  seating: SEATING,
-  bookingTypes: BOOKING_TYPES,
-  weekdays: [],
-  dayHours: { version: 1, sets: [] },
-});
-
-const REGULAR: Schedule = { id: "regular", name: "Regular", kind: "regular", isRegular: true };
-const REGULAR_ASSIGNMENT: Assignment = {
-  id: "as-regular",
-  scheduleId: "regular",
-  weekdays: EVERY_DAY,
-  startsOn: "2026-01-01",
-  precedence: 0,
-};
-
-/** A set of seasonal hours running Dinner, with the assignments that put it on the week. */
-function seasonal(id: string, name: string, ...uses: Partial<Assignment>[]) {
-  return {
-    schedules: [{ id, name, kind: "alternate", isRegular: false } satisfies Schedule],
-    scheduleServices: [dinnerRow(id, 1380)],
-    assignments: uses.map((use, index): Assignment => ({
-      id: `as-${id}-${index}`,
-      scheduleId: id,
-      weekdays: EVERY_DAY,
-      precedence: 1,
-      ...use,
-    })),
-  };
-}
-
-interface Parts {
-  readonly schedules?: readonly Schedule[];
-  readonly scheduleServices?: readonly ScheduleService[];
-  readonly assignments?: readonly Assignment[];
-}
-
-/** Regular hours from Jan 1, 2026: Dinner 5:00 PM to 10:00 PM every day, plus whatever is added. */
-function venue(dateRules: DateRule[] = [], ...added: Parts[]): AvailabilityConfig {
-  const config: AvailabilityConfig = {
-    schedules: [REGULAR, ...added.flatMap((p) => p.schedules ?? [])],
-    venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
-    scheduleServices: [dinnerRow("regular"), ...added.flatMap((p) => p.scheduleServices ?? [])],
-    assignments: [REGULAR_ASSIGNMENT, ...added.flatMap((p) => p.assignments ?? [])],
-    dateRules,
-  };
-  // A fixture the server would refuse proves nothing about a real venue.
-  expect(validateConfig(config)).toEqual([]);
-  return config;
-}
-
-function input(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}): HubRowsInput {
-  return {
-    state: { config, source: "rows" },
-    settings: null,
-    holidays: [],
-    sectionNames: new Map([["sec-patio", "Patio"]]),
-    timezone: TIMEZONE,
-    today: TODAY,
-    nowMinute: NOW,
-    ...rest,
-  };
-}
-
-/** The five rows, or a failed test when the venue reads as empty. */
-function rowsOf(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}) {
-  const result = hubRows(input(config, rest));
-  if (result.kind !== "rows") throw new Error("expected rows");
-  return result.rows;
-}
+import type { AvailabilityConfig } from "@mbe/types";
+import { hubRows } from "./hub-rows.js";
+import {
+  dinnerRow,
+  EVERY_DAY,
+  input,
+  rowsOf,
+  seasonal,
+  valid,
+  venue,
+} from "./hub-rows-test-helpers.js";
 
 const DINNER = {
   venueServiceId: "vs-dinner",
@@ -103,41 +19,9 @@ const DINNER = {
   opensAt: 1020,
   lastSeatingAt: 1260,
   closesAt: 1320,
-  days: MONDAY_FIRST,
+  days: [1, 2, 3, 4, 5, 6, 0],
   changes: [],
 };
-
-const rule = (id: string, rest: Partial<DateRule>): DateRule =>
-  ({
-    id,
-    kind: "closure",
-    targetKind: "venue",
-    startsOn: TODAY,
-    endsOn: TODAY,
-    ...rest,
-  }) as DateRule;
-
-const specialHours = (id: string, date: string): DateRule =>
-  rule(id, {
-    kind: "special_hours",
-    startsOn: date,
-    endsOn: date,
-    payload: {
-      version: 1,
-      services: [
-        {
-          venueServiceId: "vs-dinner",
-          opensAt: 960,
-          lastSeatingAt: 1140,
-          closesAt: 1200,
-          seating: SEATING,
-          bookingTypes: BOOKING_TYPES,
-        },
-      ],
-    },
-  });
-
-const ONLINE: Partial<DateRule> = { targetKind: "booking", bookingTypes: ["online"], endsOn: null };
 
 describe("hubRows", () => {
   it("returns the five rows in the order they win, numbered as the date check numbers them", () => {
@@ -164,8 +48,7 @@ describe("hubRows: 1 regular hours", () => {
   });
 
   it("lists no service when the regular hours run none", () => {
-    const config: AvailabilityConfig = { ...venue(), scheduleServices: [] };
-    expect(validateConfig(config)).toEqual([]);
+    const config = valid({ ...venue(), scheduleServices: [] });
     expect(rowsOf(config)[0]).toEqual({ row: 1, services: [], upcoming: null });
   });
 
@@ -260,150 +143,6 @@ describe("hubRows: 2 seasonal hours", () => {
   });
 });
 
-describe("hubRows: 3 special dates and holidays", () => {
-  it("lists the next two special dates and counts the holidays not planned", () => {
-    const config = venue([
-      specialHours("r-dec-31", "2026-12-31"),
-      specialHours("r-dec-24", "2026-12-24"),
-      rule("r-nov-26", { startsOn: "2026-11-26", endsOn: "2026-11-26" }),
-      specialHours("r-past", "2026-11-01"),
-    ]);
-    const holidays = [
-      { state: { kind: "undecided" } },
-      { state: { kind: "closed", ruleId: "r-nov-26" } },
-      { state: { kind: "undecided" } },
-      { state: { kind: "openAsUsual" } },
-      { state: { kind: "undecided" } },
-    ] as const;
-    expect(rowsOf(config, { holidays })[2]).toEqual({
-      row: 3,
-      next: [
-        {
-          ruleId: "r-nov-26",
-          kind: "closed",
-          startsOn: "2026-11-26",
-          endsOn: "2026-11-26",
-          weekdays: null,
-        },
-        {
-          ruleId: "r-dec-24",
-          kind: "specialHours",
-          startsOn: "2026-12-24",
-          endsOn: "2026-12-24",
-          weekdays: null,
-        },
-      ],
-      holidaysNotPlanned: 3,
-    });
-  });
-
-  it("lists nothing when there are no special dates, and still counts the holidays", () => {
-    const holidays = [{ state: { kind: "undecided" } }] as const;
-    expect(rowsOf(venue(), { holidays })[2]).toEqual({ row: 3, next: [], holidaysNotPlanned: 1 });
-    expect(rowsOf(venue())[2]).toEqual({ row: 3, next: [], holidaysNotPlanned: 0 });
-  });
-
-  it("does not list a closure of part of the venue or part of a day as a special date", () => {
-    const config = venue([
-      rule("r-from-six", { window: { version: 1, from: 1080, to: 2880 } }),
-      rule("r-online", { targetKind: "booking", bookingTypes: ["online"] }),
-    ]);
-    expect(rowsOf(config)[2].next).toEqual([]);
-  });
-});
-
-describe("hubRows: 4 closures and pauses", () => {
-  const PATIO = rule("r-patio", {
-    targetKind: "tables",
-    sectionId: "sec-patio",
-    tableIds: ["t-1", "t-2"],
-    startsOn: "2026-11-01",
-    endsOn: null,
-  });
-  const THANKSGIVING = rule("r-nov-26", { startsOn: "2026-11-26", endsOn: "2026-11-26" });
-
-  it("lists what is closed now, then the next closure", () => {
-    const later = rule("r-dec-25", { startsOn: "2026-12-25", endsOn: "2026-12-25" });
-    expect(rowsOf(venue([later, THANKSGIVING, PATIO]))[3]).toEqual({
-      row: 4,
-      pause: null,
-      now: [
-        {
-          ruleId: "r-patio",
-          what: { kind: "section", section: "Patio" },
-          startsOn: "2026-11-01",
-          endsOn: null,
-          weekdays: null,
-          window: null,
-        },
-      ],
-      next: {
-        ruleId: "r-nov-26",
-        what: { kind: "venue" },
-        startsOn: "2026-11-26",
-        endsOn: "2026-11-26",
-        weekdays: null,
-        window: null,
-      },
-    });
-  });
-
-  it("lists nothing when nothing is closed or paused", () => {
-    expect(rowsOf(venue())[3]).toEqual({ row: 4, pause: null, now: [], next: null });
-  });
-
-  it("carries an online pause that is in force, apart from the closures", () => {
-    const row = rowsOf(venue([rule("r-pause", ONLINE)]))[3];
-    expect(row).toEqual({
-      row: 4,
-      pause: { ruleId: "r-pause", inForce: true, fromMinute: null },
-      now: [],
-      next: null,
-    });
-  });
-
-  it("carries an online pause that is waiting for its time", () => {
-    const waiting = rule("r-pause", { ...ONLINE, window: { version: 1, from: 1080, to: 2880 } });
-    expect(rowsOf(venue([waiting]))[3].pause).toEqual({
-      ruleId: "r-pause",
-      inForce: false,
-      fromMinute: 1080,
-    });
-    // Once its time is reached it is in force.
-    expect(rowsOf(venue([waiting]), { nowMinute: 1100 })[3].pause).toMatchObject({
-      inForce: true,
-    });
-  });
-
-  it("holds a closure whose time has not come as the next closure, not as closed now", () => {
-    const fromSix = rule("r-from-six", { window: { version: 1, from: 1080, to: 2880 } });
-    const expected = { ruleId: "r-from-six", window: { from: 1080, to: 2880 } };
-    expect(rowsOf(venue([fromSix]))[3]).toMatchObject({ now: [], next: expected });
-    expect(rowsOf(venue([fromSix]), { nowMinute: 1100 })[3]).toMatchObject({
-      now: [expected],
-      next: null,
-    });
-  });
-
-  it("reads a repeating closure by its weekdays, and not as closed on a skipped date", () => {
-    const thursdays = rule("r-series", {
-      startsOn: "2026-11-01",
-      endsOn: "2027-02-28",
-      repeat: { version: 1, weekdays: [4] },
-    });
-    const skipToday = rule("r-skip", { kind: "skip", seriesId: "r-series" });
-    expect(rowsOf(venue([thursdays]))[3].now).toMatchObject([
-      { ruleId: "r-series", weekdays: [4] },
-    ]);
-    expect(rowsOf(venue([thursdays, skipToday]))[3]).toMatchObject({
-      now: [],
-      next: { ruleId: "r-series" },
-    });
-    // A Friday: the series is not closed now.
-    expect(rowsOf(venue([thursdays]), { today: "2026-11-13" })[3].now).toEqual([]);
-  });
-});
-
 describe("hubRows: 5 booking rules", () => {
   it("carries the three values, null where one is not set", () => {
     const settings = { maxAdvanceBooking: 60, minAdvanceBooking: 2 };
@@ -419,9 +158,19 @@ describe("hubRows: 5 booking rules", () => {
   });
 });
 
-describe("hub-rows.ts is policy", () => {
-  it("imports no React, router or i18n", () => {
-    const source = readFileSync(join(import.meta.dirname, "hub-rows.ts"), "utf8");
+describe("the hub's pure modules are policy", () => {
+  const modules = readdirSync(import.meta.dirname).filter(
+    (name) => name.endsWith(".ts") && !/test/.test(name)
+  );
+
+  it("covers hub-rows.ts and the row modules it is built from", () => {
+    expect(modules).toEqual(
+      expect.arrayContaining(["hub-rows.ts", "hub-special-dates.ts", "hub-closures.ts"])
+    );
+  });
+
+  it.each(modules)("%s imports no React, router or i18n", (name) => {
+    const source = readFileSync(join(import.meta.dirname, name), "utf8");
     const imports = [...source.matchAll(/from\s+"([^"]+)"/g)].map((match) => match[1]);
     expect(imports.length).toBeGreaterThan(0);
     expect(imports.filter((from) => /react|router|i18n/i.test(from ?? ""))).toEqual([]);
