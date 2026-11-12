@@ -13126,6 +13126,23 @@
       function endOfObject(buffer: string, start: number): number { /* ... */ }
     </item>
   </file>
+  <file path="services/agent/src/routes/gen-provider.ts">
+    <item priority="high">
+      export const GEN_PROVIDER_IDS: unknown;
+    </item>
+    <item priority="low">
+      type GenProviderId = (typeof GEN_PROVIDER_IDS)[number];
+    </item>
+    <item priority="high">
+      export function resolveGenProvider(raw: string | undefined): GenProviderId { /* ... */ }
+    </item>
+    <item priority="high">
+      export function genLanguageModel(provider: GenProviderId, modelId: string): LanguageModel { /* ... */ }
+    </item>
+    <item priority="high">
+      export function genProviderOptions(provider: GenProviderId) { /* ... */ }
+    </item>
+  </file>
   <file path="services/agent/src/routes/gen-route-factory.ts">
     <item priority="low">
       interface GenRouteConfig {
@@ -13171,10 +13188,10 @@
     <item priority="low">
       interface GenRunnerConfig {
         systemPrompt: string;
+        provider?: GenProviderId;
         modelId: string;
         maxOutputTokens: number;
         maxSteps: number;
-        onFinish?: (payload: GenFinishPayload) => Promise<void>;
       }
     </item>
     <item priority="high">
@@ -13217,6 +13234,9 @@
     </item>
   </file>
   <file path="services/agent/src/routes/gen-stream.ts">
+    <item priority="high">
+      export const GEN_PROVIDER: unknown;
+    </item>
     <item priority="high">
       export const GEN_MODEL_ID: unknown;
     </item>

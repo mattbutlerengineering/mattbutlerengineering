@@ -1,9 +1,11 @@
 import type { FastifyBaseLogger, FastifyReply } from "fastify";
+import { resolveGenProvider, type GenProviderId } from "./gen-provider.js";
 
 /**
  * Shared infrastructure for the `/api/gen/*` streaming routes (gen-ui, gen-agent).
  *
- * Both routes call the Anthropic API via the AI SDK and stream the response.
+ * Both routes call the model vendor chosen by `GEN_PROVIDER` (Anthropic unless
+ * set) via the AI SDK and stream the response.
  * The model id, prompt-cache hints, cost logging, and streaming headers were
  * duplicated across both; they live here so a change touches one place.
  */
@@ -18,11 +20,24 @@ import type { FastifyBaseLogger, FastifyReply } from "fastify";
  * adaptive thinking on by default and those tokens bill as output, so they
  * count against GEN_MAX_OUTPUT_TOKENS below.
  */
-export const GEN_MODEL_ID = "claude-haiku-5-5";
+const GEN_MODELS = {
+  anthropic: "claude-haiku-5-5",
+  // The model the 2026-10-22 bake-off measured on the free tier.
+  google: "gemini-3.1-flash-lite",
+} as const satisfies Record<GenProviderId, string>;
+
+/** Read once at module load: the provider is a per-deployment choice. */
+export const GEN_PROVIDER = resolveGenProvider(process.env.GEN_PROVIDER);
+
+export const GEN_MODEL_ID = GEN_MODELS[GEN_PROVIDER];
 
 /** USD per MTok, keyed by model id. */
 const GEN_MODEL_PRICING = {
   "claude-haiku-5-5": { input: 0.1, output: 0.5, cacheRead: 0.01, cacheWrite: 0.125 },
+  // Paid rates on purpose, although a free-tier key bills $0: the spend
+  // ceiling then stays a real bound if billing is ever linked to the project.
+  // Gemini publishes no per-write charge for implicit caching.
+  "gemini-3.1-flash-lite": { input: 0.25, output: 1.5, cacheRead: 0.025, cacheWrite: 0 },
 } as const;
 
 /**
