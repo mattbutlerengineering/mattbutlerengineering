@@ -3212,7 +3212,12 @@
                     route: path,
                     messages,
                     modelId: GEN_MODEL_ID,
-                    systemPrompt,
+                    // The prompt the runner really sends, which depends on the render mode.
+                    systemPrompt: genRunnerSystemPrompt({
+                      systemPrompt,
+                      provider: GEN_PROVIDER,
+                      toolChoice: config.toolChoice,
+                    }),
                     maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
                   })
                 : undefined;
@@ -3535,15 +3540,13 @@
           // `items: null`). As JSON text it writes whole props, which is also the
           // mode the 2026-10-22 bake-off measured, so a forced render on google
           // asks for the same payload as JSON text and no tool is offered.
-          const jsonRender = singleRender && config.provider === "google";
+          const jsonRender = isJsonRender(config);
           const result = streamText({
             model: genLanguageModel(config.provider ?? "anthropic", config.modelId),
             abortSignal: signal,
             // System prompt goes through `instructions` — ai@7 rejects system-role
             // entries inside `messages` (see genSystemInstructions).
-            instructions: genSystemInstructions(
-              jsonRender ? `${config.systemPrompt}\n\n${JSON_RENDER_INSTRUCTIONS}` : config.systemPrompt
-            ),
+            instructions: genSystemInstructions(genRunnerSystemPrompt(config)),
             messages: [...messages],
             tools: jsonRender ? undefined : (tools as Parameters<typeof streamText>[0]["tools"]),
             toolChoice: jsonRender ? undefined : config.toolChoice,
@@ -3646,8 +3649,34 @@
               throw toError(event.error);
             }
           }
+          // A tool call arrives whole or as a tool-error; JSON text can stop
+          // mid-document on a stop other than `length`. The elements seen so far
+          // must not pass (and be cached) as the whole tree. No text at all is
+          // left to the route's zero-output guard.
+          if (jsonRender && renderJson.trim() !== "" && !isCompleteRender(renderJson, renderEmitted)) {
+            throw new Error("gen output invalid: incomplete JSON document");
+          }
         },
       };
+    }
+    function isJsonRender(config: Pick<GenRunnerConfig, "provider" | "toolChoice">): boolean {
+      return config.toolChoice?.toolName === "render_component" && config.provider === "google";
+    }
+    export function genRunnerSystemPrompt(
+      config: Pick<GenRunnerConfig, "systemPrompt" | "provider" | "toolChoice">
+    ): string {
+      return isJsonRender(config)
+        ? `${config.systemPrompt}\n\n${JSON_RENDER_INSTRUCTIONS}`
+        : config.systemPrompt;
+    }
+    function isCompleteRender(json: string, emitted: number): boolean {
+      try {
+        const parsed = JSON.parse(json) as { elements?: unknown } | null;
+        return Array.isArray(parsed?.elements) && parsed.elements.length === emitted;
+      } catch {
+        // Not valid JSON: the document was cut off or malformed.
+        return false;
+      }
     }
     function isKeyedElement(value: unknown): boolean {
       const element = value as { key?: unknown; type?: unknown } | null;

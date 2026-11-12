@@ -692,6 +692,17 @@
       export function createGenRunner(config: GenRunnerConfig): GenRunner { /* ... */ }
     </item>
     <item priority="medium">
+      function isJsonRender(config: Pick<GenRunnerConfig, "provider" | "toolChoice">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function genRunnerSystemPrompt(
+        config: Pick<GenRunnerConfig, "systemPrompt" | "provider" | "toolChoice">
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isCompleteRender(json: string, emitted: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
       function isKeyedElement(value: unknown): boolean { /* ... */ }
     </item>
     <item priority="medium">

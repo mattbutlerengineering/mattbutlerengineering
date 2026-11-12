@@ -20,7 +20,7 @@ vi.mock("@ai-sdk/google", () => ({
 }));
 
 import { streamText } from "ai";
-import { createGenRunner } from "./gen-runner.js";
+import { createGenRunner, genRunnerSystemPrompt } from "./gen-runner.js";
 
 async function* mockAsyncIterable<T>(items: T[]): AsyncGenerator<T> {
   for (const item of items) {
@@ -728,6 +728,33 @@ describe("createGenRunner", () => {
           async () => {}
         )
       ).rejects.toThrow(/element without a string key and type/);
+    });
+
+    it("fails the run when the JSON document never closes", async () => {
+      // A stop other than `length` (a safety or abnormal stop) can end the text
+      // mid-element; the elements seen so far must not pass as a whole tree.
+      vi.mocked(streamText).mockReturnValueOnce(
+        textStream('{"elements":[{"key":"root","type":"Stack"},{"key":"b","type":"Butt')
+      );
+
+      await expect(
+        googleForced().run(
+          [{ role: "user", content: "a button" }],
+          { render_component: renderTool },
+          async () => {}
+        )
+      ).rejects.toThrow(/incomplete JSON/);
+    });
+
+    it("exposes the prompt it sends, so the spec cache key follows the render mode", () => {
+      const base = { systemPrompt: "SYS", toolChoice: forced };
+
+      expect(genRunnerSystemPrompt({ ...base, provider: "google" })).toContain(
+        '{"elements":[...]}'
+      );
+      expect(genRunnerSystemPrompt({ ...base, provider: "anthropic" })).toBe("SYS");
+      expect(genRunnerSystemPrompt(base)).toBe("SYS");
+      expect(genRunnerSystemPrompt({ systemPrompt: "SYS", provider: "google" })).toBe("SYS");
     });
 
     it("keeps the tool call for a forced render on anthropic", async () => {
