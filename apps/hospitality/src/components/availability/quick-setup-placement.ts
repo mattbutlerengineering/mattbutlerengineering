@@ -4,11 +4,14 @@ import {
   autoLastSeating,
   effectiveDays,
   emptyService,
+  FRIDAY_SATURDAY_SHORTCUT,
   minutesOf,
   replaceService,
   setServiceDays,
   toClock,
   toMinutes,
+  WEEKDAY_SHORTCUT,
+  WEEKEND_SHORTCUT,
   type QuickSetupDraft,
   type ServiceDraft,
   type ServicePresetId,
@@ -106,6 +109,38 @@ export function setDaysAndReplace(
   const placed = service.autoPlaced;
   if (!placed || service.opens !== placed.opens || service.closes !== placed.closes) return next;
   return placePreset(replaceService(draft, next), next.id, placed.preset, next.name);
+}
+
+export type OverlapDayShortcut = "weekdays" | "weekends" | "fridaySaturday";
+
+const DAY_FIX_SHORTCUTS: readonly {
+  readonly id: OverlapDayShortcut;
+  readonly days: readonly number[];
+}[] = [
+  { id: "weekdays", days: WEEKDAY_SHORTCUT },
+  { id: "weekends", days: WEEKEND_SHORTCUT },
+  { id: "fridaySaturday", days: FRIDAY_SATURDAY_SHORTCUT },
+];
+
+/**
+ * A day shortcut (weekdays, weekend, or Friday–Saturday) that clears `serviceId`'s overlap if it
+ * ran on only those days, when the shortcut is a proper subset of the days it runs now; `null`
+ * when none does. Changes only this service, never the one it overlaps — offered on whichever
+ * row the Manager is editing, for that row's own days.
+ */
+export function overlapDayFix(
+  draft: QuickSetupDraft,
+  serviceId: string
+): { readonly shortcut: OverlapDayShortcut; readonly days: readonly number[] } | null {
+  const service = draft.services.find((s) => s.id === serviceId);
+  if (!service) return null;
+  const current = effectiveDays(draft, service);
+  for (const { id, days } of DAY_FIX_SHORTCUTS) {
+    if (days.length >= current.length || !days.every((day) => current.includes(day))) continue;
+    const next = setServiceDays(service, days, draft.days);
+    if (isClear(draft, next)) return { shortcut: id, days };
+  }
+  return null;
 }
 
 /** The service starting at `opensAt` (minutes) with its length kept; a typed last seating shifts with it. */

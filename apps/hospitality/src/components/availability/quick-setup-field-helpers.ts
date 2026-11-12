@@ -84,7 +84,10 @@ export function useWeekdayName() {
     format.formatCalendarDate(addDays(SAMPLE_MONDAY, WEEK_DISPLAY_ORDER.indexOf(day)), { weekday });
 }
 
-/** Applies an overlap issue's suggested start; the form provides it, `IssueText` offers it. */
-export const QuickSetupFixContext = createContext<
-  ((fix: { readonly serviceId: string; readonly opensAt: number }) => void) | null
->(null);
+/** Applies an overlap fix: a later start for the service (`time`), or its own days (`days`).
+ * The form provides it, `IssueText` offers it; either kind changes only `serviceId`. */
+export type QuickSetupFix =
+  | { readonly kind: "time"; readonly serviceId: string; readonly opensAt: number }
+  | { readonly kind: "days"; readonly serviceId: string; readonly days: readonly number[] };
+
+export const QuickSetupFixContext = createContext<((fix: QuickSetupFix) => void) | null>(null);

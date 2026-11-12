@@ -8,6 +8,7 @@ import { DraftPreview } from "./DraftPreview.js";
 import { LeaveGuard } from "./LeaveGuard.js";
 import type { QuickSetupDraft } from "./quick-setup-draft.js";
 import { focusFirstInvalid, useWeekdayName } from "./quick-setup-field-helpers.js";
+import { previewOverlapReason } from "./quick-setup-validate.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 import {
   BlockedReason,
@@ -217,6 +218,7 @@ function RegularWeekPanelBody(props: BodyProps) {
               focusDate={focusDate}
               baseVersion={review.baselineVersion}
               idle={block === "conflict" ? "conflict" : "fields"}
+              fieldsReason={previewOverlapReason(issues, draft, t, (day) => dayName(day))}
               title={t("availabilitySchedules.layer.whatChanges")}
             />
           </>

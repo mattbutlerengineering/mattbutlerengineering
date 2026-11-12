@@ -1511,6 +1511,9 @@
     <item priority="high">
       export function useWeekdayName() { /* ... */ }
     </item>
+    <item priority="low">
+      type QuickSetupFix = { readonly kind: "time"; reado | { readonly kind: "days"; reado;
+    </item>
     <item priority="high">
       export const QuickSetupFixContext: unknown;
     </item>
@@ -1555,6 +1558,15 @@
         service: ServiceDraft,
         days: readonly number[] | null
       ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      type OverlapDayShortcut = "weekdays" | "weekends" | "fridaySaturday";
+    </item>
+    <item priority="high">
+      export function overlapDayFix(
+        draft: QuickSetupDraft,
+        serviceId: string
+      ): { readonly shortcut: OverlapDayShortcut; readonly days: readonly number[] } | null { /* ... */ }
     </item>
     <item priority="high">
       export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft { /* ... */ }
@@ -1626,6 +1638,14 @@
         t: TFunction,
         weekdayName: (weekday: number) => string
       ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function previewOverlapReason(
+        issues: readonly QuickSetupIssue[],
+        draft: QuickSetupDraft,
+        t: TFunction,
+        weekdayName: (weekday: number) => string
+      ): string | null { /* ... */ }
     </item>
     <item priority="medium">
       function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }

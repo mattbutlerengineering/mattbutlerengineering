@@ -2430,6 +2430,11 @@
       "everyServiceOwnDays": "Chaque service a ses propres jours.",
       "daysSummary": "Jours : {{days}}",
       "moveTo": "Déplacer {{service}} à {{time}}",
+      "restrictDays": {
+        "weekdays": "Offrir {{service}} seulement en semaine",
+        "weekends": "Offrir {{service}} seulement la fin de semaine",
+        "fridaySaturday": "Offrir {{service}} seulement le vendredi et le samedi"
+      },
       "differentHours": "Heures différentes certains jours",
       "blockLegend": "{{service}} : heures différentes",
       "removeBlock": "Retirer ces heures",

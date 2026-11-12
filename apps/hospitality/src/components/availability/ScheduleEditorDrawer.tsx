@@ -20,7 +20,7 @@ import {
   scheduleDays,
   type QuickSetupDraft,
 } from "./quick-setup-draft.js";
-import { issueMessage, validateDraft } from "./quick-setup-validate.js";
+import { issueMessage, previewOverlapReason, validateDraft } from "./quick-setup-validate.js";
 import { useWeekdayName } from "./quick-setup-field-helpers.js";
 import {
   buildEditScheduleChanges,
@@ -492,6 +492,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             scope={editing ? { from: today } : undefined}
             baseVersion={review.baselineVersion}
             idle={block === "conflict" ? "conflict" : dirty ? "fields" : "untouched"}
+            fieldsReason={previewOverlapReason(issues, draft, t, (day) => dayName(day))}
           />
         </Stack>
       </Drawer>
