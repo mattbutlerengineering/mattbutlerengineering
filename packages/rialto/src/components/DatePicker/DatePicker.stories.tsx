@@ -62,3 +62,39 @@ export const Default: Story = {
 export const WithBounds: Story = {
   render: () => <WithBoundsDemo />,
 };
+
+function EditableRangeDemo() {
+  const [start, setStart] = useState<string | null>("2026-12-21");
+  const [end, setEnd] = useState<string | null>(null);
+  return (
+    <div style={{ display: "flex", gap: "var(--rialto-space-md)" }}>
+      <DatePicker label="From" value={start} onChange={setStart} locale="en-US" editable />
+      <DatePicker
+        label="To"
+        value={end}
+        onChange={setEnd}
+        locale="en-US"
+        editable
+        defaultMonth={start ?? undefined}
+      />
+    </div>
+  );
+}
+
+/**
+ * `editable` lets the date be typed (`Dec 26`, `12/26/2026`, `2026-12-26`); the
+ * calendar opens on ArrowDown or from the calendar button. The empty "To"
+ * field's calendar opens on the "From" date's month through `defaultMonth`.
+ */
+export const Editable: Story = {
+  render: () => <EditableRangeDemo />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const end = canvas.getByLabelText("To");
+    await userEvent.type(end, "not a date{Enter}");
+    await expect(end).toHaveAttribute("aria-invalid", "true");
+    await userEvent.clear(end);
+    await userEvent.type(end, "12/26/2026{Enter}");
+    await expect(end).toHaveValue("Dec 26, 2026");
+  },
+};

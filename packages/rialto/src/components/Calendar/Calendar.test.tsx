@@ -139,6 +139,25 @@ describe("Calendar — min/max + predicate disabling", () => {
     const iso = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
     expect(cell(container, iso)).toBeInTheDocument();
   });
+
+  it("opens on defaultMonth's month, ahead of a future min, when there is no value", () => {
+    const { container } = renderCalendar({
+      value: null,
+      min: "2099-03-10",
+      defaultMonth: "2098-11-20",
+    });
+    const tabbable = container.querySelectorAll('[role="gridcell"][tabindex="0"]');
+    expect(tabbable).toHaveLength(1);
+    expect(tabbable[0]).toHaveAttribute("data-date", "2098-11-20");
+  });
+
+  it("opens on the value's month when both value and defaultMonth are given", () => {
+    const { container } = renderCalendar({ defaultMonth: "2098-11-20" });
+    expect(container.querySelector('[role="gridcell"][tabindex="0"]')).toHaveAttribute(
+      "aria-selected",
+      "true"
+    );
+  });
 });
 
 describe("Calendar — getDateLabel", () => {

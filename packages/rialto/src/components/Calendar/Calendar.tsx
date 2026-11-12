@@ -59,6 +59,12 @@ export interface CalendarProps extends Omit<HTMLAttributes<HTMLDivElement>, "onC
    * A labelled disabled day stays focusable so the label can be reached.
    */
   getDateLabel?: (isoDate: string) => string | undefined;
+  /**
+   * A date (`yyyy-mm-dd`) whose month the grid opens on when `value` is empty,
+   * e.g. the start date for an end-date calendar. The roving focus starts on
+   * that date. Read once, when the calendar mounts.
+   */
+  defaultMonth?: string;
   /** BCP-47 locale for month/weekday labels. */
   locale?: string;
   /** First day of the week, 0 (Sunday) … 6. Defaults to the locale, then Monday. */
@@ -80,6 +86,7 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
     max,
     isDateDisabled,
     getDateLabel,
+    defaultMonth,
     locale: localeProp,
     weekStartsOn,
     className,
@@ -100,8 +107,10 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
   // event handlers — never synced from a `useEffect` body.
   // With no value, a `min` after today names where the first choosable day is: open there, not on
   // a month whose every day is disabled (a "To" field after a chosen "From").
-  const opening =
-    value && parseIsoDate(value) ? value : min && parseIsoDate(min) && min > today ? min : null;
+  // An explicit `defaultMonth` wins over that guess, and a selected date wins over both.
+  const validIso = (iso: string | null | undefined) => (iso && parseIsoDate(iso) ? iso : null);
+  const futureMin = min && parseIsoDate(min) && min > today ? min : null;
+  const opening = validIso(value) ?? validIso(defaultMonth) ?? futureMin;
   const [visibleMonth, setVisibleMonth] = useState<CalendarMonth>(() =>
     monthOfIso(opening ?? today)
   );
@@ -208,6 +217,8 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
           className={styles.navButton}
           onClick={() => goToMonth(-1)}
           aria-label={messages.previousMonth}
+          // In an overlay's focus trap, opening focus belongs on the roving day.
+          data-focus-trap-skip-initial="true"
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
@@ -219,6 +230,7 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
           className={styles.navButton}
           onClick={() => goToMonth(1)}
           aria-label={messages.nextMonth}
+          data-focus-trap-skip-initial="true"
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>

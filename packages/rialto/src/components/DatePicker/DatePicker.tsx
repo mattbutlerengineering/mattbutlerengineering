@@ -1,11 +1,20 @@
-import { forwardRef, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { Popover } from "../Popover/Popover";
 import { Input } from "../Input/Input";
-import { Calendar, parseIsoDate } from "../Calendar/Calendar";
+import { Calendar } from "../Calendar/Calendar";
 import { cn } from "../../utils/class-composer";
 import { bindCalendarFit } from "./fit-below";
+import { useTypedDate } from "./useTypedDate";
 import styles from "./DatePicker.module.css";
 
 /**
@@ -34,13 +43,16 @@ type Placement = "top" | "bottom" | "left" | "right";
  * A date field: a read-only trigger {@link Input} that opens a {@link Popover}
  * containing an inline {@link Calendar}. Controlled via an ISO `yyyy-mm-dd`
  * string — no `Date` objects cross the public boundary. Selecting a date (or
- * pressing Escape) closes the popover and returns focus to the trigger.
+ * pressing Escape) closes the popover and returns focus to the trigger. On
+ * open, focus lands on the selected day, or today when nothing is selected.
+ * Pass `editable` to let the date be typed as well.
  * `Calendar` and `DateRange` share this same ISO-string vocabulary, per
  * ADR-024 (`docs/adr/ADR-024-date-value-vocabulary.md`).
  *
  * @example
  * const [date, setDate] = useState<string | null>(null);
  * <DatePicker label="Check-in" value={date} onChange={setDate} min="2026-01-01" />
+ * <DatePicker label="Check-out" value={end} onChange={setEnd} editable defaultMonth={date ?? undefined} />
  */
 export interface DatePickerProps {
   /** Selected date as a `yyyy-mm-dd` ISO string, or `null` when empty. */
@@ -56,6 +68,21 @@ export interface DatePickerProps {
    * authoritative and wins over `min`/`max`.
    */
   isDateDisabled?: (isoDate: string) => boolean;
+  /**
+   * Let a date be typed into the field. Text is read on Enter or blur in the
+   * field's locale: ISO `yyyy-mm-dd`, the locale's numeric order (`6/20/2024`),
+   * or a month name with a day (`Jun 20, 2024`); without a year it is the next
+   * such date from today. Text that is not a date, or a date that `min`, `max`
+   * or `isDateDisabled` refuses, stays in the field with a problem beneath it
+   * and `onChange(null)`. The calendar then opens on ArrowDown or from the
+   * calendar button, not on a click in the field. Defaults to `false`.
+   */
+  editable?: boolean;
+  /**
+   * A date (`yyyy-mm-dd`) whose month the calendar opens on while `value` is
+   * empty, e.g. the start date for an end-date field.
+   */
+  defaultMonth?: string;
   /** BCP-47 locale for month/weekday labels and the formatted trigger value. */
   locale?: string;
   /** First day of the week, 0 (Sunday) … 6. Defaults to the locale, then Monday. */
@@ -78,6 +105,8 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
     min,
     max,
     isDateDisabled,
+    editable = false,
+    defaultMonth,
     locale: localeProp,
     weekStartsOn,
     label,
@@ -91,30 +120,66 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
   const { locale: contextLocale, messages } = useRialtoLocale();
   const locale = localeProp ?? contextLocale;
   const [open, setOpen] = useState(false);
+  const typed = useTypedDate({ value, onChange, locale, min, max, isDateDisabled, messages });
+  const { discard } = typed;
 
   const handleSelect = useCallback(
     (next: string | null) => {
+      discard();
       onChange(next);
       setOpen(false);
     },
-    [onChange]
+    [discard, onChange]
   );
 
-  const parsed = value ? parseIsoDate(value) : null;
-  const display = parsed
-    ? new Intl.DateTimeFormat(locale, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        timeZone: "UTC",
-      }).format(new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day)))
-    : "";
+  // The popover toggles on any click, Enter or Space that reaches it from the
+  // trigger. A field being typed into keeps those for itself, and opens the
+  // calendar on ArrowDown or from the calendar button instead.
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setOpen(true);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      event.stopPropagation();
+      typed.commit();
+    } else if (event.key === " ") {
+      event.stopPropagation();
+    }
+  };
 
-  const trigger = (
+  const trigger = editable ? (
     <Input
       id={id}
       label={label}
-      value={display}
+      value={typed.text}
+      placeholder={placeholder}
+      role="combobox"
+      autoComplete="off"
+      error={typed.problem !== null}
+      hint={typed.problem ?? undefined}
+      onChange={(event) => typed.type(event.target.value)}
+      onBlur={typed.commit}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={handleKeyDown}
+      endIcon={
+        <button
+          type="button"
+          // ArrowDown in the field is the keyboard path; this keeps one tab stop.
+          tabIndex={-1}
+          className={styles.calendarButton}
+          aria-label={messages.chooseDate}
+        >
+          <CalendarIcon size={16} aria-hidden="true" />
+        </button>
+      }
+      aria-label={label ? undefined : messages.chooseDate}
+    />
+  ) : (
+    <Input
+      id={id}
+      label={label}
+      value={typed.text}
       placeholder={placeholder}
       readOnly
       role="combobox"
@@ -133,6 +198,7 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
             min={min}
             max={max}
             isDateDisabled={isDateDisabled}
+            defaultMonth={defaultMonth}
             locale={locale}
             weekStartsOn={weekStartsOn}
           />
