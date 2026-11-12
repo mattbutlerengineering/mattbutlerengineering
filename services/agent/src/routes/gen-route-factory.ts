@@ -6,6 +6,7 @@ import { createProblemDetails } from "@mbe/types";
 import { catalog } from "@mbe/rialto-catalog/catalog";
 import type { z } from "zod";
 import {
+  GEN_PROVIDER,
   GEN_MODEL_ID,
   GEN_MAX_OUTPUT_TOKENS,
   logGenCost,
@@ -295,6 +296,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
         const clientGone = new AbortController();
         const runner = createGenRunner({
           systemPrompt,
+          provider: GEN_PROVIDER,
           modelId: GEN_MODEL_ID,
           maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
           maxSteps,

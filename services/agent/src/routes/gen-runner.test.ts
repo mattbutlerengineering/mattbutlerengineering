@@ -12,6 +12,12 @@ vi.mock("@ai-sdk/anthropic", () => ({
   anthropic: vi.fn(() => ({ provider: "anthropic", modelId: "claude-haiku-4.5" })),
 }));
 
+vi.mock("@ai-sdk/google", () => ({
+  createGoogleGenerativeAI: vi.fn(() =>
+    vi.fn((modelId: string) => ({ provider: "google", modelId }))
+  ),
+}));
+
 import { streamText } from "ai";
 import { createGenRunner } from "./gen-runner.js";
 
@@ -541,6 +547,27 @@ describe("createGenRunner", () => {
       });
       // ai@7 throws AI_InvalidPromptError on any system-role entry in messages.
       expect(call.messages.every((m) => m.role !== "system")).toBe(true);
+    });
+  });
+
+  describe("provider selection", () => {
+    it("runs on the google model with no anthropic provider options when provider is google", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([]),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const googleRunner = createGenRunner({
+        ...baseConfig,
+        provider: "google",
+        modelId: "gemini-3.1-flash-lite",
+      });
+      await googleRunner.run([{ role: "user", content: "hi" }], {}, async () => {});
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.model).toEqual({ provider: "google", modelId: "gemini-3.1-flash-lite" });
+      expect(call.providerOptions).toBeUndefined();
     });
   });
 });

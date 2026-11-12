@@ -1,5 +1,5 @@
-import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, stepCountIs } from "ai";
+import { genLanguageModel, genProviderOptions, type GenProviderId } from "./gen-provider.js";
 // Permission policy sourced from agent-core — not duplicated here (security requirement)
 import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
 import { genSystemInstructions } from "./gen-stream.js";
@@ -35,6 +35,8 @@ export interface GenFinishPayload {
 
 export interface GenRunnerConfig {
   readonly systemPrompt: string;
+  /** Vendor that serves `modelId`. Omit for Anthropic. */
+  readonly provider?: GenProviderId;
   readonly modelId: string;
   /** Output-token ceiling per model call; hitting it fails the run (never a partial result). */
   readonly maxOutputTokens: number;
@@ -116,7 +118,7 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
   return {
     async run(messages, tools, onEvent, signal) {
       const result = streamText({
-        model: anthropic(config.modelId),
+        model: genLanguageModel(config.provider ?? "anthropic", config.modelId),
         abortSignal: signal,
         // System prompt goes through `instructions` — ai@7 rejects system-role
         // entries inside `messages` (see genSystemInstructions).
@@ -126,15 +128,7 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
         toolChoice: config.toolChoice,
         stopWhen: stepCountIs(config.maxSteps),
         maxOutputTokens: config.maxOutputTokens,
-        providerOptions: {
-          anthropic: {
-            // Haiku 5.5 thinks before the tool call, and those tokens count
-            // against the output cap. Nothing is emitted until thinking
-            // finishes, so a large form sits silent until the gateway 504s.
-            thinking: { type: "disabled" },
-            toolStreaming: true,
-          },
-        },
+        providerOptions: genProviderOptions(config.provider ?? "anthropic"),
         onFinish: config.onFinish
           ? async ({ usage, providerMetadata, finishReason }) => {
               await config.onFinish!({ usage, providerMetadata, finishReason });
