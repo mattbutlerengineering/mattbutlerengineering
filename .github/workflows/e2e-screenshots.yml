@@ -1,11 +1,15 @@
 name: E2E Screenshots
+# No `pull_request` trigger (#8723). This job runs the whole hospitality suite
+# unsharded on one runner for 40-45 minutes. Measured over 2026-11-12
+# 00:00-02:30Z it was 466 of 2949 runner-minutes (16%), 8 of its 11 runs from
+# pull requests, while the account sat at its 20-concurrent-job cap and jobs
+# waited a median 107 s (p90 628 s) for a runner. Pull requests still run the
+# same specs through e2e.yml (sharded, real backend); the no-backend variant
+# and its screenshots artifact run after merge and on demand.
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - "apps/hospitality/**"
-  pull_request:
     paths:
       - "apps/hospitality/**"
 

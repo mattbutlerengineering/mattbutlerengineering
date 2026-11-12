@@ -15,6 +15,13 @@ on:
       - "GEMINI.md"
   workflow_dispatch: # Allow manual trigger
 
+# A new push to a pull request supersedes its older run (#8723: runners are
+# capped at 20 concurrent jobs). Push and manual runs fall back to the unique
+# run id, so they are never cancelled and never queue behind another.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
