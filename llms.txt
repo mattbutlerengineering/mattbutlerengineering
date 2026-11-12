@@ -9823,6 +9823,63 @@
   </file>
   </section>
   <section priority="medium" role="i18n">
+  <file path="apps/hospitality/src/i18n/availability-glossary.ts">
+    <item priority="high">
+      type Catalog = Readonly<Record<string, unknown>>;
+    </item>
+    <item priority="low">
+      type GlossaryCatalogs = Readonly<Record<"en-US" | "es-MX" | "fr-CA" | "en-GB", Ca...;
+    </item>
+    <item priority="high">
+      interface GlossaryEntry {
+        concept: string;
+        term: string;
+        retired: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_GLOSSARY: readonly GlossaryEntry[];
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_NAMESPACES: readonly string[];
+    </item>
+    <item priority="high">
+      export const LEGACY_KEYS: ReadonlySet<string>;
+    </item>
+    <item priority="high">
+      interface GlossaryProblem {
+        kind: "retired-word" | "missing-key" | "stale-legacy-key";
+        locale: keyof GlossaryCatalogs;
+        key: string;
+        detail: string;
+      }
+    </item>
+    <item priority="medium">
+      function leaves(node: unknown, path: string): readonly (readonly [string, string])[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scoped(catalog: Catalog): readonly (readonly [string, string])[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function retiredPattern(word: string): RegExp { /* ... */ }
+    </item>
+    <item priority="medium">
+      function retiredWordIn(value: string): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function retiredWordProblems(
+        locale: keyof GlossaryCatalogs,
+        catalog: Catalog,
+        legacyKeys: ReadonlySet<string>
+      ): readonly GlossaryProblem[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkAvailabilityGlossary(
+        catalogs: GlossaryCatalogs,
+        legacyKeys: ReadonlySet<string>
+      ): readonly GlossaryProblem[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/i18n/default-t.ts">
     <item priority="high">
       export const defaultT: TFunction;

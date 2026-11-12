@@ -52,7 +52,7 @@ PRD criteria are numbered as in `prd.md`. Walkthroughs are numbered as in `ux.md
 - [ ] **H1.6 Hub page** — `pages/AvailabilityHubPage.tsx`, `hub/HubRow.tsx`, `hub/DateCheck.tsx`; index route. Today line, date check, five rows with one action each, "Open calendar", "History". Row actions use the address module. Host view. Empty venue: a Manager is redirected to regular hours; a Host reads the empty sentence. Loading and error states as in `ux.md`.
   - Accept: `e2e/availability-hub.spec.ts` asserts the five row names in order, the "later rows win" line, the demo sentence and marked row for Dec 24 on the demo venue, first-paint controls at most 10 plus one per service at 1280x800 within 1.0 screens and at 375x812 within 1.5, a Host seeing no edit control, and zero axe violations at 1280, 820 and 375. Every row action lands on a view that renders. First setup still counts exactly 5 (`e2e/availability-interaction-baselines.spec.ts`). PRD 1, 3, 5, 17, 23, 24.
   - Blocked by: H1.2, H1.4, H1.5
-- [ ] **H1.7 Glossary ratchet** — `i18n/availability-glossary.ts` and `availability-glossary.test.ts`, with a `LEGACY_KEYS` allowlist holding every key that still uses a retired word.
+- [x] **H1.7 Glossary ratchet** — `i18n/availability-glossary.ts` and `availability-glossary.test.ts`, with a `LEGACY_KEYS` allowlist holding every key that still uses a retired word.
   - Accept: the test fails when a retired word is added to an en-US value outside the allowlist, fails when es-MX or fr-CA lacks a key, and passes on the branch. PRD 12.
   - Blocked by: —
 
