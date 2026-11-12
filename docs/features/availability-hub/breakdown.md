@@ -40,7 +40,7 @@ PRD criteria are numbered as in `prd.md`. Walkthroughs are numbered as in `ux.md
 - [ ] **H1.2 Layout and route table** — `pages/AvailabilityLayout.tsx` with an outlet and `useAvailabilityScope()` (`venueId`, `timezone`, `today`, `state`, `isManager`, `refresh`). `main.tsx`: `availability` gains children; today's page mounts unchanged at `calendar`; old search params redirect with a replace. `RequireManager` gains `redirectTo`. `ROUTE_LABEL_KEYS` gains the new segments. Ledger, size budgets and chunk coverage updated.
   - Accept: loading `/availability/calendar?tab=special` shows today's Special dates tab; loading `/availability?tab=special` redirects there; the breadcrumb never reads "Details" on an Availability address; `ledger.mjs check` and `check-chunk-coverage.mjs` pass; every existing availability e2e spec passes with only its navigation helper changed.
   - Blocked by: H1.1
-- [ ] **H1.3 Shared rule summaries** — `components/availability/rule-summaries.ts`: a pure `scheduleUsage` (from `SchedulesTab.tsx:62-93`) and `upcomingRules` (from `setup-tree.ts:321`). Both callers use it.
+- [x] **H1.3 Shared rule summaries** — `components/availability/rule-summaries.ts`: a pure `scheduleUsage` (from `SchedulesTab.tsx:62-93`) and `upcomingRules` (from `setup-tree.ts:321`). Both callers use it.
   - Accept: unit tests reproduce "Not used yet", days only, a range, "from" and "until", and rules only; `SchedulesTab` and `setup-tree` tests pass unchanged.
   - Blocked by: —
 - [ ] **H1.4 `hubRows`** — `components/availability/hub/hub-rows.ts`, pure, with no text.

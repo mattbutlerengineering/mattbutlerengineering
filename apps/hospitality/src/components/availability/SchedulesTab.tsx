@@ -19,6 +19,7 @@ import { scheduleNameText } from "./day-summary.js";
 import { buildDeleteScheduleChanges, isScheduleUnused } from "./schedule-changes.js";
 import type { QuickSetupDraft } from "./quick-setup-draft.js";
 import { RegularWeekPanel } from "./RegularWeekPanel.js";
+import { scheduleUsage } from "./rule-summaries.js";
 import type { ScheduleEditorMode } from "./ScheduleEditorDrawer.js";
 import { SaveFailure, ScheduleDraftGuard, useWeekdaySummary } from "./ScheduleFormParts.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
@@ -65,16 +66,11 @@ function useUsageText(state: AvailabilityConfigState) {
   const summary = useWeekdaySummary();
   const day = (date: string) => format.formatCalendarDate(date, { month: "short", day: "numeric" });
   return (schedule: Schedule): string => {
-    const uses = state.config.assignments.filter((a) => a.scheduleId === schedule.id);
-    if (uses.length === 0) {
-      const rules = state.config.dateRules.filter(
-        (r) => r.kind === "use_schedule" && r.useScheduleId === schedule.id
-      ).length;
-      return rules > 0
-        ? t("availabilitySchedules.usedByRules", { count: rules })
-        : t("availabilitySchedules.notUsed");
-    }
-    return uses
+    const usage = scheduleUsage(state.config, schedule.id);
+    if (usage.kind === "unused") return t("availabilitySchedules.notUsed");
+    if (usage.kind === "rules")
+      return t("availabilitySchedules.usedByRules", { count: usage.count });
+    return usage.periods
       .map((a) => {
         const days = summary(a.weekdays);
         if (a.startsOn && a.endsOn)

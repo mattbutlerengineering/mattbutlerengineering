@@ -8,6 +8,7 @@ import type {
   VenueSettings,
 } from "@mbe/types";
 import { availabilityPath } from "../availability/availability-address.js";
+import { upcomingRules } from "../availability/rule-summaries.js";
 
 /**
  * Venue Setup hub (architecture.md "Setup tree"): config, floor plans, sections, tables and
@@ -311,16 +312,6 @@ function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode 
       : [],
     children: schedules,
   };
-}
-
-/** Rules the hub lists: closures and special hours that have not finished. */
-function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] {
-  return rules
-    .filter((r) => r.kind === "closure" || r.kind === "special_hours")
-    .filter((r) => r.endsOn == null || r.endsOn >= today)
-    .sort((a, b) =>
-      a.startsOn === b.startsOn ? a.id.localeCompare(b.id) : a.startsOn < b.startsOn ? -1 : 1
-    );
 }
 
 function targetOf(

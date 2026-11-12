@@ -4437,6 +4437,44 @@
       return section !== undefined ? { kind: "section", section } : { kind: "venue" };
     }
   </file>
+  <file path="src/components/availability/rule-summaries.ts">
+    export interface ScheduleUsagePeriod {
+      readonly weekdays: readonly number[];
+      /** `YYYY-MM-DD`; `null` when the assignment has no start. */
+      readonly startsOn: string | null;
+      /** `YYYY-MM-DD`; `null` when the assignment has no end. */
+      readonly endsOn: string | null;
+    }
+    export type ScheduleUsage =
+      | { readonly kind: "unused" }
+      | { readonly kind: "rules"; readonly count: number }
+      | { readonly kind: "periods"; readonly periods: readonly ScheduleUsagePeriod[] };
+    export function scheduleUsage(config: AvailabilityConfig, scheduleId: string): ScheduleUsage {
+      const uses = config.assignments.filter((a) => a.scheduleId === scheduleId);
+      if (uses.length === 0) {
+        const count = config.dateRules.filter(
+          (r) => r.kind === "use_schedule" && r.useScheduleId === scheduleId
+        ).length;
+        return count > 0 ? { kind: "rules", count } : { kind: "unused" };
+      }
+      return {
+        kind: "periods",
+        periods: uses.map((a) => ({
+          weekdays: a.weekdays,
+          startsOn: a.startsOn || null,
+          endsOn: a.endsOn || null,
+        })),
+      };
+    }
+    export function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] {
+      return rules
+        .filter((r) => r.kind === "closure" || r.kind === "special_hours")
+        .filter((r) => r.endsOn == null || r.endsOn >= today)
+        .sort((a, b) =>
+          a.startsOn === b.startsOn ? a.id.localeCompare(b.id) : a.startsOn < b.startsOn ? -1 : 1
+        );
+    }
+  </file>
   <file path="src/components/availability/schedule-changes.ts">
     export interface UseOn {
       readonly weekdays: readonly number[];
@@ -20702,14 +20740,6 @@
           : [],
         children: schedules,
       };
-    }
-    function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] {
-      return rules
-        .filter((r) => r.kind === "closure" || r.kind === "special_hours")
-        .filter((r) => r.endsOn == null || r.endsOn >= today)
-        .sort((a, b) =>
-          a.startsOn === b.startsOn ? a.id.localeCompare(b.id) : a.startsOn < b.startsOn ? -1 : 1
-        );
     }
     function targetOf(
       rule: DateRule,
