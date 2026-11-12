@@ -72,6 +72,10 @@ export interface AvailabilityDayEditorProps {
   readonly held?: boolean;
   /** The element that says why editing is held. */
   readonly heldReasonId?: string;
+  /** A past date is history: the rows are shown as text, with nothing to edit or add. */
+  readonly readOnly?: boolean;
+  /** Open the editor on its rows as soon as it can (a layer's "Edit hours for <date>"). */
+  readonly startOpen?: boolean;
 }
 
 interface EditState {
@@ -116,7 +120,7 @@ const holdsEdits = (edit: EditState | null): boolean =>
 export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { venueId, date, day, state, timezone, today } = props;
   const { onDirtyChange, onCancel, onFinished, onStale, fixedDates, ruleScope } = props;
-  const { held = false, heldReasonId } = props;
+  const { held = false, heldReasonId, readOnly = false, startOpen = false } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const phone = useViewport() === "phone";
@@ -231,6 +235,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
       mode: "keep",
     });
   };
+
+  // A layer's "Edit hours for <date>" opens the editor itself rather than pointing at a button.
+  useEffect(() => {
+    if (startOpen && !readOnly && !edit) begin();
+    // Only a new request starts it; a draft that ends (Cancel) must not reopen by itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startOpen]);
 
   // The button that opened the editor is gone, so focus goes to the row it was about.
   useEffect(() => {
@@ -369,27 +380,31 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
               <Text as="span" variant="body" color="primary" className={styles.serviceLine}>
                 {namedServiceHoursText(service.name, service, { t, format })}
               </Text>
-              <Button
-                variant="secondary"
-                size="sm"
-                {...waitingProps(held, heldReasonId)}
-                onClick={() => begin(false, row)}
-              >
-                {t("availability.editor.edit", { name: service.name })}
-              </Button>
+              {!readOnly && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  {...waitingProps(held, heldReasonId)}
+                  onClick={() => begin(false, row)}
+                >
+                  {t("availability.editor.edit", { name: service.name })}
+                </Button>
+              )}
             </li>
           ))}
         </ul>
-        <div>
-          <Button
-            variant="secondary"
-            size="sm"
-            {...waitingProps(held, heldReasonId)}
-            onClick={() => begin(true)}
-          >
-            {t("availability.editor.addService")}
-          </Button>
-        </div>
+        {!readOnly && (
+          <div>
+            <Button
+              variant="secondary"
+              size="sm"
+              {...waitingProps(held, heldReasonId)}
+              onClick={() => begin(true)}
+            >
+              {t("availability.editor.addService")}
+            </Button>
+          </div>
+        )}
       </Stack>
     );
   }
