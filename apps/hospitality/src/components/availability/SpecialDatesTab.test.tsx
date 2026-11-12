@@ -156,6 +156,11 @@ function pickScope(choice: string) {
   fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
 }
 
+/** The holidays start as one line under the venue's own dates; this opens them in place. */
+function planHolidays() {
+  fireEvent.click(screen.getByRole("button", { name: /^(Plan|View) holidays$/ }));
+}
+
 describe("SpecialDatesTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -222,16 +227,17 @@ describe("SpecialDatesTab", () => {
     ).toBeTruthy();
   });
 
-  it("offers Add special date to a Manager only", () => {
+  it("offers Add special dates to a Manager only", () => {
     const { unmount } = renderTab(true);
-    expect(screen.getByRole("button", { name: "Add special date" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Add special dates" })).toBeTruthy();
     unmount();
     renderTab(false);
-    expect(screen.queryByRole("button", { name: "Add special date" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Add special dates" })).toBeNull();
   });
 
   it("shows a Manager the coming holidays and a Host the same panel read-only", () => {
     const { unmount } = renderTab(true);
+    planHolidays();
     const panel = screen.getByRole("region", { name: "Upcoming holidays" });
     // Dec 24 is already closed, so it is decided; the first five undecided show.
     expect(
@@ -245,6 +251,7 @@ describe("SpecialDatesTab", () => {
     unmount();
 
     renderTab(false);
+    planHolidays();
     const host = screen.getByRole("region", { name: "Upcoming holidays" });
     expect(within(host).queryByRole("group")).toBeNull();
     expect(within(host).getAllByText("Not decided").length).toBeGreaterThan(0);
@@ -264,6 +271,7 @@ describe("SpecialDatesTab", () => {
       ],
     });
     renderTab(true);
+    planHolidays();
     fireEvent.click(
       within(screen.getByRole("group", { name: "Christmas Day, Fri, Dec 25" })).getByRole(
         "button",
@@ -313,6 +321,7 @@ describe("SpecialDatesTab", () => {
       },
     ]);
     renderTab(true);
+    planHolidays();
     fireEvent.click(
       within(screen.getByRole("group", { name: "Christmas Day, Fri, Dec 25" })).getByRole(
         "button",
@@ -333,7 +342,15 @@ describe("SpecialDatesTab", () => {
     );
     createClosure.mockResolvedValue({ version: 8, results: [] });
     renderTab(true);
+    planHolidays();
     fireEvent.click(screen.getByRole("button", { name: "Close these 3" }));
+    // It asks first, and nothing is written until it is confirmed.
+    expect(createClosure).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(screen.getByRole("dialog", { name: "Close these 3 dates?" })).getByRole("button", {
+        name: "Close 3 dates",
+      })
+    );
 
     await waitFor(() => expect(createClosure).toHaveBeenCalledTimes(1));
     expect(
@@ -353,6 +370,7 @@ describe("SpecialDatesTab", () => {
     previewImpact.mockReturnValueOnce(promise);
     createClosure.mockResolvedValue({ version: 8, results: [] });
     renderTab(true);
+    planHolidays();
     const closed = (name: string) =>
       within(screen.getByRole("group", { name })).getByRole("button", { name: "Closed" });
     fireEvent.click(closed("Christmas Day, Fri, Dec 25"));
@@ -373,6 +391,7 @@ describe("SpecialDatesTab", () => {
   });
   it("Special hours… opens Add special date on that date, starting from an hours row", () => {
     renderTab(true);
+    planHolidays();
     fireEvent.click(
       within(screen.getByRole("group", { name: "Christmas Day, Fri, Dec 25" })).getByRole(
         "button",
@@ -394,6 +413,7 @@ describe("SpecialDatesTab", () => {
       ...STATE,
       config: { ...DEMO_WEEK_CONFIG, dateRules: RULES },
     } as AvailabilityConfigState);
+    planHolidays();
     fireEvent.click(
       within(screen.getByRole("group", { name: "Valentine’s Day, Sun, Feb 14" })).getByRole(
         "button",
@@ -417,6 +437,7 @@ describe("SpecialDatesTab", () => {
       createdAt: "2026-12-01T00:00:00Z",
     });
     renderTab(true);
+    planHolidays();
     fireEvent.click(
       within(screen.getByRole("group", { name: "Valentine’s Day, Sun, Feb 14" })).getByRole(
         "button",
@@ -440,6 +461,7 @@ describe("SpecialDatesTab", () => {
       createdAt: "2026-12-01T00:00:00Z",
     });
     renderTab(true);
+    planHolidays();
     const panel = screen.getByRole("region", { name: "Upcoming holidays" });
     fireEvent.click(within(panel).getByRole("button", { name: "Decided (1)" }));
     fireEvent.click(
@@ -470,6 +492,7 @@ describe("SpecialDatesTab", () => {
 
   it("leaves the decision unwritten when the Reopen dialog is cancelled", async () => {
     renderTab(true);
+    planHolidays();
     const panel = screen.getByRole("region", { name: "Upcoming holidays" });
     fireEvent.click(within(panel).getByRole("button", { name: "Decided (1)" }));
     fireEvent.click(
@@ -495,8 +518,8 @@ describe("SpecialDatesTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
 
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("radio", { name: "This and following" })).toBeTruthy();
-    expect(within(dialog).getByRole("radio", { name: "All dates in the series" })).toBeTruthy();
+    expect(within(dialog).getByRole("radio", { name: /^This and following from/ })).toBeTruthy();
+    expect(within(dialog).getByRole("radio", { name: "All dates" })).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Skip this date" }));
 
     await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
@@ -821,9 +844,9 @@ describe("SpecialDatesTab", () => {
         ).toBeTruthy();
       });
 
-      it("words an open-ended hours rule as 'from <date> on', not 'until reopened'", () => {
+      it("words an open-ended repeating hours rule by its weekday and start, not 'until reopened'", () => {
         renderTab(true, stateWith(fridays));
-        expect(screen.getByText("From Fri, Sep 4 on")).toBeTruthy();
+        expect(screen.getByText("Every Friday, from Sep 4")).toBeTruthy();
         expect(screen.queryByText(/until reopened/)).toBeNull();
       });
 
@@ -1650,7 +1673,7 @@ describe("SpecialDatesTab", () => {
     renderTab();
     fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
     const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("radio", { name: "This and following" }));
+    fireEvent.click(within(dialog).getByRole("radio", { name: /^This and following from/ }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
@@ -1690,7 +1713,7 @@ describe("SpecialDatesTab", () => {
     const addTuesdayFromHere = () => {
       fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
       const dialog = screen.getByRole("dialog");
-      fireEvent.click(within(dialog).getByRole("radio", { name: "This and following" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: /^This and following from/ }));
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Tue" }));
       fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     };
@@ -1757,7 +1780,7 @@ describe("SpecialDatesTab", () => {
       renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [weekends] } });
       fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
       const dialog = screen.getByRole("dialog");
-      fireEvent.click(within(dialog).getByRole("radio", { name: "All dates in the series" }));
+      fireEvent.click(within(dialog).getByRole("radio", { name: "All dates" }));
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Sat" }));
       fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
 
@@ -2107,6 +2130,127 @@ describe("SpecialDatesTab", () => {
     expect(screen.queryByRole("button", { name: /^Remove/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Retry refunds" })).toBeNull();
     expect(screen.getByRole("button", { name: "Call list for Thu, Dec 24" })).toBeTruthy();
+  });
+
+  describe("the venue's own dates first, one vocabulary (#8692)", () => {
+    const only = (rule: DateRule): AvailabilityConfigState => ({
+      ...STATE,
+      config: { ...STATE.config, dateRules: [rule] },
+    });
+    const pause = {
+      id: "pause",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      startsOn: "2026-12-10",
+      endsOn: "2026-12-10",
+    } as DateRule;
+
+    it("lists the venue's own dates before the holidays, which are one collapsed line", () => {
+      renderTab();
+      const row = screen.getByText("Thu, Dec 24");
+      const holidays = screen.getByRole("region", { name: "Upcoming holidays" });
+      expect(row.compareDocumentPosition(holidays) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(within(holidays).getByText(/holidays? not planned$/)).toBeTruthy();
+      expect(within(holidays).getAllByRole("button")).toHaveLength(1);
+    });
+
+    it("hides the holidays unless the filter is All", () => {
+      renderTab();
+      for (const filter of ["Closures", "Special hours", "Repeating", "Past"]) {
+        fireEvent.click(screen.getByRole("radio", { name: filter }));
+        expect(screen.queryByRole("region", { name: "Upcoming holidays" })).toBeNull();
+      }
+      fireEvent.click(screen.getByRole("radio", { name: "All" }));
+      expect(screen.getByRole("region", { name: "Upcoming holidays" })).toBeTruthy();
+    });
+
+    it("names a repeating closure's weekdays in its row", () => {
+      renderTab();
+      expect(screen.getByText("Every Monday, Jan 5 to Mar 30")).toBeTruthy();
+    });
+
+    it("asks to resume, not reopen, when a booking pause is removed", () => {
+      renderTab(true, only(pause));
+      fireEvent.click(screen.getByRole("button", { name: /^Remove closure for/ }));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("Resume online booking?")).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Resume" })).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Keep paused" })).toBeTruthy();
+      expect(dialog.textContent).not.toMatch(/Reopen|Keep closed/);
+    });
+
+    it("names the section when a section closure is removed", () => {
+      const bar = {
+        id: "bar",
+        kind: "closure",
+        targetKind: "tables",
+        sectionId: "sec-bar",
+        tableIds: ["t1"],
+        startsOn: "2026-12-10",
+        endsOn: "2026-12-10",
+      } as DateRule;
+      render(
+        <VenueContext.Provider value={VENUE}>
+          <ToastProvider>
+            <main>
+              <SpecialDatesTab
+                venueId="venue-1"
+                state={only(bar)}
+                timezone="America/Los_Angeles"
+                today="2026-12-01"
+                onStale={vi.fn()}
+                isManager
+                sectionNames={new Map([["sec-bar", "Bar"]])}
+              />
+            </main>
+          </ToastProvider>
+        </VenueContext.Provider>
+      );
+      fireEvent.click(screen.getByRole("button", { name: /^Remove closure for/ }));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("Reopen the Bar?")).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Reopen the Bar" })).toBeTruthy();
+    });
+
+    it("keeps Reopen and Keep closed for a venue closure", () => {
+      renderTab();
+      fireEvent.click(screen.getByRole("button", { name: "Remove closure for Thu, Dec 24" }));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("Reopen Thu, Dec 24?")).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Keep closed" })).toBeTruthy();
+    });
+
+    it("asks the same scope question, with the same labels, for special hours and a repeating closure", () => {
+      const hours = {
+        id: "hours",
+        kind: "special_hours",
+        targetKind: "venue",
+        startsOn: "2026-12-04",
+        endsOn: null,
+        repeat: { version: 1, weekdays: [5] },
+        payload: { version: 1, services: [] },
+      } as unknown as DateRule;
+      const labels = () =>
+        within(screen.getByRole("dialog"))
+          .getAllByRole("radio")
+          .map((r) =>
+            (r.getAttribute("aria-label") ?? r.closest("label")?.textContent ?? "").replace(
+              /[A-Z][a-z]{2}, [A-Z][a-z]{2} \d+/,
+              "<date>"
+            )
+          );
+      const view = renderTab(true, only(hours));
+      fireEvent.click(screen.getByRole("button", { name: /^Edit special hours/ }));
+      const hoursLabels = labels();
+      view.unmount();
+
+      renderTab(true, STATE);
+      fireEvent.click(screen.getByRole("button", { name: "Edit dates…" }));
+      const closureLabels = labels();
+      expect(hoursLabels).toEqual(closureLabels);
+      expect(closureLabels).toEqual(["Only <date>", "This and following from <date>", "All dates"]);
+    });
   });
 
   it("has no axe violations", async () => {

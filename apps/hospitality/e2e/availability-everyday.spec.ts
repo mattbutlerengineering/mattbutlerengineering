@@ -294,7 +294,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     await dialog.getByRole("combobox", { name: "When" }).click();
-    await counter.page.getByRole("option", { name: "Repeats", exact: true }).click();
+    await counter.page.getByRole("option", { name: "Repeating", exact: true }).click();
     await dialog.getByRole("combobox", { name: "From" }).click();
     await nextMonth(counter.page).click();
     await nextMonth(counter.page).click();

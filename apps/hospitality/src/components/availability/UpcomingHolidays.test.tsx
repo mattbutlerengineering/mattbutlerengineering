@@ -76,7 +76,8 @@ const problem = (status: number, extra: Record<string, unknown> = {}) =>
     "holiday-decisions"
   );
 
-function setup(over: Partial<UpcomingHolidaysProps> = {}) {
+/** Mounts the panel and, unless `open` is false, opens the one line it starts as. */
+function setup(over: Partial<UpcomingHolidaysProps> = {}, open = true) {
   const props: UpcomingHolidaysProps = {
     venueId: "venue-1",
     state: stateWith(),
@@ -100,6 +101,7 @@ function setup(over: Partial<UpcomingHolidaysProps> = {}) {
     </VenueContext>
   );
   const view = render(element(props));
+  if (open) fireEvent.click(screen.getByRole("button", { name: /^(Plan|View) holidays$/ }));
   return { props, rerender: (next: UpcomingHolidaysProps) => view.rerender(element(next)) };
 }
 
@@ -107,6 +109,14 @@ const panel = () => screen.getByRole("region", { name: "Upcoming holidays" });
 const choices = (name: string) => screen.getByRole("group", { name });
 const press = (name: string, choice: string) =>
   fireEvent.click(within(choices(name)).getByRole("button", { name: choice }));
+
+/** Close these N asks first, naming the dates; this presses it and confirms. */
+const closeUsual = (count: number) => {
+  fireEvent.click(within(panel()).getByRole("button", { name: `Close these ${count}` }));
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: `Close ${count} dates` })
+  );
+};
 
 const THANKSGIVING = "Thanksgiving, Thu, Nov 26";
 const CHRISTMAS_EVE = "Christmas Eve, Thu, Dec 24";
@@ -122,6 +132,32 @@ describe("UpcomingHolidays", () => {
     clearDecision.mockResolvedValue(undefined);
     saveConfig.mockResolvedValue({ version: 8, changeId: "c" });
     getConfig.mockResolvedValue({ version: 9 });
+  });
+
+  describe("collapsed", () => {
+    it("starts as one line that counts the holidays not planned, with no choices", () => {
+      read.decisions = [decision("2026-12-24")];
+      setup({}, false);
+      const line = screen.getByRole("region", { name: "Upcoming holidays" });
+      expect(within(line).getByText(/^\d+ holidays not planned$/)).toBeTruthy();
+      expect(within(line).getAllByRole("button")).toHaveLength(1);
+      expect(within(line).queryByRole("group")).toBeNull();
+    });
+
+    it("opens in place on Plan holidays and folds back on Hide holidays", () => {
+      setup({}, false);
+      fireEvent.click(screen.getByRole("button", { name: "Plan holidays" }));
+      expect(within(panel()).getAllByRole("group").length).toBeGreaterThan(0);
+      fireEvent.click(within(panel()).getByRole("button", { name: "Hide holidays" }));
+      expect(screen.queryByRole("group")).toBeNull();
+      expect(screen.getByRole("button", { name: "Plan holidays" })).toBeTruthy();
+    });
+
+    it("offers a Host View holidays, not Plan holidays", () => {
+      setup({ isManager: false }, false);
+      expect(screen.queryByRole("button", { name: "Plan holidays" })).toBeNull();
+      expect(screen.getByRole("button", { name: "View holidays" })).toBeTruthy();
+    });
   });
 
   describe("the list", () => {
@@ -170,7 +206,7 @@ describe("UpcomingHolidays", () => {
     it("says what is wrong, with no lines, when the decisions cannot be read, and retries", () => {
       read.decisions = undefined;
       read.error = new Error("down");
-      setup();
+      setup({}, false);
       expect(within(panel()).queryAllByRole("listitem")).toHaveLength(0);
       expect(within(panel()).queryByRole("group")).toBeNull();
       expect(within(panel()).getByText("Couldn't load your holiday decisions.")).toBeTruthy();
@@ -180,7 +216,7 @@ describe("UpcomingHolidays", () => {
 
     it("shows no lines while the decisions load", () => {
       read.decisions = undefined;
-      setup();
+      setup({}, false);
       expect(within(panel()).queryAllByRole("listitem")).toHaveLength(0);
       expect(within(panel()).queryByRole("button", { name: "Closed" })).toBeNull();
     });
@@ -194,7 +230,7 @@ describe("UpcomingHolidays", () => {
           "Restaurants usually close Thanksgiving, Christmas Day, and New Year’s Day."
         )
       ).toBeTruthy();
-      fireEvent.click(within(panel()).getByRole("button", { name: "Close these 3" }));
+      closeUsual(3);
       expect(props.onClose).toHaveBeenCalledWith(
         [
           { date: "2026-11-26", name: "Thanksgiving", kind: "closed" },
@@ -207,9 +243,26 @@ describe("UpcomingHolidays", () => {
       expect(setDecision).not.toHaveBeenCalled();
     });
 
-    it("marks all three lines saving, and blocks every other press, until the sheet closes", () => {
+    it("confirms first, naming every date, and closes nothing until confirmed", () => {
       const { props } = setup();
       fireEvent.click(within(panel()).getByRole("button", { name: "Close these 3" }));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("Close these 3 dates?")).toBeTruthy();
+      expect(
+        within(dialog).getByText(
+          /Thanksgiving, Thu, Nov 26, Christmas Day, Fri, Dec 25, and New Year’s Day, Fri, Jan 1/
+        )
+      ).toBeTruthy();
+      expect(props.onClose).not.toHaveBeenCalled();
+
+      fireEvent.click(within(dialog).getByRole("button", { name: "Not now" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(props.onClose).not.toHaveBeenCalled();
+    });
+
+    it("marks all three lines saving, and blocks every other press, until the sheet closes", () => {
+      const { props } = setup();
+      closeUsual(3);
       for (const name of [THANKSGIVING, CHRISTMAS_DAY, "New Year’s Day, Fri, Jan 1"]) {
         for (const b of within(choices(name)).getAllByRole("button")) expect(b).toBeDisabled();
       }

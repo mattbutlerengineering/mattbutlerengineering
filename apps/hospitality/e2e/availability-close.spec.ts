@@ -301,7 +301,7 @@ test.describe("Availability close dialog (F5)", () => {
         "One date",
         "Several dates",
         "Date range",
-        "Repeats",
+        "Repeating",
         "Until I reopen",
       ]);
       await mockedPage.keyboard.press("Escape");

@@ -3332,10 +3332,22 @@
       function weekdayList(rule: SpecialDateRule, format: VenueFormat): string { /* ... */ }
     </item>
     <item priority="high">
+      export function rowTitle(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
     </item>
     <item priority="high">
       export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="low">
+      type ClosureKind = { readonly kind: "venue" } | { readonly kind: "section"; re | { readonly kind: "booking"; re;
+    </item>
+    <item priority="high">
+      export function closureKindOf(
+        rule: SpecialDateRule,
+        sectionNames?: ReadonlyMap<string, string>
+      ): ClosureKind { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/schedule-changes.ts">

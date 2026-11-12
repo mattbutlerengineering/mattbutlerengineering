@@ -31,7 +31,14 @@ import type { HolidaySheetRequest } from "./use-holiday-decision.js";
 import { useHolidayNames } from "./use-holidays.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
-import { closureSubject, DATE_FORMAT, hoursSubject, rangeLabel } from "./rule-subjects.js";
+import {
+  closureKindOf,
+  closureSubject,
+  DATE_FORMAT,
+  hoursSubject,
+  rangeLabel,
+  rowTitle,
+} from "./rule-subjects.js";
 import { isSeries, restoreDate, skipRows, type SeriesScope } from "./series-edit.js";
 import { SpecialHoursEditDrawer } from "./SpecialHoursEditDrawer.js";
 import { SpecialHoursScopeDialog } from "./SpecialHoursScopeDialog.js";
@@ -96,14 +103,16 @@ function closureDetail(
   t: TFunction,
   sectionNames?: ReadonlyMap<string, string>
 ): string {
-  const channels = (rule.bookingTypes ?? []).map((c) => t(`availability.close.what.channel.${c}`));
-  const section =
-    rule.targetKind === "tables" && rule.sectionId ? sectionNames?.get(rule.sectionId) : undefined;
+  const closes = closureKindOf(rule, sectionNames);
   const what =
-    rule.targetKind === "booking" && channels.length > 0
-      ? t("availabilitySpecial.kind.bookingPaused", { channels: channels.join(", ") })
-      : section !== undefined
-        ? t("availabilitySpecial.kind.sectionClosed", { section })
+    closes.kind === "booking"
+      ? t("availabilitySpecial.kind.bookingPaused", {
+          channels: closes.channels
+            .map((c) => t(`availability.close.what.channel.${c}`))
+            .join(", "),
+        })
+      : closes.kind === "section"
+        ? t("availabilitySpecial.kind.sectionClosed", { section: closes.section })
         : t("availabilitySpecial.kind.closure");
   return rule.window
     ? [
@@ -114,7 +123,10 @@ function closureDetail(
 }
 
 interface RowProps {
+  /** What the row is headed: the dates, and a repeat's weekdays. */
   readonly title: string;
+  /** The dates alone, which the row's buttons name themselves by ("Remove closure for Thu, Dec 24"). */
+  readonly label: string;
   readonly detail: string;
   readonly message?: string | null;
   readonly summary: ClosureSummary | undefined;
@@ -146,7 +158,7 @@ interface RowProps {
 }
 
 function SpecialDateItem(props: RowProps) {
-  const { title, detail, message, summary, isManager, retrying, ruleId } = props;
+  const { title, label, detail, message, summary, isManager, retrying, ruleId } = props;
   const { t } = useTranslation();
   const refundCount = (summary?.refundFailed ?? 0) + (summary?.refundPending ?? 0);
   const format = useVenueFormat();
@@ -197,7 +209,7 @@ function SpecialDateItem(props: RowProps) {
         {summary && summary.unreachable > 0 && (
           <Button
             variant="secondary"
-            aria-label={t("availabilitySpecial.callListFor", { date: title })}
+            aria-label={t("availabilitySpecial.callListFor", { date: label })}
             onClick={() => props.onCallList(ruleId)}
           >
             {t("availabilitySpecial.callListOpen")}
@@ -211,7 +223,7 @@ function SpecialDateItem(props: RowProps) {
         {isManager && props.onEdit && (
           <Button
             variant="ghost"
-            aria-label={t("availabilitySpecial.editClosureFor", { date: title })}
+            aria-label={t("availabilitySpecial.editClosureFor", { date: label })}
             onClick={props.onEdit}
           >
             {t("availabilitySpecial.editClosure")}
@@ -259,7 +271,7 @@ function SpecialDateItem(props: RowProps) {
         {isManager && props.onRemove && (
           <Button
             variant="ghost"
-            aria-label={t("availabilitySpecial.removeClosureFor", { date: title })}
+            aria-label={t("availabilitySpecial.removeClosureFor", { date: label })}
             onClick={props.onRemove}
           >
             {t("availabilitySpecial.remove")}
@@ -448,28 +460,6 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
       )}
       {/* Outside the alert, which would read every row aloud. */}
       {rowSave.failure.length > 0 && <StrandedBookings reservations={rowSave.stranded} />}
-      {filter !== "past" && (
-        <UpcomingHolidays
-          key={venueId}
-          venueId={venueId}
-          state={state}
-          today={today}
-          isManager={isManager}
-          onStale={onStale}
-          onOpenDay={(date) => onOpenDay?.(date)}
-          onClose={(rows, savedTitle, request) =>
-            openSheet({ rows, autoNext: true, savedTitle, request })
-          }
-          onSpecialHours={(row, request) => openSheet({ rows: [row], request })}
-          onReopen={(ruleId, then) => {
-            const rule = rules.find((r): r is SpecialDateRule => r.id === ruleId);
-            if (!rule) return;
-            setAfterReopen(() => then);
-            setReopening(rule);
-          }}
-          onEditHours={(date) => setEditingHours({ date })}
-        />
-      )}
       {summaries.error && <Alert variant="error">{describeApiError(summaries.error).detail}</Alert>}
       {summaries.isLoading ? (
         <Skeleton variant="text" lines={3} />
@@ -486,7 +476,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               key={rule.id}
               {...shared}
               ruleId={rule.id}
-              title={rangeLabel(rule, format, t)}
+              title={rowTitle(rule, format, t)}
+              label={rangeLabel(rule, format, t)}
               detail={[
                 rule.endsOn === rule.startsOn && !rule.repeat ? holidays.get(rule.startsOn) : null,
                 rule.kind === "closure"
@@ -536,12 +527,35 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
               {...shared}
               ruleId={summary.ruleId}
               title={t("availabilitySpecial.ended.title")}
+              label={t("availabilitySpecial.ended.title")}
               detail={t("availabilitySpecial.ended.detail")}
               summary={summary}
               retrying={retryingId === summary.ruleId}
             />
           ))}
         </ul>
+      )}
+      {filter === "all" && (
+        <UpcomingHolidays
+          key={venueId}
+          venueId={venueId}
+          state={state}
+          today={today}
+          isManager={isManager}
+          onStale={onStale}
+          onOpenDay={(date) => onOpenDay?.(date)}
+          onClose={(rows, savedTitle, request) =>
+            openSheet({ rows, autoNext: true, savedTitle, request })
+          }
+          onSpecialHours={(row, request) => openSheet({ rows: [row], request })}
+          onReopen={(ruleId, then) => {
+            const rule = rules.find((r): r is SpecialDateRule => r.id === ruleId);
+            if (!rule) return;
+            setAfterReopen(() => then);
+            setReopening(rule);
+          }}
+          onEditHours={(date) => setEditingHours({ date })}
+        />
       )}
       {adding && (
         <AddSpecialDatesSheet
@@ -658,6 +672,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           venueId={venueId}
           ruleId={reopening.id}
           subject={closureSubject(reopening, format, t)}
+          closes={closureKindOf(reopening, sectionNames)}
           cancelled={cancelledOf(reopening.id)}
           notifiable={summaryOf(reopening.id)?.upcomingCancelled ?? null}
           countFailed={summaries.error != null}

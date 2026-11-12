@@ -72,6 +72,9 @@ function shortMidweekConfig(): AvailabilityConfig {
 const notifications = (page: Page) => page.getByRole("region", { name: "Notifications" });
 const holidays = (page: Page) => page.getByRole("region", { name: "Upcoming holidays" });
 const choices = (page: Page, name: string) => holidays(page).getByRole("group", { name });
+/** The holidays start as one line under the venue's own dates; this opens them in place. */
+const planHolidays = (page: Page) =>
+  page.getByRole("button", { name: /^(Plan|View) holidays$/ }).click();
 const specialDates = (page: Page) => page.getByRole("radio", { name: "Special dates" });
 
 /**
@@ -120,7 +123,7 @@ test.describe("Holiday decisions", () => {
     await pinClock(mockedPage, NOON);
   });
 
-  test("H1: close Thanksgiving, Christmas Day and New Year's Day in one tap (budget 3)", async ({
+  test("H1: close Thanksgiving, Christmas Day and New Year's Day after one confirmation (budget 4)", async ({
     mockedPage: page,
   }) => {
     const store = createSharedConfig(fOneConfig());
@@ -129,12 +132,18 @@ test.describe("Holiday decisions", () => {
     const counter = countInteractions(page);
 
     await specialDates(counter.page).click({ force: true });
+    await planHolidays(counter.page);
     await expect(
       holidays(page).getByText(
         /Restaurants usually close Thanksgiving, Christmas Day,? and New Year’s Day\./
       )
     ).toBeVisible();
     await holidays(counter.page).getByRole("button", { name: "Close these 3" }).click();
+    // Closing three dates asks first, naming them; nothing is written before it is confirmed.
+    const confirm = counter.page.getByRole("dialog", { name: "Close these 3 dates?" });
+    await expect(confirm).toContainText("Thanksgiving, Thu, Nov 26");
+    expect(store.batches).toHaveLength(0);
+    await confirm.getByRole("button", { name: "Close 3 dates" }).click();
 
     await expect.poll(() => store.batches.length).toBe(1);
     const rules = store.batches[0]!.items.map((item) => item.rule);
@@ -150,10 +159,10 @@ test.describe("Holiday decisions", () => {
     await expect(holidays(page).getByRole("button", { name: "Decided (3)" })).toBeVisible();
     await expect(holidays(page).getByRole("button", { name: "Close these 3" })).toHaveCount(0);
     expect(store.decisionCalls).toEqual([]);
-    record("H1", counter.count(), 3, BEFORE.H1);
+    record("H1", counter.count(), 4, BEFORE.H1);
   });
 
-  test("H2: Christmas Eve open as usual, seen by a second Manager with 0 interactions (budget 3)", async ({
+  test("H2: Christmas Eve open as usual, seen by a second Manager with 0 interactions (budget 4)", async ({
     mockedPage: page,
     browser,
   }) => {
@@ -163,6 +172,7 @@ test.describe("Holiday decisions", () => {
     const counter = countInteractions(page);
 
     await specialDates(counter.page).click({ force: true });
+    await planHolidays(counter.page);
     await choices(counter.page, "Christmas Eve, Thu, Dec 24")
       .getByRole("button", { name: "Open as usual" })
       .click();
@@ -171,7 +181,7 @@ test.describe("Holiday decisions", () => {
       { method: "PUT", date: "2026-12-24", body: { decision: "open_as_usual" } },
     ]);
     await expect(notifications(page).getByText("Christmas Eve: open as usual")).toBeVisible();
-    record("H2 first Manager", counter.count(), 3, BEFORE.H2);
+    record("H2 first Manager", counter.count(), 4, BEFORE.H2);
 
     // The second Manager, on another browser, loads Special dates and decides nothing.
     const other = await newManager(browser, store, NOON);
@@ -179,13 +189,14 @@ test.describe("Holiday decisions", () => {
       await other.page.goto("availability?tab=special");
       await expect(other.page.getByRole("region", { name: "Upcoming holidays" })).toBeVisible();
       const second = countInteractions(other.page);
-      await expect(
-        holidays(second.page).getByRole("button", { name: "Decided (1)" })
-      ).toBeVisible();
-      // Christmas Eve is not asked about again: no choices for it, among the undecided.
-      await expect(choices(second.page, "Christmas Eve, Thu, Dec 24")).toHaveCount(0);
-      await expect(choices(second.page, "Thanksgiving, Thu, Nov 26")).toBeVisible();
+      // The collapsed line already leaves Christmas Eve out of the holidays not planned.
+      await expect(holidays(second.page).getByText(/^\d+ holidays not planned$/)).toBeVisible();
       record("H2 second Manager", second.count(), 0);
+      await planHolidays(other.page);
+      await expect(holidays(other.page).getByRole("button", { name: "Decided (1)" })).toBeVisible();
+      // Christmas Eve is not asked about again: no choices for it, among the undecided.
+      await expect(choices(other.page, "Christmas Eve, Thu, Dec 24")).toHaveCount(0);
+      await expect(choices(other.page, "Thanksgiving, Thu, Nov 26")).toBeVisible();
       // Looking at the Decided group is reading, not deciding.
       await other.page.getByRole("button", { name: "Decided (1)" }).click();
       const line = other.page.getByRole("listitem").filter({ hasText: "Christmas Eve" });
@@ -213,6 +224,7 @@ test.describe("Holiday decisions", () => {
     const other = await newManager(browser, store, DEC_FIRST);
     try {
       await other.page.goto("availability?tab=special");
+      await planHolidays(other.page);
       await choices(other.page, "Christmas Eve, Thu, Dec 24")
         .getByRole("button", { name: "Open as usual" })
         .click();
@@ -240,6 +252,7 @@ test.describe("Holiday decisions", () => {
     const counter = countInteractions(page);
 
     await specialDates(counter.page).click({ force: true });
+    await planHolidays(counter.page);
     await choices(counter.page, "New Year’s Eve, Thu, Dec 31")
       .getByRole("button", { name: "Special hours…" })
       .click();
@@ -262,7 +275,7 @@ test.describe("Holiday decisions", () => {
     expect(rules).toHaveLength(1);
     expect(rules[0]).toMatchObject({ kind: "special_hours", endsOn: "2026-12-31" });
     expect(rules[0]!.repeat ?? null).toBeNull();
-    record("H3", counter.count(), BEFORE.H3, BEFORE.H3);
+    record("H3", counter.count(), BEFORE.H3 + 1, BEFORE.H3);
   });
 
   test("Decided → Change → Closed replaces the open mark: the closure first, then the mark is cleared", async ({
@@ -275,6 +288,7 @@ test.describe("Holiday decisions", () => {
     await expect(holidays(page)).toBeVisible();
     const counter = countInteractions(page);
 
+    await planHolidays(counter.page);
     await holidays(counter.page).getByRole("button", { name: "Decided (1)" }).click();
     await holidays(counter.page)
       .getByRole("button", { name: "Change Christmas Eve, Thu, Dec 24" })
@@ -297,7 +311,7 @@ test.describe("Holiday decisions", () => {
     ).toBeVisible();
     // It is still decided, now as a closure.
     await expect(holidays(page).getByRole("button", { name: "Decided (1)" })).toBeVisible();
-    record("Decided → Closed", counter.count(), 3);
+    record("Decided → Closed", counter.count(), 4);
   });
 
   test("a rejected decision says Couldn't save with Retry, and the line stays undecided", async ({
@@ -308,6 +322,7 @@ test.describe("Holiday decisions", () => {
     await serveSharedConfig(page, store);
     await page.goto("availability?tab=special");
     await expect(holidays(page)).toBeVisible();
+    await planHolidays(page);
 
     const group = choices(page, "Christmas Eve, Thu, Dec 24");
     await group.getByRole("button", { name: "Open as usual" }).click();
@@ -337,6 +352,9 @@ test.describe("Holiday decisions", () => {
     );
     await page.goto("availability?tab=special");
     await expect(holidays(page)).toBeVisible();
+    // A Host is offered no planning: the line says View holidays.
+    await expect(page.getByRole("button", { name: "Plan holidays" })).toHaveCount(0);
+    await planHolidays(page);
 
     await expect(holidays(page).getByText("Not decided").first()).toBeVisible();
     for (const name of ["Closed", "Open as usual", "Special hours…", "Close these 3"]) {
@@ -347,6 +365,50 @@ test.describe("Holiday decisions", () => {
     await expect(line).toContainText("Open as usual");
     await expect(line.getByRole("button")).toHaveCount(0);
     expect(store.decisionCalls).toEqual([]);
+  });
+});
+
+test.describe("Special dates lists the venue's own dates first (#8692)", () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  test.beforeEach(async ({ mockedPage }) => {
+    await pinClock(mockedPage, NOON);
+  });
+
+  test("the first row is the venue's next date, the holidays are one line below it, and first paint has at most 15 controls", async ({
+    mockedPage: page,
+  }) => {
+    const config = fOneConfig();
+    const store = createSharedConfig({
+      ...config,
+      dateRules: [
+        ...config.dateRules,
+        {
+          id: "closed-dec-24",
+          kind: "closure",
+          targetKind: "venue",
+          startsOn: "2026-12-24",
+          endsOn: "2026-12-24",
+        },
+      ],
+    });
+    await serveSharedConfig(page, store);
+    await page.goto("availability?tab=special");
+
+    const rows = page.getByRole("main").getByRole("listitem");
+    await expect(rows.first()).toContainText("Thu, Dec 24");
+    await expect(holidays(page).getByText(/^\d+ holidays not planned$/)).toBeVisible();
+    // The holiday line comes after the venue's own list.
+    const row = await rows.first().boundingBox();
+    const line = await holidays(page).boundingBox();
+    expect(row!.y).toBeLessThan(line!.y);
+
+    const controls = page
+      .getByRole("main")
+      .locator(
+        ':is(button, a[href], input, select, [role="radio"], [role="menuitem"]):visible:enabled'
+      );
+    expect(await controls.count()).toBeLessThanOrEqual(15);
   });
 });
 

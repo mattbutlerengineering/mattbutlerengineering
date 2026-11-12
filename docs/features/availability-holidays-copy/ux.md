@@ -41,6 +41,15 @@ Decided (2)                                                                   �
   Easter Sunday     Sun, Apr 5      Closed                         Change
 ```
 
+### Amended 2026-11-12 (#8692): the venue's own dates come first
+
+The holiday panel no longer sits above the venue's own special dates. This reverses the 2026-11-08 layout in three ways.
+
+- **Order:** the list of the venue's own dates comes first; the holidays sit below it as one line, "5 holidays not planned" with a **Plan holidays** button (a Host sees **View holidays**). The button opens the panel described below in place; **Hide holidays** folds it back. With every holiday decided the line reads "Every upcoming holiday is planned". The filters Closures, Special hours, Repeating and Past hide the holiday line; only All shows it.
+- **Closed:** still one press, but the toast now carries **Undo** when the save told no guest anything (a save that told guests is not revertible; its Step 2 is the confirmation).
+- **Close these N:** always asks first. The dialog, "Close these 3 dates?", names every date; **Close 3 dates** saves, **Not now** closes it with nothing written.
+- **Open as usual:** unchanged, one press with Undo.
+
 ### After, 375 px
 
 Each holiday is two rows: name and date, then the three choices as a full-width segmented row, wrapping "Special hours…" if needed. Every choice has a 44 px target.
@@ -54,7 +63,7 @@ Each holiday is two rows: name and date, then the three choices as a full-width 
   - **Open as usual:** saves the venue decision.
     - Toast: "Christmas Eve: open as usual" (existing string).
   - **Special hours…:** opens the existing special-dates sheet with that one date (Add special dates, `initialRows`); saving it decides the holiday.
-- **Close these 3:** shows when two or more of the usually-closed holidays (from `USUALLY_CLOSED` for the venue's country) are undecided in the horizon. It names them in the line above it and closes all of them in one save (one closure per date), with one step two if bookings are affected.
+- **Close these 3:** (amended: it confirms first, see above) shows when two or more of the usually-closed holidays (from `USUALLY_CLOSED` for the venue's country) are undecided in the horizon. It names them in the line above it and closes all of them in one save (one closure per date), with one step two if bookings are affected.
   - Toast: "Closed on Thanksgiving, Christmas Day and New Year's Day".
   - With only one left, there is no header action; that line's Closed is the action.
 - **Decided group:**

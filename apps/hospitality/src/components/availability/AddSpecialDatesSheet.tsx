@@ -17,6 +17,7 @@ import {
   type AvailabilityConfigState,
   type ClosureImpact,
 } from "@mbe/types";
+import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useCreateClosures, usePreviewClosureImpacts } from "../../hooks/useClosures.js";
 import { useNow } from "../../hooks/useNow.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
@@ -113,6 +114,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const { toast } = useToast();
+  const offerUndo = useAvailabilityUndo();
   const now = useNow();
   const previewImpacts = usePreviewClosureImpacts();
   const createClosures = useCreateClosures();
@@ -215,18 +217,23 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
         notified > 0 ? "availabilitySpecial.add.savedNotified" : "availabilitySpecial.add.saved",
         { count: dateCount, notified }
       );
-      toast({
-        title:
-          savedTitle === undefined
-            ? savedCount
-            : notified > 0
-              ? t("availabilitySpecial.holidays.savedNotified", {
-                  title: savedTitle,
-                  count: notified,
-                })
-              : savedTitle,
-        variant: "success",
-      });
+      const title =
+        savedTitle === undefined
+          ? savedCount
+          : notified > 0
+            ? t("availabilitySpecial.holidays.savedNotified", {
+                title: savedTitle,
+                count: notified,
+              })
+            : savedTitle;
+      const only = result.results.length === 1 ? result.results[0] : undefined;
+      if (savedTitle !== undefined && only && notified === 0) {
+        // A holiday closed in one step is taken back from its toast; a save that told guests
+        // something is not offered (the server refuses it), and several dates confirm first.
+        offerUndo({ venueId, title, saved: { version: only.version, changeId: only.changeId } });
+      } else {
+        toast({ title, variant: "success" });
+      }
       onSaved?.();
       onClose();
     } catch (error) {

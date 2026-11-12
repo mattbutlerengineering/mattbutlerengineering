@@ -1814,17 +1814,27 @@
       "tellDate": "Aviser les clients, s’il y en a, dont nous avons annulé la réservation le {{date}} que nous avons rouvert, avec un lien pour réserver à nouveau",
       "doneTold_one": "{{date}} rouvert. {{count}} client avisé.",
       "doneTold_many": "{{date}} rouvert. {{count}} clients avisés.",
-      "doneTold_other": "{{date}} rouvert. {{count}} clients avisés."
+      "doneTold_other": "{{date}} rouvert. {{count}} clients avisés.",
+      "section": {
+        "title": "Rouvrir {{section}} ?",
+        "description": "Les clients peuvent de nouveau réserver pour {{section}}.",
+        "confirm": "Rouvrir {{section}}",
+        "done": "Réouverture de {{section}} : {{date}}"
+      },
+      "booking": {
+        "title": "Reprendre {{channels}} ?",
+        "description": "Les clients peuvent de nouveau réserver de cette façon.",
+        "confirm": "Reprendre",
+        "keep": "Garder en pause",
+        "done": "Reprise de {{channels}} : {{date}}",
+        "countUnknown": "Impossible de vérifier combien de clients cette pause touche. La reprise attend le chargement du compte."
+      }
     },
     "series": {
       "editDates": "Modifier les dates…",
       "editDatesFor": "Modifier les dates de la fermeture du {{date}}",
       "title": "Modifier les dates",
       "dateLabel": "Date",
-      "scopeLabel": "Modifier",
-      "scopeOnly": "Seulement le {{date}}",
-      "scopeFollowing": "Celle-ci et les suivantes",
-      "scopeAll": "Toutes les dates de la série",
       "skip": "Ignorer cette date",
       "editThis": "Modifier cette date…",
       "save": "Enregistrer",
@@ -1856,10 +1866,7 @@
       "editMany": "Modifier…",
       "editRule": "Modifier les heures spéciales {{subject}}",
       "scope": {
-        "title": "Modifier les heures spéciales",
-        "following": "Cette date et les suivantes à partir du {{date}}",
-        "all": "Toutes les dates",
-        "continue": "Continuer"
+        "title": "Modifier les heures spéciales"
       },
       "subjectDates": "pour {{dates}}",
       "subjectRepeat": "chaque {{days}}",
@@ -1884,7 +1891,7 @@
       "date": "Date"
     },
     "add": {
-      "open": "Ajouter une date spéciale",
+      "open": "Ajouter des dates spéciales",
       "title": "Ajouter des dates spéciales",
       "rowLegend": "Date {{n}}",
       "rowLegendNamed": "Date {{n}} : {{name}}",
@@ -1982,8 +1989,32 @@
         "christmasDay": "Noël",
         "boxingDay": "Lendemain de Noël",
         "newYearsEve": "Veille du Jour de l’An"
-      }
-    }
+      },
+      "notPlanned_one": "{{count}} jour férié non planifié",
+      "notPlanned_other": "{{count}} jours fériés non planifiés",
+      "notPlanned_many": "{{count}} jours fériés non planifiés",
+      "allPlanned": "Tous les jours fériés à venir sont planifiés",
+      "plan": "Planifier les jours fériés",
+      "view": "Voir les jours fériés",
+      "hide": "Masquer les jours fériés",
+      "closeManyTitle_one": "Fermer cette date ? ({{count}})",
+      "closeManyTitle_other": "Fermer ces {{count}} dates ?",
+      "closeManyTitle_many": "Fermer ces {{count}} dates ?",
+      "closeManyDescription": "Les clients ne pourront pas réserver : {{dates}}. Si des réservations sont touchées, vous choisirez ensuite ce qui leur arrive.",
+      "closeManyConfirm_one": "Fermer {{count}} date",
+      "closeManyConfirm_other": "Fermer {{count}} dates",
+      "closeManyConfirm_many": "Fermer {{count}} dates",
+      "closeManyCancel": "Pas maintenant"
+    },
+    "scope": {
+      "label": "Modifier",
+      "only": "Seulement le {{date}}",
+      "following": "Cette date et les suivantes à partir du {{date}}",
+      "all": "Toutes les dates",
+      "continue": "Continuer"
+    },
+    "repeatRange": "Chaque {{days}}, du {{from}} au {{to}}",
+    "repeatFrom": "Chaque {{days}}, à partir du {{from}}"
   },
   "availabilitySchedules": {
     "tabsLabel": "Vue des disponibilités",
@@ -2315,8 +2346,7 @@
         "keep": "Garder",
         "removedToast": "{{subject}} retiré",
         "scope": {
-          "title": "Modifier {{name}}",
-          "all": "Toutes les dates que couvre {{name}}"
+          "title": "Modifier {{name}}"
         }
       },
       "layer": {
@@ -2809,7 +2839,7 @@
         "tonight": "Ce soir",
         "date": "Une date",
         "range": "Plage de dates",
-        "repeats": "Se répète",
+        "repeats": "Récurrente",
         "untilReopen": "Jusqu'à la réouverture",
         "dates": "Plusieurs dates",
         "addDateLabel": "Ajouter une date",

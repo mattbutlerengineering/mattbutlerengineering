@@ -1,14 +1,6 @@
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Alert,
-  Button,
-  ConfirmDialog,
-  Dialog,
-  Radio,
-  RadioGroup,
-  Text,
-} from "@mattbutlerengineering/rialto";
+import { Alert, Button, ConfirmDialog, Text } from "@mattbutlerengineering/rialto";
 import type { DateRule } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
@@ -16,7 +8,6 @@ import { ClosureLayerActions } from "./ClosureLayerActions.js";
 import { closedAllDay } from "./closed-all-day.js";
 import { skipInitialFocus, waitingProps } from "./draft-wait.js";
 import { DATE_FORMAT, hoursSubject } from "./rule-subjects.js";
-import type { SeriesScope } from "./series-edit.js";
 import type { LayerRuleActionsProps } from "./layer-rule-actions-props.js";
 import { coversManyDates, type SpecialDateRule } from "./special-dates.js";
 import {
@@ -24,52 +15,26 @@ import {
   DatedScheduleActions,
   UseScheduleRuleActions,
 } from "./ScheduleLayerActions.js";
+import { ScopeDialog, type Scope } from "./ScopeDialog.js";
 import { StrandedBookings } from "./StrandedBookings.js";
 import { useScheduleSave } from "./use-schedule-save.js";
-import styles from "./CloseDialog.module.css";
-
-type HoursChoice = "only" | SeriesScope;
 
 /** Which of a range or repeat's dates an edit reaches, asked about the date the drawer is on. */
 function HoursScopeChoice(props: {
   readonly date: string;
-  readonly onChoose: (choice: HoursChoice) => void;
+  readonly onChoose: (choice: Scope) => void;
   readonly onClose: () => void;
 }) {
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const [choice, setChoice] = useState<HoursChoice>("only");
-  const label = format.formatCalendarDate(props.date, DATE_FORMAT);
   return (
-    <Dialog
-      open
-      onClose={props.onClose}
+    <ScopeDialog
       title={t("availabilitySpecial.hours.scope.title")}
-      footer={
-        <div className={styles.footer}>
-          <Button variant="secondary" onClick={props.onClose}>
-            {t("availabilitySpecial.series.cancel")}
-          </Button>
-          <Button variant="primary" onClick={() => props.onChoose(choice)}>
-            {t("availabilitySpecial.hours.scope.continue")}
-          </Button>
-        </div>
-      }
-    >
-      <RadioGroup
-        label={t("availabilitySpecial.series.scopeLabel")}
-        name="layer-hours-scope"
-        value={choice}
-        onChange={(value) => setChoice(value as HoursChoice)}
-      >
-        <Radio value="only" label={t("availabilitySpecial.series.scopeOnly", { date: label })} />
-        <Radio
-          value="following"
-          label={t("availabilitySpecial.hours.scope.following", { date: label })}
-        />
-        <Radio value="all" label={t("availabilitySpecial.hours.scope.all")} />
-      </RadioGroup>
-    </Dialog>
+      name="layer-hours-scope"
+      dateLabel={format.formatCalendarDate(props.date, DATE_FORMAT)}
+      onClose={props.onClose}
+      onContinue={props.onChoose}
+    />
   );
 }
 

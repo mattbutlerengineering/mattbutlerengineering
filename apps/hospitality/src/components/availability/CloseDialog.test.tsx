@@ -1262,7 +1262,7 @@ describe("CloseDialog", () => {
 
     it("asks for the weekdays on the primary when a repeat has dates but no day", () => {
       renderDialog();
-      pick(/^Repeats/);
+      pick(/^Repeating/);
       pickTo("2026-12-31");
       // The primary names what is missing and stays off, so there is no Next to press.
       expect(screen.getByTestId("close-primary")).toHaveTextContent(/^Choose days$/);
@@ -1312,7 +1312,7 @@ describe("CloseDialog", () => {
       // 2026-12-21 is a Monday, with no service; the repeat first falls on Friday the 25th.
       renderDialog({ state: overnightState(), initialDate: "2026-12-21" });
       const dialog = screen.getByRole("dialog");
-      chooseWhen("Repeats");
+      chooseWhen("Repeating");
       pickTo("2026-12-31");
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
       fireEvent.click(within(dialog).getByRole("combobox", { name: "Starting at" }));
@@ -1413,7 +1413,7 @@ describe("CloseDialog", () => {
       it("reads a repeat's Friday, not only its first Monday", () => {
         renderDialog({ state: fridayRunsLate(), initialDate: MONDAY });
         const dialog = screen.getByRole("dialog");
-        chooseWhen("Repeats");
+        chooseWhen("Repeating");
         pickTo("2026-12-27");
         fireEvent.click(within(dialog).getByRole("checkbox", { name: "Mon" }));
         fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
@@ -1428,7 +1428,7 @@ describe("CloseDialog", () => {
       const repeatFrom = (date: string) => {
         renderDialog({ initialDate: date });
         const dialog = screen.getByRole("dialog");
-        chooseWhen("Repeats");
+        chooseWhen("Repeating");
         return dialog;
       };
 
@@ -1453,7 +1453,7 @@ describe("CloseDialog", () => {
         // 2026-12-21 is a Monday; the repeat first falls on Friday the 25th.
         renderDialog({ initialDate: "2026-12-21" });
         const dialog = screen.getByRole("dialog");
-        chooseWhen("Repeats");
+        chooseWhen("Repeating");
         pickTo("2026-12-31");
         fireEvent.click(within(dialog).getByRole("checkbox", { name: "Fri" }));
         return dialog;
@@ -1526,9 +1526,9 @@ describe("CloseDialog", () => {
       );
     });
 
-    it("does the same for Repeats: To opens on From's month and moves up to From", async () => {
+    it("does the same for Repeating: To opens on From's month and moves up to From", async () => {
       renderDialog({ initialDate: "2026-12-02" });
-      chooseWhen("Repeats");
+      chooseWhen("Repeating");
       const to = () => (screen.getByRole("combobox", { name: "To" }) as HTMLInputElement).value;
       // To starts empty, so its calendar opens on From's month; the primary waits for it.
       expect(to()).toBe("");
@@ -1957,7 +1957,7 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
     });
   });
 
-  describe("Range and Repeats", () => {
+  describe("Range and Repeating", () => {
     it("start with To empty and the primary disabled until it is chosen", () => {
       renderDialog();
       const dialog = screen.getByRole("dialog");
@@ -1970,7 +1970,7 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
       expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(/^Choose an end date$/);
       pickTo("2026-12-27");
       expect(within(dialog).getByTestId("close-primary")).toBeEnabled();
-      chooseWhen("Repeats");
+      chooseWhen("Repeating");
       expect((within(dialog).getByRole("combobox", { name: "To" }) as HTMLInputElement).value).toBe(
         ""
       );
@@ -2062,7 +2062,7 @@ describe("CloseDialog: dates, times, steps, title and toasts (availability-scena
     it("names a range's dates and a repeat's weekday, and says what the button will do", async () => {
       renderDialog({ today: "2026-12-01", initialDate: "2026-12-21" });
       const dialog = screen.getByRole("dialog");
-      chooseWhen("Repeats");
+      chooseWhen("Repeating");
       pickTo("2026-12-31");
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Mon" }));
       expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
