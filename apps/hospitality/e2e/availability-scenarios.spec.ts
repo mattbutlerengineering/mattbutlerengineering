@@ -181,6 +181,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
       .last()
       .changes.upsert.scheduleServices?.find((row) => row.venueServiceId === brunchId);
     expect([...(brunch?.weekdays ?? [])].sort()).toEqual([0, 6]);
+    expect(brunch).toMatchObject({ opensAt: 600, closesAt: 840 });
     record("S3", counter.count(), 6);
   });
 

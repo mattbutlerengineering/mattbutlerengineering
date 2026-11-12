@@ -55,6 +55,15 @@ export interface ServiceDraft extends DraftTimes {
   /** `null` follows the shared {@link QuickSetupDraft.days}. */
   readonly days: readonly number[] | null;
   readonly blocks: readonly HoursBlock[];
+  /**
+   * Set when a name chip moved the service off its preset times to follow the others (Late
+   * after Dinner), with the times it gave; while they are untouched a change of days re-places it.
+   */
+  readonly autoPlaced?: {
+    readonly preset: ServicePresetId;
+    readonly opens: string;
+    readonly closes: string;
+  };
 }
 
 export interface QuickSetupDraft {

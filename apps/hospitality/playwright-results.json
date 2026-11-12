@@ -1,0 +1,180 @@
+{
+  "config": {
+    "argv": [
+      "/Users/mbutler/.nvm/versions/node/v22.22.3/bin/node",
+      "/private/tmp/wt-issue-8686/apps/hospitality/node_modules/@playwright/test/cli.js",
+      "test",
+      "e2e/availability-scenarios.spec.ts",
+      "-g",
+      "S3"
+    ],
+    "configFile": "/private/tmp/wt-issue-8686/apps/hospitality/playwright.config.ts",
+    "rootDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e",
+    "failOnFlakyTests": false,
+    "forbidOnly": true,
+    "fullyParallel": false,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {},
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "setup",
+        "name": "setup",
+        "testDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e",
+        "testIgnore": [
+          "**/fixtures/*.test.ts",
+          "**/journeys/**",
+          "**/workflow-coverage.test.ts",
+          "**/visual.spec.ts"
+        ],
+        "testMatch": ["/auth\\.setup\\.ts/"],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e",
+        "testIgnore": [
+          "**/fixtures/*.test.ts",
+          "**/journeys/**",
+          "**/workflow-coverage.test.ts",
+          "**/visual.spec.ts"
+        ],
+        "testMatch": ["**/*.@(spec|test).?(c|m)[jt]s?(x)"],
+        "timeout": 30000
+      }
+    ],
+    "filteredProjects": [
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "name": "setup",
+        "testDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e",
+        "snapshotDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e",
+        "testIgnore": [
+          "**/fixtures/*.test.ts",
+          "**/journeys/**",
+          "**/workflow-coverage.test.ts",
+          "**/visual.spec.ts"
+        ],
+        "testMatch": {},
+        "timeout": 30000,
+        "use": {
+          "baseURL": "http://localhost:3002/hospitality/",
+          "actionTimeout": 15000,
+          "screenshot": "off",
+          "video": "off"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "setup"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {},
+        "name": "chromium",
+        "testDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e",
+        "snapshotDir": "/private/tmp/wt-issue-8686/apps/hospitality/e2e",
+        "testIgnore": [
+          "**/fixtures/*.test.ts",
+          "**/journeys/**",
+          "**/workflow-coverage.test.ts",
+          "**/visual.spec.ts"
+        ],
+        "testMatch": "**/*.@(spec|test).?(c|m)[jt]s?(x)",
+        "timeout": 30000,
+        "use": {
+          "baseURL": "http://localhost:3002/hospitality/",
+          "actionTimeout": 15000,
+          "screenshot": "off",
+          "video": "off",
+          "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/158.0.8127.18 Safari/537.36",
+          "viewport": {
+            "width": 1280,
+            "height": 720
+          },
+          "screen": {
+            "width": 1920,
+            "height": 1080
+          },
+          "deviceScaleFactor": 1,
+          "isMobile": false,
+          "hasTouch": false,
+          "defaultBrowserType": "chromium",
+          "storageState": "e2e/.auth/user.json"
+        },
+        "dependencies": ["setup"],
+        "ignoreSnapshots": false,
+        "__projectId": "chromium"
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      ["github", null],
+      [
+        "json",
+        {
+          "outputFile": "playwright-results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "default",
+    "updateSourceMethod": "patch",
+    "version": "1.65.0",
+    "workers": 1,
+    "webServer": {
+      "command": "pnpm --filter @mbe/hospitality dev -- --port 3002 --strictPort",
+      "url": "http://localhost:3002/hospitality/",
+      "reuseExistingServer": true,
+      "timeout": 60000
+    }
+  },
+  "suites": [],
+  "errors": [
+    {
+      "message": "Error: Missing required E2E auth env vars: E2E_AUTH0_DOMAIN, E2E_AUTH0_CLIENT_ID, E2E_AUTH0_AUDIENCE, E2E_AUTH_EMAIL, E2E_AUTH_PASSWORD\n\nRequired vars:\n  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n  E2E_AUTH0_AUDIENCE    — API audience identifier\n  E2E_AUTH_EMAIL        — Test user email\n  E2E_AUTH_PASSWORD     — Test user password\n\nThe Auth0 app must have the Password grant type enabled and the test user must not have MFA.",
+      "stack": "Error: Missing required E2E auth env vars: E2E_AUTH0_DOMAIN, E2E_AUTH0_CLIENT_ID, E2E_AUTH0_AUDIENCE, E2E_AUTH_EMAIL, E2E_AUTH_PASSWORD\n\nRequired vars:\n  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\n  E2E_AUTH0_CLIENT_ID   — Auth0 app client ID (ROPC-enabled)\n  E2E_AUTH0_AUDIENCE    — API audience identifier\n  E2E_AUTH_EMAIL        — Test user email\n  E2E_AUTH_PASSWORD     — Test user password\n\nThe Auth0 app must have the Password grant type enabled and the test user must not have MFA.\n    at validateAuth0Config (/private/tmp/wt-issue-8686/apps/hospitality/e2e/auth-helpers.ts:39:11)\n    at /private/tmp/wt-issue-8686/apps/hospitality/e2e/auth.setup.ts:16:1",
+      "location": {
+        "file": "/private/tmp/wt-issue-8686/apps/hospitality/e2e/auth-helpers.ts",
+        "column": 11,
+        "line": 39
+      },
+      "snippet": "   at auth-helpers.ts:39\n\n  37 |\n  38 |   if (missing.length > 0) {\n> 39 |     throw new Error(\n     |           ^\n  40 |       `Missing required E2E auth env vars: ${missing.join(\", \")}\\n\\n` +\n  41 |         \"Required vars:\\n\" +\n  42 |         \"  E2E_AUTH0_DOMAIN      — Auth0 tenant domain (e.g. dev-xxx.us.auth0.com)\\n\" +"
+    }
+  ],
+  "stats": {
+    "startTime": "2026-11-12T03:29:22.454Z",
+    "duration": 2437.195,
+    "expected": 0,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
