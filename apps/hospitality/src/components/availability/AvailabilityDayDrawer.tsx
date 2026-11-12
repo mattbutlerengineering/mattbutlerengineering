@@ -1,4 +1,4 @@
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
@@ -244,13 +244,25 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   // reopening that date cannot re-apply "All dates" to a later, unrelated edit.
   if (chosen !== null && chosen.date !== date) setChosen(null);
   // The date whose editor a layer's Edit asked to open; like `chosen`, it belongs to one date.
-  const [opening, setOpening] = useState<string | null>(null);
-  if (opening !== null && opening !== date) setOpening(null);
+  const [opening, setOpening] = useState<{ date: string; request: number } | null>(null);
+  if (opening !== null && opening.date !== date) setOpening(null);
+  const openRequest = opening?.date === date ? opening.request : 0;
   const ruleScope = (chosen?.date === date ? chosen.scope : undefined) ?? editing?.ruleScope;
   const editHours = (scope?: SeriesRuleScope) => {
     setChosen(date !== null && scope ? { date, scope } : null);
-    setOpening(date);
+    if (date !== null) setOpening({ date, request: (opening?.request ?? 0) + 1 });
   };
+  useEffect(() => {
+    if (openRequest === 0) return;
+    // After the scope dialog's own restore frame, which would otherwise take focus back.
+    const frame = requestAnimationFrame(() => {
+      const editor = editorRef.current;
+      (
+        editor?.querySelector<HTMLElement>("fieldset input") ?? editor?.querySelector("button")
+      )?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [openRequest, editorRef]);
 
   let body;
   if (date === null) {
@@ -333,7 +345,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               fixedDates={editing.fixedDates}
               ruleScope={ruleScope}
               readOnly={past}
-              startOpen={opening === date}
+              openRequest={openRequest}
               onStale={editing.onStale}
               date={date}
               day={day}

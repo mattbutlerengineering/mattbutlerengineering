@@ -74,8 +74,11 @@ export interface AvailabilityDayEditorProps {
   readonly heldReasonId?: string;
   /** A past date is history: the rows are shown as text, with nothing to edit or add. */
   readonly readOnly?: boolean;
-  /** Open the editor on its rows as soon as it can (a layer's "Edit hours for <date>"). */
-  readonly startOpen?: boolean;
+  /**
+   * Open the editor on its rows (a layer's "Edit hours for <date>"). A counter: every new value
+   * is a new request, so a second click opens it again after a Cancel back to the read view.
+   */
+  readonly openRequest?: number;
 }
 
 interface EditState {
@@ -120,7 +123,7 @@ const holdsEdits = (edit: EditState | null): boolean =>
 export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   const { venueId, date, day, state, timezone, today } = props;
   const { onDirtyChange, onCancel, onFinished, onStale, fixedDates, ruleScope } = props;
-  const { held = false, heldReasonId, readOnly = false, startOpen = false } = props;
+  const { held = false, heldReasonId, readOnly = false, openRequest = 0 } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const phone = useViewport() === "phone";
@@ -237,11 +240,13 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
   };
 
   // A layer's "Edit hours for <date>" opens the editor itself rather than pointing at a button.
+  // Each request is acted on once, however many times the editor renders.
+  const handledRequestRef = useRef(0);
   useEffect(() => {
-    if (startOpen && !readOnly && !edit) begin();
-    // Only a new request starts it; a draft that ends (Cancel) must not reopen by itself.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startOpen]);
+    if (openRequest === handledRequestRef.current) return;
+    handledRequestRef.current = openRequest;
+    if (openRequest > 0 && !readOnly && !edit) begin();
+  });
 
   // The button that opened the editor is gone, so focus goes to the row it was about.
   useEffect(() => {
