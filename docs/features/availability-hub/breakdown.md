@@ -46,7 +46,7 @@ PRD criteria are numbered as in `prd.md`. Walkthroughs are numbered as in `ux.md
 - [ ] **H1.4 `hubRows`** — `components/availability/hub/hub-rows.ts`, pure, with no text.
   - Accept: unit tests for each of the five rows in its filled and empty state, an upcoming regular-hours change, four sets of seasonal hours yielding three and "1 more", seasonal hours with weekdays and no dates, an online pause in force and one waiting, and a config whose source is `empty`. The module imports no React, router or i18n. PRD 1.
   - Blocked by: H1.3
-- [ ] **H1.5 `dateAnswer`** — `components/availability/hub/date-answer.ts`, pure.
+- [x] **H1.5 `dateAnswer`** — `components/availability/hub/date-answer.ts`, pure.
   - Accept: unit tests for regular hours alone; seasonal hours over regular hours; a special date over seasonal hours; a closure from a time over a special date (walkthrough 7); a skipped series date; a tonight change; a date no rule covers; an invalid date returning null. Each asserts the deciding rule, the rule beneath it, and the hub row. PRD 5.
   - Blocked by: —
 - [ ] **H1.6 Hub page** — `pages/AvailabilityHubPage.tsx`, `hub/HubRow.tsx`, `hub/DateCheck.tsx`; index route. Today line, date check, five rows with one action each, "Open calendar", "History". Row actions use the address module. Host view. Empty venue: a Manager is redirected to regular hours; a Host reads the empty sentence. Loading and error states as in `ux.md`.
@@ -152,3 +152,4 @@ none.
 - 2026-11-12: the Owner chose to run all six milestones with no stop after Milestone 1. The cheapest kill test in `idea.md` is therefore not a gate. The hub is still usable from the end of Milestone 1, and the Owner can stop the run at any merge.
 - 2026-11-12: #8693, #8694 and #8695 are folded into this run. Their acceptance criteria map to: #8693 → E4.5, E4.6, E4.7, C2.1; #8694 → C2.1, C2.2, C2.4, D5.3, E4.4, P6.5; #8695 → H1.7, E4.3, P6.1.
 - 2026-11-12: `idea.md` names a two-day spike for the day drawer. The Architect stage removed the need for it (one set of fields, two forms), so no item carries it.
+- 2026-11-12: H1.5 review decision: a rule decides a date only when it changes the services or a venue-wide closed band. Section closures, booking-channel closures, pacing changes and online pauses are never named by the date check. The alternative, a field saying what such a rule changed, was not built.

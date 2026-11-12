@@ -15223,6 +15223,193 @@
     });
   </file>
   </section>
+  <section priority="medium" role="hub">
+  <file path="src/components/availability/hub/date-answer.ts">
+    export type DateAnswerRule =
+      | {
+          readonly kind: "regular" | "seasonal";
+          readonly scheduleId: string;
+          /** The schedule's name as stored. */
+          readonly name: string;
+        }
+      | {
+          readonly kind: "useHours" | "special" | "closure" | "tonight";
+          /** The date rule's id. */
+          readonly ruleId: string;
+        };
+    export type DateAnswerHubRow = 1 | 2 | 3 | 4;
+    export interface DateAnswer {
+      readonly date: string;
+      /** The services that run, in opening order; empty means closed. */
+      readonly services: readonly {
+        readonly name: string;
+        readonly opensAt: number;
+        readonly closesAt: number;
+      }[];
+      /** The earliest band the whole venue is closed for, in service-day minutes. */
+      readonly closedBand: { readonly from: number; readonly to: number } | null;
+      /** `null` when no rule covers the date. */
+      readonly deciding: DateAnswerRule | null;
+      readonly beneath: DateAnswerRule | null;
+      readonly hubRow: DateAnswerHubRow | null;
+    }
+    function isRealDate(value: string): boolean {
+      if (!CIVIL_DATE.test(value)) return false;
+      const parsed = new Date(`${value}T00:00:00Z`);
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    }
+    function setsHours(layer: Layer): boolean {
+      return (
+        layer.kind === "schedule" || layer.kind === "use_schedule" || layer.kind === "special_hours"
+      );
+    }
+    function scheduleIdOf(config: AvailabilityConfig, layer: Layer): string | undefined {
+      return config.assignments.find((a) => a.id === layer.id)?.scheduleId;
+    }
+    function ruleOf(config: AvailabilityConfig, layer: Layer): DateAnswerRule | null {
+      switch (layer.kind) {
+        case "schedule": {
+          const scheduleId = scheduleIdOf(config, layer);
+          // A schedule layer's id is always one of the config's assignments.
+          if (scheduleId === undefined) return null;
+          return {
+            kind: layer.regularWeek ? "regular" : "seasonal",
+            scheduleId,
+            name: layer.scheduleName ?? layer.label,
+          };
+        }
+        case "use_schedule":
+          return { kind: "useHours", ruleId: layer.id };
+        case "special_hours":
+          return { kind: "special", ruleId: layer.id };
+        case "closure":
+          return { kind: "closure", ruleId: layer.id };
+        case "tonight":
+          return { kind: "tonight", ruleId: layer.id };
+        case "skip":
+          return null;
+      }
+    }
+    function scheduleBeneath(
+      config: AvailabilityConfig,
+      timezone: string,
+      date: string,
+      layer: Layer
+    ): DateAnswerRule | null {
+      const scheduleId = scheduleIdOf(config, layer);
+      const without = {
+        ...config,
+        assignments: config.assignments.filter((a) => a.scheduleId !== scheduleId),
+      };
+      const lower = resolveDay({ timezone, config: without }, date).explanation.find(
+        (l) => l.kind === "schedule"
+      );
+      return lower ? ruleOf(without, lower) : null;
+    }
+    function venueBandsOf(day: ResolvedDaySummary): ResolvedClosure[] {
+      return day.closures.filter((c) => c.targetKind === "venue");
+    }
+    interface Span {
+      readonly from: number;
+      readonly to: number;
+    }
+    function closedSpansOf(day: ResolvedDaySummary): Span[] {
+      return venueBandsOf(day)
+        .map(({ from, to }) => ({ from, to }))
+        .sort((a, b) => a.from - b.from)
+        .reduce<Span[]>((merged, span) => {
+          const last = merged.at(-1);
+          return last && span.from <= last.to
+            ? [...merged.slice(0, -1), { from: last.from, to: Math.max(last.to, span.to) }]
+            : [...merged, span];
+        }, []);
+    }
+    function openSpans(open: Span, closed: readonly Span[]): Span[] {
+      return closed.reduce<Span[]>(
+        (left, band) =>
+          left.flatMap((span) =>
+            [
+              { from: span.from, to: Math.min(span.to, band.from) },
+              { from: Math.max(span.from, band.to), to: span.to },
+            ].filter((piece) => piece.from < piece.to)
+          ),
+        [open]
+      );
+    }
+    function reportKey(day: ResolvedDaySummary): string {
+      const closed = closedSpansOf(day);
+      const services = day.services
+        .map((s) => [s.name, openSpans({ from: s.opensAt, to: s.closesAt }, closed)] as const)
+        .filter(([, open]) => open.length > 0);
+      return JSON.stringify([closed, services]);
+    }
+    function decidingOverlays(
+      config: AvailabilityConfig,
+      timezone: string,
+      day: ResolvedDay,
+      overlays: readonly Layer[]
+    ): Layer[] {
+      return overlays.reduce(
+        (state, layer) => {
+          const without = {
+            ...state.config,
+            dateRules: state.config.dateRules.filter((r) => r.id !== layer.id),
+          };
+          const key = reportKey(resolveDay({ timezone, config: without }, day.serviceDate));
+          return {
+            config: without,
+            key,
+            found: key === state.key ? state.found : [...state.found, layer],
+          };
+        },
+        { config, key: reportKey(day), found: [] as Layer[] }
+      ).found;
+    }
+    function closedBandOf(day: ResolvedDay, top: Layer | undefined): DateAnswer["closedBand"] {
+      const bands = venueBandsOf(day);
+      const band =
+        bands.find((c) => c.ruleId === top?.id) ??
+        bands.reduce<ResolvedClosure | undefined>(
+          (first, c) => (first === undefined || c.from < first.from ? c : first),
+          undefined
+        );
+      return band ? { from: band.from, to: band.to } : null;
+    }
+    export function dateAnswer(
+      config: AvailabilityConfig,
+      timezone: string,
+      date: string
+    ): DateAnswer | null {
+      if (!isRealDate(date)) return null;
+      const day = resolveDay({ timezone, config }, date);
+      // Top first. A skip is never named: the engine has already removed the rule it skips.
+      const layers = day.explanation.filter((l) => l.kind !== "skip").reverse();
+      const overlays = layers.filter((l) => !setsHours(l));
+      // The rules that could be named, top first: the hours layers always can.
+      const candidates = [
+        ...decidingOverlays(config, timezone, day, overlays),
+        ...layers.filter(setsHours),
+      ];
+      const top = candidates.at(0);
+      const deciding = top ? ruleOf(config, top) : null;
+      const lower = top ? candidates.slice(1).find((l) => l.kind !== top.kind) : undefined;
+      const beneath =
+        top?.kind === "schedule"
+          ? scheduleBeneath(config, timezone, date, top)
+          : lower
+            ? ruleOf(config, lower)
+            : null;
+      return {
+        date,
+        services: day.services.map(({ name, opensAt, closesAt }) => ({ name, opensAt, closesAt })),
+        closedBand: closedBandOf(day, top),
+        deciding,
+        beneath,
+        hubRow: deciding ? HUB_ROW[deciding.kind] : null,
+      };
+    }
+  </file>
+  </section>
   <section priority="medium" role="i18n">
   <file path="src/i18n/default-t.ts">
     export const defaultT: TFunction = localeRuntime.i18n.t.bind(localeRuntime.i18n);
