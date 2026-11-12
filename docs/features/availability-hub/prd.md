@@ -75,7 +75,7 @@ Counts use the #8696 method: enabled, visible buttons, links, inputs, selects, r
 
 **One editor, one save model**
 
-- [ ] 6. Every hours editor (regular hours, seasonal hours, a date, special dates) renders the same service fields: name, opens, last seating, closes, seating interval, and how the service is booked. One implementation of the service row exists in the code. Baseline: 6.
+- [ ] 6. Every hours editor (regular hours, seasonal hours, a date, special dates) renders the same service fields: name, opens, last seating, closes, seating interval, and how the service is booked. One implementation of the service fields exists in the code, used by the weekly form and the date editor. Baseline: 6. (Reworded 2026-11-12 at the Architect stage: the Owner chose one set of fields in two forms, not one form.)
 - [ ] 7. Interaction budgets, each measured by an e2e test:
 
   | Job                                                   | Baseline                   | Target           |
@@ -133,7 +133,7 @@ Counts use the #8696 method: enabled, visible buttons, links, inputs, selects, r
 
 ## Open questions
 
-- Does the single hours editor fit the day drawer? — Architect, by the two-day spike in idea.md. If it fails, criterion 6 is restated as "at most two implementations" and the Owner is told.
+- Does the single hours editor fit the day drawer? — Answered 2026-11-12 at the Architect stage: the Owner chose one set of service fields used by two forms, so no adapter and no spike are needed.
 - Where does a closed holiday list: under Special dates and holidays, under Closures and pauses, or both? — UX stage. The plan proposes the closure under Closures and the decision under holidays.
 - How does the Seasonal hours row describe hours that have weekdays and no dates? — UX stage.
 - Does the hub count against the booking-rules and close budgets as one extra click, and is that acceptable for jobs other than "Change Dinner close"? — UX stage measures; the Owner decides if any target in criterion 7 is missed.
