@@ -2764,9 +2764,6 @@
         name: string;
         days: readonly number[] | null;
         blocks: readonly HoursBlock[];
-        autoPlaced?: {
-          readonly preset: ServicePresetId;
-          readonly open...;
       }
     </item>
     <item priority="low">
@@ -3041,13 +3038,6 @@
       ): ServiceDraft { /* ... */ }
     </item>
     <item priority="high">
-      export function setDaysAndReplace(
-        draft: QuickSetupDraft,
-        service: ServiceDraft,
-        days: readonly number[] | null
-      ): ServiceDraft { /* ... */ }
-    </item>
-    <item priority="high">
       export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft { /* ... */ }
     </item>
     <item priority="high">
@@ -3095,12 +3085,6 @@
       export function validateDraft(
         draft: QuickSetupDraft,
         options: { readonly legacyReader?: boolean; readonly within?: readonly number[] } = {}
-      ): QuickSetupIssue[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function overlapsAgainst(
-        issues: readonly QuickSetupIssue[],
-        serviceId: string
       ): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">

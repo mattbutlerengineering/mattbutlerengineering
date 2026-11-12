@@ -7,12 +7,7 @@ import {
   type QuickSetupDraft,
   type ServicePresetId,
 } from "./quick-setup-draft.js";
-import {
-  firstClearStart,
-  moveServiceStart,
-  placePreset,
-  setDaysAndReplace,
-} from "./quick-setup-placement.js";
+import { firstClearStart, moveServiceStart, placePreset } from "./quick-setup-placement.js";
 import { validateDraft } from "./quick-setup-validate.js";
 
 const WEEKDAYS = [1, 2, 3, 4, 5];
@@ -46,48 +41,17 @@ describe("placePreset", () => {
   });
 
   it("places after the services it would overlap, keeping its three hours", () => {
+    const lunch = draftService("s1", "Lunch", ["11:30", "16:45", "17:30"]);
+    expect(place(withEmpty(lunch), "new", "dinner")).toMatchObject({
+      opens: "17:30",
+      closes: "22:30",
+    });
     const dinner = draftService("s1", "Dinner", ["17:00", "22:15", "23:00"]);
     const draft = withEmpty(dinner);
     const late = place(draft, "new", "late");
     expect(late).toMatchObject({ opens: "23:00", closes: "02:00", lastSeatingLinked: true });
     expect(late.lastSeating).toBe(autoLastSeating("02:00", "23:00"));
     expect(validateDraft(replaceService(draft, late))).toEqual([]);
-  });
-
-  it("keeps Brunch's preset times beside every-day Lunch and Dinner", () => {
-    const lunch = draftService("s1", "Lunch", ["11:30", "14:15", "15:00"]);
-    const dinner = draftService("s2", "Dinner", ["17:00", "22:15", "23:00"]);
-    const draft: QuickSetupDraft = {
-      days: [0, 1, 2, 3, 4, 5, 6],
-      services: [lunch, dinner, emptyService("new")],
-    };
-    const brunch = place(draft, "new", "brunch");
-    expect(brunch).toMatchObject({ opens: "10:00", closes: "14:00" });
-    expect(validateDraft(replaceService(draft, brunch)).map((i) => i.code)).toContain("overlap");
-    const weekend = setDaysAndReplace(draft, brunch, [6, 0]);
-    expect(weekend).toMatchObject({ days: [6, 0], opens: "10:00", closes: "14:00" });
-    const lunchWeekdays = { ...lunch, days: WEEKDAYS };
-    const other = { ...draft, services: [lunchWeekdays, dinner, emptyService("new")] };
-    expect(place(other, "new", "brunch")).toMatchObject({ opens: "10:00", closes: "14:00" });
-  });
-
-  it("re-places Late for new days while its times are the chip's", () => {
-    const dinner = draftService("s1", "Dinner", ["17:00", "22:15", "23:00"]);
-    const draft: QuickSetupDraft = {
-      days: [0, 1, 2, 3, 4, 5, 6],
-      services: [dinner, emptyService("new")],
-    };
-    const late = place(draft, "new", "late");
-    expect(late).toMatchObject({ opens: "23:00", closes: "02:00" });
-    const withLate = replaceService(draft, late);
-    expect(setDaysAndReplace(withLate, late, [])).toMatchObject({
-      opens: "22:00",
-      closes: "01:00",
-    });
-    const edited = { ...late, opens: "23:30" };
-    expect(setDaysAndReplace(replaceService(draft, edited), edited, [6])).toMatchObject({
-      opens: "23:30",
-    });
   });
 
   it("keeps the preset's own times when no placement is clear", () => {

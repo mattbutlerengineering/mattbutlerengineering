@@ -362,30 +362,6 @@ describe("QuickSetupForm overlap fix", () => {
     expect(screen.queryByRole("button", { name: /^Move / })).not.toBeInTheDocument();
   });
 
-  it("keeps Brunch at 10:00 AM beside every-day Lunch and says the overlap on Brunch's row", () => {
-    render(
-      <DrawerForm
-        initial={{
-          days: [0, 1, 2, 3, 4, 5, 6],
-          services: [
-            draftService("s1", "Lunch", ["11:30", "14:15", "15:00"]),
-            draftService("s2", "Dinner", ["17:00", "22:15", "23:00"]),
-            {
-              ...draftService("s3", "", ["11:00", "11:00", "11:00"]),
-              opens: null,
-              lastSeating: null,
-              closes: null,
-            },
-          ],
-        }}
-      />
-    );
-    const rows = screen.getAllByRole("group", { name: /^Service \d$/ });
-    fireEvent.click(within(rows[2]!).getByRole("button", { name: "Brunch" }));
-    expect(within(rows[2]!).getByLabelText("Opens")).toHaveValue("10:00 AM");
-    expect(within(rows[2]!).getByText("This service overlaps another one.")).toBeInTheDocument();
-  });
-
   it("offers no action when no later start clears the overlap", () => {
     render(
       <DrawerForm

@@ -5,8 +5,6 @@ import {
   effectiveDays,
   emptyService,
   minutesOf,
-  replaceService,
-  setServiceDays,
   toClock,
   toMinutes,
   type QuickSetupDraft,
@@ -51,12 +49,10 @@ function isClear(draft: QuickSetupDraft, candidate: ServiceDraft): boolean {
 }
 
 /**
- * A name chip placed in the draft: the preset's name and times, always. Only Late, already an
- * evening slot, follows the services it would overlap: its length, starting when they close, so
- * it follows Dinner instead of overlapping it. If that is not clear either (or would start after
- * midnight, which a time of day cannot hold) Late's own times stay and the overlap is shown.
- * Every other preset keeps its part of the day: it is placed before the Manager has said which
- * days it runs, so an overlap now is not a reason to move it (it is shown on its row instead).
+ * A name chip placed in the draft: the preset's name and times when they clear every other
+ * service on its days. Otherwise its length, starting when the other services close, so Late
+ * follows Dinner instead of overlapping it; if that is not clear either (or would start after
+ * midnight, which a time of day cannot hold) the preset's own times stay and the overlap is shown.
  */
 export function placePreset(
   draft: QuickSetupDraft,
@@ -64,10 +60,9 @@ export function placePreset(
   preset: ServicePresetId,
   name: string
 ): ServiceDraft {
-  const { autoPlaced: _previous, ...service } =
-    draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
+  const service = draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
   const defaults = applyPreset(service, preset, name);
-  if (preset !== "late" || isClear(draft, defaults)) return defaults;
+  if (isClear(draft, defaults)) return defaults;
   const days = effectiveDays(draft, service);
   const closes = draft.services
     .filter((s) => s.id !== serviceId)
@@ -88,24 +83,7 @@ export function placePreset(
     closes: toClock(end),
     lastSeating: autoLastSeating(toClock(end), toClock(start)),
   };
-  return isClear(draft, placed)
-    ? { ...placed, autoPlaced: { preset, opens: placed.opens, closes: placed.closes } }
-    : defaults;
-}
-
-/**
- * A service's own days changed: a chip-placed Late still at the times the chip gave it is placed
- * again for the new days, so it does not keep following a Dinner it no longer shares days with.
- */
-export function setDaysAndReplace(
-  draft: QuickSetupDraft,
-  service: ServiceDraft,
-  days: readonly number[] | null
-): ServiceDraft {
-  const next = setServiceDays(service, days, draft.days);
-  const placed = service.autoPlaced;
-  if (!placed || service.opens !== placed.opens || service.closes !== placed.closes) return next;
-  return placePreset(replaceService(draft, next), next.id, placed.preset, next.name);
+  return isClear(draft, placed) ? placed : defaults;
 }
 
 /** The service starting at `opensAt` (minutes) with its length kept; a typed last seating shifts with it. */
