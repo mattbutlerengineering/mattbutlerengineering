@@ -3137,6 +3137,44 @@
     <item priority="high">
       export function buildAvailabilityConfigFixture() { /* ... */ }
     </item>
+    <item priority="low">
+      interface LiveEventBus {
+        publish: (event: SseEventEntry) => void;
+        size: () => number;
+        whenPast: (count: number) => Promise<void>;
+        since: (from: number) => readonly SseEventEntry[];
+      }
+    </item>
+    <item priority="high">
+      export function createLiveEventBus(): LiveEventBus { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockLiveEventStream(page: Page, bus: LiveEventBus): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      type NightOfSignal = { kind: "running-late"; minute | { kind: "arrived" };
+    </item>
+    <item priority="low">
+      interface NightOfReservation {
+        id: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+        guestName: string;
+      }
+    </item>
+    <item priority="low">
+      interface NightOfMock {
+        posted: readonly NightOfSignal[];
+      }
+    </item>
+    <item priority="high">
+      export async function mockNightOfManage(
+        page: Page,
+        bus: LiveEventBus,
+        reservation: NightOfReservation
+      ): Promise<NightOfMock> { /* ... */ }
+    </item>
   </file>
   <file path="e2e/auth-helpers.ts">
     <item priority="low">
