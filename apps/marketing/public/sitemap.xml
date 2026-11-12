@@ -13,6 +13,10 @@
     <priority>0.6</priority>
   </url>
   <url>
+    <loc>https://mattbutlerengineering.com/gen/</loc>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://mattbutlerengineering.com/hospitality</loc>
     <priority>0.8</priority>
   </url>
@@ -362,6 +366,10 @@
   </url>
   <url>
     <loc>https://mattbutlerengineering.com/rialto/components/typography</loc>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://mattbutlerengineering.com/rialto/demos/</loc>
     <priority>0.6</priority>
   </url>
   <url>
