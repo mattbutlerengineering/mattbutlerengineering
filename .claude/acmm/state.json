@@ -1,5 +1,5 @@
 {
-  "lastRun": "2026-11-11T11:45:36.519Z",
+  "lastRun": "2026-11-12T12:18:32.244Z",
   "currentLevel": 5,
   "checks": {
     "acmm:prereq-test-suite": {
@@ -340,7 +340,7 @@
     },
     "acmm:auto-issue-gen": {
       "passed": true,
-      "evidence": "152 automation-labeled issue(s) created in the last 30 days",
+      "evidence": "171 automation-labeled issue(s) created in the last 30 days",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -585,7 +585,7 @@
     },
     "meta:audit-freshness": {
       "passed": true,
-      "evidence": "last audit was 0 day(s) ago (within 7-day window)",
+      "evidence": "last audit was 1 day(s) ago (within 7-day window)",
       "verdict": "pass",
       "substantive": null,
       "substanceEvidence": null
@@ -1227,6 +1227,12 @@
       "level": 5,
       "detected": 73,
       "total": 84
+    },
+    {
+      "date": "2026-11-12",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "issuesCreated": {
@@ -1420,33 +1426,33 @@
         "name": "ci-flake-rate",
         "description": "CI flake rate must be below 20%",
         "passed": true,
-        "value": 0.024,
+        "value": 0.024024024024024024,
         "threshold": 0.2,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 1000
+        "sampleSize": 999
       },
       {
         "level": 4,
         "name": "agent-pr-acceptance",
         "description": "Agent PR acceptance rate must exceed 50%",
         "passed": true,
-        "value": 0.9891304347826086,
+        "value": 0.9893617021276596,
         "threshold": 0.5,
         "direction": "above",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 279
+        "sampleSize": 283
       },
       {
         "level": 5,
         "name": "auto-qa-tuning-history",
         "description": "Auto-QA tuning history must have more than 1 entry",
         "passed": true,
-        "value": 50,
+        "value": 51,
         "threshold": 1,
         "direction": "above",
         "strict": true,
@@ -1459,47 +1465,47 @@
         "name": "agent-pr-revert-rate",
         "description": "Agent PR revert rate must be below 10%",
         "passed": true,
-        "value": 0,
+        "value": 0.0035842293906810036,
         "threshold": 0.1,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 279
+        "sampleSize": 283
       },
       {
         "level": 6,
         "name": "human-touch-ratio",
         "description": "Human-touch ratio must be below 50% (merged agent PRs requiring non-author commits, 30-day window)",
         "passed": true,
-        "value": 0.018315018315018316,
+        "value": 0.017921146953405017,
         "threshold": 0.5,
         "direction": "below",
         "strict": true,
         "dataAvailable": true,
         "unverifiable": false,
-        "sampleSize": 279
+        "sampleSize": 283
       }
     ],
     "capped": false
   },
   "behavioral": {
     "flake": {
-      "rate_30d": 0.024,
-      "sample_size": 1000,
+      "rate_30d": 0.024024024024024024,
+      "sample_size": 999,
       "flaky_shas": [
         "04830781a9bc4c96c510146e33f540a56043197a",
+        "15fbe9c1c897453e91686d3a514b1bad8478321b",
         "29cdd03b0704d9a688c8c11a5f63d7627e316a31",
-        "2fae56f4b395055276cb1028092c613beed6185f",
         "3f4427be5f0ce0b21dc2fa0425ed4aa5fe8b9a7f",
         "4150f46c4085354805add0c707c7f3e1318d5cf5",
         "5073021f93908731e9b7bf31ac64549126754c59",
         "5355e3ba9efc33e60f986184993f8bc9117a663a",
-        "571dd99ecc0bc94857b0e3886370507c6b26c308",
         "5a40f38ac5bdcb666c7d8e7c2fa2abbaec8520f9",
         "5e47ab6a44683c5c32e73ce2e3932173787eb5d6",
         "70d7c831480f7e35c442cd0d048f13937a5e66ae",
         "897ef11bc3d946e07ce870874610007555c476c6",
+        "93355577eadfa55273375f49cb955a539bcead66",
         "a1a2417372798dc95635bdebdd5b510a6fafea75",
         "a4b17fbe87b67f763889fa10ce106ecb9fc921d0",
         "b1d01ff4e9430f49bfd7487d95362cb85cdea499",
@@ -1514,144 +1520,144 @@
         "f99217eb318efd02f72efd3d7ebabdfecf7173c3"
       ],
       "insufficient_data": false,
-      "oldest_record_at": "2026-10-15T17:38:38.000Z",
-      "measured_at": "2026-11-11T11:45:36.518Z"
+      "oldest_record_at": "2026-10-16T07:40:13.000Z",
+      "measured_at": "2026-11-12T12:18:32.243Z"
     },
     "agent_pr": {
-      "sample_size": 279,
-      "merged_count": 273,
+      "sample_size": 283,
+      "merged_count": 279,
       "closed_unmerged_count": 3,
-      "open_count": 3,
-      "acceptance_rate_30d": 0.9891304347826086,
-      "revert_rate_30d": 0,
+      "open_count": 1,
+      "acceptance_rate_30d": 0.9893617021276596,
+      "revert_rate_30d": 0.0035842293906810036,
       "revert_detection_unavailable_reason": null,
-      "median_time_to_merge_hours": 0.41194444444444445,
-      "human_touch_ratio": 0.018315018315018316,
+      "median_time_to_merge_hours": 0.4575,
+      "human_touch_ratio": 0.017921146953405017,
       "insufficient_data": false,
-      "oldest_record_at": "2026-10-19T04:35:07.000Z",
+      "oldest_record_at": "2026-10-21T12:23:54.000Z",
       "recent_changes": [
         {
-          "number": 8674,
-          "title": "feat(reservations): ReservationInvite model + token create/revoke (mbe-feature-drain #8661)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8674",
-          "mergedAt": "2026-11-11T10:24:35Z"
+          "number": 8767,
+          "title": "fix(hospitality): mock the public invite API in the ui-quality capture (mbe-feature-drain #8763)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8767",
+          "mergedAt": "2026-11-12T10:53:29Z"
         },
         {
-          "number": 8659,
-          "title": "feat(hospitality): owner-editable tonight note setting (mbe-feature-drain #8652)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8659",
-          "mergedAt": "2026-11-11T10:07:59Z"
+          "number": 8766,
+          "title": "fix(rialto-web): render demos index inside showcase shell (mbe-feature-drain #8641)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8766",
+          "mergedAt": "2026-11-12T10:13:07Z"
         },
         {
-          "number": 8657,
-          "title": "feat(reservations): emit reservation:guest-signal over SSE",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8657",
-          "mergedAt": "2026-11-11T09:13:37Z"
+          "number": 8765,
+          "title": "fix(hospitality): give the invite page a level-one heading while it loads (mbe-feature-drain #8762)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8765",
+          "mergedAt": "2026-11-12T08:53:51Z"
         },
         {
-          "number": 8655,
-          "title": "feat(reservations): guest night-of signal route with canSignal rule (mbe-feature-drain #8647)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8655",
-          "mergedAt": "2026-11-11T08:08:29Z"
+          "number": 8757,
+          "title": "feat(hospitality): Close dialog asks the date first, and names what is missing instead of Invalid Date",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8757",
+          "mergedAt": "2026-11-12T08:23:42Z"
         },
         {
-          "number": 8645,
-          "title": "fix(hospitality): name the venue on the Guest preview strip's tables read",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8645",
-          "mergedAt": "2026-11-11T07:11:48Z"
+          "number": 8758,
+          "title": "fix(marketing): list /gen/ and /rialto/demos/ in sitemap.xml (mbe-feature-drain #8627)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8758",
+          "mergedAt": "2026-11-12T07:45:35Z"
         },
         {
-          "number": 8605,
-          "title": "fix(rialto): keep Popover and Tooltip inside the viewport",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8605",
-          "mergedAt": "2026-11-09T19:07:24Z"
+          "number": 8756,
+          "title": "fix(rialto-web): explain that category counts are documentation pages (mbe-feature-drain #8611)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8756",
+          "mergedAt": "2026-11-12T07:20:16Z"
         },
         {
-          "number": 8602,
-          "title": "chore(factory): update stamped tools to idea-to-prod 0.27.0 and publish the assembly line",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8602",
-          "mergedAt": "2026-11-09T18:35:38Z"
+          "number": 8745,
+          "title": "fix(hospitality): named day fix and a real preview reason for availability overlaps (#8686)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8745",
+          "mergedAt": "2026-11-12T04:37:10Z"
         },
         {
-          "number": 8589,
-          "title": "fix(hospitality): wait for a resolved venueId before opening the SSE stream (mbe-daily-issue #8562)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8589",
-          "mergedAt": "2026-11-09T15:52:21Z"
+          "number": 8733,
+          "title": "fix(hospitality): a service chip no longer places Brunch at 11 PM (#8686)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8733",
+          "mergedAt": "2026-11-12T04:09:25Z"
         },
         {
-          "number": 8583,
-          "title": "fix(hospitality): pin the second Manager's clock before boot; wait for Go to date to be ready before Escape (#8581)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8583",
-          "mergedAt": "2026-11-09T15:08:53Z"
+          "number": 8736,
+          "title": "test(hospitality): e2e for book -> invite -> RSVP -> cancel (mbe-feature-drain #8669)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8736",
+          "mergedAt": "2026-11-12T03:55:48Z"
         },
         {
-          "number": 8584,
-          "title": "fix(scripts): require 20 requests before api-failures flags p95 (mbe-feature-drain #8565)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8584",
-          "mergedAt": "2026-11-09T14:41:55Z"
+          "number": 8732,
+          "title": "test(hospitality): e2e for On My Way guest signal reaching staff views",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8732",
+          "mergedAt": "2026-11-12T03:39:54Z"
         },
         {
-          "number": 8580,
-          "title": "test: wait for Retry focus in UpcomingHolidays failure test",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8580",
-          "mergedAt": "2026-11-09T11:29:10Z"
+          "number": 8731,
+          "title": "docs: evaluate dynamic invite og:image renderer (#8668)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8731",
+          "mergedAt": "2026-11-12T03:27:10Z"
         },
         {
-          "number": 8576,
-          "title": "chore(deps): upgrade i18next 26→27 and react-i18next 17→18 in hospitality",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8576",
-          "mergedAt": "2026-11-09T11:03:33Z"
+          "number": 8726,
+          "title": "fix(ci): scope post-deploy build-id poll to a redeployed marketing site (mbe-feature-drain #8720)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8726",
+          "mergedAt": "2026-11-12T02:16:03Z"
         },
         {
-          "number": 8575,
-          "title": "chore(deps): drop withdrawn GHSA-ch52-4w7c-c8xp from audit ignores",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8575",
-          "mergedAt": "2026-11-09T10:49:34Z"
+          "number": 8672,
+          "title": "feat(hospitality): play arrived chime and toast at the host stand",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8672",
+          "mergedAt": "2026-11-12T01:32:47Z"
         },
         {
-          "number": 8561,
-          "title": "test(hospitality): setup hierarchy end-to-end scenarios (editor table, varied-week baseline, PRD 9 demo)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8561",
-          "mergedAt": "2026-11-09T02:54:08Z"
+          "number": 8717,
+          "title": "feat(hospitality): invite your party share entry points + booker RSVP summary (mbe-feature-drain #8665)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8717",
+          "mergedAt": "2026-11-12T01:29:16Z"
         },
         {
-          "number": 8558,
-          "title": "fix(rialto-web): /rialto/demos/ renders empty <main>",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8558",
-          "mergedAt": "2026-11-09T02:41:57Z"
+          "number": 8682,
+          "title": "fix(ci): bound and retry the rialto Storybook Playwright install (mbe-daily-issue #8678)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8682",
+          "mergedAt": "2026-11-12T01:07:32Z"
         },
         {
-          "number": 8557,
-          "title": "fix(security): strip query string from request URL sent to Sentry",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8557",
-          "mergedAt": "2026-11-09T02:19:07Z"
+          "number": 8718,
+          "title": "docs(rca): RCA for reverted PR #8701 (mbe-feature-drain #8715)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8718",
+          "mergedAt": "2026-11-12T00:56:33Z"
         },
         {
-          "number": 8553,
-          "title": "fix(scripts): routine-liveness fails closed and gains --dry-run",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8553",
-          "mergedAt": "2026-11-09T01:56:14Z"
+          "number": 8709,
+          "title": "feat(worker): static per-venue og: link preview for /i/:token",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8709",
+          "mergedAt": "2026-11-11T23:40:39Z"
         },
         {
-          "number": 8552,
-          "title": "docs(gotchas): AUTOMATION_PAT is set, not unset (mbe-feature-drain #8550)",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8552",
-          "mergedAt": "2026-11-09T00:48:11Z"
+          "number": 8711,
+          "title": "feat(hospitality): staff N-of-M RSVP chip on timeline block and reservation details (mbe-feature-drain #8667)",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8711",
+          "mergedAt": "2026-11-11T20:11:16Z"
         },
         {
-          "number": 8527,
-          "title": "chore(skills): add an affected-only size:check lane to local-ci-precheck",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8527",
-          "mergedAt": "2026-11-08T18:41:09Z"
+          "number": 8701,
+          "title": "test(hospitality): pin the fold-budget spec's clock so the ratchet stops moving with the date",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8701",
+          "mergedAt": "2026-11-11T19:51:54Z"
         },
         {
-          "number": 8526,
-          "title": "fix(hooks): route changeset and Node-drift warnings through additionalContext",
-          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8526",
-          "mergedAt": "2026-11-08T16:45:37Z"
+          "number": 8704,
+          "title": "test(hospitality): stop the Go to date tests racing the dialog's exit spring",
+          "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8704",
+          "mergedAt": "2026-11-11T18:55:25Z"
         }
       ],
-      "measured_at": "2026-11-11T11:45:36.518Z"
+      "measured_at": "2026-11-12T12:18:32.243Z"
     },
     "evals": {
       "n": 5,
@@ -1670,11 +1676,11 @@
       },
       "status": "green",
       "freshness": "current",
-      "measured_at": "2026-11-11T11:45:36.518Z"
+      "measured_at": "2026-11-12T12:18:32.243Z"
     },
     "auto_qa_tuning": {
-      "history_count": 50,
-      "measured_at": "2026-11-11T11:45:36.518Z"
+      "history_count": 51,
+      "measured_at": "2026-11-12T12:18:32.243Z"
     }
   },
   "honestAuditNote": "Verified 2026-05-23: Level cap removed. All 3 original concerns addressed: (1) Strategic Dashboard updated with real autonomous activity audit log (PR #1688). (2) Auto-rollback drill mechanism implemented (PR #1678) — trigger with `gh workflow run auto-rollback.yml -f drill=true`. (3) llms.txt integrity fixed — root cause was Node version mismatch + stale api-versioning refs. Substance checks 5/5, behavioral gates all pass (91% acceptance, 0% reverts). Computed level 6."
