@@ -175,6 +175,30 @@ describe("AiHealthPage", () => {
     });
   });
 
+  // #8632: prMetrics.latest.date only updates weekly while every other Key
+  // Metrics tile (and the stale-report banner) is effectively daily — a
+  // date up to ~7 days old next to fresher metrics read as a data-quality
+  // bug on the live site audit, even though the date itself was accurate.
+  // Disclosing the cadence inline explains the gap instead of just showing
+  // a plain date that "disagrees with the data shown".
+  it("discloses the weekly refresh cadence next to the prMetrics snapshot date (#8632)", async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ...MOCK_REPORT,
+        sensors: {
+          ...MOCK_REPORT.sensors,
+          prMetrics: { available: true, latest: { merged: 16, date: "2026-11-02" } },
+        },
+      }),
+    });
+    renderPage();
+    await waitFor(() => {
+      expect(screen.getByText(/snapshot as of 2026-11-02/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/updates weekly/i)).toBeInTheDocument();
+  });
+
   it("renders issues ready count", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => MOCK_REPORT });
     renderPage();
@@ -315,6 +339,34 @@ describe("AiHealthPage", () => {
         expect(screen.getByText("size:m")).toBeInTheDocument();
         expect(screen.getByText("9")).toBeInTheDocument();
       });
+    });
+
+    // #8632: a bare "—" with no reason read as a data-quality bug on the
+    // live site audit. cost_per_issue_usd is null whenever no PR in the
+    // window had a matched telemetry cost row (collect-queue-efficiency.mjs
+    // computeWindowMetrics) — name that instead of showing an unexplained dash.
+    it("explains instead of showing a bare dash when no PR cost data matched this window (#8632)", async () => {
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ...MOCK_REPORT,
+          sensors: {
+            ...MOCK_REPORT.sensors,
+            queueEfficiency: {
+              ...MOCK_REPORT.sensors.queueEfficiency,
+              sub_metrics: {
+                ...MOCK_REPORT.sensors.queueEfficiency.sub_metrics,
+                cost_per_issue_usd: null,
+              },
+            },
+          },
+        }),
+      });
+      renderPage();
+      await waitFor(() => {
+        expect(screen.getByText("Cost / Issue")).toBeInTheDocument();
+      });
+      expect(screen.getByText(/no PR cost data matched this window/i)).toBeInTheDocument();
     });
 
     it("renders a graceful not-available state when the sensor is missing", async () => {
