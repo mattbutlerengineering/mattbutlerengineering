@@ -36,7 +36,7 @@ Availability opens on a hub. The hub states today's status, then the venue's rul
 4. Closures and pauses
 5. Booking rules
 
-Each row opens one focused editor that has its own address, so Back and refresh keep the Manager's place. One "Close or pause" action sits beside today's status. A Manager can type a date on the hub and read, in one sentence, what happens that day and which rule decided it. The calendar remains as "Check a date", with date selection and per-date editing. History stays one step from the hub.
+Each row opens one focused editor that has its own address, so Back and refresh keep the Manager's place. One "Close or pause" action sits beside today's status. A Manager can type a date on the hub and read, in one sentence, what happens that day and which rule decided it. The calendar remains, one step from the hub, with date selection and per-date editing. History stays one step from the hub.
 
 Every hours editor shows the same service fields and saves the same way. Each concept has one name. Everything a Manager or Host can do today is still possible.
 
@@ -68,8 +68,8 @@ Counts use the #8696 method: enabled, visible buttons, links, inputs, selects, r
 **Structure**
 
 - [ ] 1. `/availability` renders a hub with a today status and five rows named Regular hours, Seasonal hours, Special dates and holidays, Closures and pauses, Booking rules, in that order. Each row states the saved setup in one or two sentences, including an empty state. A line on the hub states that later rows win on the dates they cover.
-- [ ] 2. Each of the five rows, Check a date, and History has its own address. Loading that address directly opens that view, and browser Back returns to the hub.
-- [ ] 3. Hub first paint: at most 12 controls within 1.0 screens on desktop, and at most 10 controls within 1.5 screens on phone. Baseline: 38 / 1.76 and 17 / 1.62.
+- [ ] 2. Each of the five rows, the Calendar, and History has its own address. Loading that address directly opens that view, and browser Back returns to the hub.
+- [ ] 3. Hub first paint, with nothing paused: at most 10 controls plus one per service, within 1.0 screens on desktop and 1.5 screens on phone. Baseline: 38 / 1.76 and 17 / 1.62. (Amended 2026-11-12 at the UX stage: the Owner chose a link per service on the hub, so the earlier flat limits of 12 and 10 no longer apply.)
 - [ ] 4. Each job has exactly one primary entry point on the hub. Baseline: up to 7. Secondary shortcuts from a calendar selection or a day may open the same editor prefilled; they must not open a different editor.
 - [ ] 5. The demo runs as written: a Manager types Dec 24 on the hub of the demo venue and reads one sentence stating that day's hours and the rule that decided them, and the row for that rule is marked. Before this run the same answer needed the Calendar tab, the date and its drawer.
 
@@ -86,7 +86,7 @@ Counts use the #8696 method: enabled, visible buttons, links, inputs, selects, r
   | Weekend Brunch at brunch hours beside every-day Lunch | not completable            | at most 8 steps  |
   | Change how far ahead guests book                      | 4 steps                    | 3                |
   | Pause online booking tonight                          | 3 steps                    | 3                |
-  | Close one date / close for a week                     | 5 / 7 steps                | at most 5 / 6    |
+  | Close one date / close for a week (needs typed dates) | 5 / 7 steps                | at most 5 / 6    |
   | First setup, Lunch and Dinner Mon to Fri              | 5 steps                    | 5                |
   | Change Dinner close, every day                        | 3 steps                    | at most 4        |
 
@@ -115,7 +115,7 @@ Counts use the #8696 method: enabled, visible buttons, links, inputs, selects, r
 - [ ] 21. A date can be typed into every start and end date field. An end date's picker opens on the start date's month. A time field opens on ArrowDown.
 - [ ] 22. The reason a set of seasonal hours cannot be deleted is readable without hover.
 - [ ] 23. Zero axe violations at any impact on the hub, every editor and every overlay, at 1280, 820 and 375.
-- [ ] 24. As a Host, the hub shows no edit control and no Close or pause action, and loading any editor address lands on the hub. Hosts still reach Check a date, the special dates and closures lists with call lists, and History.
+- [ ] 24. As a Host, the hub shows no edit control and no Close or pause action, and loading any editor address lands on the hub. Hosts still reach the Calendar, the special dates and closures lists with call lists, and History.
 
 **Cleanup**
 
