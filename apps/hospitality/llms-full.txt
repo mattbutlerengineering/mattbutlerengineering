@@ -8248,6 +8248,18 @@
         jsonOk(route, buildPublicMenuFixture())
       );
     }
+    export async function mockPublicInvite(page: Page): Promise<void> {
+      await page.route(/\/public\/v1\/invites\/[^/?]+(\?.*)?$/, (route) =>
+        jsonOk(route, {
+          venue: { name: "E2E Test Bistro", slug: "e2e-test-bistro" },
+          date: localDay(3),
+          time: "19:00",
+          partySize: 4,
+          rsvps: [{ firstName: "Sam", status: "IN" }],
+          status: "CONFIRMED",
+        })
+      );
+    }
     async function mockMenus(page: Page): Promise<void> {
       const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
       const venueId = venues.data[0]?.id ?? "";
