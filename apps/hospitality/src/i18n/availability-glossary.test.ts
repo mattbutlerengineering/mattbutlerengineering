@@ -87,6 +87,10 @@ describe("checkAvailabilityGlossary", () => {
     ["Schedules", "Other schedules"],
     ["Schedule", "Use schedule…"],
     ["Revert", "Revert"],
+    ["Reverted", "Reverted: {{summary}}"],
+    ["Reverting", "Reverting this change…"],
+    ["Regular weeks", "Compare regular weeks"],
+    ["Regular week", "A regular-week change"],
   ])("matches %s in %j, whatever the case", (word, value) => {
     const base = clean();
     const catalogs: GlossaryCatalogs = {
@@ -123,6 +127,42 @@ describe("checkAvailabilityGlossary", () => {
     expect(checkAvailabilityGlossary(catalogs, NONE)).toEqual([]);
   });
 
+  it("reports a retired word under availabilityHub, where the run's new strings go", () => {
+    const base = clean();
+    const catalogs: GlossaryCatalogs = {
+      ...base,
+      "en-US": { ...base["en-US"], availabilityHub: { rows: { seasonal: "Schedules" } } },
+      "es-MX": { ...base["es-MX"], availabilityHub: { rows: { seasonal: "Horarios" } } },
+      "fr-CA": { ...base["fr-CA"], availabilityHub: { rows: { seasonal: "Horaires" } } },
+    };
+    expect(checkAvailabilityGlossary(catalogs, NONE)).toEqual([
+      {
+        kind: "retired-word",
+        locale: "en-US",
+        key: "availabilityHub.rows.seasonal",
+        detail: "Schedules",
+      },
+    ]);
+  });
+
+  it.each(["es-MX", "fr-CA"] as const)(
+    "reports a key under availabilityHub that %s lacks",
+    (locale) => {
+      const base = clean();
+      const hub = { availabilityHub: { title: "Availability" } };
+      const all: GlossaryCatalogs = {
+        ...base,
+        "en-US": { ...base["en-US"], ...hub },
+        "es-MX": { ...base["es-MX"], ...hub },
+        "fr-CA": { ...base["fr-CA"], ...hub },
+      };
+      const catalogs: GlossaryCatalogs = { ...all, [locale]: base[locale] };
+      expect(checkAvailabilityGlossary(catalogs, NONE)).toEqual([
+        { kind: "missing-key", locale, key: "availabilityHub.title", detail: "" },
+      ]);
+    }
+  );
+
   it.each(["es-MX", "fr-CA"] as const)("reports a key that %s lacks", (locale) => {
     const base = clean();
     const catalogs: GlossaryCatalogs = {
@@ -154,9 +194,10 @@ describe("checkAvailabilityGlossary", () => {
 });
 
 describe("Availability glossary", () => {
-  it("covers the three availability namespaces", () => {
+  it("covers the availability namespaces, the hub's included", () => {
     expect([...AVAILABILITY_NAMESPACES].sort()).toEqual([
       "availability",
+      "availabilityHub",
       "availabilitySchedules",
       "availabilitySpecial",
     ]);

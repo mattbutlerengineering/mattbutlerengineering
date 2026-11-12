@@ -5826,6 +5826,9 @@
       function scoped(catalog: Catalog): readonly (readonly [string, string])[] { /* ... */ }
     </item>
     <item priority="medium">
+      function retiredPattern(word: string): RegExp { /* ... */ }
+    </item>
+    <item priority="medium">
       function retiredWordIn(value: string): string | undefined { /* ... */ }
     </item>
     <item priority="medium">

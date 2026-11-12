@@ -13,12 +13,19 @@ interface GlossaryEntry {
   readonly concept: string;
   /** The one en-US label for the concept. */
   readonly term: string;
-  /** en-US words this label replaces. Matched as whole words, whatever the case. */
+  /**
+   * en-US words this label replaces. Matched as whole words, whatever the case; a space also
+   * matches a hyphen ("regular-week").
+   */
   readonly retired: readonly string[];
 }
 
 export const AVAILABILITY_GLOSSARY: readonly GlossaryEntry[] = [
-  { concept: "The weekly pattern", term: "Regular hours", retired: ["Regular week"] },
+  {
+    concept: "The weekly pattern",
+    term: "Regular hours",
+    retired: ["Regular week", "Regular weeks"],
+  },
   {
     concept: "Named hours that replace the weekly pattern on the dates they cover",
     term: "Seasonal hours",
@@ -34,16 +41,24 @@ export const AVAILABILITY_GLOSSARY: readonly GlossaryEntry[] = [
   { concept: "Online booking stopped for a while", term: "Pause", retired: [] },
   { concept: "End a closure", term: "Reopen", retired: [] },
   { concept: "End a pause", term: "Resume", retired: [] },
-  { concept: "Take back a saved change", term: "Undo", retired: ["Revert"] },
+  {
+    concept: "Take back a saved change",
+    term: "Undo",
+    retired: ["Revert", "Reverted", "Reverting"],
+  },
   { concept: "How guests book a service", term: "Booked by", retired: [] },
   { concept: "The dates an edit covers", term: "Applies to", retired: [] },
   { concept: "The hub's date field", term: "Check a date", retired: [] },
   { concept: "The month screen", term: "Calendar", retired: [] },
 ];
 
-/** The top-level catalog sections the glossary governs. */
+/**
+ * The top-level catalog sections the glossary governs. `availabilityHub` holds the hub's new
+ * strings; a section a catalog does not have yet contributes no keys.
+ */
 export const AVAILABILITY_NAMESPACES: readonly string[] = [
   "availability",
+  "availabilityHub",
   "availabilitySchedules",
   "availabilitySpecial",
 ];
@@ -64,6 +79,7 @@ export const LEGACY_KEYS: ReadonlySet<string> = new Set([
   "availability.quickSetup.hostEmpty",
   "availability.quickSetup.issues.days_outside_use",
   "availability.history.revert",
+  "availability.history.summary.reverted",
   "availability.history.summary.regularWeekChanged",
   "availability.preview.compareRegularWeek",
   "availability.selection.useSchedule",
@@ -137,9 +153,15 @@ function scoped(catalog: Catalog): readonly (readonly [string, string])[] {
   return AVAILABILITY_NAMESPACES.flatMap((namespace) => leaves(catalog[namespace], namespace));
 }
 
+/** A whole-word, any-case pattern for a retired word; its spaces also match hyphens. */
+function retiredPattern(word: string): RegExp {
+  const parts = word.split(/\s+/).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  return new RegExp(`\\b${parts.join("[\\s-]+")}\\b`, "i");
+}
+
 const RETIRED: readonly (readonly [string, RegExp])[] = AVAILABILITY_GLOSSARY.flatMap(
   ({ retired }) => retired
-).map((word) => [word, new RegExp(`\\b${word.replace(/\s+/g, "\\s+")}\\b`, "i")]);
+).map((word) => [word, retiredPattern(word)]);
 
 /** The first retired word in a value. A `{{placeholder}}` name is never shown, so it is skipped. */
 function retiredWordIn(value: string): string | undefined {
