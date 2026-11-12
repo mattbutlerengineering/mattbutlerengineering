@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.12
+
+### Patch Changes
+
+- [#8636](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8636) [`15fbe9c`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/15fbe9c1c897453e91686d3a514b1bad8478321b) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - DatePicker's calendar paints an opaque surface and stays under the field on a phone. A month that is only a little taller than the space below the field scrolls inside the panel instead of flipping over the page title, and the panel no longer uses the translucent glass fill, so the page does not show through the dates.
+
+- [#8637](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8637) [`699e916`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/699e916e7876f5566bd3b8f4dd5addac6eeee351) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Breadcrumb, pagination, steps, segmented control, and date range stay inside a narrow column. In dark mode the command palette and toasts paint an opaque elevated surface, and toasts stack in normal flow.
+
 ## 0.10.11
 
 ### Patch Changes
