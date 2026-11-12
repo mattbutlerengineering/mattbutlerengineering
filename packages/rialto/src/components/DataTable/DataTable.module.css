@@ -1,6 +1,11 @@
 /* ── Scroll wrapper ──────────────────────────── */
+/* Same cap as Table. A nowrap grid scrolls inside this frame. */
 .wrapper {
+  position: relative;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  max-inline-size: 100%;
+  min-inline-size: 0;
   border-radius: var(--rialto-radius-soft);
   border: 1px solid var(--rialto-border);
 }

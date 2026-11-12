@@ -240,6 +240,7 @@ jobs:
             apps/rialto-web/e2e/demo-nav.spec.ts \
             apps/rialto-web/e2e/telemetry.spec.ts \
             apps/rialto-web/e2e/narrow-component-demos.spec.ts \
+            apps/rialto-web/e2e/narrow-demo-pages.spec.ts \
             apps/rialto-web/e2e/narrow-example-overflow.spec.ts \
             apps/rialto-web/e2e/password-strength.spec.ts \
             apps/rialto-web/e2e/date-picker-narrow.spec.ts
