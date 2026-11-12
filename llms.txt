@@ -13212,6 +13212,9 @@
       export function createGenRunner(config: GenRunnerConfig): GenRunner { /* ... */ }
     </item>
     <item priority="medium">
+      function isKeyedElement(value: unknown): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
       function toError(value: unknown): Error { /* ... */ }
     </item>
     <item priority="low">

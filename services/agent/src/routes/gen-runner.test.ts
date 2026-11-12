@@ -6,6 +6,7 @@ vi.mock("ai", () => ({
   streamText: vi.fn(),
   tool: vi.fn((def: unknown) => def),
   stepCountIs: vi.fn((n: number) => ({ type: "stepCount", count: n })),
+  Output: { json: vi.fn(() => ({ name: "json" })) },
 }));
 
 vi.mock("@ai-sdk/anthropic", () => ({
@@ -649,6 +650,117 @@ describe("createGenRunner", () => {
         { type: "element", element: card },
         { type: "element", element: root },
       ]);
+    });
+  });
+
+  describe("forced render on google (JSON text mode)", () => {
+    // Through function calling, gemini-3.1-flash-lite fills only the props the
+    // catalog declares: a live production run (2026-11-12) returned a Button
+    // with no label and a DataList with `items: null`. As JSON text it writes
+    // whole props, so a forced render on google asks for JSON instead.
+    const forced = { type: "tool", toolName: "render_component" } as const;
+    const button = { key: "b", type: "Button", props: { label: "Cancel" } };
+    const renderTool = { description: "render", inputSchema: {}, execute: vi.fn() };
+    const textStream = (...chunks: string[]) =>
+      ({
+        fullStream: mockAsyncIterable(chunks.map((text) => ({ type: "text-delta", text }))),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+        providerMetadata: Promise.resolve({}),
+      }) as never;
+    const googleForced = () =>
+      createGenRunner({
+        ...baseConfig,
+        provider: "google",
+        modelId: "gemini-3.1-flash-lite",
+        toolChoice: forced,
+      });
+
+    it("asks for JSON output instead of a tool call", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(textStream());
+
+      await googleForced().run(
+        [{ role: "user", content: "a button" }],
+        { render_component: renderTool },
+        async () => {}
+      );
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as {
+        tools?: unknown;
+        toolChoice?: unknown;
+        output?: unknown;
+        instructions: { content: string };
+      };
+      expect(call.tools).toBeUndefined();
+      expect(call.toolChoice).toBeUndefined();
+      expect(call.output).toEqual({ name: "json" });
+      expect(call.instructions.content).toContain("You are a helpful assistant.");
+      expect(call.instructions.content).toContain('{"elements":[...]}');
+    });
+
+    it("emits each element as its JSON closes in the text, and no text events", async () => {
+      const first = JSON.stringify({ key: "root", type: "Stack" });
+      vi.mocked(streamText).mockReturnValueOnce(
+        textStream(`{"elements":[${first},`, `${JSON.stringify(button)}]}`)
+      );
+
+      const events: GenStreamEvent[] = [];
+      await googleForced().run(
+        [{ role: "user", content: "a button" }],
+        { render_component: renderTool },
+        async (event) => {
+          events.push(event);
+        }
+      );
+
+      expect(events).toEqual([
+        { type: "element", element: { key: "root", type: "Stack" } },
+        { type: "element", element: button },
+      ]);
+    });
+
+    it("fails the run on an element without a string key and type", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(textStream('{"elements":[{"type":"Button"}]}'));
+
+      await expect(
+        googleForced().run(
+          [{ role: "user", content: "a button" }],
+          { render_component: renderTool },
+          async () => {}
+        )
+      ).rejects.toThrow(/element without a string key and type/);
+    });
+
+    it("keeps the tool call for a forced render on anthropic", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(textStream());
+
+      await createGenRunner({ ...baseConfig, toolChoice: forced }).run(
+        [{ role: "user", content: "a button" }],
+        { render_component: renderTool },
+        async () => {}
+      );
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.tools).toEqual({ render_component: renderTool });
+      expect(call.toolChoice).toEqual(forced);
+      expect(call.output).toBeUndefined();
+    });
+
+    it("keeps tools on google when no render is forced", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(textStream("hello"));
+
+      const events: GenStreamEvent[] = [];
+      await createGenRunner({ ...baseConfig, provider: "google" }).run(
+        [{ role: "user", content: "hi" }],
+        { render_component: renderTool },
+        async (event) => {
+          events.push(event);
+        }
+      );
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.tools).toEqual({ render_component: renderTool });
+      expect(call.output).toBeUndefined();
+      expect(events).toEqual([{ type: "text", content: "hello" }]);
     });
   });
 });
