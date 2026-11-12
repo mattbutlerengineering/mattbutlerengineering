@@ -3554,11 +3554,22 @@
           let renderJson = "";
           let renderEmitted = 0;
           let trackingRender = false;
+          // A forced render_component call is one call holding the whole tree.
+          // Gemini sometimes answers with several parallel calls that repeat
+          // element keys (2 of 6 live runs, 2026-11-12); only the first is rendered.
+          const singleRender = config.toolChoice?.toolName === "render_component";
+          let firstRenderId: string | undefined;
+          const isExtraRender = (id: string) =>
+            singleRender && firstRenderId !== undefined && id !== firstRenderId;
           for await (const event of result.fullStream) {
             if (event.type === "tool-input-start" && event.toolName === "render_component") {
+              if (isExtraRender(event.id)) continue;
+              firstRenderId ??= event.id;
               trackingRender = true;
               renderJson = "";
               renderEmitted = 0;
+            } else if (event.type === "tool-input-delta" && isExtraRender(event.id)) {
+              continue;
             } else if (event.type === "tool-input-delta" && trackingRender) {
               renderJson += event.delta;
               const ready = completeJsonElements(renderJson);
@@ -3574,6 +3585,10 @@
             } else if (event.type === "finish-step" && event.finishReason !== "length") {
               stepEnded = true;
             } else if (event.type === "tool-call") {
+              if (event.toolName === "render_component") {
+                if (isExtraRender(event.toolCallId)) continue;
+                firstRenderId ??= event.toolCallId;
+              }
               const already =
                 trackingRender && event.toolName === "render_component" ? renderEmitted : 0;
               await handleToolCall(event, onEvent, already);
