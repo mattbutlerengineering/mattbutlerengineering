@@ -8,3 +8,26 @@
   display: flex;
   flex-direction: column;
 }
+
+/* Editable fields only: the calendar icon becomes the way to open the month. */
+.calendarButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--rialto-space-xs);
+  border: 0;
+  border-radius: var(--rialto-radius-default);
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  transition: color var(--rialto-duration-fast) var(--rialto-ease-precision);
+}
+
+.calendarButton:hover {
+  color: var(--rialto-text-primary);
+}
+
+.calendarButton:focus-visible {
+  outline: none;
+  box-shadow: var(--rialto-shadow-focus);
+}

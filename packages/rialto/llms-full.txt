@@ -655,7 +655,7 @@
       name: "DatePicker",
       include: false,
       description:
-        "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
+        "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. editable lets the date be typed, with a problem shown for text that is not an allowed date; defaultMonth sets the month an empty field's calendar opens on. Focus lands on the selected or current day on open and returns to the trigger on select or Escape.",
     } satisfies CatalogMeta;
   </file>
   <file path="src/components/DatePicker/fit-below.ts">
@@ -784,6 +784,171 @@
       return () => {
         window.removeEventListener("resize", onResize);
         window.removeEventListener("scroll", onScroll, true);
+      };
+    }
+  </file>
+  <file path="src/components/DatePicker/parse-typed-date.ts">
+    interface DayOfYear {
+      readonly month: number; // 1-12
+      readonly day: number;
+      readonly year: number | null;
+    }
+    function normalise(word: string, locale: string | undefined): string {
+      return word.toLocaleLowerCase(locale).replace(/\.$/, "");
+    }
+    function monthFromName(word: string, locale: string | undefined): number | null {
+      const wanted = normalise(word, locale);
+      const formats = (["short", "long"] as const).map(
+        (month) => new Intl.DateTimeFormat(locale, { month, timeZone: "UTC" })
+      );
+      for (let month = 0; month < 12; month += 1) {
+        const date = new Date(Date.UTC(2023, month, 1));
+        if (formats.some((format) => normalise(format.format(date), locale) === wanted))
+          return month + 1;
+      }
+      return null;
+    }
+    function dayComesFirst(locale: string | undefined): boolean {
+      const parts = new Intl.DateTimeFormat(locale, { month: "numeric", day: "numeric" })
+        .formatToParts(new Date(Date.UTC(2023, 0, 2)))
+        .map((part) => part.type);
+      return parts.indexOf("day") < parts.indexOf("month");
+    }
+    function read(text: string, locale: string | undefined): DayOfYear | null {
+      const tokens = text.trim().split(SEPARATOR);
+      const numbers = tokens.filter((token) => DIGITS.test(token));
+      const words = tokens.filter((token) => !DIGITS.test(token));
+      const years = numbers.filter((token) => token.length === 4);
+      const rest = numbers.filter((token) => token.length < 3);
+      if (words.length > 1 || years.length > 1 || years.length + rest.length < numbers.length) {
+        return null;
+      }
+      const year = years[0] === undefined ? null : Number(years[0]);
+      const [first, second] = rest;
+      const word = words[0];
+      if (word !== undefined) {
+        const month = monthFromName(word, locale);
+        if (month === null || first === undefined || second !== undefined) return null;
+        return { year, month, day: Number(first) };
+      }
+      // Numbers only: a year leads (ISO order) or trails (the locale's order), never sits between.
+      if (first === undefined || second === undefined || rest.length > 2) return null;
+      if (numbers[1] === years[0]) return null;
+      const dayFirst = numbers[0] !== years[0] && dayComesFirst(locale);
+      return { year, month: Number(dayFirst ? second : first), day: Number(dayFirst ? first : second) };
+    }
+    function realDate(year: number, month: number, day: number): string | null {
+      if (year < EARLIEST_YEAR) return null;
+      // parseIsoDate refuses a month or day that does not survive the round trip.
+      const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      return parseIsoDate(iso) ? iso : null;
+    }
+    function nextOccurrence(month: number, day: number, today: string): string | null {
+      const start = parseIsoDate(today)?.year;
+      if (start === undefined) return null;
+      for (let offset = 0; offset < YEARS_TO_SEARCH; offset += 1) {
+        const iso = realDate(start + offset, month, day);
+        if (iso !== null && iso >= today) return iso;
+      }
+      return null;
+    }
+    export function parseTypedDate(
+      text: string,
+      locale: string | undefined,
+      today: string
+    ): string | null {
+      try {
+        const parts = read(text, locale);
+        if (!parts) return null;
+        return parts.year === null
+          ? nextOccurrence(parts.month, parts.day, today)
+          : realDate(parts.year, parts.month, parts.day);
+      } catch {
+        // Intl rejects a malformed locale tag; an unreadable date is not an error.
+        return null;
+      }
+    }
+  </file>
+  <file path="src/components/DatePicker/useTypedDate.ts">
+    function formatDate(iso: string | null | undefined, locale: string | undefined): string {
+      const parsed = iso ? parseIsoDate(iso) : null;
+      if (!parsed) return "";
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day)));
+    }
+    interface Draft {
+      readonly text: string;
+      readonly problem: string | null;
+      /** The `value` this draft was typed over; a different `value` retires it. */
+      readonly forValue: string | null;
+    }
+    export interface TypedDateOptions {
+      value: string | null;
+      onChange: (value: string | null) => void;
+      locale: string | undefined;
+      min?: string;
+      max?: string;
+      isDateDisabled?: (isoDate: string) => boolean;
+      messages: RialtoMessages;
+    }
+    export interface TypedDate {
+      /** What the input shows: the text being typed, else the formatted `value`. */
+      text: string;
+      /** Why the last committed text was refused, or `null`. */
+      problem: string | null;
+      type: (text: string) => void;
+      /** Read the typed text: accept it, or keep it on screen with a problem. */
+      commit: () => void;
+      /** Drop the typed text, e.g. after a day is picked in the calendar. */
+      discard: () => void;
+    }
+    export function useTypedDate({
+      value,
+      onChange,
+      locale,
+      min,
+      max,
+      isDateDisabled,
+      messages,
+    }: TypedDateOptions): TypedDate {
+      const [draft, setDraft] = useState<Draft | null>(null);
+      const active = draft && draft.forValue === value ? draft : null;
+    
+      // Mirrors Calendar: the predicate, when given, wins over min/max.
+      const refusal = (iso: string): string | null => {
+        if (isDateDisabled) return isDateDisabled(iso) ? messages.dateUnavailable : null;
+        if (min && iso < min) return messages.dateTooEarly(formatDate(min, locale));
+        if (max && iso > max) return messages.dateTooLate(formatDate(max, locale));
+        return null;
+      };
+    
+      // These go straight onto the native input, so a stable identity buys nothing.
+      const type = (text: string) => setDraft({ text, problem: null, forValue: value });
+    
+      const commit = () => {
+        if (!active) return;
+        const iso = parseTypedDate(active.text, locale, localToday());
+        const empty = active.text.trim() === "";
+        const problem = empty ? null : iso === null ? messages.enterDate : refusal(iso);
+        const next = problem === null ? iso : null;
+        // A refused date leaves no value behind, so a form cannot save the old one unseen.
+        setDraft(problem === null ? null : { text: active.text, problem, forValue: null });
+        if (next !== value) onChange(next);
+      };
+    
+      // Stable, because DatePicker's day-select callback depends on it.
+      const discard = useCallback(() => setDraft(null), []);
+    
+      return {
+        text: active ? active.text : formatDate(value, locale),
+        problem: active ? active.problem : null,
+        type,
+        commit,
+        discard,
       };
     }
   </file>
@@ -3875,6 +4040,14 @@
       readonly nextMonth: string;
       /** Accessible name of a DatePicker with no label. */
       readonly chooseDate: string;
+      /** Problem under an editable DatePicker whose typed text is not a date. */
+      readonly enterDate: string;
+      /** Problem under an editable DatePicker for a typed date before `min` (the formatted earliest date). */
+      readonly dateTooEarly: (earliest: string) => string;
+      /** Problem under an editable DatePicker for a typed date after `max` (the formatted latest date). */
+      readonly dateTooLate: (latest: string) => string;
+      /** Problem under an editable DatePicker for a typed date its `isDateDisabled` refuses. */
+      readonly dateUnavailable: string;
       /** Accessible name of a DateRangePicker with no label. */
       readonly chooseDateRange: string;
       /** Accessible name of a TimePicker with no label. */
@@ -4078,6 +4251,10 @@
       previousMonth: "Previous month",
       nextMonth: "Next month",
       chooseDate: "Choose date",
+      enterDate: "Enter a date",
+      dateTooEarly: (earliest) => `Enter a date on or after ${earliest}`,
+      dateTooLate: (latest) => `Enter a date on or before ${latest}`,
+      dateUnavailable: "That date is not available",
       chooseDateRange: "Choose date range",
       chooseTime: "Choose time",
       decrease: "Decrease",
@@ -4294,6 +4471,10 @@
       previousMonth: "Mes anterior",
       nextMonth: "Mes siguiente",
       chooseDate: "Elegir fecha",
+      enterDate: "Ingresa una fecha",
+      dateTooEarly: (earliest) => `Ingresa una fecha a partir del ${earliest}`,
+      dateTooLate: (latest) => `Ingresa una fecha que no pase del ${latest}`,
+      dateUnavailable: "Esa fecha no está disponible",
       chooseDateRange: "Elegir rango de fechas",
       chooseTime: "Elegir hora",
       decrease: "Disminuir",
@@ -4457,6 +4638,10 @@
       previousMonth: "Mois précédent",
       nextMonth: "Mois suivant",
       chooseDate: "Choisir une date",
+      enterDate: "Entrez une date",
+      dateTooEarly: (earliest) => `Entrez une date à partir du ${earliest}`,
+      dateTooLate: (latest) => `Entrez une date au plus tard le ${latest}`,
+      dateUnavailable: "Cette date n'est pas disponible",
       chooseDateRange: "Choisir une plage de dates",
       chooseTime: "Choisir une heure",
       decrease: "Diminuer",

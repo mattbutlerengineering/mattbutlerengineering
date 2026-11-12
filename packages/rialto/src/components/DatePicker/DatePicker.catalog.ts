@@ -15,5 +15,5 @@ export const datePickerCatalogMeta = {
   name: "DatePicker",
   include: false,
   description:
-    "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
+    "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. editable lets the date be typed, with a problem shown for text that is not an allowed date; defaultMonth sets the month an empty field's calendar opens on. Focus lands on the selected or current day on open and returns to the trigger on select or Escape.",
 } satisfies CatalogMeta;

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { RialtoLocaleProvider } from "../i18n/RialtoLocaleProvider";
 import { enGB } from "../i18n/locales/en-GB";
@@ -333,6 +333,24 @@ describe("context locale is the Intl fallback", () => {
       </RialtoLocaleProvider>
     );
     expect(screen.getByRole("combobox")).toHaveValue("10 mar 2026");
+  });
+
+  it("an editable DatePicker reads and refuses typed dates in the context locale", () => {
+    const onChange = vi.fn();
+    render(
+      <RialtoLocaleProvider locale="es-MX" messages={esMX}>
+        <DatePicker label="Fecha" value={null} onChange={onChange} max="2026-03-31" editable />
+      </RialtoLocaleProvider>
+    );
+    const field = screen.getByRole("combobox");
+
+    fireEvent.change(field, { target: { value: "10/3/2026" } });
+    fireEvent.blur(field);
+    expect(onChange).toHaveBeenCalledWith("2026-03-10");
+
+    fireEvent.change(field, { target: { value: "10 abr 2026" } });
+    fireEvent.blur(field);
+    expect(field).toHaveAccessibleDescription(esMX.dateTooLate("31 mar 2026"));
   });
 
   it("DateRangePicker trigger value follows the context locale", () => {
