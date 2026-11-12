@@ -16,7 +16,7 @@ test.describe("Availability quick setup (F1)", () => {
 
     // The old entry point still lands on the new page.
     await mockedPage.goto("setup/hours");
-    await expect(mockedPage).toHaveURL(/\/availability$/);
+    await expect(mockedPage).toHaveURL(/\/availability\/calendar$/);
     await expect(mockedPage.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
 
     await mockedPage.getByRole("button", { name: "Dinner" }).click();

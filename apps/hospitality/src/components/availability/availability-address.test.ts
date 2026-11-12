@@ -9,26 +9,46 @@ import {
   type AvailabilityTarget,
 } from "./availability-address.js";
 
+/**
+ * The child routes of `availability` in `main.tsx` that render a view. The index is not one: until
+ * the hub lands it only redirects. An address outside this list leads to the Not Found page.
+ */
+const MOUNTED: readonly string[] = ["/availability/calendar"];
+const pathOf = (address: string): string => address.split("?")[0] ?? "";
+
 describe("availabilityPath", () => {
-  // No new view is built yet, so every target resolves to an address today's page handles.
+  // No new view is built yet, so every target resolves to today's page, mounted at `calendar`.
   const cases: readonly (readonly [AvailabilityTarget, string])[] = [
-    [{ view: "hub" }, "/availability"],
-    [{ view: "hours" }, "/availability?tab=schedules"],
-    [{ view: "hours", service: "svc-dinner" }, "/availability?tab=schedules"],
-    [{ view: "seasonal" }, "/availability?tab=schedules"],
-    [{ view: "seasonal", screen: "new" }, "/availability?tab=schedules&action=addSchedule"],
-    [{ view: "seasonal", screen: "edit", scheduleId: "sch-1" }, "/availability?tab=schedules"],
-    [{ view: "seasonal", screen: "compare" }, "/availability?tab=schedules"],
-    [{ view: "specialDates" }, "/availability?tab=special"],
-    [{ view: "closures" }, "/availability?tab=special"],
-    [{ view: "calendar" }, "/availability?tab=calendar"],
-    [{ view: "calendar", calendarView: "week", date: "2026-12-24" }, "/availability?tab=calendar"],
-    [{ view: "bookingRules" }, "/availability?tab=schedules"],
-    [{ view: "history" }, "/availability"],
+    [{ view: "hub" }, "/availability/calendar"],
+    [{ view: "hours" }, "/availability/calendar?tab=schedules"],
+    [{ view: "hours", service: "svc-dinner" }, "/availability/calendar?tab=schedules"],
+    [{ view: "seasonal" }, "/availability/calendar?tab=schedules"],
+    [
+      { view: "seasonal", screen: "new" },
+      "/availability/calendar?tab=schedules&action=addSchedule",
+    ],
+    [
+      { view: "seasonal", screen: "edit", scheduleId: "sch-1" },
+      "/availability/calendar?tab=schedules",
+    ],
+    [{ view: "seasonal", screen: "compare" }, "/availability/calendar?tab=schedules"],
+    [{ view: "specialDates" }, "/availability/calendar?tab=special"],
+    [{ view: "closures" }, "/availability/calendar?tab=special"],
+    [{ view: "calendar" }, "/availability/calendar?tab=calendar"],
+    [
+      { view: "calendar", calendarView: "week", date: "2026-12-24" },
+      "/availability/calendar?tab=calendar",
+    ],
+    [{ view: "bookingRules" }, "/availability/calendar?tab=schedules"],
+    [{ view: "history" }, "/availability/calendar"],
   ];
 
   it.each(cases)("resolves %o to %s", (target, path) => {
     expect(availabilityPath(target)).toBe(path);
+  });
+
+  it.each(cases)("resolves %o to a route that is mounted", (target) => {
+    expect(MOUNTED).toContain(pathOf(availabilityPath(target)));
   });
 
   it("covers every view", () => {
@@ -48,9 +68,11 @@ describe("availabilityPath", () => {
   });
 
   it("carries from=setup last", () => {
-    expect(availabilityPath({ view: "hub", from: "setup" })).toBe("/availability?from=setup");
+    expect(availabilityPath({ view: "hub", from: "setup" })).toBe(
+      "/availability/calendar?from=setup"
+    );
     expect(availabilityPath({ view: "seasonal", screen: "new", from: "setup" })).toBe(
-      "/availability?tab=schedules&action=addSchedule&from=setup"
+      "/availability/calendar?tab=schedules&action=addSchedule&from=setup"
     );
   });
 
@@ -61,12 +83,12 @@ describe("availabilityPath", () => {
         close: { kind: "section", sectionId: "a b&c" },
         from: "setup",
       })
-    ).toBe("/availability?closeSection=a+b%26c&from=setup");
+    ).toBe("/availability/calendar?closeSection=a+b%26c&from=setup");
   });
 
   it("drops what today's page cannot open from an address", () => {
     expect(availabilityPath({ view: "calendar", close: { kind: "tonight" }, pause: true })).toBe(
-      "/availability?tab=calendar"
+      "/availability/calendar?tab=calendar"
     );
   });
 });
@@ -144,13 +166,15 @@ describe("readAvailabilityAddress", () => {
 });
 
 describe("legacyRedirect", () => {
-  // architecture.md "Old addresses". `/setup/hours` already lands on `/availability` in the route table.
+  // architecture.md "Old addresses", as staged: each old address names a view, and lands where
+  // `availabilityPath` puts that view today. Final address in the comment beside each row.
+  // `/setup/hours` is a route of its own in the route table.
   const rows: readonly (readonly [string, string])[] = [
-    ["?tab=schedules", "/availability/hours"],
-    ["?tab=calendar", "/availability/calendar"],
-    ["?tab=special", "/availability/special-dates"],
-    ["?action=addSchedule", "/availability/seasonal/new"],
-    ["?closeSection=sec-bar", "/availability?close=section%3Asec-bar"],
+    ["?tab=schedules", "/availability/calendar?tab=schedules"], // /availability/hours
+    ["?tab=calendar", "/availability/calendar?tab=calendar"], // /availability/calendar
+    ["?tab=special", "/availability/calendar?tab=special"], // /availability/special-dates
+    ["?action=addSchedule", "/availability/calendar?tab=schedules&action=addSchedule"], // /availability/seasonal/new
+    ["?closeSection=sec-bar", "/availability/calendar?closeSection=sec-bar"], // /availability?close=section:sec-bar
   ];
 
   it.each(rows)("sends %s to %s", (old, next) => {
@@ -158,23 +182,36 @@ describe("legacyRedirect", () => {
   });
 
   it.each(rows)("carries from=setup from %s", (old, next) => {
-    const joiner = next.includes("?") ? "&" : "?";
-    expect(legacyRedirect(`${old}&from=setup`)).toBe(`${next}${joiner}from=setup`);
+    expect(legacyRedirect(`${old}&from=setup`)).toBe(`${next}&from=setup`);
   });
 
-  it("produces a close target that reads back", () => {
+  it.each(rows)("sends %s to a route that is mounted", (old) => {
+    expect(MOUNTED).toContain(pathOf(legacyRedirect(old) ?? ""));
+  });
+
+  it.each(rows)("sends %s where the view it names lives today", (old, next) => {
+    const views: Readonly<Record<string, AvailabilityTarget>> = {
+      "?tab=schedules": { view: "hours" },
+      "?tab=calendar": { view: "calendar" },
+      "?tab=special": { view: "specialDates" },
+      "?action=addSchedule": { view: "seasonal", screen: "new" },
+      "?closeSection=sec-bar": { view: "hub", close: { kind: "section", sectionId: "sec-bar" } },
+    };
+    expect(availabilityPath(views[old] ?? { view: "hub" })).toBe(next);
+  });
+
+  it("produces a section that today's page reads back", () => {
     const next = legacyRedirect("?closeSection=a%20b%26c") ?? "";
-    expect(readAvailabilityAddress({ search: next.slice(next.indexOf("?")) }).close).toEqual({
-      kind: "section",
-      sectionId: "a b&c",
-    });
+    expect(parseAvailabilityEntry(next.slice(next.indexOf("?"))).closeSection).toBe("a b&c");
   });
 
   it("combines a tab, an action and a section", () => {
     expect(legacyRedirect("?tab=special&closeSection=sec-1&from=setup")).toBe(
-      "/availability/special-dates?close=section%3Asec-1&from=setup"
+      "/availability/calendar?tab=special&closeSection=sec-1&from=setup"
     );
-    expect(legacyRedirect("?tab=schedules&action=addSchedule")).toBe("/availability/seasonal/new");
+    expect(legacyRedirect("?tab=schedules&action=addSchedule")).toBe(
+      "/availability/calendar?tab=schedules&action=addSchedule"
+    );
   });
 
   it("is null when the search holds no old param", () => {

@@ -77,7 +77,7 @@ test.describe("Venue Setup hub", () => {
     await expect(primary).toHaveAttribute("data-primary", "true");
 
     await primary.click();
-    await expect(page).toHaveURL(/\/availability\?from=setup$/);
+    await expect(page).toHaveURL(/\/availability\/calendar\?from=setup$/);
     await expect(page.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
     await page.getByRole("link", { name: "Venue Setup" }).click();
     await expect(page).toHaveURL(/\/setup$/);
@@ -147,7 +147,7 @@ test.describe("Venue Setup hub", () => {
     await page.goto("setup");
 
     await page.getByRole("button", { name: "Close for a date… Bar" }).click();
-    await expect(page).toHaveURL(/\/availability\?from=setup$/);
+    await expect(page).toHaveURL(/\/availability\/calendar\?from=setup$/);
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
   });
@@ -157,7 +157,7 @@ test.describe("Venue Setup hub", () => {
   }) => {
     await page.goto("setup");
     await page.getByRole("button", { name: "Compare services" }).click();
-    await expect(page).toHaveURL(/\/availability\?tab=schedules&from=setup$/);
+    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules&from=setup$/);
     await expect(page.getByRole("radio", { name: "Schedules" })).toBeChecked();
   });
 
@@ -168,9 +168,9 @@ test.describe("Venue Setup hub", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Venue Setup" })).toBeVisible();
   });
 
-  test("/setup/hours still lands on /availability", async ({ mockedPage: page }) => {
+  test("/setup/hours still lands on Availability", async ({ mockedPage: page }) => {
     await page.goto("setup/hours");
-    await expect(page).toHaveURL(/\/availability$/);
+    await expect(page).toHaveURL(/\/availability\/calendar$/);
   });
 
   test("a Host sees the tree and no editor, save or set-up call to action", async ({

@@ -5295,7 +5295,7 @@
       if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
       if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
       if (target.from) params.set("from", target.from);
-      return withSearch(ROUTE, params);
+      return withSearch(TODAYS_PAGE, params);
     }
     function parseCloseTarget(value: string | null): CloseTarget | null {
       if (!value) return null;
@@ -5333,11 +5333,22 @@
     export function legacyRedirect(search: string): string | null {
       const entry = parseAvailabilityEntry(search);
       if (!entry.tab && !entry.action && !entry.closeSection) return null;
-      const path = entry.action ? `${ROUTE}/seasonal/new` : entry.tab ? TAB_PATH[entry.tab] : ROUTE;
-      const params = new URLSearchParams();
-      if (entry.closeSection) params.set("close", `${SECTION_PREFIX}${entry.closeSection}`);
-      if (entry.from) params.set("from", entry.from);
-      return withSearch(path, params);
+      const view: AvailabilityView = entry.action
+        ? { view: "seasonal", screen: "new" }
+        : entry.tab
+          ? TAB_VIEW[entry.tab]
+          : { view: "hub" };
+      return availabilityPath({
+        ...view,
+        ...(entry.closeSection && {
+          close: { kind: "section" as const, sectionId: entry.closeSection },
+        }),
+        ...(entry.from && { from: entry.from }),
+      });
+    }
+    export function indexRedirect(search: string): string {
+      const { from } = readAvailabilityAddress({ search });
+      return legacyRedirect(search) ?? availabilityPath({ view: "hub", ...(from && { from }) });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/booking-rules.ts">
@@ -22674,7 +22685,7 @@
       return page.getByRole("radio", { name }).or(page.getByRole("tab", { name }));
     }
     export async function firstPaint(page: Page): Promise<void> {
-      await page.goto("availability");
+      await page.goto("availability/calendar");
       await expect(page.getByTestId("week-panel")).toBeVisible();
     }
     export function pickerDay(page: Page, date: string): Locator {
@@ -24366,6 +24377,25 @@
         error: query.error ?? retryingError,
         retry: () => void query.refetch(),
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityScope.ts">
+    export interface AvailabilityScope {
+      /** `null` when no venue is selected. */
+      readonly venueId: string | null;
+      /** The venue's IANA time zone; empty when no venue is selected. */
+      readonly timezone: string;
+      /** Today's date in the venue's time zone. */
+      readonly today: string;
+      /** The config, its version and its source; `null` until the config has loaded. */
+      readonly state: AvailabilityConfigState | null;
+      /** False for a Host, and while the role is still being read. */
+      readonly isManager: boolean;
+      /** Refetches the config, after a refused save. */
+      readonly refresh: () => void;
+    }
+    export function useAvailabilityScope(): AvailabilityScope {
+      return useOutletContext<AvailabilityScope>();
     }
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">

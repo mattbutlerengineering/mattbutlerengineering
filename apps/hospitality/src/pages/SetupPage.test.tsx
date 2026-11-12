@@ -230,7 +230,9 @@ describe("Venue Setup: an empty venue", () => {
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Set up regular week" }));
-    expect(screen.getByLabelText("location")).toHaveTextContent("/availability?from=setup");
+    expect(screen.getByLabelText("location")).toHaveTextContent(
+      "/availability/calendar?from=setup"
+    );
   });
 
   it("opens the floor plan list from Add floor plan", async () => {
@@ -288,7 +290,7 @@ describe("Venue Setup: schedules and services", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Change regular week…" }));
     expect(screen.getByLabelText("location")).toHaveTextContent(
-      "/availability?tab=schedules&from=setup"
+      "/availability/calendar?tab=schedules&from=setup"
     );
   });
 
@@ -298,7 +300,7 @@ describe("Venue Setup: schedules and services", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Add a schedule…" }));
     expect(screen.getByLabelText("location")).toHaveTextContent(
-      "/availability?tab=schedules&action=addSchedule&from=setup"
+      "/availability/calendar?tab=schedules&action=addSchedule&from=setup"
     );
   });
 });
@@ -347,7 +349,7 @@ describe("Venue Setup: special dates", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Open Special dates" }));
     expect(screen.getByLabelText("location")).toHaveTextContent(
-      "/availability?tab=special&from=setup"
+      "/availability/calendar?tab=special&from=setup"
     );
   });
 });
@@ -436,7 +438,7 @@ describe("Venue Setup: floor plan, sections and tables", () => {
     expect(screen.getAllByRole("button", { name: /^Close for a date…/ })).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "Close for a date… Bar" }));
     expect(screen.getByLabelText("location")).toHaveTextContent(
-      "/availability?closeSection=sec-bar&from=setup"
+      "/availability/calendar?closeSection=sec-bar&from=setup"
     );
   });
 

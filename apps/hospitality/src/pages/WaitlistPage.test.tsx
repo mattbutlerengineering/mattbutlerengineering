@@ -455,7 +455,7 @@ describe("WaitlistPage", () => {
       expect(screen.queryByRole("button", { name: "Reopen waitlist" })).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: /Special dates/ })).toHaveAttribute(
         "href",
-        "/availability"
+        "/availability/calendar"
       );
     });
 

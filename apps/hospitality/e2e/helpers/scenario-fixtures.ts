@@ -61,11 +61,11 @@ export function layerOption(page: Page, name: "Schedules" | "Calendar" | "Specia
 }
 
 /**
- * Opens `/availability` as a Manager and waits until the role has settled and the Schedules layer
+ * Opens Availability as a Manager and waits until the role has settled and the Schedules layer
  * has painted its week panel: the point every scenario counts from.
  */
 export async function firstPaint(page: Page): Promise<void> {
-  await page.goto("availability");
+  await page.goto("availability/calendar");
   await expect(page.getByTestId("week-panel")).toBeVisible();
 }
 

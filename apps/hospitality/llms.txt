@@ -190,6 +190,9 @@
     <item priority="high">
       export function legacyRedirect(search: string): string | null { /* ... */ }
     </item>
+    <item priority="high">
+      export function indexRedirect(search: string): string { /* ... */ }
+    </item>
   </file>
   <file path="src/components/availability/booking-rules.ts">
     <item priority="low">
@@ -4588,6 +4591,20 @@
          */
         baseVersion?: number
       ): AvailabilityPreviewState { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useAvailabilityScope.ts">
+    <item priority="low">
+      interface AvailabilityScope {
+        venueId: string | null;
+        timezone: string;
+        today: string;
+        state: AvailabilityConfigState | null;
+        isManager: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function useAvailabilityScope(): AvailabilityScope { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useAvailabilityUndo.ts">

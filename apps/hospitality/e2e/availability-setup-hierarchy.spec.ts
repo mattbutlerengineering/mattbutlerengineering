@@ -231,14 +231,14 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
 
     // Regular week: the week form on the first layer. No drawer, no date picker first.
     await page.getByRole("button", { name: "Change regular week…" }).click();
-    await expect(page).toHaveURL(/\/availability\?tab=schedules/);
+    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules/);
     await expect(weekPanel(page)).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     // Schedules: the schedule editor, seeded from the regular week, on the Schedules layer.
     await page.goto("setup");
     await page.getByRole("button", { name: "Add a schedule…" }).first().click();
-    await expect(page).toHaveURL(/\/availability\?tab=schedules/);
+    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules/);
     await expect(
       page.getByRole("dialog").getByRole("textbox", { name: /Schedule name/ })
     ).toBeVisible();
@@ -246,7 +246,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     // Special dates: the Special dates layer.
     await page.goto("setup");
     await page.getByRole("button", { name: "Open Special dates" }).click();
-    await expect(page).toHaveURL(/\/availability\?tab=special/);
+    await expect(page).toHaveURL(/\/availability\/calendar\?tab=special/);
     await expect(layerOption(page, "Special dates")).toBeChecked();
 
     // Booking: its drawer, in place.
@@ -675,7 +675,7 @@ test.describe("The demo runs as written (PRD 9)", () => {
     const special = page.getByRole("listitem", { name: /Special dates/ });
     await expect(special).toContainText("Bar");
     await page.getByRole("button", { name: "Open Special dates" }).click();
-    await expect(page).toHaveURL(/\/availability\?tab=special/);
+    await expect(page).toHaveURL(/\/availability\/calendar\?tab=special/);
     await expect(page.getByRole("main")).toContainText("Bar");
   });
 });

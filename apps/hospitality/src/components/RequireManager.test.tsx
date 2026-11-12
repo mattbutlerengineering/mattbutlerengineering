@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Routes, Route } from "react-router";
+import { createMemoryRouter, MemoryRouter, Routes, Route, RouterProvider } from "react-router";
 import { RequireManager } from "./RequireManager.js";
 import { useManagerAccess } from "../hooks/useIsManager.js";
 
@@ -56,6 +56,41 @@ describe("RequireManager", () => {
     renderGuarded("/floor-plans/fp1");
     expect(screen.queryByText("Floor Plan Editor")).toBeNull();
     expect(screen.getByText("Setup Hub")).toBeDefined();
+  });
+
+  it("redirects a non-manager to redirectTo when one is given, with a replace", () => {
+    vi.mocked(useManagerAccess).mockReturnValue({ isManager: false, isPending: false });
+    const router = createMemoryRouter(
+      [
+        { path: "/setup", element: <div>Setup Hub</div> },
+        { path: "/availability", element: <div>Availability</div> },
+        {
+          path: "/availability/hours",
+          element: (
+            <RequireManager redirectTo="/availability">
+              <div>Regular hours editor</div>
+            </RequireManager>
+          ),
+        },
+      ],
+      { initialEntries: ["/setup", "/availability/hours"], initialIndex: 1 }
+    );
+    render(<RouterProvider router={router} />);
+    expect(screen.getByText("Availability")).toBeDefined();
+    expect(screen.queryByText("Regular hours editor")).toBeNull();
+    expect(router.state.historyAction).toBe("REPLACE");
+  });
+
+  it("renders children for a manager whatever redirectTo says", () => {
+    vi.mocked(useManagerAccess).mockReturnValue({ isManager: true, isPending: false });
+    render(
+      <MemoryRouter>
+        <RequireManager redirectTo="/availability">
+          <div>Regular hours editor</div>
+        </RequireManager>
+      </MemoryRouter>
+    );
+    expect(screen.getByText("Regular hours editor")).toBeDefined();
   });
 
   it("shows the loading page, and neither redirects nor renders children, while the role is unknown", () => {

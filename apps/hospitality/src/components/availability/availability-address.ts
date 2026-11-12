@@ -3,10 +3,14 @@
  * "Address module"). Callers name a target; this module decides the address.
  *
  * Until the item that builds a view lands, its target resolves to the tab of today's page that
- * does the same job, so no link leads to a missing view.
+ * does the same job, so no link leads to a missing view. Today's page is mounted at `calendar`.
+ * The item that builds a view gives its target its own path in `availabilityPath`; old addresses
+ * follow by themselves, because `legacyRedirect` builds its answer with `availabilityPath`.
  */
 
 const ROUTE = "/availability";
+/** Where today's page is mounted until the calendar page replaces it (breakdown D5.3). */
+const TODAYS_PAGE = `${ROUTE}/calendar`;
 
 /** What the Close dialog opens on, as `?close=` names it. */
 export type CloseTarget =
@@ -103,7 +107,7 @@ export function availabilityPath(target: AvailabilityTarget): string {
   if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
   if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
   if (target.from) params.set("from", target.from);
-  return withSearch(ROUTE, params);
+  return withSearch(TODAYS_PAGE, params);
 }
 
 const MAX_CLOSE_DATES = 20;
@@ -158,27 +162,43 @@ export function readAvailabilityAddress(location: {
   };
 }
 
-/** architecture.md "Old addresses": where each tab of today's page goes. */
-const TAB_PATH: Readonly<Record<AvailabilityTab, string>> = {
-  schedules: `${ROUTE}/hours`,
-  calendar: `${ROUTE}/calendar`,
-  special: `${ROUTE}/special-dates`,
+/** architecture.md "Old addresses": the view each tab of today's page became. */
+const TAB_VIEW: Readonly<Record<AvailabilityTab, AvailabilityView>> = {
+  schedules: { view: "hours" },
+  calendar: { view: "calendar" },
+  special: { view: "specialDates" },
 };
 
 /**
- * The new address for a search that holds an old param (`?tab=`, `?action=addSchedule`,
- * `?closeSection=`), with `from=setup` carried; `null` when it holds none, so nothing redirects.
+ * Where a search on the bare route that holds an old param (`?tab=`, `?action=addSchedule`,
+ * `?closeSection=`) goes, with `from=setup` carried; `null` when it holds none.
  *
- * It returns the final addresses of architecture.md "Old addresses". Those routes do not exist
- * until later items build them, so do not wire a row to a route before its target view exists:
- * H1.2 stages the views not built yet to today's page, mounted at `calendar`.
+ * Each old param names a view (architecture.md "Old addresses"), and the answer is wherever
+ * `availabilityPath` puts that view today. So it never names a route that is not mounted, and a
+ * row reaches its final address in the same change that gives its view a path of its own.
  */
 export function legacyRedirect(search: string): string | null {
   const entry = parseAvailabilityEntry(search);
   if (!entry.tab && !entry.action && !entry.closeSection) return null;
-  const path = entry.action ? `${ROUTE}/seasonal/new` : entry.tab ? TAB_PATH[entry.tab] : ROUTE;
-  const params = new URLSearchParams();
-  if (entry.closeSection) params.set("close", `${SECTION_PREFIX}${entry.closeSection}`);
-  if (entry.from) params.set("from", entry.from);
-  return withSearch(path, params);
+  const view: AvailabilityView = entry.action
+    ? { view: "seasonal", screen: "new" }
+    : entry.tab
+      ? TAB_VIEW[entry.tab]
+      : { view: "hub" };
+  return availabilityPath({
+    ...view,
+    ...(entry.closeSection && {
+      close: { kind: "section" as const, sectionId: entry.closeSection },
+    }),
+    ...(entry.from && { from: entry.from }),
+  });
+}
+
+/**
+ * Where the bare route sends a visit until the hub lands (breakdown H1.6): an old address to its
+ * view, anything else to the landing view, with `from=setup` carried.
+ */
+export function indexRedirect(search: string): string {
+  const { from } = readAvailabilityAddress({ search });
+  return legacyRedirect(search) ?? availabilityPath({ view: "hub", ...(from && { from }) });
 }
