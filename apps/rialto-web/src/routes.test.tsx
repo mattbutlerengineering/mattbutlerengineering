@@ -177,15 +177,17 @@ describe("demo pages emit in-demos cross-links", () => {
 });
 
 describe("demos index route (#8535)", () => {
-  it("/rialto/demos/ resolves to an index route, not just the layout (empty <Outlet />)", () => {
+  it("/rialto/demos/ renders inside the showcase shell (sidebar + footer, #8641)", () => {
     const matches = matchRoutes(routeTree, `${BASENAME}/demos/`, BASENAME);
-    expect(matches?.at(-1)?.route.index).toBe(true);
+    const shell = matches?.[0]?.route.element as { type?: { name?: string } } | undefined;
+    expect(shell?.type?.name).toBe("ShowcaseLayout");
+    expect(matches?.at(-1)?.route.path).toBe("demos");
   });
 
   it("the demos index renders a non-empty list linking to every demo page", () => {
-    const demos = routeTree.find((r) => r.path === "demos");
-    const indexRoute = demos?.children?.find((r) => r.index === true);
-    expect(indexRoute, "demos must have an index route").toBeTruthy();
+    const shell = routeTree.find((r) => !r.path && r.children);
+    const indexRoute = shell?.children?.find((r) => r.path === "demos");
+    expect(indexRoute, "showcase shell must own the demos index").toBeTruthy();
 
     render(
       <MemoryRouter basename={BASENAME} initialEntries={[`${BASENAME}/demos/`]}>
