@@ -3451,9 +3451,10 @@
       return (day: number, weekday: "long" | "short" = "long") =>
         format.formatCalendarDate(addDays(SAMPLE_MONDAY, WEEK_DISPLAY_ORDER.indexOf(day)), { weekday });
     }
-    export const QuickSetupFixContext = createContext<
-      ((fix: { readonly serviceId: string; readonly opensAt: number }) => void) | null
-    >(null);
+    export type QuickSetupFix =
+      | { readonly kind: "time"; readonly serviceId: string; readonly opensAt: number }
+      | { readonly kind: "days"; readonly serviceId: string; readonly days: readonly number[] };
+    export const QuickSetupFixContext = createContext<((fix: QuickSetupFix) => void) | null>(null);
   </file>
   <file path="src/components/availability/quick-setup-line.ts">
     export type LineFormat = Pick<VenueFormat, "formatCalendarDate" | "formatLocalTime" | "locale">;
@@ -3562,6 +3563,21 @@
       const placed = service.autoPlaced;
       if (!placed || service.opens !== placed.opens || service.closes !== placed.closes) return next;
       return placePreset(replaceService(draft, next), next.id, placed.preset, next.name);
+    }
+    export type OverlapDayShortcut = "weekdays" | "weekends" | "fridaySaturday";
+    export function overlapDayFix(
+      draft: QuickSetupDraft,
+      serviceId: string
+    ): { readonly shortcut: OverlapDayShortcut; readonly days: readonly number[] } | null {
+      const service = draft.services.find((s) => s.id === serviceId);
+      if (!service) return null;
+      const current = effectiveDays(draft, service);
+      for (const { id, days } of DAY_FIX_SHORTCUTS) {
+        if (days.length >= current.length || !days.every((day) => current.includes(day))) continue;
+        const next = setServiceDays(service, days, draft.days);
+        if (isClear(draft, next)) return { shortcut: id, days };
+      }
+      return null;
     }
     export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft {
       if (service.opens === null || service.closes === null) return service;
@@ -3760,6 +3776,16 @@
         });
       }
       return t(`availability.quickSetup.issues.${issue.code}`);
+    }
+    export function previewOverlapReason(
+      issues: readonly QuickSetupIssue[],
+      draft: QuickSetupDraft,
+      t: TFunction,
+      weekdayName: (weekday: number) => string
+    ): string | null {
+      if (issues.length === 0 || issues.some((i) => i.code !== "overlap")) return null;
+      const first = issues[0];
+      return first ? issueMessage(first, draft, t, weekdayName) : null;
     }
     function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
       const read = normalizeLegacyHours(draftToLegacyHours(draft));

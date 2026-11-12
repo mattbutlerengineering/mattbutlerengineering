@@ -227,6 +227,22 @@ export function issueMessage(
 }
 
 /**
+ * The real reason there is nothing to preview when every field has something in it: the first
+ * overlap, named on both services and the day. `null` when a field is still missing (the
+ * generic "fill in the fields" message stays right) or there is no overlap either.
+ */
+export function previewOverlapReason(
+  issues: readonly QuickSetupIssue[],
+  draft: QuickSetupDraft,
+  t: TFunction,
+  weekdayName: (weekday: number) => string
+): string | null {
+  if (issues.length === 0 || issues.some((i) => i.code !== "overlap")) return null;
+  const first = issues[0];
+  return first ? issueMessage(first, draft, t, weekdayName) : null;
+}
+
+/**
  * The server stores the day as one legacy window (earliest open, latest close) and its
  * reader closes the day when that window cannot seat anyone: a past-midnight window longer
  * than MAX_PAST_MIDNIGHT_SPAN, a span of exactly 24 hours (open == close), or one shorter

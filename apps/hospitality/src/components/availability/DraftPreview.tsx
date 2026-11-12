@@ -31,6 +31,9 @@ export interface DraftPreviewProps {
   readonly held?: boolean;
   /** What to say while `changes` is `null`. */
   readonly idle?: DraftIdle;
+  /** The sentence for `idle === "fields"` when there is a more specific reason than a blank
+   * field (an overlap, named) and no field is actually empty; the generic message otherwise. */
+  readonly fieldsReason?: string | null;
   /** False for a flow whose Save has no review step, so the moved-hours note does not promise one. */
   readonly reviewOnSave?: boolean;
   /** The date to open on when the change reaches it (the weekday being edited); else the first. */
@@ -59,6 +62,7 @@ interface Kept {
 export function DraftPreview(props: DraftPreviewProps) {
   const { venueId, changes, scopeConflicts, dates, scope, baseVersion } = props;
   const { held = false, idle = "untouched", reviewOnSave = true, focusDate } = props;
+  const { fieldsReason = null } = props;
   const { t } = useTranslation();
   const [kept, setKept] = useState<Kept | null>(null);
   const active = changes !== null && dates.length > 0;
@@ -77,7 +81,9 @@ export function DraftPreview(props: DraftPreviewProps) {
     <>
       {reason && (
         <Text variant="caption" color="secondary" role="status">
-          {t(`availability.preview.${reason === "untouched" ? "empty" : reason}`)}
+          {reason === "fields" && fieldsReason
+            ? fieldsReason
+            : t(`availability.preview.${reason === "untouched" ? "empty" : reason}`)}
         </Text>
       )}
       {kept && (active || idle !== "untouched" || changes !== null) && (

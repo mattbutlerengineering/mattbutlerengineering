@@ -7,6 +7,7 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
 import type { QuickSetupDraft } from "./quick-setup-draft.js";
 import { useWeekdayName } from "./quick-setup-field-helpers.js";
+import { previewOverlapReason } from "./quick-setup-validate.js";
 import {
   BlockedReason,
   ConflictReviewPanel,
@@ -252,6 +253,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
             focusDate={focusDate}
             baseVersion={review.baselineVersion}
             idle={block === "conflict" ? "conflict" : dirty ? "fields" : "untouched"}
+            fieldsReason={previewOverlapReason(issues, draft, t, (day) => dayName(day))}
           />
         </Stack>
       </Drawer>

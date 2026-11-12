@@ -15,7 +15,7 @@ import {
   type DraftTimes,
   type QuickSetupDraft,
 } from "./quick-setup-draft.js";
-import { firstClearStart } from "./quick-setup-placement.js";
+import { firstClearStart, overlapDayFix } from "./quick-setup-placement.js";
 import { issueMessage, serviceLabel, type QuickSetupIssue } from "./quick-setup-validate.js";
 import {
   QuickSetupFixContext,
@@ -54,6 +54,21 @@ export function IssueText({
           : [];
       })
     : [];
+  // A day fix changes only the row it is offered on, so it is safe for a mirrored overlap too.
+  const dayFixable = [
+    ...new Set(
+      problems.flatMap((p) =>
+        p.code === "overlap" && p.blockId === undefined ? [p.serviceId] : []
+      )
+    ),
+  ];
+  const dayFixes = applyFix
+    ? dayFixable.flatMap((serviceId) => {
+        if (serviceId === null) return [];
+        const fix = overlapDayFix(draft, serviceId);
+        return fix ? [{ serviceId, ...fix }] : [];
+      })
+    : [];
   return (
     <>
       {problems.map((p) => (
@@ -69,10 +84,28 @@ export function IssueText({
       {applyFix &&
         fixes.map((fix) => (
           <div key={fix.serviceId}>
-            <Button variant="secondary" size="sm" onClick={() => applyFix(fix)}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => applyFix({ kind: "time", ...fix })}
+            >
               {t("availability.quickSetup.moveTo", {
                 service: serviceLabel(draft, fix.serviceId, t),
                 time: format.formatLocalTime(toClock(fix.opensAt)),
+              })}
+            </Button>
+          </div>
+        ))}
+      {applyFix &&
+        dayFixes.map((fix) => (
+          <div key={`days-${fix.serviceId}`}>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => applyFix({ kind: "days", serviceId: fix.serviceId, days: fix.days })}
+            >
+              {t(`availability.quickSetup.restrictDays.${fix.shortcut}`, {
+                service: serviceLabel(draft, fix.serviceId, t),
               })}
             </Button>
           </div>
