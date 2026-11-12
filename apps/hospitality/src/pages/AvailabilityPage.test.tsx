@@ -320,7 +320,12 @@ describe("AvailabilityPage", () => {
   async function openGoToDate() {
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
-    await screen.findByRole("dialog", { name: "Go to date" });
+    const dialog = await screen.findByRole("dialog", { name: "Go to date" });
+    // The dialog's DOM lands before React runs its passive effects, and one of them registers
+    // the Escape listener: an Escape sent in that gap is lost and the dialog never closes (seen
+    // under CPU load, #8723). The focus trap moves focus in from the same effect pass, so
+    // focus inside the dialog means it is interactive.
+    await waitFor(() => expect(dialog).toContainElement(document.activeElement as HTMLElement));
   }
   const frame = () => new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
 
