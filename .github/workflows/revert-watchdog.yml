@@ -23,9 +23,48 @@ permissions:
   actions: write
 
 jobs:
-  on-failure:
+  # A first-attempt failure gets one rerun of its failed jobs before anything
+  # is blamed: a flaky test or a runner outage used to file a critical
+  # broken-main issue and propose a revert of an innocent PR (#8678, #8729).
+  # The rerun finishes as attempt 2 and fires this workflow again. A pass ends
+  # it; a second failure sets `confirmed` and on-failure runs. Any error here
+  # also sets `confirmed`, so a real break is never silenced.
+  confirm-red:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
+    outputs:
+      confirmed: ${{ steps.decide.outputs.confirmed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          sparse-checkout: scripts/confirm-red.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Rerun a first-attempt failure, confirm a repeated one
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+        run: |
+          RESULT=$(node scripts/confirm-red.mjs --run-attempt "$RUN_ATTEMPT" || echo '{"action":"proceed","reason":"confirm-red.mjs failed"}')
+          echo "$RESULT"
+          ACTION=$(echo "$RESULT" | jq -r '.action')
+          REASON=$(echo "$RESULT" | jq -r '.reason')
+
+          if [ "$ACTION" = "rerun" ] && gh run rerun "$RUN_ID" --failed; then
+            echo "confirmed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Run $RUN_ID: $REASON"
+          else
+            echo "confirmed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Run $RUN_ID is a confirmed failure: $REASON"
+          fi
+
+  on-failure:
+    needs: confirm-red
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' && needs.confirm-red.outputs.confirmed == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
