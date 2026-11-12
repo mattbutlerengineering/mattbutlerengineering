@@ -28,7 +28,7 @@ import { AvailabilityScheduleControls } from "../components/availability/Availab
 import {
   parseAvailabilityEntry,
   type AvailabilityTab,
-} from "../components/availability/availability-entry.js";
+} from "../components/availability/availability-address.js";
 import { ScheduleEditorDrawer } from "../components/availability/ScheduleEditorDrawer.js";
 import {
   REGULAR_WEEK_HEADING_ID,

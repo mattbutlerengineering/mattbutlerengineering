@@ -7,7 +7,7 @@ import type {
   Table,
   VenueSettings,
 } from "@mbe/types";
-import { availabilityPath } from "../availability/availability-entry.js";
+import { availabilityPath } from "../availability/availability-address.js";
 
 /**
  * Venue Setup hub (architecture.md "Setup tree"): config, floor plans, sections, tables and
@@ -177,15 +177,11 @@ const link = (to: string): Link => ({ kind: "link", to });
 const action = (id: SetupActionId, target: SetupActionTarget, subject?: string): SetupAction =>
   subject === undefined ? { id, target, primary: false } : { id, target, primary: false, subject };
 
-const SETUP_CALENDAR = availabilityPath({ from: "setup" });
-const SETUP_SCHEDULES = availabilityPath({ tab: "schedules", from: "setup" });
-const SETUP_CALENDAR_TAB = availabilityPath({ tab: "calendar", from: "setup" });
-const SETUP_ADD_SCHEDULE = availabilityPath({
-  tab: "schedules",
-  action: "addSchedule",
-  from: "setup",
-});
-const SETUP_SPECIAL = availabilityPath({ tab: "special", from: "setup" });
+const SETUP_CALENDAR = availabilityPath({ view: "hub", from: "setup" });
+const SETUP_SCHEDULES = availabilityPath({ view: "hours", from: "setup" });
+const SETUP_CALENDAR_TAB = availabilityPath({ view: "calendar", from: "setup" });
+const SETUP_ADD_SCHEDULE = availabilityPath({ view: "seasonal", screen: "new", from: "setup" });
+const SETUP_SPECIAL = availabilityPath({ view: "specialDates", from: "setup" });
 
 /** Launch steps the Manager must finish; the first unset one becomes the primary button. */
 const isLaunchGate = (node: SetupNode): boolean =>
@@ -469,7 +465,13 @@ function floorPlanNode(
         ? [
             action(
               "closeSection",
-              link(availabilityPath({ closeSection: section.id, from: "setup" })),
+              link(
+                availabilityPath({
+                  view: "hub",
+                  close: { kind: "section", sectionId: section.id },
+                  from: "setup",
+                })
+              ),
               section.name
             ),
           ]

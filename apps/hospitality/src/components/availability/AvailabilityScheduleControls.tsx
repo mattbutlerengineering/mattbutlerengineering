@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { SegmentedControl } from "@mattbutlerengineering/rialto";
-import type { AvailabilityTab } from "./availability-entry.js";
+import type { AvailabilityTab } from "./availability-address.js";
 import styles from "./AvailabilityScheduleControls.module.css";
 
 export interface AvailabilityScheduleControlsProps {

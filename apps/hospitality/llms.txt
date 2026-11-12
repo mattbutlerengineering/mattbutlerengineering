@@ -139,7 +139,19 @@
       ): { changed: string[]; removed: string[] } { /* ... */ }
     </item>
   </file>
-  <file path="src/components/availability/availability-entry.ts">
+  <file path="src/components/availability/availability-address.ts">
+    <item priority="low">
+      type CloseTarget = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | { readonly kind: "dates"; read | { readonly kind: "section"; re;
+    </item>
+    <item priority="high">
+      type AvailabilityView = { readonly view: "hub" } | { readonly view: "hours"; read | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "specialDates | { readonly view: "closures" } | {
+            readonly view: "calend | { readonly view: "bookingRules | { readonly view: "history" };
+    </item>
+    <item priority="low">
+      type AvailabilityTarget = AvailabilityView & {
+        readonly close?: CloseTarget;
+        re...;
+    </item>
     <item priority="high">
       export const AVAILABILITY_TABS: unknown;
     </item>
@@ -158,7 +170,25 @@
       export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry { /* ... */ }
     </item>
     <item priority="high">
-      export function availabilityPath(entry: AvailabilityEntry): string { /* ... */ }
+      export function availabilityPath(target: AvailabilityTarget): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseCloseTarget(value: string | null): CloseTarget | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface AvailabilityAddress {
+        close: CloseTarget | null;
+        pause: boolean;
+        from: "setup" | null;
+      }
+    </item>
+    <item priority="high">
+      export function readAvailabilityAddress(location: {
+        readonly search: string;
+      }): AvailabilityAddress { /* ... */ }
+    </item>
+    <item priority="high">
+      export function legacyRedirect(search: string): string | null { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/booking-rules.ts">
