@@ -44,6 +44,16 @@ function HomeRouteFallback() {
   return <Skeleton variant="rect" width="100%" height="90vh" />;
 }
 
+// Outer Suspense fallback for every non-home route: without it the main area
+// is blank until the page's lazy chunk arrives (#8640).
+function RouteFallback() {
+  return (
+    <div role="status" aria-busy="true" aria-label="Loading page">
+      <Skeleton variant="rect" width="100%" height="60vh" />
+    </div>
+  );
+}
+
 export function App({ theme, onThemeToggle }: AppProps) {
   useRouteMeta();
   const { pathname } = useLocation();
@@ -82,7 +92,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
         menu={engineeringMenu}
       />
       <main id="main-content" tabIndex={-1} className={styles.main}>
-        <Suspense fallback={null}>
+        <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route
               path="/"
