@@ -80,7 +80,7 @@ Run on cron schedules for ongoing health and compliance.
 | `circuit-breaker.yml`       | manual           | Circuit breaker for runaway automation     |
 | `claude.yml`                | PR review        | Trigger Claude Code on review comments     |
 | `dependabot-auto-merge.yml` | PR               | Auto-merge Dependabot dev dependency bumps |
-| `e2e-screenshots.yml`       | push, PR, manual | Capture E2E screenshots                    |
+| `e2e-screenshots.yml`       | push, manual     | Capture E2E screenshots                    |
 | `post-deploy-check.yml`     | manual           | Verify deployment health                   |
 | `preview-teardown.yml`      | manual           | Sweep leaked `mbe-preview-*` Workers       |
 | `revert-watchdog.yml`       | push to main     | Watch for reverted commits                 |
