@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Outlet, useLocation } from "react-router";
 import { isTodaysPage } from "../components/availability/availability-address.js";
 import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
@@ -27,19 +28,28 @@ export function AvailabilityLayout() {
   const { refetch } = config;
   const offer = useAvailabilityUndo();
   const { pathname } = useLocation();
+  const state = config.data ?? null;
 
-  const scope: AvailabilityScope = {
-    venueId: selectedVenueId,
-    timezone,
-    today,
-    state: config.data ?? null,
-    isManager,
-    refresh: () => void refetch(),
-    offerUndo: (title, saved) => {
-      // A save is made against a venue, so one is selected whenever there is a save to undo.
-      if (selectedVenueId) offer({ venueId: selectedVenueId, title, saved });
-    },
-  };
+  // `refresh` and `offerUndo` keep one identity for the life of the layout, so a child can list
+  // them (or the scope) as a dependency. They read what the hooks returned on the latest render.
+  const latest = useRef({ refetch, offer, venueId: selectedVenueId });
+  useEffect(() => {
+    latest.current = { refetch, offer, venueId: selectedVenueId };
+  });
+  const refresh = useCallback<AvailabilityScope["refresh"]>(
+    () => void latest.current.refetch(),
+    []
+  );
+  const offerUndo = useCallback<AvailabilityScope["offerUndo"]>((title, saved) => {
+    const { venueId } = latest.current;
+    // A save is made against a venue, so one is selected whenever there is a save to undo.
+    if (venueId) latest.current.offer({ venueId, title, saved });
+  }, []);
+
+  const scope = useMemo<AvailabilityScope>(
+    () => ({ venueId: selectedVenueId, timezone, today, state, isManager, refresh, offerUndo }),
+    [selectedVenueId, timezone, today, state, isManager, refresh, offerUndo]
+  );
   return (
     <>
       <Outlet context={scope} />

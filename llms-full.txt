@@ -5409,7 +5409,7 @@
   </file>
   <file path="apps/hospitality/src/components/availability/availability-address.ts">
     export const isTodaysPage = (pathname: string): boolean =>
-      pathname.replace(/\/+$/, "") === TODAYS_PAGE;
+      pathname.replace(/\/+$/, "").toLowerCase() === TODAYS_PAGE;
     export type CloseTarget =
       | { readonly kind: "tonight" }
       | { readonly kind: "date"; readonly date: string }

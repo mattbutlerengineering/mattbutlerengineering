@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider, useNavigate } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
@@ -30,7 +30,7 @@ vi.mock("../hooks/useIsManager.js", () => ({
 }));
 
 import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
-import { useAvailabilityScope } from "../hooks/useAvailabilityScope.js";
+import { type AvailabilityScope, useAvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { AvailabilityLayout } from "./AvailabilityLayout.js";
 
 const SAVED = { version: 8, changeId: "chg-8" };
@@ -66,6 +66,16 @@ function TodaysPage() {
   );
 }
 
+/** Every scope object a child was rendered with, in order. */
+const seenScopes: AvailabilityScope[] = [];
+function ScopeRecorder() {
+  seenScopes.push(useAvailabilityScope());
+  return <h1 tabIndex={-1}>Hub</h1>;
+}
+
+/** One `useNow` tick: the layout renders again. */
+const tick = () => act(() => void vi.advanceTimersByTime(60_000));
+
 function renderLayout(initial: string) {
   const router = createMemoryRouter(
     [
@@ -76,6 +86,7 @@ function renderLayout(initial: string) {
           { path: "hours", element: <Editor /> },
           { path: "closures", element: <h1 tabIndex={-1}>Closures</h1> },
           { path: "calendar", element: <TodaysPage /> },
+          { path: "hub", element: <ScopeRecorder /> },
         ],
       },
     ],
@@ -160,5 +171,51 @@ describe("Undo on the Availability layout", () => {
 
     await screen.findByRole("dialog", { name: BLOCKED_TITLE });
     expect(screen.getAllByRole("dialog", { name: BLOCKED_TITLE })).toHaveLength(1);
+  });
+});
+
+describe("the scope across layout renders", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
+    revert.mockResolvedValue({ version: 9, changeId: "chg-9" });
+    venue.selectedVenueId = "venue-1";
+    venue.selectedVenue = { ...venue.selectedVenue, id: "venue-1" };
+    seenScopes.length = 0;
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is the same object while none of its values change", () => {
+    renderLayout("/availability/hub");
+    tick();
+    expect(new Set(seenScopes).size).toBe(1);
+  });
+
+  it("keeps offerUndo and refresh, which then act on the current venue", async () => {
+    renderLayout("/availability/hub");
+    venue.selectedVenueId = "venue-2";
+    venue.selectedVenue = { ...venue.selectedVenue, id: "venue-2" };
+    tick();
+
+    const [first, ...later] = seenScopes;
+    expect(later.length).toBeGreaterThan(0);
+    for (const scope of later) {
+      expect(scope.offerUndo).toBe(first?.offerUndo);
+      expect(scope.refresh).toBe(first?.refresh);
+    }
+    expect(seenScopes.at(-1)?.venueId).toBe("venue-2");
+
+    act(() => first?.offerUndo("Hours saved", SAVED));
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(revert).toHaveBeenCalledWith({
+        venueId: "venue-2",
+        changeId: "chg-8",
+        expectedVersion: 8,
+      })
+    );
   });
 });
