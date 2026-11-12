@@ -16,8 +16,9 @@ const DEFAULT_STEP_MINUTES = 15;
 /**
  * A time field: a read-only trigger {@link Input} that opens a {@link Popover}
  * containing a listbox of interval slots. Controlled via a 24h `HH:mm` string —
- * no `Date` objects cross the public boundary. Selecting a time (or pressing
- * Escape) closes the popover and returns focus to the trigger.
+ * no `Date` objects cross the public boundary. The list opens on click, Enter,
+ * Space or ArrowDown, with the selected time active. Selecting a time (or
+ * pressing Escape) closes the popover and returns focus to the trigger.
  *
  * @example
  * const [time, setTime] = useState<string | null>(null);
@@ -93,6 +94,14 @@ export const TimePicker = forwardRef<HTMLDivElement, TimePickerProps>(function T
       role="combobox"
       endIcon={<Clock size={16} />}
       aria-label={label ? undefined : messages.chooseTime}
+      // The popover opens on click, Enter or Space; ArrowDown opens it too (the
+      // APG combobox pattern). Once open, focus is in the list, which roves.
+      onKeyDown={(event) => {
+        if (event.key === "ArrowDown" && !open) {
+          event.preventDefault();
+          setOpen(true);
+        }
+      }}
     />
   );
 

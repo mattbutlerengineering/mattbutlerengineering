@@ -61,7 +61,7 @@ PRD criteria are numbered as in `prd.md`. Walkthroughs are numbered as in `ux.md
 - [x] **C2.1 rialto DatePicker** — typed dates, a prop for the opening month, and focus on the selected or current day when it opens. Patch changeset and axe entry.
   - Accept: component tests type a date and read it back, reject an out-of-range date with a problem, open an end picker on the start's month, and find focus on a day. PRD 21, 18.
   - Blocked by: —
-- [ ] **C2.2 rialto TimePicker** — ArrowDown opens the closed list. Patch changeset.
+- [x] **C2.2 rialto TimePicker** — ArrowDown opens the closed list. Patch changeset.
   - Accept: a component test presses ArrowDown on the closed field and finds the list open with the current time active. PRD 21.
   - Blocked by: —
 - [ ] **C2.3 Layout owns Undo** — `offerUndo` joins `useAvailabilityScope()`; the layout mounts `StrandedRevertDialog`.
