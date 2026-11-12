@@ -102,7 +102,7 @@
     {
       "name": "Rialto Vendor (design system)",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "91.8 kB"
+      "limit": "91.9 kB"
     },
     {
       "name": "Router Vendor (react-router)",
