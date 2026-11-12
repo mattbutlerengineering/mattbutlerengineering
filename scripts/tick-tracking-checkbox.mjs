@@ -90,6 +90,35 @@ export function planTrackingUpdates(event, trackingIssues) {
     .filter((issue, index) => issue.body !== trackingIssues[index].body);
 }
 
+/** Any markdown task-list line, whatever follows the checkbox. */
+const ANY_TASK_LINE = /^\s*[-*]\s+\[([ xX])\]/;
+
+/** Ideation batches are closed by `/ideate`'s completion sweep, not here. */
+export const IDEATION_BATCH_LABEL = "ideation-batch";
+
+/**
+ * Should this tracking issue close now that its checklist was updated (#8742)?
+ *
+ * A tracking issue used to stay open long after its work shipped, because
+ * nothing closed it: the 2026-11-11 slowness RCA found three open for 17-24
+ * days with every child closed. It closes only on a child's close, only when
+ * it has at least one task line, and only when every task line is ticked —
+ * including non-issue lines such as an Owner-only step, which must be split
+ * into its own issue (or ticked) before the feature counts as done.
+ *
+ * @param {{body: string, labels: string[]}} issue The tracking issue, with its updated body.
+ * @param {boolean} closed `true` when the triggering child closed.
+ * @returns {boolean}
+ */
+export function shouldAutoClose(issue, closed) {
+  if (!closed || issue.labels.includes(IDEATION_BATCH_LABEL)) return false;
+  const states = issue.body
+    .split("\n")
+    .map((line) => ANY_TASK_LINE.exec(line)?.[1])
+    .filter((state) => state !== undefined);
+  return states.length > 0 && states.every((state) => state.toLowerCase() === "x");
+}
+
 /** Shell out to `gh`, returning stdout. */
 function gh(args) {
   return execFileSync("gh", args, { encoding: "utf8", timeout: 30_000 });
@@ -132,7 +161,7 @@ function run() {
       "--label",
       TRACKING_LABEL,
       "--json",
-      "number,body",
+      "number,body,labels",
       "--limit",
       "100",
     ])
@@ -164,6 +193,30 @@ function run() {
       `body=${update.body}`,
     ]);
     log(`${closed ? "ticked" : "unticked"} #${number} in tracking issue #${update.number}`);
+
+    const labels = (open.find((issue) => issue.number === update.number)?.labels ?? []).map(
+      (label) => label.name
+    );
+    if (!shouldAutoClose({ body: update.body, labels }, closed)) continue;
+    gh([
+      "api",
+      "-X",
+      "POST",
+      `repos/{owner}/{repo}/issues/${update.number}/comments`,
+      "-f",
+      `body=Every task on this tracking issue is done (last: #${number}), so it is closing. Later polish goes in a new issue, not this one (#8742).`,
+    ]);
+    gh([
+      "api",
+      "-X",
+      "PATCH",
+      `repos/{owner}/{repo}/issues/${update.number}`,
+      "-f",
+      "state=closed",
+      "-f",
+      "state_reason=completed",
+    ]);
+    log(`closed tracking issue #${update.number}: every task is ticked`);
   }
 }
 

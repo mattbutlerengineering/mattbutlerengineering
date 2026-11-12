@@ -150,6 +150,11 @@ gh issue create \
 
 <Full description>
 
+## Done when
+
+<2-5 user-visible outcomes that mean this feature has shipped, fixed now and
+not extended later>
+
 ## Implementation Plan
 
 - [ ] #<issue1> — <title>
@@ -168,6 +173,14 @@ gh issue create \
 ```
 
 The tracking issue does NOT get the `ready` label — it's for visibility only.
+
+**Done is fixed at decompose time (#8742).** `tracking-checkbox.yml` ticks
+each child's box as it closes and closes the tracking issue once every task
+line is ticked. So put only shippable work in the task list: an Owner-only
+step (teardown, backfill, sign-off) goes in its own `ready-for-human` issue,
+linked under Notes, never as an unticked line that holds the feature open.
+Audit or polish findings after the feature closes go in a new issue; never
+reopen or extend a closed tracking issue.
 
 ### Step 6: Confirm
 
