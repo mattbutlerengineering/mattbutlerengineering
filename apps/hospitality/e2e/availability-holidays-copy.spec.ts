@@ -162,7 +162,7 @@ test.describe("Holiday decisions", () => {
     record("H1", counter.count(), 4, BEFORE.H1);
   });
 
-  test("H2: Christmas Eve open as usual, seen by a second Manager with 0 interactions (budget 4)", async ({
+  test("H2: Christmas Eve open as usual, seen by a second Manager with 0 interactions (budget 3)", async ({
     mockedPage: page,
     browser,
   }) => {
@@ -181,7 +181,7 @@ test.describe("Holiday decisions", () => {
       { method: "PUT", date: "2026-12-24", body: { decision: "open_as_usual" } },
     ]);
     await expect(notifications(page).getByText("Christmas Eve: open as usual")).toBeVisible();
-    record("H2 first Manager", counter.count(), 4, BEFORE.H2);
+    record("H2 first Manager", counter.count(), 3, BEFORE.H2);
 
     // The second Manager, on another browser, loads Special dates and decides nothing.
     const other = await newManager(browser, store, NOON);
@@ -189,9 +189,10 @@ test.describe("Holiday decisions", () => {
       await other.page.goto("availability?tab=special");
       await expect(other.page.getByRole("region", { name: "Upcoming holidays" })).toBeVisible();
       const second = countInteractions(other.page);
-      // The collapsed line already leaves Christmas Eve out of the holidays not planned.
-      await expect(holidays(second.page).getByText(/^\d+ holidays not planned$/)).toBeVisible();
-      record("H2 second Manager", second.count(), 0);
+      // The collapsed line already leaves Christmas Eve out: 13 US holidays from Nov 8, 12 left.
+      await expect(holidays(second.page).getByText("12 holidays not planned")).toBeVisible();
+      record("H2 second Manager (the count on the line)", second.count(), 0);
+      // Seeing the decision itself, under Decided, costs one press (Plan holidays).
       await planHolidays(other.page);
       await expect(holidays(other.page).getByRole("button", { name: "Decided (1)" })).toBeVisible();
       // Christmas Eve is not asked about again: no choices for it, among the undecided.
@@ -299,6 +300,11 @@ test.describe("Holiday decisions", () => {
       "true"
     );
     await group.getByRole("button", { name: "Closed" }).click();
+    // Replacing a decision asks first: the toast cannot offer Undo for a two-save change.
+    await counter.page
+      .getByRole("dialog", { name: "Close Christmas Eve?" })
+      .getByRole("button", { name: "Close Christmas Eve" })
+      .click();
 
     await expect.poll(() => store.batches.length).toBe(1);
     expect(store.batches[0]!.items.map((i) => i.rule.startsOn)).toEqual(["2026-12-24"]);
@@ -311,7 +317,7 @@ test.describe("Holiday decisions", () => {
     ).toBeVisible();
     // It is still decided, now as a closure.
     await expect(holidays(page).getByRole("button", { name: "Decided (1)" })).toBeVisible();
-    record("Decided → Closed", counter.count(), 4);
+    record("Decided → Closed", counter.count(), 5);
   });
 
   test("a rejected decision says Couldn't save with Retry, and the line stays undecided", async ({
@@ -353,6 +359,7 @@ test.describe("Holiday decisions", () => {
     await page.goto("availability?tab=special");
     await expect(holidays(page)).toBeVisible();
     // A Host is offered no planning: the line says View holidays.
+    await expect(page.getByRole("button", { name: "View holidays" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Plan holidays" })).toHaveCount(0);
     await planHolidays(page);
 
@@ -395,9 +402,9 @@ test.describe("Special dates lists the venue's own dates first (#8692)", () => {
     await serveSharedConfig(page, store);
     await page.goto("availability?tab=special");
 
-    const rows = page.getByRole("main").getByRole("listitem");
+    const rows = page.getByRole("list", { name: "Your special dates" }).getByRole("listitem");
     await expect(rows.first()).toContainText("Thu, Dec 24");
-    await expect(holidays(page).getByText(/^\d+ holidays not planned$/)).toBeVisible();
+    await expect(holidays(page).getByText("12 holidays not planned")).toBeVisible();
     // The holiday line comes after the venue's own list.
     const row = await rows.first().boundingBox();
     const line = await holidays(page).boundingBox();
@@ -408,6 +415,7 @@ test.describe("Special dates lists the venue's own dates first (#8692)", () => {
       .locator(
         ':is(button, a[href], input, select, [role="radio"], [role="menuitem"]):visible:enabled'
       );
+
     expect(await controls.count()).toBeLessThanOrEqual(15);
   });
 });

@@ -806,6 +806,22 @@ describe("AddSpecialDatesSheet from a holiday (autoNext, savedTitle, onSaved)", 
     );
   });
 
+  it("offers no Undo when something runs after the save, as when Change replaces a decision", async () => {
+    preview.mockResolvedValue([impact("2026-12-25", 0)]);
+    create.mockResolvedValue({ version: 8, results: [result("c", 0, 0)] });
+    const onSaved = vi.fn();
+    renderSheet(fixtureConfig(), {
+      initialRows: christmas,
+      autoNext: true,
+      savedTitle: "Closed on Christmas Day, Fri, Dec 25",
+      onSaved,
+    });
+
+    expect(await screen.findByText("Closed on Christmas Day, Fri, Dec 25")).toBeTruthy();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  });
+
   it("offers no Undo when the save told guests, which the server would refuse to revert", async () => {
     preview.mockResolvedValue([impact("2026-12-25", 2)]);
     create.mockResolvedValue({ version: 8, results: [result("c", 2, 0)] });

@@ -110,6 +110,12 @@ const choices = (name: string) => screen.getByRole("group", { name });
 const press = (name: string, choice: string) =>
   fireEvent.click(within(choices(name)).getByRole("button", { name: choice }));
 
+/** Replacing a decision with a closure asks first; this confirms that. */
+const confirmClose = (name: string) =>
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: `Close ${name}` })
+  );
+
 /** Close these N asks first, naming the dates; this presses it and confirms. */
 const closeUsual = (count: number) => {
   fireEvent.click(within(panel()).getByRole("button", { name: `Close these ${count}` }));
@@ -139,7 +145,8 @@ describe("UpcomingHolidays", () => {
       read.decisions = [decision("2026-12-24")];
       setup({}, false);
       const line = screen.getByRole("region", { name: "Upcoming holidays" });
-      expect(within(line).getByText(/^\d+ holidays not planned$/)).toBeTruthy();
+      // Nov 8, 2026 on: 13 US holidays in the year ahead, Christmas Eve decided.
+      expect(within(line).getByText("12 holidays not planned")).toBeTruthy();
       expect(within(line).getAllByRole("button")).toHaveLength(1);
       expect(within(line).queryByRole("group")).toBeNull();
     });
@@ -151,6 +158,18 @@ describe("UpcomingHolidays", () => {
       fireEvent.click(within(panel()).getByRole("button", { name: "Hide holidays" }));
       expect(screen.queryByRole("group")).toBeNull();
       expect(screen.getByRole("button", { name: "Plan holidays" })).toBeTruthy();
+    });
+
+    it("keeps focus on the panel when it opens and on the line's button when it folds", () => {
+      setup({}, false);
+      const plan = screen.getByRole("button", { name: "Plan holidays" });
+      expect(plan).toHaveAttribute("aria-expanded", "false");
+      fireEvent.click(plan);
+      expect(panel()).toHaveFocus();
+      const hide = within(panel()).getByRole("button", { name: "Hide holidays" });
+      expect(hide).toHaveAttribute("aria-expanded", "true");
+      fireEvent.click(hide);
+      expect(screen.getByRole("button", { name: "Plan holidays" })).toHaveFocus();
     });
 
     it("offers a Host View holidays, not Plan holidays", () => {
@@ -472,12 +491,31 @@ describe("UpcomingHolidays", () => {
       ).toBeEnabled();
     });
 
+    it("asks before replacing a decision with a closure, and changes nothing when declined", () => {
+      read.decisions = [decision("2026-12-24")];
+      const { props } = setup();
+      fireEvent.click(within(panel()).getByRole("button", { name: /Decided/ }));
+      fireEvent.click(screen.getByRole("button", { name: `Change ${CHRISTMAS_EVE}` }));
+      press(CHRISTMAS_EVE, "Closed");
+
+      const dialog = screen.getByRole("dialog", { name: "Close Christmas Eve?" });
+      expect(
+        within(dialog).getByText(/replaces what is planned for Christmas Eve, Thu, Dec 24/)
+      ).toBeTruthy();
+      expect(props.onClose).not.toHaveBeenCalled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Not now" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(props.onClose).not.toHaveBeenCalled();
+      expect(clearDecision).not.toHaveBeenCalled();
+    });
+
     it("from Open as usual clears the decision only after the closure is saved", async () => {
       read.decisions = [decision("2026-12-24")];
       const { props } = setup();
       fireEvent.click(within(panel()).getByRole("button", { name: /Decided/ }));
       fireEvent.click(screen.getByRole("button", { name: `Change ${CHRISTMAS_EVE}` }));
       press(CHRISTMAS_EVE, "Closed");
+      confirmClose("Christmas Eve");
 
       const { afterSaved } = vi.mocked(props.onClose).mock.calls[0]![2];
       // Cancelling the sheet never calls it: the mark is untouched.
@@ -493,6 +531,7 @@ describe("UpcomingHolidays", () => {
       fireEvent.click(within(panel()).getByRole("button", { name: /Decided/ }));
       fireEvent.click(screen.getByRole("button", { name: `Change ${CHRISTMAS_EVE}` }));
       press(CHRISTMAS_EVE, "Closed");
+      confirmClose("Christmas Eve");
       await expect(
         vi.mocked(props.onClose).mock.calls[0]![2].afterSaved!()
       ).resolves.toBeUndefined();
@@ -505,6 +544,7 @@ describe("UpcomingHolidays", () => {
       fireEvent.click(within(panel()).getByRole("button", { name: /Decided/ }));
       fireEvent.click(screen.getByRole("button", { name: `Change ${CHRISTMAS_EVE}` }));
       press(CHRISTMAS_EVE, "Closed");
+      confirmClose("Christmas Eve");
 
       expect(saveConfig).not.toHaveBeenCalled();
       await vi.mocked(props.onClose).mock.calls[0]![2].afterSaved!();

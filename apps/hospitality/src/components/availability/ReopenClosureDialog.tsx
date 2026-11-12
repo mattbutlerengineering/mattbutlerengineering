@@ -147,6 +147,9 @@ function kindWords(props: ReopenClosureDialogProps, t: TFunction) {
       confirm: t("availabilitySpecial.reopen.section.confirm", values),
       keep: t("availabilitySpecial.reopen.keep"),
       done: (date: string) => t("availabilitySpecial.reopen.section.done", { ...values, date }),
+      dateLabel: undefined,
+      descriptionDate: undefined,
+      countLoading: undefined,
       countUnknown: t("availabilitySpecial.reopen.countUnknown"),
     };
   }
@@ -159,6 +162,10 @@ function kindWords(props: ReopenClosureDialogProps, t: TFunction) {
     confirm: t("availabilitySpecial.reopen.booking.confirm"),
     keep: t("availabilitySpecial.reopen.booking.keep"),
     done: (date: string) => t("availabilitySpecial.reopen.booking.done", { ...values, date }),
+    dateLabel: t("availabilitySpecial.reopen.booking.dateLabel"),
+    descriptionDate: (date: string) =>
+      t("availabilitySpecial.reopen.booking.descriptionDate", { date }),
+    countLoading: t("availabilitySpecial.reopen.booking.countLoading"),
     countUnknown: t("availabilitySpecial.reopen.booking.countUnknown"),
   };
 }
@@ -265,12 +272,13 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       }
       description={
         one && !stays.everyDate
-          ? t(
+          ? (words?.descriptionDate?.(subject) ??
+            t(
               (cancelled ?? 0) > 0
                 ? "availabilitySpecial.reopen.descriptionDateCancelled"
                 : "availabilitySpecial.reopen.descriptionDate",
               { date: subject }
-            )
+            ))
           : words && !stays.everyDate && (cancelled ?? 0) === 0
             ? words.description
             : t(descriptionKey(props, stays.everyDate))
@@ -308,7 +316,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
       )}
       {dates.length > 1 && (
         <Select
-          label={t("availabilitySpecial.reopen.dateLabel")}
+          label={words?.dateLabel ?? t("availabilitySpecial.reopen.dateLabel")}
           value={date}
           options={[
             { value: "", label: t("availabilitySpecial.reopen.allDates") },
@@ -325,7 +333,7 @@ export function ReopenClosureDialog(props: ReopenClosureDialogProps) {
         </Alert>
       )}
       {cancelled === null && !props.countFailed && (
-        <Text>{t("availabilitySpecial.reopen.countLoading")}</Text>
+        <Text>{words?.countLoading ?? t("availabilitySpecial.reopen.countLoading")}</Text>
       )}
       {cancelled === null && props.countFailed && (
         <Alert variant="error">

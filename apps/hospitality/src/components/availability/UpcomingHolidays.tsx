@@ -1,4 +1,4 @@
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
@@ -70,6 +70,9 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
     to: addDays(today, HOLIDAY_HORIZON_DAYS),
   });
   const [expanded, setExpanded] = useState(false);
+  const [confirmingOne, setConfirmingOne] = useState<NamedHoliday | null>(null);
+  const planRef = useRef<HTMLButtonElement>(null);
+  const wasExpanded = useRef(false);
   const [confirming, setConfirming] = useState<readonly NamedHoliday[] | null>(null);
   const [showAll, setShowAll] = useState(false);
   const [decidedOpen, setDecidedOpen] = useState(false);
@@ -99,6 +102,14 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
         : [],
     [country, today, state.config, decisions.data, format, t]
   );
+  // The pressed button unmounts as the line opens or folds: focus goes to the panel on open, and
+  // back to the line's button on Hide, never to the page.
+  useEffect(() => {
+    if (expanded === wasExpanded.current) return;
+    wasExpanded.current = expanded;
+    if (expanded) sectionRef.current?.focus();
+    else planRef.current?.focus();
+  }, [expanded]);
   if (!country) return null;
 
   const undecided = holidays.filter((h) => h.state.kind === "undecided");
@@ -118,6 +129,12 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
       status={statuses.get(holiday.date)}
       blocked={busy}
       onChoose={(choice) => {
+        // Replacing a decision with a closure asks first: its toast cannot offer Undo, because
+        // tidying the old decision is a second save.
+        if (choice === "closed" && holiday.state.kind !== "undecided") {
+          setConfirmingOne(holiday);
+          return;
+        }
         setChanging((prev) => new Set([...prev].filter((d) => d !== holiday.date)));
         decide(holiday, choice);
       }}
@@ -171,7 +188,13 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
             ? t("availabilitySpecial.holidays.notPlanned", { count: undecided.length })
             : t("availabilitySpecial.holidays.allPlanned")}
         </Text>
-        <Button variant="ghost" size="sm" onClick={() => setExpanded(true)}>
+        <Button
+          ref={planRef}
+          variant="ghost"
+          size="sm"
+          aria-expanded={false}
+          onClick={() => setExpanded(true)}
+        >
           {t(
             isManager && undecided.length > 0
               ? "availabilitySpecial.holidays.plan"
@@ -189,7 +212,7 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
         <Heading level={2} size={6} id={headingId}>
           {t("availabilitySpecial.holidays.heading")}
         </Heading>
-        <Button variant="ghost" size="sm" onClick={() => setExpanded(false)}>
+        <Button variant="ghost" size="sm" aria-expanded onClick={() => setExpanded(false)}>
           {t("availabilitySpecial.holidays.hide")}
         </Button>
       </div>
@@ -241,6 +264,27 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
         >
           <ul className={styles.list}>{decided.map(line)}</ul>
         </Collapsible>
+      )}
+      {confirmingOne && (
+        <ConfirmDialog
+          open
+          title={t("availabilitySpecial.holidays.closeOneTitle", { name: confirmingOne.name })}
+          description={t("availabilitySpecial.holidays.closeOneDescription", {
+            name: confirmingOne.name,
+            date: confirmingOne.dateLabel,
+          })}
+          confirmLabel={t("availabilitySpecial.holidays.closeOneConfirm", {
+            name: confirmingOne.name,
+          })}
+          cancelLabel={t("availabilitySpecial.holidays.closeManyCancel")}
+          onConfirm={() => {
+            const holiday = confirmingOne;
+            setConfirmingOne(null);
+            setChanging((prev) => new Set([...prev].filter((d) => d !== holiday.date)));
+            decide(holiday, "closed");
+          }}
+          onCancel={() => setConfirmingOne(null)}
+        />
       )}
       {confirming && (
         <ConfirmDialog

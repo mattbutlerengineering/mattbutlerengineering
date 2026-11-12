@@ -6,7 +6,6 @@ import {
   Button,
   ConfirmDialog,
   EmptyState,
-  SegmentedControl,
   Select,
   Skeleton,
   Stack,
@@ -17,7 +16,6 @@ import type { AvailabilityConfigState, ClosureSummary, DateRule } from "@mbe/typ
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useClosureSummaries, useRetryClosureRefunds } from "../../hooks/useClosures.js";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
-import { useViewport } from "../../hooks/useViewport.js";
 import { formatCurrencyFromCents } from "../../utils/format.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import { AddSpecialDatesSheet, type PlannedDate } from "./AddSpecialDatesSheet.js";
@@ -287,7 +285,6 @@ function SpecialDateItem(props: RowProps) {
  * became of the bookings it touched, the call list, reopening, and refund retry.
  */
 export function SpecialDatesTab(props: SpecialDatesTabProps) {
-  const viewport = useViewport();
   const { venueId, state, timezone, today, onStale, reloadError, isManager, onOpenDay } = props;
   const { sectionNames } = props;
   const rules = state.config.dateRules;
@@ -421,30 +418,18 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   return (
     <Stack gap="md">
       <div className={styles.toolbar}>
-        {viewport === "phone" ? (
-          // Five segments cannot fit 375 px, and the last one would be off-screen.
-          <div className={styles.filterSelect}>
-            <Select
-              label={t("availabilitySpecial.filterLabel")}
-              options={FILTERS.map((id) => ({
-                value: id,
-                label: t(`availabilitySpecial.filter.${id}`),
-              }))}
-              value={filter}
-              onChange={(id) => setFilter(id as SpecialDatesFilter)}
-            />
-          </div>
-        ) : (
-          <SegmentedControl
-            aria-label={t("availabilitySpecial.filterLabel")}
-            segments={FILTERS.map((id) => ({
-              id,
+        {/* One control, not five radios: the list's first paint stays short (#8692). */}
+        <div className={styles.filterSelect}>
+          <Select
+            label={t("availabilitySpecial.filterLabel")}
+            options={FILTERS.map((id) => ({
+              value: id,
               label: t(`availabilitySpecial.filter.${id}`),
             }))}
             value={filter}
             onChange={(id) => setFilter(id as SpecialDatesFilter)}
           />
-        )}
+        </div>
         {isManager && (
           <Button variant="primary" onClick={() => openSheet({ rows: [] })}>
             {t("availabilitySpecial.add.open")}
@@ -470,7 +455,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           description={t("availabilitySpecial.empty.description")}
         />
       ) : (
-        <ul className={styles.list}>
+        <ul className={styles.list} aria-label={t("availabilitySpecial.listLabel")}>
           {rows.map(({ rule, past }) => (
             <SpecialDateItem
               key={rule.id}

@@ -1826,8 +1826,11 @@
         "description": "Les clients peuvent de nouveau réserver de cette façon.",
         "confirm": "Reprendre",
         "keep": "Garder en pause",
-        "done": "Reprise de {{channels}} : {{date}}",
-        "countUnknown": "Impossible de vérifier combien de clients cette pause touche. La reprise attend le chargement du compte."
+        "done": "Reprise : {{channels}} ({{date}})",
+        "countUnknown": "Impossible de vérifier combien de clients cette pause touche. La reprise attend le chargement du compte.",
+        "dateLabel": "Quelles dates reprendre",
+        "descriptionDate": "Les réservations reprennent le {{date}}. Les autres dates de cette plage restent en pause.",
+        "countLoading": "Vérification du nombre de clients touchés par cette pause…"
       }
     },
     "series": {
@@ -2004,7 +2007,10 @@
       "closeManyConfirm_one": "Fermer {{count}} date",
       "closeManyConfirm_other": "Fermer {{count}} dates",
       "closeManyConfirm_many": "Fermer {{count}} dates",
-      "closeManyCancel": "Pas maintenant"
+      "closeManyCancel": "Pas maintenant",
+      "closeOneTitle": "Fermer {{name}} ?",
+      "closeOneDescription": "Ceci remplace ce qui est planifié pour {{name}}, {{date}}. Les clients ne pourront pas réserver cette date.",
+      "closeOneConfirm": "Fermer {{name}}"
     },
     "scope": {
       "label": "Modifier",
@@ -2014,7 +2020,8 @@
       "continue": "Continuer"
     },
     "repeatRange": "Chaque {{days}}, du {{from}} au {{to}}",
-    "repeatFrom": "Chaque {{days}}, à partir du {{from}}"
+    "repeatFrom": "Chaque {{days}}, à partir du {{from}}",
+    "listLabel": "Vos dates spéciales"
   },
   "availabilitySchedules": {
     "tabsLabel": "Vue des disponibilités",

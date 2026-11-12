@@ -179,8 +179,9 @@ Lists of names, days and dates use `Intl.ListFormat`, not string joins.
 
 ## Scenario walk-through (targets)
 
-- **H1:** Special dates (1), Close these 3 (1) = 2, plus any step two.
-- **H2:** Open as usual on Christmas Eve = 1 after reaching Special dates. A second Manager's context loads Special dates and sees Christmas Eve under Decided, with 0 decisions to make.
-- **H3:** Special hours… on New Year's Eve (1), then the sheet as today.
+- **H1:** (amended, #8692) Special dates (1), Plan holidays (1), Close these 3 (1), Close 3 dates in the confirmation (1) = 4, plus any step two.
+- **H2:** Special dates (1), Plan holidays (1), Open as usual on Christmas Eve (1) = 3. A second Manager's context loads Special dates and the holiday line already counts one fewer holiday not planned (0 interactions); seeing Christmas Eve itself under Decided costs one press (Plan holidays).
+- **H3:** (amended, #8692) Special dates (1), Plan holidays (1), Special hours… on New Year's Eve (1), then the sheet as today: one more than before.
+- **Decided → Change → Closed:** (amended, #8692) Plan holidays (1), Decided (1), Change (1), Closed (1), Close Christmas Eve in the confirmation (1) = 5. Replacing a decision asks first, because the toast cannot offer Undo: tidying the old decision is a second save.
 - **K1:** Calendar (1), the day (1), Copy (1), the Wed and Thu chips (2), Every week… (1), drawer Save (1) = 7.
 - **K2:** day drawer, Copy (1), Wed and Thu (2), Copy to Wed and Thu (1).

@@ -1793,7 +1793,10 @@
         "confirm": "Resume",
         "keep": "Keep paused",
         "done": "Resumed {{channels}}: {{date}}",
-        "countUnknown": "Couldn't check how many guests this pause affected. Resume waits until the count loads."
+        "countUnknown": "Couldn't check how many guests this pause affected. Resume waits until the count loads.",
+        "dateLabel": "Which dates to resume",
+        "descriptionDate": "Booking resumes on {{date}}. The other dates in this range stay paused.",
+        "countLoading": "Checking how many guests this pause affected…"
       }
     },
     "series": {
@@ -1968,7 +1971,10 @@
       "closeManyConfirm_one": "Close {{count}} date",
       "closeManyConfirm_other": "Close {{count}} dates",
       "closeManyConfirm_many": "Close {{count}} dates",
-      "closeManyCancel": "Not now"
+      "closeManyCancel": "Not now",
+      "closeOneTitle": "Close {{name}}?",
+      "closeOneDescription": "This replaces what is planned for {{name}}, {{date}}. Guests can't book that date.",
+      "closeOneConfirm": "Close {{name}}"
     },
     "scope": {
       "label": "Change",
@@ -1978,7 +1984,8 @@
       "continue": "Continue"
     },
     "repeatRange": "Every {{days}}, {{from}} to {{to}}",
-    "repeatFrom": "Every {{days}}, from {{from}}"
+    "repeatFrom": "Every {{days}}, from {{from}}",
+    "listLabel": "Your special dates"
   },
   "availabilitySchedules": {
     "tabsLabel": "Availability view",

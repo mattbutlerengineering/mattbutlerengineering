@@ -156,6 +156,13 @@ function pickScope(choice: string) {
   fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
 }
 
+/** The filter is one select: open it and pick an option. */
+function pickFilter(name: string) {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  fireEvent.click(screen.getByRole("combobox", { name: "Filter special dates" }));
+  fireEvent.click(screen.getByRole("option", { name }));
+}
+
 /** The holidays start as one line under the venue's own dates; this opens them in place. */
 function planHolidays() {
   fireEvent.click(screen.getByRole("button", { name: /^(Plan|View) holidays$/ }));
@@ -1426,7 +1433,7 @@ describe("SpecialDatesTab", () => {
         ...STATE,
         config: { ...STATE.config, dateRules: [...RULES, over] },
       } as AvailabilityConfigState);
-      fireEvent.click(screen.getByRole("radio", { name: "Past" }));
+      pickFilter("Past");
       expect(screen.getByText("Tue, Nov 10")).toBeTruthy();
       expect(screen.queryByRole("button", { name: /^Remove closure for/ })).toBeNull();
     });
@@ -1792,14 +1799,14 @@ describe("SpecialDatesTab", () => {
 
   it("filters to repeating closures", () => {
     renderTab();
-    fireEvent.click(screen.getByRole("radio", { name: "Repeating" }));
+    pickFilter("Repeating");
     expect(screen.queryByText("Sent 11 · Rebooked 1 · Unreachable 2")).toBeNull();
     expect(screen.getByText("Closed · Repeating")).toBeTruthy();
   });
 
   it("shows the empty state when nothing matches", () => {
     renderTab();
-    fireEvent.click(screen.getByRole("radio", { name: "Past" }));
+    pickFilter("Past");
     expect(screen.getByText("No special dates")).toBeTruthy();
   });
 
@@ -2158,10 +2165,10 @@ describe("SpecialDatesTab", () => {
     it("hides the holidays unless the filter is All", () => {
       renderTab();
       for (const filter of ["Closures", "Special hours", "Repeating", "Past"]) {
-        fireEvent.click(screen.getByRole("radio", { name: filter }));
+        pickFilter(filter);
         expect(screen.queryByRole("region", { name: "Upcoming holidays" })).toBeNull();
       }
-      fireEvent.click(screen.getByRole("radio", { name: "All" }));
+      pickFilter("All");
       expect(screen.getByRole("region", { name: "Upcoming holidays" })).toBeTruthy();
     });
 
@@ -2178,6 +2185,21 @@ describe("SpecialDatesTab", () => {
       expect(within(dialog).getByRole("button", { name: "Resume" })).toBeTruthy();
       expect(within(dialog).getByRole("button", { name: "Keep paused" })).toBeTruthy();
       expect(dialog.textContent).not.toMatch(/Reopen|Keep closed/);
+    });
+
+    it("keeps resume wording on every line of a multi-day pause", () => {
+      renderTab(true, only({ ...pause, endsOn: "2026-12-12" } as DateRule));
+      fireEvent.click(screen.getByRole("button", { name: /^Remove closure for/ }));
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText("Which dates to resume")).toBeTruthy();
+      fireEvent.click(within(dialog).getByRole("combobox", { name: "Which dates to resume" }));
+      fireEvent.click(screen.getByRole("option", { name: "Fri, Dec 11" }));
+      expect(
+        within(dialog).getByText(
+          /Booking resumes on Fri, Dec 11\. The other dates in this range stay paused\./
+        )
+      ).toBeTruthy();
+      expect(dialog.textContent).not.toMatch(/Reopen|reopen|Keep closed|stay closed|cancelled/);
     });
 
     it("names the section when a section closure is removed", () => {

@@ -227,9 +227,11 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
               })
             : savedTitle;
       const only = result.results.length === 1 ? result.results[0] : undefined;
-      if (savedTitle !== undefined && only && notified === 0) {
-        // A holiday closed in one step is taken back from its toast; a save that told guests
-        // something is not offered (the server refuses it), and several dates confirm first.
+      if (savedTitle !== undefined && only && notified === 0 && onSaved === undefined) {
+        // A holiday closed in one step is taken back from its toast. Not offered when guests were
+        // told (the server refuses it), nor when something runs after the save (`onSaved` tidies
+        // what the closure replaced, so a revert of the closure alone would be wrong or stale);
+        // several dates, and a changed decision, confirm first instead.
         offerUndo({ venueId, title, saved: { version: only.version, changeId: only.changeId } });
       } else {
         toast({ title, variant: "success" });

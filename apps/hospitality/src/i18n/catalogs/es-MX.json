@@ -1826,8 +1826,11 @@
         "description": "Los clientes podrán volver a reservar de esta forma.",
         "confirm": "Reanudar",
         "keep": "Mantener en pausa",
-        "done": "Se reanudó {{channels}}: {{date}}",
-        "countUnknown": "No se pudo comprobar a cuántos clientes afectó esta pausa. Reanudar espera a que cargue el conteo."
+        "done": "Reanudado: {{channels}} ({{date}})",
+        "countUnknown": "No se pudo comprobar a cuántos clientes afectó esta pausa. Reanudar espera a que cargue el conteo.",
+        "dateLabel": "Qué fechas reanudar",
+        "descriptionDate": "Las reservaciones se reanudan el {{date}}. Las demás fechas de este rango siguen en pausa.",
+        "countLoading": "Comprobando a cuántos clientes afecta esta pausa…"
       }
     },
     "series": {
@@ -2004,7 +2007,10 @@
       "closeManyConfirm_one": "Cerrar {{count}} fecha",
       "closeManyConfirm_other": "Cerrar {{count}} fechas",
       "closeManyConfirm_many": "Cerrar {{count}} fechas",
-      "closeManyCancel": "Ahora no"
+      "closeManyCancel": "Ahora no",
+      "closeOneTitle": "¿Cerrar {{name}}?",
+      "closeOneDescription": "Esto reemplaza lo planeado para {{name}}, {{date}}. Los clientes no podrán reservar esa fecha.",
+      "closeOneConfirm": "Cerrar {{name}}"
     },
     "scope": {
       "label": "Cambiar",
@@ -2014,7 +2020,8 @@
       "continue": "Continuar"
     },
     "repeatRange": "Cada {{days}}, del {{from}} al {{to}}",
-    "repeatFrom": "Cada {{days}}, desde el {{from}}"
+    "repeatFrom": "Cada {{days}}, desde el {{from}}",
+    "listLabel": "Tus fechas especiales"
   },
   "availabilitySchedules": {
     "tabsLabel": "Vista de disponibilidad",
