@@ -73,7 +73,7 @@ export function ToastProvider({
         aria-label={messages.notifications}
       >
         {/* Polite region — info, success, accent, default (non-critical) */}
-        <div aria-live="polite" aria-atomic="false">
+        <div className={styles.stack} aria-live="polite" aria-atomic="false">
           {everHadToasts && (
             <Suspense fallback={null}>
               <ToastAnimated toasts={politeToasts} onDismiss={dismiss} />
@@ -81,7 +81,7 @@ export function ToastProvider({
           )}
         </div>
         {/* Assertive region — error (interrupts user immediately) */}
-        <div aria-live="assertive" aria-atomic="false">
+        <div className={styles.stack} aria-live="assertive" aria-atomic="false">
           {everHadToasts && (
             <Suspense fallback={null}>
               <ToastAnimated toasts={assertiveToasts} onDismiss={dismiss} />

@@ -1,10 +1,12 @@
 /* ── Shell tokens ───────────────────────────── */
-/* The controls are position:fixed, so they do not reserve flow space.
-   --demo-controls-clearance is how far below the sticky nav the first line
-   of a demo must start. Nav block-size is --rialto-space-3xl plus a 1px
-   border; the bar's top is 3xl + md and its block size is the variable
-   below, then an xs gap. PageHeader reads the rialto-prefixed alias. */
+/* The controls are taken out of flow (absolute, anchored to this shell), so
+   they do not reserve space. --demo-controls-clearance is how far below the
+   sticky nav the first line of a demo must start. Nav block-size is
+   --rialto-space-3xl plus a 1px border; the bar's top is 3xl + md and its
+   block size is the variable below, then an xs gap. PageHeader reads the
+   rialto-prefixed alias. */
 .root {
+  position: relative;
   --demo-controls-block-size: 36px;
   --demo-controls-clearance: calc(
     var(--rialto-space-md) + var(--demo-controls-block-size) + var(--rialto-space-xs) - 1px
@@ -12,20 +14,25 @@
   --rialto-page-header-padding-block-start: var(--demo-controls-clearance);
 }
 
-/* ── Floating controls bar ──────────────────── */
-/* Positioned below GlobalNav's 64px (--rialto-space-3xl) bar instead of
+/* ── Display controls ───────────────────────── */
+/* Anchored below GlobalNav's 64px (--rialto-space-3xl) bar instead of
    sharing its top-16px corner — GlobalNav's brand link and its trailing
    actions (theme toggle + hamburger) both live at that block-start edge in
    both LTR and RTL (inset-inline-* flips symmetrically for both), so any
-   fixed corner placement up there collides with one side or the other.
-   See #3939. */
+   corner placement up there collides with one side or the other.
+   See #3939.
+   Absolute, not fixed: a fixed bar stays in the viewport and covers the
+   wizard steps, the auth-flow diagram, and dashboard cards once the page
+   scrolls. Anchored to .root, the bar scrolls away with the page.
+   z-index 1 sits above the page header (position: relative, auto) whose
+   padding box occupies this band, so the buttons still receive clicks, and
+   under GlobalNav (--rialto-z-sticky: 10) so the bar slides beneath the
+   nav as it scrolls away. */
 .floatingControls {
-  position: fixed;
+  position: absolute;
+  z-index: 1;
   top: calc(var(--rialto-space-3xl) + var(--rialto-space-md));
   inset-inline-start: var(--rialto-space-md);
-  /* --rialto-z-overlay: highest token in the scale — these controls must
-     stay above ordinary demo-page content regardless of route. */
-  z-index: var(--rialto-z-overlay);
   display: flex;
   gap: var(--rialto-space-xs);
 }
@@ -81,11 +88,11 @@
 }
 
 /* GlobalNav's mobile menu renders in normal flow directly below its sticky
-   bar and shares the same vertical range as `.floatingControls` (fixed,
+   bar and shares the same vertical range as `.floatingControls` (absolute,
    36px tall) below 768px. GlobalNav doesn't expose its open/closed state
    via props, but its hamburger toggle button carries a standard
    aria-expanded attribute — use that (not a GlobalNav internal, a public
-   ARIA contract) to disable pointer events on the floating controls while
+   ARIA contract) to disable pointer events on the display controls while
    the mobile menu is open, so it never swallows clicks meant for a menu
    link. See #3939 follow-up.
 

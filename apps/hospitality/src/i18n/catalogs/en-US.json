@@ -669,6 +669,9 @@
       "noShowExposure": "No-show exposure"
     }
   },
+  "inviteRsvpChip": {
+    "text": "{{in}} of {{total}} in"
+  },
   "timeline": {
     "page": {
       "title": "Timeline",
@@ -873,6 +876,15 @@
       "seatNow": "Seat now",
       "seating": "Seating…"
     }
+  },
+  "onMyWayBadge": {
+    "text": "+{{minutes}} · ETA {{time}}",
+    "aria_one": "Running {{minutes}} min late, expected at {{time}}",
+    "aria_other": "Running {{minutes}} min late, expected at {{time}}",
+    "aria_many": "Running {{minutes}} min late, expected at {{time}}",
+    "ariaPast_one": "Running {{minutes}} min late, expected at {{time}}, ETA has passed",
+    "ariaPast_other": "Running {{minutes}} min late, expected at {{time}}, ETA has passed",
+    "ariaPast_many": "Running {{minutes}} min late, expected at {{time}}, ETA has passed"
   },
   "errorBanner": {
     "retry": "Retry",
@@ -1472,6 +1484,34 @@
       "cutoff": "Changes close {{hours}} hours before your visit. Call {{venue}} to change this booking.",
       "success": "Your booking has been updated."
     },
+    "nightOf": {
+      "title": "Tonight at {{venue}}",
+      "countdownBefore": "Your reservation starts in {{duration}}",
+      "countdownNow": "Your reservation time is now",
+      "countdownAfter": "Your reservation started {{duration}} ago",
+      "partyAndTime": "{{party}} · {{time}}",
+      "directions": "Get directions",
+      "directionsLabel": "Get directions to {{venue}} (opens in a new tab)",
+      "noteHeading": "A note from {{venue}}",
+      "signalsHeading": "Let {{venue}} know",
+      "signalsHint": "Tell the host if your plans change tonight. This never changes your booking.",
+      "runningLate": "Running {{minutes}} min late",
+      "arrived": "We're here",
+      "sending": "Sending…",
+      "sentLate": "Thanks — {{venue}} knows you're running about {{minutes}} minutes late. Your table is still booked.",
+      "sentArrived": "Thanks — {{venue}} knows you've arrived.",
+      "outsideWindow": "Updates open 3 hours before your reservation and close 45 minutes after it starts.",
+      "outsideWindowAfterMidnight": "Updates open at midnight, but no earlier than 3 hours before your reservation, and close 45 minutes after it starts.",
+      "lateCapped": "You've sent the most late updates allowed ({{max}}). Call {{venue}} if you need more time.",
+      "arrivedDone": "You've already let {{venue}} know you're here.",
+      "errors": {
+        "link": "We couldn't verify this link. Please reopen it from your confirmation email.",
+        "expired": "This link has expired. Please call {{venue}}.",
+        "window": "{{venue}} isn't taking updates right now. Please call them if your plans changed.",
+        "limit": "You've sent the maximum number of updates, or are sending too quickly. Please wait a minute, or call {{venue}}.",
+        "failed": "We couldn't send that. Check your connection and try again, or call {{venue}}."
+      }
+    },
     "venueCancelled": {
       "heading": "Your reservation was cancelled",
       "intro": "{{venue}} had to cancel this reservation.",
@@ -1495,6 +1535,38 @@
         "failed": "We couldn't rebook that time. Please try again."
       }
     }
+  },
+  "partyInvite": {
+    "heading": "Invite your party",
+    "hint": "Send a link so your guests can say whether they're coming. It never lets anyone change or cancel your booking.",
+    "share": "Invite your party",
+    "shareTitle": "You're invited to dinner",
+    "copied": "Link copied",
+    "failed": "We couldn't create your invitation link. Please try again.",
+    "summary": "{{confirmed}} of {{total}} confirmed"
+  },
+  "invite": {
+    "documentTitle": "You're invited — Hospitality",
+    "venueDocumentTitle": "You're invited to {{venue}}",
+    "loading": "Loading invitation...",
+    "heading": "You're invited",
+    "cardLabel": "Invitation to {{venue}}",
+    "rsvpTitle": "Who's coming",
+    "noReplies": "No replies yet. Be the first.",
+    "statusIn": "Coming",
+    "statusOut": "Can't make it",
+    "firstNameLabel": "First name",
+    "firstNamePlaceholder": "Your first name",
+    "firstNameRequired": "Enter your first name.",
+    "imIn": "I'm in",
+    "cantMakeIt": "Can't make it",
+    "replied": "Thanks, {{name}}. Your reply is on the list.",
+    "full": "This invitation has no spots left.",
+    "error": "Something went wrong. Please try again.",
+    "endedHeading": "This invitation has ended",
+    "endedDescription": "The reservation was cancelled or has already passed.",
+    "notFoundHeading": "Invitation not found",
+    "notFoundDescription": "Check the link you were sent."
   },
   "offlineBanner": {
     "cached": "Showing cached data from last sync",
@@ -2302,6 +2374,11 @@
       "everyServiceOwnDays": "Every service has its own days.",
       "daysSummary": "Days: {{days}}",
       "moveTo": "Move {{service}} to {{time}}",
+      "restrictDays": {
+        "weekdays": "Run {{service}} on weekdays only",
+        "weekends": "Run {{service}} on weekends only",
+        "fridaySaturday": "Run {{service}} on Friday and Saturday only"
+      },
       "differentHours": "Different hours on some days",
       "blockLegend": "{{service}}: different hours",
       "removeBlock": "Remove these hours",
@@ -2575,7 +2652,7 @@
     },
     "close": {
       "open": "Close…",
-      "title": "Close",
+      "title": "Close the venue",
       "edit": {
         "title": "Edit closure",
         "save": "Save changes",
@@ -2637,16 +2714,17 @@
         "pickService": "Service",
         "section": "One section",
         "pickSection": "Section",
-        "noSections": "Add a section to your floor plan first",
-        "openFloorPlan": "Open Floor Plan",
-        "sectionsFailed": "Couldn't load the sections.",
         "booking": "Booking only",
         "channel": {
           "online": "Online",
           "phone": "Phone",
           "waitlist": "Waitlist"
         },
-        "channelRequired": "Choose at least one way of booking."
+        "channelRequired": "Choose at least one way of booking.",
+        "change": "Change",
+        "summaryService": "One service: {{name}}",
+        "summarySection": "One section: {{name}}",
+        "summaryBooking": "Booking only"
       },
       "when": {
         "label": "When",
@@ -2670,7 +2748,9 @@
         "tomorrow": "Tomorrow",
         "quickDates": "Quick dates",
         "holidayChip": "{{name}} · {{date}}",
-        "endRequired": "Choose an end date to close."
+        "holidayLabel": "Holiday",
+        "holidayPlaceholder": "Choose a holiday",
+        "endOptionalLabel": "End date (optional)"
       },
       "window": {
         "label": "Starting at",
@@ -2735,7 +2815,12 @@
         "closeWhen": "Close {{when}}",
         "closeTargetWhen": "Close {{target}} {{when}}",
         "closeFromWhen": "Close from {{time}} {{when}}",
-        "closeTargetFromWhen": "Close {{target}} from {{time}} {{when}}"
+        "closeTargetFromWhen": "Close {{target}} from {{time}} {{when}}",
+        "chooseDate": "Choose a date",
+        "chooseDates": "Choose dates",
+        "chooseEnd": "Choose an end date",
+        "chooseDays": "Choose days",
+        "chooseDaysAndEnd": "Choose days and an end date"
       },
       "toast": {
         "paused": "Online booking paused",
@@ -2761,9 +2846,6 @@
           "phone_waitlist": "Phone and waitlist booking",
           "all": "All booking"
         },
-        "withNotified_one": "{{text}} · {{count}} reservation notified",
-        "withNotified_other": "{{text}} · {{count}} reservations notified",
-        "withNotified_many": "{{text}} · {{count}} reservations notified",
         "closed": "Closed {{when}}",
         "namedClosed": "{{name}} closed {{when}}",
         "namedClosedFrom": "{{name}} closed from {{time}} {{when}}",
@@ -2779,6 +2861,21 @@
           "tonight": "tonight",
           "range": "on {{from}} – {{to}}",
           "untilReopen": "on {{date}} until you reopen"
+        },
+        "withOutcomes": "{{text}} · {{outcomes}}",
+        "outcome": {
+          "cancel_one": "{{count}} booking cancelled and notified",
+          "cancel_other": "{{count}} bookings cancelled and notified",
+          "cancel_many": "{{count}} bookings cancelled and notified",
+          "move_one": "{{count}} booking moved and notified",
+          "move_other": "{{count}} bookings moved and notified",
+          "move_many": "{{count}} bookings moved and notified",
+          "keep_notify_one": "{{count}} booking kept, guest notified",
+          "keep_notify_other": "{{count}} bookings kept, guests notified",
+          "keep_notify_many": "{{count}} bookings kept, guests notified",
+          "keep_silent_one": "{{count}} booking kept, guest not told",
+          "keep_silent_other": "{{count}} bookings kept, guests not told",
+          "keep_silent_many": "{{count}} bookings kept, guests not told"
         }
       },
       "step2": {
@@ -2839,6 +2936,11 @@
         "serviceClosedFrom": "{{service}} closed from {{time}}",
         "sectionClosed": "{{section}} closed",
         "sectionClosedFrom": "{{section}} closed from {{time}}"
+      },
+      "titleTarget": "Close {{target}}",
+      "titleBooking": "Pause booking",
+      "note": {
+        "add": "Add a note or message"
       }
     },
     "paused": {
@@ -3284,6 +3386,14 @@
       "emailStatus": "Email Status"
     }
   },
+  "arrivalAlerts": {
+    "title": "Party arrived",
+    "description": "{{name}} · party of {{size}}",
+    "descriptionUnknown": "A guest has arrived at the host stand.",
+    "settingsTitle": "Arrival alerts",
+    "muteLabel": "Mute arrival chime",
+    "muteHint": "Silences the chime on this device only. The arrival toast still appears."
+  },
   "settings": {
     "title": "Settings",
     "description": "Manage your account settings and preferences",
@@ -3354,6 +3464,14 @@
       "emergencyCloseHint": "Hosts can close the whole venue for tonight only. Anything longer needs a manager.",
       "emergencyCloseOn": "Hosts can close the whole venue for tonight in an emergency.",
       "emergencyCloseOff": "Only managers can close the venue."
+    },
+    "tonightNote": {
+      "title": "Tonight Note",
+      "label": "Tonight note",
+      "hint": "Shown to guests on the day of their booking. Up to {{max}} characters; leave empty to clear.",
+      "save": "Save note",
+      "saving": "Saving…",
+      "saved": "Tonight note saved."
     },
     "profile": {
       "title": "Venue Profile",

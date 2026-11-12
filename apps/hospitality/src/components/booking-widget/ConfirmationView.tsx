@@ -6,12 +6,15 @@ import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { buildReservationIcs, downloadIcsFile } from "../../utils/ics.js";
 import { buildGoogleCalendarUrl, buildOutlookCalendarUrl } from "../../utils/calendarLinks.js";
 import { specialRequestsText } from "../../utils/reservation-display.js";
+import { PartyInviteCard } from "../manage-reservation/PartyInviteCard.js";
 import styles from "./ConfirmationView.module.css";
 
 export interface ConfirmationViewProps {
   reservation: Reservation;
   onNewBooking: () => void;
   cancellationUrl?: string;
+  /** The booking's manage token; when present the guest can share an invite to their party. */
+  manageToken?: string;
   depositAmountCents?: number | null;
   depositCurrency?: string | null;
   cancellationPolicySummary?: string | null;
@@ -42,6 +45,7 @@ export function ConfirmationView({
   reservation,
   onNewBooking,
   cancellationUrl,
+  manageToken,
   depositAmountCents,
   depositCurrency,
   cancellationPolicySummary,
@@ -244,6 +248,8 @@ export function ConfirmationView({
           </div>
         </div>
       )}
+
+      {manageToken && <PartyInviteCard token={manageToken} />}
 
       {/* Actions */}
       <div className={styles.actions}>

@@ -749,6 +749,135 @@
         "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
     } satisfies CatalogMeta;
   </file>
+  <file path="packages/rialto/src/components/DatePicker/fit-below.ts">
+    export function scrollDeltaToFitBelow(options: {
+      anchorTop: number;
+      anchorBottom: number;
+      panelHeight: number;
+      viewportHeight: number;
+      scrollerTop: number;
+      scrollTop: number;
+      scrollHeight: number;
+      clientHeight: number;
+      gap?: number;
+      margin?: number;
+    }): number {
+      const gap = options.gap ?? POPOVER_ANCHOR_GAP;
+      const margin = options.margin ?? EDGE_MARGIN;
+      if (options.panelHeight <= 0) return 0;
+      const room = options.viewportHeight - options.anchorBottom - gap;
+      if (options.panelHeight <= room) return 0;
+      const deficit = options.panelHeight - room;
+      const spare = options.anchorTop - options.scrollerTop - margin;
+      const scrollRoom = options.scrollHeight - options.clientHeight - options.scrollTop;
+      return Math.max(0, Math.min(deficit, spare, scrollRoom));
+    }
+    export function sheetMaxHeight(options: {
+      panelScrollHeight: number;
+      sheetOffsetHeight: number;
+      anchorBottom: number;
+      viewportHeight: number;
+      gap?: number;
+      minRoom?: number;
+      minSheet?: number;
+    }): number | null {
+      const gap = options.gap ?? POPOVER_ANCHOR_GAP;
+      const minRoom = options.minRoom ?? MIN_ROOM_BELOW;
+      const minSheet = options.minSheet ?? MIN_SHEET;
+      const room = options.viewportHeight - options.anchorBottom - gap;
+      if (options.panelScrollHeight <= room + 0.5) return null;
+      if (room < minRoom) return null;
+      const chrome = Math.max(0, options.panelScrollHeight - options.sheetOffsetHeight);
+      const inner = Math.floor(room - chrome);
+      if (inner < minSheet) return null;
+      return inner;
+    }
+    function isVerticalScroller(node: HTMLElement): boolean {
+      const { overflowY } = getComputedStyle(node);
+      return (
+        (overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight + 1
+      );
+    }
+    function anchorForPanel(panel: HTMLElement): HTMLElement | null {
+      const trigger = document.querySelector<HTMLElement>(`[aria-controls="${CSS.escape(panel.id)}"]`);
+      // The trigger sits in an inner presentation wrapper. Its parent is the
+      // popover anchor useLayerFloating measures, including when the panel is
+      // portaled out of that anchor.
+      const nearest = trigger?.closest("[role='presentation']")?.parentElement;
+      return nearest instanceof HTMLElement ? nearest : null;
+    }
+    function applyFit(sheet: HTMLElement, allowScroll: boolean): void {
+      const panel = sheet.closest<HTMLElement>("[role='dialog']");
+      if (!panel?.id) return;
+      const anchor = anchorForPanel(panel);
+      if (!anchor) return;
+    
+      sheet.style.maxHeight = "";
+      sheet.style.overflowY = "";
+      sheet.style.overscrollBehavior = "";
+    
+      const viewportHeight = document.documentElement.clientHeight;
+      let anchorBottom = anchor.getBoundingClientRect().bottom;
+      const needed = panel.scrollHeight;
+      // scrollHeight ignores the panel border: add it to what the page scroll
+      // makes room for, and take it off the cap below.
+      const frame = Math.max(0, panel.offsetHeight - panel.clientHeight);
+      const room = viewportHeight - anchorBottom - POPOVER_ANCHOR_GAP;
+    
+      if (allowScroll && needed > room && room < MIN_ROOM_BELOW) {
+        let node = anchor.parentElement;
+        while (node) {
+          if (isVerticalScroller(node)) {
+            const rect = anchor.getBoundingClientRect();
+            const delta = scrollDeltaToFitBelow({
+              anchorTop: rect.top,
+              anchorBottom: rect.bottom,
+              panelHeight: needed + frame,
+              viewportHeight,
+              scrollerTop: node.getBoundingClientRect().top,
+              scrollTop: node.scrollTop,
+              scrollHeight: node.scrollHeight,
+              clientHeight: node.clientHeight,
+            });
+            if (delta >= 1) {
+              node.scrollTop += delta;
+              break;
+            }
+          }
+          // A fixed layer (Dialog, Drawer) does not move with the page behind it.
+          if (getComputedStyle(node).position === "fixed") break;
+          node = node.parentElement;
+        }
+        anchorBottom = anchor.getBoundingClientRect().bottom;
+      }
+    
+      const max = sheetMaxHeight({
+        panelScrollHeight: panel.scrollHeight,
+        sheetOffsetHeight: sheet.offsetHeight,
+        anchorBottom,
+        viewportHeight: viewportHeight - frame,
+      });
+      if (max == null) return;
+      sheet.style.maxHeight = `${max}px`;
+      sheet.style.overflowY = "auto";
+      sheet.style.overscrollBehavior = "contain";
+    }
+    export function bindCalendarFit(sheet: HTMLElement): () => void {
+      const onScroll = (event: Event) => {
+        const panel = sheet.closest("[role='dialog']");
+        if (panel && event.target instanceof Node && panel.contains(event.target)) return;
+        applyFit(sheet, false);
+      };
+      const onResize = () => applyFit(sheet, true);
+      applyFit(sheet, true);
+      window.addEventListener("resize", onResize);
+      window.addEventListener("scroll", onScroll, true);
+      return () => {
+        window.removeEventListener("resize", onResize);
+        window.removeEventListener("scroll", onScroll, true);
+      };
+    }
+  </file>
   </section>
   <section priority="medium" role="DateRange">
   <file path="packages/rialto/src/components/DateRange/DateRange.catalog.ts">
@@ -5431,6 +5560,28 @@
       return minute < opensAt ? minute + MINUTES_PER_DAY : minute;
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/close-dialog-test-helpers.ts">
+    export function chooseWhen(name: string) {
+      fireEvent.click(within(dialog()).getByRole("combobox", { name: "When" }));
+      fireEvent.click(screen.getByRole("option", { name }));
+    }
+    export function openWhat() {
+      const change = within(dialog()).getByRole("button", { name: "Change" });
+      if (change.getAttribute("aria-expanded") !== "true") fireEvent.click(change);
+    }
+    export function chooseWhat(name: string) {
+      openWhat();
+      fireEvent.click(within(dialog()).getByRole("radio", { name }));
+    }
+    export function guestMessageField(): HTMLElement {
+      openNote();
+      return within(dialog()).getByLabelText(/Message for guests/);
+    }
+    export function openNote() {
+      const trigger = within(dialog()).getByRole("button", { name: "Add a note or message" });
+      if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/close-draft.ts">
     export type BookingChannel = "online" | "phone" | "waitlist";
     export type CloseWhat =
@@ -5943,12 +6094,52 @@
           );
       }
     }
+    export function closeIncompleteText(form: CloseForm, t: TFunction): string | null {
+      const { when } = form;
+      switch (when.kind) {
+        case "tonight":
+          return null;
+        case "date":
+          return when.date === "" ? t("availability.close.button.chooseDate") : null;
+        case "dates":
+          return when.dates.length === 0 ? t("availability.close.button.chooseDates") : null;
+        case "until-reopen":
+          return when.from === "" ? t("availability.close.button.chooseDate") : null;
+        case "range":
+          if (when.from === "") return t("availability.close.button.chooseDate");
+          return when.to === "" || when.to < when.from
+            ? t("availability.close.button.chooseEnd")
+            : null;
+        case "repeats": {
+          if (when.from === "") return t("availability.close.button.chooseDate");
+          const endMissing = when.to === "" || when.to < when.from;
+          if (when.weekdays.length === 0) {
+            return t(
+              endMissing
+                ? "availability.close.button.chooseDaysAndEnd"
+                : "availability.close.button.chooseDays"
+            );
+          }
+          if (endMissing) return t("availability.close.button.chooseEnd");
+          // Days chosen, but none of them falls between From and To: nothing would close.
+          return closedDates({
+            startsOn: when.from,
+            endsOn: when.to,
+            repeat: { version: 1, weekdays: [...when.weekdays] },
+          }).length === 0
+            ? t("availability.close.button.chooseDays")
+            : null;
+        }
+      }
+    }
     export function closeButtonText(
       draft: { readonly form: CloseForm; readonly date: string; readonly name: string | undefined },
       t: TFunction,
       format: CloseFormat
     ): string {
       const { form, name } = draft;
+      const incomplete = closeIncompleteText(form, t);
+      if (incomplete !== null) return incomplete;
       const { when } = form;
       const tonight = when.kind === "tonight";
       const oneDay = tonight || when.kind === "date";
@@ -5980,9 +6171,12 @@
         ? t("availability.close.button.closeTargetWhen", { target: name, when: phrase })
         : t("availability.close.button.closeWhen", { when: phrase });
     }
+    export type ToastOutcome = Readonly<
+      Record<"cancel" | "move" | "keep_notify" | "keep_silent", number>
+    >;
     export function closeToastText(
       draft: CloseToastDraft,
-      outcome: { readonly notified: number },
+      outcome: ToastOutcome,
       t: TFunction,
       format: CloseFormat
     ): string {
@@ -6026,9 +6220,12 @@
       };
     
       const sentence = base();
-      return outcome.notified > 0
-        ? t("availability.close.toast.withNotified", { text: sentence, count: outcome.notified })
-        : sentence;
+      const outcomes = OUTCOME_ORDER.filter((key) => outcome[key] > 0)
+        .map((key) => t(`availability.close.toast.outcome.${key}`, { count: outcome[key] }))
+        .join(" · ");
+      return outcomes === ""
+        ? sentence
+        : t("availability.close.toast.withOutcomes", { text: sentence, outcomes });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/closed-all-day.ts">
@@ -7777,6 +7974,15 @@
       /** `null` follows the shared {@link QuickSetupDraft.days}. */
       readonly days: readonly number[] | null;
       readonly blocks: readonly HoursBlock[];
+      /**
+       * Set when a name chip moved the service off its preset times to follow the others (Late
+       * after Dinner), with the times it gave; while they are untouched a change of days re-places it.
+       */
+      readonly autoPlaced?: {
+        readonly preset: ServicePresetId;
+        readonly opens: string;
+        readonly closes: string;
+      };
     }
     export interface QuickSetupDraft {
       readonly services: readonly ServiceDraft[];
@@ -8262,9 +8468,10 @@
       return (day: number, weekday: "long" | "short" = "long") =>
         format.formatCalendarDate(addDays(SAMPLE_MONDAY, WEEK_DISPLAY_ORDER.indexOf(day)), { weekday });
     }
-    export const QuickSetupFixContext = createContext<
-      ((fix: { readonly serviceId: string; readonly opensAt: number }) => void) | null
-    >(null);
+    export type QuickSetupFix =
+      | { readonly kind: "time"; readonly serviceId: string; readonly opensAt: number }
+      | { readonly kind: "days"; readonly serviceId: string; readonly days: readonly number[] };
+    export const QuickSetupFixContext = createContext<((fix: QuickSetupFix) => void) | null>(null);
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-line.ts">
     export type LineFormat = Pick<VenueFormat, "formatCalendarDate" | "formatLocalTime" | "locale">;
@@ -8336,9 +8543,10 @@
       preset: ServicePresetId,
       name: string
     ): ServiceDraft {
-      const service = draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
+      const { autoPlaced: _previous, ...service } =
+        draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
       const defaults = applyPreset(service, preset, name);
-      if (isClear(draft, defaults)) return defaults;
+      if (preset !== "late" || isClear(draft, defaults)) return defaults;
       const days = effectiveDays(draft, service);
       const closes = draft.services
         .filter((s) => s.id !== serviceId)
@@ -8359,7 +8567,34 @@
         closes: toClock(end),
         lastSeating: autoLastSeating(toClock(end), toClock(start)),
       };
-      return isClear(draft, placed) ? placed : defaults;
+      return isClear(draft, placed)
+        ? { ...placed, autoPlaced: { preset, opens: placed.opens, closes: placed.closes } }
+        : defaults;
+    }
+    export function setDaysAndReplace(
+      draft: QuickSetupDraft,
+      service: ServiceDraft,
+      days: readonly number[] | null
+    ): ServiceDraft {
+      const next = setServiceDays(service, days, draft.days);
+      const placed = service.autoPlaced;
+      if (!placed || service.opens !== placed.opens || service.closes !== placed.closes) return next;
+      return placePreset(replaceService(draft, next), next.id, placed.preset, next.name);
+    }
+    export type OverlapDayShortcut = "weekdays" | "weekends" | "fridaySaturday";
+    export function overlapDayFix(
+      draft: QuickSetupDraft,
+      serviceId: string
+    ): { readonly shortcut: OverlapDayShortcut; readonly days: readonly number[] } | null {
+      const service = draft.services.find((s) => s.id === serviceId);
+      if (!service) return null;
+      const current = effectiveDays(draft, service);
+      for (const { id, days } of DAY_FIX_SHORTCUTS) {
+        if (days.length >= current.length || !days.every((day) => current.includes(day))) continue;
+        const next = setServiceDays(service, days, draft.days);
+        if (isClear(draft, next)) return { shortcut: id, days };
+      }
+      return null;
     }
     export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft {
       if (service.opens === null || service.closes === null) return service;
@@ -8406,6 +8641,8 @@
       /** `overlap` on some weekdays only: the weekday (0 = Sunday) and the service it overlaps. */
       readonly weekday?: number;
       readonly otherServiceId?: string;
+      /** An overlap said again on the other service's row (`overlapsAgainst`); it offers no fix there. */
+      readonly mirrored?: true;
     }
     interface IssueOwner {
       readonly serviceId: string;
@@ -8509,11 +8746,22 @@
               ...(block ? { blockId: block.id } : {}),
               field: "opens",
               code: "overlap",
-              ...(weekday !== undefined && other ? { weekday, otherServiceId: other.id } : {}),
+              ...(weekday !== undefined ? { weekday } : {}),
+              ...(other ? { otherServiceId: other.id } : {}),
             },
           ];
         });
       return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
+    }
+    export function overlapsAgainst(
+      issues: readonly QuickSetupIssue[],
+      serviceId: string
+    ): QuickSetupIssue[] {
+      return issues.flatMap(({ blockId: _block, ...issue }) =>
+        issue.code === "overlap" && issue.otherServiceId === serviceId && issue.serviceId !== null
+          ? [{ ...issue, serviceId, otherServiceId: issue.serviceId, mirrored: true as const }]
+          : []
+      );
     }
     export function serviceLabel(
       draft: QuickSetupDraft,
@@ -8545,6 +8793,16 @@
         });
       }
       return t(`availability.quickSetup.issues.${issue.code}`);
+    }
+    export function previewOverlapReason(
+      issues: readonly QuickSetupIssue[],
+      draft: QuickSetupDraft,
+      t: TFunction,
+      weekdayName: (weekday: number) => string
+    ): string | null {
+      if (issues.length === 0 || issues.some((i) => i.code !== "overlap")) return null;
+      const first = issues[0];
+      return first ? issueMessage(first, draft, t, weekdayName) : null;
     }
     function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
       const read = normalizeLegacyHours(draftToLegacyHours(draft));
@@ -17401,6 +17659,126 @@
         source: "rows",
       };
     }
+    export interface LiveEventBus {
+      publish: (event: SseEventEntry) => void;
+      /** Number of events published so far. */
+      size: () => number;
+      /** Resolves once more than `count` events have been published. */
+      whenPast: (count: number) => Promise<void>;
+      /** Events at index `from` and later. */
+      since: (from: number) => readonly SseEventEntry[];
+    }
+    export function createLiveEventBus(): LiveEventBus {
+      const log: SseEventEntry[] = [];
+      const waiters = new Set<() => void>();
+      return {
+        publish: (event) => {
+          log.push(event);
+          for (const wake of [...waiters]) wake();
+        },
+        size: () => log.length,
+        whenPast: (count) =>
+          new Promise<void>((resolve) => {
+            const check = (): void => {
+              if (log.length > count) {
+                waiters.delete(check);
+                resolve();
+              }
+            };
+            waiters.add(check);
+            check();
+          }),
+        since: (from) => log.slice(from),
+      };
+    }
+    export async function mockLiveEventStream(page: Page, bus: LiveEventBus): Promise<void> {
+      let delivered = bus.size();
+      await page.route("**/api/v1/events/stream**", async (route) => {
+        await bus.whenPast(delivered);
+        const events = bus.since(delivered);
+        delivered += events.length;
+        const frames = [
+          `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`,
+          ...events.map((evt) => `event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`),
+        ];
+        // The page may have gone away while the request was held.
+        await route
+          .fulfill({
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+            body: frames.join(""),
+          })
+          .catch(() => undefined);
+      });
+    }
+    export type NightOfSignal = { kind: "running-late"; minutes: 5 | 15 | 30 } | { kind: "arrived" };
+    export interface NightOfReservation {
+      id: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      guestName: string;
+    }
+    export interface NightOfMock {
+      posted: readonly NightOfSignal[];
+    }
+    export async function mockNightOfManage(
+      page: Page,
+      bus: LiveEventBus,
+      reservation: NightOfReservation
+    ): Promise<NightOfMock> {
+      const posted: NightOfSignal[] = [];
+      const counts = { late: 0, arrived: 0 };
+      const ianaTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+      await page.route(/\/public\/v1\/reservations\/manage(\?.*)?$/, (route) =>
+        jsonOk(route, {
+          reservation: {
+            ...reservation,
+            date: localDay(),
+            guestEmail: null,
+            status: "CONFIRMED",
+            notes: null,
+          },
+          venue: { id: "ven_e2e_001", name: "E2E Test Bistro", slug: "e2e-test-bistro", ianaTimezone },
+          guestSignals: { ...counts },
+        })
+      );
+    
+      await page.route("**/public/v1/reservations/manage/signal", (route) => {
+        const signal = route.request().postDataJSON() as NightOfSignal;
+        posted.push(signal);
+        if (signal.kind === "arrived") counts.arrived += 1;
+        else counts.late += 1;
+        const data =
+          signal.kind === "arrived"
+            ? { reservationId: reservation.id, kind: signal.kind }
+            : {
+                reservationId: reservation.id,
+                kind: signal.kind,
+                minutes: signal.minutes,
+                eta: new Date(
+                  Date.parse(reservation.startTime) + signal.minutes * 60_000
+                ).toISOString(),
+              };
+        bus.publish({
+          type: "reservation:guest-signal",
+          data: {
+            type: "reservation:guest-signal",
+            venueId: "ven_e2e_001",
+            timestamp: new Date().toISOString(),
+            data,
+          },
+        });
+        return jsonOk(route, signal);
+      });
+    
+      return {
+        get posted() {
+          return posted;
+        },
+      };
+    }
   </file>
   <file path="apps/hospitality/e2e/auth-helpers.ts">
     export interface Auth0Config {
@@ -19306,6 +19684,29 @@
     ];
     export const FIRST_STEP_INDEX = 0;
     export const LAST_STEP_INDEX = ONBOARDING_STEPS.length - 1;
+    export type FieldErrors = Partial<Record<"propertyName", string>>;
+    export function validateProperty(state: OnboardingState): FieldErrors {
+      if (!state.propertyName.trim()) {
+        return { propertyName: "Property name is required." };
+      }
+      return {};
+    }
+    function validateStep(index: number, state: OnboardingState): FieldErrors {
+      return ONBOARDING_STEPS[index]?.id === "property" ? validateProperty(state) : {};
+    }
+    export interface AdvanceResult {
+      step: number;
+      errors: FieldErrors;
+      advanced: boolean;
+    }
+    export function attemptAdvance(current: number, state: OnboardingState): AdvanceResult {
+      const errors = validateStep(current, state);
+      if (Object.keys(errors).length > 0) {
+        return { step: current, errors, advanced: false };
+      }
+      const step = nextStep(current);
+      return { step, errors: {}, advanced: step !== current };
+    }
     export function nextStep(index: number): number {
       return Math.min(index + 1, LAST_STEP_INDEX);
     }
@@ -19359,7 +19760,7 @@
     }
     export function launchSummary(state: OnboardingState): SummaryRow[] {
       return [
-        { label: "Property", value: state.propertyName },
+        { label: "Property", value: state.propertyName.trim() },
         { label: "Type", value: labelFor(PROPERTY_TYPES, (t) => t.id === state.propertyType) },
         { label: "Spaces", value: labelFor(SPACE_PRESETS, (p) => p.value === state.spacePreset) },
         { label: "Instant booking", value: state.instantBooking ? "On" : "Off" },
@@ -21717,7 +22118,7 @@
     export const EDITOR_SIGNATURES: Readonly<Record<ResourceType, (page: Page) => Locator>> = {
       weeklyHours: (page) => page.getByRole("combobox", { name: "Opens" }),
       services: (page) => page.getByRole("textbox", { name: /^Service name/ }),
-      specialDates: (page) => page.getByRole("dialog", { name: "Close", exact: true }),
+      specialDates: (page) => page.getByRole("dialog", { name: /^Close / }),
       booking: (page) => page.getByRole("dialog", { name: "Booking rules" }),
       floorPlan: (page) => page.getByRole("dialog", { name: /floor plan/i }),
       sections: (page) => page.getByRole("radiogroup", { name: "Room template" }),
@@ -23620,6 +24021,87 @@
       );
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useArrivalAlerts.ts">
+    interface Party {
+      readonly name: string | null;
+      readonly size: number;
+    }
+    function toParty(value: unknown, reservationId: string): Party | null {
+      if (typeof value !== "object" || value === null) return null;
+      const r = value as { id?: unknown; guestName?: unknown; partySize?: unknown };
+      if (r.id !== reservationId || typeof r.partySize !== "number") return null;
+      return {
+        name: typeof r.guestName === "string" && r.guestName !== "" ? r.guestName : null,
+        size: r.partySize,
+      };
+    }
+    function findCachedParty(queryClient: QueryClient, reservationId: string): Party | null {
+      for (const [, data] of queryClient.getQueriesData<unknown>({
+        queryKey: [RESERVATIONS_QUERY_KEY],
+      })) {
+        const candidates: unknown[] = Array.isArray(data) ? data : [data];
+        for (const candidate of candidates) {
+          const party = toParty(candidate, reservationId);
+          if (party) return party;
+        }
+      }
+      return null;
+    }
+    export function useArrivalChimeMuted(): boolean {
+      return useSyncExternalStore(subscribeArrivalChimeMuted, isArrivalChimeMuted, () => false);
+    }
+    export function useArrivalAlerts(): void {
+      const queryClient = useQueryClient();
+      const api = useApiClient();
+      const { toast } = useToast();
+      const { t } = useTranslation();
+      const announcedRef = useRef(new Set<string>());
+    
+      const latestRef = useRef({ queryClient, api, toast, t });
+      useEffect(() => {
+        latestRef.current = { queryClient, api, toast, t };
+      });
+    
+      const onEvent = useCallback((event: SseEvent) => {
+        if (event.type !== "reservation:guest-signal" || event.data.kind !== "arrived") return;
+        const { reservationId } = event.data;
+        if (announcedRef.current.has(reservationId)) return;
+        announcedRef.current.add(reservationId);
+        if (announcedRef.current.size > MAX_REMEMBERED) {
+          const oldest = announcedRef.current.values().next().value;
+          if (oldest !== undefined) announcedRef.current.delete(oldest);
+        }
+    
+        if (!isArrivalChimeMuted()) playArrivalChime();
+    
+        void (async () => {
+          const { queryClient: qc, api: client } = latestRef.current;
+          let party = findCachedParty(qc, reservationId);
+          if (!party) {
+            try {
+              party = toParty(await client.reservations.get(reservationId), reservationId);
+            } catch {
+              party = null; // already reported by useApiClient's onError
+            }
+          }
+          const { toast: show, t: translate } = latestRef.current;
+          show({
+            title: translate("arrivalAlerts.title"),
+            description: party
+              ? translate("arrivalAlerts.description", {
+                  name: party.name ?? translate("reservations.guestFallback"),
+                  size: party.size,
+                })
+              : translate("arrivalAlerts.descriptionUnknown"),
+            variant: "accent",
+            duration: 8000,
+          });
+        })();
+      }, []);
+    
+      useSSEEventListener(onEvent);
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailability.ts">
     export const AVAILABILITY_DAYS_QUERY_KEY = "availabilityDays" as const;
     export const AVAILABILITY_CONFIG_QUERY_KEY = "availabilityConfig" as const;
@@ -24901,6 +25383,28 @@
       return { result, isLoading, error, recognize };
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useGuestSignalBadges.ts">
+    export function useGuestSignalBadges(
+      reservations: readonly Pick<Reservation, "id" | "status" | "startTime">[],
+      seatedIds: ReadonlySet<string>,
+      now: Date
+    ): ReadonlyMap<string, GuestSignalBadge> {
+      const signals = useGuestSignals();
+      return useMemo(() => {
+        const badges = new Map<string, GuestSignalBadge>();
+        for (const reservation of reservations) {
+          const badge = deriveGuestSignalBadge({
+            signal: signals.get(reservation.id),
+            reservation,
+            seated: seatedIds.has(reservation.id),
+            now,
+          });
+          if (badge) badges.set(reservation.id, badge);
+        }
+        return badges;
+      }, [reservations, signals, seatedIds, now]);
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
@@ -25630,6 +26134,28 @@
       }, []);
     
       return { status, announce };
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useTableGuestSignalBadges.ts">
+    export function useTableGuestSignalBadges(
+      venueId: string | undefined
+    ): ReadonlyMap<string, GuestSignalBadge> {
+      const now = useNow();
+      const tonight = useStaffTonight(venueId);
+      const { data } = useReservations({
+        venueId,
+        date: tonight.serviceDate ?? deviceDate(now),
+        limit: 200,
+        enabled: !!venueId,
+      });
+      const { data: tables } = useTables({ venueId, limit: 100, enabled: !!venueId });
+      const reservations = useMemo(() => data ?? [], [data]);
+      const seatedIds = useMemo(
+        () => seatedReservationIds(reservations, tables ?? [], now),
+        [reservations, tables, now]
+      );
+      const badges = useGuestSignalBadges(reservations, seatedIds, now);
+      return useMemo(() => badgesByTableId(reservations, badges), [reservations, badges]);
     }
   </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
@@ -29395,6 +29921,77 @@
       };
     
       return walk(spec.root);
+    }
+  </file>
+  <file path="apps/hospitality/src/lib/arrival-chime.ts">
+    export const ARRIVAL_CHIME_MUTED_KEY = "mbe-hospitality-arrival-chime-muted";
+    export function isArrivalChimeMuted(): boolean {
+      try {
+        return localStorage.getItem(ARRIVAL_CHIME_MUTED_KEY) === "true";
+      } catch {
+        return false;
+      }
+    }
+    function persistMuted(muted: boolean): boolean {
+      try {
+        localStorage.setItem(ARRIVAL_CHIME_MUTED_KEY, String(muted));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    export function setArrivalChimeMuted(muted: boolean): boolean {
+      const persisted = persistMuted(muted);
+      for (const listener of listeners) listener();
+      return persisted;
+    }
+    export function subscribeArrivalChimeMuted(listener: () => void): () => void {
+      listeners.add(listener);
+      const onStorage = (event: StorageEvent) => {
+        if (event.key === ARRIVAL_CHIME_MUTED_KEY || event.key === null) listener();
+      };
+      window.addEventListener("storage", onStorage);
+      return () => {
+        listeners.delete(listener);
+        window.removeEventListener("storage", onStorage);
+      };
+    }
+    function getAudioContext(): AudioContext | null {
+      if (audioContext) return audioContext;
+      const Ctor: typeof AudioContext | undefined =
+        typeof AudioContext === "undefined" ? undefined : AudioContext;
+      if (!Ctor) return null;
+      audioContext = new Ctor();
+      return audioContext;
+    }
+    export function resetArrivalChimeAudioForTests(): void {
+      audioContext = null;
+    }
+    export function playArrivalChime(): boolean {
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return false;
+        if (ctx.state === "suspended") {
+          ctx.resume().catch(() => undefined);
+        }
+        const start = ctx.currentTime;
+        for (const { hz, offset } of NOTES) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(hz, start + offset);
+          gain.gain.setValueAtTime(0.0001, start + offset);
+          gain.gain.linearRampToValueAtTime(PEAK_GAIN, start + offset + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + NOTE_SECONDS);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start + offset);
+          osc.stop(start + offset + NOTE_SECONDS);
+        }
+        return true;
+      } catch {
+        return false; // blocked or unsupported audio must never break the SSE handler
+      }
     }
   </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
@@ -43842,6 +44439,42 @@
       return problemFromMessage(preamble.status, ACTION_MESSAGES[action][preamble.reason]);
     }
   </file>
+  <file path="services/reservations/src/routes/manage-invite.ts">
+    export const manageInviteRoutes: FastifyPluginAsync = async (fastify) => {
+      const missing = {
+        missing: (reply: { status: (n: number) => { send: (b: unknown) => unknown } }) =>
+          reply.status(404).send(reservationNotFoundProblem()),
+      };
+    
+      fastify.post(
+        "/public/v1/reservations/manage/invite",
+        { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } },
+        manageTokenScoped(missing, async (_request, reply, { venueId, reservation }) => {
+          if (reservation.status === "CANCELLED") {
+            return reply
+              .status(409)
+              .send(
+                createProblemDetails(409, "Cannot Invite", "A cancelled reservation cannot be shared")
+              );
+          }
+          const { token } = await createInvite({ venueId, reservationId: reservation.id });
+          return reply.status(201).send({ data: { inviteToken: token } });
+        })
+      );
+    
+      fastify.get(
+        "/public/v1/reservations/manage/invite",
+        { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+        manageTokenScoped(missing, async (_request, reply, { venueId, reservation }) => {
+          const summary = await getInviteSummaryForReservation({
+            venueId,
+            reservationId: reservation.id,
+          });
+          return reply.status(200).send({ data: { ...summary, partySize: reservation.partySize } });
+        })
+      );
+    };
+  </file>
   <file path="services/reservations/src/routes/manage-rebook.ts">
     export const manageRebookRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.post<{ Body: { offerId: string } }>(
@@ -43958,6 +44591,11 @@
               data: {
                 reservation: serializeManagedReservation(reservation),
                 venueCancellation,
+                // Only a confirmed booking can signal, so only it pays for the history read.
+                guestSignals:
+                  reservation.status === "CONFIRMED"
+                    ? await countGuestSignals(reservation.id)
+                    : { late: 0, arrived: 0 },
                 venue: venue
                   ? {
                       id: venue.id,
@@ -43967,6 +44605,8 @@
                       phone: venue.settings?.phone,
                       modificationCutoffHours: venue.settings?.guestModificationCutoffHours ?? null,
                       maxPartySizeChange: venue.settings?.guestMaxPartySizeChange ?? null,
+                      ...nightOfVenueFields(venue.settings),
+                      tonightNote: nightOfVenueFields(venue.settings).tonightNote ?? null,
                     }
                   : null,
               },
@@ -43980,6 +44620,7 @@
     type SignalBody = { kind: GuestSignalKind; minutes?: 5 | 15 | 30 };
     export const manageSignalRoutes: FastifyPluginAsync = async (fastify) => {
       const { venueService } = fastify.services;
+      const { reservationEvents } = fastify;
     
       fastify.post<{ Body: SignalBody }>(
         "/public/v1/reservations/manage/signal",
@@ -44013,6 +44654,19 @@
               guestId: reservation.guestId,
               kind,
               minutes,
+            });
+            // Only after the signal has persisted; every refusal above returns first.
+            reservationEvents.emitGuestSignal(venueId, {
+              reservationId: reservation.id,
+              kind,
+              ...(minutes === undefined
+                ? {}
+                : {
+                    minutes,
+                    eta: new Date(
+                      new Date(reservation.startTime).getTime() + minutes * 60_000
+                    ).toISOString(),
+                  }),
             });
             return reply.status(200).send({ data: { kind, ...(minutes ? { minutes } : {}) } });
           }
@@ -45297,6 +45951,72 @@
             return reply.status(201).send({ data: withoutGuestLink(result.reservation), manageToken });
           }
         )
+      );
+    };
+  </file>
+  <file path="services/reservations/src/routes/public-invites.ts">
+    export const publicInviteRoutes: FastifyPluginAsync = async (fastify) => {
+      fastify.get<{ Params: { token: string } }>(
+        "/public/v1/invites/:token",
+        { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+        async (request, reply) => {
+          const result = await getInvitePublicView(request.params.token);
+          if (result.kind === "missing") {
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", "This invitation was not found"));
+          }
+          if (result.kind === "gone") {
+            return reply
+              .status(410)
+              .send(
+                createProblemDetails(410, "Invitation Ended", "This invitation is no longer available")
+              );
+          }
+          const { venue, date, time, partySize, rsvps, status } = result.view;
+          return reply.status(200).send({
+            data: {
+              venue: { name: venue.name, slug: venue.slug },
+              date,
+              time,
+              partySize,
+              rsvps: rsvps.map((r) => ({ firstName: r.firstName, status: r.status })),
+              status,
+            },
+          });
+        }
+      );
+    
+      fastify.post<{ Params: { token: string }; Body: { firstName: string; status: "IN" | "OUT" } }>(
+        "/public/v1/invites/:token/rsvp",
+        {
+          schema: { body: rsvpBodySchema },
+          config: { rateLimit: { max: 20, timeWindow: "1 minute" } },
+        },
+        async (request, reply) => {
+          const result = await addInviteRsvp(request.params.token, {
+            firstName: request.body.firstName.trim(),
+            status: request.body.status,
+          });
+          if (result.kind === "missing") {
+            return reply
+              .status(404)
+              .send(createProblemDetails(404, "Not Found", "This invitation was not found"));
+          }
+          if (result.kind === "gone") {
+            return reply
+              .status(410)
+              .send(
+                createProblemDetails(410, "Invitation Ended", "This invitation is no longer available")
+              );
+          }
+          if (result.kind === "full") {
+            return reply
+              .status(409)
+              .send(createProblemDetails(409, "Invitation Full", "This invitation has no spots left"));
+          }
+          return reply.status(201).send({ data: { ok: true } });
+        }
       );
     };
   </file>
@@ -49135,6 +49855,32 @@
         venueScoped(venueManagerFromRouteId, async (request, reply, { venueId, isAdmin }) => {
           const { venueGroupId } = request.body;
     
+          // The tonight note is guest-facing copy, so only an owner (or an admin)
+          // may change it. `settings` is replaced wholesale, so any write that
+          // would alter the stored note counts, including one that omits it.
+          if (request.body.settings !== undefined && !isAdmin) {
+            const callerRole = await request.server.venueRoleLookup(
+              request.user?.raw.sub ?? "",
+              venueId
+            );
+            if (callerRole !== "owner") {
+              const current = await venueService.getById(venueId);
+              const storedNote = current?.settings?.tonightNote ?? "";
+              const incomingNote = request.body.settings?.tonightNote ?? "";
+              if (storedNote !== incomingNote) {
+                return reply
+                  .code(403)
+                  .send(
+                    createProblemDetails(
+                      403,
+                      "Forbidden",
+                      "Owner role required to edit the tonight note"
+                    )
+                  );
+              }
+            }
+          }
+    
           const hoursError = operatingHoursError(request.body.operatingHours);
           if (hoursError) {
             return reply.code(400).send(createProblemDetails(400, "Bad Request", hoursError));
@@ -51472,6 +52218,7 @@
     export type ReorderMenuRequest = z.infer<typeof ReorderMenuRequestSchema>;
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
+    export const TONIGHT_NOTE_MAX_LENGTH = 200;
     export const ListReservationsQuerySchema = z.object({
       page: z.string().default("1").describe("Page number (1-indexed)"),
       limit: z.string().default("10").describe("Number of reservations per page (max 100)"),
@@ -51949,6 +52696,8 @@
         })
         .nullable()
         .optional(),
+      /** RSVP tally of the live party invite (#8667); null or absent when there is none. */
+      inviteRsvp: z.object({ in: z.number(), partySize: z.number() }).nullable().optional(),
       venueId: z.string().nullable(),
       createdAt: z.string(),
       updatedAt: z.string(),
@@ -63703,6 +64452,16 @@
           data: changes,
         });
       }
+    
+      /** Emit a guest night-of signal, scoped to the venue that owns the reservation. */
+      emitGuestSignal(venueId: string, data: GuestSignalEventData): void {
+        this.emitChange({
+          type: "reservation:guest-signal",
+          venueId,
+          timestamp: new Date().toISOString(),
+          data,
+        });
+      }
     }
   </file>
   <file path="services/reservations/src/services/floor-plan-section.ts">
@@ -64608,6 +65367,8 @@
       minutes?: number;
     }): Promise<void> {
       await prisma.$transaction(async (tx) => {
+        // `$transaction` bypasses the auto-scoped model wrapper, so the venue (RLS) context must be set explicitly.
+        await setVenueContext(tx, input.venueId);
         await recordReservationEvent(tx, {
           reservationId: input.reservationId,
           venueId: input.venueId,
@@ -66465,6 +67226,22 @@
       return { success: true, reservation: toReservation(result.value) };
     }
   </file>
+  <file path="services/reservations/src/services/night-of-venue.ts">
+    type VenueAddress = NonNullable<VenueProfile["address"]>;
+    export function nightOfVenueFields(settings: unknown): {
+      address?: VenueAddress;
+      tonightNote?: string;
+    } {
+      const record = typeof settings === "object" && settings !== null ? settings : {};
+      const { address } = toPublicVenueProfile((record as { profile?: unknown }).profile);
+      const rawNote = (record as { tonightNote?: unknown }).tonightNote;
+      const note = typeof rawNote === "string" ? rawNote.trim() : "";
+      return {
+        ...(address ? { address } : {}),
+        ...(note.length > 0 && note.length <= TONIGHT_NOTE_MAX_LENGTH ? { tonightNote: note } : {}),
+      };
+    }
+  </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     export type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
     export class JobQueueUnavailableError extends Error {
@@ -67011,6 +67788,19 @@
         };
       }
     
+      // A cancelled reservation's party invite must stop working (The Invitation, #8661).
+      // Best effort: the cancel (and any money moved) already succeeded, so never fail it here.
+      if (reservation.venueId) {
+        try {
+          await revokeInvitesForReservation({
+            venueId: reservation.venueId,
+            reservationId: reservation.id,
+          });
+        } catch (err) {
+          deps.logger.warn({ err, reservationId: reservation.id }, "Could not revoke party invites");
+        }
+      }
+    
       return { success: true, reservation: updated };
     }
   </file>
@@ -67155,6 +67945,202 @@
         })),
         nextCursor: rows.length > limit ? encodeCursor(page[page.length - 1]!) : null,
       };
+    }
+  </file>
+  <file path="services/reservations/src/services/reservation-invite.ts">
+    export function hashInviteToken(token: string): string {
+      return createHash("sha256").update(token).digest("hex");
+    }
+    export async function createInvite(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<{ id: string; token: string }> {
+      const token = `${input.venueId}.${randomBytes(SECRET_BYTES).toString("base64url")}`;
+      const row = await runWithVenueContext(input.venueId, () =>
+        prisma.reservationInvite.create({
+          data: {
+            venueId: input.venueId,
+            reservationId: input.reservationId,
+            tokenHash: hashInviteToken(token),
+          },
+        })
+      );
+      return { id: row.id, token };
+    }
+    export async function findLiveInviteByToken(
+      token: string
+    ): Promise<{ id: string; venueId: string; reservationId: string } | null> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return null;
+      const venueId = token.slice(0, dot);
+      const row = await runWithVenueContext(venueId, () =>
+        prisma.reservationInvite.findFirst({
+          where: { tokenHash: hashInviteToken(token), revokedAt: null },
+        })
+      );
+      return row ? { id: row.id, venueId, reservationId: row.reservationId } : null;
+    }
+    export async function revokeInvitesForReservation(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<number> {
+      const { count } = await runWithVenueContext(input.venueId, () =>
+        prisma.reservationInvite.updateMany({
+          where: { reservationId: input.reservationId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        })
+      );
+      return count;
+    }
+    export interface InvitePublicView {
+      venue: { name: string; slug: string };
+      date: string;
+      time: string;
+      partySize: number;
+      rsvps: Array<{ firstName: string; status: string }>;
+      status: string;
+    }
+    export type InviteLookup =
+      { kind: "ok"; view: InvitePublicView } | { kind: "gone" } | { kind: "missing" };
+    function localParts(at: Date, timeZone: string): { date: string; time: string } {
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat("en-CA", {
+          timeZone,
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23",
+        })
+          .formatToParts(at)
+          .map((p) => [p.type, p.value])
+      );
+      return {
+        date: `${parts.year}-${parts.month}-${parts.day}`,
+        time: `${parts.hour}:${parts.minute}`,
+      };
+    }
+    type LiveInvite =
+      | {
+          kind: "ok";
+          inviteId: string;
+          venueId: string;
+          reservation: {
+            startTime: Date;
+            partySize: number;
+            status: string;
+            venue: { name: string; slug: string; ianaTimezone: string };
+          };
+        }
+      | { kind: "gone" }
+      | { kind: "missing" };
+    async function resolveLiveInvite(token: string, venueId: string, now: Date): Promise<LiveInvite> {
+      const invite = await prisma.reservationInvite.findFirst({
+        where: { tokenHash: hashInviteToken(token) },
+      });
+      if (!invite) return { kind: "missing" };
+      if (invite.revokedAt) return { kind: "gone" };
+      const reservation = await prisma.reservation.findFirst({
+        where: { id: invite.reservationId, venueId },
+        select: {
+          startTime: true,
+          endTime: true,
+          partySize: true,
+          status: true,
+          venue: { select: { name: true, slug: true, ianaTimezone: true } },
+        },
+      });
+      if (!reservation?.venue) return { kind: "missing" };
+      if (reservation.status === "CANCELLED" || reservation.endTime.getTime() < now.getTime()) {
+        return { kind: "gone" };
+      }
+      return {
+        kind: "ok",
+        inviteId: invite.id,
+        venueId,
+        reservation: { ...reservation, venue: reservation.venue },
+      };
+    }
+    export async function getInvitePublicView(
+      token: string,
+      now: Date = new Date()
+    ): Promise<InviteLookup> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
+      const venueId = token.slice(0, dot);
+      return runWithVenueContext(venueId, async (): Promise<InviteLookup> => {
+        const live = await resolveLiveInvite(token, venueId, now);
+        if (live.kind !== "ok") return live;
+        const { reservation } = live;
+        const rsvps = await prisma.reservationRsvp.findMany({
+          where: { inviteId: live.inviteId },
+          orderBy: { createdAt: "asc" },
+        });
+        const { date, time } = localParts(reservation.startTime, reservation.venue.ianaTimezone);
+        return {
+          kind: "ok",
+          view: {
+            venue: { name: reservation.venue.name, slug: reservation.venue.slug },
+            date,
+            time,
+            partySize: reservation.partySize,
+            rsvps: rsvps.map((r) => ({ firstName: r.firstName, status: r.status })),
+            status: reservation.status,
+          },
+        };
+      });
+    }
+    export type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
+    export async function addInviteRsvp(
+      token: string,
+      input: { firstName: string; status: "IN" | "OUT" },
+      now: Date = new Date()
+    ): Promise<RsvpResult> {
+      const dot = token.indexOf(".");
+      if (dot <= 0 || dot === token.length - 1) return { kind: "missing" };
+      const venueId = token.slice(0, dot);
+      return runWithVenueContext(venueId, async (): Promise<RsvpResult> => {
+        const live = await resolveLiveInvite(token, venueId, now);
+        if (live.kind !== "ok") return live;
+        const taken = await prisma.reservationRsvp.count({ where: { inviteId: live.inviteId } });
+        if (taken >= live.reservation.partySize + RSVP_EXTRA_SLOTS) return { kind: "full" };
+        await prisma.reservationRsvp.create({
+          data: {
+            venueId,
+            inviteId: live.inviteId,
+            firstName: input.firstName,
+            status: input.status,
+          },
+        });
+        return { kind: "ok" };
+      });
+    }
+    export interface InviteSummary {
+      /** Whether the booker has shared at least one live invite. */
+      invited: boolean;
+      confirmed: number;
+      declined: number;
+    }
+    export async function getInviteSummaryForReservation(input: {
+      venueId: string;
+      reservationId: string;
+    }): Promise<InviteSummary> {
+      return runWithVenueContext(input.venueId, async () => {
+        const invites = await prisma.reservationInvite.findMany({
+          where: { reservationId: input.reservationId, revokedAt: null },
+          select: { id: true },
+        });
+        if (invites.length === 0) return { invited: false, confirmed: 0, declined: 0 };
+        const grouped = await prisma.reservationRsvp.groupBy({
+          by: ["status"],
+          where: { inviteId: { in: invites.map((i) => i.id) } },
+          _count: { _all: true },
+        });
+        const count = (status: "IN" | "OUT"): number =>
+          grouped.find((g) => g.status === status)?._count._all ?? 0;
+        return { invited: true, confirmed: count("IN"), declined: count("OUT") };
+      });
     }
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
@@ -67873,6 +68859,7 @@
               guest: {
                 select: { visitCount: true, communicationPreference: true, unsubscribed: true },
               },
+              invites: INVITE_RSVP_SELECT,
             },
           }),
           prisma.reservation.count({ where }),
@@ -67941,6 +68928,7 @@
           include: {
             table: true,
             guest: { select: { visitCount: true, communicationPreference: true, unsubscribed: true } },
+            invites: INVITE_RSVP_SELECT,
           },
         });
         return reservation ? toReservation(reservation) : null;
@@ -68859,6 +69847,8 @@
       updatedAt: Date;
     }
     export interface PrismaReservationRow {
+      /** Optional so callers that do not include the relation still type-check (#8667). */
+      invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
       id: string;
       date: Date;
       startTime: Date;
@@ -68960,10 +69950,16 @@
         tableId: row.tableId,
         table: row.table ? toTable(row.table) : undefined,
         guest: row.guest ?? null,
+        inviteRsvp: toInviteRsvp(row),
         venueId: row.venueId,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
       };
+    }
+    function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] {
+      const live = row.invites?.find((invite) => invite.revokedAt === null);
+      if (!live) return null;
+      return { in: live.rsvps.filter((r) => r.status === "IN").length, partySize: row.partySize };
     }
   </file>
   <file path="services/reservations/src/services/slot-rules.ts">
@@ -70468,6 +71464,8 @@
       "venueHolidayDecision",
       "closureOutcome",
       "guestWinBack",
+      "reservationInvite",
+      "reservationRsvp",
     ]);
     type DynamicDelegate = Record<string, (...args: unknown[]) => unknown>;
     type DynamicTransactionClient = Record<string, DynamicDelegate> & {
@@ -82168,7 +83166,20 @@
       modificationCutoffHours?: number | null;
       /** Largest party-size change a guest may make; null = unlimited (#6907). */
       maxPartySizeChange?: number | null;
+      /** Public postal address from the venue profile; absent when the venue has not set one. */
+      address?: ManagedVenueAddress;
+      /** The venue's short note for tonight (≤200 chars); absent when none. Render as text only. */
+      tonightNote?: string;
     }
+    export interface ManagedVenueAddress {
+      line1: string;
+      line2?: string;
+      city: string;
+      region: string;
+      postalCode: string;
+      country: string;
+    }
+    export type GuestSignal = { kind: "running-late"; minutes: 5 | 15 | 30 } | { kind: "arrived" };
     export interface ManagedReservationChanges {
       date?: string;
       startTime?: string;
@@ -82203,6 +83214,28 @@
       reservation: ManagedReservation;
       venue: ManagedReservationVenue | null;
       venueCancellation?: ManagedVenueCancellation | null;
+      /** Night-of signals this booking has already sent (caps: 3 late, 1 arrived); absent from an older API. */
+      guestSignals?: { late: number; arrived: number };
+    }
+    export interface InviteRsvp {
+      firstName: string;
+      status: "IN" | "OUT";
+    }
+    export interface InviteData {
+      venue: { name: string; slug: string };
+      /** Venue-local calendar date, YYYY-MM-DD. */
+      date: string;
+      /** Venue-local start time, HH:mm. */
+      time: string;
+      partySize: number;
+      rsvps: InviteRsvp[];
+      status: string;
+    }
+    export interface ManagedInviteSummary {
+      invited: boolean;
+      confirmed: number;
+      declined: number;
+      partySize: number;
     }
     export class ReservationsClient {
       constructor(private client: ApiClient) {}
@@ -82328,6 +83361,47 @@
         );
       }
     
+      /** Read a shareable party invite (public, unauthenticated). 404 unknown, 410 ended. */
+      async getInvite(token: string): Promise<InviteData> {
+        return this.client.getOne<InviteData>(
+          `/public/v1/invites/${encodeURIComponent(token)}`,
+          undefined,
+          inviteDataSchema
+        );
+      }
+    
+      /** RSVP to a party invite with a first name only. 404 unknown, 409 full, 410 ended. */
+      async rsvpInvite(token: string, rsvp: InviteRsvp): Promise<void> {
+        await this.client.postOne(
+          `/public/v1/invites/${encodeURIComponent(token)}/rsvp`,
+          rsvp,
+          z.object({ ok: z.literal(true) })
+        );
+      }
+    
+      /**
+       * Mint a shareable party invite for the reservation the manage token opens. Returns the
+       * invite token (never derived from the manage token). 409 when the booking is cancelled.
+       */
+      async createManagedInvite(token: string): Promise<string> {
+        const response = await this.client.request<{ data: { inviteToken: string } }>(
+          "/public/v1/reservations/manage/invite",
+          { method: "POST", headers: { Authorization: `Bearer ${token}` } },
+          z.object({ data: z.object({ inviteToken: z.string() }) })
+        );
+        return response.data.inviteToken;
+      }
+    
+      /** RSVP counts across the reservation's live invites. */
+      async getManagedInviteSummary(token: string): Promise<ManagedInviteSummary> {
+        const response = await this.client.request<{ data: ManagedInviteSummary }>(
+          "/public/v1/reservations/manage/invite",
+          { method: "GET", headers: { Authorization: `Bearer ${token}` } },
+          z.object({ data: managedInviteSummarySchema })
+        );
+        return response.data;
+      }
+    
       /**
        * Cancel a reservation via a guest-facing manage token (public, unauthenticated).
        * The token is sent as an `Authorization: Bearer` header rather than a query
@@ -82346,6 +83420,34 @@
             body: reason ? JSON.stringify(reason) : undefined,
           },
           z.object({ data: schema })
+        );
+        return response.data;
+      }
+    
+      /**
+       * Tell the venue the party is running late or has arrived (public,
+       * token-authenticated). Information only: the booking is never changed.
+       * Refusals surface as `ApiClientError`: 400/401/403/404/410 token problems,
+       * 409 (not confirmed / outside the signal window), 429 (cap or rate limit).
+       */
+      async signalManaged(token: string, signal: GuestSignal): Promise<GuestSignal> {
+        const schema = z.object({
+          data: z.union([
+            z.object({ kind: z.literal("arrived") }),
+            z.object({
+              kind: z.literal("running-late"),
+              minutes: z.union([z.literal(5), z.literal(15), z.literal(30)]),
+            }),
+          ]),
+        });
+        const response = await this.client.request<{ data: GuestSignal }>(
+          "/public/v1/reservations/manage/signal",
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token}` },
+            body: JSON.stringify(signal),
+          },
+          schema
         );
         return response.data;
       }
@@ -89586,9 +90688,19 @@
         communicationPreference: string | null;
         unsubscribed?: boolean;
       } | null;
+      /**
+       * RSVP tally of the reservation's live party invite (The Invitation, #8667): how many invitees
+       * said IN against the party size. Null or absent when there is no live invite. Counts only,
+       * never invitee names.
+       */
+      inviteRsvp?: InviteRsvpSummary | null;
       venueId: string | null;
       createdAt: string;
       updatedAt: string;
+    }
+    export interface InviteRsvpSummary {
+      in: number;
+      partySize: number;
     }
     export interface CreateReservationRequest {
       date: string;
@@ -89786,6 +90898,12 @@
     }
   </file>
   <file path="packages/types/src/sse-events.ts">
+    export interface GuestSignalEventData {
+      reservationId: string;
+      kind: "running-late" | "arrived";
+      minutes?: number;
+      eta?: string;
+    }
     export interface SsePayloadMap {
       "reservation:created": Reservation;
       "reservation:updated": Reservation;
@@ -89797,6 +90915,7 @@
       "floor-plan:created": FloorPlan;
       "guest:lapsing": LapsingGuest[];
       "table-status:changed": TableStatusDelta[];
+      "reservation:guest-signal": GuestSignalEventData;
     }
     export type SseEventName = keyof SsePayloadMap;
     export type SseQueryKey = "reservations" | "tables" | "floorPlans" | "lapsingGuests";
@@ -89815,6 +90934,8 @@
       "floor-plan:created": { invalidates: ["floorPlans"] },
       "guest:lapsing": { invalidates: ["lapsingGuests"] },
       "table-status:changed": { invalidates: [] },
+      // Timeline bars read reservations; the floor plan reads tables + reservations.
+      "reservation:guest-signal": { invalidates: ["reservations", "tables"] },
     } as const satisfies { readonly [K in SseEventName]: SseEventDefinition };
     export const SSE_EVENT_NAMES = Object.keys(SSE_EVENT_CATALOG) as readonly SseEventName[];
     export type SseEvent<K extends SseEventName = SseEventName> = {
@@ -90038,6 +91159,8 @@
        * `VenueProfileSchema` and `PublicVenueConfig.profile`.
        */
       profile?: VenueProfile;
+      /** Owner-editable note shown to guests on the night-of manage page (max 200 chars). */
+      tonightNote?: string;
       /** Per-venue palette; validate with `VenueThemeSchema` before use. */
       theme?: VenueTheme;
     }
@@ -90727,6 +91850,8 @@
       await fastify.register(manageRebookRoutes);
       await fastify.register(cancelReservationRoutes);
       await fastify.register(manageSignalRoutes);
+      await fastify.register(manageInviteRoutes);
+      await fastify.register(publicInviteRoutes);
       await fastify.register(modifyReservationRoutes);
       await fastify.register(publicUnsubscribeRoutes);
     
@@ -93647,6 +94772,73 @@
   </file>
   </section>
   <section priority="medium" role="timeline">
+  <file path="apps/hospitality/src/components/timeline/guest-signal-badge.ts">
+    export interface GuestSignalBadge {
+      /** How late the guest said they would be. */
+      minutes: number;
+      /** The expected arrival: the reservation start + `minutes`, as a UTC ISO instant. */
+      eta: string;
+      /**
+       * The table is held for the party: true until the ETA. A late signal can be sent up to 45
+       * minutes after the start, so its ETA may already be past on arrival; the plan does not define
+       * that case, so it is handled as "held = false": the guest told us they are coming (the badge
+       * stays, announced as past ETA) but nothing says the table is still reserved for them.
+       */
+      held: boolean;
+    }
+    export type GuestSignals = ReadonlyMap<string, GuestSignalEventData>;
+    export function reduceGuestSignals(signals: GuestSignals, event: SseEvent): GuestSignals {
+      if (event.type === "reservation:guest-signal") {
+        const next = new Map(signals);
+        next.set(event.data.reservationId, event.data);
+        return next;
+      }
+      if (CLEARING_EVENTS.has(event.type)) {
+        const id = (event.data as Partial<Pick<Reservation, "id">> | null)?.id;
+        if (id === undefined || !signals.has(id)) return signals;
+        const next = new Map(signals);
+        next.delete(id);
+        return next;
+      }
+      return signals;
+    }
+    export interface GuestSignalBadgeInput {
+      signal: GuestSignalEventData | undefined;
+      reservation: Pick<Reservation, "status" | "startTime">;
+      /** The party is on its table now. */
+      seated: boolean;
+      now: Date;
+    }
+    export function deriveGuestSignalBadge({
+      signal,
+      reservation,
+      seated,
+      now,
+    }: GuestSignalBadgeInput): GuestSignalBadge | null {
+      if (!signal || signal.kind !== "running-late" || seated) return null;
+      if (reservation.status !== "CONFIRMED") return null;
+      const { minutes, eta } = signal;
+      if (minutes === undefined || eta === undefined) return null;
+      const etaMs = new Date(eta).getTime();
+      const startMs = new Date(reservation.startTime).getTime();
+      if (Number.isNaN(etaMs) || Number.isNaN(startMs)) return null;
+      if (startMs + minutes * 60_000 !== etaMs) return null;
+      return { minutes, eta, held: now.getTime() < etaMs };
+    }
+    export function badgesByTableId(
+      reservations: readonly Pick<Reservation, "id" | "tableId">[],
+      badges: ReadonlyMap<string, GuestSignalBadge>
+    ): ReadonlyMap<string, GuestSignalBadge> {
+      const byTable = new Map<string, GuestSignalBadge>();
+      for (const reservation of reservations) {
+        const badge = badges.get(reservation.id);
+        if (!badge) continue;
+        const existing = byTable.get(reservation.tableId);
+        if (!existing || badge.eta < existing.eta) byTable.set(reservation.tableId, badge);
+      }
+      return byTable;
+    }
+  </file>
   <file path="apps/hospitality/src/components/timeline/reservationLayout.ts">
     export interface ReservationLayoutParams {
       startHour: number;
@@ -95752,6 +96944,28 @@
     };
     export const DINNER_TZ = "America/Los_Angeles";
   </file>
+  <file path="apps/hospitality/src/utils/directions-url.ts">
+    export function buildDirectionsUrl(
+      venueName: string,
+      address: ManagedVenueAddress | undefined
+    ): string {
+      const parts = address
+        ? [
+            venueName,
+            address.line1,
+            address.line2,
+            address.city,
+            `${address.region} ${address.postalCode}`,
+            address.country,
+          ]
+        : [venueName];
+      const params = new URLSearchParams({
+        api: "1",
+        query: parts.filter((part): part is string => Boolean(part)).join(", "),
+      });
+      return `${MAPS_SEARCH_URL}?${params.toString()}`;
+    }
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     function defaultReport(timeZone: string): void {
       console.warn(`Invalid IANA time zone "${timeZone}"; falling back to the device zone.`);
@@ -95928,6 +97142,58 @@
     }
     export function sameTimeZone(a: string, b: string): boolean {
       return canonicalTimeZone(a) === canonicalTimeZone(b);
+    }
+    export function formatDurationLabel(ms: number, locale: string): string {
+      const totalMinutes = Math.floor(Math.abs(ms) / MINUTE_MS);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      const unit = (value: number, name: "hour" | "minute"): string =>
+        new Intl.NumberFormat(locale, { style: "unit", unit: name, unitDisplay: "short" }).format(
+          value
+        );
+      const parts = [
+        ...(hours > 0 ? [unit(hours, "hour")] : []),
+        ...(minutes > 0 || hours === 0 ? [unit(minutes, "minute")] : []),
+      ];
+      return new Intl.ListFormat(locale, { type: "unit", style: "narrow" }).format(parts);
+    }
+  </file>
+  <file path="apps/hospitality/src/utils/guest-signal.ts">
+    export const MAX_LATE_SIGNALS = 3;
+    export const MAX_ARRIVED_SIGNALS = 1;
+    export interface GuestSignalAvailabilityInput {
+      status: string;
+      /** Reservation start instant (ISO string). */
+      startTime: string;
+      /** Venue IANA timezone; "today" is decided in it. */
+      timezone: string;
+      now: Date;
+      priorSignals: { late: number; arrived: number };
+    }
+    export interface GuestSignalAvailability {
+      readonly lateAllowed: boolean;
+      readonly arrivedAllowed: boolean;
+      /** Why neither can be sent (a cap only disables its own button); null when the booking and clock allow signals. */
+      readonly reason: "not-confirmed" | "outside-window" | null;
+    }
+    export function guestSignalAvailability(
+      input: GuestSignalAvailabilityInput
+    ): GuestSignalAvailability {
+      if (input.status !== "CONFIRMED") {
+        return { lateAllowed: false, arrivedAllowed: false, reason: "not-confirmed" };
+      }
+      const start = new Date(input.startTime);
+      const delta = input.now.getTime() - start.getTime();
+      const inWindow =
+        delta >= -SIGNAL_WINDOW_BEFORE_MS &&
+        delta <= SIGNAL_WINDOW_AFTER_MS &&
+        venueDate(input.now, input.timezone) === venueDate(start, input.timezone);
+      if (!inWindow) return { lateAllowed: false, arrivedAllowed: false, reason: "outside-window" };
+      return {
+        lateAllowed: input.priorSignals.late < MAX_LATE_SIGNALS,
+        arrivedAllowed: input.priorSignals.arrived < MAX_ARRIVED_SIGNALS,
+        reason: null,
+      };
     }
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

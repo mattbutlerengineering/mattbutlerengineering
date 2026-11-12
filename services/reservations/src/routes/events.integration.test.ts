@@ -137,6 +137,32 @@ describe("SSE Event Stream Integration", () => {
     expect(response.body).not.toContain("res-other");
   });
 
+  it("delivers reservation:guest-signal only to the owning venue's stream", async () => {
+    const responsePromise = app.inject({
+      method: "GET",
+      url: "/api/v1/events/stream?venueId=venue-1&testClose=200",
+      headers: { "x-auth-bypass": "true" },
+    });
+
+    await vi.waitFor(() => expect(app.reservationEvents.getConnectionCount()).toBe(1));
+
+    app.reservationEvents.emitGuestSignal("venue-2", {
+      reservationId: "res-other-venue",
+      kind: "arrived",
+    });
+    app.reservationEvents.emitGuestSignal("venue-1", {
+      reservationId: "res-own-venue",
+      kind: "running-late",
+      minutes: 15,
+      eta: "2026-07-10T22:15:00.000Z",
+    });
+
+    const response = await responsePromise;
+    expect(response.body).toContain("event: reservation:guest-signal");
+    expect(response.body).toContain("res-own-venue");
+    expect(response.body).not.toContain("res-other-venue");
+  });
+
   it("testClose flag uses a fixed timeout — value is not user-controlled", async () => {
     // The testClose query param should be a boolean flag only.
     // Regardless of the numeric value passed, the connection must close within

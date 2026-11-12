@@ -84,7 +84,7 @@ Built-in resilience:
 
 Drains the `ready` backlog with the implement-issue quality pipeline (TDD, gates, review) per issue. Invoked locally via `/loop 30m /idea-to-prod:implement-queue`. Replaces the former `/ship-loop`.
 
-**Priority: Security > CI fixes > Features > Audit findings.**
+**Priority: Security > Features > CI fixes > Audit findings.** A red main is fixed first by Pre-flight, whatever its label (#8741).
 
 | Phase          | What happens                                                                | Parallelism      |
 | -------------- | --------------------------------------------------------------------------- | ---------------- |

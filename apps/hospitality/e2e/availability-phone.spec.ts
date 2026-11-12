@@ -166,7 +166,7 @@ test.describe("the first screen", () => {
       .getByRole("main")
       .getByRole("button", { name: /^Close…/ })
       .click();
-    await expect(page.getByRole("dialog", { name: "Close", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^Close / })).toBeVisible();
   });
 
   test("a desktop keeps its controls on two rows, with date navigation on one line", async ({
@@ -438,7 +438,7 @@ test.describe("tap targets", () => {
       .getByRole("main")
       .getByRole("button", { name: /^Close…/ })
       .click();
-    const dialog = page.getByRole("dialog", { name: "Close", exact: true });
+    const dialog = page.getByRole("dialog", { name: /^Close / });
     // No "Step 1 of 2" line: nothing is booked on the date, so no second step follows.
     await dialog.getByTestId("close-primary").waitFor();
     // A dialog opens at 0.97 scale: measure it once it has settled.

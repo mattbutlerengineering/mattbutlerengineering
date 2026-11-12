@@ -300,6 +300,23 @@
       export function lastSeatingFromClock(clock: string, opensAt: number): number { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/close-dialog-test-helpers.ts">
+    <item priority="high">
+      export function chooseWhen(name: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function openWhat() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function chooseWhat(name: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function guestMessageField(): HTMLElement { /* ... */ }
+    </item>
+    <item priority="high">
+      export function openNote() { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/close-draft.ts">
     <item priority="low">
       type BookingChannel = "online" | "phone" | "waitlist";
@@ -553,16 +570,23 @@
       ): string { /* ... */ }
     </item>
     <item priority="high">
+      export function closeIncompleteText(form: CloseForm, t: TFunction): string | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function closeButtonText(
         draft: { readonly form: CloseForm; readonly date: string; readonly name: string | undefined },
         t: TFunction,
         format: CloseFormat
       ): string { /* ... */ }
     </item>
+    <item priority="low">
+      type ToastOutcome = Readonly<
+        Record<"cancel" | "move" | "keep_notify" | "k...;
+    </item>
     <item priority="high">
       export function closeToastText(
         draft: CloseToastDraft,
-        outcome: { readonly notified: number },
+        outcome: ToastOutcome,
         t: TFunction,
         format: CloseFormat
       ): string { /* ... */ }
@@ -1273,6 +1297,9 @@
         name: string;
         days: readonly number[] | null;
         blocks: readonly HoursBlock[];
+        autoPlaced?: {
+          readonly preset: ServicePresetId;
+          readonly open...;
       }
     </item>
     <item priority="low">
@@ -1508,6 +1535,9 @@
     <item priority="high">
       export function useWeekdayName() { /* ... */ }
     </item>
+    <item priority="low">
+      type QuickSetupFix = { readonly kind: "time"; reado | { readonly kind: "days"; reado;
+    </item>
     <item priority="high">
       export const QuickSetupFixContext: unknown;
     </item>
@@ -1545,6 +1575,22 @@
         preset: ServicePresetId,
         name: string
       ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setDaysAndReplace(
+        draft: QuickSetupDraft,
+        service: ServiceDraft,
+        days: readonly number[] | null
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      type OverlapDayShortcut = "weekdays" | "weekends" | "fridaySaturday";
+    </item>
+    <item priority="high">
+      export function overlapDayFix(
+        draft: QuickSetupDraft,
+        serviceId: string
+      ): { readonly shortcut: OverlapDayShortcut; readonly days: readonly number[] } | null { /* ... */ }
     </item>
     <item priority="high">
       export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft { /* ... */ }
@@ -1597,6 +1643,12 @@
       ): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">
+      export function overlapsAgainst(
+        issues: readonly QuickSetupIssue[],
+        serviceId: string
+      ): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function serviceLabel(
         draft: QuickSetupDraft,
         id: string | null | undefined,
@@ -1610,6 +1662,14 @@
         t: TFunction,
         weekdayName: (weekday: number) => string
       ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function previewOverlapReason(
+        issues: readonly QuickSetupIssue[],
+        draft: QuickSetupDraft,
+        t: TFunction,
+        weekdayName: (weekday: number) => string
+      ): string | null { /* ... */ }
     </item>
     <item priority="medium">
       function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
@@ -3121,6 +3181,44 @@
     <item priority="high">
       export function buildAvailabilityConfigFixture() { /* ... */ }
     </item>
+    <item priority="low">
+      interface LiveEventBus {
+        publish: (event: SseEventEntry) => void;
+        size: () => number;
+        whenPast: (count: number) => Promise<void>;
+        since: (from: number) => readonly SseEventEntry[];
+      }
+    </item>
+    <item priority="high">
+      export function createLiveEventBus(): LiveEventBus { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockLiveEventStream(page: Page, bus: LiveEventBus): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      type NightOfSignal = { kind: "running-late"; minute | { kind: "arrived" };
+    </item>
+    <item priority="low">
+      interface NightOfReservation {
+        id: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+        guestName: string;
+      }
+    </item>
+    <item priority="low">
+      interface NightOfMock {
+        posted: readonly NightOfSignal[];
+      }
+    </item>
+    <item priority="high">
+      export async function mockNightOfManage(
+        page: Page,
+        bus: LiveEventBus,
+        reservation: NightOfReservation
+      ): Promise<NightOfMock> { /* ... */ }
+    </item>
   </file>
   <file path="e2e/auth-helpers.ts">
     <item priority="low">
@@ -4356,6 +4454,26 @@
       export function useApiClient() { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useArrivalAlerts.ts">
+    <item priority="high">
+      interface Party {
+        name: string | null;
+        size: number;
+      }
+    </item>
+    <item priority="medium">
+      function toParty(value: unknown, reservationId: string): Party | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findCachedParty(queryClient: QueryClient, reservationId: string): Party | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useArrivalChimeMuted(): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useArrivalAlerts(): void { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useAvailability.ts">
     <item priority="high">
       export const AVAILABILITY_DAYS_QUERY_KEY: unknown;
@@ -4862,6 +4980,15 @@
       }: UseGuestRecognitionParams): UseGuestRecognitionReturn { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useGuestSignalBadges.ts">
+    <item priority="high">
+      export function useGuestSignalBadges(
+        reservations: readonly Pick<Reservation, "id" | "status" | "startTime">[],
+        seatedIds: ReadonlySet<string>,
+        now: Date
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useGuests.ts">
     <item priority="high">
       export const GUESTS_QUERY_KEY: unknown;
@@ -5261,6 +5388,13 @@
     </item>
     <item priority="high">
       export function useStatusMessage(): StatusMessageApi { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useTableGuestSignalBadges.ts">
+    <item priority="high">
+      export function useTableGuestSignalBadges(
+        venueId: string | undefined
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useTables.ts">
@@ -5698,6 +5832,32 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/arrival-chime.ts">
+    <item priority="high">
+      export const ARRIVAL_CHIME_MUTED_KEY: unknown;
+    </item>
+    <item priority="high">
+      export function isArrivalChimeMuted(): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function persistMuted(muted: boolean): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setArrivalChimeMuted(muted: boolean): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function subscribeArrivalChimeMuted(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getAudioContext(): AudioContext | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resetArrivalChimeAudioForTests(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function playArrivalChime(): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/lib/describe-api-error.ts">
     <item priority="low">
       type ApiErrorCategory = ErrorCategory | "network" | "timeout";
@@ -6449,6 +6609,43 @@
   </file>
   </section>
   <section priority="medium" role="timeline">
+  <file path="src/components/timeline/guest-signal-badge.ts">
+    <item priority="low">
+      interface GuestSignalBadge {
+        minutes: number;
+        eta: string;
+        held: boolean;
+      }
+    </item>
+    <item priority="low">
+      type GuestSignals = ReadonlyMap<string, GuestSignalEventData>;
+    </item>
+    <item priority="high">
+      export function reduceGuestSignals(signals: GuestSignals, event: SseEvent): GuestSignals { /* ... */ }
+    </item>
+    <item priority="low">
+      interface GuestSignalBadgeInput {
+        signal: GuestSignalEventData | undefined;
+        reservation: Pick<Reservation, "status" | "startTime">;
+        seated: boolean;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function deriveGuestSignalBadge({
+        signal,
+        reservation,
+        seated,
+        now,
+      }: GuestSignalBadgeInput): GuestSignalBadge | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function badgesByTableId(
+        reservations: readonly Pick<Reservation, "id" | "tableId">[],
+        badges: ReadonlyMap<string, GuestSignalBadge>
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/timeline/reservationLayout.ts">
     <item priority="low">
       interface ReservationLayoutParams {
@@ -6705,6 +6902,14 @@
       export const DINNER_TZ: unknown;
     </item>
   </file>
+  <file path="src/utils/directions-url.ts">
+    <item priority="high">
+      export function buildDirectionsUrl(
+        venueName: string,
+        address: ManagedVenueAddress | undefined
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="src/utils/format.ts">
     <item priority="medium">
       function defaultReport(timeZone: string): void { /* ... */ }
@@ -6800,6 +7005,38 @@
     </item>
     <item priority="high">
       export function sameTimeZone(a: string, b: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatDurationLabel(ms: number, locale: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/utils/guest-signal.ts">
+    <item priority="high">
+      export const MAX_LATE_SIGNALS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_ARRIVED_SIGNALS: unknown;
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailabilityInput {
+        status: string;
+        startTime: string;
+        timezone: string;
+        now: Date;
+        priorSignals: { late: number; arrived: number };
+      }
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailability {
+        lateAllowed: boolean;
+        arrivedAllowed: boolean;
+        reason: "not-confirmed" | "outside-window" | null;
+      }
+    </item>
+    <item priority="high">
+      export function guestSignalAvailability(
+        input: GuestSignalAvailabilityInput
+      ): GuestSignalAvailability { /* ... */ }
     </item>
   </file>
   <file path="src/utils/ics.ts">

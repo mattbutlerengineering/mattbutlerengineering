@@ -312,6 +312,7 @@ jobs:
     # themselves once confirmed.
     timeout-minutes: 18
     permissions:
+      actions: read
       contents: read
       issues: write
 
@@ -361,6 +362,13 @@ jobs:
           # again on no evidence. See scripts/check-deploy-sha.mjs.
           MAX_ATTEMPTS: 48
           SLEEP_SECS: 15
+          # #8720: deploy-static.yml skips Deploy Marketing on commits that
+          # do not touch apps/marketing, so the polled build-id never becomes
+          # that SHA. Resolve whether it redeployed from the triggering run's
+          # jobs; any lookup failure keeps the poll (fails closed).
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           # scripts/check-deploy-sha.mjs's exit code IS the gate (#5006): it
           # exits 1 on "timeout", which this step must NOT swallow. The old
@@ -369,10 +377,17 @@ jobs:
           # "Post-Deploy Check" that had verified nothing. Using the `if` form
           # (never a bare statement + `$?`) is required under GitHub Actions'
           # default `bash -e` shell -- see gotchas.md § CI.
+          MARKETING_DEPLOYED=true
+          if [ -n "$RUN_ID" ] && JOBS=$(gh api "repos/$GH_REPO/actions/runs/$RUN_ID/jobs?per_page=100" --jq '.jobs'); then
+            if [ "$(echo "$JOBS" | jq '[.[] | select(.name == "Deploy Marketing" and .conclusion == "success")] | length')" = "0" ]; then
+              MARKETING_DEPLOYED=false
+            fi
+          fi
           if RESULT=$(node scripts/check-deploy-sha.mjs \
             --url "https://mattbutlerengineering.com/" \
             --expected-sha "$EXPECTED_SHA" \
             --trigger-name "$TRIGGER_NAME" \
+            --marketing-deployed "$MARKETING_DEPLOYED" \
             --max-attempts "$MAX_ATTEMPTS" \
             --sleep-secs "$SLEEP_SECS"); then
             SCRIPT_EXIT=0

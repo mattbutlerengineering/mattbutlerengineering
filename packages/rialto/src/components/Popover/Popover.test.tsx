@@ -5,6 +5,7 @@ import { beforeAll, describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Popover } from "./Popover";
+import { RialtoProvider } from "../../providers/RialtoProvider";
 import { Button } from "../Button/Button";
 import { Select } from "../Select/Select";
 
@@ -28,6 +29,43 @@ describe("Popover", () => {
     );
     await user.click(screen.getByRole("button", { name: /open/i }));
     expect(screen.getByText("Popover content")).toBeInTheDocument();
+  });
+
+  it("portals the panel to document.body and keeps a click inside it", async () => {
+    const onPick = vi.fn();
+    render(
+      <div style={{ transform: "translateZ(0)" }}>
+        <Popover trigger={<Button>Open</Button>}>
+          <button type="button" onClick={onPick}>
+            Inside
+          </button>
+        </Popover>
+      </div>
+    );
+    await user.click(screen.getByRole("button", { name: /open/i }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.parentElement).toBe(document.body);
+    await user.click(screen.getByRole("button", { name: "Inside" }));
+    expect(onPick).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("keeps provider variables and the trigger's direction on the body-portaled panel", async () => {
+    const { container } = render(
+      <RialtoProvider vibe="transacting">
+        <div dir="rtl">
+          <Popover trigger={<Button>Open</Button>}>
+            <p>Body</p>
+          </Popover>
+        </div>
+      </RialtoProvider>
+    );
+    await user.click(screen.getByRole("button", { name: /open/i }));
+    const dialog = screen.getByRole("dialog");
+    const host = container.querySelector<HTMLElement>("[data-theme]");
+    expect(host).not.toBeNull();
+    expect(host?.contains(dialog)).toBe(true);
+    expect(dialog.closest("[dir]")?.getAttribute("dir")).toBe("rtl");
   });
 
   it("closes when trigger is clicked again", async () => {

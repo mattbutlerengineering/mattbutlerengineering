@@ -51,7 +51,7 @@ test.describe("a read that failed", () => {
     await banner.getByRole("button", { name: "Retry" }).click();
     await expect(banner).toHaveCount(0);
     await page.getByRole("button", { name: /^Close…/ }).click();
-    await expect(page.getByRole("dialog", { name: "Close", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^Close / })).toBeVisible();
   });
 
   test("days: the banner stands above cells that have stopped waiting", async ({
@@ -279,6 +279,8 @@ test("Close: a failed Next moves focus to the first problem", async ({ mockedPag
   await page.getByRole("button", { name: "Pause online booking" }).click();
   // Opened from Pause online booking, the dialog is titled for it, not "Close".
   const dialog = page.getByRole("dialog", { name: "Pause online booking", exact: true });
+  // The channels sit behind What's Change.
+  await dialog.getByRole("button", { name: "Change" }).click();
   await dialog
     .locator("label")
     .filter({ hasText: /^Online/ })
@@ -379,7 +381,7 @@ test("a refused Undo lists its bookings above the Close dialog that is open (#80
   await page.keyboard.press("Escape");
   await expect(day).toHaveCount(0);
   await page.getByRole("button", { name: /^Close…/ }).click();
-  await expect(page.getByRole("dialog", { name: "Close", exact: true })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: /^Close / })).toBeVisible();
   await page.getByRole("button", { name: "Undo" }).click();
 
   const dialog = page.getByRole("dialog", { name: "These bookings would lose their service" });

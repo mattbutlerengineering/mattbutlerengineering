@@ -33,4 +33,10 @@ describe("post-deploy-check.yml 'Poll for deploy to land' step", () => {
     expect(WORKFLOW).toMatch(/TRIGGER_NAME:\s*\$\{\{\s*github\.event\.workflow_run\.name\s*\}\}/);
     expect(WORKFLOW).toMatch(/--trigger-name\s+"\$TRIGGER_NAME"/);
   });
+
+  it("scopes the poll to a redeployed marketing site (#8720)", () => {
+    expect(WORKFLOW).toMatch(/actions\/runs\/\$RUN_ID\/jobs/);
+    expect(WORKFLOW).toMatch(/--marketing-deployed\s+"\$MARKETING_DEPLOYED"/);
+    expect(WORKFLOW).toMatch(/actions:\s*read/);
+  });
 });

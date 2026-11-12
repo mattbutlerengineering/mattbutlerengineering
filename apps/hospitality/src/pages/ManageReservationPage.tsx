@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { useTranslation } from "react-i18next";
 import { useUrlParams } from "../hooks/use-url-params.js";
+import { useNow } from "../hooks/useNow.js";
+import { venueDate } from "../utils/service-day.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { Stack, Text, Card, Button, EmptyState } from "@mattbutlerengineering/rialto";
 import { ApiClientError, type ManageReservationData } from "@mbe/api-client";
@@ -10,6 +12,8 @@ import { usePublicApiClient } from "../hooks/usePublicApiClient.js";
 import { useDocumentTitle } from "../hooks/useDocumentTitle.js";
 import { useFocusAfter } from "../hooks/useFocusAfter.js";
 import { ChangeBookingDialog } from "../components/manage-reservation/ChangeBookingDialog.js";
+import { NightOfCard } from "../components/manage-reservation/NightOfCard.js";
+import { PartyInviteCard } from "../components/manage-reservation/PartyInviteCard.js";
 import { VenueCancelledCard } from "../components/manage-reservation/VenueCancelledCard.js";
 import { CancelReservationDialog } from "../components/timeline/CancelReservationDialog.js";
 import { buildReservationIcs, downloadIcsFile } from "../utils/ics.js";
@@ -18,6 +22,9 @@ import { specialRequestsText } from "../utils/reservation-display.js";
 import { WidgetLocaleScope, WidgetLocalePicker } from "../components/booking-widget/index.js";
 import styles from "./ManageReservationPage.module.css";
 import { homeUrl } from "../lib/host-brand.js";
+
+/** How often the night-of clock re-reads the time (countdown, day rollover, signal window). */
+const NIGHT_OF_TICK_MS = 15_000;
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "";
 
@@ -118,6 +125,9 @@ function ManageReservationPageContent() {
     currencyCode: "USD",
   });
 
+  // Ticks so the night-of layout switches at venue midnight and the signal window opens and closes.
+  const now = useNow(NIGHT_OF_TICK_MS);
+
   // The default title (before the reservation resolves, or on an invalid/expired link)
   // distinguishes this guest surface from a staff-sounding "Dashboard" tab (#4973).
   useDocumentTitle(
@@ -204,6 +214,17 @@ function ManageReservationPageContent() {
     cutoffHours !== null &&
     new Date(reservation.startTime).getTime() - mountedAt < cutoffHours * 3_600_000;
   const canChange = canCancel && venue !== null && !pastCutoff;
+  // ADR-029: `reservation.date` is the service day; "today" is read on the venue's clock, never
+  // the browser's. Only a confirmed booking can send night-of signals, so only it gets the layout.
+  // An after-midnight seating (service day 06-14, starts 00:30 on 06-15) is night-of through both
+  // its service day and the calendar day it starts on: the server accepts signals only on the
+  // latter (`canSignal`), so dropping the layout at midnight would hide the buttons just as they open.
+  const venueToday = venue !== null ? venueDate(now, venue.ianaTimezone) : null;
+  const isNightOf =
+    venue !== null &&
+    reservation.status === "CONFIRMED" &&
+    (venueToday === reservation.date ||
+      venueToday === venueDate(new Date(reservation.startTime), venue.ianaTimezone));
 
   return (
     <main>
@@ -226,47 +247,63 @@ function ManageReservationPageContent() {
             />
           )}
 
-          <Card>
-            <Stack gap="md" style={{ padding: "1.5rem" }}>
-              <Text as="h2" variant="label">
-                {t("manageReservation.detailsTitle")}
-              </Text>
+          {isNightOf && venue && (
+            <NightOfCard
+              token={token}
+              reservation={reservation}
+              venue={venue}
+              initialSignals={data.guestSignals ?? { late: 0, arrived: 0 }}
+              now={now}
+              formatTime={format.formatTime}
+            />
+          )}
 
-              <Stack gap="sm">
-                <Stack direction="row" justify="between">
-                  <Text variant="body" color="secondary">
-                    {t("manageReservation.guest")}
-                  </Text>
-                  <Text variant="body">{reservation.guestName}</Text>
-                </Stack>
+          {!isNightOf && (
+            <Card>
+              <Stack gap="md" style={{ padding: "1.5rem" }}>
+                <Text as="h2" variant="label">
+                  {t("manageReservation.detailsTitle")}
+                </Text>
 
-                <Stack direction="row" justify="between">
-                  <Text variant="body" color="secondary">
-                    {t("manageReservation.partySize")}
-                  </Text>
-                  <Text variant="body">
-                    {t("bookingWidget.guests", { count: reservation.partySize })}
-                  </Text>
-                </Stack>
+                <Stack gap="sm">
+                  <Stack direction="row" justify="between">
+                    <Text variant="body" color="secondary">
+                      {t("manageReservation.guest")}
+                    </Text>
+                    <Text variant="body">{reservation.guestName}</Text>
+                  </Stack>
 
-                <Stack direction="row" justify="between">
-                  <Text variant="body" color="secondary">
-                    {t("manageReservation.date")}
-                  </Text>
-                  <Text variant="body">{formattedDate}</Text>
-                </Stack>
+                  <Stack direction="row" justify="between">
+                    <Text variant="body" color="secondary">
+                      {t("manageReservation.partySize")}
+                    </Text>
+                    <Text variant="body">
+                      {t("bookingWidget.guests", { count: reservation.partySize })}
+                    </Text>
+                  </Stack>
 
-                <Stack direction="row" justify="between">
-                  <Text variant="body" color="secondary">
-                    {t("manageReservation.time")}
-                  </Text>
-                  <Text variant="body">
-                    {t("manageReservation.timeRange", { start: formattedStart, end: formattedEnd })}
-                  </Text>
+                  <Stack direction="row" justify="between">
+                    <Text variant="body" color="secondary">
+                      {t("manageReservation.date")}
+                    </Text>
+                    <Text variant="body">{formattedDate}</Text>
+                  </Stack>
+
+                  <Stack direction="row" justify="between">
+                    <Text variant="body" color="secondary">
+                      {t("manageReservation.time")}
+                    </Text>
+                    <Text variant="body">
+                      {t("manageReservation.timeRange", {
+                        start: formattedStart,
+                        end: formattedEnd,
+                      })}
+                    </Text>
+                  </Stack>
                 </Stack>
               </Stack>
-            </Stack>
-          </Card>
+            </Card>
+          )}
 
           {requests !== null && (
             <Card role="group" aria-labelledby={specialRequestsId}>
@@ -286,7 +323,9 @@ function ManageReservationPageContent() {
             </Card>
           )}
 
-          {venue && reservation.status !== "CANCELLED" && (
+          {canCancel && <PartyInviteCard token={token} />}
+
+          {venue && !isNightOf && reservation.status !== "CANCELLED" && (
             <Card>
               <Stack gap="md" style={{ padding: "1.5rem" }}>
                 <Text as="h2" variant="label">

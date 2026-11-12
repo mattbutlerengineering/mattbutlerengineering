@@ -9,7 +9,7 @@ import {
   type ServiceDraft,
 } from "./quick-setup-draft.js";
 import { type QuickSetupIssue } from "./quick-setup-validate.js";
-import { moveServiceStart } from "./quick-setup-placement.js";
+import { moveServiceStart, setDaysAndReplace } from "./quick-setup-placement.js";
 import {
   issuesFor,
   QuickSetupFixContext,
@@ -17,6 +17,7 @@ import {
   quickSetupFieldId,
   quickSetupLineId,
   useQuickSetupFieldId,
+  type QuickSetupFix,
 } from "./quick-setup-field-helpers.js";
 import { ServiceLineHeader } from "./quick-setup-line-header.js";
 import { DayPicker } from "./quick-setup-fields.js";
@@ -169,9 +170,17 @@ export function QuickSetupForm({
     onChange({ ...draft, services: draft.services.filter((s) => s.id !== id) });
   };
 
-  const applyFix = (fix: { readonly serviceId: string; readonly opensAt: number }) => {
+  const applyFix = (fix: QuickSetupFix) => {
     const service = draft.services.find((s) => s.id === fix.serviceId);
-    if (service) onChange(replaceService(draft, moveServiceStart(service, fix.opensAt)));
+    if (!service) return;
+    onChange(
+      replaceService(
+        draft,
+        fix.kind === "time"
+          ? moveServiceStart(service, fix.opensAt)
+          : setDaysAndReplace(draft, service, fix.days)
+      )
+    );
   };
 
   return (

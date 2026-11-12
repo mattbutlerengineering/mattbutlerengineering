@@ -231,6 +231,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   // A normal reload ends within this; only one that has not is worth a button of its own.
   const offerReload = useHeldFor(reloadDue, RELOAD_OFFER_AFTER_MS);
 
+  // A date before the venue's today is history: its hours are shown, and nothing writes to them.
+  const past = editing !== undefined && date !== null && !picked && date < editing.today;
+
   const { editorRef, bannerRef, reloadRef, track } = useHoldFocus(
     error ? "banner" : offerReload ? "reload" : null
   );
@@ -240,18 +243,26 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   // The choice belongs to one opening of one date: once the drawer closes or moves on, drop it, so
   // reopening that date cannot re-apply "All dates" to a later, unrelated edit.
   if (chosen !== null && chosen.date !== date) setChosen(null);
-  const [focusEditor, setFocusEditor] = useState(0);
+  // The date whose editor a layer's Edit asked to open; like `chosen`, it belongs to one date.
+  const [opening, setOpening] = useState<{ date: string; request: number } | null>(null);
+  if (opening !== null && opening.date !== date) setOpening(null);
+  const openRequest = opening?.date === date ? opening.request : 0;
   const ruleScope = (chosen?.date === date ? chosen.scope : undefined) ?? editing?.ruleScope;
   const editHours = (scope?: SeriesRuleScope) => {
     setChosen(date !== null && scope ? { date, scope } : null);
-    setFocusEditor((n) => n + 1);
+    if (date !== null) setOpening({ date, request: (opening?.request ?? 0) + 1 });
   };
   useEffect(() => {
-    if (focusEditor === 0) return;
+    if (openRequest === 0) return;
     // After the scope dialog's own restore frame, which would otherwise take focus back.
-    const frame = requestAnimationFrame(() => editorRef.current?.querySelector("button")?.focus());
+    const frame = requestAnimationFrame(() => {
+      const editor = editorRef.current;
+      (
+        editor?.querySelector<HTMLElement>("fieldset input") ?? editor?.querySelector("button")
+      )?.focus();
+    });
     return () => cancelAnimationFrame(frame);
-  }, [focusEditor, editorRef]);
+  }, [openRequest, editorRef]);
 
   let body;
   if (date === null) {
@@ -333,6 +344,8 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
               onFinished={editing.onFinished}
               fixedDates={editing.fixedDates}
               ruleScope={ruleScope}
+              readOnly={past}
+              openRequest={openRequest}
               onStale={editing.onStale}
               date={date}
               day={day}
@@ -341,7 +354,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
           </div>
         )}
         {/* The day's other actions, one row of equals under its hours: none outweighs Edit. */}
-        {viewerRole === "manager" && editing && !picked && (
+        {viewerRole === "manager" && editing && !picked && !past && (
           <div className={styles.dayActions}>
             {/* Nothing to close on a day already shut or over; the toolbar's Close… still reaches
                 ranges that start on one. */}
@@ -376,7 +389,7 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
             />
           </div>
         )}
-        {viewerRole === "manager" && editing && !picked && (
+        {viewerRole === "manager" && editing && !picked && !past && (
           <ScheduleNudge
             waiting={waiting}
             reasonId={reasonId}

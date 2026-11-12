@@ -91,6 +91,8 @@ export function OverviewPage() {
         </Heading>
         <Text variant="body" color="secondary">
           Browse components by category in the sidebar, or click a category below to get started.
+          The numbers on the cards count documentation pages; the {COMPONENT_COUNT} components above
+          count every exported component, so the two totals differ.
         </Text>
 
         <div className={styles.categoryGrid}>

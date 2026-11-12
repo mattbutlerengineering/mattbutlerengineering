@@ -1194,7 +1194,7 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.has_rialto == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
       - uses: pnpm/action-setup@a8198c4bff370c8506180b035930dea56dbd5288 # v5
@@ -1205,7 +1205,26 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright browsers
-        run: pnpm --dir packages/rialto exec playwright install --with-deps chromium
+        # #8678: an apt mirror hang inside --with-deps silently ate the whole
+        # 15-minute job budget with zero retry, so the job was just cancelled.
+        # Three short (300s) attempts (first fix attempt) still weren't long
+        # enough for apt to fail over from the dead primary mirror to the
+        # working fallback in the runner's mirrorlist — each retry just
+        # re-hung on the same dead mirror. One long attempt gives apt time to
+        # fail over and succeed; one short retry covers a genuine transient
+        # blip. The job timeout is raised to fit the long attempt alongside
+        # setup and the actual test run.
+        run: |
+          if timeout 720 pnpm --dir packages/rialto exec playwright install --with-deps chromium; then
+            exit 0
+          fi
+          echo "playwright install attempt 1 failed or timed out, retrying..."
+          sleep 10
+          if timeout 180 pnpm --dir packages/rialto exec playwright install --with-deps chromium; then
+            exit 0
+          fi
+          echo "::error::playwright install --with-deps chromium failed after 2 attempts"
+          exit 1
       - name: Run Storybook browser tests
         run: node scripts/storybook-test-gate.mjs
 

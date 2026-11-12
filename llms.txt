@@ -314,6 +314,45 @@
       export const datePickerCatalogMeta: unknown;
     </item>
   </file>
+  <file path="packages/rialto/src/components/DatePicker/fit-below.ts">
+    <item priority="high">
+      export function scrollDeltaToFitBelow(options: {
+        anchorTop: number;
+        anchorBottom: number;
+        panelHeight: number;
+        viewportHeight: number;
+        scrollerTop: number;
+        scrollTop: number;
+        scrollHeight: number;
+        clientHeight: number;
+        gap?: number;
+        margin?: number;
+      }): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function sheetMaxHeight(options: {
+        panelScrollHeight: number;
+        sheetOffsetHeight: number;
+        anchorBottom: number;
+        viewportHeight: number;
+        gap?: number;
+        minRoom?: number;
+        minSheet?: number;
+      }): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isVerticalScroller(node: HTMLElement): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function anchorForPanel(panel: HTMLElement): HTMLElement | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function applyFit(sheet: HTMLElement, allowScroll: boolean): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bindCalendarFit(sheet: HTMLElement): () => void { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="DateRange">
   <file path="packages/rialto/src/components/DateRange/DateRange.catalog.ts">
@@ -1752,6 +1791,23 @@
       export function lastSeatingFromClock(clock: string, opensAt: number): number { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/close-dialog-test-helpers.ts">
+    <item priority="high">
+      export function chooseWhen(name: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function openWhat() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function chooseWhat(name: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function guestMessageField(): HTMLElement { /* ... */ }
+    </item>
+    <item priority="high">
+      export function openNote() { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/close-draft.ts">
     <item priority="low">
       type BookingChannel = "online" | "phone" | "waitlist";
@@ -2005,16 +2061,23 @@
       ): string { /* ... */ }
     </item>
     <item priority="high">
+      export function closeIncompleteText(form: CloseForm, t: TFunction): string | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function closeButtonText(
         draft: { readonly form: CloseForm; readonly date: string; readonly name: string | undefined },
         t: TFunction,
         format: CloseFormat
       ): string { /* ... */ }
     </item>
+    <item priority="low">
+      type ToastOutcome = Readonly<
+        Record<"cancel" | "move" | "keep_notify" | "k...;
+    </item>
     <item priority="high">
       export function closeToastText(
         draft: CloseToastDraft,
-        outcome: { readonly notified: number },
+        outcome: ToastOutcome,
         t: TFunction,
         format: CloseFormat
       ): string { /* ... */ }
@@ -2725,6 +2788,9 @@
         name: string;
         days: readonly number[] | null;
         blocks: readonly HoursBlock[];
+        autoPlaced?: {
+          readonly preset: ServicePresetId;
+          readonly open...;
       }
     </item>
     <item priority="low">
@@ -2960,6 +3026,9 @@
     <item priority="high">
       export function useWeekdayName() { /* ... */ }
     </item>
+    <item priority="low">
+      type QuickSetupFix = { readonly kind: "time"; reado | { readonly kind: "days"; reado;
+    </item>
     <item priority="high">
       export const QuickSetupFixContext: unknown;
     </item>
@@ -2997,6 +3066,22 @@
         preset: ServicePresetId,
         name: string
       ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setDaysAndReplace(
+        draft: QuickSetupDraft,
+        service: ServiceDraft,
+        days: readonly number[] | null
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="low">
+      type OverlapDayShortcut = "weekdays" | "weekends" | "fridaySaturday";
+    </item>
+    <item priority="high">
+      export function overlapDayFix(
+        draft: QuickSetupDraft,
+        serviceId: string
+      ): { readonly shortcut: OverlapDayShortcut; readonly days: readonly number[] } | null { /* ... */ }
     </item>
     <item priority="high">
       export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft { /* ... */ }
@@ -3049,6 +3134,12 @@
       ): QuickSetupIssue[] { /* ... */ }
     </item>
     <item priority="high">
+      export function overlapsAgainst(
+        issues: readonly QuickSetupIssue[],
+        serviceId: string
+      ): QuickSetupIssue[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function serviceLabel(
         draft: QuickSetupDraft,
         id: string | null | undefined,
@@ -3062,6 +3153,14 @@
         t: TFunction,
         weekdayName: (weekday: number) => string
       ): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function previewOverlapReason(
+        issues: readonly QuickSetupIssue[],
+        draft: QuickSetupDraft,
+        t: TFunction,
+        weekdayName: (weekday: number) => string
+      ): string | null { /* ... */ }
     </item>
     <item priority="medium">
       function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] { /* ... */ }
@@ -5726,6 +5825,44 @@
     <item priority="high">
       export function buildAvailabilityConfigFixture() { /* ... */ }
     </item>
+    <item priority="low">
+      interface LiveEventBus {
+        publish: (event: SseEventEntry) => void;
+        size: () => number;
+        whenPast: (count: number) => Promise<void>;
+        since: (from: number) => readonly SseEventEntry[];
+      }
+    </item>
+    <item priority="high">
+      export function createLiveEventBus(): LiveEventBus { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockLiveEventStream(page: Page, bus: LiveEventBus): Promise<void> { /* ... */ }
+    </item>
+    <item priority="low">
+      type NightOfSignal = { kind: "running-late"; minute | { kind: "arrived" };
+    </item>
+    <item priority="low">
+      interface NightOfReservation {
+        id: string;
+        startTime: string;
+        endTime: string;
+        partySize: number;
+        guestName: string;
+      }
+    </item>
+    <item priority="low">
+      interface NightOfMock {
+        posted: readonly NightOfSignal[];
+      }
+    </item>
+    <item priority="high">
+      export async function mockNightOfManage(
+        page: Page,
+        bus: LiveEventBus,
+        reservation: NightOfReservation
+      ): Promise<NightOfMock> { /* ... */ }
+    </item>
   </file>
   <file path="apps/hospitality/e2e/auth-helpers.ts">
     <item priority="low">
@@ -6392,6 +6529,25 @@
     </item>
     <item priority="high">
       export const LAST_STEP_INDEX: unknown;
+    </item>
+    <item priority="low">
+      type FieldErrors = Partial<Record<"propertyName", string>>;
+    </item>
+    <item priority="high">
+      export function validateProperty(state: OnboardingState): FieldErrors { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validateStep(index: number, state: OnboardingState): FieldErrors { /* ... */ }
+    </item>
+    <item priority="low">
+      interface AdvanceResult {
+        step: number;
+        errors: FieldErrors;
+        advanced: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function attemptAdvance(current: number, state: OnboardingState): AdvanceResult { /* ... */ }
     </item>
     <item priority="high">
       export function nextStep(index: number): number { /* ... */ }
@@ -7965,6 +8121,26 @@
       export function useApiClient() { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useArrivalAlerts.ts">
+    <item priority="high">
+      interface Party {
+        name: string | null;
+        size: number;
+      }
+    </item>
+    <item priority="medium">
+      function toParty(value: unknown, reservationId: string): Party | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function findCachedParty(queryClient: QueryClient, reservationId: string): Party | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useArrivalChimeMuted(): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useArrivalAlerts(): void { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailability.ts">
     <item priority="high">
       export const AVAILABILITY_DAYS_QUERY_KEY: unknown;
@@ -8471,6 +8647,15 @@
       }: UseGuestRecognitionParams): UseGuestRecognitionReturn { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useGuestSignalBadges.ts">
+    <item priority="high">
+      export function useGuestSignalBadges(
+        reservations: readonly Pick<Reservation, "id" | "status" | "startTime">[],
+        seatedIds: ReadonlySet<string>,
+        now: Date
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useGuests.ts">
     <item priority="high">
       export const GUESTS_QUERY_KEY: unknown;
@@ -8870,6 +9055,13 @@
     </item>
     <item priority="high">
       export function useStatusMessage(): StatusMessageApi { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/hooks/useTableGuestSignalBadges.ts">
+    <item priority="high">
+      export function useTableGuestSignalBadges(
+        venueId: string | undefined
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/hooks/useTables.ts">
@@ -10124,6 +10316,32 @@
     </item>
     <item priority="high">
       export function specHasVisibleContent(spec: Spec | null): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/lib/arrival-chime.ts">
+    <item priority="high">
+      export const ARRIVAL_CHIME_MUTED_KEY: unknown;
+    </item>
+    <item priority="high">
+      export function isArrivalChimeMuted(): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function persistMuted(muted: boolean): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setArrivalChimeMuted(muted: boolean): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function subscribeArrivalChimeMuted(listener: () => void): () => void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function getAudioContext(): AudioContext | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function resetArrivalChimeAudioForTests(): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function playArrivalChime(): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/lib/describe-api-error.ts">
@@ -13552,6 +13770,11 @@
       ): ReturnType<typeof createProblemDetails> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/manage-invite.ts">
+    <item priority="high">
+      export const manageInviteRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/manage-rebook.ts">
     <item priority="high">
       export const manageRebookRoutes: FastifyPluginAsync;
@@ -13701,6 +13924,11 @@
     </item>
     <item priority="high">
       export const publicHoldRoutes: FastifyPluginAsync;
+    </item>
+  </file>
+  <file path="services/reservations/src/routes/public-invites.ts">
+    <item priority="high">
+      export const publicInviteRoutes: FastifyPluginAsync;
     </item>
   </file>
   <file path="services/reservations/src/routes/public-menus.ts">
@@ -15441,6 +15669,9 @@
     </item>
   </file>
   <file path="packages/types/src/schemas/reservation-requests.ts">
+    <item priority="high">
+      export const TONIGHT_NOTE_MAX_LENGTH: unknown;
+    </item>
     <item priority="high">
       export const ListReservationsQuerySchema: unknown;
     </item>
@@ -19844,6 +20075,17 @@
       export async function moveReservationToHold(input: MoveToHoldInput): Promise<MoveToHoldResult> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/services/night-of-venue.ts">
+    <item priority="high">
+      type VenueAddress = NonNullable<VenueProfile["address"]>;
+    </item>
+    <item priority="high">
+      export function nightOfVenueFields(settings: unknown): {
+        address?: VenueAddress;
+        tonightNote?: string;
+      } { /* ... */ }
+    </item>
+  </file>
   <file path="services/reservations/src/services/notifier-runtime.ts">
     <item priority="low">
       type NotifierScheduler = Pick<JobScheduler, "schedule" | "cancel" | "requeue">;
@@ -20051,6 +20293,80 @@
         reservationId: string,
         { limit = DEFAULT_EVENT_PAGE_SIZE, cursor }: { limit?: number; cursor?: string } = {}
       ): Promise<{ data: ReservationEventDto[]; nextCursor: string | null }> { /* ... */ }
+    </item>
+  </file>
+  <file path="services/reservations/src/services/reservation-invite.ts">
+    <item priority="high">
+      export function hashInviteToken(token: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function createInvite(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<{ id: string; token: string }> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function findLiveInviteByToken(
+        token: string
+      ): Promise<{ id: string; venueId: string; reservationId: string } | null> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function revokeInvitesForReservation(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<number> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InvitePublicView {
+        venue: { name: string; slug: string };
+        date: string;
+        time: string;
+        partySize: number;
+        rsvps: Array<{ firstName: string; status: string }>;
+      }
+    </item>
+    <item priority="low">
+      type InviteLookup = { kind: "ok"; view: InvitePubl | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="medium">
+      function localParts(at: Date, timeZone: string): { date: string; time: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      type LiveInvite = {
+            kind: "ok";
+            invi | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="low">
+      async function resolveLiveInvite(token: string, venueId: string, now: Date): Promise<LiveInvite> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function getInvitePublicView(
+        token: string,
+        now: Date = new Date()
+      ): Promise<InviteLookup> { /* ... */ }
+    </item>
+    <item priority="low">
+      type RsvpResult = { kind: "ok" } | { kind: "full" } | { kind: "gone" } | { kind: "missing" };
+    </item>
+    <item priority="high">
+      export async function addInviteRsvp(
+        token: string,
+        input: { firstName: string; status: "IN" | "OUT" },
+        now: Date = new Date()
+      ): Promise<RsvpResult> { /* ... */ }
+    </item>
+    <item priority="low">
+      interface InviteSummary {
+        invited: boolean;
+        confirmed: number;
+        declined: number;
+      }
+    </item>
+    <item priority="high">
+      export async function getInviteSummaryForReservation(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<InviteSummary> { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
@@ -20365,11 +20681,11 @@
     </item>
     <item priority="low">
       interface PrismaReservationRow {
+        invites?: { revokedAt: Date | null; rsvps: { status: string }[] }[];
         id: string;
         date: Date;
         startTime: Date;
         endTime: Date;
-        partySize: number;
       }
     </item>
     <item priority="high">
@@ -20392,6 +20708,9 @@
     </item>
     <item priority="high">
       export function toReservation(row: PrismaReservationRow): Reservation { /* ... */ }
+    </item>
+    <item priority="medium">
+      function toInviteRsvp(row: PrismaReservationRow): Reservation["inviteRsvp"] { /* ... */ }
     </item>
   </file>
   <file path="services/reservations/src/services/slot-rules.ts">
@@ -24158,6 +24477,18 @@
       }
     </item>
     <item priority="low">
+      interface ManagedVenueAddress {
+        line1: string;
+        line2?: string;
+        city: string;
+        region: string;
+        postalCode: string;
+      }
+    </item>
+    <item priority="low">
+      type GuestSignal = { kind: "running-late"; minute | { kind: "arrived" };
+    </item>
+    <item priority="low">
       interface ManagedReservationChanges {
         date?: string;
         startTime?: string;
@@ -24194,6 +24525,30 @@
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;
         venueCancellation?: ManagedVenueCancellation | null;
+        guestSignals?: { late: number; arrived: number };
+      }
+    </item>
+    <item priority="low">
+      interface InviteRsvp {
+        firstName: string;
+        status: "IN" | "OUT";
+      }
+    </item>
+    <item priority="low">
+      interface InviteData {
+        venue: { name: string; slug: string };
+        date: string;
+        time: string;
+        partySize: number;
+        rsvps: InviteRsvp[];
+      }
+    </item>
+    <item priority="low">
+      interface ManagedInviteSummary {
+        invited: boolean;
+        confirmed: number;
+        declined: number;
+        partySize: number;
       }
     </item>
     <item priority="high">
@@ -27126,6 +27481,12 @@
       }
     </item>
     <item priority="low">
+      interface InviteRsvpSummary {
+        in: number;
+        partySize: number;
+      }
+    </item>
+    <item priority="low">
       interface CreateReservationRequest {
         date: string;
         startTime: string;
@@ -27209,6 +27570,14 @@
     </item>
   </file>
   <file path="packages/types/src/sse-events.ts">
+    <item priority="low">
+      interface GuestSignalEventData {
+        reservationId: string;
+        kind: "running-late" | "arrived";
+        minutes?: number;
+        eta?: string;
+      }
+    </item>
     <item priority="low">
       interface SsePayloadMap {
         "reservation:created": Reservation;
@@ -28754,6 +29123,43 @@
   </file>
   </section>
   <section priority="medium" role="timeline">
+  <file path="apps/hospitality/src/components/timeline/guest-signal-badge.ts">
+    <item priority="low">
+      interface GuestSignalBadge {
+        minutes: number;
+        eta: string;
+        held: boolean;
+      }
+    </item>
+    <item priority="low">
+      type GuestSignals = ReadonlyMap<string, GuestSignalEventData>;
+    </item>
+    <item priority="high">
+      export function reduceGuestSignals(signals: GuestSignals, event: SseEvent): GuestSignals { /* ... */ }
+    </item>
+    <item priority="low">
+      interface GuestSignalBadgeInput {
+        signal: GuestSignalEventData | undefined;
+        reservation: Pick<Reservation, "status" | "startTime">;
+        seated: boolean;
+        now: Date;
+      }
+    </item>
+    <item priority="high">
+      export function deriveGuestSignalBadge({
+        signal,
+        reservation,
+        seated,
+        now,
+      }: GuestSignalBadgeInput): GuestSignalBadge | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function badgesByTableId(
+        reservations: readonly Pick<Reservation, "id" | "tableId">[],
+        badges: ReadonlyMap<string, GuestSignalBadge>
+      ): ReadonlyMap<string, GuestSignalBadge> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/timeline/reservationLayout.ts">
     <item priority="low">
       interface ReservationLayoutParams {
@@ -29582,6 +29988,14 @@
       export const DINNER_TZ: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/utils/directions-url.ts">
+    <item priority="high">
+      export function buildDirectionsUrl(
+        venueName: string,
+        address: ManagedVenueAddress | undefined
+      ): string { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/utils/format.ts">
     <item priority="medium">
       function defaultReport(timeZone: string): void { /* ... */ }
@@ -29677,6 +30091,38 @@
     </item>
     <item priority="high">
       export function sameTimeZone(a: string, b: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function formatDurationLabel(ms: number, locale: string): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/utils/guest-signal.ts">
+    <item priority="high">
+      export const MAX_LATE_SIGNALS: unknown;
+    </item>
+    <item priority="high">
+      export const MAX_ARRIVED_SIGNALS: unknown;
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailabilityInput {
+        status: string;
+        startTime: string;
+        timezone: string;
+        now: Date;
+        priorSignals: { late: number; arrived: number };
+      }
+    </item>
+    <item priority="low">
+      interface GuestSignalAvailability {
+        lateAllowed: boolean;
+        arrivedAllowed: boolean;
+        reason: "not-confirmed" | "outside-window" | null;
+      }
+    </item>
+    <item priority="high">
+      export function guestSignalAvailability(
+        input: GuestSignalAvailabilityInput
+      ): GuestSignalAvailability { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/utils/ics.ts">

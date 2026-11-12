@@ -176,7 +176,7 @@ jobs:
           Goal: COMPLETE exactly ONE `ready` issue end-to-end this run. Do not start a second issue.
 
           - Run Phase 0 pre-flight, including the green-main policy: if main's CI is red, fixing it IS this iteration.
-          - Priority order: security > ci-fix > feature > audit; oldest first within a tier.
+          - Priority order: security > feature > ci-fix > audit; oldest first within a tier. A red main is handled by the pre-flight above, not by the ci-fix tier.
           - Claim it (mbe issue transition <N> --to in-progress), implement test-first in an isolated worktree, run the affected-package gates (lint, typecheck, test), and open a PR with `Closes #<N>` whose base ref is `main`.
           - Run the worker->train boundary review gate, then enqueue auto-merge (gh pr merge --auto --squash --delete-branch) once CI is green and the review passes.
           - Skip repo-wide formatters/linters and full-suite runs beyond the skill's required gates.
@@ -193,7 +193,7 @@ jobs:
           Steps:
           1. List open issues NOT labeled ready/in-progress/has-pr/needs-review/blocked: `gh issue list --state open --json number,title,labels,body --limit 50`.
           2. For each, judge whether it is well-specified (clear problem + scope + acceptance criteria), independently actionable, and unblocked (no open `Depends on: #N`).
-          3. Label the 1-3 strongest candidates `ready`: `gh issue edit <N> --add-label ready`. Prefer security > ci-fix > feature > audit, then oldest.
+          3. Label the 1-3 strongest candidates `ready`: `gh issue edit <N> --add-label ready`. Prefer security > feature > ci-fix > audit, then oldest.
           4. For a promising but under-specified issue, do NOT label it ready — add a short comment listing exactly what is missing.
           5. Do NOT implement anything.
 

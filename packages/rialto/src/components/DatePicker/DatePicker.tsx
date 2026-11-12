@@ -1,11 +1,32 @@
-import { forwardRef, useCallback, useState } from "react";
+import { forwardRef, useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
 import { Popover } from "../Popover/Popover";
 import { Input } from "../Input/Input";
 import { Calendar, parseIsoDate } from "../Calendar/Calendar";
 import { cn } from "../../utils/class-composer";
+import { bindCalendarFit } from "./fit-below";
 import styles from "./DatePicker.module.css";
+
+/**
+ * The sheet is a child of the popover panel so its layout effect runs before
+ * the panel is measured and placed. That is what lets a slightly-too-tall
+ * month stay under the field instead of flipping over the page title.
+ */
+function CalendarSheet({ children, fitBelow }: { children: ReactNode; fitBelow: boolean }) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const sheet = sheetRef.current;
+    // The fit only knows how to make room under the field.
+    if (!sheet || !fitBelow) return;
+    return bindCalendarFit(sheet);
+  }, [fitBelow]);
+  return (
+    <div ref={sheetRef} role="presentation" className={styles.panel} data-calendar-sheet="">
+      {children}
+    </div>
+  );
+}
 
 type Placement = "top" | "bottom" | "left" | "right";
 
@@ -104,8 +125,8 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
 
   return (
     <div ref={ref} className={cn(styles.wrapper, className)}>
-      <Popover open={open} onOpenChange={setOpen} trigger={trigger} placement={placement}>
-        <div role="presentation" className={styles.panel}>
+      <Popover solid open={open} onOpenChange={setOpen} trigger={trigger} placement={placement}>
+        <CalendarSheet fitBelow={placement === "bottom"}>
           <Calendar
             value={value}
             onChange={handleSelect}
@@ -115,7 +136,7 @@ export const DatePicker = forwardRef<HTMLDivElement, DatePickerProps>(function D
             locale={locale}
             weekStartsOn={weekStartsOn}
           />
-        </div>
+        </CalendarSheet>
       </Popover>
     </div>
   );

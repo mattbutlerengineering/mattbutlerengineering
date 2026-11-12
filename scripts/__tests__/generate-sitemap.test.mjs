@@ -18,9 +18,11 @@ describe("collectEntries", () => {
     );
     expect(entries.map((e) => e.path)).toEqual([
       "/",
+      "/gen/",
       "/hospitality",
       "/rialto/",
       "/rialto/components/b",
+      "/rialto/demos/",
       "/weekly",
     ]);
   });

@@ -686,6 +686,9 @@
       "noShowExposure": "Exposición por inasistencias"
     }
   },
+  "inviteRsvpChip": {
+    "text": "{{in}} de {{total}} confirmados"
+  },
   "timeline": {
     "page": {
       "title": "Cronograma",
@@ -892,6 +895,15 @@
       "seatNow": "Sentar ahora",
       "seating": "Sentando…"
     }
+  },
+  "onMyWayBadge": {
+    "text": "+{{minutes}} · LLEGA {{time}}",
+    "aria_one": "Llega {{minutes}} min tarde, esperado a la {{time}}",
+    "aria_other": "Llega {{minutes}} min tarde, esperado a las {{time}}",
+    "aria_many": "Llega {{minutes}} min tarde, esperado a las {{time}}",
+    "ariaPast_one": "Llega {{minutes}} min tarde, esperado a la {{time}}, la hora estimada ya pasó",
+    "ariaPast_other": "Llega {{minutes}} min tarde, esperado a las {{time}}, la hora estimada ya pasó",
+    "ariaPast_many": "Llega {{minutes}} min tarde, esperado a las {{time}}, la hora estimada ya pasó"
   },
   "errorBanner": {
     "retry": "Reintentar",
@@ -1503,6 +1515,34 @@
       "cutoff": "Los cambios se cierran {{hours}} horas antes de tu visita. Llama a {{venue}} para cambiar esta reservación.",
       "success": "Tu reservación se actualizó."
     },
+    "nightOf": {
+      "title": "Esta noche en {{venue}}",
+      "countdownBefore": "Tu reservación comienza en {{duration}}",
+      "countdownNow": "Es la hora de tu reservación",
+      "countdownAfter": "Tu reservación comenzó hace {{duration}}",
+      "partyAndTime": "{{party}} · {{time}}",
+      "directions": "Cómo llegar",
+      "directionsLabel": "Cómo llegar a {{venue}} (se abre en una pestaña nueva)",
+      "noteHeading": "Un aviso de {{venue}}",
+      "signalsHeading": "Avisa a {{venue}}",
+      "signalsHint": "Cuéntale al anfitrión si tus planes cambian esta noche. Tu reservación nunca se modifica.",
+      "runningLate": "Llegamos {{minutes}} min tarde",
+      "arrived": "Ya llegamos",
+      "sending": "Enviando…",
+      "sentLate": "Gracias — {{venue}} sabe que llegarás unos {{minutes}} minutos tarde. Tu mesa sigue reservada.",
+      "sentArrived": "Gracias — {{venue}} sabe que ya llegaste.",
+      "outsideWindow": "Los avisos se habilitan 3 horas antes de tu reservación y se cierran 45 minutos después de su hora.",
+      "outsideWindowAfterMidnight": "Los avisos se habilitan a la medianoche, pero no antes de 3 horas antes de tu reservación, y se cierran 45 minutos después de su hora.",
+      "lateCapped": "Ya enviaste el máximo de avisos de retraso ({{max}}). Llama a {{venue}} si necesitas más tiempo.",
+      "arrivedDone": "Ya avisaste a {{venue}} que llegaste.",
+      "errors": {
+        "link": "No pudimos verificar este enlace. Vuelve a abrirlo desde tu correo de confirmación.",
+        "expired": "Este enlace expiró. Llama a {{venue}}.",
+        "window": "{{venue}} no recibe avisos en este momento. Llámales si tus planes cambiaron.",
+        "limit": "Enviaste el máximo de avisos o los estás enviando muy rápido. Espera un minuto o llama a {{venue}}.",
+        "failed": "No pudimos enviar el aviso. Revisa tu conexión e inténtalo de nuevo, o llama a {{venue}}."
+      }
+    },
     "venueCancelled": {
       "heading": "Tu reservación fue cancelada",
       "intro": "{{venue}} tuvo que cancelar esta reservación.",
@@ -1527,6 +1567,38 @@
         "failed": "No pudimos reservar ese horario. Inténtalo de nuevo."
       }
     }
+  },
+  "partyInvite": {
+    "heading": "Invita a tu grupo",
+    "hint": "Envía un enlace para que tus invitados confirmen si asistirán. Nadie podrá modificar ni cancelar tu reservación con él.",
+    "share": "Invita a tu grupo",
+    "shareTitle": "Estás invitado a cenar",
+    "copied": "Enlace copiado",
+    "failed": "No pudimos crear tu enlace de invitación. Inténtalo de nuevo.",
+    "summary": "{{confirmed}} de {{total}} confirmados"
+  },
+  "invite": {
+    "documentTitle": "Estás invitado — Hospitality",
+    "venueDocumentTitle": "Estás invitado a {{venue}}",
+    "loading": "Cargando invitación...",
+    "heading": "Estás invitado",
+    "cardLabel": "Invitación a {{venue}}",
+    "rsvpTitle": "Quién viene",
+    "noReplies": "Aún no hay respuestas. Sé el primero.",
+    "statusIn": "Asiste",
+    "statusOut": "No puede ir",
+    "firstNameLabel": "Nombre",
+    "firstNamePlaceholder": "Tu nombre",
+    "firstNameRequired": "Escribe tu nombre.",
+    "imIn": "Me apunto",
+    "cantMakeIt": "No puedo ir",
+    "replied": "Gracias, {{name}}. Tu respuesta ya está en la lista.",
+    "full": "Esta invitación ya no tiene lugares disponibles.",
+    "error": "Algo salió mal. Inténtalo de nuevo.",
+    "endedHeading": "Esta invitación ha terminado",
+    "endedDescription": "La reservación fue cancelada o ya pasó.",
+    "notFoundHeading": "Invitación no encontrada",
+    "notFoundDescription": "Revisa el enlace que recibiste."
   },
   "offlineBanner": {
     "cached": "Mostrando datos en caché de la última sincronización",
@@ -2358,6 +2430,11 @@
       "everyServiceOwnDays": "Cada servicio tiene sus propios días.",
       "daysSummary": "Días: {{days}}",
       "moveTo": "Mover {{service}} a {{time}}",
+      "restrictDays": {
+        "weekdays": "Ofrecer {{service}} solo entre semana",
+        "weekends": "Ofrecer {{service}} solo los fines de semana",
+        "fridaySaturday": "Ofrecer {{service}} solo viernes y sábado"
+      },
       "differentHours": "Horarios distintos en algunos días",
       "blockLegend": "{{service}}: horarios distintos",
       "removeBlock": "Quitar estos horarios",
@@ -2652,7 +2729,7 @@
     },
     "close": {
       "open": "Cerrar…",
-      "title": "Cerrar",
+      "title": "Cerrar el local",
       "edit": {
         "title": "Editar cierre",
         "save": "Guardar cambios",
@@ -2715,16 +2792,17 @@
         "pickService": "Servicio",
         "section": "Una sección",
         "pickSection": "Sección",
-        "noSections": "Primero agrega una sección a tu plano del salón",
-        "openFloorPlan": "Abrir plano del salón",
-        "sectionsFailed": "No se pudieron cargar las secciones.",
         "booking": "Solo reservas",
         "channel": {
           "online": "En línea",
           "phone": "Teléfono",
           "waitlist": "Lista de espera"
         },
-        "channelRequired": "Elige al menos una forma de reservar."
+        "channelRequired": "Elige al menos una forma de reservar.",
+        "change": "Cambiar",
+        "summaryService": "Un servicio: {{name}}",
+        "summarySection": "Una sección: {{name}}",
+        "summaryBooking": "Solo reservaciones"
       },
       "when": {
         "label": "Cuándo",
@@ -2748,7 +2826,9 @@
         "tomorrow": "Mañana",
         "quickDates": "Fechas rápidas",
         "holidayChip": "{{name}} · {{date}}",
-        "endRequired": "Elige una fecha final para cerrar."
+        "holidayLabel": "Día festivo",
+        "holidayPlaceholder": "Elige un día festivo",
+        "endOptionalLabel": "Fecha de fin (opcional)"
       },
       "window": {
         "label": "Desde las",
@@ -2813,7 +2893,12 @@
         "closeWhen": "Cerrar {{when}}",
         "closeTargetWhen": "Cerrar {{target}} {{when}}",
         "closeFromWhen": "Cerrar desde {{time}} {{when}}",
-        "closeTargetFromWhen": "Cerrar {{target}} desde {{time}} {{when}}"
+        "closeTargetFromWhen": "Cerrar {{target}} desde {{time}} {{when}}",
+        "chooseDate": "Elige una fecha",
+        "chooseDates": "Elige fechas",
+        "chooseEnd": "Elige una fecha de fin",
+        "chooseDays": "Elige los días",
+        "chooseDaysAndEnd": "Elige los días y una fecha de fin"
       },
       "toast": {
         "paused": "Reservaciones en línea pausadas",
@@ -2839,9 +2924,6 @@
           "phone_waitlist": "Reservaciones por teléfono y de lista de espera",
           "all": "Todas las reservaciones"
         },
-        "withNotified_one": "{{text}} · {{count}} reservación avisada",
-        "withNotified_other": "{{text}} · {{count}} reservaciones avisadas",
-        "withNotified_many": "{{text}} · {{count}} reservaciones avisadas",
         "closed": "Cerrado {{when}}",
         "namedClosed": "{{name}} cerrado {{when}}",
         "namedClosedFrom": "{{name}} cerrado desde {{time}} {{when}}",
@@ -2857,6 +2939,21 @@
           "tonight": "esta noche",
           "range": "del {{from}} al {{to}}",
           "untilReopen": "el {{date}} hasta que reabras"
+        },
+        "withOutcomes": "{{text}} · {{outcomes}}",
+        "outcome": {
+          "cancel_one": "{{count}} reservación cancelada y avisada",
+          "cancel_other": "{{count}} reservaciones canceladas y avisadas",
+          "cancel_many": "{{count}} reservaciones canceladas y avisadas",
+          "move_one": "{{count}} reservación movida y avisada",
+          "move_other": "{{count}} reservaciones movidas y avisadas",
+          "move_many": "{{count}} reservaciones movidas y avisadas",
+          "keep_notify_one": "{{count}} reservación mantenida, invitado avisado",
+          "keep_notify_other": "{{count}} reservaciones mantenidas, invitados avisados",
+          "keep_notify_many": "{{count}} reservaciones mantenidas, invitados avisados",
+          "keep_silent_one": "{{count}} reservación mantenida, invitado sin avisar",
+          "keep_silent_other": "{{count}} reservaciones mantenidas, invitados sin avisar",
+          "keep_silent_many": "{{count}} reservaciones mantenidas, invitados sin avisar"
         }
       },
       "step2": {
@@ -2919,6 +3016,11 @@
         "serviceClosedFrom": "{{service}} cerrado desde {{time}}",
         "sectionClosed": "{{section}} cerrada",
         "sectionClosedFrom": "{{section}} cerrada desde {{time}}"
+      },
+      "titleTarget": "Cerrar {{target}}",
+      "titleBooking": "Pausar reservaciones",
+      "note": {
+        "add": "Agregar una nota o un mensaje"
       }
     },
     "paused": {
@@ -3381,6 +3483,14 @@
       "emailStatus": "Estado del correo"
     }
   },
+  "arrivalAlerts": {
+    "title": "Grupo llegó",
+    "description": "{{name}} · grupo de {{size}}",
+    "descriptionUnknown": "Un invitado llegó al puesto de recepción.",
+    "settingsTitle": "Alertas de llegada",
+    "muteLabel": "Silenciar el timbre de llegada",
+    "muteHint": "Silencia el timbre solo en este dispositivo. El aviso de llegada se sigue mostrando."
+  },
   "settings": {
     "title": "Configuración",
     "description": "Administra los ajustes y las preferencias de tu cuenta",
@@ -3452,6 +3562,14 @@
       "emergencyCloseHint": "Los anfitriones pueden cerrar todo el establecimiento solo por esta noche. Un cierre más largo necesita a un gerente.",
       "emergencyCloseOn": "Los anfitriones pueden cerrar todo el establecimiento esta noche en una emergencia.",
       "emergencyCloseOff": "Solo los gerentes pueden cerrar el establecimiento."
+    },
+    "tonightNote": {
+      "title": "Nota de esta noche",
+      "label": "Nota de esta noche",
+      "hint": "Se muestra a los comensales el día de su reservación. Hasta {{max}} caracteres; déjala vacía para borrarla.",
+      "save": "Guardar nota",
+      "saving": "Guardando…",
+      "saved": "Nota de esta noche guardada."
     },
     "profile": {
       "title": "Perfil del local",

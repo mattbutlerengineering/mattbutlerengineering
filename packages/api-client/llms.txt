@@ -379,6 +379,18 @@
       }
     </item>
     <item priority="low">
+      interface ManagedVenueAddress {
+        line1: string;
+        line2?: string;
+        city: string;
+        region: string;
+        postalCode: string;
+      }
+    </item>
+    <item priority="low">
+      type GuestSignal = { kind: "running-late"; minute | { kind: "arrived" };
+    </item>
+    <item priority="low">
       interface ManagedReservationChanges {
         date?: string;
         startTime?: string;
@@ -415,6 +427,30 @@
         reservation: ManagedReservation;
         venue: ManagedReservationVenue | null;
         venueCancellation?: ManagedVenueCancellation | null;
+        guestSignals?: { late: number; arrived: number };
+      }
+    </item>
+    <item priority="low">
+      interface InviteRsvp {
+        firstName: string;
+        status: "IN" | "OUT";
+      }
+    </item>
+    <item priority="low">
+      interface InviteData {
+        venue: { name: string; slug: string };
+        date: string;
+        time: string;
+        partySize: number;
+        rsvps: InviteRsvp[];
+      }
+    </item>
+    <item priority="low">
+      interface ManagedInviteSummary {
+        invited: boolean;
+        confirmed: number;
+        declined: number;
+        partySize: number;
       }
     </item>
     <item priority="high">

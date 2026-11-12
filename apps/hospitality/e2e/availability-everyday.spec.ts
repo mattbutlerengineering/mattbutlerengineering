@@ -257,15 +257,17 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     record("R3", counter.count(), 7);
   });
 
-  test("R4 / D22: no lunch on Christmas Eve (budget 5)", async ({ mockedPage: page }) => {
+  test("R4 / D22: no lunch on Christmas Eve (budget 6)", async ({ mockedPage: page }) => {
     const state = await mockClosures(page, { config: F_ONE_CONFIG });
     await firstPaint(page);
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
-    const dialog = counter.page.getByRole("dialog", { name: "Close", exact: true });
+    const dialog = counter.page.getByRole("dialog", { name: /^Close / });
+    await dialog.getByRole("button", { name: "Change" }).click();
     await dialog.getByText("One service", { exact: true }).click();
-    await dialog.getByRole("button", { name: "Christmas Eve · Thu, Dec 24" }).click();
+    await dialog.getByRole("combobox", { name: "Holiday" }).click();
+    await counter.page.getByRole("option", { name: "Christmas Eve · Thu, Dec 24" }).click();
     await dialog.getByTestId("close-primary").click();
 
     await expect.poll(() => state.saved()).not.toBeNull();
@@ -281,17 +283,18 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await expect(
       notifications(page).getByText("Lunch closed on Thu, Dec 24", { exact: true })
     ).toBeVisible();
-    record("R4", counter.count(), 5);
+    record("R4", counter.count(), 6);
   });
 
-  test("R5 / E39: closed every Monday in January (budget 10)", async ({ mockedPage: page }) => {
+  test("R5 / E39: closed every Monday in January (budget 11)", async ({ mockedPage: page }) => {
     const state = await mockClosures(page, { config: F_ONE_CONFIG });
     await firstPaint(page);
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
-    const dialog = counter.page.getByRole("dialog", { name: "Close", exact: true });
-    await dialog.getByText("Repeats", { exact: true }).click();
+    const dialog = counter.page.getByRole("dialog", { name: /^Close / });
+    await dialog.getByRole("combobox", { name: "When" }).click();
+    await counter.page.getByRole("option", { name: "Repeats", exact: true }).click();
     await dialog.getByRole("combobox", { name: "From" }).click();
     await nextMonth(counter.page).click();
     await nextMonth(counter.page).click();
@@ -313,10 +316,10 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
         repeat: { weekdays: [1] },
       },
     });
-    record("R5", counter.count(), 10);
+    record("R5", counter.count(), 11);
   });
 
-  test("R6 / E41: close early tonight at 9:30 PM (budget 4, at most 12 options)", async ({
+  test("R6 / E41: close early tonight at 9:30 PM (budget 5, at most 12 options)", async ({
     mockedPage: page,
   }) => {
     await page.clock.setFixedTime(SIX_PM);
@@ -325,7 +328,8 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
-    const dialog = counter.page.getByRole("dialog", { name: "Close", exact: true });
+    const dialog = counter.page.getByRole("dialog", { name: /^Close / });
+    await dialog.getByRole("button", { name: "Tonight" }).click();
     await dialog.getByRole("combobox", { name: "Starting at" }).click();
     const options = counter.page.getByRole("listbox", { name: "Starting at" }).getByRole("option");
     const labels = await options.allTextContents();
@@ -344,7 +348,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
       type: "starting-at options",
       description: `${labels.length}: ${labels.join(" | ")}`,
     });
-    record("R6", counter.count(), 4);
+    record("R6", counter.count(), 5);
   });
 
   test("R7 / H72: change the largest online party from the Booking line (budget 3)", async ({
@@ -469,7 +473,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await page.getByRole("button", { name: "Pause online booking" }).click();
     const dialog = page.getByRole("dialog", { name: "Pause online booking", exact: true });
     await expect(dialog).toBeVisible();
-    await expect(page.getByRole("dialog", { name: "Close", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("dialog", { name: /^Close / })).toHaveCount(0);
     await expect(dialog.getByText(/Step \d of 2/)).toHaveCount(0);
     await dialog.getByTestId("close-primary").click();
 
@@ -539,7 +543,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     });
   }
 
-  test("PRD 11 demo: Christmas Eve lunch in 4 steps, one chip on the quiet December calendar", async ({
+  test("PRD 11 demo: Christmas Eve lunch in 6 steps, one chip on the quiet December calendar", async ({
     mockedPage: page,
   }) => {
     const state = await mockClosures(page, { config: F_ONE_CONFIG });
@@ -552,17 +556,19 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
-    const dialog = counter.page.getByRole("dialog", { name: "Close", exact: true });
+    const dialog = counter.page.getByRole("dialog", { name: /^Close / });
+    await dialog.getByRole("button", { name: "Change" }).click();
     await dialog.getByText("One service", { exact: true }).click();
-    await dialog.getByRole("button", { name: "Christmas Eve · Thu, Dec 24" }).click();
+    await dialog.getByRole("combobox", { name: "Holiday" }).click();
+    await counter.page.getByRole("option", { name: "Christmas Eve · Thu, Dec 24" }).click();
     await dialog.getByTestId("close-primary").click();
 
     await expect.poll(() => state.saved()).not.toBeNull();
     await expect(
       notifications(page).getByText("Lunch closed on Thu, Dec 24", { exact: true })
     ).toBeVisible();
-    expect(counter.count()).toBeLessThanOrEqual(5);
-    record("PRD 11 demo", counter.count(), 5);
+    expect(counter.count()).toBeLessThanOrEqual(6);
+    record("PRD 11 demo", counter.count(), 6);
 
     await layerOption(page, "Calendar").click();
     await expect(page.getByRole("grid")).toBeVisible();

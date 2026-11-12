@@ -83,3 +83,10 @@
 .locked dd {
   margin: 0;
 }
+
+.whatLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--rialto-space-sm);
+}

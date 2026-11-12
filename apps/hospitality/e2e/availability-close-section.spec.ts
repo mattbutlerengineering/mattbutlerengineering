@@ -178,8 +178,10 @@ test.describe("Availability close dialog: One section (ADR-032)", () => {
       .getByRole("button", { name: "Close…", exact: true })
       .click();
 
-    const dialog = mockedPage.getByRole("dialog", { name: "Close", exact: true });
-    // The radio's styled circle overlays the native input, so pick it by its label, as a user does.
+    const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+    // What is one line, "Whole venue", until Change opens it. The radio's styled circle overlays the
+    // native input, so pick it by its label, as a user does.
+    await dialog.getByRole("button", { name: "Change" }).click();
     await dialog.getByText("One section", { exact: true }).click();
     await dialog.getByRole("combobox", { name: "Section" }).click();
     await mockedPage.getByRole("option", { name: "Bar", exact: true }).click();
@@ -212,9 +214,8 @@ test.describe("Availability close dialog: One section (ADR-032)", () => {
 
     await mockedPage.goto("availability?closeSection=sec-main");
 
-    const dialog = mockedPage.getByRole("dialog", { name: "Close", exact: true });
-    await expect(dialog.getByRole("radio", { name: "One section" })).toBeChecked();
-    await expect(dialog.getByRole("combobox", { name: "Section" })).toContainText("Main Dining");
+    const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+    await expect(dialog.getByText("One section: Main Dining", { exact: true })).toBeVisible();
     await expect(mockedPage).not.toHaveURL(/closeSection/);
   });
 });

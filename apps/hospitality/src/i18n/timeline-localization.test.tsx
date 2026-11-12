@@ -60,6 +60,7 @@ vi.mock("../hooks/useSSESync.js", () => ({
   useSSEStatus: () => ({ isConnected: true }),
   useSSEEventFeed: () => [],
   useSSESync: () => ({ reconnect: vi.fn() }),
+  useGuestSignals: () => new Map(),
 }));
 vi.mock("../hooks/useAvailability.js", () => ({
   useAvailabilityConfig: () => ({ data: null }),

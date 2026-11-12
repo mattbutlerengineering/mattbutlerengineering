@@ -354,9 +354,15 @@ describe("AvailabilityDayDrawer around a draft", () => {
     });
   });
 
-  describe("Copy from a past day", () => {
-    it("reaches only the dates of its week that are today or later, and names the rest as past", async () => {
+  describe("Copy from a day that is under way", () => {
+    // A past date is read-only (#8691), so the copy source is today; the week's earlier days are past.
+    it("offers no copy action on a date that is over", () => {
       render(drawer({ date: "2026-10-16", today: "2026-10-17" }));
+      expect(screen.queryByRole("button", { name: "Copy to other days…" })).toBeNull();
+    });
+
+    it("reaches only the dates of its week that are today or later, and names the rest as past", async () => {
+      render(drawer({ date: "2026-10-17", today: "2026-10-17" }));
       fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
       const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Thursday" }));
@@ -364,13 +370,13 @@ describe("AvailabilityDayDrawer around a draft", () => {
       expect(
         within(dialog).getByText("Those days have already passed this week.")
       ).toBeInTheDocument();
-      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Saturday" }));
-      fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sat" }));
+      fireEvent.click(within(dialog).getByRole("checkbox", { name: "Sunday" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sun" }));
       await vi.waitFor(() => expect(save).toHaveBeenCalled());
       const sent = save.mock.calls.at(-1)?.[0] as {
         body: { changes: { upsert: { dateRules: Array<{ startsOn: string }> } } };
       };
-      expect(sent.body.changes.upsert.dateRules.map((r) => r.startsOn)).toEqual(["2026-10-17"]);
+      expect(sent.body.changes.upsert.dateRules.map((r) => r.startsOn)).toEqual(["2026-10-18"]);
     });
   });
 });

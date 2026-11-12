@@ -92,6 +92,9 @@ vi.mock("../hooks/useFloorPlanDraft.js", () => ({
 vi.mock("../hooks/useSSESync.js", () => ({
   useTableStatuses: () => ({ statuses: new Map(), isStale: true }),
 }));
+vi.mock("../hooks/useTableGuestSignalBadges.js", () => ({
+  useTableGuestSignalBadges: () => new Map(),
+}));
 vi.mock("react-router", async () => ({
   ...(await vi.importActual<Record<string, unknown>>("react-router")),
   useNavigate: () => vi.fn(),

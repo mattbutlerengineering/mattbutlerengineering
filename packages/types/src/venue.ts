@@ -112,6 +112,8 @@ export interface VenueSettings {
    * `VenueProfileSchema` and `PublicVenueConfig.profile`.
    */
   profile?: VenueProfile;
+  /** Owner-editable note shown to guests on the night-of manage page (max 200 chars). */
+  tonightNote?: string;
   /** Per-venue palette; validate with `VenueThemeSchema` before use. */
   theme?: VenueTheme;
 }

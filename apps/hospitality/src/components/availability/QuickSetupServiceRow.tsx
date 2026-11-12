@@ -13,14 +13,13 @@ import {
   effectiveDays,
   removeBlock,
   replaceBlock,
-  setServiceDays,
   toggleBlockDay,
   type BlockDayToggle,
   type QuickSetupDraft,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
-import { type QuickSetupIssue } from "./quick-setup-validate.js";
-import { placePreset } from "./quick-setup-placement.js";
+import { overlapsAgainst, type QuickSetupIssue } from "./quick-setup-validate.js";
+import { placePreset, setDaysAndReplace } from "./quick-setup-placement.js";
 import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
 import { DayPicker, IssueText, TimesRow } from "./quick-setup-fields.js";
 import { HoursBlockFieldset } from "./QuickSetupBlock.js";
@@ -74,7 +73,7 @@ export function ServiceRow({
   }, [ownDays]);
   const setOwnDays = (open: boolean) => {
     focusAfterToggleRef.current = open ? "into" : "back";
-    onChange(setServiceDays(service, open ? [...draft.days] : null, draft.days));
+    onChange(setDaysAndReplace(draft, service, open ? [...draft.days] : null));
   };
 
   // F1 4: a new block takes focus on its first day.
@@ -170,7 +169,7 @@ export function ServiceRow({
           draft={draft}
           serviceId={service.id}
           times={service}
-          issues={issues}
+          issues={[...issues, ...overlapsAgainst(issues, service.id)]}
           onChange={onChange}
         />
         {service.lastSeatingLinked && lastSeating !== null && (
@@ -195,7 +194,7 @@ export function ServiceRow({
               ref={daysRef}
               legend={t("availability.quickSetup.runsOn", { service: serviceName })}
               days={service.days}
-              onChange={(days) => onChange(setServiceDays(service, days, draft.days))}
+              onChange={(days) => onChange(setDaysAndReplace(draft, service, days))}
               draft={draft}
               problems={issuesFor(issues, service.id, "days")}
             />

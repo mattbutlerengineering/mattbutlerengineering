@@ -497,6 +497,25 @@
     <item priority="high">
       export const LAST_STEP_INDEX: unknown;
     </item>
+    <item priority="low">
+      type FieldErrors = Partial<Record<"propertyName", string>>;
+    </item>
+    <item priority="high">
+      export function validateProperty(state: OnboardingState): FieldErrors { /* ... */ }
+    </item>
+    <item priority="medium">
+      function validateStep(index: number, state: OnboardingState): FieldErrors { /* ... */ }
+    </item>
+    <item priority="low">
+      interface AdvanceResult {
+        step: number;
+        errors: FieldErrors;
+        advanced: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function attemptAdvance(current: number, state: OnboardingState): AdvanceResult { /* ... */ }
+    </item>
     <item priority="high">
       export function nextStep(index: number): number { /* ... */ }
     </item>

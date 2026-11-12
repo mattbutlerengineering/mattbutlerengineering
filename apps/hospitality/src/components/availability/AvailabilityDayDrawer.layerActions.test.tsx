@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 
@@ -79,6 +79,17 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
     return { version: 7, source: "rows", config: fixtureConfig(...rules) };
   }
 
+  /** The scope dialog's focus restore runs in a frame; wait past it. */
+  const settleFrames = () =>
+    act(
+      () =>
+        new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+        )
+    );
+  /** A field inside the open editor (its first service row). */
+  const editorInput = () => document.querySelector("fieldset input") as HTMLElement;
+
   function renderDrawer(
     opts: { role?: "manager" | "host"; rules?: DateRule[]; today?: string } = {}
   ) {
@@ -123,6 +134,45 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
   it("offers nothing on a date that is over", () => {
     renderDrawer({ today: "2026-11-02" });
     expect(screen.queryByRole("button", { name: /Remove special hours/ })).toBeNull();
+  });
+
+  it("makes a past date read-only: its hours show, with no editor, Add service or copy action (#8691)", () => {
+    renderDrawer({ today: "2026-11-02" });
+    // What the day's hours were stays on screen, as text.
+    expect(screen.getAllByText(/^Lunch\b.*\d/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /^Edit (Lunch|Dinner)/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add (another )?service/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Copy to other days/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Use another day's hours/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Use schedule/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Save \d+ dates?$/ })).toBeNull();
+  });
+
+  // The drawer is on FIXTURE_DATE (Fri 2026-10-30): the day before `today` is history; `today`
+  // and the days after are not.
+  it.each([
+    ["the day before today", "2026-10-31", false],
+    ["today", "2026-10-30", true],
+    ["tomorrow", "2026-10-29", true],
+  ])("treats %s as editable=%s (#8691)", (_name, today, editable) => {
+    renderDrawer({ today });
+    const edit = screen.queryByRole("button", { name: "Edit Lunch" });
+    const add = screen.queryByRole("button", { name: /Add service/ });
+    const copy = screen.queryByRole("button", { name: /Copy to other days/ });
+    expect(edit !== null).toBe(editable);
+    expect(add !== null).toBe(editable);
+    expect(copy !== null).toBe(editable);
+  });
+
+  it("judges a past date on the venue's today, not the UTC date (#8691)", () => {
+    // 03:00 UTC on Oct 31 is still Oct 30 in Los Angeles: the drawer's Oct 30 is today there.
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-31T03:00:00Z") });
+    try {
+      renderDrawer({ today: "2026-10-30" });
+      expect(screen.getByRole("button", { name: "Edit Lunch" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("removes the special hours after a destructive confirm, and the drawer closes", async () => {
@@ -186,16 +236,24 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
     edit.focus();
     fireEvent.click(edit);
     expect(screen.queryByRole("dialog", { name: "Edit special hours" })).toBeNull();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Edit Lunch" })).toHaveFocus());
+    // The button opens the editor for this date (it used to only move focus to "Edit Lunch").
+    expect(await screen.findByRole("button", { name: /^Save 1 date$/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit Lunch" })).toBeNull();
+    await settleFrames();
+    expect(editorInput()).toHaveFocus();
   });
 
-  it("asks which dates first when the rule repeats, and then edits them all", () => {
+  it("asks which dates first when the rule repeats, and then edits them all", async () => {
     renderDrawer({ rules: [FRIDAY_HOURS] });
     fireEvent.click(screen.getByRole("button", { name: /Edit special hours/ }));
     const ask = screen.getByRole("dialog", { name: "Edit special hours" });
     fireEvent.click(within(ask).getByRole("radio", { name: /All dates/i }));
     fireEvent.click(within(ask).getByRole("button", { name: "Continue" }));
-    fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
+    // The editor is open on the chosen scope already.
+    expect(screen.getByRole("button", { name: /^Save \d+ dates?$/ })).toBeInTheDocument();
+    // The scope dialog hands focus back to its trigger one frame later; the editor must win.
+    await settleFrames();
+    expect(editorInput()).toHaveFocus();
     // The scope was chosen first, so the editor does not offer its own scope select.
     expect(screen.queryByRole("combobox", { name: /changing/i })).toBeNull();
   });

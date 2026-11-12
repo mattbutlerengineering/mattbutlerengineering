@@ -18,6 +18,17 @@
   flex-direction: column;
 }
 
+/* The live regions, not the toasts, are the container's flex children. Gap
+   on the container never separated the toasts. This stack does. */
+.stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--rialto-space-xs);
+  min-width: 0;
+  width: 100%;
+}
+
 /* ── Individual toast ────────────────────────── */
 .toast {
   composes: glass from "../../styles/surfaces.module.css";
@@ -31,8 +42,36 @@
   overflow: hidden;
 }
 
-:global([data-theme="dark"]) .toast {
-  background: var(--rialto-surface-elevated);
+/* `.toast` composes `.glass`. The dark glass fill is rgb(42 39 37 / 0.9) at
+   the same specificity as a single `[data-theme="dark"] .toast` rule, so
+   bundle order was letting the page show through. Doubling the class beats
+   that rule in either bundle order. Variant tints are a gradient over the
+   opaque fill so success, error, and accent stay distinguishable. */
+:global([data-theme="dark"]) .toast.toast {
+  background-color: var(--rialto-surface-elevated);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:global([data-theme="dark"]) .toast.success {
+  background-color: var(--rialto-surface-elevated);
+  background-image: linear-gradient(var(--rialto-success-muted), var(--rialto-success-muted));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:global([data-theme="dark"]) .toast.error {
+  background-color: var(--rialto-surface-elevated);
+  background-image: linear-gradient(var(--rialto-error-muted), var(--rialto-error-muted));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:global([data-theme="dark"]) .toast.accent {
+  background-color: var(--rialto-surface-elevated);
+  background-image: linear-gradient(var(--rialto-accent-muted), var(--rialto-accent-muted));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 /* ── Icon ───────────────────────────────────── */

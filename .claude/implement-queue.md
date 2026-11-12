@@ -3,7 +3,7 @@ merge: auto
 max_workers: 3
 required_check: CI Gate
 hold_labels: [needs-review]
-priority: [security, ci-fix, feature, audit]
+priority: [security, feature, ci-fix, audit]
 ---
 
 # Implement-queue profile — mattbutlerengineering
@@ -21,8 +21,10 @@ the public skills repo and follow `skills/implement-queue/SKILL.md` by path,
 with this file as the profile. Local sessions run `/idea-to-prod:implement-queue`
 (recurring: `/loop 30m /idea-to-prod:implement-queue`).
 
-**Priority principle: Security > CI fixes > Features > Audit findings.** Security
-covers `fix(security):` titles and Dependabot-sourced `ci-fix`.
+**Priority principle: Security > Features > CI fixes > Audit findings.** Security
+covers `fix(security):` titles and Dependabot-sourced `ci-fix`. A red main is not
+a `ci-fix` tier question: `preflight` makes fixing it the whole iteration. Other
+`ci-fix` issues are monitor-filed chores and sort after features (#8741).
 
 ## preflight
 
@@ -39,7 +41,7 @@ State transitions (`ready`/`in-progress`/`has-pr`/`agent-failed`/`agent-skip`) a
 
 ## compose
 
-**Compose the batch — spread across zones (ADR-023, amended by ADR-027).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > ci-fix > feature > audit), takes at most one issue per zone when main is strict (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch.
+**Compose the batch — spread across zones (ADR-023, amended by ADR-027).** Feed the priority-sorted, independence-filtered candidates into `selectZoneSpreadBatch` (`scripts/issue-zone.mjs`) so the batch maximizes **distinct** merge-train zones. Same-zone stacking incurs an N² `update-branch`/CI re-run tax against `strict` main (ADR-016): each merge makes its siblings out-of-date. The selector consumes the priority tiers as its input order (security > feature > ci-fix > audit), takes at most one issue per zone when main is strict (`null` = global counts as a single occupancy — two globals are never co-scheduled), and defers same-zone surplus to a later batch.
 
 **Probe main's strictness every iteration** (branch protection is repo state, not code) with `scripts/main-strictness.mjs` and pass the result as `strictMain`. The probe fails closed: only a successfully parsed literal `strict: false` yields `strictMain: false`; an error, non-JSON, or missing field yields `true`. When `strictMain` is `false`, a zone may admit further issues whose extracted file paths are non-empty and prefix-aware disjoint from those already admitted in that zone; the per-zone merge-train lock still serializes the merges themselves. Even when `strictMain` is `false`, `selectZoneSpreadBatch` admits at most one issue per shared registry path — `.claude/rules/gotchas.md`, `CLAUDE.md`, `.claude/settings.json`, `.claude/implement-queue.md`, `docs/scheduled-tasks.md`, `scripts/routine-manifest.mjs`, `docs/factory/costs.jsonl` — and per `.github/workflows/*.yml` file, across zones.
 
@@ -162,6 +164,20 @@ The command encodes the ordering, in this precedence: dist untrusted or unloadab
 **Why the freshness check is inside it.** Both classifiers run from the **built** `packages/agent-core/dist/` — gitignored, so a session inherits whatever the last build in this checkout produced. A stale dist doesn't error; it exports working functions that return confident, wrong (narrower) answers — on PR #3988 a 77-minute-stale dist made `reviewersForDiff` return `[]` for a diff that should have dispatched `e2e-selector-drift-reviewer` (#3989). The command runs `scripts/agent-core-build-freshness.mjs`'s check in-process (rebuilding once if needed, build output on stderr) and, when freshness cannot be proven or the dist will not import, fails closed: a dist that fails to prove itself fresh is never read as "low risk" or "no specialists match".
 
 **Why the specialist gate wins.** `qualifiesForLowRiskFastPath` requires **both** `isLowRiskPR(files)` **and** `reviewersForDiff(files).length === 0`. `isLowRiskPR` and `reviewersForDiff` are independent functions over the same file list and can both fire on the same diff: a pure dependency bump (every file matches `isLowRiskFile` in `packages/agent-core/src/file-classifier.ts`) can simultaneously match `dependency-update-reviewer` via `reviewersForDiff` (`packages/agent-core/src/pr-risk-classifier.ts`) — PR #4058 is exactly this shape. Calling `isLowRiskPR` alone would enqueue that PR with zero review, silently dropping the specialist its own sibling function selected (#4063). A low-risk-but-specialist-matched PR gets `fastPath: false` with its specialists listed, so it falls through to the `reviewers` hook even though the universal reviewer is still skipped. This doc intentionally does not enumerate the underlying globs so the doc and the code cannot drift apart (see #3887, #3916). Move to the next PR.
+
+## verdict
+
+Owner's standing consent (2026-11-12): every PR that passes this gate may merge under `merge: auto`, not only fast-path PRs. The hook runs on the universal reviewer's `score` (one quoted argument, already validated as a bare finite number 0-10) and the orchestrator acts on its exit code only (ADR-0123). The threshold lives here and nowhere else: 7 or above passes, matching the reviewer contract's "every criterion met, minor nits only" band.
+
+```bash
+score="$1"
+if [ "$#" -ne 1 ]; then echo "reviewer-verdict: error (wrong argument count)"; exit 2; fi
+if awk -v s="$score" 'BEGIN { exit !(s >= 7) }'; then
+  echo "reviewer-verdict: pass (score $score, threshold 7)"; exit 0
+else
+  echo "reviewer-verdict: flag (score $score, threshold 7)"; exit 1
+fi
+```
 
 ## reviewers
 

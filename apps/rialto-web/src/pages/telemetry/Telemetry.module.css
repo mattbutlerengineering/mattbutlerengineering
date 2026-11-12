@@ -1,12 +1,10 @@
 .page {
   padding: var(--rialto-space-xl);
-  /* DemoLayout's floating controls are `position: fixed` at
-     `top: calc(--rialto-space-3xl + --rialto-space-md)` with
-     `inset-inline-start: --rialto-space-md`, and they sit at
-     `--rialto-z-overlay` — above any page content, by design. Sibling demos
-     clear that band with a PageHeader; this route opens straight onto the
-     status strip, so it reserves the space itself. Without this the LIVE
-     flag, lap, and position sit underneath the shell's buttons on landing. */
+  /* DemoLayout's display controls are out of flow, anchored under the nav.
+     Sibling demos clear that band with a PageHeader; this route opens
+     straight onto the status strip, so it reserves the space itself.
+     Without this the LIVE flag, lap, and position sit underneath the
+     shell's buttons on landing. */
   padding-block-start: calc(var(--rialto-space-4xl) + var(--rialto-space-lg));
 }
 
@@ -110,6 +108,37 @@
   padding-block-start: var(--rialto-space-sm);
   border-block-start: 1px solid var(--rialto-border);
   overflow-x: auto;
+}
+
+/* The status strip's nowrap row was the grid's min-content (~418px). The
+   zone table, vitals, and ticker stretched with it past a 375px viewport.
+   Only below the desktop frame: the wide HUD is a visual baseline. */
+@media (max-width: 900px) {
+  .page {
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+
+  .hud {
+    grid-template-columns: minmax(0, 1fr);
+    min-inline-size: 0;
+    max-inline-size: 100%;
+  }
+
+  .statusStrip,
+  .body,
+  .vitalsRail {
+    min-inline-size: 0;
+  }
+
+  .statusStrip {
+    flex-wrap: wrap;
+  }
+
+  .zoneTable,
+  .ticker {
+    max-inline-size: 100%;
+  }
 }
 
 /* DepartureBoard centers its flaps by default; the event feed reads from the start. */

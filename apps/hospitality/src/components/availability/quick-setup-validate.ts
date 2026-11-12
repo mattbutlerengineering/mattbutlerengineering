@@ -43,6 +43,8 @@ export interface QuickSetupIssue {
   /** `overlap` on some weekdays only: the weekday (0 = Sunday) and the service it overlaps. */
   readonly weekday?: number;
   readonly otherServiceId?: string;
+  /** An overlap said again on the other service's row (`overlapsAgainst`); it offers no fix there. */
+  readonly mirrored?: true;
 }
 
 const TIME_FIELDS = [
@@ -166,11 +168,27 @@ export function validateDraft(
           ...(block ? { blockId: block.id } : {}),
           field: "opens",
           code: "overlap",
-          ...(weekday !== undefined && other ? { weekday, otherServiceId: other.id } : {}),
+          ...(weekday !== undefined ? { weekday } : {}),
+          ...(other ? { otherServiceId: other.id } : {}),
         },
       ];
     });
   return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
+}
+
+/**
+ * The overlaps another service reports against `serviceId`, said on its row too: the engine
+ * reports an overlap on one of the two services, and the Manager is often editing the other.
+ */
+export function overlapsAgainst(
+  issues: readonly QuickSetupIssue[],
+  serviceId: string
+): QuickSetupIssue[] {
+  return issues.flatMap(({ blockId: _block, ...issue }) =>
+    issue.code === "overlap" && issue.otherServiceId === serviceId && issue.serviceId !== null
+      ? [{ ...issue, serviceId, otherServiceId: issue.serviceId, mirrored: true as const }]
+      : []
+  );
 }
 
 /** A service as the Manager reads it: its name, else "Service N" by position. */
@@ -206,6 +224,22 @@ export function issueMessage(
     });
   }
   return t(`availability.quickSetup.issues.${issue.code}`);
+}
+
+/**
+ * The real reason there is nothing to preview when every field has something in it: the first
+ * overlap, named on both services and the day. `null` when a field is still missing (the
+ * generic "fill in the fields" message stays right) or there is no overlap either.
+ */
+export function previewOverlapReason(
+  issues: readonly QuickSetupIssue[],
+  draft: QuickSetupDraft,
+  t: TFunction,
+  weekdayName: (weekday: number) => string
+): string | null {
+  if (issues.length === 0 || issues.some((i) => i.code !== "overlap")) return null;
+  const first = issues[0];
+  return first ? issueMessage(first, draft, t, weekdayName) : null;
 }
 
 /**

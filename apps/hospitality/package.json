@@ -35,13 +35,13 @@
       "limit": "6 kB"
     },
     {
-      "name": "Floor Plan Shared (floor-plan-* incl. any geometry split, lazy chunks)",
+      "name": "Floor Plan Shared (floor-plan-* incl. any geometry split, lazy chunks; 9.2 kB before the On My Way badge: +0.13 kB for the held-through-ETA status and the badge on the table overlay, 9.33 kB measured)",
       "path": "dist/assets/floor-plan-*.js",
-      "limit": "9.2 kB"
+      "limit": "9.4 kB"
     },
     {
-      "name": "Dress Rehearsal (shared by the timeline and floor plan pages)",
-      "path": "dist/assets/use-rehearsal-playback-*.js",
+      "name": "Dress Rehearsal (shared by the timeline and floor plan pages; rollup names it for utils/seated, which the floor plan's On My Way badges now share with the timeline, instead of use-rehearsal-playback)",
+      "path": "dist/assets/seated-*.js",
       "limit": "4 kB"
     },
     {
@@ -60,9 +60,9 @@
       "limit": "3 kB"
     },
     {
-      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup named the chunk for CallListDialog until #8538 and now names it for tonight-state; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list; +1 kB at #8528 for the Tonight/Tomorrow/holiday chips and the opening-to-close Starting-at list, 14.19 kB measured; +0.5 kB at #8538 for tonight-state, which the header Today line now shares with this chunk, 14.73 kB measured)",
+      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup named the chunk for CallListDialog until #8538 and now names it for tonight-state; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list; +1 kB at #8528 for the Tonight/Tomorrow/holiday chips and the opening-to-close Starting-at list, 14.19 kB measured; +0.5 kB at #8538 for tonight-state, which the header Today line now shares with this chunk, 14.73 kB measured; +0.4 kB at #8689 for the date-first Close dialog: the incomplete-label text, the What summary line, the end-date and holiday fields, the note disclosure and the post-save focus, 15.1 kB measured)",
       "path": "dist/assets/tonight-state-*.js",
-      "limit": "15 kB"
+      "limit": "15.2 kB"
     },
     {
       "name": "Close draft helpers (shared by the Close dialog, the availability page and the header pill)",
@@ -78,6 +78,11 @@
       "name": "Data layer (react-query + api-client + venue context, one hoisted chunk shared by the app entry and the lazy pages; split out once the RequireManager route guard in the entry began reading the venue team)",
       "path": "dist/assets/venue-context-object-*.js",
       "limit": "16 kB"
+    },
+    {
+      "name": "React-query useMutation (hoisted into its own chunk once the public InvitePage began importing it directly; 1.9 kB gzip measured)",
+      "path": "dist/assets/useMutation-*.js",
+      "limit": "3 kB"
     },
     {
       "name": "Venue Onboarding (lazy chunk)",
@@ -97,7 +102,7 @@
     {
       "name": "Rialto Vendor (design system)",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "90 kB"
+      "limit": "91.9 kB"
     },
     {
       "name": "Router Vendor (react-router)",
@@ -156,7 +161,7 @@
     }
   ],
   "dependencies": {
-    "@json-render/react": "^0.21.2",
+    "@json-render/react": "^0.22.0",
     "@mattbutlerengineering/rialto": "workspace:*",
     "@mbe/api-client": "workspace:*",
     "@mbe/availability": "workspace:*",
@@ -167,11 +172,11 @@
     "@mbe/types": "workspace:*",
     "@microsoft/fetch-event-source": "^2.0.1",
     "@stripe/react-stripe-js": "^7.0.1",
-    "@stripe/stripe-js": "^10.2.0",
-    "@tanstack/react-query": "^5.104.5",
+    "@stripe/stripe-js": "^10.2.1",
+    "@tanstack/react-query": "^5.107.1",
     "i18next": "27.0.1",
     "idb": "^8.0.4",
-    "konva": "^10.9.0",
+    "konva": "^10.9.1",
     "qrcode": "^1.5.4",
     "react": "catalog:",
     "react-dom": "catalog:",
@@ -185,7 +190,7 @@
     "@mbe/config": "workspace:*",
     "@mbe/ui-quality-capture": "workspace:*",
     "@playwright/test": "^1.65.0",
-    "@sentry/vite-plugin": "^11.10.0",
+    "@sentry/vite-plugin": "^11.11.0",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "^14.6.8",
@@ -195,7 +200,7 @@
     "@types/react-dom": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "axe-core": "^4.14.0",
-    "fake-indexeddb": "^6.2.7",
+    "fake-indexeddb": "^6.2.8",
     "jsdom": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",

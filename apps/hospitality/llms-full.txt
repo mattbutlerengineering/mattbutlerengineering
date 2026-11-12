@@ -611,6 +611,28 @@
       return minute < opensAt ? minute + MINUTES_PER_DAY : minute;
     }
   </file>
+  <file path="src/components/availability/close-dialog-test-helpers.ts">
+    export function chooseWhen(name: string) {
+      fireEvent.click(within(dialog()).getByRole("combobox", { name: "When" }));
+      fireEvent.click(screen.getByRole("option", { name }));
+    }
+    export function openWhat() {
+      const change = within(dialog()).getByRole("button", { name: "Change" });
+      if (change.getAttribute("aria-expanded") !== "true") fireEvent.click(change);
+    }
+    export function chooseWhat(name: string) {
+      openWhat();
+      fireEvent.click(within(dialog()).getByRole("radio", { name }));
+    }
+    export function guestMessageField(): HTMLElement {
+      openNote();
+      return within(dialog()).getByLabelText(/Message for guests/);
+    }
+    export function openNote() {
+      const trigger = within(dialog()).getByRole("button", { name: "Add a note or message" });
+      if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
+    }
+  </file>
   <file path="src/components/availability/close-draft.ts">
     export type BookingChannel = "online" | "phone" | "waitlist";
     export type CloseWhat =
@@ -1123,12 +1145,52 @@
           );
       }
     }
+    export function closeIncompleteText(form: CloseForm, t: TFunction): string | null {
+      const { when } = form;
+      switch (when.kind) {
+        case "tonight":
+          return null;
+        case "date":
+          return when.date === "" ? t("availability.close.button.chooseDate") : null;
+        case "dates":
+          return when.dates.length === 0 ? t("availability.close.button.chooseDates") : null;
+        case "until-reopen":
+          return when.from === "" ? t("availability.close.button.chooseDate") : null;
+        case "range":
+          if (when.from === "") return t("availability.close.button.chooseDate");
+          return when.to === "" || when.to < when.from
+            ? t("availability.close.button.chooseEnd")
+            : null;
+        case "repeats": {
+          if (when.from === "") return t("availability.close.button.chooseDate");
+          const endMissing = when.to === "" || when.to < when.from;
+          if (when.weekdays.length === 0) {
+            return t(
+              endMissing
+                ? "availability.close.button.chooseDaysAndEnd"
+                : "availability.close.button.chooseDays"
+            );
+          }
+          if (endMissing) return t("availability.close.button.chooseEnd");
+          // Days chosen, but none of them falls between From and To: nothing would close.
+          return closedDates({
+            startsOn: when.from,
+            endsOn: when.to,
+            repeat: { version: 1, weekdays: [...when.weekdays] },
+          }).length === 0
+            ? t("availability.close.button.chooseDays")
+            : null;
+        }
+      }
+    }
     export function closeButtonText(
       draft: { readonly form: CloseForm; readonly date: string; readonly name: string | undefined },
       t: TFunction,
       format: CloseFormat
     ): string {
       const { form, name } = draft;
+      const incomplete = closeIncompleteText(form, t);
+      if (incomplete !== null) return incomplete;
       const { when } = form;
       const tonight = when.kind === "tonight";
       const oneDay = tonight || when.kind === "date";
@@ -1160,9 +1222,12 @@
         ? t("availability.close.button.closeTargetWhen", { target: name, when: phrase })
         : t("availability.close.button.closeWhen", { when: phrase });
     }
+    export type ToastOutcome = Readonly<
+      Record<"cancel" | "move" | "keep_notify" | "keep_silent", number>
+    >;
     export function closeToastText(
       draft: CloseToastDraft,
-      outcome: { readonly notified: number },
+      outcome: ToastOutcome,
       t: TFunction,
       format: CloseFormat
     ): string {
@@ -1206,9 +1271,12 @@
       };
     
       const sentence = base();
-      return outcome.notified > 0
-        ? t("availability.close.toast.withNotified", { text: sentence, count: outcome.notified })
-        : sentence;
+      const outcomes = OUTCOME_ORDER.filter((key) => outcome[key] > 0)
+        .map((key) => t(`availability.close.toast.outcome.${key}`, { count: outcome[key] }))
+        .join(" · ");
+      return outcomes === ""
+        ? sentence
+        : t("availability.close.toast.withOutcomes", { text: sentence, outcomes });
     }
   </file>
   <file path="src/components/availability/closed-all-day.ts">
@@ -2957,6 +3025,15 @@
       /** `null` follows the shared {@link QuickSetupDraft.days}. */
       readonly days: readonly number[] | null;
       readonly blocks: readonly HoursBlock[];
+      /**
+       * Set when a name chip moved the service off its preset times to follow the others (Late
+       * after Dinner), with the times it gave; while they are untouched a change of days re-places it.
+       */
+      readonly autoPlaced?: {
+        readonly preset: ServicePresetId;
+        readonly opens: string;
+        readonly closes: string;
+      };
     }
     export interface QuickSetupDraft {
       readonly services: readonly ServiceDraft[];
@@ -3442,9 +3519,10 @@
       return (day: number, weekday: "long" | "short" = "long") =>
         format.formatCalendarDate(addDays(SAMPLE_MONDAY, WEEK_DISPLAY_ORDER.indexOf(day)), { weekday });
     }
-    export const QuickSetupFixContext = createContext<
-      ((fix: { readonly serviceId: string; readonly opensAt: number }) => void) | null
-    >(null);
+    export type QuickSetupFix =
+      | { readonly kind: "time"; readonly serviceId: string; readonly opensAt: number }
+      | { readonly kind: "days"; readonly serviceId: string; readonly days: readonly number[] };
+    export const QuickSetupFixContext = createContext<((fix: QuickSetupFix) => void) | null>(null);
   </file>
   <file path="src/components/availability/quick-setup-line.ts">
     export type LineFormat = Pick<VenueFormat, "formatCalendarDate" | "formatLocalTime" | "locale">;
@@ -3516,9 +3594,10 @@
       preset: ServicePresetId,
       name: string
     ): ServiceDraft {
-      const service = draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
+      const { autoPlaced: _previous, ...service } =
+        draft.services.find((s) => s.id === serviceId) ?? emptyService(serviceId);
       const defaults = applyPreset(service, preset, name);
-      if (isClear(draft, defaults)) return defaults;
+      if (preset !== "late" || isClear(draft, defaults)) return defaults;
       const days = effectiveDays(draft, service);
       const closes = draft.services
         .filter((s) => s.id !== serviceId)
@@ -3539,7 +3618,34 @@
         closes: toClock(end),
         lastSeating: autoLastSeating(toClock(end), toClock(start)),
       };
-      return isClear(draft, placed) ? placed : defaults;
+      return isClear(draft, placed)
+        ? { ...placed, autoPlaced: { preset, opens: placed.opens, closes: placed.closes } }
+        : defaults;
+    }
+    export function setDaysAndReplace(
+      draft: QuickSetupDraft,
+      service: ServiceDraft,
+      days: readonly number[] | null
+    ): ServiceDraft {
+      const next = setServiceDays(service, days, draft.days);
+      const placed = service.autoPlaced;
+      if (!placed || service.opens !== placed.opens || service.closes !== placed.closes) return next;
+      return placePreset(replaceService(draft, next), next.id, placed.preset, next.name);
+    }
+    export type OverlapDayShortcut = "weekdays" | "weekends" | "fridaySaturday";
+    export function overlapDayFix(
+      draft: QuickSetupDraft,
+      serviceId: string
+    ): { readonly shortcut: OverlapDayShortcut; readonly days: readonly number[] } | null {
+      const service = draft.services.find((s) => s.id === serviceId);
+      if (!service) return null;
+      const current = effectiveDays(draft, service);
+      for (const { id, days } of DAY_FIX_SHORTCUTS) {
+        if (days.length >= current.length || !days.every((day) => current.includes(day))) continue;
+        const next = setServiceDays(service, days, draft.days);
+        if (isClear(draft, next)) return { shortcut: id, days };
+      }
+      return null;
     }
     export function moveServiceStart(service: ServiceDraft, opensAt: number): ServiceDraft {
       if (service.opens === null || service.closes === null) return service;
@@ -3586,6 +3692,8 @@
       /** `overlap` on some weekdays only: the weekday (0 = Sunday) and the service it overlaps. */
       readonly weekday?: number;
       readonly otherServiceId?: string;
+      /** An overlap said again on the other service's row (`overlapsAgainst`); it offers no fix there. */
+      readonly mirrored?: true;
     }
     interface IssueOwner {
       readonly serviceId: string;
@@ -3689,11 +3797,22 @@
               ...(block ? { blockId: block.id } : {}),
               field: "opens",
               code: "overlap",
-              ...(weekday !== undefined && other ? { weekday, otherServiceId: other.id } : {}),
+              ...(weekday !== undefined ? { weekday } : {}),
+              ...(other ? { otherServiceId: other.id } : {}),
             },
           ];
         });
       return [...overlaps, ...spanIssues(draft, options.legacyReader === true), ...daysIssue];
+    }
+    export function overlapsAgainst(
+      issues: readonly QuickSetupIssue[],
+      serviceId: string
+    ): QuickSetupIssue[] {
+      return issues.flatMap(({ blockId: _block, ...issue }) =>
+        issue.code === "overlap" && issue.otherServiceId === serviceId && issue.serviceId !== null
+          ? [{ ...issue, serviceId, otherServiceId: issue.serviceId, mirrored: true as const }]
+          : []
+      );
     }
     export function serviceLabel(
       draft: QuickSetupDraft,
@@ -3725,6 +3844,16 @@
         });
       }
       return t(`availability.quickSetup.issues.${issue.code}`);
+    }
+    export function previewOverlapReason(
+      issues: readonly QuickSetupIssue[],
+      draft: QuickSetupDraft,
+      t: TFunction,
+      weekdayName: (weekday: number) => string
+    ): string | null {
+      if (issues.length === 0 || issues.some((i) => i.code !== "overlap")) return null;
+      const first = issues[0];
+      return first ? issueMessage(first, draft, t, weekdayName) : null;
     }
     function spanIssues(draft: QuickSetupDraft, legacyReader: boolean): QuickSetupIssue[] {
       const read = normalizeLegacyHours(draftToLegacyHours(draft));
@@ -9176,6 +9305,126 @@
         source: "rows",
       };
     }
+    export interface LiveEventBus {
+      publish: (event: SseEventEntry) => void;
+      /** Number of events published so far. */
+      size: () => number;
+      /** Resolves once more than `count` events have been published. */
+      whenPast: (count: number) => Promise<void>;
+      /** Events at index `from` and later. */
+      since: (from: number) => readonly SseEventEntry[];
+    }
+    export function createLiveEventBus(): LiveEventBus {
+      const log: SseEventEntry[] = [];
+      const waiters = new Set<() => void>();
+      return {
+        publish: (event) => {
+          log.push(event);
+          for (const wake of [...waiters]) wake();
+        },
+        size: () => log.length,
+        whenPast: (count) =>
+          new Promise<void>((resolve) => {
+            const check = (): void => {
+              if (log.length > count) {
+                waiters.delete(check);
+                resolve();
+              }
+            };
+            waiters.add(check);
+            check();
+          }),
+        since: (from) => log.slice(from),
+      };
+    }
+    export async function mockLiveEventStream(page: Page, bus: LiveEventBus): Promise<void> {
+      let delivered = bus.size();
+      await page.route("**/api/v1/events/stream**", async (route) => {
+        await bus.whenPast(delivered);
+        const events = bus.since(delivered);
+        delivered += events.length;
+        const frames = [
+          `event: connected\ndata: ${JSON.stringify({ message: "Connected to event stream" })}\n\n`,
+          ...events.map((evt) => `event: ${evt.type}\ndata: ${JSON.stringify(evt.data)}\n\n`),
+        ];
+        // The page may have gone away while the request was held.
+        await route
+          .fulfill({
+            status: 200,
+            headers: { "content-type": "text/event-stream" },
+            body: frames.join(""),
+          })
+          .catch(() => undefined);
+      });
+    }
+    export type NightOfSignal = { kind: "running-late"; minutes: 5 | 15 | 30 } | { kind: "arrived" };
+    export interface NightOfReservation {
+      id: string;
+      startTime: string;
+      endTime: string;
+      partySize: number;
+      guestName: string;
+    }
+    export interface NightOfMock {
+      posted: readonly NightOfSignal[];
+    }
+    export async function mockNightOfManage(
+      page: Page,
+      bus: LiveEventBus,
+      reservation: NightOfReservation
+    ): Promise<NightOfMock> {
+      const posted: NightOfSignal[] = [];
+      const counts = { late: 0, arrived: 0 };
+      const ianaTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    
+      await page.route(/\/public\/v1\/reservations\/manage(\?.*)?$/, (route) =>
+        jsonOk(route, {
+          reservation: {
+            ...reservation,
+            date: localDay(),
+            guestEmail: null,
+            status: "CONFIRMED",
+            notes: null,
+          },
+          venue: { id: "ven_e2e_001", name: "E2E Test Bistro", slug: "e2e-test-bistro", ianaTimezone },
+          guestSignals: { ...counts },
+        })
+      );
+    
+      await page.route("**/public/v1/reservations/manage/signal", (route) => {
+        const signal = route.request().postDataJSON() as NightOfSignal;
+        posted.push(signal);
+        if (signal.kind === "arrived") counts.arrived += 1;
+        else counts.late += 1;
+        const data =
+          signal.kind === "arrived"
+            ? { reservationId: reservation.id, kind: signal.kind }
+            : {
+                reservationId: reservation.id,
+                kind: signal.kind,
+                minutes: signal.minutes,
+                eta: new Date(
+                  Date.parse(reservation.startTime) + signal.minutes * 60_000
+                ).toISOString(),
+              };
+        bus.publish({
+          type: "reservation:guest-signal",
+          data: {
+            type: "reservation:guest-signal",
+            venueId: "ven_e2e_001",
+            timestamp: new Date().toISOString(),
+            data,
+          },
+        });
+        return jsonOk(route, signal);
+      });
+    
+      return {
+        get posted() {
+          return posted;
+        },
+      };
+    }
   </file>
   <file path="e2e/auth-helpers.ts">
     export interface Auth0Config {
@@ -10906,7 +11155,7 @@
     export const EDITOR_SIGNATURES: Readonly<Record<ResourceType, (page: Page) => Locator>> = {
       weeklyHours: (page) => page.getByRole("combobox", { name: "Opens" }),
       services: (page) => page.getByRole("textbox", { name: /^Service name/ }),
-      specialDates: (page) => page.getByRole("dialog", { name: "Close", exact: true }),
+      specialDates: (page) => page.getByRole("dialog", { name: /^Close / }),
       booking: (page) => page.getByRole("dialog", { name: "Booking rules" }),
       floorPlan: (page) => page.getByRole("dialog", { name: /floor plan/i }),
       sections: (page) => page.getByRole("radiogroup", { name: "Room template" }),
@@ -12107,6 +12356,87 @@
           }),
         [accessToken, signInSilent]
       );
+    }
+  </file>
+  <file path="src/hooks/useArrivalAlerts.ts">
+    interface Party {
+      readonly name: string | null;
+      readonly size: number;
+    }
+    function toParty(value: unknown, reservationId: string): Party | null {
+      if (typeof value !== "object" || value === null) return null;
+      const r = value as { id?: unknown; guestName?: unknown; partySize?: unknown };
+      if (r.id !== reservationId || typeof r.partySize !== "number") return null;
+      return {
+        name: typeof r.guestName === "string" && r.guestName !== "" ? r.guestName : null,
+        size: r.partySize,
+      };
+    }
+    function findCachedParty(queryClient: QueryClient, reservationId: string): Party | null {
+      for (const [, data] of queryClient.getQueriesData<unknown>({
+        queryKey: [RESERVATIONS_QUERY_KEY],
+      })) {
+        const candidates: unknown[] = Array.isArray(data) ? data : [data];
+        for (const candidate of candidates) {
+          const party = toParty(candidate, reservationId);
+          if (party) return party;
+        }
+      }
+      return null;
+    }
+    export function useArrivalChimeMuted(): boolean {
+      return useSyncExternalStore(subscribeArrivalChimeMuted, isArrivalChimeMuted, () => false);
+    }
+    export function useArrivalAlerts(): void {
+      const queryClient = useQueryClient();
+      const api = useApiClient();
+      const { toast } = useToast();
+      const { t } = useTranslation();
+      const announcedRef = useRef(new Set<string>());
+    
+      const latestRef = useRef({ queryClient, api, toast, t });
+      useEffect(() => {
+        latestRef.current = { queryClient, api, toast, t };
+      });
+    
+      const onEvent = useCallback((event: SseEvent) => {
+        if (event.type !== "reservation:guest-signal" || event.data.kind !== "arrived") return;
+        const { reservationId } = event.data;
+        if (announcedRef.current.has(reservationId)) return;
+        announcedRef.current.add(reservationId);
+        if (announcedRef.current.size > MAX_REMEMBERED) {
+          const oldest = announcedRef.current.values().next().value;
+          if (oldest !== undefined) announcedRef.current.delete(oldest);
+        }
+    
+        if (!isArrivalChimeMuted()) playArrivalChime();
+    
+        void (async () => {
+          const { queryClient: qc, api: client } = latestRef.current;
+          let party = findCachedParty(qc, reservationId);
+          if (!party) {
+            try {
+              party = toParty(await client.reservations.get(reservationId), reservationId);
+            } catch {
+              party = null; // already reported by useApiClient's onError
+            }
+          }
+          const { toast: show, t: translate } = latestRef.current;
+          show({
+            title: translate("arrivalAlerts.title"),
+            description: party
+              ? translate("arrivalAlerts.description", {
+                  name: party.name ?? translate("reservations.guestFallback"),
+                  size: party.size,
+                })
+              : translate("arrivalAlerts.descriptionUnknown"),
+            variant: "accent",
+            duration: 8000,
+          });
+        })();
+      }, []);
+    
+      useSSEEventListener(onEvent);
     }
   </file>
   <file path="src/hooks/useAvailability.ts">
@@ -13390,6 +13720,28 @@
       return { result, isLoading, error, recognize };
     }
   </file>
+  <file path="src/hooks/useGuestSignalBadges.ts">
+    export function useGuestSignalBadges(
+      reservations: readonly Pick<Reservation, "id" | "status" | "startTime">[],
+      seatedIds: ReadonlySet<string>,
+      now: Date
+    ): ReadonlyMap<string, GuestSignalBadge> {
+      const signals = useGuestSignals();
+      return useMemo(() => {
+        const badges = new Map<string, GuestSignalBadge>();
+        for (const reservation of reservations) {
+          const badge = deriveGuestSignalBadge({
+            signal: signals.get(reservation.id),
+            reservation,
+            seated: seatedIds.has(reservation.id),
+            now,
+          });
+          if (badge) badges.set(reservation.id, badge);
+        }
+        return badges;
+      }, [reservations, signals, seatedIds, now]);
+    }
+  </file>
   <file path="src/hooks/useGuests.ts">
     export const GUESTS_QUERY_KEY = "guests" as const;
     export const GUEST_SEGMENTS_QUERY_KEY = "guestSegments" as const;
@@ -14119,6 +14471,28 @@
       }, []);
     
       return { status, announce };
+    }
+  </file>
+  <file path="src/hooks/useTableGuestSignalBadges.ts">
+    export function useTableGuestSignalBadges(
+      venueId: string | undefined
+    ): ReadonlyMap<string, GuestSignalBadge> {
+      const now = useNow();
+      const tonight = useStaffTonight(venueId);
+      const { data } = useReservations({
+        venueId,
+        date: tonight.serviceDate ?? deviceDate(now),
+        limit: 200,
+        enabled: !!venueId,
+      });
+      const { data: tables } = useTables({ venueId, limit: 100, enabled: !!venueId });
+      const reservations = useMemo(() => data ?? [], [data]);
+      const seatedIds = useMemo(
+        () => seatedReservationIds(reservations, tables ?? [], now),
+        [reservations, tables, now]
+      );
+      const badges = useGuestSignalBadges(reservations, seatedIds, now);
+      return useMemo(() => badgesByTableId(reservations, badges), [reservations, badges]);
     }
   </file>
   <file path="src/hooks/useTables.ts">
@@ -15210,6 +15584,77 @@
   </file>
   </section>
   <section priority="medium" role="lib">
+  <file path="src/lib/arrival-chime.ts">
+    export const ARRIVAL_CHIME_MUTED_KEY = "mbe-hospitality-arrival-chime-muted";
+    export function isArrivalChimeMuted(): boolean {
+      try {
+        return localStorage.getItem(ARRIVAL_CHIME_MUTED_KEY) === "true";
+      } catch {
+        return false;
+      }
+    }
+    function persistMuted(muted: boolean): boolean {
+      try {
+        localStorage.setItem(ARRIVAL_CHIME_MUTED_KEY, String(muted));
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    export function setArrivalChimeMuted(muted: boolean): boolean {
+      const persisted = persistMuted(muted);
+      for (const listener of listeners) listener();
+      return persisted;
+    }
+    export function subscribeArrivalChimeMuted(listener: () => void): () => void {
+      listeners.add(listener);
+      const onStorage = (event: StorageEvent) => {
+        if (event.key === ARRIVAL_CHIME_MUTED_KEY || event.key === null) listener();
+      };
+      window.addEventListener("storage", onStorage);
+      return () => {
+        listeners.delete(listener);
+        window.removeEventListener("storage", onStorage);
+      };
+    }
+    function getAudioContext(): AudioContext | null {
+      if (audioContext) return audioContext;
+      const Ctor: typeof AudioContext | undefined =
+        typeof AudioContext === "undefined" ? undefined : AudioContext;
+      if (!Ctor) return null;
+      audioContext = new Ctor();
+      return audioContext;
+    }
+    export function resetArrivalChimeAudioForTests(): void {
+      audioContext = null;
+    }
+    export function playArrivalChime(): boolean {
+      try {
+        const ctx = getAudioContext();
+        if (!ctx) return false;
+        if (ctx.state === "suspended") {
+          ctx.resume().catch(() => undefined);
+        }
+        const start = ctx.currentTime;
+        for (const { hz, offset } of NOTES) {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(hz, start + offset);
+          gain.gain.setValueAtTime(0.0001, start + offset);
+          gain.gain.linearRampToValueAtTime(PEAK_GAIN, start + offset + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + offset + NOTE_SECONDS);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(start + offset);
+          osc.stop(start + offset + NOTE_SECONDS);
+        }
+        return true;
+      } catch {
+        return false; // blocked or unsupported audio must never break the SSE handler
+      }
+    }
+  </file>
   <file path="src/lib/describe-api-error.ts">
     export type ApiErrorCategory = ErrorCategory | "network" | "timeout";
     export type ErrorRecovery = "retry" | "edit" | "sign-in" | "refresh" | "none";
@@ -16853,6 +17298,73 @@
   </file>
   </section>
   <section priority="medium" role="timeline">
+  <file path="src/components/timeline/guest-signal-badge.ts">
+    export interface GuestSignalBadge {
+      /** How late the guest said they would be. */
+      minutes: number;
+      /** The expected arrival: the reservation start + `minutes`, as a UTC ISO instant. */
+      eta: string;
+      /**
+       * The table is held for the party: true until the ETA. A late signal can be sent up to 45
+       * minutes after the start, so its ETA may already be past on arrival; the plan does not define
+       * that case, so it is handled as "held = false": the guest told us they are coming (the badge
+       * stays, announced as past ETA) but nothing says the table is still reserved for them.
+       */
+      held: boolean;
+    }
+    export type GuestSignals = ReadonlyMap<string, GuestSignalEventData>;
+    export function reduceGuestSignals(signals: GuestSignals, event: SseEvent): GuestSignals {
+      if (event.type === "reservation:guest-signal") {
+        const next = new Map(signals);
+        next.set(event.data.reservationId, event.data);
+        return next;
+      }
+      if (CLEARING_EVENTS.has(event.type)) {
+        const id = (event.data as Partial<Pick<Reservation, "id">> | null)?.id;
+        if (id === undefined || !signals.has(id)) return signals;
+        const next = new Map(signals);
+        next.delete(id);
+        return next;
+      }
+      return signals;
+    }
+    export interface GuestSignalBadgeInput {
+      signal: GuestSignalEventData | undefined;
+      reservation: Pick<Reservation, "status" | "startTime">;
+      /** The party is on its table now. */
+      seated: boolean;
+      now: Date;
+    }
+    export function deriveGuestSignalBadge({
+      signal,
+      reservation,
+      seated,
+      now,
+    }: GuestSignalBadgeInput): GuestSignalBadge | null {
+      if (!signal || signal.kind !== "running-late" || seated) return null;
+      if (reservation.status !== "CONFIRMED") return null;
+      const { minutes, eta } = signal;
+      if (minutes === undefined || eta === undefined) return null;
+      const etaMs = new Date(eta).getTime();
+      const startMs = new Date(reservation.startTime).getTime();
+      if (Number.isNaN(etaMs) || Number.isNaN(startMs)) return null;
+      if (startMs + minutes * 60_000 !== etaMs) return null;
+      return { minutes, eta, held: now.getTime() < etaMs };
+    }
+    export function badgesByTableId(
+      reservations: readonly Pick<Reservation, "id" | "tableId">[],
+      badges: ReadonlyMap<string, GuestSignalBadge>
+    ): ReadonlyMap<string, GuestSignalBadge> {
+      const byTable = new Map<string, GuestSignalBadge>();
+      for (const reservation of reservations) {
+        const badge = badges.get(reservation.id);
+        if (!badge) continue;
+        const existing = byTable.get(reservation.tableId);
+        if (!existing || badge.eta < existing.eta) byTable.set(reservation.tableId, badge);
+      }
+      return byTable;
+    }
+  </file>
   <file path="src/components/timeline/reservationLayout.ts">
     export interface ReservationLayoutParams {
       startHour: number;
@@ -17377,6 +17889,28 @@
     };
     export const DINNER_TZ = "America/Los_Angeles";
   </file>
+  <file path="src/utils/directions-url.ts">
+    export function buildDirectionsUrl(
+      venueName: string,
+      address: ManagedVenueAddress | undefined
+    ): string {
+      const parts = address
+        ? [
+            venueName,
+            address.line1,
+            address.line2,
+            address.city,
+            `${address.region} ${address.postalCode}`,
+            address.country,
+          ]
+        : [venueName];
+      const params = new URLSearchParams({
+        api: "1",
+        query: parts.filter((part): part is string => Boolean(part)).join(", "),
+      });
+      return `${MAPS_SEARCH_URL}?${params.toString()}`;
+    }
+  </file>
   <file path="src/utils/format.ts">
     function defaultReport(timeZone: string): void {
       console.warn(`Invalid IANA time zone "${timeZone}"; falling back to the device zone.`);
@@ -17553,6 +18087,58 @@
     }
     export function sameTimeZone(a: string, b: string): boolean {
       return canonicalTimeZone(a) === canonicalTimeZone(b);
+    }
+    export function formatDurationLabel(ms: number, locale: string): string {
+      const totalMinutes = Math.floor(Math.abs(ms) / MINUTE_MS);
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      const unit = (value: number, name: "hour" | "minute"): string =>
+        new Intl.NumberFormat(locale, { style: "unit", unit: name, unitDisplay: "short" }).format(
+          value
+        );
+      const parts = [
+        ...(hours > 0 ? [unit(hours, "hour")] : []),
+        ...(minutes > 0 || hours === 0 ? [unit(minutes, "minute")] : []),
+      ];
+      return new Intl.ListFormat(locale, { type: "unit", style: "narrow" }).format(parts);
+    }
+  </file>
+  <file path="src/utils/guest-signal.ts">
+    export const MAX_LATE_SIGNALS = 3;
+    export const MAX_ARRIVED_SIGNALS = 1;
+    export interface GuestSignalAvailabilityInput {
+      status: string;
+      /** Reservation start instant (ISO string). */
+      startTime: string;
+      /** Venue IANA timezone; "today" is decided in it. */
+      timezone: string;
+      now: Date;
+      priorSignals: { late: number; arrived: number };
+    }
+    export interface GuestSignalAvailability {
+      readonly lateAllowed: boolean;
+      readonly arrivedAllowed: boolean;
+      /** Why neither can be sent (a cap only disables its own button); null when the booking and clock allow signals. */
+      readonly reason: "not-confirmed" | "outside-window" | null;
+    }
+    export function guestSignalAvailability(
+      input: GuestSignalAvailabilityInput
+    ): GuestSignalAvailability {
+      if (input.status !== "CONFIRMED") {
+        return { lateAllowed: false, arrivedAllowed: false, reason: "not-confirmed" };
+      }
+      const start = new Date(input.startTime);
+      const delta = input.now.getTime() - start.getTime();
+      const inWindow =
+        delta >= -SIGNAL_WINDOW_BEFORE_MS &&
+        delta <= SIGNAL_WINDOW_AFTER_MS &&
+        venueDate(input.now, input.timezone) === venueDate(start, input.timezone);
+      if (!inWindow) return { lateAllowed: false, arrivedAllowed: false, reason: "outside-window" };
+      return {
+        lateAllowed: input.priorSignals.late < MAX_LATE_SIGNALS,
+        arrivedAllowed: input.priorSignals.arrived < MAX_ARRIVED_SIGNALS,
+        reason: null,
+      };
     }
   </file>
   <file path="src/utils/ics.ts">

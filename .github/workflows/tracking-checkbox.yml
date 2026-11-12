@@ -12,6 +12,9 @@ name: Tracking Checklist
 # task list deliberately — NOT a GraphQL sub-issue relationship — because
 # the markdown list is the artifact humans and /ideate actually read, and
 # it is the one that was going stale.
+#
+# When a child's close leaves every task line ticked, the script also closes
+# the tracking issue (#8742); ideation batches are left to /ideate's sweep.
 
 on:
   issues:

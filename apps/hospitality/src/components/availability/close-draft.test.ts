@@ -25,7 +25,12 @@ import {
   withoutChoicesFor,
   type CloseForm,
 } from "./close-draft.js";
-import { closeButtonText, closeToastText } from "./close-text.js";
+import {
+  closeButtonText,
+  closeIncompleteText,
+  closeToastText,
+  type ToastOutcome,
+} from "./close-text.js";
 
 const TODAY = "2026-12-01";
 
@@ -816,11 +821,16 @@ describe("closeToastText (ux.md F4.7)", () => {
     form({ when: { kind: "date", date: "2026-12-24" }, ...patch });
   const text = (
     f: CloseForm,
-    extra: { notified?: number; name?: string; count?: number; date?: string } = {}
+    extra: {
+      outcome?: Partial<ToastOutcome>;
+      name?: string;
+      count?: number;
+      date?: string;
+    } = {}
   ) =>
     closeToastText(
       { form: f, date: extra.date ?? "2026-12-24", count: extra.count ?? 1, name: extra.name },
-      { notified: extra.notified ?? 0 },
+      { cancel: 0, move: 0, keep_notify: 0, keep_silent: 0, ...extra.outcome },
       defaultT,
       fmt
     );
@@ -936,8 +946,8 @@ describe("closeToastText (ux.md F4.7)", () => {
 
     it("names several weekdays as a summary and keeps the notified count", () => {
       const days = { ...repeats, weekdays: [1, 2, 3, 5] };
-      expect(text(base({ when: days }), { date: "2027-01-04", notified: 2 })).toBe(
-        "Closed every Mon–Wed and Fri, Mon, Jan 4 – Fri, Jan 29 · 2 reservations notified"
+      expect(text(base({ when: days }), { date: "2027-01-04", outcome: { cancel: 2 } })).toBe(
+        "Closed every Mon–Wed and Fri, Mon, Jan 4 – Fri, Jan 29 · 2 bookings cancelled and notified"
       );
     });
   });
@@ -959,14 +969,24 @@ describe("closeToastText (ux.md F4.7)", () => {
     );
   });
 
-  it("adds the reservations notified", () => {
-    expect(text(base({}), { notified: 14 })).toBe(
-      "Closed on Thu, Dec 24 · 14 reservations notified"
+  it("says what became of the bookings: cancelled, moved or kept (#8689)", () => {
+    expect(text(base({}), { outcome: { cancel: 14 } })).toBe(
+      "Closed on Thu, Dec 24 · 14 bookings cancelled and notified"
     );
-    expect(text(base({}), { notified: 1 })).toBe("Closed on Thu, Dec 24 · 1 reservation notified");
+    expect(text(base({}), { outcome: { cancel: 1 } })).toBe(
+      "Closed on Thu, Dec 24 · 1 booking cancelled and notified"
+    );
     expect(
-      text(base({ what: { kind: "service", serviceId: "s" } }), { name: "Lunch", notified: 2 })
-    ).toBe("Lunch closed on Thu, Dec 24 · 2 reservations notified");
+      text(base({ what: { kind: "service", serviceId: "s" } }), {
+        name: "Lunch",
+        outcome: { move: 2 },
+      })
+    ).toBe("Lunch closed on Thu, Dec 24 · 2 bookings moved and notified");
+    expect(
+      text(base({}), { outcome: { cancel: 3, move: 2, keep_notify: 1, keep_silent: 4 } })
+    ).toBe(
+      "Closed on Thu, Dec 24 · 3 bookings cancelled and notified · 2 bookings moved and notified · 1 booking kept, guest notified · 4 bookings kept, guests not told"
+    );
   });
 });
 
@@ -1048,5 +1068,67 @@ describe("closeButtonText (ux.md S-Close, R4, R6)", () => {
         "Close from 1:00 PM on Sun, Nov 8 until you reopen"
       );
     });
+  });
+});
+
+describe("a closure that is not one yet says what is missing (#8689)", () => {
+  const locale = "en-US";
+  const fmt = {
+    formatCalendarDate: (d: string, o: Intl.DateTimeFormatOptions) =>
+      formatCalendarDate(d, o, locale),
+    formatLocalTime: (hhmm: string) => formatLocalTime(hhmm, locale),
+    locale,
+  };
+  const whats: readonly CloseForm["what"][] = [
+    { kind: "venue" },
+    { kind: "service", serviceId: "s" },
+    { kind: "section", sectionId: "sec" },
+    { kind: "booking", types: ["online"] },
+  ];
+  /** Every When with its fields empty or half filled, and what the primary should ask for. */
+  const incomplete: readonly (readonly [CloseForm["when"], string])[] = [
+    [{ kind: "date", date: "" }, "Choose a date"],
+    [{ kind: "dates", dates: [] }, "Choose dates"],
+    [{ kind: "until-reopen", from: "" }, "Choose a date"],
+    [{ kind: "range", from: "", to: "" }, "Choose a date"],
+    [{ kind: "range", from: "2026-12-24", to: "" }, "Choose an end date"],
+    [{ kind: "repeats", weekdays: [], from: "", to: "" }, "Choose a date"],
+    [{ kind: "repeats", weekdays: [], from: "2026-12-24", to: "" }, "Choose days and an end date"],
+    [{ kind: "repeats", weekdays: [], from: "2026-12-24", to: "2027-01-31" }, "Choose days"],
+    [{ kind: "repeats", weekdays: [1], from: "2026-12-24", to: "" }, "Choose an end date"],
+    // Thursday to Saturday holds no Monday: nothing would close.
+    [{ kind: "repeats", weekdays: [1], from: "2026-12-24", to: "2026-12-26" }, "Choose days"],
+  ];
+
+  for (const what of whats) {
+    for (const [when, expected] of incomplete) {
+      for (const fromMinute of [null, 1290]) {
+        it(`${what.kind} / ${when.kind} ${JSON.stringify(when)} from ${fromMinute}: "${expected}"`, () => {
+          const f = form({ what, when, fromMinute });
+          const label = closeButtonText(
+            { form: f, date: "", name: what.kind === "venue" ? undefined : "Name" },
+            defaultT,
+            fmt
+          );
+          expect(label).toBe(expected);
+          expect(label).not.toContain("Invalid Date");
+          expect(label).not.toContain("every ,");
+          expect(closeIncompleteText(f, defaultT)).toBe(expected);
+        });
+      }
+    }
+  }
+
+  it("is silent once the dates are complete", () => {
+    for (const when of [
+      { kind: "tonight" },
+      { kind: "date", date: "2026-12-24" },
+      { kind: "dates", dates: ["2026-12-24"] },
+      { kind: "range", from: "2026-12-24", to: "2026-12-26" },
+      { kind: "repeats", weekdays: [4], from: "2026-12-24", to: "2026-12-31" },
+      { kind: "until-reopen", from: "2026-12-24" },
+    ] as const) {
+      expect(closeIncompleteText(form({ when }), defaultT)).toBeNull();
+    }
   });
 });

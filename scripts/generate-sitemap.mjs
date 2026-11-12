@@ -7,7 +7,7 @@
  *   rialto-web → "/" plus every PAGE_REGISTRY route (the paths of
  *                REGISTRY_SITEMAP_PATHS, derived via the shared `derivePath`),
  *                served under the /rialto/ mount
- *   hospitality → its own app; listed as a fixed entry
+ *   hospitality, gen, /rialto/demos/ → fixed entries
  *
  * Deterministic: entries are sorted, no <lastmod>, no timestamps.
  *
@@ -38,8 +38,13 @@ export function collectEntries(marketingRows, rialtoRows) {
       path: r.route === "/" ? "/rialto/" : `/rialto${toPath(r.route)}`,
       priority: r.route === "/" ? "0.8" : "0.6",
     }));
-  const hospitality = [{ path: "/hospitality", priority: "0.8" }];
-  const all = [...marketing, ...rialto, ...hospitality];
+  // Separate apps / demo index: not derivable from the route inventory.
+  const fixed = [
+    { path: "/gen/", priority: "0.8" },
+    { path: "/hospitality", priority: "0.8" },
+    { path: "/rialto/demos/", priority: "0.6" },
+  ];
+  const all = [...marketing, ...rialto, ...fixed];
   return [...new Map(all.map((e) => [e.path, e])).values()].sort((a, b) =>
     a.path < b.path ? -1 : a.path > b.path ? 1 : 0
   );

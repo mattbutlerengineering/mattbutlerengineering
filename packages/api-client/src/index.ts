@@ -47,12 +47,17 @@ export type { SystemHealth, ServiceHealth } from "./health.js";
 export { HealthClient } from "./health.js";
 export type {
   ManageReservationData,
+  InviteData,
+  ManagedInviteSummary,
+  InviteRsvp,
   ManagedRebookOffer,
   ManagedVenueCancellation,
   RebookedReservation,
   ManagedReservation,
   ManagedReservationChanges,
   ManagedReservationVenue,
+  ManagedVenueAddress,
+  GuestSignal,
 } from "./reservations.js";
 
 import { ApiClient } from "./client.js";

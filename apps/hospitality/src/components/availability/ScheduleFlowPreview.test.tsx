@@ -390,6 +390,34 @@ describe("what the preview says when it has nothing to show (#7982 review)", () 
     await waitFor(() => expect(lastBody()).toBeDefined(), WAIT);
     expect(lastBody().partySize).toBe(4);
   });
+
+  it("names the overlap instead of saying fields are missing, when none are", async () => {
+    render(
+      withClient(
+        <ChangeRegularWeekDrawer
+          venueId="venue-1"
+          state={stateOf()}
+          today="2026-10-25"
+          onStale={vi.fn()}
+          onClose={vi.fn()}
+        />
+      )
+    );
+    fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-03" } });
+    fireEvent.change(screen.getByLabelText("Ending"), { target: { value: "2026-11-30" } });
+    fireEvent.change(screen.getByLabelText(/Schedule name/), { target: { value: "Winter" } });
+    await screen.findByText("Guest preview", {}, WAIT);
+    fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
+    const rows = screen.getAllByRole("group", { name: /^Service \d$/ });
+    fireEvent.click(within(rows[2]!).getByRole("button", { name: "Brunch" }));
+    const statuses = await waitFor(() => {
+      const found = screen.getAllByRole("status").map((el) => el.textContent ?? "");
+      if (!found.some((text) => /overlaps/.test(text))) throw new Error("not yet");
+      return found;
+    }, WAIT);
+    expect(statuses.some((text) => /overlaps/.test(text))).toBe(true);
+    expect(statuses.some((text) => /Fill in the required fields/.test(text))).toBe(false);
+  });
 });
 
 describe("Compare's Save (#7982 review)", () => {

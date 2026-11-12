@@ -40,6 +40,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { CloseDialog } from "./CloseDialog.js";
+import { guestMessageField } from "./close-dialog-test-helpers.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 /** Dec 24 to 26, whole venue, with a message: the closure being edited. */
@@ -128,13 +129,8 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
     renderEdit();
     const dialog = screen.getByRole("dialog", { name: "Edit closure" });
 
-    expect(within(dialog).getByRole("radio", { name: "Date range" })).toHaveProperty(
-      "checked",
-      true
-    );
-    expect(within(dialog).getByLabelText(/Message for guests/)).toHaveValue(
-      "Closed for the holidays"
-    );
+    expect(within(dialog).getByRole("combobox", { name: "When" })).toHaveTextContent("Date range");
+    expect(guestMessageField()).toHaveValue("Closed for the holidays");
     expect(asked.alongside).toEqual({ upsert: [], remove: ["range-1"], replaces: RANGE });
     // The draft is a new closure, never the saved id: the saved one goes in the same save.
     expect(asked.rule).toMatchObject({
@@ -148,12 +144,9 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
   it("offers One date, Date range and Until I reopen, never Tonight, Several dates or Repeats", () => {
     renderEdit();
     const dialog = screen.getByRole("dialog");
-    for (const name of ["One date", "Date range", "Until I reopen"]) {
-      expect(within(dialog).getByRole("radio", { name })).toBeInTheDocument();
-    }
-    expect(within(dialog).queryByRole("radio", { name: "Repeats" })).toBeNull();
-    expect(within(dialog).queryByRole("radio", { name: "Tonight" })).toBeNull();
-    expect(within(dialog).queryByRole("radio", { name: "Several dates" })).toBeNull();
+    fireEvent.click(within(dialog).getByRole("combobox", { name: "When" }));
+    const offered = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(offered).toEqual(["One date", "Date range", "Until I reopen"]);
   });
 
   it("saves with nothing to decide, replacing the saved closure, and hands the change over for Undo", async () => {

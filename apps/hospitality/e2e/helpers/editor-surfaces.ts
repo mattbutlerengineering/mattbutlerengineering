@@ -21,7 +21,7 @@ export type ResourceType = (typeof RESOURCE_TYPES)[number];
 export const EDITOR_SIGNATURES: Readonly<Record<ResourceType, (page: Page) => Locator>> = {
   weeklyHours: (page) => page.getByRole("combobox", { name: "Opens" }),
   services: (page) => page.getByRole("textbox", { name: /^Service name/ }),
-  specialDates: (page) => page.getByRole("dialog", { name: "Close", exact: true }),
+  specialDates: (page) => page.getByRole("dialog", { name: /^Close / }),
   booking: (page) => page.getByRole("dialog", { name: "Booking rules" }),
   floorPlan: (page) => page.getByRole("dialog", { name: /floor plan/i }),
   sections: (page) => page.getByRole("radiogroup", { name: "Room template" }),
