@@ -300,6 +300,23 @@
       export function lastSeatingFromClock(clock: string, opensAt: number): number { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/close-dialog-test-helpers.ts">
+    <item priority="high">
+      export function chooseWhen(name: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function openWhat() { /* ... */ }
+    </item>
+    <item priority="high">
+      export function chooseWhat(name: string) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function guestMessageField(): HTMLElement { /* ... */ }
+    </item>
+    <item priority="high">
+      export function openNote() { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/close-draft.ts">
     <item priority="low">
       type BookingChannel = "online" | "phone" | "waitlist";
@@ -553,16 +570,23 @@
       ): string { /* ... */ }
     </item>
     <item priority="high">
+      export function closeIncompleteText(form: CloseForm, t: TFunction): string | null { /* ... */ }
+    </item>
+    <item priority="high">
       export function closeButtonText(
         draft: { readonly form: CloseForm; readonly date: string; readonly name: string | undefined },
         t: TFunction,
         format: CloseFormat
       ): string { /* ... */ }
     </item>
+    <item priority="low">
+      type ToastOutcome = Readonly<
+        Record<"cancel" | "move" | "keep_notify" | "k...;
+    </item>
     <item priority="high">
       export function closeToastText(
         draft: CloseToastDraft,
-        outcome: { readonly notified: number },
+        outcome: ToastOutcome,
         t: TFunction,
         format: CloseFormat
       ): string { /* ... */ }

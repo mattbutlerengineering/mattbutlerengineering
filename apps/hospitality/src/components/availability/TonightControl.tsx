@@ -588,6 +588,7 @@ export function TonightControl(props: TonightControlProps) {
           timezone={timezone}
           today={today}
           initialDate={null}
+          startTonight
           hostLocked={viewerRole === "host"}
           onClose={() => setClosing(false)}
         />

@@ -577,16 +577,15 @@ describe("AvailabilityPage", () => {
 
     it("opens a Manager's Close dialog on the section ?closeSection= names", () => {
       renderPage("/availability?closeSection=sec-bar");
-      const dialog = screen.getByRole("dialog", { name: /^Close$/ });
-      expect(within(dialog).getByRole("radio", { name: "One section" })).toBeChecked();
-      expect(within(dialog).getByRole("combobox", { name: "Section" })).toHaveTextContent("Bar");
+      const dialog = screen.getByRole("dialog", { name: /^Close / });
+      expect(within(dialog).getByText("One section: Bar")).toBeInTheDocument();
     });
 
     it("opens the Close dialog with no preselection for a section the venue lacks", () => {
       renderPage("/availability?closeSection=gone");
-      const dialog = screen.getByRole("dialog", { name: /^Close$/ });
-      expect(within(dialog).getByRole("radio", { name: "Whole venue" })).toBeChecked();
-      expect(within(dialog).getByRole("radio", { name: "One section" })).not.toBeChecked();
+      const dialog = screen.getByRole("dialog", { name: /^Close / });
+      expect(within(dialog).getByText("Whole venue")).toBeInTheDocument();
+      expect(within(dialog).queryByText(/^One section/)).not.toBeInTheDocument();
     });
 
     it("opens no Close dialog for a Host", () => {
@@ -848,9 +847,9 @@ describe("AvailabilityPage", () => {
       expect(
         screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
-      expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: /^Close / })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
-      expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: /^Close / })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
     });
 
@@ -859,7 +858,7 @@ describe("AvailabilityPage", () => {
       startDraft();
       closeFromDrawer();
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
-      expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: /^Close / })).toBeInTheDocument();
       await waitFor(
         () =>
           expect(
@@ -873,7 +872,7 @@ describe("AvailabilityPage", () => {
       renderPage();
       openFriday();
       closeFromDrawer();
-      expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
+      expect(screen.getByRole("dialog", { name: /^Close / })).toBeInTheDocument();
     });
   });
 
@@ -888,7 +887,7 @@ describe("AvailabilityPage", () => {
   it("lets a Manager open the Close dialog", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Close…" }));
-    expect(screen.getByRole("dialog", { name: "Close" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /^Close / })).toBeInTheDocument();
   });
 
   it("hides Close from a Host", () => {
@@ -914,8 +913,10 @@ describe("AvailabilityPage", () => {
       pick(/Friday, October 30/);
       const bar = screen.getByRole("group", { name: "Selected dates" });
       fireEvent.click(within(bar).getByRole("button", { name: "Close…" }));
-      const dialog = screen.getByRole("dialog", { name: "Close" });
-      expect(within(dialog).getByRole("radio", { name: "Several dates" })).toBeChecked();
+      const dialog = screen.getByRole("dialog", { name: /^Close / });
+      expect(within(dialog).getByRole("combobox", { name: "When" })).toHaveTextContent(
+        "Several dates"
+      );
       expect(within(dialog).getByText("Thu, Oct 29")).toBeInTheDocument();
       expect(within(dialog).getByText("Fri, Oct 30")).toBeInTheDocument();
       expect(within(dialog).getByRole("button", { name: "Close 2 dates" })).toBeInTheDocument();

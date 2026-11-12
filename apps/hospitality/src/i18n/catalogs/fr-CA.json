@@ -2729,7 +2729,7 @@
     },
     "close": {
       "open": "Fermer…",
-      "title": "Fermer",
+      "title": "Fermer l'établissement",
       "edit": {
         "title": "Modifier la fermeture",
         "save": "Enregistrer les modifications",
@@ -2792,16 +2792,17 @@
         "pickService": "Service",
         "section": "Une section",
         "pickSection": "Section",
-        "noSections": "Ajoutez d’abord une section à votre plan de salle",
-        "openFloorPlan": "Ouvrir le plan de salle",
-        "sectionsFailed": "Impossible de charger les sections.",
         "booking": "Réservations seulement",
         "channel": {
           "online": "En ligne",
           "phone": "Téléphone",
           "waitlist": "Liste d'attente"
         },
-        "channelRequired": "Choisissez au moins un mode de réservation."
+        "channelRequired": "Choisissez au moins un mode de réservation.",
+        "change": "Modifier",
+        "summaryService": "Un service : {{name}}",
+        "summarySection": "Une section : {{name}}",
+        "summaryBooking": "Réservations seulement"
       },
       "when": {
         "label": "Quand",
@@ -2825,7 +2826,9 @@
         "tomorrow": "Demain",
         "quickDates": "Dates rapides",
         "holidayChip": "{{name}} · {{date}}",
-        "endRequired": "Choisissez une date de fin pour fermer."
+        "holidayLabel": "Jour férié",
+        "holidayPlaceholder": "Choisir un jour férié",
+        "endOptionalLabel": "Date de fin (facultatif)"
       },
       "window": {
         "label": "À partir de",
@@ -2890,7 +2893,12 @@
         "closeWhen": "Fermer {{when}}",
         "closeTargetWhen": "Fermer {{target}} {{when}}",
         "closeFromWhen": "Fermer à partir de {{time}} {{when}}",
-        "closeTargetFromWhen": "Fermer {{target}} à partir de {{time}} {{when}}"
+        "closeTargetFromWhen": "Fermer {{target}} à partir de {{time}} {{when}}",
+        "chooseDate": "Choisir une date",
+        "chooseDates": "Choisir des dates",
+        "chooseEnd": "Choisir une date de fin",
+        "chooseDays": "Choisir les jours",
+        "chooseDaysAndEnd": "Choisir les jours et une date de fin"
       },
       "toast": {
         "paused": "Réservations en ligne en pause",
@@ -2916,9 +2924,6 @@
           "phone_waitlist": "Réservations par téléphone et de la liste d'attente",
           "all": "Toutes les réservations"
         },
-        "withNotified_one": "{{text}} · {{count}} réservation avisée",
-        "withNotified_other": "{{text}} · {{count}} réservations avisées",
-        "withNotified_many": "{{text}} · {{count}} réservations avisées",
         "closed": "Fermé {{when}}",
         "namedClosed": "{{name}} fermé {{when}}",
         "namedClosedFrom": "{{name}} fermé à partir de {{time}} {{when}}",
@@ -2934,6 +2939,21 @@
           "tonight": "ce soir",
           "range": "du {{from}} au {{to}}",
           "untilReopen": "le {{date}} jusqu'à la réouverture"
+        },
+        "withOutcomes": "{{text}} · {{outcomes}}",
+        "outcome": {
+          "cancel_one": "{{count}} réservation annulée et avisée",
+          "cancel_other": "{{count}} réservations annulées et avisées",
+          "cancel_many": "{{count}} réservations annulées et avisées",
+          "move_one": "{{count}} réservation déplacée et avisée",
+          "move_other": "{{count}} réservations déplacées et avisées",
+          "move_many": "{{count}} réservations déplacées et avisées",
+          "keep_notify_one": "{{count}} réservation gardée, client avisé",
+          "keep_notify_other": "{{count}} réservations gardées, clients avisés",
+          "keep_notify_many": "{{count}} réservations gardées, clients avisés",
+          "keep_silent_one": "{{count}} réservation gardée, client non avisé",
+          "keep_silent_other": "{{count}} réservations gardées, clients non avisés",
+          "keep_silent_many": "{{count}} réservations gardées, clients non avisés"
         }
       },
       "step2": {
@@ -2996,6 +3016,11 @@
         "serviceClosedFrom": "{{service}} fermé à partir de {{time}}",
         "sectionClosed": "{{section}} fermée",
         "sectionClosedFrom": "{{section}} fermée à partir de {{time}}"
+      },
+      "titleTarget": "Fermer {{target}}",
+      "titleBooking": "Suspendre les réservations",
+      "note": {
+        "add": "Ajouter une note ou un message"
       }
     },
     "paused": {

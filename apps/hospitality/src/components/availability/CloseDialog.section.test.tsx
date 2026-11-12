@@ -45,6 +45,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { CloseDialog } from "./CloseDialog.js";
+import { chooseWhat, openWhat } from "./close-dialog-test-helpers.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const DATE = "2026-12-24";
@@ -98,7 +99,7 @@ describe("CloseDialog: One section (ADR-032)", () => {
     renderDialog();
     const dialog = screen.getByRole("dialog");
 
-    fireEvent.click(within(dialog).getByRole("radio", { name: "One section" }));
+    chooseWhat("One section");
     fireEvent.click(within(dialog).getByRole("combobox", { name: "Section" }));
     fireEvent.click(screen.getByRole("option", { name: "Bar" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Close Bar on Thu, Dec 24" }));
@@ -126,6 +127,8 @@ describe("CloseDialog: One section (ADR-032)", () => {
   it("starts on the section it is opened for", () => {
     renderDialog({ initialSectionId: "sec-main" });
     const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("One section: Main Dining")).toBeInTheDocument();
+    openWhat();
     expect(within(dialog).getByRole("radio", { name: "One section" })).toBeChecked();
     expect(within(dialog).getByRole("combobox", { name: "Section" })).toHaveTextContent(
       "Main Dining"
@@ -135,32 +138,28 @@ describe("CloseDialog: One section (ADR-032)", () => {
   it("opens with no preselection for a section the venue does not have", () => {
     renderDialog({ initialSectionId: "gone" });
     const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Whole venue")).toBeInTheDocument();
+    openWhat();
     expect(within(dialog).getByRole("radio", { name: "Whole venue" })).toBeChecked();
     expect(within(dialog).getByRole("radio", { name: "One section" })).not.toBeChecked();
   });
 
-  it("is off with a way to the floor plan while the venue has no sections", () => {
+  it("leaves One section out, not disabled, while the venue has no sections (#8689)", () => {
     sectionsRead.value = { data: [], isLoading: false, error: null };
     renderDialog();
     const dialog = screen.getByRole("dialog");
-    const choice = within(dialog).getByRole("radio", { name: /^One section/ });
-    expect(choice).toBeDisabled();
-    // The reason is part of the choice itself, so it is read with it.
-    expect(choice).toHaveAccessibleDescription("Add a section to your floor plan first");
-    expect(choice.closest("label")).toHaveTextContent("Add a section to your floor plan first");
-    expect(within(dialog).getByRole("link", { name: "Open Floor Plan" })).toHaveAttribute(
-      "href",
-      "/floor-plans"
-    );
+    openWhat();
+    expect(within(dialog).queryByRole("radio", { name: /^One section/ })).toBeNull();
+    expect(within(dialog).queryByRole("link", { name: "Open Floor Plan" })).toBeNull();
+    expect(within(dialog).getByRole("radio", { name: "Whole venue" })).toBeEnabled();
   });
 
-  it("is off, and says why, when the sections could not load; the other choices stay", () => {
+  it("leaves One section out when the sections could not load; the other choices stay", () => {
     sectionsRead.value = { data: [], isLoading: false, error: new Error("down") };
     renderDialog();
     const dialog = screen.getByRole("dialog");
-    const choice = within(dialog).getByRole("radio", { name: /^One section/ });
-    expect(choice).toBeDisabled();
-    expect(choice).toHaveAccessibleDescription("Couldn't load the sections.");
+    openWhat();
+    expect(within(dialog).queryByRole("radio", { name: /^One section/ })).toBeNull();
     expect(within(dialog).getByRole("radio", { name: "Whole venue" })).toBeEnabled();
   });
 });

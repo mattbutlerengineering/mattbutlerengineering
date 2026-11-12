@@ -611,6 +611,28 @@
       return minute < opensAt ? minute + MINUTES_PER_DAY : minute;
     }
   </file>
+  <file path="src/components/availability/close-dialog-test-helpers.ts">
+    export function chooseWhen(name: string) {
+      fireEvent.click(within(dialog()).getByRole("combobox", { name: "When" }));
+      fireEvent.click(screen.getByRole("option", { name }));
+    }
+    export function openWhat() {
+      const change = within(dialog()).getByRole("button", { name: "Change" });
+      if (change.getAttribute("aria-expanded") !== "true") fireEvent.click(change);
+    }
+    export function chooseWhat(name: string) {
+      openWhat();
+      fireEvent.click(within(dialog()).getByRole("radio", { name }));
+    }
+    export function guestMessageField(): HTMLElement {
+      openNote();
+      return within(dialog()).getByLabelText(/Message for guests/);
+    }
+    export function openNote() {
+      const trigger = within(dialog()).getByRole("button", { name: "Add a note or message" });
+      if (trigger.getAttribute("aria-expanded") !== "true") fireEvent.click(trigger);
+    }
+  </file>
   <file path="src/components/availability/close-draft.ts">
     export type BookingChannel = "online" | "phone" | "waitlist";
     export type CloseWhat =
@@ -1123,12 +1145,52 @@
           );
       }
     }
+    export function closeIncompleteText(form: CloseForm, t: TFunction): string | null {
+      const { when } = form;
+      switch (when.kind) {
+        case "tonight":
+          return null;
+        case "date":
+          return when.date === "" ? t("availability.close.button.chooseDate") : null;
+        case "dates":
+          return when.dates.length === 0 ? t("availability.close.button.chooseDates") : null;
+        case "until-reopen":
+          return when.from === "" ? t("availability.close.button.chooseDate") : null;
+        case "range":
+          if (when.from === "") return t("availability.close.button.chooseDate");
+          return when.to === "" || when.to < when.from
+            ? t("availability.close.button.chooseEnd")
+            : null;
+        case "repeats": {
+          if (when.from === "") return t("availability.close.button.chooseDate");
+          const endMissing = when.to === "" || when.to < when.from;
+          if (when.weekdays.length === 0) {
+            return t(
+              endMissing
+                ? "availability.close.button.chooseDaysAndEnd"
+                : "availability.close.button.chooseDays"
+            );
+          }
+          if (endMissing) return t("availability.close.button.chooseEnd");
+          // Days chosen, but none of them falls between From and To: nothing would close.
+          return closedDates({
+            startsOn: when.from,
+            endsOn: when.to,
+            repeat: { version: 1, weekdays: [...when.weekdays] },
+          }).length === 0
+            ? t("availability.close.button.chooseDays")
+            : null;
+        }
+      }
+    }
     export function closeButtonText(
       draft: { readonly form: CloseForm; readonly date: string; readonly name: string | undefined },
       t: TFunction,
       format: CloseFormat
     ): string {
       const { form, name } = draft;
+      const incomplete = closeIncompleteText(form, t);
+      if (incomplete !== null) return incomplete;
       const { when } = form;
       const tonight = when.kind === "tonight";
       const oneDay = tonight || when.kind === "date";
@@ -1160,9 +1222,12 @@
         ? t("availability.close.button.closeTargetWhen", { target: name, when: phrase })
         : t("availability.close.button.closeWhen", { when: phrase });
     }
+    export type ToastOutcome = Readonly<
+      Record<"cancel" | "move" | "keep_notify" | "keep_silent", number>
+    >;
     export function closeToastText(
       draft: CloseToastDraft,
-      outcome: { readonly notified: number },
+      outcome: ToastOutcome,
       t: TFunction,
       format: CloseFormat
     ): string {
@@ -1206,9 +1271,12 @@
       };
     
       const sentence = base();
-      return outcome.notified > 0
-        ? t("availability.close.toast.withNotified", { text: sentence, count: outcome.notified })
-        : sentence;
+      const outcomes = OUTCOME_ORDER.filter((key) => outcome[key] > 0)
+        .map((key) => t(`availability.close.toast.outcome.${key}`, { count: outcome[key] }))
+        .join(" · ");
+      return outcomes === ""
+        ? sentence
+        : t("availability.close.toast.withOutcomes", { text: sentence, outcomes });
     }
   </file>
   <file path="src/components/availability/closed-all-day.ts">
@@ -11087,7 +11155,7 @@
     export const EDITOR_SIGNATURES: Readonly<Record<ResourceType, (page: Page) => Locator>> = {
       weeklyHours: (page) => page.getByRole("combobox", { name: "Opens" }),
       services: (page) => page.getByRole("textbox", { name: /^Service name/ }),
-      specialDates: (page) => page.getByRole("dialog", { name: "Close", exact: true }),
+      specialDates: (page) => page.getByRole("dialog", { name: /^Close / }),
       booking: (page) => page.getByRole("dialog", { name: "Booking rules" }),
       floorPlan: (page) => page.getByRole("dialog", { name: /floor plan/i }),
       sections: (page) => page.getByRole("radiogroup", { name: "Room template" }),

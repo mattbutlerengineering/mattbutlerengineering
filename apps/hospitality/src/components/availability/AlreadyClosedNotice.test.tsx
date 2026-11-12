@@ -35,6 +35,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 }));
 
 import { CloseDialog } from "./CloseDialog.js";
+import { chooseWhat, chooseWhen } from "./close-dialog-test-helpers.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
@@ -77,7 +78,7 @@ function renderDialog(
   );
 }
 
-const pick = (name: RegExp | string) => fireEvent.click(screen.getByRole("radio", { name }));
+const pick = (name: string) => (name === "Booking only" ? chooseWhat(name) : chooseWhen(name));
 // A range starts with To empty (feature:availability-scenario-ux), so a test picks its end.
 function pickTo(date: string) {
   fireEvent.click(screen.getByRole("combobox", { name: "To" }));

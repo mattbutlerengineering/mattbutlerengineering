@@ -303,7 +303,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await page.keyboard.press("Escape");
     await page.goto("availability?tab=calendar");
     await page.getByRole("button", { name: "Close…", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Close", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^Close / })).toBeVisible();
     await visit(PRIMARY_CLOSE);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "More actions" }).click();
@@ -386,10 +386,8 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     const closeDay = nextMonthDay(24);
     const closures = await mockClosures(page);
     await page.goto("availability?from=setup&closeSection=sec-bar");
-    const dialog = page.getByRole("dialog", { name: "Close", exact: true });
-    await expect(dialog.getByRole("radio", { name: "One section" })).toBeChecked();
-    await expect(dialog.getByRole("combobox", { name: "Section" })).toContainText("Bar");
-    await dialog.getByText("One date", { exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: /^Close / });
+    await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
     await dialog.getByRole("combobox", { name: "Date" }).click();
     await page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(page, closeDay).click();
@@ -529,7 +527,7 @@ test.describe("First paint and night-of actions (PRD 15, 21)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Close", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^Close / })).toBeVisible();
     expect(counter.count()).toBe(1);
 
     await page.keyboard.press("Escape");
@@ -546,7 +544,7 @@ test.describe("First paint and night-of actions (PRD 15, 21)", () => {
     await firstPaint(page);
     const close = countInteractions(page);
     await close.page.getByRole("button", { name: "Close…", exact: true }).click();
-    await expect(page.getByRole("dialog", { name: "Close", exact: true })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: /^Close / })).toBeVisible();
     expect(close.count()).toBe(1);
 
     await page.keyboard.press("Escape");
@@ -654,9 +652,8 @@ test.describe("The demo runs as written (PRD 9)", () => {
     await expect(page.getByRole("listitem", { name: /Main Floor/ })).toBeVisible();
     await expect(page.getByRole("listitem", { name: /Bar/ }).first()).toBeVisible();
     await page.getByRole("button", { name: "Close for a date… Bar" }).click();
-    const dialog = page.getByRole("dialog", { name: "Close", exact: true });
-    await expect(dialog.getByRole("radio", { name: "One section" })).toBeChecked();
-    await dialog.getByText("One date", { exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: /^Close / });
+    await expect(dialog.getByText(/^One section: /)).toBeVisible();
     await dialog.getByRole("combobox", { name: "Date" }).click();
     await page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(page, closeDay).click();
