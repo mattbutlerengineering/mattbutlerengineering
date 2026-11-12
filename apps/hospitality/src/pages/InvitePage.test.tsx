@@ -177,6 +177,13 @@ describe("InvitePage", () => {
     expect(screen.queryByRole("button", { name: "I'm in" })).toBeNull();
   });
 
+  it("has a level-one heading while the invitation loads", () => {
+    mockFetch.mockReturnValueOnce(new Promise(() => {}));
+    renderPage();
+
+    expect(screen.getByRole("heading", { level: 1, name: "Loading invitation..." })).toBeDefined();
+  });
+
   it("renders the not-found state for an unknown token", async () => {
     mockFetch.mockResolvedValueOnce(
       json(404, { type: "about:blank", title: "Not Found", status: 404 })
