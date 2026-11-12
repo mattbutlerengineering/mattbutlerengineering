@@ -847,9 +847,9 @@ describe("AvailabilityPage", () => {
       expect(
         screen.getByRole("alertdialog", { name: /Discard changes to Friday, October 30\?/ })
       ).toBeTruthy();
-      expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: /^Close / })).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
-      expect(screen.queryByRole("dialog", { name: "Close" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: /^Close / })).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Save 1 date" })).toBeInTheDocument();
     });
 

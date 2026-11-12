@@ -250,7 +250,7 @@ test.describe("Availability close dialog (F5)", () => {
 
       const one = countInteractions(mockedPage);
       await one.page.getByRole("button", { name: "Close…", exact: true }).click();
-      const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+      const dialog = one.page.getByRole("dialog", { name: /^Close / });
       // The dialog opens on the date, with nothing armed until one is chosen.
       await expect(dialog.getByTestId("close-primary")).toBeDisabled();
       await expect(dialog.getByTestId("close-primary")).toHaveText("Choose a date");
@@ -275,7 +275,7 @@ test.describe("Availability close dialog (F5)", () => {
 
       const week = countInteractions(mockedPage);
       await week.page.getByRole("button", { name: /^Close…/ }).click();
-      const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+      const dialog = week.page.getByRole("dialog", { name: /^Close / });
       await dialog.getByRole("combobox", { name: "Date" }).click();
       await week.page.getByRole("button", { name: "Next month" }).click();
       await pickerDay(week.page, WEEK_START).click();
@@ -323,33 +323,56 @@ test.describe("Availability close dialog (F5)", () => {
       await expect(dialog.getByLabel(/Message for guests/)).toBeVisible();
     });
 
+    test("a phone's first paint fits one 375x812 screen with the primary in view", async ({
+      mockedPage,
+    }) => {
+      await mockedPage.setViewportSize({ width: 375, height: 812 });
+      await openClose(mockedPage, midNextMonth());
+      await mockedPage
+        .getByRole("main")
+        .getByRole("button", { name: /^Close…/ })
+        .click();
+      const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+      await expect(dialog.getByTestId("close-primary")).toBeInViewport({ ratio: 1 });
+      const scrolls = await dialog.evaluate((panel) => {
+        const body = [...panel.children].find((c) => getComputedStyle(c).overflowY === "auto");
+        return body ? body.scrollHeight > body.clientHeight : false;
+      });
+      expect(scrolls).toBe(false);
+    });
+
     test("keyboard: focus is in the dialog on open, one date needs at most 12 Tabs, and focus is not on the body after the save", async ({
       mockedPage,
     }) => {
       const CLOSE_DATE = midNextMonth();
       const state = await openClose(mockedPage, CLOSE_DATE);
-      await mockedPage.getByRole("button", { name: "Close…", exact: true }).click();
+      // Open from the day drawer: its Close… is gone once the dialog saves and the drawer closes.
+      await mockedPage.getByRole("button", { name: "Next", exact: true }).click();
+      await mockedPage.locator(`[data-date="${CLOSE_DATE}"]`).click();
+      await mockedPage
+        .getByRole("dialog")
+        .getByRole("button", { name: "Close…", exact: true })
+        .click();
       const dialog = mockedPage.getByRole("dialog", { name: /^Close / });
+      const date = dialog.getByRole("combobox", { name: "Date", exact: true });
 
-      // On the date field, inside the dialog.
-      await expect(dialog.getByRole("combobox", { name: "Date", exact: true })).toBeFocused();
-      let tabs = 0;
-      const tab = async (key = "Tab") => {
-        if (key === "Tab") tabs += 1;
-        await mockedPage.keyboard.press(key);
-      };
-      // Open the picker and choose the date with the keyboard.
-      await tab("Enter");
+      // Focus opens on the date field, inside the dialog.
+      await expect(date).toBeFocused();
+      // Open the picker and move to the next day with the keyboard.
+      await mockedPage.keyboard.press("Enter");
       await expect(mockedPage.getByRole("grid", { name: /^\p{L}+ \d{4}$/u })).toBeVisible();
-      await mockedPage.getByRole("button", { name: "Next month" }).focus();
+      // Focus opens on Previous month: Tab past Next month into the grid, arrow to the next day.
+      await mockedPage.keyboard.press("Tab");
+      await mockedPage.keyboard.press("Tab");
+      await mockedPage.keyboard.press("ArrowRight");
       await mockedPage.keyboard.press("Enter");
-      await pickerDay(mockedPage, CLOSE_DATE).focus();
-      await mockedPage.keyboard.press("Enter");
+      await expect(date).toBeFocused();
       await expect(dialog.getByTestId("close-primary")).toBeEnabled();
-      // From the date field to the primary: End date, Change, note, Cancel, then the primary.
-      await dialog.getByRole("combobox", { name: "Date", exact: true }).focus();
+
+      let tabs = 0;
       for (let i = 0; i < 12; i += 1) {
-        await tab();
+        await mockedPage.keyboard.press("Tab");
+        tabs += 1;
         if (
           await dialog.getByTestId("close-primary").evaluate((el) => el === document.activeElement)
         )
@@ -361,7 +384,7 @@ test.describe("Availability close dialog (F5)", () => {
       await mockedPage.keyboard.press("Enter");
       await expect.poll(() => state.saved()).not.toBeNull();
       await expect(dialog).toBeHidden();
-      // Not on the page body: on the control that opened the dialog, or the main region.
+      // Not on the page body: the opener is gone, so focus is on the main region.
       await expect
         .poll(() => mockedPage.evaluate(() => document.activeElement === document.body))
         .toBe(false);

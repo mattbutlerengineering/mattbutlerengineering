@@ -2164,11 +2164,24 @@ describe("CloseDialog: date first (#8689)", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps a note that is already written in view when editing", () => {
-    renderDialog({ initialDate: DATE });
-    openNote();
-    fireEvent.change(guestMessageField(), { target: { value: "Closed for the holiday" } });
-    expect(guestMessageField()).toHaveValue("Closed for the holiday");
+  it("keeps a note that is already written in view, without opening the disclosure", () => {
+    renderDialog({
+      initialDate: DATE,
+      editing: {
+        ...DINNER_SERIES,
+        id: "edit-1",
+        startsOn: DATE,
+        endsOn: DATE,
+        repeat: null,
+        staffNote: "Private party",
+      },
+    });
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Add a note or message" })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    );
+    expect(within(dialog).getByLabelText(/Note for staff/)).toHaveValue("Private party");
   });
 
   it("has at most 9 controls on first paint, the primary included", () => {
@@ -2192,6 +2205,8 @@ describe("CloseDialog: date first (#8689)", () => {
       Array.from(document.querySelectorAll<HTMLElement>('[data-date="2026-12-31"]')).at(-1)!
     );
     expect(within(dialog).getByRole("combobox", { name: "When" })).toHaveTextContent("Date range");
+    // The End field is now the range's To: focus stays on it, not on the body.
+    await waitFor(() => expect(within(dialog).getByRole("combobox", { name: "To" })).toHaveFocus());
     expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
       "Close Thu, Dec 24 – Thu, Dec 31"
     );

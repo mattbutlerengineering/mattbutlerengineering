@@ -140,16 +140,26 @@ export function CloseStepOne(props: CloseStepOneProps) {
 
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
-  const dateField = (label: string, value: string, set: (v: string) => void, min = today) => (
-    <DatePicker
-      label={label}
-      value={value || null}
-      min={min}
-      locale={format.locale}
-      weekStartsOn={WEEK_STARTS_ON}
-      onChange={(v) => set(v ?? "")}
-    />
-  );
+  const dateField = (label: string, value: string, set: (v: string) => void, min = today) => {
+    const id = `close-date-${label.replace(/\W+/g, "-")}`;
+    return (
+      <DatePicker
+        id={id}
+        label={label}
+        value={value || null}
+        min={min}
+        locale={format.locale}
+        weekStartsOn={WEEK_STARTS_ON}
+        onChange={(v) => {
+          set(v ?? "");
+          // A pick closes the calendar: hand focus back to the field, not to the body.
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => document.getElementById(id)?.focus())
+          );
+        }}
+      />
+    );
+  };
   const firstDate = firstDateOf(when, today);
   const guestDate = guestDateOf(when, today);
   // One date on a holiday: the holiday chip names it ("Closed for Thanksgiving").
@@ -276,8 +286,19 @@ export function CloseStepOne(props: CloseStepOneProps) {
                   dateField(
                     t("availability.close.when.endOptionalLabel"),
                     "",
-                    (to) =>
-                      to ? patch({ when: { kind: "range", from: when.date, to } }) : undefined,
+                    (to) => {
+                      if (!to) return;
+                      patch({ when: { kind: "range", from: when.date, to } });
+                      // The End field becomes the range's To: keep focus on it, not on the body.
+                      requestAnimationFrame(() =>
+                        requestAnimationFrame(() =>
+                          document
+                            .getElementById(closeFieldId("when"))
+                            ?.querySelectorAll("input")[1]
+                            ?.focus()
+                        )
+                      );
+                    },
                     addDays(when.date, 1)
                   )}
                 {when.kind === "until-reopen" &&
