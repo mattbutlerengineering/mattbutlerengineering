@@ -13,7 +13,7 @@ import {
   applyStreamHeaders,
 } from "./gen-stream.js";
 import { createSanitizedStream } from "@mbe/agent-core";
-import { createGenRunner } from "./gen-runner.js";
+import { createGenRunner, genRunnerSystemPrompt } from "./gen-runner.js";
 import {
   genCostMicroUsd,
   getGenDailyCeilingUsd,
@@ -233,7 +233,12 @@ export function createGenRoute<TSchema extends z.ZodType>(
                 route: path,
                 messages,
                 modelId: GEN_MODEL_ID,
-                systemPrompt,
+                // The prompt the runner really sends, which depends on the render mode.
+                systemPrompt: genRunnerSystemPrompt({
+                  systemPrompt,
+                  provider: GEN_PROVIDER,
+                  toolChoice: config.toolChoice,
+                }),
                 maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
               })
             : undefined;
