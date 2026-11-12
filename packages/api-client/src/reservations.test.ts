@@ -863,3 +863,39 @@ describe("ReservationsClient invites", () => {
     expect(JSON.parse(options?.body as string)).toEqual({ firstName: "Sam", status: "IN" });
   });
 });
+
+describe("ReservationsClient party invite (manage token)", () => {
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
+  it("createManagedInvite POSTs with the token as a Bearer header and returns the invite token", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { inviteToken: "v1.secret" } }, 201));
+
+    const result = await makeClient().createManagedInvite("tok-abc");
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/reservations/manage/invite");
+    expect(options?.method).toBe("POST");
+    expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer tok-abc");
+    expect(result).toBe("v1.secret");
+  });
+
+  it("getManagedInviteSummary GETs the RSVP counts with the Bearer header", async () => {
+    mockFetch.mockResolvedValueOnce(
+      jsonResponse({ data: { invited: true, confirmed: 2, declined: 1, partySize: 4 } })
+    );
+
+    const result = await makeClient().getManagedInviteSummary("tok-abc");
+
+    const [url, options] = mockFetch.mock.calls[0]!;
+    expect(new URL(url as string).pathname).toBe("/public/v1/reservations/manage/invite");
+    expect((options?.headers as Record<string, string>).Authorization).toBe("Bearer tok-abc");
+    expect(result).toEqual({ invited: true, confirmed: 2, declined: 1, partySize: 4 });
+  });
+
+  it("rejects a malformed summary body", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse({ data: { invited: true } }));
+    await expect(makeClient().getManagedInviteSummary("tok")).rejects.toThrow();
+  });
+});

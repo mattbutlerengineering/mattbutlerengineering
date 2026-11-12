@@ -27,6 +27,11 @@ vi.mock("../../hooks/usePublicApiClient.js", () => ({
 // Mock Stripe so the real (unmocked) PaymentStep can render and be driven to
 // completion — needed for the per_person-total regression test below, which
 // must exercise the actual confirmation → payment → deposit-success path.
+// Covered by its own suite; this file's rialto and API client mocks do not cover it.
+vi.mock("../manage-reservation/PartyInviteCard.js", () => ({
+  PartyInviteCard: () => null,
+}));
+
 vi.mock("@stripe/react-stripe-js", () => ({
   Elements: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="stripe-elements">{children}</div>

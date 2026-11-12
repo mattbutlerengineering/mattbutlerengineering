@@ -18,6 +18,11 @@ import {
 import type { Reservation, PublicVenueConfig } from "@mbe/types";
 import React from "react";
 
+// Covered by its own suite; it needs the real rialto Card/Alert and an API client.
+vi.mock("../manage-reservation/PartyInviteCard.js", () => ({
+  PartyInviteCard: ({ token }: { token: string }) => <div data-testid="party-invite">{token}</div>,
+}));
+
 vi.mock("@mattbutlerengineering/rialto", () => {
   // Keep the attributes group/heading assertions read; drop presentational props.
   const forwarded = (props: Record<string, unknown>) =>
@@ -101,6 +106,22 @@ function makeVenueConfig(overrides: Partial<PublicVenueConfig> = {}): PublicVenu
 
 describe("ConfirmationView", () => {
   const mockOnNewBooking = vi.fn();
+
+  it("offers the party invite card when the booking has a manage token (#8665)", () => {
+    render(
+      <ConfirmationView
+        reservation={makeReservation()}
+        onNewBooking={mockOnNewBooking}
+        manageToken="manage-tok"
+      />
+    );
+    expect(screen.getByTestId("party-invite").textContent).toBe("manage-tok");
+  });
+
+  it("omits the party invite card without a manage token", () => {
+    render(<ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />);
+    expect(screen.queryByTestId("party-invite")).toBeNull();
+  });
 
   it("renders reservation confirmed heading", () => {
     render(<ConfirmationView reservation={makeReservation()} onNewBooking={mockOnNewBooking} />);

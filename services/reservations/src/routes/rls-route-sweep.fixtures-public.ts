@@ -698,6 +698,31 @@ const tokenRouteFixtures: Record<string, RouteFixture> = {
       expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
     },
   },
+  "POST /public/v1/reservations/manage/invite": {
+    kind: "ok",
+    run: async (ctx) => {
+      const { generateManageToken } = await loadTokenHelpers();
+      // The scope proof: a token for a reservation that does not exist is a 404.
+      const goneToken = generateManageToken("rls-sweep-no-such-reservation", "nobody@example.com");
+      const denied = await asAdmin(ctx, {
+        method: "POST",
+        url: `/public/v1/reservations/manage/invite?token=${goneToken}`,
+      });
+      expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
+    },
+  },
+  "GET /public/v1/reservations/manage/invite": {
+    kind: "ok",
+    run: async (ctx) => {
+      const { generateManageToken } = await loadTokenHelpers();
+      const goneToken = generateManageToken("rls-sweep-no-such-reservation", "nobody@example.com");
+      const denied = await asAdmin(ctx, {
+        method: "GET",
+        url: `/public/v1/reservations/manage/invite?token=${goneToken}`,
+      });
+      expect(denied.statusCode, `expected 404, got ${denied.statusCode}: ${denied.body}`).toBe(404);
+    },
+  },
   "DELETE /public/v1/reservations/manage": {
     kind: "ok",
     run: async (ctx) => {

@@ -13607,6 +13607,11 @@
       ): ReturnType<typeof createProblemDetails> { /* ... */ }
     </item>
   </file>
+  <file path="services/reservations/src/routes/manage-invite.ts">
+    <item priority="high">
+      export const manageInviteRoutes: FastifyPluginAsync;
+    </item>
+  </file>
   <file path="services/reservations/src/routes/manage-rebook.ts">
     <item priority="high">
       export const manageRebookRoutes: FastifyPluginAsync;
@@ -20187,6 +20192,19 @@
         now: Date = new Date()
       ): Promise<RsvpResult> { /* ... */ }
     </item>
+    <item priority="low">
+      interface InviteSummary {
+        invited: boolean;
+        confirmed: number;
+        declined: number;
+      }
+    </item>
+    <item priority="high">
+      export async function getInviteSummaryForReservation(input: {
+        venueId: string;
+        reservationId: string;
+      }): Promise<InviteSummary> { /* ... */ }
+    </item>
   </file>
   <file path="services/reservations/src/services/reservation-modification.ts">
     <item priority="low">
@@ -24360,6 +24378,14 @@
         time: string;
         partySize: number;
         rsvps: InviteRsvp[];
+      }
+    </item>
+    <item priority="low">
+      interface ManagedInviteSummary {
+        invited: boolean;
+        confirmed: number;
+        declined: number;
+        partySize: number;
       }
     </item>
     <item priority="high">
