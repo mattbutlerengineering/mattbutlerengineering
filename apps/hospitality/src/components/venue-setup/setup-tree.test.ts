@@ -248,7 +248,7 @@ describe("buildSetupTree: an empty venue", () => {
 
   it("points the actions at the existing editors", () => {
     const hrs = find(open, "schedules").actions[0];
-    expect(hrs?.target).toEqual({ kind: "link", to: "/availability?from=setup" });
+    expect(hrs?.target).toEqual({ kind: "link", to: "/availability/calendar?from=setup" });
     expect(find(open, "booking").actions[0]?.target).toEqual({
       kind: "dialog",
       dialog: "bookingRules",
@@ -342,17 +342,17 @@ describe("buildSetupTree: schedules and services", () => {
     expect(ids(find(open, "schedule:sch-sum").actions)).toEqual(["editSchedule"]);
     expect(find(open, "schedule:sch-sum").actions[0]?.target).toEqual({
       kind: "link",
-      to: "/availability?tab=schedules&from=setup",
+      to: "/availability/calendar?tab=schedules&from=setup",
     });
     // Change regular week is a link to the Schedules layer, where the week is edited in place.
     expect(find(open, "schedule:sch-reg").actions[0]?.target).toEqual({
       kind: "link",
-      to: "/availability?tab=schedules&from=setup",
+      to: "/availability/calendar?tab=schedules&from=setup",
     });
     // Add a schedule… opens the seeded editor there.
     expect(find(open, "schedules").actions[1]?.target).toEqual({
       kind: "link",
-      to: "/availability?tab=schedules&action=addSchedule&from=setup",
+      to: "/availability/calendar?tab=schedules&action=addSchedule&from=setup",
     });
   });
 });
@@ -450,8 +450,8 @@ describe("buildSetupTree: special dates and their targets", () => {
 
   it("opens the calendar and the Special dates tab", () => {
     expect(node.actions.map((a) => a.target)).toEqual([
-      { kind: "link", to: "/availability?tab=calendar&from=setup" },
-      { kind: "link", to: "/availability?tab=special&from=setup" },
+      { kind: "link", to: "/availability/calendar?tab=calendar&from=setup" },
+      { kind: "link", to: "/availability/calendar?tab=special&from=setup" },
     ]);
   });
 });
@@ -561,7 +561,7 @@ describe("buildSetupTree: floor plan, sections and tables", () => {
       {
         id: "closeSection",
         subject: "Bar",
-        target: { kind: "link", to: "/availability?closeSection=sec-bar&from=setup" },
+        target: { kind: "link", to: "/availability/calendar?closeSection=sec-bar&from=setup" },
       },
     ]);
   });

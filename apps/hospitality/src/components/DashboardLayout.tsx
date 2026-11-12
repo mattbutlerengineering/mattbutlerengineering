@@ -65,14 +65,32 @@ const ROUTE_LABEL_KEYS = {
   admin: "layout.routes.admin",
   dashboard: "layout.routes.dashboard",
   setup: "layout.routes.setup",
-  hours: "layout.routes.hours",
+  hours: "availabilityHub.routes.regularHours",
   chat: "layout.routes.chat",
+  // The children of `availability`. A key with a slash names a segment under that parent, where
+  // the segment alone does not say what the page is; `*` stands for an id.
+  seasonal: "availabilityHub.routes.seasonalHours",
+  "seasonal/new": "availabilityHub.routes.seasonalNew",
+  "seasonal/compare": "availabilityHub.routes.seasonalCompare",
+  "seasonal/*": "availabilityHub.routes.seasonalEdit",
+  "special-dates": "availabilityHub.routes.specialDates",
+  "special-dates/new": "availabilityHub.routes.specialDatesNew",
+  closures: "availabilityHub.routes.closures",
+  calendar: "availabilityHub.routes.calendar",
+  "booking-rules": "availabilityHub.routes.bookingRules",
+  history: "availabilityHub.routes.history",
 } as const;
 
-function routeLabel(t: TFunction, segment: string): string {
-  const key = (
-    ROUTE_LABEL_KEYS as Record<string, (typeof ROUTE_LABEL_KEYS)[keyof typeof ROUTE_LABEL_KEYS]>
-  )[segment];
+/** The label for a route segment: under its parent first, then by itself, then as an id. */
+function routeLabel(t: TFunction, segment: string, parent?: string): string {
+  const keys = ROUTE_LABEL_KEYS as Record<
+    string,
+    (typeof ROUTE_LABEL_KEYS)[keyof typeof ROUTE_LABEL_KEYS]
+  >;
+  const key =
+    (parent !== undefined ? keys[`${parent}/${segment}`] : undefined) ??
+    keys[segment] ??
+    (parent !== undefined ? keys[`${parent}/*`] : undefined);
   return key ? t(key) : t("layout.details");
 }
 
@@ -123,7 +141,7 @@ function DashboardLayoutInner() {
   // last-segment -> ROUTE_LABELS lookup as the breadcrumbs below, so the two
   // can't silently diverge.
   const pageSegments = path.replace(/^\//, "").split("/").filter(Boolean);
-  const pageLabel = routeLabel(t, pageSegments[pageSegments.length - 1] ?? "");
+  const pageLabel = routeLabel(t, pageSegments.at(-1) ?? "", pageSegments.at(-2));
   useDocumentTitle(
     t("layout.documentTitle", {
       page: pageLabel,
@@ -277,7 +295,7 @@ function DashboardLayoutInner() {
     for (let i = 0; i < segments.length; i++) {
       accumulated += `/${segments[i]}`;
       const isLast = i === segments.length - 1;
-      const label = routeLabel(t, segments[i]!);
+      const label = routeLabel(t, segments[i]!, segments[i - 1]);
 
       if (isLast) {
         items.push({ label });

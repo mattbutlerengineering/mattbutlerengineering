@@ -3222,6 +3222,21 @@
       "plan": "Plan holidays"
     }
   },
+  "availabilityHub": {
+    "routes": {
+      "regularHours": "Regular hours",
+      "seasonalHours": "Seasonal hours",
+      "seasonalNew": "New seasonal hours",
+      "seasonalEdit": "Edit seasonal hours",
+      "seasonalCompare": "One service across all hours",
+      "specialDates": "Special dates",
+      "specialDatesNew": "Add special dates",
+      "closures": "Closures",
+      "calendar": "Calendar",
+      "bookingRules": "Booking rules",
+      "history": "History"
+    }
+  },
   "setup": {
     "hub": {
       "title": "Venue Setup",

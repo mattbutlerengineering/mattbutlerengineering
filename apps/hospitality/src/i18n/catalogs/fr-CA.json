@@ -3308,6 +3308,21 @@
       "plan": "Planifier les jours fériés"
     }
   },
+  "availabilityHub": {
+    "routes": {
+      "regularHours": "Heures habituelles",
+      "seasonalHours": "Heures saisonnières",
+      "seasonalNew": "Nouvelles heures saisonnières",
+      "seasonalEdit": "Modifier les heures saisonnières",
+      "seasonalCompare": "Un service dans toutes les heures",
+      "specialDates": "Dates spéciales",
+      "specialDatesNew": "Ajouter des dates spéciales",
+      "closures": "Fermetures",
+      "calendar": "Calendrier",
+      "bookingRules": "Règles de réservation",
+      "history": "Historique"
+    }
+  },
   "setup": {
     "hub": {
       "title": "Configuration de l'établissement",

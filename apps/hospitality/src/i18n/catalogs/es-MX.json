@@ -3308,6 +3308,21 @@
       "plan": "Planear días festivos"
     }
   },
+  "availabilityHub": {
+    "routes": {
+      "regularHours": "Horario habitual",
+      "seasonalHours": "Horarios de temporada",
+      "seasonalNew": "Nuevo horario de temporada",
+      "seasonalEdit": "Editar horario de temporada",
+      "seasonalCompare": "Un servicio en todos los horarios",
+      "specialDates": "Fechas especiales",
+      "specialDatesNew": "Agregar fechas especiales",
+      "closures": "Cierres",
+      "calendar": "Calendario",
+      "bookingRules": "Reglas de reserva",
+      "history": "Historial"
+    }
+  },
   "setup": {
     "hub": {
       "title": "Configuración del local",

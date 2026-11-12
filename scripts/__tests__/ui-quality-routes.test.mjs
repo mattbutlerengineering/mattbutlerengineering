@@ -47,9 +47,18 @@ describe("hospitality adapter", () => {
   const rows = extractApp("hospitality", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 27 route templates (26 leaf paths + 2 index routes, one of which shares `onboarding`)", () => {
-    expect(rows).toHaveLength(27);
-    expect(new Set(rows.map((r) => r.route)).size).toBe(27);
+  it("yields 28 route templates (26 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
+    expect(rows).toHaveLength(28);
+    expect(new Set(rows.map((r) => r.route)).size).toBe(28);
+  });
+
+  it("reads the children of `availability`: its index redirects, today's page is at `calendar`", () => {
+    expect(byRoute["availability"].kind).toBe("redirect");
+    expect(byRoute["availability/calendar"].kind).toBe("page");
+    expect(byRoute["availability/calendar"].source_files).toEqual([
+      "apps/hospitality/src/pages/AvailabilityPage.tsx",
+      "apps/hospitality/src/main.tsx",
+    ]);
   });
 
   it("marks the two routes outside <App /> public and everything under it auth0", () => {
@@ -57,7 +66,7 @@ describe("hospitality adapter", () => {
     expect(byRoute["reservations/manage"].auth).toBe("public");
     expect(byRoute["timeline"].auth).toBe("auth0");
     expect(byRoute["/"].auth).toBe("auth0");
-    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(22);
+    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(23);
   });
 
   it("classifies callback as a redirect and * as not-found", () => {
@@ -204,7 +213,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(27 + 11 + 124);
+    expect(rows).toHaveLength(28 + 11 + 124);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([

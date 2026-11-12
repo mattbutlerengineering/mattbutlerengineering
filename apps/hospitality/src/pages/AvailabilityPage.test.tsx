@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
-import { MemoryRouter, useLocation } from "react-router";
+import { createMemoryRouter, MemoryRouter, RouterProvider, useLocation } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Engine from "@mbe/availability";
 import type * as Format from "../utils/format.js";
@@ -198,6 +198,8 @@ vi.mock("@mbe/availability", async (importOriginal) => ({
 }));
 
 import { AvailabilityPage } from "./AvailabilityPage.js";
+import { AvailabilityIndexRedirect } from "./AvailabilityIndexRedirect.js";
+import { AvailabilityLayout } from "./AvailabilityLayout.js";
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
@@ -220,7 +222,7 @@ function LocationProbe() {
   return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
 }
 
-function page(url = "/availability?tab=calendar") {
+function page(url = "/availability/calendar?tab=calendar") {
   return (
     <MemoryRouter initialEntries={[url]}>
       <ToastProvider>
@@ -546,7 +548,7 @@ describe("AvailabilityPage", () => {
     });
 
     it("opens Schedules for ?tab=schedules", () => {
-      renderPage("/availability?tab=schedules");
+      renderPage("/availability/calendar?tab=schedules");
       expect(schedulesTab()).toBeChecked();
       expect(screen.getByRole("heading", { level: 2, name: "Regular week" })).toBeInTheDocument();
       expect(screen.queryByRole("grid")).not.toBeInTheDocument();
@@ -554,13 +556,13 @@ describe("AvailabilityPage", () => {
 
     it("gives a Host the calendar for ?tab=schedules", () => {
       team.value = { viewerRole: "host" };
-      renderPage("/availability?tab=schedules");
+      renderPage("/availability/calendar?tab=schedules");
       expect(screen.getByRole("grid")).toBeInTheDocument();
       expect(schedulesTab()).not.toBeInTheDocument();
     });
 
     it("renders the default page for garbage params", () => {
-      renderPage("/availability?tab=%00&closeSection=&from=nowhere&x=1");
+      renderPage("/availability/calendar?tab=%00&closeSection=&from=nowhere&x=1");
       // No valid tab: a Manager lands on Schedules.
       expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
       expect(screen.queryByRole("link", { name: "Venue Setup" })).not.toBeInTheDocument();
@@ -568,7 +570,7 @@ describe("AvailabilityPage", () => {
     });
 
     it("shows the Venue Setup back-link only for ?from=setup", () => {
-      const view = renderPage("/availability?from=setup");
+      const view = renderPage("/availability/calendar?from=setup");
       expect(screen.getByRole("link", { name: "Venue Setup" })).toHaveAttribute("href", "/setup");
       view.unmount();
       renderPage();
@@ -576,13 +578,13 @@ describe("AvailabilityPage", () => {
     });
 
     it("opens a Manager's Close dialog on the section ?closeSection= names", () => {
-      renderPage("/availability?closeSection=sec-bar");
+      renderPage("/availability/calendar?closeSection=sec-bar");
       const dialog = screen.getByRole("dialog", { name: /^Close / });
       expect(within(dialog).getByText("One section: Bar")).toBeInTheDocument();
     });
 
     it("opens the Close dialog with no preselection for a section the venue lacks", () => {
-      renderPage("/availability?closeSection=gone");
+      renderPage("/availability/calendar?closeSection=gone");
       const dialog = screen.getByRole("dialog", { name: /^Close / });
       expect(within(dialog).getByText("Whole venue")).toBeInTheDocument();
       expect(within(dialog).queryByText(/^One section/)).not.toBeInTheDocument();
@@ -590,42 +592,44 @@ describe("AvailabilityPage", () => {
 
     it("opens no Close dialog for a Host", () => {
       team.value = { viewerRole: "host" };
-      renderPage("/availability?closeSection=sec-bar");
+      renderPage("/availability/calendar?closeSection=sec-bar");
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("removes closeSection from the URL after mount and keeps the other params", () => {
-      renderPage("/availability?tab=schedules&closeSection=sec-1&from=setup");
+      renderPage("/availability/calendar?tab=schedules&closeSection=sec-1&from=setup");
       expect(screen.getByTestId("location")).toHaveTextContent(
-        "/availability?tab=schedules&from=setup"
+        "/availability/calendar?tab=schedules&from=setup"
       );
     });
 
     it("opens the seeded schedule editor on Schedules for ?action=addSchedule, once", async () => {
-      renderPage("/availability?action=addSchedule&from=setup");
+      renderPage("/availability/calendar?action=addSchedule&from=setup");
       expect(await screen.findByRole("dialog", { name: "New schedule" })).toBeInTheDocument();
       expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
       expect(screen.getByLabelText("Starting")).toHaveValue("");
-      expect(screen.getByTestId("location")).toHaveTextContent("/availability?from=setup");
+      expect(screen.getByTestId("location")).toHaveTextContent("/availability/calendar?from=setup");
     });
 
     it("opens no editor for ?action=addSchedule on another layer", () => {
-      renderPage("/availability?tab=calendar&action=addSchedule");
+      renderPage("/availability/calendar?tab=calendar&action=addSchedule");
       expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
-      expect(screen.getByTestId("location")).toHaveTextContent("/availability?tab=calendar");
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        "/availability/calendar?tab=calendar"
+      );
     });
 
     it("does not hold ?action=addSchedule back on a venue with no hours until quick setup saves", () => {
       configSource.value = "empty";
-      const view = renderPage("/availability?action=addSchedule");
+      const view = renderPage("/availability/calendar?action=addSchedule");
       configSource.value = "rows";
-      view.rerender(page("/availability?action=addSchedule"));
+      view.rerender(page("/availability/calendar?action=addSchedule"));
       expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
     });
 
     it("opens no editor for a Host who follows ?action=addSchedule", () => {
       team.value = { viewerRole: "host" };
-      renderPage("/availability?action=addSchedule");
+      renderPage("/availability/calendar?action=addSchedule");
       expect(screen.queryByRole("dialog", { name: "New schedule" })).not.toBeInTheDocument();
       expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
     });
@@ -1349,17 +1353,17 @@ describe("AvailabilityPage", () => {
 
   it("hands focus to the calendar when quick setup's save lands on a layer with no Regular week heading", () => {
     configSource.value = "empty";
-    const { rerender } = renderPage("/availability?tab=calendar");
+    const { rerender } = renderPage("/availability/calendar?tab=calendar");
     configSource.value = "rows";
-    rerender(page("/availability?tab=calendar"));
+    rerender(page("/availability/calendar?tab=calendar"));
     expect(document.activeElement).toHaveAttribute("data-date");
   });
 
   it("hands focus to the Regular week heading when quick setup's save removes the focused button (#7980)", () => {
     configSource.value = "empty";
-    const { rerender } = renderPage("/availability");
+    const { rerender } = renderPage("/availability/calendar");
     configSource.value = "rows";
-    rerender(page("/availability"));
+    rerender(page("/availability/calendar"));
     expect(document.activeElement).toBe(
       screen.getByRole("heading", { level: 2, name: "Regular week" })
     );
@@ -1536,14 +1540,14 @@ describe("AvailabilityPage layers", () => {
   it("shows the skeleton, and no calendar or layer control, while the role is pending", () => {
     teamLoading.value = true;
     team.value = undefined;
-    renderPage("/availability?tab=calendar");
+    renderPage("/availability/calendar?tab=calendar");
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
     expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     expect(headerButton("Close…")).toBeDisabled();
   });
 
   it("lands a Manager on Schedules", () => {
-    renderPage("/availability");
+    renderPage("/availability/calendar");
     expect(layerRadio("Schedules")).toBeChecked();
     expect(screen.getByTestId("week-panel")).toBeInTheDocument();
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
@@ -1551,7 +1555,7 @@ describe("AvailabilityPage layers", () => {
 
   it("lands a Host on Calendar, with no Schedules layer and only History and Go to date in ⋯", () => {
     team.value = { viewerRole: "host" };
-    renderPage("/availability");
+    renderPage("/availability/calendar");
     expect(layerRadio("Calendar")).toBeChecked();
     expect(screen.queryByRole("radio", { name: "Schedules" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
@@ -1566,7 +1570,7 @@ describe("AvailabilityPage layers", () => {
   });
 
   it("opens Calendar for ?tab=calendar, and lists the layers in order", () => {
-    renderPage("/availability?tab=calendar");
+    renderPage("/availability/calendar?tab=calendar");
     expect(layerRadio("Calendar")).toBeChecked();
     expect(screen.getByRole("grid")).toBeInTheDocument();
     expect(
@@ -1577,7 +1581,7 @@ describe("AvailabilityPage layers", () => {
   });
 
   it("first paint for a Manager on a one-schedule venue has 8 controls outside the week panel", () => {
-    renderPage("/availability");
+    renderPage("/availability/calendar");
     const panel = screen.getByTestId("week-panel");
     const controls = Array.from(
       document.body.querySelectorAll<HTMLElement>("button, a[href], input, select, textarea")
@@ -1596,33 +1600,33 @@ describe("AvailabilityPage layers", () => {
 
   describe.each([["schedules"], ["calendar"], ["special"]] as const)("from the %s layer", (tab) => {
     it("opens Close… and Pause online booking from the header", async () => {
-      renderPage(`/availability?tab=${tab}`);
+      renderPage(`/availability/calendar?tab=${tab}`);
       fireEvent.click(headerButton("Close…"));
       expect(await screen.findByRole("dialog", { name: /Close/ })).toBeInTheDocument();
     });
 
     it("opens Pause online booking from the header", async () => {
-      renderPage(`/availability?tab=${tab}`);
+      renderPage(`/availability/calendar?tab=${tab}`);
       fireEvent.click(headerButton("Pause online booking"));
       expect(await screen.findByRole("dialog")).toBeInTheDocument();
     });
 
     it("opens Booking rules… from ⋯", async () => {
-      renderPage(`/availability?tab=${tab}`);
+      renderPage(`/availability/calendar?tab=${tab}`);
       fireEvent.click(headerButton("More actions"));
       fireEvent.click(screen.getByRole("menuitem", { name: "Booking rules…" }));
       expect(await screen.findByLabelText(/How far ahead guests can book/)).toBeInTheDocument();
     });
 
     it("opens History from ⋯", async () => {
-      renderPage(`/availability?tab=${tab}`);
+      renderPage(`/availability/calendar?tab=${tab}`);
       fireEvent.click(headerButton("More actions"));
       fireEvent.click(screen.getByRole("menuitem", { name: "History" }));
       expect(await screen.findByRole("region", { name: "History drawer" })).toBeInTheDocument();
     });
 
     it("goes to Calendar, then opens Go to date from ⋯", async () => {
-      renderPage(`/availability?tab=${tab}`);
+      renderPage(`/availability/calendar?tab=${tab}`);
       fireEvent.click(headerButton("More actions"));
       fireEvent.click(screen.getByRole("menuitem", { name: "Go to date" }));
       expect(await screen.findByRole("dialog", { name: "Go to date" })).toBeInTheDocument();
@@ -1630,7 +1634,7 @@ describe("AvailabilityPage layers", () => {
     });
 
     it("goes to Schedules and opens Compare services from ⋯", async () => {
-      renderPage(`/availability?tab=${tab}`);
+      renderPage(`/availability/calendar?tab=${tab}`);
       fireEvent.click(headerButton("More actions"));
       fireEvent.click(screen.getByRole("menuitem", { name: "Compare services" }));
       expect(await screen.findByRole("heading", { name: "Compare services" })).toBeInTheDocument();
@@ -1648,7 +1652,7 @@ describe("AvailabilityPage layers", () => {
           endsOn: null,
         },
       ];
-      renderPage(`/availability?tab=${tab}`);
+      renderPage(`/availability/calendar?tab=${tab}`);
       expect(screen.getByText("Online booking paused")).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "Pause online booking" })
@@ -1666,7 +1670,7 @@ describe("AvailabilityPage layers", () => {
           endsOn: null,
         },
       ];
-      renderPage(`/availability?tab=${tab}`);
+      renderPage(`/availability/calendar?tab=${tab}`);
       const line = screen.getByRole("region", { name: "Today line" });
       expect(line).toHaveAttribute("data-venue", "venue-1");
       expect(line).toHaveAttribute("data-banner", "true");
@@ -1675,7 +1679,7 @@ describe("AvailabilityPage layers", () => {
     });
 
     it("tells the Today line there is no banner when nothing is paused", () => {
-      renderPage(`/availability?tab=${tab}`);
+      renderPage(`/availability/calendar?tab=${tab}`);
       expect(screen.getByRole("region", { name: "Today line" })).toHaveAttribute(
         "data-banner",
         "false"
@@ -1684,7 +1688,7 @@ describe("AvailabilityPage layers", () => {
   });
 
   it("Duplicate regular week… opens the schedule editor from ⋯", async () => {
-    renderPage("/availability?tab=calendar");
+    renderPage("/availability/calendar?tab=calendar");
     fireEvent.click(headerButton("More actions"));
     fireEvent.click(screen.getByRole("menuitem", { name: "Duplicate regular week…" }));
     expect(await screen.findByRole("textbox", { name: /Schedule name/ })).toHaveValue(
@@ -1693,7 +1697,7 @@ describe("AvailabilityPage layers", () => {
   });
 
   it("asks before leaving Schedules with an edited week, and stays on Keep editing", () => {
-    renderPage("/availability");
+    renderPage("/availability/calendar");
     const closes = screen.getAllByLabelText("Closes")[0] as HTMLInputElement;
     expect(closes).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
@@ -1714,7 +1718,7 @@ describe("AvailabilityPage layers", () => {
   });
 
   it("leaves no day target behind when Keep editing answers the guard after History → open day", async () => {
-    renderPage("/availability");
+    renderPage("/availability/calendar");
     fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
     fireEvent.click(headerButton("More actions"));
     fireEvent.click(screen.getByRole("menuitem", { name: "History" }));
@@ -1743,10 +1747,120 @@ describe("AvailabilityPage layers", () => {
   });
 
   it("goes to the Calendar day from History opened on another layer", async () => {
-    renderPage("/availability");
+    renderPage("/availability/calendar");
     fireEvent.click(headerButton("More actions"));
     fireEvent.click(screen.getByRole("menuitem", { name: "History" }));
     fireEvent.click(await screen.findByRole("button", { name: "Go to day" }));
     expect(layerRadio("Calendar")).toBeChecked();
+  });
+});
+
+// The `availability` branch of main.tsx's route table (availability-hub H1.2): the layout, the
+// index that redirects until the hub lands, and today's page at `calendar`.
+describe("the Availability route table", () => {
+  beforeEach(() => {
+    window.HTMLElement.prototype.scrollIntoView = vi.fn();
+    vi.clearAllMocks();
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-28T20:00:00Z") });
+    venue.selectedVenueId = "venue-1";
+    configSource.value = "rows";
+    configSource.migrated = false;
+    configError.value = null;
+    configAbsent.value = false;
+    teamError.value = null;
+    teamLoading.value = false;
+    extraRules.value = [];
+    sections.value = [{ id: "sec-bar", name: "Bar" }];
+    team.value = { viewerRole: "manager" };
+    resolved.services = [];
+    resolved.byDate = {};
+    daysQuery.value = { data: [], isLoading: false, error: null };
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Opens `url` from Venue Setup, so a redirect that pushed would leave `url` behind it. */
+  function renderRoutes(url: string) {
+    const router = createMemoryRouter(
+      [
+        { path: "setup", element: <div>Setup Hub</div> },
+        {
+          path: "availability",
+          element: <AvailabilityLayout />,
+          children: [
+            { index: true, element: <AvailabilityIndexRedirect /> },
+            { path: "calendar", element: <AvailabilityPage /> },
+          ],
+        },
+      ],
+      { initialEntries: ["/setup", url], initialIndex: 1 }
+    );
+    render(
+      <ToastProvider>
+        <main>
+          <RouterProvider router={router} />
+        </main>
+      </ToastProvider>
+    );
+    return router;
+  }
+  const address = (router: ReturnType<typeof renderRoutes>) =>
+    `${router.state.location.pathname}${router.state.location.search}`;
+  const layerRadio = (name: string) => screen.getByRole("radio", { name });
+
+  it("shows today's Special dates tab at calendar?tab=special", () => {
+    const router = renderRoutes("/availability/calendar?tab=special");
+    expect(layerRadio("Special dates")).toBeChecked();
+    expect(address(router)).toBe("/availability/calendar?tab=special");
+  });
+
+  it("sends the old ?tab=special there with a replace, so Back leaves Availability", async () => {
+    const router = renderRoutes("/availability?tab=special");
+    await waitFor(() => expect(address(router)).toBe("/availability/calendar?tab=special"));
+    expect(layerRadio("Special dates")).toBeChecked();
+    expect(router.state.historyAction).toBe("REPLACE");
+    await act(() => router.navigate(-1));
+    expect(address(router)).toBe("/setup");
+  });
+
+  it.each([
+    ["/availability?tab=schedules&from=setup", "/availability/calendar?tab=schedules&from=setup"],
+    ["/availability?tab=calendar&from=setup", "/availability/calendar?tab=calendar&from=setup"],
+    ["/availability?from=setup", "/availability/calendar?from=setup"],
+  ])("carries from=setup from %s", async (old, next) => {
+    const router = renderRoutes(old);
+    await waitFor(() => expect(address(router)).toBe(next));
+    expect(screen.getByRole("link", { name: "Venue Setup" })).toBeInTheDocument();
+  });
+
+  it("sends the index to today's page until the hub lands", async () => {
+    const router = renderRoutes("/availability");
+    await waitFor(() => expect(address(router)).toBe("/availability/calendar"));
+    // No tab named: a Manager lands on Schedules, as before.
+    expect(layerRadio("Schedules")).toBeChecked();
+    expect(router.state.historyAction).toBe("REPLACE");
+  });
+
+  it("opens a section's Close dialog from the old ?closeSection=", async () => {
+    const router = renderRoutes("/availability?closeSection=sec-bar&from=setup");
+    const dialog = await screen.findByRole("dialog", { name: /^Close / });
+    expect(within(dialog).getByText("One section: Bar")).toBeInTheDocument();
+    // Today's page spends the param once read.
+    await waitFor(() => expect(address(router)).toBe("/availability/calendar?from=setup"));
+  });
+
+  it("opens the seeded editor from the old ?action=addSchedule", async () => {
+    const router = renderRoutes("/availability?action=addSchedule&from=setup");
+    expect(await screen.findByRole("dialog", { name: "New schedule" })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(address(router)).toBe("/availability/calendar?tab=schedules&from=setup")
+    );
+  });
+
+  it("drops params that name nothing", async () => {
+    const router = renderRoutes("/availability?tab=nope&x=1");
+    await waitFor(() => expect(address(router)).toBe("/availability/calendar"));
   });
 });

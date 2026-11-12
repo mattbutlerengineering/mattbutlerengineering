@@ -19,6 +19,7 @@ import { I18nextProvider } from "react-i18next";
 import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
 import { availabilityPath } from "./components/availability/availability-address.js";
+import { AvailabilityIndexRedirect } from "./pages/AvailabilityIndexRedirect.js";
 
 initSentry({
   appName: "hospitality",
@@ -69,6 +70,9 @@ const BookingWidgetDemoPage = lazy(() =>
   import("./pages/BookingWidgetDemoPage.js").then((m) => ({
     default: m.BookingWidgetDemoPage,
   }))
+);
+const AvailabilityLayout = lazy(() =>
+  import("./pages/AvailabilityLayout.js").then((m) => ({ default: m.AvailabilityLayout }))
 );
 const AvailabilityPage = lazy(() =>
   import("./pages/AvailabilityPage.js").then((m) => ({ default: m.AvailabilityPage }))
@@ -307,12 +311,25 @@ const router = createBrowserRouter(
               ),
             },
             {
+              // One child route per job (availability-hub). Today's page is mounted at
+              // `calendar` until each view that replaces it lands.
               path: "availability",
               element: (
                 <Suspense fallback={<LoadingPage />}>
-                  <AvailabilityPage />
+                  <AvailabilityLayout />
                 </Suspense>
               ),
+              children: [
+                { index: true, element: <AvailabilityIndexRedirect /> },
+                {
+                  path: "calendar",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityPage />
+                    </Suspense>
+                  ),
+                },
+              ],
             },
             {
               path: "menus",
