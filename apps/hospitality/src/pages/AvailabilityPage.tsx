@@ -151,9 +151,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   // How another page opened this one (?tab=, ?closeSection=, ?action=, ?date=, ?from=setup), read once on mount.
   const [searchParams, setSearchParams] = useSearchParams();
   const [entry] = useState(() => parseAvailabilityEntry(searchParams));
-  // `null` follows today until the viewer navigates. A ?date= (History's View day) opens that day.
-  const [chosenAnchor, setChosenAnchor] = useState<string | null>(entry.date ?? null);
-  const [target, setTarget] = useState<OpenTarget>(entry.date ? { date: entry.date } : CLOSED);
+  // A ?date= (History's View day) opens that day on Calendar; beside another layer it is ignored.
+  const [openOn] = useState(() => ((entry.tab ?? "calendar") === "calendar" ? entry.date : null));
+  // `null` follows today until the viewer navigates.
+  const [chosenAnchor, setChosenAnchor] = useState<string | null>(openOn ?? null);
+  const [target, setTarget] = useState<OpenTarget>(openOn ? { date: openOn } : CLOSED);
   const openDate = target.date;
   const [closing, setClosing] = useState<Closing | null>(null);
   // The schedule editor and Compare services are the page's: the header ⋯ and the day drawer
@@ -165,7 +167,9 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   // closes, so focus moves to the day only once that has happened (see the effect below).
   const [jumpTo, setJumpTo] = useState<string | null>(null);
   // `null` until the viewer picks one: a Manager then lands on Schedules, a Host on Calendar.
-  const [chosenTab, setChosenTab] = useState<AvailabilityTab | null>(entry.tab ?? null);
+  const [chosenTab, setChosenTab] = useState<AvailabilityTab | null>(
+    entry.tab ?? (openOn ? "calendar" : null)
+  );
   // A section's Close dialog, an action and a day are not reopened by a refresh, so those params go once read.
   useEffect(() => {
     const once = ["closeSection", "action", "date"];

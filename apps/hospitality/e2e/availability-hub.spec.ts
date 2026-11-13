@@ -367,6 +367,6 @@ test.describe("History over the hub (C2.6)", () => {
     }).format(new Date(`${day}T00:00:00Z`));
     await expect(page.getByRole("dialog", { name: new RegExp(dayName) })).toBeVisible();
     // The page reads ?date= once and drops it, so a reload does not reopen the day.
-    await expect(page).toHaveURL(/\/availability\/calendar\?tab=calendar$/);
+    await expect(page).toHaveURL(/\/availability\/calendar$/);
   });
 });

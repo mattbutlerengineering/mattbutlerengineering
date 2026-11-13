@@ -5478,13 +5478,14 @@
         if (target.from) params.set("from", target.from);
         return withSearch(drawer, params);
       }
+      // A date names the calendar by itself (today's page opens Calendar for it), so it needs no tab.
+      const date =
+        target.view === "calendar" && target.date && isDate(target.date) ? target.date : null;
       const tab = PAGE_TAB[target.view];
-      if (tab) params.set("tab", tab);
+      if (tab && !date) params.set("tab", tab);
       if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
       if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
-      if (target.view === "calendar" && target.date && isDate(target.date)) {
-        params.set("date", target.date);
-      }
+      if (date) params.set("date", date);
       if (target.from) params.set("from", target.from);
       return withSearch(TODAYS_PAGE, params);
     }

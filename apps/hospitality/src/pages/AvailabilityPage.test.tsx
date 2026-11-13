@@ -689,6 +689,29 @@ describe("AvailabilityPage", () => {
     expect(screen.getByRole("dialog", { name: /Friday, October 30/ })).toBeInTheDocument();
   });
 
+  it("opens the ?date= day on Calendar when the address names no layer", async () => {
+    renderPage("/availability/calendar?date=2026-10-30");
+    expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
+    expect(screen.getByRole("dialog", { name: /Friday, October 30/ })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(/^\/availability\/calendar$/)
+    );
+  });
+
+  it("ignores a ?date= beside another layer, and leaves no day for Calendar to open later", async () => {
+    renderPage("/availability/calendar?tab=schedules&date=2026-10-30");
+    expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("location")).toHaveTextContent(
+        /^\/availability\/calendar\?tab=schedules$/
+      )
+    );
+    fireEvent.click(screen.getByRole("radio", { name: "Calendar" }));
+    expect(screen.getByRole("radio", { name: "Calendar" })).toBeChecked();
+    expect(screen.queryByRole("dialog", { name: /October 30/ })).not.toBeInTheDocument();
+  });
+
   it("ignores a ?date= that is not a real day", () => {
     renderPage("/availability/calendar?tab=calendar&date=2026-02-30");
     expect(screen.getByRole("grid")).toBeInTheDocument();

@@ -47,7 +47,7 @@ describe("availabilityPath", () => {
     [{ view: "calendar" }, "/availability/calendar?tab=calendar"],
     [
       { view: "calendar", calendarView: "week", date: "2026-12-24" },
-      "/availability/calendar?tab=calendar&date=2026-12-24",
+      "/availability/calendar?date=2026-12-24",
     ],
     [{ view: "bookingRules" }, "/availability/booking-rules"],
     [{ view: "history" }, "/availability/history"],
@@ -89,7 +89,7 @@ describe("availabilityPath", () => {
       "/availability/history?from=setup"
     );
     expect(availabilityPath({ view: "calendar", date: "2026-12-24", from: "setup" })).toBe(
-      "/availability/calendar?tab=calendar&date=2026-12-24&from=setup"
+      "/availability/calendar?date=2026-12-24&from=setup"
     );
   });
 
@@ -348,12 +348,10 @@ describe("parseAvailabilityEntry", () => {
     }
   });
 
+  // The date names the calendar by itself: C2.6's Accept line is `/availability/calendar?date=`.
   it("reads back the date a calendar target carries", () => {
     const path = availabilityPath({ view: "calendar", date: "2027-01-02" });
-    expect(parseAvailabilityEntry(path.slice(path.indexOf("?")))).toEqual({
-      tab: "calendar",
-      date: "2027-01-02",
-    });
+    expect(parseAvailabilityEntry(path.slice(path.indexOf("?")))).toEqual({ date: "2027-01-02" });
   });
 
   it("keeps the valid params when others are garbage", () => {

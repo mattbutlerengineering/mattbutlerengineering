@@ -17,7 +17,7 @@ import { AvailabilityHubPage } from "./AvailabilityHubPage.js";
  */
 
 const mutateAsync = vi.hoisted(() => vi.fn());
-const role = vi.hoisted(() => ({ isManager: true }));
+const role = vi.hoisted(() => ({ isManager: true, pending: false }));
 
 vi.mock("../contexts/VenueContext.js", () => ({
   useVenue: () => ({ selectedVenueId: "venue-1", selectedVenue: { id: "venue-1", settings: {} } }),
@@ -65,8 +65,9 @@ const scope = (): AvailabilityScope => ({
   state: { config: venue(), version: 7, source: "rows" } as AvailabilityConfigState,
   load: "ready",
   loadError: null,
-  isManager: role.isManager,
-  rolePending: false,
+  // While the role is read the scope says `isManager: false` too (useAvailabilityScope).
+  isManager: role.isManager && !role.pending,
+  rolePending: role.pending,
   refresh: vi.fn(),
   offerUndo: vi.fn(),
 });
@@ -120,6 +121,7 @@ describe("History at /availability/history", () => {
     mutateAsync.mockReset();
     mutateAsync.mockResolvedValue({ version: 8 });
     role.isManager = true;
+    role.pending = false;
   });
 
   it("loaded by its address, opens the drawer over the hub with focus inside", async () => {
@@ -165,9 +167,7 @@ describe("History at /availability/history", () => {
   it("View day lands on the calendar with that date in the address", async () => {
     const router = renderAt("/availability/history");
     fireEvent.click(within(drawer()).getByRole("button", { name: "View day" }));
-    await waitFor(() =>
-      expect(address(router)).toBe("/availability/calendar?tab=calendar&date=2026-11-20")
-    );
+    await waitFor(() => expect(address(router)).toBe("/availability/calendar?date=2026-11-20"));
     expect(screen.getByText("Calendar page")).toBeInTheDocument();
     // The drawer's entry was replaced, so Back does not reopen it.
     await back(router);
@@ -184,6 +184,13 @@ describe("History at /availability/history", () => {
         expectedVersion: 7,
       })
     );
+  });
+
+  it("offers no Undo while the role is still being read", () => {
+    role.pending = true;
+    renderAt("/availability/history");
+    expect(within(drawer()).getByRole("button", { name: "View day" })).toBeInTheDocument();
+    expect(within(drawer()).queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
   });
 
   it("shows a Host the list with View day and no Undo", () => {
