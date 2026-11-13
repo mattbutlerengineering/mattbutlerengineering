@@ -302,7 +302,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await expect(page.getByRole("dialog")).toBeVisible();
     await visit("Day drawer");
     await page.getByRole("dialog").getByRole("button", { name: "Edit Dinner" }).click();
-    await expect(page.getByRole("button", { name: "Copy to other days…" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy hours…" })).toBeVisible();
     await visit(DAY_EDITOR);
     await page.keyboard.press("Escape");
     await page.goto("availability?tab=calendar");
@@ -451,7 +451,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
       .first()
       .click();
     await page.getByRole("dialog").getByRole("button", { name: "Edit Dinner" }).click();
-    await expect(page.getByRole("button", { name: "Copy to other days…" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Copy hours…" })).toBeVisible();
   });
 
   test("(c) Tonight is one click from the Timeline header", async ({ mockedPage: page }) => {

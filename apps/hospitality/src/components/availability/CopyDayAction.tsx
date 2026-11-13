@@ -45,7 +45,8 @@ interface WeekPrefill {
 }
 
 /**
- * Copy to other days (ux.md F2): the day's hours carried to chosen weekdays. The primary button
+ * Copy hours (ux.md F2; availability-hub ux.md capability 27): the day's hours carried to chosen
+ * weekdays. The primary button
  * writes one-off special hours on the dates of this week; "Every week…" opens the regular week
  * with those weekdays already changed. The sentence under the days says what the primary does.
  */
@@ -181,7 +182,7 @@ export function CopyDayAction(props: CopyDayActionProps) {
           if (!waiting) setOpen(true);
         }}
       >
-        {t("availabilitySchedules.copy.action")}
+        {t("availabilityHub.dayActions.copyHours")}
       </Button>
       <Dialog
         open={open}

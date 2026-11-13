@@ -168,7 +168,7 @@ test("a stranded list stays out of the alert, and a long name wraps", async ({
 
 test.describe("Reload hours", () => {
   async function copyToOtherDays(page: Page) {
-    await page.getByRole("button", { name: "Copy to other days…" }).click();
+    await page.getByRole("button", { name: "Copy hours…" }).click();
     const copy = page.getByRole("dialog", { name: /to other days/ });
     // Every day: the copied hours reach the closed Sunday of that week (the days that already
     // have them are left out), so the copy saves a one-off for it.
@@ -180,7 +180,7 @@ test.describe("Reload hours", () => {
   test("a normal reload moves nothing and offers no button", async ({ mockedPage: page }) => {
     const mock = await mockAvailability(page, COPYABLE);
     await openDay(page, /Regular week/);
-    const copy = page.getByRole("button", { name: "Copy to other days…" });
+    const copy = page.getByRole("button", { name: "Copy hours…" });
     const before = await copy.boundingBox();
 
     mock.holdReads();
@@ -222,7 +222,7 @@ test.describe("Reload hours", () => {
     await expect(reload).toBeVisible({ timeout: 4000 });
     await reload.click();
 
-    const copy = page.getByRole("button", { name: "Copy to other days…" });
+    const copy = page.getByRole("button", { name: "Copy hours…" });
     await copy.focus();
     mock.releaseReads();
     await expect(reload).toHaveCount(0);
@@ -384,7 +384,7 @@ test("a refused Undo lists its bookings above the Close dialog that is open (#80
     })
   );
   const day = await openDay(page, /Regular week/);
-  await page.getByRole("button", { name: "Copy to other days…" }).click();
+  await page.getByRole("button", { name: "Copy hours…" }).click();
   const copy = page.getByRole("dialog", { name: /to other days/ });
   await copy.getByRole("button", { name: "Every day" }).click();
   await copy.getByRole("button", { name: /^Copy to / }).click();

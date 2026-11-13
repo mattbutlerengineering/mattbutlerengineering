@@ -69,7 +69,6 @@ export const AVAILABILITY_NAMESPACES: readonly string[] = [
  */
 export const LEGACY_KEYS: ReadonlySet<string> = new Set([
   "availability.calendar.legend.regular",
-  "availability.drawer.useSchedule",
   "availability.drawer.closedRegular",
   "availability.drawer.schedule.changeFor",
   "availability.drawer.schedule.removeDescriptionDated",

@@ -29660,6 +29660,14 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/copy-hours.ts">
+    <item priority="high">
+      export async function openCopyToOtherDays(): Promise<HTMLElement> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function openCopyFrom(name: RegExp): Promise<HTMLElement> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/test/png-luminance.ts">
     <item priority="low">
       interface DecodedPng {

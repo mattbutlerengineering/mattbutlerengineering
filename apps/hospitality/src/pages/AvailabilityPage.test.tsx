@@ -833,7 +833,7 @@ describe("AvailabilityPage", () => {
     it("makes Copy wait as soon as an editor is open, even before any change", () => {
       renderPage();
       openFriday();
-      const copy = () => screen.getByRole("button", { name: "Copy to other days…" });
+      const copy = () => screen.getByRole("button", { name: "Copy hours…" });
       expect(copy()).not.toHaveAttribute("aria-disabled");
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
       expect(copy()).toHaveAttribute("aria-disabled", "true");

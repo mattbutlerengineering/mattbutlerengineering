@@ -425,11 +425,11 @@ test.describe("Copy to other days", () => {
     await pinClock(mockedPage, NOON);
   });
 
-  /** Tuesday, Nov 10 on the Calendar layer: the day drawer's Copy to other days… */
+  /** Tuesday, Nov 10 on the Calendar layer: the day drawer's Copy hours… */
   async function openCopy(counter: InteractionCounter) {
     await counter.page.getByRole("radio", { name: "Calendar" }).click({ force: true });
     await counter.page.locator('[data-date="2026-11-10"]').first().click();
-    await counter.page.getByRole("button", { name: "Copy to other days…" }).click();
+    await counter.page.getByRole("button", { name: "Copy hours…" }).click();
     return counter.page.getByRole("dialog", { name: "Copy Tuesday, Nov 10 to other days" });
   }
 

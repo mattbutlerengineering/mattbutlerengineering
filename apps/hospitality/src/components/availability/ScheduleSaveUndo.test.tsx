@@ -120,7 +120,7 @@ describe("Undo after a schedule save", () => {
         />
       </main>
     );
-    fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy hours…" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Saturday" }));
     fireEvent.click(screen.getByRole("button", { name: "Copy to Sat" }));
     (await undoOffered())();

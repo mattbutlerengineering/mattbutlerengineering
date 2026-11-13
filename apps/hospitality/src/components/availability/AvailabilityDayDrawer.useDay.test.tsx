@@ -23,6 +23,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
   }),
 }));
 
+import { openCopyFrom } from "../../test/copy-hours.js";
 import { AvailabilityDayDrawer } from "./AvailabilityDayDrawer.js";
 import {
   FIXTURE_DATE,
@@ -32,7 +33,7 @@ import {
   resolveFixtureDay,
 } from "./resolved-day-fixtures.js";
 
-/** "Use another day's hours…" / "Use schedule…" in the drawer's actions (ux.md F2). */
+/** "Use other hours…" in the drawer's actions (ux.md F2, availability-hub ux.md:379). */
 describe("AvailabilityDayDrawer: use another day's hours (#7981)", () => {
   beforeAll(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
@@ -98,13 +99,15 @@ describe("AvailabilityDayDrawer: use another day's hours (#7981)", () => {
 
   it("is a Manager's action: a Host does not get it", () => {
     renderDrawer({ role: "host" });
-    expect(screen.queryByRole("button", { name: /Use another day|Use schedule/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Use other hours|Use another day|Use schedule/ })
+    ).toBeNull();
   });
 
   it("waits for an open editor, like Copy, and says why", () => {
     renderDrawer();
     fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
-    const action = screen.getByRole("button", { name: "Use another day’s hours…" });
+    const action = screen.getByRole("button", { name: "Use other hours…" });
     expect(action).toHaveAttribute("aria-disabled", "true");
     expect(action).toHaveAccessibleDescription(/Save or discard your changes/i);
     fireEvent.click(action);
@@ -113,7 +116,7 @@ describe("AvailabilityDayDrawer: use another day's hours (#7981)", () => {
 
   it("saves the date and tells the page it is done, so the drawer closes", async () => {
     const { onFinished } = renderDrawer({ extraSchedule: true });
-    fireEvent.click(screen.getByRole("button", { name: "Use schedule…" }));
+    await openCopyFrom(/Use a schedule/);
     fireEvent.click(screen.getByRole("combobox", { name: "Schedule" }));
     fireEvent.click(screen.getByRole("option", { name: "Summer hours" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply to 1 date" }));
@@ -132,7 +135,7 @@ describe("AvailabilityDayDrawer: use another day's hours (#7981)", () => {
       },
     });
     const { onFinished, onStale } = renderDrawer({ extraSchedule: true });
-    fireEvent.click(screen.getByRole("button", { name: "Use schedule…" }));
+    await openCopyFrom(/Use a schedule/);
     fireEvent.click(screen.getByRole("combobox", { name: "Schedule" }));
     fireEvent.click(screen.getByRole("option", { name: "Summer hours" }));
     fireEvent.click(screen.getByRole("button", { name: "Apply to 1 date" }));
@@ -143,7 +146,7 @@ describe("AvailabilityDayDrawer: use another day's hours (#7981)", () => {
   it("is shut on a date closed all day, and the reason sits beside it", () => {
     renderDrawer({ rules: [VENUE_CLOSURE] });
     const dialog = screen.getByRole("dialog");
-    const action = within(dialog).getByRole("button", { name: "Use another day’s hours…" });
+    const action = within(dialog).getByRole("button", { name: "Use other hours…" });
     expect(action).toHaveAttribute("aria-disabled", "true");
     expect(action).toHaveAccessibleDescription(/closed all day/i);
     fireEvent.click(action);

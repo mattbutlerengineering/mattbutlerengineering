@@ -2111,7 +2111,6 @@
       "editSchedule": "Edit schedule"
     },
     "copy": {
-      "action": "Copy to other days…",
       "title": "Copy {{date}} to other days",
       "days": "Days",
       "everyWeek": "Every week…",
@@ -2257,8 +2256,6 @@
       }
     },
     "drawer": {
-      "useOtherDay": "Use another day’s hours…",
-      "useSchedule": "Use schedule…",
       "useBlockedClosed": "Closed all day. Remove the closure to use other hours.",
       "summaryOpen": "Open for {{services}}.",
       "summaryClosed": "Closed.",
@@ -3217,6 +3214,10 @@
     }
   },
   "availabilityHub": {
+    "dayActions": {
+      "copyHours": "Copy hours…",
+      "useOtherHours": "Use other hours…"
+    },
     "conflict": {
       "overwriteNotOffered": "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
     },

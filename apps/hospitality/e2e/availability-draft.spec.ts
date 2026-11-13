@@ -117,7 +117,7 @@ function copyableWeek(): { weekdays: number[] } {
 
 /** Copies the open drawer's day to every other day of its week that has different hours. */
 async function copyToOtherDays(page: Page, drawer: Locator) {
-  await drawer.getByRole("button", { name: "Copy to other days…" }).click();
+  await drawer.getByRole("button", { name: "Copy hours…" }).click();
   const copy = page.getByRole("dialog", { name: /Copy .* to other days/ });
   await copy.getByRole("button", { name: "Every day" }).click();
   await copy.getByRole("button", { name: /^Copy to / }).click();
@@ -257,7 +257,7 @@ for (const size of SIZES) {
       const drawer = await openNextMonthDay(mockedPage, midNextMonth());
 
       await drawer.getByRole("button", { name: "Edit Dinner" }).click();
-      const copy = drawer.getByRole("button", { name: "Copy to other days…" });
+      const copy = drawer.getByRole("button", { name: "Copy hours…" });
       await expect(copy).toHaveAttribute("aria-disabled", "true");
       const reason = drawer.getByText(FINISH_FIRST);
       await expect(reason).toBeVisible();
