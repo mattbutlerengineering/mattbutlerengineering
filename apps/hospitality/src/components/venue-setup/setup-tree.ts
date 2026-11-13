@@ -9,6 +9,7 @@ import type {
 } from "@mbe/types";
 import { availabilityPath } from "../availability/availability-address.js";
 import { upcomingRules } from "../availability/rule-summaries.js";
+import { visibleSchedules } from "../availability/superseded-schedules.js";
 
 /**
  * Venue Setup hub (architecture.md "Setup tree"): config, floor plans, sections, tables and
@@ -147,6 +148,11 @@ export interface SetupTreeInput {
   readonly readiness: "setup" | "operational";
   /** The venue's today, `YYYY-MM-DD`. */
   readonly today: string;
+  /**
+   * The venue's current service date (it trails `today` after midnight on an overnight venue): a
+   * regular week replaced before it is neither counted nor listed (#8688).
+   */
+  readonly serviceDate: string;
   readonly open: GroupLoad<OpenData>;
   readonly sit: GroupLoad<SitData>;
 }
@@ -279,12 +285,17 @@ function scheduleNode(
   };
 }
 
-function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode {
+function schedulesNode(
+  config: AvailabilityConfig,
+  serviceDate: string,
+  manager: boolean
+): SetupNode {
   const services = new Map(
     active(config.venueServices).map((s) => [s.id, { name: s.name, position: s.position }])
   );
-  const schedules = active(config.schedules).map((s) => scheduleNode(s, config, services, manager));
-  const regular = active(config.schedules).find((s) => s.isRegular);
+  const visible = visibleSchedules(config, serviceDate);
+  const schedules = visible.map((s) => scheduleNode(s, config, services, manager));
+  const regular = visible.find((s) => s.isRegular);
   const regularSet =
     regular !== undefined &&
     schedules.some((n) => n.id === `schedule:${regular.id}` && n.children.length > 0);
@@ -409,12 +420,13 @@ function bookingNode(
 
 function openNodes(
   data: OpenData,
-  today: string,
+  dates: { readonly today: string; readonly serviceDate: string },
   sections: ReadonlyMap<string, string> | null,
   manager: boolean
 ): SetupNode[] {
+  const { today, serviceDate } = dates;
   return [
-    schedulesNode(data.config, manager),
+    schedulesNode(data.config, serviceDate, manager),
     specialDatesNode(data.config, today, sections, manager),
     bookingNode(data.config, data.settings, today, manager),
   ];
@@ -537,13 +549,15 @@ function withPrimary(nodes: readonly SetupNode[], targetId: string | null): Setu
 }
 
 export function buildSetupTree(input: SetupTreeInput): SetupTree {
-  const { isManager, today } = input;
+  const { isManager, today, serviceDate } = input;
   const sectionNames =
     input.sit.status === "ready"
       ? new Map(input.sit.data.sections.map((s) => [s.id, s.name]))
       : null;
   let open: readonly SetupNode[] =
-    input.open.status === "ready" ? openNodes(input.open.data, today, sectionNames, isManager) : [];
+    input.open.status === "ready"
+      ? openNodes(input.open.data, { today, serviceDate }, sectionNames, isManager)
+      : [];
   let sit: readonly SetupNode[] =
     input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
 

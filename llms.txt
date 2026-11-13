@@ -1674,7 +1674,8 @@
       export function alsoApplyOptions(
         config: AvailabilityConfig,
         edit: AvailabilityConfigChanges,
-        sourceScheduleId: string
+        sourceScheduleId: string,
+        serviceDate: string
       ): AlsoApplyOption[] { /* ... */ }
     </item>
     <item priority="high">
@@ -1694,7 +1695,8 @@
         config: AvailabilityConfig,
         edit: AvailabilityConfigChanges,
         sourceScheduleId: string,
-        picks: AlsoApplyPicks
+        picks: AlsoApplyPicks,
+        serviceDate: string
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
@@ -2383,10 +2385,14 @@
       function runs(config: AvailabilityConfig, row: ScheduleService): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function compareServiceOptions(config: AvailabilityConfig) { /* ... */ }
+      export function compareServiceOptions(config: AvailabilityConfig, serviceDate: string) { /* ... */ }
     </item>
     <item priority="high">
-      export function compareRows(config: AvailabilityConfig, venueServiceId: string): CompareRow[] { /* ... */ }
+      export function compareRows(
+        config: AvailabilityConfig,
+        venueServiceId: string,
+        serviceDate: string
+      ): CompareRow[] { /* ... */ }
     </item>
     <item priority="high">
       export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] { /* ... */ }
@@ -2401,18 +2407,20 @@
     <item priority="high">
       export function rowsRemovedSince(
         after: AvailabilityConfig,
-        edits: readonly CompareRow[]
+        edits: readonly CompareRow[],
+        serviceDate: string
       ): string[] { /* ... */ }
     </item>
     <item priority="high">
       export function reapplyEdits(
         before: AvailabilityConfig,
         after: AvailabilityConfig,
-        edits: readonly CompareRow[]
+        edits: readonly CompareRow[],
+        serviceDate: string
       ): Record<string, CompareRow> { /* ... */ }
     </item>
     <item priority="medium">
-      function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> { /* ... */ }
+      function compareRowsById(config: AvailabilityConfig, serviceDate: string): Map<string, CompareRow> { /* ... */ }
     </item>
     <item priority="high">
       export function buildCompareChanges(
@@ -4153,6 +4161,36 @@
       export function suggestName(startsOn: string | null, endsOn: string | null): NameSuggestion | null { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/superseded-fixtures.ts">
+    <item priority="medium">
+      function counter(prefix: string) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function later(draft: QuickSetupDraft): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function saveRegularWeek(
+        config: AvailabilityConfig,
+        startsOn: string,
+        prefix = "new"
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function supersededWeekOf(config: AvailabilityConfig) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/superseded-schedules.ts">
+    <item priority="high">
+      export function isSupersededRegularWeek(
+        config: AvailabilityConfig,
+        schedule: Schedule,
+        serviceDate: string
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function visibleSchedules(config: AvailabilityConfig, serviceDate: string): Schedule[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/today-line-text.ts">
     <item priority="high">
       type Format = Pick<VenueFormat, "formatLocalTime">;
@@ -4472,6 +4510,14 @@
           | "availabilitySpecial.series.stranded"
           | "availabilitySpecial.rowStranded" = "availabilitySchedules.stranded"
       ) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-visible-schedules.ts">
+    <item priority="high">
+      export function useServiceDate(config: AvailabilityConfig, timezone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useVisibleSchedules(config: AvailabilityConfig, timezone: string): Schedule[] { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-winning-change-text.ts">
@@ -32005,7 +32051,7 @@
         isManager: boolean;
         readiness: "setup" | "operational";
         today: string;
-        open: GroupLoad<OpenData>;
+        serviceDate: string;
       }
     </item>
     <item priority="low">
@@ -32036,7 +32082,11 @@
       ): SetupNode { /* ... */ }
     </item>
     <item priority="medium">
-      function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode { /* ... */ }
+      function schedulesNode(
+        config: AvailabilityConfig,
+        serviceDate: string,
+        manager: boolean
+      ): SetupNode { /* ... */ }
     </item>
     <item priority="medium">
       function targetOf(
@@ -32064,7 +32114,7 @@
     <item priority="medium">
       function openNodes(
         data: OpenData,
-        today: string,
+        dates: { readonly today: string; readonly serviceDate: string },
         sections: ReadonlyMap<string, string> | null,
         manager: boolean
       ): SetupNode[] { /* ... */ }

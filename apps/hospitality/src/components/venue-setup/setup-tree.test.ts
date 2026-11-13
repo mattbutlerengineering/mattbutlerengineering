@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { addDays } from "@mbe/availability";
+import { saveRegularWeek } from "../availability/superseded-fixtures.js";
 import type {
   AvailabilityConfig,
   DateRule,
@@ -169,6 +171,7 @@ const BASE: SetupTreeInput = {
   isManager: true,
   readiness: "operational",
   today: TODAY,
+  serviceDate: TODAY,
   open: { status: "ready", data: { config: EMPTY_CONFIG, settings: null } },
   sit: { status: "ready", data: { floorPlans: [], sections: [], tables: [] } },
 };
@@ -330,6 +333,28 @@ describe("buildSetupTree: schedules and services", () => {
     const schedules = find(group(tree, "open").nodes, "schedules");
     expect(schedules.state).toEqual({ kind: "count", count: 1 });
     expect(schedules.children[0]?.children.map((c) => c.name)).toEqual(["Dinner"]);
+  });
+
+  it("neither counts nor lists the regular weeks that later saves replaced (#8688)", () => {
+    const saved = [1, 2, 3].reduce(
+      (config, run) => saveRegularWeek(config, TODAY, `run${run}`),
+      REGULAR_WEEK
+    );
+    const tree = buildSetupTree(input({ open: openOf(saved) }));
+    const schedules = find(group(tree, "open").nodes, "schedules");
+    const regular = saved.schedules.find((s) => s.isRegular)!;
+    expect(schedules.state).toEqual({ kind: "count", count: 1 });
+    expect(schedules.children.map((c) => c.id)).toEqual([`schedule:${regular.id}`]);
+  });
+
+  it("still lists a replaced week on the service date it last runs", () => {
+    const saved = saveRegularWeek(REGULAR_WEEK, TODAY);
+    // At 00:30 on an overnight venue the service date is still yesterday, the old week's last day.
+    const tree = buildSetupTree(input({ open: openOf(saved), serviceDate: addDays(TODAY, -1) }));
+    expect(find(group(tree, "open").nodes, "schedules").state).toEqual({
+      kind: "count",
+      count: 2,
+    });
   });
 
   it("offers change/edit on the regular week and edit-only on another schedule", () => {

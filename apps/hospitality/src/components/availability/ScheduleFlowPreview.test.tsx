@@ -42,7 +42,12 @@ import { UseScheduleDialog } from "./UseScheduleDialog.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 
 const WAIT = { timeout: 3000 };
-const common = { venueId: "venue-1", timezone: "America/Los_Angeles", today: "2026-10-25" };
+const common = {
+  venueId: "venue-1",
+  timezone: "America/Los_Angeles",
+  today: "2026-10-25",
+  serviceDate: "2026-10-25",
+};
 
 const stateOf = (version = 7): AvailabilityConfigState => {
   const config = fixtureConfig();

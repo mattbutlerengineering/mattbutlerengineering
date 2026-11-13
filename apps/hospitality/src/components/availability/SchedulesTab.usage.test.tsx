@@ -78,6 +78,7 @@ function usageOf(config: AvailabilityConfig): string {
           venueId="venue-1"
           timezone="America/Los_Angeles"
           today="2026-10-25"
+          serviceDate="2026-10-25"
           onStale={vi.fn()}
           state={{ config, version: 7, source: "rows" }}
         />
@@ -128,5 +129,57 @@ describe("SchedulesTab: where a schedule applies", () => {
     expect(usageOf(withSummer([], [useSummerOn("u1", "2026-12-24")]))).toBe(
       "Used by 1 Use schedule rule"
     );
+  });
+});
+
+describe("SchedulesTab: a superseded regular week (#8688)", () => {
+  /** The fixture venue plus the week an earlier save replaced; its assignment ended on `endsOn`. */
+  function withOldWeek(endsOn: string): AvailabilityConfig {
+    const base = fixtureConfig();
+    return {
+      ...base,
+      schedules: [
+        ...base.schedules,
+        { id: "old-week", name: "Regular week", kind: "regular", isRegular: false },
+      ],
+      assignments: [
+        ...base.assignments,
+        {
+          id: "as-old-week",
+          scheduleId: "old-week",
+          weekdays: [1, 2, 3, 4],
+          precedence: 1,
+          endsOn,
+        },
+      ],
+    };
+  }
+
+  function renderWith(config: AvailabilityConfig) {
+    render(
+      <ToastProvider>
+        <main>
+          <SchedulesLayer
+            venueId="venue-1"
+            timezone="America/Los_Angeles"
+            today="2026-10-25"
+            serviceDate="2026-10-25"
+            onStale={vi.fn()}
+            state={{ config, version: 7, source: "rows" }}
+          />
+        </main>
+      </ToastProvider>
+    );
+  }
+
+  it("is not listed once its last day is before the service date", () => {
+    renderWith(withOldWeek("2026-10-24"));
+    expect(screen.queryByRole("region", { name: "Other schedules" })).toBeNull();
+  });
+
+  it("stays listed while it still covers the service date", () => {
+    renderWith(withOldWeek("2026-10-25"));
+    const region = screen.getByRole("region", { name: "Other schedules" });
+    expect(within(region).getByText("Regular week")).toBeInTheDocument();
   });
 });

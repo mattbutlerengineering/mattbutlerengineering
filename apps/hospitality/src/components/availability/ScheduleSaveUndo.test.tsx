@@ -135,6 +135,7 @@ describe("Undo after a schedule save", () => {
           state={twoSchedules}
           timezone="America/Los_Angeles"
           today="2026-10-25"
+          serviceDate="2026-10-25"
           onStale={vi.fn()}
         />
       </main>
@@ -195,6 +196,7 @@ describe("Undo after a schedule save", () => {
           }}
           timezone="America/Los_Angeles"
           today="2026-10-25"
+          serviceDate="2026-10-25"
           onStale={vi.fn()}
         />
       </main>

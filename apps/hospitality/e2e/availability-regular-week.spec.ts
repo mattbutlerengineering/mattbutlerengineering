@@ -2,6 +2,9 @@ import type { Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
+import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
+import { weekPanel } from "./helpers/first-paint.js";
+import { dinnerOnlyConfig, mockNoopPreview } from "./helpers/scenario-fixtures.js";
 import { atLocal, localDay } from "./local-day.js";
 
 /**
@@ -679,4 +682,38 @@ test.describe("Change regular week: name suggestion (#7981)", () => {
       });
     }
   }
+});
+
+test.describe("Saving the regular week again and again (#8688)", () => {
+  test("three saves on a one-schedule venue leave nothing under Other schedules", async ({
+    mockedPage: page,
+  }) => {
+    await page.clock.setFixedTime(new Date(`${localDay()}T12:00:00`));
+    // Each PUT is applied on top of the rows already saved, as the service does.
+    await mockEmptyVenue(page, { derive: true, config: dinnerOnlyConfig() });
+    await mockNoopPreview(page);
+    await page.goto("availability?tab=schedules");
+    const panel = weekPanel(page);
+    await expect(panel).toBeVisible();
+
+    for (const closes of ["10:30 PM", "11:00 PM", "11:30 PM"]) {
+      // The services are closed lines (#8690): open Dinner's to reach its times.
+      await panel.getByRole("button", { name: /^Dinner ?, /, expanded: false }).click();
+      await panel.getByRole("combobox", { name: "Closes" }).first().click();
+      await page
+        .getByRole("listbox", { name: "Closes" })
+        .getByRole("option", { name: closes, exact: true })
+        .click();
+      const put = page.waitForResponse(
+        (r) => r.url().includes("/availability/config") && r.request().method() === "PUT"
+      );
+      await panel.getByRole("button", { name: "Save", exact: true }).click();
+      expect((await put).ok()).toBe(true);
+      // The saved week restarts the form: Dinner is a closed line again, reading the new close.
+      await expect(
+        panel.getByRole("button", { name: new RegExp(`^Dinner ?, .*–${closes}`), expanded: false })
+      ).toBeVisible();
+      await expect(page.getByText("Other schedules", { exact: true })).toHaveCount(0);
+    }
+  });
 });
