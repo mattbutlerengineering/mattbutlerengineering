@@ -223,7 +223,7 @@ test.describe("Availability close dialog (F5)", () => {
     await expect(drawer).toBeHidden();
     await mockedPage.getByRole("button", { name: /^Close…/ }).click();
     const again = mockedPage.getByRole("dialog", { name: /^Close / });
-    await again.getByRole("combobox", { name: "Date" }).click();
+    await again.getByRole("combobox", { name: "Date" }).press("ArrowDown");
     await mockedPage.getByRole("button", { name: "Next month" }).click();
     // The picker's grid is named for its month; the page's is "Availability calendar".
     await mockedPage
@@ -254,7 +254,7 @@ test.describe("Availability close dialog (F5)", () => {
       // The dialog opens on the date, with nothing armed until one is chosen.
       await expect(dialog.getByTestId("close-primary")).toBeDisabled();
       await expect(dialog.getByTestId("close-primary")).toHaveText("Choose a date");
-      await dialog.getByRole("combobox", { name: "Date" }).click();
+      await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
       await one.page.getByRole("button", { name: "Next month" }).click();
       await pickerDay(one.page, CLOSE_DATE).click();
       await dialog.getByTestId("close-primary").click();
@@ -276,10 +276,10 @@ test.describe("Availability close dialog (F5)", () => {
       const week = countInteractions(mockedPage);
       await week.page.getByRole("button", { name: /^Close…/ }).click();
       const dialog = week.page.getByRole("dialog", { name: /^Close / });
-      await dialog.getByRole("combobox", { name: "Date" }).click();
+      await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
       await week.page.getByRole("button", { name: "Next month" }).click();
       await pickerDay(week.page, WEEK_START).click();
-      await dialog.getByRole("combobox", { name: "End date (optional)" }).click();
+      await dialog.getByRole("combobox", { name: "End date (optional)" }).press("ArrowDown");
       await pickerDay(week.page, WEEK_END).click();
       await expect(dialog.getByTestId("close-primary")).toContainText(" – ");
       await dialog.getByTestId("close-primary").click();
@@ -358,8 +358,9 @@ test.describe("Availability close dialog (F5)", () => {
 
       // Focus opens on the date field, inside the dialog.
       await expect(date).toBeFocused();
-      // Open the picker and move to the next day with the keyboard.
-      await mockedPage.keyboard.press("Enter");
+      // Open the picker and move to the next day with the keyboard. The date can be typed, so
+      // Enter reads the text and ArrowDown opens the calendar (C2.4).
+      await mockedPage.keyboard.press("ArrowDown");
       await expect(mockedPage.getByRole("grid", { name: /^\p{L}+ \d{4}$/u })).toBeVisible();
       // Focus opens on the selected day, inside the grid: arrow to the next day.
       await mockedPage.keyboard.press("ArrowRight");

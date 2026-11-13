@@ -45,6 +45,19 @@ import styles from "./CloseDialog.module.css";
 const CHANNELS: readonly BookingChannel[] = ["online", "phone", "waitlist"];
 const SUGGESTIONS = ["private", "weather", "holiday"] as const;
 /** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
+/**
+ * Whether a date field's change came from the field itself (Enter on a typed date) or its
+ * calendar (a pick), read when the change is made. A typed date read on blur is neither: focus is
+ * on its way to where the Manager sent it, and must stay there.
+ */
+function changedInField(id: string): boolean {
+  const active = document.activeElement;
+  return active !== null && (active.id === id || active.closest('[role="grid"]') !== null);
+}
+
+/** Two frames on: after the calendar has closed and handed focus back. */
+const afterCalendar = (run: () => void) => requestAnimationFrame(() => requestAnimationFrame(run));
+
 const SUNDAY = "2026-01-04";
 const ALL_DAY = "all";
 
@@ -140,7 +153,15 @@ export function CloseStepOne(props: CloseStepOneProps) {
 
   const fullDate = (date: string) =>
     format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
-  const dateField = (label: string, value: string, set: (v: string) => void, min = today) => {
+  // `typed`: the date can be typed as well as picked (walkthroughs 11 and 12 type it). The
+  // calendar then opens on ArrowDown or its button, on the venue's month while the field is empty.
+  const dateField = (
+    label: string,
+    value: string,
+    set: (v: string, refocus: boolean) => void,
+    min = today,
+    typed = false
+  ) => {
     const id = `close-date-${label.replace(/\W+/g, "-")}`;
     return (
       <DatePicker
@@ -148,14 +169,15 @@ export function CloseStepOne(props: CloseStepOneProps) {
         label={label}
         value={value || null}
         min={min}
+        editable={typed}
+        defaultMonth={min}
         locale={format.locale}
         weekStartsOn={WEEK_STARTS_ON}
         onChange={(v) => {
-          set(v ?? "");
           // A pick closes the calendar: hand focus back to the field, not to the body.
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => document.getElementById(id)?.focus())
-          );
+          const refocus = changedInField(id);
+          set(v ?? "", refocus);
+          if (refocus) afterCalendar(() => document.getElementById(id)?.focus());
         }}
       />
     );
@@ -277,8 +299,12 @@ export function CloseStepOne(props: CloseStepOneProps) {
               </div>
               <div className={styles.row} id={closeWhenId(when, false)}>
                 {when.kind === "date" &&
-                  dateField(t("availability.close.when.dateLabel"), when.date, (date) =>
-                    patch({ when: { kind: "date", date } })
+                  dateField(
+                    t("availability.close.when.dateLabel"),
+                    when.date,
+                    (date) => patch({ when: { kind: "date", date } }),
+                    today,
+                    true
                   )}
                 {/* A date, then an end: that is a range, so the Manager need not pick the kind first. */}
                 {when.kind === "date" &&
@@ -286,20 +312,20 @@ export function CloseStepOne(props: CloseStepOneProps) {
                   dateField(
                     t("availability.close.when.endOptionalLabel"),
                     "",
-                    (to) => {
+                    (to, refocus) => {
                       if (!to) return;
                       patch({ when: { kind: "range", from: when.date, to } });
                       // The End field becomes the range's To: keep focus on it, not on the body.
-                      requestAnimationFrame(() =>
-                        requestAnimationFrame(() =>
-                          document
-                            .getElementById(closeFieldId("when"))
-                            ?.querySelectorAll("input")[1]
-                            ?.focus()
-                        )
+                      if (!refocus) return;
+                      afterCalendar(() =>
+                        document
+                          .getElementById(closeFieldId("when"))
+                          ?.querySelectorAll("input")[1]
+                          ?.focus()
                       );
                     },
-                    addDays(when.date, 1)
+                    addDays(when.date, 1),
+                    true
                   )}
                 {when.kind === "until-reopen" &&
                   dateField(t("availability.close.when.startingLabel"), when.from, (from) =>

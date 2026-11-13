@@ -395,7 +395,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await page.goto("availability?from=setup&closeSection=sec-bar");
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
     await page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(page, closeDay).click();
     await dialog.getByTestId("close-primary").click();
@@ -670,7 +670,7 @@ test.describe("The demo runs as written (PRD 9)", () => {
     await page.getByRole("button", { name: "Close for a date… Bar" }).click();
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText(/^One section: /)).toBeVisible();
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
     await page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(page, closeDay).click();
     await dialog.getByTestId("close-primary").click();
