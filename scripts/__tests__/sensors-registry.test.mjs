@@ -1100,7 +1100,9 @@ describe("sensors-registry", () => {
     });
 
     it("buildThresholds merges every entry's co-located thresholds into one flat object", () => {
-      const thresholds = buildThresholds();
+      // Missing sidecar → registry defaults, independent of the live self-tuned tunables.
+      const missingPath = resolve(mkdtempSync(join(tmpdir(), "tunables-")), "missing.json");
+      const thresholds = buildThresholds(missingPath);
       expect(thresholds).toEqual({
         ci_pass_rate_drop: 5,
         lighthouse_score_drop: 0.05,
