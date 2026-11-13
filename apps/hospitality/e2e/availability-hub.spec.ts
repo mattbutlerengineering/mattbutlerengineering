@@ -493,7 +493,9 @@ test.describe("Availability hub: Close and Pause", () => {
     await page.goBack();
     await expect(closeDialog(page)).toHaveCount(0);
     await expect(page).toHaveURL(/\/availability\/calendar\?tab=calendar$/);
-    await expect(bar).toContainText("2 dates selected");
+    // The selection is intact: its bar is still up and its Close… is still on both dates.
+    await bar.getByRole("button", { name: "Close…" }).click();
+    await expect(closeDialog(page).getByRole("button", { name: "Close 2 dates" })).toBeVisible();
   });
 
   test("a Host with ?close=tonight or ?pause=1 gets no dialog, and the param goes", async ({
