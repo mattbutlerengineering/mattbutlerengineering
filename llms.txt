@@ -10250,13 +10250,16 @@
       function closurePauses(clock: Clock): HubOnlinePause[] { /* ... */ }
     </item>
     <item priority="medium">
-      function tonightPauses({ rules, today, nowMinute }: Clock): HubOnlinePause[] { /* ... */ }
+      function tonightMinute(rule: DateRule, clock: Clock): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightPauses(clock: Clock): HubOnlinePause[] { /* ... */ }
     </item>
     <item priority="high">
       export function onlinePause(clock: Clock): HubOnlinePause | null { /* ... */ }
     </item>
     <item priority="medium">
-      function tonightChanges(rules: readonly DateRule[], today: string): HubTonightChange[] { /* ... */ }
+      function tonightChanges(clock: Clock): HubTonightChange[] { /* ... */ }
     </item>
     <item priority="high">
       export function inForceOn(rule: ClosureRule, clock: Clock): string | null { /* ... */ }

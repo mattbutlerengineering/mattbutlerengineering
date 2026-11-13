@@ -146,27 +146,42 @@ function closurePauses(clock: Clock): HubOnlinePause[] {
     .sort(soonestFirst);
 }
 
+/**
+ * This minute on the service day a tonight rule was made for: today's, or last night's while that
+ * service still runs past midnight (as `inForceOn` reads a closure); `null` for any other night.
+ */
+function tonightMinute(rule: DateRule, clock: Clock): number | null {
+  if (rule.startsOn === clock.today) return clock.nowMinute;
+  return rule.startsOn === clock.yesterday ? clock.lateMinute : null;
+}
+
 /** The stops of online booking made for tonight that are not over: what the Today line calls paused. */
-function tonightPauses({ rules, today, nowMinute }: Clock): HubOnlinePause[] {
+function tonightPauses(clock: Clock): HubOnlinePause[] {
+  const { rules, today } = clock;
   return rules
-    .flatMap((rule): HubOnlinePause[] => {
-      if (rule.kind !== "tonight" || rule.startsOn !== today) return [];
+    .flatMap((rule) => {
+      const minute = rule.kind === "tonight" ? tonightMinute(rule, clock) : null;
+      if (rule.kind !== "tonight" || minute === null) return [];
       if (rule.targetKind !== "booking" || !(rule.bookingTypes ?? []).includes("online")) return [];
       if (!("stop" in rule.payload)) return [];
       const { from, to } = rule.payload.stop;
-      if (to <= nowMinute) return [];
-      return [
-        {
-          ruleId: rule.id,
-          source: "tonight",
-          inForce: from <= nowMinute,
-          fromMinute: from,
-          untilMinute: endMinute(to),
-          endsOn: today,
-        },
-      ];
+      if (to <= minute) return [];
+      const pause: HubOnlinePause = {
+        ruleId: rule.id,
+        source: "tonight",
+        inForce: from <= minute,
+        fromMinute: from,
+        untilMinute: endMinute(to),
+        // One still running from last night ends with the night in progress, which reads "tonight".
+        endsOn: today,
+      };
+      return [{ pause, lastNight: rule.startsOn !== today }];
     })
-    .sort(soonestFirst);
+    .sort(
+      // Today's own stop is named before one still running from last night.
+      (a, b) => Number(a.lastNight) - Number(b.lastNight) || soonestFirst(a.pause, b.pause)
+    )
+    .map(({ pause }) => pause);
 }
 
 /** A closure pause in force, else a tonight stop in force, else the soonest of those waiting. */
@@ -177,16 +192,23 @@ export function onlinePause(clock: Clock): HubOnlinePause | null {
 
 /**
  * The tonight rules for today that change the hours; pacing and blocked tables do not, and a stop
- * of booking is the pause when it stops online booking.
+ * of booking is the pause when it stops online booking. One made last night is listed while that
+ * service still runs past midnight and its own time has not passed.
  */
-function tonightChanges(rules: readonly DateRule[], today: string): HubTonightChange[] {
-  return rules.flatMap((rule): HubTonightChange[] => {
-    if (rule.kind !== "tonight" || rule.startsOn !== today) return [];
+function tonightChanges(clock: Clock): HubTonightChange[] {
+  return clock.rules.flatMap((rule): HubTonightChange[] => {
+    const minute = rule.kind === "tonight" ? tonightMinute(rule, clock) : null;
+    if (rule.kind !== "tonight" || minute === null) return [];
+    const lastNight = rule.startsOn !== clock.today;
     const { payload } = rule;
-    if ("closeAt" in payload) return [{ ruleId: rule.id, closeAt: payload.closeAt, window: null }];
+    if ("closeAt" in payload) {
+      const over = lastNight && payload.closeAt <= minute;
+      return over ? [] : [{ ruleId: rule.id, closeAt: payload.closeAt, window: null }];
+    }
     if (!("stop" in payload) || rule.targetKind === "booking" || rule.targetKind === "tables") {
       return [];
     }
+    if (lastNight && payload.stop.to <= minute) return [];
     return [
       { ruleId: rule.id, closeAt: null, window: { from: payload.stop.from, to: payload.stop.to } },
     ];
@@ -265,7 +287,7 @@ export function closuresRow(input: ClosuresRowInput): ClosuresRow {
   return {
     row: 4,
     pause,
-    tonight: tonightChanges(clock.rules, clock.today),
+    tonight: tonightChanges(clock),
     now: closures.flatMap(({ rule, inForce }) =>
       inForce === null ? [] : [closureOf(rule, inForce, clock)]
     ),
