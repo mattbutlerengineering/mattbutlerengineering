@@ -226,6 +226,7 @@
         "collect-repo-stats.mjs",
         "collect-sdlc-speed.mjs",
         "collect-shipped-features.mjs",
+        "confirm-red.mjs",
         "cors-audit.mjs",
         "dependabot-auto-merge-policy.mjs",
         "deploy-ci-precondition.mjs",
