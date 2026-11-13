@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation } from "react-router";
@@ -20,7 +20,7 @@ import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { useAvailabilityHub } from "../hooks/useAvailabilityHub.js";
 import { useAvailabilityScope, type AvailabilityScope } from "../hooks/useAvailabilityScope.js";
-import { useFocusAfter } from "../hooks/useFocusAfter.js";
+import { UNLESS_COVERED, useFocusAfter } from "../hooks/useFocusAfter.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import styles from "../components/availability/hub/Hub.module.css";
 
@@ -28,23 +28,27 @@ import styles from "../components/availability/hub/Hub.module.css";
  * The index of `availability` (availability-hub ux.md, "Hub"): what is set up, row by row, and
  * which rule decides a date. An old address (`?tab=`, `?action=addSchedule`, `?closeSection=`)
  * still lands on the view it named, with a replace, so Back does not loop.
+ *
+ * A drawer route (`booking-rules`) renders the hub too, with its drawer as `children`, so the
+ * rows stay beneath the drawer and closing it leaves the hub as it was.
  */
-export function AvailabilityHubPage() {
+export function AvailabilityHubPage({ children }: { readonly children?: ReactNode }) {
   const { search } = useLocation();
   const old = legacyRedirect(search);
-  return old ? <Navigate to={old} replace /> : <AvailabilityHub />;
+  return old ? <Navigate to={old} replace /> : <AvailabilityHub>{children}</AvailabilityHub>;
 }
 
 AvailabilityHubPage.displayName = "AvailabilityHubPage";
 
-function AvailabilityHub() {
+function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
   const { t } = useTranslation();
   const scope = useAvailabilityScope();
   const { venueId } = scope;
   const { from } = readAvailabilityAddress(useLocation());
   const { focusAfter } = useFocusAfter();
   // Arriving on the hub puts focus on its heading, so a screen reader starts at the top of it.
-  useEffect(() => focusAfter({ kind: "pageHeading" }), [focusAfter]);
+  // A drawer already open over the hub keeps focus: the heading is behind it.
+  useEffect(() => focusAfter({ kind: "pageHeading" }, UNLESS_COVERED), [focusAfter]);
 
   const backLink = from === "setup" && (
     <Link to="/setup" className={styles.link}>
@@ -61,18 +65,25 @@ function AvailabilityHub() {
         aside={backLink || undefined}
       />
       {venueId ? (
-        <HubBody scope={scope} />
+        <HubBody scope={scope} underDrawer={children != null} />
       ) : (
         <Text variant="body" color="secondary">
           {t("availability.noVenue")}
         </Text>
       )}
+      {children}
     </div>
   );
 }
 
+interface HubBodyProps {
+  readonly scope: AvailabilityScope;
+  /** A drawer route is open over the hub, so the hub does not leave its address. */
+  readonly underDrawer: boolean;
+}
+
 /** Below the header: loading, the load failure, the empty venue, or the date check and the rows. */
-function HubBody({ scope }: { readonly scope: AvailabilityScope }) {
+function HubBody({ scope, underDrawer }: HubBodyProps) {
   const { t } = useTranslation();
   const { load, loadError, rolePending, isManager, refresh } = scope;
   const hub = useAvailabilityHub(scope);
@@ -96,6 +107,8 @@ function HubBody({ scope }: { readonly scope: AvailabilityScope }) {
     );
   }
   if (hub.kind === "emptyVenue") {
+    // Booking rules can be set before any hours: the redirect happens once the drawer has closed.
+    if (isManager && underDrawer) return null;
     return isManager ? (
       // Regular hours shows the first-setup card; the way back to Venue Setup is carried.
       <Navigate to={availabilityPath({ view: "hours", ...(from && { from }) })} replace />

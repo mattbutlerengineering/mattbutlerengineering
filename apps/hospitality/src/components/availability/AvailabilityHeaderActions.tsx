@@ -14,7 +14,6 @@ export interface AvailabilityHeaderActionsProps {
   readonly onPause?: () => void;
   /** The Manager-only actions are absent for a Host, who keeps History and Go to date. */
   readonly onClose?: () => void;
-  readonly onBookingRules?: () => void;
   readonly onCompareServices?: () => void;
   /** Absent when the venue has no regular week to copy. */
   readonly onDuplicateRegularWeek?: () => void;
@@ -45,15 +44,6 @@ export function AvailabilityHeaderActions(props: AvailabilityHeaderActionsProps)
   const menuItems: MenuItems = [
     ...(viewport === "phone" && onPause
       ? [{ id: "pause", label: t("availability.paused.open"), onSelect: afterMenuCloses(onPause) }]
-      : []),
-    ...(props.onBookingRules
-      ? [
-          {
-            id: "booking-rules",
-            label: t("availability.bookingRules.open"),
-            onSelect: afterMenuCloses(props.onBookingRules),
-          },
-        ]
       : []),
     ...(props.onCompareServices
       ? [

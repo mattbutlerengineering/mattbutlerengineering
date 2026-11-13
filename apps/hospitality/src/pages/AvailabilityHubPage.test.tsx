@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -104,6 +105,50 @@ describe("AvailabilityHubPage", () => {
     expect(screen.getByTestId("today-line")).toHaveAttribute("data-banner", "false");
   });
 
+  it("renders a drawer route's drawer over the rows, and leaves focus inside it", () => {
+    // As a drawer does: it takes focus in its own effect, which runs before the hub's.
+    const Overlay = () => {
+      const cancel = useRef<HTMLButtonElement>(null);
+      useEffect(() => cancel.current?.focus(), []);
+      return (
+        <div role="dialog" aria-modal="true" aria-label="Booking rules">
+          <button type="button" ref={cancel}>
+            Cancel
+          </button>
+        </div>
+      );
+    };
+    const router = createMemoryRouter(
+      [
+        {
+          path: "availability",
+          element: <Outlet context={scopeOf()} />,
+          children: [
+            {
+              path: "booking-rules",
+              element: (
+                <AvailabilityHubPage>
+                  <Overlay />
+                </AvailabilityHubPage>
+              ),
+            },
+          ],
+        },
+      ],
+      { initialEntries: ["/availability/booking-rules"] }
+    );
+    render(
+      <main>
+        <RouterProvider router={router} />
+      </main>
+    );
+    expect(screen.getByRole("dialog", { name: "Booking rules" })).toBeInTheDocument();
+    expect(within(row(5)).getByText("Not set up yet")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    // The heading takes focus on arrival only when nothing covers it.
+    expect(screen.getByRole("button", { name: "Cancel" })).toHaveFocus();
+  });
+
   it("lists the five rows in the order they win, under the line that says so", () => {
     renderHub(scopeOf());
     expect(screen.getByRole("heading", { level: 2, name: "Your rules" })).toBeInTheDocument();
@@ -138,7 +183,7 @@ describe("AvailabilityHubPage", () => {
       "/availability/calendar?tab=special"
     );
     expect(hrefOf(within(row(5)).getByRole("link", { name: "Edit Booking rules" }))).toBe(
-      "/availability/calendar?tab=schedules"
+      "/availability/booking-rules"
     );
     expect(within(row(1)).getByRole("link", { name: /^Dinner 5:00 PM–10:00 PM/ })).toBeVisible();
     for (const n of [1, 2, 3, 4, 5])
@@ -239,6 +284,37 @@ describe("AvailabilityHubPage", () => {
       await waitFor(() =>
         expect(address(router)).toBe("/availability/calendar?tab=schedules&from=setup")
       );
+    });
+
+    it("keeps a Manager on a drawer route: the redirect waits until the drawer has closed", () => {
+      const router = createMemoryRouter(
+        [
+          {
+            path: "availability",
+            element: <Outlet context={scopeOf({ state: empty() })} />,
+            children: [
+              {
+                path: "booking-rules",
+                element: (
+                  <AvailabilityHubPage>
+                    <div role="dialog" aria-label="Booking rules" />
+                  </AvailabilityHubPage>
+                ),
+              },
+              { path: "calendar", element: <div>Today&apos;s page</div> },
+            ],
+          },
+        ],
+        { initialEntries: ["/availability/booking-rules?from=setup"] }
+      );
+      render(
+        <main>
+          <RouterProvider router={router} />
+        </main>
+      );
+      expect(address(router)).toBe("/availability/booking-rules?from=setup");
+      expect(screen.getByRole("dialog", { name: "Booking rules" })).toBeInTheDocument();
+      expect(screen.queryByText(/No hours are set yet/)).not.toBeInTheDocument();
     });
 
     it("tells a Host who sets the hours, and offers nothing to press", () => {

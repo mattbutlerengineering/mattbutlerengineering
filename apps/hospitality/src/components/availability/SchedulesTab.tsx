@@ -9,10 +9,8 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, Schedule } from "@mbe/types";
-import { useVenue } from "../../contexts/VenueContext.js";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { bookingRulesOf, bookingRulesText } from "./booking-rules.js";
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import { CompareServices } from "./CompareServices.js";
 import { scheduleNameText } from "./day-summary.js";
@@ -42,8 +40,6 @@ export interface SchedulesTabProps {
   /** Compare services is open (the page's ⋯ menu opens it). */
   readonly comparing: boolean;
   readonly onComparingChange: (comparing: boolean) => void;
-  /** Opens the booking rules drawer (the page renders it). */
-  readonly onBookingRules: () => void;
 }
 
 export interface ScheduleEditorTarget {
@@ -90,14 +86,13 @@ function useUsageText(state: AvailabilityConfigState) {
 
 /**
  * The Schedules layer (ux.md S-Avail2): the regular week as an editable form with its guest
- * preview, the other schedules and where they apply (Edit, Duplicate, Delete), the Booking line
- * and, when asked for, Compare services.
+ * preview, the other schedules and where they apply (Edit, Duplicate, Delete) and, when asked
+ * for, Compare services.
  */
 export function SchedulesTab(props: SchedulesTabProps) {
   const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
-  const { onEditorChange, comparing, onComparingChange, onBookingRules } = props;
+  const { onEditorChange, comparing, onComparingChange } = props;
   const { t } = useTranslation();
-  const { selectedVenue } = useVenue();
   const offerUndo = useAvailabilityUndo();
   const usage = useUsageText(state);
   const saver = useScheduleSave(onStale);
@@ -119,7 +114,6 @@ export function SchedulesTab(props: SchedulesTabProps) {
   }, compareDirty);
 
   const others = state.config.schedules.filter((s) => !s.archivedAt && !s.isRegular);
-  const rules = bookingRulesText(bookingRulesOf(selectedVenue?.settings), t);
 
   const confirmDelete = async () => {
     if (!deleting) return;
@@ -166,13 +160,6 @@ export function SchedulesTab(props: SchedulesTabProps) {
         resetAtVersion={laterVersion}
         refreshError={props.refreshError}
       />
-      <div className={styles.bookingRow}>
-        <Button variant="ghost" className={styles.bookingLine} onClick={onBookingRules}>
-          {rules === ""
-            ? t("availabilitySchedules.layer.bookingUnset")
-            : t("availabilitySchedules.layer.booking", { rules })}
-        </Button>
-      </div>
       <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       {others.length > 0 && (
         <section aria-labelledby="other-schedules">

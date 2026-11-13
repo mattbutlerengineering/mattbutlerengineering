@@ -4751,11 +4751,28 @@
     </item>
   </file>
   <file path="src/hooks/useAvailabilityUndo.ts">
-    <item priority="medium">
-      function focusOffToast(offeredFrom: Element | null) { /* ... */ }
+    <item priority="high">
+      export const UNDO_TOAST_MS: unknown;
+    </item>
+    <item priority="high">
+      export function focusOffToast(offeredFrom: Element | null) { /* ... */ }
     </item>
     <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useBookingRulesUndo.ts">
+    <item priority="medium">
+      function venueInCache(queryClient: QueryClient, venueId: string): Venue | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface BookingRulesUndoOffer {
+        venueId: string;
+        previous: BookingRulesForm;
+      }
+    </item>
+    <item priority="high">
+      export function useBookingRulesUndo() { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useBriefing.ts">
@@ -8602,7 +8619,7 @@
       type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "compareServices" | "createSchedule" | "openCalendar" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
     </item>
     <item priority="low">
-      type SetupActionTarget = { readonly kind: "link"; reado | { readonly kind: "dialog"; rea;
+      type SetupActionTarget = { readonly kind: "link"; readonly to: string };
     </item>
     <item priority="low">
       interface SetupAction {

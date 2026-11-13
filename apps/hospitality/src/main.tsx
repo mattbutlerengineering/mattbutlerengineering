@@ -76,6 +76,11 @@ const AvailabilityLayout = lazy(() =>
 const AvailabilityHubPage = lazy(() =>
   import("./pages/AvailabilityHubPage.js").then((m) => ({ default: m.AvailabilityHubPage }))
 );
+const BookingRulesRoute = lazy(() =>
+  import("./components/availability/BookingRulesRoute.js").then((m) => ({
+    default: m.BookingRulesRoute,
+  }))
+);
 const AvailabilityPage = lazy(() =>
   import("./pages/AvailabilityPage.js").then((m) => ({ default: m.AvailabilityPage }))
 );
@@ -327,6 +332,19 @@ const router = createBrowserRouter(
                   element: (
                     <Suspense fallback={<LoadingPage />}>
                       <AvailabilityHubPage />
+                    </Suspense>
+                  ),
+                },
+                {
+                  // A drawer over the hub: the same page, so the rows stay beneath it.
+                  path: "booking-rules",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityHubPage>
+                        <Suspense fallback={null}>
+                          <BookingRulesRoute />
+                        </Suspense>
+                      </AvailabilityHubPage>
                     </Suspense>
                   ),
                 },

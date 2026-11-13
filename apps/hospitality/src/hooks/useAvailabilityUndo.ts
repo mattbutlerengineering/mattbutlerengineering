@@ -7,14 +7,14 @@ import { reportRevertFailure } from "../components/availability/stranded-revert.
 import { useRevertAvailabilityChange } from "./useAvailability.js";
 
 /** How long the Undo stays on offer (ux.md § Undo: 10 s). */
-const UNDO_TOAST_MS = 10_000;
+export const UNDO_TOAST_MS = 10_000;
 
 /**
  * A pressed toast button goes with its toast, which would drop focus to the page. Moved before it
  * goes: back where it was when Undo was offered, else into the drawer or dialog still open, else
  * to the page heading or main landmark. A press that never took focus (Safari) leaves it be.
  */
-function focusOffToast(offeredFrom: Element | null) {
+export function focusOffToast(offeredFrom: Element | null) {
   const active = document.activeElement;
   if (active && active !== document.body && !active.closest("[aria-live]")) return;
   const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');

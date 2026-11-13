@@ -84,19 +84,20 @@ test.describe("Venue Setup hub", () => {
     await expect(page).toHaveURL(/\/setup$/);
   });
 
-  test("Add floor plan opens the floor plan list, and Booking rules opens its editor in place", async ({
+  test("Add floor plan opens the floor plan list, and Booking rules opens its editor under Availability", async ({
     mockedPage: page,
   }) => {
     await mockEmptyVenue(page);
     await withoutBookingRules(page);
     await page.goto("setup");
 
+    // The same address the Availability hub's row 5 opens (availability-hub C2.5). The venue has
+    // no hours yet, and the drawer still opens: booking rules do not depend on them.
     await page.getByRole("button", { name: "Booking rules…" }).click();
+    await expect(page).toHaveURL(/\/availability\/booking-rules\?from=setup$/);
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("dialog", { name: "Booking rules" })).toHaveCount(0);
-    await expect(page).toHaveURL(/\/setup$/);
 
+    await page.goto("setup");
     await page.getByRole("button", { name: "Add floor plan" }).click();
     await expect(page).toHaveURL(/\/floor-plans$/);
   });

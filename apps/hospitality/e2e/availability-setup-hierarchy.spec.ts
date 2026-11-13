@@ -249,13 +249,16 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await expect(page).toHaveURL(/\/availability\/calendar\?tab=special/);
     await expect(layerOption(page, "Special dates")).toBeChecked();
 
-    // Booking: its drawer, in place.
+    // Booking: its drawer, at the address the Availability hub opens it at (availability-hub C2.5).
     await page.goto("setup");
     await page.getByRole("button", { name: "Booking rules…" }).click();
+    await expect(page).toHaveURL(/\/availability\/booking-rules\?from=setup$/);
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Booking rules" })).toHaveCount(0);
 
     // Floor plan, sections and tables: the floor plan editor.
+    await page.goto("setup");
     await page.getByRole("button", { name: "Open floor plan Main Floor" }).click();
     await expect(page).toHaveURL(/\/floor-plans\/fp_e2e_001$/);
   });
@@ -310,8 +313,8 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await expect(page.getByRole("dialog", { name: /^Close / })).toBeVisible();
     await visit(PRIMARY_CLOSE);
     await page.keyboard.press("Escape");
-    await page.getByRole("button", { name: "More actions" }).click();
-    await page.getByRole("menuitem", { name: "Booking rules…" }).click();
+    // Booking rules has its own address under the hub (availability-hub C2.5), not a ⋯ entry.
+    await page.goto("availability/booking-rules");
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
     await visit(PRIMARY_BOOKING);
     await page.keyboard.press("Escape");
@@ -407,6 +410,13 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
   }) => {
     const puts = await captureConfigPuts(page);
     await mockNoopPreview(page);
+
+    // Booking rules: the hub's row 5, at its own address (availability-hub C2.5).
+    await page.goto("availability");
+    await page.getByRole("link", { name: "Edit Booking rules" }).click();
+    await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog", { name: "Booking rules" })).toHaveCount(0);
     await firstPaint(page);
 
     // Guest-view strip: one closed row under the week form until the Manager asks for it.
@@ -414,7 +424,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     const strip = page.getByRole("complementary", { name: "Guest preview" });
     await expect(strip).toBeVisible();
 
-    // Compare services, History and Booking rules: the header ⋯.
+    // Compare services and History: the header ⋯.
     const more = page.getByRole("button", { name: "More actions" });
     await more.click();
     await page.getByRole("menuitem", { name: "Compare services" }).click();
@@ -422,10 +432,6 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await more.click();
     await page.getByRole("menuitem", { name: "History" }).click();
     await expect(page.getByRole("dialog", { name: "History" })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await more.click();
-    await page.getByRole("menuitem", { name: "Booking rules…" }).click();
-    await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
     await page.keyboard.press("Escape");
 
     // Change regular week: edit in place and save (today's date), no drawer.

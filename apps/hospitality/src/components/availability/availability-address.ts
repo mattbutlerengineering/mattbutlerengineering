@@ -2,9 +2,9 @@
  * The only place an Availability address is built or read (availability-hub architecture.md
  * "Address module"). Callers name a target; this module decides the address.
  *
- * The hub is the index. Until the item that builds any other view lands, its target resolves to
- * the tab of today's page that does the same job, so no link leads to a missing view. Today's page
- * is mounted at `calendar`.
+ * The hub is the index, and booking rules is a drawer over it at `booking-rules`. Until the item
+ * that builds any other view lands, its target resolves to the tab of today's page that does the
+ * same job, so no link leads to a missing view. Today's page is mounted at `calendar`.
  * The item that builds a view gives its target its own path in `availabilityPath`; old addresses
  * follow by themselves, because `legacyRedirect` builds its answer with `availabilityPath`.
  */
@@ -84,7 +84,10 @@ export function parseAvailabilityEntry(search: string | URLSearchParams): Availa
   };
 }
 
-/** The tab of today's page that does a view's job; none for the views it lands on by itself. */
+/**
+ * The tab of today's page that does a view's job; none for the views it lands on by itself, and
+ * none for booking rules, which has its own path.
+ */
 const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | undefined>> = {
   hub: undefined,
   hours: "schedules",
@@ -92,9 +95,12 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
   specialDates: "special",
   closures: "special",
   calendar: "calendar",
-  bookingRules: "schedules",
+  bookingRules: undefined,
   history: undefined,
 };
+
+/** The booking rules drawer, over the hub. */
+const BOOKING_RULES = `${ROUTE}/booking-rules`;
 
 const withSearch = (path: string, params: URLSearchParams): string => {
   const query = params.toString();
@@ -114,6 +120,11 @@ export function availabilityPath(target: AvailabilityTarget): string {
   if (target.view === "hub" && target.close?.kind !== "section") {
     if (target.from) params.set("from", target.from);
     return withSearch(ROUTE, params);
+  }
+  // The drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
+  if (target.view === "bookingRules") {
+    if (target.from) params.set("from", target.from);
+    return withSearch(BOOKING_RULES, params);
   }
   const tab = PAGE_TAB[target.view];
   if (tab) params.set("tab", tab);

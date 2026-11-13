@@ -4,9 +4,8 @@ import { SchedulesTab, type ScheduleEditorTarget, type SchedulesTabProps } from 
 
 export type SchedulesLayerProps = Omit<
   SchedulesTabProps,
-  "onEditorChange" | "comparing" | "onComparingChange" | "onBookingRules"
+  "onEditorChange" | "comparing" | "onComparingChange"
 > & {
-  readonly onBookingRules?: () => void;
   /** Compare services starts open (the page's ⋯ menu opens it). */
   readonly comparing?: boolean;
   readonly onEditorChange?: (editor: ScheduleEditorTarget) => void;
@@ -17,12 +16,7 @@ export type SchedulesLayerProps = Omit<
  * and Compare, and renders the schedule editor the layer asks for.
  */
 export function SchedulesLayer(props: SchedulesLayerProps) {
-  const {
-    comparing: startsComparing = false,
-    onEditorChange,
-    onBookingRules = () => {},
-    ...tab
-  } = props;
+  const { comparing: startsComparing = false, onEditorChange, ...tab } = props;
   const [editor, setEditor] = useState<ScheduleEditorTarget | null>(null);
   const [comparing, setComparing] = useState(startsComparing);
   return (
@@ -33,7 +27,6 @@ export function SchedulesLayer(props: SchedulesLayerProps) {
           onEditorChange?.(next);
           setEditor(next);
         }}
-        onBookingRules={onBookingRules}
         comparing={comparing}
         onComparingChange={setComparing}
       />
