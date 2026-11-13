@@ -17,6 +17,7 @@ import { hubActions, type HubAction } from "../components/availability/hub/hub-a
 import { hubRowTexts } from "../components/availability/hub/hub-row-text.js";
 import type { HubRowModels } from "../components/availability/hub/hub-rows.js";
 import { shortDate } from "../components/availability/hub/hub-text.js";
+import { HubCloseMenu } from "../components/availability/hub/HubCloseMenu.js";
 import { HubRow, type HubRowAction } from "../components/availability/hub/HubRow.js";
 import { TodayLine } from "../components/availability/TodayLine.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
@@ -88,6 +89,10 @@ function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
       {t("availability.backToSetup")}
     </Link>
   );
+  // A Host has no Close or pause (ux.md "Host"); nor does anyone before the config has loaded.
+  const closeMenu = venueId && scope.isManager && scope.load === "ready" && (
+    <HubCloseMenu openClose={scope.openClose} openPause={scope.openPause} />
+  );
   return (
     <div className={styles.page}>
       <PageHeader
@@ -95,7 +100,15 @@ function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
         description={
           venueId ? <TodayLine venueId={venueId} bannerShowsOnline={false} /> : undefined
         }
-        aside={backLink || undefined}
+        aside={
+          closeMenu || backLink ? (
+            <div className={styles.headerAside}>
+              {closeMenu}
+              {backLink}
+            </div>
+          ) : undefined
+        }
+        asideBesideTitle
       />
       {venueId ? (
         <HubBody scope={scope} underDrawer={children != null} />

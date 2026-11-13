@@ -60,14 +60,14 @@
       "limit": "3 kB"
     },
     {
-      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup named the chunk for CallListDialog until #8538 and now names it for tonight-state; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list; +1 kB at #8528 for the Tonight/Tomorrow/holiday chips and the opening-to-close Starting-at list, 14.19 kB measured; +0.5 kB at #8538 for tonight-state, which the header Today line now shares with this chunk, 14.73 kB measured; +0.4 kB at #8689 for the date-first Close dialog: the incomplete-label text, the What summary line, the end-date and holiday fields, the note disclosure and the post-save focus, 15.1 kB measured; 15.2 kB (15,196 B) measured once availability-hub C2.3, #8803, and E4.1, #8806, moved the chunk's imports, the conflict-problem parser splitting into its own chunk, without adding Close dialog code: the brotlied size moves by tens of bytes with chunk hashes, so the limit has 0.2 kB of room; the hub (H1.6, PR 8810) moved the Today line and holiday decisions into their own budgeted chunk, so rollup names this one for CallListDialog again, 13.83 kB measured)",
-      "path": "dist/assets/CallListDialog-*.js",
+      "name": "Close Dialog + Call list (shared by the availability page and the timeline's Tonight panel; rollup named the chunk for CallListDialog until #8538 and now names it for tonight-state; +0.7 kB for the holiday calendar behind 'Closed for Thanksgiving'; +2.5 kB for Close on several dates: a closure per date, the per-date impact and the date list; +1 kB at #8528 for the Tonight/Tomorrow/holiday chips and the opening-to-close Starting-at list, 14.19 kB measured; +0.5 kB at #8538 for tonight-state, which the header Today line now shares with this chunk, 14.73 kB measured; +0.4 kB at #8689 for the date-first Close dialog: the incomplete-label text, the What summary line, the end-date and holiday fields, the note disclosure and the post-save focus, 15.1 kB measured; 15.2 kB (15,196 B) measured once availability-hub C2.3, #8803, and E4.1, #8806, moved the chunk's imports, the conflict-problem parser splitting into its own chunk, without adding Close dialog code: the brotlied size moves by tens of bytes with chunk hashes, so the limit has 0.2 kB of room; the hub (H1.6, PR 8810) moved the Today line and holiday decisions into their own budgeted chunk, so rollup names this one for CallListDialog again, 13.83 kB measured; 13.86 kB (13,859 B) at availability-hub C2.5; at C2.4 the Availability layout loads the Close dialog with its own lazy import, so rollup names the chunk for CloseDialog and the Call list (1,000 B) goes to a chunk of its own below the coverage floor: 13.45 kB (13,447 B) measured, limit unchanged)",
+      "path": "dist/assets/CloseDialog-*.js",
       "limit": "14 kB"
     },
     {
-      "name": "Availability hub page (lazy chunk: the hub's rows, date check and wording, availability-hub H1.6; 5.98 kB measured; +0.45 kB at the H1.6 review for service closures and every closed band in the date check, the tonight online stop as the pause, and the pause and past-midnight wording, 6.43 kB measured; 6.53 kB (6,533 B) on main once #8820 kept last night's tonight changes in row 4; +0.13 kB at availability-hub C2.5 for the booking rules drawer route over the hub (its drawer slot, the empty-venue redirect held while it is open, and row 5's focus once it closes), 6.66 kB (6,661 B) measured)",
+      "name": "Availability hub page (lazy chunk: the hub's rows, date check and wording, availability-hub H1.6; 5.98 kB measured; +0.45 kB at the H1.6 review for service closures and every closed band in the date check, the tonight online stop as the pause, and the pause and past-midnight wording, 6.43 kB measured; 6.53 kB (6,533 B) on main once #8820 kept last night's tonight changes in row 4; +0.13 kB at availability-hub C2.5 for the booking rules drawer route over the hub (its drawer slot, the empty-venue redirect held while it is open, and row 5's focus once it closes), 6.66 kB (6,661 B) measured; +0.23 kB at availability-hub C2.4 for the Close or pause menu beside the title (its two items, the frame it waits for the menu to close, and the title row's aside), 6.89 kB (6,892 B) measured)",
       "path": "dist/assets/AvailabilityHubPage-*.js",
-      "limit": "6.86 kB"
+      "limit": "7.1 kB"
     },
     {
       "name": "Today line + holiday decisions (hoisted at availability-hub H1.6, when the hub page began sharing the Today line, day-summary and the holiday decisions with today's page; rollup names it for useHolidayDecisions; 4.08 kB measured)",
@@ -75,19 +75,19 @@
       "limit": "4.3 kB"
     },
     {
-      "name": "Closure band + weekday summary + schedule changes (hoisted at availability-hub H1.6, when the hub's wording began sharing minute and weekday text with today's page; 3.01 kB measured)",
-      "path": "dist/assets/closure-band-*.js",
-      "limit": "3.2 kB"
-    },
-    {
-      "name": "Weekday summary + rule wording (hoisted at availability-hub C2.6, when History left today's page for its own route and rollup split the weekday and rule text it shares with the hub and today's page out of closure-band and change-summary-text; 2.55 kB (2,547 B) measured)",
+      "name": "Closure band + weekday summary + schedule changes (hoisted at availability-hub H1.6, when the hub's wording began sharing minute and weekday text with today's page; 3.01 kB measured; at availability-hub C2.4 the Close dialog left the chunks it shared, and rollup names this one for weekday-summary, 3.06 kB (3,058 B) measured, limit unchanged; at availability-hub C2.6 History left today's page for its own route and the closure band went to a chunk of its own below the coverage floor, 2.55 kB (2,547 B) measured, limit unchanged)",
       "path": "dist/assets/weekday-summary-*.js",
-      "limit": "2.75 kB"
+      "limit": "3.2 kB"
     },
     {
       "name": "History drawer route (lazy chunk over the hub, availability-hub C2.6: the History drawer, its filters and Undo; 1.93 kB (1,927 B) measured)",
       "path": "dist/assets/AvailabilityHistoryRoute-*.js",
       "limit": "2.15 kB"
+    },
+    {
+      "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured; 2.25 kB (2,254 B) once the layout became the one mount of the blocked-undo dialog, after the dialogs it hosts, and the phone's 44 px targets moved into a module both it and today's page compose)",
+      "path": "dist/assets/AvailabilityLayout-*.js",
+      "limit": "2.5 kB"
     },
     {
       "name": "Quick-setup validation (its own chunk since availability-hub H1.6 moved its neighbours into the chunks the hub shares; 2.59 kB measured)",

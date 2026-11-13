@@ -395,7 +395,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await page.goto("availability?from=setup&closeSection=sec-bar");
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
     await page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(page, closeDay).click();
     await dialog.getByTestId("close-primary").click();
@@ -419,6 +419,13 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toHaveCount(0);
     // History: the hub's History link, a drawer at its own address (availability-hub C2.6).
     // Its own Close button, not Escape: Escape pressed before the drawer has taken focus is lost.
+    await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/changes(\?|$)/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { total: 0, offset: 0, items: [] } }),
+      })
+    );
     await page.getByRole("link", { name: "History" }).click();
     const history = page.getByRole("dialog", { name: "History" });
     await history.getByRole("button", { name: "Close" }).click();
@@ -672,7 +679,7 @@ test.describe("The demo runs as written (PRD 9)", () => {
     await page.getByRole("button", { name: "Close for a date… Bar" }).click();
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText(/^One section: /)).toBeVisible();
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
     await page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(page, closeDay).click();
     await dialog.getByTestId("close-primary").click();

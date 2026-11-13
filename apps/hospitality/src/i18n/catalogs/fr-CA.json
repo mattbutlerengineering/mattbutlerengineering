@@ -3487,6 +3487,11 @@
         "closure": "une fermeture",
         "tonight": "un changement fait pour ce soir"
       }
+    },
+    "closeMenu": {
+      "open": "Fermer ou suspendre",
+      "close": "Fermer l'établissement ou une partie",
+      "pause": "Suspendre les réservations en ligne"
     }
   },
   "setup": {

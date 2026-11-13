@@ -70,6 +70,8 @@ const scope = (): AvailabilityScope => ({
   rolePending: role.pending,
   refresh: vi.fn(),
   offerUndo: vi.fn(),
+  openClose: vi.fn(),
+  openPause: vi.fn(),
 });
 
 /** `/setup`, then `url`: the hub, the History route and the calendar as siblings, as in `main.tsx`. */

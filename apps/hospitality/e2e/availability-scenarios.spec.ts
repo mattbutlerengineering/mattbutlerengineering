@@ -222,7 +222,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, holiday).click();
     await dialog.getByTestId("close-primary").click();
@@ -248,7 +248,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, holiday).click();
     await dialog.getByTestId("close-primary").click(); // Next
@@ -305,10 +305,10 @@ test.describe("Availability scenarios (PRD 18)", () => {
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     // A date, then an end date: the dialog reads that as a range, with no kind to choose first.
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, from).click();
-    await dialog.getByRole("combobox", { name: "End date (optional)" }).click();
+    await dialog.getByRole("combobox", { name: "End date (optional)" }).press("ArrowDown");
     // The end picker opens on the start's month: no month move.
     await expect(pickerDay(page, to)).toBeVisible();
     await pickerDay(counter.page, to).click();
@@ -331,10 +331,10 @@ test.describe("Availability scenarios (PRD 18)", () => {
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     // A date, then an end date: the dialog reads that as a range, with no kind to choose first.
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date" }).press("ArrowDown");
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, from).click();
-    await dialog.getByRole("combobox", { name: "End date (optional)" }).click();
+    await dialog.getByRole("combobox", { name: "End date (optional)" }).press("ArrowDown");
     // The end picker opens on the start's month: no month move.
     await expect(pickerDay(page, to)).toBeVisible();
     await pickerDay(counter.page, to).click();

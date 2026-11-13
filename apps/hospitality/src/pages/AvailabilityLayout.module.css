@@ -1,0 +1,4 @@
+/* The slot the layout's own dialogs render in: a phone's 44 px targets, as on today's page. */
+.dialogs {
+  composes: phoneTargets from "../components/availability/phone-targets.module.css";
+}

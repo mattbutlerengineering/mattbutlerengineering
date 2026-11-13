@@ -48,6 +48,8 @@ const scope: AvailabilityScope = {
   rolePending: false,
   refresh: vi.fn(),
   offerUndo: vi.fn(),
+  openClose: vi.fn(),
+  openPause: vi.fn(),
 };
 
 /** `/setup`, then `url`: the hub and the drawer route as siblings, as in `main.tsx`. */

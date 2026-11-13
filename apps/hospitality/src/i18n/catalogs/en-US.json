@@ -3395,6 +3395,11 @@
         "closure": "a closure",
         "tonight": "a change made for tonight"
       }
+    },
+    "closeMenu": {
+      "open": "Close or pause",
+      "close": "Close the venue or part of it",
+      "pause": "Pause online booking"
     }
   },
   "setup": {

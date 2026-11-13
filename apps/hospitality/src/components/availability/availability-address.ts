@@ -21,8 +21,12 @@ const TODAYS_PAGE = `${ROUTE}/calendar`;
 export const isTodaysPage = (pathname: string): boolean =>
   pathname.replace(/\/+$/, "").toLowerCase() === TODAYS_PAGE;
 
-/** What the Close dialog opens on, as `?close=` names it. */
+/**
+ * What the Close dialog opens on, as `?close=` names it. `venue` opens it on the whole venue with
+ * the date still to be asked (the hub's "Close the venue or part of it").
+ */
 export type CloseTarget =
+  | { readonly kind: "venue" }
   | { readonly kind: "tonight" }
   | { readonly kind: "date"; readonly date: string }
   | { readonly kind: "range"; readonly from: string; readonly to: string }
@@ -55,7 +59,10 @@ export type AvailabilityTarget = AvailabilityView & {
 export const AVAILABILITY_TABS = ["calendar", "special", "schedules"] as const;
 export type AvailabilityTab = (typeof AVAILABILITY_TABS)[number];
 
-/** How today's page is opened: the search params it reads on mount. */
+/**
+ * How today's page is opened: the search params it reads on mount. `closeSection` is an old
+ * address only, read by `legacyRedirect`; no address is built with it.
+ */
 export interface AvailabilityEntry {
   readonly tab?: AvailabilityTab;
   readonly closeSection?: string;
@@ -127,71 +134,127 @@ const HISTORY = `${ROUTE}/history`;
 export const isHistoryPage = (pathname: string): boolean =>
   pathname.replace(/\/+$/, "").toLowerCase() === HISTORY;
 
-/** The drawers over the hub that have their own path. */
-const HUB_DRAWERS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
+/** The views with a path of their own: the hub and the drawers over it. */
+const OWN_PATHS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
+  hub: ROUTE,
   bookingRules: BOOKING_RULES,
   history: HISTORY,
 };
 
+// `:` and `,` are legal in a query, so the close target stays readable in the address bar.
+const queryOf = (params: URLSearchParams): string =>
+  params.toString().replace(/%3A/gi, ":").replace(/%2C/gi, ",");
+
 const withSearch = (path: string, params: URLSearchParams): string => {
-  const query = params.toString();
+  const query = queryOf(params);
   return query ? `${path}?${query}` : path;
 };
+
+const SECTION_PREFIX = "section:";
+const DATES_PREFIX = "dates:";
+const RANGE_SEPARATOR = "..";
+
+/** `?close=` for a target: the inverse of `parseCloseTarget`. */
+function closeParam(target: CloseTarget): string {
+  switch (target.kind) {
+    case "venue":
+    case "tonight":
+      return target.kind;
+    case "date":
+      return target.date;
+    case "range":
+      return `${target.from}${RANGE_SEPARATOR}${target.to}`;
+    case "dates":
+      return `${DATES_PREFIX}${target.dates.join(",")}`;
+    case "section":
+      return `${SECTION_PREFIX}${target.sectionId}`;
+  }
+}
+
+/** One dialog over a view: a close target, or else the pause flag. */
+type DialogRequest = { readonly close: CloseTarget } | { readonly pause: true } | null;
+
+function setDialog(params: URLSearchParams, dialog: DialogRequest): void {
+  params.delete("close");
+  params.delete("pause");
+  if (dialog && "close" in dialog) params.set("close", closeParam(dialog.close));
+  else if (dialog) params.set("pause", "1");
+}
+
+/** The dialog and the Venue Setup flag every view carries, in that order, last in the query. */
+function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void {
+  setDialog(params, target.close ? { close: target.close } : target.pause ? { pause: true } : null);
+  if (target.from) params.set("from", target.from);
+}
 
 /**
  * The address for a target, so no caller hand-writes a path or a query string.
  *
- * Today's page opens only a section's Close dialog and a calendar date's drawer from its address,
- * so any other close target, the Pause dialog, and a named service, schedule or calendar view are
- * dropped until the view that reads them lands. A date that is not a real day is dropped too.
+ * The layout hosts the Close and Pause dialogs over any view (C2.4), so every address carries
+ * them. A calendar date opens that day's drawer on today's page; a date that is not a real day is
+ * dropped. A named service, schedule or calendar view is dropped until the view that reads it
+ * lands.
  */
 export function availabilityPath(target: AvailabilityTarget): string {
   const params = new URLSearchParams();
-  // The hub opens no dialog yet (C2.4), so a section's Close dialog still opens on today's page.
-  if (target.view === "hub" && target.close?.kind !== "section") {
-    if (target.from) params.set("from", target.from);
-    return withSearch(ROUTE, params);
-  }
-  // A drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
-  const drawer = HUB_DRAWERS[target.view];
-  if (drawer) {
-    if (target.from) params.set("from", target.from);
-    return withSearch(drawer, params);
+  const ownPath = OWN_PATHS[target.view];
+  if (ownPath) {
+    setOverlay(params, target);
+    return withSearch(ownPath, params);
   }
   // A date names the calendar by itself (today's page opens Calendar for it), so it needs no tab.
   const date =
     target.view === "calendar" && target.date && isDate(target.date) ? target.date : null;
   const tab = PAGE_TAB[target.view];
   if (tab && !date) params.set("tab", tab);
-  if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
   if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
   if (date) params.set("date", date);
-  if (target.from) params.set("from", target.from);
+  setOverlay(params, target);
   return withSearch(TODAYS_PAGE, params);
+}
+
+/**
+ * The same search with `dialog` open in place of any dialog it named, every other param kept;
+ * `null` removes both. The layout's `openClose`, `openPause` and its close use it.
+ */
+export function dialogSearch(search: string, dialog: DialogRequest): string {
+  const params = new URLSearchParams(search);
+  setDialog(params, dialog);
+  const query = queryOf(params);
+  return query ? `?${query}` : "";
 }
 
 const MAX_CLOSE_DATES = 20;
 
-const SECTION_PREFIX = "section:";
-const DATES_PREFIX = "dates:";
-const RANGE_SEPARATOR = "..";
+/**
+ * Several dates, each once and in order (dates in this shape sort as text); one date left is that
+ * date, so the dialog opens on "One date" rather than a list of one.
+ */
+function parseDates(listed: readonly string[]): CloseTarget | null {
+  if (listed.length > MAX_CLOSE_DATES || !listed.every(isDate)) return null;
+  const dates = [...new Set(listed)].sort();
+  return dates.length === 1 ? { kind: "date", date: dates[0]! } : { kind: "dates", dates };
+}
+
+/** `<from>..<to>`; a range of one day is that date. */
+function parseRange(value: string): CloseTarget | null {
+  const [from, to, ...rest] = value.split(RANGE_SEPARATOR);
+  if (from === undefined || to === undefined || rest.length > 0) return null;
+  if (!isDate(from) || !isDate(to) || from > to) return null;
+  return from === to ? { kind: "date", date: from } : { kind: "range", from, to };
+}
 
 function parseCloseTarget(value: string | null): CloseTarget | null {
   if (!value) return null;
-  if (value === "tonight") return { kind: "tonight" };
+  if (value === "venue" || value === "tonight") return { kind: value };
   if (isDate(value)) return { kind: "date", date: value };
   if (value.startsWith(SECTION_PREFIX)) {
     const sectionId = value.slice(SECTION_PREFIX.length);
     return sectionId ? { kind: "section", sectionId } : null;
   }
-  if (value.startsWith(DATES_PREFIX)) {
-    const dates = value.slice(DATES_PREFIX.length).split(",");
-    return dates.length <= MAX_CLOSE_DATES && dates.every(isDate) ? { kind: "dates", dates } : null;
-  }
-  const [from, to, ...rest] = value.split(RANGE_SEPARATOR);
-  if (from === undefined || to === undefined || rest.length > 0) return null;
-  // Dates in this shape sort as text.
-  return isDate(from) && isDate(to) && from <= to ? { kind: "range", from, to } : null;
+  if (value.startsWith(DATES_PREFIX))
+    return parseDates(value.slice(DATES_PREFIX.length).split(","));
+  return parseRange(value);
 }
 
 /** What an address asks for beyond its view: a dialog to open, and the Venue Setup back link. */
@@ -228,6 +291,8 @@ const TAB_VIEW: Readonly<Record<AvailabilityTab, AvailabilityView>> = {
  * Each old param names a view (architecture.md "Old addresses"), and the answer is wherever
  * `availabilityPath` puts that view today. So it never names a route that is not mounted, and a
  * row reaches its final address in the same change that gives its view a path of its own.
+ * `?closeSection=<id>` becomes `?close=section:<id>`, which holds no old param, so the index
+ * never redirects its own answer.
  */
 export function legacyRedirect(search: string): string | null {
   const entry = parseAvailabilityEntry(search);

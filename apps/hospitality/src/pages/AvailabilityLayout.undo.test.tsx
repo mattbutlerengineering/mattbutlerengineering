@@ -29,7 +29,6 @@ vi.mock("../hooks/useIsManager.js", () => ({
   useManagerAccess: () => ({ isManager: true, isPending: false }),
 }));
 
-import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { type AvailabilityScope, useAvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { AvailabilityLayout } from "./AvailabilityLayout.js";
 
@@ -53,16 +52,13 @@ function Editor() {
   );
 }
 
-/** Today's page, which still mounts its own blocked-undo dialog. */
+/** Today's page, which since C2.4 leaves the blocked-undo dialog to the layout. */
 function TodaysPage() {
   const { offerUndo } = useAvailabilityScope();
   return (
-    <>
-      <button type="button" onClick={() => offerUndo("Hours saved", SAVED)}>
-        Save hours
-      </button>
-      <StrandedRevertDialog />
-    </>
+    <button type="button" onClick={() => offerUndo("Hours saved", SAVED)}>
+      Save hours
+    </button>
   );
 }
 
@@ -163,7 +159,7 @@ describe("Undo on the Availability layout", () => {
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
   });
 
-  it("opens one dialog, not two, on today's page, which mounts its own", async () => {
+  it("opens the blocked-undo dialog on today's page too, and only one", async () => {
     revert.mockRejectedValue(refusal());
     renderLayout("/availability/calendar");
     fireEvent.click(screen.getByRole("button", { name: "Save hours" }));

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Outlet, Route, Routes } from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import { ApiClientError } from "@mbe/api-client";
 
@@ -96,6 +96,25 @@ vi.mock("../components/availability/SchedulesTab.js", async () => {
 });
 
 import { AvailabilityPage } from "./AvailabilityPage.js";
+import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
+
+/** The page opens Close and Pause through the layout's scope (C2.4); these tests open neither. */
+const SCOPE = { openClose: vi.fn(), openPause: vi.fn() };
+// The layout mounts the blocked-undo dialog after the page (C2.4); this stands in for it.
+const underLayout = (
+  <Routes>
+    <Route
+      element={
+        <>
+          <Outlet context={SCOPE} />
+          <StrandedRevertDialog />
+        </>
+      }
+    >
+      <Route path="*" element={<AvailabilityPage />} />
+    </Route>
+  </Routes>
+);
 
 const refusal = () =>
   new ApiClientError(
@@ -131,9 +150,7 @@ describe("a refused Undo on the Availability page", () => {
     render(
       <MemoryRouter>
         <ToastProvider>
-          <main>
-            <AvailabilityPage />
-          </main>
+          <main>{underLayout}</main>
         </ToastProvider>
       </MemoryRouter>
     );

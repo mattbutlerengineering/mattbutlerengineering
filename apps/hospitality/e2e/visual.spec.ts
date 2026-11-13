@@ -177,6 +177,23 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
       venue: { ...VENUE, ianaTimezone: "UTC" },
     },
   ],
+  // ManageReservationPage's party-invite card reads its RSVP counts (#8717).
+  [
+    /\/public\/v1\/reservations\/manage\/invite$/,
+    { invited: true, confirmed: 2, declined: 1, partySize: 4 },
+  ],
+  // `/i/:token`. Not api-mocks' mockPublicInvite: that dates the invite on the runner's real day.
+  [
+    /\/public\/v1\/invites\/[^/?]+$/,
+    {
+      venue: { name: VENUE.name, slug: VENUE.slug },
+      date: DAY,
+      time: "19:00",
+      partySize: 4,
+      rsvps: [{ firstName: "Sam", status: "IN" }],
+      status: "CONFIRMED",
+    },
+  ],
 ];
 
 const RESERVATIONS_LIST = new URL("fixtures/reservations-list.json", import.meta.url);
