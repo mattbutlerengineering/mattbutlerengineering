@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig, AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
@@ -35,7 +35,6 @@ import {
 import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
 import {
   BlockedReason,
-  ConflictReviewPanel,
   OverlapChoice,
   OwnChangesChoice,
   SaveFailure,
@@ -43,6 +42,7 @@ import {
 } from "./ScheduleFormParts.js";
 import { AlsoApplyTo } from "./AlsoApplyTo.js";
 import { DraftPreview, previewIds } from "./DraftPreview.js";
+import { draftRows, FormConflictDialog } from "./FormConflictDialog.js";
 import { NameSuggestionChip } from "./NameSuggestionChip.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 import { useConflictReview } from "./use-conflict-review.js";
@@ -68,6 +68,8 @@ export interface ScheduleEditorDrawerProps {
   readonly seed?: "regular";
   readonly onStale: () => void;
   readonly onClose: () => void;
+  /** The reload of the config failed (the page's read); a conflict being reviewed says so. */
+  readonly refreshError?: string | null;
 }
 
 const NO_ISSUES: readonly never[] = [];
@@ -253,6 +255,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
       : null;
   const blocked = blockedText !== null;
   const blockedId = useId();
+  // Cancel is always there: it takes focus when a conflict's answer leaves Save disabled.
+  const cancelRef = useRef<HTMLButtonElement>(null);
   // The schedule's own edit, built the way Save builds it.
   const editChanges = useMemo(() => {
     if (blocked || !dirty) return null;
@@ -387,7 +391,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         footer={
           <div className={styles.footer}>
             <BlockedReason id={blockedId} reason={blockedText} />
-            <Button variant="secondary" onClick={() => guard.request()}>
+            <Button ref={cancelRef} variant="secondary" onClick={() => guard.request()}>
               {t("availabilitySchedules.cancel")}
             </Button>
             <Button
@@ -403,16 +407,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         }
       >
         <Stack gap="md">
-          {review.review ? (
-            <ConflictReviewPanel
-              review={review.review}
-              alsoApply={alsoApplySince ?? undefined}
-              onReapply={review.reapply}
-              onDiscard={review.discard}
-            />
-          ) : (
-            <SaveFailure messages={saver.failure} stranded={saver.stranded} />
-          )}
+          {!review.review && <SaveFailure messages={saver.failure} stranded={saver.stranded} />}
           <Input
             label={t("availabilitySchedules.name")}
             value={name}
@@ -499,6 +494,18 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
           />
         </Stack>
       </Drawer>
+      <FormConflictDialog
+        saver={saver}
+        review={review.review}
+        rows={draftRows(draft)}
+        alsoApply={alsoApplySince ?? undefined}
+        reloadError={props.refreshError}
+        onReload={onStale}
+        onReapply={review.reapply}
+        onStartOver={review.discard}
+        onDiscard={onClose}
+        returnFocus={cancelRef}
+      />
       <ScheduleDraftGuard
         dirty={dirty}
         asking={guard.pending !== null}

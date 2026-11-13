@@ -2095,25 +2095,16 @@
     "conflictReview": {
       "alsoChanged": "Appliquer aussi à : {{names}} a changé en premier",
       "alsoRemoved": "Appliquer aussi à : {{names}} n’offre plus ce service",
-      "title": "Quelqu’un a modifié cet horaire avant vous",
       "loading": "Chargement de la dernière version…",
       "gone": "Cet horaire a été supprimé; vos modifications ne peuvent pas être enregistrées. Abandonnez-les pour fermer.",
-      "nothing": "Rien n’a changé dans cet horaire. Vos modifications peuvent être réappliquées telles quelles.",
       "added": "Ajouté : {{names}}",
       "removed": "Retiré : {{names}}",
       "changed": "Heures modifiées : {{names}}",
       "renamed": "Renommé en {{name}}",
       "hint": "Réappliquer conserve les modifications de l’autre personne et ajoute les vôtres par-dessus. Vérifiez le résultat, puis enregistrez.",
       "reapply": "Réappliquer mes modifications",
-      "discard": "Abandonner mes modifications",
-      "draftTitle": "La disponibilité a changé pendant votre modification",
-      "draftBody": "Quelqu’un a enregistré un changement de disponibilité avant vous. Rien de ce que vous avez saisi n’a été enregistré.",
-      "draftHint": "Conservez votre horaire pour l’enregistrer par-dessus leur changement, ou recommencez.",
-      "draftKeep": "Conserver mon horaire",
       "startOver": "Recommencer",
-      "regularReplaced": "La semaine habituelle est maintenant {{name}}",
-      "regularNothing": "Rien n’a changé dans la semaine habituelle.",
-      "regularHint": "Réappliquer place vos heures par-dessus la semaine habituelle actuelle. Vérifiez le résultat, puis enregistrez."
+      "regularReplaced": "La semaine habituelle est maintenant {{name}}"
     },
     "regularWeek": {
       "title": "Modifier la semaine habituelle",
@@ -2135,7 +2126,6 @@
     },
     "compare": {
       "open": "Comparer les services",
-      "conflictTitle": "Quelqu’un a modifié ces horaires avant vous",
       "title": "Comparer les services",
       "service": "Service",
       "opens": "Ouverture",
@@ -2685,8 +2675,8 @@
         "theirs_one": "{{summary}} (enregistré à {{time}}).",
         "theirs_other": "{{summary}} (enregistré à {{time}}).",
         "theirs_many": "{{summary}} (enregistré à {{time}}).",
-        "theirsUnknown": "Un autre changement a été enregistré après l’ouverture de ce jour.",
-        "since": "Ces changements ont été enregistrés après l’ouverture de ce jour, du plus récent au plus ancien :",
+        "theirsUnknown": "Un autre changement a été enregistré après le début de vos modifications.",
+        "since": "Ces changements ont été enregistrés après le début de vos modifications, du plus récent au plus ancien :",
         "earlier_one": "Et {{count}} changement antérieur qui n’est pas listé.",
         "earlier_many": "Et {{count}} de changements antérieurs qui ne sont pas listés.",
         "earlier_other": "Et {{count}} changements antérieurs qui ne sont pas listés.",
@@ -3313,6 +3303,9 @@
     }
   },
   "availabilityHub": {
+    "conflict": {
+      "overwriteNotOffered": "Le remplacement n’est pas offert pour ces heures. Examinez son changement pour y superposer les vôtres, ou retournez à votre brouillon."
+    },
     "routes": {
       "regularHours": "Heures habituelles",
       "seasonalHours": "Heures saisonnières",

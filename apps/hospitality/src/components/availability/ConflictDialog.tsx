@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Dialog, Heading, Stack, Text } from "@mattbutlerengineering/rialto";
 import type {
@@ -24,13 +24,39 @@ function theirsText(change: AvailabilityChangeSummary, t: TFunction, format: Ven
   });
 }
 
+/** One service of the draft as Review lists it. */
+export type ConflictDraftRow = Pick<DraftService, "key" | "name" | "opensAt" | "closesAt">;
+
+/**
+ * The two answers Review their change offers a form that can lay its draft over the version that
+ * won (the weekly forms, fed by `use-conflict-review.ts`).
+ */
+export interface ConflictAnswers {
+  /** The latest version has arrived; until then there is nothing to lay the draft over. */
+  readonly loaded: boolean;
+  /** What the draft changes no longer exists, so it cannot be reapplied. */
+  readonly gone: boolean;
+  /** What the winning version changed in the hours this draft was built from, a line each. */
+  readonly lines: readonly string[];
+  /** The winning version with only the Manager's own changes on top. */
+  readonly onReapply: () => void;
+  /** The winning version as it is; the draft is dropped. */
+  readonly onStartOver: () => void;
+  /** Why the reload of the latest version failed, said here because the page behind is hidden. */
+  readonly reloadError?: string | null;
+  /** Asks for the latest version again; offered until it has arrived. */
+  readonly onReload?: () => void;
+}
+
 export interface ConflictDialogProps {
   readonly open: boolean;
   /** The change that won; `null` when the server recorded none. */
   readonly winningChange: AvailabilityChangeSummary | null;
   /** Every change since the draft's version (the newest few and the true count); absent from an older server. */
   readonly changesSince?: ConflictChangesSince;
-  readonly services: readonly DraftService[];
+  readonly services: readonly ConflictDraftRow[];
+  /** Adds Reapply my changes and Start over to Review their change. */
+  readonly answers?: ConflictAnswers;
   readonly isSaving: boolean;
   /** Why the last Overwrite was refused; shown here because the page behind the modal is not. */
   readonly failure?: readonly string[];
@@ -38,12 +64,61 @@ export interface ConflictDialogProps {
   readonly stranded?: readonly StrandedReservation[];
   /** The 409 named the version Overwrite goes against; without it Overwrite is not offered. */
   readonly ready: boolean;
+  /**
+   * Why Overwrite is off, for a form that never offers it. Absent, the dialog says it is not
+   * available right now.
+   */
+  readonly unavailableNote?: string;
   /** Overwrite found a newer change; the dialog now shows that one. */
   readonly changedAgain: boolean;
   readonly onOverwrite: () => void;
   readonly onDiscard: () => void;
   /** Close the dialog and return to the draft, edits intact. */
   readonly onBack: () => void;
+}
+
+/** Reapply my changes and Start over, with why Reapply is off when it is. */
+function Answers(props: { readonly answers: ConflictAnswers; readonly isSaving: boolean }) {
+  const { loaded, gone, onReapply, onStartOver, reloadError, onReload } = props.answers;
+  const { t } = useTranslation();
+  const note = !loaded
+    ? t("availabilitySchedules.conflictReview.loading")
+    : gone
+      ? t("availabilitySchedules.conflictReview.gone")
+      : t("availabilitySchedules.conflictReview.hint");
+  // A reload that failed is not still loading: the reason replaces the wait.
+  const failed = !loaded && Boolean(reloadError);
+  return (
+    <Stack gap="sm">
+      {failed ? (
+        <Alert variant="error" title={t("availability.loadError")}>
+          {reloadError}
+        </Alert>
+      ) : (
+        <Text variant="caption" color="secondary" role="status">
+          {note}
+        </Text>
+      )}
+      <div className={styles.answers}>
+        {!loaded && onReload && (
+          <Button variant="secondary" size="sm" onClick={onReload}>
+            {t("availability.drawer.reloadHours")}
+          </Button>
+        )}
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!loaded || gone || props.isSaving}
+          onClick={onReapply}
+        >
+          {t("availabilitySchedules.conflictReview.reapply")}
+        </Button>
+        <Button variant="secondary" size="sm" disabled={props.isSaving} onClick={onStartOver}>
+          {t("availabilitySchedules.conflictReview.startOver")}
+        </Button>
+      </div>
+    </Stack>
+  );
 }
 
 /**
@@ -56,6 +131,9 @@ export function ConflictDialog(props: ConflictDialogProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const [reviewing, setReviewing] = useState(false);
+  const unavailableId = useId();
+  // A form whose answers are under Review (Reapply, Start over) leads with Review, not Overwrite.
+  const reviewFirst = props.answers !== undefined;
 
   // An older server sends no `changesSince`: the winning change alone is named, as before.
   const listed = props.changesSince?.changes ?? [];
@@ -78,7 +156,10 @@ export function ConflictDialog(props: ConflictDialogProps) {
       footer={
         <div className={styles.footer}>
           {!reviewing && (
-            <Button variant="secondary" onClick={() => setReviewing(true)}>
+            <Button
+              variant={reviewFirst ? "primary" : "secondary"}
+              onClick={() => setReviewing(true)}
+            >
               {t("availability.editor.conflict.review")}
             </Button>
           )}
@@ -88,7 +169,13 @@ export function ConflictDialog(props: ConflictDialogProps) {
           <Button variant="secondary" onClick={onDiscard} disabled={isSaving}>
             {t("availability.editor.conflict.discard")}
           </Button>
-          <Button variant="primary" onClick={onOverwrite} isLoading={isSaving} disabled={!ready}>
+          <Button
+            variant={reviewFirst ? "secondary" : "primary"}
+            onClick={onOverwrite}
+            isLoading={isSaving}
+            disabled={!ready}
+            aria-describedby={ready ? undefined : unavailableId}
+          >
             {t("availability.editor.conflict.overwrite")}
           </Button>
         </div>
@@ -137,8 +224,8 @@ export function ConflictDialog(props: ConflictDialogProps) {
           </Text>
         )}
         {!ready && (
-          <Text variant="caption" color="secondary" role="status">
-            {t("availability.editor.conflict.unavailable")}
+          <Text id={unavailableId} variant="caption" color="secondary" role="status">
+            {props.unavailableNote ?? t("availability.editor.conflict.unavailable")}
           </Text>
         )}
         {reviewing && (
@@ -152,6 +239,11 @@ export function ConflictDialog(props: ConflictDialogProps) {
                   ? changeSummaryText(winningChange, format, t)
                   : t("availability.editor.conflict.theirsUnknown")}
               </Text>
+              {(props.answers?.lines ?? []).map((line) => (
+                <Text key={line} variant="body" color="secondary">
+                  {line}
+                </Text>
+              ))}
             </section>
             <section aria-labelledby="conflict-yours">
               <Heading level={3} size={4} id="conflict-yours">
@@ -173,6 +265,7 @@ export function ConflictDialog(props: ConflictDialogProps) {
             </section>
           </div>
         )}
+        {reviewing && props.answers && <Answers answers={props.answers} isSaving={isSaving} />}
       </Stack>
     </Dialog>
   );

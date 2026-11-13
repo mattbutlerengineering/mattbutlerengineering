@@ -1,9 +1,10 @@
-import { useEffect, useId, useRef, useState, type FocusEvent } from "react";
+import { useEffect, useId, useRef, useState, type FocusEvent, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { DraftPreview } from "./DraftPreview.js";
+import { draftRows, FormConflictDialog } from "./FormConflictDialog.js";
 import { LeaveGuard } from "./LeaveGuard.js";
 import type { QuickSetupDraft } from "./quick-setup-draft.js";
 import { focusFirstInvalid, useWeekdayName } from "./quick-setup-field-helpers.js";
@@ -11,7 +12,6 @@ import { previewOverlapReason } from "./quick-setup-validate.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 import {
   BlockedReason,
-  ConflictReviewPanel,
   OwnChangesChoice,
   SaveFailure,
   useWeekdaySummary,
@@ -57,6 +57,8 @@ export function RegularWeekPanel(props: RegularWeekPanelProps) {
   // The version this panel's own save returned, until the config has caught up with it.
   const [awaiting, setAwaiting] = useState<number | null>(null);
   const [status, setStatus] = useState({ dirty: false, reviewing: false });
+  // Outlives a restart of the body, so an answer that restarts it can still leave focus here.
+  const startLaterRef = useRef<HTMLButtonElement>(null);
   const forced = Math.max(awaiting ?? 0, resetAtVersion ?? 0);
   const restart = () => {
     setSeed((was) => ({ version: state.version, epoch: was.epoch + 1 }));
@@ -90,6 +92,7 @@ export function RegularWeekPanel(props: RegularWeekPanelProps) {
         onSaved={(version) => setAwaiting(version)}
         onDiscard={restart}
         onStatus={setStatus}
+        startLaterRef={startLaterRef}
       />
     </>
   );
@@ -101,10 +104,13 @@ interface BodyProps extends RegularWeekPanelProps {
   readonly onSaved: (version: number) => void;
   readonly onDiscard: () => void;
   readonly onStatus: (status: { dirty: boolean; reviewing: boolean }) => void;
+  /** Starting later…: always there, so it takes focus when a conflict's answer removes Save. */
+  readonly startLaterRef: RefObject<HTMLButtonElement | null>;
 }
 
 function RegularWeekPanelBody(props: BodyProps) {
   const { venueId, state, today, onStale, onStartLater, onDirtyChange, settling } = props;
+  const { onDiscard, onSaved, startLaterRef, refreshError } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const dayName = useWeekdayName();
@@ -138,8 +144,8 @@ function RegularWeekPanelBody(props: BodyProps) {
     state,
     onStale,
     fixedStart: today,
-    onSaved: (saved) => props.onSaved(saved.version),
-    onGone: props.onDiscard,
+    onSaved: (saved) => onSaved(saved.version),
+    onGone: onDiscard,
   });
   const unsaved = dirty && !settling;
   // Refused for a problem in the form, not for a conflict or a missing service.
@@ -255,24 +261,17 @@ function RegularWeekPanelBody(props: BodyProps) {
           </>
         )}
         <div className={styles.bar} data-pinned={unsaved ? "" : undefined}>
-          {review.review && (
-            <ConflictReviewPanel
-              review={review.review}
-              onReapply={review.reapply}
-              onDiscard={review.discard}
-            />
-          )}
           <div className={styles.footer}>
             <Text variant="caption" color="secondary" className={styles.apply}>
               {t("availabilitySchedules.layer.appliesFrom", { date: todayText })}
             </Text>
             <div className={styles.actions}>
-              <Button variant="secondary" onClick={() => onStartLater(draft)}>
+              <Button ref={startLaterRef} variant="secondary" onClick={() => onStartLater(draft)}>
                 {t("availabilitySchedules.layer.startLater")}
               </Button>
               {unsaved && (
                 <>
-                  <Button variant="secondary" onClick={props.onDiscard}>
+                  <Button variant="secondary" onClick={onDiscard}>
                     {t("availabilitySchedules.layer.discard")}
                   </Button>
                   <Button
@@ -294,6 +293,17 @@ function RegularWeekPanelBody(props: BodyProps) {
             {unsaved && <BlockedReason id={blockedId} reason={quiet ? null : blockedText} />}
           </div>
         </div>
+        <FormConflictDialog
+          saver={saver}
+          review={review.review}
+          rows={draftRows(draft)}
+          reloadError={refreshError}
+          onReload={onStale}
+          onReapply={review.reapply}
+          onStartOver={review.discard}
+          onDiscard={onDiscard}
+          returnFocus={startLaterRef}
+        />
         <LeaveGuard
           active={unsaved || leaving}
           date={null}

@@ -84,6 +84,8 @@ const conflict = () =>
     },
   });
 
+const CONFLICT = "Someone changed availability first";
+
 const common = { venueId: "venue-1", timezone: "America/Los_Angeles", today: "2026-10-25" };
 
 describe("schedule drawers", () => {
@@ -201,13 +203,12 @@ describe("schedule drawers", () => {
           <ScheduleEditorDrawer {...props} state={stateOf(withBrunch(opened), 8)} />
         </main>
       );
-      expect(await screen.findByText("Someone changed this schedule first")).toBeInTheDocument();
+      // The one conflict dialog asks; what changed here is under Review their change.
+      fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
       expect(screen.getByText("Added: Brunch")).toBeInTheDocument();
-      // Nothing can be saved until the Manager answers.
-      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 
       fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
-      expect(screen.queryByText("Someone changed this schedule first")).not.toBeInTheDocument();
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: CONFLICT })).toBeNull());
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
       const body = save.mock.calls[1]?.[0].body;
@@ -220,7 +221,7 @@ describe("schedule drawers", () => {
       ]);
     });
 
-    it("Discard my changes starts again from the winning version", async () => {
+    it("Start over starts again from the winning version", async () => {
       const opened = fixtureConfig();
       save.mockRejectedValueOnce(conflict());
       const props = {
@@ -243,9 +244,88 @@ describe("schedule drawers", () => {
           <ScheduleEditorDrawer {...props} state={stateOf(withBrunch(opened), 8)} />
         </main>
       );
-      fireEvent.click(await screen.findByRole("button", { name: "Discard my changes" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+      fireEvent.click(screen.getByRole("button", { name: "Start over" }));
       expect(screen.getAllByRole("button", { name: /^Remove service/ })).toHaveLength(3);
       expect(screen.getByDisplayValue("Brunch")).toBeInTheDocument();
+    });
+
+    /** The Manager removed Lunch; the save was refused at version 8 and `latest` has landed. */
+    async function refusedEdit(latest: AvailabilityConfig) {
+      const opened = fixtureConfig();
+      save.mockRejectedValueOnce(
+        Object.assign(conflict(), {
+          problemDetails: { ...conflict().problemDetails, currentVersion: 8 },
+        })
+      );
+      const props = {
+        ...common,
+        mode: "edit" as const,
+        sourceScheduleId: "regular",
+        onStale: vi.fn(),
+        onClose: vi.fn(),
+      };
+      const { rerender } = render(
+        <main>
+          <ScheduleEditorDrawer {...props} state={stateOf(opened)} />
+        </main>
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(props.onStale).toHaveBeenCalled());
+      rerender(
+        <main>
+          <ScheduleEditorDrawer {...props} state={stateOf(latest, 8)} />
+        </main>
+      );
+      return { props, dialog: await screen.findByRole("dialog", { name: CONFLICT }) };
+    }
+
+    it("keeps Overwrite off: a press sends nothing, and the colleague's Brunch is not removed", async () => {
+      const { dialog } = await refusedEdit(withBrunch(fixtureConfig()));
+      const overwrite = within(dialog).getByRole("button", { name: "Overwrite" });
+      expect(overwrite).toBeDisabled();
+      expect(
+        within(dialog).getByText(
+          "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+        )
+      ).toBeTruthy();
+      fireEvent.click(overwrite);
+      expect(save).toHaveBeenCalledTimes(1);
+    });
+
+    it("Back to my draft keeps the edit and the version it was built on", async () => {
+      const { dialog, props } = await refusedEdit(withBrunch(fixtureConfig()));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Back to my draft" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: CONFLICT })).toBeNull());
+      expect(props.onClose).not.toHaveBeenCalled();
+      // Still the Manager's one service, not the colleague's three.
+      expect(screen.getAllByRole("textbox", { name: /Service name/ })).toHaveLength(1);
+      save.mockRejectedValueOnce(conflict());
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+      expect(save.mock.calls[1]?.[0].body.expectedVersion).toBe(7);
+    });
+
+    it("Discard mine closes the drawer without saving", async () => {
+      const { dialog, props } = await refusedEdit(withBrunch(fixtureConfig()));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Discard mine" }));
+      expect(props.onClose).toHaveBeenCalledTimes(1);
+      expect(save).toHaveBeenCalledTimes(1);
+    });
+
+    it("when the hours being edited were deleted, neither Overwrite nor Reapply is offered", async () => {
+      const opened = fixtureConfig();
+      const { dialog, props } = await refusedEdit({
+        ...opened,
+        schedules: opened.schedules.map((s) => ({ ...s, archivedAt: "2026-10-26T00:00:00Z" })),
+      });
+      expect(within(dialog).getByRole("button", { name: "Overwrite" })).toBeDisabled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Review their change" }));
+      expect(within(dialog).getByText(/was deleted, so your changes can’t be saved/)).toBeTruthy();
+      expect(within(dialog).getByRole("button", { name: "Reapply my changes" })).toBeDisabled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Start over" }));
+      expect(props.onClose).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -380,8 +460,6 @@ describe("schedule drawers", () => {
   });
 
   describe("a lost race outside edit mode", () => {
-    const RACED_PANEL = "Availability changed while you were editing";
-
     /** A colleague made the regular week "Autumn": a new schedule, Lunch now opening at 8:00. */
     function autumnRegular(opened: AvailabilityConfig): AvailabilityConfig {
       return {
@@ -432,7 +510,8 @@ describe("schedule drawers", () => {
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
 
       rerenderWith(autumnRegular(opened), 8);
-      expect(await screen.findByText("The regular week is now Autumn")).toBeInTheDocument();
+      fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+      expect(screen.getByText("The regular week is now Autumn")).toBeInTheDocument();
       expect(screen.queryByText(/^Added:/)).not.toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
@@ -455,6 +534,28 @@ describe("schedule drawers", () => {
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });
 
+    it("Change regular week keeps Overwrite off: a press sends nothing", async () => {
+      const opened = tueSat();
+      save.mockRejectedValueOnce(
+        Object.assign(conflict(), {
+          problemDetails: { ...conflict().problemDetails, currentVersion: 8 },
+        })
+      );
+      const { props, rerenderWith } = renderWeek(opened);
+      fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
+      rerenderWith(withBrunch(opened), 8);
+      const overwrite = await screen.findByRole("button", { name: "Overwrite" });
+      expect(overwrite).toBeDisabled();
+      expect(overwrite).toHaveAccessibleDescription(
+        "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+      );
+      fireEvent.click(overwrite);
+      expect(save).toHaveBeenCalledTimes(1);
+    });
+
     it("Start over in Change regular week clears the name and dates too", async () => {
       const opened = tueSat();
       save.mockRejectedValueOnce(conflict());
@@ -466,7 +567,8 @@ describe("schedule drawers", () => {
       fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
       rerenderWith(tueSat(), 8);
-      fireEvent.click(await screen.findByRole("button", { name: "Start over" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+      fireEvent.click(screen.getByRole("button", { name: "Start over" }));
       // Ending is clear again, so the period's name is not asked for.
       expect(screen.queryByLabelText(/Schedule name/)).not.toBeInTheDocument();
       expect(screen.getByLabelText("Starting")).toHaveValue("");
@@ -657,7 +759,7 @@ describe("schedule drawers", () => {
       });
     });
 
-    it("New schedule: says availability changed, not that a schedule did, and Start over clears every field", async () => {
+    it("New schedule: names no change to these hours, and Start over clears every field", async () => {
       const opened = fixtureConfig();
       save.mockRejectedValueOnce(conflict());
       const { props, rerenderWith } = renderNew("new", opened);
@@ -671,10 +773,10 @@ describe("schedule drawers", () => {
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
 
       rerenderWith(withBrunch(opened), 8);
-      expect(await screen.findByText(RACED_PANEL)).toBeInTheDocument();
-      expect(screen.queryByText("Someone changed this schedule first")).not.toBeInTheDocument();
-      expect(screen.queryByText(/Nothing in this schedule changed/)).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Keep my schedule" })).toBeEnabled();
+      fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+      // A new draft depends on nothing stored: no line says what changed in it.
+      expect(screen.queryByText(/^(Added|Removed|Hours changed):/)).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Reapply my changes" })).toBeEnabled();
 
       fireEvent.click(screen.getByRole("button", { name: "Start over" }));
       expect(screen.getByRole("textbox", { name: /Schedule name/ })).toHaveValue("");
@@ -684,7 +786,7 @@ describe("schedule drawers", () => {
       expect(props.onClose).toHaveBeenCalledTimes(1);
     });
 
-    it("New schedule: Keep my schedule saves the draft against the winning version", async () => {
+    it("New schedule: Reapply my changes saves the draft against the winning version", async () => {
       const opened = fixtureConfig();
       save.mockRejectedValueOnce(conflict());
       const { props, rerenderWith } = renderNew("new", opened);
@@ -697,7 +799,8 @@ describe("schedule drawers", () => {
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
       rerenderWith(withBrunch(opened), 8);
-      fireEvent.click(await screen.findByRole("button", { name: "Keep my schedule" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+      fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
       expect(save.mock.calls[1]?.[0].body.expectedVersion).toBe(8);
@@ -716,10 +819,10 @@ describe("schedule drawers", () => {
         schedules: opened.schedules.map((x) => ({ ...x, archivedAt: "2026-10-26T00:00:00Z" })),
       };
       rerenderWith(deleted, 8);
-      expect(await screen.findByText(RACED_PANEL)).toBeInTheDocument();
+      fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
       expect(screen.queryByText(/can’t be saved/)).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Keep my schedule" })).toBeEnabled();
-      fireEvent.click(screen.getByRole("button", { name: "Keep my schedule" }));
+      expect(screen.getByRole("button", { name: "Reapply my changes" })).toBeEnabled();
+      fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
       expect(screen.getByRole("button", { name: "Remove service 1" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
     });

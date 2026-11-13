@@ -275,12 +275,12 @@ describe("RegularWeekPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(onStale).toHaveBeenCalledTimes(1));
       rerender(panel(stateOf(lunchWithoutMonday(), 8), { onStale }));
-      // The message the Save waits on sits in the pinned bar, with the Save.
-      const reapply = await screen.findByRole("button", { name: "Reapply my changes" });
-      expect(reapply.closest("[data-pinned]")).toBe(
-        screen.getByRole("button", { name: "Save" }).closest("[data-pinned]")
-      );
-      fireEvent.click(reapply);
+      // The one conflict dialog asks; Reapply is behind Review their change.
+      const dialog = await screen.findByRole("dialog", {
+        name: "Someone changed availability first",
+      });
+      fireEvent.click(within(dialog).getByRole("button", { name: "Review their change" }));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Reapply my changes" }));
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
       expect(save.mock.calls[1]![0].body.expectedVersion).toBe(8);
@@ -304,7 +304,8 @@ describe("RegularWeekPanel", () => {
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await waitFor(() => expect(onStale).toHaveBeenCalledTimes(1));
       rerender(panel(stateOf(lunchWithoutMonday(), 8), { onStale }));
-      fireEvent.click(await screen.findByRole("button", { name: "Start over" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+      fireEvent.click(screen.getByRole("button", { name: "Start over" }));
       expect(lunchMonday()).not.toBeChecked();
       expect(discard()).not.toBeInTheDocument();
     });

@@ -11,6 +11,12 @@
   gap: var(--rialto-space-md);
 }
 
+.answers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+}
+
 .list {
   margin: 0;
   padding: 0;

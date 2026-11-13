@@ -2095,25 +2095,16 @@
     "conflictReview": {
       "alsoChanged": "Aplicar también a: {{names}} cambió primero",
       "alsoRemoved": "Aplicar también a: {{names}} ya no ofrece este servicio",
-      "title": "Alguien cambió este horario antes",
       "loading": "Cargando la última versión…",
       "gone": "Este horario se eliminó, así que no se pueden guardar tus cambios. Descártalos para cerrar.",
-      "nothing": "Nada cambió en este horario. Tus cambios se pueden volver a aplicar tal cual.",
       "added": "Agregado: {{names}}",
       "removed": "Quitado: {{names}}",
       "changed": "Horario modificado: {{names}}",
       "renamed": "Ahora se llama {{name}}",
       "hint": "Al volver a aplicar se conservan los cambios de la otra persona y se ponen los tuyos encima. Revisa el resultado y guarda.",
       "reapply": "Volver a aplicar mis cambios",
-      "discard": "Descartar mis cambios",
-      "draftTitle": "La disponibilidad cambió mientras editabas",
-      "draftBody": "Alguien guardó un cambio de disponibilidad antes. No se guardó nada de lo que escribiste.",
-      "draftHint": "Conserva tu horario para guardarlo encima de su cambio, o empieza de nuevo.",
-      "draftKeep": "Conservar mi horario",
       "startOver": "Empezar de nuevo",
-      "regularReplaced": "La semana regular ahora es {{name}}",
-      "regularNothing": "Nada cambió en la semana regular.",
-      "regularHint": "Al volver a aplicar, tus horarios se ponen sobre la semana regular actual. Revisa el resultado y guarda."
+      "regularReplaced": "La semana regular ahora es {{name}}"
     },
     "regularWeek": {
       "title": "Cambiar la semana habitual",
@@ -2135,7 +2126,6 @@
     },
     "compare": {
       "open": "Comparar servicios",
-      "conflictTitle": "Alguien cambió estos horarios primero",
       "title": "Comparar servicios",
       "service": "Servicio",
       "opens": "Abre",
@@ -2685,8 +2675,8 @@
         "theirs_one": "{{summary}} (guardado a la {{time}}).",
         "theirs_other": "{{summary}} (guardado a las {{time}}).",
         "theirs_many": "{{summary}} (guardado a las {{time}}).",
-        "theirsUnknown": "Se guardó otro cambio después de que abriste este día.",
-        "since": "Estos cambios se guardaron después de que abriste este día, del más reciente al más antiguo:",
+        "theirsUnknown": "Se guardó otro cambio después de que empezaste a editar.",
+        "since": "Estos cambios se guardaron después de que empezaste a editar, del más reciente al más antiguo:",
         "earlier_one": "Y {{count}} cambio anterior que no aparece en la lista.",
         "earlier_many": "Y {{count}} de cambios anteriores que no aparecen en la lista.",
         "earlier_other": "Y {{count}} cambios anteriores que no aparecen en la lista.",
@@ -3313,6 +3303,9 @@
     }
   },
   "availabilityHub": {
+    "conflict": {
+      "overwriteNotOffered": "Sobrescribir no se ofrece para estos horarios. Revisa su cambio para poner los tuyos encima, o vuelve a tu borrador."
+    },
     "routes": {
       "regularHours": "Horario habitual",
       "seasonalHours": "Horarios de temporada",

@@ -2055,25 +2055,16 @@
     "conflictReview": {
       "alsoChanged": "Also applying to: {{names}} changed first",
       "alsoRemoved": "Also applying to: {{names}} no longer runs this service",
-      "title": "Someone changed this schedule first",
       "loading": "Loading the latest version…",
       "gone": "This schedule was deleted, so your changes can’t be saved. Discard them to close.",
-      "nothing": "Nothing in this schedule changed. Your changes can be reapplied as they are.",
       "added": "Added: {{names}}",
       "removed": "Removed: {{names}}",
       "changed": "Hours changed: {{names}}",
       "renamed": "Renamed to {{name}}",
       "hint": "Reapply keeps the other person’s changes and puts yours on top. Check the result, then save.",
       "reapply": "Reapply my changes",
-      "discard": "Discard my changes",
-      "draftTitle": "Availability changed while you were editing",
-      "draftBody": "Someone saved a change to availability first. Nothing you entered has been saved.",
-      "draftHint": "Keep your schedule to save it on top of their change, or start over.",
-      "draftKeep": "Keep my schedule",
       "startOver": "Start over",
-      "regularReplaced": "The regular week is now {{name}}",
-      "regularNothing": "Nothing in the regular week changed.",
-      "regularHint": "Reapply lays your hours over the current regular week. Check the result, then save."
+      "regularReplaced": "The regular week is now {{name}}"
     },
     "regularWeek": {
       "title": "Change regular week",
@@ -2094,7 +2085,6 @@
     },
     "compare": {
       "open": "Compare services",
-      "conflictTitle": "Someone changed these schedules first",
       "title": "Compare services",
       "service": "Service",
       "opens": "Opens",
@@ -2613,8 +2603,8 @@
         "title": "Someone changed availability first",
         "theirs_one": "{{summary}} (saved at {{time}}).",
         "theirs_other": "{{summary}} (saved at {{time}}).",
-        "theirsUnknown": "Another change was saved after you opened this day.",
-        "since": "These changes were saved after you opened this day, newest first:",
+        "theirsUnknown": "Another change was saved after you started editing.",
+        "since": "These changes were saved after you started editing, newest first:",
         "earlier_one": "And {{count}} earlier change that isn’t listed.",
         "earlier_other": "And {{count}} earlier changes that aren’t listed.",
         "review": "Review their change",
@@ -3227,6 +3217,9 @@
     }
   },
   "availabilityHub": {
+    "conflict": {
+      "overwriteNotOffered": "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+    },
     "routes": {
       "regularHours": "Regular hours",
       "seasonalHours": "Seasonal hours",
