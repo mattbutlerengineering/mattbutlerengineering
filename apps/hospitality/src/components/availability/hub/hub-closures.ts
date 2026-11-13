@@ -170,7 +170,7 @@ function tonightPauses({ rules, today, nowMinute }: Clock): HubOnlinePause[] {
 }
 
 /** A closure pause in force, else a tonight stop in force, else the soonest of those waiting. */
-function onlinePause(clock: Clock): HubOnlinePause | null {
+export function onlinePause(clock: Clock): HubOnlinePause | null {
   const pauses = [...closurePauses(clock), ...tonightPauses(clock)];
   return pauses.find((p) => p.inForce) ?? [...pauses].sort(soonestFirst)[0] ?? null;
 }

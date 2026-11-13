@@ -1,18 +1,19 @@
 import type { ClosureSummary } from "@mbe/types";
-import { isEditableClosure, isPauseInForce } from "./close-draft.js";
+import { isEditableClosure } from "./close-draft.js";
 import {
   clockOf,
   inForceOn,
   isClosure,
   isOnlinePause,
+  onlinePause,
   targetOf,
   waitingOn,
   type Clock,
   type ClosureRule,
   type ClosuresRowInput,
   type HubClosure,
+  type HubOnlinePause,
 } from "./hub/hub-closures.js";
-import { coversOn } from "./hub/rule-dates.js";
 import { isSeries, skipRows } from "./series-edit.js";
 
 /**
@@ -57,11 +58,19 @@ export interface ClosureListRow extends ClosureFacts {
   readonly refundsOpen: number;
 }
 
-/** A closure with no date left, or a rule that is gone, whose refunds are not all settled. */
+/**
+ * Why refunds are owed for something not listed as closed now or to come: a closure of the config
+ * whose dates have passed (`ended`), a rule no longer in the config, reopened or deleted
+ * (`removed`), or a change made for tonight, which may still be in force (`tonight`).
+ */
+export type EarlierReason = "ended" | "removed" | "tonight";
+
+/** Refunds not all settled for a closure with no date left, a rule that is gone, or tonight. */
 export interface EarlierClosureRow {
   readonly group: "earlier";
   readonly ruleId: string;
-  /** `null` when no closure of the config has this id: it was reopened, or was a tonight change. */
+  readonly reason: EarlierReason;
+  /** What it closed and when, for `ended`; `null` for `removed` and `tonight`. */
   readonly closure: ClosureFacts | null;
   readonly outcomes: ClosureSummary;
   readonly refundsOpen: number;
@@ -72,7 +81,7 @@ export interface ClosuresList {
   readonly now: readonly ClosureListRow[];
   /** By the next date each closes, then the time of day it starts; one with no date left is last. */
   readonly upcoming: readonly ClosureListRow[];
-  /** Most recently ended first, then refunds whose rule is gone. */
+  /** Ended closures, most recently ended first; then tonight changes and rules that are gone. */
   readonly earlier: readonly EarlierClosureRow[];
 }
 
@@ -94,14 +103,22 @@ function factsOf(rule: ClosureRule, clock: Clock): ClosureFacts {
   };
 }
 
-/** The service date the rule is in force on. A pause covering today is read as guests meet it. */
-function forceDate(rule: ClosureRule, clock: Clock): string | null {
-  const { config, rules, timezone, today, nowMinute } = clock;
-  const pausedToday =
-    isOnlinePause(rule) &&
-    coversOn(rule, rules, today) &&
-    isPauseInForce(rule, config, timezone, today, nowMinute);
-  return pausedToday ? today : inForceOn(rule, clock);
+/**
+ * The service date the rule is in force on. The one pause the hub names as in force is in force
+ * here too, until the part of today it covers is over: that reading (`isPauseInForce`) counts a
+ * pause that has taken the last online seating before its own time. Every other rule, a second
+ * pause included, waits for its own time, so the list and hub row 4 name the same pause.
+ */
+function forceDate(
+  rule: ClosureRule,
+  clock: Clock,
+  hubPause: HubOnlinePause | null
+): string | null {
+  // A stop made for tonight (`source: "tonight"`) is no closure, so then none is the hub's pause.
+  const namedByHub =
+    hubPause?.source === "closure" && hubPause.inForce && hubPause.ruleId === rule.id;
+  const partOfTodayLeft = rule.window == null || clock.nowMinute < rule.window.to;
+  return namedByHub && partOfTodayLeft ? clock.today : inForceOn(rule, clock);
 }
 
 type Placed =
@@ -109,8 +126,8 @@ type Placed =
   | { readonly group: "upcoming"; readonly on: string | null }
   | { readonly group: "ended" };
 
-function place(rule: ClosureRule, clock: Clock): Placed {
-  const inForce = forceDate(rule, clock);
+function place(rule: ClosureRule, clock: Clock, hubPause: HubOnlinePause | null): Placed {
+  const inForce = forceDate(rule, clock, hubPause);
   if (inForce !== null) return { group: "now", on: inForce };
   const next = waitingOn(rule, clock);
   if (next !== null) return { group: "upcoming", on: next };
@@ -168,10 +185,15 @@ function earlierRows(
   clock: Clock
 ): EarlierClosureRow[] {
   const open = summaries.filter((s) => refundsOpenOf(s) > 0 && !listed.has(s.ruleId));
-  const rowFor = (outcomes: ClosureSummary, rule: ClosureRule | null): EarlierClosureRow => ({
+  const rowFor = (
+    outcomes: ClosureSummary,
+    reason: EarlierReason,
+    closure: ClosureFacts | null
+  ): EarlierClosureRow => ({
     group: "earlier",
     ruleId: outcomes.ruleId,
-    closure: rule === null ? null : factsOf(rule, clock),
+    reason,
+    closure,
     outcomes,
     refundsOpen: refundsOpenOf(outcomes),
   });
@@ -180,19 +202,26 @@ function earlierRows(
     .sort((a, b) => lastDate(b).localeCompare(lastDate(a)) || a.id.localeCompare(b.id))
     .flatMap((rule) => {
       const outcomes = open.find((s) => s.ruleId === rule.id);
-      return outcomes ? [rowFor(outcomes, rule)] : [];
+      return outcomes ? [rowFor(outcomes, "ended", factsOf(rule, clock))] : [];
     });
   const endedIds = new Set(ended.map((rule) => rule.id));
-  const gone = open.filter((s) => !endedIds.has(s.ruleId)).map((s) => rowFor(s, null));
-  return [...known, ...gone];
+  // Refunds for a rule of another kind that still stands (special hours) are not a closure's.
+  const rest = open.flatMap((s) => {
+    if (endedIds.has(s.ruleId)) return [];
+    const rule = clock.rules.find((r) => r.id === s.ruleId);
+    if (rule === undefined) return [rowFor(s, "removed", null)];
+    return rule.kind === "tonight" ? [rowFor(s, "tonight", null)] : [];
+  });
+  return [...known, ...rest];
 }
 
 export function closuresList(input: ClosuresListInput): ClosuresList {
   const clock = clockOf(input);
   const { summaries } = input;
+  const hubPause = onlinePause(clock);
   const placed = clock.rules
     .filter(isClosure)
-    .map((rule) => ({ rule, placed: place(rule, clock) }));
+    .map((rule) => ({ rule, placed: place(rule, clock, hubPause) }));
   const rows = placed.flatMap(({ rule, placed: at }) =>
     at.group === "ended"
       ? []

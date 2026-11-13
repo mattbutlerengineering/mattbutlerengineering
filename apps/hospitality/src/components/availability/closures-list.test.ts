@@ -3,7 +3,14 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { AvailabilityConfig, ClosureSummary, DateRule } from "@mbe/types";
 import { closuresList, type ClosuresListInput } from "./closures-list.js";
-import { rule, THURSDAYS, TODAY, venue, window } from "./hub/hub-rows-test-helpers.js";
+import {
+  rule,
+  specialHours,
+  THURSDAYS,
+  TODAY,
+  venue,
+  window,
+} from "./hub/hub-rows-test-helpers.js";
 
 const YESTERDAY = "2026-11-11";
 const TOMORROW = "2026-11-13";
@@ -154,6 +161,57 @@ describe("closuresList: a pause of online booking", () => {
       { ruleId: "r-phones", pause: false },
     ]);
   });
+
+  it("stops listing a pause for part of today once that part is over", () => {
+    // Paused 10:00 AM to 3:00 PM today only.
+    const config = venue([rule("p-b", { ...ONLINE, window: window(600, 900) })]);
+    expect(ids(list(config, { nowMinute: 899 }).now)).toEqual(["p-b"]);
+    expect(list(config, { nowMinute: 900 })).toEqual(EMPTY);
+    expect(list(config, { nowMinute: 1000 })).toEqual(EMPTY);
+  });
+
+  it("lists a pause whose part of today is over as earlier while its refunds are open", () => {
+    const config = venue([rule("p-b", { ...ONLINE, window: window(600, 900) })]);
+    const summaries = [summary("p-b", { refundPending: 1 })];
+    expect(list(config, { nowMinute: 1000, summaries })).toMatchObject({
+      now: [],
+      upcoming: [],
+      earlier: [{ ruleId: "p-b", reason: "ended" }],
+    });
+  });
+
+  it("lists no row for an online stop made for tonight, and files a pause beside it as usual", () => {
+    const stop = rule("r-stop", {
+      kind: "tonight",
+      ...ONLINE,
+      payload: { version: 1, stop: { from: 0, to: 2880 } },
+    } as Partial<DateRule>);
+    // The hub names the pause closure, which is in force all day.
+    const allDay = list(venue([stop, rule("r-pause", ONLINE)]));
+    expect(allDay).toMatchObject({ now: [{ ruleId: "r-pause", pause: true }], upcoming: [] });
+    expect(allDay.earlier).toEqual([]);
+    // The hub names the stop, in force now; the pause from 6:00 PM waits for its own time.
+    const config = venue([stop, rule("r-pause", { ...ONLINE, window: window(1080) })]);
+    expect(list(config)).toMatchObject({
+      now: [],
+      upcoming: [{ ruleId: "r-pause", on: TODAY, pause: true }],
+      earlier: [],
+    });
+    expect(ids(list(config, { nowMinute: 1100 }).now)).toEqual(["r-pause"]);
+  });
+
+  it("holds the second of two pauses as upcoming until its own time, as the hub does", () => {
+    // From 7:00 PM and from 8:00 PM. At 7:10 PM the first already stops every online booking.
+    const first = rule("p-a", { ...ONLINE, window: window(1140) });
+    const second = rule("p-b", { ...ONLINE, window: window(1200) });
+    const config = venue([second, first]);
+    const early = list(config, { nowMinute: 1150 });
+    expect(ids(early.now)).toEqual(["p-a"]);
+    expect(early.upcoming).toMatchObject([{ ruleId: "p-b", on: TODAY, pause: true }]);
+    const late = list(config, { nowMinute: 1210 });
+    expect(ids(late.now)).toEqual(["p-a", "p-b"]);
+    expect(late.upcoming).toEqual([]);
+  });
 });
 
 describe("closuresList: a repeating closure", () => {
@@ -229,6 +287,7 @@ describe("closuresList: earlier, with refunds still open", () => {
         {
           group: "earlier",
           ruleId: "r-nov-1",
+          reason: "ended",
           closure: {
             target: { kind: "venue" },
             startsOn: "2026-11-01",
@@ -263,11 +322,45 @@ describe("closuresList: earlier, with refunds still open", () => {
     });
   });
 
-  it("lists refunds owed for a rule that is gone, with nothing known about the closure", () => {
+  it("lists refunds owed for a rule that is gone as removed, with no closure known", () => {
     const outcomes = summary("r-reopened", { refundFailed: 1 });
     expect(list(venue(), { summaries: [outcomes] }).earlier).toEqual([
-      { group: "earlier", ruleId: "r-reopened", closure: null, outcomes, refundsOpen: 1 },
+      {
+        group: "earlier",
+        ruleId: "r-reopened",
+        reason: "removed",
+        closure: null,
+        outcomes,
+        refundsOpen: 1,
+      },
     ]);
+  });
+
+  it("lists refunds owed for a change made for tonight as tonight's, not as ended", () => {
+    const closeEarly = rule("r-close", {
+      kind: "tonight",
+      payload: { version: 1, closeAt: 1200 },
+    } as Partial<DateRule>);
+    const outcomes = summary("r-close", { refundPending: 2 });
+    expect(list(venue([closeEarly]), { summaries: [outcomes] })).toEqual({
+      ...EMPTY,
+      earlier: [
+        {
+          group: "earlier",
+          ruleId: "r-close",
+          reason: "tonight",
+          closure: null,
+          outcomes,
+          refundsOpen: 2,
+        },
+      ],
+    });
+  });
+
+  it("leaves refunds owed for special hours to the Special dates page", () => {
+    const hours = specialHours("r-sh", "2026-11-26");
+    const summaries = [summary("r-sh", { refundFailed: 1 })];
+    expect(list(venue([hours]), { summaries })).toEqual(EMPTY);
   });
 
   it("keeps a closure with refunds open in its own group while it is closed or to come", () => {

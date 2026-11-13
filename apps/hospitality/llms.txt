@@ -731,12 +731,15 @@
       }
     </item>
     <item priority="low">
+      type EarlierReason = "ended" | "removed" | "tonight";
+    </item>
+    <item priority="low">
       interface EarlierClosureRow {
         group: "earlier";
         ruleId: string;
+        reason: EarlierReason;
         closure: ClosureFacts | null;
         outcomes: ClosureSummary;
-        refundsOpen: number;
       }
     </item>
     <item priority="low">
@@ -755,13 +758,17 @@
       function factsOf(rule: ClosureRule, clock: Clock): ClosureFacts { /* ... */ }
     </item>
     <item priority="medium">
-      function forceDate(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
+      function forceDate(
+        rule: ClosureRule,
+        clock: Clock,
+        hubPause: HubOnlinePause | null
+      ): string | null { /* ... */ }
     </item>
     <item priority="high">
       type Placed = { readonly group: "now"; reado | { readonly group: "upcoming";  | { readonly group: "ended" };
     </item>
     <item priority="medium">
-      function place(rule: ClosureRule, clock: Clock): Placed { /* ... */ }
+      function place(rule: ClosureRule, clock: Clock, hubPause: HubOnlinePause | null): Placed { /* ... */ }
     </item>
     <item priority="medium">
       function skippedOf(rule: ClosureRule, clock: Clock): readonly SkippedDate[] { /* ... */ }
@@ -6127,8 +6134,8 @@
     <item priority="medium">
       function tonightPauses({ rules, today, nowMinute }: Clock): HubOnlinePause[] { /* ... */ }
     </item>
-    <item priority="medium">
-      function onlinePause(clock: Clock): HubOnlinePause | null { /* ... */ }
+    <item priority="high">
+      export function onlinePause(clock: Clock): HubOnlinePause | null { /* ... */ }
     </item>
     <item priority="medium">
       function tonightChanges(rules: readonly DateRule[], today: string): HubTonightChange[] { /* ... */ }

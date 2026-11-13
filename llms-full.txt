@@ -6671,10 +6671,12 @@
       /** Refunds failed or still pending. */
       readonly refundsOpen: number;
     }
+    export type EarlierReason = "ended" | "removed" | "tonight";
     export interface EarlierClosureRow {
       readonly group: "earlier";
       readonly ruleId: string;
-      /** `null` when no closure of the config has this id: it was reopened, or was a tonight change. */
+      readonly reason: EarlierReason;
+      /** What it closed and when, for `ended`; `null` for `removed` and `tonight`. */
       readonly closure: ClosureFacts | null;
       readonly outcomes: ClosureSummary;
       readonly refundsOpen: number;
@@ -6684,7 +6686,7 @@
       readonly now: readonly ClosureListRow[];
       /** By the next date each closes, then the time of day it starts; one with no date left is last. */
       readonly upcoming: readonly ClosureListRow[];
-      /** Most recently ended first, then refunds whose rule is gone. */
+      /** Ended closures, most recently ended first; then tonight changes and rules that are gone. */
       readonly earlier: readonly EarlierClosureRow[];
     }
     export interface ClosuresListInput extends ClosuresRowInput {
@@ -6700,20 +6702,23 @@
         window: rule.window ? { from: rule.window.from, to: rule.window.to } : null,
       };
     }
-    function forceDate(rule: ClosureRule, clock: Clock): string | null {
-      const { config, rules, timezone, today, nowMinute } = clock;
-      const pausedToday =
-        isOnlinePause(rule) &&
-        coversOn(rule, rules, today) &&
-        isPauseInForce(rule, config, timezone, today, nowMinute);
-      return pausedToday ? today : inForceOn(rule, clock);
+    function forceDate(
+      rule: ClosureRule,
+      clock: Clock,
+      hubPause: HubOnlinePause | null
+    ): string | null {
+      // A stop made for tonight (`source: "tonight"`) is no closure, so then none is the hub's pause.
+      const namedByHub =
+        hubPause?.source === "closure" && hubPause.inForce && hubPause.ruleId === rule.id;
+      const partOfTodayLeft = rule.window == null || clock.nowMinute < rule.window.to;
+      return namedByHub && partOfTodayLeft ? clock.today : inForceOn(rule, clock);
     }
     type Placed =
       | { readonly group: "now"; readonly on: string }
       | { readonly group: "upcoming"; readonly on: string | null }
       | { readonly group: "ended" };
-    function place(rule: ClosureRule, clock: Clock): Placed {
-      const inForce = forceDate(rule, clock);
+    function place(rule: ClosureRule, clock: Clock, hubPause: HubOnlinePause | null): Placed {
+      const inForce = forceDate(rule, clock, hubPause);
       if (inForce !== null) return { group: "now", on: inForce };
       const next = waitingOn(rule, clock);
       if (next !== null) return { group: "upcoming", on: next };
@@ -6760,10 +6765,15 @@
       clock: Clock
     ): EarlierClosureRow[] {
       const open = summaries.filter((s) => refundsOpenOf(s) > 0 && !listed.has(s.ruleId));
-      const rowFor = (outcomes: ClosureSummary, rule: ClosureRule | null): EarlierClosureRow => ({
+      const rowFor = (
+        outcomes: ClosureSummary,
+        reason: EarlierReason,
+        closure: ClosureFacts | null
+      ): EarlierClosureRow => ({
         group: "earlier",
         ruleId: outcomes.ruleId,
-        closure: rule === null ? null : factsOf(rule, clock),
+        reason,
+        closure,
         outcomes,
         refundsOpen: refundsOpenOf(outcomes),
       });
@@ -6772,18 +6782,25 @@
         .sort((a, b) => lastDate(b).localeCompare(lastDate(a)) || a.id.localeCompare(b.id))
         .flatMap((rule) => {
           const outcomes = open.find((s) => s.ruleId === rule.id);
-          return outcomes ? [rowFor(outcomes, rule)] : [];
+          return outcomes ? [rowFor(outcomes, "ended", factsOf(rule, clock))] : [];
         });
       const endedIds = new Set(ended.map((rule) => rule.id));
-      const gone = open.filter((s) => !endedIds.has(s.ruleId)).map((s) => rowFor(s, null));
-      return [...known, ...gone];
+      // Refunds for a rule of another kind that still stands (special hours) are not a closure's.
+      const rest = open.flatMap((s) => {
+        if (endedIds.has(s.ruleId)) return [];
+        const rule = clock.rules.find((r) => r.id === s.ruleId);
+        if (rule === undefined) return [rowFor(s, "removed", null)];
+        return rule.kind === "tonight" ? [rowFor(s, "tonight", null)] : [];
+      });
+      return [...known, ...rest];
     }
     export function closuresList(input: ClosuresListInput): ClosuresList {
       const clock = clockOf(input);
       const { summaries } = input;
+      const hubPause = onlinePause(clock);
       const placed = clock.rules
         .filter(isClosure)
-        .map((rule) => ({ rule, placed: place(rule, clock) }));
+        .map((rule) => ({ rule, placed: place(rule, clock, hubPause) }));
       const rows = placed.flatMap(({ rule, placed: at }) =>
         at.group === "ended"
           ? []
@@ -29318,7 +29335,7 @@
         })
         .sort(soonestFirst);
     }
-    function onlinePause(clock: Clock): HubOnlinePause | null {
+    export function onlinePause(clock: Clock): HubOnlinePause | null {
       const pauses = [...closurePauses(clock), ...tonightPauses(clock)];
       return pauses.find((p) => p.inForce) ?? [...pauses].sort(soonestFirst)[0] ?? null;
     }
