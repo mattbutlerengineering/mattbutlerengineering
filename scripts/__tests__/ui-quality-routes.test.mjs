@@ -108,7 +108,9 @@ describe("hospitality adapter", () => {
       // A bare <Navigate> has no page module of its own.
       expect(row.source_files.length).toBeGreaterThanOrEqual(row.kind === "redirect" ? 1 : 2);
     }
+    // Guest routes sit inside GuestSurface (#8835), a component of the leaf like the page itself.
     expect(byRoute["book/:venueSlug"].source_files).toEqual([
+      "apps/hospitality/src/components/GuestSurface.tsx",
       "apps/hospitality/src/pages/PublicBookingPage.tsx",
       "apps/hospitality/src/main.tsx",
     ]);

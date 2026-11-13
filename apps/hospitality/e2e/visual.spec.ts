@@ -363,6 +363,26 @@ for (const { route } of pages) {
       // react-router's error boundary is a page too; it must never become a baseline.
       await expect(page.getByText("Unexpected Application Error")).toHaveCount(0);
       expect(unmockedApi, `${route} reached API requests no mock answered`).toEqual([]);
+      // A fullPage capture is as tall as the document but paints only what the viewport can show.
+      // When html/body are overflow:hidden and the content is taller, the lower part is blank in
+      // the baseline AND unreachable for a real guest (#8835).
+      const clipped = await page.evaluate(() => {
+        const root = document.documentElement;
+        const viewportOverflow = (el: Element) => getComputedStyle(el).overflowY;
+        // The viewport takes its overflow from html, or from body when html's is `visible`.
+        const effective =
+          viewportOverflow(root) === "visible"
+            ? viewportOverflow(document.body)
+            : viewportOverflow(root);
+        const overflows = root.scrollHeight > window.innerHeight;
+        return overflows && (effective === "hidden" || effective === "clip")
+          ? { scrollHeight: root.scrollHeight, innerHeight: window.innerHeight, effective }
+          : null;
+      });
+      expect(
+        clipped,
+        `${route} is taller than the viewport but the document cannot scroll: the bottom of a fullPage capture is blank`
+      ).toBeNull();
       await expect(page).toHaveScreenshot(`${slug(route)}@${width}x${height}.png`, {
         fullPage: true,
         timeout: 15_000,
