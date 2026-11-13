@@ -321,6 +321,13 @@ async function mockPublicRoutes(page: Page): Promise<void> {
       })
     )
   );
+  // The invite card reads its RSVP counts on mount (#8717). `manage*` above stops at the slash,
+  // so this path needs its own answer; an invited party puts the counts line in the sweep too.
+  await page.route("**/public/v1/reservations/manage/invite", (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill(ok({ invited: true, confirmed: 2, declined: 0, partySize: 4 }))
+      : route.fallback()
+  );
 }
 
 /** The target locale's own text for a catalog key — the sweep drives the UI by what the guest reads. */

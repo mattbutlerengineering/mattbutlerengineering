@@ -9,7 +9,6 @@ function handlers() {
   return {
     onPause: vi.fn(),
     onClose: vi.fn(),
-    onBookingRules: vi.fn(),
     onCompareServices: vi.fn(),
     onDuplicateRegularWeek: vi.fn(),
     onHistory: vi.fn(),
@@ -38,11 +37,11 @@ describe("AvailabilityHeaderActions", () => {
     expect(screen.getByRole("button", { name: "More actions" })).toHaveTextContent(/^⋯$/);
   });
 
-  it("the ⋯ menu holds Booking rules…, Compare services, Duplicate regular week…, History, Go to date", () => {
+  // Booking rules is the hub's row 5 (availability-hub C2.5), no longer an entry here.
+  it("the ⋯ menu holds Compare services, Duplicate regular week…, History, Go to date", () => {
     renderActions();
     fireEvent.click(screen.getByRole("button", { name: "More actions" }));
     expect(menuItems()).toEqual([
-      "Booking rules…",
       "Compare services",
       "Duplicate regular week…",
       "History",
@@ -51,7 +50,6 @@ describe("AvailabilityHeaderActions", () => {
   });
 
   it.each([
-    ["Booking rules…", "onBookingRules"],
     ["Compare services", "onCompareServices"],
     ["Duplicate regular week…", "onDuplicateRegularWeek"],
     ["History", "onHistory"],
@@ -95,7 +93,6 @@ describe("AvailabilityHeaderActions", () => {
     const on = renderActions({
       onClose: undefined,
       onPause: undefined,
-      onBookingRules: undefined,
       onCompareServices: undefined,
       onDuplicateRegularWeek: undefined,
     });

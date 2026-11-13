@@ -27,6 +27,28 @@ describe("DiscardChangesDialog", () => {
     expect(onDiscard).toHaveBeenCalled();
   });
 
+  it("offers Save beside Discard and Keep editing when the draft can be saved from here", () => {
+    const onSave = vi.fn();
+    const handlers = { onDiscard: vi.fn(), onKeepEditing: vi.fn() };
+    render(
+      <main>
+        <DiscardChangesDialog open date={null} title="Leave?" onSave={onSave} {...handlers} />
+      </main>
+    );
+    expect(screen.getByRole("alertdialog", { name: "Leave?" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onSave).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Discard" }));
+    expect(handlers.onDiscard).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
+    expect(handlers.onKeepEditing).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no Save unless asked", () => {
+    renderDialog();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  });
+
   it("renders nothing while closed", () => {
     renderDialog(false);
     expect(screen.queryByRole("alertdialog")).toBeNull();

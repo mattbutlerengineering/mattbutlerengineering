@@ -94,10 +94,14 @@ only the runner IP's bucket on that one health route, for at most 60 seconds.
 Other monitors (`production-feedback.yml`, `post-deploy-check.yml`) run on
 other runners and IPs and are unaffected.
 
-**5. Captured 4xx messages include the query string.**
-
-Sentry `url` tags hold full `request.url`, query string included. So the
-backend marker in `?rt=` reaches both the `url` tag and the issue title.
+**5. Captured 4xx messages include the query string.** — **No longer true as
+of #8557** (fix(security): strip query string from request URL before
+sending to Sentry). `pathOnly` now strips the query string from both the
+`url` tag and the captured message before either reaches Sentry, so the
+backend marker in `?rt=` no longer reaches the `url` tag or the issue title.
+The `requestId` tag is unaffected and is now the only carrier backend lookups
+can rely on — see `buildEventSearchQuery` in `scripts/sentry-round-trip.mjs`
+and the regression this caused (#8778).
 
 **6. The live CSP allows the ingest origin.**
 
@@ -289,12 +293,19 @@ reconciler owns that.
 
 ### Marker lookup (`findMarkedEvent`)
 
-- Input: org, project, marker, token. The request is
-  `GET https://sentry.io/api/0/projects/{org}/{project}/events/?query=<marker>`.
-  This is the same host and auth that `triage.mjs` already uses successfully
-  with `SENTRY_AUTH_TOKEN`.
+- Input: org, project, marker, token, kind (`"backend"` default or
+  `"browser"`). The request is
+  `GET https://sentry.io/api/0/projects/{org}/{project}/events/?query=<query>`,
+  where `<query>` is built by `buildEventSearchQuery(marker, kind)`: the bare
+  marker for browser targets (still present as plain text in the title/
+  message), or `requestId:<marker>` for backend targets. Backend lookups
+  switched to the explicit tag query after #8557 stripped the query string
+  from the `url` tag and message, which had been the text Sentry's free-text
+  search actually matched on (#8778). This is the same host and auth that
+  `triage.mjs` already uses successfully with `SENTRY_AUTH_TOKEN`.
 - Output: the first event where `eventMatchesMarker` holds, else `undefined`:
-  - Backend: a `requestId` or `url` tag holds the marker (existing logic).
+  - Backend: a `requestId` or `url` tag holds the marker (existing logic;
+    `url` is now a fallback only — see above).
   - Browser: the `url` tag or the event `title`/`message` contains the
     marker, **and** the `app` tag equals the target's `app`.
 - Failure modes: a non-2xx response throws, and the target becomes `error`,
@@ -365,7 +376,9 @@ avoids relying on Sentry's issue-search semantics for negated tag queries.
 
 ### Heartbeat tag (SC-9)
 
-- Backend events: `requestId` and `url` tags = `mbe-round-trip-…` (existing).
+- Backend events: `requestId` tag = `mbe-round-trip-…` (existing). The `url`
+  tag no longer carries it since #8557 strips the query string before the
+  tag is set; `requestId` is the only carrier the lookup can rely on (#8778).
 - Browser events: `url` tag contains `mbe-heartbeat=mbe-round-trip-…`
   (assumption 3).
 

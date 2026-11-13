@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { addDays } from "@mbe/availability";
+import { saveRegularWeek } from "../availability/superseded-fixtures.js";
 import type {
   AvailabilityConfig,
   DateRule,
@@ -169,6 +171,7 @@ const BASE: SetupTreeInput = {
   isManager: true,
   readiness: "operational",
   today: TODAY,
+  serviceDate: TODAY,
   open: { status: "ready", data: { config: EMPTY_CONFIG, settings: null } },
   sit: { status: "ready", data: { floorPlans: [], sections: [], tables: [] } },
 };
@@ -249,9 +252,10 @@ describe("buildSetupTree: an empty venue", () => {
   it("points the actions at the existing editors", () => {
     const hrs = find(open, "schedules").actions[0];
     expect(hrs?.target).toEqual({ kind: "link", to: "/availability?from=setup" });
+    // The same address the Availability hub's row 5 opens, with the way back to Venue Setup.
     expect(find(open, "booking").actions[0]?.target).toEqual({
-      kind: "dialog",
-      dialog: "bookingRules",
+      kind: "link",
+      to: "/availability/booking-rules?from=setup",
     });
     expect(find(sit, "floor-plan-empty").actions[0]?.target).toEqual({
       kind: "link",
@@ -331,6 +335,28 @@ describe("buildSetupTree: schedules and services", () => {
     expect(schedules.children[0]?.children.map((c) => c.name)).toEqual(["Dinner"]);
   });
 
+  it("neither counts nor lists the regular weeks that later saves replaced (#8688)", () => {
+    const saved = [1, 2, 3].reduce(
+      (config, run) => saveRegularWeek(config, TODAY, `run${run}`),
+      REGULAR_WEEK
+    );
+    const tree = buildSetupTree(input({ open: openOf(saved) }));
+    const schedules = find(group(tree, "open").nodes, "schedules");
+    const regular = saved.schedules.find((s) => s.isRegular)!;
+    expect(schedules.state).toEqual({ kind: "count", count: 1 });
+    expect(schedules.children.map((c) => c.id)).toEqual([`schedule:${regular.id}`]);
+  });
+
+  it("still lists a replaced week on the service date it last runs", () => {
+    const saved = saveRegularWeek(REGULAR_WEEK, TODAY);
+    // At 00:30 on an overnight venue the service date is still yesterday, the old week's last day.
+    const tree = buildSetupTree(input({ open: openOf(saved), serviceDate: addDays(TODAY, -1) }));
+    expect(find(group(tree, "open").nodes, "schedules").state).toEqual({
+      kind: "count",
+      count: 2,
+    });
+  });
+
   it("offers change/edit on the regular week and edit-only on another schedule", () => {
     const tree = buildSetupTree(input({ open: openOf(SUMMER_HOURS) }));
     const open = group(tree, "open").nodes;
@@ -342,17 +368,17 @@ describe("buildSetupTree: schedules and services", () => {
     expect(ids(find(open, "schedule:sch-sum").actions)).toEqual(["editSchedule"]);
     expect(find(open, "schedule:sch-sum").actions[0]?.target).toEqual({
       kind: "link",
-      to: "/availability?tab=schedules&from=setup",
+      to: "/availability/calendar?tab=schedules&from=setup",
     });
     // Change regular week is a link to the Schedules layer, where the week is edited in place.
     expect(find(open, "schedule:sch-reg").actions[0]?.target).toEqual({
       kind: "link",
-      to: "/availability?tab=schedules&from=setup",
+      to: "/availability/calendar?tab=schedules&from=setup",
     });
     // Add a schedule… opens the seeded editor there.
     expect(find(open, "schedules").actions[1]?.target).toEqual({
       kind: "link",
-      to: "/availability?tab=schedules&action=addSchedule&from=setup",
+      to: "/availability/calendar?tab=schedules&action=addSchedule&from=setup",
     });
   });
 });
@@ -450,8 +476,8 @@ describe("buildSetupTree: special dates and their targets", () => {
 
   it("opens the calendar and the Special dates tab", () => {
     expect(node.actions.map((a) => a.target)).toEqual([
-      { kind: "link", to: "/availability?tab=calendar&from=setup" },
-      { kind: "link", to: "/availability?tab=special&from=setup" },
+      { kind: "link", to: "/availability/calendar?tab=calendar&from=setup" },
+      { kind: "link", to: "/availability/calendar?tab=special&from=setup" },
     ]);
   });
 });
@@ -561,7 +587,7 @@ describe("buildSetupTree: floor plan, sections and tables", () => {
       {
         id: "closeSection",
         subject: "Bar",
-        target: { kind: "link", to: "/availability?closeSection=sec-bar&from=setup" },
+        target: { kind: "link", to: "/availability/calendar?closeSection=sec-bar&from=setup" },
       },
     ]);
   });

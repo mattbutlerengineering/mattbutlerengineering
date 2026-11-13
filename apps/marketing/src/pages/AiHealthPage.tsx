@@ -84,6 +84,9 @@ function QueueEfficiencyPanel({ queueEfficiency }: { queueEfficiency: QueueEffic
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Cost / Issue</Text>
           <Text className={styles.statValue}>{formatUsd(queueEfficiency.costPerIssue)}</Text>
+          {queueEfficiency.costPerIssue == null && (
+            <Text className={styles.statNote}>No PR cost data matched this window</Text>
+          )}
         </Card>
         <Card className={styles.statCard}>
           <Text className={styles.statLabel}>Time to Merge</Text>
@@ -398,7 +401,9 @@ export function AiHealthPage() {
             <Text className={styles.statLabel}>PRs Merged (30d)</Text>
             <Text className={styles.statValue}>{formatCount(metrics.prsMerged)}</Text>
             {metrics.prMetricsAsOf && (
-              <Text className={styles.statNote}>snapshot as of {metrics.prMetricsAsOf}</Text>
+              <Text className={styles.statNote}>
+                snapshot as of {metrics.prMetricsAsOf} (updates weekly)
+              </Text>
             )}
           </Card>
           <Card className={styles.statCard}>

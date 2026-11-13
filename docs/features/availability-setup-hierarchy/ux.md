@@ -349,7 +349,7 @@ Your usual week. Other schedules and special dates change it on the days they co
 │ Days [Weekdays][Weekends][Every day]  ☑Mon … ☑Sun │                     │
 └──────────────────────────────────────────────────┴─────────────────────┘
 Changes apply from today, Sun, Nov 8.  [Starting later…]   (dirty adds: captions, own-changes choice, [Discard] [Save])
-(dirty only) What changes for guests — stranded preview (existing DraftPreview)
+(dirty only) the Guest preview becomes the draft preview (existing DraftPreview, with its Last saved / Regular week comparison): one preview at a time, never the closed row and the draft preview together
 
 Booking: Up to 30 days ahead · 1 hour notice · parties up to 12 online
 ```
@@ -363,6 +363,7 @@ Booking: Up to 30 days ahead · 1 hour notice · parties up to 12 online
 - Loading: while the config or the role read is pending, the layer area is a `Skeleton` the height of two service rows and the header actions render disabled; a Manager never sees the calendar first. Error: the existing load-failure banner above the layer control; the form is not shown over a failed read.
 - Save failure, conflict, stranded, own changes: the drawer's existing `SaveFailure`, `ConflictReviewPanel`, `OwnChangesChoice` and `DraftPreview`, rendered inline under the form.
 - Paused banner: `OnlinePausedBanner` shows above the layer control on every layer.
+- Calm week (#8690, every width): each service is a closed line (name over hours and days, one open at a time; a service with a problem stays open; a blank new service starts open); the Guest preview is one closed row until the form is dirty, then the draft preview replaces it. The Save bar pins to the bottom of the viewport while dirty and carries a conflict message with it. A new "Different hours on some days" block says nothing is wrong until Save is pressed or a field of the block is left. Name chips show only while a service has no name. The per-service actions are bordered buttons. The leave prompt (route change) offers Save beside Discard and Keep editing; the layer switch's prompt is the page's and does not yet.
 - Phone (375): header shows **Close…** and **⋯**; **Pause online booking** sits in **⋯** at the top (2 interactions, PRD 21 as corrected). The layer control spans the width. The week form stacks, guest preview below it (today's `QuickSetupForm` phone layout). On the Calendar layer the toolbar's own menu holds only the Select… items and is labelled **Select…**, so the page has one ⋯, not two.
 - Host: today's page (W22). No header actions, no Schedules layer.
 - Purpose: see and change the usual week where it is; everything else is one named step away.

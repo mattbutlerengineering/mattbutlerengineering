@@ -1,28 +1,33 @@
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Input, Stack, Tag, Text } from "@mattbutlerengineering/rialto";
-import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { clockHour } from "../../utils/clock-hour.js";
+import { Button, Input, Stack, Tag } from "@mattbutlerengineering/rialto";
 import {
   SERVICE_NAME_MAX_LENGTH,
   SERVICE_PRESET_IDS,
   WEEK_DISPLAY_ORDER,
   addBlock,
   setBlockDays,
-  autoLastSeating,
   effectiveDays,
   removeBlock,
   replaceBlock,
   toggleBlockDay,
   type BlockDayToggle,
+  type KeptHours,
   type QuickSetupDraft,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
 import { overlapsAgainst, type QuickSetupIssue } from "./quick-setup-validate.js";
 import { placePreset, setDaysAndReplace } from "./quick-setup-placement.js";
-import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
-import { DayPicker, IssueText, TimesRow } from "./quick-setup-fields.js";
+import {
+  issuesFor,
+  useQuickSetupFieldId,
+  useQuickSetupRowScope,
+  useWeekdayName,
+} from "./quick-setup-field-helpers.js";
+import { DayPicker, IssueText, timeProblems } from "./quick-setup-fields.js";
+import { setServiceKept, shownKept } from "./quick-setup-options.js";
 import { HoursBlockFieldset } from "./QuickSetupBlock.js";
+import { ServiceFields, type ServiceFieldsValue } from "./service-fields/ServiceFields.js";
 import styles from "./QuickSetupForm.module.css";
 
 export interface ServiceRowProps {
@@ -35,9 +40,16 @@ export interface ServiceRowProps {
   readonly onRemove: () => void;
   /** Says something politely to a screen reader (the form's status region). */
   readonly announce: (message: string) => void;
+  /** Offer "More options" (Seat every, Booked by). Off where the form's save drops them. */
+  readonly optionFields: boolean;
+  /** What the save falls back to for a service of this name that carries no values of its own. */
+  readonly storedKept: KeptHours | undefined;
 }
 
-/** One service: name chips, name, times, and the two disclosures for its own days and hours. */
+/**
+ * One service: name chips, name, the shared service fields (times, and "More options" for
+ * seating and booking), and the two disclosures for its own days and hours.
+ */
 export function ServiceRow({
   draft,
   service,
@@ -47,16 +59,26 @@ export function ServiceRow({
   onChange,
   onRemove,
   announce,
+  optionFields,
+  storedKept,
 }: ServiceRowProps) {
   const fieldId = useQuickSetupFieldId();
+  const rowScope = useQuickSetupRowScope();
   const { t } = useTranslation();
-  const format = useVenueFormat();
   const dayName = useWeekdayName();
   const nameProblems = issuesFor(issues, service.id, "name");
   const presetName = (id: (typeof SERVICE_PRESET_IDS)[number]) =>
     t(`availability.quickSetup.presets.${id}`);
-  const lastSeating =
-    service.closes === null ? null : autoLastSeating(service.closes, service.opens);
+  // What the save will write for this service, so a change to one value starts from the other.
+  const shown = shownKept(service, storedKept);
+  // The fields hand back what they did not change as the same object, so a change of times
+  // alone never writes seating or booking types onto the service.
+  const applyFields = (next: ServiceFieldsValue) => {
+    const { seating, bookingTypes, ...times } = next;
+    const timed = { ...service, ...times };
+    const untouched = seating === shown.seating && bookingTypes === shown.bookingTypes;
+    onChange(untouched ? timed : setServiceKept(timed, { seating, bookingTypes }, storedKept));
+  };
   const serviceName =
     service.name.trim() || t("availability.quickSetup.serviceN", { n: index + 1 });
 
@@ -135,6 +157,11 @@ export function ServiceRow({
     hoursButtonRef.current?.focus();
   };
   const offeredDays = effectiveDays(draft, service);
+  // The chip that was pressed leaves with the chips: focus goes to the name it filled in.
+  const pickPreset = (id: (typeof SERVICE_PRESET_IDS)[number]) => {
+    onChange(placePreset(draft, service.id, id, presetName(id)));
+    document.getElementById(fieldId(service.id, "name"))?.focus();
+  };
 
   return (
     <fieldset className={styles.service}>
@@ -142,20 +169,20 @@ export function ServiceRow({
         {t("availability.quickSetup.serviceN", { n: index + 1 })}
       </legend>
       <Stack gap="sm">
-        <div
-          className={styles.chips}
-          role="group"
-          aria-label={t("availability.quickSetup.presetsLabel")}
-        >
-          {SERVICE_PRESET_IDS.map((id) => (
-            <Tag
-              key={id}
-              onClick={() => onChange(placePreset(draft, service.id, id, presetName(id)))}
-            >
-              {presetName(id)}
-            </Tag>
-          ))}
-        </div>
+        {/* Suggestions are for a service with no name yet; a named one has no use for them. */}
+        {service.name.trim() === "" && (
+          <div
+            className={styles.chips}
+            role="group"
+            aria-label={t("availability.quickSetup.presetsLabel")}
+          >
+            {SERVICE_PRESET_IDS.map((id) => (
+              <Tag key={id} onClick={() => pickPreset(id)}>
+                {presetName(id)}
+              </Tag>
+            ))}
+          </div>
+        )}
         <Input
           id={fieldId(service.id, "name")}
           label={t("availability.quickSetup.nameLabel")}
@@ -165,70 +192,80 @@ export function ServiceRow({
           onChange={(e) => onChange({ ...service, name: e.target.value })}
         />
         <IssueText problems={nameProblems} draft={draft} />
-        <TimesRow
-          draft={draft}
-          serviceId={service.id}
-          times={service}
-          issues={[...issues, ...overlapsAgainst(issues, service.id)]}
-          onChange={onChange}
-        />
-        {service.lastSeatingLinked && lastSeating !== null && (
-          <Text variant="caption" color="secondary">
-            {t("availability.quickSetup.lastSeatingHint", {
-              time: format.formatLocalTime(lastSeating),
-              count: clockHour(Number.parseInt(lastSeating, 10) * 60),
-            })}
-          </Text>
-        )}
-        {/* One control at a time: the opener while the service follows the shared Days, and
-            "Use the shared days" once it has its own (ux.md F1 3). */}
-        {ownDays ? (
-          <>
+        <ServiceFields
+          value={{
+            opens: service.opens,
+            lastSeating: service.lastSeating,
+            closes: service.closes,
+            lastSeatingLinked: service.lastSeatingLinked,
+            ...shown,
+          }}
+          onChange={applyFields}
+          idScope={rowScope(service.id)}
+          problems={timeProblems(
+            draft,
+            [...issues, ...overlapsAgainst(issues, service.id)],
+            service.id
+          )}
+          options={optionFields ? "collapsed" : "hidden"}
+        >
+          {/* One control at a time: the opener while the service follows the shared Days, and
+              "Use the shared days" once it has its own (ux.md F1 3). */}
+          {ownDays ? (
+            <>
+              <div>
+                <Button variant="secondary" size="sm" onClick={() => setOwnDays(false)}>
+                  {t("availability.quickSetup.useSharedDays")}
+                </Button>
+              </div>
+              <DayPicker
+                id={fieldId(service.id, "days")}
+                ref={daysRef}
+                legend={t("availability.quickSetup.runsOn", { service: serviceName })}
+                days={service.days}
+                onChange={(days) => onChange(setDaysAndReplace(draft, service, days))}
+                draft={draft}
+                problems={issuesFor(issues, service.id, "days")}
+              />
+            </>
+          ) : (
             <div>
-              <Button variant="ghost" size="sm" onClick={() => setOwnDays(false)}>
-                {t("availability.quickSetup.useSharedDays")}
+              <Button
+                ref={daysButtonRef}
+                variant="secondary"
+                size="sm"
+                onClick={() => setOwnDays(true)}
+              >
+                {t("availability.quickSetup.differentDays")}
               </Button>
             </div>
-            <DayPicker
-              id={fieldId(service.id, "days")}
-              ref={daysRef}
-              legend={t("availability.quickSetup.runsOn", { service: serviceName })}
-              days={service.days}
-              onChange={(days) => onChange(setDaysAndReplace(draft, service, days))}
-              draft={draft}
-              problems={issuesFor(issues, service.id, "days")}
-            />
-          </>
-        ) : (
+          )}
           <div>
-            <Button ref={daysButtonRef} variant="ghost" size="sm" onClick={() => setOwnDays(true)}>
-              {t("availability.quickSetup.differentDays")}
+            <Button ref={hoursButtonRef} variant="secondary" size="sm" onClick={addHours}>
+              {t("availability.quickSetup.differentHours")}
             </Button>
           </div>
-        )}
-        <div>
-          <Button ref={hoursButtonRef} variant="ghost" size="sm" onClick={addHours}>
-            {t("availability.quickSetup.differentHours")}
-          </Button>
-        </div>
-        {service.blocks.map((block) => (
-          <HoursBlockFieldset
-            key={block.id}
-            draft={draft}
-            service={service}
-            block={block}
-            offeredDays={offeredDays}
-            serviceName={serviceName}
-            issues={issues}
-            onChange={(next) => onChange(replaceBlock(service, next))}
-            onToggleDay={(day) => toggleBlockDays(block.id, day)}
-            onSetDays={(days) => setBlockShortcut(block.id, days)}
-            onRemove={() => removeHours(block.id)}
-          />
-        ))}
+          {service.blocks.map((block) => (
+            <HoursBlockFieldset
+              key={block.id}
+              draft={draft}
+              service={service}
+              block={block}
+              offeredDays={offeredDays}
+              serviceName={serviceName}
+              serviceKept={shown}
+              blockKept={shownKept(block, storedKept)}
+              issues={issues}
+              onChange={(next) => onChange(replaceBlock(service, next))}
+              onToggleDay={(day) => toggleBlockDays(block.id, day)}
+              onSetDays={(days) => setBlockShortcut(block.id, days)}
+              onRemove={() => removeHours(block.id)}
+            />
+          ))}
+        </ServiceFields>
         {removable && (
           <div>
-            <Button variant="ghost" size="sm" onClick={onRemove}>
+            <Button variant="secondary" size="sm" onClick={onRemove}>
               {t("availability.quickSetup.removeService", { n: index + 1 })}
             </Button>
           </div>

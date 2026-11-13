@@ -6,14 +6,21 @@ vi.mock("ai", () => ({
   streamText: vi.fn(),
   tool: vi.fn((def: unknown) => def),
   stepCountIs: vi.fn((n: number) => ({ type: "stepCount", count: n })),
+  Output: { json: vi.fn(() => ({ name: "json" })) },
 }));
 
 vi.mock("@ai-sdk/anthropic", () => ({
   anthropic: vi.fn(() => ({ provider: "anthropic", modelId: "claude-haiku-4.5" })),
 }));
 
+vi.mock("@ai-sdk/google", () => ({
+  createGoogleGenerativeAI: vi.fn(() =>
+    vi.fn((modelId: string) => ({ provider: "google", modelId }))
+  ),
+}));
+
 import { streamText } from "ai";
-import { createGenRunner } from "./gen-runner.js";
+import { createGenRunner, genRunnerSystemPrompt } from "./gen-runner.js";
 
 async function* mockAsyncIterable<T>(items: T[]): AsyncGenerator<T> {
   for (const item of items) {
@@ -541,6 +548,246 @@ describe("createGenRunner", () => {
       });
       // ai@7 throws AI_InvalidPromptError on any system-role entry in messages.
       expect(call.messages.every((m) => m.role !== "system")).toBe(true);
+    });
+  });
+
+  describe("provider selection", () => {
+    it("runs on the google model with no anthropic provider options when provider is google", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([]),
+        usage: Promise.resolve({ inputTokens: 5, outputTokens: 3 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+
+      const googleRunner = createGenRunner({
+        ...baseConfig,
+        provider: "google",
+        modelId: "gemini-3.1-flash-lite",
+      });
+      await googleRunner.run([{ role: "user", content: "hi" }], {}, async () => {});
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.model).toEqual({ provider: "google", modelId: "gemini-3.1-flash-lite" });
+      expect(call.providerOptions).toBeUndefined();
+    });
+  });
+
+  describe("parallel render_component calls", () => {
+    // Shape captured from a live gemini-3.1-flash-lite run (2026-11-12): a forced
+    // call answered with several parallel calls, each whole in one delta, that
+    // repeat element keys.
+    const root = { key: "root", type: "Stack" };
+    const card = { key: "card", parentKey: "root", type: "Card" };
+    const renderCall = (id: string, elements: unknown[]) => [
+      { type: "tool-input-start", id, toolName: "render_component" },
+      { type: "tool-input-delta", id, delta: JSON.stringify({ elements }) },
+      { type: "tool-input-end", id },
+      { type: "tool-call", toolCallId: id, toolName: "render_component", input: { elements } },
+    ];
+    const twoCalls = () =>
+      ({
+        fullStream: mockAsyncIterable([
+          ...renderCall("call-1", [root, card]),
+          ...renderCall("call-2", [root]),
+        ]),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+        providerMetadata: Promise.resolve({}),
+      }) as never;
+
+    it("renders only the first call when render_component is the forced tool", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(twoCalls());
+      const forcedRunner = createGenRunner({
+        ...baseConfig,
+        toolChoice: { type: "tool", toolName: "render_component" },
+      });
+
+      const events: GenStreamEvent[] = [];
+      await forcedRunner.run([{ role: "user", content: "a card" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events).toEqual([
+        { type: "element", element: root },
+        { type: "element", element: card },
+      ]);
+    });
+
+    it("renders only the first call when the provider sends no input deltas", async () => {
+      vi.mocked(streamText).mockReturnValueOnce({
+        fullStream: mockAsyncIterable([
+          renderCall("call-1", [root, card])[3],
+          renderCall("call-2", [root])[3],
+        ]),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+        providerMetadata: Promise.resolve({}),
+      } as never);
+      const forcedRunner = createGenRunner({
+        ...baseConfig,
+        toolChoice: { type: "tool", toolName: "render_component" },
+      });
+
+      const events: GenStreamEvent[] = [];
+      await forcedRunner.run([{ role: "user", content: "a card" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events).toEqual([
+        { type: "element", element: root },
+        { type: "element", element: card },
+      ]);
+    });
+
+    it("keeps every call when render_component is not forced", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(twoCalls());
+
+      const events: GenStreamEvent[] = [];
+      await runner.run([{ role: "user", content: "a card" }], {}, async (event) => {
+        events.push(event);
+      });
+
+      expect(events).toEqual([
+        { type: "element", element: root },
+        { type: "element", element: card },
+        { type: "element", element: root },
+      ]);
+    });
+  });
+
+  describe("forced render on google (JSON text mode)", () => {
+    // Through function calling, gemini-3.1-flash-lite fills only the props the
+    // catalog declares: a live production run (2026-11-12) returned a Button
+    // with no label and a DataList with `items: null`. As JSON text it writes
+    // whole props, so a forced render on google asks for JSON instead.
+    const forced = { type: "tool", toolName: "render_component" } as const;
+    const button = { key: "b", type: "Button", props: { label: "Cancel" } };
+    const renderTool = { description: "render", inputSchema: {}, execute: vi.fn() };
+    const textStream = (...chunks: string[]) =>
+      ({
+        fullStream: mockAsyncIterable(chunks.map((text) => ({ type: "text-delta", text }))),
+        usage: Promise.resolve({ inputTokens: 1, outputTokens: 1 }),
+        providerMetadata: Promise.resolve({}),
+      }) as never;
+    const googleForced = () =>
+      createGenRunner({
+        ...baseConfig,
+        provider: "google",
+        modelId: "gemini-3.1-flash-lite",
+        toolChoice: forced,
+      });
+
+    it("asks for JSON output instead of a tool call", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(textStream());
+
+      await googleForced().run(
+        [{ role: "user", content: "a button" }],
+        { render_component: renderTool },
+        async () => {}
+      );
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as {
+        tools?: unknown;
+        toolChoice?: unknown;
+        output?: unknown;
+        instructions: { content: string };
+      };
+      expect(call.tools).toBeUndefined();
+      expect(call.toolChoice).toBeUndefined();
+      expect(call.output).toEqual({ name: "json" });
+      expect(call.instructions.content).toContain("You are a helpful assistant.");
+      expect(call.instructions.content).toContain('{"elements":[...]}');
+    });
+
+    it("emits each element as its JSON closes in the text, and no text events", async () => {
+      const first = JSON.stringify({ key: "root", type: "Stack" });
+      vi.mocked(streamText).mockReturnValueOnce(
+        textStream(`{"elements":[${first},`, `${JSON.stringify(button)}]}`)
+      );
+
+      const events: GenStreamEvent[] = [];
+      await googleForced().run(
+        [{ role: "user", content: "a button" }],
+        { render_component: renderTool },
+        async (event) => {
+          events.push(event);
+        }
+      );
+
+      expect(events).toEqual([
+        { type: "element", element: { key: "root", type: "Stack" } },
+        { type: "element", element: button },
+      ]);
+    });
+
+    it("fails the run on an element without a string key and type", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(textStream('{"elements":[{"type":"Button"}]}'));
+
+      await expect(
+        googleForced().run(
+          [{ role: "user", content: "a button" }],
+          { render_component: renderTool },
+          async () => {}
+        )
+      ).rejects.toThrow(/element without a string key and type/);
+    });
+
+    it("fails the run when the JSON document never closes", async () => {
+      // A stop other than `length` (a safety or abnormal stop) can end the text
+      // mid-element; the elements seen so far must not pass as a whole tree.
+      vi.mocked(streamText).mockReturnValueOnce(
+        textStream('{"elements":[{"key":"root","type":"Stack"},{"key":"b","type":"Butt')
+      );
+
+      await expect(
+        googleForced().run(
+          [{ role: "user", content: "a button" }],
+          { render_component: renderTool },
+          async () => {}
+        )
+      ).rejects.toThrow(/incomplete JSON/);
+    });
+
+    it("exposes the prompt it sends, so the spec cache key follows the render mode", () => {
+      const base = { systemPrompt: "SYS", toolChoice: forced };
+
+      expect(genRunnerSystemPrompt({ ...base, provider: "google" })).toContain(
+        '{"elements":[...]}'
+      );
+      expect(genRunnerSystemPrompt({ ...base, provider: "anthropic" })).toBe("SYS");
+      expect(genRunnerSystemPrompt(base)).toBe("SYS");
+      expect(genRunnerSystemPrompt({ systemPrompt: "SYS", provider: "google" })).toBe("SYS");
+    });
+
+    it("keeps the tool call for a forced render on anthropic", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(textStream());
+
+      await createGenRunner({ ...baseConfig, toolChoice: forced }).run(
+        [{ role: "user", content: "a button" }],
+        { render_component: renderTool },
+        async () => {}
+      );
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.tools).toEqual({ render_component: renderTool });
+      expect(call.toolChoice).toEqual(forced);
+      expect(call.output).toBeUndefined();
+    });
+
+    it("keeps tools on google when no render is forced", async () => {
+      vi.mocked(streamText).mockReturnValueOnce(textStream("hello"));
+
+      const events: GenStreamEvent[] = [];
+      await createGenRunner({ ...baseConfig, provider: "google" }).run(
+        [{ role: "user", content: "hi" }],
+        { render_component: renderTool },
+        async (event) => {
+          events.push(event);
+        }
+      );
+
+      const call = vi.mocked(streamText).mock.calls[0]![0] as Record<string, unknown>;
+      expect(call.tools).toEqual({ render_component: renderTool });
+      expect(call.output).toBeUndefined();
+      expect(events).toEqual([{ type: "text", content: "hello" }]);
     });
   });
 });

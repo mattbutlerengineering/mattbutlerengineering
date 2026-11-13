@@ -1780,17 +1780,30 @@
       "descriptionDateCancelled": "Guests can book {{date}} again. The other dates in this range stay closed. The reservations you cancelled stay cancelled.",
       "tellDate": "Tell any guests we cancelled on {{date}} that we've reopened, with a link to rebook",
       "doneTold_one": "{{date}} reopened. {{count}} guest told.",
-      "doneTold_other": "{{date}} reopened. {{count}} guests told."
+      "doneTold_other": "{{date}} reopened. {{count}} guests told.",
+      "section": {
+        "title": "Reopen the {{section}}?",
+        "description": "Guests can book the {{section}} again.",
+        "confirm": "Reopen the {{section}}",
+        "done": "{{section}} reopened: {{date}}"
+      },
+      "booking": {
+        "title": "Resume {{channels}}?",
+        "description": "Guests can book this way again.",
+        "confirm": "Resume",
+        "keep": "Keep paused",
+        "done": "Resumed {{channels}}: {{date}}",
+        "countUnknown": "Couldn't check how many guests this pause affected. Resume waits until the count loads.",
+        "dateLabel": "Which dates to resume",
+        "descriptionDate": "Booking resumes on {{date}}. The other dates in this range stay paused.",
+        "countLoading": "Checking how many guests this pause affected…"
+      }
     },
     "series": {
       "editDates": "Edit dates…",
       "editDatesFor": "Edit dates of the closure on {{date}}",
       "title": "Edit dates",
       "dateLabel": "Date",
-      "scopeLabel": "Change",
-      "scopeOnly": "Only {{date}}",
-      "scopeFollowing": "This and following",
-      "scopeAll": "All dates in the series",
       "skip": "Skip this date",
       "editThis": "Edit this date…",
       "save": "Save",
@@ -1820,10 +1833,7 @@
       "editMany": "Edit…",
       "editRule": "Edit special hours {{subject}}",
       "scope": {
-        "title": "Edit special hours",
-        "following": "This and following from {{date}}",
-        "all": "All dates",
-        "continue": "Continue"
+        "title": "Edit special hours"
       },
       "subjectDates": "for {{dates}}",
       "subjectRepeat": "every {{days}}",
@@ -1848,7 +1858,7 @@
       "date": "Date"
     },
     "add": {
-      "open": "Add special date",
+      "open": "Add special dates",
       "title": "Add special dates",
       "rowLegend": "Date {{n}}",
       "rowLegendNamed": "Date {{n}}: {{name}}",
@@ -1946,8 +1956,36 @@
         "christmasDay": "Christmas Day",
         "boxingDay": "Boxing Day",
         "newYearsEve": "New Year’s Eve"
-      }
-    }
+      },
+      "notPlanned_one": "{{count}} holiday not planned",
+      "notPlanned_other": "{{count}} holidays not planned",
+      "notPlanned_many": "{{count}} holidays not planned",
+      "allPlanned": "Every upcoming holiday is planned",
+      "plan": "Plan holidays",
+      "view": "View holidays",
+      "hide": "Hide holidays",
+      "closeManyTitle_one": "Close this {{count}} date?",
+      "closeManyTitle_other": "Close these {{count}} dates?",
+      "closeManyTitle_many": "Close these {{count}} dates?",
+      "closeManyDescription": "Guests won't be able to book {{dates}}. If bookings are affected, you choose what happens to them next.",
+      "closeManyConfirm_one": "Close {{count}} date",
+      "closeManyConfirm_other": "Close {{count}} dates",
+      "closeManyConfirm_many": "Close {{count}} dates",
+      "closeManyCancel": "Not now",
+      "closeOneTitle": "Close {{name}}?",
+      "closeOneDescription": "This replaces what is planned for {{name}}, {{date}}. Guests can't book that date.",
+      "closeOneConfirm": "Close {{name}}"
+    },
+    "scope": {
+      "label": "Change",
+      "only": "Only {{date}}",
+      "following": "This and following from {{date}}",
+      "all": "All dates",
+      "continue": "Continue"
+    },
+    "repeatRange": "Every {{days}}, {{from}} to {{to}}",
+    "repeatFrom": "Every {{days}}, from {{from}}",
+    "listLabel": "Your special dates"
   },
   "availabilitySchedules": {
     "tabsLabel": "Availability view",
@@ -2017,25 +2055,16 @@
     "conflictReview": {
       "alsoChanged": "Also applying to: {{names}} changed first",
       "alsoRemoved": "Also applying to: {{names}} no longer runs this service",
-      "title": "Someone changed this schedule first",
       "loading": "Loading the latest version…",
       "gone": "This schedule was deleted, so your changes can’t be saved. Discard them to close.",
-      "nothing": "Nothing in this schedule changed. Your changes can be reapplied as they are.",
       "added": "Added: {{names}}",
       "removed": "Removed: {{names}}",
       "changed": "Hours changed: {{names}}",
       "renamed": "Renamed to {{name}}",
       "hint": "Reapply keeps the other person’s changes and puts yours on top. Check the result, then save.",
       "reapply": "Reapply my changes",
-      "discard": "Discard my changes",
-      "draftTitle": "Availability changed while you were editing",
-      "draftBody": "Someone saved a change to availability first. Nothing you entered has been saved.",
-      "draftHint": "Keep your schedule to save it on top of their change, or start over.",
-      "draftKeep": "Keep my schedule",
       "startOver": "Start over",
-      "regularReplaced": "The regular week is now {{name}}",
-      "regularNothing": "Nothing in the regular week changed.",
-      "regularHint": "Reapply lays your hours over the current regular week. Check the result, then save."
+      "regularReplaced": "The regular week is now {{name}}"
     },
     "regularWeek": {
       "title": "Change regular week",
@@ -2056,7 +2085,6 @@
     },
     "compare": {
       "open": "Compare services",
-      "conflictTitle": "Someone changed these schedules first",
       "title": "Compare services",
       "service": "Service",
       "opens": "Opens",
@@ -2083,7 +2111,6 @@
       "editSchedule": "Edit schedule"
     },
     "copy": {
-      "action": "Copy to other days…",
       "title": "Copy {{date}} to other days",
       "days": "Days",
       "everyWeek": "Every week…",
@@ -2133,8 +2160,7 @@
       "closeCompare": "Close",
       "appliesFrom": "Changes apply from today, {{date}}.",
       "startLater": "Starting later…",
-      "discard": "Discard",
-      "whatChanges": "What changes for guests"
+      "discard": "Discard"
     }
   },
   "availability": {
@@ -2230,8 +2256,6 @@
       }
     },
     "drawer": {
-      "useOtherDay": "Use another day’s hours…",
-      "useSchedule": "Use schedule…",
       "useBlockedClosed": "Closed all day. Remove the closure to use other hours.",
       "summaryOpen": "Open for {{services}}.",
       "summaryClosed": "Closed.",
@@ -2266,8 +2290,7 @@
         "keep": "Keep",
         "removedToast": "{{subject}} removed",
         "scope": {
-          "title": "Edit {{name}}",
-          "all": "All dates {{name}} covers"
+          "title": "Edit {{name}}"
         }
       },
       "layer": {
@@ -2577,8 +2600,8 @@
         "title": "Someone changed availability first",
         "theirs_one": "{{summary}} (saved at {{time}}).",
         "theirs_other": "{{summary}} (saved at {{time}}).",
-        "theirsUnknown": "Another change was saved after you opened this day.",
-        "since": "These changes were saved after you opened this day, newest first:",
+        "theirsUnknown": "Another change was saved after you started editing.",
+        "since": "These changes were saved after you started editing, newest first:",
         "earlier_one": "And {{count}} earlier change that isn’t listed.",
         "earlier_other": "And {{count}} earlier changes that aren’t listed.",
         "review": "Review their change",
@@ -2701,6 +2724,9 @@
       "staffNote": "Note for staff",
       "guestMessage": "Message for guests",
       "guestMessageTooLong": "Keep it to {{max}} characters.",
+      "pauseOnline": {
+        "noEndHint": "Online booking stays paused until you turn it back on. Pick an end date below to have it end on its own."
+      },
       "suggestions": {
         "private": "Closed for a private event",
         "weather": "Closed due to weather",
@@ -2731,7 +2757,7 @@
         "tonight": "Tonight",
         "date": "One date",
         "range": "Date range",
-        "repeats": "Repeats",
+        "repeats": "Repeating",
         "untilReopen": "Until I reopen",
         "dates": "Several dates",
         "addDateLabel": "Add a date",
@@ -2946,10 +2972,11 @@
     "paused": {
       "open": "Pause online booking",
       "banner": "Online booking paused",
+      "noEnd": "No end date — resume it when you're ready.",
       "resume": "Resume",
       "resumed": "Online booking resumed",
       "resumeError": "Couldn't resume online booking",
-      "pill": "Online booking paused",
+      "pillNoEnd": "Online booking paused · No end date",
       "waiting_one": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
       "waiting_other": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
       "waitingNoneToday_one": "Online seatings from {{time}} are paused every day.",
@@ -3184,6 +3211,190 @@
     "holidayNudge": {
       "line": "{{name}} is {{date}} and isn't planned yet.",
       "plan": "Plan holidays"
+    }
+  },
+  "availabilityHub": {
+    "dayActions": {
+      "copyHours": "Copy hours…",
+      "useOtherHours": "Use other hours…"
+    },
+    "conflict": {
+      "overwriteNotOffered": "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+    },
+    "routes": {
+      "regularHours": "Regular hours",
+      "seasonalHours": "Seasonal hours",
+      "seasonalNew": "New seasonal hours",
+      "seasonalEdit": "Edit seasonal hours",
+      "seasonalCompare": "One service across all hours",
+      "specialDates": "Special dates",
+      "specialDatesNew": "Add special dates",
+      "closures": "Closures",
+      "calendar": "Calendar",
+      "bookingRules": "Booking rules",
+      "history": "History"
+    },
+    "serviceFields": {
+      "moreOptions": "More options",
+      "seatEvery": "Seat every",
+      "minutes": "{{minutes}} min",
+      "bookedBy": "Booked by",
+      "ownSettings": "These days keep their own settings: {{seating}}, {{booking}}.",
+      "ownSeatEvery": "seat every {{minutes}} min",
+      "ownFixedTimes": "fixed seating times {{times}}",
+      "ownBookedBy": {
+        "onlinePhone": "online and phone",
+        "onlineOnly": "online only",
+        "phoneOnly": "phone only",
+        "walkIn": "walk-in only"
+      }
+    },
+    "saveBar": {
+      "saveForDates_one": "Save for {{count, number}} date",
+      "saveForDates_other": "Save for {{count, number}} dates",
+      "saveFrom": "Save from {{date}}",
+      "specialHours_one": "{{count, number}} date already has special hours",
+      "specialHours_other": "{{count, number}} dates already have special hours",
+      "fixProblems": "Fix the problems above to save."
+    },
+    "bookingRules": {
+      "notInHistory": "Changes here are not listed in History.",
+      "undoError": "Couldn't undo booking rules"
+    },
+    "pause": {
+      "title": "Pause online booking",
+      "howLong": "How long",
+      "choice": {
+        "tonight": "Tonight",
+        "untilResume": "Until I resume",
+        "untilDate": "Until a date"
+      },
+      "untilLabel": "Pause until",
+      "chooseDate": "Choose a date",
+      "button": {
+        "tonight": "Pause until tonight ends",
+        "untilResume": "Pause until I resume",
+        "untilDate": "Pause until {{date}}"
+      },
+      "saved": {
+        "tonight": "Online booking paused until tonight ends",
+        "untilResume": "Online booking paused until you resume",
+        "untilDate": "Online booking paused until {{date}}"
+      },
+      "saveError": "Couldn't pause online booking",
+      "alreadySaved": "This pause was already saved. Check the status at the top of Availability before pausing again.",
+      "savedEarlier": {
+        "title": "Online booking is already paused",
+        "body": "An earlier try of this pause was saved. Changes you made afterwards did not apply."
+      },
+      "leave": {
+        "title": "Leave this pause?",
+        "description": "The last save didn't finish, so online booking may already be paused. Check the status at the top of Availability before pausing again."
+      }
+    },
+    "hub": {
+      "rulesHeading": "Your rules",
+      "laterRulesWin": "Later rules win on the dates they cover.",
+      "openCalendar": "Open calendar",
+      "history": "History",
+      "loading": "Loading your rules",
+      "loadErrorDetail": "Your rules didn't load. Try again.",
+      "hostEmpty": "No hours are set yet. A manager sets regular hours here.",
+      "decides": "decides {{date}}",
+      "rowAction": "{{action}} {{row}}",
+      "action": {
+        "edit": "Edit",
+        "add": "Add",
+        "view": "View"
+      },
+      "regular": {
+        "title": "Regular hours",
+        "empty": "No regular hours yet"
+      },
+      "seasonal": {
+        "title": "Seasonal hours",
+        "empty": "None",
+        "set": "{{name}}: {{usage}}",
+        "unused": "not used yet",
+        "byDates_one": "used on {{count}} special date",
+        "byDates_other": "used on {{count}} special dates",
+        "range": "{{from}}–{{to}}, {{days}}",
+        "from": "from {{from}}, {{days}}",
+        "until": "until {{to}}, {{days}}",
+        "noDates": "{{days}}, no end date",
+        "more_one": "and {{count}} more",
+        "more_other": "and {{count}} more"
+      },
+      "special": {
+        "title": "Special dates and holidays",
+        "empty": "No special dates.",
+        "next": "Next: {{dates}}",
+        "item": "{{date}} {{kind}}",
+        "kind": {
+          "closed": "Closed",
+          "specialHours": "Special hours",
+          "useHours": "Same as another day"
+        },
+        "holidays_one": "{{count}} holiday not planned",
+        "holidays_other": "{{count}} holidays not planned"
+      },
+      "closures": {
+        "title": "Closures and pauses",
+        "empty": "None",
+        "pauseTonight": "Online booking paused until tonight ends",
+        "pauseUntilResumed": "Online booking paused until resumed",
+        "pauseUntil": "Online booking paused until {{date}}",
+        "pauseUntilTime": "Online booking paused until {{time}}",
+        "pauseWaiting": "Online booking pauses at {{time}}",
+        "closingEarly": "Closing early tonight at {{time}}",
+        "stopTonight": "Closed tonight {{from}}–{{to}}",
+        "what": {
+          "venue": "Closed",
+          "named": "{{name}} closed",
+          "section": "A section closed",
+          "service": "A service closed",
+          "tables_one": "{{count}} table blocked",
+          "tables_other": "{{count}} tables blocked",
+          "booking": "{{channels}} off",
+          "bookingAll": "Booking off"
+        },
+        "when": {
+          "today": "today",
+          "untilReopened": "until reopened",
+          "until": "until {{date}}",
+          "repeating": "every {{days}} until {{date}}",
+          "repeatingOpen": "every {{days}}"
+        },
+        "windowFrom": "from {{time}}",
+        "windowBetween": "{{from}}–{{to}}",
+        "sinceLastNight": "since {{time}} last night",
+        "sinceYesterday": "since yesterday",
+        "now": "{{what}} {{detail}}",
+        "next": "Next: {{date}} {{what}}",
+        "nextDetail": "Next: {{date}} {{what}}, {{detail}}"
+      },
+      "booking": {
+        "title": "Booking rules",
+        "empty": "Not set up yet"
+      }
+    },
+    "dateCheck": {
+      "label": "Check a date",
+      "sentence": "{{date}}: {{what}}. Decided by {{rule}}.",
+      "sentenceOver": "{{date}}: {{what}}. Decided by {{rule}}, which wins over {{beneath}}.",
+      "uncovered": "{{date}}: closed. No hours cover this date.",
+      "closed": "closed",
+      "service": "{{name}} {{hours}}",
+      "closedFrom": "closed from {{time}}",
+      "closedBetween": "closed {{from}}–{{to}}",
+      "serviceClosedFrom": "{{name}} closed from {{time}}",
+      "serviceClosedBetween": "{{name}} closed {{from}}–{{to}}",
+      "rule": {
+        "regular": "your regular hours",
+        "special": "your special date",
+        "closure": "a closure",
+        "tonight": "a change made for tonight"
+      }
     }
   },
   "setup": {

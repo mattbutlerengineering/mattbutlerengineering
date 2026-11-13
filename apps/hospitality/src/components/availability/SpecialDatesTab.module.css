@@ -7,7 +7,8 @@
 }
 
 .filterSelect {
-  flex: 1 1 100%;
+  flex: 1 1 12rem;
+  max-width: 20rem;
 }
 
 .list {

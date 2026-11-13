@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig, AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
@@ -29,12 +29,12 @@ import {
   datesOfUse,
   replacesRegularWeek,
   scheduleSaveBlock,
+  storedKeptByName,
   type Winner,
 } from "./schedule-changes.js";
 import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
 import {
   BlockedReason,
-  ConflictReviewPanel,
   OverlapChoice,
   OwnChangesChoice,
   SaveFailure,
@@ -42,11 +42,13 @@ import {
 } from "./ScheduleFormParts.js";
 import { AlsoApplyTo } from "./AlsoApplyTo.js";
 import { DraftPreview, previewIds } from "./DraftPreview.js";
+import { draftRows, FormConflictDialog } from "./FormConflictDialog.js";
 import { NameSuggestionChip } from "./NameSuggestionChip.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 import { useConflictReview } from "./use-conflict-review.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
+import { useServiceDate } from "./use-visible-schedules.js";
 import styles from "./ScheduleFormParts.module.css";
 
 export type ScheduleEditorMode = "new" | "duplicate" | "edit";
@@ -67,6 +69,8 @@ export interface ScheduleEditorDrawerProps {
   readonly seed?: "regular";
   readonly onStale: () => void;
   readonly onClose: () => void;
+  /** The reload of the config failed (the page's read); a conflict being reviewed says so. */
+  readonly refreshError?: string | null;
 }
 
 const NO_ISSUES: readonly never[] = [];
@@ -85,6 +89,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const dayName = useWeekdayName();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
+  // Also apply to… offers only the schedules a Manager can see (#8688).
+  const serviceDate = useServiceDate(config, timezone);
 
   const source = config.schedules.find((s) => s.id === sourceScheduleId);
   // A copy starts with no days, as a new schedule does: it is used where the Manager says. Seeded
@@ -252,6 +258,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
       : null;
   const blocked = blockedText !== null;
   const blockedId = useId();
+  // Cancel is always there: it takes focus when a conflict's answer leaves Save disabled.
+  const cancelRef = useRef<HTMLButtonElement>(null);
   // The schedule's own edit, built the way Save builds it.
   const editChanges = useMemo(() => {
     if (blocked || !dirty) return null;
@@ -282,17 +290,17 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const alsoOptions = useMemo(
     () =>
       editChanges && editing && sourceScheduleId
-        ? alsoApplyOptions(config, editChanges, sourceScheduleId)
+        ? alsoApplyOptions(config, editChanges, sourceScheduleId, serviceDate)
         : [],
-    [editChanges, editing, sourceScheduleId, config]
+    [editChanges, editing, sourceScheduleId, config, serviceDate]
   );
   const alsoIds = useMemo(() => alsoApplyScheduleIds(alsoOptions, picks), [alsoOptions, picks]);
   const previewChanges = useMemo(
     () =>
       editChanges && editing && sourceScheduleId
-        ? buildAlsoApplyChanges(config, editChanges, sourceScheduleId, picks)
+        ? buildAlsoApplyChanges(config, editChanges, sourceScheduleId, picks, serviceDate)
         : editChanges,
-    [editChanges, editing, sourceScheduleId, config, picks]
+    [editChanges, editing, sourceScheduleId, config, picks, serviceDate]
   );
   // Every schedule the save writes: the edited one and each picked, so the dates in scope, the
   // own-changes choice and the preview cover them all.
@@ -340,7 +348,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         : buildNewScheduleChanges({ config, name: trimmed, draft, useOn, winner, makeId });
     const changes =
       editing && sourceScheduleId
-        ? buildAlsoApplyChanges(config, edited, sourceScheduleId, picks)
+        ? buildAlsoApplyChanges(config, edited, sourceScheduleId, picks, serviceDate)
         : edited;
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
@@ -386,7 +394,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         footer={
           <div className={styles.footer}>
             <BlockedReason id={blockedId} reason={blockedText} />
-            <Button variant="secondary" onClick={() => guard.request()}>
+            <Button ref={cancelRef} variant="secondary" onClick={() => guard.request()}>
               {t("availabilitySchedules.cancel")}
             </Button>
             <Button
@@ -402,16 +410,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         }
       >
         <Stack gap="md">
-          {review.review ? (
-            <ConflictReviewPanel
-              review={review.review}
-              alsoApply={alsoApplySince ?? undefined}
-              onReapply={review.reapply}
-              onDiscard={review.discard}
-            />
-          ) : (
-            <SaveFailure messages={saver.failure} stranded={saver.stranded} />
-          )}
+          {!review.review && <SaveFailure messages={saver.failure} stranded={saver.stranded} />}
           <Input
             label={t("availabilitySchedules.name")}
             value={name}
@@ -464,6 +463,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             // A New schedule opens on an empty service: its fields wait for the Manager to start
             // on it before they say what is missing. Save's own reason is shown either way.
             issues={draftTouched ? issues : NO_ISSUES}
+            // An edit falls back to this schedule's stored rows; a new schedule stores none yet.
+            storedKept={editing ? storedKeptByName(config, sourceScheduleId) : undefined}
             inDrawer
             fixedDays={editing}
             collapsible={viewport === "phone"}
@@ -496,6 +497,18 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
           />
         </Stack>
       </Drawer>
+      <FormConflictDialog
+        saver={saver}
+        review={review.review}
+        rows={draftRows(draft)}
+        alsoApply={alsoApplySince ?? undefined}
+        reloadError={props.refreshError}
+        onReload={onStale}
+        onReapply={review.reapply}
+        onStartOver={review.discard}
+        onDiscard={onClose}
+        returnFocus={cancelRef}
+      />
       <ScheduleDraftGuard
         dirty={dirty}
         asking={guard.pending !== null}

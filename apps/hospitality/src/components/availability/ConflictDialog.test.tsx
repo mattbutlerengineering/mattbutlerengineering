@@ -63,6 +63,24 @@ afterAll(async () => {
   await localeRuntime.i18n.changeLanguage("en-US");
 });
 
+describe("ConflictDialog wording that fits a day and a week", () => {
+  it("says a change was saved after the Manager started editing, naming neither", async () => {
+    await localeRuntime.i18n.changeLanguage("en-US");
+    renderDialog(null);
+    expect(screen.getByText("Another change was saved after you started editing.")).toBeTruthy();
+  });
+
+  it("heads the list of changes the same way", async () => {
+    await localeRuntime.i18n.changeLanguage("en-US");
+    const first = change("a", AT_TWO, SAVED);
+    renderDialog(first, [first, change("b", AT_ONE_FIFTEEN, SAVED)]);
+    expect(
+      screen.getByText("These changes were saved after you started editing, newest first:")
+    ).toBeTruthy();
+    expect(screen.queryByText(/this day/)).toBeNull();
+  });
+});
+
 describe("ConflictDialog wording of the other change", () => {
   it("shows the English summary of a row with no code, beside the venue-clock time", async () => {
     await localeRuntime.i18n.changeLanguage("en-US");

@@ -9,7 +9,7 @@ import { isEditableClosure } from "./close-draft.js";
 import { EditClosureDialog } from "./EditClosureDialog.js";
 import { skipInitialFocus, waitingProps } from "./draft-wait.js";
 import { ReopenClosureDialog } from "./ReopenClosureDialog.js";
-import { closureSubject, DATE_FORMAT } from "./rule-subjects.js";
+import { closureKindOf, closureSubject, DATE_FORMAT } from "./rule-subjects.js";
 import { isSeries } from "./series-edit.js";
 import { SeriesEditDialog } from "./SeriesEditDialog.js";
 import type { SpecialDateRule } from "./special-dates.js";
@@ -92,6 +92,7 @@ export function ClosureLayerActions(props: ClosureLayerActionsProps) {
           venueId={venueId}
           ruleId={rule.id}
           subject={closureSubject(rule, format, t)}
+          closes={closureKindOf(rule)}
           cancelled={cancelled}
           notifiable={summary?.upcomingCancelled ?? null}
           countFailed={summaries.error != null}

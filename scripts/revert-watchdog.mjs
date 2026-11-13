@@ -206,6 +206,53 @@ export function extractCheckRunConclusion(checkRuns, name) {
 }
 
 /**
+ * Pure: the conclusion of the latest completed run of check `name` that
+ * passed or failed, ordered by `completed_at`, from a `check-runs?filter=all`
+ * list (every attempt, not just the latest). Returns `null` when no run of
+ * the check was conclusive — inconclusive to callers, never "passed".
+ *
+ * Why `filter=all` (PR #8795): revert-watchdog reruns a red main run once,
+ * and that rerun can be cancelled before it finishes. The commit's latest
+ * check runs then hold no `CI Gate` (measured on f29ad0d49), so a latest-only
+ * read made the baseline walk step past the broken commit and blame the next,
+ * innocent one. A cancelled rerun is ignored here, so the earlier attempt's
+ * `failure` still counts; a rerun that passed is later and wins.
+ *
+ * @param {Array<{name?:string, status?:string, conclusion?:string|null, completed_at?:string|null}>|null|undefined} checkRuns
+ * @param {string} name
+ * @returns {"success"|"failure"|null}
+ */
+export function selectLatestConclusiveCheckRun(checkRuns, name) {
+  let latest = null;
+  for (const run of checkRuns ?? []) {
+    if (run?.name !== name || run.status !== "completed") continue;
+    if (!CONCLUSIVE_CONCLUSIONS.has(run.conclusion)) continue;
+    const completedAt = Date.parse(run.completed_at ?? "");
+    if (Number.isNaN(completedAt)) continue;
+    if (!latest || completedAt > latest.completedAt) {
+      latest = { completedAt, conclusion: run.conclusion };
+    }
+  }
+  return latest?.conclusion ?? null;
+}
+
+/**
+ * Pure: the `gh` arguments that list every run of the required check on
+ * `sha`, across attempts (`filter=all`) and pages (`--paginate` follows the
+ * Link header; `per_page=100` is the endpoint's maximum).
+ */
+export function requiredCheckRunsGhArgs(sha) {
+  const checkName = encodeURIComponent(REQUIRED_CHECK_NAME);
+  return [
+    "api",
+    `repos/{owner}/{repo}/commits/${sha}/check-runs?check_name=${checkName}&filter=all&per_page=100`,
+    "--paginate",
+    "--jq",
+    ".check_runs[]",
+  ];
+}
+
+/**
  * Pure: parses the newline-delimited check-run objects emitted by
  * `gh api --paginate --jq '.check_runs[]'` into a single array.
  *
@@ -774,7 +821,8 @@ function fetchRunLogViaGh(runId) {
 
 /**
  * The `CI Gate` required check's conclusion for `sha`, via `gh api
- * .../commits/<sha>/check-runs` (#3743). Deliberately narrower than a
+ * .../commits/<sha>/check-runs` (#3743), reading every attempt and taking the
+ * latest conclusive one (`selectLatestConclusiveCheckRun`). Deliberately narrower than a
  * workflow-run rollup (`gh run list --workflow CI`) — see
  * `REQUIRED_CHECK_NAME`'s doc comment. Any failure to fetch/parse (rate
  * limit, network hiccup, check not yet reported) yields `null` —
@@ -783,18 +831,12 @@ function fetchRunLogViaGh(runId) {
 function getRequiredCheckConclusionViaGh(sha) {
   if (!sha) return null;
   try {
-    const raw = execFileSync(
-      "gh",
-      [
-        "api",
-        `repos/{owner}/{repo}/commits/${sha}/check-runs`,
-        "--paginate",
-        "--jq",
-        ".check_runs[]",
-      ],
-      { encoding: "utf-8", timeout: 30_000, maxBuffer: 10 * 1024 * 1024 }
-    );
-    return extractCheckRunConclusion(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME);
+    const raw = execFileSync("gh", requiredCheckRunsGhArgs(sha), {
+      encoding: "utf-8",
+      timeout: 30_000,
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return selectLatestConclusiveCheckRun(parseCheckRunsJsonl(raw), REQUIRED_CHECK_NAME);
   } catch {
     return null;
   }

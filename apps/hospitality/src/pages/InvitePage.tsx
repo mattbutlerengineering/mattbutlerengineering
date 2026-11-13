@@ -150,9 +150,11 @@ function InvitePageContent() {
   if (isLoading || (token !== "" && !data && !error)) {
     return (
       <main data-ref={ref || undefined}>
-        <Text variant="body" color="secondary" role="status">
-          {t("invite.loading")}
-        </Text>
+        <div role="status">
+          <Text as="h1" variant="body" color="secondary">
+            {t("invite.loading")}
+          </Text>
+        </div>
       </main>
     );
   }

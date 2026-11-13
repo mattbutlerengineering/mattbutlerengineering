@@ -9,18 +9,18 @@ import {
   Text,
 } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, Schedule } from "@mbe/types";
-import { useVenue } from "../../contexts/VenueContext.js";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { bookingRulesOf, bookingRulesText } from "./booking-rules.js";
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import { CompareServices } from "./CompareServices.js";
 import { scheduleNameText } from "./day-summary.js";
 import { buildDeleteScheduleChanges, isScheduleUnused } from "./schedule-changes.js";
 import type { QuickSetupDraft } from "./quick-setup-draft.js";
 import { RegularWeekPanel } from "./RegularWeekPanel.js";
+import { scheduleUsage } from "./rule-summaries.js";
 import type { ScheduleEditorMode } from "./ScheduleEditorDrawer.js";
 import { SaveFailure, ScheduleDraftGuard, useWeekdaySummary } from "./ScheduleFormParts.js";
+import { visibleSchedules } from "./superseded-schedules.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./SchedulesTab.module.css";
@@ -31,6 +31,8 @@ export interface SchedulesTabProps {
   readonly timezone: string;
   /** Today on the venue clock. */
   readonly today: string;
+  /** The venue's current service date (it trails `today` after midnight on an overnight venue). */
+  readonly serviceDate: string;
   readonly onStale: () => void;
   /** The week panel or Compare services has edits that are not saved; the page asks before another layer drops them. */
   readonly onDirtyChange?: (dirty: boolean) => void;
@@ -41,8 +43,6 @@ export interface SchedulesTabProps {
   /** Compare services is open (the page's ⋯ menu opens it). */
   readonly comparing: boolean;
   readonly onComparingChange: (comparing: boolean) => void;
-  /** Opens the booking rules drawer (the page renders it). */
-  readonly onBookingRules: () => void;
 }
 
 export interface ScheduleEditorTarget {
@@ -65,16 +65,11 @@ function useUsageText(state: AvailabilityConfigState) {
   const summary = useWeekdaySummary();
   const day = (date: string) => format.formatCalendarDate(date, { month: "short", day: "numeric" });
   return (schedule: Schedule): string => {
-    const uses = state.config.assignments.filter((a) => a.scheduleId === schedule.id);
-    if (uses.length === 0) {
-      const rules = state.config.dateRules.filter(
-        (r) => r.kind === "use_schedule" && r.useScheduleId === schedule.id
-      ).length;
-      return rules > 0
-        ? t("availabilitySchedules.usedByRules", { count: rules })
-        : t("availabilitySchedules.notUsed");
-    }
-    return uses
+    const usage = scheduleUsage(state.config, schedule.id);
+    if (usage.kind === "unused") return t("availabilitySchedules.notUsed");
+    if (usage.kind === "rules")
+      return t("availabilitySchedules.usedByRules", { count: usage.count });
+    return usage.periods
       .map((a) => {
         const days = summary(a.weekdays);
         if (a.startsOn && a.endsOn)
@@ -94,14 +89,13 @@ function useUsageText(state: AvailabilityConfigState) {
 
 /**
  * The Schedules layer (ux.md S-Avail2): the regular week as an editable form with its guest
- * preview, the other schedules and where they apply (Edit, Duplicate, Delete), the Booking line
- * and, when asked for, Compare services.
+ * preview, the other schedules and where they apply (Edit, Duplicate, Delete) and, when asked
+ * for, Compare services.
  */
 export function SchedulesTab(props: SchedulesTabProps) {
-  const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
-  const { onEditorChange, comparing, onComparingChange, onBookingRules } = props;
+  const { venueId, state, timezone, today, serviceDate, onStale, onDirtyChange } = props;
+  const { onEditorChange, comparing, onComparingChange } = props;
   const { t } = useTranslation();
-  const { selectedVenue } = useVenue();
   const offerUndo = useAvailabilityUndo();
   const usage = useUsageText(state);
   const saver = useScheduleSave(onStale);
@@ -122,8 +116,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
     setCompareDirty(false);
   }, compareDirty);
 
-  const others = state.config.schedules.filter((s) => !s.archivedAt && !s.isRegular);
-  const rules = bookingRulesText(bookingRulesOf(selectedVenue?.settings), t);
+  const others = visibleSchedules(state.config, serviceDate).filter((s) => !s.isRegular);
 
   const confirmDelete = async () => {
     if (!deleting) return;
@@ -170,13 +163,6 @@ export function SchedulesTab(props: SchedulesTabProps) {
         resetAtVersion={laterVersion}
         refreshError={props.refreshError}
       />
-      <div className={styles.bookingRow}>
-        <Button variant="ghost" className={styles.bookingLine} onClick={onBookingRules}>
-          {rules === ""
-            ? t("availabilitySchedules.layer.bookingUnset")
-            : t("availabilitySchedules.layer.booking", { rules })}
-        </Button>
-      </div>
       <SaveFailure messages={saver.failure} stranded={saver.stranded} />
       {others.length > 0 && (
         <section aria-labelledby="other-schedules">
@@ -261,7 +247,9 @@ export function SchedulesTab(props: SchedulesTabProps) {
             state={state}
             timezone={timezone}
             today={today}
+            serviceDate={serviceDate}
             onStale={onStale}
+            refreshError={props.refreshError}
             onDirtyChange={setCompareDirty}
             onEditSchedule={(sourceId) => onEditorChange({ mode: "edit", sourceId })}
           />
@@ -279,6 +267,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
           state={state}
           today={today}
           onStale={onStale}
+          refreshError={props.refreshError}
           initialDraft={startingLater}
           onSaved={(saved) => setLaterVersion(saved.version)}
           onClose={() => setStartingLater(null)}

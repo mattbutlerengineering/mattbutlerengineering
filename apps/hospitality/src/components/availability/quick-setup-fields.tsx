@@ -1,28 +1,22 @@
 import { use, type Ref } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Checkbox, Stack, Text, TimePicker } from "@mattbutlerengineering/rialto";
+import { Button, Checkbox, Stack, Text } from "@mattbutlerengineering/rialto";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { clockHour } from "../../utils/clock-hour.js";
 import {
   FRIDAY_SATURDAY_SHORTCUT,
   WEEKDAY_SHORTCUT,
   WEEKEND_SHORTCUT,
   WEEK_DISPLAY_ORDER,
   minutesOf,
-  setServiceTime,
   toClock,
   toggleDayIn,
-  type DraftTimes,
   type QuickSetupDraft,
 } from "./quick-setup-draft.js";
 import { firstClearStart, overlapDayFix } from "./quick-setup-placement.js";
 import { issueMessage, serviceLabel, type QuickSetupIssue } from "./quick-setup-validate.js";
-import {
-  QuickSetupFixContext,
-  issuesFor,
-  useQuickSetupFieldId,
-  useWeekdayName,
-} from "./quick-setup-field-helpers.js";
+import { QuickSetupFixContext, issuesFor, useWeekdayName } from "./quick-setup-field-helpers.js";
+import type { TimeField } from "./service-fields/service-times.js";
+import type { TimeProblems } from "./service-fields/TimesRow.js";
 import styles from "./QuickSetupForm.module.css";
 
 export function IssueText({
@@ -200,54 +194,18 @@ export function DayPicker({
   );
 }
 
-const TIME_FIELDS = ["opens", "lastSeating", "closes"] as const;
-
-export interface TimesRowProps<T extends DraftTimes> {
-  readonly draft: QuickSetupDraft;
-  readonly serviceId: string;
-  /** Set for a different-hours block's times. */
-  readonly blockId?: string;
-  readonly times: T;
-  readonly issues: readonly QuickSetupIssue[];
-  readonly onChange: (next: T) => void;
-}
-
-/** Opens, last seating and closes: a service's own, or a different-hours block's. */
-export function TimesRow<T extends DraftTimes>({
-  draft,
-  serviceId,
-  blockId,
-  times,
-  issues,
-  onChange,
-}: TimesRowProps<T>) {
-  const fieldId = useQuickSetupFieldId();
-  const { t } = useTranslation();
-  const format = useVenueFormat();
-  const { opens, closes } = times;
-  return (
-    <>
-      <div className={styles.times}>
-        {TIME_FIELDS.map((field) => (
-          <div key={field} className={styles.timeField}>
-            <TimePicker
-              id={fieldId(serviceId, field, blockId)}
-              label={t(`availability.quickSetup.${field}`)}
-              value={times[field]}
-              onChange={(value) => onChange(setServiceTime(times, field, value))}
-            />
-            <IssueText problems={issuesFor(issues, serviceId, field, blockId)} draft={draft} />
-          </div>
-        ))}
-      </div>
-      {opens !== null && closes !== null && closes < opens && (
-        <Text variant="caption" color="secondary">
-          {t("availability.editor.overnightNextDay", {
-            time: format.formatLocalTime(closes),
-            count: clockHour(Number.parseInt(closes, 10) * 60),
-          })}
-        </Text>
-      )}
-    </>
+/**
+ * The problems with a service's three times (or a different-hours block's), worded for the shared
+ * times row: per field, with the fixes this form offers.
+ */
+export function timeProblems(
+  draft: QuickSetupDraft,
+  issues: readonly QuickSetupIssue[],
+  serviceId: string,
+  blockId?: string
+): TimeProblems {
+  const said = (field: TimeField) => (
+    <IssueText problems={issuesFor(issues, serviceId, field, blockId)} draft={draft} />
   );
+  return { opens: said("opens"), lastSeating: said("lastSeating"), closes: said("closes") };
 }

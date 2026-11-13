@@ -294,7 +294,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     await dialog.getByRole("combobox", { name: "When" }).click();
-    await counter.page.getByRole("option", { name: "Repeats", exact: true }).click();
+    await counter.page.getByRole("option", { name: "Repeating", exact: true }).click();
     await dialog.getByRole("combobox", { name: "From" }).click();
     await nextMonth(counter.page).click();
     await nextMonth(counter.page).click();
@@ -351,7 +351,8 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     record("R6", counter.count(), 5);
   });
 
-  test("R7 / H72: change the largest online party from the Booking line (budget 3)", async ({
+  // The Booking line left the old page (availability-hub C2.5): the hub's row 5 opens the rules.
+  test("R7 / H72: change the largest online party from the hub's Booking rules row (budget 3)", async ({
     mockedPage: page,
   }) => {
     const patches: Array<Record<string, unknown>> = [];
@@ -359,10 +360,11 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
       if (route.request().method() === "PATCH") patches.push(route.request().postDataJSON());
       return route.fallback();
     });
-    await firstPaint(page);
+    await page.goto("availability");
+    await expect(page.getByRole("link", { name: "Edit Booking rules" })).toBeVisible();
     const counter = countInteractions(page);
 
-    await counter.page.getByRole("button", { name: /^Booking:/ }).click();
+    await counter.page.getByRole("link", { name: "Edit Booking rules" }).click();
     const drawer = counter.page.getByRole("dialog", { name: "Booking rules" });
     await drawer.getByLabel("Largest party online").fill("8");
     await drawer.getByRole("button", { name: "Save", exact: true }).click();
@@ -418,8 +420,8 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
       const counter = countInteractions(page);
       const panel = weekPanel(counter.page);
 
-      // At 375 the services are closed lines (availability-phone-tonight): open Lunch's first.
-      if (name === "phone") await panel.getByRole("button", { name: /^Lunch ?, / }).click();
+      // The services are closed lines at every width (#8690): open Lunch's first.
+      await panel.getByRole("button", { name: /^Lunch ?, / }).click();
       await chooseTime(counter.page, panel, "Closes", 0, "2:30 PM");
       const footer = panel.locator("[data-pinned]");
       await expect(footer).toBeVisible();
@@ -475,10 +477,16 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await expect(dialog).toBeVisible();
     await expect(page.getByRole("dialog", { name: /^Close / })).toHaveCount(0);
     await expect(dialog.getByText(/Step \d of 2/)).toHaveCount(0);
-    await dialog.getByTestId("close-primary").click();
+    // Tonight is chosen, and focus is on it: inside the dialog, on the question.
+    await expect(dialog.getByRole("radio", { name: "Tonight" })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "Tonight" })).toBeFocused();
+    await dialog.getByRole("button", { name: "Pause until tonight ends" }).click();
 
     await expect.poll(() => state.saved()).not.toBeNull();
-    await expect(page.getByRole("alert").getByText("Online booking paused")).toBeVisible();
+    // The toast, in rialto's Notifications region: the paused banner shows only an open-ended pause.
+    const toasts = page.getByRole("region", { name: "Notifications" });
+    await expect(toasts.getByText("Online booking paused until tonight ends")).toBeVisible();
+    await expect(toasts.getByRole("button", { name: "Undo" })).toBeVisible();
   });
 
   test("R11: a Host sees the same quiet calendar and legend, and no editors", async ({
@@ -493,7 +501,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
         body: JSON.stringify({ data: { ...buildVenueTeamFixture(), viewerRole: "host" } }),
       })
     );
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await expect(page.getByRole("grid")).toBeVisible();
     await nextMonth(page).click();
     await expect(page.locator('[data-date="2026-12-24"]').first()).toBeVisible();

@@ -23,9 +23,76 @@ permissions:
   actions: write
 
 jobs:
-  on-failure:
+  # A first-attempt failure gets one rerun of its failed jobs before anything
+  # is blamed: a flaky test or a runner outage used to file a critical
+  # broken-main issue and propose a revert of an innocent PR (#8678, #8729).
+  # The rerun finishes as attempt 2 and fires this workflow again. A pass ends
+  # it; a second failure sets `confirmed` and on-failure runs. Any error here
+  # also sets `confirmed`, so a real break is never silenced.
+  #
+  # A rerun can be cancelled before it finishes: ci.yml queues it behind the
+  # in-progress main run and the next push cancels it (run 43135240654). That
+  # attempt concludes `cancelled` and nothing else would report the run, so a
+  # cancelled rerun also comes here and is confirmed when the attempt before
+  # it had failed. A cancelled first attempt is still ignored.
+  confirm-red:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'failure' }}
+    if: ${{ github.event_name == 'workflow_run' && (github.event.workflow_run.conclusion == 'failure' || (github.event.workflow_run.conclusion == 'cancelled' && github.event.workflow_run.run_attempt > 1)) }}
+    outputs:
+      confirmed: ${{ steps.decide.outputs.confirmed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5
+        with:
+          sparse-checkout: scripts/confirm-red.mjs
+          sparse-checkout-cone-mode: false
+
+      - name: Rerun a first-attempt failure, confirm a repeated one
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -o pipefail
+          # A cancelled rerun is confirmed only when the attempt before it had
+          # failed. An unreadable attempt confirms: on an HTTP error `gh api`
+          # prints the JSON error body on stdout, so a failed call is reset to
+          # blank here, and confirm-red.mjs treats any unknown value as unreadable.
+          PREVIOUS=""
+          if [ "$RUN_CONCLUSION" = "cancelled" ] && [ "$RUN_ATTEMPT" -gt 1 ] 2>/dev/null; then
+            PREVIOUS=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/attempts/$((RUN_ATTEMPT - 1))" --jq '.conclusion' 2>/dev/null) || PREVIOUS=""
+          fi
+
+          RESULT=$(node scripts/confirm-red.mjs --conclusion "$RUN_CONCLUSION" --run-attempt "$RUN_ATTEMPT" --previous-conclusion "$PREVIOUS" || echo '{"action":"proceed","reason":"confirm-red.mjs failed"}')
+          echo "$RESULT"
+          ACTION=$(echo "$RESULT" | jq -r '.action' || echo "proceed")
+          REASON=$(echo "$RESULT" | jq -r '.reason' || echo "the decision could not be read")
+
+          if [ "$ACTION" = "rerun" ] && gh run rerun "$RUN_ID" --failed; then
+            echo "confirmed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Run $RUN_ID: $REASON"
+          elif [ "$ACTION" = "ignore" ]; then
+            echo "confirmed=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Run $RUN_ID is not a failure: $REASON"
+          else
+            echo "confirmed=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Run $RUN_ID is a confirmed failure: $REASON"
+          fi
+
+  # `always()` makes this job fail closed: without it, a confirm-red job that
+  # itself failed (a Checkout step during a runner outage) would skip this job
+  # and a red run would go unreported. `always()` also disables the implicit
+  # "needs succeeded" check, so the event conditions are repeated here: this
+  # runs when confirm-red confirmed the run, or did not succeed at deciding.
+  # `!cancelled()` is true unless this watchdog run itself was cancelled, so a
+  # manual cancel aborts instead of reporting; a confirm-red job that ended
+  # `cancelled` on its own still fails closed.
+  on-failure:
+    needs: confirm-red
+    runs-on: ubuntu-latest
+    if: ${{ always() && !cancelled() && github.event_name == 'workflow_run' && (github.event.workflow_run.conclusion == 'failure' || (github.event.workflow_run.conclusion == 'cancelled' && github.event.workflow_run.run_attempt > 1)) && (needs.confirm-red.result != 'success' || needs.confirm-red.outputs.confirmed == 'true') }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v4/v5

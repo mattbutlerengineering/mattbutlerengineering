@@ -101,14 +101,19 @@ export const routeTree: RouteObject[] = [
   // Showcase shell (sidebar + header) — eagerly imported to avoid double lazy-load waterfall on /rialto
   {
     element: <ShowcaseLayout />,
-    children: [{ index: true, element: <OverviewPage /> }, ...componentRoutes],
+    children: [
+      { index: true, element: <OverviewPage /> },
+      // Demos index lives in the showcase shell (sidebar + footer, #8641); the
+      // demo pages themselves stay full-page under DemoLayout.
+      { path: "demos", element: <DemosIndexPage /> },
+      ...componentRoutes,
+    ],
   },
   // Demo pages — explicit "demos" path prefix avoids pathless layout ambiguity
   {
     path: "demos",
     element: suspended(DemoLayout),
     children: [
-      { index: true, element: <DemosIndexPage /> },
       { path: "login", element: suspended(SignIn) },
       { path: "signup", element: suspended(SignUp) },
       { path: "session-expired", element: suspended(SessionExpired) },

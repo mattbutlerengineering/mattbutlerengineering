@@ -159,6 +159,7 @@ describe("DashboardLayout", () => {
               <Route path="setup" element={<div>Setup Content</div>} />
               <Route path="setup/hours" element={<div>Setup Hours Content</div>} />
               <Route path="chat" element={<ChatPage />} />
+              <Route path="availability/*" element={<div>Availability Content</div>} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -472,6 +473,30 @@ describe("DashboardLayout", () => {
       // Middle item is clickable, last is current page
       expect(items[1]!.querySelector("button")).not.toBeNull();
       expect(items[2]!.querySelector("[aria-current='page']")).not.toBeNull();
+    });
+
+    // Every address in the availability-hub route table (architecture.md "Address state").
+    it.each([
+      ["/availability", ["Availability"]],
+      ["/availability/hours", ["Availability", "Regular hours"]],
+      ["/availability/seasonal", ["Availability", "Seasonal hours"]],
+      ["/availability/seasonal/new", ["Availability", "Seasonal hours", "New seasonal hours"]],
+      ["/availability/seasonal/sch-1", ["Availability", "Seasonal hours", "Edit seasonal hours"]],
+      [
+        "/availability/seasonal/compare",
+        ["Availability", "Seasonal hours", "One service across all hours"],
+      ],
+      ["/availability/special-dates", ["Availability", "Special dates"]],
+      ["/availability/special-dates/new", ["Availability", "Special dates", "Add special dates"]],
+      ["/availability/closures", ["Availability", "Closures"]],
+      ["/availability/calendar", ["Availability", "Calendar"]],
+      ["/availability/booking-rules", ["Availability", "Booking rules"]],
+      ["/availability/history", ["Availability", "History"]],
+    ] as const)("never reads Details on %s", (path, labels) => {
+      renderLayout(path);
+      const items = screen.getAllByTestId(/^breadcrumb-item-/);
+      expect(items.map((item) => item.textContent)).toEqual(["Home", ...labels]);
+      expect(document.title).toContain(labels.at(-1));
     });
 
     it("shows Home > Tonight's Service on the briefing route (A10.4)", () => {

@@ -606,6 +606,23 @@
       function endOfObject(buffer: string, start: number): number { /* ... */ }
     </item>
   </file>
+  <file path="src/routes/gen-provider.ts">
+    <item priority="high">
+      export const GEN_PROVIDER_IDS: unknown;
+    </item>
+    <item priority="low">
+      type GenProviderId = (typeof GEN_PROVIDER_IDS)[number];
+    </item>
+    <item priority="high">
+      export function resolveGenProvider(raw: string | undefined): GenProviderId { /* ... */ }
+    </item>
+    <item priority="high">
+      export function genLanguageModel(provider: GenProviderId, modelId: string): LanguageModel { /* ... */ }
+    </item>
+    <item priority="high">
+      export function genProviderOptions(provider: GenProviderId) { /* ... */ }
+    </item>
+  </file>
   <file path="src/routes/gen-route-factory.ts">
     <item priority="low">
       interface GenRouteConfig {
@@ -651,10 +668,10 @@
     <item priority="low">
       interface GenRunnerConfig {
         systemPrompt: string;
+        provider?: GenProviderId;
         modelId: string;
         maxOutputTokens: number;
         maxSteps: number;
-        onFinish?: (payload: GenFinishPayload) => Promise<void>;
       }
     </item>
     <item priority="high">
@@ -673,6 +690,20 @@
     </item>
     <item priority="high">
       export function createGenRunner(config: GenRunnerConfig): GenRunner { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isJsonRender(config: Pick<GenRunnerConfig, "provider" | "toolChoice">): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function genRunnerSystemPrompt(
+        config: Pick<GenRunnerConfig, "systemPrompt" | "provider" | "toolChoice">
+      ): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isCompleteRender(json: string, emitted: number): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function isKeyedElement(value: unknown): boolean { /* ... */ }
     </item>
     <item priority="medium">
       function toError(value: unknown): Error { /* ... */ }
@@ -697,6 +728,9 @@
     </item>
   </file>
   <file path="src/routes/gen-stream.ts">
+    <item priority="high">
+      export const GEN_PROVIDER: unknown;
+    </item>
     <item priority="high">
       export const GEN_MODEL_ID: unknown;
     </item>

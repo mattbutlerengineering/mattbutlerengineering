@@ -330,6 +330,20 @@ export async function mockPublicMenu(page: Page): Promise<void> {
   );
 }
 
+/** Serve a confirmed party invite for the guest invite route (`/i/:token`); call after `mockApi`. */
+export async function mockPublicInvite(page: Page): Promise<void> {
+  await page.route(/\/public\/v1\/invites\/[^/?]+(\?.*)?$/, (route) =>
+    jsonOk(route, {
+      venue: { name: "E2E Test Bistro", slug: "e2e-test-bistro" },
+      date: localDay(3),
+      time: "19:00",
+      partySize: 4,
+      rsvps: [{ firstName: "Sam", status: "IN" }],
+      status: "CONFIRMED",
+    })
+  );
+}
+
 /**
  * Stateful menus store (#7073). Operator mutations (`/api/v1/menus/...`) write the same in-memory
  * list the guest routes (`/public/v1/venues/:slug/menus/...`) read, so a status change or a

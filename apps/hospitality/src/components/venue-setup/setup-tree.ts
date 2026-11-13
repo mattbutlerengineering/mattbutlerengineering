@@ -7,7 +7,9 @@ import type {
   Table,
   VenueSettings,
 } from "@mbe/types";
-import { availabilityPath } from "../availability/availability-entry.js";
+import { availabilityPath } from "../availability/availability-address.js";
+import { upcomingRules } from "../availability/rule-summaries.js";
+import { visibleSchedules } from "../availability/superseded-schedules.js";
 
 /**
  * Venue Setup hub (architecture.md "Setup tree"): config, floor plans, sections, tables and
@@ -100,10 +102,8 @@ export type SetupActionId =
   | "closeSection"
   | "moveToSection";
 
-/** Where an action goes: a route, or an existing editor the page opens in place. */
-export type SetupActionTarget =
-  | { readonly kind: "link"; readonly to: string }
-  | { readonly kind: "dialog"; readonly dialog: "bookingRules" };
+/** Where an action goes: a route. */
+export type SetupActionTarget = { readonly kind: "link"; readonly to: string };
 
 export interface SetupAction {
   readonly id: SetupActionId;
@@ -148,6 +148,11 @@ export interface SetupTreeInput {
   readonly readiness: "setup" | "operational";
   /** The venue's today, `YYYY-MM-DD`. */
   readonly today: string;
+  /**
+   * The venue's current service date (it trails `today` after midnight on an overnight venue): a
+   * regular week replaced before it is neither counted nor listed (#8688).
+   */
+  readonly serviceDate: string;
   readonly open: GroupLoad<OpenData>;
   readonly sit: GroupLoad<SitData>;
 }
@@ -177,15 +182,12 @@ const link = (to: string): Link => ({ kind: "link", to });
 const action = (id: SetupActionId, target: SetupActionTarget, subject?: string): SetupAction =>
   subject === undefined ? { id, target, primary: false } : { id, target, primary: false, subject };
 
-const SETUP_CALENDAR = availabilityPath({ from: "setup" });
-const SETUP_SCHEDULES = availabilityPath({ tab: "schedules", from: "setup" });
-const SETUP_CALENDAR_TAB = availabilityPath({ tab: "calendar", from: "setup" });
-const SETUP_ADD_SCHEDULE = availabilityPath({
-  tab: "schedules",
-  action: "addSchedule",
-  from: "setup",
-});
-const SETUP_SPECIAL = availabilityPath({ tab: "special", from: "setup" });
+const SETUP_CALENDAR = availabilityPath({ view: "hub", from: "setup" });
+const SETUP_SCHEDULES = availabilityPath({ view: "hours", from: "setup" });
+const SETUP_CALENDAR_TAB = availabilityPath({ view: "calendar", from: "setup" });
+const SETUP_ADD_SCHEDULE = availabilityPath({ view: "seasonal", screen: "new", from: "setup" });
+const SETUP_SPECIAL = availabilityPath({ view: "specialDates", from: "setup" });
+const SETUP_BOOKING_RULES = availabilityPath({ view: "bookingRules", from: "setup" });
 
 /** Launch steps the Manager must finish; the first unset one becomes the primary button. */
 const isLaunchGate = (node: SetupNode): boolean =>
@@ -283,12 +285,17 @@ function scheduleNode(
   };
 }
 
-function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode {
+function schedulesNode(
+  config: AvailabilityConfig,
+  serviceDate: string,
+  manager: boolean
+): SetupNode {
   const services = new Map(
     active(config.venueServices).map((s) => [s.id, { name: s.name, position: s.position }])
   );
-  const schedules = active(config.schedules).map((s) => scheduleNode(s, config, services, manager));
-  const regular = active(config.schedules).find((s) => s.isRegular);
+  const visible = visibleSchedules(config, serviceDate);
+  const schedules = visible.map((s) => scheduleNode(s, config, services, manager));
+  const regular = visible.find((s) => s.isRegular);
   const regularSet =
     regular !== undefined &&
     schedules.some((n) => n.id === `schedule:${regular.id}` && n.children.length > 0);
@@ -315,16 +322,6 @@ function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode 
       : [],
     children: schedules,
   };
-}
-
-/** Rules the hub lists: closures and special hours that have not finished. */
-function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] {
-  return rules
-    .filter((r) => r.kind === "closure" || r.kind === "special_hours")
-    .filter((r) => r.endsOn == null || r.endsOn >= today)
-    .sort((a, b) =>
-      a.startsOn === b.startsOn ? a.id.localeCompare(b.id) : a.startsOn < b.startsOn ? -1 : 1
-    );
 }
 
 function targetOf(
@@ -406,7 +403,7 @@ function bookingNode(
     kind: "booking",
     name: null,
     state: anySet ? { kind: "rules", daysAhead, noticeHours, largestParty } : UNSET,
-    actions: manager ? [action("bookingRules", { kind: "dialog", dialog: "bookingRules" })] : [],
+    actions: manager ? [action("bookingRules", link(SETUP_BOOKING_RULES))] : [],
     children: CHANNELS.map((channel) => ({
       id: `channel:${channel}`,
       kind: "channel",
@@ -423,12 +420,13 @@ function bookingNode(
 
 function openNodes(
   data: OpenData,
-  today: string,
+  dates: { readonly today: string; readonly serviceDate: string },
   sections: ReadonlyMap<string, string> | null,
   manager: boolean
 ): SetupNode[] {
+  const { today, serviceDate } = dates;
   return [
-    schedulesNode(data.config, manager),
+    schedulesNode(data.config, serviceDate, manager),
     specialDatesNode(data.config, today, sections, manager),
     bookingNode(data.config, data.settings, today, manager),
   ];
@@ -469,7 +467,13 @@ function floorPlanNode(
         ? [
             action(
               "closeSection",
-              link(availabilityPath({ closeSection: section.id, from: "setup" })),
+              link(
+                availabilityPath({
+                  view: "hub",
+                  close: { kind: "section", sectionId: section.id },
+                  from: "setup",
+                })
+              ),
               section.name
             ),
           ]
@@ -545,13 +549,15 @@ function withPrimary(nodes: readonly SetupNode[], targetId: string | null): Setu
 }
 
 export function buildSetupTree(input: SetupTreeInput): SetupTree {
-  const { isManager, today } = input;
+  const { isManager, today, serviceDate } = input;
   const sectionNames =
     input.sit.status === "ready"
       ? new Map(input.sit.data.sections.map((s) => [s.id, s.name]))
       : null;
   let open: readonly SetupNode[] =
-    input.open.status === "ready" ? openNodes(input.open.data, today, sectionNames, isManager) : [];
+    input.open.status === "ready"
+      ? openNodes(input.open.data, { today, serviceDate }, sectionNames, isManager)
+      : [];
   let sit: readonly SetupNode[] =
     input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
 

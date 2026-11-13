@@ -1,5 +1,5 @@
-import { beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { afterEach, beforeAll, beforeEach, describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Rialto from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
@@ -32,6 +32,7 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
 
 import { UseDayHoursAction } from "./UseDayHoursAction.js";
 import { FIXTURE_DATE, FIXTURE_TIMEZONE, fixtureConfig } from "./resolved-day-fixtures.js";
+import { saveRegularWeek, supersededWeekOf } from "./superseded-fixtures.js";
 
 const TITLE_DAY = "Use another day’s hours on Friday, Oct 30";
 
@@ -95,23 +96,23 @@ beforeEach(() => {
   save.mockResolvedValue({ changeId: "chg-1", version: 8 });
 });
 
-describe("UseDayHoursAction (ux.md F2 drawer actions)", () => {
+describe("UseDayHoursAction: Use other hours… (ux.md F2 drawer actions, #8691)", () => {
   it("offers another day's hours while the venue has one schedule, and names the date", () => {
     renderAction(stateOf([]));
-    fireEvent.click(screen.getByRole("button", { name: "Use another day’s hours…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
     expect(screen.getByRole("dialog", { name: TITLE_DAY })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Apply to 1 date" })).toBeDisabled();
   });
 
-  it("does not count an archived schedule when it names itself", () => {
+  it("does not count an archived schedule: it still offers another day's hours", () => {
     renderAction(stateOf([{ id: "old", name: "Old", archivedAt: "2026-01-01T00:00:00Z" }]));
-    expect(screen.getByRole("button", { name: "Use another day’s hours…" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Use schedule…" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
+    expect(screen.getByRole("dialog", { name: TITLE_DAY })).toBeInTheDocument();
   });
 
-  it("is named Use schedule once two schedules exist, titles the date, and saves that date", async () => {
+  it("keeps its one name once two sets of hours exist, picks a set, titles the date, and saves that date", async () => {
     const { onFinished } = renderAction(stateOf(SUMMER));
-    fireEvent.click(screen.getByRole("button", { name: "Use schedule…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
     // Nothing is selected here: the title says which date, not "the selected dates".
     expect(
       screen.getByRole("dialog", { name: "Use a schedule on Friday, Oct 30" })
@@ -132,14 +133,14 @@ describe("UseDayHoursAction (ux.md F2 drawer actions)", () => {
 
   it("closes its dialog once the change is saved", async () => {
     renderAction(stateOf(SUMMER));
-    fireEvent.click(screen.getByRole("button", { name: "Use schedule…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
     await applyOneDate(/^Apply to 1 date$/);
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
 
   it("closes on Cancel without saving", async () => {
     const { onFinished } = renderAction(stateOf(SUMMER));
-    fireEvent.click(screen.getByRole("button", { name: "Use schedule…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(save).not.toHaveBeenCalled();
@@ -158,7 +159,7 @@ describe("UseDayHoursAction (ux.md F2 drawer actions)", () => {
       },
     });
     const { onFinished, onStale } = renderAction(stateOf(SUMMER));
-    fireEvent.click(screen.getByRole("button", { name: "Use schedule…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
     await applyOneDate(/^Apply to 1 date$/);
     await waitFor(() => expect(onStale).toHaveBeenCalledOnce());
     expect(onFinished).not.toHaveBeenCalled();
@@ -166,7 +167,7 @@ describe("UseDayHoursAction (ux.md F2 drawer actions)", () => {
 
   it("will not copy a day onto itself", () => {
     renderAction(stateOf([]));
-    fireEvent.click(screen.getByRole("button", { name: "Use another day’s hours…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
     fireEvent.change(screen.getByLabelText("Copy hours from"), {
       target: { value: FIXTURE_DATE },
     });
@@ -179,7 +180,7 @@ describe("UseDayHoursAction (ux.md F2 drawer actions)", () => {
 
   it("does not open while an editor is open or a reload is due", () => {
     renderAction(stateOf([]), { waiting: true });
-    const button = screen.getByRole("button", { name: "Use another day’s hours…" });
+    const button = screen.getByRole("button", { name: "Use other hours…" });
     expect(button).toHaveAttribute("aria-disabled", "true");
     fireEvent.click(button);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -187,10 +188,47 @@ describe("UseDayHoursAction (ux.md F2 drawer actions)", () => {
 
   it("stays shut, with the reason attached, on a date closed all day", () => {
     renderAction(stateOf([]), { closedReason: "Closed all day. Reopen it first." });
-    const button = screen.getByRole("button", { name: "Use another day’s hours…" });
+    const button = screen.getByRole("button", { name: "Use other hours…" });
     expect(button).toHaveAttribute("aria-disabled", "true");
     expect(button).toHaveAccessibleDescription("Closed all day. Reopen it first.");
     fireEvent.click(button);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+describe("UseDayHoursAction after a regular-week save (#8688)", () => {
+  beforeEach(() => {
+    // Noon on the fixture Friday, venue time: the service date is the day of the save.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-30T19:00:00Z"));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const saved = (config = fixtureConfig()): AvailabilityConfigState => ({
+    version: 8,
+    source: "rows",
+    config: saveRegularWeek(config, FIXTURE_DATE),
+  });
+
+  it("on a one-schedule venue, opens as another day's hours: the replaced week is not counted", () => {
+    renderAction(saved());
+    fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
+    const dialog = screen.getByRole("dialog", { name: TITLE_DAY });
+    expect(within(dialog).getByLabelText("Copy hours from")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("combobox", { name: "Schedule" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer the replaced week in the schedule picker", () => {
+    const base = stateOf(SUMMER).config;
+    const state = saved(base);
+    const old = supersededWeekOf(state.config);
+    renderAction(state);
+    fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Schedule" }));
+    const offered = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(offered).toEqual(["Summer hours", "Regular week"]);
+    expect(offered).not.toContain(old.name);
   });
 });

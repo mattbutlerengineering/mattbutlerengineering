@@ -41,6 +41,15 @@ Decided (2)                                                                   �
   Easter Sunday     Sun, Apr 5      Closed                         Change
 ```
 
+### Amended 2026-11-12 (#8692): the venue's own dates come first
+
+The holiday panel no longer sits above the venue's own special dates. This reverses the 2026-11-08 layout in three ways.
+
+- **Order:** the list of the venue's own dates comes first; the holidays sit below it as one line, "5 holidays not planned" with a **Plan holidays** button (a Host sees **View holidays**). The button opens the panel described below in place; **Hide holidays** folds it back. With every holiday decided the line reads "Every upcoming holiday is planned". The filters Closures, Special hours, Repeating and Past hide the holiday line; only All shows it.
+- **Closed:** still one press, but the toast now carries **Undo** when the save told no guest anything (a save that told guests is not revertible; its Step 2 is the confirmation).
+- **Close these N:** always asks first. The dialog, "Close these 3 dates?", names every date; **Close 3 dates** saves, **Not now** closes it with nothing written.
+- **Open as usual:** unchanged, one press with Undo.
+
 ### After, 375 px
 
 Each holiday is two rows: name and date, then the three choices as a full-width segmented row, wrapping "Special hours…" if needed. Every choice has a 44 px target.
@@ -54,7 +63,7 @@ Each holiday is two rows: name and date, then the three choices as a full-width 
   - **Open as usual:** saves the venue decision.
     - Toast: "Christmas Eve: open as usual" (existing string).
   - **Special hours…:** opens the existing special-dates sheet with that one date (Add special dates, `initialRows`); saving it decides the holiday.
-- **Close these 3:** shows when two or more of the usually-closed holidays (from `USUALLY_CLOSED` for the venue's country) are undecided in the horizon. It names them in the line above it and closes all of them in one save (one closure per date), with one step two if bookings are affected.
+- **Close these 3:** (amended: it confirms first, see above) shows when two or more of the usually-closed holidays (from `USUALLY_CLOSED` for the venue's country) are undecided in the horizon. It names them in the line above it and closes all of them in one save (one closure per date), with one step two if bookings are affected.
   - Toast: "Closed on Thanksgiving, Christmas Day and New Year's Day".
   - With only one left, there is no header action; that line's Closed is the action.
 - **Decided group:**
@@ -170,8 +179,9 @@ Lists of names, days and dates use `Intl.ListFormat`, not string joins.
 
 ## Scenario walk-through (targets)
 
-- **H1:** Special dates (1), Close these 3 (1) = 2, plus any step two.
-- **H2:** Open as usual on Christmas Eve = 1 after reaching Special dates. A second Manager's context loads Special dates and sees Christmas Eve under Decided, with 0 decisions to make.
-- **H3:** Special hours… on New Year's Eve (1), then the sheet as today.
+- **H1:** (amended, #8692) Special dates (1), Plan holidays (1), Close these 3 (1), Close 3 dates in the confirmation (1) = 4, plus any step two.
+- **H2:** Special dates (1), Plan holidays (1), Open as usual on Christmas Eve (1) = 3. A second Manager's context loads Special dates and the holiday line already counts one fewer holiday not planned (0 interactions); seeing Christmas Eve itself under Decided costs one press (Plan holidays).
+- **H3:** (amended, #8692) Special dates (1), Plan holidays (1), Special hours… on New Year's Eve (1), then the sheet as today: one more than before.
+- **Decided → Change → Closed:** (amended, #8692) Plan holidays (1), Decided (1), Change (1), Closed (1), Close Christmas Eve in the confirmation (1) = 5. Replacing a decision asks first, because the toast cannot offer Undo: tidying the old decision is a second save.
 - **K1:** Calendar (1), the day (1), Copy (1), the Wed and Thu chips (2), Every week… (1), drawer Save (1) = 7.
 - **K2:** day drawer, Copy (1), Wed and Thu (2), Copy to Wed and Thu (1).

@@ -141,7 +141,7 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
     expect((asked.rule as DateRule).id).not.toBe("range-1");
   });
 
-  it("offers One date, Date range and Until I reopen, never Tonight, Several dates or Repeats", () => {
+  it("offers One date, Date range and Until I reopen, never Tonight, Several dates or Repeating", () => {
     renderEdit();
     const dialog = screen.getByRole("dialog");
     fireEvent.click(within(dialog).getByRole("combobox", { name: "When" }));

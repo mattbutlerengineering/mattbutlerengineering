@@ -19,6 +19,7 @@ import {
   datesOfUse,
   overlappingSchedules,
   scheduleSaveBlock,
+  storedKeptByName,
   type Winner,
 } from "./schedule-changes.js";
 import { ownChangeDates } from "./scope-dates.js";
@@ -128,6 +129,8 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     [config, weekdays, startsOn, endsOn]
   );
   const issues = useMemo(() => validateDraft(draft), [draft]);
+  // What `buildRegularWeekChanges` falls back to per service name: the form shows the same.
+  const storedKept = useMemo(() => storedKeptByName(config, "regular"), [config]);
   const outside = useMemo(() => outsideSchedules(config), [config]);
   const closedDays = baselineWeek.days.filter((day) => !weekdays.includes(day));
   const focusDate =
@@ -170,8 +173,9 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     : "";
   const scopeConflicts: ScopeConflictMode = dates.length > 1 ? conflictMode : "replace";
 
-  const submit = async () => {
-    if (!startsOn) return;
+  /** Saves the draft; `true` when it was saved (and Undo offered), `false` when it was not. */
+  const submit = async (): Promise<boolean> => {
+    if (!startsOn) return false;
     const changes = buildRegularWeekChanges({
       config,
       name: trimmed,
@@ -184,7 +188,7 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
     const saved = await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
-    if (!saved) return;
+    if (!saved) return false;
     offerUndo({
       venueId,
       saved,
@@ -194,6 +198,7 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
           : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
     });
     onSaved?.(saved);
+    return true;
   };
 
   return {
@@ -217,6 +222,7 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     own,
     overlaps,
     issues,
+    storedKept,
     outside,
     closedDays,
     focusDate,

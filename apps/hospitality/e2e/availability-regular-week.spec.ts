@@ -2,6 +2,9 @@ import type { Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
+import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
+import { weekPanel } from "./helpers/first-paint.js";
+import { dinnerOnlyConfig, mockNoopPreview } from "./helpers/scenario-fixtures.js";
 import { atLocal, localDay } from "./local-day.js";
 
 /**
@@ -309,7 +312,7 @@ function dayOfThisMonth(day: number): string {
   return d.toLocaleDateString("en-CA");
 }
 
-// #7981: Go to date (toolbar) and Use another day's hours (day drawer), at both widths and locales.
+// #7981: Go to date (toolbar) and Use other hours (day drawer, #8691), at both widths and locales.
 test.describe("navigation and day-drawer controls (#7981)", () => {
   const EN = {
     locale: "en-US",
@@ -317,7 +320,7 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
     goTo: "Go to date",
     go: "Go",
     date: "Date",
-    use: "Use another day’s hours…",
+    use: "Use other hours…",
     useTitle: "Use another day’s hours",
     from: "Copy hours from",
   };
@@ -327,7 +330,7 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
     goTo: "Aller à une date",
     go: "Aller",
     date: "Date",
-    use: "Utiliser les heures d’un autre jour…",
+    use: "Utiliser d’autres heures…",
     useTitle: "Utiliser les heures d’un autre jour",
     from: "Copier les heures du",
   };
@@ -449,13 +452,25 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
   }
 });
 
-/** The first Tuesday to Saturday among the next days, so the date has regular hours under its rule. */
-function nextOpenDay(): string {
-  for (let ahead = 1; ahead <= 7; ahead += 1) {
-    const day = localDay(ahead);
+/**
+ * Today if it is a Tuesday to Saturday, else the Saturday just gone, so the date has regular
+ * hours under its rule. The test holds the clock at local noon on it (`holdClockOn`), which makes
+ * it the app's today: inside the month the calendar opens on, and not a read-only past date. A
+ * day ahead can fall in next month, which neither the month view nor the phone list renders
+ * (28 to 30 Nov 2026), and a clock held ahead of the real one ends the session, so the day is
+ * never later than today.
+ */
+function latestOpenDay(): string {
+  for (let back = 0; back <= 2; back += 1) {
+    const day = localDay(-back);
     if (TUE_SAT.includes(new Date(`${day}T00:00:00`).getDay())) return day;
   }
-  throw new Error("no open day within a week");
+  throw new Error("no open day in the last three");
+}
+
+/** Noon on a UTC or American runner is the same calendar day in the venue's zone (New York). */
+async function holdClockOn(page: Page, day: string): Promise<void> {
+  await page.clock.setFixedTime(new Date(`${day}T12:00:00`));
 }
 
 // #7981: Remove and Edit in the drawer's "Why this day", at both widths and locales.
@@ -509,7 +524,8 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
         mockedPage,
       }) => {
         await mockedPage.setViewportSize(s.size);
-        const day = nextOpenDay();
+        const day = latestOpenDay();
+        await holdClockOn(mockedPage, day);
         await mockTueSatVenue(mockedPage, [specialHours(day)]);
         let sent: {
           expectedVersion: number;
@@ -545,10 +561,19 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
         await remove.click();
         const ask = mockedPage.getByRole("alertdialog", { name: c.removeTitle });
         await expect(ask).toBeVisible();
-        // Not the dialog's fade-in half way through.
-        await ask.evaluate((el) =>
-          Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished))
-        );
+        // Not the dialog's fade-in half way through. Polled for its end state rather than awaiting
+        // each `Animation.finished`: framer-motion (motion-dom's NativeAnimation) calls `cancel()`
+        // on its own WAAPI animation when it finishes or is interrupted, and a cancelled
+        // animation's `finished` rejects with AbortError.
+        await expect
+          .poll(() =>
+            ask.evaluate(
+              (el) =>
+                getComputedStyle(el).opacity === "1" &&
+                el.getAnimations({ subtree: true }).every((a) => a.playState !== "running")
+            )
+          )
+          .toBe(true);
         // rialto's destructive ConfirmDialog button is #1a1918 on #b84a3c, 3.41:1 (below AA). That is
         // the component's own colour pair, not this change's, so axe skips the one button and still
         // reads the rest of the dialog; the defect is reported on #7981.
@@ -568,7 +593,8 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
 
       test(`Edit moves focus to the day's editor, in view (${label})`, async ({ mockedPage }) => {
         await mockedPage.setViewportSize(s.size);
-        const day = nextOpenDay();
+        const day = latestOpenDay();
+        await holdClockOn(mockedPage, day);
         await mockTueSatVenue(mockedPage, [specialHours(day)]);
         await mockedPage.addInitScript(
           (locale) => localStorage.setItem("mbe-hospitality-locale", locale),
@@ -578,7 +604,10 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
         await mockedPage.locator(`button[data-date="${day}"]`).click();
         const drawer = mockedPage.getByRole("dialog").first();
         await drawer.getByRole("button", { name: c.edit }).click();
-        const editor = drawer.getByRole("button", { name: c.service });
+        // Edit opens the editor on its rows (#8752): the read view's "Edit Dinner" button is gone,
+        // and focus is in the first field of the service's row.
+        await expect(drawer.getByRole("button", { name: c.service })).toHaveCount(0);
+        const editor = drawer.locator("fieldset input").first();
         await expect(editor).toBeFocused();
         await expect(editor).toBeInViewport({ ratio: 1 });
       });
@@ -653,4 +682,38 @@ test.describe("Change regular week: name suggestion (#7981)", () => {
       });
     }
   }
+});
+
+test.describe("Saving the regular week again and again (#8688)", () => {
+  test("three saves on a one-schedule venue leave nothing under Other schedules", async ({
+    mockedPage: page,
+  }) => {
+    await page.clock.setFixedTime(new Date(`${localDay()}T12:00:00`));
+    // Each PUT is applied on top of the rows already saved, as the service does.
+    await mockEmptyVenue(page, { derive: true, config: dinnerOnlyConfig() });
+    await mockNoopPreview(page);
+    await page.goto("availability?tab=schedules");
+    const panel = weekPanel(page);
+    await expect(panel).toBeVisible();
+
+    for (const closes of ["10:30 PM", "11:00 PM", "11:30 PM"]) {
+      // The services are closed lines (#8690): open Dinner's to reach its times.
+      await panel.getByRole("button", { name: /^Dinner ?, /, expanded: false }).click();
+      await panel.getByRole("combobox", { name: "Closes" }).first().click();
+      await page
+        .getByRole("listbox", { name: "Closes" })
+        .getByRole("option", { name: closes, exact: true })
+        .click();
+      const put = page.waitForResponse(
+        (r) => r.url().includes("/availability/config") && r.request().method() === "PUT"
+      );
+      await panel.getByRole("button", { name: "Save", exact: true }).click();
+      expect((await put).ok()).toBe(true);
+      // The saved week restarts the form: Dinner is a closed line again, reading the new close.
+      await expect(
+        panel.getByRole("button", { name: new RegExp(`^Dinner ?, .*–${closes}`), expanded: false })
+      ).toBeVisible();
+      await expect(page.getByText("Other schedules", { exact: true })).toHaveCount(0);
+    }
+  });
 });

@@ -8,6 +8,8 @@ import type { Locator, Page } from "@playwright/test";
  * does anything inside `region`. A control counts when it is rendered with a real box and is not
  * `aria-hidden`, so a visually hidden input behind a styled radio is not counted twice.
  *
+ * `region` is `null` to count the whole of `<main>`, the form included.
+ *
  * Call it after the role settles and the page has painted its layer (a counted `expect` on the
  * layer's heading first); it reads the DOM once and does not wait.
  */
@@ -39,9 +41,9 @@ const SHELL_ROW = '[class*="breadcrumbBar"]';
 
 export async function countFirstPaintControls(
   page: Page,
-  region: Locator
+  region: Locator | null
 ): Promise<FirstPaintCount> {
-  const regionHandle = await region.elementHandle();
+  const regionHandle = region ? await region.elementHandle() : null;
   return page.evaluate(
     ({ selector, shell, outside }) => {
       const main = document.querySelector("main#main-content");

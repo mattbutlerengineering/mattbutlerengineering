@@ -301,7 +301,7 @@ test.describe("Availability close dialog (F5)", () => {
         "One date",
         "Several dates",
         "Date range",
-        "Repeats",
+        "Repeating",
         "Until I reopen",
       ]);
       await mockedPage.keyboard.press("Escape");
@@ -361,9 +361,7 @@ test.describe("Availability close dialog (F5)", () => {
       // Open the picker and move to the next day with the keyboard.
       await mockedPage.keyboard.press("Enter");
       await expect(mockedPage.getByRole("grid", { name: /^\p{L}+ \d{4}$/u })).toBeVisible();
-      // Focus opens on Previous month: Tab past Next month into the grid, arrow to the next day.
-      await mockedPage.keyboard.press("Tab");
-      await mockedPage.keyboard.press("Tab");
+      // Focus opens on the selected day, inside the grid: arrow to the next day.
       await mockedPage.keyboard.press("ArrowRight");
       await mockedPage.keyboard.press("Enter");
       await expect(date).toBeFocused();

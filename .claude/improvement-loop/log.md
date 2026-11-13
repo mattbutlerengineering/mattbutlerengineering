@@ -5279,3 +5279,64 @@ Three defects were seen that rubric v1 has no tell for, so none could be filed (
 3. **`components/input-group` does not demonstrate its own documented behaviour** in the "SELECT + INPUT" example: the select and the input are separated by a visible gap and the input sits a few px proud of the select, while the caption beneath reads "borders collapse at the join".
 
 All three are candidates for a human-owned `meta-improvement` issue proposing a rubric v2 tell (a layout/overflow face, which 2026-11-11's note also asked for); this routine does not file those itself.
+
+## 2026-11-12 — mbe-learning-loop
+
+**Sensors:** 17/18 available (e2eStability not available). Status: ✅ Healthy. acmm L5 (73/84), ciHealth 100% (25/25), mutationScore 99.07% PASS (107/389 killed), flakyTests 0 (71630 runs, 4 SHAs), metricsFreshness 0 unhealthy (all 9 watched metrics fresh), queueEfficiency composite 0.916 (fps 0.874, ttm 0.5h, no baseline yet).
+**Sentry triage:** skipped — stored Sentry MCP token rejected (`whoami` → "Authorization Expired"); no human available in this scheduled run to re-authorize. Same as 2026-11-09 and 2026-11-11.
+**Regressions:** 0 detected, 0 issues created.
+**Verifications:** 5 closed issues checked (48h window) — #8739, #8734, #8729 (ci-fix, "Broken Main"), #8728 (ci-fix, marketing visual baseline), #8720 (ci-fix, post-deploy-check) all skipped, no success/failure CI runs found after closure to verify against. 0 verified, 0 failed, 5 skipped.
+**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — feature 1% (72 total), ci-fix 11% (63 total), audit 3% (29 total), meta-improvement 0% (16 total), acmm 25% (4 total), sentry 0% (13 total), dependencies 0% (3 total). All budgets stay at default 3. One linked-PR lookup failed on a blocked GraphQL call (known sandbox limitation); did not affect the category rates above.
+**Skill proposals:** 0 (Thursday — Friday-only).
+**Threshold notes:** last-30-days verifications.jsonl: 127 records, 116 `skip` (no automated verifier available), 7 verified / 4 not-verified among the 11 non-skip → fix-effectiveness 63.6% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above, all ≤25%) stays well under the 30% loosen-threshold trigger. Auto-tuner applied 1 adjustment this run: acmm 1.604 → 1.634 (headroom).
+
+## 2026-11-13 — mbe-evening (progress-tracker)
+
+### Metrics
+
+| Metric                                                    | Value                                                                | Band                        |
+| --------------------------------------------------------- | -------------------------------------------------------------------- | --------------------------- |
+| Created (7d, audit+ci-fix)                                | 69 (24 audit + 45 ci-fix)                                            | —                           |
+| Closed (7d, audit+ci-fix)                                 | 60 (19 audit + 41 ci-fix)                                            | —                           |
+| Closure Rate                                              | 87.0%                                                                | Green (>80%)                |
+| Time-to-Close (mean)                                      | 12.8h                                                                | Green (<24h)                |
+| Agent Success (has-pr/(has-pr+failed), snapshot)          | 2/5 = 40%                                                            | Yellow (40-70%, lower edge) |
+| CI Pass (main, last 20 runs, skipped excluded)            | 6/6 completed non-skipped = 100%                                     | Green, but see note         |
+| Queue (ready, open)                                       | 6                                                                    | Yellow (5-10)               |
+| Stale (ready>7d)                                          | 0                                                                    | Green                       |
+| Blocked (agent-failed, open)                              | 1 (was 3; 2 auto-retried this run)                                   | Non-zero                    |
+| Skipped (agent-skip, open)                                | 0                                                                    | Green                       |
+| Daily/7d Spend (attributed, `agent-spend/sessions.jsonl`) | $0 — no `mbe agent run`/`eval` sessions today                        | Green, but see note         |
+| Queue worker usage (7d, `queue-telemetry.jsonl`)          | 4 sessions, 900,434 tokens, **cost unknown** (71 rows missing usage) | not $0 — unattributed       |
+| Cost/Issue                                                | unknown (no attributed $ to divide)                                  | —                           |
+
+Note on CI Pass: the last-20-runs sample was dominated by this session's own just-pushed activity (PR #8812/#8813 CI), not a representative 7-day main-push sample — treat the 100% read as noisy, not a trend signal.
+
+### Patterns
+
+- **Same job, recurring:** `.github/workflows/apps-visual.yml` ("Apps Visual Regression") is the dominant unstable CI job — #8781 (51.5% failure rate over 99 runs) and #8780 (3 consecutive main-push failures) are both open `ci-fix` issues against it, and it independently failed on today's unrelated PR #8813 (confirmed not caused by that PR's diff: failing snapshots were on routes `briefing`/`profile`, outside the diff). Systemic, not a one-off flake.
+- **Batch bottleneck, one iteration's evidence only:** today's implement-queue batch could only claim 2 of a possible 3 workers because 5 of the day's 7 `ready` ci-fix/audit candidates (including all 3 `apps-visual.yml`/`deploy-services.yml`/`sentry-heartbeat.yml` ci-fix issues) resolve to the same `null`/global merge-train zone (no conventional-commit scope in title, no resolvable workspace path in body), and `strictMain` admits only one global-zone issue per batch. Worth watching for `/optimize-implement-queue` — single-session observation, not yet a confirmed 3-day pattern, so no `meta-improvement` issue filed for it this run.
+- **Agent-failed cluster:** the 3 open `agent-failed` issues were all performance/process-metrics work (`api-failures` p95 latency, `sdlc-speed` regression) — harder, investigation-heavy issues, consistent with why they stalled past one attempt. 2 of the 3 (#8549, #8564) were eligible for the 3+ day auto-retry (capped at 2/run) and were re-queued to `ready` this run via `scripts/auto-retry-stale.mjs`; #8566 was not yet eligible.
+
+### Recommendations
+
+- No code or `required_check` fix landed for the Apps Visual Regression flake this run — it's already tracked (#8781/#8780) and keeps surfacing as collateral noise on unrelated PRs; consider raising its priority the next time a batch is composed, since it is blocking visibility into real regressions on hospitality PRs.
+- If the same-zone batching cap on ci-fix/workflow issues recurs over the next few days, it is meta-improvement material (e.g. teaching `issue-zone.mjs` to resolve `.github/workflows/<file>` paths to their own zone instead of global) — tracked here as an observation, not filed, pending repetition.
+- `metrics/queue-telemetry.jsonl`'s 71 rows without usage data mean queue-worker cost stays permanently unknown; wiring real `cost_usd` into that sink (as `#5885` already flags) would let Cost/Issue be computed instead of reported as "unknown" every run.
+
+### Skipped Issues
+
+0 open `agent-skip` issues — nothing to review.
+
+### Auto-retry
+
+Re-queued 2 stale `agent-failed` issues (3+ days, capped at 2/run) back to `ready`: #8549, #8564.
+
+## 2026-11-13
+
+**queueEfficiency:** composite 0.915 (baseline n/a) — 1 regression(s) detected
+**Difficulty distribution:** size:s:27, size:xl:9, size:xs:22, size:m:17, size:l:11
+**Issues filed:** 1
+**Regressions:**
+
+- review_coverage_trend: 0.243 (was 0.625, Δ-0.382) [high]

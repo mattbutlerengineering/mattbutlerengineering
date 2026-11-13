@@ -22,12 +22,8 @@ import {
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { DraftPreview } from "./DraftPreview.js";
 import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
-import {
-  BlockedReason,
-  ConflictReviewPanel,
-  OwnChangesChoice,
-  SaveFailure,
-} from "./ScheduleFormParts.js";
+import { FormConflictDialog } from "./FormConflictDialog.js";
+import { BlockedReason, OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useHeldFor } from "./use-held-for.js";
 import { useReloadHold } from "./use-reload-hold.js";
@@ -54,7 +50,11 @@ export interface CompareServicesProps {
   readonly timezone: string;
   /** Today on the venue clock. */
   readonly today: string;
+  /** The venue's current service date: a regular week replaced before it has no row (#8688). */
+  readonly serviceDate: string;
   readonly onStale: () => void;
+  /** The reload of the config failed (the page's read); a conflict being reviewed says so. */
+  readonly refreshError?: string | null;
   /** Reports whether rows are edited but not saved, so the surface around can ask before closing. */
   readonly onDirtyChange?: (dirty: boolean) => void;
   /** Opens Edit schedule for a row that has its own days or different hours. */
@@ -129,14 +129,15 @@ function RowFields(props: {
  * impact line.
  */
 export function CompareServices(props: CompareServicesProps) {
-  const { venueId, state, timezone, today, onStale, onDirtyChange, onEditSchedule } = props;
+  const { venueId, state, timezone, today, serviceDate, onStale, onDirtyChange, onEditSchedule } =
+    props;
   const { config } = state;
   const { t } = useTranslation();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
   const blockedId = useId();
 
-  const options = useMemo(() => compareServiceOptions(config), [config]);
+  const options = useMemo(() => compareServiceOptions(config, serviceDate), [config, serviceDate]);
   const [chosen, setChosen] = useState<string | null>(null);
   const serviceId = chosen ?? options[0]?.id ?? null;
   const [edits, setEdits] = useState<Readonly<Record<string, CompareRow>>>({});
@@ -164,8 +165,10 @@ export function CompareServices(props: CompareServicesProps) {
 
   const rows = useMemo(
     () =>
-      serviceId ? compareRows(config, serviceId).map((r) => edits[r.scheduleServiceId] ?? r) : [],
-    [config, serviceId, edits]
+      serviceId
+        ? compareRows(config, serviceId, serviceDate).map((r) => edits[r.scheduleServiceId] ?? r)
+        : [],
+    [config, serviceId, serviceDate, edits]
   );
   const changed = useMemo(() => changedRows(config, rows), [config, rows]);
   const dates = useMemo(() => {
@@ -184,7 +187,7 @@ export function CompareServices(props: CompareServicesProps) {
   }, [changed, config, timezone, today]);
   const scheduleCount = new Set(changed.map((r) => r.scheduleId)).size;
   // Built the way the save builds it, from the rows the edits were made against, so the preview
-  // shows what Save would send. A lost race has its own review panel, and nothing to preview.
+  // shows what Save would send. A lost race is answered in the conflict dialog, with nothing to preview.
   const previewChanges = useMemo(
     () =>
       base && changed.length > 0 && !saver.conflicted
@@ -264,7 +267,9 @@ export function CompareServices(props: CompareServicesProps) {
   };
 
   const reapply = () => {
-    const next = base ? reapplyEdits(baselineOf(base), config, Object.values(edits)) : edits;
+    const next = base
+      ? reapplyEdits(baselineOf(base), config, Object.values(edits), serviceDate)
+      : edits;
     commitEdits(next);
     // The rows are now built on the winning version, so the next save is checked against it.
     const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
@@ -289,7 +294,7 @@ export function CompareServices(props: CompareServicesProps) {
           replacedBy: null,
           renamedTo: null,
           added: [],
-          removed: rowsRemovedSince(config, Object.values(edits)),
+          removed: rowsRemovedSince(config, Object.values(edits), serviceDate),
           changed: base ? rowsChangedSince(baselineOf(base), config, Object.values(edits)) : [],
         },
       }
@@ -297,15 +302,22 @@ export function CompareServices(props: CompareServicesProps) {
 
   return (
     <Stack gap="md">
-      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
-      {review && (
-        <ConflictReviewPanel
-          review={review}
-          title={t("availabilitySchedules.compare.conflictTitle")}
-          onReapply={reapply}
-          onDiscard={discard}
-        />
-      )}
+      {!review && <SaveFailure messages={saver.failure} stranded={saver.stranded} />}
+      <FormConflictDialog
+        saver={saver}
+        review={review}
+        rows={Object.values(edits).map((row) => ({
+          key: row.scheduleServiceId,
+          name: row.scheduleName,
+          opensAt: row.opensAt,
+          closesAt: row.closesAt,
+        }))}
+        reloadError={props.refreshError}
+        onReload={onStale}
+        onReapply={reapply}
+        onStartOver={discard}
+        onDiscard={discard}
+      />
       <Select
         label={t("availabilitySchedules.compare.service")}
         value={serviceId}

@@ -14,9 +14,9 @@ test.describe("Availability quick setup (F1)", () => {
   }) => {
     const state = await mockEmptyVenue(mockedPage);
 
-    // The old entry point still lands on the new page.
+    // The old entry point lands on the hub, which sends a Manager with no hours to first setup.
     await mockedPage.goto("setup/hours");
-    await expect(mockedPage).toHaveURL(/\/availability$/);
+    await expect(mockedPage).toHaveURL(/\/availability\/calendar\?tab=schedules$/);
     await expect(mockedPage.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
 
     await mockedPage.getByRole("button", { name: "Dinner" }).click();
@@ -43,7 +43,7 @@ test.describe("Availability quick setup (F1)", () => {
     mockedPage,
   }) => {
     const state = await mockEmptyVenue(mockedPage);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability/calendar");
 
     const choose = async (label: string, time: string) => {
       await mockedPage.getByRole("combobox", { name: label }).click();
@@ -66,7 +66,7 @@ test.describe("Availability quick setup (F1)", () => {
 
   test("invalid input sends nothing and names the problem", async ({ mockedPage }) => {
     const state = await mockEmptyVenue(mockedPage);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability/calendar");
 
     await mockedPage.getByRole("button", { name: "Save and open bookings" }).click();
     await expect(mockedPage.getByText("Give this service a name.")).toBeVisible();

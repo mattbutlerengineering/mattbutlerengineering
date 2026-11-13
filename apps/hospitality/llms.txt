@@ -108,7 +108,8 @@
       export function alsoApplyOptions(
         config: AvailabilityConfig,
         edit: AvailabilityConfigChanges,
-        sourceScheduleId: string
+        sourceScheduleId: string,
+        serviceDate: string
       ): AlsoApplyOption[] { /* ... */ }
     </item>
     <item priority="high">
@@ -128,7 +129,8 @@
         config: AvailabilityConfig,
         edit: AvailabilityConfigChanges,
         sourceScheduleId: string,
-        picks: AlsoApplyPicks
+        picks: AlsoApplyPicks,
+        serviceDate: string
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="high">
@@ -139,7 +141,22 @@
       ): { changed: string[]; removed: string[] } { /* ... */ }
     </item>
   </file>
-  <file path="src/components/availability/availability-entry.ts">
+  <file path="src/components/availability/availability-address.ts">
+    <item priority="high">
+      export const isTodaysPage: unknown;
+    </item>
+    <item priority="low">
+      type CloseTarget = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | { readonly kind: "dates"; read | { readonly kind: "section"; re;
+    </item>
+    <item priority="high">
+      type AvailabilityView = { readonly view: "hub" } | { readonly view: "hours"; read | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "specialDates | { readonly view: "closures" } | {
+            readonly view: "calend | { readonly view: "bookingRules | { readonly view: "history" };
+    </item>
+    <item priority="low">
+      type AvailabilityTarget = AvailabilityView & {
+        readonly close?: CloseTarget;
+        re...;
+    </item>
     <item priority="high">
       export const AVAILABILITY_TABS: unknown;
     </item>
@@ -158,7 +175,28 @@
       export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry { /* ... */ }
     </item>
     <item priority="high">
-      export function availabilityPath(entry: AvailabilityEntry): string { /* ... */ }
+      export const isBookingRulesPage: unknown;
+    </item>
+    <item priority="high">
+      export function availabilityPath(target: AvailabilityTarget): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseCloseTarget(value: string | null): CloseTarget | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface AvailabilityAddress {
+        close: CloseTarget | null;
+        pause: boolean;
+        from: "setup" | null;
+      }
+    </item>
+    <item priority="high">
+      export function readAvailabilityAddress(location: {
+        readonly search: string;
+      }): AvailabilityAddress { /* ... */ }
+    </item>
+    <item priority="high">
+      export function legacyRedirect(search: string): string | null { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/booking-rules.ts">
@@ -676,6 +714,93 @@
       ): readonly string[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/closures-list.ts">
+    <item priority="low">
+      type ClosureFacts = Pick<
+        HubClosure,
+        "target" | "startsOn" | "endsOn" | ...;
+    </item>
+    <item priority="low">
+      interface SkippedDate {
+        skipId: string;
+        date: string;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureListRow {
+        group: "now" | "upcoming";
+        ruleId: string;
+        on: string | null;
+        pause: boolean;
+        editable: boolean;
+      }
+    </item>
+    <item priority="low">
+      type EarlierReason = "ended" | "removed" | "tonight";
+    </item>
+    <item priority="low">
+      interface EarlierClosureRow {
+        group: "earlier";
+        ruleId: string;
+        reason: EarlierReason;
+        closure: ClosureFacts | null;
+        outcomes: ClosureSummary;
+      }
+    </item>
+    <item priority="low">
+      interface ClosuresList {
+        now: readonly ClosureListRow[];
+        upcoming: readonly ClosureListRow[];
+        earlier: readonly EarlierClosureRow[];
+      }
+    </item>
+    <item priority="low">
+      interface ClosuresListInput {
+        summaries: readonly ClosureSummary[] | null;
+      }
+    </item>
+    <item priority="medium">
+      function factsOf(rule: ClosureRule, clock: Clock): ClosureFacts { /* ... */ }
+    </item>
+    <item priority="medium">
+      function forceDate(
+        rule: ClosureRule,
+        clock: Clock,
+        hubPause: HubOnlinePause | null
+      ): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      type Placed = { readonly group: "now"; reado | { readonly group: "upcoming";  | { readonly group: "ended" };
+    </item>
+    <item priority="medium">
+      function place(rule: ClosureRule, clock: Clock, hubPause: HubOnlinePause | null): Placed { /* ... */ }
+    </item>
+    <item priority="medium">
+      function skippedOf(rule: ClosureRule, clock: Clock): readonly SkippedDate[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rowOf(
+        rule: ClosureRule,
+        placed: Exclude<Placed, { group: "ended" }>,
+        clock: Clock,
+        outcomes: ClosureSummary | null
+      ): ClosureListRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function byNextDate(a: ClosureListRow, b: ClosureListRow): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function earlierRows(
+        summaries: readonly ClosureSummary[],
+        ended: readonly ClosureRule[],
+        listed: ReadonlySet<string>,
+        clock: Clock
+      ): EarlierClosureRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closuresList(input: ClosuresListInput): ClosuresList { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/compare-changes.ts">
     <item priority="high">
       type Hours = Pick<
@@ -694,10 +819,14 @@
       function runs(config: AvailabilityConfig, row: ScheduleService): boolean { /* ... */ }
     </item>
     <item priority="high">
-      export function compareServiceOptions(config: AvailabilityConfig) { /* ... */ }
+      export function compareServiceOptions(config: AvailabilityConfig, serviceDate: string) { /* ... */ }
     </item>
     <item priority="high">
-      export function compareRows(config: AvailabilityConfig, venueServiceId: string): CompareRow[] { /* ... */ }
+      export function compareRows(
+        config: AvailabilityConfig,
+        venueServiceId: string,
+        serviceDate: string
+      ): CompareRow[] { /* ... */ }
     </item>
     <item priority="high">
       export function changedRows(config: AvailabilityConfig, rows: readonly CompareRow[]): CompareRow[] { /* ... */ }
@@ -712,18 +841,20 @@
     <item priority="high">
       export function rowsRemovedSince(
         after: AvailabilityConfig,
-        edits: readonly CompareRow[]
+        edits: readonly CompareRow[],
+        serviceDate: string
       ): string[] { /* ... */ }
     </item>
     <item priority="high">
       export function reapplyEdits(
         before: AvailabilityConfig,
         after: AvailabilityConfig,
-        edits: readonly CompareRow[]
+        edits: readonly CompareRow[],
+        serviceDate: string
       ): Record<string, CompareRow> { /* ... */ }
     </item>
     <item priority="medium">
-      function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> { /* ... */ }
+      function compareRowsById(config: AvailabilityConfig, serviceDate: string): Map<string, CompareRow> { /* ... */ }
     </item>
     <item priority="high">
       export function buildCompareChanges(
@@ -1223,12 +1354,50 @@
       ): boolean { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/opened-from-hub.ts">
+    <item priority="high">
+      export const OPENED_FROM_HUB: unknown;
+    </item>
+    <item priority="high">
+      export function wasOpenedFromHub(state: unknown): boolean { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/outcome-label.ts">
     <item priority="high">
       export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
     </item>
     <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/pause-online-draft.ts">
+    <item priority="low">
+      type PauseChoice = "tonight" | "untilResume" | "untilDate";
+    </item>
+    <item priority="high">
+      export const PAUSE_CHOICES: readonly PauseChoice[];
+    </item>
+    <item priority="low">
+      interface PauseDraft {
+        choice: PauseChoice;
+        until: string;
+        guestMessage: string;
+      }
+    </item>
+    <item priority="medium">
+      function pauseOnlineForm(draft: PauseDraft, today: string): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pauseUntilMax(today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pauseOnlineProblem(
+        draft: PauseDraft,
+        today: string
+      ): "until" | "guestMessage" | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pauseOnlineRule(draft: PauseDraft, id: string, today: string): DateRule | null { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/period.ts">
@@ -1278,10 +1447,6 @@
     </item>
     <item priority="low">
       interface DraftTimes {
-        opens: string | null;
-        lastSeating: string | null;
-        closes: string | null;
-        lastSeatingLinked: boolean;
         kept?: KeptHours;
       }
     </item>
@@ -1289,6 +1454,7 @@
       interface HoursBlock {
         id: string;
         days: readonly number[];
+        ownKept?: { readonly seating: boolean; readonly bookingTypes: boole...;
       }
     </item>
     <item priority="low">
@@ -1339,23 +1505,7 @@
       export function emptyDraft(firstServiceId: string): QuickSetupDraft { /* ... */ }
     </item>
     <item priority="high">
-      export function toMinutes(hhmm: string): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function toClock(minutes: number): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
-    </item>
-    <item priority="high">
       export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) { /* ... */ }
-    </item>
-    <item priority="high">
-      export function setServiceTime<T extends DraftTimes>(
-        service: T,
-        field: "opens" | "lastSeating" | "closes",
-        value: string | null
-      ): T { /* ... */ }
     </item>
     <item priority="high">
       export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft { /* ... */ }
@@ -1427,6 +1577,9 @@
     </item>
     <item priority="high">
       export function coveredDays(draft: QuickSetupDraft): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEFAULT_KEPT: KeptHours;
     </item>
     <item priority="medium">
       function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours { /* ... */ }
@@ -1508,6 +1661,12 @@
         scope: string = DEFAULT_SCOPE
       ) { /* ... */ }
     </item>
+    <item priority="medium">
+      function quickSetupRowScope(serviceId: string, blockId?: string, scope: string = DEFAULT_SCOPE) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useQuickSetupRowScope() { /* ... */ }
+    </item>
     <item priority="high">
       export function useQuickSetupFieldId() { /* ... */ }
     </item>
@@ -1559,6 +1718,30 @@
         format: LineFormat,
         t: TFunction
       ): ServiceLineText { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/quick-setup-options.ts">
+    <item priority="high">
+      export function shownKept(times: Pick<DraftTimes, "kept">, stored?: KeptHours): KeptHours { /* ... */ }
+    </item>
+    <item priority="medium">
+      function settled(next: KeptHours, held: readonly (KeptHours | undefined)[]): KeptHours { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setServiceKept(
+        service: ServiceDraft,
+        next: KeptHours,
+        stored?: KeptHours
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="medium">
+      function followService(
+        block: HoursBlock,
+        change: { readonly was: KeptHours; readonly kept: KeptHours; readonly stored?: KeptHours }
+      ): HoursBlock { /* ... */ }
+    </item>
+    <item priority="high">
+      export function keepsOwnSettings(service: KeptHours, block: KeptHours): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/quick-setup-placement.ts">
@@ -1841,10 +2024,40 @@
       function weekdayList(rule: SpecialDateRule, format: VenueFormat): string { /* ... */ }
     </item>
     <item priority="high">
+      export function rowTitle(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
       export function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
     </item>
     <item priority="high">
       export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="low">
+      type ClosureKind = { readonly kind: "venue" } | { readonly kind: "section"; re | { readonly kind: "booking"; re;
+    </item>
+    <item priority="high">
+      export function closureKindOf(
+        rule: SpecialDateRule,
+        sectionNames?: ReadonlyMap<string, string>
+      ): ClosureKind { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/rule-summaries.ts">
+    <item priority="low">
+      interface ScheduleUsagePeriod {
+        weekdays: readonly number[];
+        startsOn: string | null;
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="low">
+      type ScheduleUsage = { readonly kind: "unused" } | { readonly kind: "rules"; read | { readonly kind: "periods"; re;
+    </item>
+    <item priority="high">
+      export function scheduleUsage(config: AvailabilityConfig, scheduleId: string): ScheduleUsage { /* ... */ }
+    </item>
+    <item priority="high">
+      export function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/schedule-changes.ts">
@@ -1961,7 +2174,16 @@
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="medium">
-      function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) { /* ... */ }
+      function keptOf(
+        config: AvailabilityConfig,
+        scheduleId: string | undefined
+      ): Record<string, KeptHours> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function storedKeptByName(
+        config: AvailabilityConfig,
+        scheduleId: string | "regular" | undefined
+      ): Readonly<Record<string, KeptHours>> { /* ... */ }
     </item>
     <item priority="medium">
       function scheduleRowChanges(input: {
@@ -2403,6 +2625,36 @@
       export function suggestName(startsOn: string | null, endsOn: string | null): NameSuggestion | null { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/superseded-fixtures.ts">
+    <item priority="medium">
+      function counter(prefix: string) { /* ... */ }
+    </item>
+    <item priority="medium">
+      function later(draft: QuickSetupDraft): QuickSetupDraft { /* ... */ }
+    </item>
+    <item priority="high">
+      export function saveRegularWeek(
+        config: AvailabilityConfig,
+        startsOn: string,
+        prefix = "new"
+      ): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function supersededWeekOf(config: AvailabilityConfig) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/superseded-schedules.ts">
+    <item priority="high">
+      export function isSupersededRegularWeek(
+        config: AvailabilityConfig,
+        schedule: Schedule,
+        serviceDate: string
+      ): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function visibleSchedules(config: AvailabilityConfig, serviceDate: string): Schedule[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/today-line-text.ts">
     <item priority="high">
       type Format = Pick<VenueFormat, "formatLocalTime">;
@@ -2637,6 +2889,17 @@
       export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/use-refused-press.ts">
+    <item priority="low">
+      interface RefusedPressOptions {
+        onRefused?: () => void;
+        focusFirstProblem: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useRefusedPress(options: RefusedPressOptions) { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/use-regular-week-edit.ts">
     <item priority="low">
       interface RegularWeekEditInput {
@@ -2695,6 +2958,14 @@
     </item>
   </file>
   <file path="src/components/availability/use-schedule-save.ts">
+    <item priority="low">
+      interface SaveConflict {
+        winningChange: AvailabilityChangeSummary | null;
+        changesSince?: ConflictChangesSince;
+        seen: number | null;
+        again: boolean;
+      }
+    </item>
     <item priority="high">
       export function useScheduleSave(
         onStale: () => void,
@@ -2703,6 +2974,14 @@
           | "availabilitySpecial.series.stranded"
           | "availabilitySpecial.rowStranded" = "availabilitySchedules.stranded"
       ) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-visible-schedules.ts">
+    <item priority="high">
+      export function useServiceDate(config: AvailabilityConfig, timezone: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useVisibleSchedules(config: AvailabilityConfig, timezone: string): Schedule[] { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/use-winning-change-text.ts">
@@ -3165,6 +3444,9 @@
     </item>
     <item priority="high">
       export async function mockPublicMenu(page: Page): Promise<void> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockPublicInvite(page: Page): Promise<void> { /* ... */ }
     </item>
     <item priority="low">
       async function mockMenus(page: Page): Promise<void> { /* ... */ }
@@ -4082,7 +4364,7 @@
     <item priority="high">
       export async function countFirstPaintControls(
         page: Page,
-        region: Locator
+        region: Locator | null
       ): Promise<FirstPaintCount> { /* ... */ }
     </item>
     <item priority="high">
@@ -4505,6 +4787,11 @@
       export const useRevertAvailabilityChange: unknown;
     </item>
   </file>
+  <file path="src/hooks/useAvailabilityHub.ts">
+    <item priority="high">
+      export function useAvailabilityHub(scope: AvailabilityScope): HubRows | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useAvailabilityPreview.ts">
     <item priority="low">
       interface AvailabilityPreviewState {
@@ -4527,12 +4814,52 @@
       ): AvailabilityPreviewState { /* ... */ }
     </item>
   </file>
+  <file path="src/hooks/useAvailabilityScope.ts">
+    <item priority="low">
+      type AvailabilityLoad = "loading" | "error" | "ready";
+    </item>
+    <item priority="high">
+      export function availabilityLoad(
+        state: Pick<AvailabilityConfigState, "source"> | null,
+        failed: boolean
+      ): AvailabilityLoad { /* ... */ }
+    </item>
+    <item priority="low">
+      interface AvailabilityScope {
+        venueId: string | null;
+        timezone: string;
+        today: string;
+        state: AvailabilityConfigState | null;
+        load: AvailabilityLoad;
+      }
+    </item>
+    <item priority="high">
+      export function useAvailabilityScope(): AvailabilityScope { /* ... */ }
+    </item>
+  </file>
   <file path="src/hooks/useAvailabilityUndo.ts">
-    <item priority="medium">
-      function focusOffToast(offeredFrom: Element | null) { /* ... */ }
+    <item priority="high">
+      export const UNDO_TOAST_MS: unknown;
+    </item>
+    <item priority="high">
+      export function focusOffToast(offeredFrom: Element | null) { /* ... */ }
     </item>
     <item priority="high">
       export function useAvailabilityUndo() { /* ... */ }
+    </item>
+  </file>
+  <file path="src/hooks/useBookingRulesUndo.ts">
+    <item priority="medium">
+      function venueInCache(queryClient: QueryClient, venueId: string): Venue | null { /* ... */ }
+    </item>
+    <item priority="low">
+      interface BookingRulesUndoOffer {
+        venueId: string;
+        previous: BookingRulesForm;
+      }
+    </item>
+    <item priority="high">
+      export function useBookingRulesUndo() { /* ... */ }
     </item>
   </file>
   <file path="src/hooks/useBriefing.ts">
@@ -5663,7 +5990,571 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="hub">
+  <file path="src/components/availability/hub/date-answer.ts">
+    <item priority="low">
+      type DateAnswerRule = {
+            readonly kind: "regula | {
+            readonly kind: "useHou;
+    </item>
+    <item priority="low">
+      type DateAnswerHubRow = 1 | 2 | 3 | 4;
+    </item>
+    <item priority="low">
+      interface DateAnswerBand {
+        from: number;
+        to: number;
+      }
+    </item>
+    <item priority="low">
+      interface DateAnswer {
+        date: string;
+        services: readonly {
+          readonly name: string;
+          readonly opensA...;
+        closedBand: DateAnswerBand | null;
+        otherClosedBands?: readonly DateAnswerBand[];
+        deciding: DateAnswerRule | null;
+      }
+    </item>
+    <item priority="medium">
+      function isRealDate(value: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setsHours(layer: Layer): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleIdOf(config: AvailabilityConfig, layer: Layer): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ruleOf(config: AvailabilityConfig, layer: Layer): DateAnswerRule | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scheduleBeneath(
+        config: AvailabilityConfig,
+        timezone: string,
+        date: string,
+        layer: Layer
+      ): DateAnswerRule | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function venueBandsOf(day: ResolvedDaySummary): ResolvedClosure[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Span {
+        from: number;
+        to: number;
+      }
+    </item>
+    <item priority="medium">
+      function mergedSpans(spans: readonly Span[]): Span[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closedSpansOf(day: ResolvedDaySummary): Span[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function openSpans(open: Span, closed: readonly Span[]): Span[] { /* ... */ }
+    </item>
+    <item priority="high">
+      interface ServiceReport {
+        name: string;
+        opensAt: number;
+        closesAt: number;
+        open: readonly Span[];
+        closed: readonly Span[];
+      }
+    </item>
+    <item priority="medium">
+      function serviceReports(day: ResolvedDaySummary): ServiceReport[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function reportKey(day: ResolvedDaySummary): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function servicesOf(day: ResolvedDaySummary): DateAnswer["services"] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function decidingOverlays(
+        config: AvailabilityConfig,
+        timezone: string,
+        day: ResolvedDay,
+        overlays: readonly Layer[]
+      ): Layer[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closedBandsOf(day: ResolvedDay, top: Layer | undefined): Span[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dateAnswer(
+        config: AvailabilityConfig,
+        timezone: string,
+        date: string
+      ): DateAnswer | null { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/date-sentence.ts">
+    <item priority="medium">
+      function sentenceDate(date: string, { format }: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ruleText(rule: DateAnswerRule, { t }: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="high">
+      type Service = DateAnswer["services"][number];
+    </item>
+    <item priority="medium">
+      function serviceClosedTexts(service: Service, { t, format }: HubTextContext): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatHappens(answer: DateAnswer, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dateSentence(answer: DateAnswer, ctx: HubTextContext): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-actions.ts">
+    <item priority="low">
+      interface HubAction {
+        kind: "edit" | "add" | "view";
+        to: string;
+      }
+    </item>
+    <item priority="high">
+      export function hubActions(
+        rows: HubRowModels,
+        isManager: boolean
+      ): readonly [HubAction | null, HubAction | null, HubAction, HubAction, HubAction | null] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-closures-text.ts">
+    <item priority="medium">
+      function pauseText(pause: HubOnlinePause, today: string, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightText(change: HubTonightChange, { t, format }: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatText(target: HubClosureTarget, { t, format }: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Reading {
+        inForce: boolean;
+        today: string;
+      }
+    </item>
+    <item priority="medium">
+      function whenText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function windowText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detailText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nowText(closure: HubClosure, today: string, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nextText(closure: HubClosure, today: string, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosuresLine {
+        text: string;
+        ruleId?: string;
+      }
+    </item>
+    <item priority="high">
+      export function closuresLines(
+        row: ClosuresRow,
+        today: string,
+        ctx: HubTextContext
+      ): ClosuresLine[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-closures.ts">
+    <item priority="high">
+      type BookingChannel = NonNullable<DateRule["bookingTypes"]>[number];
+    </item>
+    <item priority="low">
+      type HubClosureTarget = { readonly kind: "venue" } | { readonly kind: "service"; re | { readonly kind: "section"; re | { readonly kind: "tables"; rea | { readonly kind: "booking"; re;
+    </item>
+    <item priority="low">
+      interface HubClosure {
+        ruleId: string;
+        target: HubClosureTarget;
+        nextOn: string;
+        startsOn: string;
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface HubOnlinePause {
+        ruleId: string;
+        source: "closure" | "tonight";
+        inForce: boolean;
+        fromMinute: number | null;
+        untilMinute: number | null;
+      }
+    </item>
+    <item priority="low">
+      interface HubTonightChange {
+        ruleId: string;
+        closeAt: number | null;
+        window: { readonly from: number; readonly to: number } | null;
+      }
+    </item>
+    <item priority="low">
+      interface ClosuresRow {
+        row: 4;
+        pause: HubOnlinePause | null;
+        tonight: readonly HubTonightChange[];
+        now: readonly HubClosure[];
+        next: HubClosure | null;
+      }
+    </item>
+    <item priority="low">
+      interface ClosuresRowInput {
+        config: AvailabilityConfig;
+        sectionNames: ReadonlyMap<string, string>;
+        timezone: string;
+        today: string;
+        nowMinute: number;
+      }
+    </item>
+    <item priority="low">
+      type ClosureRule = Extract<DateRule, { kind: "closure" }>;
+    </item>
+    <item priority="low">
+      interface Clock {
+        rules: readonly DateRule[];
+        yesterday: string;
+        lateMinute: number | null;
+      }
+    </item>
+    <item priority="high">
+      export function clockOf(input: ClosuresRowInput): Clock { /* ... */ }
+    </item>
+    <item priority="high">
+      export const isClosure: unknown;
+    </item>
+    <item priority="high">
+      export function isOnlinePause(rule: DateRule): rule is ClosureRule { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closurePauses(clock: Clock): HubOnlinePause[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightMinute(rule: DateRule, clock: Clock): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightPauses(clock: Clock): HubOnlinePause[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function onlinePause(clock: Clock): HubOnlinePause | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightChanges(clock: Clock): HubTonightChange[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function inForceOn(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function waitingOn(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function targetOf(rule: ClosureRule, clock: Clock): HubClosureTarget { /* ... */ }
+    </item>
+    <item priority="medium">
+      function closureOf(rule: ClosureRule, nextOn: string, clock: Clock): HubClosure { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closuresRow(input: ClosuresRowInput): ClosuresRow { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-row-text.ts">
+    <item priority="low">
+      interface HubLine {
+        text: string;
+        venueServiceId?: string;
+        ruleId?: string;
+      }
+    </item>
+    <item priority="low">
+      interface HubRowText {
+        row: 1 | 2 | 3 | 4 | 5;
+        title: string;
+        lines: readonly HubLine[];
+      }
+    </item>
+    <item priority="medium">
+      function serviceText(service: RegularWeekLineService, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularHoursLines(row: RegularHoursRow, ctx: HubTextContext): HubLine[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function usageText(usage: ScheduleUsage, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seasonalHoursLines(row: SeasonalHoursRow, ctx: HubTextContext): HubLine[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialDatesLines(row: SpecialDatesRow, ctx: HubTextContext): HubLine[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingRulesLines(row: BookingRulesRow, { t }: HubTextContext): HubLine[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hubRowTexts(
+        rows: HubRowModels,
+        today: string,
+        ctx: HubTextContext
+      ): readonly HubRowText[] { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-rows-test-helpers.ts">
+    <item priority="high">
+      export const TEXT: HubTextContext;
+    </item>
+    <item priority="high">
+      export const EVERY_DAY: unknown;
+    </item>
+    <item priority="high">
+      export const TODAY: unknown;
+    </item>
+    <item priority="high">
+      type Schedule = AvailabilityConfig["schedules"][number];
+    </item>
+    <item priority="high">
+      type ScheduleService = AvailabilityConfig["scheduleServices"][number];
+    </item>
+    <item priority="high">
+      type Assignment = AvailabilityConfig["assignments"][number];
+    </item>
+    <item priority="high">
+      export const dinnerRow: unknown;
+    </item>
+    <item priority="high">
+      export function seasonal(id: string, name: string, ...uses: Partial<Assignment>[]) { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Parts {
+        schedules?: readonly Schedule[];
+        scheduleServices?: readonly ScheduleService[];
+        assignments?: readonly Assignment[];
+        regularClosesAt?: number;
+      }
+    </item>
+    <item priority="high">
+      export function valid(config: AvailabilityConfig): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function venue(dateRules: DateRule[] = [], ...added: Parts[]): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function lunchAndDinner(dateRules: DateRule[] = []): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function input(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}): HubRowsInput { /* ... */ }
+    </item>
+    <item priority="high">
+      export function rowsOf(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}) { /* ... */ }
+    </item>
+    <item priority="high">
+      export const rule: unknown;
+    </item>
+    <item priority="high">
+      export const specialHours: unknown;
+    </item>
+    <item priority="high">
+      export const window: unknown;
+    </item>
+    <item priority="high">
+      export const THURSDAYS: Partial<DateRule>;
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-rows.ts">
+    <item priority="low">
+      interface HubRowsInput {
+        state: Pick<AvailabilityConfigState, "config" | "source">;
+        settings: VenueSettings | null | undefined;
+        holidays: readonly { readonly state: HolidayState }[];
+        sectionNames: ReadonlyMap<string, string>;
+        timezone: string;
+      }
+    </item>
+    <item priority="low">
+      interface RegularHoursRow {
+        row: 1;
+        services: readonly RegularWeekLineService[];
+        upcoming: {
+          readonly startsOn: string;
+          /** `null` when the ...;
+      }
+    </item>
+    <item priority="low">
+      interface SeasonalHoursSet {
+        scheduleId: string;
+        name: string;
+        usage: ScheduleUsage;
+      }
+    </item>
+    <item priority="low">
+      interface SeasonalHoursRow {
+        row: 2;
+        sets: readonly SeasonalHoursSet[];
+        more: number;
+      }
+    </item>
+    <item priority="low">
+      interface BookingRulesRow {
+        row: 5;
+        rules: BookingRulesValues | null;
+      }
+    </item>
+    <item priority="high">
+      type HubRowNumber = DateAnswerHubRow | 5;
+    </item>
+    <item priority="high">
+      type Numbered = Row;
+    </item>
+    <item priority="low">
+      type HubRowModels = readonly [
+        Numbered<1, RegularHoursRow>,
+        Numbered<2, ...;
+    </item>
+    <item priority="low">
+      type HubRows = { readonly kind: "emptyVenue"  | { readonly kind: "rows"; reado;
+    </item>
+    <item priority="medium">
+      function regularHoursRow(config: AvailabilityConfig, today: string): RegularHoursRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seasonalHoursRow(config: AvailabilityConfig): SeasonalHoursRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingRulesRow(settings: HubRowsInput["settings"]): BookingRulesRow { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hubRows(input: HubRowsInput): HubRows { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-special-dates.ts">
+    <item priority="low">
+      interface HubSpecialDate {
+        ruleId: string;
+        kind: "closed" | "specialHours" | "useHours";
+        nextOn: string;
+        startsOn: string;
+        endsOn: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface SpecialDatesRow {
+        row: 3;
+        next: readonly HubSpecialDate[];
+        holidaysNotPlanned: number;
+      }
+    </item>
+    <item priority="medium">
+      function specialDateKind(rule: DateRule): HubSpecialDate["kind"] | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function specialDatesRow(
+        rules: readonly DateRule[],
+        today: string,
+        holidays: readonly { readonly state: HolidayState }[]
+      ): SpecialDatesRow { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/hub-text.ts">
+    <item priority="low">
+      type HubTextContext = ServiceHoursContext;
+    </item>
+    <item priority="high">
+      export function shortDate(date: string, { format }: HubTextContext): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/hub/rule-dates.ts">
+    <item priority="medium">
+      function reaches(rule: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function replacesOn(override: DateRule, date: string): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function overridesOf(rule: DateRule, rules: readonly DateRule[]): readonly DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function coversOn(rule: DateRule, rules: readonly DateRule[], date: string): boolean { /* ... */ }
+    </item>
+    <item priority="high">
+      export function nextDateOn(
+        rule: DateRule,
+        rules: readonly DateRule[],
+        from: string
+      ): string | null { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="i18n">
+  <file path="src/i18n/availability-glossary.ts">
+    <item priority="high">
+      type Catalog = Readonly<Record<string, unknown>>;
+    </item>
+    <item priority="low">
+      type GlossaryCatalogs = Readonly<Record<"en-US" | "es-MX" | "fr-CA" | "en-GB", Ca...;
+    </item>
+    <item priority="high">
+      interface GlossaryEntry {
+        concept: string;
+        term: string;
+        retired: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_GLOSSARY: readonly GlossaryEntry[];
+    </item>
+    <item priority="high">
+      export const AVAILABILITY_NAMESPACES: readonly string[];
+    </item>
+    <item priority="high">
+      export const LEGACY_KEYS: ReadonlySet<string>;
+    </item>
+    <item priority="high">
+      interface GlossaryProblem {
+        kind: "retired-word" | "missing-key" | "stale-legacy-key";
+        locale: keyof GlossaryCatalogs;
+        key: string;
+        detail: string;
+      }
+    </item>
+    <item priority="medium">
+      function leaves(node: unknown, path: string): readonly (readonly [string, string])[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function scoped(catalog: Catalog): readonly (readonly [string, string])[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function retiredPattern(word: string): RegExp { /* ... */ }
+    </item>
+    <item priority="medium">
+      function retiredWordIn(value: string): string | undefined { /* ... */ }
+    </item>
+    <item priority="medium">
+      function retiredWordProblems(
+        locale: keyof GlossaryCatalogs,
+        catalog: Catalog,
+        legacyKeys: ReadonlySet<string>
+      ): readonly GlossaryProblem[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function checkAvailabilityGlossary(
+        catalogs: GlossaryCatalogs,
+        legacyKeys: ReadonlySet<string>
+      ): readonly GlossaryProblem[] { /* ... */ }
+    </item>
+  </file>
   <file path="src/i18n/default-t.ts">
     <item priority="high">
       export const defaultT: TFunction;
@@ -6491,6 +7382,66 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="service-fields">
+  <file path="src/components/availability/service-fields/service-options.ts">
+    <item priority="low">
+      type BookingTypes = ScheduleService["bookingTypes"];
+    </item>
+    <item priority="high">
+      export const SEATING_INTERVALS: unknown;
+    </item>
+    <item priority="low">
+      type BookedById = "onlinePhone" | "onlineOnly" | "phoneOnly" | "walkIn";
+    </item>
+    <item priority="high">
+      export const BOOKED_BY: readonly { readonly id: BookedById; readonly types: Booki...;
+    </item>
+    <item priority="high">
+      export const sameSeating: unknown;
+    </item>
+    <item priority="high">
+      export const sameBookingTypes: unknown;
+    </item>
+    <item priority="high">
+      export function optionsKey(options: {
+        readonly seating: Seating;
+        readonly bookingTypes: BookingTypes;
+      }): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookedById(types: BookingTypes): BookedById { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/service-fields/service-times.ts">
+    <item priority="low">
+      interface LinkedTimes {
+        opens: string | null;
+        lastSeating: string | null;
+        closes: string | null;
+        lastSeatingLinked: boolean;
+      }
+    </item>
+    <item priority="low">
+      type TimeField = "opens" | "lastSeating" | "closes";
+    </item>
+    <item priority="high">
+      export function toMinutes(hhmm: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toClock(minutes: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setServiceTime<T extends LinkedTimes>(
+        service: T,
+        field: TimeField,
+        value: string | null
+      ): T { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="src">
   <file path="src/nav-actions.ts">
     <item priority="low">
@@ -6567,6 +7518,14 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="src/test/copy-hours.ts">
+    <item priority="high">
+      export async function openCopyToOtherDays(): Promise<HTMLElement> { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function openCopyFrom(name: RegExp): Promise<HTMLElement> { /* ... */ }
+    </item>
+  </file>
   <file path="src/test/png-luminance.ts">
     <item priority="low">
       interface DecodedPng {
@@ -7747,7 +8706,7 @@
       type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "compareServices" | "createSchedule" | "openCalendar" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
     </item>
     <item priority="low">
-      type SetupActionTarget = { readonly kind: "link"; reado | { readonly kind: "dialog"; rea;
+      type SetupActionTarget = { readonly kind: "link"; readonly to: string };
     </item>
     <item priority="low">
       interface SetupAction {
@@ -7788,7 +8747,7 @@
         isManager: boolean;
         readiness: "setup" | "operational";
         today: string;
-        open: GroupLoad<OpenData>;
+        serviceDate: string;
       }
     </item>
     <item priority="low">
@@ -7819,10 +8778,11 @@
       ): SetupNode { /* ... */ }
     </item>
     <item priority="medium">
-      function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode { /* ... */ }
-    </item>
-    <item priority="medium">
-      function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] { /* ... */ }
+      function schedulesNode(
+        config: AvailabilityConfig,
+        serviceDate: string,
+        manager: boolean
+      ): SetupNode { /* ... */ }
     </item>
     <item priority="medium">
       function targetOf(
@@ -7850,7 +8810,7 @@
     <item priority="medium">
       function openNodes(
         data: OpenData,
-        today: string,
+        dates: { readonly today: string; readonly serviceDate: string },
         sections: ReadonlyMap<string, string> | null,
         manager: boolean
       ): SetupNode[] { /* ... */ }

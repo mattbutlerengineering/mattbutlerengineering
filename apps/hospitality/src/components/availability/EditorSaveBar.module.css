@@ -1,0 +1,75 @@
+/* The bar holds the special-hours choice, when the save reaches such dates, above its buttons. */
+.bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-sm);
+}
+
+/* Dirty: Save stays in reach while the form scrolls (the page's main area is the scroll container).
+   No motion: the bar is pinned or it is not. */
+.bar[data-pinned] {
+  /* A sticky offset counts from inside the scroller's padding (the dashboard's main area), so it
+     reaches past that padding to sit on the scroller's edge and not leave content showing below. */
+  --bar-edge: var(--rialto-space-lg);
+  position: sticky;
+  inset-block-end: calc(-1 * var(--bar-edge));
+  z-index: var(--rialto-z-sticky);
+  padding-block: var(--rialto-space-sm) calc(var(--rialto-space-sm) + var(--bar-edge));
+  background: var(--rialto-surface);
+  border-block-start: 1px solid var(--rialto-border-strong);
+}
+
+.choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs) var(--rialto-space-sm);
+  align-items: center;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-xs);
+  justify-content: flex-end;
+  margin-inline-start: auto;
+}
+
+/* Why Save is off. Empty until there is a reason; it takes the room the buttons leave. */
+.reason {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* A Save that is off for a reason still takes focus and presses (a press with a problem goes to
+   it), so it wears Button's disabled look itself: Button styles only the `disabled` attribute. */
+.off {
+  filter: saturate(0.6) brightness(0.95);
+  cursor: not-allowed;
+}
+
+@media (max-width: 767px) {
+  .bar[data-pinned] {
+    --bar-edge: var(--rialto-space-md);
+  }
+}
+
+/* Phone: the reason first, full width; the buttons beneath it, from the start edge. */
+@media (max-width: 640px) {
+  .reason:not(:empty) {
+    flex-basis: 100%;
+  }
+
+  .actions {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    margin-inline-start: 0;
+  }
+}

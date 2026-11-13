@@ -120,7 +120,7 @@ describe("Undo after a schedule save", () => {
         />
       </main>
     );
-    fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copy hours…" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Saturday" }));
     fireEvent.click(screen.getByRole("button", { name: "Copy to Sat" }));
     (await undoOffered())();
@@ -135,6 +135,7 @@ describe("Undo after a schedule save", () => {
           state={twoSchedules}
           timezone="America/Los_Angeles"
           today="2026-10-25"
+          serviceDate="2026-10-25"
           onStale={vi.fn()}
         />
       </main>
@@ -195,6 +196,7 @@ describe("Undo after a schedule save", () => {
           }}
           timezone="America/Los_Angeles"
           today="2026-10-25"
+          serviceDate="2026-10-25"
           onStale={vi.fn()}
         />
       </main>

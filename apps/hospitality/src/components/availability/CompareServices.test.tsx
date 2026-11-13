@@ -1,5 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ScheduleService } from "@mbe/types";
 
@@ -86,6 +86,7 @@ const common = {
   venueId: "venue-1",
   timezone: "America/Los_Angeles",
   today: "2026-10-25",
+  serviceDate: "2026-10-25",
   onStale: vi.fn(),
 };
 
@@ -275,9 +276,8 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     rerender(ui(atV6));
     fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
 
-    expect(await screen.findByText("Someone changed these schedules first")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
     expect(screen.getByText("Hours changed: Weekend")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save 1 schedule" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
     fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
@@ -303,7 +303,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     rerender(ui({ ...atV5, version: 7 }));
     fireEvent.click(screen.getByRole("button", { name: "Save 2 schedules" }));
 
-    await screen.findByText("Someone changed these schedules first");
+    fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
     expect(save.mock.calls[0]?.[0].body.expectedVersion).toBe(5);
     expect(screen.getByText("Hours changed: Weeknight")).toBeInTheDocument();
 
@@ -319,22 +319,63 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     expect(weeknight.bookingTypes).toEqual(["online"]);
   });
 
-  it("clears the review when another service is chosen and the edits are discarded", async () => {
+  it("Discard mine drops the edits and closes the dialog, with nothing left to review", async () => {
     save.mockRejectedValueOnce(conflict);
     const { rerender } = render(ui(atV5));
     editWeekendBooking();
     rerender(ui(atV6));
     fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
-    await screen.findByText("Someone changed these schedules first");
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Service" }));
-    fireEvent.click(screen.getByRole("option", { name: "Dinner" }));
-    fireEvent.click(
-      within(screen.getByRole("alertdialog")).getByRole("button", { name: /discard/i })
+    fireEvent.click(await screen.findByRole("button", { name: "Discard mine" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Someone changed availability first" })
+      ).toBeNull()
     );
-
-    expect(screen.queryByText("Someone changed these schedules first")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save 0 schedules" })).toBeDisabled();
     expect(screen.queryByText("Loading the latest version…")).not.toBeInTheDocument();
+  });
+
+  it("keeps Overwrite off: a press sends nothing", async () => {
+    save.mockRejectedValueOnce(
+      Object.assign(new Error("409"), {
+        problemDetails: { ...conflict.problemDetails, currentVersion: 6 },
+      })
+    );
+    const { rerender } = render(ui(atV5));
+    editWeekendBooking();
+    rerender(ui(atV6));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+
+    const overwrite = await screen.findByRole("button", { name: "Overwrite" });
+    expect(overwrite).toBeDisabled();
+    expect(overwrite).toHaveAccessibleDescription(
+      "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+    );
+    fireEvent.click(overwrite);
+    expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("Back to my draft keeps the edits, and the next save meets the conflict afresh", async () => {
+    save.mockRejectedValueOnce(conflict);
+    const { rerender } = render(ui(atV5));
+    editWeekendBooking();
+    rerender(ui(atV6));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+
+    fireEvent.click(await screen.findByRole("button", { name: "Back to my draft" }));
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Someone changed availability first" })
+      ).toBeNull()
+    );
+    save.mockRejectedValueOnce(conflict);
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
+    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
+    expect(save.mock.calls[1]?.[0].body.expectedVersion).toBe(5);
+    expect(
+      await screen.findByRole("dialog", { name: "Someone changed availability first" })
+    ).toBeInTheDocument();
   });
 
   it("names an edited row whose schedule a colleague archived", async () => {
@@ -357,7 +398,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     rerender(ui(archived));
     fireEvent.click(screen.getByRole("button", { name: /^Save \d+ schedule/ }));
 
-    await screen.findByText("Someone changed these schedules first");
+    fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
     expect(screen.getByText("Removed: Weeknight")).toBeInTheDocument();
   });
 
@@ -380,7 +421,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     rerender(ui(gone));
     fireEvent.click(screen.getByRole("button", { name: /^Save \d+ schedule/ }));
 
-    await screen.findByText("Someone changed these schedules first");
+    fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
     expect(screen.getByText("Removed: Weekend")).toBeInTheDocument();
   });
 
@@ -408,16 +449,19 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     expect(rows.map((r: ScheduleService) => r.id)).toEqual(["ss-lunch"]);
   });
 
-  it("drops the edits on Discard and shows the latest rows", async () => {
+  it("drops the edits on Start over and shows the latest rows", async () => {
     save.mockRejectedValueOnce(conflict);
     const { rerender } = render(ui(atV5));
     editWeekendBooking();
     rerender(ui(atV6));
     fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
-    await screen.findByText("Someone changed these schedules first");
-
-    fireEvent.click(screen.getByRole("button", { name: "Discard my changes" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
     expect(screen.getByRole("button", { name: "Save 0 schedules" })).toBeDisabled();
-    expect(screen.queryByText("Someone changed these schedules first")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Someone changed availability first" })
+      ).toBeNull()
+    );
   });
 });

@@ -5,6 +5,7 @@ import {
   emptyService,
   replaceService,
   setSharedDays,
+  type KeptHours,
   type QuickSetupDraft,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
@@ -46,8 +47,17 @@ export interface QuickSetupFormProps {
   /**
    * Each service is a closed line on a phone (ux.md F2): one open at a time, plus any with a
    * problem. Never set in onboarding. The owner re-keys the form after a save to close every line.
+   * On every viewport the lines stack over a single column: the closed preview row follows them.
    */
   readonly collapsible?: boolean;
+  /** The owner shows the preview itself (a draft preview while dirty): none is rendered here. */
+  readonly hidePreview?: boolean;
+  /**
+   * What the owner's save falls back to for a service that carries no seating or booking types
+   * of its own, by name trimmed and lower-cased (`storedKeptByName`). The row shows these, so it
+   * shows what will be saved. Omit it where the save falls back to the defaults.
+   */
+  readonly storedKept?: Readonly<Record<string, KeptHours>>;
 }
 
 /** A service nothing has been typed into: there is no line to read, so it starts open. */
@@ -109,6 +119,8 @@ export function QuickSetupForm({
   fixedDays = false,
   idScope,
   collapsible = false,
+  hidePreview = false,
+  storedKept,
 }: QuickSetupFormProps) {
   const { t } = useTranslation();
   // Field ids carry the form instance: the week panel and the drawer opened from it can hold the
@@ -186,7 +198,7 @@ export function QuickSetupForm({
   return (
     <QuickSetupIdScopeContext value={scope}>
       <QuickSetupFixContext value={applyFix}>
-        <div className={inDrawer ? styles.layoutSingle : styles.layout}>
+        <div className={inDrawer || collapsible ? styles.layoutSingle : styles.layout}>
           <Stack gap="md">
             {draft.services.map((service, index) => {
               const open = !collapsible || isOpen(service.id);
@@ -224,6 +236,10 @@ export function QuickSetupForm({
                         onChange={(next) => onChange(replaceService(draft, next))}
                         onRemove={() => removeService(service.id)}
                         announce={announce}
+                        // The wizard saves the legacy hours shape, which has no seating or
+                        // booking types: a control for them there would save nothing.
+                        optionFields={!local}
+                        storedKept={storedKept?.[service.name.trim().toLowerCase()]}
                       />
                     )}
                   </div>
@@ -241,8 +257,8 @@ export function QuickSetupForm({
               {announcement.repeat ? "\u00a0" : ""}
             </Text>
           </Stack>
-          {!inDrawer && (
-            <div className={styles.stripColumn}>
+          {!inDrawer && !hidePreview && (
+            <div className={collapsible ? styles.previewBelow : styles.stripColumn}>
               {collapsible ? (
                 <PreviewRow draft={draft} local={local} />
               ) : (

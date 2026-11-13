@@ -61,6 +61,20 @@ describe("App", () => {
     expect(fallback).toHaveAttribute("data-height", "90vh");
   });
 
+  it.each(["/acmm", "/metrics", "/ai-health"])(
+    "shows a loading state in the main area while %s lazy-loads, never a blank area (#8640)",
+    (path) => {
+      render(
+        <MemoryRouter initialEntries={[path]}>
+          <App theme="light" onThemeToggle={vi.fn()} />
+        </MemoryRouter>
+      );
+      const status = screen.getByRole("status", { name: "Loading page" });
+      expect(status).toHaveAttribute("aria-busy", "true");
+      expect(status.closest("main")).not.toBeNull();
+    }
+  );
+
   it("gives the nav an Engineering menu and marks the current page", () => {
     render(
       <MemoryRouter initialEntries={["/shipped/some-story"]}>

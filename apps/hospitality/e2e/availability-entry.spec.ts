@@ -35,13 +35,11 @@ test.describe("availability deep links", () => {
     await expect.poll(() => new URL(page.url()).searchParams.has("action")).toBe(false);
   });
 
-  test("garbage params render the default page: a Manager's Schedules layer", async ({
-    mockedPage: page,
-  }) => {
+  test("garbage params render the landing page: the hub", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await page.goto("availability?tab=nope&closeSection=&from=elsewhere&x=1");
-    await expect(page.getByRole("radio", { name: "Schedules" })).toBeChecked();
-    await expect(weekPanel(page)).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Your rules" })).toBeVisible();
+    await expect(weekPanel(page)).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Venue Setup" })).toHaveCount(0);
   });
 

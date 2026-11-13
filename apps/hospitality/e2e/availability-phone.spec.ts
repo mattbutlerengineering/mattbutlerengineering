@@ -148,19 +148,13 @@ test.describe("the first screen", () => {
     await expect(page.getByRole("main").getByRole("button", { name: "Select…" })).toHaveCount(1);
     await expect(page.getByRole("button", { name: "More actions" })).toHaveCount(1);
     const menu = await moreMenu(page);
-    for (const name of [
-      "Pause online booking",
-      "Booking rules…",
-      "Compare services",
-      "History",
-      "Go to date",
-    ]) {
+    for (const name of ["Pause online booking", "Compare services", "History", "Go to date"]) {
       await expect(menu.getByRole("menuitem", { name })).toBeVisible();
     }
+    // Booking rules is the hub's row 5 (availability-hub C2.5), no longer an entry here.
+    await expect(menu.getByRole("menuitem", { name: /Booking rules/ })).toHaveCount(0);
     // Pause leads the menu (two interactions from first paint, PRD 21), so it is on screen at once.
-    for (const name of ["Pause online booking", "Booking rules…"]) {
-      await expect(menu.getByRole("menuitem", { name })).toBeInViewport();
-    }
+    await expect(menu.getByRole("menuitem", { name: "Pause online booking" })).toBeInViewport();
     await page.keyboard.press("Escape");
     await page
       .getByRole("main")
@@ -282,7 +276,7 @@ test.describe("375 px: nothing scrolls sideways", () => {
       await page
         .getByRole("main")
         .getByRole("button")
-        .filter({ hasText: /^(Add special date|Ajouter une date spéciale)$/ })
+        .filter({ hasText: /^(Add special dates|Ajouter des dates spéciales)$/ })
         .click();
       const sheet = page.getByRole("dialog").first();
       const kinds = sheet.getByRole("radio");
@@ -598,7 +592,7 @@ test.describe("keyboard and focus", () => {
       );
     });
     await page.setViewportSize(DESKTOP);
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await page.getByRole("button", { name: "Dinner" }).click();
     await page.getByRole("button", { name: "Weekdays" }).click();
     const save = page.getByRole("button", { name: "Save and open bookings" });

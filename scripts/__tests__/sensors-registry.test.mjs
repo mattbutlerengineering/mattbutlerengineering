@@ -724,16 +724,29 @@ describe("sensors-registry", () => {
 
     // #5005: e2eStability used to query every workflow on every branch —
     // the same denominator/scoping class ciHealth had (#4538, unscoped
-    // branch). Pins the fixed query so an unscoped regression fails the
-    // suite instead of silently producing a plausible-looking number again.
-    it("e2eStability scopes ghClient.workflow.runs to main-branch runs of the E2E workflow only (#5005)", () => {
+    // branch). Pins the fixed query so an unscoped-workflow regression fails
+    // the suite instead of silently producing a plausible-looking number
+    // again.
+    //
+    // #8632: the #5005 fix over-scoped it — `--branch main` filters on each
+    // run's HEAD branch, but `.github/workflows/e2e.yml` triggers only on
+    // `pull_request`, where a run's head branch is the PR's source branch
+    // and can never be "main". That made the query return zero rows always,
+    // which is the "Unavailable: No E2E Tests runs on main were returned"
+    // the issue reports. `--workflow "E2E Tests"` alone already gives the
+    // #5005 scoping (the real E2E workflow, not an unrelated one); the
+    // branch filter added nothing but the bug, so it's dropped here.
+    it("e2eStability scopes ghClient.workflow.runs to the E2E workflow only, without a branch filter that a pull_request-triggered workflow can never match (#8632)", () => {
       const ghClient = {
         workflow: {
           runs: vi.fn().mockReturnValue([
             {
               conclusion: "success",
               createdAt: "2026-06-01T00:00:00Z",
-              headBranch: "main",
+              // A pull_request-triggered run's headBranch is the PR's source
+              // branch, never "main" — this is the realistic shape #8632
+              // reports as always coming back empty under the old query.
+              headBranch: "fix/some-feature",
               // HEAD is a real, locally-resolvable commit, so this run flows
               // through git path-resolution rather than being skipped as an
               // unresolvable SHA (#3172). Availability then depends on whether
@@ -752,14 +765,13 @@ describe("sensors-registry", () => {
       expect(ghClient.workflow.runs).toHaveBeenCalledWith([
         "--limit",
         "30",
-        "--branch",
-        "main",
         "--workflow",
         "E2E Tests",
         "--json",
         "conclusion,createdAt,headBranch,headSha",
       ]);
       expect(typeof result.available).toBe("boolean");
+      expect(result).not.toEqual({ available: false, reason: "no_runs" });
     });
 
     // #3946: same swallow #3937/#3944 fixed for ci/issues/issueFeedback, still
@@ -1544,6 +1556,15 @@ describe("metricsFreshness sensor (#5529)", () => {
         join(dir, "shipped-features.json"),
         JSON.stringify({ generatedAt: "2026-09-20T00:00:00.000Z", features: [{ slug: "a" }] })
       );
+      const publicDir = join(tmpDir, "apps/marketing/public");
+      mkdirSync(publicDir, { recursive: true });
+      writeFileSync(
+        join(publicDir, "metrics.json"),
+        JSON.stringify({
+          generatedAt: "2026-09-20T00:00:00.000Z",
+          history: [{ date: "2026-09-19" }],
+        })
+      );
     }
     return tmpDir;
   }
@@ -1564,13 +1585,14 @@ describe("metricsFreshness sensor (#5529)", () => {
     });
 
     expect(data.available).toBe(true);
-    expect(data.stale_count).toBe(9);
+    expect(data.stale_count).toBe(10);
 
     const regressions = sensor().detectRegression(data, undefined, {});
     expect(regressions.map((r) => r.metric).sort()).toEqual([
       "ai-issue-feedback",
       "audit-coverage",
       "lighthouse",
+      "marketing-metrics",
       "mutation-score",
       "queue-telemetry",
       "queueEfficiency",

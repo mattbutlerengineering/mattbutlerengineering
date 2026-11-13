@@ -159,6 +159,26 @@ export async function provokeCapturedError(
 }
 
 /**
+ * The Sentry search-API query that will actually surface the marked event.
+ *
+ * Browser events still carry the marker as plain text in their title/message
+ * (`throwHeartbeatInPage`), so Sentry's free-text search finds them unchanged.
+ * Backend events no longer do: #8557 strips the query string from the `url`
+ * tag and the captured message before they reach Sentry, so the marker that
+ * used to make every backend event's message unique is gone from the text
+ * Sentry's free-text search reads. The `requestId` tag still carries it
+ * verbatim (`setSentryContext`), so backend lookups must search that tag by
+ * name instead of hoping free text matches.
+ *
+ * @param {string} marker
+ * @param {string} kind
+ * @returns {string}
+ */
+export function buildEventSearchQuery(marker, kind) {
+  return kind === "browser" ? marker : `requestId:${marker}`;
+}
+
+/**
  * Ask Sentry whether an event carrying the marker has landed yet. A non-2xx
  * response throws — "couldn't ask" must never read as "nothing there".
  *
@@ -168,6 +188,7 @@ export async function provokeCapturedError(
  * @param {string} token
  * @param {typeof fetch} [fetchImpl]
  * @param {(event: unknown, marker: string) => boolean} [matcher]
+ * @param {string} [kind] "backend" (default) or "browser" — see `buildEventSearchQuery`.
  */
 export async function findMarkedEvent(
   org,
@@ -175,10 +196,12 @@ export async function findMarkedEvent(
   marker,
   token,
   fetchImpl = fetch,
-  matcher = eventMatchesMarker
+  matcher = eventMatchesMarker,
+  kind = "backend"
 ) {
+  const query = buildEventSearchQuery(marker, kind);
   const response = await fetchImpl(
-    `https://sentry.io/api/0/projects/${org}/${project}/events/?query=${encodeURIComponent(marker)}`,
+    `https://sentry.io/api/0/projects/${org}/${project}/events/?query=${encodeURIComponent(query)}`,
     {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(SENTRY_REQUEST_TIMEOUT_MS),

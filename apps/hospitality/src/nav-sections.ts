@@ -9,6 +9,7 @@
  */
 
 import type { TFunction } from "i18next";
+import { availabilityPath } from "./components/availability/availability-address.js";
 import { localeRuntime } from "./i18n/runtime.js";
 import type { NavAction } from "./nav-actions.js";
 import type { VenueReadiness } from "./hooks/useVenueReadiness.js";
@@ -123,7 +124,7 @@ function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavS
     label: t("nav.sections.manage"),
     items: [
       route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
-      route("availability", t("nav.items.availability"), "/availability"),
+      route("availability", t("nav.items.availability"), availabilityPath({ view: "hub" })),
       route("menus", t("nav.items.menus"), "/menus"),
       route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
     ],

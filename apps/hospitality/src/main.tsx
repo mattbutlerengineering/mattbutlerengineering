@@ -18,6 +18,7 @@ import { currentHostConfig, legacyPathRedirect } from "./lib/host-brand.js";
 import { I18nextProvider } from "react-i18next";
 import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
+import { availabilityPath } from "./components/availability/availability-address.js";
 
 initSentry({
   appName: "hospitality",
@@ -67,6 +68,17 @@ const FloorPlanEditorPage = lazy(() =>
 const BookingWidgetDemoPage = lazy(() =>
   import("./pages/BookingWidgetDemoPage.js").then((m) => ({
     default: m.BookingWidgetDemoPage,
+  }))
+);
+const AvailabilityLayout = lazy(() =>
+  import("./pages/AvailabilityLayout.js").then((m) => ({ default: m.AvailabilityLayout }))
+);
+const AvailabilityHubPage = lazy(() =>
+  import("./pages/AvailabilityHubPage.js").then((m) => ({ default: m.AvailabilityHubPage }))
+);
+const BookingRulesRoute = lazy(() =>
+  import("./components/availability/BookingRulesRoute.js").then((m) => ({
+    default: m.BookingRulesRoute,
   }))
 );
 const AvailabilityPage = lazy(() =>
@@ -306,12 +318,45 @@ const router = createBrowserRouter(
               ),
             },
             {
+              // One child route per job (availability-hub). The hub is the index; today's page
+              // is mounted at `calendar` until each view that replaces it lands.
               path: "availability",
               element: (
                 <Suspense fallback={<LoadingPage />}>
-                  <AvailabilityPage />
+                  <AvailabilityLayout />
                 </Suspense>
               ),
+              children: [
+                {
+                  index: true,
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityHubPage />
+                    </Suspense>
+                  ),
+                },
+                {
+                  // A drawer over the hub: the same page, so the rows stay beneath it.
+                  path: "booking-rules",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityHubPage>
+                        <Suspense fallback={null}>
+                          <BookingRulesRoute />
+                        </Suspense>
+                      </AvailabilityHubPage>
+                    </Suspense>
+                  ),
+                },
+                {
+                  path: "calendar",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityPage />
+                    </Suspense>
+                  ),
+                },
+              ],
             },
             {
               path: "menus",
@@ -381,7 +426,7 @@ const router = createBrowserRouter(
             },
             {
               path: "setup/hours",
-              element: <Navigate to="/availability" replace />,
+              element: <Navigate to={availabilityPath({ view: "hub" })} replace />,
             },
             {
               path: "*",

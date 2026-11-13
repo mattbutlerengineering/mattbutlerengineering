@@ -13,8 +13,11 @@ export function previewIds(): () => string {
   return () => `preview-${n++}`;
 }
 
-/** Why there is nothing to preview yet, when the draft has dates but no changes to send. */
-export type DraftIdle = "untouched" | "fields" | "conflict";
+/**
+ * Why there is nothing to preview yet, when the draft has dates but no changes to send. `quiet`:
+ * the draft is unfinished and the form has not said so yet, so the preview says nothing either.
+ */
+export type DraftIdle = "untouched" | "fields" | "conflict" | "quiet";
 
 export interface DraftPreviewProps {
   readonly venueId: string;
@@ -38,8 +41,6 @@ export interface DraftPreviewProps {
   readonly reviewOnSave?: boolean;
   /** The date to open on when the change reaches it (the weekday being edited); else the first. */
   readonly focusDate?: string;
-  /** Replaces the card's "Guest preview" heading where another preview already carries that name. */
-  readonly title?: string;
 }
 
 interface Kept {
@@ -76,7 +77,7 @@ export function DraftPreview(props: DraftPreviewProps) {
   if (!active && changes === null && idle === "untouched" && kept) setKept(null);
   // Editing is held, so there is no draft to show; the hold's own line says why.
   if (held) return null;
-  const reason = active ? null : changes !== null ? "noDates" : idle;
+  const reason = active ? null : changes !== null ? "noDates" : idle === "quiet" ? null : idle;
   return (
     <>
       {reason && (
@@ -97,7 +98,6 @@ export function DraftPreview(props: DraftPreviewProps) {
             focusDate && kept.dates.includes(focusDate) ? focusDate : (kept.dates[0] as string)
           }
           baseVersion={baseVersion}
-          title={props.title}
           paused={!active}
           reviewOnSave={reviewOnSave}
         />

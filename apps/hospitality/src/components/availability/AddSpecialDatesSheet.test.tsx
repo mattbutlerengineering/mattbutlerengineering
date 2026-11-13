@@ -8,6 +8,7 @@ import type { AvailabilityConfigState, ClosureImpact } from "@mbe/types";
 const preview = vi.hoisted(() => vi.fn());
 const create = vi.hoisted(() => vi.fn());
 const saveConfig = vi.hoisted(() => vi.fn());
+const revert = vi.hoisted(() => vi.fn());
 const noticePreview = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useClosures.js", () => ({
@@ -20,6 +21,7 @@ vi.mock("../../hooks/useClosures.js", () => ({
 }));
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: saveConfig, isPending: false }),
+  useRevertAvailabilityChange: () => ({ mutateAsync: revert, isPending: false }),
 }));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
@@ -151,6 +153,7 @@ describe("AddSpecialDatesSheet", () => {
     preview.mockReset();
     create.mockReset();
     saveConfig.mockReset();
+    revert.mockReset();
   });
   afterEach(() => {
     vi.useRealTimers();
@@ -780,6 +783,58 @@ describe("AddSpecialDatesSheet from a holiday (autoNext, savedTitle, onSaved)", 
     expect(onSaved).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("offers Undo on the toast of a holiday closed in one step, and Undo reverts that save", async () => {
+    preview.mockResolvedValue([impact("2026-12-25", 0)]);
+    create.mockResolvedValue({ version: 8, results: [result("c", 0, 0)] });
+    revert.mockResolvedValue({ version: 9, changeId: "chg-undo" });
+    renderSheet(fixtureConfig(), {
+      initialRows: christmas,
+      autoNext: true,
+      savedTitle: "Closed on Christmas Day, Fri, Dec 25",
+    });
+
+    expect(await screen.findByText("Closed on Christmas Day, Fri, Dec 25")).toBeTruthy();
+    fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
+    await waitFor(() =>
+      expect(revert).toHaveBeenCalledWith({
+        venueId: "venue-1",
+        changeId: "chg-c",
+        expectedVersion: 8,
+      })
+    );
+  });
+
+  it("offers no Undo when something runs after the save, as when Change replaces a decision", async () => {
+    preview.mockResolvedValue([impact("2026-12-25", 0)]);
+    create.mockResolvedValue({ version: 8, results: [result("c", 0, 0)] });
+    const onSaved = vi.fn();
+    renderSheet(fixtureConfig(), {
+      initialRows: christmas,
+      autoNext: true,
+      savedTitle: "Closed on Christmas Day, Fri, Dec 25",
+      onSaved,
+    });
+
+    expect(await screen.findByText("Closed on Christmas Day, Fri, Dec 25")).toBeTruthy();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
+  });
+
+  it("offers no Undo when the save told guests, which the server would refuse to revert", async () => {
+    preview.mockResolvedValue([impact("2026-12-25", 2)]);
+    create.mockResolvedValue({ version: 8, results: [result("c", 2, 0)] });
+    renderSheet(fixtureConfig(), {
+      initialRows: christmas,
+      autoNext: true,
+      savedTitle: "Closed on Christmas Day, Fri, Dec 25",
+    });
+    await screen.findByText(/closed · 2 bookings/);
+    fireEvent.click(screen.getByRole("radio", { name: /Cancel, notify & refund/ }));
+    fireEvent.click(primary());
+    await screen.findByText(/2 guests notified/);
+    expect(screen.queryByRole("button", { name: "Undo" })).toBeNull();
   });
 
   it("opens the drawer on Step 2 when bookings are affected, and saves with the choice", async () => {

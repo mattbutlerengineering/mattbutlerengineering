@@ -1,5 +1,5 @@
-import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, stepCountIs } from "ai";
+import { Output, streamText, stepCountIs } from "ai";
+import { genLanguageModel, genProviderOptions, type GenProviderId } from "./gen-provider.js";
 // Permission policy sourced from agent-core — not duplicated here (security requirement)
 import { GEN_BLOCKED_TOOLS, genIsBashCommandBlocked } from "@mbe/agent-core";
 import { genSystemInstructions } from "./gen-stream.js";
@@ -35,6 +35,8 @@ export interface GenFinishPayload {
 
 export interface GenRunnerConfig {
   readonly systemPrompt: string;
+  /** Vendor that serves `modelId`. Omit for Anthropic. */
+  readonly provider?: GenProviderId;
   readonly modelId: string;
   /** Output-token ceiling per model call; hitting it fails the run (never a partial result). */
   readonly maxOutputTokens: number;
@@ -115,26 +117,27 @@ export interface GenRunner {
 export function createGenRunner(config: GenRunnerConfig): GenRunner {
   return {
     async run(messages, tools, onEvent, signal) {
+      // A forced render_component call is one call holding the whole tree.
+      const singleRender = config.toolChoice?.toolName === "render_component";
+      // Through function calling, Gemini fills only the props the catalog
+      // declares (live 2026-11-12: a Button with no label, a DataList with
+      // `items: null`). As JSON text it writes whole props, which is also the
+      // mode the 2026-10-22 bake-off measured, so a forced render on google
+      // asks for the same payload as JSON text and no tool is offered.
+      const jsonRender = isJsonRender(config);
       const result = streamText({
-        model: anthropic(config.modelId),
+        model: genLanguageModel(config.provider ?? "anthropic", config.modelId),
         abortSignal: signal,
         // System prompt goes through `instructions` — ai@7 rejects system-role
         // entries inside `messages` (see genSystemInstructions).
-        instructions: genSystemInstructions(config.systemPrompt),
+        instructions: genSystemInstructions(genRunnerSystemPrompt(config)),
         messages: [...messages],
-        tools: tools as Parameters<typeof streamText>[0]["tools"],
-        toolChoice: config.toolChoice,
+        tools: jsonRender ? undefined : (tools as Parameters<typeof streamText>[0]["tools"]),
+        toolChoice: jsonRender ? undefined : config.toolChoice,
+        output: jsonRender ? Output.json() : undefined,
         stopWhen: stepCountIs(config.maxSteps),
         maxOutputTokens: config.maxOutputTokens,
-        providerOptions: {
-          anthropic: {
-            // Haiku 5.5 thinks before the tool call, and those tokens count
-            // against the output cap. Nothing is emitted until thinking
-            // finishes, so a large form sits silent until the gateway 504s.
-            thinking: { type: "disabled" },
-            toolStreaming: true,
-          },
-        },
+        providerOptions: genProviderOptions(config.provider ?? "anthropic"),
         onFinish: config.onFinish
           ? async ({ usage, providerMetadata, finishReason }) => {
               await config.onFinish!({ usage, providerMetadata, finishReason });
@@ -149,15 +152,35 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
       let renderJson = "";
       let renderEmitted = 0;
       let trackingRender = false;
+      // Gemini sometimes answers a forced call with several parallel calls that
+      // repeat element keys (2 of 6 live runs, 2026-11-12); only the first is rendered.
+      let firstRenderId: string | undefined;
+      const isExtraRender = (id: string) =>
+        singleRender && firstRenderId !== undefined && id !== firstRenderId;
       for await (const event of result.fullStream) {
         if (event.type === "tool-input-start" && event.toolName === "render_component") {
+          if (isExtraRender(event.id)) continue;
+          firstRenderId ??= event.id;
           trackingRender = true;
           renderJson = "";
           renderEmitted = 0;
+        } else if (event.type === "tool-input-delta" && isExtraRender(event.id)) {
+          continue;
         } else if (event.type === "tool-input-delta" && trackingRender) {
           renderJson += event.delta;
           const ready = completeJsonElements(renderJson);
           for (const element of ready.slice(renderEmitted)) {
+            await onEvent({ type: "element", element });
+          }
+          renderEmitted = ready.length;
+        } else if (event.type === "text-delta" && jsonRender) {
+          renderJson += event.text;
+          const ready = completeJsonElements(renderJson);
+          for (const element of ready.slice(renderEmitted)) {
+            // No tool input schema checks this path, so the shape is checked here.
+            if (!isKeyedElement(element)) {
+              throw new Error("gen output invalid: element without a string key and type");
+            }
             await onEvent({ type: "element", element });
           }
           renderEmitted = ready.length;
@@ -169,6 +192,10 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
         } else if (event.type === "finish-step" && event.finishReason !== "length") {
           stepEnded = true;
         } else if (event.type === "tool-call") {
+          if (event.toolName === "render_component") {
+            if (isExtraRender(event.toolCallId)) continue;
+            firstRenderId ??= event.toolCallId;
+          }
           const already =
             trackingRender && event.toolName === "render_component" ? renderEmitted : 0;
           await handleToolCall(event, onEvent, already);
@@ -206,8 +233,54 @@ export function createGenRunner(config: GenRunnerConfig): GenRunner {
           throw toError(event.error);
         }
       }
+      // A tool call arrives whole or as a tool-error; JSON text can stop
+      // mid-document on a stop other than `length`. The elements seen so far
+      // must not pass (and be cached) as the whole tree. No text at all is
+      // left to the route's zero-output guard.
+      if (jsonRender && renderJson.trim() !== "" && !isCompleteRender(renderJson, renderEmitted)) {
+        throw new Error("gen output invalid: incomplete JSON document");
+      }
     },
   };
+}
+
+function isJsonRender(config: Pick<GenRunnerConfig, "provider" | "toolChoice">): boolean {
+  return config.toolChoice?.toolName === "render_component" && config.provider === "google";
+}
+
+/**
+ * The system prompt the runner sends for `config`. The spec cache keys on it,
+ * so a spec generated under one render mode is never served for another.
+ */
+export function genRunnerSystemPrompt(
+  config: Pick<GenRunnerConfig, "systemPrompt" | "provider" | "toolChoice">
+): string {
+  return isJsonRender(config)
+    ? `${config.systemPrompt}\n\n${JSON_RENDER_INSTRUCTIONS}`
+    : config.systemPrompt;
+}
+
+function isCompleteRender(json: string, emitted: number): boolean {
+  try {
+    const parsed = JSON.parse(json) as { elements?: unknown } | null;
+    return Array.isArray(parsed?.elements) && parsed.elements.length === emitted;
+  } catch {
+    // Not valid JSON: the document was cut off or malformed.
+    return false;
+  }
+}
+
+/** Appended to the system prompt when a forced render runs as JSON text. */
+const JSON_RENDER_INSTRUCTIONS =
+  "There is no render_component tool in this request. Respond with ONLY one " +
+  'JSON object of the form {"elements":[...]} and no prose or code fences. ' +
+  "The elements are exactly the list the render_component call would have " +
+  "carried: every rule above about elements, keys, parentKey and props still " +
+  "applies, and each element puts its props in a `props` object.";
+
+function isKeyedElement(value: unknown): boolean {
+  const element = value as { key?: unknown; type?: unknown } | null;
+  return typeof element?.key === "string" && typeof element.type === "string";
 }
 
 function toError(value: unknown): Error {

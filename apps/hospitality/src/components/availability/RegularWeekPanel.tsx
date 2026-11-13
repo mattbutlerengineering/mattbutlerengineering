@@ -1,10 +1,10 @@
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState, type FocusEvent, type RefObject } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
-import { useViewport } from "../../hooks/useViewport.js";
 import { DraftPreview } from "./DraftPreview.js";
+import { draftRows, FormConflictDialog } from "./FormConflictDialog.js";
 import { LeaveGuard } from "./LeaveGuard.js";
 import type { QuickSetupDraft } from "./quick-setup-draft.js";
 import { focusFirstInvalid, useWeekdayName } from "./quick-setup-field-helpers.js";
@@ -12,7 +12,6 @@ import { previewOverlapReason } from "./quick-setup-validate.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 import {
   BlockedReason,
-  ConflictReviewPanel,
   OwnChangesChoice,
   SaveFailure,
   useWeekdaySummary,
@@ -58,6 +57,8 @@ export function RegularWeekPanel(props: RegularWeekPanelProps) {
   // The version this panel's own save returned, until the config has caught up with it.
   const [awaiting, setAwaiting] = useState<number | null>(null);
   const [status, setStatus] = useState({ dirty: false, reviewing: false });
+  // Outlives a restart of the body, so an answer that restarts it can still leave focus here.
+  const startLaterRef = useRef<HTMLButtonElement>(null);
   const forced = Math.max(awaiting ?? 0, resetAtVersion ?? 0);
   const restart = () => {
     setSeed((was) => ({ version: state.version, epoch: was.epoch + 1 }));
@@ -91,6 +92,7 @@ export function RegularWeekPanel(props: RegularWeekPanelProps) {
         onSaved={(version) => setAwaiting(version)}
         onDiscard={restart}
         onStatus={setStatus}
+        startLaterRef={startLaterRef}
       />
     </>
   );
@@ -102,17 +104,19 @@ interface BodyProps extends RegularWeekPanelProps {
   readonly onSaved: (version: number) => void;
   readonly onDiscard: () => void;
   readonly onStatus: (status: { dirty: boolean; reviewing: boolean }) => void;
+  /** Starting later…: always there, so it takes focus when a conflict's answer removes Save. */
+  readonly startLaterRef: RefObject<HTMLButtonElement | null>;
 }
 
 function RegularWeekPanelBody(props: BodyProps) {
   const { venueId, state, today, onStale, onStartLater, onDirtyChange, settling } = props;
+  const { onDiscard, onSaved, startLaterRef, refreshError } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const dayName = useWeekdayName();
   const summarize = useWeekdaySummary();
   const blockedId = useId();
   const scopeId = useId();
-  const collapsible = useViewport() === "phone";
   const {
     draft,
     edit,
@@ -125,6 +129,7 @@ function RegularWeekPanelBody(props: BodyProps) {
     dates,
     own,
     issues,
+    storedKept,
     outside,
     closedDays,
     focusDate,
@@ -139,12 +144,48 @@ function RegularWeekPanelBody(props: BodyProps) {
     state,
     onStale,
     fixedStart: today,
-    onSaved: (saved) => props.onSaved(saved.version),
-    onGone: props.onDiscard,
+    onSaved: (saved) => onSaved(saved.version),
+    onGone: onDiscard,
   });
   const unsaved = dirty && !settling;
   // Refused for a problem in the form, not for a conflict or a missing service.
   const refused = blocked && block === null && issues.length > 0;
+  // A new "Different hours" block has no days yet. That is not an error to open with: it is
+  // said once Save is pressed or a field of the block is left.
+  const [revealed, setRevealed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [leaving, setLeaving] = useState(false);
+  const shown = revealed ? issues : issues.filter((issue) => issue.code !== "block_days_required");
+  // Everything wrong is still unsaid: the preview and Save stay quiet about it.
+  const quiet = block === null && shown.length === 0 && issues.length > 0;
+  const shownRef = useRef(shown);
+  useEffect(() => {
+    shownRef.current = shown;
+  });
+  const refuse = () => {
+    setRevealed(true);
+    setAttempt((n) => n + 1);
+  };
+  useEffect(() => {
+    if (attempt > 0) focusFirstInvalid(shownRef.current, scopeId);
+  }, [attempt, scopeId]);
+  const saveAndLeave = async () => {
+    setLeaving(true);
+    if (blocked) {
+      if (refused) refuse();
+      setLeaving(false);
+      return false;
+    }
+    // A saved draft leaves the guard mounted until the route change goes through (the page is
+    // gone by then); a refused one keeps `unsaved`, so the guard is still there to answer.
+    const saved = await submit();
+    if (!saved) setLeaving(false);
+    return saved;
+  };
+  const leftBlock = (event: FocusEvent) => {
+    const fieldset = (event.target as HTMLElement).closest("[data-hours-block]");
+    if (fieldset && !fieldset.contains(event.relatedTarget as Node | null)) setRevealed(true);
+  };
   const reviewing = review.review !== null;
   const { onStatus } = props;
   useEffect(() => {
@@ -164,22 +205,19 @@ function RegularWeekPanelBody(props: BodyProps) {
   return (
     <div data-testid="week-panel">
       <Stack gap="md">
-        {review.review ? (
-          <ConflictReviewPanel
-            review={review.review}
-            onReapply={review.reapply}
-            onDiscard={review.discard}
+        {!review.review && <SaveFailure messages={saver.failure} stranded={saver.stranded} />}
+        <div onBlur={leftBlock}>
+          <QuickSetupForm
+            draft={draft}
+            onChange={edit}
+            issues={shown}
+            idScope={scopeId}
+            storedKept={storedKept}
+            collapsible
+            // One preview: while the draft is dirty the draft preview below stands in for it.
+            hidePreview={dirty}
           />
-        ) : (
-          <SaveFailure messages={saver.failure} stranded={saver.stranded} />
-        )}
-        <QuickSetupForm
-          draft={draft}
-          onChange={edit}
-          issues={issues}
-          idScope={scopeId}
-          collapsible={collapsible}
-        />
+        </div>
         {dirty && (
           <>
             {weekdays.length > 0 && (
@@ -217,44 +255,61 @@ function RegularWeekPanelBody(props: BodyProps) {
               dates={dates}
               focusDate={focusDate}
               baseVersion={review.baselineVersion}
-              idle={block === "conflict" ? "conflict" : "fields"}
-              fieldsReason={previewOverlapReason(issues, draft, t, (day) => dayName(day))}
-              title={t("availabilitySchedules.layer.whatChanges")}
+              idle={block === "conflict" ? "conflict" : quiet ? "quiet" : "fields"}
+              fieldsReason={previewOverlapReason(shown, draft, t, (day) => dayName(day))}
             />
           </>
         )}
-        <div className={styles.footer} data-pinned={unsaved ? "" : undefined}>
-          <Text variant="caption" color="secondary" className={styles.apply}>
-            {t("availabilitySchedules.layer.appliesFrom", { date: todayText })}
-          </Text>
-          <div className={styles.actions}>
-            <Button variant="secondary" onClick={() => onStartLater(draft)}>
-              {t("availabilitySchedules.layer.startLater")}
-            </Button>
-            {unsaved && (
-              <>
-                <Button variant="secondary" onClick={props.onDiscard}>
-                  {t("availabilitySchedules.layer.discard")}
-                </Button>
-                <Button
-                  variant="primary"
-                  // A Save refused for a problem in the form stays pressable (aria-disabled, not
-                  // disabled): pressing it takes the Manager to the first problem.
-                  disabled={blocked && !refused}
-                  aria-disabled={refused || undefined}
-                  className={refused ? styles.refused : undefined}
-                  aria-describedby={blocked ? blockedId : undefined}
-                  isLoading={saver.isPending}
-                  onClick={() => (refused ? focusFirstInvalid(issues, scopeId) : void submit())}
-                >
-                  {t("availabilitySchedules.save")}
-                </Button>
-              </>
-            )}
+        <div className={styles.bar} data-pinned={unsaved ? "" : undefined}>
+          <div className={styles.footer}>
+            <Text variant="caption" color="secondary" className={styles.apply}>
+              {t("availabilitySchedules.layer.appliesFrom", { date: todayText })}
+            </Text>
+            <div className={styles.actions}>
+              <Button ref={startLaterRef} variant="secondary" onClick={() => onStartLater(draft)}>
+                {t("availabilitySchedules.layer.startLater")}
+              </Button>
+              {unsaved && (
+                <>
+                  <Button variant="secondary" onClick={onDiscard}>
+                    {t("availabilitySchedules.layer.discard")}
+                  </Button>
+                  <Button
+                    variant="primary"
+                    // A Save refused for a problem in the form stays pressable (aria-disabled, not
+                    // disabled): pressing it says the problem and takes the Manager to it.
+                    disabled={blocked && !refused}
+                    aria-disabled={refused || undefined}
+                    className={refused ? styles.refused : undefined}
+                    aria-describedby={blocked && !quiet ? blockedId : undefined}
+                    isLoading={saver.isPending}
+                    onClick={() => (refused ? refuse() : void submit())}
+                  >
+                    {t("availabilitySchedules.save")}
+                  </Button>
+                </>
+              )}
+            </div>
+            {unsaved && <BlockedReason id={blockedId} reason={quiet ? null : blockedText} />}
           </div>
-          {unsaved && <BlockedReason id={blockedId} reason={blockedText} />}
         </div>
-        <LeaveGuard active={unsaved} date={null} title={t("availabilitySchedules.discard.title")} />
+        <FormConflictDialog
+          saver={saver}
+          review={review.review}
+          rows={draftRows(draft)}
+          reloadError={refreshError}
+          onReload={onStale}
+          onReapply={review.reapply}
+          onStartOver={review.discard}
+          onDiscard={onDiscard}
+          returnFocus={startLaterRef}
+        />
+        <LeaveGuard
+          active={unsaved || leaving}
+          date={null}
+          title={t("availabilitySchedules.discard.title")}
+          onSave={saveAndLeave}
+        />
       </Stack>
     </div>
   );

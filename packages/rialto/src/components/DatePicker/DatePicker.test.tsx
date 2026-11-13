@@ -2,6 +2,7 @@
  * Unit tests for the DatePicker: trigger display, open-on-click, and focus
  * return to the trigger on select and Escape.
  */
+import { useState } from "react";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -84,6 +85,207 @@ describe("DatePicker", () => {
     await user.click(trigger);
     // `solid` adds the popover's opaque elevated surface (class `floating`).
     expect(screen.getByRole("dialog").className.split(/\s+/)).toContain("floating");
+  });
+});
+
+describe("DatePicker focus and opening month", () => {
+  it("moves focus to the selected day when it opens", async () => {
+    const { trigger, container } = renderPicker();
+    await user.click(trigger);
+    await waitFor(() => expect(document.activeElement).toBe(cell(container, "2024-06-10")));
+  });
+
+  it("moves focus to the current day when nothing is selected", async () => {
+    const { trigger } = renderPicker({ value: null });
+    await user.click(trigger);
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("aria-current", "date"));
+    expect(document.activeElement).toHaveAttribute("role", "gridcell");
+  });
+
+  it("opens an empty end picker on the month named by defaultMonth", async () => {
+    const { trigger, container } = renderPicker({ value: null, defaultMonth: "2031-09-12" });
+    await user.click(trigger);
+    expect(screen.getByRole("grid")).toHaveAccessibleName("September 2031");
+    await waitFor(() => expect(document.activeElement).toBe(cell(container, "2031-09-12")));
+  });
+
+  it("opens on the selected date's month even when defaultMonth names another", async () => {
+    const { trigger } = renderPicker({ defaultMonth: "2031-09-12" });
+    await user.click(trigger);
+    expect(screen.getByRole("grid")).toHaveAccessibleName("June 2024");
+  });
+
+  it("ignores a defaultMonth that is not a date", async () => {
+    const { trigger } = renderPicker({ value: null, defaultMonth: "soon" });
+    await user.click(trigger);
+    expect(document.body.querySelector('[aria-current="date"]')).not.toBeNull();
+  });
+});
+
+describe("DatePicker typed dates (editable)", () => {
+  function Controlled(props: Partial<React.ComponentProps<typeof DatePicker>>) {
+    const [value, setValue] = useState<string | null>(props.value ?? null);
+    return (
+      <DatePicker
+        label="Date"
+        locale="en-US"
+        editable
+        {...props}
+        value={value}
+        onChange={setValue}
+      />
+    );
+  }
+
+  const field = () => screen.getByLabelText("Date") as HTMLInputElement;
+  const problem = () => {
+    const id = field().getAttribute("aria-describedby");
+    return id ? document.getElementById(id) : null;
+  };
+
+  it("stays read-only unless editable is passed", () => {
+    const { trigger } = renderPicker();
+    expect(trigger).toHaveAttribute("readonly");
+  });
+
+  it("takes a typed date and reads it back formatted", async () => {
+    const onChange = vi.fn();
+    render(<DatePicker label="Date" locale="en-US" editable value={null} onChange={onChange} />);
+    await user.type(field(), "6/20/2024{Enter}");
+    expect(onChange).toHaveBeenCalledWith("2024-06-20");
+  });
+
+  it("shows the typed date in the field's own format once committed", async () => {
+    render(<Controlled />);
+    await user.type(field(), "6/20/2024");
+    await user.tab();
+    expect(field().value).toBe("Jun 20, 2024");
+    expect(field()).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("rejects a date after max with a problem tied to the field", async () => {
+    const onChange = vi.fn();
+    render(
+      <DatePicker
+        label="Date"
+        locale="en-US"
+        editable
+        value={null}
+        onChange={onChange}
+        min="2024-06-01"
+        max="2024-06-30"
+      />
+    );
+    await user.type(field(), "Jul 4, 2024{Enter}");
+
+    expect(onChange).not.toHaveBeenCalledWith("2024-07-04");
+    expect(field()).toHaveAttribute("aria-invalid", "true");
+    expect(problem()).toHaveTextContent("Enter a date on or before Jun 30, 2024");
+    expect(field().value).toBe("Jul 4, 2024");
+  });
+
+  it("rejects a date before min with a problem", async () => {
+    render(<Controlled min="2024-06-01" />);
+    await user.type(field(), "5/31/2024{Enter}");
+    expect(field()).toHaveAttribute("aria-invalid", "true");
+    expect(problem()).toHaveTextContent("Enter a date on or after Jun 1, 2024");
+  });
+
+  it("rejects a date the isDateDisabled predicate refuses", async () => {
+    render(<Controlled isDateDisabled={(iso) => iso === "2024-06-20"} />);
+    await user.type(field(), "6/20/2024{Enter}");
+    expect(problem()).toHaveTextContent("That date is not available");
+  });
+
+  it("rejects text that is not a date, without throwing", async () => {
+    render(<Controlled />);
+    await user.type(field(), "<script>{Enter}");
+    expect(field()).toHaveAttribute("aria-invalid", "true");
+    expect(problem()).toHaveTextContent("Enter a date");
+  });
+
+  it("clears the value when a rejected date replaces a selected one", async () => {
+    const onChange = vi.fn();
+    render(
+      <DatePicker label="Date" locale="en-US" editable value="2024-06-10" onChange={onChange} />
+    );
+    await user.clear(field());
+    await user.type(field(), "nope{Enter}");
+    expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it("clears the problem as soon as the text is edited", async () => {
+    render(<Controlled />);
+    await user.type(field(), "nope{Enter}");
+    expect(field()).toHaveAttribute("aria-invalid", "true");
+    await user.type(field(), "x");
+    expect(field()).not.toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("clears the value when the text is emptied", async () => {
+    const onChange = vi.fn();
+    render(
+      <DatePicker label="Date" locale="en-US" editable value="2024-06-10" onChange={onChange} />
+    );
+    await user.clear(field());
+    await user.tab();
+    expect(onChange).toHaveBeenCalledWith(null);
+  });
+
+  it("does not open the calendar on a click or a typed space", async () => {
+    render(<Controlled />);
+    await user.type(field(), "Jun 20");
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+    expect(field().value).toBe("Jun 20");
+  });
+
+  it("opens the calendar on ArrowDown and from the calendar button", async () => {
+    render(<Controlled value="2024-06-10" />);
+    await user.click(field());
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("grid")).toBeInTheDocument();
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-date", "2024-06-10"));
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("grid")).not.toBeInTheDocument());
+
+    await user.click(screen.getByRole("button", { name: "Choose date" }));
+    expect(screen.getByRole("grid")).toBeInTheDocument();
+  });
+
+  it("a day picked in the calendar replaces rejected text and its problem", async () => {
+    render(<Controlled value="2024-06-10" />);
+    await user.clear(field());
+    await user.type(field(), "nope{Enter}");
+    await user.keyboard("{ArrowDown}");
+    const today = document.body.querySelector<HTMLElement>('[aria-current="date"]');
+    if (!today) throw new Error("No current day");
+    await user.click(today);
+    await waitFor(() => expect(screen.queryByRole("grid")).not.toBeInTheDocument());
+    expect(field()).not.toHaveAttribute("aria-invalid", "true");
+    expect(field().value).not.toBe("nope");
+  });
+
+  it("ArrowDown reads the typed text first, so the calendar opens on the typed date", async () => {
+    render(<Controlled value="2024-06-10" />);
+    await user.clear(field());
+    await user.type(field(), "Dec 26, 2031");
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("grid")).toHaveAccessibleName("December 2031");
+    await waitFor(() => expect(document.activeElement).toHaveAttribute("data-date", "2031-12-26"));
+    expect(document.activeElement).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("ArrowDown on refused text opens the calendar and shows the problem", async () => {
+    render(<Controlled value="2024-06-10" />);
+    await user.clear(field());
+    await user.type(field(), "nope");
+    await user.keyboard("{ArrowDown}");
+
+    expect(screen.getByRole("grid")).toBeInTheDocument();
+    expect(field()).toHaveAttribute("aria-invalid", "true");
+    expect(document.body.querySelector('[aria-selected="true"]')).toBeNull();
   });
 });
 

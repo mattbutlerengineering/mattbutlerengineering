@@ -983,20 +983,26 @@ export const SENSORS = [
     collect: ({ root, ghClient }) => {
       let ghRuns;
       try {
-        // #5005: scoped to main-branch runs of the real E2E workflow only —
-        // the same class of bug ciHealth had (#4538, unscoped branch) plus
-        // the one flakyTests already guards against (unscoped workflow, see
-        // its comment above): an unfiltered query pulls in "mostly ...
-        // unrelated workflows (Secret Scan, Release, ADR check, ...)", so
-        // "consecutive E2E failures on non-frontend runs" was actually
-        // measuring consecutive failures of ANY workflow on ANY branch whose
-        // commit didn't touch apps/**/packages/rialto/**. Targets "E2E Tests"
+        // #5005: scoped to the real E2E workflow only — the same class of
+        // bug ciHealth had (#4538, unscoped branch) plus the one flakyTests
+        // already guards against (unscoped workflow, see its comment
+        // above): an unfiltered query pulls in "mostly ... unrelated
+        // workflows (Secret Scan, Release, ADR check, ...)", so "consecutive
+        // E2E failures on non-frontend runs" was actually measuring
+        // consecutive failures of ANY workflow on ANY branch whose commit
+        // didn't touch apps/**/packages/rialto/**. Targets "E2E Tests"
         // (.github/workflows/e2e.yml) — the Hospitality/Marketing E2E suite.
+        //
+        // #8632: #5005 also added `--branch main`, intending to scope out
+        // other branches' runs — but e2e.yml triggers only on
+        // `pull_request`, where a run's head branch is always the PR's
+        // source branch, never "main". That filter therefore matched zero
+        // runs, ever, which surfaced on the dashboard as a permanent
+        // "Unavailable: No E2E Tests runs on main were returned". Dropped:
+        // `--workflow "E2E Tests"` already gives the #5005 scoping without it.
         ghRuns = ghClient.workflow.runs([
           "--limit",
           "30",
-          "--branch",
-          "main",
           "--workflow",
           "E2E Tests",
           "--json",

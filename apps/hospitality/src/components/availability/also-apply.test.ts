@@ -9,6 +9,10 @@ import {
   pruneAlsoApply,
 } from "./also-apply.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
+import { saveRegularWeek, supersededWeekOf } from "./superseded-fixtures.js";
+
+/** A Friday, the fixture regular week's one open weekday. */
+const TODAY = "2026-10-30";
 
 /** The regular week ("Weekend", Fridays) plus Weeknight (Mon-Thu) and Summer (Sat-Sun), both with Dinner. */
 function threeSchedules(): AvailabilityConfig {
@@ -45,7 +49,7 @@ function dinnerEdit(config: AvailabilityConfig, closesAt = 1410): AvailabilityCo
 describe("alsoApplyOptions", () => {
   it("offers the other schedules that run a service whose times the edit changed", () => {
     const config = threeSchedules();
-    expect(alsoApplyOptions(config, dinnerEdit(config), "regular")).toEqual([
+    expect(alsoApplyOptions(config, dinnerEdit(config), "regular", TODAY)).toEqual([
       {
         venueServiceId: "vs-dinner",
         serviceName: "Dinner",
@@ -61,7 +65,7 @@ describe("alsoApplyOptions", () => {
     const config = threeSchedules();
     const row = config.scheduleServices.find((s) => s.id === "ss-dinner")!;
     const same = { upsert: { scheduleServices: [row] }, remove: {} };
-    expect(alsoApplyOptions(config, same, "regular")).toEqual([]);
+    expect(alsoApplyOptions(config, same, "regular", TODAY)).toEqual([]);
   });
 
   it("offers nothing for a service no other schedule runs", () => {
@@ -70,7 +74,7 @@ describe("alsoApplyOptions", () => {
     const changes = { upsert: { scheduleServices: [{ ...lunch, closesAt: 960 }] }, remove: {} };
     // Summer runs Lunch too, so it is offered; Weeknight, which does not, is not.
     expect(
-      alsoApplyOptions(config, changes, "regular")[0]?.targets.map((t) => t.scheduleId)
+      alsoApplyOptions(config, changes, "regular", TODAY)[0]?.targets.map((t) => t.scheduleId)
     ).toEqual(["su"]);
   });
 
@@ -81,7 +85,7 @@ describe("alsoApplyOptions", () => {
       upsert: { scheduleServices: [{ ...row, id: "new-row", closesAt: 1 }] },
       remove: {},
     };
-    expect(alsoApplyOptions(config, added, "regular")).toEqual([]);
+    expect(alsoApplyOptions(config, added, "regular", TODAY)).toEqual([]);
   });
 
   it("leaves out an archived schedule", () => {
@@ -92,17 +96,37 @@ describe("alsoApplyOptions", () => {
         s.id === "su" ? { ...s, archivedAt: "2026-01-01T00:00:00.000Z" } : s
       ),
     };
-    const targets = alsoApplyOptions(archived, dinnerEdit(archived), "regular")[0]?.targets;
+    const targets = alsoApplyOptions(archived, dinnerEdit(archived), "regular", TODAY)[0]?.targets;
     expect(targets?.map((t) => t.scheduleId)).toEqual(["wk"]);
+  });
+
+  it("leaves out the regular week a regular-week save replaced (#8688)", () => {
+    const saved = saveRegularWeek(threeSchedules(), TODAY);
+    const old = supersededWeekOf(saved);
+    // Editing Summer's Dinner: Weeknight and the new regular week are offered, the hidden week is not.
+    const row = saved.scheduleServices.find((s) => s.id === "ss-dinner-su")!;
+    const edit = { upsert: { scheduleServices: [{ ...row, closesAt: 1410 }] }, remove: {} };
+    const targets = alsoApplyOptions(saved, edit, "su", TODAY)[0]?.targets ?? [];
+    expect(targets.map((t) => t.scheduleId)).not.toContain(old.id);
+    expect(targets.map((t) => t.scheduleId)).toContain("wk");
+    // A pick of the hidden week is dropped, so the save writes nothing into it.
+    const changes = buildAlsoApplyChanges(saved, edit, "su", { "vs-dinner": [old.id] }, TODAY);
+    expect(changes.upsert.scheduleServices?.map((s) => s.scheduleId)).toEqual(["su"]);
   });
 });
 
 describe("buildAlsoApplyChanges", () => {
   it("writes the edited times into each picked schedule's row and keeps the rest of it", () => {
     const config = threeSchedules();
-    const changes = buildAlsoApplyChanges(config, dinnerEdit(config), "regular", {
-      "vs-dinner": ["wk"],
-    });
+    const changes = buildAlsoApplyChanges(
+      config,
+      dinnerEdit(config),
+      "regular",
+      {
+        "vs-dinner": ["wk"],
+      },
+      TODAY
+    );
     const rows = changes.upsert.scheduleServices ?? [];
     expect(rows.map((r) => r.id).sort()).toEqual(["ss-dinner", "ss-dinner-wk"]);
     const next = applyChanges(config, changes, "2026-10-25T00:00:00.000Z");
@@ -121,9 +145,15 @@ describe("buildAlsoApplyChanges", () => {
         s.id === "ss-dinner-wk" ? { ...s, opensAt: 1000 } : s
       ),
     };
-    const changes = buildAlsoApplyChanges(later, dinnerEdit(later), "regular", {
-      "vs-dinner": ["wk"],
-    });
+    const changes = buildAlsoApplyChanges(
+      later,
+      dinnerEdit(later),
+      "regular",
+      {
+        "vs-dinner": ["wk"],
+      },
+      TODAY
+    );
     const wk = changes.upsert.scheduleServices?.find((r) => r.id === "ss-dinner-wk");
     expect([wk?.opensAt, wk?.closesAt]).toEqual([1000, 1410]);
   });
@@ -136,9 +166,15 @@ describe("buildAlsoApplyChanges", () => {
         s.id === "ss-dinner-wk" ? { ...s, bookingTypes: ["phone" as const] } : s
       ),
     };
-    const changes = buildAlsoApplyChanges(phoneOnly, dinnerEdit(phoneOnly), "regular", {
-      "vs-dinner": ["wk"],
-    });
+    const changes = buildAlsoApplyChanges(
+      phoneOnly,
+      dinnerEdit(phoneOnly),
+      "regular",
+      {
+        "vs-dinner": ["wk"],
+      },
+      TODAY
+    );
     const wk = changes.upsert.scheduleServices?.find((r) => r.id === "ss-dinner-wk");
     expect(wk?.bookingTypes).toEqual(["phone"]);
   });
@@ -146,15 +182,17 @@ describe("buildAlsoApplyChanges", () => {
   it("is the edit alone when nothing is picked, or a pick is no longer offered", () => {
     const config = threeSchedules();
     const edit = dinnerEdit(config);
-    expect(buildAlsoApplyChanges(config, edit, "regular", {})).toEqual(edit);
-    expect(buildAlsoApplyChanges(config, edit, "regular", { "vs-dinner": ["gone"] })).toEqual(edit);
+    expect(buildAlsoApplyChanges(config, edit, "regular", {}, TODAY)).toEqual(edit);
+    expect(
+      buildAlsoApplyChanges(config, edit, "regular", { "vs-dinner": ["gone"] }, TODAY)
+    ).toEqual(edit);
   });
 
   it("does not change its input", () => {
     const config = threeSchedules();
     const edit = dinnerEdit(config);
     const before = JSON.stringify(edit);
-    buildAlsoApplyChanges(config, edit, "regular", { "vs-dinner": ["wk", "su"] });
+    buildAlsoApplyChanges(config, edit, "regular", { "vs-dinner": ["wk", "su"] }, TODAY);
     expect(JSON.stringify(edit)).toBe(before);
   });
 });
@@ -162,7 +200,7 @@ describe("buildAlsoApplyChanges", () => {
 describe("alsoApplyScheduleIds and pruneAlsoApply", () => {
   it("lists each picked schedule once, only while it is offered", () => {
     const config = threeSchedules();
-    const options = alsoApplyOptions(config, dinnerEdit(config), "regular");
+    const options = alsoApplyOptions(config, dinnerEdit(config), "regular", TODAY);
     const picks = { "vs-dinner": ["wk", "gone"], "vs-lunch": ["wk"] };
     expect(alsoApplyScheduleIds(options, picks)).toEqual(["wk"]);
     expect(pruneAlsoApply(options, picks)).toEqual({ "vs-dinner": ["wk"] });

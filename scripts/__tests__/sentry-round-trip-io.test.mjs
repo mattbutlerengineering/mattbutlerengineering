@@ -71,16 +71,40 @@ describe("findMarkedEvent", () => {
     ).toBeUndefined();
   });
 
-  it("returns the first event the matcher accepts, querying the project by marker with a timeout", async () => {
+  it("returns the first event the matcher accepts, querying the project by the requestId tag (backend default) with a timeout", async () => {
     const hit = { id: "e1", tags: [{ key: "requestId", value: MARKER }] };
     const fetchImpl = fetchWithStatuses([200], [{ id: "e0", tags: [] }, hit]);
     expect(await findMarkedEvent("org", "users-api", MARKER, "token", fetchImpl)).toBe(hit);
     const [url, init] = fetchImpl.mock.calls[0];
     expect(url).toBe(
-      `https://sentry.io/api/0/projects/org/users-api/events/?query=${encodeURIComponent(MARKER)}`
+      `https://sentry.io/api/0/projects/org/users-api/events/?query=${encodeURIComponent(
+        `requestId:${MARKER}`
+      )}`
     );
     expect(init.headers.Authorization).toBe("Bearer token");
     expect(init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("queries backend lookups by the requestId tag, since #8557 strips the marker from the message/url text Sentry's free-text search reads", async () => {
+    const hit = { id: "e1", tags: [{ key: "requestId", value: MARKER }] };
+    const fetchImpl = fetchWithStatuses([200], [hit]);
+    await findMarkedEvent("org", "users-api", MARKER, "token", fetchImpl, undefined, "backend");
+    const [url] = fetchImpl.mock.calls[0];
+    expect(url).toBe(
+      `https://sentry.io/api/0/projects/org/users-api/events/?query=${encodeURIComponent(
+        `requestId:${MARKER}`
+      )}`
+    );
+  });
+
+  it("still queries browser lookups by the bare marker, since the marker survives in their title", async () => {
+    const event = { id: "b1", title: `Error: ${MARKER}` };
+    const fetchImpl = fetchWithStatuses([200], [event]);
+    await findMarkedEvent("org", "hospitality", MARKER, "token", fetchImpl, undefined, "browser");
+    const [url] = fetchImpl.mock.calls[0];
+    expect(url).toBe(
+      `https://sentry.io/api/0/projects/org/hospitality/events/?query=${encodeURIComponent(MARKER)}`
+    );
   });
 
   it("uses a caller-supplied matcher", async () => {

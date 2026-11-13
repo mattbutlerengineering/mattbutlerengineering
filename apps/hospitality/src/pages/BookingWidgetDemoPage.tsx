@@ -18,6 +18,7 @@ import {
 import { PageHeader } from "../components/PageHeader";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner";
 import { describeApiError } from "../lib/describe-api-error.js";
+import { availabilityPath } from "../components/availability/availability-address.js";
 import { BookingWidget, WidgetLocaleScope, hasOperatingHours } from "../components/booking-widget";
 import { useVenues } from "../hooks/useVenues.js";
 import { highlightEmbedCode } from "./highlight-embed-code.js";
@@ -113,7 +114,7 @@ export function BookingWidgetDemoPage() {
     [venues, effectiveVenueId]
   );
 
-  const handleSetHours = useCallback(() => navigate("/availability"), [navigate]);
+  const handleSetHours = useCallback(() => navigate(availabilityPath({ view: "hub" })), [navigate]);
 
   const embedCode = useMemo(() => {
     const venueIdValue = effectiveVenueId ?? "YOUR_VENUE_ID";

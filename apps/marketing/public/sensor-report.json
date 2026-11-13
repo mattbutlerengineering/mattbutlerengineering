@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-12T01:35:59.315Z",
+  "generated_at": "2026-11-13T01:55:28.676Z",
   "period": {
-    "start": "2026-11-05",
-    "end": "2026-11-12"
+    "start": "2026-11-06",
+    "end": "2026-11-13"
   },
   "sensors": {
     "acmm": {
@@ -11,7 +11,7 @@
       "level_name": "Semi-Automated",
       "criteria_met": 73,
       "criteria_total": 84,
-      "last_run": "2026-11-11T11:45:36.519Z",
+      "last_run": "2026-11-12T12:18:32.244Z",
       "capped": false,
       "failing_gates": []
     },
@@ -42,63 +42,63 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.28,
+          "age_days": 1.3,
           "latest": "2026-11-11T18:48:30.279Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.3,
-          "latest": "2026-11-11T18:30:46.000Z",
+          "age_days": 1.02,
+          "latest": "2026-11-12T01:20:00.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
-          "age_days": 1.07,
-          "latest": "2026-11-11T00:00:00.000Z",
+          "age_days": 1.08,
+          "latest": "2026-11-12T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 6.07,
+          "age_days": 7.08,
           "latest": "2026-11-06T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "lighthouse",
           "state": "fresh",
-          "age_days": 3.07,
+          "age_days": 4.08,
           "latest": "2026-11-09T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "audit-coverage",
           "state": "fresh",
-          "age_days": 2.07,
+          "age_days": 3.08,
           "latest": "2026-11-10T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "mutation-score",
           "state": "fresh",
-          "age_days": 3.07,
+          "age_days": 4.08,
           "latest": "2026-11-09T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.27,
-          "latest": "2026-11-11T19:13:54.091Z",
+          "age_days": 0.28,
+          "latest": "2026-11-12T19:13:08.935Z",
           "max_age_days": 5
         },
         {
           "metric": "shipped-features",
           "state": "fresh",
-          "age_days": 6.79,
+          "age_days": 7.8,
           "latest": "2026-11-05T06:41:47.000Z",
           "max_age_days": 14
         }
@@ -119,32 +119,12 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 94,
-      "total_merged": 87,
-      "total_closed_without_merge": 7,
+      "total_prs": 89,
+      "total_merged": 83,
+      "total_closed_without_merge": 6,
       "by_category": {
-        "tier:trivial": {
-          "merged": 23,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:sensitive": {
-          "merged": 20,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "priority:critical": {
-          "merged": 1,
-          "closed_without_merge": 3,
-          "acceptance_rate": 0.25
-        },
         "tier:standard": {
-          "merged": 29,
-          "closed_without_merge": 1,
-          "acceptance_rate": 0.97
-        },
-        "tier:critical": {
-          "merged": 3,
+          "merged": 41,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
@@ -153,13 +133,28 @@
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "dependencies": {
-          "merged": 5,
-          "closed_without_merge": 3,
-          "acceptance_rate": 0.63
+        "tier:sensitive": {
+          "merged": 16,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
         },
-        "reviewed": {
+        "tier:trivial": {
+          "merged": 17,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "priority:critical": {
           "merged": 1,
+          "closed_without_merge": 5,
+          "acceptance_rate": 0.17
+        },
+        "dependencies": {
+          "merged": 1,
+          "closed_without_merge": 1,
+          "acceptance_rate": 0.5
+        },
+        "tier:critical": {
+          "merged": 2,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         }
@@ -169,16 +164,16 @@
       "available": true,
       "attribution_only": true,
       "spend_today_usd": 0,
-      "spend_7d_usd": 1.54,
-      "sessions_7d": 3,
-      "avg_cost_per_session": 0.51,
-      "total_input_tokens_7d": 90,
-      "total_output_tokens_7d": 23038,
-      "avg_turns_per_session": 15.333333333333334,
+      "spend_7d_usd": 0,
+      "sessions_7d": 0,
+      "avg_cost_per_session": 0,
+      "total_input_tokens_7d": 0,
+      "total_output_tokens_7d": 0,
+      "avg_turns_per_session": 0,
       "queue": {
         "sessions_7d": 4,
-        "sessions_without_usage_7d": 74,
-        "tokens_7d": 1129731,
+        "sessions_without_usage_7d": 71,
+        "tokens_7d": 900434,
         "cost_7d_usd": null,
         "cost_known_sessions_7d": 0
       }
@@ -188,36 +183,36 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 17270563,
-      "output_tokens": 79172,
-      "cache_creation_tokens": 319283,
-      "cache_hit_rate": 0.9818,
+      "cache_read_tokens": 44930328,
+      "output_tokens": 171031,
+      "cache_creation_tokens": 687020,
+      "cache_hit_rate": 0.9849,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
-          "input_tokens": 222,
-          "output_tokens": 79172,
-          "cache_read_tokens": 17270563,
-          "cache_creation_tokens": 319283
+          "input_tokens": 704,
+          "output_tokens": 171031,
+          "cache_read_tokens": 44930328,
+          "cache_creation_tokens": 687020
         }
       }
     },
     "ciHealth": {
       "available": true,
       "total_runs": 30,
-      "completed": 20,
-      "passed": 8,
+      "completed": 24,
+      "passed": 15,
       "failed": 0,
       "phantom": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 43135545151,
-        "status": "pending",
-        "conclusion": null,
-        "createdAt": "2026-11-12T01:35:28Z",
-        "name": "Visual Baseline Regen",
+        "databaseId": 43348417010,
+        "status": "completed",
+        "conclusion": "skipped",
+        "createdAt": "2026-11-13T01:55:20Z",
+        "name": "Auto-Rollback on Agent Regression",
         "headBranch": "main",
-        "headSha": "f29ad0d49155e643d82667acb13c61449c632085"
+        "headSha": "581a18614939e87ac13ab31e362b660a37426391"
       }
     },
     "lighthouse": {
@@ -249,32 +244,46 @@
     },
     "issues": {
       "available": true,
-      "open": 46,
-      "created_7d": 143,
-      "closed_7d": 138,
-      "closure_rate": 97,
-      "queue_depth": 5,
-      "agent_failed": 6
+      "open": 33,
+      "created_7d": 159,
+      "closed_7d": 169,
+      "closure_rate": 106,
+      "queue_depth": 8,
+      "agent_failed": 1
     },
     "issueFeedback": {
       "available": true,
-      "collected_at": "2026-11-11T19:13:54.091Z",
+      "collected_at": "2026-11-12T19:13:08.935Z",
       "category_count": 7,
       "unhealthy_categories": [],
       "categories": {
-        "ci-fix": {
-          "total": 57,
-          "accepted": 19,
-          "rejected": 7,
-          "wontfix": 31,
-          "rejection_rate": 0.12280701754385964
-        },
         "feature": {
-          "total": 81,
-          "accepted": 54,
-          "rejected": 5,
-          "wontfix": 22,
-          "rejection_rate": 0.06172839506172839
+          "total": 72,
+          "accepted": 44,
+          "rejected": 1,
+          "wontfix": 27,
+          "rejection_rate": 0.013888888888888888
+        },
+        "ci-fix": {
+          "total": 63,
+          "accepted": 21,
+          "rejected": 7,
+          "wontfix": 35,
+          "rejection_rate": 0.1111111111111111
+        },
+        "audit": {
+          "total": 29,
+          "accepted": 26,
+          "rejected": 1,
+          "wontfix": 2,
+          "rejection_rate": 0.034482758620689655
+        },
+        "meta-improvement": {
+          "total": 16,
+          "accepted": 16,
+          "rejected": 0,
+          "wontfix": 0,
+          "rejection_rate": 0
         },
         "acmm": {
           "total": 4,
@@ -282,20 +291,6 @@
           "rejected": 1,
           "wontfix": 2,
           "rejection_rate": 0.25
-        },
-        "audit": {
-          "total": 27,
-          "accepted": 25,
-          "rejected": 1,
-          "wontfix": 1,
-          "rejection_rate": 0.037037037037037035
-        },
-        "meta-improvement": {
-          "total": 15,
-          "accepted": 15,
-          "rejected": 0,
-          "wontfix": 0,
-          "rejection_rate": 0
         },
         "sentry": {
           "total": 13,
@@ -325,17 +320,17 @@
     },
     "sessionLogs": {
       "available": true,
-      "total_logs": 2,
-      "logs_7d": 2,
-      "total_commits_7d": 40,
+      "total_logs": 14,
+      "logs_7d": 14,
+      "total_commits_7d": 280,
       "unique_branches_7d": 0,
       "branches_7d": []
     },
     "codeChurn": {
       "available": true,
-      "churn_rate": 0.001,
-      "total_lines_added_7d": 1053388,
-      "lines_churned_7d": 1084,
+      "churn_rate": 0.002,
+      "total_lines_added_7d": 1065480,
+      "lines_churned_7d": 2222,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -391,8 +386,11 @@
       "last_run": "2026-11-09"
     },
     "flakyTests": {
-      "available": false,
-      "data_gap": "No per-test run history found. Enable JUnit reporter and artifact upload in CI — see docs/flaky-test-detection-findings.md for the costed recommendation."
+      "available": true,
+      "flaky_count": 0,
+      "flaky_tests": [],
+      "total_runs": 25961,
+      "window_shas": 2
     },
     "e2eStability": {
       "available": false,
@@ -400,21 +398,17 @@
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.921,
+      "composite": 0.915,
       "sub_metrics": {
-        "issues_merged": 76,
-        "first_pass_success_rate": 0.882,
-        "median_time_to_merge_hours": 0.7,
-        "median_rework_cycles": 1,
+        "issues_merged": 86,
+        "first_pass_success_rate": 0.872,
+        "median_time_to_merge_hours": 0.4,
+        "median_rework_cycles": 0.5,
         "cost_per_issue_usd": null,
         "cost_coverage_n": 0,
-        "review_coverage": 0.417,
-        "review_coverage_n": 24,
+        "review_coverage": 0.243,
+        "review_coverage_n": 37,
         "review_coverage_trail": [
-          {
-            "value": 0.556,
-            "n": 18
-          },
           {
             "value": 0.625,
             "n": 16
@@ -422,34 +416,38 @@
           {
             "value": 0.417,
             "n": 24
+          },
+          {
+            "value": 0.243,
+            "n": 37
           }
         ]
       },
       "distribution": {
-        "size:l": {
-          "count": 10,
-          "avg_commits": 2.1,
-          "avg_ttm_hours": 3.3
+        "size:s": {
+          "count": 27,
+          "avg_commits": 1.6,
+          "avg_ttm_hours": 2.3
+        },
+        "size:xl": {
+          "count": 9,
+          "avg_commits": 3.2,
+          "avg_ttm_hours": 2.1
         },
         "size:xs": {
-          "count": 18,
-          "avg_commits": 1.3,
-          "avg_ttm_hours": 1.2
-        },
-        "size:s": {
-          "count": 24,
-          "avg_commits": 1.8,
-          "avg_ttm_hours": 3.8
+          "count": 22,
+          "avg_commits": 1.2,
+          "avg_ttm_hours": 0.4
         },
         "size:m": {
           "count": 17,
-          "avg_commits": 1.8,
-          "avg_ttm_hours": 2.9
+          "avg_commits": 2.1,
+          "avg_ttm_hours": 2.2
         },
-        "size:xl": {
-          "count": 7,
-          "avg_commits": 3.4,
-          "avg_ttm_hours": 2.4
+        "size:l": {
+          "count": 11,
+          "avg_commits": 2,
+          "avg_ttm_hours": 3
         }
       },
       "baseline": null,
@@ -467,11 +465,20 @@
     "queue_efficiency_fps_drop": 0.1,
     "queue_efficiency_review_coverage_trend_drop": 0.08
   },
-  "regressions": [],
+  "regressions": [
+    {
+      "sensor": "queueEfficiency",
+      "metric": "review_coverage_trend",
+      "current": 0.243,
+      "previous": 0.625,
+      "delta": -0.382,
+      "severity": "high"
+    }
+  ],
   "summary": {
-    "sensors_available": 16,
+    "sensors_available": 17,
     "sensors_total": 18,
-    "regressions_detected": 0,
-    "status": "healthy"
+    "regressions_detected": 1,
+    "status": "regressions_detected"
   }
 }

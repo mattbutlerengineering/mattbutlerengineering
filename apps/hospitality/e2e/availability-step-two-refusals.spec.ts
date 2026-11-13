@@ -132,10 +132,10 @@ for (const { width, height } of sizes) {
     await mockedPage.setViewportSize({ width, height });
     await mockedPage.clock.setFixedTime(now);
     const mocks = await mockSheet(mockedPage, date);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability/calendar");
 
     await mockedPage.getByRole("radio", { name: "Special dates" }).click();
-    await mockedPage.getByRole("button", { name: "Add special date" }).click();
+    await mockedPage.getByRole("button", { name: "Add special dates" }).click();
     const sheet = mockedPage.getByRole("dialog", { name: "Add special dates" });
     await sheet.getByRole("combobox", { name: "Date" }).click();
     await mockedPage.locator(`[data-date="${date}"]`).click();
@@ -267,13 +267,13 @@ test("a series edit the server refuses as built from a changed series returns to
     });
   });
 
-  await mockedPage.goto("availability");
+  await mockedPage.goto("availability/calendar");
   await mockedPage.getByRole("radio", { name: "Special dates" }).click();
   await mockedPage.getByRole("button", { name: "Edit dates…" }).click();
   const dialog = mockedPage.getByRole("dialog", { name: "Edit dates" });
   const labelOf = (role: "radio" | "checkbox", name: string | RegExp) =>
     dialog.locator("label").filter({ has: mockedPage.getByRole(role, { name }) });
-  await labelOf("radio", "All dates in the series").click();
+  await labelOf("radio", "All dates").click();
   await labelOf("checkbox", "Tue").click();
   await dialog.getByRole("button", { name: "Save" }).click();
   await labelOf("radio", /Cancel, notify & refund/).click();
@@ -371,7 +371,7 @@ for (const locale of SKIP_LOCALES) {
         return route.fulfill(json({ version: 9, changeId: "chg-9" }));
       });
 
-      await mockedPage.goto("availability");
+      await mockedPage.goto("availability/calendar");
       await mockedPage.getByRole("radio", { name: locale.special }).click();
       await mockedPage.getByRole("button", { name: locale.edit }).click();
       const dialog = mockedPage.getByRole("dialog", { name: locale.dialog });
@@ -480,7 +480,7 @@ for (const locale of REOPEN_LOCALES) {
         return route.fulfill(json({ version: 9, changeId: "chg-9" }));
       });
 
-      await mockedPage.goto("availability");
+      await mockedPage.goto("availability/calendar");
       await mockedPage.getByRole("radio", { name: locale.special }).click();
       await mockedPage.getByRole("button", { name: locale.remove }).click();
       const dialog = mockedPage.getByRole("dialog");

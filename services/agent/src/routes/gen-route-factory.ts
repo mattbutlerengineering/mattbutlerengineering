@@ -6,13 +6,14 @@ import { createProblemDetails } from "@mbe/types";
 import { catalog } from "@mbe/rialto-catalog/catalog";
 import type { z } from "zod";
 import {
+  GEN_PROVIDER,
   GEN_MODEL_ID,
   GEN_MAX_OUTPUT_TOKENS,
   logGenCost,
   applyStreamHeaders,
 } from "./gen-stream.js";
 import { createSanitizedStream } from "@mbe/agent-core";
-import { createGenRunner } from "./gen-runner.js";
+import { createGenRunner, genRunnerSystemPrompt } from "./gen-runner.js";
 import {
   genCostMicroUsd,
   getGenDailyCeilingUsd,
@@ -232,7 +233,12 @@ export function createGenRoute<TSchema extends z.ZodType>(
                 route: path,
                 messages,
                 modelId: GEN_MODEL_ID,
-                systemPrompt,
+                // The prompt the runner really sends, which depends on the render mode.
+                systemPrompt: genRunnerSystemPrompt({
+                  systemPrompt,
+                  provider: GEN_PROVIDER,
+                  toolChoice: config.toolChoice,
+                }),
                 maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
               })
             : undefined;
@@ -295,6 +301,7 @@ export function createGenRoute<TSchema extends z.ZodType>(
         const clientGone = new AbortController();
         const runner = createGenRunner({
           systemPrompt,
+          provider: GEN_PROVIDER,
           modelId: GEN_MODEL_ID,
           maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
           maxSteps,

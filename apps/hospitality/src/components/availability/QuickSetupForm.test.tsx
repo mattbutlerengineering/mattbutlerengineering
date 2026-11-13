@@ -31,6 +31,25 @@ const announced = () =>
     .map((region) => region.textContent)
     .join(" ");
 
+describe("QuickSetupForm name chips", () => {
+  it("offers the chips while a service has no name, and drops them once it has one", () => {
+    renderCard();
+    expect(screen.getAllByRole("group", { name: "Service names" })).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("Service name"), { target: { value: "Tasting" } });
+    expect(screen.queryByRole("group", { name: "Service names" })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Service name"), { target: { value: "" } });
+    expect(screen.getAllByRole("group", { name: "Service names" })).toHaveLength(1);
+  });
+
+  it("moves focus to the name a chip filled in, since the chip is gone", () => {
+    renderCard();
+    fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
+    expect(screen.getByLabelText("Service name")).toHaveValue("Lunch");
+    expect(screen.getByLabelText("Service name")).toHaveFocus();
+    expect(screen.queryByRole("button", { name: "Lunch" })).not.toBeInTheDocument();
+  });
+});
+
 describe("QuickSetupForm per-service days", () => {
   it("keeps every disclosure closed, so no control is duplicated", () => {
     renderCard();
@@ -51,7 +70,8 @@ describe("QuickSetupForm per-service days", () => {
     fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
     fireEvent.click(screen.getByRole("button", { name: "Every day" }));
     fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Brunch" })[1]!);
+    // The first service is named, so only the new one still offers its chips.
+    fireEvent.click(screen.getByRole("button", { name: "Brunch" }));
 
     const toggles = screen.getAllByRole("button", { name: DIFFERENT_DAYS });
     fireEvent.click(toggles[0]!);

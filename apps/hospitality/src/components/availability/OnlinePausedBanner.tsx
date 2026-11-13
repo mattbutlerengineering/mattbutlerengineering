@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Banner, Button, useToast } from "@mattbutlerengineering/rialto";
+import { Banner, Button, Text, useToast } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useReopenClosure } from "../../hooks/useClosures.js";
@@ -98,15 +98,25 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
         ) : undefined
       }
     >
-      {waiting
-        ? t(
-            // A closed day or a day with no online service has no earlier seatings to promise.
-            onlineSeatingLeft(state.config, timeZone, today, minute)
-              ? "availability.paused.waiting"
-              : "availability.paused.waitingNoneToday",
-            { time: minuteText(waitingFrom, t, format), count: clockHour(waitingFrom) }
-          )
-        : t("availability.paused.banner")}
+      {waiting ? (
+        t(
+          // A closed day or a day with no online service has no earlier seatings to promise.
+          onlineSeatingLeft(state.config, timeZone, today, minute)
+            ? "availability.paused.waiting"
+            : "availability.paused.waitingNoneToday",
+          { time: minuteText(waitingFrom, t, format), count: clockHour(waitingFrom) }
+        )
+      ) : (
+        <>
+          <Text as="span" variant="body">
+            {t("availability.paused.banner")}
+          </Text>{" "}
+          {/* Resume only ever shows a pause the Pause button created: always open-ended. */}
+          <Text as="span" variant="caption" color="secondary">
+            {t("availability.paused.noEnd")}
+          </Text>
+        </>
+      )}
     </Banner>
   );
 }

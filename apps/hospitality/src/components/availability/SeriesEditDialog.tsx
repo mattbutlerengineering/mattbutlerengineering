@@ -1,14 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Alert,
-  Button,
-  Checkbox,
-  DatePicker,
-  Dialog,
-  Radio,
-  RadioGroup,
-} from "@mattbutlerengineering/rialto";
+import { Alert, Button, Checkbox, DatePicker, Dialog } from "@mattbutlerengineering/rialto";
 import type {
   AvailabilityConfigChanges,
   AvailabilityConfigState,
@@ -33,6 +25,7 @@ import {
   skipDate,
   type SeriesScope,
 } from "./series-edit.js";
+import { ScopeChoice, type Scope } from "./ScopeDialog.js";
 import { LeaveSaveDialog } from "./LeaveSaveDialog.js";
 import { SeriesGrowthStepTwo } from "./SeriesGrowthStepTwo.js";
 import { useSaveAttempts } from "./use-save-attempts.js";
@@ -40,7 +33,6 @@ import { StrandedBookings } from "./StrandedBookings.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./CloseDialog.module.css";
 
-type Scope = "only" | SeriesScope;
 type GrowthPlan = ReturnType<typeof growthClosure>;
 
 /** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
@@ -337,19 +329,12 @@ export function SeriesEditDialog(props: SeriesEditDialogProps) {
         {invalid === "date" && (
           <Alert variant="warning">{t("availabilitySpecial.series.invalidDate")}</Alert>
         )}
-        <RadioGroup
-          label={t("availabilitySpecial.series.scopeLabel")}
+        <ScopeChoice
           name="series-scope"
           value={scope}
-          onChange={(value) => setScope(value as Scope)}
-        >
-          <Radio
-            value="only"
-            label={t("availabilitySpecial.series.scopeOnly", { date: label(date) })}
-          />
-          <Radio value="following" label={t("availabilitySpecial.series.scopeFollowing")} />
-          <Radio value="all" label={t("availabilitySpecial.series.scopeAll")} />
-        </RadioGroup>
+          onChange={setScope}
+          dateLabel={label(date)}
+        />
         {scope !== "only" && (
           <>
             <fieldset className={styles.weekdays}>

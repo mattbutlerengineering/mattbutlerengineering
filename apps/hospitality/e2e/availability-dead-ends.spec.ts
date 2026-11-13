@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
 import { mockAvailability } from "./availability-draft-mock.js";
+import { localDay } from "./local-day.js";
 
 /**
  * #7979: the places a Manager used to get stuck. A failed read says so with Retry, a stranded
@@ -167,7 +168,7 @@ test("a stranded list stays out of the alert, and a long name wraps", async ({
 
 test.describe("Reload hours", () => {
   async function copyToOtherDays(page: Page) {
-    await page.getByRole("button", { name: "Copy to other days…" }).click();
+    await page.getByRole("button", { name: "Copy hours…" }).click();
     const copy = page.getByRole("dialog", { name: /to other days/ });
     // Every day: the copied hours reach the closed Sunday of that week (the days that already
     // have them are left out), so the copy saves a one-off for it.
@@ -179,7 +180,7 @@ test.describe("Reload hours", () => {
   test("a normal reload moves nothing and offers no button", async ({ mockedPage: page }) => {
     const mock = await mockAvailability(page, COPYABLE);
     await openDay(page, /Regular week/);
-    const copy = page.getByRole("button", { name: "Copy to other days…" });
+    const copy = page.getByRole("button", { name: "Copy hours…" });
     const before = await copy.boundingBox();
 
     mock.holdReads();
@@ -221,7 +222,7 @@ test.describe("Reload hours", () => {
     await expect(reload).toBeVisible({ timeout: 4000 });
     await reload.click();
 
-    const copy = page.getByRole("button", { name: "Copy to other days…" });
+    const copy = page.getByRole("button", { name: "Copy hours…" });
     await copy.focus();
     mock.releaseReads();
     await expect(reload).toHaveCount(0);
@@ -262,10 +263,15 @@ test.describe("Reload hours", () => {
 test("+ Add service on a closed day adds a row and moves focus into it", async ({
   mockedPage: page,
 }) => {
-  await mockAvailability(page, { weekdays: [1, 2, 3] });
+  // A past date is read-only (#8752), so the closed day is today, with the clock held on it: the
+  // venue opens on the three weekdays after today's, whichever weekday the run falls on.
+  const today = localDay();
+  await page.clock.setFixedTime(new Date(`${today}T12:00:00`));
+  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
+  await mockAvailability(page, { weekdays: [1, 2, 3].map((ahead) => (weekday + ahead) % 7) });
   await page.goto("availability?tab=calendar");
   await page.locator("[data-date]").first().waitFor();
-  await page.locator('button[aria-label*="Closed"]').first().click();
+  await page.locator(`button[data-date="${today}"][aria-label*="Closed"]`).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Add service" }).click();
   await expect(dialog.locator("fieldset")).toHaveCount(1);
@@ -276,11 +282,18 @@ test("+ Add service on a closed day adds a row and moves focus into it", async (
 test("Close: a failed Next moves focus to the first problem", async ({ mockedPage: page }) => {
   await mockAvailability(page);
   await page.goto("availability?tab=calendar");
-  await page.getByRole("button", { name: "Pause online booking" }).click();
-  // Opened from Pause online booking, the dialog is titled for it, not "Close".
-  const dialog = page.getByRole("dialog", { name: "Pause online booking", exact: true });
-  // The channels sit behind What's Change.
+  // Pause online booking has its own dialog; the channels are Close…'s, under "Booking only".
+  await page.getByRole("button", { name: "Close…", exact: true }).click();
+  // Its title follows What, so the dialog is found unnamed.
+  const dialog = page.getByRole("dialog");
+  // Next is off until When is complete.
+  await dialog.getByRole("button", { name: "Tonight" }).click();
+  // The What choices sit behind What's Change.
   await dialog.getByRole("button", { name: "Change" }).click();
+  // The label text, not the radio: the radio's styled circle sits over the input and takes the
+  // pointer, for click() and check() alike (as availability-everyday picks "One service").
+  await dialog.getByText("Booking only", { exact: true }).click();
+  await expect(dialog.getByRole("radio", { name: "Booking only" })).toBeChecked();
   await dialog
     .locator("label")
     .filter({ hasText: /^Online/ })
@@ -333,7 +346,12 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
   // Add a schedule… opens the schedule editor, seeded from the regular week.
   await page.getByRole("button", { name: "Add a schedule…" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
-  await page.getByRole("dialog").getByRole("button", { name: "Brunch", exact: true }).click();
+  // The seeded service is named, so it offers no chips: rename it by hand.
+  await page
+    .getByRole("dialog")
+    .getByRole("textbox", { name: "Service name" })
+    .first()
+    .fill("Brunch");
   await page.getByRole("dialog").getByRole("button", { name: "Weekdays", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Spare saved")).toBeVisible();
@@ -373,7 +391,7 @@ test("a refused Undo lists its bookings above the Close dialog that is open (#80
     })
   );
   const day = await openDay(page, /Regular week/);
-  await page.getByRole("button", { name: "Copy to other days…" }).click();
+  await page.getByRole("button", { name: "Copy hours…" }).click();
   const copy = page.getByRole("dialog", { name: /to other days/ });
   await copy.getByRole("button", { name: "Every day" }).click();
   await copy.getByRole("button", { name: /^Copy to / }).click();
@@ -430,7 +448,12 @@ test("a refused Undo names each stranded booking with a link, outside the alert 
   // Add a schedule… opens the schedule editor, seeded from the regular week.
   await page.getByRole("button", { name: "Add a schedule…" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
-  await page.getByRole("dialog").getByRole("button", { name: "Brunch", exact: true }).click();
+  // The seeded service is named, so it offers no chips: rename it by hand.
+  await page
+    .getByRole("dialog")
+    .getByRole("textbox", { name: "Service name" })
+    .first()
+    .fill("Brunch");
   await page.getByRole("dialog").getByRole("button", { name: "Weekdays", exact: true }).click();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Spare saved")).toBeVisible();

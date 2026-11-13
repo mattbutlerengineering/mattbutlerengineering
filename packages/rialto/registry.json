@@ -1,5 +1,5 @@
 {
-  "version": "0.10.13",
+  "version": "0.10.15",
   "components": [
     {
       "name": "Accordion",
@@ -594,6 +594,12 @@
           "type": "((isoDate: string) => string | undefined) | undefined",
           "required": false,
           "description": "Optional accessible name for a day (`yyyy-mm-dd` in), e.g. why a date is\nclosed. Returning `undefined` leaves the day with its number as the name.\nA labelled disabled day stays focusable so the label can be reached."
+        },
+        {
+          "name": "defaultMonth",
+          "type": "string | undefined",
+          "required": false,
+          "description": "A date (`yyyy-mm-dd`) whose month the grid opens on when `value` is empty,\ne.g. the start date for an end-date calendar. The roving focus starts on\nthat date. Read once, when the calendar mounts."
         },
         {
           "name": "locale",
@@ -1370,7 +1376,7 @@
     },
     {
       "name": "DatePicker",
-      "description": "A date field: a read-only trigger \n{@link \nInput \n}\n that opens a \n{@link \nPopover \n}\n\ncontaining an inline \n{@link \nCalendar \n}\n. Controlled via an ISO `yyyy-mm-dd`\nstring — no `Date` objects cross the public boundary. Selecting a date (or\npressing Escape) closes the popover and returns focus to the trigger.\n`Calendar` and `DateRange` share this same ISO-string vocabulary, per\nADR-024 (`docs/adr/ADR-024-date-value-vocabulary.md`).",
+      "description": "A date field: a read-only trigger \n{@link \nInput \n}\n that opens a \n{@link \nPopover \n}\n\ncontaining an inline \n{@link \nCalendar \n}\n. Controlled via an ISO `yyyy-mm-dd`\nstring — no `Date` objects cross the public boundary. Selecting a date (or\npressing Escape) closes the popover and returns focus to the trigger. On\nopen, focus lands on the selected day, or today when nothing is selected.\nPass `editable` to let the date be typed as well.\n`Calendar` and `DateRange` share this same ISO-string vocabulary, per\nADR-024 (`docs/adr/ADR-024-date-value-vocabulary.md`).",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {
@@ -1402,6 +1408,18 @@
           "type": "((isoDate: string) => boolean) | undefined",
           "required": false,
           "description": "Predicate deciding whether a date is disabled. When supplied it is\nauthoritative and wins over `min`/`max`."
+        },
+        {
+          "name": "editable",
+          "type": "boolean | undefined",
+          "required": false,
+          "description": "Let a date be typed into the field. Text is read on Enter or blur in the\nfield's locale: ISO `yyyy-mm-dd`, the locale's numeric order (`6/20/2024`),\nor a month name with a day (`Jun 20, 2024`); without a year it is the next\nsuch date from today. Text that is not a date, or a date that `min`, `max`\nor `isDateDisabled` refuses, stays in the field with a problem beneath it\nand `onChange(null)`. The calendar then opens on ArrowDown or from the\ncalendar button, not on a click in the field. Defaults to `false`."
+        },
+        {
+          "name": "defaultMonth",
+          "type": "string | undefined",
+          "required": false,
+          "description": "A date (`yyyy-mm-dd`) whose month the calendar opens on while `value` is\nempty, e.g. the start date for an end-date field."
         },
         {
           "name": "locale",
@@ -4888,7 +4906,7 @@
     },
     {
       "name": "TimePicker",
-      "description": "A time field: a read-only trigger \n{@link \nInput \n}\n that opens a \n{@link \nPopover \n}\n\ncontaining a listbox of interval slots. Controlled via a 24h `HH:mm` string —\nno `Date` objects cross the public boundary. Selecting a time (or pressing\nEscape) closes the popover and returns focus to the trigger.",
+      "description": "A time field: a read-only trigger \n{@link \nInput \n}\n that opens a \n{@link \nPopover \n}\n\ncontaining a listbox of interval slots. Controlled via a 24h `HH:mm` string —\nno `Date` objects cross the public boundary. The list opens on click, Enter,\nSpace or ArrowDown, with the selected time active. Selecting a time (or\npressing Escape) closes the popover and returns focus to the trigger.",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [
         {

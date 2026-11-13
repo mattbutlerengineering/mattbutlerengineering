@@ -18,6 +18,7 @@ export default defineConfig({
     "**/fixtures/*.test.ts",
     "**/journeys/**",
     "**/workflow-coverage.test.ts",
+    "**/ui-quality-invite-mock.test.ts",
     "**/visual.spec.ts",
   ],
   outputDir: "./e2e/test-results",

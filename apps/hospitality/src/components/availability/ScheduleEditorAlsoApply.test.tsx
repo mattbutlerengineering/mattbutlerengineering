@@ -212,12 +212,10 @@ describe("Also apply to in the schedule editor (F-X step 4)", () => {
         <ScheduleEditorDrawer {...p} state={{ config: theirs, version: 8, source: "rows" }} />
       </main>
     );
-    expect(
-      await screen.findByText("Also applying to: Weeknight changed first")
-    ).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+    expect(screen.getByText("Also applying to: Weeknight changed first")).toBeInTheDocument();
     // Its own lines are about this schedule's services, not the ticked schedule.
     expect(screen.queryByText(/^Hours changed:/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Reapply my changes" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -278,7 +276,8 @@ describe("Also apply to in the schedule editor (F-X step 4)", () => {
         <ScheduleEditorDrawer {...p} state={{ config: theirs, version: 8, source: "rows" }} />
       </main>
     );
-    expect(await screen.findByText("Someone changed this schedule first")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Review their change" }));
+    expect(screen.getByRole("button", { name: "Reapply my changes" })).toBeEnabled();
     expect(screen.queryByText(/Weeknight/)).not.toBeInTheDocument();
   });
 });

@@ -25,9 +25,10 @@ export interface UseDayHoursActionProps {
 }
 
 /**
- * "Use another day's hours…" in the day drawer (ux.md F2), "Use schedule…" once two schedules
- * exist. It is the selection bar's dialog on one date, so the preview and the save are the same
- * draft the bar builds, sent against the version on hand.
+ * "Use other hours…" in the day drawer (availability-hub ux.md:379, #8691): one name whether the
+ * venue has one set of hours (pick a day) or several (pick a set). It is the selection bar's
+ * dialog on one date, so the preview and the save are the same draft the bar builds, sent against
+ * the version on hand.
  */
 export function UseDayHoursAction(props: UseDayHoursActionProps) {
   const { venueId, state, timezone, date, onFinished, onStale, closedReason } = props;
@@ -35,7 +36,6 @@ export function UseDayHoursAction(props: UseDayHoursActionProps) {
   const [open, setOpen] = useState(false);
   const closedId = useId();
   const dates = useMemo(() => [date], [date]);
-  const schedules = state.config.schedules.filter((s) => !s.archivedAt).length;
   const blocked = Boolean(closedReason);
   const waiting = blocked || (props.waiting ?? false);
 
@@ -48,7 +48,7 @@ export function UseDayHoursAction(props: UseDayHoursActionProps) {
           if (!waiting) setOpen(true);
         }}
       >
-        {t(schedules > 1 ? "availability.drawer.useSchedule" : "availability.drawer.useOtherDay")}
+        {t("availabilityHub.dayActions.useOtherHours")}
       </Button>
       {closedReason && (
         <Text id={closedId} variant="caption" color="secondary">

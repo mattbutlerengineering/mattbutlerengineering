@@ -324,6 +324,81 @@
       export function bindCalendarFit(sheet: HTMLElement): () => void { /* ... */ }
     </item>
   </file>
+  <file path="src/components/DatePicker/parse-typed-date.ts">
+    <item priority="high">
+      interface DayOfYear {
+        month: number;
+        day: number;
+        year: number | null;
+      }
+    </item>
+    <item priority="medium">
+      function normalise(word: string, locale: string | undefined): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function monthFromName(word: string, locale: string | undefined): number | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function dayComesFirst(locale: string | undefined): boolean { /* ... */ }
+    </item>
+    <item priority="medium">
+      function read(text: string, locale: string | undefined): DayOfYear | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function realDate(year: number, month: number, day: number): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nextOccurrence(month: number, day: number, today: string): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function parseTypedDate(
+        text: string,
+        locale: string | undefined,
+        today: string
+      ): string | null { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/DatePicker/useTypedDate.ts">
+    <item priority="medium">
+      function formatDate(iso: string | null | undefined, locale: string | undefined): string { /* ... */ }
+    </item>
+    <item priority="high">
+      interface Draft {
+        text: string;
+        problem: string | null;
+        forValue: string | null;
+      }
+    </item>
+    <item priority="low">
+      interface TypedDateOptions {
+        value: string | null;
+        onChange: (value: string | null) => void;
+        locale: string | undefined;
+        min?: string;
+        max?: string;
+      }
+    </item>
+    <item priority="low">
+      interface TypedDate {
+        text: string;
+        problem: string | null;
+        type: (text: string) => void;
+        commit: () => void;
+        discard: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useTypedDate({
+        value,
+        onChange,
+        locale,
+        min,
+        max,
+        isDateDisabled,
+        messages,
+      }: TypedDateOptions): TypedDate { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="DateRange">
   <file path="src/components/DateRange/DateRange.catalog.ts">

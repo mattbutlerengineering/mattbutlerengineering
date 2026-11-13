@@ -9,6 +9,7 @@ import {
   coveredDays,
   draftToConfig,
   scheduleDays,
+  type KeptHours,
   type QuickSetupDraft,
 } from "./quick-setup-draft.js";
 import { SCOPE_HORIZON_DAYS } from "./scope-dates.js";
@@ -368,14 +369,44 @@ export function buildEditScheduleChanges(input: {
 
 /**
  * The seating and booking types each service of a schedule keeps, from its stored base row: what
- * hours the editor made (a new block) take, since the editor has no controls for them. Hours that
- * came from a stored row carry their own (`HoursBlock.kept`).
+ * hours the editor made (a new service under a stored name, a new block) take until the Manager
+ * sets them. Hours that came from a stored row carry their own (`HoursBlock.kept`).
  */
-function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) {
+function keptOf(
+  config: AvailabilityConfig,
+  scheduleId: string | undefined
+): Record<string, KeptHours> {
   return Object.fromEntries(
     config.scheduleServices
       .filter((s) => s.scheduleId === scheduleId)
       .map((s) => [s.venueServiceId, { seating: s.seating, bookingTypes: s.bookingTypes }])
+  );
+}
+
+/**
+ * What a save of this schedule falls back to for a service, by its typed name trimmed and
+ * lower-cased (`draftToConfig`'s own key): the row shows
+ * these for a service that carries no values of its own, so screen and save agree. It is the
+ * saves' own lookup: live venue services by name, then `keptOf`. `"regular"` is the live regular
+ * week (`buildRegularWeekChanges`); no id is a schedule that does not exist yet, which stores
+ * nothing.
+ */
+export function storedKeptByName(
+  config: AvailabilityConfig,
+  scheduleId: string | "regular" | undefined
+): Readonly<Record<string, KeptHours>> {
+  const id =
+    scheduleId === "regular" ? liveSchedules(config).find((s) => s.isRegular)?.id : scheduleId;
+  if (id === undefined) return {};
+  const kept = keptOf(config, id);
+  return Object.fromEntries(
+    config.venueServices
+      .filter((s) => !s.archivedAt)
+      .flatMap((s) => {
+        const stored = kept[s.id];
+        // Keyed as the saves key `venueServiceIds`: the stored name, lower-cased, not trimmed.
+        return stored ? [[s.name.toLowerCase(), stored] as const] : [];
+      })
   );
 }
 

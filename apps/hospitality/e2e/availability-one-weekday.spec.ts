@@ -20,7 +20,7 @@ test.describe("Change one weekday of the regular week", () => {
     test.slow();
     await page.clock.setFixedTime(new Date(`${localDay()}T12:00:00`));
     const state = await mockEmptyVenue(page, { derive: true });
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await setDemoWeek(page);
     await page.getByRole("button", { name: "Save and open bookings" }).click();
     await expect(weekPanel(page)).toBeVisible();
@@ -36,6 +36,7 @@ test.describe("Change one weekday of the regular week", () => {
     // saved from today without a drawer or a date.
     await page.getByRole("radio", { name: "Schedules" }).click();
     const panel = weekPanel(page);
+    await panel.getByRole("button", { name: /^Lunch ?, / }).click();
     await panel.getByRole("button", { name: "Different hours on some days" }).first().click();
     const block = panel.getByRole("group", { name: "Lunch: different hours" });
     await block.getByText("Wed", { exact: true }).click();

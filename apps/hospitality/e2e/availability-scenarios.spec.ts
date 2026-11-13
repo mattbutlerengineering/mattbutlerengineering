@@ -72,36 +72,40 @@ test.describe("Availability scenarios (PRD 18)", () => {
     mockedPage: page,
   }) => {
     await mockEmptyVenue(page, { derive: true });
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await setUniformBistroWeek(page);
     await page.reload();
     await expect(weekPanel(page)).toBeVisible();
 
     await expect(layerOption(page, "Schedules")).toBeChecked();
-    await expect(weekPanel(page).getByRole("textbox", { name: "Service name" })).toHaveCount(2);
-    await expect(
-      weekPanel(page).getByRole("textbox", { name: "Service name" }).first()
-    ).toHaveValue("Lunch");
-    await expect(weekPanel(page).getByRole("textbox", { name: "Service name" }).last()).toHaveValue(
+    // The services are closed lines (#8690): each says its name, hours and days; opening one shows its fields.
+    await expect(weekPanel(page).locator('button[id$="-line-header"]')).toHaveCount(2);
+    await weekPanel(page)
+      .getByRole("button", { name: /^Lunch ?, 11:30 AM.*Mon–Fri/ })
+      .click();
+    await expect(weekPanel(page).getByRole("textbox", { name: "Service name" })).toHaveValue(
+      "Lunch"
+    );
+    await expect(weekPanel(page).getByRole("combobox", { name: "Opens" })).toHaveValue("11:30 AM");
+    await weekPanel(page)
+      .getByRole("button", { name: /^Dinner ?, 5:00 PM.*Mon–Fri/ })
+      .click();
+    await expect(weekPanel(page).getByRole("textbox", { name: "Service name" })).toHaveValue(
       "Dinner"
     );
-    await expect(weekPanel(page).getByRole("combobox", { name: "Opens" }).first()).toHaveValue(
-      "11:30 AM"
-    );
-    await expect(weekPanel(page).getByRole("combobox", { name: "Opens" }).last()).toHaveValue(
-      "5:00 PM"
-    );
+    await expect(weekPanel(page).getByRole("combobox", { name: "Opens" })).toHaveValue("5:00 PM");
     for (const day of ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]) {
       await expect(weekPanel(page).getByRole("checkbox", { name: day })).toBeChecked();
     }
     for (const day of ["Saturday", "Sunday"]) {
       await expect(weekPanel(page).getByRole("checkbox", { name: day })).not.toBeChecked();
     }
+    await weekPanel(page).getByRole("button", { name: "Guest preview" }).click();
     await expect(page.getByRole("complementary", { name: "Guest preview" })).toBeVisible();
     // Calendar and back returns to the same form.
     await layerOption(page, "Calendar").click();
     await layerOption(page, "Schedules").click();
-    await expect(weekPanel(page).getByRole("textbox", { name: "Service name" })).toHaveCount(2);
+    await expect(weekPanel(page).locator('button[id$="-line-header"]')).toHaveCount(2);
   });
 
   test("S1 / W11: dinner Tue–Sat, closing 10:00 PM, on an existing week (budget 6)", async ({
@@ -113,8 +117,9 @@ test.describe("Availability scenarios (PRD 18)", () => {
     const counter = countInteractions(page);
     const panel = weekPanel(counter.page);
 
-    await chooseTime(counter.page, panel, "Closes", 1, "10:00 PM");
-    await panel.getByRole("button", { name: "Different days for this service" }).nth(1).click();
+    await panel.getByRole("button", { name: /^Dinner ?, / }).click();
+    await chooseTime(counter.page, panel, "Closes", 0, "10:00 PM");
+    await panel.getByRole("button", { name: "Different days for this service" }).click();
     const days = panel.getByRole("group", { name: "Dinner runs on" });
     await days.getByText("Sunday", { exact: true }).click();
     await days.getByText("Monday", { exact: true }).click();
@@ -130,7 +135,8 @@ test.describe("Availability scenarios (PRD 18)", () => {
     expect([...(dinner?.weekdays ?? [])].sort()).toEqual([2, 3, 4, 5, 6]);
     expect(upsert.assignments?.find((a) => a.startsOn)?.startsOn).toBe(localDay());
     expect(previews.requests()).toBeGreaterThan(0);
-    record("S1", counter.count(), 6);
+    // 6 before the services became closed lines (#8690); opening Dinner's line is the one more.
+    record("S1", counter.count(), 7);
   });
 
   test("S2 / W12: add a lunch service beside dinner (budget 5)", async ({ mockedPage: page }) => {
@@ -155,7 +161,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
   }) => {
     // F-bistro: Lunch and Dinner Mon–Fri, saved through quick setup, then the first layer again.
     await mockEmptyVenue(page, { derive: true });
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await setUniformBistroWeek(page);
     await page.reload();
     await mockNoopPreview(page);
@@ -193,7 +199,10 @@ test.describe("Availability scenarios (PRD 18)", () => {
     await firstPaint(page);
     const counter = countInteractions(page);
 
-    await chooseTime(counter.page, weekPanel(counter.page), "Last seating", 1, "9:00 PM");
+    await weekPanel(counter.page)
+      .getByRole("button", { name: /^Dinner ?, / })
+      .click();
+    await chooseTime(counter.page, weekPanel(counter.page), "Last seating", 0, "9:00 PM");
     await savePanel(counter.page).click();
 
     await expect.poll(() => puts.bodies().length).toBe(1);
@@ -201,7 +210,8 @@ test.describe("Availability scenarios (PRD 18)", () => {
       .last()
       .changes.upsert.scheduleServices?.find((row) => row.venueServiceId === "vs-dinner");
     expect(dinner).toMatchObject({ lastSeatingAt: 1260, closesAt: 1380 });
-    record("S4", counter.count(), 3);
+    // 3 before the services became closed lines (#8690); opening Dinner's line is the one more.
+    record("S4", counter.count(), 4);
   });
 
   test("S5 / W15: close all day on one holiday (budget 6)", async ({ mockedPage: page }) => {
@@ -379,11 +389,12 @@ test.describe("Availability scenarios (PRD 18)", () => {
       if (route.request().method() === "PATCH") patches.push(route.request().postDataJSON());
       return route.fallback();
     });
-    await firstPaint(page);
+    // The ⋯ entry left the old page (availability-hub C2.5): the hub's row 5 opens the rules.
+    await page.goto("availability");
+    await expect(page.getByRole("link", { name: "Edit Booking rules" })).toBeVisible();
     const counter = countInteractions(page);
 
-    await counter.page.getByRole("button", { name: "More actions" }).click();
-    await counter.page.getByRole("menuitem", { name: "Booking rules…" }).click();
+    await counter.page.getByRole("link", { name: "Edit Booking rules" }).click();
     const drawer = counter.page.getByRole("dialog", { name: "Booking rules" });
     await drawer.getByLabel("How far ahead guests can book (days)").fill("45");
     await drawer.getByLabel("Minimum notice (hours)").fill("3");
@@ -400,10 +411,14 @@ test.describe("Availability scenarios (PRD 18)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Pause online booking" }).click();
-    await counter.page.getByRole("dialog").getByTestId("close-primary").click();
+    // The Pause dialog opens on Tonight: confirming is the second interaction.
+    await counter.page.getByRole("dialog").getByTestId("pause-primary").click();
 
     await expect.poll(() => state.saved()).not.toBeNull();
     expect(JSON.stringify(state.saved())).toContain("online");
+    // Tonight only: the pause ends on the day it starts.
+    const rule = state.saved()?.rule as { startsOn: string; endsOn: string | null };
+    expect(rule.endsOn).toBe(rule.startsOn);
     record("S10", counter.count(), 3);
   });
 
@@ -416,7 +431,10 @@ test.describe("Availability scenarios (PRD 18)", () => {
     await firstPaint(page);
     const counter = countInteractions(page);
 
-    await chooseTime(counter.page, weekPanel(counter.page), "Closes", 1, "10:00 PM");
+    await weekPanel(counter.page)
+      .getByRole("button", { name: /^Dinner ?, / })
+      .click();
+    await chooseTime(counter.page, weekPanel(counter.page), "Closes", 0, "10:00 PM");
     await weekPanel(counter.page).getByRole("button", { name: "Starting later…" }).click();
     const drawer = counter.page.getByRole("dialog", { name: "Change regular week" });
     // The edited draft came with it, and Starting is empty.
@@ -445,7 +463,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
         body: JSON.stringify({ data: { ...buildVenueTeamFixture(), viewerRole: "host" } }),
       })
     );
-    await page.goto("availability");
+    await page.goto("availability/calendar");
 
     await expect(page.getByRole("grid")).toBeVisible();
     await expect(layerOption(page, "Calendar")).toBeChecked();

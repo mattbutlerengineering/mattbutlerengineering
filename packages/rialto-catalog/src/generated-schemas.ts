@@ -59,6 +59,7 @@ export const generatedSchemas = {
   Calendar: z.object({
     min: z.string().optional(),
     max: z.string().optional(),
+    defaultMonth: z.string().optional(),
     locale: z.string().optional(),
   }),
   Card: z.object({
@@ -111,6 +112,8 @@ export const generatedSchemas = {
   DatePicker: z.object({
     min: z.string().optional(),
     max: z.string().optional(),
+    editable: z.boolean().optional(),
+    defaultMonth: z.string().optional(),
     locale: z.string().optional(),
     label: z.string().optional(),
     placeholder: z.string().optional(),

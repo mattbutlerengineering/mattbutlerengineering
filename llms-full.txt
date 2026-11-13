@@ -746,7 +746,7 @@
       name: "DatePicker",
       include: false,
       description:
-        "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
+        "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. editable lets the date be typed, with a problem shown for text that is not an allowed date; defaultMonth sets the month an empty field's calendar opens on. Focus lands on the selected or current day on open and returns to the trigger on select or Escape.",
     } satisfies CatalogMeta;
   </file>
   <file path="packages/rialto/src/components/DatePicker/fit-below.ts">
@@ -875,6 +875,171 @@
       return () => {
         window.removeEventListener("resize", onResize);
         window.removeEventListener("scroll", onScroll, true);
+      };
+    }
+  </file>
+  <file path="packages/rialto/src/components/DatePicker/parse-typed-date.ts">
+    interface DayOfYear {
+      readonly month: number; // 1-12
+      readonly day: number;
+      readonly year: number | null;
+    }
+    function normalise(word: string, locale: string | undefined): string {
+      return word.toLocaleLowerCase(locale).replace(/\.$/, "");
+    }
+    function monthFromName(word: string, locale: string | undefined): number | null {
+      const wanted = normalise(word, locale);
+      const formats = (["short", "long"] as const).map(
+        (month) => new Intl.DateTimeFormat(locale, { month, timeZone: "UTC" })
+      );
+      for (let month = 0; month < 12; month += 1) {
+        const date = new Date(Date.UTC(2023, month, 1));
+        if (formats.some((format) => normalise(format.format(date), locale) === wanted))
+          return month + 1;
+      }
+      return null;
+    }
+    function dayComesFirst(locale: string | undefined): boolean {
+      const parts = new Intl.DateTimeFormat(locale, { month: "numeric", day: "numeric" })
+        .formatToParts(new Date(Date.UTC(2023, 0, 2)))
+        .map((part) => part.type);
+      return parts.indexOf("day") < parts.indexOf("month");
+    }
+    function read(text: string, locale: string | undefined): DayOfYear | null {
+      const tokens = text.trim().split(SEPARATOR);
+      const numbers = tokens.filter((token) => DIGITS.test(token));
+      const words = tokens.filter((token) => !DIGITS.test(token));
+      const years = numbers.filter((token) => token.length === 4);
+      const rest = numbers.filter((token) => token.length < 3);
+      if (words.length > 1 || years.length > 1 || years.length + rest.length < numbers.length) {
+        return null;
+      }
+      const year = years[0] === undefined ? null : Number(years[0]);
+      const [first, second] = rest;
+      const word = words[0];
+      if (word !== undefined) {
+        const month = monthFromName(word, locale);
+        if (month === null || first === undefined || second !== undefined) return null;
+        return { year, month, day: Number(first) };
+      }
+      // Numbers only: a year leads (ISO order) or trails (the locale's order), never sits between.
+      if (first === undefined || second === undefined || rest.length > 2) return null;
+      if (numbers[1] === years[0]) return null;
+      const dayFirst = numbers[0] !== years[0] && dayComesFirst(locale);
+      return { year, month: Number(dayFirst ? second : first), day: Number(dayFirst ? first : second) };
+    }
+    function realDate(year: number, month: number, day: number): string | null {
+      if (year < EARLIEST_YEAR) return null;
+      // parseIsoDate refuses a month or day that does not survive the round trip.
+      const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      return parseIsoDate(iso) ? iso : null;
+    }
+    function nextOccurrence(month: number, day: number, today: string): string | null {
+      const start = parseIsoDate(today)?.year;
+      if (start === undefined) return null;
+      for (let offset = 0; offset < YEARS_TO_SEARCH; offset += 1) {
+        const iso = realDate(start + offset, month, day);
+        if (iso !== null && iso >= today) return iso;
+      }
+      return null;
+    }
+    export function parseTypedDate(
+      text: string,
+      locale: string | undefined,
+      today: string
+    ): string | null {
+      try {
+        const parts = read(text, locale);
+        if (!parts) return null;
+        return parts.year === null
+          ? nextOccurrence(parts.month, parts.day, today)
+          : realDate(parts.year, parts.month, parts.day);
+      } catch {
+        // Intl rejects a malformed locale tag; an unreadable date is not an error.
+        return null;
+      }
+    }
+  </file>
+  <file path="packages/rialto/src/components/DatePicker/useTypedDate.ts">
+    function formatDate(iso: string | null | undefined, locale: string | undefined): string {
+      const parsed = iso ? parseIsoDate(iso) : null;
+      if (!parsed) return "";
+      return new Intl.DateTimeFormat(locale, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        timeZone: "UTC",
+      }).format(new Date(Date.UTC(parsed.year, parsed.month - 1, parsed.day)));
+    }
+    interface Draft {
+      readonly text: string;
+      readonly problem: string | null;
+      /** The `value` this draft was typed over; a different `value` retires it. */
+      readonly forValue: string | null;
+    }
+    export interface TypedDateOptions {
+      value: string | null;
+      onChange: (value: string | null) => void;
+      locale: string | undefined;
+      min?: string;
+      max?: string;
+      isDateDisabled?: (isoDate: string) => boolean;
+      messages: RialtoMessages;
+    }
+    export interface TypedDate {
+      /** What the input shows: the text being typed, else the formatted `value`. */
+      text: string;
+      /** Why the last committed text was refused, or `null`. */
+      problem: string | null;
+      type: (text: string) => void;
+      /** Read the typed text: accept it, or keep it on screen with a problem. */
+      commit: () => void;
+      /** Drop the typed text, e.g. after a day is picked in the calendar. */
+      discard: () => void;
+    }
+    export function useTypedDate({
+      value,
+      onChange,
+      locale,
+      min,
+      max,
+      isDateDisabled,
+      messages,
+    }: TypedDateOptions): TypedDate {
+      const [draft, setDraft] = useState<Draft | null>(null);
+      const active = draft && draft.forValue === value ? draft : null;
+    
+      // Mirrors Calendar: the predicate, when given, wins over min/max.
+      const refusal = (iso: string): string | null => {
+        if (isDateDisabled) return isDateDisabled(iso) ? messages.dateUnavailable : null;
+        if (min && iso < min) return messages.dateTooEarly(formatDate(min, locale));
+        if (max && iso > max) return messages.dateTooLate(formatDate(max, locale));
+        return null;
+      };
+    
+      // These go straight onto the native input, so a stable identity buys nothing.
+      const type = (text: string) => setDraft({ text, problem: null, forValue: value });
+    
+      const commit = () => {
+        if (!active) return;
+        const iso = parseTypedDate(active.text, locale, localToday());
+        const empty = active.text.trim() === "";
+        const problem = empty ? null : iso === null ? messages.enterDate : refusal(iso);
+        const next = problem === null ? iso : null;
+        // A refused date leaves no value behind, so a form cannot save the old one unseen.
+        setDraft(problem === null ? null : { text: active.text, problem, forValue: null });
+        if (next !== value) onChange(next);
+      };
+    
+      // Stable, because DatePicker's day-select callback depends on it.
+      const discard = useCallback(() => setDraft(null), []);
+    
+      return {
+        text: active ? active.text : formatDate(value, locale),
+        problem: active ? active.problem : null,
+        type,
+        commit,
+        discard,
       };
     }
   </file>
@@ -5149,11 +5314,12 @@
     export function alsoApplyOptions(
       config: AvailabilityConfig,
       edit: AvailabilityConfigChanges,
-      sourceScheduleId: string
+      sourceScheduleId: string,
+      serviceDate: string
     ): AlsoApplyOption[] {
       const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
       return changedSourceRows(config, edit, sourceScheduleId).flatMap((row) => {
-        const targets = compareRows(config, row.venueServiceId)
+        const targets = compareRows(config, row.venueServiceId, serviceDate)
           .filter((r) => r.scheduleId !== sourceScheduleId)
           .map((r) => ({ scheduleId: r.scheduleId, scheduleName: r.scheduleName }));
         return targets.length === 0
@@ -5189,9 +5355,10 @@
       config: AvailabilityConfig,
       edit: AvailabilityConfigChanges,
       sourceScheduleId: string,
-      picks: AlsoApplyPicks
+      picks: AlsoApplyPicks,
+      serviceDate: string
     ): AvailabilityConfigChanges {
-      const options = alsoApplyOptions(config, edit, sourceScheduleId);
+      const options = alsoApplyOptions(config, edit, sourceScheduleId, serviceDate);
       const wanted = pruneAlsoApply(options, picks);
       const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
       const source = new Map(
@@ -5242,7 +5409,34 @@
       return { changed: [...new Set(changed)], removed: [...new Set(removed)] };
     }
   </file>
-  <file path="apps/hospitality/src/components/availability/availability-entry.ts">
+  <file path="apps/hospitality/src/components/availability/availability-address.ts">
+    export const isTodaysPage = (pathname: string): boolean =>
+      pathname.replace(/\/+$/, "").toLowerCase() === TODAYS_PAGE;
+    export type CloseTarget =
+      | { readonly kind: "tonight" }
+      | { readonly kind: "date"; readonly date: string }
+      | { readonly kind: "range"; readonly from: string; readonly to: string }
+      | { readonly kind: "dates"; readonly dates: readonly string[] }
+      | { readonly kind: "section"; readonly sectionId: string };
+    type AvailabilityView =
+      | { readonly view: "hub" }
+      | { readonly view: "hours"; readonly service?: string }
+      | { readonly view: "seasonal"; readonly screen?: "new" | "compare" }
+      | { readonly view: "seasonal"; readonly screen: "edit"; readonly scheduleId: string }
+      | { readonly view: "specialDates" }
+      | { readonly view: "closures" }
+      | {
+          readonly view: "calendar";
+          readonly calendarView?: "month" | "week";
+          readonly date?: string;
+        }
+      | { readonly view: "bookingRules" }
+      | { readonly view: "history" };
+    export type AvailabilityTarget = AvailabilityView & {
+      readonly close?: CloseTarget;
+      readonly pause?: boolean;
+      readonly from?: "setup";
+    };
     export const AVAILABILITY_TABS = ["calendar", "special", "schedules"] as const;
     export type AvailabilityTab = (typeof AVAILABILITY_TABS)[number];
     export interface AvailabilityEntry {
@@ -5254,25 +5448,84 @@
     }
     export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry {
       const params = typeof search === "string" ? new URLSearchParams(search) : search;
-      const entry: { -readonly [K in keyof AvailabilityEntry]: AvailabilityEntry[K] } = {};
-      const tab = FIELDS.tab.safeParse(params.get("tab"));
-      if (tab.success) entry.tab = tab.data;
-      const closeSection = FIELDS.closeSection.safeParse(params.get("closeSection"));
-      if (closeSection.success) entry.closeSection = closeSection.data;
-      const action = FIELDS.action.safeParse(params.get("action"));
-      if (action.success) entry.action = action.data;
-      const from = FIELDS.from.safeParse(params.get("from"));
-      if (from.success) entry.from = from.data;
-      return entry;
+      const tab = params.get("tab");
+      const closeSection = params.get("closeSection");
+      return {
+        ...(isTab(tab) && { tab }),
+        ...(closeSection && { closeSection }),
+        ...(params.get("action") === "addSchedule" && { action: "addSchedule" as const }),
+        ...(params.get("from") === "setup" && { from: "setup" as const }),
+      };
     }
-    export function availabilityPath(entry: AvailabilityEntry): string {
+    export const isBookingRulesPage = (pathname: string): boolean =>
+      pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
+    export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
-      if (entry.tab) params.set("tab", entry.tab);
-      if (entry.closeSection) params.set("closeSection", entry.closeSection);
-      if (entry.action) params.set("action", entry.action);
-      if (entry.from) params.set("from", entry.from);
-      const query = params.toString();
-      return query ? `${ROUTE}?${query}` : ROUTE;
+      // The hub opens no dialog yet (C2.4), so a section's Close dialog still opens on today's page.
+      if (target.view === "hub" && target.close?.kind !== "section") {
+        if (target.from) params.set("from", target.from);
+        return withSearch(ROUTE, params);
+      }
+      // The drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
+      if (target.view === "bookingRules") {
+        if (target.from) params.set("from", target.from);
+        return withSearch(BOOKING_RULES, params);
+      }
+      const tab = PAGE_TAB[target.view];
+      if (tab) params.set("tab", tab);
+      if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
+      if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
+      if (target.from) params.set("from", target.from);
+      return withSearch(TODAYS_PAGE, params);
+    }
+    function parseCloseTarget(value: string | null): CloseTarget | null {
+      if (!value) return null;
+      if (value === "tonight") return { kind: "tonight" };
+      if (isDate(value)) return { kind: "date", date: value };
+      if (value.startsWith(SECTION_PREFIX)) {
+        const sectionId = value.slice(SECTION_PREFIX.length);
+        return sectionId ? { kind: "section", sectionId } : null;
+      }
+      if (value.startsWith(DATES_PREFIX)) {
+        const dates = value.slice(DATES_PREFIX.length).split(",");
+        return dates.length <= MAX_CLOSE_DATES && dates.every(isDate) ? { kind: "dates", dates } : null;
+      }
+      const [from, to, ...rest] = value.split(RANGE_SEPARATOR);
+      if (from === undefined || to === undefined || rest.length > 0) return null;
+      // Dates in this shape sort as text.
+      return isDate(from) && isDate(to) && from <= to ? { kind: "range", from, to } : null;
+    }
+    export interface AvailabilityAddress {
+      /** `null` when there is no close target, or it does not parse: no dialog. */
+      readonly close: CloseTarget | null;
+      readonly pause: boolean;
+      readonly from: "setup" | null;
+    }
+    export function readAvailabilityAddress(location: {
+      readonly search: string;
+    }): AvailabilityAddress {
+      const params = new URLSearchParams(location.search);
+      return {
+        close: parseCloseTarget(params.get("close")),
+        pause: params.get("pause") === "1",
+        from: params.get("from") === "setup" ? "setup" : null,
+      };
+    }
+    export function legacyRedirect(search: string): string | null {
+      const entry = parseAvailabilityEntry(search);
+      if (!entry.tab && !entry.action && !entry.closeSection) return null;
+      const view: AvailabilityView = entry.action
+        ? { view: "seasonal", screen: "new" }
+        : entry.tab
+          ? TAB_VIEW[entry.tab]
+          : { view: "hub" };
+      return availabilityPath({
+        ...view,
+        ...(entry.closeSection && {
+          close: { kind: "section" as const, sectionId: entry.closeSection },
+        }),
+        ...(entry.from && { from: entry.from }),
+      });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/booking-rules.ts">
@@ -5453,13 +5706,15 @@
   </file>
   <file path="apps/hospitality/src/components/availability/change-week-draft.ts">
     function serviceKey(service: ServiceDraft) {
+      const keptKey = (times: DraftTimes) => (times.kept ? optionsKey(times.kept) : null);
       return JSON.stringify([
         nameKey(service),
         service.opens,
         service.lastSeating,
         service.closes,
         sorted(service.days),
-        service.blocks.map((b) => [sorted(b.days), b.opens, b.lastSeating, b.closes]),
+        service.blocks.map((b) => [sorted(b.days), b.opens, b.lastSeating, b.closes, keptKey(b)]),
+        keptKey(service),
       ]);
     }
     export function weekKey(draft: QuickSetupDraft): string {
@@ -6394,6 +6649,181 @@
       );
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/closures-list.ts">
+    export type ClosureFacts = Pick<
+      HubClosure,
+      "target" | "startsOn" | "endsOn" | "weekdays" | "window"
+    >;
+    export interface SkippedDate {
+      readonly skipId: string;
+      readonly date: string;
+    }
+    export interface ClosureListRow extends ClosureFacts {
+      readonly group: "now" | "upcoming";
+      readonly ruleId: string;
+      /**
+       * In `now`, the service date it is in force on: today, or yesterday while that service runs past
+       * midnight. In `upcoming`, the next date it closes; `null` when every date it has left is skipped
+       * or replaced by a one-date edit.
+       */
+      readonly on: string | null;
+      /** An online-only booking closure that does not repeat: it is resumed, not reopened. */
+      readonly pause: boolean;
+      /** Whether the Close form can say everything this closure says (`isEditableClosure`). */
+      readonly editable: boolean;
+      /** The series this row is a one-date edit of; `null` for a closure in its own right. */
+      readonly seriesId: string | null;
+      /** For a repeating closure in its own right: the dates skipped out of it, from today on. */
+      readonly series: { readonly skipped: readonly SkippedDate[] } | null;
+      /** `null` when the closure touched no booking, or while the counts are not known. */
+      readonly outcomes: ClosureSummary | null;
+      /** Refunds failed or still pending. */
+      readonly refundsOpen: number;
+    }
+    export type EarlierReason = "ended" | "removed" | "tonight";
+    export interface EarlierClosureRow {
+      readonly group: "earlier";
+      readonly ruleId: string;
+      readonly reason: EarlierReason;
+      /** What it closed and when, for `ended`; `null` for `removed` and `tonight`. */
+      readonly closure: ClosureFacts | null;
+      readonly outcomes: ClosureSummary;
+      readonly refundsOpen: number;
+    }
+    export interface ClosuresList {
+      /** A pause first, then the closure that started soonest. */
+      readonly now: readonly ClosureListRow[];
+      /** By the next date each closes, then the time of day it starts; one with no date left is last. */
+      readonly upcoming: readonly ClosureListRow[];
+      /** Ended closures, most recently ended first; then tonight changes and rules that are gone. */
+      readonly earlier: readonly EarlierClosureRow[];
+    }
+    export interface ClosuresListInput extends ClosuresRowInput {
+      /** Outcome counts per rule (`useClosureSummaries`); `null` while they load or after they fail. */
+      readonly summaries: readonly ClosureSummary[] | null;
+    }
+    function factsOf(rule: ClosureRule, clock: Clock): ClosureFacts {
+      return {
+        target: targetOf(rule, clock),
+        startsOn: rule.startsOn,
+        endsOn: rule.endsOn ?? null,
+        weekdays: rule.repeat?.weekdays ?? null,
+        window: rule.window ? { from: rule.window.from, to: rule.window.to } : null,
+      };
+    }
+    function forceDate(
+      rule: ClosureRule,
+      clock: Clock,
+      hubPause: HubOnlinePause | null
+    ): string | null {
+      // A stop made for tonight (`source: "tonight"`) is no closure, so then none is the hub's pause.
+      const namedByHub =
+        hubPause?.source === "closure" && hubPause.inForce && hubPause.ruleId === rule.id;
+      const partOfTodayLeft = rule.window == null || clock.nowMinute < rule.window.to;
+      return namedByHub && partOfTodayLeft ? clock.today : inForceOn(rule, clock);
+    }
+    type Placed =
+      | { readonly group: "now"; readonly on: string }
+      | { readonly group: "upcoming"; readonly on: string | null }
+      | { readonly group: "ended" };
+    function place(rule: ClosureRule, clock: Clock, hubPause: HubOnlinePause | null): Placed {
+      const inForce = forceDate(rule, clock, hubPause);
+      if (inForce !== null) return { group: "now", on: inForce };
+      const next = waitingOn(rule, clock);
+      if (next !== null) return { group: "upcoming", on: next };
+      // A date of its own is left, but a skip or a one-date edit replaces each one.
+      const ownDateLeft = waitingOn(rule, { ...clock, rules: [] }) !== null;
+      return ownDateLeft ? { group: "upcoming", on: null } : { group: "ended" };
+    }
+    function skippedOf(rule: ClosureRule, clock: Clock): readonly SkippedDate[] {
+      return skipRows(clock.rules, rule.id)
+        .filter((skip) => skip.startsOn >= clock.today)
+        .map((skip) => ({ skipId: skip.id, date: skip.startsOn }));
+    }
+    function rowOf(
+      rule: ClosureRule,
+      placed: Exclude<Placed, { group: "ended" }>,
+      clock: Clock,
+      outcomes: ClosureSummary | null
+    ): ClosureListRow {
+      return {
+        group: placed.group,
+        ruleId: rule.id,
+        on: placed.on,
+        ...factsOf(rule, clock),
+        pause: isOnlinePause(rule),
+        editable: isEditableClosure(rule),
+        seriesId: rule.seriesId ?? null,
+        series: isSeries(rule) ? { skipped: skippedOf(rule, clock) } : null,
+        outcomes,
+        refundsOpen: refundsOpenOf(outcomes),
+      };
+    }
+    function byNextDate(a: ClosureListRow, b: ClosureListRow): number {
+      if (a.on === null || b.on === null) return Number(a.on === null) - Number(b.on === null);
+      return (
+        a.on.localeCompare(b.on) ||
+        (a.window?.from ?? 0) - (b.window?.from ?? 0) ||
+        a.ruleId.localeCompare(b.ruleId)
+      );
+    }
+    function earlierRows(
+      summaries: readonly ClosureSummary[],
+      ended: readonly ClosureRule[],
+      listed: ReadonlySet<string>,
+      clock: Clock
+    ): EarlierClosureRow[] {
+      const open = summaries.filter((s) => refundsOpenOf(s) > 0 && !listed.has(s.ruleId));
+      const rowFor = (
+        outcomes: ClosureSummary,
+        reason: EarlierReason,
+        closure: ClosureFacts | null
+      ): EarlierClosureRow => ({
+        group: "earlier",
+        ruleId: outcomes.ruleId,
+        reason,
+        closure,
+        outcomes,
+        refundsOpen: refundsOpenOf(outcomes),
+      });
+      const lastDate = (rule: ClosureRule) => rule.endsOn ?? rule.startsOn;
+      const known = [...ended]
+        .sort((a, b) => lastDate(b).localeCompare(lastDate(a)) || a.id.localeCompare(b.id))
+        .flatMap((rule) => {
+          const outcomes = open.find((s) => s.ruleId === rule.id);
+          return outcomes ? [rowFor(outcomes, "ended", factsOf(rule, clock))] : [];
+        });
+      const endedIds = new Set(ended.map((rule) => rule.id));
+      // Refunds for a rule of another kind that still stands (special hours) are not a closure's.
+      const rest = open.flatMap((s) => {
+        if (endedIds.has(s.ruleId)) return [];
+        const rule = clock.rules.find((r) => r.id === s.ruleId);
+        if (rule === undefined) return [rowFor(s, "removed", null)];
+        return rule.kind === "tonight" ? [rowFor(s, "tonight", null)] : [];
+      });
+      return [...known, ...rest];
+    }
+    export function closuresList(input: ClosuresListInput): ClosuresList {
+      const clock = clockOf(input);
+      const { summaries } = input;
+      const hubPause = onlinePause(clock);
+      const placed = clock.rules
+        .filter(isClosure)
+        .map((rule) => ({ rule, placed: place(rule, clock, hubPause) }));
+      const rows = placed.flatMap(({ rule, placed: at }) =>
+        at.group === "ended"
+          ? []
+          : [rowOf(rule, at, clock, summaries?.find((s) => s.ruleId === rule.id) ?? null)]
+      );
+      const ended = placed.flatMap(({ rule, placed: at }) => (at.group === "ended" ? [rule] : []));
+      const listed = new Set(rows.map((row) => row.ruleId));
+      return {
+        now: rows.filter((row) => row.group === "now").sort(byNow),
+        upcoming: rows.filter((row) => row.group === "upcoming").sort(byNextDate),
+        earlier: earlierRows(summaries ?? [], ended, listed, clock),
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/compare-changes.ts">
     type Hours = Pick<
       ScheduleService,
@@ -6409,8 +6839,8 @@
     function runs(config: AvailabilityConfig, row: ScheduleService): boolean {
       return scheduleDays(config, row.scheduleId, true).some((day) => hoursOn(row, day) !== null);
     }
-    export function compareServiceOptions(config: AvailabilityConfig) {
-      const live = liveScheduleIds(config);
+    export function compareServiceOptions(config: AvailabilityConfig, serviceDate: string) {
+      const live = liveScheduleIds(config, serviceDate);
       return config.venueServices
         .filter((v) => !v.archivedAt)
         .filter(
@@ -6421,8 +6851,12 @@
         )
         .sort((a, b) => a.position - b.position);
     }
-    export function compareRows(config: AvailabilityConfig, venueServiceId: string): CompareRow[] {
-      const names = new Map(config.schedules.filter((s) => !s.archivedAt).map((s) => [s.id, s.name]));
+    export function compareRows(
+      config: AvailabilityConfig,
+      venueServiceId: string,
+      serviceDate: string
+    ): CompareRow[] {
+      const names = new Map(visibleSchedules(config, serviceDate).map((s) => [s.id, s.name]));
       return config.scheduleServices
         .filter((s) => s.venueServiceId === venueServiceId && names.has(s.scheduleId))
         .filter((s) => runs(config, s))
@@ -6462,18 +6896,20 @@
     }
     export function rowsRemovedSince(
       after: AvailabilityConfig,
-      edits: readonly CompareRow[]
+      edits: readonly CompareRow[],
+      serviceDate: string
     ): string[] {
-      const now = compareRowsById(after);
+      const now = compareRowsById(after, serviceDate);
       return edits.filter((e) => !now.has(e.scheduleServiceId)).map((e) => e.scheduleName);
     }
     export function reapplyEdits(
       before: AvailabilityConfig,
       after: AvailabilityConfig,
-      edits: readonly CompareRow[]
+      edits: readonly CompareRow[],
+      serviceDate: string
     ): Record<string, CompareRow> {
       const was = new Map(before.scheduleServices.map((s) => [s.id, s]));
-      const latest = compareRowsById(after);
+      const latest = compareRowsById(after, serviceDate);
       const entries = edits.flatMap((e) => {
         const old = was.get(e.scheduleServiceId);
         const next = latest.get(e.scheduleServiceId);
@@ -6484,8 +6920,8 @@
       });
       return Object.fromEntries(entries);
     }
-    function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> {
-      const rows = config.venueServices.flatMap((v) => compareRows(config, v.id));
+    function compareRowsById(config: AvailabilityConfig, serviceDate: string): Map<string, CompareRow> {
+      const rows = config.venueServices.flatMap((v) => compareRows(config, v.id, serviceDate));
       return new Map(rows.map((r) => [r.scheduleServiceId, r]));
     }
     export function buildCompareChanges(
@@ -7831,6 +8267,17 @@
       );
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/opened-from-hub.ts">
+    export const OPENED_FROM_HUB = { openedFrom: "hub" } as const;
+    export function wasOpenedFromHub(state: unknown): boolean {
+      return (
+        typeof state === "object" &&
+        state !== null &&
+        "openedFrom" in state &&
+        state.openedFrom === "hub"
+      );
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">
     export function outcomeSummary(counts: OutcomeCounts, t: TFunction): string {
       return (["cancel", "move", "keep_notify", "keep_silent"] as const)
@@ -7853,6 +8300,47 @@
           .map((p) => t(`availability.close.button.part.${p.a}`, { count: p.count }))
           .join(" · "),
       });
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/pause-online-draft.ts">
+    export type PauseChoice = "tonight" | "untilResume" | "untilDate";
+    export const PAUSE_CHOICES: readonly PauseChoice[] = ["tonight", "untilResume", "untilDate"];
+    export interface PauseDraft {
+      readonly choice: PauseChoice;
+      /** The last date paused, for `untilDate`; empty until it is picked, and unread otherwise. */
+      readonly until: string;
+      readonly guestMessage: string;
+    }
+    function pauseOnlineForm(draft: PauseDraft, today: string): CloseForm {
+      const { choice } = draft;
+      return {
+        what: { kind: "booking", types: ["online"] },
+        when:
+          choice === "tonight"
+            ? { kind: "tonight" }
+            : choice === "untilResume"
+              ? { kind: "until-reopen", from: today }
+              : { kind: "range", from: today, to: draft.until },
+        fromMinute: null,
+        staffNote: "",
+        guestMessage: draft.guestMessage,
+      };
+    }
+    export function pauseUntilMax(today: string): string {
+      return addDays(today, MAX_SPAN_DAYS);
+    }
+    export function pauseOnlineProblem(
+      draft: PauseDraft,
+      today: string
+    ): "until" | "guestMessage" | null {
+      if (draft.choice === "untilDate" && draft.until > pauseUntilMax(today)) return "until";
+      const problem = validateClose(pauseOnlineForm(draft, today), today);
+      // A pause always says what it pauses, so the only other problem is its dates.
+      return problem === null || problem === "guestMessage" ? problem : "until";
+    }
+    export function pauseOnlineRule(draft: PauseDraft, id: string, today: string): DateRule | null {
+      if (pauseOnlineProblem(draft, today) !== null) return null;
+      return buildCloseRule(pauseOnlineForm(draft, today), id, today);
     }
   </file>
   <file path="apps/hospitality/src/components/availability/period.ts">
@@ -7950,12 +8438,7 @@
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-draft.ts">
     export type KeptHours = Pick<ServiceHours, "seating" | "bookingTypes">;
-    export interface DraftTimes {
-      readonly opens: string | null;
-      readonly lastSeating: string | null;
-      readonly closes: string | null;
-      /** While true, last seating follows close minus {@link LAST_SEATING_LEAD_MINUTES}. */
-      readonly lastSeatingLinked: boolean;
+    export interface DraftTimes extends LinkedTimes {
       /**
        * The stored seating and booking types of these hours (`draftFromConfig`), so a set's own are
        * not overwritten by the base's. Absent on hours the form made: they take the service's stored
@@ -7967,6 +8450,12 @@
       readonly id: string;
       /** Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
       readonly days: readonly number[];
+      /**
+       * Which of its seating and booking types the block had unlike its service's when the service's
+       * was changed (`setServiceKept`): it keeps those through later changes, even one that brings
+       * the service to the same value on the way to another. Form state only; never saved.
+       */
+      readonly ownKept?: { readonly seating: boolean; readonly bookingTypes: boolean };
     }
     export interface ServiceDraft extends DraftTimes {
       readonly id: string;
@@ -8017,23 +8506,6 @@
     export function emptyDraft(firstServiceId: string): QuickSetupDraft {
       return { services: [emptyService(firstServiceId)], days: [] };
     }
-    export function toMinutes(hhmm: string): number {
-      const [h = 0, m = 0] = hhmm.split(":").map(Number);
-      return h * 60 + m;
-    }
-    export function toClock(minutes: number): string {
-      const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
-      const mm = String(wrapped % 60).padStart(2, "0");
-      return `${hh}:${mm}`;
-    }
-    export function autoLastSeating(closes: string, opens: string | null = null): string {
-      const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
-      if (opens === null) return toClock(lead);
-      const opensAt = toMinutes(opens);
-      const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
-      return toClock(Math.max(lead + closesAfter, opensAt));
-    }
     export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) {
       const { opens, closes } = SERVICE_PRESETS[preset];
       return {
@@ -8043,20 +8515,6 @@
         closes,
         lastSeating: autoLastSeating(closes, opens),
         lastSeatingLinked: true,
-      };
-    }
-    export function setServiceTime<T extends DraftTimes>(
-      service: T,
-      field: "opens" | "lastSeating" | "closes",
-      value: string | null
-    ): T {
-      if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
-      const next = { ...service, [field]: value };
-      // Both ends bound a linked last seating, so moving either one keeps it in step.
-      if (!service.lastSeatingLinked) return next;
-      return {
-        ...next,
-        lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
       };
     }
     export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
@@ -8193,14 +8651,12 @@
           : draft.services.flatMap((service) => effectiveDays(draft, service));
       return [...new Set(days)].sort((a, b) => a - b);
     }
+    export const DEFAULT_KEPT: KeptHours = {
+      seating: { version: 1, interval: SEATING_INTERVAL_MINUTES },
+      bookingTypes: ["online", "phone"],
+    };
     function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours {
-      return {
-        ...m,
-        ...(kept ?? {
-          seating: { version: 1 as const, interval: SEATING_INTERVAL_MINUTES },
-          bookingTypes: ["online" as const, "phone" as const],
-        }),
-      };
+      return { ...m, ...(kept ?? DEFAULT_KEPT) };
     }
     function weekOf(
       draft: QuickSetupDraft,
@@ -8422,7 +8878,14 @@
       scope: string = DEFAULT_SCOPE
     ) {
       if (serviceId === null) return `${scope}-days`;
-      return `${scope}-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
+      return `${quickSetupRowScope(serviceId, blockId, scope)}-${field}`;
+    }
+    function quickSetupRowScope(serviceId: string, blockId?: string, scope: string = DEFAULT_SCOPE) {
+      return `${scope}-${serviceId}${blockId === undefined ? "" : `-${blockId}`}`;
+    }
+    export function useQuickSetupRowScope() {
+      const scope = use(QuickSetupIdScopeContext);
+      return (serviceId: string, blockId?: string) => quickSetupRowScope(serviceId, blockId, scope);
     }
     export function useQuickSetupFieldId() {
       const scope = use(QuickSetupIdScopeContext);
@@ -8515,6 +8978,61 @@
         name,
         summary: parts.join(" · "),
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/quick-setup-options.ts">
+    export function shownKept(times: Pick<DraftTimes, "kept">, stored?: KeptHours): KeptHours {
+      return times.kept ?? stored ?? DEFAULT_KEPT;
+    }
+    function settled(next: KeptHours, held: readonly (KeptHours | undefined)[]): KeptHours {
+      const known = held.filter((kept) => kept !== undefined);
+      return {
+        seating: known.find((kept) => sameSeating(kept.seating, next.seating))?.seating ?? next.seating,
+        bookingTypes:
+          known.find((kept) => sameBookingTypes(kept.bookingTypes, next.bookingTypes))?.bookingTypes ??
+          next.bookingTypes,
+      };
+    }
+    export function setServiceKept(
+      service: ServiceDraft,
+      next: KeptHours,
+      stored?: KeptHours
+    ): ServiceDraft {
+      const was = shownKept(service, stored);
+      const kept = settled(next, [stored, was]);
+      return {
+        ...service,
+        kept,
+        blocks: service.blocks.map((block) => followService(block, { was, kept, stored })),
+      };
+    }
+    function followService(
+      block: HoursBlock,
+      change: { readonly was: KeptHours; readonly kept: KeptHours; readonly stored?: KeptHours }
+    ): HoursBlock {
+      const own = shownKept(block, change.stored);
+      // A value the block had unlike its service's stays the block's for good: without the mark, a
+      // service changed to that value and then to another would take the block along.
+      const ownKept = {
+        seating: block.ownKept?.seating === true || !sameSeating(own.seating, change.was.seating),
+        bookingTypes:
+          block.ownKept?.bookingTypes === true ||
+          !sameBookingTypes(own.bookingTypes, change.was.bookingTypes),
+      };
+      return {
+        ...block,
+        ownKept,
+        kept: {
+          seating: ownKept.seating ? own.seating : change.kept.seating,
+          bookingTypes: ownKept.bookingTypes ? own.bookingTypes : change.kept.bookingTypes,
+        },
+      };
+    }
+    export function keepsOwnSettings(service: KeptHours, block: KeptHours): boolean {
+      return (
+        !sameSeating(service.seating, block.seating) ||
+        !sameBookingTypes(service.bookingTypes, block.bookingTypes)
+      );
     }
   </file>
   <file path="apps/hospitality/src/components/availability/quick-setup-placement.ts">
@@ -9266,6 +9784,19 @@
       );
       return new Intl.ListFormat(format.locale, { type: "conjunction" }).format(days);
     }
+    export function rowTitle(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
+      if (rule.repeat == null) return rangeLabel(rule, format, t);
+      const days = weekdayList(rule, format);
+      const short = { month: "short", day: "numeric" } as const;
+      const from = format.formatCalendarDate(rule.startsOn, short);
+      return rule.endsOn == null
+        ? t("availabilitySpecial.repeatFrom", { days, from })
+        : t("availabilitySpecial.repeatRange", {
+            days,
+            from,
+            to: format.formatCalendarDate(rule.endsOn, short),
+          });
+    }
     export function hoursSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string {
       if (rule.repeat != null) {
         return t("availabilitySpecial.hours.subjectRepeat", { days: weekdayList(rule, format) });
@@ -9290,6 +9821,60 @@
         });
       }
       return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
+    }
+    export type ClosureKind =
+      | { readonly kind: "venue" }
+      | { readonly kind: "section"; readonly section: string }
+      | { readonly kind: "booking"; readonly channels: NonNullable<SpecialDateRule["bookingTypes"]> };
+    export function closureKindOf(
+      rule: SpecialDateRule,
+      sectionNames?: ReadonlyMap<string, string>
+    ): ClosureKind {
+      const channels = rule.bookingTypes ?? [];
+      if (rule.targetKind === "booking" && channels.length > 0) {
+        return { kind: "booking", channels };
+      }
+      const section =
+        rule.targetKind === "tables" && rule.sectionId ? sectionNames?.get(rule.sectionId) : undefined;
+      return section !== undefined ? { kind: "section", section } : { kind: "venue" };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/rule-summaries.ts">
+    export interface ScheduleUsagePeriod {
+      readonly weekdays: readonly number[];
+      /** `YYYY-MM-DD`; `null` when the assignment has no start. */
+      readonly startsOn: string | null;
+      /** `YYYY-MM-DD`; `null` when the assignment has no end. */
+      readonly endsOn: string | null;
+    }
+    export type ScheduleUsage =
+      | { readonly kind: "unused" }
+      | { readonly kind: "rules"; readonly count: number }
+      | { readonly kind: "periods"; readonly periods: readonly ScheduleUsagePeriod[] };
+    export function scheduleUsage(config: AvailabilityConfig, scheduleId: string): ScheduleUsage {
+      const uses = config.assignments.filter((a) => a.scheduleId === scheduleId);
+      if (uses.length === 0) {
+        const count = config.dateRules.filter(
+          (r) => r.kind === "use_schedule" && r.useScheduleId === scheduleId
+        ).length;
+        return count > 0 ? { kind: "rules", count } : { kind: "unused" };
+      }
+      return {
+        kind: "periods",
+        periods: uses.map((a) => ({
+          weekdays: a.weekdays,
+          startsOn: a.startsOn || null,
+          endsOn: a.endsOn || null,
+        })),
+      };
+    }
+    export function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] {
+      return rules
+        .filter((r) => r.kind === "closure" || r.kind === "special_hours")
+        .filter((r) => r.endsOn == null || r.endsOn >= today)
+        .sort((a, b) =>
+          a.startsOn === b.startsOn ? a.id.localeCompare(b.id) : a.startsOn < b.startsOn ? -1 : 1
+        );
     }
   </file>
   <file path="apps/hospitality/src/components/availability/schedule-changes.ts">
@@ -9586,11 +10171,32 @@
       const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
       return mergeChanges(rows, { upsert: rename, remove: {} });
     }
-    function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) {
+    function keptOf(
+      config: AvailabilityConfig,
+      scheduleId: string | undefined
+    ): Record<string, KeptHours> {
       return Object.fromEntries(
         config.scheduleServices
           .filter((s) => s.scheduleId === scheduleId)
           .map((s) => [s.venueServiceId, { seating: s.seating, bookingTypes: s.bookingTypes }])
+      );
+    }
+    export function storedKeptByName(
+      config: AvailabilityConfig,
+      scheduleId: string | "regular" | undefined
+    ): Readonly<Record<string, KeptHours>> {
+      const id =
+        scheduleId === "regular" ? liveSchedules(config).find((s) => s.isRegular)?.id : scheduleId;
+      if (id === undefined) return {};
+      const kept = keptOf(config, id);
+      return Object.fromEntries(
+        config.venueServices
+          .filter((s) => !s.archivedAt)
+          .flatMap((s) => {
+            const stored = kept[s.id];
+            // Keyed as the saves key `venueServiceIds`: the stored name, lower-cased, not trimmed.
+            return stored ? [[s.name.toLowerCase(), stored] as const] : [];
+          })
       );
     }
     function scheduleRowChanges(input: {
@@ -10467,6 +11073,70 @@
       return { kind: "season", season: season ?? "winter" };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/superseded-fixtures.ts">
+    function counter(prefix: string) {
+      let n = 0;
+      return () => `${prefix}-${++n}`;
+    }
+    function later(draft: QuickSetupDraft): QuickSetupDraft {
+      return {
+        ...draft,
+        services: draft.services.map((s) =>
+          s.name === "Dinner"
+            ? { ...s, lastSeating: "21:30", closes: "22:30", lastSeatingLinked: false }
+            : s
+        ),
+      };
+    }
+    export function saveRegularWeek(
+      config: AvailabilityConfig,
+      startsOn: string,
+      prefix = "new"
+    ): AvailabilityConfig {
+      let n = 0;
+      const live = draftFromConfig(config, () => `draft-${++n}`);
+      return applyChanges(
+        config,
+        buildRegularWeekChanges({
+          config,
+          name: "",
+          draft: later(live),
+          startsOn,
+          endsOn: null,
+          winner: "new",
+          makeId: counter(prefix),
+        }),
+        SAVED_AT
+      );
+    }
+    export function supersededWeekOf(config: AvailabilityConfig) {
+      const week = config.schedules.find((s) => s.kind === "regular" && !s.isRegular && !s.archivedAt);
+      if (!week) throw new Error("no superseded regular week in this config");
+      return week;
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/superseded-schedules.ts">
+    export function isSupersededRegularWeek(
+      config: AvailabilityConfig,
+      schedule: Schedule,
+      serviceDate: string
+    ): boolean {
+      if (schedule.archivedAt || schedule.isRegular || schedule.kind !== "regular") return false;
+      // An open end (`null`) runs on with no last day, so it always reaches the service date.
+      const reaches = (endsOn: string | null | undefined) => endsOn == null || endsOn >= serviceDate;
+      return (
+        !config.assignments.some((a) => a.scheduleId === schedule.id && reaches(a.endsOn)) &&
+        !config.dateRules.some(
+          (r) => r.kind === "use_schedule" && r.useScheduleId === schedule.id && reaches(r.endsOn)
+        )
+      );
+    }
+    export function visibleSchedules(config: AvailabilityConfig, serviceDate: string): Schedule[] {
+      return config.schedules.filter(
+        (s) => !s.archivedAt && !isSupersededRegularWeek(config, s, serviceDate)
+      );
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/today-line-text.ts">
     type Format = Pick<VenueFormat, "formatLocalTime">;
     type PausedSet =
@@ -11227,6 +11897,28 @@
       }, [country, dates, t]);
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/use-refused-press.ts">
+    export interface RefusedPressOptions {
+      /** Reveal every problem: a refused save validates the whole form. */
+      readonly onRefused?: () => void;
+      /** Moves focus to the first problem. Called once the refusal has rendered, so the problem is there. */
+      readonly focusFirstProblem: () => void;
+    }
+    export function useRefusedPress(options: RefusedPressOptions) {
+      const { onRefused } = options;
+      // Counts refusals, so each one moves focus once and a plain re-render moves none.
+      const [refusals, setRefusals] = useState(0);
+      const focusProblem = useEffectEvent(options.focusFirstProblem);
+      useEffect(() => {
+        if (refusals > 0) focusProblem();
+      }, [refusals]);
+      const refuse = () => {
+        onRefused?.();
+        setRefusals((n) => n + 1);
+      };
+      return { refuse, refusals };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/use-regular-week-edit.ts">
     export interface RegularWeekEditInput {
       readonly venueId: string;
@@ -11321,6 +12013,8 @@
         [config, weekdays, startsOn, endsOn]
       );
       const issues = useMemo(() => validateDraft(draft), [draft]);
+      // What `buildRegularWeekChanges` falls back to per service name: the form shows the same.
+      const storedKept = useMemo(() => storedKeptByName(config, "regular"), [config]);
       const outside = useMemo(() => outsideSchedules(config), [config]);
       const closedDays = baselineWeek.days.filter((day) => !weekdays.includes(day));
       const focusDate =
@@ -11363,8 +12057,9 @@
         : "";
       const scopeConflicts: ScopeConflictMode = dates.length > 1 ? conflictMode : "replace";
     
-      const submit = async () => {
-        if (!startsOn) return;
+      /** Saves the draft; `true` when it was saved (and Undo offered), `false` when it was not. */
+      const submit = async (): Promise<boolean> => {
+        if (!startsOn) return false;
         const changes = buildRegularWeekChanges({
           config,
           name: trimmed,
@@ -11377,7 +12072,7 @@
         // Checked against the version the draft was built from, so a change made since is a
         // conflict the Manager reviews, not something this save quietly rebases.
         const saved = await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
-        if (!saved) return;
+        if (!saved) return false;
         offerUndo({
           venueId,
           saved,
@@ -11387,6 +12082,7 @@
               : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
         });
         onSaved?.(saved);
+        return true;
       };
     
       return {
@@ -11410,6 +12106,7 @@
         own,
         overlaps,
         issues,
+        storedKept,
         outside,
         closedDays,
         focusDate,
@@ -11540,6 +12237,15 @@
     export type SaveAttempts = ReturnType<typeof useSaveAttempts>;
   </file>
   <file path="apps/hospitality/src/components/availability/use-schedule-save.ts">
+    export interface SaveConflict {
+      /** The change that won; `null` when the server recorded none. */
+      readonly winningChange: AvailabilityChangeSummary | null;
+      readonly changesSince?: ConflictChangesSince;
+      /** The version the 409 reported, which Overwrite goes against; `null` from an older server. */
+      readonly seen: number | null;
+      /** An Overwrite met this one: the dialog was already open on an earlier change. */
+      readonly again: boolean;
+    }
     export function useScheduleSave(
       onStale: () => void,
       strandedKey:
@@ -11552,22 +12258,33 @@
       const [failure, setFailure] = useState<readonly string[]>([]);
       // The bookings behind a stranded refusal, listed beneath its message.
       const [stranded, setStranded] = useState<readonly StrandedReservation[]>([]);
-      // A lost race. The draft was built from a version that is gone, so a drawer that edits rows
-      // must show what changed and get an answer (reapply or discard) before it saves again.
-      const [conflicted, setConflicted] = useState(false);
+      // A lost race. The draft was built from a version that is gone, so a form that edits rows
+      // must show what changed and get an answer before it saves again.
+      const [conflict, setConflict] = useState<SaveConflict | null>(null);
+      // The last refusal answered an Overwrite, so it is said in the conflict dialog.
+      const [overwriteRefused, setOverwriteRefused] = useState(false);
     
       const clearFailure = () => {
         setFailure([]);
         setStranded([]);
+        setOverwriteRefused(false);
       };
     
-      const reject = (error: unknown) => {
+      const reject = (error: unknown, overwrote: boolean) => {
         const problem = availabilityProblemOf(error);
         if (problem?.code === "version-conflict") {
           onStale();
-          setConflicted(true);
+          setConflict({
+            winningChange: problem.winningChange ?? null,
+            ...(problem.changesSince ? { changesSince: problem.changesSince } : {}),
+            seen: problem.currentVersion ?? null,
+            again: overwrote,
+          });
           setFailure([t("availabilitySchedules.conflict")]);
-        } else if (problem?.code === "invalid-config" && problem.issues?.length) {
+          return;
+        }
+        setOverwriteRefused(overwrote);
+        if (problem?.code === "invalid-config" && problem.issues?.length) {
           setFailure(problem.issues.map((i) => i.message));
         } else if (problem?.code === "stranded-bookings") {
           setFailure([t(strandedKey, { count: problem.reservations?.length ?? 0 })]);
@@ -11577,40 +12294,78 @@
         }
       };
     
+      const send = async (
+        venueId: string,
+        body: {
+          expectedVersion: number;
+          changes: AvailabilityConfigChanges;
+          scopeConflicts: ScopeConflictMode;
+        },
+        overwrote: boolean
+      ): Promise<AvailabilityConfigSaveResult | null> => {
+        clearFailure();
+        try {
+          return await mutateAsync({ venueId, body });
+        } catch (error) {
+          reject(error, overwrote);
+          return null;
+        }
+      };
+    
       /** Resolves the save result (truthy) when the change was saved, `null` when it was refused. */
-      const save = async (
+      const save = (
         venueId: string,
         state: AvailabilityConfigState,
         changes: AvailabilityConfigChanges,
         scopeConflicts: ScopeConflictMode,
         /** The version the changes were built against, when that is not the latest `state`. */
         expectedVersion: number = state.version
+      ): Promise<AvailabilityConfigSaveResult | null> =>
+        send(venueId, { expectedVersion, changes, scopeConflicts }, false);
+    
+      /**
+       * Saves over the change the conflict named: checked against the version the 409 reported, never
+       * one read at click time, so a change the dialog did not show is another conflict.
+       */
+      const overwrite = async (
+        venueId: string,
+        changes: AvailabilityConfigChanges,
+        scopeConflicts: ScopeConflictMode
       ): Promise<AvailabilityConfigSaveResult | null> => {
-        clearFailure();
-        try {
-          return await mutateAsync({
-            venueId,
-            body: { expectedVersion, changes, scopeConflicts },
-          });
-        } catch (error) {
-          reject(error);
-          return null;
-        }
+        const seen = conflict?.seen;
+        if (seen === null || seen === undefined) return null;
+        const saved = await send(venueId, { expectedVersion: seen, changes, scopeConflicts }, true);
+        if (saved) setConflict(null);
+        return saved;
       };
     
       return {
         save,
+        overwrite,
         isPending,
         failure,
         stranded,
-        conflicted,
+        conflict,
+        conflicted: conflict !== null,
+        /** Why the last Overwrite was refused, when it was not for a newer change. */
+        overwriteFailure: overwriteRefused ? failure : [],
         clearFailure,
         /** The Manager has answered the conflict; the next save is against the version they saw. */
         clearConflict: () => {
-          setConflicted(false);
+          setConflict(null);
           clearFailure();
         },
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-visible-schedules.ts">
+    export function useServiceDate(config: AvailabilityConfig, timezone: string): string {
+      const now = useNow();
+      return useMemo(() => currentServiceDate(config, timezone, now), [config, timezone, now]);
+    }
+    export function useVisibleSchedules(config: AvailabilityConfig, timezone: string): Schedule[] {
+      const serviceDate = useServiceDate(config, timezone);
+      return useMemo(() => visibleSchedules(config, serviceDate), [config, serviceDate]);
     }
   </file>
   <file path="apps/hospitality/src/components/availability/use-winning-change-text.ts">
@@ -16600,6 +17355,18 @@
     export async function mockPublicMenu(page: Page): Promise<void> {
       await page.route(/\/public\/v1\/venues\/[^/?]+\/menus\/dinner(\?.*)?$/, (route) =>
         jsonOk(route, buildPublicMenuFixture())
+      );
+    }
+    export async function mockPublicInvite(page: Page): Promise<void> {
+      await page.route(/\/public\/v1\/invites\/[^/?]+(\?.*)?$/, (route) =>
+        jsonOk(route, {
+          venue: { name: "E2E Test Bistro", slug: "e2e-test-bistro" },
+          date: localDay(3),
+          time: "19:00",
+          partySize: 4,
+          rsvps: [{ firstName: "Sam", status: "IN" }],
+          status: "CONFIRMED",
+        })
       );
     }
     async function mockMenus(page: Page): Promise<void> {
@@ -22359,9 +23126,9 @@
     }
     export async function countFirstPaintControls(
       page: Page,
-      region: Locator
+      region: Locator | null
     ): Promise<FirstPaintCount> {
-      const regionHandle = await region.elementHandle();
+      const regionHandle = region ? await region.elementHandle() : null;
       return page.evaluate(
         ({ selector, shell, outside }) => {
           const main = document.querySelector("main#main-content");
@@ -22528,7 +23295,7 @@
       return page.getByRole("radio", { name }).or(page.getByRole("tab", { name }));
     }
     export async function firstPaint(page: Page): Promise<void> {
-      await page.goto("availability");
+      await page.goto("availability/calendar");
       await expect(page.getByTestId("week-panel")).toBeVisible();
     }
     export function pickerDay(page: Page, date: string): Locator {
@@ -24170,6 +24937,36 @@
         trackOwnSave(venueId, () => api.availability.revertChange(venueId, changeId, expectedVersion)),
     });
   </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityHub.ts">
+    export function useAvailabilityHub(scope: AvailabilityScope): HubRows | null {
+      const { venueId, state, timezone, today } = scope;
+      const { selectedVenue } = useVenue();
+      const settings = selectedVenue?.settings;
+      const nowMinute = minutesOfDayIn(useNow(), timezone);
+      const sections = useVenueFloorPlanSections({ venueId });
+      const country = useHolidayCountry();
+      const decisions = useHolidayDecisions({
+        venueId,
+        from: today,
+        to: addDays(today, HOLIDAY_HORIZON_DAYS),
+      });
+      return useMemo(() => {
+        if (!state) return null;
+        return hubRows({
+          state,
+          settings,
+          holidays:
+            country && decisions.data
+              ? holidayStates(country, today, state.config, decisions.data)
+              : NO_HOLIDAYS,
+          sectionNames: new Map((sections.data ?? []).map((s) => [s.id, s.name])),
+          timezone,
+          today,
+          nowMinute,
+        });
+      }, [state, settings, country, decisions.data, sections.data, timezone, today, nowMinute]);
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
     export interface AvailabilityPreviewState {
       /** The newest result that arrived, kept while a newer request is pending or has failed. */
@@ -24222,8 +25019,51 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityScope.ts">
+    export type AvailabilityLoad = "loading" | "error" | "ready";
+    export function availabilityLoad(
+      state: Pick<AvailabilityConfigState, "source"> | null,
+      failed: boolean
+    ): AvailabilityLoad {
+      if (state === null) return failed ? "error" : "loading";
+      return state.source === "unreadable" ? "error" : "ready";
+    }
+    export interface AvailabilityScope {
+      /** `null` when no venue is selected. */
+      readonly venueId: string | null;
+      /** The venue's IANA time zone; empty when no venue is selected. */
+      readonly timezone: string;
+      /** Today's date in the venue's time zone. */
+      readonly today: string;
+      /** The config, its version and its source; `null` until the config has loaded. */
+      readonly state: AvailabilityConfigState | null;
+      /**
+       * Where the config read stands, which `state` alone cannot say: `loading` until it first
+       * answers, `error` when it has never answered or answered with hours nobody can read
+       * (`source: "unreadable"`), else `ready`. `refresh()` is the retry.
+       */
+      readonly load: AvailabilityLoad;
+      /** Why the read failed, as a sentence; `null` unless a request failed with no config on hand. */
+      readonly loadError: string | null;
+      /** False for a Host, and while the role is still being read. */
+      readonly isManager: boolean;
+      /** The role is still being read, so `isManager: false` does not yet mean a Host. */
+      readonly rolePending: boolean;
+      /** Refetches the config, after a refused save. */
+      readonly refresh: () => void;
+      /**
+       * Shows the 10-second Undo for a save, under `title`. The layout owns the offer, so it still
+       * works after the child that saved has unmounted.
+       */
+      readonly offerUndo: (title: string, saved: AvailabilityConfigSaveResult) => void;
+    }
+    export function useAvailabilityScope(): AvailabilityScope {
+      return useOutletContext<AvailabilityScope>();
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
-    function focusOffToast(offeredFrom: Element | null) {
+    export const UNDO_TOAST_MS = 10_000;
+    export function focusOffToast(offeredFrom: Element | null) {
       const active = document.activeElement;
       if (active && active !== document.body && !active.closest("[aria-live]")) return;
       const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
@@ -24290,6 +25130,79 @@
           });
         },
         [revert, t, toast]
+      );
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useBookingRulesUndo.ts">
+    function venueInCache(queryClient: QueryClient, venueId: string): Venue | null {
+      const lists = queryClient.getQueriesData<readonly Venue[]>({ queryKey: [VENUES_QUERY_KEY] });
+      for (const [, venues] of lists) {
+        const venue = venues?.find((v) => v.id === venueId);
+        if (venue) return venue;
+      }
+      return null;
+    }
+    export interface BookingRulesUndoOffer {
+      readonly venueId: string;
+      /** The three rules as they were before the save. */
+      readonly previous: BookingRulesForm;
+    }
+    export function useBookingRulesUndo() {
+      const { t } = useTranslation();
+      const { toast } = useToast();
+      const queryClient = useQueryClient();
+      const { mutateAsync } = useUpdateVenue();
+    
+      return useCallback(
+        ({ venueId, previous }: BookingRulesUndoOffer) => {
+          const offeredFrom = document.activeElement;
+          const failed = (reason?: string) =>
+            toast({
+              title: t("availabilityHub.bookingRules.undoError"),
+              ...(reason && { description: reason }),
+              variant: "error",
+              duration: UNDO_TOAST_MS,
+              action: pressOnce(t("errorBanner.retry")),
+            });
+          const undo = async () => {
+            const venue = venueInCache(queryClient, venueId);
+            // Writing three values onto settings nobody can read would erase every other key.
+            if (!venue) {
+              failed();
+              return;
+            }
+            try {
+              await mutateAsync({
+                venueId,
+                data: { settings: withBookingRules(venue.settings, previous) },
+              });
+            } catch (error) {
+              failed(describeApiError(error).detail);
+              return;
+            }
+            toast({ title: t("availability.undo.done"), variant: "success", duration: 5000 });
+          };
+          // One press per button: a double click must not send the re-save twice.
+          const pressOnce = (label: string) => {
+            let pressed = false;
+            return {
+              label,
+              onClick: () => {
+                focusOffToast(offeredFrom);
+                if (pressed) return;
+                pressed = true;
+                void undo();
+              },
+            };
+          };
+          toast({
+            title: t("availability.bookingRules.saved"),
+            variant: "success",
+            duration: UNDO_TOAST_MS,
+            action: pressOnce(t("availability.undo.action")),
+          });
+        },
+        [mutateAsync, queryClient, t, toast]
       );
     }
   </file>
@@ -28067,7 +28980,1396 @@
     }
   </file>
   </section>
+  <section priority="medium" role="hub">
+  <file path="apps/hospitality/src/components/availability/hub/date-answer.ts">
+    export type DateAnswerRule =
+      | {
+          readonly kind: "regular" | "seasonal";
+          readonly scheduleId: string;
+          /** The schedule's name as stored. */
+          readonly name: string;
+        }
+      | {
+          readonly kind: "useHours" | "special" | "closure" | "tonight";
+          /** The date rule's id. */
+          readonly ruleId: string;
+        };
+    export type DateAnswerHubRow = 1 | 2 | 3 | 4;
+    export interface DateAnswerBand {
+      readonly from: number;
+      readonly to: number;
+    }
+    export interface DateAnswer {
+      readonly date: string;
+      /** The services that run, in opening order; empty means closed. */
+      readonly services: readonly {
+        readonly name: string;
+        readonly opensAt: number;
+        readonly closesAt: number;
+        /**
+         * The parts of its hours a closure of this service alone takes, in order; absent when there
+         * are none. The venue-wide bands are not repeated here.
+         */
+        readonly closed?: readonly DateAnswerBand[];
+      }[];
+      /**
+       * The band the whole venue is closed for, in service-day minutes: the one the deciding rule is
+       * part of, else the earliest. Closures that overlap or meet are one band.
+       */
+      readonly closedBand: DateAnswerBand | null;
+      /** Every other venue-wide band on the date, in order; absent when there are none. */
+      readonly otherClosedBands?: readonly DateAnswerBand[];
+      /** `null` when no rule covers the date. */
+      readonly deciding: DateAnswerRule | null;
+      readonly beneath: DateAnswerRule | null;
+      readonly hubRow: DateAnswerHubRow | null;
+    }
+    function isRealDate(value: string): boolean {
+      if (!CIVIL_DATE.test(value)) return false;
+      const parsed = new Date(`${value}T00:00:00Z`);
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+    }
+    function setsHours(layer: Layer): boolean {
+      return (
+        layer.kind === "schedule" || layer.kind === "use_schedule" || layer.kind === "special_hours"
+      );
+    }
+    function scheduleIdOf(config: AvailabilityConfig, layer: Layer): string | undefined {
+      return config.assignments.find((a) => a.id === layer.id)?.scheduleId;
+    }
+    function ruleOf(config: AvailabilityConfig, layer: Layer): DateAnswerRule | null {
+      switch (layer.kind) {
+        case "schedule": {
+          const scheduleId = scheduleIdOf(config, layer);
+          // A schedule layer's id is always one of the config's assignments.
+          if (scheduleId === undefined) return null;
+          return {
+            kind: layer.regularWeek ? "regular" : "seasonal",
+            scheduleId,
+            name: layer.scheduleName ?? layer.label,
+          };
+        }
+        case "use_schedule":
+          return { kind: "useHours", ruleId: layer.id };
+        case "special_hours":
+          return { kind: "special", ruleId: layer.id };
+        case "closure":
+          return { kind: "closure", ruleId: layer.id };
+        case "tonight":
+          return { kind: "tonight", ruleId: layer.id };
+        case "skip":
+          return null;
+      }
+    }
+    function scheduleBeneath(
+      config: AvailabilityConfig,
+      timezone: string,
+      date: string,
+      layer: Layer
+    ): DateAnswerRule | null {
+      const scheduleId = scheduleIdOf(config, layer);
+      const without = {
+        ...config,
+        assignments: config.assignments.filter((a) => a.scheduleId !== scheduleId),
+      };
+      const lower = resolveDay({ timezone, config: without }, date).explanation.find(
+        (l) => l.kind === "schedule"
+      );
+      return lower ? ruleOf(without, lower) : null;
+    }
+    function venueBandsOf(day: ResolvedDaySummary): ResolvedClosure[] {
+      return day.closures.filter((c) => c.targetKind === "venue");
+    }
+    interface Span {
+      readonly from: number;
+      readonly to: number;
+    }
+    function mergedSpans(spans: readonly Span[]): Span[] {
+      return spans
+        .map(({ from, to }) => ({ from, to }))
+        .sort((a, b) => a.from - b.from)
+        .reduce<Span[]>((merged, span) => {
+          const last = merged.at(-1);
+          return last && span.from <= last.to
+            ? [...merged.slice(0, -1), { from: last.from, to: Math.max(last.to, span.to) }]
+            : [...merged, span];
+        }, []);
+    }
+    function closedSpansOf(day: ResolvedDaySummary): Span[] {
+      return mergedSpans(venueBandsOf(day));
+    }
+    function openSpans(open: Span, closed: readonly Span[]): Span[] {
+      return closed.reduce<Span[]>(
+        (left, band) =>
+          left.flatMap((span) =>
+            [
+              { from: span.from, to: Math.min(span.to, band.from) },
+              { from: Math.max(span.from, band.to), to: span.to },
+            ].filter((piece) => piece.from < piece.to)
+          ),
+        open.from < open.to ? [open] : []
+      );
+    }
+    interface ServiceReport {
+      readonly name: string;
+      readonly opensAt: number;
+      readonly closesAt: number;
+      /** The minutes it is open, outside every band that closes it. */
+      readonly open: readonly Span[];
+      /** The minutes of its hours closed for this service alone, outside the venue-wide bands. */
+      readonly closed: readonly Span[];
+    }
+    function serviceReports(day: ResolvedDaySummary): ServiceReport[] {
+      const venue = closedSpansOf(day);
+      return day.services.map((service) => {
+        const { name, opensAt, closesAt } = service;
+        const own = mergedSpans(
+          day.closures.filter(
+            (c) => c.targetKind === "service" && c.venueServiceId === service.venueServiceId
+          )
+        );
+        return {
+          name,
+          opensAt,
+          closesAt,
+          open: openSpans({ from: opensAt, to: closesAt }, mergedSpans([...venue, ...own])),
+          closed: own.flatMap((band) =>
+            openSpans({ from: Math.max(band.from, opensAt), to: Math.min(band.to, closesAt) }, venue)
+          ),
+        };
+      });
+    }
+    function reportKey(day: ResolvedDaySummary): string {
+      const services = serviceReports(day)
+        .map((s) => [s.name, s.open] as const)
+        .filter(([, open]) => open.length > 0);
+      return JSON.stringify([closedSpansOf(day), services]);
+    }
+    function servicesOf(day: ResolvedDaySummary): DateAnswer["services"] {
+      return serviceReports(day)
+        .filter((s) => s.closed.length === 0 || s.open.length > 0)
+        .map(({ name, opensAt, closesAt, closed }) => ({
+          name,
+          opensAt,
+          closesAt,
+          ...(closed.length > 0 ? { closed } : {}),
+        }));
+    }
+    function decidingOverlays(
+      config: AvailabilityConfig,
+      timezone: string,
+      day: ResolvedDay,
+      overlays: readonly Layer[]
+    ): Layer[] {
+      return overlays.reduce(
+        (state, layer) => {
+          const without = {
+            ...state.config,
+            dateRules: state.config.dateRules.filter((r) => r.id !== layer.id),
+          };
+          const key = reportKey(resolveDay({ timezone, config: without }, day.serviceDate));
+          return {
+            config: without,
+            key,
+            found: key === state.key ? state.found : [...state.found, layer],
+          };
+        },
+        { config, key: reportKey(day), found: [] as Layer[] }
+      ).found;
+    }
+    function closedBandsOf(day: ResolvedDay, top: Layer | undefined): Span[] {
+      const spans = closedSpansOf(day);
+      const own = venueBandsOf(day).find((c) => c.ruleId === top?.id);
+      const first = (own && spans.find((s) => s.from <= own.from && own.to <= s.to)) ?? spans[0];
+      return first ? [first, ...spans.filter((s) => s !== first)] : [];
+    }
+    export function dateAnswer(
+      config: AvailabilityConfig,
+      timezone: string,
+      date: string
+    ): DateAnswer | null {
+      if (!isRealDate(date)) return null;
+      const day = resolveDay({ timezone, config }, date);
+      // Top first. A skip is never named: the engine has already removed the rule it skips.
+      const layers = day.explanation.filter((l) => l.kind !== "skip").reverse();
+      const overlays = layers.filter((l) => !setsHours(l));
+      // The rules that could be named, top first: the hours layers always can.
+      const candidates = [
+        ...decidingOverlays(config, timezone, day, overlays),
+        ...layers.filter(setsHours),
+      ];
+      const top = candidates.at(0);
+      const deciding = top ? ruleOf(config, top) : null;
+      const lower = top ? candidates.slice(1).find((l) => l.kind !== top.kind) : undefined;
+      const beneath =
+        top?.kind === "schedule"
+          ? scheduleBeneath(config, timezone, date, top)
+          : lower
+            ? ruleOf(config, lower)
+            : null;
+      const [closedBand, ...otherClosedBands] = closedBandsOf(day, top);
+      return {
+        date,
+        services: servicesOf(day),
+        closedBand: closedBand ?? null,
+        ...(otherClosedBands.length > 0 ? { otherClosedBands } : {}),
+        deciding,
+        beneath,
+        hubRow: deciding ? HUB_ROW[deciding.kind] : null,
+      };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/date-sentence.ts">
+    function sentenceDate(date: string, { format }: HubTextContext): string {
+      return format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
+    }
+    function ruleText(rule: DateAnswerRule, { t }: HubTextContext): string {
+      switch (rule.kind) {
+        case "regular":
+          return t("availabilityHub.dateCheck.rule.regular");
+        case "seasonal":
+          return scheduleNameText(rule.name, t);
+        // "Same as another day" is a choice made on a special date.
+        case "useHours":
+        case "special":
+          return t("availabilityHub.dateCheck.rule.special");
+        case "closure":
+          return t("availabilityHub.dateCheck.rule.closure");
+        case "tonight":
+          return t("availabilityHub.dateCheck.rule.tonight");
+      }
+    }
+    type Service = DateAnswer["services"][number];
+    function serviceClosedTexts(service: Service, { t, format }: HubTextContext): string[] {
+      const time = (minute: number) => minuteText(minute, t, format);
+      return (service.closed ?? []).map((band) =>
+        band.to >= service.closesAt
+          ? t("availabilityHub.dateCheck.serviceClosedFrom", {
+              name: service.name,
+              time: time(band.from),
+            })
+          : t("availabilityHub.dateCheck.serviceClosedBetween", {
+              name: service.name,
+              from: time(band.from),
+              to: time(band.to),
+            })
+      );
+    }
+    function whatHappens(answer: DateAnswer, ctx: HubTextContext): string {
+      const { t, format } = ctx;
+      const { services } = answer;
+      const bands = [
+        ...(answer.closedBand ? [answer.closedBand] : []),
+        ...(answer.otherClosedBands ?? []),
+      ];
+      const closed = t("availabilityHub.dateCheck.closed");
+      if (services.length === 0) return closed;
+      const opens = Math.min(...services.map((s) => s.opensAt));
+      const closes = Math.max(...services.map((s) => s.closesAt));
+      if (bands.some((band) => band.from <= opens && band.to >= closes)) return closed;
+      const time = (minute: number) => minuteText(minute, t, format);
+      const hours = services.map((s) =>
+        t("availabilityHub.dateCheck.service", {
+          name: s.name,
+          hours: t("availability.serviceHours.range", {
+            open: time(s.opensAt),
+            close: time(s.closesAt),
+          }),
+        })
+      );
+      const venueClosed = bands
+        // A band outside the open hours changes nothing a guest can book, so it is not said.
+        .filter((band) => band.from < closes && band.to > opens)
+        .sort((a, b) => a.from - b.from)
+        .map((band) =>
+          band.to >= closes
+            ? t("availabilityHub.dateCheck.closedFrom", { time: time(band.from) })
+            : t("availabilityHub.dateCheck.closedBetween", {
+                from: time(band.from),
+                to: time(band.to),
+              })
+        );
+      return new Intl.ListFormat(format.locale, { type: "unit" }).format([
+        ...hours,
+        ...services.flatMap((s) => serviceClosedTexts(s, ctx)),
+        ...venueClosed,
+      ]);
+    }
+    export function dateSentence(answer: DateAnswer, ctx: HubTextContext): string {
+      const { t } = ctx;
+      const date = sentenceDate(answer.date, ctx);
+      if (answer.deciding === null) return t("availabilityHub.dateCheck.uncovered", { date });
+      // The sentence puts its own period after what happens, so a time such as "10:00 p.m." gives up its own.
+      const what = whatHappens(answer, ctx).replace(/\.$/, "");
+      const values = { date, what, rule: ruleText(answer.deciding, ctx) };
+      return answer.beneath
+        ? t("availabilityHub.dateCheck.sentenceOver", {
+            ...values,
+            beneath: ruleText(answer.beneath, ctx),
+          })
+        : t("availabilityHub.dateCheck.sentence", values);
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-actions.ts">
+    export interface HubAction {
+      readonly kind: "edit" | "add" | "view";
+      readonly to: string;
+    }
+    export function hubActions(
+      rows: HubRowModels,
+      isManager: boolean
+    ): readonly [HubAction | null, HubAction | null, HubAction, HubAction, HubAction | null] {
+      const view = (to: string): HubAction => ({ kind: "view", to });
+      const edit = (to: string): HubAction | null => (isManager ? { kind: "edit", to } : null);
+      const specialDates = availabilityPath({ view: "specialDates" });
+      const seasonal: HubAction | null = !isManager
+        ? null
+        : rows[1].sets.length === 0
+          ? { kind: "add", to: availabilityPath({ view: "seasonal", screen: "new" }) }
+          : { kind: "edit", to: availabilityPath({ view: "seasonal" }) };
+      return [
+        edit(availabilityPath({ view: "hours" })),
+        seasonal,
+        edit(specialDates) ?? view(specialDates),
+        view(availabilityPath({ view: "closures" })),
+        edit(availabilityPath({ view: "bookingRules" })),
+      ];
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-closures-text.ts">
+    function pauseText(pause: HubOnlinePause, today: string, ctx: HubTextContext): string {
+      const { t, format } = ctx;
+      if (!pause.inForce && pause.fromMinute !== null) {
+        return t("availabilityHub.hub.closures.pauseWaiting", {
+          time: minuteText(pause.fromMinute, t, format),
+        });
+      }
+      // A pause for part of the day is over at its own time, whatever date it runs to.
+      if (pause.untilMinute !== null) {
+        return t("availabilityHub.hub.closures.pauseUntilTime", {
+          time: minuteText(pause.untilMinute, t, format),
+        });
+      }
+      if (pause.endsOn === null) return t("availabilityHub.hub.closures.pauseUntilResumed");
+      return pause.endsOn === today
+        ? t("availabilityHub.hub.closures.pauseTonight")
+        : t("availabilityHub.hub.closures.pauseUntil", { date: shortDate(pause.endsOn, ctx) });
+    }
+    function tonightText(change: HubTonightChange, { t, format }: HubTextContext): string {
+      if (change.closeAt !== null) {
+        return t("availabilityHub.hub.closures.closingEarly", {
+          time: minuteText(change.closeAt, t, format),
+        });
+      }
+      // A change is a close-early or a stop, so a stop always has its window.
+      const { from, to } = change.window ?? { from: 0, to: END_OF_SERVICE_DAY };
+      return t("availabilityHub.hub.closures.stopTonight", {
+        from: minuteText(from, t, format),
+        to: closureEndText(to, t, format),
+      });
+    }
+    function whatText(target: HubClosureTarget, { t, format }: HubTextContext): string {
+      switch (target.kind) {
+        case "venue":
+          return t("availabilityHub.hub.closures.what.venue");
+        case "service":
+          return target.name === null
+            ? t("availabilityHub.hub.closures.what.service")
+            : t("availabilityHub.hub.closures.what.named", { name: target.name });
+        case "section":
+          return target.name === null
+            ? t("availabilityHub.hub.closures.what.section")
+            : t("availabilityHub.hub.closures.what.named", { name: target.name });
+        case "tables":
+          return t("availabilityHub.hub.closures.what.tables", { count: target.count });
+        case "booking": {
+          if (target.channels.length === 0) return t("availabilityHub.hub.closures.what.bookingAll");
+          const channels = new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
+            target.channels.map((channel) => t(`setup.hub.channelLabel.${channel}`))
+          );
+          return t("availabilityHub.hub.closures.what.booking", { channels });
+        }
+      }
+    }
+    interface Reading {
+      readonly inForce: boolean;
+      readonly today: string;
+    }
+    function whenText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null {
+      const { t, format } = ctx;
+      if (closure.weekdays !== null) {
+        const days = weekdaySummary(closure.weekdays, format, t);
+        return closure.endsOn === null
+          ? t("availabilityHub.hub.closures.when.repeatingOpen", { days })
+          : t("availabilityHub.hub.closures.when.repeating", {
+              days,
+              date: shortDate(closure.endsOn, ctx),
+            });
+      }
+      if (closure.endsOn === null) return t("availabilityHub.hub.closures.when.untilReopened");
+      if (closure.endsOn === closure.startsOn) {
+        if (!reading.inForce) return null;
+        if (!sinceLastNight(closure, reading)) return t("availabilityHub.hub.closures.when.today");
+        return closure.window === null ? t("availabilityHub.hub.closures.sinceYesterday") : null;
+      }
+      return t("availabilityHub.hub.closures.when.until", { date: shortDate(closure.endsOn, ctx) });
+    }
+    function windowText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null {
+      const { t, format } = ctx;
+      const { window } = closure;
+      if (window === null) return null;
+      if (sinceLastNight(closure, reading)) {
+        return t("availabilityHub.hub.closures.sinceLastNight", {
+          time: minuteText(window.from, t, format),
+        });
+      }
+      return window.to >= END_OF_SERVICE_DAY
+        ? t("availabilityHub.hub.closures.windowFrom", { time: minuteText(window.from, t, format) })
+        : t("availabilityHub.hub.closures.windowBetween", {
+            from: minuteText(window.from, t, format),
+            to: minuteText(window.to, t, format),
+          });
+    }
+    function detailText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string {
+      return [whenText(closure, reading, ctx), windowText(closure, reading, ctx)]
+        .filter((part): part is string => part !== null)
+        .join(", ");
+    }
+    function nowText(closure: HubClosure, today: string, ctx: HubTextContext): string {
+      const what = whatText(closure.target, ctx);
+      const detail = detailText(closure, { inForce: true, today }, ctx);
+      return detail ? ctx.t("availabilityHub.hub.closures.now", { what, detail }) : what;
+    }
+    function nextText(closure: HubClosure, today: string, ctx: HubTextContext): string {
+      const values = { date: shortDate(closure.nextOn, ctx), what: whatText(closure.target, ctx) };
+      const detail = detailText(closure, { inForce: false, today }, ctx);
+      return detail
+        ? ctx.t("availabilityHub.hub.closures.nextDetail", { ...values, detail })
+        : ctx.t("availabilityHub.hub.closures.next", values);
+    }
+    export interface ClosuresLine {
+      readonly text: string;
+      readonly ruleId?: string;
+    }
+    export function closuresLines(
+      row: ClosuresRow,
+      today: string,
+      ctx: HubTextContext
+    ): ClosuresLine[] {
+      const { pause, next } = row;
+      const lines = [
+        ...(pause ? [{ ruleId: pause.ruleId, text: pauseText(pause, today, ctx) }] : []),
+        ...row.tonight.map((change) => ({ ruleId: change.ruleId, text: tonightText(change, ctx) })),
+        ...row.now.map((closure) => ({ ruleId: closure.ruleId, text: nowText(closure, today, ctx) })),
+        ...(next ? [{ ruleId: next.ruleId, text: nextText(next, today, ctx) }] : []),
+      ];
+      return lines.length > 0 ? lines : [{ text: ctx.t("availabilityHub.hub.closures.empty") }];
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-closures.ts">
+    type BookingChannel = NonNullable<DateRule["bookingTypes"]>[number];
+    export type HubClosureTarget =
+      | { readonly kind: "venue" }
+      | { readonly kind: "service"; readonly venueServiceId: string; readonly name: string | null }
+      | { readonly kind: "section"; readonly sectionId: string; readonly name: string | null }
+      | { readonly kind: "tables"; readonly count: number }
+      | { readonly kind: "booking"; readonly channels: readonly BookingChannel[] };
+    export interface HubClosure {
+      readonly ruleId: string;
+      readonly target: HubClosureTarget;
+      /**
+       * In `now`, the service date it is in force on: today, or yesterday while that service runs past
+       * midnight. In `next`, the first date it closes: a skipped or replaced date is passed over.
+       */
+      readonly nextOn: string;
+      readonly startsOn: string;
+      /** `null` for a closure that lasts until it is reopened. */
+      readonly endsOn: string | null;
+      /** The weekdays a repeating closure covers (0 = Sunday); `null` when it does not repeat. */
+      readonly weekdays: readonly number[] | null;
+      /** The part of each day it closes, in service-day minutes; `null` for the whole day. */
+      readonly window: { readonly from: number; readonly to: number } | null;
+    }
+    export interface HubOnlinePause {
+      readonly ruleId: string;
+      /** The kind of rule it is, which decides where it is removed. */
+      readonly source: "closure" | "tonight";
+      /** `false` while it waits for `fromMinute`. */
+      readonly inForce: boolean;
+      /** The minute of each day it starts at; `null` when it covers the whole day. */
+      readonly fromMinute: number | null;
+      /** The minute of the day it ends at; `null` when it runs to the end of the service day. */
+      readonly untilMinute: number | null;
+      /** Its last date; `null` for a pause that lasts until it is resumed. */
+      readonly endsOn: string | null;
+    }
+    export interface HubTonightChange {
+      readonly ruleId: string;
+      /** The minute tonight closes at; `null` for a stop. */
+      readonly closeAt: number | null;
+      /** The minutes a stop covers; `null` for a close-early. */
+      readonly window: { readonly from: number; readonly to: number } | null;
+    }
+    export interface ClosuresRow {
+      readonly row: 4;
+      /** The pause in force, else the soonest waiting. Any other pause is among the closures. */
+      readonly pause: HubOnlinePause | null;
+      readonly tonight: readonly HubTonightChange[];
+      /** The closures in force at this minute, soonest started first. */
+      readonly now: readonly HubClosure[];
+      /** The closure that starts soonest among those not in force. */
+      readonly next: HubClosure | null;
+    }
+    export interface ClosuresRowInput {
+      readonly config: AvailabilityConfig;
+      /** Section id to name; empty while sections load. */
+      readonly sectionNames: ReadonlyMap<string, string>;
+      readonly timezone: string;
+      readonly today: string;
+      readonly nowMinute: number;
+    }
+    export type ClosureRule = Extract<DateRule, { kind: "closure" }>;
+    export interface Clock extends ClosuresRowInput {
+      readonly rules: readonly DateRule[];
+      readonly yesterday: string;
+      /** This minute on yesterday's service day, while that service still runs; else `null`. */
+      readonly lateMinute: number | null;
+    }
+    export function clockOf(input: ClosuresRowInput): Clock {
+      const { config, timezone, today, nowMinute } = input;
+      const yesterday = addDays(today, -1);
+      const lastClose = Math.max(
+        0,
+        ...resolveDay({ timezone, config }, yesterday).services.map((s) => s.closesAt)
+      );
+      const late = nowMinute + MINUTES_PER_DAY;
+      return {
+        ...input,
+        rules: config.dateRules,
+        yesterday,
+        lateMinute: late < lastClose ? late : null,
+      };
+    }
+    export const isClosure = (rule: DateRule): rule is ClosureRule => rule.kind === "closure";
+    export function isOnlinePause(rule: DateRule): rule is ClosureRule {
+      const channels = rule.bookingTypes ?? [];
+      return (
+        isClosure(rule) &&
+        rule.targetKind === "booking" &&
+        channels.length === 1 &&
+        channels[0] === "online" &&
+        rule.repeat == null
+      );
+    }
+    function closurePauses(clock: Clock): HubOnlinePause[] {
+      const { config, rules, timezone, today, nowMinute } = clock;
+      return rules
+        .filter(isOnlinePause)
+        .filter((r) => coversOn(r, rules, today))
+        .filter((r) => r.window == null || nowMinute < r.window.to)
+        .map((r): HubOnlinePause => ({
+          ruleId: r.id,
+          source: "closure",
+          inForce: isPauseInForce(r, config, timezone, today, nowMinute),
+          fromMinute: r.window?.from ?? null,
+          untilMinute: endMinute(r.window?.to),
+          endsOn: r.endsOn ?? null,
+        }))
+        .sort(soonestFirst);
+    }
+    function tonightMinute(rule: DateRule, clock: Clock): number | null {
+      if (rule.startsOn === clock.today) return clock.nowMinute;
+      return rule.startsOn === clock.yesterday ? clock.lateMinute : null;
+    }
+    function tonightPauses(clock: Clock): HubOnlinePause[] {
+      const { rules, today } = clock;
+      return rules
+        .flatMap((rule) => {
+          const minute = rule.kind === "tonight" ? tonightMinute(rule, clock) : null;
+          if (rule.kind !== "tonight" || minute === null) return [];
+          if (rule.targetKind !== "booking" || !(rule.bookingTypes ?? []).includes("online")) return [];
+          if (!("stop" in rule.payload)) return [];
+          const { from, to } = rule.payload.stop;
+          if (to <= minute) return [];
+          const pause: HubOnlinePause = {
+            ruleId: rule.id,
+            source: "tonight",
+            inForce: from <= minute,
+            fromMinute: from,
+            untilMinute: endMinute(to),
+            // One still running from last night ends with the night in progress, which reads "tonight".
+            endsOn: today,
+          };
+          return [{ pause, lastNight: rule.startsOn !== today }];
+        })
+        .sort(
+          // Today's own stop is named before one still running from last night.
+          (a, b) => Number(a.lastNight) - Number(b.lastNight) || soonestFirst(a.pause, b.pause)
+        )
+        .map(({ pause }) => pause);
+    }
+    export function onlinePause(clock: Clock): HubOnlinePause | null {
+      const pauses = [...closurePauses(clock), ...tonightPauses(clock)];
+      return pauses.find((p) => p.inForce) ?? [...pauses].sort(soonestFirst)[0] ?? null;
+    }
+    function tonightChanges(clock: Clock): HubTonightChange[] {
+      return clock.rules.flatMap((rule): HubTonightChange[] => {
+        const minute = rule.kind === "tonight" ? tonightMinute(rule, clock) : null;
+        if (rule.kind !== "tonight" || minute === null) return [];
+        const lastNight = rule.startsOn !== clock.today;
+        const { payload } = rule;
+        if ("closeAt" in payload) {
+          const over = lastNight && payload.closeAt <= minute;
+          return over ? [] : [{ ruleId: rule.id, closeAt: payload.closeAt, window: null }];
+        }
+        if (!("stop" in payload) || rule.targetKind === "booking" || rule.targetKind === "tables") {
+          return [];
+        }
+        if (lastNight && payload.stop.to <= minute) return [];
+        return [
+          { ruleId: rule.id, closeAt: null, window: { from: payload.stop.from, to: payload.stop.to } },
+        ];
+      });
+    }
+    export function inForceOn(rule: ClosureRule, clock: Clock): string | null {
+      const { rules, today, yesterday, nowMinute, lateMinute } = clock;
+      const from = rule.window?.from ?? 0;
+      const to = rule.window?.to ?? END_OF_SERVICE_DAY;
+      if (coversOn(rule, rules, today) && from <= nowMinute && nowMinute < to) return today;
+      const runsLate =
+        lateMinute !== null &&
+        coversOn(rule, rules, yesterday) &&
+        from <= lateMinute &&
+        lateMinute < to;
+      return runsLate ? yesterday : null;
+    }
+    export function waitingOn(rule: ClosureRule, clock: Clock): string | null {
+      const { rules, today, nowMinute } = clock;
+      const first = nextDateOn(rule, rules, today);
+      const passedToday = first === today && rule.window != null && rule.window.to <= nowMinute;
+      return passedToday ? nextDateOn(rule, rules, addDays(today, 1)) : first;
+    }
+    export function targetOf(rule: ClosureRule, clock: Clock): HubClosureTarget {
+      if (rule.targetKind === "service" && rule.venueServiceId) {
+        const { venueServiceId } = rule;
+        const service = clock.config.venueServices.find((s) => s.id === venueServiceId);
+        return { kind: "service", venueServiceId, name: service?.name ?? null };
+      }
+      if (rule.targetKind === "booking") return { kind: "booking", channels: rule.bookingTypes ?? [] };
+      if (rule.targetKind === "tables") {
+        return rule.sectionId
+          ? {
+              kind: "section",
+              sectionId: rule.sectionId,
+              name: clock.sectionNames.get(rule.sectionId) ?? null,
+            }
+          : { kind: "tables", count: rule.tableIds?.length ?? 0 };
+      }
+      return { kind: "venue" };
+    }
+    function closureOf(rule: ClosureRule, nextOn: string, clock: Clock): HubClosure {
+      return {
+        ruleId: rule.id,
+        target: targetOf(rule, clock),
+        nextOn,
+        startsOn: rule.startsOn,
+        endsOn: rule.endsOn ?? null,
+        weekdays: rule.repeat?.weekdays ?? null,
+        window: rule.window ? { from: rule.window.from, to: rule.window.to } : null,
+      };
+    }
+    export function closuresRow(input: ClosuresRowInput): ClosuresRow {
+      const clock = clockOf(input);
+      const pause = onlinePause(clock);
+      // From yesterday on, so a closure that ended yesterday can still be running past midnight.
+      const closures = upcomingRules(clock.rules, clock.yesterday)
+        .filter(isClosure)
+        .filter((rule) => rule.id !== pause?.ruleId)
+        .map((rule) => ({ rule, inForce: inForceOn(rule, clock) }));
+      const waiting = closures
+        .flatMap(({ rule, inForce }) => {
+          const on = inForce === null ? waitingOn(rule, clock) : null;
+          return on === null ? [] : [closureOf(rule, on, clock)];
+        })
+        .sort(
+          (a, b) => a.nextOn.localeCompare(b.nextOn) || (a.window?.from ?? 0) - (b.window?.from ?? 0)
+        );
+      return {
+        row: 4,
+        pause,
+        tonight: tonightChanges(clock),
+        now: closures.flatMap(({ rule, inForce }) =>
+          inForce === null ? [] : [closureOf(rule, inForce, clock)]
+        ),
+        next: waiting[0] ?? null,
+      };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-row-text.ts">
+    export interface HubLine {
+      readonly text: string;
+      /** Row 1 only: the service this line is about, so a Manager's line can open it. */
+      readonly venueServiceId?: string;
+      /** Row 4 only: the rule this line reads, which tells apart two lines that read the same. */
+      readonly ruleId?: string;
+    }
+    export interface HubRowText {
+      readonly row: 1 | 2 | 3 | 4 | 5;
+      readonly title: string;
+      /** Never empty. */
+      readonly lines: readonly HubLine[];
+    }
+    function serviceText(service: RegularWeekLineService, ctx: HubTextContext): string {
+      const { t, format } = ctx;
+      const days = (weekdays: readonly number[]) => weekdaySummary(weekdays, format, t);
+      const base = {
+        name: service.name,
+        hours: serviceHoursText(service, ctx),
+        days: days(service.days),
+      };
+      if (service.changes.length === 0) return t("availability.regularWeekLine.service", base);
+      const changes = service.changes
+        .map((change) =>
+          // Same opening: only the close or last seating moved, so say only that.
+          change.opensAt === service.opensAt
+            ? serviceCloseChangeText(days(change.weekdays), change, ctx)
+            : t("availability.regularWeekLine.different", {
+                days: days(change.weekdays),
+                hours: serviceHoursText(change, ctx),
+              })
+        )
+        .join(", ");
+      return t("availability.regularWeekLine.serviceWith", { ...base, changes });
+    }
+    function regularHoursLines(row: RegularHoursRow, ctx: HubTextContext): HubLine[] {
+      const { t } = ctx;
+      if (row.services.length === 0) return [line(t("availabilityHub.hub.regular.empty"))];
+      const services = row.services.map((service) => ({
+        text: serviceText(service, ctx),
+        venueServiceId: service.venueServiceId,
+      }));
+      const { upcoming } = row;
+      const later = upcoming?.services.map((service) => serviceText(service, ctx)).join(" · ");
+      const now = services.map((service) => service.text).join(" · ");
+      // A change saved for a later date reads here before it takes over, unless it reads the same.
+      if (!upcoming || !later || later === now) return services;
+      return [
+        ...services,
+        line(
+          upcoming.endsOn
+            ? t("availability.regularWeekLine.upcomingPeriod", {
+                from: shortDate(upcoming.startsOn, ctx),
+                to: shortDate(upcoming.endsOn, ctx),
+                services: later,
+              })
+            : t("availability.regularWeekLine.upcoming", {
+                date: shortDate(upcoming.startsOn, ctx),
+                services: later,
+              })
+        ),
+      ];
+    }
+    function usageText(usage: ScheduleUsage, ctx: HubTextContext): string {
+      const { t, format } = ctx;
+      if (usage.kind === "unused") return t("availabilityHub.hub.seasonal.unused");
+      if (usage.kind === "rules") {
+        return t("availabilityHub.hub.seasonal.byDates", { count: usage.count });
+      }
+      return usage.periods
+        .map((period) => {
+          const days = weekdaySummary(period.weekdays, format, t);
+          const from = period.startsOn && shortDate(period.startsOn, ctx);
+          const to = period.endsOn && shortDate(period.endsOn, ctx);
+          if (from && to) return t("availabilityHub.hub.seasonal.range", { from, to, days });
+          if (from) return t("availabilityHub.hub.seasonal.from", { from, days });
+          if (to) return t("availabilityHub.hub.seasonal.until", { to, days });
+          return t("availabilityHub.hub.seasonal.noDates", { days });
+        })
+        .join("; ");
+    }
+    function seasonalHoursLines(row: SeasonalHoursRow, ctx: HubTextContext): HubLine[] {
+      const { t } = ctx;
+      if (row.sets.length === 0) return [line(t("availabilityHub.hub.seasonal.empty"))];
+      return [
+        ...row.sets.map((set) =>
+          line(
+            t("availabilityHub.hub.seasonal.set", {
+              name: scheduleNameText(set.name, t),
+              usage: usageText(set.usage, ctx),
+            })
+          )
+        ),
+        ...(row.more > 0 ? [line(t("availabilityHub.hub.seasonal.more", { count: row.more }))] : []),
+      ];
+    }
+    function specialDatesLines(row: SpecialDatesRow, ctx: HubTextContext): HubLine[] {
+      const { t, format } = ctx;
+      const dates = row.next.map((item) =>
+        t("availabilityHub.hub.special.item", {
+          date: shortDate(item.nextOn, ctx),
+          kind: t(`availabilityHub.hub.special.kind.${item.kind}`),
+        })
+      );
+      const holidays =
+        row.holidaysNotPlanned > 0
+          ? [line(t("availabilityHub.hub.special.holidays", { count: row.holidaysNotPlanned }))]
+          : [];
+      const first =
+        dates.length === 0
+          ? t("availabilityHub.hub.special.empty")
+          : t("availabilityHub.hub.special.next", {
+              dates: new Intl.ListFormat(format.locale, { type: "unit" }).format(dates),
+            });
+      return [line(first), ...holidays];
+    }
+    function bookingRulesLines(row: BookingRulesRow, { t }: HubTextContext): HubLine[] {
+      return [
+        line(row.rules ? bookingRulesText(row.rules, t) : t("availabilityHub.hub.booking.empty")),
+      ];
+    }
+    export function hubRowTexts(
+      rows: HubRowModels,
+      today: string,
+      ctx: HubTextContext
+    ): readonly HubRowText[] {
+      const { t } = ctx;
+      const [regular, seasonal, special, closures, booking] = rows;
+      return [
+        {
+          row: 1,
+          title: t("availabilityHub.hub.regular.title"),
+          lines: regularHoursLines(regular, ctx),
+        },
+        {
+          row: 2,
+          title: t("availabilityHub.hub.seasonal.title"),
+          lines: seasonalHoursLines(seasonal, ctx),
+        },
+        {
+          row: 3,
+          title: t("availabilityHub.hub.special.title"),
+          lines: specialDatesLines(special, ctx),
+        },
+        {
+          row: 4,
+          title: t("availabilityHub.hub.closures.title"),
+          lines: closuresLines(closures, today, ctx),
+        },
+        {
+          row: 5,
+          title: t("availabilityHub.hub.booking.title"),
+          lines: bookingRulesLines(booking, ctx),
+        },
+      ];
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-rows-test-helpers.ts">
+    export const TEXT: HubTextContext = {
+      t: defaultT,
+      format: {
+        locale: "en-US",
+        formatCalendarDate: (date: string, options: Intl.DateTimeFormatOptions) =>
+          formatCalendarDate(date, options, "en-US"),
+        formatLocalTime: (hhmm: string) => formatLocalTime(hhmm, "en-US"),
+      } as VenueFormat,
+    };
+    export const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
+    export const TODAY = "2026-11-12";
+    type Schedule = AvailabilityConfig["schedules"][number];
+    type ScheduleService = AvailabilityConfig["scheduleServices"][number];
+    type Assignment = AvailabilityConfig["assignments"][number];
+    export const dinnerRow = (scheduleId: string, closesAt = 1320): ScheduleService => ({
+      id: `ss-${scheduleId}`,
+      scheduleId,
+      venueServiceId: "vs-dinner",
+      opensAt: 1020,
+      lastSeatingAt: closesAt - 60,
+      closesAt,
+      seating: SEATING,
+      bookingTypes: BOOKING_TYPES,
+      weekdays: [],
+      dayHours: { version: 1, sets: [] },
+    });
+    export function seasonal(id: string, name: string, ...uses: Partial<Assignment>[]) {
+      return {
+        schedules: [{ id, name, kind: "alternate", isRegular: false } satisfies Schedule],
+        scheduleServices: [dinnerRow(id, 1380)],
+        assignments: uses.map((use, index): Assignment => ({
+          id: `as-${id}-${index}`,
+          scheduleId: id,
+          weekdays: EVERY_DAY,
+          precedence: 1,
+          ...use,
+        })),
+      };
+    }
+    interface Parts {
+      readonly schedules?: readonly Schedule[];
+      readonly scheduleServices?: readonly ScheduleService[];
+      readonly assignments?: readonly Assignment[];
+      /** When regular Dinner closes; 10:00 PM unless given. */
+      readonly regularClosesAt?: number;
+    }
+    export function valid(config: AvailabilityConfig): AvailabilityConfig {
+      expect(validateConfig(config)).toEqual([]);
+      return config;
+    }
+    export function venue(dateRules: DateRule[] = [], ...added: Parts[]): AvailabilityConfig {
+      const closesAt = added.find((p) => p.regularClosesAt !== undefined)?.regularClosesAt;
+      return valid({
+        schedules: [REGULAR, ...added.flatMap((p) => p.schedules ?? [])],
+        venueServices: [{ id: "vs-dinner", name: "Dinner", position: 0 }],
+        scheduleServices: [
+          dinnerRow("regular", closesAt),
+          ...added.flatMap((p) => p.scheduleServices ?? []),
+        ],
+        assignments: [REGULAR_ASSIGNMENT, ...added.flatMap((p) => p.assignments ?? [])],
+        dateRules,
+      });
+    }
+    export function lunchAndDinner(dateRules: DateRule[] = []): AvailabilityConfig {
+      return valid({
+        schedules: [REGULAR],
+        venueServices: [
+          { id: "vs-lunch", name: "Lunch", position: 0 },
+          { id: "vs-dinner", name: "Dinner", position: 1 },
+        ],
+        scheduleServices: [
+          {
+            ...dinnerRow("regular"),
+            id: "ss-regular-lunch",
+            venueServiceId: "vs-lunch",
+            opensAt: 690,
+            lastSeatingAt: 840,
+            closesAt: 900,
+          },
+          dinnerRow("regular"),
+        ],
+        assignments: [REGULAR_ASSIGNMENT],
+        dateRules,
+      });
+    }
+    export function input(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}): HubRowsInput {
+      return {
+        state: { config, source: "rows" },
+        settings: null,
+        holidays: [],
+        sectionNames: new Map([["sec-patio", "Patio"]]),
+        timezone: TIMEZONE,
+        today: TODAY,
+        nowMinute: NOW,
+        ...rest,
+      };
+    }
+    export function rowsOf(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}) {
+      const result = hubRows(input(config, rest));
+      if (result.kind !== "rows") throw new Error("expected rows");
+      return result.rows;
+    }
+    export const rule = (id: string, rest: Partial<DateRule> = {}): DateRule =>
+      ({
+        id,
+        kind: "closure",
+        targetKind: "venue",
+        startsOn: TODAY,
+        endsOn: TODAY,
+        ...rest,
+      }) as DateRule;
+    export const specialHours = (id: string, date: string, rest: Partial<DateRule> = {}): DateRule =>
+      rule(id, {
+        kind: "special_hours",
+        startsOn: date,
+        endsOn: date,
+        payload: {
+          version: 1,
+          services: [
+            {
+              venueServiceId: "vs-dinner",
+              opensAt: 960,
+              lastSeatingAt: 1140,
+              closesAt: 1200,
+              seating: SEATING,
+              bookingTypes: BOOKING_TYPES,
+            },
+          ],
+        },
+        ...rest,
+      } as Partial<DateRule>);
+    export const window = (from: number, to = 2880) => ({ version: 1 as const, from, to });
+    export const THURSDAYS: Partial<DateRule> = {
+      startsOn: "2026-11-01",
+      endsOn: "2027-02-28",
+      repeat: { version: 1, weekdays: [4] },
+    };
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-rows.ts">
+    export interface HubRowsInput {
+      readonly state: Pick<AvailabilityConfigState, "config" | "source">;
+      readonly settings: VenueSettings | null | undefined;
+      /** The upcoming holidays with what the venue decided (`holidayStates`). */
+      readonly holidays: readonly { readonly state: HolidayState }[];
+      /** Section id to name; empty while sections load. */
+      readonly sectionNames: ReadonlyMap<string, string>;
+      readonly timezone: string;
+      /** The venue's civil date, `YYYY-MM-DD`. */
+      readonly today: string;
+      /** The venue's minute of the day. */
+      readonly nowMinute: number;
+    }
+    export interface RegularHoursRow {
+      readonly row: 1;
+      /** The hours in force today, one entry per service; empty when none is set. */
+      readonly services: readonly RegularWeekLineService[];
+      /** The next dated change, as the row will read on its first day. */
+      readonly upcoming: {
+        readonly startsOn: string;
+        /** `null` when the change has no end. */
+        readonly endsOn: string | null;
+        readonly services: readonly RegularWeekLineService[];
+      } | null;
+    }
+    export interface SeasonalHoursSet {
+      readonly scheduleId: string;
+      /** The name as stored. */
+      readonly name: string;
+      readonly usage: ScheduleUsage;
+    }
+    export interface SeasonalHoursRow {
+      readonly row: 2;
+      /** At most three, in config order. */
+      readonly sets: readonly SeasonalHoursSet[];
+      /** How many sets are not listed. */
+      readonly more: number;
+    }
+    export interface BookingRulesRow {
+      readonly row: 5;
+      /** `null` when none of the three is set. */
+      readonly rules: BookingRulesValues | null;
+    }
+    type HubRowNumber = DateAnswerHubRow | 5;
+    type Numbered<N extends HubRowNumber, Row extends { readonly row: N }> = Row;
+    export type HubRowModels = readonly [
+      Numbered<1, RegularHoursRow>,
+      Numbered<2, SeasonalHoursRow>,
+      Numbered<3, SpecialDatesRow>,
+      Numbered<4, ClosuresRow>,
+      Numbered<5, BookingRulesRow>,
+    ];
+    export type HubRows =
+      { readonly kind: "emptyVenue" } | { readonly kind: "rows"; readonly rows: HubRowModels };
+    function regularHoursRow(config: AvailabilityConfig, today: string): RegularHoursRow {
+      const upcoming = upcomingRegularWeek(config, today);
+      return {
+        row: 1,
+        services: regularWeekLine(config, today).services,
+        upcoming: upcoming && {
+          startsOn: upcoming.startsOn,
+          endsOn: upcoming.endsOn,
+          services: upcoming.line.services,
+        },
+      };
+    }
+    function seasonalHoursRow(config: AvailabilityConfig): SeasonalHoursRow {
+      const sets = config.schedules
+        .filter((s) => s.kind !== "regular" && !s.archivedAt)
+        .map((s) => ({ scheduleId: s.id, name: s.name, usage: scheduleUsage(config, s.id) }));
+      return {
+        row: 2,
+        sets: sets.slice(0, SEASONAL_SETS_SHOWN),
+        more: Math.max(0, sets.length - SEASONAL_SETS_SHOWN),
+      };
+    }
+    function bookingRulesRow(settings: HubRowsInput["settings"]): BookingRulesRow {
+      const rules = bookingRulesOf(settings);
+      const anySet = Object.values(rules).some((value) => value !== null);
+      return { row: 5, rules: anySet ? rules : null };
+    }
+    export function hubRows(input: HubRowsInput): HubRows {
+      const { config, source } = input.state;
+      if (source === "empty") return { kind: "emptyVenue" };
+      const { sectionNames, timezone, today, nowMinute } = input;
+      return {
+        kind: "rows",
+        rows: [
+          regularHoursRow(config, today),
+          seasonalHoursRow(config),
+          specialDatesRow(config.dateRules, today, input.holidays),
+          closuresRow({ config, sectionNames, timezone, today, nowMinute }),
+          bookingRulesRow(input.settings),
+        ],
+      };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-special-dates.ts">
+    export interface HubSpecialDate {
+      readonly ruleId: string;
+      /** What the Add special dates sheet calls it: Closed, Special hours, Same as another day. */
+      readonly kind: "closed" | "specialHours" | "useHours";
+      /** The first date from today on the rule applies on: a skipped or replaced date is passed over. */
+      readonly nextOn: string;
+      readonly startsOn: string;
+      /** `null` when the rule has no end. */
+      readonly endsOn: string | null;
+      /** The weekdays a repeating rule covers (0 = Sunday); `null` when it does not repeat. */
+      readonly weekdays: readonly number[] | null;
+    }
+    export interface SpecialDatesRow {
+      readonly row: 3;
+      /** At most two, soonest `nextOn` first. A rule with no date left is not listed. */
+      readonly next: readonly HubSpecialDate[];
+      readonly holidaysNotPlanned: number;
+    }
+    function specialDateKind(rule: DateRule): HubSpecialDate["kind"] | null {
+      if (rule.kind === "special_hours") return "specialHours";
+      if (rule.kind === "use_schedule") return "useHours";
+      // Only the whole venue closed for the whole day is a date's "Closed"; any other closure is row 4's.
+      return rule.kind === "closure" && rule.targetKind === "venue" && rule.window == null
+        ? "closed"
+        : null;
+    }
+    export function specialDatesRow(
+      rules: readonly DateRule[],
+      today: string,
+      holidays: readonly { readonly state: HolidayState }[]
+    ): SpecialDatesRow {
+      const next = rules
+        .flatMap((rule): HubSpecialDate[] => {
+          const kind = specialDateKind(rule);
+          const nextOn = kind === null ? null : nextDateOn(rule, rules, today);
+          if (kind === null || nextOn === null) return [];
+          return [
+            {
+              ruleId: rule.id,
+              kind,
+              nextOn,
+              startsOn: rule.startsOn,
+              endsOn: rule.endsOn ?? null,
+              weekdays: rule.repeat?.weekdays ?? null,
+            },
+          ];
+        })
+        .sort((a, b) => a.nextOn.localeCompare(b.nextOn) || a.ruleId.localeCompare(b.ruleId));
+      return {
+        row: 3,
+        next: next.slice(0, SPECIAL_DATES_SHOWN),
+        holidaysNotPlanned: holidays.filter((h) => h.state.kind === "undecided").length,
+      };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-text.ts">
+    export type HubTextContext = ServiceHoursContext;
+    export function shortDate(date: string, { format }: HubTextContext): string {
+      return format.formatCalendarDate(date, { month: "short", day: "numeric" });
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/rule-dates.ts">
+    function reaches(rule: DateRule, date: string): boolean {
+      return (
+        rule.startsOn <= date &&
+        (rule.endsOn == null || date <= rule.endsOn) &&
+        (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date)))
+      );
+    }
+    function replacesOn(override: DateRule, date: string): boolean {
+      return override.startsOn <= date && date <= (override.endsOn ?? override.startsOn);
+    }
+    function overridesOf(rule: DateRule, rules: readonly DateRule[]): readonly DateRule[] {
+      return rules.filter((r) => r.seriesId === rule.id);
+    }
+    export function coversOn(rule: DateRule, rules: readonly DateRule[], date: string): boolean {
+      return reaches(rule, date) && !overridesOf(rule, rules).some((o) => replacesOn(o, date));
+    }
+    export function nextDateOn(
+      rule: DateRule,
+      rules: readonly DateRule[],
+      from: string
+    ): string | null {
+      const overrides = overridesOf(rule, rules);
+      const start = from > rule.startsOn ? from : rule.startsOn;
+      for (let i = 0; i < LOOKAHEAD_DAYS; i += 1) {
+        const date = addDays(start, i);
+        if (rule.endsOn != null && date > rule.endsOn) return null;
+        if (reaches(rule, date) && !overrides.some((o) => replacesOn(o, date))) return date;
+      }
+      return null;
+    }
+  </file>
+  </section>
   <section priority="medium" role="i18n">
+  <file path="apps/hospitality/src/i18n/availability-glossary.ts">
+    type Catalog = Readonly<Record<string, unknown>>;
+    export type GlossaryCatalogs = Readonly<Record<"en-US" | "es-MX" | "fr-CA" | "en-GB", Catalog>>;
+    interface GlossaryEntry {
+      readonly concept: string;
+      /** The one en-US label for the concept. */
+      readonly term: string;
+      /**
+       * en-US words this label replaces. Matched as whole words, whatever the case; a space also
+       * matches a hyphen ("regular-week").
+       */
+      readonly retired: readonly string[];
+    }
+    export const AVAILABILITY_GLOSSARY: readonly GlossaryEntry[] = [
+      {
+        concept: "The weekly pattern",
+        term: "Regular hours",
+        retired: ["Regular week", "Regular weeks"],
+      },
+      {
+        concept: "Named hours that replace the weekly pattern on the dates they cover",
+        term: "Seasonal hours",
+        retired: ["Schedule", "Schedules"],
+      },
+      {
+        concept: "A date that differs from the hours that cover it",
+        term: "Special date",
+        retired: [],
+      },
+      { concept: "The hours a special date runs", term: "Special hours", retired: [] },
+      { concept: "Dates the venue or a section takes no guests", term: "Closure", retired: [] },
+      { concept: "Online booking stopped for a while", term: "Pause", retired: [] },
+      { concept: "End a closure", term: "Reopen", retired: [] },
+      { concept: "End a pause", term: "Resume", retired: [] },
+      {
+        concept: "Take back a saved change",
+        term: "Undo",
+        retired: ["Revert", "Reverted", "Reverting"],
+      },
+      { concept: "How guests book a service", term: "Booked by", retired: [] },
+      { concept: "The dates an edit covers", term: "Applies to", retired: [] },
+      { concept: "The hub's date field", term: "Check a date", retired: [] },
+      { concept: "The month screen", term: "Calendar", retired: [] },
+    ];
+    export const AVAILABILITY_NAMESPACES: readonly string[] = [
+      "availability",
+      "availabilityHub",
+      "availabilitySchedules",
+      "availabilitySpecial",
+    ];
+    export const LEGACY_KEYS: ReadonlySet<string> = new Set([
+      "availability.calendar.legend.regular",
+      "availability.drawer.closedRegular",
+      "availability.drawer.schedule.changeFor",
+      "availability.drawer.schedule.removeDescriptionDated",
+      "availability.drawer.schedule.removeDescriptionRule",
+      "availability.drawer.schedule.keepSchedule",
+      "availability.quickSetup.title",
+      "availability.quickSetup.hostEmpty",
+      "availability.quickSetup.issues.days_outside_use",
+      "availability.history.revert",
+      "availability.history.summary.reverted",
+      "availability.history.summary.regularWeekChanged",
+      "availability.preview.compareRegularWeek",
+      "availability.selection.useSchedule",
+      "availability.selection.use.titleSchedule",
+      "availability.selection.use.titleScheduleOne",
+      "availability.selection.use.schedule",
+      "availability.selection.clearDialog.description",
+      "availability.regularWeekLine.line",
+      "availability.regularWeekLine.heading",
+      "availabilitySchedules.tabSchedules",
+      "availabilitySchedules.title",
+      "availabilitySchedules.regularMarker",
+      "availabilitySchedules.newTitle",
+      "availabilitySchedules.duplicateTitle",
+      "availabilitySchedules.deleteDescription",
+      "availabilitySchedules.deleteBlocked",
+      "availabilitySchedules.usedByRules_one",
+      "availabilitySchedules.usedByRules_other",
+      "availabilitySchedules.deleteBlockedRules",
+      "availabilitySchedules.name",
+      "availabilitySchedules.thisSchedule",
+      "availabilitySchedules.conflictReview.gone",
+      "availabilitySchedules.conflictReview.regularReplaced",
+      "availabilitySchedules.regularWeek.title",
+      "availabilitySchedules.regularWeek.becomes",
+      "availabilitySchedules.regularWeek.outside",
+      "availabilitySchedules.regularWeek.noEnd",
+      "availabilitySchedules.regularWeek.savedWeek",
+      "availabilitySchedules.regularWeek.duplicate",
+      "availabilitySchedules.compare.nothing",
+      "availabilitySchedules.compare.impactSchedules_one",
+      "availabilitySchedules.compare.impactSchedules_other",
+      "availabilitySchedules.compare.save_one",
+      "availabilitySchedules.compare.save_other",
+      "availabilitySchedules.compare.saved_one",
+      "availabilitySchedules.compare.saved_other",
+      "availabilitySchedules.compare.editSchedule",
+      "availabilitySchedules.copy.everyWeekHint",
+      "availabilitySchedules.blocked.nameRequired",
+      "availabilitySchedules.blocked.replacesRegularWeek",
+      "availabilitySchedules.layer.regularWeek",
+      "availabilitySchedules.layer.intro",
+      "availabilitySchedules.layer.add",
+      "availabilitySchedules.layer.other",
+      "availabilitySpecial.add.sameEmpty",
+    ]);
+    interface GlossaryProblem {
+      readonly kind: "retired-word" | "missing-key" | "stale-legacy-key";
+      readonly locale: keyof GlossaryCatalogs;
+      readonly key: string;
+      /** The retired word found, as the glossary spells it; empty for the other kinds. */
+      readonly detail: string;
+    }
+    function leaves(node: unknown, path: string): readonly (readonly [string, string])[] {
+      if (typeof node === "string") return [[path, node]];
+      if (node === null || typeof node !== "object") return [];
+      return Object.entries(node).flatMap(([k, v]) => leaves(v, `${path}.${k}`));
+    }
+    function scoped(catalog: Catalog): readonly (readonly [string, string])[] {
+      return AVAILABILITY_NAMESPACES.flatMap((namespace) => leaves(catalog[namespace], namespace));
+    }
+    function retiredPattern(word: string): RegExp {
+      const parts = word.split(/\s+/).map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+      return new RegExp(`\\b${parts.join("[\\s-]+")}\\b`, "i");
+    }
+    function retiredWordIn(value: string): string | undefined {
+      const shown = value.replace(/\{\{[^}]*\}\}/g, " ");
+      return RETIRED.find(([, pattern]) => pattern.test(shown))?.[0];
+    }
+    function retiredWordProblems(
+      locale: keyof GlossaryCatalogs,
+      catalog: Catalog,
+      legacyKeys: ReadonlySet<string>
+    ): readonly GlossaryProblem[] {
+      return scoped(catalog).flatMap(([key, value]) => {
+        const word = legacyKeys.has(key) ? undefined : retiredWordIn(value);
+        return word === undefined ? [] : [{ kind: "retired-word", locale, key, detail: word }];
+      });
+    }
+    export function checkAvailabilityGlossary(
+      catalogs: GlossaryCatalogs,
+      legacyKeys: ReadonlySet<string>
+    ): readonly GlossaryProblem[] {
+      const source = scoped(catalogs["en-US"]);
+    
+      const missing = (["es-MX", "fr-CA"] as const).flatMap((locale) => {
+        const present = new Set(scoped(catalogs[locale]).map(([key]) => key));
+        return source
+          .filter(([key]) => !present.has(key))
+          .map(([key]): GlossaryProblem => ({ kind: "missing-key", locale, key, detail: "" }));
+      });
+    
+      const stillRetired = new Set(
+        source.filter(([, value]) => retiredWordIn(value) !== undefined).map(([key]) => key)
+      );
+      const stale = [...legacyKeys]
+        .filter((key) => !stillRetired.has(key))
+        .map((key): GlossaryProblem => ({
+          kind: "stale-legacy-key",
+          locale: "en-US",
+          key,
+          detail: "",
+        }));
+    
+      return [
+        ...retiredWordProblems("en-US", catalogs["en-US"], legacyKeys),
+        ...missing,
+        ...retiredWordProblems("en-GB", catalogs["en-GB"], legacyKeys),
+        ...stale,
+      ];
+    }
+  </file>
   <file path="apps/hospitality/src/i18n/default-t.ts">
     export const defaultT: TFunction = localeRuntime.i18n.t.bind(localeRuntime.i18n);
   </file>
@@ -28223,6 +30525,14 @@
       readonly nextMonth: string;
       /** Accessible name of a DatePicker with no label. */
       readonly chooseDate: string;
+      /** Problem under an editable DatePicker whose typed text is not a date. */
+      readonly enterDate: string;
+      /** Problem under an editable DatePicker for a typed date before `min` (the formatted earliest date). */
+      readonly dateTooEarly: (earliest: string) => string;
+      /** Problem under an editable DatePicker for a typed date after `max` (the formatted latest date). */
+      readonly dateTooLate: (latest: string) => string;
+      /** Problem under an editable DatePicker for a typed date its `isDateDisabled` refuses. */
+      readonly dateUnavailable: string;
       /** Accessible name of a DateRangePicker with no label. */
       readonly chooseDateRange: string;
       /** Accessible name of a TimePicker with no label. */
@@ -28426,6 +30736,10 @@
       previousMonth: "Previous month",
       nextMonth: "Next month",
       chooseDate: "Choose date",
+      enterDate: "Enter a date",
+      dateTooEarly: (earliest) => `Enter a date on or after ${earliest}`,
+      dateTooLate: (latest) => `Enter a date on or before ${latest}`,
+      dateUnavailable: "That date is not available",
       chooseDateRange: "Choose date range",
       chooseTime: "Choose time",
       decrease: "Decrease",
@@ -30787,6 +33101,10 @@
       previousMonth: "Mes anterior",
       nextMonth: "Mes siguiente",
       chooseDate: "Elegir fecha",
+      enterDate: "Ingresa una fecha",
+      dateTooEarly: (earliest) => `Ingresa una fecha a partir del ${earliest}`,
+      dateTooLate: (latest) => `Ingresa una fecha que no pase del ${latest}`,
+      dateUnavailable: "Esa fecha no está disponible",
       chooseDateRange: "Elegir rango de fechas",
       chooseTime: "Elegir hora",
       decrease: "Disminuir",
@@ -30950,6 +33268,10 @@
       previousMonth: "Mois précédent",
       nextMonth: "Mois suivant",
       chooseDate: "Choisir une date",
+      enterDate: "Entrez une date",
+      dateTooEarly: (earliest) => `Entrez une date à partir du ${earliest}`,
+      dateTooLate: (latest) => `Entrez une date au plus tard le ${latest}`,
+      dateUnavailable: "Cette date n'est pas disponible",
       chooseDateRange: "Choisir une plage de dates",
       chooseTime: "Choisir une heure",
       decrease: "Diminuer",
@@ -39412,6 +41734,41 @@
       return -1;
     }
   </file>
+  <file path="services/agent/src/routes/gen-provider.ts">
+    export const GEN_PROVIDER_IDS = ["anthropic", "google"] as const;
+    export type GenProviderId = (typeof GEN_PROVIDER_IDS)[number];
+    export function resolveGenProvider(raw: string | undefined): GenProviderId {
+      const value = raw?.trim().toLowerCase() ?? "";
+      if (value === "") return "anthropic";
+      const match = GEN_PROVIDER_IDS.find((id) => id === value);
+      if (!match) {
+        throw new Error(
+          `Unknown GEN_PROVIDER "${raw}" (expected one of: ${GEN_PROVIDER_IDS.join(", ")})`
+        );
+      }
+      return match;
+    }
+    export function genLanguageModel(provider: GenProviderId, modelId: string): LanguageModel {
+      if (provider === "google") {
+        return createGoogleGenerativeAI({ apiKey: process.env.GEMINI_API_KEY })(modelId);
+      }
+      return anthropic(modelId);
+    }
+    export function genProviderOptions(provider: GenProviderId) {
+      // Gemini: send no thinking config. An explicit "low" level cost 2.6x the
+      // output tokens of the default and scored worse (2026-10-22 bake-off).
+      if (provider === "google") return undefined;
+      return {
+        anthropic: {
+          // Haiku 5.5 thinks before the tool call, and those tokens count
+          // against the output cap. Nothing is emitted until thinking
+          // finishes, so a large form sits silent until the gateway 504s.
+          thinking: { type: "disabled" as const },
+          toolStreaming: true,
+        },
+      };
+    }
+  </file>
   <file path="services/agent/src/routes/gen-route-factory.ts">
     export interface GenRouteConfig<TSchema extends z.ZodType> {
       readonly path: string;
@@ -39596,7 +41953,12 @@
                     route: path,
                     messages,
                     modelId: GEN_MODEL_ID,
-                    systemPrompt,
+                    // The prompt the runner really sends, which depends on the render mode.
+                    systemPrompt: genRunnerSystemPrompt({
+                      systemPrompt,
+                      provider: GEN_PROVIDER,
+                      toolChoice: config.toolChoice,
+                    }),
                     maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
                   })
                 : undefined;
@@ -39659,6 +42021,7 @@
             const clientGone = new AbortController();
             const runner = createGenRunner({
               systemPrompt,
+              provider: GEN_PROVIDER,
               modelId: GEN_MODEL_ID,
               maxOutputTokens: GEN_MAX_OUTPUT_TOKENS,
               maxSteps,
@@ -39846,6 +42209,8 @@
     }
     export interface GenRunnerConfig {
       readonly systemPrompt: string;
+      /** Vendor that serves `modelId`. Omit for Anthropic. */
+      readonly provider?: GenProviderId;
       readonly modelId: string;
       /** Output-token ceiling per model call; hitting it fails the run (never a partial result). */
       readonly maxOutputTokens: number;
@@ -39909,26 +42274,27 @@
     export function createGenRunner(config: GenRunnerConfig): GenRunner {
       return {
         async run(messages, tools, onEvent, signal) {
+          // A forced render_component call is one call holding the whole tree.
+          const singleRender = config.toolChoice?.toolName === "render_component";
+          // Through function calling, Gemini fills only the props the catalog
+          // declares (live 2026-11-12: a Button with no label, a DataList with
+          // `items: null`). As JSON text it writes whole props, which is also the
+          // mode the 2026-10-22 bake-off measured, so a forced render on google
+          // asks for the same payload as JSON text and no tool is offered.
+          const jsonRender = isJsonRender(config);
           const result = streamText({
-            model: anthropic(config.modelId),
+            model: genLanguageModel(config.provider ?? "anthropic", config.modelId),
             abortSignal: signal,
             // System prompt goes through `instructions` — ai@7 rejects system-role
             // entries inside `messages` (see genSystemInstructions).
-            instructions: genSystemInstructions(config.systemPrompt),
+            instructions: genSystemInstructions(genRunnerSystemPrompt(config)),
             messages: [...messages],
-            tools: tools as Parameters<typeof streamText>[0]["tools"],
-            toolChoice: config.toolChoice,
+            tools: jsonRender ? undefined : (tools as Parameters<typeof streamText>[0]["tools"]),
+            toolChoice: jsonRender ? undefined : config.toolChoice,
+            output: jsonRender ? Output.json() : undefined,
             stopWhen: stepCountIs(config.maxSteps),
             maxOutputTokens: config.maxOutputTokens,
-            providerOptions: {
-              anthropic: {
-                // Haiku 5.5 thinks before the tool call, and those tokens count
-                // against the output cap. Nothing is emitted until thinking
-                // finishes, so a large form sits silent until the gateway 504s.
-                thinking: { type: "disabled" },
-                toolStreaming: true,
-              },
-            },
+            providerOptions: genProviderOptions(config.provider ?? "anthropic"),
             onFinish: config.onFinish
               ? async ({ usage, providerMetadata, finishReason }) => {
                   await config.onFinish!({ usage, providerMetadata, finishReason });
@@ -39943,15 +42309,35 @@
           let renderJson = "";
           let renderEmitted = 0;
           let trackingRender = false;
+          // Gemini sometimes answers a forced call with several parallel calls that
+          // repeat element keys (2 of 6 live runs, 2026-11-12); only the first is rendered.
+          let firstRenderId: string | undefined;
+          const isExtraRender = (id: string) =>
+            singleRender && firstRenderId !== undefined && id !== firstRenderId;
           for await (const event of result.fullStream) {
             if (event.type === "tool-input-start" && event.toolName === "render_component") {
+              if (isExtraRender(event.id)) continue;
+              firstRenderId ??= event.id;
               trackingRender = true;
               renderJson = "";
               renderEmitted = 0;
+            } else if (event.type === "tool-input-delta" && isExtraRender(event.id)) {
+              continue;
             } else if (event.type === "tool-input-delta" && trackingRender) {
               renderJson += event.delta;
               const ready = completeJsonElements(renderJson);
               for (const element of ready.slice(renderEmitted)) {
+                await onEvent({ type: "element", element });
+              }
+              renderEmitted = ready.length;
+            } else if (event.type === "text-delta" && jsonRender) {
+              renderJson += event.text;
+              const ready = completeJsonElements(renderJson);
+              for (const element of ready.slice(renderEmitted)) {
+                // No tool input schema checks this path, so the shape is checked here.
+                if (!isKeyedElement(element)) {
+                  throw new Error("gen output invalid: element without a string key and type");
+                }
                 await onEvent({ type: "element", element });
               }
               renderEmitted = ready.length;
@@ -39963,6 +42349,10 @@
             } else if (event.type === "finish-step" && event.finishReason !== "length") {
               stepEnded = true;
             } else if (event.type === "tool-call") {
+              if (event.toolName === "render_component") {
+                if (isExtraRender(event.toolCallId)) continue;
+                firstRenderId ??= event.toolCallId;
+              }
               const already =
                 trackingRender && event.toolName === "render_component" ? renderEmitted : 0;
               await handleToolCall(event, onEvent, already);
@@ -40000,8 +42390,38 @@
               throw toError(event.error);
             }
           }
+          // A tool call arrives whole or as a tool-error; JSON text can stop
+          // mid-document on a stop other than `length`. The elements seen so far
+          // must not pass (and be cached) as the whole tree. No text at all is
+          // left to the route's zero-output guard.
+          if (jsonRender && renderJson.trim() !== "" && !isCompleteRender(renderJson, renderEmitted)) {
+            throw new Error("gen output invalid: incomplete JSON document");
+          }
         },
       };
+    }
+    function isJsonRender(config: Pick<GenRunnerConfig, "provider" | "toolChoice">): boolean {
+      return config.toolChoice?.toolName === "render_component" && config.provider === "google";
+    }
+    export function genRunnerSystemPrompt(
+      config: Pick<GenRunnerConfig, "systemPrompt" | "provider" | "toolChoice">
+    ): string {
+      return isJsonRender(config)
+        ? `${config.systemPrompt}\n\n${JSON_RENDER_INSTRUCTIONS}`
+        : config.systemPrompt;
+    }
+    function isCompleteRender(json: string, emitted: number): boolean {
+      try {
+        const parsed = JSON.parse(json) as { elements?: unknown } | null;
+        return Array.isArray(parsed?.elements) && parsed.elements.length === emitted;
+      } catch {
+        // Not valid JSON: the document was cut off or malformed.
+        return false;
+      }
+    }
+    function isKeyedElement(value: unknown): boolean {
+      const element = value as { key?: unknown; type?: unknown } | null;
+      return typeof element?.key === "string" && typeof element.type === "string";
     }
     function toError(value: unknown): Error {
       return value instanceof Error ? value : new Error(String(value));
@@ -40196,7 +42616,8 @@
     };
   </file>
   <file path="services/agent/src/routes/gen-stream.ts">
-    export const GEN_MODEL_ID = "claude-haiku-5-5";
+    export const GEN_PROVIDER = resolveGenProvider(process.env.GEN_PROVIDER);
+    export const GEN_MODEL_ID = GEN_MODELS[GEN_PROVIDER];
     export const GEN_PRICING = (() => {
       const rates = (
         GEN_MODEL_PRICING as Record<string, (typeof GEN_MODEL_PRICING)[keyof typeof GEN_MODEL_PRICING]>
@@ -55658,6 +58079,72 @@
       } finally {
         await prisma.$disconnect();
       }
+    }
+  </file>
+  </section>
+  <section priority="medium" role="service-fields">
+  <file path="apps/hospitality/src/components/availability/service-fields/service-options.ts">
+    export type BookingTypes = ScheduleService["bookingTypes"];
+    export const SEATING_INTERVALS = [5, 10, 15, 20, 30, 60] as const;
+    export type BookedById = "onlinePhone" | "onlineOnly" | "phoneOnly" | "walkIn";
+    export const BOOKED_BY: readonly { readonly id: BookedById; readonly types: BookingTypes }[] = [
+      { id: "onlinePhone", types: ["online", "phone"] },
+      { id: "onlineOnly", types: ["online"] },
+      { id: "phoneOnly", types: ["phone"] },
+      { id: "walkIn", types: [] },
+    ];
+    export const sameSeating = (a: Seating, b: Seating) => seatingKey(a) === seatingKey(b);
+    export const sameBookingTypes = (a: BookingTypes, b: BookingTypes) =>
+      bookingTypesKey(a) === bookingTypesKey(b);
+    export function optionsKey(options: {
+      readonly seating: Seating;
+      readonly bookingTypes: BookingTypes;
+    }): string {
+      return `${seatingKey(options.seating)}${bookingTypesKey(options.bookingTypes)}`;
+    }
+    export function bookedById(types: BookingTypes): BookedById {
+      return BOOKED_BY.find((option) => sameBookingTypes(option.types, types))?.id ?? "walkIn";
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/service-fields/service-times.ts">
+    export interface LinkedTimes {
+      readonly opens: string | null;
+      readonly lastSeating: string | null;
+      readonly closes: string | null;
+      /** While true, last seating follows close minus {@link LAST_SEATING_LEAD_MINUTES}. */
+      readonly lastSeatingLinked: boolean;
+    }
+    export type TimeField = "opens" | "lastSeating" | "closes";
+    export function toMinutes(hhmm: string): number {
+      const [h = 0, m = 0] = hhmm.split(":").map(Number);
+      return h * 60 + m;
+    }
+    export function toClock(minutes: number): string {
+      const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
+      const mm = String(wrapped % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+    export function autoLastSeating(closes: string, opens: string | null = null): string {
+      const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
+      if (opens === null) return toClock(lead);
+      const opensAt = toMinutes(opens);
+      const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
+      return toClock(Math.max(lead + closesAfter, opensAt));
+    }
+    export function setServiceTime<T extends LinkedTimes>(
+      service: T,
+      field: TimeField,
+      value: string | null
+    ): T {
+      if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
+      const next = { ...service, [field]: value };
+      // Both ends bound a linked last seating, so moving either one keeps it in step.
+      if (!service.lastSeatingLinked) return next;
+      return {
+        ...next,
+        lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
+      };
     }
   </file>
   </section>
@@ -73776,7 +76263,7 @@
         label: t("nav.sections.manage"),
         items: [
           route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
-          route("availability", t("nav.items.availability"), "/availability"),
+          route("availability", t("nav.items.availability"), availabilityPath({ view: "hub" })),
           route("menus", t("nav.items.menus"), "/menus"),
           route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
         ],
@@ -88490,7 +90977,7 @@
         name: "DatePicker",
         include: false,
         description:
-          "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. Focus returns to the trigger on select or Escape.",
+          "Date field: a read-only trigger input that opens a popover-hosted Calendar. Controlled via value (yyyy-mm-dd ISO string) and onChange; supports min/max bounds, an isDateDisabled predicate, locale, and weekStartsOn. editable lets the date be typed, with a problem shown for text that is not an allowed date; defaultMonth sets the month an empty field's calendar opens on. Focus lands on the selected or current day on open and returns to the trigger on select or Escape.",
       },
       DateRange: {
         name: "DateRange",
@@ -88770,6 +91257,7 @@
       Calendar: z.object({
         min: z.string().optional(),
         max: z.string().optional(),
+        defaultMonth: z.string().optional(),
         locale: z.string().optional(),
       }),
       Card: z.object({
@@ -88822,6 +91310,8 @@
       DatePicker: z.object({
         min: z.string().optional(),
         max: z.string().optional(),
+        editable: z.boolean().optional(),
+        defaultMonth: z.string().optional(),
         locale: z.string().optional(),
         label: z.string().optional(),
         placeholder: z.string().optional(),
@@ -93846,6 +96336,16 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/copy-hours.ts">
+    export async function openCopyToOtherDays(): Promise<HTMLElement> {
+      fireEvent.click(screen.getByRole("button", { name: "Copy hours…" }));
+      return screen.findByRole("dialog", { name: /Copy .* to other days/ });
+    }
+    export async function openCopyFrom(name: RegExp): Promise<HTMLElement> {
+      fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
+      return screen.findByRole("dialog", { name });
+    }
+  </file>
   <file path="apps/hospitality/src/test/png-luminance.ts">
     export interface DecodedPng {
       readonly width: number;
@@ -99429,9 +101929,7 @@
       | "addFloorPlan"
       | "closeSection"
       | "moveToSection";
-    export type SetupActionTarget =
-      | { readonly kind: "link"; readonly to: string }
-      | { readonly kind: "dialog"; readonly dialog: "bookingRules" };
+    export type SetupActionTarget = { readonly kind: "link"; readonly to: string };
     export interface SetupAction {
       readonly id: SetupActionId;
       readonly target: SetupActionTarget;
@@ -99469,6 +101967,11 @@
       readonly readiness: "setup" | "operational";
       /** The venue's today, `YYYY-MM-DD`. */
       readonly today: string;
+      /**
+       * The venue's current service date (it trails `today` after midnight on an overnight venue): a
+       * regular week replaced before it is neither counted nor listed (#8688).
+       */
+      readonly serviceDate: string;
       readonly open: GroupLoad<OpenData>;
       readonly sit: GroupLoad<SitData>;
     }
@@ -99566,12 +102069,17 @@
         children,
       };
     }
-    function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode {
+    function schedulesNode(
+      config: AvailabilityConfig,
+      serviceDate: string,
+      manager: boolean
+    ): SetupNode {
       const services = new Map(
         active(config.venueServices).map((s) => [s.id, { name: s.name, position: s.position }])
       );
-      const schedules = active(config.schedules).map((s) => scheduleNode(s, config, services, manager));
-      const regular = active(config.schedules).find((s) => s.isRegular);
+      const visible = visibleSchedules(config, serviceDate);
+      const schedules = visible.map((s) => scheduleNode(s, config, services, manager));
+      const regular = visible.find((s) => s.isRegular);
       const regularSet =
         regular !== undefined &&
         schedules.some((n) => n.id === `schedule:${regular.id}` && n.children.length > 0);
@@ -99598,14 +102106,6 @@
           : [],
         children: schedules,
       };
-    }
-    function upcomingRules(rules: readonly DateRule[], today: string): DateRule[] {
-      return rules
-        .filter((r) => r.kind === "closure" || r.kind === "special_hours")
-        .filter((r) => r.endsOn == null || r.endsOn >= today)
-        .sort((a, b) =>
-          a.startsOn === b.startsOn ? a.id.localeCompare(b.id) : a.startsOn < b.startsOn ? -1 : 1
-        );
     }
     function targetOf(
       rule: DateRule,
@@ -99682,7 +102182,7 @@
         kind: "booking",
         name: null,
         state: anySet ? { kind: "rules", daysAhead, noticeHours, largestParty } : UNSET,
-        actions: manager ? [action("bookingRules", { kind: "dialog", dialog: "bookingRules" })] : [],
+        actions: manager ? [action("bookingRules", link(SETUP_BOOKING_RULES))] : [],
         children: CHANNELS.map((channel) => ({
           id: `channel:${channel}`,
           kind: "channel",
@@ -99698,12 +102198,13 @@
     }
     function openNodes(
       data: OpenData,
-      today: string,
+      dates: { readonly today: string; readonly serviceDate: string },
       sections: ReadonlyMap<string, string> | null,
       manager: boolean
     ): SetupNode[] {
+      const { today, serviceDate } = dates;
       return [
-        schedulesNode(data.config, manager),
+        schedulesNode(data.config, serviceDate, manager),
         specialDatesNode(data.config, today, sections, manager),
         bookingNode(data.config, data.settings, today, manager),
       ];
@@ -99740,7 +102241,13 @@
             ? [
                 action(
                   "closeSection",
-                  link(availabilityPath({ closeSection: section.id, from: "setup" })),
+                  link(
+                    availabilityPath({
+                      view: "hub",
+                      close: { kind: "section", sectionId: section.id },
+                      from: "setup",
+                    })
+                  ),
                   section.name
                 ),
               ]
@@ -99810,13 +102317,15 @@
       );
     }
     export function buildSetupTree(input: SetupTreeInput): SetupTree {
-      const { isManager, today } = input;
+      const { isManager, today, serviceDate } = input;
       const sectionNames =
         input.sit.status === "ready"
           ? new Map(input.sit.data.sections.map((s) => [s.id, s.name]))
           : null;
       let open: readonly SetupNode[] =
-        input.open.status === "ready" ? openNodes(input.open.data, today, sectionNames, isManager) : [];
+        input.open.status === "ready"
+          ? openNodes(input.open.data, { today, serviceDate }, sectionNames, isManager)
+          : [];
       let sit: readonly SetupNode[] =
         input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
     

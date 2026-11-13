@@ -103,6 +103,14 @@ export interface RialtoMessages {
   readonly nextMonth: string;
   /** Accessible name of a DatePicker with no label. */
   readonly chooseDate: string;
+  /** Problem under an editable DatePicker whose typed text is not a date. */
+  readonly enterDate: string;
+  /** Problem under an editable DatePicker for a typed date before `min` (the formatted earliest date). */
+  readonly dateTooEarly: (earliest: string) => string;
+  /** Problem under an editable DatePicker for a typed date after `max` (the formatted latest date). */
+  readonly dateTooLate: (latest: string) => string;
+  /** Problem under an editable DatePicker for a typed date its `isDateDisabled` refuses. */
+  readonly dateUnavailable: string;
   /** Accessible name of a DateRangePicker with no label. */
   readonly chooseDateRange: string;
   /** Accessible name of a TimePicker with no label. */
@@ -307,6 +315,10 @@ export const enUS: RialtoMessages = {
   previousMonth: "Previous month",
   nextMonth: "Next month",
   chooseDate: "Choose date",
+  enterDate: "Enter a date",
+  dateTooEarly: (earliest) => `Enter a date on or after ${earliest}`,
+  dateTooLate: (latest) => `Enter a date on or before ${latest}`,
+  dateUnavailable: "That date is not available",
   chooseDateRange: "Choose date range",
   chooseTime: "Choose time",
   decrease: "Decrease",

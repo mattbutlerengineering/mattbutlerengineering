@@ -113,7 +113,7 @@ function renderSeriesDialog(initial: readonly DateRule[] = [SERIES]) {
 
 /** The controls the growth flow presses, by the name they carry in a locale. */
 const NAMES = {
-  scopeAll: "All dates in the series",
+  scopeAll: "All dates",
   tuesday: "Tue" as string | RegExp,
   save: "Save",
   cancelChoice: /Cancel, notify & refund/ as RegExp,
@@ -146,7 +146,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     revert.mockResolvedValue({ version: 9, changeId: "chg-9" });
     const wide = { ...SERIES, repeat: { version: 1 as const, weekdays: [1, 3] } };
     renderSeriesDialog([wide]);
-    fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+    fireEvent.click(screen.getByRole("radio", { name: "All dates" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Wed" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -195,7 +195,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
       localeRuntime.i18n.addResourceBundle("fr-CA", "translation", frCA, true, true);
       await localeRuntime.i18n.changeLanguage("fr-CA");
       await grewSilently(frCA.availability.undo.action, {
-        scopeAll: frCA.availabilitySpecial.series.scopeAll,
+        scopeAll: frCA.availabilitySpecial.scope.all,
         tuesday: /^mar/i,
         save: frCA.availabilitySpecial.series.save,
         cancelChoice: new RegExp(frCA.availability.close.step2.action.cancel),
@@ -233,10 +233,10 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     const { reload } = renderSeriesDialog();
     await toStepTwoAndCancel();
     await waitFor(() => expect(create).toHaveBeenCalledTimes(1));
-    await screen.findByRole("radio", { name: "All dates in the series" });
+    await screen.findByRole("radio", { name: "All dates" });
 
     reload([WINNER], 8);
-    fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+    fireEvent.click(screen.getByRole("radio", { name: "All dates" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Fri" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
@@ -249,7 +249,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
 
   it("shows the Manager that the series changed, with the form on the new days and end", async () => {
     const { reload } = renderSeriesDialog();
-    fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+    fireEvent.click(screen.getByRole("radio", { name: "All dates" }));
     expect(screen.getByRole("checkbox", { name: "Wed" })).not.toBeChecked();
     const endsOn = () => (screen.getByLabelText("Ends on") as HTMLInputElement).value;
     const before = endsOn();
@@ -396,7 +396,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
     const dropWednesday = async () => {
       saveConfig.mockRejectedValueOnce(new TypeError("Failed to fetch"));
       const view = renderSeriesDialog([TWO_DAYS]);
-      fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+      fireEvent.click(screen.getByRole("radio", { name: "All dates" }));
       fireEvent.click(screen.getByRole("checkbox", { name: "Wed" }));
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
       await screen.findByText(/Can't reach/);
@@ -426,7 +426,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
   it("refuses days that leave the series with no date in its range (#8032)", async () => {
     // 2026-12-07 is a Monday: no Friday falls in Monday and Tuesday.
     renderSeriesDialog([{ ...SERIES, endsOn: "2026-12-08" }]);
-    fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+    fireEvent.click(screen.getByRole("radio", { name: "All dates" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Mon" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Fri" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -450,7 +450,7 @@ describe("SeriesEditDialog after someone else's change (#7978)", () => {
       )
     );
     renderSeriesDialog([{ ...SERIES, repeat: { version: 1, weekdays: [1, 3] } }]);
-    fireEvent.click(screen.getByRole("radio", { name: "All dates in the series" }));
+    fireEvent.click(screen.getByRole("radio", { name: "All dates" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Wed" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 

@@ -527,8 +527,14 @@ async function runAndWrite(outPath) {
   };
   const lookup = serializeCalls((project, marker, target) => {
     log(`Looking up ${marker} in sentry:${SENTRY_ORG}/${project}`);
-    return findMarkedEvent(SENTRY_ORG, project, marker, token, fetch, (event, candidate) =>
-      eventMatchesTarget(event, target, candidate)
+    return findMarkedEvent(
+      SENTRY_ORG,
+      project,
+      marker,
+      token,
+      fetch,
+      (event, candidate) => eventMatchesTarget(event, target, candidate),
+      target.kind
     );
   });
 

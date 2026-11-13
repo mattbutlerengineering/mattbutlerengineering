@@ -8,6 +8,8 @@ import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailabi
 import { useVenueFloorPlanSections } from "../hooks/useFloorPlans.js";
 import { useNow } from "../hooks/useNow.js";
 import { minutesOfDayIn, venueDate } from "../utils/service-day.js";
+import { currentServiceDate } from "../utils/current-service-date.js";
+import { visibleSchedules } from "../components/availability/superseded-schedules.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useManagerAccess } from "../hooks/useIsManager.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
@@ -15,7 +17,6 @@ import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
 import { AvailabilityHistoryDrawer } from "../components/availability/AvailabilityHistoryDrawer.js";
-import { BookingRulesDrawer } from "../components/availability/BookingRulesDrawer.js";
 import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { AvailabilityMigrationBanner } from "../components/availability/AvailabilityMigrationBanner.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
@@ -28,7 +29,7 @@ import { AvailabilityScheduleControls } from "../components/availability/Availab
 import {
   parseAvailabilityEntry,
   type AvailabilityTab,
-} from "../components/availability/availability-entry.js";
+} from "../components/availability/availability-address.js";
 import { ScheduleEditorDrawer } from "../components/availability/ScheduleEditorDrawer.js";
 import {
   REGULAR_WEEK_HEADING_ID,
@@ -45,6 +46,7 @@ import { ClearChangesDialog } from "../components/availability/ClearChangesDialo
 import { UseScheduleDialog } from "../components/availability/UseScheduleDialog.js";
 import { ownSingleDateRules } from "../components/availability/selection-actions.js";
 import { CloseDialog } from "../components/availability/CloseDialog.js";
+import { PauseOnlineDialog } from "../components/availability/PauseOnlineDialog.js";
 import { GoToDateDialog } from "../components/availability/GoToDateDialog.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
@@ -75,7 +77,7 @@ const EMPTY: string[] = [];
 
 /**
  * The Close dialog (F5): `date` pre-fills "one date", `dates` (the selection bar's) "Several
- * dates"; `pause` starts on pausing online booking.
+ * dates"; `pause` opens the Pause online booking dialog in its place.
  */
 interface Closing {
   readonly date: string | null;
@@ -157,7 +159,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const [editor, setEditor] = useState<ScheduleEditorTarget | null>(null);
   const [comparing, setComparing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [bookingRulesOpen, setBookingRulesOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
   // The day Go to date went to. The dialog hands focus back to its trigger a frame after it
   // closes, so focus moves to the day only once that has happened (see the effect below).
@@ -395,7 +396,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           ? {
               onClose: () => setClosing({ date: null, pause: false }),
               onPause: !pause ? () => setClosing({ date: null, pause: true }) : undefined,
-              onBookingRules: () => setBookingRulesOpen(true),
               onCompareServices: () =>
                 tab === "schedules"
                   ? setComparing(true)
@@ -544,8 +544,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         ]
       : []),
   ];
-  const activeScheduleCount =
-    config.data?.config.schedules.filter((s) => !s.archivedAt).length ?? 0;
+  // Superseded weeks hide by service date: after midnight on an overnight venue last night's week still runs.
+  const serviceDate = config.data ? currentServiceDate(config.data.config, timeZone, now) : today;
+  const activeScheduleCount = config.data
+    ? visibleSchedules(config.data.config, serviceDate).length
+    : 0;
   const ownChangeCount = config.data ? ownSingleDateRules(config.data.config, selection).length : 0;
   const clearSelection = () => {
     setSelection([]);
@@ -736,13 +739,13 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           state={config.data}
           timezone={timeZone}
           today={today}
+          serviceDate={serviceDate}
           onStale={() => void config.refetch()}
           refreshError={config.error ? describeApiError(config.error).detail : null}
           onDirtyChange={setSchedulesDirty}
           onEditorChange={setEditor}
           comparing={comparing}
           onComparingChange={setComparing}
-          onBookingRules={() => setBookingRulesOpen(true)}
         />
       ) : (
         loading
@@ -790,7 +793,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {layer}
-      {bookingRulesOpen && <BookingRulesDrawer onClose={() => setBookingRulesOpen(false)} />}
       <AvailabilityHistoryDrawer
         open={historyOpen}
         venueId={selectedVenueId}
@@ -826,10 +828,20 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           {...(editor.sourceId ? { sourceScheduleId: editor.sourceId } : {})}
           {...(editor.seed ? { seed: editor.seed } : {})}
           onStale={() => void config.refetch()}
+          refreshError={config.error ? describeApiError(config.error).detail : null}
           onClose={() => setEditor(null)}
         />
       )}
-      {closing && config.data && (
+      {closing?.pause && config.data && (
+        <PauseOnlineDialog
+          venueId={selectedVenueId}
+          state={config.data}
+          // The service date: past midnight on a night still running, Tonight is that night.
+          today={serviceDate}
+          onClose={() => setClosing(null)}
+        />
+      )}
+      {closing && !closing.pause && config.data && (
         <CloseDialog
           venueId={selectedVenueId}
           state={config.data}
@@ -837,7 +849,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           today={today}
           initialDate={closing.date}
           initialDates={closing.dates}
-          pauseOnline={closing.pause}
           initialSectionId={closing.sectionId}
           onSaved={closing.dates ? finishSelectionAction : undefined}
           onClose={() => setClosing(null)}

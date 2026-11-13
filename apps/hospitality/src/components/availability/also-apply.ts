@@ -46,14 +46,20 @@ function changedSourceRows(
   });
 }
 
+/**
+ * The other schedules each changed service could take the new times in: the schedules Compare
+ * services lists for it, so a hidden one (archived, or a replaced regular week, #8688) is never
+ * offered. `serviceDate` is the venue's current service date.
+ */
 export function alsoApplyOptions(
   config: AvailabilityConfig,
   edit: AvailabilityConfigChanges,
-  sourceScheduleId: string
+  sourceScheduleId: string,
+  serviceDate: string
 ): AlsoApplyOption[] {
   const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
   return changedSourceRows(config, edit, sourceScheduleId).flatMap((row) => {
-    const targets = compareRows(config, row.venueServiceId)
+    const targets = compareRows(config, row.venueServiceId, serviceDate)
       .filter((r) => r.scheduleId !== sourceScheduleId)
       .map((r) => ({ scheduleId: r.scheduleId, scheduleName: r.scheduleName }));
     return targets.length === 0
@@ -99,9 +105,10 @@ export function buildAlsoApplyChanges(
   config: AvailabilityConfig,
   edit: AvailabilityConfigChanges,
   sourceScheduleId: string,
-  picks: AlsoApplyPicks
+  picks: AlsoApplyPicks,
+  serviceDate: string
 ): AvailabilityConfigChanges {
-  const options = alsoApplyOptions(config, edit, sourceScheduleId);
+  const options = alsoApplyOptions(config, edit, sourceScheduleId, serviceDate);
   const wanted = pruneAlsoApply(options, picks);
   const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
   const source = new Map(

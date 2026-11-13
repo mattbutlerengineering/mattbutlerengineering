@@ -7,6 +7,13 @@ import {
   type ServiceWeek,
 } from "@mbe/availability";
 import { localeRuntime } from "../../i18n/runtime.js";
+import {
+  autoLastSeating,
+  setServiceTime,
+  toClock,
+  toMinutes,
+  type LinkedTimes,
+} from "./service-fields/service-times.js";
 import type {
   AvailabilityConfig,
   AvailabilityConfigChanges,
@@ -24,16 +31,14 @@ import type {
  * `TimePicker`); a close (or last seating) earlier than the opening runs past midnight.
  */
 
-/** What the form has no controls for, carried so an edit keeps it: seating and booking types. */
+/**
+ * Seating and booking types: carried on the hours they were stored with so an edit of the times
+ * keeps them, and changed by the row's "Seat every" and "Booked by" (`quick-setup-options.ts`).
+ */
 export type KeptHours = Pick<ServiceHours, "seating" | "bookingTypes">;
 
 /** The three times of a service or of one of its different-hours blocks. */
-export interface DraftTimes {
-  readonly opens: string | null;
-  readonly lastSeating: string | null;
-  readonly closes: string | null;
-  /** While true, last seating follows close minus {@link LAST_SEATING_LEAD_MINUTES}. */
-  readonly lastSeatingLinked: boolean;
+export interface DraftTimes extends LinkedTimes {
   /**
    * The stored seating and booking types of these hours (`draftFromConfig`), so a set's own are
    * not overwritten by the base's. Absent on hours the form made: they take the service's stored
@@ -47,6 +52,12 @@ export interface HoursBlock extends DraftTimes {
   readonly id: string;
   /** Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
   readonly days: readonly number[];
+  /**
+   * Which of its seating and booking types the block had unlike its service's when the service's
+   * was changed (`setServiceKept`): it keeps those through later changes, even one that brings
+   * the service to the same value on the way to another. Form state only; never saved.
+   */
+  readonly ownKept?: { readonly seating: boolean; readonly bookingTypes: boolean };
 }
 
 export interface ServiceDraft extends DraftTimes {
@@ -72,7 +83,6 @@ export interface QuickSetupDraft {
   readonly days: readonly number[];
 }
 
-const LAST_SEATING_LEAD_MINUTES = 45;
 /** `VenueServiceSchema.name` max; the server refuses a longer name. */
 export const SERVICE_NAME_MAX_LENGTH = 40;
 const MINUTES_PER_DAY = 1440;
@@ -112,30 +122,8 @@ export function emptyDraft(firstServiceId: string): QuickSetupDraft {
 
 // ── Time helpers ──────────────────────────────────────────────────────────
 
-export function toMinutes(hhmm: string): number {
-  const [h = 0, m = 0] = hhmm.split(":").map(Number);
-  return h * 60 + m;
-}
-
-export function toClock(minutes: number): string {
-  const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-  const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
-  const mm = String(wrapped % 60).padStart(2, "0");
-  return `${hh}:${mm}`;
-}
-
-/**
- * Last seating that follows a close: close minus the lead time, e.g. 22:00 → 21:15. With the
- * opening known, a service shorter than the lead seats at its opening, not before it; a close
- * earlier than the opening is the next day's.
- */
-export function autoLastSeating(closes: string, opens: string | null = null): string {
-  const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
-  if (opens === null) return toClock(lead);
-  const opensAt = toMinutes(opens);
-  const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
-  return toClock(Math.max(lead + closesAfter, opensAt));
-}
+// The clock helpers live with the shared service fields, which both forms' rows render.
+export { autoLastSeating, setServiceTime, toClock, toMinutes };
 
 /** A name chip: fills the name and its typical times; last seating re-links to the close. */
 export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) {
@@ -147,22 +135,6 @@ export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name
     closes,
     lastSeating: autoLastSeating(closes, opens),
     lastSeatingLinked: true,
-  };
-}
-
-/** Editing close keeps a linked last seating in step; editing last seating unlinks it. */
-export function setServiceTime<T extends DraftTimes>(
-  service: T,
-  field: "opens" | "lastSeating" | "closes",
-  value: string | null
-): T {
-  if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
-  const next = { ...service, [field]: value };
-  // Both ends bound a linked last seating, so moving either one keeps it in step.
-  if (!service.lastSeatingLinked) return next;
-  return {
-    ...next,
-    lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
   };
 }
 
@@ -336,14 +308,14 @@ export function coveredDays(draft: QuickSetupDraft): number[] {
   return [...new Set(days)].sort((a, b) => a - b);
 }
 
+/** What a service the form made is saved with when nothing stored says otherwise. */
+export const DEFAULT_KEPT: KeptHours = {
+  seating: { version: 1, interval: SEATING_INTERVAL_MINUTES },
+  bookingTypes: ["online", "phone"],
+};
+
 function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours {
-  return {
-    ...m,
-    ...(kept ?? {
-      seating: { version: 1 as const, interval: SEATING_INTERVAL_MINUTES },
-      bookingTypes: ["online" as const, "phone" as const],
-    }),
-  };
+  return { ...m, ...(kept ?? DEFAULT_KEPT) };
 }
 
 /** One service's hours on each weekday: its base hours, a complete block's hours where it claims the day. */

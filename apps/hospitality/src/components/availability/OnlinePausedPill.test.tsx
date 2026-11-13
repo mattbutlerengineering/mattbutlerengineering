@@ -40,7 +40,7 @@ describe("OnlinePausedPill (#8032)", () => {
 
   it("does not say paused while a pause waits for its time: online booking is open", () => {
     renderAt("2026-11-14T10:00:00-05:00");
-    expect(screen.queryByText("Online booking paused")).toBeNull();
+    expect(screen.queryByText(/Online booking paused/)).toBeNull();
   });
 
   it("says paused when its time takes every online seating of the day", () => {
@@ -49,11 +49,16 @@ describe("OnlinePausedPill (#8032)", () => {
       ...FROM_SIX,
       window: { version: 1, from: 10 * 60, to: 2880 },
     });
-    expect(screen.getByText("Online booking paused")).toBeTruthy();
+    expect(screen.getByText("Online booking paused · No end date")).toBeTruthy();
   });
 
   it("says paused once its time has come", () => {
     renderAt("2026-11-14T19:00:00-05:00");
-    expect(screen.getByText("Online booking paused")).toBeTruthy();
+    expect(screen.getByText("Online booking paused · No end date")).toBeTruthy();
+  });
+
+  it("says the pause has no end, since it only ever shows one the Pause button created open-ended (#8687)", () => {
+    renderAt("2026-11-14T19:00:00-05:00");
+    expect(screen.getByText(/no end date/i)).toBeTruthy();
   });
 });
