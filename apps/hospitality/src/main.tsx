@@ -81,6 +81,11 @@ const BookingRulesRoute = lazy(() =>
     default: m.BookingRulesRoute,
   }))
 );
+const AvailabilityHistoryRoute = lazy(() =>
+  import("./components/availability/AvailabilityHistoryRoute.js").then((m) => ({
+    default: m.AvailabilityHistoryRoute,
+  }))
+);
 const AvailabilityPage = lazy(() =>
   import("./pages/AvailabilityPage.js").then((m) => ({ default: m.AvailabilityPage }))
 );
@@ -343,6 +348,18 @@ const router = createBrowserRouter(
                       <AvailabilityHubPage>
                         <Suspense fallback={null}>
                           <BookingRulesRoute />
+                        </Suspense>
+                      </AvailabilityHubPage>
+                    </Suspense>
+                  ),
+                },
+                {
+                  path: "history",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityHubPage>
+                        <Suspense fallback={null}>
+                          <AvailabilityHistoryRoute />
                         </Suspense>
                       </AvailabilityHubPage>
                     </Suspense>

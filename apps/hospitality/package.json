@@ -80,6 +80,16 @@
       "limit": "3.2 kB"
     },
     {
+      "name": "Weekday summary + rule wording (hoisted at availability-hub C2.6, when History left today's page for its own route and rollup split the weekday and rule text it shares with the hub and today's page out of closure-band and change-summary-text; 2.55 kB (2,547 B) measured)",
+      "path": "dist/assets/weekday-summary-*.js",
+      "limit": "2.75 kB"
+    },
+    {
+      "name": "History drawer route (lazy chunk over the hub, availability-hub C2.6: the History drawer, its filters and Undo; 1.93 kB (1,927 B) measured)",
+      "path": "dist/assets/AvailabilityHistoryRoute-*.js",
+      "limit": "2.15 kB"
+    },
+    {
       "name": "Quick-setup validation (its own chunk since availability-hub H1.6 moved its neighbours into the chunks the hub shares; 2.59 kB measured)",
       "path": "dist/assets/quick-setup-validate-*.js",
       "limit": "2.8 kB"

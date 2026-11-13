@@ -191,7 +191,7 @@ describe("AvailabilityHubPage", () => {
     expect(hrefOf(screen.getByRole("link", { name: "Open calendar" }))).toBe(
       "/availability/calendar?tab=calendar"
     );
-    expect(hrefOf(screen.getByRole("link", { name: "History" }))).toBe("/availability/calendar");
+    expect(hrefOf(screen.getByRole("link", { name: "History" }))).toBe("/availability/history");
   });
 
   it("reads Edit on seasonal hours once a set exists", () => {

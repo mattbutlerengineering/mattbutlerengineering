@@ -136,14 +136,15 @@ describe("AvailabilityHistoryDrawer", () => {
     expect(rows[2]).toHaveTextContent(/by a teammate/i);
   });
 
-  it("offers Revert only where the server says it is possible, and only to a Manager", () => {
+  // The button reads "Undo" (availability-hub C2.6); it still sends the same revert call.
+  it("offers Undo only where the server says it is possible, and only to a Manager", () => {
     renderDrawer();
-    expect(screen.getAllByRole("button", { name: "Revert" })).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Undo" })).toHaveLength(1);
   });
 
-  it("shows a Host the history without any Revert", () => {
+  it("shows a Host the history without any Undo", () => {
     renderDrawer({ viewerRole: "host" });
-    expect(screen.queryByRole("button", { name: "Revert" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(2);
   });
 
@@ -151,7 +152,7 @@ describe("AvailabilityHistoryDrawer", () => {
     mutateAsync.mockResolvedValue({ version: 8, changeId: "chg-3" });
     renderDrawer();
 
-    fireEvent.click(screen.getByRole("button", { name: "Revert" }));
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
 
     await waitFor(() =>
       expect(mutateAsync).toHaveBeenCalledWith({
@@ -181,7 +182,7 @@ describe("AvailabilityHistoryDrawer", () => {
     );
     renderDrawer();
 
-    fireEvent.click(screen.getByRole("button", { name: "Revert" }));
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
 
     await waitFor(() =>
       expect(toast).toHaveBeenCalledWith(
@@ -193,7 +194,7 @@ describe("AvailabilityHistoryDrawer", () => {
     );
   });
 
-  it("names each stranded booking with a link, outside the alert, when Revert is refused", async () => {
+  it("names each stranded booking with a link, outside the alert, when Undo is refused", async () => {
     mutateAsync.mockRejectedValue(
       new ApiClientError(
         {
@@ -230,7 +231,7 @@ describe("AvailabilityHistoryDrawer", () => {
       </main>
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Revert" }));
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
 
     const link = await screen.findByRole("link", { name: /Okafor/ });
     expect(link.getAttribute("href")).toMatch(/selected=res-okafor$/);
@@ -238,7 +239,7 @@ describe("AvailabilityHistoryDrawer", () => {
     expect(toast).not.toHaveBeenCalledWith(expect.objectContaining({ variant: "error" }));
   });
 
-  it("keeps focus on Revert while it is in flight, so closing the list returns to it", async () => {
+  it("keeps focus on Undo while it is in flight, so closing the list returns to it", async () => {
     const refusal = new ApiClientError(
       {
         type: "about:blank",
@@ -278,7 +279,7 @@ describe("AvailabilityHistoryDrawer", () => {
         <StrandedRevertDialog />
       </main>
     );
-    const revertButton = screen.getByRole("button", { name: "Revert" });
+    const revertButton = screen.getByRole("button", { name: "Undo" });
     revertButton.focus();
     fireEvent.click(revertButton);
 

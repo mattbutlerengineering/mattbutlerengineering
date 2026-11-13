@@ -16,7 +16,6 @@ import { useVenueTeam } from "../hooks/useVenueTeam.js";
 import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
-import { AvailabilityHistoryDrawer } from "../components/availability/AvailabilityHistoryDrawer.js";
 import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { AvailabilityMigrationBanner } from "../components/availability/AvailabilityMigrationBanner.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
@@ -149,31 +148,30 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const today = venueDate(now, timeZone);
 
   const [view, setView] = useState<CalendarView>("month");
-  // `null` follows today until the viewer navigates.
-  const [chosenAnchor, setChosenAnchor] = useState<string | null>(null);
-  const [target, setTarget] = useState<OpenTarget>(CLOSED);
+  // How another page opened this one (?tab=, ?closeSection=, ?action=, ?date=, ?from=setup), read once on mount.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [entry] = useState(() => parseAvailabilityEntry(searchParams));
+  // `null` follows today until the viewer navigates. A ?date= (History's View day) opens that day.
+  const [chosenAnchor, setChosenAnchor] = useState<string | null>(entry.date ?? null);
+  const [target, setTarget] = useState<OpenTarget>(entry.date ? { date: entry.date } : CLOSED);
   const openDate = target.date;
   const [closing, setClosing] = useState<Closing | null>(null);
   // The schedule editor and Compare services are the page's: the header ⋯ and the day drawer
   // open them as well as the Schedules layer.
   const [editor, setEditor] = useState<ScheduleEditorTarget | null>(null);
   const [comparing, setComparing] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
   // The day Go to date went to. The dialog hands focus back to its trigger a frame after it
   // closes, so focus moves to the day only once that has happened (see the effect below).
   const [jumpTo, setJumpTo] = useState<string | null>(null);
-  // How another page opened this one (?tab=, ?closeSection=, ?action=, ?from=setup), read once on mount.
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [entry] = useState(() => parseAvailabilityEntry(searchParams));
   // `null` until the viewer picks one: a Manager then lands on Schedules, a Host on Calendar.
   const [chosenTab, setChosenTab] = useState<AvailabilityTab | null>(entry.tab ?? null);
-  // A section's Close dialog and an action are not reopened by a refresh, so those params go once read.
+  // A section's Close dialog, an action and a day are not reopened by a refresh, so those params go once read.
   useEffect(() => {
-    if (!searchParams.has("closeSection") && !searchParams.has("action")) return;
+    const once = ["closeSection", "action", "date"];
+    if (!once.some((name) => searchParams.has(name))) return;
     const rest = new URLSearchParams(searchParams);
-    rest.delete("closeSection");
-    rest.delete("action");
+    for (const name of once) rest.delete(name);
     setSearchParams(rest, { replace: true });
   }, [searchParams, setSearchParams]);
   // A range drag holds the selection bar as it was, so the grid does not move under the pointer.
@@ -385,7 +383,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     else applyTab(move);
   };
   const regularSchedule = config.data?.config.schedules.find((s) => s.isRegular && !s.archivedAt);
-  // A Host keeps History and Go to date; the rest is the Manager's. While the role or the config
+  // A Host keeps Go to date; the rest is the Manager's. While the role or the config
   // is read the actions show disabled, and a config that failed to load has nothing to open.
   const headerActions =
     isManager && !config.data && config.error ? null : (
@@ -405,7 +403,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
                 : undefined,
             }
           : {})}
-        onHistory={() => setHistoryOpen(true)}
         onGoToDate={() =>
           tab === "calendar" ? setGoToOpen(true) : changeTab({ tab: "calendar", then: "goToDate" })
         }
@@ -793,22 +790,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {layer}
-      <AvailabilityHistoryDrawer
-        open={historyOpen}
-        venueId={selectedVenueId}
-        viewerRole={team?.viewerRole}
-        onClose={() => setHistoryOpen(false)}
-        onOpenDay={(date) => {
-          setHistoryOpen(false);
-          // The day opens on the Calendar, from whichever layer History was opened on.
-          if (tab !== "calendar") {
-            changeTab({ tab: "calendar", then: { openDay: date } });
-          } else {
-            guard.request({ date });
-            moveTo(date);
-          }
-        }}
-      />
       <GoToDateDialog
         open={goToOpen}
         initial={anchor}

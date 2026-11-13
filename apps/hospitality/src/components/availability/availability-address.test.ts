@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   availabilityPath,
   isBookingRulesPage,
+  isHistoryPage,
   isTodaysPage,
   legacyRedirect,
   parseAvailabilityEntry,
@@ -13,13 +14,14 @@ import {
 
 /**
  * The routes of `availability` in `main.tsx` that render a view: the hub at the index, booking
- * rules over the hub, and today's page at `calendar`. An address outside this list leads to the
+ * rules and History over the hub, and today's page at `calendar`. An address outside this list leads to the
  * Not Found page.
  */
 const MOUNTED: readonly string[] = [
   "/availability",
   "/availability/booking-rules",
   "/availability/calendar",
+  "/availability/history",
 ];
 const pathOf = (address: string): string => address.split("?")[0] ?? "";
 
@@ -45,10 +47,10 @@ describe("availabilityPath", () => {
     [{ view: "calendar" }, "/availability/calendar?tab=calendar"],
     [
       { view: "calendar", calendarView: "week", date: "2026-12-24" },
-      "/availability/calendar?tab=calendar",
+      "/availability/calendar?tab=calendar&date=2026-12-24",
     ],
     [{ view: "bookingRules" }, "/availability/booking-rules"],
-    [{ view: "history" }, "/availability/calendar"],
+    [{ view: "history" }, "/availability/history"],
   ];
 
   it.each(cases)("resolves %o to %s", (target, path) => {
@@ -83,6 +85,20 @@ describe("availabilityPath", () => {
     expect(availabilityPath({ view: "seasonal", screen: "new", from: "setup" })).toBe(
       "/availability/calendar?tab=schedules&action=addSchedule&from=setup"
     );
+    expect(availabilityPath({ view: "history", from: "setup" })).toBe(
+      "/availability/history?from=setup"
+    );
+    expect(availabilityPath({ view: "calendar", date: "2026-12-24", from: "setup" })).toBe(
+      "/availability/calendar?tab=calendar&date=2026-12-24&from=setup"
+    );
+  });
+
+  it("drops a calendar date that is not a real day", () => {
+    for (const date of ["2026-02-30", "24/12/2026", ""]) {
+      expect(availabilityPath({ view: "calendar", date })).toBe(
+        "/availability/calendar?tab=calendar"
+      );
+    }
   });
 
   it("opens a section's Close dialog through the address today's page reads", () => {
@@ -106,6 +122,9 @@ describe("availabilityPath", () => {
     expect(
       availabilityPath({ view: "bookingRules", close: { kind: "section", sectionId: "sec-1" } })
     ).toBe("/availability/booking-rules");
+    expect(availabilityPath({ view: "history", close: { kind: "tonight" }, pause: true })).toBe(
+      "/availability/history"
+    );
   });
 
   it("never answers the hub's own address for a search the index would redirect", () => {
@@ -146,6 +165,22 @@ describe("isBookingRulesPage", () => {
     "is false for %s",
     (pathname) => {
       expect(isBookingRulesPage(pathname)).toBe(false);
+    }
+  );
+});
+
+describe("isHistoryPage", () => {
+  it.each(["/availability/history", "/availability/history/", "/Availability/History"])(
+    "is true for %s",
+    (pathname) => {
+      expect(isHistoryPage(pathname)).toBe(true);
+    }
+  );
+
+  it.each(["/availability", "/availability/booking-rules", "/history"])(
+    "is false for %s",
+    (pathname) => {
+      expect(isHistoryPage(pathname)).toBe(false);
     }
   );
 });
@@ -301,6 +336,24 @@ describe("parseAvailabilityEntry", () => {
       tab: "special",
     });
     expect(parseAvailabilityEntry("?action=")).toEqual({});
+  });
+
+  it("reads a date that is a real day, and ignores any other", () => {
+    expect(parseAvailabilityEntry("?tab=calendar&date=2026-12-24")).toEqual({
+      tab: "calendar",
+      date: "2026-12-24",
+    });
+    for (const date of ["2026-02-30", "2026-12-24T00:00", "tomorrow", ""]) {
+      expect(parseAvailabilityEntry(`?tab=calendar&date=${date}`)).toEqual({ tab: "calendar" });
+    }
+  });
+
+  it("reads back the date a calendar target carries", () => {
+    const path = availabilityPath({ view: "calendar", date: "2027-01-02" });
+    expect(parseAvailabilityEntry(path.slice(path.indexOf("?")))).toEqual({
+      tab: "calendar",
+      date: "2027-01-02",
+    });
   });
 
   it("keeps the valid params when others are garbage", () => {

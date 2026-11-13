@@ -2489,7 +2489,7 @@
       "guestsTold": "Guests were told",
       "undone": "Undone",
       "viewDay": "View day",
-      "revert": "Revert",
+      "revert": "Undo",
       "empty": "No changes yet.",
       "noMatch": "No changes match these filters.",
       "loadError": "Couldn’t load the history",

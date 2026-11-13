@@ -2,7 +2,8 @@
  * The only place an Availability address is built or read (availability-hub architecture.md
  * "Address module"). Callers name a target; this module decides the address.
  *
- * The hub is the index, and booking rules is a drawer over it at `booking-rules`. Until the item
+ * The hub is the index; booking rules and History are drawers over it at `booking-rules` and
+ * `history`. Until the item
  * that builds any other view lands, its target resolves to the tab of today's page that does the
  * same job, so no link leads to a missing view. Today's page is mounted at `calendar`.
  * The item that builds a view gives its target its own path in `availabilityPath`; old addresses
@@ -60,6 +61,8 @@ export interface AvailabilityEntry {
   readonly closeSection?: string;
   /** Opens the schedule editor on Schedules, seeded from the regular week (Add a schedule…). */
   readonly action?: "addSchedule";
+  /** Opens that day's drawer on the calendar (`YYYY-MM-DD`, a real day). */
+  readonly date?: string;
   readonly from?: "setup";
 }
 
@@ -67,6 +70,15 @@ export interface AvailabilityEntry {
 // the app shell.
 const isTab = (value: string | null): value is AvailabilityTab =>
   AVAILABILITY_TABS.some((tab) => tab === value);
+
+const DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
+
+const isDate = (value: string): boolean => {
+  if (!DATE_SHAPE.test(value)) return false;
+  const time = Date.parse(`${value}T00:00:00Z`);
+  // A day past the month's end parses and rolls over, so the date must read back unchanged.
+  return !Number.isNaN(time) && new Date(time).toISOString().startsWith(value);
+};
 
 /**
  * The valid entry in a query string; anything invalid or unknown is ignored, never an error.
@@ -76,17 +88,19 @@ export function parseAvailabilityEntry(search: string | URLSearchParams): Availa
   const params = typeof search === "string" ? new URLSearchParams(search) : search;
   const tab = params.get("tab");
   const closeSection = params.get("closeSection");
+  const date = params.get("date");
   return {
     ...(isTab(tab) && { tab }),
     ...(closeSection && { closeSection }),
     ...(params.get("action") === "addSchedule" && { action: "addSchedule" as const }),
+    ...(date !== null && isDate(date) && { date }),
     ...(params.get("from") === "setup" && { from: "setup" as const }),
   };
 }
 
 /**
  * The tab of today's page that does a view's job; none for the views it lands on by itself, and
- * none for booking rules, which has its own path.
+ * none for booking rules and History, which have their own paths.
  */
 const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | undefined>> = {
   hub: undefined,
@@ -106,6 +120,19 @@ const BOOKING_RULES = `${ROUTE}/booking-rules`;
 export const isBookingRulesPage = (pathname: string): boolean =>
   pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
 
+/** The History drawer, over the hub. */
+const HISTORY = `${ROUTE}/history`;
+
+/** Whether a pathname is the History drawer. In any case, as the router matches it. */
+export const isHistoryPage = (pathname: string): boolean =>
+  pathname.replace(/\/+$/, "").toLowerCase() === HISTORY;
+
+/** The drawers over the hub that have their own path. */
+const HUB_DRAWERS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
+  bookingRules: BOOKING_RULES,
+  history: HISTORY,
+};
+
 const withSearch = (path: string, params: URLSearchParams): string => {
   const query = params.toString();
   return query ? `${path}?${query}` : path;
@@ -114,9 +141,9 @@ const withSearch = (path: string, params: URLSearchParams): string => {
 /**
  * The address for a target, so no caller hand-writes a path or a query string.
  *
- * Today's page opens only a section's Close dialog from its address, so any other close target,
- * the Pause dialog, and a named service, schedule, calendar view or date are dropped until the
- * view that reads them lands.
+ * Today's page opens only a section's Close dialog and a calendar date's drawer from its address,
+ * so any other close target, the Pause dialog, and a named service, schedule or calendar view are
+ * dropped until the view that reads them lands. A date that is not a real day is dropped too.
  */
 export function availabilityPath(target: AvailabilityTarget): string {
   const params = new URLSearchParams();
@@ -125,28 +152,24 @@ export function availabilityPath(target: AvailabilityTarget): string {
     if (target.from) params.set("from", target.from);
     return withSearch(ROUTE, params);
   }
-  // The drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
-  if (target.view === "bookingRules") {
+  // A drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
+  const drawer = HUB_DRAWERS[target.view];
+  if (drawer) {
     if (target.from) params.set("from", target.from);
-    return withSearch(BOOKING_RULES, params);
+    return withSearch(drawer, params);
   }
   const tab = PAGE_TAB[target.view];
   if (tab) params.set("tab", tab);
   if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
   if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
+  if (target.view === "calendar" && target.date && isDate(target.date)) {
+    params.set("date", target.date);
+  }
   if (target.from) params.set("from", target.from);
   return withSearch(TODAYS_PAGE, params);
 }
 
 const MAX_CLOSE_DATES = 20;
-const DATE_SHAPE = /^\d{4}-\d{2}-\d{2}$/;
-
-const isDate = (value: string): boolean => {
-  if (!DATE_SHAPE.test(value)) return false;
-  const time = Date.parse(`${value}T00:00:00Z`);
-  // A day past the month's end parses and rolls over, so the date must read back unchanged.
-  return !Number.isNaN(time) && new Date(time).toISOString().startsWith(value);
-};
 
 const SECTION_PREFIX = "section:";
 const DATES_PREFIX = "dates:";

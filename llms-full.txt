@@ -5444,21 +5444,27 @@
       readonly closeSection?: string;
       /** Opens the schedule editor on Schedules, seeded from the regular week (Add a schedule…). */
       readonly action?: "addSchedule";
+      /** Opens that day's drawer on the calendar (`YYYY-MM-DD`, a real day). */
+      readonly date?: string;
       readonly from?: "setup";
     }
     export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry {
       const params = typeof search === "string" ? new URLSearchParams(search) : search;
       const tab = params.get("tab");
       const closeSection = params.get("closeSection");
+      const date = params.get("date");
       return {
         ...(isTab(tab) && { tab }),
         ...(closeSection && { closeSection }),
         ...(params.get("action") === "addSchedule" && { action: "addSchedule" as const }),
+        ...(date !== null && isDate(date) && { date }),
         ...(params.get("from") === "setup" && { from: "setup" as const }),
       };
     }
     export const isBookingRulesPage = (pathname: string): boolean =>
       pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
+    export const isHistoryPage = (pathname: string): boolean =>
+      pathname.replace(/\/+$/, "").toLowerCase() === HISTORY;
     export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
       // The hub opens no dialog yet (C2.4), so a section's Close dialog still opens on today's page.
@@ -5466,15 +5472,19 @@
         if (target.from) params.set("from", target.from);
         return withSearch(ROUTE, params);
       }
-      // The drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
-      if (target.view === "bookingRules") {
+      // A drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
+      const drawer = HUB_DRAWERS[target.view];
+      if (drawer) {
         if (target.from) params.set("from", target.from);
-        return withSearch(BOOKING_RULES, params);
+        return withSearch(drawer, params);
       }
       const tab = PAGE_TAB[target.view];
       if (tab) params.set("tab", tab);
       if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
       if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
+      if (target.view === "calendar" && target.date && isDate(target.date)) {
+        params.set("date", target.date);
+      }
       if (target.from) params.set("from", target.from);
       return withSearch(TODAYS_PAGE, params);
     }
@@ -30256,7 +30266,6 @@
       "availability.quickSetup.title",
       "availability.quickSetup.hostEmpty",
       "availability.quickSetup.issues.days_outside_use",
-      "availability.history.revert",
       "availability.history.summary.reverted",
       "availability.history.summary.regularWeekChanged",
       "availability.preview.compareRegularWeek",
