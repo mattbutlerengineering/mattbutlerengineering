@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.15
+
+### Patch Changes
+
+- [#8805](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8805) [`60711c1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/60711c19694ad2dac60053c68fb63358ecc1ed08) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - TimePicker opens its list when ArrowDown is pressed on the closed field, as it already does on click, Enter and Space. The list opens with the selected time active and focused, or the first enabled time when the field is empty. ArrowDown inside the open list still moves to the next time.
+
 ## 0.10.14
 
 ### Patch Changes
