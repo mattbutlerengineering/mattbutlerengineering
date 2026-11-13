@@ -143,7 +143,7 @@ Before writing any page UI, read `.claude/rules/ui-quality.md` — the tells the
 
 ## Commands
 
-- `pnpm dev` — Start dev server (run from monorepo root)
+- `pnpm storybook` — Start the Storybook dev server on port 6006 (rialto has no `dev` script)
 - `pnpm build` — Build library for production
 - `pnpm test` — Run unit tests
 - `pnpm typecheck` — Type-check without emitting
