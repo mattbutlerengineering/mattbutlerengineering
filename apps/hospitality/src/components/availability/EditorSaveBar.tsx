@@ -1,8 +1,8 @@
-import { useEffect, useEffectEvent, useId, useState } from "react";
+import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, SegmentedControl, Text } from "@mattbutlerengineering/rialto";
 import type { ScopeConflictMode } from "@mbe/types";
-import { BlockedReason } from "./ScheduleFormParts.js";
+import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "./EditorSaveBar.module.css";
 
 /**
@@ -25,42 +25,54 @@ export interface EditorSaveBarProps {
   readonly dirty: boolean;
   /** A save is in flight: both buttons hold. */
   readonly saving?: boolean;
-  /** `null` when the save has no date count to state: the label is "Save". */
+  /** `null`, or a count that is not a whole number above 0: the label is "Save". */
   readonly reach: SaveReach | null;
   /**
-   * The form has a problem the Manager can be taken to. Save then stays pressable: a press calls
-   * `onRefused`, then `focusFirstProblem`, and never `onSave`.
+   * The form has a problem the Manager can be taken to. A press then calls `onRefused` and never
+   * `onSave`. With no `blockedReason`, the bar says "Fix the problems above to save."
    */
   readonly hasProblem: boolean;
   /**
    * Why Save is off, as text beside it. With no problem in the form to go to (a missing name, an
-   * unanswered conflict), a reason disables Save outright.
+   * unanswered conflict), a press does nothing.
    */
   readonly blockedReason: string | null;
-  /** Shown while dirty and `count` is above 0. */
+  /** Shown while dirty and `count` is a whole number above 0. */
   readonly specialHours?: SpecialHoursChoice | null;
   readonly onSave: () => void;
   readonly onDiscard: () => void;
-  /** A press was refused for a problem: reveal every problem (the press validates the whole form). */
-  readonly onRefused?: () => void;
-  /** Moves focus to the first problem. Called after the refused press has rendered. */
-  readonly focusFirstProblem: () => void;
+  /** A press was refused for a problem: `refuse` from the editor's `useRefusedPress`. */
+  readonly onRefused: () => void;
+  /** The editor's own choice (seasonal hours' overlap), kept in view above the buttons. */
+  readonly children?: ReactNode;
+}
+
+/** A count worth saying: 0, a fraction or a missing number says nothing. */
+const countable = (count: number) => Number.isInteger(count) && count > 0;
+
+function useCountText() {
+  const { locale } = useVenueFormat();
+  return (count: number) => new Intl.NumberFormat(locale).format(count);
 }
 
 function useSaveLabel(reach: SaveReach | null) {
   const { t } = useTranslation();
-  if (reach === null) return t("availabilitySchedules.save");
-  if (reach.kind === "from") return t("availabilityHub.saveBar.saveFrom", { date: reach.date });
-  return t("availabilityHub.saveBar.saveForDates", { count: reach.count });
+  const countText = useCountText();
+  if (reach?.kind === "from") return t("availabilityHub.saveBar.saveFrom", { date: reach.date });
+  if (reach === null || !countable(reach.count)) return t("availabilitySchedules.save");
+  const { count } = reach;
+  return t("availabilityHub.saveBar.saveForDates", { count, dates: countText(count) });
 }
 
 function SpecialHours(props: SpecialHoursChoice) {
+  const { count } = props;
   const { t } = useTranslation();
+  const countText = useCountText();
   const labelId = useId();
   return (
     <div className={styles.choice}>
       <Text variant="body" color="primary" id={labelId}>
-        {t("availabilityHub.saveBar.specialHours", { count: props.count })}
+        {t("availabilityHub.saveBar.specialHours", { count, dates: countText(count) })}
       </Text>
       <SegmentedControl
         aria-labelledby={labelId}
@@ -77,34 +89,38 @@ function SpecialHours(props: SpecialHoursChoice) {
 
 /**
  * The Discard and Save bar every hours editor ends with (availability-hub PRD 8). It holds no
- * draft: the editor says whether it is dirty, what the save reaches and what blocks it. The bar
- * owns only the refused press: Save with a problem takes the Manager to the first one.
+ * state and no draft: the editor says whether it is dirty, what the save reaches and what blocks
+ * it, and owns the refusal (`useRefusedPress`) that takes the Manager to the first problem.
  */
 export function EditorSaveBar(props: EditorSaveBarProps) {
-  const { dirty, saving = false, hasProblem, blockedReason, specialHours, onSave } = props;
+  const { dirty, saving = false, hasProblem, specialHours } = props;
   const { t } = useTranslation();
-  const blockedId = useId();
+  const reasonId = useId();
   const label = useSaveLabel(props.reach);
-  // Counts refused presses, so each one moves focus once its problems have rendered.
-  const [refusals, setRefusals] = useState(0);
-  const focusProblem = useEffectEvent(props.focusFirstProblem);
-  useEffect(() => {
-    if (refusals > 0) focusProblem();
-  }, [refusals]);
-
   const refused = dirty && hasProblem;
+  const reason = !dirty
+    ? null
+    : (props.blockedReason ?? (hasProblem ? t("availabilityHub.saveBar.fixProblems") : null));
+  // Off, and still in the Tab order: a disabled button could not be reached to hear why.
+  const off = reason !== null;
   const press = () => {
-    if (!refused) return onSave();
-    props.onRefused?.();
-    setRefusals((n) => n + 1);
+    if (refused) props.onRefused();
+    else if (!off) props.onSave();
   };
-  const reason = dirty ? blockedReason : null;
 
   return (
     <div className={styles.bar} data-testid="editor-save-bar" data-pinned={dirty ? "" : undefined}>
-      {dirty && specialHours && specialHours.count > 0 && <SpecialHours {...specialHours} />}
+      {props.children}
+      {dirty && specialHours && countable(specialHours.count) && <SpecialHours {...specialHours} />}
       <div className={styles.footer}>
-        <BlockedReason id={blockedId} reason={reason} />
+        {/* Always there, so a reason that appears is announced. */}
+        <div role="status" id={reasonId} className={styles.reason}>
+          {reason !== null && (
+            <Text variant="caption" color="secondary">
+              {reason}
+            </Text>
+          )}
+        </div>
         <div className={styles.actions}>
           {dirty && (
             <Button variant="secondary" disabled={saving} onClick={props.onDiscard}>
@@ -113,12 +129,10 @@ export function EditorSaveBar(props: EditorSaveBarProps) {
           )}
           <Button
             variant="primary"
-            // A Save refused for a problem in the form stays pressable (aria-disabled, not
-            // disabled): pressing it says the problem and takes the Manager to it.
-            disabled={!dirty || (reason !== null && !refused)}
-            aria-disabled={refused || undefined}
-            className={refused ? styles.refused : undefined}
-            aria-describedby={reason !== null ? blockedId : undefined}
+            disabled={!dirty}
+            aria-disabled={off || undefined}
+            className={off ? styles.off : undefined}
+            aria-describedby={off ? reasonId : undefined}
             isLoading={saving}
             onClick={press}
           >

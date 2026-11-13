@@ -4292,6 +4292,17 @@
       export function useHolidayNames(dates: readonly string[]): ReadonlyMap<string, string> { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/use-refused-press.ts">
+    <item priority="low">
+      interface RefusedPressOptions {
+        onRefused?: () => void;
+        focusFirstProblem: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useRefusedPress(options: RefusedPressOptions) { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/use-regular-week-edit.ts">
     <item priority="low">
       interface RegularWeekEditInput {

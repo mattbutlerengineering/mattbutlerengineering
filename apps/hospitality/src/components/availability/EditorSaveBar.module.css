@@ -42,9 +42,15 @@
   margin-inline-start: auto;
 }
 
-/* A Save refused for a problem in the form still takes presses (it goes to the problem), so it
-   wears Button's disabled look itself: Button styles only the `disabled` attribute. */
-.refused {
+/* Why Save is off. Empty until there is a reason; it takes the room the buttons leave. */
+.reason {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* A Save that is off for a reason still takes focus and presses (a press with a problem goes to
+   it), so it wears Button's disabled look itself: Button styles only the `disabled` attribute. */
+.off {
   filter: saturate(0.6) brightness(0.95);
   cursor: not-allowed;
 }
@@ -57,6 +63,10 @@
 
 /* Phone: the reason first, full width; the buttons beneath it, from the start edge. */
 @media (max-width: 640px) {
+  .reason:not(:empty) {
+    flex-basis: 100%;
+  }
+
   .actions {
     flex: 1 1 100%;
     justify-content: flex-start;

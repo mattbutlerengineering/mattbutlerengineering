@@ -3252,11 +3252,12 @@
       }
     },
     "saveBar": {
-      "saveForDates_one": "Save for {{count}} date",
-      "saveForDates_other": "Save for {{count}} dates",
+      "saveForDates_one": "Save for {{dates}} date",
+      "saveForDates_other": "Save for {{dates}} dates",
       "saveFrom": "Save from {{date}}",
-      "specialHours_one": "{{count}} date already has special hours",
-      "specialHours_other": "{{count}} dates already have special hours"
+      "specialHours_one": "{{dates}} date already has special hours",
+      "specialHours_other": "{{dates}} dates already have special hours",
+      "fixProblems": "Fix the problems above to save."
     }
   },
   "setup": {
