@@ -19,5 +19,8 @@ export function OnlinePausedPill() {
   // A pause waiting for its start time: online booking is open, so the header does not say paused.
   const paused =
     config.data && pause && isPauseInForce(pause, config.data.config, timeZone, today, minute);
-  return paused ? <Tag variant="accent">{t("availability.paused.pill")}</Tag> : null;
+  // The pill only ever shows a pause the Pause button created (`shownOnlinePause` filters to
+  // open-ended, non-repeating ones), so it is always open-ended: say so, rather than leaving a
+  // Manager to guess whether it ends on its own.
+  return paused ? <Tag variant="accent">{t("availability.paused.pillNoEnd")}</Tag> : null;
 }

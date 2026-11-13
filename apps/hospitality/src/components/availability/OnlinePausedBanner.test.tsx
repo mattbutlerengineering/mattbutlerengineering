@@ -194,4 +194,9 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
     expect(screen.getByText("Online booking paused")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
   });
+
+  it("says the pause has no end, since Resume only ever shows one it created open-ended (#8687)", () => {
+    renderAt("2026-11-14T19:00:00-05:00");
+    expect(screen.getByText("No end date — resume it when you're ready.")).toBeTruthy();
+  });
 });

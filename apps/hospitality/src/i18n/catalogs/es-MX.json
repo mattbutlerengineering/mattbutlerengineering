@@ -2815,6 +2815,9 @@
       "staffNote": "Nota para el personal",
       "guestMessage": "Mensaje para los comensales",
       "guestMessageTooLong": "Usa un máximo de {{max}} caracteres.",
+      "pauseOnline": {
+        "noEndHint": "La reserva en línea seguirá en pausa hasta que la reactives. Elige una fecha de fin abajo para que termine por sí sola."
+      },
       "suggestions": {
         "private": "Cerrado por evento privado",
         "weather": "Cerrado por clima",
@@ -3062,10 +3065,11 @@
     "paused": {
       "open": "Pausar reservas en línea",
       "banner": "Reservas en línea en pausa",
+      "noEnd": "Sin fecha de fin: reanúdala cuando quieras.",
       "resume": "Reanudar",
       "resumed": "Reservas en línea reanudadas",
       "resumeError": "No se pudieron reanudar las reservas en línea",
-      "pill": "Reservas en línea en pausa",
+      "pillNoEnd": "Reservas en línea en pausa · Sin fecha de fin",
       "waiting_one": "Las reservas en línea desde la {{time}} están en pausa todos los días. Los horarios anteriores siguen abiertos.",
       "waiting_other": "Las reservas en línea desde las {{time}} están en pausa todos los días. Los horarios anteriores siguen abiertos.",
       "waiting_many": "Las reservas en línea desde las {{time}} están en pausa todos los días. Los horarios anteriores siguen abiertos.",

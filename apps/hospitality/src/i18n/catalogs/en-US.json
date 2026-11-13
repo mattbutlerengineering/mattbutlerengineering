@@ -2737,6 +2737,9 @@
       "staffNote": "Note for staff",
       "guestMessage": "Message for guests",
       "guestMessageTooLong": "Keep it to {{max}} characters.",
+      "pauseOnline": {
+        "noEndHint": "Online booking stays paused until you turn it back on. Pick an end date below to have it end on its own."
+      },
       "suggestions": {
         "private": "Closed for a private event",
         "weather": "Closed due to weather",
@@ -2982,10 +2985,11 @@
     "paused": {
       "open": "Pause online booking",
       "banner": "Online booking paused",
+      "noEnd": "No end date — resume it when you're ready.",
       "resume": "Resume",
       "resumed": "Online booking resumed",
       "resumeError": "Couldn't resume online booking",
-      "pill": "Online booking paused",
+      "pillNoEnd": "Online booking paused · No end date",
       "waiting_one": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
       "waiting_other": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
       "waitingNoneToday_one": "Online seatings from {{time}} are paused every day.",
