@@ -34,6 +34,35 @@ import {
 
 const CLOSING_RE = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/i;
 
+/**
+ * Worker-session fields the backfill cannot recover. Single definition: the
+ * row builder spreads it and `isBackfillRow` reads it, so the signature cannot
+ * drift from what the writer emits (#8817).
+ */
+const BACKFILL_UNRECOVERABLE = {
+  labels: [],
+  model_tier: null,
+  subagent_tokens: null,
+  tool_uses: null,
+  duration_ms: null,
+};
+
+/**
+ * True for a row that still carries the backfill signature: every
+ * worker-session field the backfill cannot recover is empty.
+ *
+ * @param {object} row
+ * @returns {boolean}
+ */
+export function isBackfillRow(row) {
+  return (
+    (row.labels?.length ?? 0) === 0 &&
+    row.model_tier == null &&
+    row.subagent_tokens == null &&
+    row.tool_uses == null
+  );
+}
+
 /** @param {unknown} body @returns {number|null} */
 export function extractClosedIssue(body) {
   if (typeof body !== "string") return null;
@@ -69,11 +98,7 @@ export function deriveTelemetryRows(prs, existingRows) {
     }
     rows.push({
       issue_number: issue,
-      labels: [],
-      model_tier: null,
-      subagent_tokens: null,
-      tool_uses: null,
-      duration_ms: null,
+      ...BACKFILL_UNRECOVERABLE,
       pr_number: pr.number,
       merged: null,
       ci_first_pass: null,

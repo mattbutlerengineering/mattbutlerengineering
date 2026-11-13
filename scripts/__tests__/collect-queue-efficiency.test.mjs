@@ -8,6 +8,7 @@ import {
 import {
   buildReviewCoverageTrail,
   collectQueueEfficiency,
+  reviewCoverage,
   defaultReadPrs,
   fetchCommitsBatched,
   readMergedAiPrsPaged,
@@ -759,6 +760,63 @@ describe("collectQueueEfficiency — known-row cost and coverage (#6941)", () =>
     // PR 12 has no row at all: still uncovered (#5005). Denominator = 3 - 1 = 2.
     expect(result.sub_metrics.review_coverage).toBe(0.5);
     expect(result.sub_metrics.review_coverage_n).toBe(2);
+  });
+
+  // #8817: GitHub backfill rows land with reviewer_verdict null before the daily
+  // reconciler stamps unknown_reasons. Their signature is every worker-session
+  // field null (the backfill cannot recover them); an in-session row has a
+  // model tier and labels, so a null verdict there is a failed write, not unknown.
+  const BACKFILL = { labels: [], model_tier: null, tool_uses: null, subagent_tokens: null };
+  const IN_SESSION = { labels: ["size:s"], model_tier: "sonnet", tool_uses: 5 };
+
+  it("excludes unreconciled backfill rows and reports count and share (#8817)", () => {
+    const result = run(prsN(4), [
+      { pr_number: 10, reviewer_verdict: "pass", ...IN_SESSION },
+      { pr_number: 11, reviewer_verdict: "skipped", ...IN_SESSION },
+      { pr_number: 12, reviewer_verdict: null, ...BACKFILL },
+      {
+        pr_number: 13,
+        reviewer_verdict: null,
+        ...IN_SESSION,
+        unknown_reasons: { reviewer_verdict: "x" },
+      },
+    ]);
+    expect(result.sub_metrics.review_coverage).toBe(0.5);
+    expect(result.sub_metrics.review_coverage_n).toBe(2);
+    expect(result.sub_metrics.review_coverage_unmeasured_n).toBe(2);
+    expect(result.sub_metrics.review_coverage_unmeasured_share).toBe(0.5);
+  });
+
+  it("keeps an unmarked in-session null verdict in the denominator as uncovered (#8817)", () => {
+    const result = run(prsN(3), [
+      { pr_number: 10, reviewer_verdict: "pass", ...IN_SESSION },
+      { pr_number: 11, reviewer_verdict: null, ...IN_SESSION },
+    ]);
+    expect(result.sub_metrics.review_coverage).toBeCloseTo(0.333, 3);
+    expect(result.sub_metrics.review_coverage_unmeasured_n).toBe(0);
+  });
+
+  it("derives the backfill fixture from the writer's real output (#8817)", async () => {
+    const { deriveTelemetryRows } = await import("../collect-queue-telemetry-from-github.mjs");
+    const { rows } = deriveTelemetryRows(
+      [
+        {
+          number: 10,
+          headRefName: "worktree-agent-abc",
+          body: "Closes #55",
+          labels: [{ name: "agent-authored" }],
+          createdAt: isoAgo(4),
+          mergedAt: isoAgo(3),
+        },
+      ],
+      []
+    );
+    const result = run(prsN(2), rows);
+    expect(result.sub_metrics.review_coverage_unmeasured_n).toBe(1);
+  });
+
+  it("reports a null unmeasured share, never NaN, for an empty window (#8817)", () => {
+    expect(reviewCoverage([], [])).toMatchObject({ share: null });
   });
 
   it("passes telemetry rows into the baseline weeks", () => {

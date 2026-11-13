@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   extractClosedIssue,
   deriveTelemetryRows,
+  isBackfillRow,
 } from "../collect-queue-telemetry-from-github.mjs";
 
 const pr = (over = {}) => ({
@@ -72,5 +73,18 @@ describe("deriveTelemetryRows", () => {
     const { rows } = deriveTelemetryRows(prs, []);
     expect(rows.map((r) => r.pr_number)).toEqual([8, 9]);
     expect(JSON.stringify(prs)).toBe(snapshot);
+  });
+});
+
+describe("isBackfillRow (#8817)", () => {
+  it("recognises the writer's own output, so the signature cannot drift from it", () => {
+    const { rows } = deriveTelemetryRows([pr()], []);
+    expect(rows).toHaveLength(1);
+    expect(isBackfillRow(rows[0])).toBe(true);
+  });
+  it("rejects an in-session row", () => {
+    expect(
+      isBackfillRow({ labels: ["size:s"], model_tier: "sonnet", tool_uses: 5, subagent_tokens: 9 })
+    ).toBe(false);
   });
 });
