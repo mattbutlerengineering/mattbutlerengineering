@@ -2095,25 +2095,16 @@
     "conflictReview": {
       "alsoChanged": "Appliquer aussi à : {{names}} a changé en premier",
       "alsoRemoved": "Appliquer aussi à : {{names}} n’offre plus ce service",
-      "title": "Quelqu’un a modifié cet horaire avant vous",
       "loading": "Chargement de la dernière version…",
       "gone": "Cet horaire a été supprimé; vos modifications ne peuvent pas être enregistrées. Abandonnez-les pour fermer.",
-      "nothing": "Rien n’a changé dans cet horaire. Vos modifications peuvent être réappliquées telles quelles.",
       "added": "Ajouté : {{names}}",
       "removed": "Retiré : {{names}}",
       "changed": "Heures modifiées : {{names}}",
       "renamed": "Renommé en {{name}}",
       "hint": "Réappliquer conserve les modifications de l’autre personne et ajoute les vôtres par-dessus. Vérifiez le résultat, puis enregistrez.",
       "reapply": "Réappliquer mes modifications",
-      "discard": "Abandonner mes modifications",
-      "draftTitle": "La disponibilité a changé pendant votre modification",
-      "draftBody": "Quelqu’un a enregistré un changement de disponibilité avant vous. Rien de ce que vous avez saisi n’a été enregistré.",
-      "draftHint": "Conservez votre horaire pour l’enregistrer par-dessus leur changement, ou recommencez.",
-      "draftKeep": "Conserver mon horaire",
       "startOver": "Recommencer",
-      "regularReplaced": "La semaine habituelle est maintenant {{name}}",
-      "regularNothing": "Rien n’a changé dans la semaine habituelle.",
-      "regularHint": "Réappliquer place vos heures par-dessus la semaine habituelle actuelle. Vérifiez le résultat, puis enregistrez."
+      "regularReplaced": "La semaine habituelle est maintenant {{name}}"
     },
     "regularWeek": {
       "title": "Modifier la semaine habituelle",
@@ -2135,7 +2126,6 @@
     },
     "compare": {
       "open": "Comparer les services",
-      "conflictTitle": "Quelqu’un a modifié ces horaires avant vous",
       "title": "Comparer les services",
       "service": "Service",
       "opens": "Ouverture",

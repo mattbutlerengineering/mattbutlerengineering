@@ -2055,25 +2055,16 @@
     "conflictReview": {
       "alsoChanged": "Also applying to: {{names}} changed first",
       "alsoRemoved": "Also applying to: {{names}} no longer runs this service",
-      "title": "Someone changed this schedule first",
       "loading": "Loading the latest version…",
       "gone": "This schedule was deleted, so your changes can’t be saved. Discard them to close.",
-      "nothing": "Nothing in this schedule changed. Your changes can be reapplied as they are.",
       "added": "Added: {{names}}",
       "removed": "Removed: {{names}}",
       "changed": "Hours changed: {{names}}",
       "renamed": "Renamed to {{name}}",
       "hint": "Reapply keeps the other person’s changes and puts yours on top. Check the result, then save.",
       "reapply": "Reapply my changes",
-      "discard": "Discard my changes",
-      "draftTitle": "Availability changed while you were editing",
-      "draftBody": "Someone saved a change to availability first. Nothing you entered has been saved.",
-      "draftHint": "Keep your schedule to save it on top of their change, or start over.",
-      "draftKeep": "Keep my schedule",
       "startOver": "Start over",
-      "regularReplaced": "The regular week is now {{name}}",
-      "regularNothing": "Nothing in the regular week changed.",
-      "regularHint": "Reapply lays your hours over the current regular week. Check the result, then save."
+      "regularReplaced": "The regular week is now {{name}}"
     },
     "regularWeek": {
       "title": "Change regular week",
@@ -2094,7 +2085,6 @@
     },
     "compare": {
       "open": "Compare services",
-      "conflictTitle": "Someone changed these schedules first",
       "title": "Compare services",
       "service": "Service",
       "opens": "Opens",

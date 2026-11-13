@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import { addDays } from "@mbe/availability";
@@ -10,7 +10,6 @@ import { useWeekdayName } from "./quick-setup-field-helpers.js";
 import { previewOverlapReason } from "./quick-setup-validate.js";
 import {
   BlockedReason,
-  ConflictReviewPanel,
   OverlapChoice,
   OwnChangesChoice,
   SaveFailure,
@@ -18,6 +17,7 @@ import {
   useWeekdaySummary,
 } from "./ScheduleFormParts.js";
 import { DraftPreview } from "./DraftPreview.js";
+import { draftRows, FormConflictDialog } from "./FormConflictDialog.js";
 import { NameSuggestionChip } from "./NameSuggestionChip.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
@@ -86,6 +86,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
     scopeConflicts,
     startText,
     submit,
+    overwrite,
   } = useRegularWeekEdit({
     venueId,
     state,
@@ -101,6 +102,8 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
   // Escape, the backdrop and Cancel all ask first while there is something to lose.
   const guard = useDiscardGuard<void>(onClose, dirty);
   const blockedId = useId();
+  // Cancel is always there: it takes focus when a conflict's answer leaves Save disabled.
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   return (
     <>
@@ -112,7 +115,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
         footer={
           <div className={styles.footer}>
             <BlockedReason id={blockedId} reason={blockedText} />
-            <Button variant="secondary" onClick={() => guard.request()}>
+            <Button ref={cancelRef} variant="secondary" onClick={() => guard.request()}>
               {t("availabilitySchedules.cancel")}
             </Button>
             <Button
@@ -130,15 +133,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
         }
       >
         <Stack gap="md">
-          {review.review ? (
-            <ConflictReviewPanel
-              review={review.review}
-              onReapply={review.reapply}
-              onDiscard={review.discard}
-            />
-          ) : (
-            <SaveFailure messages={saver.failure} stranded={saver.stranded} />
-          )}
+          {!review.review && <SaveFailure messages={saver.failure} stranded={saver.stranded} />}
           <div className={styles.dates}>
             <DatePicker
               label={t("availabilitySchedules.startsOn")}
@@ -259,6 +254,17 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
           />
         </Stack>
       </Drawer>
+      <FormConflictDialog
+        saver={saver}
+        review={review.review}
+        rows={draftRows(draft)}
+        stateVersion={state.version}
+        onReapply={review.reapply}
+        onStartOver={review.discard}
+        onOverwrite={() => void overwrite()}
+        onDiscard={onClose}
+        returnFocus={cancelRef}
+      />
       <ScheduleDraftGuard
         dirty={dirty}
         asking={guard.pending !== null}

@@ -22,12 +22,8 @@ import {
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { DraftPreview } from "./DraftPreview.js";
 import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
-import {
-  BlockedReason,
-  ConflictReviewPanel,
-  OwnChangesChoice,
-  SaveFailure,
-} from "./ScheduleFormParts.js";
+import { FormConflictDialog } from "./FormConflictDialog.js";
+import { BlockedReason, OwnChangesChoice, SaveFailure } from "./ScheduleFormParts.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useHeldFor } from "./use-held-for.js";
 import { useReloadHold } from "./use-reload-hold.js";
@@ -184,7 +180,7 @@ export function CompareServices(props: CompareServicesProps) {
   }, [changed, config, timezone, today]);
   const scheduleCount = new Set(changed.map((r) => r.scheduleId)).size;
   // Built the way the save builds it, from the rows the edits were made against, so the preview
-  // shows what Save would send. A lost race has its own review panel, and nothing to preview.
+  // shows what Save would send. A lost race is answered in the conflict dialog, with nothing to preview.
   const previewChanges = useMemo(
     () =>
       base && changed.length > 0 && !saver.conflicted
@@ -244,15 +240,23 @@ export function CompareServices(props: CompareServicesProps) {
     setBulkOpen(false);
   };
 
-  const submit = async () => {
+  /** `overwriting` (the conflict dialog's Overwrite) sends the edited rows as they are over the latest. */
+  const submit = async (overwriting = false) => {
     if (!base) return; // nothing is edited, so there is nothing to save
-    const saved = await saver.save(
-      venueId,
-      state,
-      buildCompareChanges(baselineOf(base), Object.values(edits)),
-      dates.length > 1 ? mode : "replace",
-      base.version
-    );
+    const scopeConflicts = dates.length > 1 ? mode : "replace";
+    const saved = overwriting
+      ? await saver.overwrite(
+          venueId,
+          buildCompareChanges(config, Object.values(edits)),
+          scopeConflicts
+        )
+      : await saver.save(
+          venueId,
+          state,
+          buildCompareChanges(baselineOf(base), Object.values(edits)),
+          scopeConflicts,
+          base.version
+        );
     if (!saved) return;
     offerUndo({
       venueId,
@@ -297,15 +301,24 @@ export function CompareServices(props: CompareServicesProps) {
 
   return (
     <Stack gap="md">
-      <SaveFailure messages={saver.failure} stranded={saver.stranded} />
-      {review && (
-        <ConflictReviewPanel
-          review={review}
-          title={t("availabilitySchedules.compare.conflictTitle")}
-          onReapply={reapply}
-          onDiscard={discard}
-        />
-      )}
+      {!review && <SaveFailure messages={saver.failure} stranded={saver.stranded} />}
+      <FormConflictDialog
+        saver={saver}
+        review={review}
+        rows={Object.values(edits).map((row) => ({
+          key: row.scheduleServiceId,
+          name: row.scheduleName,
+          opensAt: row.opensAt,
+          closesAt: row.closesAt,
+        }))}
+        stateVersion={state.version}
+        // A row a colleague removed cannot be written back as it was.
+        canOverwrite={review !== null && review.changes.removed.length === 0}
+        onReapply={reapply}
+        onStartOver={discard}
+        onOverwrite={() => void submit(true)}
+        onDiscard={discard}
+      />
       <Select
         label={t("availabilitySchedules.compare.service")}
         value={serviceId}

@@ -24,13 +24,35 @@ function theirsText(change: AvailabilityChangeSummary, t: TFunction, format: Ven
   });
 }
 
+/** One service of the draft as Review lists it. */
+export type ConflictDraftRow = Pick<DraftService, "key" | "name" | "opensAt" | "closesAt">;
+
+/**
+ * The two answers Review their change offers a form that can lay its draft over the version that
+ * won (the weekly forms, fed by `use-conflict-review.ts`).
+ */
+export interface ConflictAnswers {
+  /** The latest version has arrived; until then there is nothing to lay the draft over. */
+  readonly loaded: boolean;
+  /** What the draft changes no longer exists, so it cannot be reapplied. */
+  readonly gone: boolean;
+  /** What the winning version changed in the hours this draft was built from, a line each. */
+  readonly lines: readonly string[];
+  /** The winning version with only the Manager's own changes on top. */
+  readonly onReapply: () => void;
+  /** The winning version as it is; the draft is dropped. */
+  readonly onStartOver: () => void;
+}
+
 export interface ConflictDialogProps {
   readonly open: boolean;
   /** The change that won; `null` when the server recorded none. */
   readonly winningChange: AvailabilityChangeSummary | null;
   /** Every change since the draft's version (the newest few and the true count); absent from an older server. */
   readonly changesSince?: ConflictChangesSince;
-  readonly services: readonly DraftService[];
+  readonly services: readonly ConflictDraftRow[];
+  /** Adds Reapply my changes and Start over to Review their change. */
+  readonly answers?: ConflictAnswers;
   readonly isSaving: boolean;
   /** Why the last Overwrite was refused; shown here because the page behind the modal is not. */
   readonly failure?: readonly string[];
@@ -44,6 +66,37 @@ export interface ConflictDialogProps {
   readonly onDiscard: () => void;
   /** Close the dialog and return to the draft, edits intact. */
   readonly onBack: () => void;
+}
+
+/** Reapply my changes and Start over, with why Reapply is off when it is. */
+function Answers(props: { readonly answers: ConflictAnswers; readonly isSaving: boolean }) {
+  const { loaded, gone, onReapply, onStartOver } = props.answers;
+  const { t } = useTranslation();
+  const note = !loaded
+    ? t("availabilitySchedules.conflictReview.loading")
+    : gone
+      ? t("availabilitySchedules.conflictReview.gone")
+      : t("availabilitySchedules.conflictReview.hint");
+  return (
+    <Stack gap="sm">
+      <Text variant="caption" color="secondary" role="status">
+        {note}
+      </Text>
+      <div className={styles.answers}>
+        <Button
+          variant="secondary"
+          size="sm"
+          disabled={!loaded || gone || props.isSaving}
+          onClick={onReapply}
+        >
+          {t("availabilitySchedules.conflictReview.reapply")}
+        </Button>
+        <Button variant="secondary" size="sm" disabled={props.isSaving} onClick={onStartOver}>
+          {t("availabilitySchedules.conflictReview.startOver")}
+        </Button>
+      </div>
+    </Stack>
+  );
 }
 
 /**
@@ -152,6 +205,11 @@ export function ConflictDialog(props: ConflictDialogProps) {
                   ? changeSummaryText(winningChange, format, t)
                   : t("availability.editor.conflict.theirsUnknown")}
               </Text>
+              {(props.answers?.lines ?? []).map((line) => (
+                <Text key={line} variant="body" color="secondary">
+                  {line}
+                </Text>
+              ))}
             </section>
             <section aria-labelledby="conflict-yours">
               <Heading level={3} size={4} id="conflict-yours">
@@ -173,6 +231,7 @@ export function ConflictDialog(props: ConflictDialogProps) {
             </section>
           </div>
         )}
+        {reviewing && props.answers && <Answers answers={props.answers} isSaving={isSaving} />}
       </Stack>
     </Dialog>
   );

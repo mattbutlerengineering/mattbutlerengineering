@@ -1,13 +1,12 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Button, SegmentedControl, Stack, Text } from "@mattbutlerengineering/rialto";
+import { Alert, SegmentedControl, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { ScopeConflictMode, StrandedReservation } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
 import { LeaveGuard } from "./LeaveGuard.js";
 import { type Winner } from "./schedule-changes.js";
 import { StrandedBookings } from "./StrandedBookings.js";
-import type { ConflictReview } from "./use-conflict-review.js";
 import { weekdaySummary } from "./weekday-summary.js";
 import styles from "./ScheduleFormParts.module.css";
 
@@ -77,119 +76,6 @@ export function OwnChangesChoice(props: {
         onChange={(mode) => onChange(mode as ScopeConflictMode)}
       />
     </Stack>
-  );
-}
-
-/**
- * After a lost race: what the other person changed in this schedule, and the two ways on. Saving
- * stays off until the Manager picks one, because the draft was built from a version that is gone.
- */
-export function ConflictReviewPanel(props: {
-  readonly review: ConflictReview;
-  readonly onReapply: () => void;
-  readonly onDiscard: () => void;
-  /** Replaces the title for surfaces that span several schedules. */
-  readonly title?: string;
-  /** Other schedules the Manager ticked in Also apply to, changed or removed by the winning save. */
-  readonly alsoApply?: { readonly changed: readonly string[]; readonly removed: readonly string[] };
-}) {
-  const { review, onReapply, onDiscard, alsoApply } = props;
-  const { loaded, changes, kind } = review;
-  const { t } = useTranslation();
-  const format = useVenueFormat();
-  const list = (names: readonly string[]) =>
-    new Intl.ListFormat(format.locale, { type: "conjunction" }).format(names);
-  // An edit changes a schedule that exists; a new, copied or regular-week draft saves a new one,
-  // so it never says "this schedule" and its second answer starts the whole form again.
-  const copy = {
-    edit: {
-      title: t("availabilitySchedules.conflictReview.title"),
-      keep: t("availabilitySchedules.conflictReview.reapply"),
-      leave: t("availabilitySchedules.conflictReview.discard"),
-      nothing: t("availabilitySchedules.conflictReview.nothing"),
-      hint: t("availabilitySchedules.conflictReview.hint"),
-    },
-    regularWeek: {
-      title: t("availabilitySchedules.conflictReview.draftTitle"),
-      keep: t("availabilitySchedules.conflictReview.reapply"),
-      leave: t("availabilitySchedules.conflictReview.startOver"),
-      nothing: t("availabilitySchedules.conflictReview.regularNothing"),
-      hint: t("availabilitySchedules.conflictReview.regularHint"),
-    },
-    draft: {
-      title: t("availabilitySchedules.conflictReview.draftTitle"),
-      keep: t("availabilitySchedules.conflictReview.draftKeep"),
-      leave: t("availabilitySchedules.conflictReview.startOver"),
-      nothing: t("availabilitySchedules.conflictReview.draftBody"),
-      hint: t("availabilitySchedules.conflictReview.draftHint"),
-    },
-  }[kind];
-  const lines = [
-    changes.replacedBy !== null &&
-      t("availabilitySchedules.conflictReview.regularReplaced", { name: changes.replacedBy }),
-    changes.renamedTo !== null &&
-      t("availabilitySchedules.conflictReview.renamed", { name: changes.renamedTo }),
-    changes.added.length > 0 &&
-      t("availabilitySchedules.conflictReview.added", { names: list(changes.added) }),
-    changes.removed.length > 0 &&
-      t("availabilitySchedules.conflictReview.removed", { names: list(changes.removed) }),
-    changes.changed.length > 0 &&
-      t("availabilitySchedules.conflictReview.changed", { names: list(changes.changed) }),
-    alsoApply !== undefined &&
-      alsoApply.changed.length > 0 &&
-      t("availabilitySchedules.conflictReview.alsoChanged", { names: list(alsoApply.changed) }),
-    alsoApply !== undefined &&
-      alsoApply.removed.length > 0 &&
-      t("availabilitySchedules.conflictReview.alsoRemoved", { names: list(alsoApply.removed) }),
-  ].filter((line): line is string => line !== false);
-
-  return (
-    <Alert
-      variant="warning"
-      title={props.title ?? copy.title}
-      actions={
-        <Stack direction="row" gap="sm">
-          <Button
-            variant="primary"
-            size="sm"
-            disabled={!loaded || changes.gone}
-            onClick={onReapply}
-          >
-            {copy.keep}
-          </Button>
-          <Button variant="secondary" size="sm" onClick={onDiscard}>
-            {copy.leave}
-          </Button>
-        </Stack>
-      }
-    >
-      {!loaded ? (
-        <Text variant="body" color="primary">
-          {t("availabilitySchedules.conflictReview.loading")}
-        </Text>
-      ) : changes.gone ? (
-        <Text variant="body" color="primary">
-          {t("availabilitySchedules.conflictReview.gone")}
-        </Text>
-      ) : (
-        <>
-          {kind === "draft" || lines.length === 0 ? (
-            <Text variant="body" color="primary">
-              {copy.nothing}
-            </Text>
-          ) : (
-            lines.map((line) => (
-              <Text key={line} variant="body" color="primary">
-                {line}
-              </Text>
-            ))
-          )}
-          <Text variant="caption" color="secondary">
-            {copy.hint}
-          </Text>
-        </>
-      )}
-    </Alert>
   );
 }
 

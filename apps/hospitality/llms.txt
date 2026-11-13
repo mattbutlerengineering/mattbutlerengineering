@@ -2879,6 +2879,14 @@
     </item>
   </file>
   <file path="src/components/availability/use-schedule-save.ts">
+    <item priority="low">
+      interface SaveConflict {
+        winningChange: AvailabilityChangeSummary | null;
+        changesSince?: ConflictChangesSince;
+        seen: number | null;
+        again: boolean;
+      }
+    </item>
     <item priority="high">
       export function useScheduleSave(
         onStale: () => void,

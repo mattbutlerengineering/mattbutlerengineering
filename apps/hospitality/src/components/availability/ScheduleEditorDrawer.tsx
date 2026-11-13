@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, DatePicker, Drawer, Input, Stack, Text } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfig, AvailabilityConfigState, ScopeConflictMode } from "@mbe/types";
@@ -35,7 +35,6 @@ import {
 import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
 import {
   BlockedReason,
-  ConflictReviewPanel,
   OverlapChoice,
   OwnChangesChoice,
   SaveFailure,
@@ -43,6 +42,7 @@ import {
 } from "./ScheduleFormParts.js";
 import { AlsoApplyTo } from "./AlsoApplyTo.js";
 import { DraftPreview, previewIds } from "./DraftPreview.js";
+import { draftRows, FormConflictDialog } from "./FormConflictDialog.js";
 import { NameSuggestionChip } from "./NameSuggestionChip.js";
 import { QuickSetupForm } from "./QuickSetupForm.js";
 import { useConflictReview } from "./use-conflict-review.js";
@@ -253,6 +253,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
       : null;
   const blocked = blockedText !== null;
   const blockedId = useId();
+  // Cancel is always there: it takes focus when a conflict's answer leaves Save disabled.
+  const cancelRef = useRef<HTMLButtonElement>(null);
   // The schedule's own edit, built the way Save builds it.
   const editChanges = useMemo(() => {
     if (blocked || !dirty) return null;
@@ -326,7 +328,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     [writtenIds, config, timezone, today]
   );
 
-  const submit = async () => {
+  /** `overwriting` (the conflict dialog's Overwrite) sends the draft as it is over the latest version. */
+  const submit = async (overwriting = false) => {
     const makeId = () => crypto.randomUUID();
     const edited =
       editing && sourceScheduleId
@@ -336,7 +339,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             name: trimmed,
             draft,
             makeId,
-            baseline: review.baseline,
+            // An Overwrite is the draft over what is stored now, so the stored rows it lacks go.
+            baseline: overwriting ? config : review.baseline,
           })
         : buildNewScheduleChanges({ config, name: trimmed, draft, useOn, winner, makeId });
     const changes =
@@ -346,12 +350,15 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
     setSent(pruneAlsoApply(alsoOptions, picks));
-    const saved = await saver.save(
-      venueId,
-      { ...state, version: review.baselineVersion },
-      changes,
-      dates.length > 1 ? conflictMode : "replace"
-    );
+    const scopeConflicts = dates.length > 1 ? conflictMode : "replace";
+    const saved = overwriting
+      ? await saver.overwrite(venueId, changes, scopeConflicts)
+      : await saver.save(
+          venueId,
+          { ...state, version: review.baselineVersion },
+          changes,
+          scopeConflicts
+        );
     if (!saved) return;
     offerUndo({
       venueId,
@@ -387,7 +394,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         footer={
           <div className={styles.footer}>
             <BlockedReason id={blockedId} reason={blockedText} />
-            <Button variant="secondary" onClick={() => guard.request()}>
+            <Button ref={cancelRef} variant="secondary" onClick={() => guard.request()}>
               {t("availabilitySchedules.cancel")}
             </Button>
             <Button
@@ -403,16 +410,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         }
       >
         <Stack gap="md">
-          {review.review ? (
-            <ConflictReviewPanel
-              review={review.review}
-              alsoApply={alsoApplySince ?? undefined}
-              onReapply={review.reapply}
-              onDiscard={review.discard}
-            />
-          ) : (
-            <SaveFailure messages={saver.failure} stranded={saver.stranded} />
-          )}
+          {!review.review && <SaveFailure messages={saver.failure} stranded={saver.stranded} />}
           <Input
             label={t("availabilitySchedules.name")}
             value={name}
@@ -499,6 +497,22 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
           />
         </Stack>
       </Drawer>
+      <FormConflictDialog
+        saver={saver}
+        review={review.review}
+        rows={draftRows(draft)}
+        alsoApply={alsoApplySince ?? undefined}
+        stateVersion={state.version}
+        // An edit of hours that were deleted has nothing left to save over.
+        canOverwrite={
+          !editing || config.schedules.some((s) => s.id === sourceScheduleId && !s.archivedAt)
+        }
+        onReapply={review.reapply}
+        onStartOver={review.discard}
+        onOverwrite={() => void submit(true)}
+        onDiscard={onClose}
+        returnFocus={cancelRef}
+      />
       <ScheduleDraftGuard
         dirty={dirty}
         asking={guard.pending !== null}
