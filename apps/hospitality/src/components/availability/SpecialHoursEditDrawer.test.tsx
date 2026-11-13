@@ -61,7 +61,7 @@ describe("SpecialHoursEditDrawer", () => {
         </main>
       </ToastProvider>
     );
-    const copy = () => screen.getByRole("button", { name: "Copy to other days…" });
+    const copy = () => screen.getByRole("button", { name: "Copy hours…" });
     expect(copy()).not.toHaveAttribute("aria-disabled");
     fireEvent.click(screen.getAllByRole("button", { name: /^Edit (Lunch|Dinner)/ })[0]!);
     expect(copy()).toHaveAttribute("aria-disabled", "true");

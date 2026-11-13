@@ -28,8 +28,8 @@ PRD criteria are numbered as in `prd.md`. Walkthroughs are numbered as in `ux.md
 - [ ] **A0.2 Separate Pause dialog** — slice A: a Pause dialog with Tonight as the default; slice B: the status says when the pause ends. (tracker: #8687)
   - Accept: `PauseOnlineDialog` exists on `main` and #8687 is closed.
   - Blocked by: —
-- [ ] **A0.3 One date editor, one copy action** — the day drawer is the only editor for a date's hours; one "Copy hours" action. (tracker: #8691)
-  - Accept: #8691 is closed.
+- [x] **A0.3 One date editor, one copy action** — the day drawer is the only editor for a date's hours; one "Copy hours" action. (tracker: #8691)
+  - Accept: the day drawer offers two actions, "Use other hours" and "Copy hours" (ux.md, capability row 27), replacing four; the data each copy choice writes is pinned by characterization tests. (Amended 2026-11-13, see Notes.)
   - Blocked by: —
 
 ## Milestone 1: The hub is the landing page, and every row leads somewhere that works
@@ -116,7 +116,7 @@ PRD criteria are numbered as in `prd.md`. Walkthroughs are numbered as in `ux.md
 ## Milestone 5: The calendar is a child route, and a date uses the same fields
 
 - [ ] **D5.1 Date editor on the shared fields** — the date editor's rows and `AddDateRow` render `ServiceFields`. `ServicesEditor.tsx` keeps only the list around them.
-  - Accept: `AvailabilityDayEditor.test.tsx` and `draft-changes.test.ts` pass with assertions unchanged except labels; no second implementation of the time, seating or booked-by fields remains (`rg` finds one). PRD 6. The conflict dialog names who ("you" or "a teammate") in both editors, and the date editor's Review offers Reapply my changes and Start over (PRD 10, carried from E4.3).
+  - Accept: `AvailabilityDayEditor.test.tsx` and `draft-changes.test.ts` pass with assertions unchanged except labels; no second implementation of the time, seating or booked-by fields remains (`rg` finds one). PRD 6. The conflict dialog names who ("you" or "a teammate") in both editors, and the date editor's Review offers Reapply my changes and Start over (PRD 10, carried from E4.3). The Add special dates sheet's special-hours path and the holiday "Special hours…" entry open the day editor instead of their own forms (#8691 proposed changes 1, 2 and 7, carried from A0.3); #8691 closes when this and E4's scope and save-count rework land.
   - Blocked by: E4.1, A0.3
 - [ ] **D5.2 Day drawer scopes** — "Applies to" offers this date, the selection, or every {weekday} from and until. The two wider choices become links to regular hours and to that set of seasonal hours, with a discard prompt. `scope-switch.ts` is deleted. "Every week" in Copy hours and the repeated-change suggestion become the same link.
   - Accept: e2e: from a Tuesday with a draft, the regular-hours link asks to discard and then lands on `hours`; the day editor shows at most 18 controls. PRD 7, 14 (items 25, 27, 28).
@@ -201,3 +201,5 @@ PRD criteria are numbered as in `prd.md`. Walkthroughs are numbered as in `ux.md
 - 2026-11-13: E4.3 review decision (pending the Owner): Overwrite is disabled on the weekly panel, the Change regular week drawer, the seasonal hours drawer and the compare table. It would write the Manager's whole draft over a colleague's version without stating the loss. Options for the Owner: enable it as is; enable it with the loss stated before the press and Reapply as the primary action; keep it off.
 - 2026-11-13: E4.3 review, for D5.1: `AvailabilityDayEditor.test.tsx:747` asserts the absence of the old "opened this day" text and is now vacuous; restore a real check that no "since" line shows for an older server.
 - 2026-11-13: H1.6 follow-up: row 4 keeps a tonight rule dated yesterday while that night's service still runs past midnight (pause, close early, stop), as `inForceOn` does for closures.
+- 2026-11-13: A0.3 deviation: #8691's one-button "Copy hours…" with an inner choice would make K1 (copy to every week) 8 interactions against its pinned 7, and ux.md:379 specifies two actions. Shipped ux.md's two actions; #8691's slices 1, 2, 7 moved into D5.1's Accept; slices 4–5 stay with E4/D5.2.
+- 2026-11-13: A0.3, for D5.2: "Copy hours…" keeps today's "Every week…" path (it opens Change regular week prefilled). Turning it into a link to Regular hours is D5.2's, as its text says. "Use other hours…" keeps today's choice: a day with one set of hours, a set of hours with two; offering a day as well once two sets exist would be a new write path and was not built. Strings: `availabilityHub.dayActions.copyHours` and `.useOtherHours`; removed `availabilitySchedules.copy.action`, `availability.drawer.useOtherDay`, `availability.drawer.useSchedule`.

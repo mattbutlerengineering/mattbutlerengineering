@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from "react";
+import { openCopyToOtherDays } from "../../test/copy-hours.js";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -119,8 +120,7 @@ describe("the hold after the Manager's own save", () => {
   };
 
   async function copyToFriday() {
-    fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
-    const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
+    const dialog = await openCopyToOtherDays();
     fireEvent.click(within(dialog).getByRole("checkbox", { name: "Saturday" }));
     fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sat" }));
     await vi.waitFor(() => expect(edit()).toHaveAttribute("aria-disabled", "true"));
@@ -185,7 +185,7 @@ describe("the hold after the Manager's own save", () => {
 
   it("keeps Copy above everything the hold adds, so no control moves under a pointer", async () => {
     render(tree());
-    const copy = screen.getByRole("button", { name: "Copy to other days…" });
+    const copy = screen.getByRole("button", { name: "Copy hours…" });
     await copyToFriday();
     const reload = await findReload();
     const after = (el: Element) =>
@@ -212,9 +212,9 @@ describe("the hold after the Manager's own save", () => {
       await copyToFriday();
       await focusReload();
       fireEvent.click(screen.getByRole("button", { name: "Reload hours" }));
-      screen.getByRole("button", { name: "Copy to other days…" }).focus();
+      screen.getByRole("button", { name: "Copy hours…" }).focus();
       view.rerender(tree({ onStale, version: 5 }));
-      expect(screen.getByRole("button", { name: "Copy to other days…" })).toHaveFocus();
+      expect(screen.getByRole("button", { name: "Copy hours…" })).toHaveFocus();
     });
 
     it("stays in a field outside the drawer, where the Manager is typing", async () => {
@@ -278,7 +278,7 @@ describe("the hold after the Manager's own save", () => {
   it("leaves focus alone when the hold ends with no click on Reload hours", async () => {
     const view = render(tree());
     await copyToFriday();
-    const copy = screen.getByRole("button", { name: "Copy to other days…" });
+    const copy = screen.getByRole("button", { name: "Copy hours…" });
     copy.focus();
     view.rerender(tree({ version: 5 }));
     expect(copy).toHaveFocus();

@@ -67,7 +67,7 @@ function renderCopy(config: AvailabilityConfig = fixtureConfig()) {
       />
     </main>
   );
-  fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
+  fireEvent.click(screen.getByRole("button", { name: "Copy hours…" }));
   return screen.getByRole("dialog", { name: /Copy .* to other days/ });
 }
 
@@ -340,7 +340,7 @@ describe("Copy to other days", () => {
           />
         </main>
       );
-      fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
+      fireEvent.click(screen.getByRole("button", { name: "Copy hours…" }));
       const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
       pick(dialog, "Sat");
       expect(within(dialog).getByText(/regular week from Oct 26\./)).toBeInTheDocument();

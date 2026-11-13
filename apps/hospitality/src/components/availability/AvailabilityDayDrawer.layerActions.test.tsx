@@ -142,6 +142,8 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
     expect(screen.getAllByText(/^Lunch\b.*\d/).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: /^Edit (Lunch|Dinner)/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Add (another )?service/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Copy hours/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Use other hours/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Copy to other days/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Use another day's hours/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /Use schedule/ })).toBeNull();
@@ -158,7 +160,7 @@ describe("AvailabilityDayDrawer: Remove and Edit in Why this day (#7981)", () =>
     renderDrawer({ today });
     const edit = screen.queryByRole("button", { name: "Edit Lunch" });
     const add = screen.queryByRole("button", { name: /Add service/ });
-    const copy = screen.queryByRole("button", { name: /Copy to other days/ });
+    const copy = screen.queryByRole("button", { name: /^Copy hours/ });
     expect(edit !== null).toBe(editable);
     expect(add !== null).toBe(editable);
     expect(copy !== null).toBe(editable);

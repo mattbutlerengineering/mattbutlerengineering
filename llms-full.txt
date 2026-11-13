@@ -30033,7 +30033,6 @@
     ];
     export const LEGACY_KEYS: ReadonlySet<string> = new Set([
       "availability.calendar.legend.regular",
-      "availability.drawer.useSchedule",
       "availability.drawer.closedRegular",
       "availability.drawer.schedule.changeFor",
       "availability.drawer.schedule.removeDescriptionDated",
@@ -96122,6 +96121,16 @@
   </file>
   </section>
   <section priority="medium" role="test">
+  <file path="apps/hospitality/src/test/copy-hours.ts">
+    export async function openCopyToOtherDays(): Promise<HTMLElement> {
+      fireEvent.click(screen.getByRole("button", { name: "Copy hours…" }));
+      return screen.findByRole("dialog", { name: /Copy .* to other days/ });
+    }
+    export async function openCopyFrom(name: RegExp): Promise<HTMLElement> {
+      fireEvent.click(screen.getByRole("button", { name: "Use other hours…" }));
+      return screen.findByRole("dialog", { name });
+    }
+  </file>
   <file path="apps/hospitality/src/test/png-luminance.ts">
     export interface DecodedPng {
       readonly width: number;

@@ -23,6 +23,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
   }),
 }));
 
+import { openCopyToOtherDays } from "../../test/copy-hours.js";
 import { AvailabilityDayDrawer } from "./AvailabilityDayDrawer.js";
 import {
   EARLY_DINNER,
@@ -115,25 +116,19 @@ describe("AvailabilityDayDrawer around a draft", () => {
     render(drawer({ fixedDates: [FIXTURE_DATE, "2026-11-02", "2026-11-03"] }));
     const dialog = screen.getByRole("dialog", { name: "3 dates selected" });
     expect(within(dialog).queryByRole("button", { name: "Close…" })).not.toBeInTheDocument();
-    expect(
-      within(dialog).queryByRole("button", { name: "Copy to other days…" })
-    ).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Copy hours…" })).not.toBeInTheDocument();
     expect(within(dialog).queryByText(/^Open for/)).not.toBeInTheDocument();
   });
 
-  it("offers Use another day’s hours for one upcoming date, and not for several or a past one", () => {
+  it("offers Use other hours… for one upcoming date, and not for several or a past one", () => {
     const { unmount } = render(drawer());
-    expect(screen.getByRole("button", { name: "Use another day’s hours…" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Use other hours…" })).toBeInTheDocument();
     unmount();
     const several = render(drawer({ fixedDates: [FIXTURE_DATE, "2026-11-02"] }));
-    expect(
-      screen.queryByRole("button", { name: "Use another day’s hours…" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use other hours…" })).not.toBeInTheDocument();
     several.unmount();
     render(drawer({ today: "2026-11-15" }));
-    expect(
-      screen.queryByRole("button", { name: "Use another day’s hours…" })
-    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use other hours…" })).not.toBeInTheDocument();
   });
 
   it("says when the selected dates have different hours, and which date the rows are from", () => {
@@ -165,7 +160,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
 
     it("makes Copy wait, reachable and described by the reason, and does not open it", () => {
       openCleanEditor();
-      const copy = screen.getByRole("button", { name: "Copy to other days…" });
+      const copy = screen.getByRole("button", { name: "Copy hours…" });
       expect(copy).toHaveAttribute("aria-disabled", "true");
       expect(copy).not.toBeDisabled();
       const reason = screen.getByText("Save or discard your changes to this day first.");
@@ -186,7 +181,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
       const view = openCleanEditor();
       view.unmount();
       render(drawer());
-      expect(screen.getByRole("button", { name: "Copy to other days…" })).not.toHaveAttribute(
+      expect(screen.getByRole("button", { name: "Copy hours…" })).not.toHaveAttribute(
         "aria-disabled"
       );
     });
@@ -218,8 +213,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
 
     async function copyToFriday() {
       save.mockResolvedValueOnce({ version: 5, changeId: "chg-1" });
-      fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
-      const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
+      const dialog = await openCopyToOtherDays();
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Saturday" }));
       fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sat" }));
       await vi.waitFor(() =>
@@ -246,7 +240,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
         "aria-disabled",
         "true"
       );
-      const copy = screen.getByRole("button", { name: "Copy to other days…" });
+      const copy = screen.getByRole("button", { name: "Copy hours…" });
       expect(copy).toHaveAttribute("aria-disabled", "true");
       expect(copy).toHaveAttribute("aria-describedby", screen.getByText(WAIT).id);
     });
@@ -316,8 +310,7 @@ describe("AvailabilityDayDrawer around a draft", () => {
     it("frees Edit after a refused save, which moved nothing", async () => {
       save.mockRejectedValueOnce(new Error("Network down"));
       render(drawer());
-      fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
-      const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
+      const dialog = await openCopyToOtherDays();
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Saturday" }));
       fireEvent.click(within(dialog).getByRole("button", { name: "Copy to Sat" }));
       await vi.waitFor(() => expect(save).toHaveBeenCalled());
@@ -358,13 +351,12 @@ describe("AvailabilityDayDrawer around a draft", () => {
     // A past date is read-only (#8691), so the copy source is today; the week's earlier days are past.
     it("offers no copy action on a date that is over", () => {
       render(drawer({ date: "2026-10-16", today: "2026-10-17" }));
-      expect(screen.queryByRole("button", { name: "Copy to other days…" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Copy hours…" })).toBeNull();
     });
 
     it("reaches only the dates of its week that are today or later, and names the rest as past", async () => {
       render(drawer({ date: "2026-10-17", today: "2026-10-17" }));
-      fireEvent.click(screen.getByRole("button", { name: "Copy to other days…" }));
-      const dialog = screen.getByRole("dialog", { name: /Copy .* to other days/ });
+      const dialog = await openCopyToOtherDays();
       fireEvent.click(within(dialog).getByRole("checkbox", { name: "Thursday" }));
       expect(within(dialog).getByText("Thu has already passed this week.")).toBeInTheDocument();
       expect(

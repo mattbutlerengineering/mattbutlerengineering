@@ -2157,7 +2157,6 @@
       "editSchedule": "Modifier l’horaire"
     },
     "copy": {
-      "action": "Copier vers d’autres jours…",
       "title": "Copier le {{date}} vers d’autres jours",
       "days": "Jours",
       "everyWeek": "Chaque semaine…",
@@ -2306,8 +2305,6 @@
       }
     },
     "drawer": {
-      "useOtherDay": "Utiliser les heures d’un autre jour…",
-      "useSchedule": "Utiliser un horaire…",
       "useBlockedClosed": "Fermé toute la journée. Retirez la fermeture pour utiliser d’autres heures.",
       "summaryOpen": "Ouvert pour {{services}}.",
       "summaryClosed": "Fermé.",
@@ -3303,6 +3300,10 @@
     }
   },
   "availabilityHub": {
+    "dayActions": {
+      "copyHours": "Copier les heures…",
+      "useOtherHours": "Utiliser d’autres heures…"
+    },
     "conflict": {
       "overwriteNotOffered": "Le remplacement n’est pas offert pour ces heures. Examinez son changement pour y superposer les vôtres, ou retournez à votre brouillon."
     },

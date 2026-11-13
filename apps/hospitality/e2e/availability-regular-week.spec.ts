@@ -309,7 +309,7 @@ function dayOfThisMonth(day: number): string {
   return d.toLocaleDateString("en-CA");
 }
 
-// #7981: Go to date (toolbar) and Use another day's hours (day drawer), at both widths and locales.
+// #7981: Go to date (toolbar) and Use other hours (day drawer, #8691), at both widths and locales.
 test.describe("navigation and day-drawer controls (#7981)", () => {
   const EN = {
     locale: "en-US",
@@ -317,7 +317,7 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
     goTo: "Go to date",
     go: "Go",
     date: "Date",
-    use: "Use another day’s hours…",
+    use: "Use other hours…",
     useTitle: "Use another day’s hours",
     from: "Copy hours from",
   };
@@ -327,7 +327,7 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
     goTo: "Aller à une date",
     go: "Aller",
     date: "Date",
-    use: "Utiliser les heures d’un autre jour…",
+    use: "Utiliser d’autres heures…",
     useTitle: "Utiliser les heures d’un autre jour",
     from: "Copier les heures du",
   };
