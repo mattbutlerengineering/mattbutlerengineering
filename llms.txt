@@ -1759,9 +1759,6 @@
     <item priority="high">
       export function legacyRedirect(search: string): string | null { /* ... */ }
     </item>
-    <item priority="high">
-      export function indexRedirect(search: string): string { /* ... */ }
-    </item>
   </file>
   <file path="apps/hospitality/src/components/availability/booking-rules.ts">
     <item priority="low">
@@ -8350,6 +8347,11 @@
       export const useRevertAvailabilityChange: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityHub.ts">
+    <item priority="high">
+      export function useAvailabilityHub(scope: AvailabilityScope): HubRows | null { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
     <item priority="low">
       interface AvailabilityPreviewState {
@@ -8374,12 +8376,21 @@
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityScope.ts">
     <item priority="low">
+      type AvailabilityLoad = "loading" | "error" | "ready";
+    </item>
+    <item priority="high">
+      export function availabilityLoad(
+        state: Pick<AvailabilityConfigState, "source"> | null,
+        failed: boolean
+      ): AvailabilityLoad { /* ... */ }
+    </item>
+    <item priority="low">
       interface AvailabilityScope {
         venueId: string | null;
         timezone: string;
         today: string;
         state: AvailabilityConfigState | null;
-        isManager: boolean;
+        load: AvailabilityLoad;
       }
     </item>
     <item priority="high">
@@ -9968,6 +9979,63 @@
       ): DateAnswer | null { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/hub/date-sentence.ts">
+    <item priority="medium">
+      function sentenceDate(date: string, { format }: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function ruleText(rule: DateAnswerRule, { t }: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatHappens(answer: DateAnswer, { t, format }: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dateSentence(answer: DateAnswer, ctx: HubTextContext): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-actions.ts">
+    <item priority="low">
+      interface HubAction {
+        kind: "edit" | "add" | "view";
+        to: string;
+      }
+    </item>
+    <item priority="high">
+      export function hubActions(
+        rows: HubRowModels,
+        isManager: boolean
+      ): readonly [HubAction | null, HubAction | null, HubAction, HubAction, HubAction | null] { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-closures-text.ts">
+    <item priority="medium">
+      function pauseText(pause: HubOnlinePause, today: string, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightText(change: HubTonightChange, { t, format }: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatText(target: HubClosureTarget, { t, format }: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whenText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function windowText(closure: HubClosure, { t, format }: HubTextContext): string | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function detailText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nowText(closure: HubClosure, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nextText(closure: HubClosure, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closuresLines(row: ClosuresRow, today: string, ctx: HubTextContext): string[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/hub/hub-closures.ts">
     <item priority="high">
       type BookingChannel = NonNullable<DateRule["bookingTypes"]>[number];
@@ -10055,7 +10123,50 @@
       export function closuresRow(input: ClosuresRowInput): ClosuresRow { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-row-text.ts">
+    <item priority="low">
+      interface HubLine {
+        text: string;
+        venueServiceId?: string;
+      }
+    </item>
+    <item priority="low">
+      interface HubRowText {
+        row: 1 | 2 | 3 | 4 | 5;
+        title: string;
+        lines: readonly HubLine[];
+      }
+    </item>
+    <item priority="medium">
+      function serviceText(service: RegularWeekLineService, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function regularHoursLines(row: RegularHoursRow, ctx: HubTextContext): HubLine[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function usageText(usage: ScheduleUsage, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function seasonalHoursLines(row: SeasonalHoursRow, ctx: HubTextContext): HubLine[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function specialDatesLines(row: SpecialDatesRow, ctx: HubTextContext): HubLine[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function bookingRulesLines(row: BookingRulesRow, { t }: HubTextContext): HubLine[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function hubRowTexts(
+        rows: HubRowModels,
+        today: string,
+        ctx: HubTextContext
+      ): readonly HubRowText[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/hub/hub-rows-test-helpers.ts">
+    <item priority="high">
+      export const TEXT: HubTextContext;
+    </item>
     <item priority="high">
       export const EVERY_DAY: unknown;
     </item>
@@ -10202,6 +10313,14 @@
         today: string,
         holidays: readonly { readonly state: HolidayState }[]
       ): SpecialDatesRow { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-text.ts">
+    <item priority="low">
+      type HubTextContext = ServiceHoursContext;
+    </item>
+    <item priority="high">
+      export function shortDate(date: string, { format }: HubTextContext): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/hub/rule-dates.ts">

@@ -1,9 +1,24 @@
 import { expect } from "vitest";
 import { validateConfig } from "@mbe/availability";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
+import type { VenueFormat } from "../../../hooks/useVenueFormat.js";
+import { defaultT } from "../../../i18n/default-t.js";
+import { formatCalendarDate, formatLocalTime } from "../../../utils/format.js";
 import { hubRows, type HubRowsInput } from "./hub-rows.js";
+import type { HubTextContext } from "./hub-text.js";
 
 /** Fixtures the hub row tests share. Every config built here has passed `validateConfig`. */
+
+/** The en-US catalog and en-US formats, for the tests that read the hub's words. */
+export const TEXT: HubTextContext = {
+  t: defaultT,
+  format: {
+    locale: "en-US",
+    formatCalendarDate: (date: string, options: Intl.DateTimeFormatOptions) =>
+      formatCalendarDate(date, options, "en-US"),
+    formatLocalTime: (hhmm: string) => formatLocalTime(hhmm, "en-US"),
+  } as VenueFormat,
+};
 
 const TIMEZONE = "America/Los_Angeles";
 const SEATING = { version: 1, interval: 15 } as const;

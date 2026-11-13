@@ -4,10 +4,11 @@ import { isTodaysPage } from "../components/availability/availability-address.js
 import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { useAvailabilityConfig } from "../hooks/useAvailability.js";
-import type { AvailabilityScope } from "../hooks/useAvailabilityScope.js";
+import { availabilityLoad, type AvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { useAvailabilityUndo } from "../hooks/useAvailabilityUndo.js";
 import { useManagerAccess } from "../hooks/useIsManager.js";
 import { useNow } from "../hooks/useNow.js";
+import { describeApiError } from "../lib/describe-api-error.js";
 import { venueDate } from "../utils/service-day.js";
 
 /**
@@ -15,20 +16,22 @@ import { venueDate } from "../utils/service-day.js";
  * down through the outlet (`useAvailabilityScope()`). It also owns Undo, so the offer outlives the
  * child that saved, and the dialog that lists the bookings blocking a refused one.
  *
- * It renders no page chrome yet. Today's page, mounted at `calendar`, still renders the page
- * header and says when the config failed to load; the layout takes those over as the views that
- * replace that page land.
+ * It renders no page chrome. Today's page, mounted at `calendar`, renders its own header and says
+ * itself when the config failed to load, so the layout showing either would show it twice. The
+ * scope says where the read stands (`load`, `rolePending`) and each new child words it.
  */
 export function AvailabilityLayout() {
   const { selectedVenueId, selectedVenue } = useVenue();
   const timezone = selectedVenue?.ianaTimezone ?? "";
   const today = venueDate(useNow(), timezone);
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
-  const { isManager } = useManagerAccess();
+  const { isManager, isPending: rolePending } = useManagerAccess();
   const { refetch } = config;
   const offer = useAvailabilityUndo();
   const { pathname } = useLocation();
   const state = config.data ?? null;
+  const load = availabilityLoad(state, config.error != null);
+  const loadError = state === null && config.error ? describeApiError(config.error).detail : null;
 
   // `refresh` and `offerUndo` keep one identity for the life of the layout, so a child can list
   // them (or the scope) as a dependency. They read what the hooks returned on the latest render.
@@ -47,8 +50,30 @@ export function AvailabilityLayout() {
   }, []);
 
   const scope = useMemo<AvailabilityScope>(
-    () => ({ venueId: selectedVenueId, timezone, today, state, isManager, refresh, offerUndo }),
-    [selectedVenueId, timezone, today, state, isManager, refresh, offerUndo]
+    () => ({
+      venueId: selectedVenueId,
+      timezone,
+      today,
+      state,
+      load,
+      loadError,
+      isManager,
+      rolePending,
+      refresh,
+      offerUndo,
+    }),
+    [
+      selectedVenueId,
+      timezone,
+      today,
+      state,
+      load,
+      loadError,
+      isManager,
+      rolePending,
+      refresh,
+      offerUndo,
+    ]
   );
   return (
     <>

@@ -53,6 +53,9 @@ function ScopeProbe() {
       <output aria-label="today">{scope.today}</output>
       <output aria-label="version">{String(scope.state?.version ?? null)}</output>
       <output aria-label="manager">{String(scope.isManager)}</output>
+      <output aria-label="load">{scope.load}</output>
+      <output aria-label="load error">{String(scope.loadError)}</output>
+      <output aria-label="role pending">{String(scope.rolePending)}</output>
       <button type="button" onClick={scope.refresh}>
         refresh
       </button>
@@ -90,6 +93,7 @@ describe("AvailabilityLayout", () => {
     config.data = STATE;
     config.error = null;
     access.isManager = true;
+    access.isPending = false;
   });
 
   afterEach(() => {
@@ -123,6 +127,41 @@ describe("AvailabilityLayout", () => {
     config.error = new Error("503");
     renderLayout();
     expect(read("version")).toBe("null");
+  });
+
+  it("tells a config still loading from one that failed and one that loaded", () => {
+    config.data = undefined;
+    config.error = null;
+    const loading = renderLayout();
+    expect(read("load")).toBe("loading");
+    loading.unmount();
+
+    config.error = new Error("503");
+    const failed = renderLayout();
+    expect(read("load")).toBe("error");
+    // The reason, as a sentence a person can read.
+    expect(read("load error")).toMatch(/\w+ \w+/);
+    failed.unmount();
+
+    config.data = STATE;
+    renderLayout();
+    // A refetch failing over a config on hand is not a load failure.
+    expect(read("load")).toBe("ready");
+    expect(read("load error")).toBe("null");
+  });
+
+  it("reads hours nobody can read as a load failure", () => {
+    config.data = { ...STATE, source: "unreadable" };
+    renderLayout();
+    expect(read("load")).toBe("error");
+  });
+
+  it("says when the role is still being read", () => {
+    access.isManager = false;
+    access.isPending = true;
+    renderLayout();
+    expect(read("manager")).toBe("false");
+    expect(read("role pending")).toBe("true");
   });
 
   it("gives no venue when none is selected", () => {

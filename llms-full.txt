@@ -5457,6 +5457,11 @@
     }
     export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
+      // The hub opens no dialog yet (C2.4), so a section's Close dialog still opens on today's page.
+      if (target.view === "hub" && target.close?.kind !== "section") {
+        if (target.from) params.set("from", target.from);
+        return withSearch(ROUTE, params);
+      }
       const tab = PAGE_TAB[target.view];
       if (tab) params.set("tab", tab);
       if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
@@ -5512,10 +5517,6 @@
         }),
         ...(entry.from && { from: entry.from }),
       });
-    }
-    export function indexRedirect(search: string): string {
-      const { from } = readAvailabilityAddress({ search });
-      return legacyRedirect(search) ?? availabilityPath({ view: "hub", ...(from && { from }) });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/booking-rules.ts">
@@ -24572,6 +24573,36 @@
         trackOwnSave(venueId, () => api.availability.revertChange(venueId, changeId, expectedVersion)),
     });
   </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityHub.ts">
+    export function useAvailabilityHub(scope: AvailabilityScope): HubRows | null {
+      const { venueId, state, timezone, today } = scope;
+      const { selectedVenue } = useVenue();
+      const settings = selectedVenue?.settings;
+      const nowMinute = minutesOfDayIn(useNow(), timezone);
+      const sections = useVenueFloorPlanSections({ venueId });
+      const country = useHolidayCountry();
+      const decisions = useHolidayDecisions({
+        venueId,
+        from: today,
+        to: addDays(today, HOLIDAY_HORIZON_DAYS),
+      });
+      return useMemo(() => {
+        if (!state) return null;
+        return hubRows({
+          state,
+          settings,
+          holidays:
+            country && decisions.data
+              ? holidayStates(country, today, state.config, decisions.data)
+              : NO_HOLIDAYS,
+          sectionNames: new Map((sections.data ?? []).map((s) => [s.id, s.name])),
+          timezone,
+          today,
+          nowMinute,
+        });
+      }, [state, settings, country, decisions.data, sections.data, timezone, today, nowMinute]);
+    }
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityPreview.ts">
     export interface AvailabilityPreviewState {
       /** The newest result that arrived, kept while a newer request is pending or has failed. */
@@ -24625,6 +24656,14 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityScope.ts">
+    export type AvailabilityLoad = "loading" | "error" | "ready";
+    export function availabilityLoad(
+      state: Pick<AvailabilityConfigState, "source"> | null,
+      failed: boolean
+    ): AvailabilityLoad {
+      if (state === null) return failed ? "error" : "loading";
+      return state.source === "unreadable" ? "error" : "ready";
+    }
     export interface AvailabilityScope {
       /** `null` when no venue is selected. */
       readonly venueId: string | null;
@@ -24634,8 +24673,18 @@
       readonly today: string;
       /** The config, its version and its source; `null` until the config has loaded. */
       readonly state: AvailabilityConfigState | null;
+      /**
+       * Where the config read stands, which `state` alone cannot say: `loading` until it first
+       * answers, `error` when it has never answered or answered with hours nobody can read
+       * (`source: "unreadable"`), else `ready`. `refresh()` is the retry.
+       */
+      readonly load: AvailabilityLoad;
+      /** Why the read failed, as a sentence; `null` unless a request failed with no config on hand. */
+      readonly loadError: string | null;
       /** False for a Host, and while the role is still being read. */
       readonly isManager: boolean;
+      /** The role is still being read, so `isManager: false` does not yet mean a Host. */
+      readonly rolePending: boolean;
       /** Refetches the config, after a refused save. */
       readonly refresh: () => void;
       /**
@@ -28679,6 +28728,199 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/hub/date-sentence.ts">
+    function sentenceDate(date: string, { format }: HubTextContext): string {
+      return format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
+    }
+    function ruleText(rule: DateAnswerRule, { t }: HubTextContext): string {
+      switch (rule.kind) {
+        case "regular":
+          return t("availabilityHub.dateCheck.rule.regular");
+        case "seasonal":
+          return scheduleNameText(rule.name, t);
+        // "Same as another day" is a choice made on a special date.
+        case "useHours":
+        case "special":
+          return t("availabilityHub.dateCheck.rule.special");
+        case "closure":
+          return t("availabilityHub.dateCheck.rule.closure");
+        case "tonight":
+          return t("availabilityHub.dateCheck.rule.tonight");
+      }
+    }
+    function whatHappens(answer: DateAnswer, { t, format }: HubTextContext): string {
+      const { services, closedBand: band } = answer;
+      const closed = t("availabilityHub.dateCheck.closed");
+      if (services.length === 0) return closed;
+      const opens = Math.min(...services.map((s) => s.opensAt));
+      const closes = Math.max(...services.map((s) => s.closesAt));
+      if (band && band.from <= opens && band.to >= closes) return closed;
+      const time = (minute: number) => minuteText(minute, t, format);
+      const hours = services.map((s) =>
+        t("availabilityHub.dateCheck.service", {
+          name: s.name,
+          hours: t("availability.serviceHours.range", {
+            open: time(s.opensAt),
+            close: time(s.closesAt),
+          }),
+        })
+      );
+      // A band outside the open hours changes nothing a guest can book, so it is not said.
+      const cuts = band !== null && band.from < closes && band.to > opens;
+      const closedPart = !cuts
+        ? []
+        : band.to >= closes
+          ? [t("availabilityHub.dateCheck.closedFrom", { time: time(band.from) })]
+          : [
+              t("availabilityHub.dateCheck.closedBetween", {
+                from: time(band.from),
+                to: time(band.to),
+              }),
+            ];
+      return new Intl.ListFormat(format.locale, { type: "unit" }).format([...hours, ...closedPart]);
+    }
+    export function dateSentence(answer: DateAnswer, ctx: HubTextContext): string {
+      const { t } = ctx;
+      const date = sentenceDate(answer.date, ctx);
+      if (answer.deciding === null) return t("availabilityHub.dateCheck.uncovered", { date });
+      const values = { date, what: whatHappens(answer, ctx), rule: ruleText(answer.deciding, ctx) };
+      return answer.beneath
+        ? t("availabilityHub.dateCheck.sentenceOver", {
+            ...values,
+            beneath: ruleText(answer.beneath, ctx),
+          })
+        : t("availabilityHub.dateCheck.sentence", values);
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-actions.ts">
+    export interface HubAction {
+      readonly kind: "edit" | "add" | "view";
+      readonly to: string;
+    }
+    export function hubActions(
+      rows: HubRowModels,
+      isManager: boolean
+    ): readonly [HubAction | null, HubAction | null, HubAction, HubAction, HubAction | null] {
+      const view = (to: string): HubAction => ({ kind: "view", to });
+      const edit = (to: string): HubAction | null => (isManager ? { kind: "edit", to } : null);
+      const specialDates = availabilityPath({ view: "specialDates" });
+      const seasonal: HubAction | null = !isManager
+        ? null
+        : rows[1].sets.length === 0
+          ? { kind: "add", to: availabilityPath({ view: "seasonal", screen: "new" }) }
+          : { kind: "edit", to: availabilityPath({ view: "seasonal" }) };
+      return [
+        edit(availabilityPath({ view: "hours" })),
+        seasonal,
+        edit(specialDates) ?? view(specialDates),
+        view(availabilityPath({ view: "closures" })),
+        edit(availabilityPath({ view: "bookingRules" })),
+      ];
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-closures-text.ts">
+    function pauseText(pause: HubOnlinePause, today: string, ctx: HubTextContext): string {
+      const { t, format } = ctx;
+      if (!pause.inForce && pause.fromMinute !== null) {
+        return t("availabilityHub.hub.closures.pauseWaiting", {
+          time: minuteText(pause.fromMinute, t, format),
+        });
+      }
+      if (pause.endsOn === null) return t("availabilityHub.hub.closures.pauseUntilResumed");
+      return pause.endsOn === today
+        ? t("availabilityHub.hub.closures.pauseTonight")
+        : t("availabilityHub.hub.closures.pauseUntil", { date: shortDate(pause.endsOn, ctx) });
+    }
+    function tonightText(change: HubTonightChange, { t, format }: HubTextContext): string {
+      if (change.closeAt !== null) {
+        return t("availabilityHub.hub.closures.closingEarly", {
+          time: minuteText(change.closeAt, t, format),
+        });
+      }
+      // A change is a close-early or a stop, so a stop always has its window.
+      const { from, to } = change.window ?? { from: 0, to: END_OF_SERVICE_DAY };
+      return t("availabilityHub.hub.closures.stopTonight", {
+        from: minuteText(from, t, format),
+        to: closureEndText(to, t, format),
+      });
+    }
+    function whatText(target: HubClosureTarget, { t, format }: HubTextContext): string {
+      switch (target.kind) {
+        case "venue":
+          return t("availabilityHub.hub.closures.what.venue");
+        case "service":
+          return target.name === null
+            ? t("availabilityHub.hub.closures.what.service")
+            : t("availabilityHub.hub.closures.what.named", { name: target.name });
+        case "section":
+          return target.name === null
+            ? t("availabilityHub.hub.closures.what.section")
+            : t("availabilityHub.hub.closures.what.named", { name: target.name });
+        case "tables":
+          return t("availabilityHub.hub.closures.what.tables", { count: target.count });
+        case "booking": {
+          if (target.channels.length === 0) return t("availabilityHub.hub.closures.what.bookingAll");
+          const channels = new Intl.ListFormat(format.locale, { type: "conjunction" }).format(
+            target.channels.map((channel) => t(`setup.hub.channelLabel.${channel}`))
+          );
+          return t("availabilityHub.hub.closures.what.booking", { channels });
+        }
+      }
+    }
+    function whenText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string | null {
+      const { t, format } = ctx;
+      if (closure.weekdays !== null) {
+        const days = weekdaySummary(closure.weekdays, format, t);
+        return closure.endsOn === null
+          ? t("availabilityHub.hub.closures.when.repeatingOpen", { days })
+          : t("availabilityHub.hub.closures.when.repeating", {
+              days,
+              date: shortDate(closure.endsOn, ctx),
+            });
+      }
+      if (closure.endsOn === null) return t("availabilityHub.hub.closures.when.untilReopened");
+      if (closure.endsOn === closure.startsOn) {
+        return inForce ? t("availabilityHub.hub.closures.when.today") : null;
+      }
+      return t("availabilityHub.hub.closures.when.until", { date: shortDate(closure.endsOn, ctx) });
+    }
+    function windowText(closure: HubClosure, { t, format }: HubTextContext): string | null {
+      const { window } = closure;
+      if (window === null) return null;
+      return window.to >= END_OF_SERVICE_DAY
+        ? t("availabilityHub.hub.closures.windowFrom", { time: minuteText(window.from, t, format) })
+        : t("availabilityHub.hub.closures.windowBetween", {
+            from: minuteText(window.from, t, format),
+            to: minuteText(window.to, t, format),
+          });
+    }
+    function detailText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string {
+      return [whenText(closure, inForce, ctx), windowText(closure, ctx)]
+        .filter((part): part is string => part !== null)
+        .join(", ");
+    }
+    function nowText(closure: HubClosure, ctx: HubTextContext): string {
+      const what = whatText(closure.target, ctx);
+      const detail = detailText(closure, true, ctx);
+      return detail ? ctx.t("availabilityHub.hub.closures.now", { what, detail }) : what;
+    }
+    function nextText(closure: HubClosure, ctx: HubTextContext): string {
+      const values = { date: shortDate(closure.nextOn, ctx), what: whatText(closure.target, ctx) };
+      const detail = detailText(closure, false, ctx);
+      return detail
+        ? ctx.t("availabilityHub.hub.closures.nextDetail", { ...values, detail })
+        : ctx.t("availabilityHub.hub.closures.next", values);
+    }
+    export function closuresLines(row: ClosuresRow, today: string, ctx: HubTextContext): string[] {
+      const lines = [
+        ...(row.pause ? [pauseText(row.pause, today, ctx)] : []),
+        ...row.tonight.map((change) => tonightText(change, ctx)),
+        ...row.now.map((closure) => nowText(closure, ctx)),
+        ...(row.next ? [nextText(row.next, ctx)] : []),
+      ];
+      return lines.length > 0 ? lines : [ctx.t("availabilityHub.hub.closures.empty")];
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/hub/hub-closures.ts">
     type BookingChannel = NonNullable<DateRule["bookingTypes"]>[number];
     export type HubClosureTarget =
@@ -28872,7 +29114,172 @@
       };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-row-text.ts">
+    export interface HubLine {
+      readonly text: string;
+      /** Row 1 only: the service this line is about, so a Manager's line can open it. */
+      readonly venueServiceId?: string;
+    }
+    export interface HubRowText {
+      readonly row: 1 | 2 | 3 | 4 | 5;
+      readonly title: string;
+      /** Never empty. */
+      readonly lines: readonly HubLine[];
+    }
+    function serviceText(service: RegularWeekLineService, ctx: HubTextContext): string {
+      const { t, format } = ctx;
+      const days = (weekdays: readonly number[]) => weekdaySummary(weekdays, format, t);
+      const base = {
+        name: service.name,
+        hours: serviceHoursText(service, ctx),
+        days: days(service.days),
+      };
+      if (service.changes.length === 0) return t("availability.regularWeekLine.service", base);
+      const changes = service.changes
+        .map((change) =>
+          // Same opening: only the close or last seating moved, so say only that.
+          change.opensAt === service.opensAt
+            ? serviceCloseChangeText(days(change.weekdays), change, ctx)
+            : t("availability.regularWeekLine.different", {
+                days: days(change.weekdays),
+                hours: serviceHoursText(change, ctx),
+              })
+        )
+        .join(", ");
+      return t("availability.regularWeekLine.serviceWith", { ...base, changes });
+    }
+    function regularHoursLines(row: RegularHoursRow, ctx: HubTextContext): HubLine[] {
+      const { t } = ctx;
+      if (row.services.length === 0) return [line(t("availabilityHub.hub.regular.empty"))];
+      const services = row.services.map((service) => ({
+        text: serviceText(service, ctx),
+        venueServiceId: service.venueServiceId,
+      }));
+      const { upcoming } = row;
+      const later = upcoming?.services.map((service) => serviceText(service, ctx)).join(" · ");
+      const now = services.map((service) => service.text).join(" · ");
+      // A change saved for a later date reads here before it takes over, unless it reads the same.
+      if (!upcoming || !later || later === now) return services;
+      return [
+        ...services,
+        line(
+          upcoming.endsOn
+            ? t("availability.regularWeekLine.upcomingPeriod", {
+                from: shortDate(upcoming.startsOn, ctx),
+                to: shortDate(upcoming.endsOn, ctx),
+                services: later,
+              })
+            : t("availability.regularWeekLine.upcoming", {
+                date: shortDate(upcoming.startsOn, ctx),
+                services: later,
+              })
+        ),
+      ];
+    }
+    function usageText(usage: ScheduleUsage, ctx: HubTextContext): string {
+      const { t, format } = ctx;
+      if (usage.kind === "unused") return t("availabilityHub.hub.seasonal.unused");
+      if (usage.kind === "rules") {
+        return t("availabilityHub.hub.seasonal.byDates", { count: usage.count });
+      }
+      return usage.periods
+        .map((period) => {
+          const days = weekdaySummary(period.weekdays, format, t);
+          const from = period.startsOn && shortDate(period.startsOn, ctx);
+          const to = period.endsOn && shortDate(period.endsOn, ctx);
+          if (from && to) return t("availabilityHub.hub.seasonal.range", { from, to, days });
+          if (from) return t("availabilityHub.hub.seasonal.from", { from, days });
+          if (to) return t("availabilityHub.hub.seasonal.until", { to, days });
+          return t("availabilityHub.hub.seasonal.noDates", { days });
+        })
+        .join("; ");
+    }
+    function seasonalHoursLines(row: SeasonalHoursRow, ctx: HubTextContext): HubLine[] {
+      const { t } = ctx;
+      if (row.sets.length === 0) return [line(t("availabilityHub.hub.seasonal.empty"))];
+      return [
+        ...row.sets.map((set) =>
+          line(
+            t("availabilityHub.hub.seasonal.set", {
+              name: scheduleNameText(set.name, t),
+              usage: usageText(set.usage, ctx),
+            })
+          )
+        ),
+        ...(row.more > 0 ? [line(t("availabilityHub.hub.seasonal.more", { count: row.more }))] : []),
+      ];
+    }
+    function specialDatesLines(row: SpecialDatesRow, ctx: HubTextContext): HubLine[] {
+      const { t, format } = ctx;
+      const dates = row.next.map((item) =>
+        t("availabilityHub.hub.special.item", {
+          date: shortDate(item.nextOn, ctx),
+          kind: t(`availabilityHub.hub.special.kind.${item.kind}`),
+        })
+      );
+      const holidays =
+        row.holidaysNotPlanned > 0
+          ? [line(t("availabilityHub.hub.special.holidays", { count: row.holidaysNotPlanned }))]
+          : [];
+      const first =
+        dates.length === 0
+          ? t("availabilityHub.hub.special.empty")
+          : t("availabilityHub.hub.special.next", {
+              dates: new Intl.ListFormat(format.locale, { type: "unit" }).format(dates),
+            });
+      return [line(first), ...holidays];
+    }
+    function bookingRulesLines(row: BookingRulesRow, { t }: HubTextContext): HubLine[] {
+      return [
+        line(row.rules ? bookingRulesText(row.rules, t) : t("availabilityHub.hub.booking.empty")),
+      ];
+    }
+    export function hubRowTexts(
+      rows: HubRowModels,
+      today: string,
+      ctx: HubTextContext
+    ): readonly HubRowText[] {
+      const { t } = ctx;
+      const [regular, seasonal, special, closures, booking] = rows;
+      return [
+        {
+          row: 1,
+          title: t("availabilityHub.hub.regular.title"),
+          lines: regularHoursLines(regular, ctx),
+        },
+        {
+          row: 2,
+          title: t("availabilityHub.hub.seasonal.title"),
+          lines: seasonalHoursLines(seasonal, ctx),
+        },
+        {
+          row: 3,
+          title: t("availabilityHub.hub.special.title"),
+          lines: specialDatesLines(special, ctx),
+        },
+        {
+          row: 4,
+          title: t("availabilityHub.hub.closures.title"),
+          lines: closuresLines(closures, today, ctx).map(line),
+        },
+        {
+          row: 5,
+          title: t("availabilityHub.hub.booking.title"),
+          lines: bookingRulesLines(booking, ctx),
+        },
+      ];
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/hub/hub-rows-test-helpers.ts">
+    export const TEXT: HubTextContext = {
+      t: defaultT,
+      format: {
+        locale: "en-US",
+        formatCalendarDate: (date: string, options: Intl.DateTimeFormatOptions) =>
+          formatCalendarDate(date, options, "en-US"),
+        formatLocalTime: (hhmm: string) => formatLocalTime(hhmm, "en-US"),
+      } as VenueFormat,
+    };
     export const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
     export const TODAY = "2026-11-12";
     type Schedule = AvailabilityConfig["schedules"][number];
@@ -29132,6 +29539,12 @@
         next: next.slice(0, SPECIAL_DATES_SHOWN),
         holidaysNotPlanned: holidays.filter((h) => h.state.kind === "undecided").length,
       };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub/hub-text.ts">
+    export type HubTextContext = ServiceHoursContext;
+    export function shortDate(date: string, { format }: HubTextContext): string {
+      return format.formatCalendarDate(date, { month: "short", day: "numeric" });
     }
   </file>
   <file path="apps/hospitality/src/components/availability/hub/rule-dates.ts">

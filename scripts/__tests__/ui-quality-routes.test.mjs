@@ -52,8 +52,12 @@ describe("hospitality adapter", () => {
     expect(new Set(rows.map((r) => r.route)).size).toBe(28);
   });
 
-  it("reads the children of `availability`: its index redirects, today's page is at `calendar`", () => {
-    expect(byRoute["availability"].kind).toBe("redirect");
+  it("reads the children of `availability`: the hub at its index, today's page at `calendar`", () => {
+    expect(byRoute["availability"].kind).toBe("page");
+    expect(byRoute["availability"].source_files).toEqual([
+      "apps/hospitality/src/pages/AvailabilityHubPage.tsx",
+      "apps/hospitality/src/main.tsx",
+    ]);
     expect(byRoute["availability/calendar"].kind).toBe("page");
     expect(byRoute["availability/calendar"].source_files).toEqual([
       "apps/hospitality/src/pages/AvailabilityPage.tsx",
@@ -73,7 +77,7 @@ describe("hospitality adapter", () => {
     expect(byRoute["callback"].kind).toBe("redirect");
     expect(byRoute["*"].kind).toBe("not-found");
     expect(byRoute["timeline"].kind).toBe("page");
-    expect(rows.filter((r) => r.kind === "page")).toHaveLength(24);
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(25);
     // /setup/hours moved to the Availability page (#7513); the old path stays as a <Navigate>.
     expect(byRoute["setup/hours"].kind).toBe("redirect");
   });

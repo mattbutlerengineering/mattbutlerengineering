@@ -230,9 +230,8 @@ describe("Venue Setup: an empty venue", () => {
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Set up regular week" }));
-    expect(screen.getByLabelText("location")).toHaveTextContent(
-      "/availability/calendar?from=setup"
-    );
+    // The hub, which sends a Manager on to the first-setup card when no hours are set.
+    expect(screen.getByLabelText("location")).toHaveTextContent("/availability?from=setup");
   });
 
   it("opens the floor plan list from Add floor plan", async () => {

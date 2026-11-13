@@ -3346,6 +3346,111 @@
       "specialHours_other": "{{count, number}} dates ont déjà des heures spéciales",
       "specialHours_many": "{{count, number}} de dates ont déjà des heures spéciales",
       "fixProblems": "Corrigez les problèmes ci-dessus pour enregistrer."
+    },
+    "hub": {
+      "rulesHeading": "Vos règles",
+      "laterRulesWin": "Les règles plus bas l'emportent aux dates qu'elles couvrent.",
+      "openCalendar": "Ouvrir le calendrier",
+      "history": "Historique",
+      "loading": "Chargement de vos règles",
+      "loadErrorDetail": "Vos règles n'ont pas pu être chargées. Réessayez.",
+      "hostEmpty": "Aucun horaire n'est défini. Un gestionnaire définit les heures habituelles ici.",
+      "decides": "décide du {{date}}",
+      "rowAction": "{{action}} : {{row}}",
+      "action": {
+        "edit": "Modifier",
+        "add": "Ajouter",
+        "view": "Voir"
+      },
+      "regular": {
+        "title": "Heures habituelles",
+        "empty": "Aucune heure habituelle pour l'instant"
+      },
+      "seasonal": {
+        "title": "Heures saisonnières",
+        "empty": "Aucune",
+        "set": "{{name}} : {{usage}}",
+        "unused": "pas encore utilisées",
+        "byDates_one": "utilisées à {{count}} date spéciale",
+        "byDates_many": "utilisées à {{count}} dates spéciales",
+        "byDates_other": "utilisées à {{count}} dates spéciales",
+        "range": "{{from}}–{{to}}, {{days}}",
+        "from": "dès le {{from}}, {{days}}",
+        "until": "jusqu'au {{to}}, {{days}}",
+        "noDates": "{{days}}, sans date de fin",
+        "more_one": "et {{count}} de plus",
+        "more_many": "et {{count}} de plus",
+        "more_other": "et {{count}} de plus"
+      },
+      "special": {
+        "title": "Dates spéciales et jours fériés",
+        "empty": "Aucune date spéciale.",
+        "next": "À venir : {{dates}}",
+        "item": "{{date}} {{kind}}",
+        "kind": {
+          "closed": "Fermé",
+          "specialHours": "Heures spéciales",
+          "useHours": "Comme un autre jour"
+        },
+        "holidays_one": "{{count}} jour férié non planifié",
+        "holidays_many": "{{count}} jours fériés non planifiés",
+        "holidays_other": "{{count}} jours fériés non planifiés"
+      },
+      "closures": {
+        "title": "Fermetures et pauses",
+        "empty": "Aucune",
+        "pauseTonight": "Réservations en ligne suspendues jusqu'à la fin de la soirée",
+        "pauseUntilResumed": "Réservations en ligne suspendues jusqu'à la reprise",
+        "pauseUntil": "Réservations en ligne suspendues jusqu'au {{date}}",
+        "pauseWaiting": "Les réservations en ligne seront suspendues à {{time}}",
+        "closingEarly": "Fermeture plus tôt ce soir à {{time}}",
+        "stopTonight": "Fermé ce soir {{from}}–{{to}}",
+        "what": {
+          "venue": "Fermé",
+          "named": "{{name}} : fermé",
+          "section": "Une section : fermée",
+          "service": "Un service : fermé",
+          "tables_one": "{{count}} table bloquée",
+          "tables_many": "{{count}} tables bloquées",
+          "tables_other": "{{count}} tables bloquées",
+          "booking": "{{channels}} : désactivé",
+          "bookingAll": "Réservations désactivées"
+        },
+        "when": {
+          "today": "aujourd'hui",
+          "untilReopened": "jusqu'à la réouverture",
+          "until": "jusqu'au {{date}}",
+          "repeating": "chaque {{days}} jusqu'au {{date}}",
+          "repeatingOpen": "chaque {{days}}"
+        },
+        "windowFrom": "dès {{time}}",
+        "windowBetween": "{{from}}–{{to}}",
+        "now": "{{what}} {{detail}}",
+        "next": "Prochaine : {{date}} {{what}}",
+        "nextDetail": "Prochaine : {{date}} {{what}}, {{detail}}"
+      },
+      "booking": {
+        "title": "Règles de réservation",
+        "empty": "Pas encore configurées"
+      }
+    },
+    "dateCheck": {
+      "label": "Vérifier une date",
+      "openDate": "Ouvrir cette date",
+      "openDateName": "Ouvrir cette date, {{date}}",
+      "sentence": "{{date}} : {{what}}. Décidé par {{rule}}.",
+      "sentenceOver": "{{date}} : {{what}}. Décidé par {{rule}}, qui l'emporte sur {{beneath}}.",
+      "uncovered": "{{date}} : fermé. Aucune heure ne couvre cette date.",
+      "closed": "fermé",
+      "service": "{{name}} {{hours}}",
+      "closedFrom": "fermé dès {{time}}",
+      "closedBetween": "fermé {{from}}–{{to}}",
+      "rule": {
+        "regular": "vos heures habituelles",
+        "special": "votre date spéciale",
+        "closure": "une fermeture",
+        "tonight": "un changement fait pour ce soir"
+      }
     }
   },
   "setup": {

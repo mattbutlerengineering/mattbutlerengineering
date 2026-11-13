@@ -493,7 +493,7 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
         body: JSON.stringify({ data: { ...buildVenueTeamFixture(), viewerRole: "host" } }),
       })
     );
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await expect(page.getByRole("grid")).toBeVisible();
     await nextMonth(page).click();
     await expect(page.locator('[data-date="2026-12-24"]').first()).toBeVisible();

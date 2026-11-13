@@ -30,7 +30,7 @@ test.describe("Interaction guards (agent stand-in counts)", () => {
     mockedPage,
   }) => {
     const state = await mockEmptyVenue(mockedPage);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability/calendar");
     const counter = countInteractions(mockedPage);
 
     await setUniformBistroWeek(counter.page);
@@ -46,7 +46,7 @@ test.describe("Interaction guards (agent stand-in counts)", () => {
     mockedPage,
   }) => {
     const state = await mockEmptyVenue(mockedPage);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability/calendar");
     const counter = countInteractions(mockedPage);
 
     await setLargeSetup(counter.page);
@@ -65,7 +65,7 @@ test.describe("Interaction guards (agent stand-in counts)", () => {
     // empty New schedule; that entry retired when "Add a schedule…" began seeding the editor from
     // the regular week, so the constant stays as the measured bar and only quick setup is counted.
     const direct = await mockEmptyVenue(mockedPage);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability/calendar");
     const quickSetup = countInteractions(mockedPage);
     await setDemoWeek(quickSetup.page);
     await quickSetup.page.getByRole("button", { name: "Save and open bookings" }).click();

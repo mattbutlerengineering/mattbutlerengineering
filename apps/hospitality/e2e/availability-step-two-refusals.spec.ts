@@ -132,7 +132,7 @@ for (const { width, height } of sizes) {
     await mockedPage.setViewportSize({ width, height });
     await mockedPage.clock.setFixedTime(now);
     const mocks = await mockSheet(mockedPage, date);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability/calendar");
 
     await mockedPage.getByRole("radio", { name: "Special dates" }).click();
     await mockedPage.getByRole("button", { name: "Add special dates" }).click();
@@ -267,7 +267,7 @@ test("a series edit the server refuses as built from a changed series returns to
     });
   });
 
-  await mockedPage.goto("availability");
+  await mockedPage.goto("availability/calendar");
   await mockedPage.getByRole("radio", { name: "Special dates" }).click();
   await mockedPage.getByRole("button", { name: "Edit dates…" }).click();
   const dialog = mockedPage.getByRole("dialog", { name: "Edit dates" });
@@ -371,7 +371,7 @@ for (const locale of SKIP_LOCALES) {
         return route.fulfill(json({ version: 9, changeId: "chg-9" }));
       });
 
-      await mockedPage.goto("availability");
+      await mockedPage.goto("availability/calendar");
       await mockedPage.getByRole("radio", { name: locale.special }).click();
       await mockedPage.getByRole("button", { name: locale.edit }).click();
       const dialog = mockedPage.getByRole("dialog", { name: locale.dialog });
@@ -480,7 +480,7 @@ for (const locale of REOPEN_LOCALES) {
         return route.fulfill(json({ version: 9, changeId: "chg-9" }));
       });
 
-      await mockedPage.goto("availability");
+      await mockedPage.goto("availability/calendar");
       await mockedPage.getByRole("radio", { name: locale.special }).click();
       await mockedPage.getByRole("button", { name: locale.remove }).click();
       const dialog = mockedPage.getByRole("dialog");

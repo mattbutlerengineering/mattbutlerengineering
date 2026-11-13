@@ -598,7 +598,7 @@ test.describe("keyboard and focus", () => {
       );
     });
     await page.setViewportSize(DESKTOP);
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await page.getByRole("button", { name: "Dinner" }).click();
     await page.getByRole("button", { name: "Weekdays" }).click();
     const save = page.getByRole("button", { name: "Save and open bookings" });

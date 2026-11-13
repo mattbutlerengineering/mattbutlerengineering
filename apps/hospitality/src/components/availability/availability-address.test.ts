@@ -11,16 +11,16 @@ import {
 } from "./availability-address.js";
 
 /**
- * The child routes of `availability` in `main.tsx` that render a view. The index is not one: until
- * the hub lands it only redirects. An address outside this list leads to the Not Found page.
+ * The routes of `availability` in `main.tsx` that render a view: the hub at the index, and today's
+ * page at `calendar`. An address outside this list leads to the Not Found page.
  */
-const MOUNTED: readonly string[] = ["/availability/calendar"];
+const MOUNTED: readonly string[] = ["/availability", "/availability/calendar"];
 const pathOf = (address: string): string => address.split("?")[0] ?? "";
 
 describe("availabilityPath", () => {
-  // No new view is built yet, so every target resolves to today's page, mounted at `calendar`.
+  // The hub has its own address. Every other view is not built yet and resolves to today's page.
   const cases: readonly (readonly [AvailabilityTarget, string])[] = [
-    [{ view: "hub" }, "/availability/calendar"],
+    [{ view: "hub" }, "/availability"],
     [{ view: "hours" }, "/availability/calendar?tab=schedules"],
     [{ view: "hours", service: "svc-dinner" }, "/availability/calendar?tab=schedules"],
     [{ view: "seasonal" }, "/availability/calendar?tab=schedules"],
@@ -69,9 +69,7 @@ describe("availabilityPath", () => {
   });
 
   it("carries from=setup last", () => {
-    expect(availabilityPath({ view: "hub", from: "setup" })).toBe(
-      "/availability/calendar?from=setup"
-    );
+    expect(availabilityPath({ view: "hub", from: "setup" })).toBe("/availability?from=setup");
     expect(availabilityPath({ view: "seasonal", screen: "new", from: "setup" })).toBe(
       "/availability/calendar?tab=schedules&action=addSchedule&from=setup"
     );
@@ -91,6 +89,17 @@ describe("availabilityPath", () => {
     expect(availabilityPath({ view: "calendar", close: { kind: "tonight" }, pause: true })).toBe(
       "/availability/calendar?tab=calendar"
     );
+    // The hub hosts no dialog until C2.4, so it drops them too.
+    expect(availabilityPath({ view: "hub", close: { kind: "tonight" }, pause: true })).toBe(
+      "/availability"
+    );
+  });
+
+  it("never answers the hub's own address for a search the index would redirect", () => {
+    // The index redirects whatever `legacyRedirect` answers; an answer on the index would loop.
+    for (const search of ["?closeSection=sec-1", "?closeSection=sec-1&from=setup"]) {
+      expect(pathOf(legacyRedirect(search) ?? "")).toBe("/availability/calendar");
+    }
   });
 });
 

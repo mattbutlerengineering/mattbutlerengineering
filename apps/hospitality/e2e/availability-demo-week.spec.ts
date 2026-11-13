@@ -92,7 +92,7 @@ test.describe("The demo week (PRD: the demo runs as written)", () => {
     page.on("request", (request) => requests.push(`${request.method()} ${request.url()}`));
 
     // 1. Open an empty venue's setup as the Manager.
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await expect(page.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
     await expect(
       strip(page).getByText(

@@ -324,7 +324,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await expect(page.getByRole("button", { name: /Add Table/i })).toBeVisible();
     await visit(PRIMARY_FLOOR_PLAN_EDITOR);
     await mockEmptyVenue(page, { derive: true });
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await expect(page.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
     await visit(QUICK_SETUP_CARD);
 
@@ -370,7 +370,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     test.slow();
     await mockBarSection(page);
     const venue = await mockEmptyVenue(page, { derive: true });
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await expect(page.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
     const quickSetup = countInteractions(page);
 
@@ -492,7 +492,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     mockedPage: page,
   }) => {
     await viewAsHost(page);
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await expect(page.getByRole("grid")).toBeVisible();
     await expect(layerOption(page, "Schedules")).toHaveCount(0);
     await expect(page.getByTestId("week-panel")).toHaveCount(0);
@@ -575,9 +575,9 @@ test.describe("The demo runs as written (PRD 23)", () => {
     test.slow();
     await mockEmptyVenue(page, { derive: true });
     await mockNoopPreview(page);
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await setUniformBistroWeek(page); // Lunch and Dinner Mon–Fri through quick setup
-    await page.goto("availability");
+    await page.goto("availability/calendar");
 
     // After: the same first layer onboarding had, filled with the saved week and the guest strip.
     const panel = weekPanel(page);

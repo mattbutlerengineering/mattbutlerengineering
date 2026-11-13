@@ -3258,6 +3258,107 @@
       "specialHours_one": "{{count, number}} date already has special hours",
       "specialHours_other": "{{count, number}} dates already have special hours",
       "fixProblems": "Fix the problems above to save."
+    },
+    "hub": {
+      "rulesHeading": "Your rules",
+      "laterRulesWin": "Later rules win on the dates they cover.",
+      "openCalendar": "Open calendar",
+      "history": "History",
+      "loading": "Loading your rules",
+      "loadErrorDetail": "Your rules didn't load. Try again.",
+      "hostEmpty": "No hours are set yet. A manager sets regular hours here.",
+      "decides": "decides {{date}}",
+      "rowAction": "{{action}} {{row}}",
+      "action": {
+        "edit": "Edit",
+        "add": "Add",
+        "view": "View"
+      },
+      "regular": {
+        "title": "Regular hours",
+        "empty": "No regular hours yet"
+      },
+      "seasonal": {
+        "title": "Seasonal hours",
+        "empty": "None",
+        "set": "{{name}}: {{usage}}",
+        "unused": "not used yet",
+        "byDates_one": "used on {{count}} special date",
+        "byDates_other": "used on {{count}} special dates",
+        "range": "{{from}}–{{to}}, {{days}}",
+        "from": "from {{from}}, {{days}}",
+        "until": "until {{to}}, {{days}}",
+        "noDates": "{{days}}, no end date",
+        "more_one": "and {{count}} more",
+        "more_other": "and {{count}} more"
+      },
+      "special": {
+        "title": "Special dates and holidays",
+        "empty": "No special dates.",
+        "next": "Next: {{dates}}",
+        "item": "{{date}} {{kind}}",
+        "kind": {
+          "closed": "Closed",
+          "specialHours": "Special hours",
+          "useHours": "Same as another day"
+        },
+        "holidays_one": "{{count}} holiday not planned",
+        "holidays_other": "{{count}} holidays not planned"
+      },
+      "closures": {
+        "title": "Closures and pauses",
+        "empty": "None",
+        "pauseTonight": "Online booking paused until tonight ends",
+        "pauseUntilResumed": "Online booking paused until resumed",
+        "pauseUntil": "Online booking paused until {{date}}",
+        "pauseWaiting": "Online booking pauses at {{time}}",
+        "closingEarly": "Closing early tonight at {{time}}",
+        "stopTonight": "Closed tonight {{from}}–{{to}}",
+        "what": {
+          "venue": "Closed",
+          "named": "{{name}} closed",
+          "section": "A section closed",
+          "service": "A service closed",
+          "tables_one": "{{count}} table blocked",
+          "tables_other": "{{count}} tables blocked",
+          "booking": "{{channels}} off",
+          "bookingAll": "Booking off"
+        },
+        "when": {
+          "today": "today",
+          "untilReopened": "until reopened",
+          "until": "until {{date}}",
+          "repeating": "every {{days}} until {{date}}",
+          "repeatingOpen": "every {{days}}"
+        },
+        "windowFrom": "from {{time}}",
+        "windowBetween": "{{from}}–{{to}}",
+        "now": "{{what}} {{detail}}",
+        "next": "Next: {{date}} {{what}}",
+        "nextDetail": "Next: {{date}} {{what}}, {{detail}}"
+      },
+      "booking": {
+        "title": "Booking rules",
+        "empty": "Not set up yet"
+      }
+    },
+    "dateCheck": {
+      "label": "Check a date",
+      "openDate": "Open this date",
+      "openDateName": "Open this date, {{date}}",
+      "sentence": "{{date}}: {{what}}. Decided by {{rule}}.",
+      "sentenceOver": "{{date}}: {{what}}. Decided by {{rule}}, which wins over {{beneath}}.",
+      "uncovered": "{{date}}: closed. No hours cover this date.",
+      "closed": "closed",
+      "service": "{{name}} {{hours}}",
+      "closedFrom": "closed from {{time}}",
+      "closedBetween": "closed {{from}}–{{to}}",
+      "rule": {
+        "regular": "your regular hours",
+        "special": "your special date",
+        "closure": "a closure",
+        "tonight": "a change made for tonight"
+      }
     }
   },
   "setup": {
