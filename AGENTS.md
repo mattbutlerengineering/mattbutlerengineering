@@ -117,7 +117,7 @@ Semgrep provides Static Application Security Testing (SAST) integrated into the 
 
 ### Pre-commit Security Checks
 
-The `.husky/pre-commit` hook runs `semgrep --config semgrep.yml --error` on staged files before commit.
+The `.husky/pre-commit` hook runs Semgrep on staged files when `semgrep` is installed (`semgrep --config semgrep.yml --error --staged`, falling back to `--git` on older installs lacking `--staged`).
 
 Rules file, categories and manual commands: [docs/agents-reference.md § Semgrep configuration](./docs/agents-reference.md#semgrep-configuration).
 
