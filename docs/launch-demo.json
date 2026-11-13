@@ -1,0 +1,6 @@
+{
+  "when": "on-demand",
+  "recorder": "browser",
+  "against": "http://localhost:3002/hospitality/availability",
+  "publish": "docs/launches"
+}

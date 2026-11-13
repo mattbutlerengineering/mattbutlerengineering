@@ -182,3 +182,6 @@ a11y-results.json
 
 # Python bytecode (tools/factory)
 __pycache__/
+
+# launch-demo browser driver, rewritten by every render (docs/launch-demo.json)
+docs/launches/*/demo.mjs

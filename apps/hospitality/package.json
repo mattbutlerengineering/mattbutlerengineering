@@ -15,6 +15,7 @@
     "test:e2e": "playwright test --config playwright.config.ts",
     "test:journey": "playwright test --config playwright.journey.config.ts",
     "test:a11y": "playwright test --config playwright.config.ts e2e/a11y.test.ts",
+    "demo:serve": "VITE_AUTH_AUTHORITY=https://launch-demo.invalid VITE_AUTH_CLIENT_ID=launch-demo VITE_API_URL=http://localhost:3002 vite --port 3002 --strictPort",
     "size": "size-limit",
     "size:check": "node scripts/check-chunk-coverage.mjs && size-limit"
   },

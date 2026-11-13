@@ -1,10 +1,10 @@
 import type { Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
-import { buildAvailabilityConfigFixture, buildVenueTeamFixture, loadFixture } from "./api-mocks.js";
+import { buildVenueTeamFixture } from "./api-mocks.js";
 import { countFirstPaintControls } from "./helpers/first-paint.js";
+import { mockDemoVenue, nextChristmasEve } from "./helpers/demo-venue.js";
 import { countInteractions } from "./helpers/interaction-counter.js";
-import { localDay } from "./local-day.js";
 
 /**
  * The Availability hub (docs/features/availability-hub, breakdown H1.6): the landing page of
@@ -25,16 +25,6 @@ const ROWS = [
   "Booking rules",
 ];
 
-const venues = JSON.parse(loadFixture("venues-list")) as { data: Array<{ id: string }> };
-const base = `**/api/v1/venues/${String(venues.data[0]?.id)}`;
-
-/** The next Dec 24, today included: a year is always typed, so the answer is the same all year. */
-function nextChristmasEve(): string {
-  const today = localDay();
-  const thisYear = `${today.slice(0, 4)}-12-24`;
-  return today <= thisYear ? thisYear : `${Number(today.slice(0, 4)) + 1}-12-24`;
-}
-
 const DEC_24 = nextChristmasEve();
 /** "Thu, Dec 24": the date as the sentence opens with it. */
 const DEC_24_TEXT = new Intl.DateTimeFormat("en-US", {
@@ -44,41 +34,6 @@ const DEC_24_TEXT = new Intl.DateTimeFormat("en-US", {
   timeZone: "UTC",
 }).format(new Date(`${DEC_24}T00:00:00Z`));
 const DEC_24_TYPED = `12/24/${DEC_24.slice(0, 4)}`;
-
-/** The demo venue: the regular week `mockApi` serves, plus Dinner 4:00 PM to 8:00 PM on Dec 24. */
-async function mockDemoVenue(page: Page): Promise<void> {
-  const fixture = buildAvailabilityConfigFixture();
-  const special = {
-    id: "dr-dec-24",
-    kind: "special_hours",
-    targetKind: "venue",
-    startsOn: DEC_24,
-    endsOn: DEC_24,
-    payload: {
-      version: 1,
-      services: [
-        {
-          venueServiceId: "vs-dinner",
-          opensAt: 960,
-          lastSeatingAt: 1140,
-          closesAt: 1200,
-          seating: { version: 1, interval: 15 },
-          bookingTypes: ["online", "phone"],
-        },
-      ],
-    },
-  };
-  await page.route(`${base}/availability/config`, (route) => {
-    if (route.request().method() !== "GET") return route.fallback();
-    return route.fulfill({
-      status: 200,
-      contentType: "application/json",
-      body: JSON.stringify({
-        data: { ...fixture, config: { ...fixture.config, dateRules: [special] } },
-      }),
-    });
-  });
-}
 
 async function viewAsHost(page: Page): Promise<void> {
   await page.route(/\/api\/v1\/venues\/[^/?]+\/team$/, (route) =>
