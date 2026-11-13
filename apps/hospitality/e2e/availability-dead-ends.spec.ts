@@ -304,7 +304,7 @@ test("Close: a failed Next moves focus to the first problem", async ({ mockedPag
 
 test("Change regular week says why Save is off", async ({ mockedPage: page }) => {
   await mockAvailability(page);
-  await page.goto("availability?tab=schedules");
+  await page.goto("availability/calendar?tab=schedules");
   // The week panel's Starting later… opens Change regular week (the dated frame of the same form).
   await page.getByRole("button", { name: "Starting later…" }).click();
   const drawer = page.getByRole("dialog");
@@ -316,7 +316,7 @@ test("Change regular week offers no start date after the end date", async ({
   mockedPage: page,
 }) => {
   await mockAvailability(page);
-  await page.goto("availability?tab=schedules");
+  await page.goto("availability/calendar?tab=schedules");
   // The week panel's Starting later… opens Change regular week (the dated frame of the same form).
   await page.getByRole("button", { name: "Starting later…" }).click();
   const drawer = page.getByRole("dialog");
@@ -342,7 +342,7 @@ test("Undo is offered after saving a new schedule, and reverts it", async ({
   mockedPage: page,
 }) => {
   const mock = await mockAvailability(page);
-  await page.goto("availability?tab=schedules");
+  await page.goto("availability/calendar?tab=schedules");
   // Add a schedule… opens the schedule editor, seeded from the regular week.
   await page.getByRole("button", { name: "Add a schedule…" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");
@@ -444,7 +444,7 @@ test("a refused Undo names each stranded booking with a link, outside the alert 
       }),
     })
   );
-  await page.goto("availability?tab=schedules");
+  await page.goto("availability/calendar?tab=schedules");
   // Add a schedule… opens the schedule editor, seeded from the regular week.
   await page.getByRole("button", { name: "Add a schedule…" }).click();
   await page.getByRole("textbox", { name: /Schedule name/ }).fill("Spare");

@@ -3492,6 +3492,13 @@
       "open": "Cerrar o pausar",
       "close": "Cerrar el local o una parte",
       "pause": "Pausar reservas en línea"
+    },
+    "hours": {
+      "back": "Volver a Disponibilidad",
+      "starting": "Desde",
+      "appliesToday": "Se aplica a todas las fechas que cubre este horario, a partir de hoy.",
+      "appliesFrom": "Se aplica a todas las fechas que cubre este horario, a partir del {{date}}.",
+      "loading": "Cargando el horario habitual"
     }
   },
   "setup": {

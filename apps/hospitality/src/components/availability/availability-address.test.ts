@@ -16,7 +16,7 @@ import {
 
 /**
  * The routes of `availability` in `main.tsx` that render a view: the hub at the index, booking
- * rules and History over the hub, and today's page at `calendar`. An address outside this list leads to the
+ * rules and History over the hub, today's page at `calendar` and regular hours. An address outside this list leads to the
  * Not Found page.
  */
 const MOUNTED: readonly string[] = [
@@ -24,16 +24,17 @@ const MOUNTED: readonly string[] = [
   "/availability/booking-rules",
   "/availability/calendar",
   "/availability/history",
+  "/availability/hours",
 ];
 const pathOf = (address: string): string => address.split("?")[0] ?? "";
 
 describe("availabilityPath", () => {
-  // The hub and booking rules have their own addresses. Every other view is not built yet and
-  // resolves to today's page.
+  // The hub, booking rules, History and regular hours have their own addresses. Every other view
+  // is not built yet and resolves to today's page.
   const cases: readonly (readonly [AvailabilityTarget, string])[] = [
     [{ view: "hub" }, "/availability"],
-    [{ view: "hours" }, "/availability/calendar?tab=schedules"],
-    [{ view: "hours", service: "svc-dinner" }, "/availability/calendar?tab=schedules"],
+    [{ view: "hours" }, "/availability/hours"],
+    [{ view: "hours", service: "svc-dinner" }, "/availability/hours?service=svc-dinner"],
     [{ view: "seasonal" }, "/availability/calendar?tab=schedules"],
     [
       { view: "seasonal", screen: "new" },
@@ -93,6 +94,16 @@ describe("availabilityPath", () => {
     expect(availabilityPath({ view: "calendar", date: "2026-12-24", from: "setup" })).toBe(
       "/availability/calendar?date=2026-12-24&from=setup"
     );
+    expect(availabilityPath({ view: "hours", service: "svc-1", from: "setup" })).toBe(
+      "/availability/hours?service=svc-1&from=setup"
+    );
+  });
+
+  it("names regular hours' service, and nothing it does not read", () => {
+    expect(availabilityPath({ view: "hours", service: "a b&c" })).toBe(
+      "/availability/hours?service=a+b%26c"
+    );
+    expect(availabilityPath({ view: "hours", service: "" })).toBe("/availability/hours");
   });
 
   it("drops a calendar date that is not a real day", () => {
@@ -126,6 +137,14 @@ describe("availabilityPath", () => {
     expect(availabilityPath({ view: "history", pause: true, from: "setup" })).toBe(
       "/availability/history?pause=1&from=setup"
     );
+    expect(
+      availabilityPath({
+        view: "hours",
+        service: "svc-1",
+        close: { kind: "tonight" },
+        from: "setup",
+      })
+    ).toBe("/availability/hours?service=svc-1&close=tonight&from=setup");
     expect(
       availabilityPath({ view: "calendar", date: "2026-12-24", close: { kind: "tonight" } })
     ).toBe("/availability/calendar?date=2026-12-24&close=tonight");
@@ -322,7 +341,7 @@ describe("legacyRedirect", () => {
   // `availabilityPath` puts that view today. Final address in the comment beside each row.
   // `/setup/hours` is a route of its own in the route table.
   const rows: readonly (readonly [string, string])[] = [
-    ["?tab=schedules", "/availability/calendar?tab=schedules"], // /availability/hours
+    ["?tab=schedules", "/availability/hours"], // final
     ["?tab=calendar", "/availability/calendar?tab=calendar"], // /availability/calendar
     ["?tab=special", "/availability/calendar?tab=special"], // /availability/special-dates
     ["?action=addSchedule", "/availability/calendar?tab=schedules&action=addSchedule"], // /availability/seasonal/new
@@ -334,7 +353,8 @@ describe("legacyRedirect", () => {
   });
 
   it.each(rows)("carries from=setup from %s", (old, next) => {
-    expect(legacyRedirect(`${old}&from=setup`)).toBe(`${next}&from=setup`);
+    const joiner = next.includes("?") ? "&" : "?";
+    expect(legacyRedirect(`${old}&from=setup`)).toBe(`${next}${joiner}from=setup`);
   });
 
   it.each(rows)("sends %s to a route that is mounted", (old) => {

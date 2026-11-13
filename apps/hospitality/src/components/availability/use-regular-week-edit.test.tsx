@@ -88,6 +88,29 @@ describe("useRegularWeekEdit", () => {
     expect(pinned.onSaved).toHaveBeenCalledTimes(1);
   });
 
+  it("with defaultStart the start is set and clean, and picking another date is an edit", () => {
+    const { result } = setup({ defaultStart: TODAY });
+    expect(result.current.startsOn).toBe(TODAY);
+    expect(result.current.block).toBeNull();
+    expect(result.current.dirty).toBe(false);
+    act(() => result.current.setStartsOn("2026-11-02"));
+    expect(result.current.startsOn).toBe("2026-11-02");
+    expect(result.current.dirty).toBe(true);
+    act(() => result.current.setStartsOn(TODAY));
+    expect(result.current.dirty).toBe(false);
+  });
+
+  it("offers Undo through the frame's offerUndo when it passes one", async () => {
+    const offerUndo = vi.fn();
+    const { result } = setup({ defaultStart: TODAY, offerUndo });
+    act(() => result.current.setStartsOn("2026-11-02"));
+    await act(() => result.current.submit());
+    expect(offerUndo).toHaveBeenCalledWith("Regular week changed from Nov 2", {
+      version: 8,
+      changeId: "chg",
+    });
+  });
+
   it("initialDraft replaces the saved week as the draft and counts as dirty", () => {
     const full = demoDraft();
     const initialDraft = { ...full, services: full.services.slice(0, 1) };

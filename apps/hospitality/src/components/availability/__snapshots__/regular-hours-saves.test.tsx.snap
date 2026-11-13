@@ -1,0 +1,700 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`what a regular-hours save writes > a change starting later ends the regular week the day before 1`] = `
+{
+  "body": {
+    "changes": {
+      "remove": {},
+      "upsert": {
+        "assignments": [
+          {
+            "endsOn": null,
+            "id": "id-5",
+            "precedence": 0,
+            "scheduleId": "id-1",
+            "startsOn": "2026-11-02",
+            "weekdays": [
+              0,
+              2,
+              3,
+              4,
+              5,
+              6,
+            ],
+          },
+          {
+            "endsOn": "2026-11-01",
+            "id": "demo-8",
+            "precedence": 0,
+            "scheduleId": "demo-1",
+            "weekdays": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+            ],
+          },
+        ],
+        "scheduleServices": [
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 900,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-2",
+            "lastSeatingAt": 840,
+            "opensAt": 690,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-2",
+            "weekdays": [
+              2,
+              3,
+              4,
+              5,
+            ],
+          },
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 1380,
+            "dayHours": {
+              "sets": [
+                {
+                  "bookingTypes": [
+                    "online",
+                    "phone",
+                  ],
+                  "closesAt": 1440,
+                  "lastSeatingAt": 1320,
+                  "opensAt": 1020,
+                  "seating": {
+                    "interval": 15,
+                    "version": 1,
+                  },
+                  "weekdays": [
+                    5,
+                    6,
+                  ],
+                },
+              ],
+              "version": 1,
+            },
+            "id": "id-3",
+            "lastSeatingAt": 1260,
+            "opensAt": 1020,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-3",
+            "weekdays": [],
+          },
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 840,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-4",
+            "lastSeatingAt": 780,
+            "opensAt": 600,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-4",
+            "weekdays": [
+              6,
+              0,
+            ],
+          },
+        ],
+        "schedules": [
+          {
+            "id": "id-1",
+            "isRegular": true,
+            "kind": "regular",
+            "name": "Regular week",
+          },
+          {
+            "id": "demo-1",
+            "isRegular": false,
+            "kind": "regular",
+            "name": "Regular week",
+          },
+        ],
+      },
+    },
+    "expectedVersion": 7,
+    "scopeConflicts": "keep",
+  },
+  "venueId": "venue-1",
+}
+`;
+
+exports[`what a regular-hours save writes > a new week from today supersedes the regular week in force 1`] = `
+{
+  "body": {
+    "changes": {
+      "remove": {},
+      "upsert": {
+        "assignments": [
+          {
+            "endsOn": null,
+            "id": "id-5",
+            "precedence": 0,
+            "scheduleId": "id-1",
+            "startsOn": "2026-10-25",
+            "weekdays": [
+              0,
+              2,
+              3,
+              4,
+              5,
+              6,
+            ],
+          },
+          {
+            "endsOn": "2026-10-24",
+            "id": "demo-8",
+            "precedence": 0,
+            "scheduleId": "demo-1",
+            "weekdays": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+            ],
+          },
+        ],
+        "scheduleServices": [
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 900,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-2",
+            "lastSeatingAt": 840,
+            "opensAt": 690,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-2",
+            "weekdays": [
+              2,
+              3,
+              4,
+              5,
+            ],
+          },
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 1380,
+            "dayHours": {
+              "sets": [
+                {
+                  "bookingTypes": [
+                    "online",
+                    "phone",
+                  ],
+                  "closesAt": 1440,
+                  "lastSeatingAt": 1320,
+                  "opensAt": 1020,
+                  "seating": {
+                    "interval": 15,
+                    "version": 1,
+                  },
+                  "weekdays": [
+                    5,
+                    6,
+                  ],
+                },
+              ],
+              "version": 1,
+            },
+            "id": "id-3",
+            "lastSeatingAt": 1260,
+            "opensAt": 1020,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-3",
+            "weekdays": [],
+          },
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 840,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-4",
+            "lastSeatingAt": 780,
+            "opensAt": 600,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-4",
+            "weekdays": [
+              6,
+              0,
+            ],
+          },
+        ],
+        "schedules": [
+          {
+            "id": "id-1",
+            "isRegular": true,
+            "kind": "regular",
+            "name": "Regular week",
+          },
+          {
+            "id": "demo-1",
+            "isRegular": false,
+            "kind": "regular",
+            "name": "Regular week",
+          },
+        ],
+      },
+    },
+    "expectedVersion": 7,
+    "scopeConflicts": "keep",
+  },
+  "venueId": "venue-1",
+}
+`;
+
+exports[`what a regular-hours save writes > a week from today drops an upcoming change that had not started 1`] = `
+{
+  "body": {
+    "changes": {
+      "remove": {
+        "assignments": [
+          "demo-8",
+        ],
+      },
+      "upsert": {
+        "assignments": [
+          {
+            "endsOn": null,
+            "id": "id-5",
+            "precedence": 0,
+            "scheduleId": "id-1",
+            "startsOn": "2026-10-25",
+            "weekdays": [
+              0,
+              2,
+              3,
+              4,
+              5,
+              6,
+            ],
+          },
+        ],
+        "scheduleServices": [
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 900,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-2",
+            "lastSeatingAt": 840,
+            "opensAt": 690,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-2",
+            "weekdays": [
+              2,
+              3,
+              4,
+              5,
+            ],
+          },
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 1380,
+            "dayHours": {
+              "sets": [
+                {
+                  "bookingTypes": [
+                    "online",
+                    "phone",
+                  ],
+                  "closesAt": 1440,
+                  "lastSeatingAt": 1320,
+                  "opensAt": 1020,
+                  "seating": {
+                    "interval": 15,
+                    "version": 1,
+                  },
+                  "weekdays": [
+                    5,
+                    6,
+                  ],
+                },
+              ],
+              "version": 1,
+            },
+            "id": "id-3",
+            "lastSeatingAt": 1260,
+            "opensAt": 1020,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-3",
+            "weekdays": [],
+          },
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 840,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-4",
+            "lastSeatingAt": 780,
+            "opensAt": 600,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-4",
+            "weekdays": [
+              6,
+              0,
+            ],
+          },
+        ],
+        "schedules": [
+          {
+            "id": "id-1",
+            "isRegular": true,
+            "kind": "regular",
+            "name": "Regular week",
+          },
+          {
+            "id": "demo-1",
+            "isRegular": false,
+            "kind": "regular",
+            "name": "Regular week",
+          },
+        ],
+      },
+    },
+    "expectedVersion": 7,
+    "scopeConflicts": "keep",
+  },
+  "venueId": "venue-1",
+}
+`;
+
+exports[`what a regular-hours save writes > first setup writes the first regular week 1`] = `
+{
+  "body": {
+    "changes": {
+      "remove": {
+        "assignments": [],
+        "scheduleServices": [],
+      },
+      "upsert": {
+        "assignments": [
+          {
+            "id": "id-6",
+            "precedence": 0,
+            "scheduleId": "id-1",
+            "weekdays": [
+              1,
+              2,
+              3,
+              4,
+              5,
+            ],
+          },
+        ],
+        "scheduleServices": [
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 870,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-4",
+            "lastSeatingAt": 825,
+            "opensAt": 690,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "id-2",
+            "weekdays": [],
+          },
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 1320,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-5",
+            "lastSeatingAt": 1275,
+            "opensAt": 1020,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "id-3",
+            "weekdays": [],
+          },
+        ],
+        "schedules": [
+          {
+            "id": "id-1",
+            "isRegular": true,
+            "kind": "regular",
+            "name": "Regular week",
+          },
+        ],
+        "venueServices": [
+          {
+            "id": "id-2",
+            "name": "Lunch",
+            "position": 0,
+          },
+          {
+            "id": "id-3",
+            "name": "Dinner",
+            "position": 1,
+          },
+        ],
+      },
+    },
+    "expectedVersion": 0,
+  },
+  "venueId": "venue-1",
+}
+`;
+
+exports[`what a regular-hours save writes > the same week starting later is still a change 1`] = `
+{
+  "body": {
+    "changes": {
+      "remove": {},
+      "upsert": {
+        "assignments": [
+          {
+            "endsOn": null,
+            "id": "id-5",
+            "precedence": 0,
+            "scheduleId": "id-1",
+            "startsOn": "2026-11-02",
+            "weekdays": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+            ],
+          },
+          {
+            "endsOn": "2026-11-01",
+            "id": "demo-8",
+            "precedence": 0,
+            "scheduleId": "demo-1",
+            "weekdays": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+            ],
+          },
+        ],
+        "scheduleServices": [
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 900,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-2",
+            "lastSeatingAt": 840,
+            "opensAt": 690,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-2",
+            "weekdays": [
+              1,
+              2,
+              3,
+              4,
+              5,
+            ],
+          },
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 1380,
+            "dayHours": {
+              "sets": [
+                {
+                  "bookingTypes": [
+                    "online",
+                    "phone",
+                  ],
+                  "closesAt": 1440,
+                  "lastSeatingAt": 1320,
+                  "opensAt": 1020,
+                  "seating": {
+                    "interval": 15,
+                    "version": 1,
+                  },
+                  "weekdays": [
+                    5,
+                    6,
+                  ],
+                },
+              ],
+              "version": 1,
+            },
+            "id": "id-3",
+            "lastSeatingAt": 1260,
+            "opensAt": 1020,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-3",
+            "weekdays": [
+              2,
+              3,
+              4,
+              0,
+            ],
+          },
+          {
+            "bookingTypes": [
+              "online",
+              "phone",
+            ],
+            "closesAt": 840,
+            "dayHours": {
+              "sets": [],
+              "version": 1,
+            },
+            "id": "id-4",
+            "lastSeatingAt": 780,
+            "opensAt": 600,
+            "scheduleId": "id-1",
+            "seating": {
+              "interval": 15,
+              "version": 1,
+            },
+            "venueServiceId": "demo-4",
+            "weekdays": [
+              6,
+              0,
+            ],
+          },
+        ],
+        "schedules": [
+          {
+            "id": "id-1",
+            "isRegular": true,
+            "kind": "regular",
+            "name": "Regular week",
+          },
+          {
+            "id": "demo-1",
+            "isRegular": false,
+            "kind": "regular",
+            "name": "Regular week",
+          },
+        ],
+      },
+    },
+    "expectedVersion": 7,
+    "scopeConflicts": "keep",
+  },
+  "venueId": "venue-1",
+}
+`;

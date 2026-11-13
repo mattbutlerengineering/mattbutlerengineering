@@ -3400,6 +3400,13 @@
       "open": "Close or pause",
       "close": "Close the venue or part of it",
       "pause": "Pause online booking"
+    },
+    "hours": {
+      "back": "Back to Availability",
+      "starting": "Starting",
+      "appliesToday": "Applies to every date these hours cover, starting today.",
+      "appliesFrom": "Applies to every date these hours cover, starting {{date}}.",
+      "loading": "Loading regular hours"
     }
   },
   "setup": {

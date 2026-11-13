@@ -1,0 +1,38 @@
+/* A field brought into view by focus or a refused Save stops short of the pinned save bar, so the
+   bar never covers the field being typed into (375x812 included). */
+.editor :is(input, button, [role="combobox"]) {
+  scroll-margin-block-end: calc(var(--rialto-space-3xl) * 3);
+}
+
+/* One column until the page is wide enough for the form and the preview side by side. */
+.editor {
+  container-type: inline-size;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--rialto-space-md);
+}
+
+/* 29rem holds the preview's date strip and its options on one row each. */
+@container (min-width: 60rem) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr) 29rem;
+    gap: var(--rialto-space-lg);
+    align-items: start;
+  }
+
+  /* The preview stays in view while the form scrolls. */
+  .aside {
+    position: sticky;
+    inset-block-start: var(--rialto-space-md);
+  }
+}
+
+.starting {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-xs);
+  max-inline-size: 22rem;
+}

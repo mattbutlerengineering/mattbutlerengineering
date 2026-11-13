@@ -20,13 +20,14 @@ test.describe("Quick-setup interaction baselines", () => {
     // Through the hub, which sends a Manager with no hours to the first-setup card by itself:
     // first setup from the landing page still costs exactly the baseline (availability-hub PRD 7).
     await mockedPage.goto("availability");
-    await expect(mockedPage).toHaveURL(/\/availability\/calendar\?tab=schedules$/);
+    await expect(mockedPage).toHaveURL(/\/availability\/hours$/);
     const counter = countInteractions(mockedPage);
 
     await setUniformBistroWeek(counter.page);
 
-    // The save lands on the week panel (Schedules layer), not the calendar.
-    await expect(weekPanel(mockedPage)).toBeVisible();
+    // The save lands on the hub with row 1 filled (availability-hub ux.md, "First setup").
+    await expect(mockedPage).toHaveURL(/\/availability$/);
+    await expect(mockedPage.getByTestId("hub-row-1")).toContainText("Lunch");
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
     expect(counter.count()).toBe(UNIFORM_BISTRO_BASELINE);
   });
