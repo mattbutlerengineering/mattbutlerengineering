@@ -449,13 +449,25 @@ test.describe("navigation and day-drawer controls (#7981)", () => {
   }
 });
 
-/** The first Tuesday to Saturday among the next days, so the date has regular hours under its rule. */
-function nextOpenDay(): string {
-  for (let ahead = 1; ahead <= 7; ahead += 1) {
-    const day = localDay(ahead);
+/**
+ * Today if it is a Tuesday to Saturday, else the Saturday just gone, so the date has regular
+ * hours under its rule. The test holds the clock at local noon on it (`holdClockOn`), which makes
+ * it the app's today: inside the month the calendar opens on, and not a read-only past date. A
+ * day ahead can fall in next month, which neither the month view nor the phone list renders
+ * (28 to 30 Nov 2026), and a clock held ahead of the real one ends the session, so the day is
+ * never later than today.
+ */
+function latestOpenDay(): string {
+  for (let back = 0; back <= 2; back += 1) {
+    const day = localDay(-back);
     if (TUE_SAT.includes(new Date(`${day}T00:00:00`).getDay())) return day;
   }
-  throw new Error("no open day within a week");
+  throw new Error("no open day in the last three");
+}
+
+/** Noon on a UTC or American runner is the same calendar day in the venue's zone (New York). */
+async function holdClockOn(page: Page, day: string): Promise<void> {
+  await page.clock.setFixedTime(new Date(`${day}T12:00:00`));
 }
 
 // #7981: Remove and Edit in the drawer's "Why this day", at both widths and locales.
@@ -509,7 +521,8 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
         mockedPage,
       }) => {
         await mockedPage.setViewportSize(s.size);
-        const day = nextOpenDay();
+        const day = latestOpenDay();
+        await holdClockOn(mockedPage, day);
         await mockTueSatVenue(mockedPage, [specialHours(day)]);
         let sent: {
           expectedVersion: number;
@@ -568,7 +581,8 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
 
       test(`Edit moves focus to the day's editor, in view (${label})`, async ({ mockedPage }) => {
         await mockedPage.setViewportSize(s.size);
-        const day = nextOpenDay();
+        const day = latestOpenDay();
+        await holdClockOn(mockedPage, day);
         await mockTueSatVenue(mockedPage, [specialHours(day)]);
         await mockedPage.addInitScript(
           (locale) => localStorage.setItem("mbe-hospitality-locale", locale),

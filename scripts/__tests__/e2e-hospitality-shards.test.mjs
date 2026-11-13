@@ -13,7 +13,10 @@ const LOCALE_SWEEP = new URL("../../apps/hospitality/e2e/locale-sweep.spec.ts", 
  * split across runners, each with its own server, Postgres and Redis, and one
  * worker as before. Two runners reached the limit again as the availability specs
  * grew (18 to 19 minutes, then `cancelled` with every test passed on #8137), so
- * there are three. When a shard nears 20 minutes, add a shard rather than time.
+ * there are three. Shard 1 then grew to 235 tests in 16.8 to 18.3 minutes and was
+ * `cancelled` during teardown with every test passed (#8797), so the limit is 30
+ * minutes: room for a full shard to finish and report, while a hung run still ends.
+ * When a shard's tests near 20 minutes again, add a shard rather than more time.
  */
 describe("e2e.yml hospitality shards", () => {
   const shard = getJob(WORKFLOW, "hospitality-e2e");
@@ -45,8 +48,8 @@ describe("e2e.yml hospitality shards", () => {
     }
   });
 
-  it("keeps the 20-minute limit on each shard", () => {
-    expect(shard["timeout-minutes"]).toBe(20);
+  it("gives each shard 30 minutes, so a full shard is not cancelled during teardown", () => {
+    expect(shard["timeout-minutes"]).toBe(30);
   });
 
   it("reports one combined result under the original check name", () => {

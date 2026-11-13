@@ -83,6 +83,17 @@ async function mockManageFlow(page: Page, raceLost: boolean): Promise<ChangeMock
     });
   });
 
+  // The invite card reads its RSVP counts on mount (#8717); `manage*` above stops at the slash.
+  await page.route("**/public/v1/reservations/manage/invite", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        data: { invited: false, confirmed: 0, declined: 0, partySize: 2 },
+      }),
+    })
+  );
+
   const hold = {
     id: HOLD_ID,
     venueId: "ven_e2e_001",
@@ -143,7 +154,13 @@ test.describe("Guest change booking", () => {
     await expect(confirm).toBeEnabled();
     await confirm.click();
 
-    await expect(mockedPage.getByRole("status")).toHaveText("Your booking has been updated.");
+    // The page has two polite regions since the invite card arrived with its own "Link copied"
+    // one (#8717), so the announcement is looked for by its words: exactly one region says it,
+    // and says nothing else.
+    await expect(
+      mockedPage.getByRole("status").filter({ hasText: /^Your booking has been updated\.$/ })
+    ).toHaveCount(1);
+    await expect(mockedPage.getByRole("status").filter({ hasText: "Link copied" })).toHaveCount(0);
     await expect(mockedPage.getByText("2:30 PM – 4:00 PM")).toBeVisible();
     expect(mocks.patchBodies).toHaveLength(1);
     expect(mocks.patchBodies[0]).toMatchObject({ holdId: HOLD_ID });
