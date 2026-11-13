@@ -2545,7 +2545,7 @@
       "guestsTold": "Se avisó a los comensales",
       "undone": "Deshecho",
       "viewDay": "Ver día",
-      "revert": "Revertir",
+      "revert": "Deshacer",
       "empty": "Aún no hay cambios.",
       "noMatch": "Ningún cambio coincide con estos filtros.",
       "loadError": "No se pudo cargar el historial",
@@ -3487,6 +3487,11 @@
         "closure": "un cierre",
         "tonight": "un cambio hecho para esta noche"
       }
+    },
+    "closeMenu": {
+      "open": "Cerrar o pausar",
+      "close": "Cerrar el local o una parte",
+      "pause": "Pausar reservas en línea"
     }
   },
   "setup": {

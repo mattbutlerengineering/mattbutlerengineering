@@ -30,6 +30,8 @@ const scopeOf = (rest: Partial<AvailabilityScope> = {}): AvailabilityScope => ({
   rolePending: false,
   refresh: vi.fn(),
   offerUndo: vi.fn(),
+  openClose: vi.fn(),
+  openPause: vi.fn(),
   ...rest,
 });
 

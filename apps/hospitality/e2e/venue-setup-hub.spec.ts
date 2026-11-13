@@ -165,7 +165,8 @@ test.describe("Venue Setup hub", () => {
     await page.goto("setup");
 
     await page.getByRole("button", { name: "Close for a date… Bar" }).click();
-    await expect(page).toHaveURL(/\/availability\/calendar\?from=setup$/);
+    // The hub hosts the dialog from the address (availability-hub C2.4).
+    await expect(page).toHaveURL(/\/availability\?close=section:sec-bar&from=setup$/);
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
   });

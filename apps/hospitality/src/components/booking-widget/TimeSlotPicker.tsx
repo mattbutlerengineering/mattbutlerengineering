@@ -350,7 +350,7 @@ export function TimeSlotPicker({
             {t("bookingWidget.timeSlot.selected")}{" "}
             <strong>{format.formatTime(selectedSlot.time)}</strong>
             {selectedSlot.tables && selectedSlot.tables.length > 0 && (
-              <Text className={styles.selectedSummaryNote}>
+              <Text as="span" className={styles.selectedSummaryNote}>
                 {" "}
                 -{" "}
                 {t("bookingWidget.timeSlot.tablesAvailable", {

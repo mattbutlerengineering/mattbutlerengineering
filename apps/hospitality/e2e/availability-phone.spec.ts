@@ -148,11 +148,13 @@ test.describe("the first screen", () => {
     await expect(page.getByRole("main").getByRole("button", { name: "Select…" })).toHaveCount(1);
     await expect(page.getByRole("button", { name: "More actions" })).toHaveCount(1);
     const menu = await moreMenu(page);
-    for (const name of ["Pause online booking", "Compare services", "History", "Go to date"]) {
+    for (const name of ["Pause online booking", "Compare services", "Go to date"]) {
       await expect(menu.getByRole("menuitem", { name })).toBeVisible();
     }
-    // Booking rules is the hub's row 5 (availability-hub C2.5), no longer an entry here.
+    // Booking rules is the hub's row 5 (availability-hub C2.5) and History the hub's History link
+    // (C2.6), no longer entries here.
     await expect(menu.getByRole("menuitem", { name: /Booking rules/ })).toHaveCount(0);
+    await expect(menu.getByRole("menuitem", { name: "History" })).toHaveCount(0);
     // Pause leads the menu (two interactions from first paint, PRD 21), so it is on screen at once.
     await expect(menu.getByRole("menuitem", { name: "Pause online booking" })).toBeInViewport();
     await page.keyboard.press("Escape");
@@ -328,15 +330,19 @@ test.describe("375 px: nothing scrolls sideways", () => {
     await page.route(`${base}/availability/changes*`, (route) =>
       route.fulfill(json({ items: [], total: 0, offset: 0 }))
     );
-    await open(page);
-    for (const open of [
-      async () => (await moreMenu(page)).getByRole("menuitem", { name: "History" }).click(),
+    for (const openDrawer of [
+      // History is a drawer over the hub at its own address (availability-hub C2.6).
       async () => {
+        await page.setViewportSize(PHONE);
+        await page.goto("availability/history");
+      },
+      async () => {
+        await open(page);
         await page.getByRole("radio", { name: "Schedules" }).click({ force: true });
         await page.getByRole("button", { name: "Starting later…" }).click();
       },
     ]) {
-      await open();
+      await openDrawer();
       const drawer = page.getByRole("dialog").first();
       await expect(drawer).toBeVisible();
       await expect.poll(async () => (await drawer.boundingBox())?.x).toBe(0);
@@ -514,16 +520,14 @@ test.describe("keyboard and focus", () => {
     await expect(drawer.locator("fieldset input").first()).toBeFocused();
   });
 
-  test("Closing a menu-opened drawer returns focus to More actions", async ({
+  // History left ⋯ for the hub (availability-hub C2.6); Go to date is the menu's other overlay.
+  test("Closing a menu-opened dialog returns focus to More actions", async ({
     mockedPage: page,
   }) => {
     await mockAvailability(page);
-    await page.route(`${base}/availability/changes*`, (route) =>
-      route.fulfill(json({ items: [], total: 0, offset: 0 }))
-    );
     await open(page);
-    await (await moreMenu(page)).getByRole("menuitem", { name: "History" }).click();
-    const drawer = page.getByRole("dialog").first();
+    await (await moreMenu(page)).getByRole("menuitem", { name: "Go to date" }).click();
+    const drawer = page.getByRole("dialog", { name: "Go to date" });
     await expect(drawer).toBeVisible();
     // The menu's own focus restore must not pull focus back out of what it opened.
     await expect

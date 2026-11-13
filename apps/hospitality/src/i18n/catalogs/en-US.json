@@ -2489,7 +2489,7 @@
       "guestsTold": "Guests were told",
       "undone": "Undone",
       "viewDay": "View day",
-      "revert": "Revert",
+      "revert": "Undo",
       "empty": "No changes yet.",
       "noMatch": "No changes match these filters.",
       "loadError": "Couldn’t load the history",
@@ -3395,6 +3395,11 @@
         "closure": "a closure",
         "tonight": "a change made for tonight"
       }
+    },
+    "closeMenu": {
+      "open": "Close or pause",
+      "close": "Close the venue or part of it",
+      "pause": "Pause online booking"
     }
   },
   "setup": {
