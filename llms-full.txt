@@ -5445,21 +5445,27 @@
       readonly closeSection?: string;
       /** Opens the schedule editor on Schedules, seeded from the regular week (Add a schedule…). */
       readonly action?: "addSchedule";
+      /** Opens that day's drawer on the calendar (`YYYY-MM-DD`, a real day). */
+      readonly date?: string;
       readonly from?: "setup";
     }
     export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry {
       const params = typeof search === "string" ? new URLSearchParams(search) : search;
       const tab = params.get("tab");
       const closeSection = params.get("closeSection");
+      const date = params.get("date");
       return {
         ...(isTab(tab) && { tab }),
         ...(closeSection && { closeSection }),
         ...(params.get("action") === "addSchedule" && { action: "addSchedule" as const }),
+        ...(date !== null && isDate(date) && { date }),
         ...(params.get("from") === "setup" && { from: "setup" as const }),
       };
     }
     export const isBookingRulesPage = (pathname: string): boolean =>
       pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
+    export const isHistoryPage = (pathname: string): boolean =>
+      pathname.replace(/\/+$/, "").toLowerCase() === HISTORY;
     function closeParam(target: CloseTarget): string {
       switch (target.kind) {
         case "venue":
@@ -5488,13 +5494,18 @@
     }
     export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
-      if (target.view === "hub" || target.view === "bookingRules") {
+      const ownPath = OWN_PATHS[target.view];
+      if (ownPath) {
         setOverlay(params, target);
-        return withSearch(target.view === "hub" ? ROUTE : BOOKING_RULES, params);
+        return withSearch(ownPath, params);
       }
+      // A date names the calendar by itself (today's page opens Calendar for it), so it needs no tab.
+      const date =
+        target.view === "calendar" && target.date && isDate(target.date) ? target.date : null;
       const tab = PAGE_TAB[target.view];
-      if (tab) params.set("tab", tab);
+      if (tab && !date) params.set("tab", tab);
       if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
+      if (date) params.set("date", date);
       setOverlay(params, target);
       return withSearch(TODAYS_PAGE, params);
     }
@@ -30379,7 +30390,6 @@
       "availability.quickSetup.title",
       "availability.quickSetup.hostEmpty",
       "availability.quickSetup.issues.days_outside_use",
-      "availability.history.revert",
       "availability.history.summary.reverted",
       "availability.history.summary.regularWeekChanged",
       "availability.preview.compareRegularWeek",

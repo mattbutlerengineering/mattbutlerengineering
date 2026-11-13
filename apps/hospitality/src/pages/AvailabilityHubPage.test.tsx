@@ -196,7 +196,7 @@ describe("AvailabilityHubPage", () => {
     expect(hrefOf(screen.getByRole("link", { name: "Open calendar" }))).toBe(
       "/availability/calendar?tab=calendar"
     );
-    expect(hrefOf(screen.getByRole("link", { name: "History" }))).toBe("/availability/calendar");
+    expect(hrefOf(screen.getByRole("link", { name: "History" }))).toBe("/availability/history");
   });
 
   describe("Close or pause (C2.4)", () => {

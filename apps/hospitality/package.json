@@ -75,9 +75,14 @@
       "limit": "4.3 kB"
     },
     {
-      "name": "Closure band + weekday summary + schedule changes (hoisted at availability-hub H1.6, when the hub's wording began sharing minute and weekday text with today's page; 3.01 kB measured; at availability-hub C2.4 the Close dialog left the chunks it shared, and rollup names this one for weekday-summary, 3.06 kB (3,058 B) measured, limit unchanged)",
+      "name": "Closure band + weekday summary + schedule changes (hoisted at availability-hub H1.6, when the hub's wording began sharing minute and weekday text with today's page; 3.01 kB measured; at availability-hub C2.4 the Close dialog left the chunks it shared, and rollup names this one for weekday-summary, 3.06 kB (3,058 B) measured, limit unchanged; at availability-hub C2.6 History left today's page for its own route and the closure band went to a chunk of its own below the coverage floor, 2.55 kB (2,547 B) measured, limit unchanged)",
       "path": "dist/assets/weekday-summary-*.js",
       "limit": "3.2 kB"
+    },
+    {
+      "name": "History drawer route (lazy chunk over the hub, availability-hub C2.6: the History drawer, its filters and Undo; 1.93 kB (1,927 B) measured)",
+      "path": "dist/assets/AvailabilityHistoryRoute-*.js",
+      "limit": "2.15 kB"
     },
     {
       "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured; 2.25 kB (2,254 B) once the layout became the one mount of the blocked-undo dialog, after the dialogs it hosts, and the phone's 44 px targets moved into a module both it and today's page compose)",

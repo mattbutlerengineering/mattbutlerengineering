@@ -160,6 +160,8 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
   ],
   [/\/api\/v1\/floor-plans\/fp_e2e_001$/, FLOOR_PLAN_DETAIL],
   [/\/api\/v1\/venues\/[^/?]+\/table-statuses$/, [{ tableId: "tbl_e2e_001", status: "available" }]],
+  // availability/history (C2.6) reads the change log; an empty log is its first-run state.
+  [/\/api\/v1\/venues\/[^/?]+\/availability\/changes\?/, { total: 0, offset: 0, items: [] }],
   [
     /\/public\/v1\/reservations\/manage\?token=/,
     {

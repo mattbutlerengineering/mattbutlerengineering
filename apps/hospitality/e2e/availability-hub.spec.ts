@@ -190,9 +190,20 @@ test.describe("Availability hub", () => {
     await page.getByRole("link", { name: "Open calendar" }).click();
     await expect(layer("Calendar")).toBeChecked();
     await back();
+    // History is a drawer over the hub at its own address (C2.6); Back closes it.
+    await page.route(`${base}/availability/changes*`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { total: 0, offset: 0, items: [] } }),
+      })
+    );
     await page.getByRole("link", { name: "History" }).click();
-    await expect(page).toHaveURL(/\/availability\/calendar$/);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Availability");
+    await expect(page).toHaveURL(/\/availability\/history$/);
+    await expect(page.getByRole("dialog", { name: "History" })).toBeVisible();
+    await back();
+    await expect(page.getByRole("dialog", { name: "History" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "History" })).toBeFocused();
   });
 
   test("a Host reads the same rows and sees no edit control", async ({ mockedPage: page }) => {
@@ -510,5 +521,59 @@ test.describe("Availability hub: Close and Pause", () => {
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await expect(menu(page)).toHaveCount(0);
     }
+  });
+});
+
+test.describe("History over the hub (C2.6)", () => {
+  test("loading its address opens the drawer with focus inside, and View day opens that day on the calendar", async ({
+    mockedPage: page,
+  }) => {
+    await mockDemoVenue(page);
+    const day = localDay(5);
+    await page.route(`${base}/availability/changes*`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: {
+            total: 1,
+            offset: 0,
+            items: [
+              {
+                id: "chg-1",
+                actorId: "auth0|someone-else",
+                at: new Date().toISOString(),
+                kind: "config",
+                summary: "Availability updated: 1 added, 0 changed, 0 removed",
+                affectedFrom: day,
+                affectedTo: day,
+                notifiedGuests: false,
+                revertedById: null,
+                revertible: true,
+              },
+            ],
+          },
+        }),
+      })
+    );
+    await page.setViewportSize(DESKTOP);
+    await page.goto("availability/history");
+    const history = page.getByRole("dialog", { name: "History" });
+    await expect(history).toBeVisible();
+    // PRD 18: focus is inside the drawer, and the hub is beneath it.
+    await expect(history.locator(":focus")).toHaveCount(1);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Availability");
+    await expect(history.getByRole("button", { name: "Undo" })).toBeVisible();
+
+    await history.getByRole("button", { name: "View day" }).click();
+    const dayName = new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      timeZone: "UTC",
+    }).format(new Date(`${day}T00:00:00Z`));
+    await expect(page.getByRole("dialog", { name: new RegExp(dayName) })).toBeVisible();
+    // The page reads ?date= once and drops it, so a reload does not reopen the day.
+    await expect(page).toHaveURL(/\/availability\/calendar$/);
   });
 });

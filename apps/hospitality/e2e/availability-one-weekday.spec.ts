@@ -68,14 +68,10 @@ test.describe("Change one weekday of the regular week", () => {
       ["regular", "Regular week"],
     ]);
 
-    // History names the weekday.
-    await page.getByRole("button", { name: "More actions" }).click();
-    await page.getByRole("menuitem", { name: "History" }).click();
+    // History names the weekday. It is a drawer over the hub at its own address (C2.6).
+    await page.goto("availability/history");
     await expect(
-      page
-        .getByRole("dialog")
-        .first()
-        .getByText(/Changed regular week from .*: Wed$/)
+      page.getByRole("dialog", { name: "History" }).getByText(/Changed regular week from .*: Wed$/)
     ).toBeVisible();
   });
 });

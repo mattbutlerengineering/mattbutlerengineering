@@ -653,6 +653,12 @@ async function mockGatedRoutes(page: Page, route: string): Promise<void> {
       /\/api\/v1\/venues\/[^/?]+\/table-statuses$/,
       [{ tableId: "tbl_e2e_001", status: "available" }],
     ],
+    // `availability/history` (availability-hub C2.6). No entries: a stored summary is en-US by
+    // design (a record, not UI copy), so the empty state and the filters are what is swept.
+    [
+      /\/api\/v1\/venues\/[^/?]+\/availability\/changes(\?.*)?$/,
+      { items: [], total: 0, offset: 0 },
+    ],
   ];
   for (const [pattern, data] of answers) {
     await page.route(pattern, (r) => r.fulfill(ok(data)));

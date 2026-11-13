@@ -473,9 +473,9 @@ test.describe("Availability scenarios (PRD 18)", () => {
     for (const name of ["Close…", "Pause online booking", "Add a schedule…"]) {
       await expect(page.getByRole("button", { name })).toHaveCount(0);
     }
-    // The Host's ⋯ holds History and Go to date only.
+    // The Host's ⋯ holds Go to date only; History is the hub's link (availability-hub C2.6).
     await page.getByRole("button", { name: "More actions" }).click();
-    await expect(page.getByRole("menuitem")).toHaveText(["History", "Go to date"]);
+    await expect(page.getByRole("menuitem")).toHaveText(["Go to date"]);
     await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
   });
 });

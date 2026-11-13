@@ -1734,6 +1734,7 @@
         tab?: AvailabilityTab;
         closeSection?: string;
         action?: "addSchedule";
+        date?: string;
         from?: "setup";
       }
     </item>
@@ -1742,6 +1743,9 @@
     </item>
     <item priority="high">
       export const isBookingRulesPage: unknown;
+    </item>
+    <item priority="high">
+      export const isHistoryPage: unknown;
     </item>
     <item priority="medium">
       function closeParam(target: CloseTarget): string { /* ... */ }
