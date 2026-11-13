@@ -11,6 +11,7 @@ import { useTables } from "../hooks/useTables.js";
 import { useVenueReadiness } from "../hooks/useVenueReadiness.js";
 import { useVenue } from "../contexts/VenueContext.js";
 import { venueDate } from "../utils/service-day.js";
+import { currentServiceDate } from "../utils/current-service-date.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
@@ -77,6 +78,9 @@ export function SetupPage() {
     isManager,
     readiness: readiness.status === "operational" ? "operational" : "setup",
     today,
+    // A regular week replaced before this is not listed; after midnight on an overnight venue
+    // last night's week still runs (#8688).
+    serviceDate: config.data ? currentServiceDate(config.data.config, timeZone, now) : today,
     open: groupLoad(openReads, () => ({ config: config.data?.config ?? EMPTY_CONFIG, settings })),
     sit: groupLoad(sitReads, () => ({
       floorPlans: plans.data ?? [],

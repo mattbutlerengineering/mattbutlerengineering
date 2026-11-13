@@ -1,19 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { addDays, applyChanges, resolveDay } from "@mbe/availability";
-import type { AvailabilityConfig } from "@mbe/types";
-import { draftFromConfig, type QuickSetupDraft } from "./quick-setup-draft.js";
-import { buildRegularWeekChanges } from "./schedule-changes.js";
+import { addDays, resolveDay } from "@mbe/availability";
+import type { AvailabilityConfig, DateRule } from "@mbe/types";
 import { FIXTURE_TIMEZONE, fixtureConfig } from "./resolved-day-fixtures.js";
+import { saveRegularWeek as save, supersededWeekOf } from "./superseded-fixtures.js";
 import { isSupersededRegularWeek, visibleSchedules } from "./superseded-schedules.js";
 
-const NOW = "2026-10-30T00:00:00.000Z";
 const TODAY = "2026-10-30"; // a Friday, the fixture's one open weekday
 const EVERY_DAY = [0, 1, 2, 3, 4, 5, 6];
-
-function counter(prefix = "new") {
-  let n = 0;
-  return () => `${prefix}-${++n}`;
-}
 
 function resolve(config: AvailabilityConfig, date: string) {
   return resolveDay({ timezone: FIXTURE_TIMEZONE, config }, date);
@@ -23,35 +16,6 @@ function resolve(config: AvailabilityConfig, date: string) {
 function shown(config: AvailabilityConfig, date: string) {
   const { scheduleId, services, closures, bookingOpen } = resolve(config, date);
   return { scheduleId, services, closures, bookingOpen };
-}
-
-function later(draft: QuickSetupDraft): QuickSetupDraft {
-  return {
-    ...draft,
-    services: draft.services.map((s) =>
-      s.name === "Dinner"
-        ? { ...s, lastSeating: "21:30", closes: "22:30", lastSeatingLinked: false }
-        : s
-    ),
-  };
-}
-
-function save(config: AvailabilityConfig, startsOn: string, prefix = "new"): AvailabilityConfig {
-  let n = 0;
-  const live = draftFromConfig(config, () => `draft-${++n}`);
-  return applyChanges(
-    config,
-    buildRegularWeekChanges({
-      config,
-      name: "",
-      draft: later(live),
-      startsOn,
-      endsOn: null,
-      winner: "new",
-      makeId: counter(prefix),
-    }),
-    NOW
-  );
 }
 
 /** The fixture week on every day, Dinner running to 2:00 AM. */
@@ -120,6 +84,56 @@ describe("a superseded regular week", () => {
       ],
     };
     expect(visibleOthers(used, TODAY).map((s) => s.id)).toEqual([old.id]);
+  });
+
+  describe("and the date rules that use it", () => {
+    const useOld = (
+      config: AvailabilityConfig,
+      startsOn: string,
+      endsOn: string | null
+    ): AvailabilityConfig => ({
+      ...config,
+      dateRules: [
+        {
+          id: "use-old",
+          kind: "use_schedule",
+          targetKind: "venue",
+          startsOn,
+          endsOn,
+          useScheduleId: supersededWeekOf(config).id,
+        } satisfies DateRule,
+      ],
+    });
+
+    it("hides it when the only rule that used it is over", () => {
+      const used = useOld(save(fixtureConfig(), TODAY), "2026-10-02", "2026-10-02");
+      expect(visibleOthers(used, TODAY)).toEqual([]);
+    });
+
+    it("shows it while a rule runs on the service date itself", () => {
+      const config = save(fixtureConfig(), TODAY);
+      const used = useOld(config, "2026-10-23", TODAY);
+      expect(visibleOthers(used, TODAY).map((s) => s.id)).toEqual([supersededWeekOf(config).id]);
+    });
+
+    it("shows it while an open-ended rule uses it, however long ago it started", () => {
+      const config = save(fixtureConfig(), TODAY);
+      const used = useOld(config, "2026-09-04", null);
+      expect(visibleOthers(used, TODAY).map((s) => s.id)).toEqual([supersededWeekOf(config).id]);
+    });
+  });
+
+  it("shows a demoted week whose assignment has no end date", () => {
+    const config = save(fixtureConfig(), TODAY);
+    const old = supersededWeekOf(config);
+    const openEnded: AvailabilityConfig = {
+      ...config,
+      assignments: config.assignments.map((a) =>
+        a.scheduleId === old.id ? { ...a, endsOn: null } : a
+      ),
+    };
+    expect(isSupersededRegularWeek(openEnded, old, TODAY)).toBe(false);
+    expect(visibleOthers(openEnded, TODAY).map((s) => s.id)).toEqual([old.id]);
   });
 
   it("never hides a schedule the Manager made", () => {

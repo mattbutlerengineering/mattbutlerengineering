@@ -11,6 +11,7 @@ import { seedServices } from "./draft-changes.js";
 import { buildUseDayHoursChanges, buildUseScheduleChanges } from "./selection-actions.js";
 import { BlockedReason, SaveFailure } from "./ScheduleFormParts.js";
 import { useScheduleSave } from "./use-schedule-save.js";
+import { useVisibleSchedules } from "./use-visible-schedules.js";
 import styles from "./ScheduleFormParts.module.css";
 
 export interface UseScheduleDialogProps {
@@ -36,10 +37,9 @@ export function UseScheduleDialog(props: UseScheduleDialogProps) {
   const blockedId = useId();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
-  const schedules = useMemo(
-    () => state.config.schedules.filter((s) => !s.archivedAt),
-    [state.config.schedules]
-  );
+  // The schedules a Manager can see: a regular week a later one replaced is neither counted nor
+  // offered, since picking it would write a rule that brings it back (#8688).
+  const schedules = useVisibleSchedules(state.config, timezone);
   const byDay = schedules.length < 2;
   const [chosenSchedule, setChosenSchedule] = useState<string | null>(null);
   const [sourceDate, setSourceDate] = useState<string | null>(null);

@@ -247,6 +247,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
             state={state}
             timezone={timezone}
             today={today}
+            serviceDate={serviceDate}
             onStale={onStale}
             refreshError={props.refreshError}
             onDirtyChange={setCompareDirty}

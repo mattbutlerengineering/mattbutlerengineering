@@ -1,10 +1,13 @@
 import { hoursOn } from "@mbe/availability";
 import type { AvailabilityConfig, AvailabilityConfigChanges, ScheduleService } from "@mbe/types";
 import { scheduleDays } from "./quick-setup-draft.js";
+import { visibleSchedules } from "./superseded-schedules.js";
 
 /**
  * Compare services (ux.md F-X): one service's hours across every schedule that runs it, edited
- * in place and saved as one change. Pure; the grid is `CompareServices.tsx`.
+ * in place and saved as one change. Pure; the grid is `CompareServices.tsx`. A schedule the
+ * Manager cannot see (archived, or a regular week a later one replaced, #8688) has no row, so it
+ * cannot be edited here. `serviceDate` is the venue's current service date.
  */
 
 /** The editable fields of one schedule's version of the service. */
@@ -24,8 +27,8 @@ export interface CompareRow extends Hours {
 const hoursOf = (s: Hours) =>
   JSON.stringify([s.opensAt, s.lastSeatingAt, s.closesAt, s.seating, s.bookingTypes]);
 
-const liveScheduleIds = (config: AvailabilityConfig) =>
-  new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
+const liveScheduleIds = (config: AvailabilityConfig, serviceDate: string) =>
+  new Set(visibleSchedules(config, serviceDate).map((s) => s.id));
 
 /** The row runs on at least one weekday its schedule is used on; one scoped to none never resolves. */
 function runs(config: AvailabilityConfig, row: ScheduleService): boolean {
@@ -33,8 +36,8 @@ function runs(config: AvailabilityConfig, row: ScheduleService): boolean {
 }
 
 /** Services that more than one schedule runs; comparing a service in one schedule says nothing. */
-export function compareServiceOptions(config: AvailabilityConfig) {
-  const live = liveScheduleIds(config);
+export function compareServiceOptions(config: AvailabilityConfig, serviceDate: string) {
+  const live = liveScheduleIds(config, serviceDate);
   return config.venueServices
     .filter((v) => !v.archivedAt)
     .filter(
@@ -46,8 +49,12 @@ export function compareServiceOptions(config: AvailabilityConfig) {
     .sort((a, b) => a.position - b.position);
 }
 
-export function compareRows(config: AvailabilityConfig, venueServiceId: string): CompareRow[] {
-  const names = new Map(config.schedules.filter((s) => !s.archivedAt).map((s) => [s.id, s.name]));
+export function compareRows(
+  config: AvailabilityConfig,
+  venueServiceId: string,
+  serviceDate: string
+): CompareRow[] {
+  const names = new Map(visibleSchedules(config, serviceDate).map((s) => [s.id, s.name]));
   return config.scheduleServices
     .filter((s) => s.venueServiceId === venueServiceId && names.has(s.scheduleId))
     .filter((s) => runs(config, s))
@@ -95,13 +102,15 @@ export function rowsChangedSince(
 
 /**
  * Names of the edited rows that Compare no longer offers in the version that won: deleted, or
- * their schedule archived. The same source `reapplyEdits` uses, so a row it drops is named here.
+ * their schedule archived or replaced. The same source `reapplyEdits` uses, so a row it drops is
+ * named here.
  */
 export function rowsRemovedSince(
   after: AvailabilityConfig,
-  edits: readonly CompareRow[]
+  edits: readonly CompareRow[],
+  serviceDate: string
 ): string[] {
-  const now = compareRowsById(after);
+  const now = compareRowsById(after, serviceDate);
   return edits.filter((e) => !now.has(e.scheduleServiceId)).map((e) => e.scheduleName);
 }
 
@@ -113,10 +122,11 @@ export function rowsRemovedSince(
 export function reapplyEdits(
   before: AvailabilityConfig,
   after: AvailabilityConfig,
-  edits: readonly CompareRow[]
+  edits: readonly CompareRow[],
+  serviceDate: string
 ): Record<string, CompareRow> {
   const was = new Map(before.scheduleServices.map((s) => [s.id, s]));
-  const latest = compareRowsById(after);
+  const latest = compareRowsById(after, serviceDate);
   const entries = edits.flatMap((e) => {
     const old = was.get(e.scheduleServiceId);
     const next = latest.get(e.scheduleServiceId);
@@ -128,8 +138,8 @@ export function reapplyEdits(
   return Object.fromEntries(entries);
 }
 
-function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> {
-  const rows = config.venueServices.flatMap((v) => compareRows(config, v.id));
+function compareRowsById(config: AvailabilityConfig, serviceDate: string): Map<string, CompareRow> {
+  const rows = config.venueServices.flatMap((v) => compareRows(config, v.id, serviceDate));
   return new Map(rows.map((r) => [r.scheduleServiceId, r]));
 }
 

@@ -5,9 +5,15 @@ import {
   buildCompareChanges,
   compareRows,
   compareServiceOptions,
+  reapplyEdits,
+  rowsRemovedSince,
   type CompareRow,
 } from "./compare-changes.js";
 import { FIXTURE_TIMEZONE, fixtureConfig } from "./resolved-day-fixtures.js";
+import { saveRegularWeek, supersededWeekOf } from "./superseded-fixtures.js";
+
+/** A Friday, the fixture regular week's one open weekday. */
+const TODAY = "2026-10-30";
 
 /** Two schedules that both run Dinner: the regular week (Fridays) and Weeknight (Mon-Thu). */
 function twoSchedules(): AvailabilityConfig {
@@ -32,7 +38,7 @@ function twoSchedules(): AvailabilityConfig {
 
 describe("compareRows", () => {
   it("lists one row per schedule that runs the service, with its hours", () => {
-    const rows = compareRows(twoSchedules(), "vs-dinner");
+    const rows = compareRows(twoSchedules(), "vs-dinner", TODAY);
     expect(rows.map((r) => [r.scheduleName, r.closesAt])).toEqual([
       ["Weekend", 1380],
       ["Weeknight", 1320],
@@ -40,14 +46,52 @@ describe("compareRows", () => {
   });
 
   it("offers only services that more than one schedule runs", () => {
-    expect(compareServiceOptions(twoSchedules()).map((o) => o.id)).toEqual(["vs-dinner"]);
+    expect(compareServiceOptions(twoSchedules(), TODAY).map((o) => o.id)).toEqual(["vs-dinner"]);
+  });
+});
+
+describe("Compare services after a regular-week save (#8688)", () => {
+  it("has no row for the week the save replaced", () => {
+    const config = saveRegularWeek(twoSchedules(), TODAY);
+    const old = supersededWeekOf(config);
+    const rows = compareRows(config, "vs-dinner", TODAY);
+    const regular = config.schedules.find((s) => s.isRegular)!;
+    expect(rows.map((r) => r.scheduleId)).not.toContain(old.id);
+    // The new regular week and Weeknight, the two schedules the Manager can see.
+    expect(rows.map((r) => r.scheduleId)).toEqual(["wk", regular.id]);
+  });
+
+  it("does not offer a service only the replaced week shares with the regular week", () => {
+    // One schedule: after the save only the new regular week and the hidden one run Dinner.
+    expect(compareServiceOptions(saveRegularWeek(fixtureConfig(), TODAY), TODAY)).toEqual([]);
+  });
+
+  it("cannot edit the replaced week: an edit to its row is dropped and named as removed", () => {
+    const before = twoSchedules();
+    const config = saveRegularWeek(before, TODAY);
+    const oldRow = config.scheduleServices.find(
+      (s) => s.scheduleId === supersededWeekOf(config).id && s.venueServiceId === "vs-dinner"
+    )!;
+    const edit: CompareRow = {
+      scheduleServiceId: oldRow.id,
+      scheduleId: oldRow.scheduleId,
+      scheduleName: "Weekend",
+      opensAt: oldRow.opensAt,
+      lastSeatingAt: oldRow.lastSeatingAt,
+      closesAt: 1400,
+      seating: oldRow.seating,
+      bookingTypes: oldRow.bookingTypes,
+      different: false,
+    };
+    expect(reapplyEdits(before, config, [edit], TODAY)).toEqual({});
+    expect(rowsRemovedSince(config, [edit], TODAY)).toEqual(["Weekend"]);
   });
 });
 
 describe("buildCompareChanges", () => {
   it("writes the rows that changed, in one save", () => {
     const config = twoSchedules();
-    const rows: CompareRow[] = compareRows(config, "vs-dinner").map((r) => ({
+    const rows: CompareRow[] = compareRows(config, "vs-dinner", TODAY).map((r) => ({
       ...r,
       closesAt: 1350,
       lastSeatingAt: 1290,
@@ -64,7 +108,7 @@ describe("buildCompareChanges", () => {
 
   it("leaves untouched rows out", () => {
     const config = twoSchedules();
-    const rows = compareRows(config, "vs-dinner");
+    const rows = compareRows(config, "vs-dinner", TODAY);
     expect(buildCompareChanges(config, rows).upsert.scheduleServices ?? []).toEqual([]);
     const edited = rows.map((r) => (r.scheduleId === "wk" ? { ...r, opensAt: 1050 } : r));
     expect(buildCompareChanges(config, edited).upsert.scheduleServices?.map((s) => s.id)).toEqual([

@@ -48,6 +48,7 @@ import { QuickSetupForm } from "./QuickSetupForm.js";
 import { useConflictReview } from "./use-conflict-review.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
+import { useServiceDate } from "./use-visible-schedules.js";
 import styles from "./ScheduleFormParts.module.css";
 
 export type ScheduleEditorMode = "new" | "duplicate" | "edit";
@@ -88,6 +89,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const dayName = useWeekdayName();
   const offerUndo = useAvailabilityUndo();
   const saver = useScheduleSave(onStale);
+  // Also apply to… offers only the schedules a Manager can see (#8688).
+  const serviceDate = useServiceDate(config, timezone);
 
   const source = config.schedules.find((s) => s.id === sourceScheduleId);
   // A copy starts with no days, as a new schedule does: it is used where the Manager says. Seeded
@@ -287,17 +290,17 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
   const alsoOptions = useMemo(
     () =>
       editChanges && editing && sourceScheduleId
-        ? alsoApplyOptions(config, editChanges, sourceScheduleId)
+        ? alsoApplyOptions(config, editChanges, sourceScheduleId, serviceDate)
         : [],
-    [editChanges, editing, sourceScheduleId, config]
+    [editChanges, editing, sourceScheduleId, config, serviceDate]
   );
   const alsoIds = useMemo(() => alsoApplyScheduleIds(alsoOptions, picks), [alsoOptions, picks]);
   const previewChanges = useMemo(
     () =>
       editChanges && editing && sourceScheduleId
-        ? buildAlsoApplyChanges(config, editChanges, sourceScheduleId, picks)
+        ? buildAlsoApplyChanges(config, editChanges, sourceScheduleId, picks, serviceDate)
         : editChanges,
-    [editChanges, editing, sourceScheduleId, config, picks]
+    [editChanges, editing, sourceScheduleId, config, picks, serviceDate]
   );
   // Every schedule the save writes: the edited one and each picked, so the dates in scope, the
   // own-changes choice and the preview cover them all.
@@ -345,7 +348,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         : buildNewScheduleChanges({ config, name: trimmed, draft, useOn, winner, makeId });
     const changes =
       editing && sourceScheduleId
-        ? buildAlsoApplyChanges(config, edited, sourceScheduleId, picks)
+        ? buildAlsoApplyChanges(config, edited, sourceScheduleId, picks, serviceDate)
         : edited;
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
