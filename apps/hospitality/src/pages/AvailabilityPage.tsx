@@ -8,6 +8,8 @@ import { useAvailabilityConfig, useAvailabilityDays } from "../hooks/useAvailabi
 import { useVenueFloorPlanSections } from "../hooks/useFloorPlans.js";
 import { useNow } from "../hooks/useNow.js";
 import { minutesOfDayIn, venueDate } from "../utils/service-day.js";
+import { currentServiceDate } from "../utils/current-service-date.js";
+import { visibleSchedules } from "../components/availability/superseded-schedules.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import { useManagerAccess } from "../hooks/useIsManager.js";
 import { useVenueTeam } from "../hooks/useVenueTeam.js";
@@ -541,8 +543,11 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         ]
       : []),
   ];
-  const activeScheduleCount =
-    config.data?.config.schedules.filter((s) => !s.archivedAt).length ?? 0;
+  // Superseded weeks hide by service date: after midnight on an overnight venue last night's week still runs.
+  const serviceDate = config.data ? currentServiceDate(config.data.config, timeZone, now) : today;
+  const activeScheduleCount = config.data
+    ? visibleSchedules(config.data.config, serviceDate).length
+    : 0;
   const ownChangeCount = config.data ? ownSingleDateRules(config.data.config, selection).length : 0;
   const clearSelection = () => {
     setSelection([]);
@@ -733,6 +738,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           state={config.data}
           timezone={timeZone}
           today={today}
+          serviceDate={serviceDate}
           onStale={() => void config.refetch()}
           refreshError={config.error ? describeApiError(config.error).detail : null}
           onDirtyChange={setSchedulesDirty}

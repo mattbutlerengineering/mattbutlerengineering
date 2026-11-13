@@ -72,6 +72,7 @@ const common = {
   venueId: "venue-1",
   timezone: "America/Los_Angeles",
   today: "2026-10-25",
+  serviceDate: "2026-10-25",
   onStale: vi.fn(),
 };
 

@@ -20,6 +20,7 @@ import { RegularWeekPanel } from "./RegularWeekPanel.js";
 import { scheduleUsage } from "./rule-summaries.js";
 import type { ScheduleEditorMode } from "./ScheduleEditorDrawer.js";
 import { SaveFailure, ScheduleDraftGuard, useWeekdaySummary } from "./ScheduleFormParts.js";
+import { visibleSchedules } from "./superseded-schedules.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
 import styles from "./SchedulesTab.module.css";
@@ -30,6 +31,8 @@ export interface SchedulesTabProps {
   readonly timezone: string;
   /** Today on the venue clock. */
   readonly today: string;
+  /** The venue's current service date (it trails `today` after midnight on an overnight venue). */
+  readonly serviceDate: string;
   readonly onStale: () => void;
   /** The week panel or Compare services has edits that are not saved; the page asks before another layer drops them. */
   readonly onDirtyChange?: (dirty: boolean) => void;
@@ -90,7 +93,7 @@ function useUsageText(state: AvailabilityConfigState) {
  * for, Compare services.
  */
 export function SchedulesTab(props: SchedulesTabProps) {
-  const { venueId, state, timezone, today, onStale, onDirtyChange } = props;
+  const { venueId, state, timezone, today, serviceDate, onStale, onDirtyChange } = props;
   const { onEditorChange, comparing, onComparingChange } = props;
   const { t } = useTranslation();
   const offerUndo = useAvailabilityUndo();
@@ -113,7 +116,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
     setCompareDirty(false);
   }, compareDirty);
 
-  const others = state.config.schedules.filter((s) => !s.archivedAt && !s.isRegular);
+  const others = visibleSchedules(state.config, serviceDate).filter((s) => !s.isRegular);
 
   const confirmDelete = async () => {
     if (!deleting) return;
