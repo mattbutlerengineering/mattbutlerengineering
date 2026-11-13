@@ -7937,6 +7937,14 @@
       export async function mockClosures(page: Page, options: CloseMockOptions = {}): Promise<CloseMock> { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/e2e/helpers/demo-venue.ts">
+    <item priority="high">
+      export function nextChristmasEve(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockDemoVenue(page: Page, dec24: string = nextChristmasEve()): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/e2e/helpers/editor-surfaces.ts">
     <item priority="high">
       export const RESOURCE_TYPES: unknown;
@@ -11087,6 +11095,25 @@
     </item>
     <item priority="high">
       export function createJourneyRecorder(page: Page, venueName: string) { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="launch-demo">
+  <file path="apps/hospitality/e2e/launch-demo/availability-tour.ts">
+    <item priority="high">
+      export const DEMO_AUTH_ENV: unknown;
+    </item>
+    <item priority="high">
+      export const DEMO_HUB_URL: unknown;
+    </item>
+    <item priority="high">
+      export function demoSessionEntry(nowMs: number = Date.now()): { key: string; value: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function typedChristmasEve(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function prepareAvailabilityTour(page: Page): Promise<void> { /* ... */ }
     </item>
   </file>
   </section>

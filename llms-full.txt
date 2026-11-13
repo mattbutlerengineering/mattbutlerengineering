@@ -23048,6 +23048,46 @@
       };
     }
   </file>
+  <file path="apps/hospitality/e2e/helpers/demo-venue.ts">
+    export function nextChristmasEve(): string {
+      const today = localDay();
+      const thisYear = `${today.slice(0, 4)}-12-24`;
+      return today <= thisYear ? thisYear : `${Number(today.slice(0, 4)) + 1}-12-24`;
+    }
+    export async function mockDemoVenue(page: Page, dec24: string = nextChristmasEve()): Promise<void> {
+      const fixture = buildAvailabilityConfigFixture();
+      const special = {
+        id: "dr-dec-24",
+        kind: "special_hours",
+        targetKind: "venue",
+        startsOn: dec24,
+        endsOn: dec24,
+        payload: {
+          version: 1,
+          services: [
+            {
+              venueServiceId: "vs-dinner",
+              opensAt: 960,
+              lastSeatingAt: 1140,
+              closesAt: 1200,
+              seating: { version: 1, interval: 15 },
+              bookingTypes: ["online", "phone"],
+            },
+          ],
+        },
+      };
+      await page.route(`${base}/availability/config`, (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: { ...fixture, config: { ...fixture.config, dateRules: [special] } },
+          }),
+        });
+      });
+    }
+  </file>
   <file path="apps/hospitality/e2e/helpers/editor-surfaces.ts">
     export const RESOURCE_TYPES = [
       "weeklyHours",
@@ -31759,6 +31799,56 @@
           if (blocked) throw new Error(`Journey blocked at "${blocked.name}": ${blocked.error}`);
         },
       };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="launch-demo">
+  <file path="apps/hospitality/e2e/launch-demo/availability-tour.ts">
+    export const DEMO_AUTH_ENV = {
+      VITE_AUTH_AUTHORITY: "https://launch-demo.invalid",
+      VITE_AUTH_CLIENT_ID: "launch-demo",
+    } as const;
+    export const DEMO_HUB_URL = "http://localhost:3002/hospitality/availability";
+    export function demoSessionEntry(nowMs: number = Date.now()): { key: string; value: string } {
+      const authority = DEMO_AUTH_ENV.VITE_AUTH_AUTHORITY;
+      const user = {
+        access_token: "launch-demo-access-token",
+        id_token: "launch-demo-id-token",
+        token_type: "Bearer",
+        scope: "openid profile email",
+        expires_at: Math.floor(nowMs / 1000) + SESSION_HOURS * 60 * 60,
+        profile: {
+          sub: "launch-demo|manager",
+          email: "manager@launch-demo.invalid",
+          email_verified: true,
+          name: "Demo Manager",
+          iss: `${authority}/`,
+          aud: DEMO_AUTH_ENV.VITE_AUTH_CLIENT_ID,
+        },
+      };
+      return {
+        key: `oidc.user:${authority}:${DEMO_AUTH_ENV.VITE_AUTH_CLIENT_ID}`,
+        value: JSON.stringify(user),
+      };
+    }
+    export function typedChristmasEve(): string {
+      return `12/24/${nextChristmasEve().slice(0, 4)}`;
+    }
+    export async function prepareAvailabilityTour(page: Page): Promise<void> {
+      const { key, value } = demoSessionEntry();
+      await page.addInitScript(
+        ([k, v]) => {
+          localStorage.setItem(k, v);
+        },
+        [key, value] as const
+      );
+      // The reserved authority never resolves; answer it so no request hangs the recording.
+      await page.route(`${DEMO_AUTH_ENV.VITE_AUTH_AUTHORITY}/**`, (route) =>
+        route.fulfill({ status: 404, body: "" })
+      );
+      await mockApi(page);
+      await mockDemoVenue(page);
+      await page.goto(DEMO_HUB_URL);
     }
   </file>
   </section>
