@@ -229,9 +229,9 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await page.goto("setup");
     await expect(page.getByRole("heading", { level: 1, name: "Venue Setup" })).toBeVisible();
 
-    // Regular week: the week form on the first layer. No drawer, no date picker first.
+    // Regular week: the week form at Regular hours (availability-hub E4.4). No drawer.
     await page.getByRole("button", { name: "Change regular week…" }).click();
-    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules/);
+    await expect(page).toHaveURL(/\/availability\/hours\?from=setup$/);
     await expect(weekPanel(page)).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
@@ -646,6 +646,8 @@ test.describe("The demo runs as written (PRD 9)", () => {
     await page.getByRole("button", { name: "Save and open bookings" }).click();
     await expect.poll(() => venue.savedBody()).not.toBeNull();
 
+    // First setup returns to the hub (availability-hub E4.4); its row 1 opens the week again.
+    await page.getByTestId("hub-row-1").getByRole("link", { name: "Edit Regular hours" }).click();
     // The guest-view strip shows the result of the week just set (a closed row until asked).
     await weekPanel(page).getByRole("button", { name: "Guest preview" }).click();
     const strip = page.getByRole("complementary", { name: "Guest preview" });

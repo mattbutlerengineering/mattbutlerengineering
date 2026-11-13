@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, Stack, Text } from "@mattbutlerengineering/rialto";
 import {
@@ -58,6 +58,13 @@ export interface QuickSetupFormProps {
    * shows what will be saved. Omit it where the save falls back to the defaults.
    */
   readonly storedKept?: Readonly<Record<string, KeptHours>>;
+  /** With `collapsible`: the service open on arrival (Regular hours' `?service=`). */
+  readonly initialOpenId?: string | null;
+  /**
+   * With `collapsible`: rendered right after the open service (after the last one when none is
+   * open), so it is the next Tab stop after the fields being edited (Regular hours' save bar).
+   */
+  readonly afterOpenService?: ReactNode;
 }
 
 /** A service nothing has been typed into: there is no line to read, so it starts open. */
@@ -121,6 +128,8 @@ export function QuickSetupForm({
   collapsible = false,
   hidePreview = false,
   storedKept,
+  initialOpenId = null,
+  afterOpenService,
 }: QuickSetupFormProps) {
   const { t } = useTranslation();
   // Field ids carry the form instance: the week panel and the drawer opened from it can hold the
@@ -138,7 +147,7 @@ export function QuickSetupForm({
   // Forced-open is derived from `issues`, never stored, so fixing a problem releases the service.
   // A brand-new empty service starts open: it has no line worth reading yet.
   const [openId, setOpenId] = useState<string | null>(
-    () => draft.services.find(isBlankService)?.id ?? null
+    () => initialOpenId ?? draft.services.find(isBlankService)?.id ?? null
   );
   const firstIssueOf = new Map<string, QuickSetupIssue>();
   for (const issue of issues) {
@@ -147,6 +156,9 @@ export function QuickSetupForm({
     }
   }
   const isOpen = (id: string) => openId === id || firstIssueOf.has(id);
+  const slotAfter = draft.services.some((s) => s.id === openId)
+    ? openId
+    : (draft.services.at(-1)?.id ?? null);
 
   useEffect(() => {
     const pending = focusAfterChangeRef.current;
@@ -204,7 +216,7 @@ export function QuickSetupForm({
               const open = !collapsible || isOpen(service.id);
               const forced = firstIssueOf.has(service.id);
               // The same keyed wrapper in both modes: rotating across the phone width keeps the rows.
-              return (
+              return [
                 <div key={service.id}>
                   {collapsible && (
                     <ServiceLineHeader
@@ -243,8 +255,12 @@ export function QuickSetupForm({
                       />
                     )}
                   </div>
-                </div>
-              );
+                </div>,
+                // A sibling of the rows, so a sticky slot is held by the whole list, not one row.
+                service.id === slotAfter && afterOpenService ? (
+                  <div key="after-open-service">{afterOpenService}</div>
+                ) : null,
+              ];
             })}
             <div>
               <Button variant="secondary" onClick={addService}>

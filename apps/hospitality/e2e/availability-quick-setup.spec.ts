@@ -16,7 +16,7 @@ test.describe("Availability quick setup (F1)", () => {
 
     // The old entry point lands on the hub, which sends a Manager with no hours to first setup.
     await mockedPage.goto("setup/hours");
-    await expect(mockedPage).toHaveURL(/\/availability\/calendar\?tab=schedules$/);
+    await expect(mockedPage).toHaveURL(/\/availability\/hours$/);
     await expect(mockedPage.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
 
     await mockedPage.getByRole("button", { name: "Dinner" }).click();
@@ -25,8 +25,9 @@ test.describe("Availability quick setup (F1)", () => {
     await mockedPage.getByRole("button", { name: "Save and open bookings" }).click();
 
     await expect(mockedPage.getByText("Bookings are open Mon–Fri")).toBeVisible();
-    // The save lands on the week panel (Schedules layer), not the calendar.
-    await expect(weekPanel(mockedPage)).toBeVisible();
+    // The save lands on the hub with row 1 filled (availability-hub ux.md, "First setup").
+    await expect(mockedPage).toHaveURL(/\/availability$/);
+    await expect(mockedPage.getByTestId("hub-row-1")).toContainText("Dinner");
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
 
     // Venue Setup (the standing /setup page) now shows the saved week and counts the step done.

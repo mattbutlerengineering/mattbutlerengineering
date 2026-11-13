@@ -70,6 +70,26 @@
       "limit": "6.86 kB"
     },
     {
+      "name": "Regular hours page (lazy chunk: the Starting field, the form's frame and first setup, availability-hub E4.4; 3.30 kB (3,298 B) measured)",
+      "path": "dist/assets/AvailabilityHoursPage-*.js",
+      "limit": "3.5 kB"
+    },
+    {
+      "name": "Weekly form editing (use-regular-week-edit with the conflict review and the draft preview; hoisted out of today's page at availability-hub E4.4, when Regular hours began sharing it; 7.51 kB (7,512 B) measured)",
+      "path": "dist/assets/use-regular-week-edit-*.js",
+      "limit": "7.7 kB"
+    },
+    {
+      "name": "Date-editor draft changes (hoisted out of today's page at availability-hub E4.4, when Regular hours' conflict review began sharing it; 2.15 kB (2,152 B) measured)",
+      "path": "dist/assets/draft-changes-*.js",
+      "limit": "2.3 kB"
+    },
+    {
+      "name": "Day summary text (hoisted out of today's page at availability-hub E4.4, shared with the hub and Regular hours; 1.86 kB (1,863 B) measured)",
+      "path": "dist/assets/day-summary-*.js",
+      "limit": "2 kB"
+    },
+    {
       "name": "Today line + holiday decisions (hoisted at availability-hub H1.6, when the hub page began sharing the Today line, day-summary and the holiday decisions with today's page; rollup names it for useHolidayDecisions; 4.08 kB measured)",
       "path": "dist/assets/useHolidayDecisions-*.js",
       "limit": "4.3 kB"

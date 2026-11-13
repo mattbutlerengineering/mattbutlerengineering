@@ -1741,6 +1741,9 @@
       export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry { /* ... */ }
     </item>
     <item priority="high">
+      export const readHoursService: unknown;
+    </item>
+    <item priority="high">
       export const isBookingRulesPage: unknown;
     </item>
     <item priority="high">
@@ -2842,6 +2845,14 @@
     </item>
     <item priority="high">
       export const USUALLY_CLOSED: ReadonlySet<HolidayId>;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub-return-focus.ts">
+    <item priority="high">
+      export function focusHubRowOnReturn(testId: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function takeHubReturnRow(): string | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/layer-rule-actions-props.ts">
@@ -4434,6 +4445,20 @@
     </item>
     <item priority="high">
       export function useRefusedPress(options: RefusedPressOptions) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-regular-hours-draft.ts">
+    <item priority="low">
+      interface RegularHoursDraftInput {
+        venueId: string;
+        state: AvailabilityConfigState;
+        today: string;
+        onStale: () => void;
+        offerUndo: (title: string, saved: AvailabilityConfigSaveResult) => void;
+      }
+    </item>
+    <item priority="high">
+      export function useRegularHoursDraft(input: RegularHoursDraftInput) { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-regular-week-edit.ts">

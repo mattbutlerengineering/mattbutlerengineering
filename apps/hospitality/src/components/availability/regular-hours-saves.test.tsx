@@ -13,6 +13,7 @@ const save = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),
   useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
+  useAvailabilityConfig: () => ({ data: undefined, error: null }),
 }));
 vi.mock("../../contexts/VenueContext.js", () => ({
   useVenue: () => ({
@@ -38,11 +39,11 @@ vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
   ),
 }));
 
-import { AvailabilityQuickSetup } from "./AvailabilityQuickSetup.js";
-import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
+import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
+import type { AvailabilityScope } from "../../hooks/useAvailabilityScope.js";
+import { AvailabilityHoursPage } from "../../pages/AvailabilityHoursPage.js";
 import { demoDraft } from "./quick-setup-demo.fixture.js";
 import { draftToConfig } from "./quick-setup-draft.js";
-import { RegularWeekPanel } from "./RegularWeekPanel.js";
 
 const TODAY = "2026-10-25"; // a Sunday
 const LATER = "2026-11-02"; // a Monday
@@ -110,45 +111,55 @@ const pressSave = () => fireEvent.click(screen.getByRole("button", { name: /^Sav
 
 // Drivers: how each outcome is reached. Only these change when the editor does.
 
-function editFromToday(config: AvailabilityConfig) {
+/** Regular hours at its address, under a layout that provides the scope. */
+function renderPage(state: AvailabilityConfigState) {
+  const scope: AvailabilityScope = {
+    venueId: "venue-1",
+    timezone: "America/Los_Angeles",
+    today: TODAY,
+    state,
+    load: "ready",
+    loadError: null,
+    isManager: true,
+    rolePending: false,
+    refresh: vi.fn(),
+    offerUndo: vi.fn(),
+  };
+  const router = createMemoryRouter(
+    [
+      {
+        path: "availability",
+        element: <Outlet context={scope} />,
+        children: [
+          { index: true, element: <div>Hub</div> },
+          { path: "hours", element: <AvailabilityHoursPage /> },
+        ],
+      },
+    ],
+    { initialEntries: ["/availability/hours"] }
+  );
   render(
     <main>
-      <RegularWeekPanel
-        venueId="venue-1"
-        state={stateOf(config)}
-        today={TODAY}
-        onStale={vi.fn()}
-        onStartLater={vi.fn()}
-      />
+      <RouterProvider router={router} />
     </main>
   );
+}
+
+function editFromToday(config: AvailabilityConfig) {
+  renderPage(stateOf(config));
   fireEvent.click(lunchMonday());
   pressSave();
 }
 
 function editStartingLater(config: AvailabilityConfig, startsOn: string, edit: boolean) {
-  render(
-    <main>
-      <ChangeRegularWeekDrawer
-        venueId="venue-1"
-        state={stateOf(config)}
-        today={TODAY}
-        onStale={vi.fn()}
-        onClose={vi.fn()}
-      />
-    </main>
-  );
+  renderPage(stateOf(config));
   fireEvent.change(screen.getByLabelText("Starting"), { target: { value: startsOn } });
   if (edit) fireEvent.click(lunchMonday());
   pressSave();
 }
 
 function firstSetup() {
-  render(
-    <main>
-      <AvailabilityQuickSetup venueId="venue-1" state={EMPTY} onStale={vi.fn()} />
-    </main>
-  );
+  renderPage(EMPTY);
   fireEvent.click(screen.getByRole("button", { name: "Lunch" }));
   fireEvent.click(screen.getByRole("button", { name: "Add another service" }));
   const dinner = screen.getAllByRole("button", { name: "Dinner" });

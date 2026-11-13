@@ -47,6 +47,13 @@ export interface RegularWeekEditInput {
   readonly initialDraft?: QuickSetupDraft;
   /** Starting, prefilled (Copy → Every week). The Manager can change it; it counts as an edit. */
   readonly initialStartsOn?: string;
+  /**
+   * Starting, until the Manager picks another date (Regular hours: today). It is not an edit;
+   * another date is. There is no end date.
+   */
+  readonly defaultStart?: string;
+  /** Offers Undo for the save; the frame's own (the layout's) when it outlives the editor. */
+  readonly offerUndo?: (title: string, saved: AvailabilityConfigSaveResult) => void;
 }
 
 /**
@@ -57,11 +64,14 @@ export interface RegularWeekEditInput {
 export function useRegularWeekEdit(input: RegularWeekEditInput) {
   const { venueId, state, onStale, onSaved, onGone, fixedStart, initialDraft, initialStartsOn } =
     input;
+  const { defaultStart } = input;
   const { config } = state;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const dayName = useWeekdayName();
-  const offerUndo = useAvailabilityUndo();
+  const ownUndo = useAvailabilityUndo();
+  const offerUndo = (title: string, saved: AvailabilityConfigSaveResult) =>
+    input.offerUndo ? input.offerUndo(title, saved) : ownUndo({ venueId, saved, title });
   const saver = useScheduleSave(onStale);
 
   const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
@@ -75,8 +85,10 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
   const [conflictMode, setConflictMode] = useState<ScopeConflictMode>("keep");
 
   const pinned = fixedStart !== undefined;
-  const startsOn = pinned ? fixedStart : pickedStart;
+  const startsOn = pinned ? fixedStart : (pickedStart ?? defaultStart ?? null);
   const endsOn = pinned ? null : pickedEnd;
+  // A start is an edit when it was picked and differs from the one the frame starts on.
+  const startEdited = !pinned && pickedStart !== null && pickedStart !== defaultStart;
 
   const edit = (next: QuickSetupDraft) => {
     setEdited((was) => editedWeekday(draft, next) ?? was);
@@ -111,7 +123,7 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
   const baselineWeek = useMemo(() => weekOf(review.baseline), [review.baseline]);
   const dirty =
     name.trim() !== "" ||
-    (!pinned && startsOn !== null) ||
+    startEdited ||
     endsOn !== null ||
     weekKey(draft) !== weekKey(baselineWeek);
 
@@ -189,14 +201,12 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     // conflict the Manager reviews, not something this save quietly rebases.
     const saved = await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
     if (!saved) return false;
-    offerUndo({
-      venueId,
-      saved,
-      title:
-        endsOn === null
-          ? t("availabilitySchedules.regularWeek.savedWeek", { date: startText })
-          : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
-    });
+    offerUndo(
+      endsOn === null
+        ? t("availabilitySchedules.regularWeek.savedWeek", { date: startText })
+        : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
+      saved
+    );
     onSaved?.(saved);
     return true;
   };

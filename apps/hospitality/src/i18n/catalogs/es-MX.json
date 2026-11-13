@@ -3456,6 +3456,13 @@
         "closure": "un cierre",
         "tonight": "un cambio hecho para esta noche"
       }
+    },
+    "hours": {
+      "back": "Volver a Disponibilidad",
+      "starting": "Desde",
+      "appliesToday": "Se aplica a todas las fechas que cubre este horario, a partir de hoy.",
+      "appliesFrom": "Se aplica a todas las fechas que cubre este horario, a partir del {{date}}.",
+      "loading": "Cargando el horario habitual"
     }
   },
   "setup": {

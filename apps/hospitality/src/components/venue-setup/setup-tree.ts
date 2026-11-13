@@ -183,7 +183,8 @@ const action = (id: SetupActionId, target: SetupActionTarget, subject?: string):
   subject === undefined ? { id, target, primary: false } : { id, target, primary: false, subject };
 
 const SETUP_CALENDAR = availabilityPath({ view: "hub", from: "setup" });
-const SETUP_SCHEDULES = availabilityPath({ view: "hours", from: "setup" });
+const SETUP_SCHEDULES = availabilityPath({ view: "seasonal", from: "setup" });
+const SETUP_HOURS = availabilityPath({ view: "hours", from: "setup" });
 const SETUP_CALENDAR_TAB = availabilityPath({ view: "calendar", from: "setup" });
 const SETUP_ADD_SCHEDULE = availabilityPath({ view: "seasonal", screen: "new", from: "setup" });
 const SETUP_SPECIAL = availabilityPath({ view: "specialDates", from: "setup" });
@@ -271,8 +272,8 @@ function scheduleNode(
     ? []
     : schedule.isRegular
       ? [
-          action("changeRegularWeek", link(SETUP_SCHEDULES)),
-          action("editSchedule", link(SETUP_SCHEDULES), schedule.name),
+          action("changeRegularWeek", link(SETUP_HOURS)),
+          action("editSchedule", link(SETUP_HOURS), schedule.name),
         ]
       : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
   return {

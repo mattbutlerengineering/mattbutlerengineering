@@ -90,7 +90,7 @@ export function parseAvailabilityEntry(search: string | URLSearchParams): Availa
  */
 const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | undefined>> = {
   hub: undefined,
-  hours: "schedules",
+  hours: undefined,
   seasonal: "schedules",
   specialDates: "special",
   closures: "special",
@@ -101,6 +101,12 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
 
 /** The booking rules drawer, over the hub. */
 const BOOKING_RULES = `${ROUTE}/booking-rules`;
+/** Regular hours, a page of its own (`?service=` names the service to open). */
+const HOURS = `${ROUTE}/hours`;
+
+/** The service `?service=` names on regular hours, or `null`. */
+export const readHoursService = (location: { readonly search: string }): string | null =>
+  new URLSearchParams(location.search).get("service") || null;
 
 /** Whether a pathname is the booking rules drawer. In any case, as the router matches it. */
 export const isBookingRulesPage = (pathname: string): boolean =>
@@ -124,6 +130,12 @@ export function availabilityPath(target: AvailabilityTarget): string {
   if (target.view === "hub" && target.close?.kind !== "section") {
     if (target.from) params.set("from", target.from);
     return withSearch(ROUTE, params);
+  }
+  // Regular hours opens no dialog (C2.4): a close or pause target is dropped.
+  if (target.view === "hours") {
+    if (target.service) params.set("service", target.service);
+    if (target.from) params.set("from", target.from);
+    return withSearch(HOURS, params);
   }
   // The drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
   if (target.view === "bookingRules") {

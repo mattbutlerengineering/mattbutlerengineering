@@ -1823,8 +1823,8 @@ describe("the Availability route table", () => {
     expect(address(router)).toBe("/setup");
   });
 
+  // `?tab=schedules` now lands on Regular hours, a page of its own (AvailabilityHubPage.test.tsx).
   it.each([
-    ["/availability?tab=schedules&from=setup", "/availability/calendar?tab=schedules&from=setup"],
     ["/availability?tab=calendar&from=setup", "/availability/calendar?tab=calendar&from=setup"],
   ])("carries from=setup from %s", async (old, next) => {
     const router = renderRoutes(old);

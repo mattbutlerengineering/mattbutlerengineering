@@ -1,0 +1,32 @@
+/* Regular hours: the header with its way back, then the form. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--rialto-space-sm);
+}
+
+/* As the hub's links: underlined text with a target of at least 24 px. */
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--rialto-space-lg);
+  min-inline-size: var(--rialto-space-lg);
+  color: var(--rialto-text-primary);
+  text-decoration: underline;
+}
+
+.link:hover {
+  color: var(--rialto-text-secondary);
+}
+
+.link:focus-visible {
+  outline: none;
+  border-radius: var(--rialto-radius-default);
+  box-shadow: var(--rialto-shadow-focus);
+}

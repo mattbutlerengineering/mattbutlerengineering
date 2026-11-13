@@ -5457,6 +5457,8 @@
         ...(params.get("from") === "setup" && { from: "setup" as const }),
       };
     }
+    export const readHoursService = (location: { readonly search: string }): string | null =>
+      new URLSearchParams(location.search).get("service") || null;
     export const isBookingRulesPage = (pathname: string): boolean =>
       pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
     export function availabilityPath(target: AvailabilityTarget): string {
@@ -5465,6 +5467,12 @@
       if (target.view === "hub" && target.close?.kind !== "section") {
         if (target.from) params.set("from", target.from);
         return withSearch(ROUTE, params);
+      }
+      // Regular hours opens no dialog (C2.4): a close or pause target is dropped.
+      if (target.view === "hours") {
+        if (target.service) params.set("service", target.service);
+        if (target.from) params.set("from", target.from);
+        return withSearch(HOURS, params);
       }
       // The drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
       if (target.view === "bookingRules") {
@@ -8076,6 +8084,16 @@
       "christmasDay",
       "newYearsDay",
     ]);
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub-return-focus.ts">
+    export function focusHubRowOnReturn(testId: string): void {
+      pending = { testId, at: Date.now() };
+    }
+    export function takeHubReturnRow(): string | null {
+      const request = pending;
+      pending = null;
+      return request && Date.now() - request.at <= RETURN_TTL_MS ? request.testId : null;
+    }
   </file>
   <file path="apps/hospitality/src/components/availability/layer-rule-actions-props.ts">
     export interface LayerRuleActionsProps {
@@ -11878,6 +11896,89 @@
       return { refuse, refusals };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/use-regular-hours-draft.ts">
+    export interface RegularHoursDraftInput {
+      readonly venueId: string;
+      readonly state: AvailabilityConfigState;
+      /** Today on the venue clock: Starting begins here, and no earlier date can be picked. */
+      readonly today: string;
+      readonly onStale: () => void;
+      readonly offerUndo: (title: string, saved: AvailabilityConfigSaveResult) => void;
+      /** Saved from the save bar (not from the leave prompt, whose route change goes ahead itself). */
+      readonly onSaved: (saved: AvailabilityConfigSaveResult) => void;
+      /** The regular hours the draft is based on are gone and the Manager chose to discard. */
+      readonly onDiscard: () => void;
+    }
+    export function useRegularHoursDraft(input: RegularHoursDraftInput) {
+      const { venueId, state, today, onStale, offerUndo, onSaved, onDiscard } = input;
+      const scopeId = useId();
+      // The leave prompt's Save: its route change goes ahead by itself, so no return to the hub.
+      const viaPrompt = useRef(false);
+      const [revealed, setRevealed] = useState(false);
+      const [done, setDone] = useState(false);
+      const [leaving, setLeaving] = useState(false);
+      const edit = useRegularWeekEdit({
+        venueId,
+        state,
+        onStale,
+        defaultStart: today,
+        offerUndo,
+        onGone: onDiscard,
+        onSaved: (saved) => {
+          setDone(true);
+          if (!viaPrompt.current) onSaved(saved);
+        },
+      });
+      const { issues, block, blocked } = edit;
+      const shown = revealed ? issues : issues.filter((issue) => issue.code !== "block_days_required");
+      // Everything wrong is still unsaid: the preview and the bar stay quiet about it.
+      const quiet = block === null && shown.length === 0 && issues.length > 0;
+      // Refused for a problem in the form, not for a conflict or a missing service.
+      const refused = blocked && block === null && issues.length > 0;
+      const { refuse } = useRefusedPress({
+        onRefused: () => setRevealed(true),
+        focusFirstProblem: () => focusFirstInvalid(shown, scopeId),
+      });
+      const save = () => (refused ? refuse() : void edit.submit());
+      const saveAndLeave = async (): Promise<boolean> => {
+        if (blocked) {
+          if (refused) refuse();
+          return false;
+        }
+        // A saved draft keeps the guard mounted until the route change goes through (the page is gone
+        // by then); a refused one keeps `unsaved`, so the guard is still there to answer.
+        viaPrompt.current = true;
+        setLeaving(true);
+        const saved = await edit.submit();
+        viaPrompt.current = false;
+        if (!saved) setLeaving(false);
+        return saved;
+      };
+      const leftBlock = (event: FocusEvent) => {
+        const fieldset = (event.target as HTMLElement).closest("[data-hours-block]");
+        if (fieldset && !fieldset.contains(event.relatedTarget as Node | null)) setRevealed(true);
+      };
+      const reach: SaveReach | null =
+        edit.startsOn !== null && edit.startsOn !== today
+          ? { kind: "from", date: edit.startText }
+          : null;
+      return {
+        ...edit,
+        scopeId,
+        shown,
+        quiet,
+        hasProblem: refused && !quiet,
+        // A reason that is not a field's problem (a conflict, no service left); those are the form's.
+        blockedReason: block === null ? null : edit.blockedText,
+        reach,
+        unsaved: edit.dirty && !done,
+        guarded: (edit.dirty && !done) || leaving,
+        save,
+        saveAndLeave,
+        leftBlock,
+      };
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/use-regular-week-edit.ts">
     export interface RegularWeekEditInput {
       readonly venueId: string;
@@ -11896,15 +11997,25 @@
       readonly initialDraft?: QuickSetupDraft;
       /** Starting, prefilled (Copy → Every week). The Manager can change it; it counts as an edit. */
       readonly initialStartsOn?: string;
+      /**
+       * Starting, until the Manager picks another date (Regular hours: today). It is not an edit;
+       * another date is. There is no end date.
+       */
+      readonly defaultStart?: string;
+      /** Offers Undo for the save; the frame's own (the layout's) when it outlives the editor. */
+      readonly offerUndo?: (title: string, saved: AvailabilityConfigSaveResult) => void;
     }
     export function useRegularWeekEdit(input: RegularWeekEditInput) {
       const { venueId, state, onStale, onSaved, onGone, fixedStart, initialDraft, initialStartsOn } =
         input;
+      const { defaultStart } = input;
       const { config } = state;
       const { t } = useTranslation();
       const format = useVenueFormat();
       const dayName = useWeekdayName();
-      const offerUndo = useAvailabilityUndo();
+      const ownUndo = useAvailabilityUndo();
+      const offerUndo = (title: string, saved: AvailabilityConfigSaveResult) =>
+        input.offerUndo ? input.offerUndo(title, saved) : ownUndo({ venueId, saved, title });
       const saver = useScheduleSave(onStale);
     
       const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
@@ -11918,8 +12029,10 @@
       const [conflictMode, setConflictMode] = useState<ScopeConflictMode>("keep");
     
       const pinned = fixedStart !== undefined;
-      const startsOn = pinned ? fixedStart : pickedStart;
+      const startsOn = pinned ? fixedStart : (pickedStart ?? defaultStart ?? null);
       const endsOn = pinned ? null : pickedEnd;
+      // A start is an edit when it was picked and differs from the one the frame starts on.
+      const startEdited = !pinned && pickedStart !== null && pickedStart !== defaultStart;
     
       const edit = (next: QuickSetupDraft) => {
         setEdited((was) => editedWeekday(draft, next) ?? was);
@@ -11954,7 +12067,7 @@
       const baselineWeek = useMemo(() => weekOf(review.baseline), [review.baseline]);
       const dirty =
         name.trim() !== "" ||
-        (!pinned && startsOn !== null) ||
+        startEdited ||
         endsOn !== null ||
         weekKey(draft) !== weekKey(baselineWeek);
     
@@ -12032,14 +12145,12 @@
         // conflict the Manager reviews, not something this save quietly rebases.
         const saved = await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
         if (!saved) return false;
-        offerUndo({
-          venueId,
-          saved,
-          title:
-            endsOn === null
-              ? t("availabilitySchedules.regularWeek.savedWeek", { date: startText })
-              : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
-        });
+        offerUndo(
+          endsOn === null
+            ? t("availabilitySchedules.regularWeek.savedWeek", { date: startText })
+            : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
+          saved
+        );
         onSaved?.(saved);
         return true;
       };
@@ -102015,8 +102126,8 @@
         ? []
         : schedule.isRegular
           ? [
-              action("changeRegularWeek", link(SETUP_SCHEDULES)),
-              action("editSchedule", link(SETUP_SCHEDULES), schedule.name),
+              action("changeRegularWeek", link(SETUP_HOURS)),
+              action("editSchedule", link(SETUP_HOURS), schedule.name),
             ]
           : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
       return {
