@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DateRule } from "@mbe/types";
-import { rowsOf, rule, THURSDAYS, TODAY, venue, window } from "./hub-rows-test-helpers.js";
+import { closuresLines } from "./hub-closures-text.js";
+import { rowsOf, rule, TEXT, THURSDAYS, TODAY, venue, window } from "./hub-rows-test-helpers.js";
 
 const YESTERDAY = "2026-11-11";
 const TOMORROW = "2026-11-13";
@@ -383,5 +384,94 @@ describe("hubRows: 4, changes made for tonight", () => {
       payload: { version: 1, closeAt: 1200 },
     });
     expect(rowsOf(venue([yesterday]))[3].tonight).toEqual([]);
+  });
+});
+
+describe("hubRows: 4, last night's tonight changes while that service runs past midnight", () => {
+  // Dinner closes at 2:00 AM. The rules were made on Nov 11; it is now Nov 12.
+  const OPEN_LATE = { regularClosesAt: 1560 };
+  const HALF_PAST_MIDNIGHT = { nowMinute: 30 };
+  const lastNight = (id: string, rest: Partial<DateRule>): DateRule =>
+    rule(id, {
+      kind: "tonight",
+      startsOn: YESTERDAY,
+      endsOn: YESTERDAY,
+      ...rest,
+    } as Partial<DateRule>);
+  const onlineStop = (from: number, to: number): DateRule =>
+    lastNight("r-stop", {
+      ...ONLINE,
+      payload: { version: 1, stop: { from, to } },
+    } as Partial<DateRule>);
+  const pausedLastNight = onlineStop(0, 2880);
+  const PAUSE = {
+    ruleId: "r-stop",
+    source: "tonight",
+    inForce: true,
+    fromMinute: 0,
+    untilMinute: null,
+    endsOn: TODAY,
+  };
+
+  it("keeps an online stop made last night as the pause until that service ends", () => {
+    const config = venue([pausedLastNight], OPEN_LATE);
+    const atHalfPast = rowsOf(config, HALF_PAST_MIDNIGHT)[3];
+    expect(atHalfPast).toEqual({ ...EMPTY, pause: PAUSE });
+    expect(closuresLines(atHalfPast, TODAY, TEXT)).toEqual([
+      { ruleId: "r-stop", text: "Online booking paused until tonight ends" },
+    ]);
+    expect(rowsOf(config, { nowMinute: 119 })[3]).toEqual({ ...EMPTY, pause: PAUSE });
+    // 2:00 AM: last night's service is over.
+    expect(rowsOf(config, { nowMinute: 120 })[3]).toEqual(EMPTY);
+  });
+
+  it("drops an online stop made last night once its own time has passed", () => {
+    // Paused until 1:00 AM.
+    const config = venue([onlineStop(1320, 1500)], OPEN_LATE);
+    expect(rowsOf(config, HALF_PAST_MIDNIGHT)[3].pause).toEqual({
+      ...PAUSE,
+      fromMinute: 1320,
+      untilMinute: 1500,
+    });
+    expect(rowsOf(config, { nowMinute: 60 })[3]).toEqual(EMPTY);
+  });
+
+  it("keeps a close-early made last night until that service ends", () => {
+    // Closing at 1:30 AM instead of 2:00 AM.
+    const closeEarly = lastNight("r-close", { payload: { version: 1, closeAt: 1530 } });
+    const config = venue([closeEarly], OPEN_LATE);
+    const listed = [{ ruleId: "r-close", closeAt: 1530, window: null }];
+    expect(rowsOf(config, HALF_PAST_MIDNIGHT)[3]).toEqual({ ...EMPTY, tonight: listed });
+    expect(rowsOf(config, { nowMinute: 89 })[3].tonight).toEqual(listed);
+    expect(rowsOf(config, { nowMinute: 90 })[3]).toEqual(EMPTY);
+  });
+
+  it("keeps a stop of the venue made last night until the stop or that service ends", () => {
+    const untilClose = lastNight("r-stop", {
+      payload: { version: 1, stop: { from: 1380, to: 2880 } },
+    });
+    const config = venue([untilClose], OPEN_LATE);
+    const listed = [{ ruleId: "r-stop", closeAt: null, window: { from: 1380, to: 2880 } }];
+    expect(rowsOf(config, HALF_PAST_MIDNIGHT)[3].tonight).toEqual(listed);
+    expect(rowsOf(config, { nowMinute: 119 })[3].tonight).toEqual(listed);
+    expect(rowsOf(config, { nowMinute: 120 })[3].tonight).toEqual([]);
+    // A stop that ended at 12:15 AM is over by 12:30 AM.
+    const brief = lastNight("r-brief", { payload: { version: 1, stop: { from: 1380, to: 1455 } } });
+    expect(rowsOf(venue([brief], OPEN_LATE), HALF_PAST_MIDNIGHT)[3].tonight).toEqual([]);
+  });
+
+  it("shows nothing from last night on a venue that closes before midnight", () => {
+    const closeEarly = lastNight("r-close", { payload: { version: 1, closeAt: 1200 } });
+    expect(rowsOf(venue([pausedLastNight, closeEarly]), HALF_PAST_MIDNIGHT)[3]).toEqual(EMPTY);
+  });
+
+  it("names today's own online stop over last night's", () => {
+    const today = rule("r-today", {
+      kind: "tonight",
+      ...ONLINE,
+      payload: { version: 1, stop: { from: 0, to: 2880 } },
+    } as Partial<DateRule>);
+    const config = venue([pausedLastNight, today], OPEN_LATE);
+    expect(rowsOf(config, HALF_PAST_MIDNIGHT)[3].pause).toEqual({ ...PAUSE, ruleId: "r-today" });
   });
 });
