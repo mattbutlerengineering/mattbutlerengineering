@@ -83,16 +83,16 @@ export interface ClosuresRowInput {
 const MINUTES_PER_DAY = 1440;
 const END_OF_SERVICE_DAY = 2880;
 
-type ClosureRule = Extract<DateRule, { kind: "closure" }>;
+export type ClosureRule = Extract<DateRule, { kind: "closure" }>;
 
-interface Clock extends ClosuresRowInput {
+export interface Clock extends ClosuresRowInput {
   readonly rules: readonly DateRule[];
   readonly yesterday: string;
   /** This minute on yesterday's service day, while that service still runs; else `null`. */
   readonly lateMinute: number | null;
 }
 
-function clockOf(input: ClosuresRowInput): Clock {
+export function clockOf(input: ClosuresRowInput): Clock {
   const { config, timezone, today, nowMinute } = input;
   const yesterday = addDays(today, -1);
   const lastClose = Math.max(
@@ -108,9 +108,9 @@ function clockOf(input: ClosuresRowInput): Clock {
   };
 }
 
-const isClosure = (rule: DateRule): rule is ClosureRule => rule.kind === "closure";
+export const isClosure = (rule: DateRule): rule is ClosureRule => rule.kind === "closure";
 
-function isOnlinePause(rule: DateRule): rule is ClosureRule {
+export function isOnlinePause(rule: DateRule): rule is ClosureRule {
   const channels = rule.bookingTypes ?? [];
   return (
     isClosure(rule) &&
@@ -194,7 +194,7 @@ function tonightChanges(rules: readonly DateRule[], today: string): HubTonightCh
 }
 
 /** The service date the closure is in force on at this minute, or `null`. */
-function inForceOn(rule: ClosureRule, clock: Clock): string | null {
+export function inForceOn(rule: ClosureRule, clock: Clock): string | null {
   const { rules, today, yesterday, nowMinute, lateMinute } = clock;
   const from = rule.window?.from ?? 0;
   const to = rule.window?.to ?? END_OF_SERVICE_DAY;
@@ -208,14 +208,14 @@ function inForceOn(rule: ClosureRule, clock: Clock): string | null {
 }
 
 /** The next date a closure not in force closes: today if its time is still to come. */
-function waitingOn(rule: ClosureRule, clock: Clock): string | null {
+export function waitingOn(rule: ClosureRule, clock: Clock): string | null {
   const { rules, today, nowMinute } = clock;
   const first = nextDateOn(rule, rules, today);
   const passedToday = first === today && rule.window != null && rule.window.to <= nowMinute;
   return passedToday ? nextDateOn(rule, rules, addDays(today, 1)) : first;
 }
 
-function targetOf(rule: ClosureRule, clock: Clock): HubClosureTarget {
+export function targetOf(rule: ClosureRule, clock: Clock): HubClosureTarget {
   if (rule.targetKind === "service" && rule.venueServiceId) {
     const { venueServiceId } = rule;
     const service = clock.config.venueServices.find((s) => s.id === venueServiceId);

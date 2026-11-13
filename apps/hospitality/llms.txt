@@ -709,6 +709,86 @@
       ): readonly string[] { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/closures-list.ts">
+    <item priority="low">
+      type ClosureFacts = Pick<
+        HubClosure,
+        "target" | "startsOn" | "endsOn" | ...;
+    </item>
+    <item priority="low">
+      interface SkippedDate {
+        skipId: string;
+        date: string;
+      }
+    </item>
+    <item priority="low">
+      interface ClosureListRow {
+        group: "now" | "upcoming";
+        ruleId: string;
+        on: string | null;
+        pause: boolean;
+        editable: boolean;
+      }
+    </item>
+    <item priority="low">
+      interface EarlierClosureRow {
+        group: "earlier";
+        ruleId: string;
+        closure: ClosureFacts | null;
+        outcomes: ClosureSummary;
+        refundsOpen: number;
+      }
+    </item>
+    <item priority="low">
+      interface ClosuresList {
+        now: readonly ClosureListRow[];
+        upcoming: readonly ClosureListRow[];
+        earlier: readonly EarlierClosureRow[];
+      }
+    </item>
+    <item priority="low">
+      interface ClosuresListInput {
+        summaries: readonly ClosureSummary[] | null;
+      }
+    </item>
+    <item priority="medium">
+      function factsOf(rule: ClosureRule, clock: Clock): ClosureFacts { /* ... */ }
+    </item>
+    <item priority="medium">
+      function forceDate(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
+    </item>
+    <item priority="high">
+      type Placed = { readonly group: "now"; reado | { readonly group: "upcoming";  | { readonly group: "ended" };
+    </item>
+    <item priority="medium">
+      function place(rule: ClosureRule, clock: Clock): Placed { /* ... */ }
+    </item>
+    <item priority="medium">
+      function skippedOf(rule: ClosureRule, clock: Clock): readonly SkippedDate[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function rowOf(
+        rule: ClosureRule,
+        placed: Exclude<Placed, { group: "ended" }>,
+        clock: Clock,
+        outcomes: ClosureSummary | null
+      ): ClosureListRow { /* ... */ }
+    </item>
+    <item priority="medium">
+      function byNextDate(a: ClosureListRow, b: ClosureListRow): number { /* ... */ }
+    </item>
+    <item priority="medium">
+      function earlierRows(
+        summaries: readonly ClosureSummary[],
+        ended: readonly ClosureRule[],
+        listed: ReadonlySet<string>,
+        clock: Clock
+      ): EarlierClosureRow[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closuresList(input: ClosuresListInput): ClosuresList { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/compare-changes.ts">
     <item priority="high">
       type Hours = Pick<
@@ -6022,21 +6102,24 @@
         nowMinute: number;
       }
     </item>
-    <item priority="high">
+    <item priority="low">
       type ClosureRule = Extract<DateRule, { kind: "closure" }>;
     </item>
-    <item priority="high">
+    <item priority="low">
       interface Clock {
         rules: readonly DateRule[];
         yesterday: string;
         lateMinute: number | null;
       }
     </item>
-    <item priority="medium">
-      function clockOf(input: ClosuresRowInput): Clock { /* ... */ }
+    <item priority="high">
+      export function clockOf(input: ClosuresRowInput): Clock { /* ... */ }
     </item>
-    <item priority="medium">
-      function isOnlinePause(rule: DateRule): rule is ClosureRule { /* ... */ }
+    <item priority="high">
+      export const isClosure: unknown;
+    </item>
+    <item priority="high">
+      export function isOnlinePause(rule: DateRule): rule is ClosureRule { /* ... */ }
     </item>
     <item priority="medium">
       function closurePauses(clock: Clock): HubOnlinePause[] { /* ... */ }
@@ -6050,14 +6133,14 @@
     <item priority="medium">
       function tonightChanges(rules: readonly DateRule[], today: string): HubTonightChange[] { /* ... */ }
     </item>
-    <item priority="medium">
-      function inForceOn(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
+    <item priority="high">
+      export function inForceOn(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
     </item>
-    <item priority="medium">
-      function waitingOn(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
+    <item priority="high">
+      export function waitingOn(rule: ClosureRule, clock: Clock): string | null { /* ... */ }
     </item>
-    <item priority="medium">
-      function targetOf(rule: ClosureRule, clock: Clock): HubClosureTarget { /* ... */ }
+    <item priority="high">
+      export function targetOf(rule: ClosureRule, clock: Clock): HubClosureTarget { /* ... */ }
     </item>
     <item priority="medium">
       function closureOf(rule: ClosureRule, nextOn: string, clock: Clock): HubClosure { /* ... */ }
