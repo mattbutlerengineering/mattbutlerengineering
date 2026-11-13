@@ -558,10 +558,19 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
         await remove.click();
         const ask = mockedPage.getByRole("alertdialog", { name: c.removeTitle });
         await expect(ask).toBeVisible();
-        // Not the dialog's fade-in half way through.
-        await ask.evaluate((el) =>
-          Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished))
-        );
+        // Not the dialog's fade-in half way through. Polled for its end state rather than awaiting
+        // each `Animation.finished`: framer-motion (motion-dom's NativeAnimation) calls `cancel()`
+        // on its own WAAPI animation when it finishes or is interrupted, and a cancelled
+        // animation's `finished` rejects with AbortError.
+        await expect
+          .poll(() =>
+            ask.evaluate(
+              (el) =>
+                getComputedStyle(el).opacity === "1" &&
+                el.getAnimations({ subtree: true }).every((a) => a.playState !== "running")
+            )
+          )
+          .toBe(true);
         // rialto's destructive ConfirmDialog button is #1a1918 on #b84a3c, 3.41:1 (below AA). That is
         // the component's own colour pair, not this change's, so axe skips the one button and still
         // reads the rest of the dialog; the defect is reported on #7981.
