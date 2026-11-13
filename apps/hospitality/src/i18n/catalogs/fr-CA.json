@@ -3349,6 +3349,37 @@
       "notInHistory": "Les modifications faites ici ne figurent pas dans l’Historique.",
       "undoError": "Impossible d’annuler la modification des règles de réservation"
     },
+    "pause": {
+      "title": "Suspendre les réservations en ligne",
+      "howLong": "Pour combien de temps",
+      "choice": {
+        "tonight": "Ce soir",
+        "untilResume": "Jusqu'à ce que je les reprenne",
+        "untilDate": "Jusqu'à une date"
+      },
+      "untilLabel": "Suspendre jusqu'au",
+      "chooseDate": "Choisir une date",
+      "button": {
+        "tonight": "Suspendre jusqu'à la fin de la soirée",
+        "untilResume": "Suspendre jusqu'à ce que je les reprenne",
+        "untilDate": "Suspendre jusqu'au {{date}}"
+      },
+      "saved": {
+        "tonight": "Réservations en ligne suspendues jusqu'à la fin de la soirée",
+        "untilResume": "Réservations en ligne suspendues jusqu'à ce que vous les repreniez",
+        "untilDate": "Réservations en ligne suspendues jusqu'au {{date}}"
+      },
+      "saveError": "Impossible de suspendre les réservations en ligne",
+      "alreadySaved": "Cette suspension a déjà été enregistrée. Vérifiez l'état en haut de Disponibilité avant de suspendre de nouveau.",
+      "savedEarlier": {
+        "title": "Les réservations en ligne sont déjà suspendues",
+        "body": "Une tentative précédente de cette suspension a été enregistrée. Les changements faits ensuite n'ont pas été appliqués."
+      },
+      "leave": {
+        "title": "Quitter cette suspension?",
+        "description": "Le dernier enregistrement ne s'est pas terminé; les réservations en ligne sont peut-être déjà suspendues. Vérifiez l'état en haut de Disponibilité avant de suspendre de nouveau."
+      }
+    },
     "hub": {
       "rulesHeading": "Vos règles",
       "laterRulesWin": "Les règles plus bas l'emportent aux dates qu'elles couvrent.",
@@ -3456,6 +3487,11 @@
         "closure": "une fermeture",
         "tonight": "un changement fait pour ce soir"
       }
+    },
+    "closeMenu": {
+      "open": "Fermer ou suspendre",
+      "close": "Fermer l'établissement ou une partie",
+      "pause": "Suspendre les réservations en ligne"
     },
     "hours": {
       "back": "Retour à Disponibilité",

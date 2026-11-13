@@ -395,7 +395,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await page.goto("availability?from=setup&closeSection=sec-bar");
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date", exact: true }).press("ArrowDown");
     await page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(page, closeDay).click();
     await dialog.getByTestId("close-primary").click();
@@ -417,6 +417,19 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toHaveCount(0);
+    // History: the hub's History link, a drawer at its own address (availability-hub C2.6).
+    // Its own Close button, not Escape: Escape pressed before the drawer has taken focus is lost.
+    await page.route(/\/api\/v1\/venues\/[^/?]+\/availability\/changes(\?|$)/, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { total: 0, offset: 0, items: [] } }),
+      })
+    );
+    await page.getByRole("link", { name: "History" }).click();
+    const history = page.getByRole("dialog", { name: "History" });
+    await history.getByRole("button", { name: "Close" }).click();
+    await expect(history).toHaveCount(0);
     await firstPaint(page);
 
     // Guest-view strip: one closed row under the week form until the Manager asks for it.
@@ -424,15 +437,11 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     const strip = page.getByRole("complementary", { name: "Guest preview" });
     await expect(strip).toBeVisible();
 
-    // Compare services and History: the header ⋯.
+    // Compare services: the header ⋯.
     const more = page.getByRole("button", { name: "More actions" });
     await more.click();
     await page.getByRole("menuitem", { name: "Compare services" }).click();
     await expect(page.getByRole("heading", { name: "Compare services" })).toBeVisible();
-    await more.click();
-    await page.getByRole("menuitem", { name: "History" }).click();
-    await expect(page.getByRole("dialog", { name: "History" })).toBeVisible();
-    await page.keyboard.press("Escape");
 
     // Change regular week: edit in place and save (today's date), no drawer.
     await weekPanel(page)
@@ -494,7 +503,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
     }
   });
 
-  test("(e) a Host's Availability page is read-only: Calendar and Special dates, History and Go to date only", async ({
+  test("(e) a Host's Availability page is read-only: Calendar and Special dates, Go to date only", async ({
     mockedPage: page,
   }) => {
     await viewAsHost(page);
@@ -506,7 +515,7 @@ test.describe("Setup hierarchy: the layered Availability page", () => {
       await expect(page.getByRole("button", { name })).toHaveCount(0);
     }
     await page.getByRole("button", { name: "More actions" }).click();
-    await expect(page.getByRole("menuitem")).toHaveText(["History", "Go to date"]);
+    await expect(page.getByRole("menuitem")).toHaveText(["Go to date"]);
   });
 });
 
@@ -672,7 +681,7 @@ test.describe("The demo runs as written (PRD 9)", () => {
     await page.getByRole("button", { name: "Close for a date… Bar" }).click();
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText(/^One section: /)).toBeVisible();
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date", exact: true }).press("ArrowDown");
     await page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(page, closeDay).click();
     await dialog.getByTestId("close-primary").click();

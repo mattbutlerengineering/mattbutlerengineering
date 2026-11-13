@@ -40,3 +40,8 @@
 {"date":"2026-11-06","timestamp":"2026-11-06T15:40:48.387Z","costUsd":0.2980653,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":20,"outputTokens":2651,"numTurns":10}
 {"date":"2026-11-06","timestamp":"2026-11-06T15:49:47.200Z","costUsd":0.5795988,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":28,"outputTokens":12939,"numTurns":15}
 {"date":"2026-11-13","timestamp":"2026-11-13T02:03:41.908Z","costUsd":0.4125072000000001,"model":"sonnet","adapter":"claude","sessionId":"2855af33-2cff-5f8d-80fd-4df04c2d5c08","status":"succeeded","inputTokens":24,"outputTokens":5066,"numTurns":15}
+{"date":"2026-11-13","timestamp":"2026-11-13T16:06:53.792Z","costUsd":0.41148460000000003,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":18,"outputTokens":2040,"numTurns":9}
+{"date":"2026-11-13","timestamp":"2026-11-13T16:09:12.840Z","costUsd":0.16669759999999997,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":8,"outputTokens":502,"numTurns":4}
+{"date":"2026-11-13","timestamp":"2026-11-13T16:17:52.125Z","costUsd":0.6725095,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":40,"outputTokens":8615,"numTurns":20}
+{"date":"2026-11-13","timestamp":"2026-11-13T16:34:26.433Z","costUsd":0.28077610000000003,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":18,"outputTokens":2221,"numTurns":9}
+{"date":"2026-11-13","timestamp":"2026-11-13T16:47:06.017Z","costUsd":0.4927016,"model":"claude-sonnet-5","adapter":"claude-cli","status":"succeeded","inputTokens":26,"outputTokens":7846,"numTurns":13}

@@ -58,9 +58,14 @@ function scopeOf(rest: Partial<AvailabilityScope> = {}): AvailabilityScope {
     rolePending: false,
     refresh,
     offerUndo: vi.fn(),
+    openClose,
+    openPause,
     ...rest,
   };
 }
+
+const openClose = vi.fn();
+const openPause = vi.fn();
 
 function renderHub(scope: AvailabilityScope, url = "/availability") {
   const router = createMemoryRouter(
@@ -202,7 +207,47 @@ describe("AvailabilityHubPage", () => {
     expect(hrefOf(screen.getByRole("link", { name: "Open calendar" }))).toBe(
       "/availability/calendar?tab=calendar"
     );
-    expect(hrefOf(screen.getByRole("link", { name: "History" }))).toBe("/availability/calendar");
+    expect(hrefOf(screen.getByRole("link", { name: "History" }))).toBe("/availability/history");
+  });
+
+  describe("Close or pause (C2.4)", () => {
+    const menuButton = () => screen.getByRole("button", { name: "Close or pause" });
+
+    it("is a menu of two, after the Today line and before the date check", async () => {
+      const user = userEvent.setup();
+      renderHub(scopeOf());
+      const dateField = screen.getByRole("combobox", { name: "Check a date" });
+      expect(
+        menuButton().compareDocumentPosition(dateField) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+      await user.click(menuButton());
+      expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+        "Close the venue or part of it",
+        "Pause online booking",
+      ]);
+    });
+
+    it("opens Close on the whole venue, the date still to ask", async () => {
+      const user = userEvent.setup();
+      renderHub(scopeOf());
+      await user.click(menuButton());
+      await user.click(screen.getByRole("menuitem", { name: "Close the venue or part of it" }));
+      await waitFor(() => expect(openClose).toHaveBeenCalledWith({ kind: "venue" }));
+      expect(openPause).not.toHaveBeenCalled();
+    });
+
+    it("opens Pause: the second of pause tonight's three steps", async () => {
+      const user = userEvent.setup();
+      renderHub(scopeOf());
+      await user.click(menuButton());
+      await user.click(screen.getByRole("menuitem", { name: "Pause online booking" }));
+      await waitFor(() => expect(openPause).toHaveBeenCalledTimes(1));
+    });
+
+    it("is not offered to a Host, nor while the role is read", () => {
+      renderHub(scopeOf({ isManager: false }));
+      expect(screen.queryByRole("button", { name: "Close or pause" })).not.toBeInTheDocument();
+    });
   });
 
   it("reads Edit on seasonal hours once a set exists", () => {
@@ -379,8 +424,6 @@ describe("AvailabilityHubPage", () => {
         "/availability?action=addSchedule",
         "/availability/calendar?tab=schedules&action=addSchedule",
       ],
-      // The hub opens no Close dialog yet, so a section's still opens on today's page.
-      ["/availability?closeSection=sec-bar", "/availability/calendar?closeSection=sec-bar"],
     ])("sends the old address %s to %s with a replace", async (old, next) => {
       const router = renderHub(scopeOf(), old);
       await waitFor(() => expect(address(router)).toBe(next));
@@ -393,6 +436,15 @@ describe("AvailabilityHubPage", () => {
       await waitFor(() => expect(address(router)).toBe("/availability/hours?from=setup"));
       expect(router.state.historyAction).toBe("REPLACE");
       expect(screen.getByText("Regular hours page")).toBeInTheDocument();
+    });
+
+    it("sends ?closeSection= to the hub's own Close of that section, once, keeping from=setup", async () => {
+      const router = renderHub(scopeOf(), "/availability?closeSection=sec-bar&from=setup");
+      await waitFor(() =>
+        expect(address(router)).toBe("/availability?close=section:sec-bar&from=setup")
+      );
+      expect(router.state.historyAction).toBe("REPLACE");
+      expect(screen.getByRole("heading", { level: 1, name: "Availability" })).toBeVisible();
     });
 
     it.each(["/availability", "/availability?tab=nope&x=1", "/availability?close=tonight"])(

@@ -282,11 +282,18 @@ test("+ Add service on a closed day adds a row and moves focus into it", async (
 test("Close: a failed Next moves focus to the first problem", async ({ mockedPage: page }) => {
   await mockAvailability(page);
   await page.goto("availability?tab=calendar");
-  await page.getByRole("button", { name: "Pause online booking" }).click();
-  // Opened from Pause online booking, the dialog is titled for it, not "Close".
-  const dialog = page.getByRole("dialog", { name: "Pause online booking", exact: true });
-  // The channels sit behind What's Change.
+  // Pause online booking has its own dialog; the channels are Close…'s, under "Booking only".
+  await page.getByRole("button", { name: "Close…", exact: true }).click();
+  // Its title follows What, so the dialog is found unnamed.
+  const dialog = page.getByRole("dialog");
+  // Next is off until When is complete.
+  await dialog.getByRole("button", { name: "Tonight" }).click();
+  // The What choices sit behind What's Change.
   await dialog.getByRole("button", { name: "Change" }).click();
+  // The label text, not the radio: the radio's styled circle sits over the input and takes the
+  // pointer, for click() and check() alike (as availability-everyday picks "One service").
+  await dialog.getByText("Booking only", { exact: true }).click();
+  await expect(dialog.getByRole("radio", { name: "Booking only" })).toBeChecked();
   await dialog
     .locator("label")
     .filter({ hasText: /^Online/ })

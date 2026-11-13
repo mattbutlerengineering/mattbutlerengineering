@@ -124,6 +124,8 @@ function renderPage(state: AvailabilityConfigState) {
     rolePending: false,
     refresh: vi.fn(),
     offerUndo: vi.fn(),
+    openClose: vi.fn(),
+    openPause: vi.fn(),
   };
   const router = createMemoryRouter(
     [

@@ -425,7 +425,7 @@ describe("Venue Setup: floor plan, sections and tables", () => {
     expect(screen.getAllByRole("button", { name: /^Close for a date…/ })).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "Close for a date… Bar" }));
     expect(screen.getByLabelText("location")).toHaveTextContent(
-      "/availability/calendar?closeSection=sec-bar&from=setup"
+      "/availability?close=section:sec-bar&from=setup"
     );
   });
 

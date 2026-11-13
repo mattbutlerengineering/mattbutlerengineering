@@ -85,6 +85,8 @@ function scopeOf(rest: Partial<AvailabilityScope> = {}): AvailabilityScope {
     rolePending: false,
     refresh: vi.fn(),
     offerUndo,
+    openClose: vi.fn(),
+    openPause: vi.fn(),
     ...rest,
   };
 }

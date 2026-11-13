@@ -2545,7 +2545,7 @@
       "guestsTold": "Se avisó a los comensales",
       "undone": "Deshecho",
       "viewDay": "Ver día",
-      "revert": "Revertir",
+      "revert": "Deshacer",
       "empty": "Aún no hay cambios.",
       "noMatch": "Ningún cambio coincide con estos filtros.",
       "loadError": "No se pudo cargar el historial",
@@ -3349,6 +3349,37 @@
       "notInHistory": "Los cambios hechos aquí no aparecen en el Historial.",
       "undoError": "No se pudieron deshacer las reglas de reserva"
     },
+    "pause": {
+      "title": "Pausar reservas en línea",
+      "howLong": "Por cuánto tiempo",
+      "choice": {
+        "tonight": "Esta noche",
+        "untilResume": "Hasta que las reanude",
+        "untilDate": "Hasta una fecha"
+      },
+      "untilLabel": "Pausar hasta",
+      "chooseDate": "Elige una fecha",
+      "button": {
+        "tonight": "Pausar hasta que termine esta noche",
+        "untilResume": "Pausar hasta que las reanude",
+        "untilDate": "Pausar hasta el {{date}}"
+      },
+      "saved": {
+        "tonight": "Reservas en línea en pausa hasta que termine esta noche",
+        "untilResume": "Reservas en línea en pausa hasta que las reanudes",
+        "untilDate": "Reservas en línea en pausa hasta el {{date}}"
+      },
+      "saveError": "No se pudieron pausar las reservas en línea",
+      "alreadySaved": "Esta pausa ya se guardó. Revisa el estado en la parte superior de Disponibilidad antes de pausar otra vez.",
+      "savedEarlier": {
+        "title": "Las reservas en línea ya están en pausa",
+        "body": "Un intento anterior de esta pausa se guardó. Los cambios que hiciste después no se aplicaron."
+      },
+      "leave": {
+        "title": "¿Salir de esta pausa?",
+        "description": "El último guardado no terminó, así que las reservas en línea quizá ya estén en pausa. Revisa el estado en la parte superior de Disponibilidad antes de pausar otra vez."
+      }
+    },
     "hub": {
       "rulesHeading": "Tus reglas",
       "laterRulesWin": "Las reglas de más abajo ganan en las fechas que cubren.",
@@ -3456,6 +3487,11 @@
         "closure": "un cierre",
         "tonight": "un cambio hecho para esta noche"
       }
+    },
+    "closeMenu": {
+      "open": "Cerrar o pausar",
+      "close": "Cerrar el local o una parte",
+      "pause": "Pausar reservas en línea"
     },
     "hours": {
       "back": "Volver a Disponibilidad",

@@ -2489,7 +2489,7 @@
       "guestsTold": "Guests were told",
       "undone": "Undone",
       "viewDay": "View day",
-      "revert": "Revert",
+      "revert": "Undo",
       "empty": "No changes yet.",
       "noMatch": "No changes match these filters.",
       "loadError": "Couldn’t load the history",
@@ -3261,6 +3261,37 @@
       "notInHistory": "Changes here are not listed in History.",
       "undoError": "Couldn't undo booking rules"
     },
+    "pause": {
+      "title": "Pause online booking",
+      "howLong": "How long",
+      "choice": {
+        "tonight": "Tonight",
+        "untilResume": "Until I resume",
+        "untilDate": "Until a date"
+      },
+      "untilLabel": "Pause until",
+      "chooseDate": "Choose a date",
+      "button": {
+        "tonight": "Pause until tonight ends",
+        "untilResume": "Pause until I resume",
+        "untilDate": "Pause until {{date}}"
+      },
+      "saved": {
+        "tonight": "Online booking paused until tonight ends",
+        "untilResume": "Online booking paused until you resume",
+        "untilDate": "Online booking paused until {{date}}"
+      },
+      "saveError": "Couldn't pause online booking",
+      "alreadySaved": "This pause was already saved. Check the status at the top of Availability before pausing again.",
+      "savedEarlier": {
+        "title": "Online booking is already paused",
+        "body": "An earlier try of this pause was saved. Changes you made afterwards did not apply."
+      },
+      "leave": {
+        "title": "Leave this pause?",
+        "description": "The last save didn't finish, so online booking may already be paused. Check the status at the top of Availability before pausing again."
+      }
+    },
     "hub": {
       "rulesHeading": "Your rules",
       "laterRulesWin": "Later rules win on the dates they cover.",
@@ -3364,6 +3395,11 @@
         "closure": "a closure",
         "tonight": "a change made for tonight"
       }
+    },
+    "closeMenu": {
+      "open": "Close or pause",
+      "close": "Close the venue or part of it",
+      "pause": "Pause online booking"
     },
     "hours": {
       "back": "Back to Availability",

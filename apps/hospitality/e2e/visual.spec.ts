@@ -160,6 +160,8 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
   ],
   [/\/api\/v1\/floor-plans\/fp_e2e_001$/, FLOOR_PLAN_DETAIL],
   [/\/api\/v1\/venues\/[^/?]+\/table-statuses$/, [{ tableId: "tbl_e2e_001", status: "available" }]],
+  // availability/history (C2.6) reads the change log; an empty log is its first-run state.
+  [/\/api\/v1\/venues\/[^/?]+\/availability\/changes\?/, { total: 0, offset: 0, items: [] }],
   [
     /\/public\/v1\/reservations\/manage\?token=/,
     {
@@ -175,6 +177,23 @@ const VISUAL_ROUTES: ReadonlyArray<readonly [RegExp, unknown]> = [
         notes: null,
       },
       venue: { ...VENUE, ianaTimezone: "UTC" },
+    },
+  ],
+  // ManageReservationPage's party-invite card reads its RSVP counts (#8717).
+  [
+    /\/public\/v1\/reservations\/manage\/invite$/,
+    { invited: true, confirmed: 2, declined: 1, partySize: 4 },
+  ],
+  // `/i/:token`. Not api-mocks' mockPublicInvite: that dates the invite on the runner's real day.
+  [
+    /\/public\/v1\/invites\/[^/?]+$/,
+    {
+      venue: { name: VENUE.name, slug: VENUE.slug },
+      date: DAY,
+      time: "19:00",
+      partySize: 4,
+      rsvps: [{ firstName: "Sam", status: "IN" }],
+      status: "CONFIRMED",
     },
   ],
 ];

@@ -68,7 +68,7 @@ import styles from "./CloseDialog.module.css";
  * gone (the page re-rendered without it), focus would fall to the page body: put it on the main
  * region instead, once the dialog has left and its own restore has had its frame.
  */
-function settleFocusAfterSave(frames = 60) {
+export function settleFocusAfterSave(frames = 60) {
   requestAnimationFrame(() => {
     if (document.querySelector('[role="dialog"]') !== null && frames > 0) {
       settleFocusAfterSave(frames - 1);
@@ -95,6 +95,8 @@ export interface CloseDialogProps {
   readonly initialSectionId?: string;
   /** Pre-filled "Several dates" (the selection bar's Close…); wins over `initialDate`. */
   readonly initialDates?: readonly string[];
+  /** Pre-filled "Date range" (`?close=<from>..<to>`); wins over `initialDate`. */
+  readonly initialRange?: { readonly from: string; readonly to: string };
   /** Start with "Booking only: online" and "Until I reopen" (pause online booking). */
   readonly pauseOnline?: boolean;
   /**
@@ -112,7 +114,7 @@ export interface CloseDialogProps {
    * Called instead of the toast when the save told no guest anything, with the saved change, so
    * the caller can offer Undo for it.
    */
-  readonly onSavedQuietly?: (saved: ClosureResult) => void;
+  readonly onSavedQuietly?: (saved: ClosureResult, title: string) => void;
   /** A Host's emergency close (ux.md F7): Whole venue and Tonight, shown as text and not editable. */
   readonly hostLocked?: boolean;
   /** Open on Tonight, armed: the Tonight popover's emergency close. Otherwise the date is asked first. */
@@ -125,6 +127,7 @@ export interface CloseDialogProps {
 function initialForm(props: CloseDialogProps): CloseForm {
   const { initialDate, initialDates, initialSectionId, pauseOnline, hostLocked, series, editing } =
     props;
+  const { initialRange } = props;
   const { today } = props;
   if (editing) return closureForm(editing);
   if (series && initialDate) return seriesForm(series, initialDate);
@@ -145,15 +148,17 @@ function initialForm(props: CloseDialogProps): CloseForm {
         : { kind: "venue" },
     when: pauseOnline
       ? { kind: "until-reopen", from: today }
-      : initialDates && initialDates.length > 1
-        ? { kind: "dates", dates: [...initialDates].sort() }
-        : initialDates?.length === 1
-          ? { kind: "date", date: initialDates[0]! }
-          : initialDate
-            ? { kind: "date", date: initialDate }
-            : props.startTonight
-              ? { kind: "tonight" }
-              : { kind: "date", date: "" },
+      : initialRange
+        ? { kind: "range", from: initialRange.from, to: initialRange.to }
+        : initialDates && initialDates.length > 1
+          ? { kind: "dates", dates: [...initialDates].sort() }
+          : initialDates?.length === 1
+            ? { kind: "date", date: initialDates[0]! }
+            : initialDate
+              ? { kind: "date", date: initialDate }
+              : props.startTonight
+                ? { kind: "tonight" }
+                : { kind: "date", date: "" },
     fromMinute: null,
     staffNote: "",
     guestMessage: "",
@@ -412,7 +417,7 @@ export function CloseDialog(props: CloseDialogProps) {
       );
       if (props.onSavedQuietly && saved.result && notified === 0 && givenBackTold === 0) {
         // A save that told no guest is one History can revert: the caller offers Undo.
-        props.onSavedQuietly(saved.result);
+        props.onSavedQuietly(saved.result, title);
       } else {
         toast({
           title:

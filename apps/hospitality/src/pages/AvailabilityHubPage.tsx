@@ -6,15 +6,18 @@ import { Heading, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import {
   availabilityPath,
   isBookingRulesPage,
+  isHistoryPage,
   legacyRedirect,
   readAvailabilityAddress,
 } from "../components/availability/availability-address.js";
+import { OPENED_FROM_HUB } from "../components/availability/opened-from-hub.js";
 import { DateCheck } from "../components/availability/hub/DateCheck.js";
 import { dateAnswer } from "../components/availability/hub/date-answer.js";
 import { hubActions, type HubAction } from "../components/availability/hub/hub-actions.js";
 import { hubRowTexts } from "../components/availability/hub/hub-row-text.js";
 import type { HubRowModels } from "../components/availability/hub/hub-rows.js";
 import { shortDate } from "../components/availability/hub/hub-text.js";
+import { HubCloseMenu } from "../components/availability/hub/HubCloseMenu.js";
 import { HubRow, type HubRowAction } from "../components/availability/hub/HubRow.js";
 import { takeHubReturnRow } from "../components/availability/hub-return-focus.js";
 import { TodayLine } from "../components/availability/TodayLine.js";
@@ -31,7 +34,7 @@ import styles from "../components/availability/hub/Hub.module.css";
  * which rule decides a date. An old address (`?tab=`, `?action=addSchedule`, `?closeSection=`)
  * still lands on the view it named, with a replace, so Back does not loop.
  *
- * A drawer route (`booking-rules`) renders the hub too, with its drawer as `children`, so the
+ * A drawer route (`booking-rules`, `history`) renders the hub too, with its drawer as `children`, so the
  * rows stay beneath the drawer and closing it leaves the hub as it was.
  */
 export function AvailabilityHubPage({ children }: { readonly children?: ReactNode }) {
@@ -42,14 +45,17 @@ export function AvailabilityHubPage({ children }: { readonly children?: ReactNod
 
 AvailabilityHubPage.displayName = "AvailabilityHubPage";
 
+const HISTORY_LINK = "hub-history";
+
 /**
- * Puts focus on row 5's action once the booking rules drawer closes. The hub is the same mounted
- * page under the drawer's route and its own, so it sees the pathname leave the drawer. Without
- * this a drawer that opened without an opener (loaded by its address, or from Venue Setup) would
- * hand focus back to the page body. Opened from row 5, the drawer's own return lands on the same
- * link. A Host has no action on row 5 and keeps the heading's request.
+ * Puts focus on the control that opens a drawer once that drawer closes: row 5's action for
+ * booking rules, the History link for History. The hub is the same mounted page under a drawer's
+ * route and its own, so it sees the pathname leave the drawer. Without this a drawer that opened
+ * without an opener (loaded by its address, or from Venue Setup) would hand focus back to the page
+ * body, and closing History by Back would too. A Host has no action on row 5 and keeps the
+ * heading's request.
  */
-function useFocusAfterBookingRules(
+function useFocusAfterDrawers(
   pathname: string,
   isManager: boolean,
   focusAfter: FocusAfterApi["focusAfter"]
@@ -58,8 +64,11 @@ function useFocusAfterBookingRules(
   useEffect(() => {
     const left = previous.current;
     previous.current = pathname;
-    if (isManager && left !== pathname && isBookingRulesPage(left)) {
+    if (left === pathname) return;
+    if (isManager && isBookingRulesPage(left)) {
       focusAfter({ kind: "firstIn", testId: "hub-row-5" });
+    } else if (isHistoryPage(left)) {
+      focusAfter({ kind: "testId", testId: HISTORY_LINK });
     }
   }, [pathname, isManager, focusAfter]);
 }
@@ -72,7 +81,8 @@ function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
   const { from } = readAvailabilityAddress(location);
   const { focusAfter } = useFocusAfter();
   // Arriving on the hub puts focus on its heading, so a screen reader starts at the top of it, or
-  // on the row an editor just saved. A drawer already open over the hub keeps focus.
+  // on the row an editor just saved. A drawer already open over the hub keeps focus: the heading
+  // is behind it.
   const returnRow = useRef<string | null>(null);
   useEffect(() => {
     // Taken once per mount: a ref keeps it for the second run of a strict-mode effect.
@@ -80,12 +90,16 @@ function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
     const row = returnRow.current;
     focusAfter(row ? { kind: "firstIn", testId: row } : { kind: "pageHeading" }, UNLESS_COVERED);
   }, [focusAfter]);
-  useFocusAfterBookingRules(location.pathname, scope.isManager, focusAfter);
+  useFocusAfterDrawers(location.pathname, scope.isManager, focusAfter);
 
   const backLink = from === "setup" && (
     <Link to="/setup" className={styles.link}>
       {t("availability.backToSetup")}
     </Link>
+  );
+  // A Host has no Close or pause (ux.md "Host"); nor does anyone before the config has loaded.
+  const closeMenu = venueId && scope.isManager && scope.load === "ready" && (
+    <HubCloseMenu openClose={scope.openClose} openPause={scope.openPause} />
   );
   return (
     <div className={styles.page}>
@@ -94,7 +108,15 @@ function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
         description={
           venueId ? <TodayLine venueId={venueId} bannerShowsOnline={false} /> : undefined
         }
-        aside={backLink || undefined}
+        aside={
+          closeMenu || backLink ? (
+            <div className={styles.headerAside}>
+              {closeMenu}
+              {backLink}
+            </div>
+          ) : undefined
+        }
+        asideBesideTitle
       />
       {venueId ? (
         <HubBody scope={scope} underDrawer={children != null} />
@@ -197,7 +219,12 @@ function HubRules({ scope, rows }: HubRulesProps) {
           ))}
         </ol>
       </section>
-      <Link to={availabilityPath({ view: "history" })} className={styles.link}>
+      <Link
+        to={availabilityPath({ view: "history" })}
+        state={OPENED_FROM_HUB}
+        data-testid={HISTORY_LINK}
+        className={styles.link}
+      >
         {t("availabilityHub.hub.history")}
       </Link>
     </>

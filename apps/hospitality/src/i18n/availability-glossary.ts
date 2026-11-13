@@ -77,7 +77,6 @@ export const LEGACY_KEYS: ReadonlySet<string> = new Set([
   "availability.quickSetup.title",
   "availability.quickSetup.hostEmpty",
   "availability.quickSetup.issues.days_outside_use",
-  "availability.history.revert",
   "availability.history.summary.reverted",
   "availability.history.summary.regularWeekChanged",
   "availability.preview.compareRegularWeek",

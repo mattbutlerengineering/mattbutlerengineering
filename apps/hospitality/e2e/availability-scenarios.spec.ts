@@ -222,7 +222,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date", exact: true }).press("ArrowDown");
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, holiday).click();
     await dialog.getByTestId("close-primary").click();
@@ -248,7 +248,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
 
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date", exact: true }).press("ArrowDown");
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, holiday).click();
     await dialog.getByTestId("close-primary").click(); // Next
@@ -305,10 +305,10 @@ test.describe("Availability scenarios (PRD 18)", () => {
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     // A date, then an end date: the dialog reads that as a range, with no kind to choose first.
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date", exact: true }).press("ArrowDown");
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, from).click();
-    await dialog.getByRole("combobox", { name: "End date (optional)" }).click();
+    await dialog.getByRole("combobox", { name: "End date (optional)" }).press("ArrowDown");
     // The end picker opens on the start's month: no month move.
     await expect(pickerDay(page, to)).toBeVisible();
     await pickerDay(counter.page, to).click();
@@ -331,10 +331,10 @@ test.describe("Availability scenarios (PRD 18)", () => {
     await counter.page.getByRole("button", { name: "Close…", exact: true }).click();
     const dialog = counter.page.getByRole("dialog", { name: /^Close / });
     // A date, then an end date: the dialog reads that as a range, with no kind to choose first.
-    await dialog.getByRole("combobox", { name: "Date" }).click();
+    await dialog.getByRole("combobox", { name: "Date", exact: true }).press("ArrowDown");
     await counter.page.getByRole("button", { name: "Next month" }).click();
     await pickerDay(counter.page, from).click();
-    await dialog.getByRole("combobox", { name: "End date (optional)" }).click();
+    await dialog.getByRole("combobox", { name: "End date (optional)" }).press("ArrowDown");
     // The end picker opens on the start's month: no month move.
     await expect(pickerDay(page, to)).toBeVisible();
     await pickerDay(counter.page, to).click();
@@ -411,10 +411,14 @@ test.describe("Availability scenarios (PRD 18)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Pause online booking" }).click();
-    await counter.page.getByRole("dialog").getByTestId("close-primary").click();
+    // The Pause dialog opens on Tonight: confirming is the second interaction.
+    await counter.page.getByRole("dialog").getByTestId("pause-primary").click();
 
     await expect.poll(() => state.saved()).not.toBeNull();
     expect(JSON.stringify(state.saved())).toContain("online");
+    // Tonight only: the pause ends on the day it starts.
+    const rule = state.saved()?.rule as { startsOn: string; endsOn: string | null };
+    expect(rule.endsOn).toBe(rule.startsOn);
     record("S10", counter.count(), 3);
   });
 
@@ -469,9 +473,9 @@ test.describe("Availability scenarios (PRD 18)", () => {
     for (const name of ["Close…", "Pause online booking", "Add a schedule…"]) {
       await expect(page.getByRole("button", { name })).toHaveCount(0);
     }
-    // The Host's ⋯ holds History and Go to date only.
+    // The Host's ⋯ holds Go to date only; History is the hub's link (availability-hub C2.6).
     await page.getByRole("button", { name: "More actions" }).click();
-    await expect(page.getByRole("menuitem")).toHaveText(["History", "Go to date"]);
+    await expect(page.getByRole("menuitem")).toHaveText(["Go to date"]);
     await expect(page.getByRole("main").getByRole("textbox")).toHaveCount(0);
   });
 });

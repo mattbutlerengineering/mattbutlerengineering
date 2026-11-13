@@ -3,7 +3,8 @@ import { mockAvailability } from "./availability-draft-mock.js";
 import { weekPanel } from "./helpers/first-paint.js";
 
 /**
- * The Availability entry contract: `/availability?tab=`, `?closeSection=` and `?from=setup` open
+ * The Availability entry contract: `/availability?tab=`, the old `?closeSection=` (now
+ * `?close=section:<id>`, availability-hub C2.4) and `?from=setup` open
  * the page where another page means it to, and never error.
  */
 test.describe("availability deep links", () => {
@@ -42,13 +43,19 @@ test.describe("availability deep links", () => {
     await expect(page.getByRole("link", { name: "Venue Setup" })).toHaveCount(0);
   });
 
-  test("?from=setup shows the Venue Setup back-link and ?closeSection is removed", async ({
+  test("?closeSection= becomes ?close=section:, keeping from=setup and the back-link", async ({
     mockedPage: page,
   }) => {
     await mockAvailability(page);
     await page.goto("availability?from=setup&closeSection=sec-1");
+    await expect.poll(() => new URL(page.url()).searchParams.get("close")).toBe("section:sec-1");
+    expect(new URL(page.url()).searchParams.has("closeSection")).toBe(false);
+    // The hub hosts the Close dialog (C2.4); a section this venue lacks opens it on the venue.
+    const dialog = page.getByRole("dialog", { name: /^Close / });
+    await expect(dialog.getByText("Whole venue", { exact: true })).toBeVisible();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
     await expect(page.getByRole("link", { name: "Venue Setup" })).toBeVisible();
-    await expect.poll(() => new URL(page.url()).searchParams.has("closeSection")).toBe(false);
-    expect(new URL(page.url()).searchParams.get("from")).toBe("setup");
+    expect(new URL(page.url()).search).toBe("?from=setup");
   });
 });

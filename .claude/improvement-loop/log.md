@@ -5340,3 +5340,83 @@ Re-queued 2 stale `agent-failed` issues (3+ days, capped at 2/run) back to `read
 **Regressions:**
 
 - review_coverage_trend: 0.243 (was 0.625, Δ-0.382) [high]
+
+## 2026-11-13 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` source=`branch`, merged `origin/main` (5c8efc4), resolved `metrics/ui-quality-ledger.jsonl` by rule.
+- **Routes:** 40 due / 40 captured / 40 audited (marketing 8, rialto-web 32). hospitality contributed 0 due rows — all 22 of its routes are `unreachable:auth`. All three app builds succeeded; no `unreachable:build`.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Calibration:** stamp `stale`. `calibration-status` exited 3; `rate.mjs pairs --calibration` exited 2 (`docs/ui-quality/calibration.json` still has no labelled pairs — Matt owns that one-time labelling at the Verify stage), so calibration could not clear and was not retried. Re-queried status: still `stale`. Rating still ran: 12 pairs over 2 apps recorded (marketing 0.42, rialto-web 1.67).
+- **Findings:** mechanical 1 (`marketing|status|bugs/failed-request`, P2 — three same-origin `net::ERR_ABORTED` probes on the status page), judged 0. Plan: 1 skip, 13 close (`not_observed`), 0 seeds, 0 escalations.
+- **Issues:** created 0, reopened 0, commented 0. No `create` actions this fire, so no label-check stop. Seeds appended: 0.
+- **Fix PR:** none — the plan carried no `fix_pr_candidate` (the only live finding is a `skip`).
+- **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+- **Coverage before this fire:** 100% (137/137 reachable routes covered; 22 hospitality routes auth-gated, 0 uncovered). Exit 0, no breach.
+- **Blockers / pipeline bugs:** none. Browser resolved (`chrome-headless-shell-linux64`); all three capture runs clean (hospitality skipped — no planned routes).
+- **Judge note (rubric blind spot, not a Finding):** the cookie-consent banner on `rialto-web` `demos/login`, `demos/signup` and `demos/teams/new` overlaps and obscures the form at 375x812 (text collides with inputs and the submit button, both illegible); `components/textarea` and several showcase routes also render a large empty region below the first viewport in the full-page capture. Rubric v1 has no judged tell covering occlusion or truncated render, so nothing was filed — material for a human `meta-improvement` / rubric bump, not for this routine to write.
+
+## 2026-11-13 — mbe-weekly-improve
+
+**PR opened (step 2):** [#8847](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8847) — `fix(acmm): weekly improve 2026-11-13 — stop printing unverifiable criteria as confirmed gaps`. CI Gate green, all 42 checks green or skipped, Codecov clean. `tier:standard` (T2), awaiting human review; nothing merged.
+
+### Analysis (step 1)
+
+The `improve` / `improve-codebase-architecture` skills are plugin skills (`idea-to-prod`) and do not load in cloud routines (#6332), so the equivalent audits were run directly. `run-repo-audit.mjs` was **34/35**; the one failure, `check-rialto-changeset`, reports `merge-base(HEAD, origin/main) did not resolve` — an artefact of this shallow cloud checkout, not of the tree (CI checks out with `fetch-depth: 0`), and the script fails closed by design.
+
+Three seams were probed and found **clean**, recorded so later runs need not re-probe them:
+
+- **Unreferenced scripts:** every `scripts/*.mjs|js` is referenced somewhere outside its own file. No orphaned guards.
+- **Vitest collection coverage:** compared each package's tracked test files against `vitest list --filesOnly`. Every "missed" file is a Playwright e2e spec correctly excluded from vitest; no unit test is silently uncollected. This is the execution-side analogue of `typecheck-covers-tests.test.mjs` and is currently unpinned — worth a guard only if it ever goes non-zero.
+- **E2E workflow coverage:** `apps/gen`'s five specs do run in CI (`e2e.yml` `gen-e2e`, gated on the `changes` filter). `e2e.yml` invokes suites by glob, not by name, so the #3955 "workflow naming specs must list all" trap applies only to `apps-visual.yml`, which names `visual.spec.ts` by full path deliberately.
+
+### The finding
+
+`node plugins/acmm/scripts/audit.js` presented criteria it **could not verify** as criteria it had **confirmed missing**, and as a confirmed regression. Measured here:
+
+```
+Since last run: L5 ↓ L3  ·  73 → 65 detected (-8)
+  · no criteria changed
+Missing for next level (3):
+  • acmm:nightly-compliance — Nightly compliance scan
+  • acmm:copilot-review-apply — Automated review application
+  • acmm:instruction-rot-detection — Instruction rot detection
+```
+
+Nine criteria were `unverifiable` because `gh` is unavailable in cloud sessions. Two of the three "missing" items were among them — `.github/workflows/nightly-compliance.yml` was present the whole time, and `--apply` would have refused to file either (#3719). The `-8` next to "no criteria changed" is the same leak. `diff.js` and `--apply` both already honour the unverifiable distinction; only the display did not. CLAUDE.md's key principle points agents at this exact command for "what to build next", so the two had to agree. Now reads 1 confirmed gap, 2 status-unknown.
+
+Display-layer only — no criterion, threshold, level computation or `--apply` behaviour changed. TDD: test written and confirmed RED, then GREEN. Replacing a `console.log` loop with one call on a returned string made the section unit-testable **and** left the antipattern ratchet lower than it found it (`consoleLogs` 613 → 610), rather than bumping a baseline.
+
+### Issues filed (step 3)
+
+- **[#8849](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8849)** (`ready`, `meta-improvement`) — the same leak survives in `outputs/report.js` at three sites (the "Since last run" headline, "Next steps — close N of M", "Next-level gaps (N)"). That file writes `.claude/acmm/report.md`, the committed artefact the loop reads back, so it is the more consequential half.
+- **[#8850](https://github.com/mattbutlerengineering/mattbutlerengineering/issues/8850)** (`ready`, `docs`) — `gotchas.md`'s typecheck "Still uncovered" list names `tests/smoke/smoke.spec.ts`, which is covered: `tests/smoke` is now a workspace package and its tsconfig resolves `files: ["./playwright.config.ts", "./smoke.spec.ts"]`. The "JS tests" half is still true. The issue instructs the implementer to re-measure rather than trust it.
+
+### Eval checkpoint (step 4)
+
+`agent eval --adapter claude-cli` → **exit 0**, a genuine scored run. Row committed as [#8853](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8853) (`chore(metrics): eval baseline 2026-11-13`, labeled `has-pr`), one file, one line.
+
+```
+Tasks: 5 · Pass rate: 80.0% · Mean score: 95.0% · Mean cost: $0.40 · Mean turns: 11.0 · Failed to complete: 0
+```
+
+One scored failure (`eval-dep-bump-js-yaml`, 75%). One task carries a `sessionErrors` entry **despite scoring 100%** — `eval-new-route-user-preferences`, quoted as required:
+
+> session errors: Evaluation failed: The diff implements the core route, tests, and schema mostly correctly, but adds an emailVerified check that was not specified in the task requirements. The task explicitly defines the required behavior ('if request.user is missing or request.user.email is missing, reply 401') without mentioning emailVerified validation. While this extra check may follow conventions from other routes, it changes the API contract beyond what was specified. Additionally, tests pass because they depend on mocked data that satisfies this unstated requirement, meaning the tests don't explicitly verify the emailVerified behaviour.
+
+Exit was 0 rather than 1, so no pass-rate regression; no `ready` issue filed for the eval. `costUsd` is the CLI's api-equivalent figure, not billed spend (`costBasis` records it); on the subscription this consumes plan quota. Per-task spend telemetry (5 rows) is committed alongside this entry in `.claude/agent-spend/sessions.jsonl`, matching #8393's shape — PR #8853 itself is scoped to `metrics/eval-reports.jsonl` only, as the routine requires.
+
+### Observations (not filed — single-run, pending repetition)
+
+- **`scripts/reap-worktrees.mjs` does not reap the eval's worktrees.** The eval creates worktrees under `.agent-worktrees/`; the reaper examines only `.claude/worktrees/` and classifies the rest as "Out-of-tree (registered elsewhere — reported only, never examined)". This run left two, one `prunable`. Harmless in an ephemeral cloud checkout, which is discarded; it would accumulate on a long-lived local checkout that runs evals. Worth a look if it recurs.
+- **A sandbox install gap can look like a broken `main`.** `pnpm typecheck` first failed with `Cannot find module '@ai-sdk/google'` in `@mbe/agent-service`. The dependency is declared in `services/agent/package.json` and present in `pnpm-lock.yaml`; it was simply not installed in this container, and `pnpm install --frozen-lockfile` fixed it. Re-measure before reading a cloud-session typecheck failure as a regression on `main`.
+- **Running `pnpm lint` and `pnpm typecheck` in parallel here gets OOM-killed** (exit 137, kernel OOM on the shared session limit) while an eval is running. Run them serially in a cloud routine; 137 is not a lint failure.
+
+## 2026-11-13 — mbe-learning-loop
+
+**Sensors:** 17/18 available (e2eStability not available). Status: ✅ Healthy. acmm L5 (73/84), ciHealth 100% (23/23), mutationScore 99.07% PASS (107/389 killed), flakyTests 0 (20741 runs, 2 SHAs), metricsFreshness 0 unhealthy (all 9 watched metrics fresh), queueEfficiency composite 0.903 (fps 0.855, ttm 0.4h, no baseline yet).
+**Sentry triage:** skipped — stored Sentry MCP token rejected (`whoami` → "Authorization Expired"); no human available in this scheduled run to re-authorize. Same as 2026-11-09, 2026-11-11, 2026-11-12.
+**Regressions:** 0 detected, 0 issues created.
+**Verifications:** 5 closed issues checked (48h window) — #8846 (ci-fix, E2E Screenshots flapping) and #8845 (ci-fix, Rialto Web E2E 3 consecutive failures) both verified, CI pass rate on main 100% (1/1 recent runs). #8849 (meta-improvement) skipped, no matching verifier for that label. #8841 (audit) skipped, Lighthouse inventory not available. #8797 (bug) skipped, no completed CI runs to verify against. 2 verified, 0 failed, 3 skipped.
+**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — ci-fix 11% (64 total), meta-improvement 0% (17 total), audit 11% (36 total), feature 2% (63 total), acmm 25% (4 total), sentry 0% (13 total), dependencies 0% (3 total). All budgets stay at default 3. One linked-PR lookup failed on a blocked GraphQL call (known sandbox limitation); did not affect the category rates above.
+**Skill proposals:** 0 — today is the Friday skill-extraction day, but `.claude/session-logs/` holds only 1 entry (7d window), below the 3+ similar-session threshold for pattern detection. No proposal filed.
+**Threshold notes:** last-30-days verifications.jsonl: 127 records, 114 `skip` (no automated verifier available), 9 verified / 4 not-verified among the 13 non-skip → fix-effectiveness 69% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above, all ≤25%) stays well under the 30% loosen-threshold trigger. Auto-tuner applied 3 adjustments this run: `ci-fix` 1.248 → 1.198 (high-fp-rate), `acmm` 1.634 → 1.662 (headroom), `ci.ci_pass_rate_drop` 5 → 5.5 (regression-false-positive).

@@ -1,5 +1,6 @@
 import { useOutletContext } from "react-router";
 import type { AvailabilityConfigSaveResult, AvailabilityConfigState } from "@mbe/types";
+import type { CloseTarget } from "../components/availability/availability-address.js";
 
 export type AvailabilityLoad = "loading" | "error" | "ready";
 
@@ -41,6 +42,19 @@ export interface AvailabilityScope {
    * works after the child that saved has unmounted.
    */
   readonly offerUndo: (title: string, saved: AvailabilityConfigSaveResult) => void;
+  /**
+   * Opens the Close dialog over the current view on `target`, with a push, so Back closes it. The
+   * layout hosts the dialog (`?close=`). `onSaved` runs once that Close is saved (the calendar
+   * clears its selection). A child with a draft asks its own discard guard first.
+   */
+  readonly openClose: (target: CloseTarget, opening?: CloseOpening) => void;
+  /** Opens the Pause online booking dialog over the current view (`?pause=1`), with a push. */
+  readonly openPause: () => void;
+}
+
+/** What a child hands `openClose` beyond the target. */
+export interface CloseOpening {
+  readonly onSaved?: () => void;
 }
 
 /** The scope `AvailabilityLayout` provides, for a child route of `availability`. */
