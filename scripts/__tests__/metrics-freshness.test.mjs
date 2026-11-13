@@ -46,7 +46,11 @@ const FRESH_ROWS = [
     categories: {},
   },
   { date: "2026-09-20", sensor: "sdlcSpeed", available: true },
-  { generatedAt: new Date(NOW.getTime()).toISOString(), features: [{ slug: "x" }] },
+  {
+    generatedAt: new Date(NOW.getTime()).toISOString(),
+    features: [{ slug: "x" }],
+    history: [{ date: "2026-09-20" }],
+  },
 ];
 
 const SDLC_ROW = { date: "2026-09-20", sensor: "sdlcSpeed", available: true };
@@ -131,6 +135,7 @@ describe("FRESHNESS_POLICY", () => {
       "ai-issue-feedback",
       "audit-coverage", // weekly, #8419
       "lighthouse", // weekly, #7581
+      "marketing-metrics", // daily snapshot file, #8699
       "mutation-score", // weekly, #7581
       "process-metrics", // queueEfficiency
       "process-metrics", // sdlcSpeed (#6654)
@@ -474,6 +479,8 @@ describe("queueEfficiency + ai-issue-feedback policy (#6312)", () => {
         if (metric === "queue-telemetry") return [{ claimed_at: daysAgo(0) }];
         if (metric === "shipped-features")
           return { generatedAt: daysAgo(0), features: [{ slug: "a" }] };
+        if (metric === "marketing-metrics")
+          return { generatedAt: daysAgo(0), history: [{ date: "2026-09-20" }] };
         return [{ timestamp: daysAgo(0), date: daysAgo(0).slice(0, 10) }];
       },
       now: NOW,
@@ -632,5 +639,35 @@ describe("shipped-features snapshot policy entry (#8204)", () => {
     expect(readWatched("shipped-features", { root: "/nonexistent-root" })).toBeNull();
     const real = readWatched("shipped-features");
     expect(typeof real.generatedAt).toBe("string");
+  });
+});
+
+describe("marketing metrics snapshot policy entry (#8699)", () => {
+  const entry = FRESHNESS_POLICY.find((p) => p.metric === "marketing-metrics");
+  const assess = (snapshot) =>
+    assessFreshness({ readMetric: () => snapshot, now: NOW, policy: [entry] })[0];
+  const history = [{ date: "2026-09-20" }];
+
+  it("watches the daily-regenerated metrics.json generatedAt", () => {
+    expect(entry.sourceFile).toBe("apps/marketing/public/metrics.json");
+    expect(entry.timestampField).toBe("generatedAt");
+    expect(entry.producer).toContain("acmm-regression.yml");
+  });
+
+  it("is fresh within the threshold and stale once the label would be 2+ days old", () => {
+    expect(assess({ generatedAt: daysAgo(1), history }).state).toBe("fresh");
+    const result = assess({ generatedAt: daysAgo(4), history });
+    expect(result.state).toBe("stale");
+    expect(freshnessExitCode([result])).toBe(1);
+  });
+
+  it("fails closed on a missing file, an empty history, and an unparseable date", () => {
+    expect(assess(null).state).toBe("empty");
+    expect(assess({ generatedAt: daysAgo(1), history: [] }).state).toBe("unhealthy");
+    expect(assess({ generatedAt: "nope", history }).state).toBe("undated");
+  });
+
+  it("reads the real file through readWatched", () => {
+    expect(typeof readWatched("marketing-metrics").generatedAt).toBe("string");
   });
 });

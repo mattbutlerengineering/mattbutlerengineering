@@ -161,6 +161,19 @@ export const FRESHNESS_POLICY = [
     producer:
       ".github/workflows/shipped-features-snapshot.yml (scripts/collect-shipped-features.mjs)",
   },
+  {
+    // Regenerated daily by acmm-regression.yml (it was weekly-only, so the
+    // homepage "Snapshot from" label, /metrics history and /ai-health lagged
+    // for days, #8699). 3 days = ~3x the daily cadence (same as review-burden),
+    // so the label is flagged before it goes more than 2 days stale. An empty
+    // history is not healthy even with a fresh generatedAt.
+    metric: "marketing-metrics",
+    sourceFile: "apps/marketing/public/metrics.json",
+    isHealthy: (row) => Array.isArray(row?.history) && row.history.length > 0,
+    timestampField: "generatedAt",
+    maxAgeDays: 3,
+    producer: ".github/workflows/acmm-regression.yml (scripts/generate-metrics-json.mjs)",
+  },
 ];
 
 const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
