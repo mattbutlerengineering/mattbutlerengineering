@@ -74,6 +74,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
     own,
     overlaps,
     issues,
+    storedKept,
     outside,
     closedDays,
     focusDate,
@@ -231,6 +232,7 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
             draft={draft}
             onChange={edit}
             issues={issues}
+            storedKept={storedKept}
             inDrawer
             collapsible={viewport === "phone"}
           />

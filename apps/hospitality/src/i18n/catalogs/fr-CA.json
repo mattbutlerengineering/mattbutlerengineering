@@ -3321,6 +3321,21 @@
       "calendar": "Calendrier",
       "bookingRules": "Règles de réservation",
       "history": "Historique"
+    },
+    "serviceFields": {
+      "moreOptions": "Plus d'options",
+      "seatEvery": "Prise de table aux",
+      "minutes": "{{minutes}} min",
+      "bookedBy": "Réservation par",
+      "ownSettings": "Ces jours gardent leurs propres réglages : {{seating}}, {{booking}}.",
+      "ownSeatEvery": "prise de table aux {{minutes}} min",
+      "ownFixedTimes": "heures de prise de table fixes {{times}}",
+      "ownBookedBy": {
+        "onlinePhone": "en ligne et par téléphone",
+        "onlineOnly": "en ligne seulement",
+        "phoneOnly": "par téléphone seulement",
+        "walkIn": "sans réservation seulement"
+      }
     }
   },
   "setup": {

@@ -3235,6 +3235,21 @@
       "calendar": "Calendar",
       "bookingRules": "Booking rules",
       "history": "History"
+    },
+    "serviceFields": {
+      "moreOptions": "More options",
+      "seatEvery": "Seat every",
+      "minutes": "{{minutes}} min",
+      "bookedBy": "Booked by",
+      "ownSettings": "These days keep their own settings: {{seating}}, {{booking}}.",
+      "ownSeatEvery": "seat every {{minutes}} min",
+      "ownFixedTimes": "fixed seating times {{times}}",
+      "ownBookedBy": {
+        "onlinePhone": "online and phone",
+        "onlineOnly": "online only",
+        "phoneOnly": "phone only",
+        "walkIn": "walk-in only"
+      }
     }
   },
   "setup": {

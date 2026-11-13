@@ -29,6 +29,7 @@ import {
   datesOfUse,
   replacesRegularWeek,
   scheduleSaveBlock,
+  storedKeptByName,
   type Winner,
 } from "./schedule-changes.js";
 import { ownChangeDates, scheduleReach, scopeDates } from "./scope-dates.js";
@@ -464,6 +465,8 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             // A New schedule opens on an empty service: its fields wait for the Manager to start
             // on it before they say what is missing. Save's own reason is shown either way.
             issues={draftTouched ? issues : NO_ISSUES}
+            // An edit falls back to this schedule's stored rows; a new schedule stores none yet.
+            storedKept={editing ? storedKeptByName(config, sourceScheduleId) : undefined}
             inDrawer
             fixedDays={editing}
             collapsible={viewport === "phone"}

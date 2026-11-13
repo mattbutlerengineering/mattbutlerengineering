@@ -582,13 +582,15 @@
   </file>
   <file path="src/components/availability/change-week-draft.ts">
     function serviceKey(service: ServiceDraft) {
+      const keptKey = (times: DraftTimes) => (times.kept ? optionsKey(times.kept) : null);
       return JSON.stringify([
         nameKey(service),
         service.opens,
         service.lastSeating,
         service.closes,
         sorted(service.days),
-        service.blocks.map((b) => [sorted(b.days), b.opens, b.lastSeating, b.closes]),
+        service.blocks.map((b) => [sorted(b.days), b.opens, b.lastSeating, b.closes, keptKey(b)]),
+        keptKey(service),
       ]);
     }
     export function weekKey(draft: QuickSetupDraft): string {
@@ -3079,12 +3081,7 @@
   </file>
   <file path="src/components/availability/quick-setup-draft.ts">
     export type KeptHours = Pick<ServiceHours, "seating" | "bookingTypes">;
-    export interface DraftTimes {
-      readonly opens: string | null;
-      readonly lastSeating: string | null;
-      readonly closes: string | null;
-      /** While true, last seating follows close minus {@link LAST_SEATING_LEAD_MINUTES}. */
-      readonly lastSeatingLinked: boolean;
+    export interface DraftTimes extends LinkedTimes {
       /**
        * The stored seating and booking types of these hours (`draftFromConfig`), so a set's own are
        * not overwritten by the base's. Absent on hours the form made: they take the service's stored
@@ -3096,6 +3093,12 @@
       readonly id: string;
       /** Stored weekday indexes, 0 = Sunday … 6 = Saturday. */
       readonly days: readonly number[];
+      /**
+       * Which of its seating and booking types the block had unlike its service's when the service's
+       * was changed (`setServiceKept`): it keeps those through later changes, even one that brings
+       * the service to the same value on the way to another. Form state only; never saved.
+       */
+      readonly ownKept?: { readonly seating: boolean; readonly bookingTypes: boolean };
     }
     export interface ServiceDraft extends DraftTimes {
       readonly id: string;
@@ -3146,23 +3149,6 @@
     export function emptyDraft(firstServiceId: string): QuickSetupDraft {
       return { services: [emptyService(firstServiceId)], days: [] };
     }
-    export function toMinutes(hhmm: string): number {
-      const [h = 0, m = 0] = hhmm.split(":").map(Number);
-      return h * 60 + m;
-    }
-    export function toClock(minutes: number): string {
-      const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
-      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
-      const mm = String(wrapped % 60).padStart(2, "0");
-      return `${hh}:${mm}`;
-    }
-    export function autoLastSeating(closes: string, opens: string | null = null): string {
-      const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
-      if (opens === null) return toClock(lead);
-      const opensAt = toMinutes(opens);
-      const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
-      return toClock(Math.max(lead + closesAfter, opensAt));
-    }
     export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) {
       const { opens, closes } = SERVICE_PRESETS[preset];
       return {
@@ -3172,20 +3158,6 @@
         closes,
         lastSeating: autoLastSeating(closes, opens),
         lastSeatingLinked: true,
-      };
-    }
-    export function setServiceTime<T extends DraftTimes>(
-      service: T,
-      field: "opens" | "lastSeating" | "closes",
-      value: string | null
-    ): T {
-      if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
-      const next = { ...service, [field]: value };
-      // Both ends bound a linked last seating, so moving either one keeps it in step.
-      if (!service.lastSeatingLinked) return next;
-      return {
-        ...next,
-        lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
       };
     }
     export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft {
@@ -3322,14 +3294,12 @@
           : draft.services.flatMap((service) => effectiveDays(draft, service));
       return [...new Set(days)].sort((a, b) => a - b);
     }
+    export const DEFAULT_KEPT: KeptHours = {
+      seating: { version: 1, interval: SEATING_INTERVAL_MINUTES },
+      bookingTypes: ["online", "phone"],
+    };
     function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours {
-      return {
-        ...m,
-        ...(kept ?? {
-          seating: { version: 1 as const, interval: SEATING_INTERVAL_MINUTES },
-          bookingTypes: ["online" as const, "phone" as const],
-        }),
-      };
+      return { ...m, ...(kept ?? DEFAULT_KEPT) };
     }
     function weekOf(
       draft: QuickSetupDraft,
@@ -3551,7 +3521,14 @@
       scope: string = DEFAULT_SCOPE
     ) {
       if (serviceId === null) return `${scope}-days`;
-      return `${scope}-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
+      return `${quickSetupRowScope(serviceId, blockId, scope)}-${field}`;
+    }
+    function quickSetupRowScope(serviceId: string, blockId?: string, scope: string = DEFAULT_SCOPE) {
+      return `${scope}-${serviceId}${blockId === undefined ? "" : `-${blockId}`}`;
+    }
+    export function useQuickSetupRowScope() {
+      const scope = use(QuickSetupIdScopeContext);
+      return (serviceId: string, blockId?: string) => quickSetupRowScope(serviceId, blockId, scope);
     }
     export function useQuickSetupFieldId() {
       const scope = use(QuickSetupIdScopeContext);
@@ -3644,6 +3621,61 @@
         name,
         summary: parts.join(" · "),
       };
+    }
+  </file>
+  <file path="src/components/availability/quick-setup-options.ts">
+    export function shownKept(times: Pick<DraftTimes, "kept">, stored?: KeptHours): KeptHours {
+      return times.kept ?? stored ?? DEFAULT_KEPT;
+    }
+    function settled(next: KeptHours, held: readonly (KeptHours | undefined)[]): KeptHours {
+      const known = held.filter((kept) => kept !== undefined);
+      return {
+        seating: known.find((kept) => sameSeating(kept.seating, next.seating))?.seating ?? next.seating,
+        bookingTypes:
+          known.find((kept) => sameBookingTypes(kept.bookingTypes, next.bookingTypes))?.bookingTypes ??
+          next.bookingTypes,
+      };
+    }
+    export function setServiceKept(
+      service: ServiceDraft,
+      next: KeptHours,
+      stored?: KeptHours
+    ): ServiceDraft {
+      const was = shownKept(service, stored);
+      const kept = settled(next, [stored, was]);
+      return {
+        ...service,
+        kept,
+        blocks: service.blocks.map((block) => followService(block, { was, kept, stored })),
+      };
+    }
+    function followService(
+      block: HoursBlock,
+      change: { readonly was: KeptHours; readonly kept: KeptHours; readonly stored?: KeptHours }
+    ): HoursBlock {
+      const own = shownKept(block, change.stored);
+      // A value the block had unlike its service's stays the block's for good: without the mark, a
+      // service changed to that value and then to another would take the block along.
+      const ownKept = {
+        seating: block.ownKept?.seating === true || !sameSeating(own.seating, change.was.seating),
+        bookingTypes:
+          block.ownKept?.bookingTypes === true ||
+          !sameBookingTypes(own.bookingTypes, change.was.bookingTypes),
+      };
+      return {
+        ...block,
+        ownKept,
+        kept: {
+          seating: ownKept.seating ? own.seating : change.kept.seating,
+          bookingTypes: ownKept.bookingTypes ? own.bookingTypes : change.kept.bookingTypes,
+        },
+      };
+    }
+    export function keepsOwnSettings(service: KeptHours, block: KeptHours): boolean {
+      return (
+        !sameSeating(service.seating, block.seating) ||
+        !sameBookingTypes(service.bookingTypes, block.bookingTypes)
+      );
     }
   </file>
   <file path="src/components/availability/quick-setup-placement.ts">
@@ -4782,11 +4814,32 @@
       const rename = stored && stored.name !== name ? { schedules: [{ ...stored, name }] } : {};
       return mergeChanges(rows, { upsert: rename, remove: {} });
     }
-    function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) {
+    function keptOf(
+      config: AvailabilityConfig,
+      scheduleId: string | undefined
+    ): Record<string, KeptHours> {
       return Object.fromEntries(
         config.scheduleServices
           .filter((s) => s.scheduleId === scheduleId)
           .map((s) => [s.venueServiceId, { seating: s.seating, bookingTypes: s.bookingTypes }])
+      );
+    }
+    export function storedKeptByName(
+      config: AvailabilityConfig,
+      scheduleId: string | "regular" | undefined
+    ): Readonly<Record<string, KeptHours>> {
+      const id =
+        scheduleId === "regular" ? liveSchedules(config).find((s) => s.isRegular)?.id : scheduleId;
+      if (id === undefined) return {};
+      const kept = keptOf(config, id);
+      return Object.fromEntries(
+        config.venueServices
+          .filter((s) => !s.archivedAt)
+          .flatMap((s) => {
+            const stored = kept[s.id];
+            // Keyed as the saves key `venueServiceIds`: the stored name, lower-cased, not trimmed.
+            return stored ? [[s.name.toLowerCase(), stored] as const] : [];
+          })
       );
     }
     function scheduleRowChanges(input: {
@@ -6517,6 +6570,8 @@
         [config, weekdays, startsOn, endsOn]
       );
       const issues = useMemo(() => validateDraft(draft), [draft]);
+      // What `buildRegularWeekChanges` falls back to per service name: the form shows the same.
+      const storedKept = useMemo(() => storedKeptByName(config, "regular"), [config]);
       const outside = useMemo(() => outsideSchedules(config), [config]);
       const closedDays = baselineWeek.days.filter((day) => !weekdays.includes(day));
       const focusDate =
@@ -6608,6 +6663,7 @@
         own,
         overlaps,
         issues,
+        storedKept,
         outside,
         closedDays,
         focusDate,
@@ -18082,6 +18138,72 @@
         setSpeed,
         scrub: moveTo,
         step,
+      };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="service-fields">
+  <file path="src/components/availability/service-fields/service-options.ts">
+    export type BookingTypes = ScheduleService["bookingTypes"];
+    export const SEATING_INTERVALS = [5, 10, 15, 20, 30, 60] as const;
+    export type BookedById = "onlinePhone" | "onlineOnly" | "phoneOnly" | "walkIn";
+    export const BOOKED_BY: readonly { readonly id: BookedById; readonly types: BookingTypes }[] = [
+      { id: "onlinePhone", types: ["online", "phone"] },
+      { id: "onlineOnly", types: ["online"] },
+      { id: "phoneOnly", types: ["phone"] },
+      { id: "walkIn", types: [] },
+    ];
+    export const sameSeating = (a: Seating, b: Seating) => seatingKey(a) === seatingKey(b);
+    export const sameBookingTypes = (a: BookingTypes, b: BookingTypes) =>
+      bookingTypesKey(a) === bookingTypesKey(b);
+    export function optionsKey(options: {
+      readonly seating: Seating;
+      readonly bookingTypes: BookingTypes;
+    }): string {
+      return `${seatingKey(options.seating)}${bookingTypesKey(options.bookingTypes)}`;
+    }
+    export function bookedById(types: BookingTypes): BookedById {
+      return BOOKED_BY.find((option) => sameBookingTypes(option.types, types))?.id ?? "walkIn";
+    }
+  </file>
+  <file path="src/components/availability/service-fields/service-times.ts">
+    export interface LinkedTimes {
+      readonly opens: string | null;
+      readonly lastSeating: string | null;
+      readonly closes: string | null;
+      /** While true, last seating follows close minus {@link LAST_SEATING_LEAD_MINUTES}. */
+      readonly lastSeatingLinked: boolean;
+    }
+    export type TimeField = "opens" | "lastSeating" | "closes";
+    export function toMinutes(hhmm: string): number {
+      const [h = 0, m = 0] = hhmm.split(":").map(Number);
+      return h * 60 + m;
+    }
+    export function toClock(minutes: number): string {
+      const wrapped = ((minutes % MINUTES_PER_DAY) + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+      const hh = String(Math.floor(wrapped / 60)).padStart(2, "0");
+      const mm = String(wrapped % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+    export function autoLastSeating(closes: string, opens: string | null = null): string {
+      const lead = toMinutes(closes) - LAST_SEATING_LEAD_MINUTES;
+      if (opens === null) return toClock(lead);
+      const opensAt = toMinutes(opens);
+      const closesAfter = toMinutes(closes) <= opensAt ? MINUTES_PER_DAY : 0;
+      return toClock(Math.max(lead + closesAfter, opensAt));
+    }
+    export function setServiceTime<T extends LinkedTimes>(
+      service: T,
+      field: TimeField,
+      value: string | null
+    ): T {
+      if (field === "lastSeating") return { ...service, lastSeating: value, lastSeatingLinked: false };
+      const next = { ...service, [field]: value };
+      // Both ends bound a linked last seating, so moving either one keeps it in step.
+      if (!service.lastSeatingLinked) return next;
+      return {
+        ...next,
+        lastSeating: next.closes === null ? null : autoLastSeating(next.closes, next.opens),
       };
     }
   </file>

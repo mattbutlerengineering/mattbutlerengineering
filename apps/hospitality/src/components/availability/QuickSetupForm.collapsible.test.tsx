@@ -164,7 +164,10 @@ describe("QuickSetupForm collapsible lines", () => {
     render(<Harness initial={week()} />);
     expect(screen.getAllByLabelText("Service name")).toHaveLength(2);
     expect(screen.queryByRole("button", { name: LUNCH })).toBeNull();
-    expect(document.querySelectorAll("button[aria-expanded]")).toHaveLength(0);
+    // The only disclosures are each service's "More options" (E4.1): no line header.
+    expect(
+      [...document.querySelectorAll("button[aria-expanded]")].map((button) => button.textContent)
+    ).toEqual(["More options", "More options"]);
   });
 });
 
