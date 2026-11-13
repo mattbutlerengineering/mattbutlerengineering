@@ -26,11 +26,8 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  partitionMissingForNext,
-  formatSinceLastRunCount,
-  formatNextLevelSection,
-} from "../audit.js";
+import { formatNextLevelSection } from "../audit.js";
+import { partitionMissingForNext, formatSinceLastRunCount } from "../next-level.js";
 
 const NIGHTLY = { id: "acmm:nightly-compliance", name: "Nightly compliance scan" };
 const COPILOT = { id: "acmm:copilot-review-apply", name: "Automated review application" };

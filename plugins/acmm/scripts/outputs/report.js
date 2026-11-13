@@ -19,6 +19,7 @@ import { loadReasonBreakdown } from "../human-touch-reasons.js";
 import { classifyEvalsReading } from "../evals-freshness.js";
 import { describeBehavioralAge } from "../behavioral-freshness.js";
 import { checkDetectionLabel, isCheckCriterion } from "./detection-label.js";
+import { partitionMissingForNext, formatSinceLastRunCount } from "../next-level.js";
 
 /**
  * @param {string} cwd
@@ -72,12 +73,7 @@ export function writeReport(
   // ── Since-last-run diff (loop signal) ─────────────────────
   if (diff) {
     const arrow = diff.levelDelta > 0 ? "↑" : diff.levelDelta < 0 ? "↓" : null;
-    const countSign =
-      diff.countDelta > 0
-        ? `+${diff.countDelta}`
-        : diff.countDelta < 0
-          ? `${diff.countDelta}`
-          : "±0";
+    const countSign = formatSinceLastRunCount(diff.countDelta, unverifiableCriteria.length);
     const detected = state.detectedIds?.length ?? 0;
     const levelStr = arrow
       ? `L${diff.priorLevel} ${arrow} L${computation.level}`
@@ -134,21 +130,37 @@ export function writeReport(
     lines.push("");
   }
 
+  // Same partition --apply and the console use (#8847, #8849).
+  const { confirmed: confirmedGaps, unverifiable: unknownGaps } = partitionMissingForNext(
+    computation.missingForNextLevel,
+    new Set(unverifiableCriteria.map((u) => u.id))
+  );
+  /** @param {string} heading */
+  const pushStatusUnknown = (heading) => {
+    if (unknownGaps.length === 0) return;
+    lines.push(
+      `${heading} Status unknown for next level (${unknownGaps.length}) \u2014 not filed by --apply`
+    );
+    lines.push("");
+    for (const c of unknownGaps) lines.push(`- **\`${c.id}\`** \u2014 ${c.name}`);
+    lines.push("");
+  };
+
   // ── Next steps (top of report — most actionable first) ────
-  if (computation.missingForNextLevel.length > 0) {
+  if (confirmedGaps.length > 0) {
     const nextLevel = computation.level + 1;
     const det = computation.detectedByLevel[nextLevel] ?? 0;
     const req = computation.requiredByLevel[nextLevel] ?? 0;
     const needToClose = Math.max(0, Math.ceil(req * 0.7) - det);
     lines.push(
-      `## Next steps — close ${needToClose} of ${computation.missingForNextLevel.length} L${nextLevel} gap${computation.missingForNextLevel.length === 1 ? "" : "s"}`
+      `## Next steps — close ${needToClose} of ${confirmedGaps.length} L${nextLevel} gap${confirmedGaps.length === 1 ? "" : "s"}`
     );
     lines.push("");
     lines.push(
       `Each line below is a concrete remediation hint derived from the criterion's detection paths. The cheapest path to L${nextLevel} is to satisfy the ${needToClose} cheapest items.`
     );
     lines.push("");
-    for (const c of computation.missingForNextLevel) {
+    for (const c of confirmedGaps) {
       const patterns = Array.isArray(c.detection.pattern)
         ? c.detection.pattern
         : [c.detection.pattern];
@@ -417,14 +429,14 @@ export function writeReport(
   }
 
   // ── Missing-for-next-level (actionable) ───────────────────
-  if (computation.missingForNextLevel.length > 0) {
-    lines.push(`## Next-level gaps (${computation.missingForNextLevel.length})`);
+  if (confirmedGaps.length > 0) {
+    lines.push(`## Next-level gaps (${confirmedGaps.length})`);
     lines.push("");
     lines.push(
       `To advance from L${computation.level} → L${computation.level + 1}, close ≥70% of the criteria below.`
     );
     lines.push("");
-    for (const c of computation.missingForNextLevel) {
+    for (const c of confirmedGaps) {
       const patterns = Array.isArray(c.detection.pattern)
         ? c.detection.pattern
         : [c.detection.pattern];
@@ -434,6 +446,7 @@ export function writeReport(
     }
     lines.push("");
   }
+  pushStatusUnknown("##");
 
   // ── Trend ─────────────────────────────────────────────────
   if (state.history.length > 0) {
