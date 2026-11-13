@@ -3336,6 +3336,16 @@
         "phoneOnly": "par téléphone seulement",
         "walkIn": "sans réservation seulement"
       }
+    },
+    "saveBar": {
+      "saveForDates_one": "Enregistrer pour {{count, number}} date",
+      "saveForDates_other": "Enregistrer pour {{count, number}} dates",
+      "saveForDates_many": "Enregistrer pour {{count, number}} de dates",
+      "saveFrom": "Enregistrer dès le {{date}}",
+      "specialHours_one": "{{count, number}} date a déjà des heures spéciales",
+      "specialHours_other": "{{count, number}} dates ont déjà des heures spéciales",
+      "specialHours_many": "{{count, number}} de dates ont déjà des heures spéciales",
+      "fixProblems": "Corrigez les problèmes ci-dessus pour enregistrer."
     }
   },
   "setup": {
