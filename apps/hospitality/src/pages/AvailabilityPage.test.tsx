@@ -1606,7 +1606,13 @@ describe("AvailabilityPage layers", () => {
     it("opens Pause online booking from the header", async () => {
       renderPage(`/availability/calendar?tab=${tab}`);
       fireEvent.click(headerButton("Pause online booking"));
-      expect(await screen.findByRole("dialog")).toBeInTheDocument();
+      // Its own dialog, not Close on "Booking only": Tonight is chosen and one press pauses.
+      const dialog = await screen.findByRole("dialog", { name: "Pause online booking" });
+      expect(within(dialog).getByRole("radio", { name: "Tonight" })).toBeChecked();
+      expect(
+        within(dialog).getByRole("button", { name: "Pause until tonight ends" })
+      ).toBeEnabled();
+      expect(within(dialog).queryByRole("combobox", { name: "When" })).toBeNull();
     });
 
     it("has no Booking rules entry in ⋯: the hub's row 5 opens them", () => {

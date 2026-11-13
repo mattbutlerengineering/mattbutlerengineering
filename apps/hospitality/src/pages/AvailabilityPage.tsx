@@ -46,6 +46,7 @@ import { ClearChangesDialog } from "../components/availability/ClearChangesDialo
 import { UseScheduleDialog } from "../components/availability/UseScheduleDialog.js";
 import { ownSingleDateRules } from "../components/availability/selection-actions.js";
 import { CloseDialog } from "../components/availability/CloseDialog.js";
+import { PauseOnlineDialog } from "../components/availability/PauseOnlineDialog.js";
 import { GoToDateDialog } from "../components/availability/GoToDateDialog.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
@@ -76,7 +77,7 @@ const EMPTY: string[] = [];
 
 /**
  * The Close dialog (F5): `date` pre-fills "one date", `dates` (the selection bar's) "Several
- * dates"; `pause` starts on pausing online booking.
+ * dates"; `pause` opens the Pause online booking dialog in its place.
  */
 interface Closing {
   readonly date: string | null;
@@ -831,7 +832,16 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           onClose={() => setEditor(null)}
         />
       )}
-      {closing && config.data && (
+      {closing?.pause && config.data && (
+        <PauseOnlineDialog
+          venueId={selectedVenueId}
+          state={config.data}
+          // The service date: past midnight on a night still running, Tonight is that night.
+          today={serviceDate}
+          onClose={() => setClosing(null)}
+        />
+      )}
+      {closing && !closing.pause && config.data && (
         <CloseDialog
           venueId={selectedVenueId}
           state={config.data}
@@ -839,7 +849,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           today={today}
           initialDate={closing.date}
           initialDates={closing.dates}
-          pauseOnline={closing.pause}
           initialSectionId={closing.sectionId}
           onSaved={closing.dates ? finishSelectionAction : undefined}
           onClose={() => setClosing(null)}
