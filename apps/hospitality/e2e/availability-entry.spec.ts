@@ -8,12 +8,11 @@ import { weekPanel } from "./helpers/first-paint.js";
  * the page where another page means it to, and never error.
  */
 test.describe("availability deep links", () => {
-  test("?tab=schedules opens the Schedules layer on the week panel", async ({
-    mockedPage: page,
-  }) => {
+  test("?tab=schedules opens the week form, at Regular hours", async ({ mockedPage: page }) => {
     await mockAvailability(page);
     await page.goto("availability?tab=schedules");
-    await expect(page.getByRole("radio", { name: "Schedules" })).toBeChecked();
+    await expect(page).toHaveURL(/\/availability\/hours$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Regular hours" })).toBeVisible();
     await expect(weekPanel(page)).toBeVisible();
   });
 

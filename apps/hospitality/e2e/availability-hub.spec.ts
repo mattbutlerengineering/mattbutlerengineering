@@ -1,11 +1,13 @@
 import type { Locator, Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
-import { buildVenueTeamFixture, loadFixture } from "./api-mocks.js";
+import { buildAvailabilityConfigFixture, buildVenueTeamFixture, loadFixture } from "./api-mocks.js";
+import type { AvailabilityConfig } from "@mbe/types";
 import { mockClosures } from "./helpers/close-mock.js";
 import { countFirstPaintControls } from "./helpers/first-paint.js";
 import { mockDemoVenue, nextChristmasEve } from "./helpers/demo-venue.js";
 import { countInteractions } from "./helpers/interaction-counter.js";
+import { createSharedConfig, serveSharedConfig } from "./helpers/shared-config-mock.js";
 import { localDay } from "./local-day.js";
 
 /**
@@ -111,16 +113,15 @@ test.describe("Availability hub", () => {
     await expect(page.getByText(/^decides /)).toHaveCount(1);
 
     // Each service's line and each row's action is a link built by the address module.
-    const schedules = /\/availability\/calendar\?tab=schedules$/;
     const special = /\/availability\/calendar\?tab=special$/;
     const edit = (n: number, name: string) => row(page, n).getByRole("link", { name });
     await expect(row(page, 1).getByRole("link", { name: /^Lunch / })).toHaveAttribute(
       "href",
-      schedules
+      /\/availability\/hours\?service=vs-lunch$/
     );
     await expect(row(page, 1).getByRole("link", { name: /^Dinner / })).toHaveAttribute(
       "href",
-      schedules
+      /\/availability\/hours\?service=vs-dinner$/
     );
     await expect(edit(4, "View Closures and pauses")).toHaveAttribute("href", special);
     await expect(edit(5, "Edit Booking rules")).toHaveAttribute(
@@ -135,7 +136,7 @@ test.describe("Availability hub", () => {
       await expect(rowsHeading(page)).toBeVisible();
     };
     await edit(1, "Edit Regular hours").click();
-    await expect(layer("Schedules")).toBeChecked();
+    await expect(page.getByRole("heading", { level: 1, name: "Regular hours" })).toBeVisible();
     await back();
     await edit(2, "Add Seasonal hours").click();
     await expect(
@@ -287,6 +288,158 @@ test.describe("Availability hub: Booking rules", () => {
     await expect(drawer(page)).toHaveCount(0);
     await expect(rowsHeading(page)).toBeVisible();
     expect(patches).toEqual([]);
+  });
+});
+
+/** Regular hours (breakdown E4.4): a page of its own, opened from hub row 1. */
+test.describe("Availability hub: Regular hours", () => {
+  const saveBar = (page: Page) => page.getByTestId("editor-save-bar");
+  const saveButton = (page: Page) => saveBar(page).getByRole("button", { name: /^Save/ });
+
+  /** The demo venue's week, held in memory so a save is read back; Undo's revert is counted. */
+  async function serveWeek(page: Page) {
+    const store = createSharedConfig(buildAvailabilityConfigFixture().config as AvailabilityConfig);
+    await serveSharedConfig(page, store);
+    const reverts: string[] = [];
+    await page.route(`${base}/availability/changes/*/revert`, (route) => {
+      reverts.push(route.request().url());
+      store.version += 1;
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: { version: store.version, changeId: "change-undo" } }),
+      });
+    });
+    return { store, reverts };
+  }
+
+  /** How many viewports tall the page's content is (the main area is the scroll container). */
+  const pageScreens = (page: Page) =>
+    page.evaluate(() => {
+      const main = document.querySelector("main#main-content");
+      if (!main) throw new Error("no <main id=main-content> on the page");
+      const bottom = Math.max(
+        document.documentElement.scrollHeight,
+        main.scrollHeight + main.getBoundingClientRect().top
+      );
+      return bottom / window.innerHeight;
+    });
+
+  test("walkthrough 10: Dinner's close in 4 steps, with Save 6 Tabs away, and back to row 1 with Undo", async ({
+    mockedPage: page,
+  }) => {
+    const { store, reverts } = await serveWeek(page);
+    await openHub(page);
+    const counter = countInteractions(page);
+
+    await counter.page
+      .getByTestId("hub-row-1")
+      .getByRole("link", { name: /^Dinner / })
+      .click();
+    await expect(page).toHaveURL(/\/availability\/hours\?service=vs-dinner$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Regular hours" })).toBeVisible();
+    const closes = page.getByRole("combobox", { name: "Closes" });
+    await expect(closes).toHaveCount(1);
+    await counter.page.getByRole("combobox", { name: "Closes" }).click();
+    await counter.page
+      .getByRole("listbox", { name: "Closes" })
+      .getByRole("option", { name: "11:30 PM", exact: true })
+      .click();
+    await expect(saveButton(page)).toBeEnabled();
+
+    // PRD 7: the form after one edit, at most 30 controls within 1.5 screens.
+    const { count, controls } = await countFirstPaintControls(page, null);
+    test.info().annotations.push({
+      type: "regular hours controls after one edit",
+      description: `${count}: ${controls.join(" | ")}`,
+    });
+    expect(count, controls.join("\n")).toBeLessThanOrEqual(30);
+    expect(await pageScreens(page)).toBeLessThanOrEqual(1.5);
+
+    // PRD 8 / ux.md: the save bar is the next Tab stop after the open service.
+    await closes.focus();
+    let presses = 0;
+    const onSave = () =>
+      page.evaluate(() => {
+        const active = document.activeElement;
+        return (
+          !!active?.closest('[data-testid="editor-save-bar"]') &&
+          /^Save/.test(active.textContent?.trim() ?? "")
+        );
+      });
+    while (!(await onSave()) && presses < 20) {
+      await page.keyboard.press("Tab");
+      presses += 1;
+    }
+    expect(presses).toBeLessThanOrEqual(6);
+
+    await counter.page.getByTestId("editor-save-bar").getByRole("button", { name: "Save" }).click();
+    await expect.poll(() => store.configPuts.length).toBe(1);
+    // Walkthrough 10: target 4 (baseline 3).
+    expect(counter.count()).toBeLessThanOrEqual(4);
+
+    await expect(page).toHaveURL(/\/availability$/);
+    await expect(page.getByTestId("hub-row-1").locator(":focus")).toHaveCount(1);
+    await expect(page.getByTestId("hub-row-1")).toContainText("11:30 PM");
+    const notifications = page.getByRole("region", { name: "Notifications" });
+    await notifications.getByRole("button", { name: "Undo" }).click();
+    await expect.poll(() => reverts.length).toBe(1);
+  });
+
+  test("walkthroughs 5 and 1 in 7 steps each, and leaving with a draft asks first", async ({
+    mockedPage: page,
+  }) => {
+    const { store } = await serveWeek(page);
+    await openHub(page);
+
+    // Walkthrough 5: Dinner seats every 30 minutes and takes phone bookings only.
+    const five = countInteractions(page);
+    await five.page
+      .getByTestId("hub-row-1")
+      .getByRole("link", { name: /^Dinner / })
+      .click();
+    await five.page.getByRole("button", { name: "More options" }).click();
+    await five.page.getByRole("combobox", { name: "Seat every" }).click();
+    await five.page.getByRole("option", { name: "30 min", exact: true }).click();
+    await five.page.getByRole("combobox", { name: "Booked by" }).click();
+    await five.page.getByRole("option", { name: "Phone only", exact: true }).click();
+    await five.page.getByTestId("editor-save-bar").getByRole("button", { name: "Save" }).click();
+    await expect.poll(() => store.configPuts.length).toBe(1);
+    expect(five.count()).toBeLessThanOrEqual(7);
+    const dinnerRows = (store.configPuts[0]?.changes.upsert.scheduleServices ?? []).filter(
+      (row) => row.venueServiceId === "vs-dinner"
+    );
+    expect(dinnerRows.length).toBeGreaterThan(0);
+    for (const row of dinnerRows) {
+      expect(row.seating).toEqual({ version: 1, interval: 30 });
+      expect(row.bookingTypes).toEqual(["phone"]);
+    }
+    await expect(page).toHaveURL(/\/availability$/);
+
+    // Walkthrough 1: weekend Brunch beside every-day Lunch, the overlap fixed in one press.
+    const one = countInteractions(page);
+    await one.page.getByRole("link", { name: "Edit Regular hours" }).click();
+    await one.page.getByRole("button", { name: "Add another service" }).click();
+    await one.page.getByRole("button", { name: "Brunch", exact: true }).click();
+    // Lunch is open too: its overlap with Brunch holds it open. Brunch's row is the last.
+    await one.page.getByRole("button", { name: "Different days for this service" }).last().click();
+    await one.page.getByRole("button", { name: "Weekends", exact: true }).first().click();
+    await one.page.getByRole("button", { name: "Run Lunch on weekdays only" }).click();
+    await one.page.getByTestId("editor-save-bar").getByRole("button", { name: "Save" }).click();
+    await expect.poll(() => store.configPuts.length).toBe(2);
+    expect(one.count()).toBeLessThanOrEqual(7);
+    expect(store.config.venueServices.map((s) => s.name)).toContain("Brunch");
+    await expect(page).toHaveURL(/\/availability$/);
+
+    // PRD 11: leaving with a draft asks first, and Keep editing keeps it.
+    await page.getByRole("link", { name: "Edit Regular hours" }).click();
+    await page.getByRole("button", { name: "Add another service" }).click();
+    await page.getByRole("link", { name: "Back to Availability" }).click();
+    const prompt = page.getByRole("alertdialog", { name: "Discard your changes?" });
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole("button", { name: "Keep editing" }).click();
+    await expect(page).toHaveURL(/\/availability\/hours$/);
+    expect(store.configPuts).toHaveLength(2);
   });
 });
 

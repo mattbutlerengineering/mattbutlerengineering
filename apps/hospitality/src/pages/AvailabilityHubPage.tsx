@@ -19,6 +19,7 @@ import type { HubRowModels } from "../components/availability/hub/hub-rows.js";
 import { shortDate } from "../components/availability/hub/hub-text.js";
 import { HubCloseMenu } from "../components/availability/hub/HubCloseMenu.js";
 import { HubRow, type HubRowAction } from "../components/availability/hub/HubRow.js";
+import { takeHubReturnRow } from "../components/availability/hub-return-focus.js";
 import { TodayLine } from "../components/availability/TodayLine.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
@@ -79,9 +80,16 @@ function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
   const location = useLocation();
   const { from } = readAvailabilityAddress(location);
   const { focusAfter } = useFocusAfter();
-  // Arriving on the hub puts focus on its heading, so a screen reader starts at the top of it.
-  // A drawer already open over the hub keeps focus: the heading is behind it.
-  useEffect(() => focusAfter({ kind: "pageHeading" }, UNLESS_COVERED), [focusAfter]);
+  // Arriving on the hub puts focus on its heading, so a screen reader starts at the top of it, or
+  // on the row an editor just saved. A drawer already open over the hub keeps focus: the heading
+  // is behind it.
+  const returnRow = useRef<string | null>(null);
+  useEffect(() => {
+    // Taken once per mount: a ref keeps it for the second run of a strict-mode effect.
+    returnRow.current ??= takeHubReturnRow();
+    const row = returnRow.current;
+    focusAfter(row ? { kind: "firstIn", testId: row } : { kind: "pageHeading" }, UNLESS_COVERED);
+  }, [focusAfter]);
   useFocusAfterDrawers(location.pathname, scope.isManager, focusAfter);
 
   const backLink = from === "setup" && (

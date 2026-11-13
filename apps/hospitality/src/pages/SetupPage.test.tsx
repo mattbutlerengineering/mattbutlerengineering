@@ -273,14 +273,12 @@ describe("Venue Setup: schedules and services", () => {
     expect(screen.getByText("1 schedule")).toBeInTheDocument();
   });
 
-  it("links Change regular week and Add a schedule… to the Schedules layer", async () => {
+  it("links Change regular week to Regular hours", async () => {
     setConfig(WEEK);
     renderPage();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Change regular week…" }));
-    expect(screen.getByLabelText("location")).toHaveTextContent(
-      "/availability/calendar?tab=schedules&from=setup"
-    );
+    expect(screen.getByLabelText("location")).toHaveTextContent("/availability/hours?from=setup");
   });
 
   it("sends Add a schedule… to the seeded editor on the Schedules layer", async () => {

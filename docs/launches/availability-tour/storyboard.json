@@ -13,7 +13,7 @@
     },
     {
       "say": "Regular hours are your normal week, and they apply whenever nothing else does.",
-      "do": "await page.getByTestId('hub-row-1').getByRole('link', { name: 'Edit Regular hours' }).click(); await page.getByRole('radio', { name: 'Schedules' }).waitFor();"
+      "do": "await page.getByTestId('hub-row-1').getByRole('link', { name: 'Edit Regular hours' }).click(); await page.getByRole('heading', { level: 1, name: 'Regular hours' }).waitFor();"
     },
     {
       "say": "Special dates and holidays change single days, like shorter hours on Christmas Eve.",

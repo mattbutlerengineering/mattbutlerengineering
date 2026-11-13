@@ -89,7 +89,7 @@ async function mockTueSatVenue(page: Page, dateRules: unknown[] = []) {
 test.describe("Change regular week (F-UW)", () => {
   test("a Tuesday to Saturday venue keeps Sunday and Monday closed", async ({ mockedPage }) => {
     const state = await mockTueSatVenue(mockedPage);
-    await mockedPage.goto("availability?tab=schedules");
+    await mockedPage.goto("availability/calendar?tab=schedules");
 
     await mockedPage.getByRole("button", { name: "Starting later…" }).click();
     await expect(
@@ -111,7 +111,7 @@ test.describe("Change regular week (F-UW)", () => {
 
   test("Escape on a drawer with unsaved edits asks first", async ({ mockedPage }) => {
     await mockTueSatVenue(mockedPage);
-    await mockedPage.goto("availability?tab=schedules");
+    await mockedPage.goto("availability/calendar?tab=schedules");
 
     const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
     await mockedPage.getByRole("button", { name: "Starting later…" }).click();
@@ -139,7 +139,7 @@ test.describe("Change regular week (F-UW)", () => {
     mockedPage,
   }) => {
     await mockTueSatVenue(mockedPage);
-    await mockedPage.goto("availability?tab=schedules");
+    await mockedPage.goto("availability/calendar?tab=schedules");
 
     const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
     await mockedPage.getByRole("button", { name: "Starting later…" }).click();
@@ -207,7 +207,7 @@ test.describe("Change regular week (F-UW)", () => {
             body: JSON.stringify({ data: previewResult }),
           })
         );
-        await mockedPage.goto("availability?tab=schedules");
+        await mockedPage.goto("availability/calendar?tab=schedules");
         await mockedPage.getByRole("button", { name: "Starting later…" }).click();
         const drawer = mockedPage.getByRole("dialog", { name: "Change regular week" });
         await expect(drawer.getByText(/Make a change to see what guests will see/)).toBeVisible();
@@ -255,7 +255,7 @@ test.describe("Change regular week (F-UW)", () => {
         })
       );
       await mockedPage.addInitScript(() => localStorage.setItem("mbe-hospitality-locale", "fr-CA"));
-      await mockedPage.goto("availability?tab=schedules");
+      await mockedPage.goto("availability/calendar?tab=schedules");
       await mockedPage.getByRole("button", { name: "Commencer plus tard…" }).click();
       const drawer = mockedPage.getByRole("dialog").first();
       await mockedPage.getByLabel(/^Début/).click();
@@ -286,7 +286,7 @@ test.describe("Change regular week (F-UW)", () => {
       await mockedPage.route("**/availability/preview*", (route) =>
         route.fulfill({ status: 500, contentType: "application/problem+json", body: "{}" })
       );
-      await mockedPage.goto("availability?tab=schedules");
+      await mockedPage.goto("availability/calendar?tab=schedules");
       await mockedPage.getByRole("button", { name: "Starting later…" }).click();
       await mockedPage.getByLabel("Starting").click();
       await mockedPage.locator(`[role="gridcell"][data-date="${localDay()}"]`).click();
@@ -632,7 +632,7 @@ test.describe("Change regular week: name suggestion (#7981)", () => {
           (tag) => localStorage.setItem("mbe-hospitality-locale", tag),
           locale
         );
-        await mockedPage.goto("availability?tab=schedules");
+        await mockedPage.goto("availability/calendar?tab=schedules");
         await mockedPage.getByRole("button", { name: open }).click();
         // The name is asked for only when the change has an end date (it is then a named period).
         // Ending first, so no preview starts before the name is typed or suggested.
@@ -692,7 +692,7 @@ test.describe("Saving the regular week again and again (#8688)", () => {
     // Each PUT is applied on top of the rows already saved, as the service does.
     await mockEmptyVenue(page, { derive: true, config: dinnerOnlyConfig() });
     await mockNoopPreview(page);
-    await page.goto("availability?tab=schedules");
+    await page.goto("availability/calendar?tab=schedules");
     const panel = weekPanel(page);
     await expect(panel).toBeVisible();
 

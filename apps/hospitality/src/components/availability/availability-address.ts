@@ -3,7 +3,7 @@
  * "Address module"). Callers name a target; this module decides the address.
  *
  * The hub is the index; booking rules and History are drawers over it at `booking-rules` and
- * `history`. Until the item
+ * `history`, and regular hours is a page of its own at `hours`. Until the item
  * that builds any other view lands, its target resolves to the tab of today's page that does the
  * same job, so no link leads to a missing view. Today's page is mounted at `calendar`.
  * The item that builds a view gives its target its own path in `availabilityPath`; old addresses
@@ -111,7 +111,7 @@ export function parseAvailabilityEntry(search: string | URLSearchParams): Availa
  */
 const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | undefined>> = {
   hub: undefined,
-  hours: "schedules",
+  hours: undefined,
   seasonal: "schedules",
   specialDates: "special",
   closures: "special",
@@ -122,6 +122,12 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
 
 /** The booking rules drawer, over the hub. */
 const BOOKING_RULES = `${ROUTE}/booking-rules`;
+/** Regular hours, a page of its own (`?service=` names the service to open). */
+const HOURS = `${ROUTE}/hours`;
+
+/** The service `?service=` names on regular hours, or `null`. */
+export const readHoursService = (location: { readonly search: string }): string | null =>
+  new URLSearchParams(location.search).get("service") || null;
 
 /** Whether a pathname is the booking rules drawer. In any case, as the router matches it. */
 export const isBookingRulesPage = (pathname: string): boolean =>
@@ -134,9 +140,10 @@ const HISTORY = `${ROUTE}/history`;
 export const isHistoryPage = (pathname: string): boolean =>
   pathname.replace(/\/+$/, "").toLowerCase() === HISTORY;
 
-/** The views with a path of their own: the hub and the drawers over it. */
+/** The views with a path of their own: the hub, the drawers over it and regular hours. */
 const OWN_PATHS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
   hub: ROUTE,
+  hours: HOURS,
   bookingRules: BOOKING_RULES,
   history: HISTORY,
 };
@@ -192,13 +199,14 @@ function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void {
  *
  * The layout hosts the Close and Pause dialogs over any view (C2.4), so every address carries
  * them. A calendar date opens that day's drawer on today's page; a date that is not a real day is
- * dropped. A named service, schedule or calendar view is dropped until the view that reads it
- * lands.
+ * dropped. Regular hours carries the service it opens. A named schedule or calendar view is
+ * dropped until the view that reads it lands.
  */
 export function availabilityPath(target: AvailabilityTarget): string {
   const params = new URLSearchParams();
   const ownPath = OWN_PATHS[target.view];
   if (ownPath) {
+    if (target.view === "hours" && target.service) params.set("service", target.service);
     setOverlay(params, target);
     return withSearch(ownPath, params);
   }

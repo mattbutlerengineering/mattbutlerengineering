@@ -55,7 +55,11 @@ export function HubRow({ text, action, serviceTo, marker }: HubRowProps) {
         {lines.map(({ line, key }) => (
           <li key={key}>
             {serviceTo && line.venueServiceId ? (
-              <Link to={serviceTo(line.venueServiceId)} className={styles.link}>
+              <Link
+                to={serviceTo(line.venueServiceId)}
+                state={OPENED_FROM_HUB}
+                className={styles.link}
+              >
                 {line.text}
               </Link>
             ) : (

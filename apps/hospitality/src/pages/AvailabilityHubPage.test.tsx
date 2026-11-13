@@ -11,6 +11,7 @@ import {
   specialHours,
   venue,
 } from "../components/availability/hub/hub-rows-test-helpers.js";
+import { focusHubRowOnReturn } from "../components/availability/hub-return-focus.js";
 import type { AvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { AvailabilityHubPage } from "./AvailabilityHubPage.js";
 
@@ -76,6 +77,7 @@ function renderHub(scope: AvailabilityScope, url = "/availability") {
         children: [
           { index: true, element: <AvailabilityHubPage /> },
           { path: "calendar", element: <div>Today&apos;s page</div> },
+          { path: "hours", element: <div>Regular hours page</div> },
         ],
       },
     ],
@@ -108,6 +110,12 @@ describe("AvailabilityHubPage", () => {
     expect(headings[0]).toHaveFocus();
     // No pause banner on the hub, so the line itself says when online booking is paused.
     expect(screen.getByTestId("today-line")).toHaveAttribute("data-banner", "false");
+  });
+
+  it("puts focus on a row an editor saved from, in place of the heading", () => {
+    focusHubRowOnReturn("hub-row-1");
+    renderHub(scopeOf());
+    expect(within(row(1)).getByRole("link", { name: "Edit Regular hours" })).toHaveFocus();
   });
 
   it("renders a drawer route's drawer over the rows, and leaves focus inside it", () => {
@@ -176,7 +184,10 @@ describe("AvailabilityHubPage", () => {
   it("gives a Manager one action per row, each named for its row, and a link per service", () => {
     renderHub(scopeOf());
     expect(hrefOf(within(row(1)).getByRole("link", { name: "Edit Regular hours" }))).toBe(
-      "/availability/calendar?tab=schedules"
+      "/availability/hours"
+    );
+    expect(hrefOf(within(row(1)).getByRole("link", { name: /^Dinner 5:00 PM–10:00 PM/ }))).toMatch(
+      /^\/availability\/hours\?service=./
     );
     expect(hrefOf(within(row(2)).getByRole("link", { name: "Add Seasonal hours" }))).toBe(
       "/availability/calendar?tab=schedules&action=addSchedule"
@@ -320,15 +331,13 @@ describe("AvailabilityHubPage", () => {
 
     it("sends a Manager to regular hours with a replace", async () => {
       const router = renderHub(scopeOf({ state: empty() }));
-      await waitFor(() => expect(address(router)).toBe("/availability/calendar?tab=schedules"));
+      await waitFor(() => expect(address(router)).toBe("/availability/hours"));
       expect(router.state.historyAction).toBe("REPLACE");
     });
 
     it("carries the way back to Venue Setup", async () => {
       const router = renderHub(scopeOf({ state: empty() }), "/availability?from=setup");
-      await waitFor(() =>
-        expect(address(router)).toBe("/availability/calendar?tab=schedules&from=setup")
-      );
+      await waitFor(() => expect(address(router)).toBe("/availability/hours?from=setup"));
     });
 
     it("keeps a Manager on a drawer route: the redirect waits until the drawer has closed", () => {
@@ -411,7 +420,6 @@ describe("AvailabilityHubPage", () => {
   describe("the index's addresses", () => {
     it.each([
       ["/availability?tab=special", "/availability/calendar?tab=special"],
-      ["/availability?tab=schedules&from=setup", "/availability/calendar?tab=schedules&from=setup"],
       [
         "/availability?action=addSchedule",
         "/availability/calendar?tab=schedules&action=addSchedule",
@@ -421,6 +429,13 @@ describe("AvailabilityHubPage", () => {
       await waitFor(() => expect(address(router)).toBe(next));
       expect(router.state.historyAction).toBe("REPLACE");
       expect(screen.getByText("Today's page")).toBeInTheDocument();
+    });
+
+    it("sends the old Schedules address to regular hours, with a replace", async () => {
+      const router = renderHub(scopeOf(), "/availability?tab=schedules&from=setup");
+      await waitFor(() => expect(address(router)).toBe("/availability/hours?from=setup"));
+      expect(router.state.historyAction).toBe("REPLACE");
+      expect(screen.getByText("Regular hours page")).toBeInTheDocument();
     });
 
     it("sends ?closeSection= to the hub's own Close of that section, once, keeping from=setup", async () => {
