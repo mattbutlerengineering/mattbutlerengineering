@@ -123,6 +123,7 @@ function RegularWeekPanelBody(props: BodyProps) {
     dates,
     own,
     issues,
+    storedKept,
     outside,
     closedDays,
     focusDate,
@@ -205,6 +206,7 @@ function RegularWeekPanelBody(props: BodyProps) {
             onChange={edit}
             issues={shown}
             idScope={scopeId}
+            storedKept={storedKept}
             collapsible
             // One preview: while the draft is dirty the draft preview below stands in for it.
             hidePreview={dirty}

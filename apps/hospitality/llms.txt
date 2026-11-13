@@ -1314,10 +1314,6 @@
     </item>
     <item priority="low">
       interface DraftTimes {
-        opens: string | null;
-        lastSeating: string | null;
-        closes: string | null;
-        lastSeatingLinked: boolean;
         kept?: KeptHours;
       }
     </item>
@@ -1325,6 +1321,7 @@
       interface HoursBlock {
         id: string;
         days: readonly number[];
+        ownKept?: { readonly seating: boolean; readonly bookingTypes: boole...;
       }
     </item>
     <item priority="low">
@@ -1375,23 +1372,7 @@
       export function emptyDraft(firstServiceId: string): QuickSetupDraft { /* ... */ }
     </item>
     <item priority="high">
-      export function toMinutes(hhmm: string): number { /* ... */ }
-    </item>
-    <item priority="high">
-      export function toClock(minutes: number): string { /* ... */ }
-    </item>
-    <item priority="high">
-      export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
-    </item>
-    <item priority="high">
       export function applyPreset(service: ServiceDraft, preset: ServicePresetId, name: string) { /* ... */ }
-    </item>
-    <item priority="high">
-      export function setServiceTime<T extends DraftTimes>(
-        service: T,
-        field: "opens" | "lastSeating" | "closes",
-        value: string | null
-      ): T { /* ... */ }
     </item>
     <item priority="high">
       export function replaceService(draft: QuickSetupDraft, next: ServiceDraft): QuickSetupDraft { /* ... */ }
@@ -1463,6 +1444,9 @@
     </item>
     <item priority="high">
       export function coveredDays(draft: QuickSetupDraft): number[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export const DEFAULT_KEPT: KeptHours;
     </item>
     <item priority="medium">
       function hoursOf(m: ServiceMinutes, kept: KeptHours | undefined): ServiceHours { /* ... */ }
@@ -1544,6 +1528,12 @@
         scope: string = DEFAULT_SCOPE
       ) { /* ... */ }
     </item>
+    <item priority="medium">
+      function quickSetupRowScope(serviceId: string, blockId?: string, scope: string = DEFAULT_SCOPE) { /* ... */ }
+    </item>
+    <item priority="high">
+      export function useQuickSetupRowScope() { /* ... */ }
+    </item>
     <item priority="high">
       export function useQuickSetupFieldId() { /* ... */ }
     </item>
@@ -1595,6 +1585,30 @@
         format: LineFormat,
         t: TFunction
       ): ServiceLineText { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/quick-setup-options.ts">
+    <item priority="high">
+      export function shownKept(times: Pick<DraftTimes, "kept">, stored?: KeptHours): KeptHours { /* ... */ }
+    </item>
+    <item priority="medium">
+      function settled(next: KeptHours, held: readonly (KeptHours | undefined)[]): KeptHours { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setServiceKept(
+        service: ServiceDraft,
+        next: KeptHours,
+        stored?: KeptHours
+      ): ServiceDraft { /* ... */ }
+    </item>
+    <item priority="medium">
+      function followService(
+        block: HoursBlock,
+        change: { readonly was: KeptHours; readonly kept: KeptHours; readonly stored?: KeptHours }
+      ): HoursBlock { /* ... */ }
+    </item>
+    <item priority="high">
+      export function keepsOwnSettings(service: KeptHours, block: KeptHours): boolean { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/quick-setup-placement.ts">
@@ -2027,7 +2041,16 @@
       }): AvailabilityConfigChanges { /* ... */ }
     </item>
     <item priority="medium">
-      function keptOf(config: AvailabilityConfig, scheduleId: string | undefined) { /* ... */ }
+      function keptOf(
+        config: AvailabilityConfig,
+        scheduleId: string | undefined
+      ): Record<string, KeptHours> { /* ... */ }
+    </item>
+    <item priority="high">
+      export function storedKeptByName(
+        config: AvailabilityConfig,
+        scheduleId: string | "regular" | undefined
+      ): Readonly<Record<string, KeptHours>> { /* ... */ }
     </item>
     <item priority="medium">
       function scheduleRowChanges(input: {
@@ -6964,6 +6987,66 @@
         events: readonly RehearsalEvent[],
         options: RehearsalStateOptions = {}
       ): RehearsalPlayback { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="service-fields">
+  <file path="src/components/availability/service-fields/service-options.ts">
+    <item priority="low">
+      type BookingTypes = ScheduleService["bookingTypes"];
+    </item>
+    <item priority="high">
+      export const SEATING_INTERVALS: unknown;
+    </item>
+    <item priority="low">
+      type BookedById = "onlinePhone" | "onlineOnly" | "phoneOnly" | "walkIn";
+    </item>
+    <item priority="high">
+      export const BOOKED_BY: readonly { readonly id: BookedById; readonly types: Booki...;
+    </item>
+    <item priority="high">
+      export const sameSeating: unknown;
+    </item>
+    <item priority="high">
+      export const sameBookingTypes: unknown;
+    </item>
+    <item priority="high">
+      export function optionsKey(options: {
+        readonly seating: Seating;
+        readonly bookingTypes: BookingTypes;
+      }): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function bookedById(types: BookingTypes): BookedById { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/service-fields/service-times.ts">
+    <item priority="low">
+      interface LinkedTimes {
+        opens: string | null;
+        lastSeating: string | null;
+        closes: string | null;
+        lastSeatingLinked: boolean;
+      }
+    </item>
+    <item priority="low">
+      type TimeField = "opens" | "lastSeating" | "closes";
+    </item>
+    <item priority="high">
+      export function toMinutes(hhmm: string): number { /* ... */ }
+    </item>
+    <item priority="high">
+      export function toClock(minutes: number): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function autoLastSeating(closes: string, opens: string | null = null): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function setServiceTime<T extends LinkedTimes>(
+        service: T,
+        field: TimeField,
+        value: string | null
+      ): T { /* ... */ }
     </item>
   </file>
   </section>

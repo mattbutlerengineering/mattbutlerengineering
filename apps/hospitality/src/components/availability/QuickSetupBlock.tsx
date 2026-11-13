@@ -3,12 +3,21 @@ import { Button, Checkbox, Stack, Text } from "@mattbutlerengineering/rialto";
 import {
   WEEK_DISPLAY_ORDER,
   type HoursBlock,
+  type KeptHours,
   type QuickSetupDraft,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
+import { keepsOwnSettings } from "./quick-setup-options.js";
+import { OwnSettingsCaption } from "./service-fields/ServiceOptions.js";
 import { type QuickSetupIssue } from "./quick-setup-validate.js";
-import { issuesFor, useQuickSetupFieldId, useWeekdayName } from "./quick-setup-field-helpers.js";
-import { DayShortcuts, IssueText, TimesRow } from "./quick-setup-fields.js";
+import {
+  issuesFor,
+  useQuickSetupFieldId,
+  useQuickSetupRowScope,
+  useWeekdayName,
+} from "./quick-setup-field-helpers.js";
+import { DayShortcuts, IssueText, timeProblems } from "./quick-setup-fields.js";
+import { TimesRow } from "./service-fields/TimesRow.js";
 import styles from "./QuickSetupForm.module.css";
 
 export interface HoursBlockFieldsetProps {
@@ -19,6 +28,10 @@ export interface HoursBlockFieldsetProps {
   readonly offeredDays: readonly number[];
   /** Shown name of the service, for the legend. */
   readonly serviceName: string;
+  /** The seating and booking types the service will be saved with (`shownKept`). */
+  readonly serviceKept: KeptHours;
+  /** The same for this block's days. */
+  readonly blockKept: KeptHours;
   readonly issues: readonly QuickSetupIssue[];
   readonly onChange: (next: HoursBlock) => void;
   readonly onToggleDay: (day: number) => void;
@@ -34,6 +47,8 @@ export function HoursBlockFieldset({
   block,
   offeredDays,
   serviceName,
+  serviceKept,
+  blockKept,
   issues,
   onChange,
   onToggleDay,
@@ -41,6 +56,7 @@ export function HoursBlockFieldset({
   onRemove,
 }: HoursBlockFieldsetProps) {
   const fieldId = useQuickSetupFieldId();
+  const rowScope = useQuickSetupRowScope();
   const { t } = useTranslation();
   const dayName = useWeekdayName();
   const matchesBase =
@@ -48,12 +64,18 @@ export function HoursBlockFieldset({
     block.opens === service.opens &&
     block.lastSeating === service.lastSeating &&
     block.closes === service.closes;
+  // The block has no "Seat every" or "Booked by" of its own: where it will be saved with values
+  // unlike the service's, it says which.
+  const ownSettingsId = keepsOwnSettings(serviceKept, blockKept)
+    ? `${rowScope(service.id, block.id)}-own-settings`
+    : undefined;
   return (
     <fieldset
       className={styles.block}
       id={fieldId(service.id, "days", block.id)}
       tabIndex={-1}
       data-hours-block=""
+      aria-describedby={ownSettingsId}
     >
       <legend className={styles.legend}>
         {t("availability.quickSetup.blockLegend", { service: serviceName })}
@@ -72,17 +94,22 @@ export function HoursBlockFieldset({
         </div>
         <IssueText problems={issuesFor(issues, service.id, "days", block.id)} draft={draft} />
         <TimesRow
-          draft={draft}
-          serviceId={service.id}
-          blockId={block.id}
           times={block}
-          issues={issues}
           onChange={onChange}
+          idScope={rowScope(service.id, block.id)}
+          problems={timeProblems(draft, issues, service.id, block.id)}
         />
         {matchesBase && (
           <Text variant="caption" color="secondary">
             {t("availability.quickSetup.blockMatchesBase")}
           </Text>
+        )}
+        {ownSettingsId !== undefined && (
+          <OwnSettingsCaption
+            id={ownSettingsId}
+            seating={blockKept.seating}
+            bookingTypes={blockKept.bookingTypes}
+          />
         )}
         <div>
           <Button variant="secondary" size="sm" onClick={onRemove}>

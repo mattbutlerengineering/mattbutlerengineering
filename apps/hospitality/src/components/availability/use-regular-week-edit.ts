@@ -19,6 +19,7 @@ import {
   datesOfUse,
   overlappingSchedules,
   scheduleSaveBlock,
+  storedKeptByName,
   type Winner,
 } from "./schedule-changes.js";
 import { ownChangeDates } from "./scope-dates.js";
@@ -128,6 +129,8 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     [config, weekdays, startsOn, endsOn]
   );
   const issues = useMemo(() => validateDraft(draft), [draft]);
+  // What `buildRegularWeekChanges` falls back to per service name: the form shows the same.
+  const storedKept = useMemo(() => storedKeptByName(config, "regular"), [config]);
   const outside = useMemo(() => outsideSchedules(config), [config]);
   const closedDays = baselineWeek.days.filter((day) => !weekdays.includes(day));
   const focusDate =
@@ -219,6 +222,7 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     own,
     overlaps,
     issues,
+    storedKept,
     outside,
     closedDays,
     focusDate,

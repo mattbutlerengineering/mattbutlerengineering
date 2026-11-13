@@ -4,9 +4,11 @@ import {
   WEEK_DISPLAY_ORDER,
   coveredDays,
   draftToConfig,
+  type DraftTimes,
   type QuickSetupDraft,
   type ServiceDraft,
 } from "./quick-setup-draft.js";
+import { optionsKey } from "./service-fields/service-options.js";
 
 /**
  * What Change regular week does with a `QuickSetupDraft` besides encode it (`schedule-changes.ts`):
@@ -17,15 +19,22 @@ import {
 const sorted = (days: readonly number[] | null) => (days === null ? null : [...days].sort());
 const nameKey = (service: ServiceDraft) => service.name.trim().toLowerCase();
 
-/** A service's content without row ids, the linked flag and the order of its days. */
+/**
+ * A service's content without row ids, the linked flag and the order of its days. Seating and
+ * booking types count: the row changes them ("Seat every", "Booked by"), so a change to one alone
+ * is an edit. They are compared as the encoder compares them, without regard to order, so a
+ * value changed and put back reads as no edit.
+ */
 function serviceKey(service: ServiceDraft) {
+  const keptKey = (times: DraftTimes) => (times.kept ? optionsKey(times.kept) : null);
   return JSON.stringify([
     nameKey(service),
     service.opens,
     service.lastSeating,
     service.closes,
     sorted(service.days),
-    service.blocks.map((b) => [sorted(b.days), b.opens, b.lastSeating, b.closes]),
+    service.blocks.map((b) => [sorted(b.days), b.opens, b.lastSeating, b.closes, keptKey(b)]),
+    keptKey(service),
   ]);
 }
 

@@ -42,19 +42,6 @@
   gap: var(--rialto-space-xs);
 }
 
-.times {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--rialto-space-sm);
-}
-
-.timeField {
-  display: flex;
-  flex-direction: column;
-  gap: var(--rialto-space-xs);
-  min-width: 0;
-}
-
 .dayToggles {
   display: flex;
   flex-wrap: wrap;
@@ -77,8 +64,7 @@
 }
 
 @media (max-width: 720px) {
-  .layout,
-  .times {
+  .layout {
     grid-template-columns: minmax(0, 1fr);
   }
 

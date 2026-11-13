@@ -22,7 +22,21 @@ export function quickSetupFieldId(
   scope: string = DEFAULT_SCOPE
 ) {
   if (serviceId === null) return `${scope}-days`;
-  return `${scope}-${serviceId}${blockId === undefined ? "" : `-${blockId}`}-${field}`;
+  return `${quickSetupRowScope(serviceId, blockId, scope)}-${field}`;
+}
+
+/**
+ * The id prefix of one service's fields (or one of its different-hours blocks'): what the shared
+ * service fields take as their `idScope`, so their ids are the ones `quickSetupFieldId` answers.
+ */
+function quickSetupRowScope(serviceId: string, blockId?: string, scope: string = DEFAULT_SCOPE) {
+  return `${scope}-${serviceId}${blockId === undefined ? "" : `-${blockId}`}`;
+}
+
+/** `quickSetupRowScope` for the form instance this component is rendered in. */
+export function useQuickSetupRowScope() {
+  const scope = use(QuickSetupIdScopeContext);
+  return (serviceId: string, blockId?: string) => quickSetupRowScope(serviceId, blockId, scope);
 }
 
 /** `quickSetupFieldId` for the form instance this component is rendered in; stable per scope. */
