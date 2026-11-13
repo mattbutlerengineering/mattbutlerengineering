@@ -128,6 +128,22 @@ describe("BookingRulesRoute", () => {
     expect(mutateAsync).not.toHaveBeenCalled();
   });
 
+  it("offers no Save in the prompt while a value cannot be saved, so it never closes without saving", async () => {
+    const router = renderRoute(scopeOf());
+    fireEvent.change(screen.getByLabelText(/Largest party online/), { target: { value: "0" } });
+    act(() => void router.navigate("/timeline"));
+    await waitFor(() => expect(prompt()).toBeInTheDocument());
+    const asked = within(prompt() as HTMLElement);
+    expect(asked.getByRole("button", { name: "Keep editing" })).toBeInTheDocument();
+    expect(asked.getByRole("button", { name: "Discard" })).toBeInTheDocument();
+    expect(asked.queryByRole("button", { name: "Save" })).not.toBeInTheDocument();
+    fireEvent.click(asked.getByRole("button", { name: "Keep editing" }));
+    await waitFor(() => expect(prompt()).not.toBeInTheDocument());
+    expect(address(router)).toBe("/availability/booking-rules");
+    expect(screen.getByText("Use a whole number from 1 to 100.")).toBeInTheDocument();
+    expect(mutateAsync).not.toHaveBeenCalled();
+  });
+
   it("asks on a move to another page too, and Discard goes there with nothing saved", async () => {
     const router = renderRoute(scopeOf());
     fireEvent.change(daysAhead(), { target: { value: "60" } });

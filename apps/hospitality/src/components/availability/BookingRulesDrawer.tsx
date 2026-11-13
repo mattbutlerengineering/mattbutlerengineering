@@ -139,12 +139,13 @@ export function BookingRulesDrawer({ onClose }: BookingRulesDrawerProps) {
           </Text>
         </Stack>
       </Drawer>
-      {/* After the drawer, so its prompt opens above it. */}
+      {/* After the drawer, so its prompt opens above it. Its Save is offered only while the draft
+          can be saved: a refused save would close the prompt with nothing saved and nothing said. */}
       <LeaveGuard
         active={dirty}
         date={null}
         title={t("availabilitySchedules.discard.title")}
-        onSave={save}
+        {...(invalid.length === 0 && { onSave: save })}
       />
     </>
   );

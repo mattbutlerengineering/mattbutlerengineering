@@ -5455,6 +5455,8 @@
         ...(params.get("from") === "setup" && { from: "setup" as const }),
       };
     }
+    export const isBookingRulesPage = (pathname: string): boolean =>
+      pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
     export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
       // The hub opens no dialog yet (C2.4), so a section's Close dialog still opens on today's page.
@@ -8254,6 +8256,17 @@
               minute >= nowMinute &&
               !day.closures.some((band) => closesOnline(band, minute, service.venueServiceId))
           )
+      );
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/opened-from-hub.ts">
+    export const OPENED_FROM_HUB = { openedFrom: "hub" } as const;
+    export function wasOpenedFromHub(state: unknown): boolean {
+      return (
+        typeof state === "object" &&
+        state !== null &&
+        "openedFrom" in state &&
+        state.openedFrom === "hub"
       );
     }
   </file>

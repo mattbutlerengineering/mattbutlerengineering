@@ -102,6 +102,10 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
 /** The booking rules drawer, over the hub. */
 const BOOKING_RULES = `${ROUTE}/booking-rules`;
 
+/** Whether a pathname is the booking rules drawer. In any case, as the router matches it. */
+export const isBookingRulesPage = (pathname: string): boolean =>
+  pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
+
 const withSearch = (path: string, params: URLSearchParams): string => {
   const query = params.toString();
   return query ? `${path}?${query}` : path;

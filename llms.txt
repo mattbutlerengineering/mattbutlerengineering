@@ -1739,6 +1739,9 @@
       export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry { /* ... */ }
     </item>
     <item priority="high">
+      export const isBookingRulesPage: unknown;
+    </item>
+    <item priority="high">
       export function availabilityPath(target: AvailabilityTarget): string { /* ... */ }
     </item>
     <item priority="medium">
@@ -2907,6 +2910,14 @@
         date: string,
         nowMinute: number
       ): boolean { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/opened-from-hub.ts">
+    <item priority="high">
+      export const OPENED_FROM_HUB: unknown;
+    </item>
+    <item priority="high">
+      export function wasOpenedFromHub(state: unknown): boolean { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/outcome-label.ts">

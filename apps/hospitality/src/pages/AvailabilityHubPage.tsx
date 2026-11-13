@@ -1,10 +1,11 @@
-import { useEffect, useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation } from "react-router";
 import { Heading, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import {
   availabilityPath,
+  isBookingRulesPage,
   legacyRedirect,
   readAvailabilityAddress,
 } from "../components/availability/availability-address.js";
@@ -20,7 +21,7 @@ import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { useAvailabilityHub } from "../hooks/useAvailabilityHub.js";
 import { useAvailabilityScope, type AvailabilityScope } from "../hooks/useAvailabilityScope.js";
-import { UNLESS_COVERED, useFocusAfter } from "../hooks/useFocusAfter.js";
+import { UNLESS_COVERED, useFocusAfter, type FocusAfterApi } from "../hooks/useFocusAfter.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
 import styles from "../components/availability/hub/Hub.module.css";
 
@@ -40,15 +41,39 @@ export function AvailabilityHubPage({ children }: { readonly children?: ReactNod
 
 AvailabilityHubPage.displayName = "AvailabilityHubPage";
 
+/**
+ * Puts focus on row 5's action once the booking rules drawer closes. The hub is the same mounted
+ * page under the drawer's route and its own, so it sees the pathname leave the drawer. Without
+ * this a drawer that opened without an opener (loaded by its address, or from Venue Setup) would
+ * hand focus back to the page body. Opened from row 5, the drawer's own return lands on the same
+ * link. A Host has no action on row 5 and keeps the heading's request.
+ */
+function useFocusAfterBookingRules(
+  pathname: string,
+  isManager: boolean,
+  focusAfter: FocusAfterApi["focusAfter"]
+) {
+  const previous = useRef(pathname);
+  useEffect(() => {
+    const left = previous.current;
+    previous.current = pathname;
+    if (isManager && left !== pathname && isBookingRulesPage(left)) {
+      focusAfter({ kind: "firstIn", testId: "hub-row-5" });
+    }
+  }, [pathname, isManager, focusAfter]);
+}
+
 function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
   const { t } = useTranslation();
   const scope = useAvailabilityScope();
   const { venueId } = scope;
-  const { from } = readAvailabilityAddress(useLocation());
+  const location = useLocation();
+  const { from } = readAvailabilityAddress(location);
   const { focusAfter } = useFocusAfter();
   // Arriving on the hub puts focus on its heading, so a screen reader starts at the top of it.
   // A drawer already open over the hub keeps focus: the heading is behind it.
   useEffect(() => focusAfter({ kind: "pageHeading" }, UNLESS_COVERED), [focusAfter]);
+  useFocusAfterBookingRules(location.pathname, scope.isManager, focusAfter);
 
   const backLink = from === "setup" && (
     <Link to="/setup" className={styles.link}>

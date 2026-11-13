@@ -102,6 +102,22 @@ test.describe("Venue Setup hub", () => {
     await expect(page).toHaveURL(/\/floor-plans$/);
   });
 
+  test("Booking rules opened from Venue Setup closes onto the hub, with the way back and focus on row 5", async ({
+    mockedPage: page,
+  }) => {
+    await page.goto("setup");
+    await page.getByRole("button", { name: "Booking rules…" }).click();
+    const drawer = page.getByRole("dialog", { name: "Booking rules" });
+    await expect(drawer).toBeVisible();
+
+    await drawer.getByRole("button", { name: "Cancel" }).click();
+    await expect(page).toHaveURL(/\/availability\?from=setup$/);
+    await expect(drawer).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Venue Setup" })).toBeVisible();
+    // The drawer had no opener on this page, so the hub puts focus on the row it belongs to.
+    await expect(page.getByRole("link", { name: "Edit Booking rules" })).toBeFocused();
+  });
+
   test("an operational venue stays on /setup and sees its floor plan and schedule", async ({
     mockedPage: page,
   }) => {
