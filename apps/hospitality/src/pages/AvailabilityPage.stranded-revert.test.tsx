@@ -96,12 +96,21 @@ vi.mock("../components/availability/SchedulesTab.js", async () => {
 });
 
 import { AvailabilityPage } from "./AvailabilityPage.js";
+import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 
 /** The page opens Close and Pause through the layout's scope (C2.4); these tests open neither. */
 const SCOPE = { openClose: vi.fn(), openPause: vi.fn() };
+// The layout mounts the blocked-undo dialog after the page (C2.4); this stands in for it.
 const underLayout = (
   <Routes>
-    <Route element={<Outlet context={SCOPE} />}>
+    <Route
+      element={
+        <>
+          <Outlet context={SCOPE} />
+          <StrandedRevertDialog />
+        </>
+      }
+    >
       <Route path="*" element={<AvailabilityPage />} />
     </Route>
   </Routes>

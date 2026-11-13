@@ -80,9 +80,9 @@
       "limit": "3.2 kB"
     },
     {
-      "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured)",
+      "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured; 2.25 kB (2,254 B) once the layout became the one mount of the blocked-undo dialog, after the dialogs it hosts, and the phone's 44 px targets moved into a module both it and today's page compose)",
       "path": "dist/assets/AvailabilityLayout-*.js",
-      "limit": "2.3 kB"
+      "limit": "2.5 kB"
     },
     {
       "name": "Quick-setup validation (its own chunk since availability-hub H1.6 moved its neighbours into the chunks the hub shares; 2.59 kB measured)",

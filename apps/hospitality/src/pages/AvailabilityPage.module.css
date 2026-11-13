@@ -13,23 +13,9 @@
   gap: var(--rialto-space-sm);
 }
 
-/*
- * Rialto's controls are sized for a desktop's density. A phone needs 44 px under a finger
- * (ux.md), on this page only: dialogs and drawers render in place, so this reaches them too.
- * A calendar's day cells keep their size, or seven of them would not fit a dialog.
- */
-@media (max-width: 767px) {
-  .page button:not([role="gridcell"], [role="gridcell"] *),
-  .page [role="combobox"],
-  .page [role="option"],
-  .page select,
-  .page input:not([type="checkbox"], [type="radio"]) {
-    min-height: 2.75rem;
-  }
-
-  .page button:not([role="gridcell"], [role="gridcell"] *) {
-    min-width: 2.75rem;
-  }
+/* A phone's 44 px targets, on this page and the dialogs and drawers it renders in place. */
+.page {
+  composes: phoneTargets from "../components/availability/phone-targets.module.css";
 }
 
 /* "Venue Setup" in the page header, shown when the page was opened from the setup hub. */

@@ -342,7 +342,20 @@ test.describe("Availability hub: Close and Pause", () => {
       route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ data: [{ id: "sec-bar", name: "Bar", displayOrder: 0 }] }),
+        body: JSON.stringify({
+          data: [
+            {
+              id: "sec-bar",
+              venueId: "ven_e2e_001",
+              floorPlanId: "fp_e2e_001",
+              name: "Bar",
+              color: "#8b7355",
+              displayOrder: 0,
+              createdAt: "2026-01-01T00:00:00.000Z",
+              updatedAt: "2026-01-01T00:00:00.000Z",
+            },
+          ],
+        }),
       })
     );
   }
@@ -416,18 +429,22 @@ test.describe("Availability hub: Close and Pause", () => {
     await dateField(week.page).fill(from);
     await dateField(week.page).press("Enter");
     await endField(week.page).fill(to);
-    await endField(week.page).press("Enter");
+    // Enter reads the end date, and the End field becomes the range's To on that keydown, so a
+    // Locator press would retry on the detached field. Pressed on the page, counted by hand.
+    await page.keyboard.press("Enter");
+    const typedEnter = 1;
     await expect(page.getByTestId("close-primary")).toContainText(" – ");
     await week.page.getByTestId("close-primary").click();
     await expect.poll(() => posted.length).toBe(2);
     expect(posted[1]).toMatchObject({ rule: { startsOn: from, endsOn: to } });
     // PRD 7: target at most 6 (walkthrough 12), which counts each typed date as one step. This
     // counter counts a fill and its Enter apart, so the same 5 steps measure 7 (breakdown Notes).
+    const steps = week.count() + typedEnter;
     test.info().annotations.push({
       type: "close for a week, interactions (agent stand-in)",
-      description: `${week.count()} (ux.md walkthrough 12 counts 5 steps)`,
+      description: `${steps} (ux.md walkthrough 12 counts 5 steps)`,
     });
-    expect(week.count()).toBe(7);
+    expect(steps).toBe(7);
   });
 
   test("each close target opens Close prefilled, and Back closes it with the selection kept", async ({
