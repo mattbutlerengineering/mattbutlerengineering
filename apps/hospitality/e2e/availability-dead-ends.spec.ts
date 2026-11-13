@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 import { test, expect } from "./fixtures.js";
 import { loadFixture } from "./api-mocks.js";
 import { mockAvailability } from "./availability-draft-mock.js";
+import { localDay } from "./local-day.js";
 
 /**
  * #7979: the places a Manager used to get stuck. A failed read says so with Retry, a stranded
@@ -262,10 +263,15 @@ test.describe("Reload hours", () => {
 test("+ Add service on a closed day adds a row and moves focus into it", async ({
   mockedPage: page,
 }) => {
-  await mockAvailability(page, { weekdays: [1, 2, 3] });
+  // A past date is read-only (#8752), so the closed day is today, with the clock held on it: the
+  // venue opens on the three weekdays after today's, whichever weekday the run falls on.
+  const today = localDay();
+  await page.clock.setFixedTime(new Date(`${today}T12:00:00`));
+  const weekday = new Date(`${today}T00:00:00Z`).getUTCDay();
+  await mockAvailability(page, { weekdays: [1, 2, 3].map((ahead) => (weekday + ahead) % 7) });
   await page.goto("availability?tab=calendar");
   await page.locator("[data-date]").first().waitFor();
-  await page.locator('button[aria-label*="Closed"]').first().click();
+  await page.locator(`button[data-date="${today}"][aria-label*="Closed"]`).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("button", { name: "Add service" }).click();
   await expect(dialog.locator("fieldset")).toHaveCount(1);

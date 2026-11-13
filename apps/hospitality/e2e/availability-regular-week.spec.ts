@@ -578,7 +578,10 @@ test.describe("Why this day: Remove and Edit special hours (#7981)", () => {
         await mockedPage.locator(`button[data-date="${day}"]`).click();
         const drawer = mockedPage.getByRole("dialog").first();
         await drawer.getByRole("button", { name: c.edit }).click();
-        const editor = drawer.getByRole("button", { name: c.service });
+        // Edit opens the editor on its rows (#8752): the read view's "Edit Dinner" button is gone,
+        // and focus is in the first field of the service's row.
+        await expect(drawer.getByRole("button", { name: c.service })).toHaveCount(0);
+        const editor = drawer.locator("fieldset input").first();
         await expect(editor).toBeFocused();
         await expect(editor).toBeInViewport({ ratio: 1 });
       });
