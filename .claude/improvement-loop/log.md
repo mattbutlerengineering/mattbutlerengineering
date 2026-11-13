@@ -5331,3 +5331,12 @@ Note on CI Pass: the last-20-runs sample was dominated by this session's own jus
 ### Auto-retry
 
 Re-queued 2 stale `agent-failed` issues (3+ days, capped at 2/run) back to `ready`: #8549, #8564.
+
+## 2026-11-13
+
+**queueEfficiency:** composite 0.915 (baseline n/a) — 1 regression(s) detected
+**Difficulty distribution:** size:s:27, size:xl:9, size:xs:22, size:m:17, size:l:11
+**Issues filed:** 1
+**Regressions:**
+
+- review_coverage_trend: 0.243 (was 0.625, Δ-0.382) [high]
