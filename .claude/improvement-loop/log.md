@@ -5340,3 +5340,17 @@ Re-queued 2 stale `agent-failed` issues (3+ days, capped at 2/run) back to `read
 **Regressions:**
 
 - review_coverage_trend: 0.243 (was 0.625, Δ-0.382) [high]
+
+## 2026-11-13 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` source=`branch`, merged `origin/main` (5c8efc4), resolved `metrics/ui-quality-ledger.jsonl` by rule.
+- **Routes:** 40 due / 40 captured / 40 audited (marketing 8, rialto-web 32). hospitality contributed 0 due rows — all 22 of its routes are `unreachable:auth`. All three app builds succeeded; no `unreachable:build`.
+- **Unjudged:** 0. **Dropped tells:** 0.
+- **Calibration:** stamp `stale`. `calibration-status` exited 3; `rate.mjs pairs --calibration` exited 2 (`docs/ui-quality/calibration.json` still has no labelled pairs — Matt owns that one-time labelling at the Verify stage), so calibration could not clear and was not retried. Re-queried status: still `stale`. Rating still ran: 12 pairs over 2 apps recorded (marketing 0.42, rialto-web 1.67).
+- **Findings:** mechanical 1 (`marketing|status|bugs/failed-request`, P2 — three same-origin `net::ERR_ABORTED` probes on the status page), judged 0. Plan: 1 skip, 13 close (`not_observed`), 0 seeds, 0 escalations.
+- **Issues:** created 0, reopened 0, commented 0. No `create` actions this fire, so no label-check stop. Seeds appended: 0.
+- **Fix PR:** none — the plan carried no `fix_pr_candidate` (the only live finding is a `skip`).
+- **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+- **Coverage before this fire:** 100% (137/137 reachable routes covered; 22 hospitality routes auth-gated, 0 uncovered). Exit 0, no breach.
+- **Blockers / pipeline bugs:** none. Browser resolved (`chrome-headless-shell-linux64`); all three capture runs clean (hospitality skipped — no planned routes).
+- **Judge note (rubric blind spot, not a Finding):** the cookie-consent banner on `rialto-web` `demos/login`, `demos/signup` and `demos/teams/new` overlaps and obscures the form at 375x812 (text collides with inputs and the submit button, both illegible); `components/textarea` and several showcase routes also render a large empty region below the first viewport in the full-page capture. Rubric v1 has no judged tell covering occlusion or truncated render, so nothing was filed — material for a human `meta-improvement` / rubric bump, not for this routine to write.
