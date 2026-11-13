@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   buildRoundTripMarker,
+  buildEventSearchQuery,
   eventMatchesMarker,
   roundTripExitCode,
   shouldKeepPolling,
@@ -59,6 +60,22 @@ describe("eventMatchesMarker", () => {
   it("tolerates an event with no tags at all", () => {
     expect(eventMatchesMarker({}, marker)).toBe(false);
     expect(eventMatchesMarker({ tags: [] }, marker)).toBe(false);
+  });
+});
+
+describe("buildEventSearchQuery", () => {
+  const marker = "mbe-round-trip-20260902T070000000Z-abc123";
+
+  it("searches the requestId tag for a backend target, since #8557 strips the marker from the url/message text", () => {
+    expect(buildEventSearchQuery(marker, "backend")).toBe(`requestId:${marker}`);
+  });
+
+  it("defaults to a backend-style query when no kind is given", () => {
+    expect(buildEventSearchQuery(marker, undefined)).toBe(`requestId:${marker}`);
+  });
+
+  it("searches the bare marker for a browser target, since it survives in the title/message", () => {
+    expect(buildEventSearchQuery(marker, "browser")).toBe(marker);
   });
 });
 
