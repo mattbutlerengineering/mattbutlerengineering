@@ -101,6 +101,30 @@ export function venue(dateRules: DateRule[] = [], ...added: Parts[]): Availabili
   });
 }
 
+/** Regular hours from Jan 1, 2026: Lunch 11:30 AM to 3:00 PM and Dinner 5:00 PM to 10:00 PM every day. */
+export function lunchAndDinner(dateRules: DateRule[] = []): AvailabilityConfig {
+  return valid({
+    schedules: [REGULAR],
+    venueServices: [
+      { id: "vs-lunch", name: "Lunch", position: 0 },
+      { id: "vs-dinner", name: "Dinner", position: 1 },
+    ],
+    scheduleServices: [
+      {
+        ...dinnerRow("regular"),
+        id: "ss-regular-lunch",
+        venueServiceId: "vs-lunch",
+        opensAt: 690,
+        lastSeatingAt: 840,
+        closesAt: 900,
+      },
+      dinnerRow("regular"),
+    ],
+    assignments: [REGULAR_ASSIGNMENT],
+    dateRules,
+  });
+}
+
 export function input(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}): HubRowsInput {
   return {
     state: { config, source: "rows" },

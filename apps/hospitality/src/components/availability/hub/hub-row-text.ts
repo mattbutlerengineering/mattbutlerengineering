@@ -24,6 +24,8 @@ export interface HubLine {
   readonly text: string;
   /** Row 1 only: the service this line is about, so a Manager's line can open it. */
   readonly venueServiceId?: string;
+  /** Row 4 only: the rule this line reads, which tells apart two lines that read the same. */
+  readonly ruleId?: string;
 }
 
 export interface HubRowText {
@@ -177,7 +179,7 @@ export function hubRowTexts(
     {
       row: 4,
       title: t("availabilityHub.hub.closures.title"),
-      lines: closuresLines(closures, today, ctx).map(line),
+      lines: closuresLines(closures, today, ctx),
     },
     {
       row: 5,

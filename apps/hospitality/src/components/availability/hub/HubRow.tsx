@@ -30,6 +30,8 @@ export interface HubRowProps {
  */
 export function HubRow({ text, action, serviceTo, marker }: HubRowProps) {
   const titleId = useId();
+  // Two lines can read the same, so a line is keyed by its rule, else by its place in the row.
+  const lines = text.lines.map((line, index) => ({ line, key: line.ruleId ?? `line-${index}` }));
   return (
     <li className={styles.row} aria-labelledby={titleId} data-testid={`hub-row-${text.row}`}>
       <div className={styles.rowHead}>
@@ -48,8 +50,8 @@ export function HubRow({ text, action, serviceTo, marker }: HubRowProps) {
         )}
       </div>
       <ul className={styles.lines}>
-        {text.lines.map((line) => (
-          <li key={line.text}>
+        {lines.map(({ line, key }) => (
+          <li key={key}>
             {serviceTo && line.venueServiceId ? (
               <Link to={serviceTo(line.venueServiceId)} className={styles.link}>
                 {line.text}

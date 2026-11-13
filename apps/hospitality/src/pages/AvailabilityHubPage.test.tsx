@@ -5,6 +5,7 @@ import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 import {
   TODAY,
+  rule,
   seasonal,
   specialHours,
   venue,
@@ -155,6 +156,15 @@ describe("AvailabilityHubPage", () => {
     expect(within(row(2)).getByText("Summer hours: from Jun 1, every day")).toBeVisible();
   });
 
+  it("lists two lines that read the same, without a duplicate key", () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const config = venue([rule("r-first"), rule("r-second")]);
+    renderHub(scopeOf({ state: stateOf(config) }));
+    expect(within(row(4)).getAllByText("Closed today")).toHaveLength(2);
+    expect(errors.mock.calls.filter((call) => /same key/.test(String(call[0])))).toEqual([]);
+    errors.mockRestore();
+  });
+
   it("shows a Host no edit control: View on rows 3 and 4, and services as plain text", () => {
     renderHub(scopeOf({ isManager: false }));
     expect(screen.queryByRole("link", { name: /^(Edit|Add)/ })).not.toBeInTheDocument();
@@ -185,9 +195,8 @@ describe("AvailabilityHubPage", () => {
       );
       expect(within(row(3)).getByText("decides Dec 24")).toBeVisible();
       expect(screen.getAllByText(/^decides/)).toHaveLength(1);
-      expect(hrefOf(screen.getByRole("link", { name: "Open this date, Thu, Dec 24" }))).toBe(
-        "/availability/calendar?tab=calendar"
-      );
+      // The calendar cannot open on a date yet (D5.3), so no link promises it will.
+      expect(screen.queryByRole("link", { name: /Open this date/ })).not.toBeInTheDocument();
     });
 
     it("marks regular hours when nothing else covers the date", async () => {

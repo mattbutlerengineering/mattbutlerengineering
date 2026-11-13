@@ -15505,6 +15505,10 @@
           readonly ruleId: string;
         };
     export type DateAnswerHubRow = 1 | 2 | 3 | 4;
+    export interface DateAnswerBand {
+      readonly from: number;
+      readonly to: number;
+    }
     export interface DateAnswer {
       readonly date: string;
       /** The services that run, in opening order; empty means closed. */
@@ -15512,9 +15516,19 @@
         readonly name: string;
         readonly opensAt: number;
         readonly closesAt: number;
+        /**
+         * The parts of its hours a closure of this service alone takes, in order; absent when there
+         * are none. The venue-wide bands are not repeated here.
+         */
+        readonly closed?: readonly DateAnswerBand[];
       }[];
-      /** The earliest band the whole venue is closed for, in service-day minutes. */
-      readonly closedBand: { readonly from: number; readonly to: number } | null;
+      /**
+       * The band the whole venue is closed for, in service-day minutes: the one the deciding rule is
+       * part of, else the earliest. Closures that overlap or meet are one band.
+       */
+      readonly closedBand: DateAnswerBand | null;
+      /** Every other venue-wide band on the date, in order; absent when there are none. */
+      readonly otherClosedBands?: readonly DateAnswerBand[];
       /** `null` when no rule covers the date. */
       readonly deciding: DateAnswerRule | null;
       readonly beneath: DateAnswerRule | null;
@@ -15580,8 +15594,8 @@
       readonly from: number;
       readonly to: number;
     }
-    function closedSpansOf(day: ResolvedDaySummary): Span[] {
-      return venueBandsOf(day)
+    function mergedSpans(spans: readonly Span[]): Span[] {
+      return spans
         .map(({ from, to }) => ({ from, to }))
         .sort((a, b) => a.from - b.from)
         .reduce<Span[]>((merged, span) => {
@@ -15590,6 +15604,9 @@
             ? [...merged.slice(0, -1), { from: last.from, to: Math.max(last.to, span.to) }]
             : [...merged, span];
         }, []);
+    }
+    function closedSpansOf(day: ResolvedDaySummary): Span[] {
+      return mergedSpans(venueBandsOf(day));
     }
     function openSpans(open: Span, closed: readonly Span[]): Span[] {
       return closed.reduce<Span[]>(
@@ -15600,15 +15617,53 @@
               { from: Math.max(span.from, band.to), to: span.to },
             ].filter((piece) => piece.from < piece.to)
           ),
-        [open]
+        open.from < open.to ? [open] : []
       );
     }
+    interface ServiceReport {
+      readonly name: string;
+      readonly opensAt: number;
+      readonly closesAt: number;
+      /** The minutes it is open, outside every band that closes it. */
+      readonly open: readonly Span[];
+      /** The minutes of its hours closed for this service alone, outside the venue-wide bands. */
+      readonly closed: readonly Span[];
+    }
+    function serviceReports(day: ResolvedDaySummary): ServiceReport[] {
+      const venue = closedSpansOf(day);
+      return day.services.map((service) => {
+        const { name, opensAt, closesAt } = service;
+        const own = mergedSpans(
+          day.closures.filter(
+            (c) => c.targetKind === "service" && c.venueServiceId === service.venueServiceId
+          )
+        );
+        return {
+          name,
+          opensAt,
+          closesAt,
+          open: openSpans({ from: opensAt, to: closesAt }, mergedSpans([...venue, ...own])),
+          closed: own.flatMap((band) =>
+            openSpans({ from: Math.max(band.from, opensAt), to: Math.min(band.to, closesAt) }, venue)
+          ),
+        };
+      });
+    }
     function reportKey(day: ResolvedDaySummary): string {
-      const closed = closedSpansOf(day);
-      const services = day.services
-        .map((s) => [s.name, openSpans({ from: s.opensAt, to: s.closesAt }, closed)] as const)
+      const services = serviceReports(day)
+        .map((s) => [s.name, s.open] as const)
         .filter(([, open]) => open.length > 0);
-      return JSON.stringify([closed, services]);
+      return JSON.stringify([closedSpansOf(day), services]);
+    }
+    function servicesOf(day: ResolvedDaySummary): DateAnswer["services"] {
+      return serviceReports(day)
+        .filter((s) => s.closed.length === 0 || s.open.length > 0)
+        .map(({ name, opensAt, closesAt, closed }) => ({
+          name,
+          opensAt,
+          closesAt,
+          ...(closed.length > 0 ? { closed } : {}),
+        }));
     }
     function decidingOverlays(
       config: AvailabilityConfig,
@@ -15632,15 +15687,11 @@
         { config, key: reportKey(day), found: [] as Layer[] }
       ).found;
     }
-    function closedBandOf(day: ResolvedDay, top: Layer | undefined): DateAnswer["closedBand"] {
-      const bands = venueBandsOf(day);
-      const band =
-        bands.find((c) => c.ruleId === top?.id) ??
-        bands.reduce<ResolvedClosure | undefined>(
-          (first, c) => (first === undefined || c.from < first.from ? c : first),
-          undefined
-        );
-      return band ? { from: band.from, to: band.to } : null;
+    function closedBandsOf(day: ResolvedDay, top: Layer | undefined): Span[] {
+      const spans = closedSpansOf(day);
+      const own = venueBandsOf(day).find((c) => c.ruleId === top?.id);
+      const first = (own && spans.find((s) => s.from <= own.from && own.to <= s.to)) ?? spans[0];
+      return first ? [first, ...spans.filter((s) => s !== first)] : [];
     }
     export function dateAnswer(
       config: AvailabilityConfig,
@@ -15666,10 +15717,12 @@
           : lower
             ? ruleOf(config, lower)
             : null;
+      const [closedBand, ...otherClosedBands] = closedBandsOf(day, top);
       return {
         date,
-        services: day.services.map(({ name, opensAt, closesAt }) => ({ name, opensAt, closesAt })),
-        closedBand: closedBandOf(day, top),
+        services: servicesOf(day),
+        closedBand: closedBand ?? null,
+        ...(otherClosedBands.length > 0 ? { otherClosedBands } : {}),
         deciding,
         beneath,
         hubRow: deciding ? HUB_ROW[deciding.kind] : null,
@@ -15696,13 +15749,34 @@
           return t("availabilityHub.dateCheck.rule.tonight");
       }
     }
-    function whatHappens(answer: DateAnswer, { t, format }: HubTextContext): string {
-      const { services, closedBand: band } = answer;
+    type Service = DateAnswer["services"][number];
+    function serviceClosedTexts(service: Service, { t, format }: HubTextContext): string[] {
+      const time = (minute: number) => minuteText(minute, t, format);
+      return (service.closed ?? []).map((band) =>
+        band.to >= service.closesAt
+          ? t("availabilityHub.dateCheck.serviceClosedFrom", {
+              name: service.name,
+              time: time(band.from),
+            })
+          : t("availabilityHub.dateCheck.serviceClosedBetween", {
+              name: service.name,
+              from: time(band.from),
+              to: time(band.to),
+            })
+      );
+    }
+    function whatHappens(answer: DateAnswer, ctx: HubTextContext): string {
+      const { t, format } = ctx;
+      const { services } = answer;
+      const bands = [
+        ...(answer.closedBand ? [answer.closedBand] : []),
+        ...(answer.otherClosedBands ?? []),
+      ];
       const closed = t("availabilityHub.dateCheck.closed");
       if (services.length === 0) return closed;
       const opens = Math.min(...services.map((s) => s.opensAt));
       const closes = Math.max(...services.map((s) => s.closesAt));
-      if (band && band.from <= opens && band.to >= closes) return closed;
+      if (bands.some((band) => band.from <= opens && band.to >= closes)) return closed;
       const time = (minute: number) => minuteText(minute, t, format);
       const hours = services.map((s) =>
         t("availabilityHub.dateCheck.service", {
@@ -15713,25 +15787,31 @@
           }),
         })
       );
-      // A band outside the open hours changes nothing a guest can book, so it is not said.
-      const cuts = band !== null && band.from < closes && band.to > opens;
-      const closedPart = !cuts
-        ? []
-        : band.to >= closes
-          ? [t("availabilityHub.dateCheck.closedFrom", { time: time(band.from) })]
-          : [
-              t("availabilityHub.dateCheck.closedBetween", {
+      const venueClosed = bands
+        // A band outside the open hours changes nothing a guest can book, so it is not said.
+        .filter((band) => band.from < closes && band.to > opens)
+        .sort((a, b) => a.from - b.from)
+        .map((band) =>
+          band.to >= closes
+            ? t("availabilityHub.dateCheck.closedFrom", { time: time(band.from) })
+            : t("availabilityHub.dateCheck.closedBetween", {
                 from: time(band.from),
                 to: time(band.to),
-              }),
-            ];
-      return new Intl.ListFormat(format.locale, { type: "unit" }).format([...hours, ...closedPart]);
+              })
+        );
+      return new Intl.ListFormat(format.locale, { type: "unit" }).format([
+        ...hours,
+        ...services.flatMap((s) => serviceClosedTexts(s, ctx)),
+        ...venueClosed,
+      ]);
     }
     export function dateSentence(answer: DateAnswer, ctx: HubTextContext): string {
       const { t } = ctx;
       const date = sentenceDate(answer.date, ctx);
       if (answer.deciding === null) return t("availabilityHub.dateCheck.uncovered", { date });
-      const values = { date, what: whatHappens(answer, ctx), rule: ruleText(answer.deciding, ctx) };
+      // The sentence puts its own period after what happens, so a time such as "10:00 p.m." gives up its own.
+      const what = whatHappens(answer, ctx).replace(/\.$/, "");
+      const values = { date, what, rule: ruleText(answer.deciding, ctx) };
       return answer.beneath
         ? t("availabilityHub.dateCheck.sentenceOver", {
             ...values,
@@ -15772,6 +15852,12 @@
       if (!pause.inForce && pause.fromMinute !== null) {
         return t("availabilityHub.hub.closures.pauseWaiting", {
           time: minuteText(pause.fromMinute, t, format),
+        });
+      }
+      // A pause for part of the day is over at its own time, whatever date it runs to.
+      if (pause.untilMinute !== null) {
+        return t("availabilityHub.hub.closures.pauseUntilTime", {
+          time: minuteText(pause.untilMinute, t, format),
         });
       }
       if (pause.endsOn === null) return t("availabilityHub.hub.closures.pauseUntilResumed");
@@ -15815,7 +15901,11 @@
         }
       }
     }
-    function whenText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string | null {
+    interface Reading {
+      readonly inForce: boolean;
+      readonly today: string;
+    }
+    function whenText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null {
       const { t, format } = ctx;
       if (closure.weekdays !== null) {
         const days = weekdaySummary(closure.weekdays, format, t);
@@ -15828,13 +15918,21 @@
       }
       if (closure.endsOn === null) return t("availabilityHub.hub.closures.when.untilReopened");
       if (closure.endsOn === closure.startsOn) {
-        return inForce ? t("availabilityHub.hub.closures.when.today") : null;
+        if (!reading.inForce) return null;
+        if (!sinceLastNight(closure, reading)) return t("availabilityHub.hub.closures.when.today");
+        return closure.window === null ? t("availabilityHub.hub.closures.sinceYesterday") : null;
       }
       return t("availabilityHub.hub.closures.when.until", { date: shortDate(closure.endsOn, ctx) });
     }
-    function windowText(closure: HubClosure, { t, format }: HubTextContext): string | null {
+    function windowText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null {
+      const { t, format } = ctx;
       const { window } = closure;
       if (window === null) return null;
+      if (sinceLastNight(closure, reading)) {
+        return t("availabilityHub.hub.closures.sinceLastNight", {
+          time: minuteText(window.from, t, format),
+        });
+      }
       return window.to >= END_OF_SERVICE_DAY
         ? t("availabilityHub.hub.closures.windowFrom", { time: minuteText(window.from, t, format) })
         : t("availabilityHub.hub.closures.windowBetween", {
@@ -15842,31 +15940,40 @@
             to: minuteText(window.to, t, format),
           });
     }
-    function detailText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string {
-      return [whenText(closure, inForce, ctx), windowText(closure, ctx)]
+    function detailText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string {
+      return [whenText(closure, reading, ctx), windowText(closure, reading, ctx)]
         .filter((part): part is string => part !== null)
         .join(", ");
     }
-    function nowText(closure: HubClosure, ctx: HubTextContext): string {
+    function nowText(closure: HubClosure, today: string, ctx: HubTextContext): string {
       const what = whatText(closure.target, ctx);
-      const detail = detailText(closure, true, ctx);
+      const detail = detailText(closure, { inForce: true, today }, ctx);
       return detail ? ctx.t("availabilityHub.hub.closures.now", { what, detail }) : what;
     }
-    function nextText(closure: HubClosure, ctx: HubTextContext): string {
+    function nextText(closure: HubClosure, today: string, ctx: HubTextContext): string {
       const values = { date: shortDate(closure.nextOn, ctx), what: whatText(closure.target, ctx) };
-      const detail = detailText(closure, false, ctx);
+      const detail = detailText(closure, { inForce: false, today }, ctx);
       return detail
         ? ctx.t("availabilityHub.hub.closures.nextDetail", { ...values, detail })
         : ctx.t("availabilityHub.hub.closures.next", values);
     }
-    export function closuresLines(row: ClosuresRow, today: string, ctx: HubTextContext): string[] {
+    export interface ClosuresLine {
+      readonly text: string;
+      readonly ruleId?: string;
+    }
+    export function closuresLines(
+      row: ClosuresRow,
+      today: string,
+      ctx: HubTextContext
+    ): ClosuresLine[] {
+      const { pause, next } = row;
       const lines = [
-        ...(row.pause ? [pauseText(row.pause, today, ctx)] : []),
-        ...row.tonight.map((change) => tonightText(change, ctx)),
-        ...row.now.map((closure) => nowText(closure, ctx)),
-        ...(row.next ? [nextText(row.next, ctx)] : []),
+        ...(pause ? [{ ruleId: pause.ruleId, text: pauseText(pause, today, ctx) }] : []),
+        ...row.tonight.map((change) => ({ ruleId: change.ruleId, text: tonightText(change, ctx) })),
+        ...row.now.map((closure) => ({ ruleId: closure.ruleId, text: nowText(closure, today, ctx) })),
+        ...(next ? [{ ruleId: next.ruleId, text: nextText(next, today, ctx) }] : []),
       ];
-      return lines.length > 0 ? lines : [ctx.t("availabilityHub.hub.closures.empty")];
+      return lines.length > 0 ? lines : [{ text: ctx.t("availabilityHub.hub.closures.empty") }];
     }
   </file>
   <file path="src/components/availability/hub/hub-closures.ts">
@@ -15895,10 +16002,14 @@
     }
     export interface HubOnlinePause {
       readonly ruleId: string;
+      /** The kind of rule it is, which decides where it is removed. */
+      readonly source: "closure" | "tonight";
       /** `false` while it waits for `fromMinute`. */
       readonly inForce: boolean;
       /** The minute of each day it starts at; `null` when it covers the whole day. */
       readonly fromMinute: number | null;
+      /** The minute of the day it ends at; `null` when it runs to the end of the service day. */
+      readonly untilMinute: number | null;
       /** Its last date; `null` for a pause that lasts until it is resumed. */
       readonly endsOn: string | null;
     }
@@ -15959,21 +16070,46 @@
         rule.repeat == null
       );
     }
-    function onlinePause(clock: Clock): HubOnlinePause | null {
+    function closurePauses(clock: Clock): HubOnlinePause[] {
       const { config, rules, timezone, today, nowMinute } = clock;
-      const pauses = rules
+      return rules
         .filter(isOnlinePause)
         .filter((r) => coversOn(r, rules, today))
-        .sort((a, b) => (a.window?.from ?? 0) - (b.window?.from ?? 0));
-      const inForce = pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute));
-      const shown = inForce ?? pauses[0];
-      if (!shown) return null;
-      return {
-        ruleId: shown.id,
-        inForce: inForce !== undefined,
-        fromMinute: shown.window?.from ?? null,
-        endsOn: shown.endsOn ?? null,
-      };
+        .filter((r) => r.window == null || nowMinute < r.window.to)
+        .map((r): HubOnlinePause => ({
+          ruleId: r.id,
+          source: "closure",
+          inForce: isPauseInForce(r, config, timezone, today, nowMinute),
+          fromMinute: r.window?.from ?? null,
+          untilMinute: endMinute(r.window?.to),
+          endsOn: r.endsOn ?? null,
+        }))
+        .sort(soonestFirst);
+    }
+    function tonightPauses({ rules, today, nowMinute }: Clock): HubOnlinePause[] {
+      return rules
+        .flatMap((rule): HubOnlinePause[] => {
+          if (rule.kind !== "tonight" || rule.startsOn !== today) return [];
+          if (rule.targetKind !== "booking" || !(rule.bookingTypes ?? []).includes("online")) return [];
+          if (!("stop" in rule.payload)) return [];
+          const { from, to } = rule.payload.stop;
+          if (to <= nowMinute) return [];
+          return [
+            {
+              ruleId: rule.id,
+              source: "tonight",
+              inForce: from <= nowMinute,
+              fromMinute: from,
+              untilMinute: endMinute(to),
+              endsOn: today,
+            },
+          ];
+        })
+        .sort(soonestFirst);
+    }
+    function onlinePause(clock: Clock): HubOnlinePause | null {
+      const pauses = [...closurePauses(clock), ...tonightPauses(clock)];
+      return pauses.find((p) => p.inForce) ?? [...pauses].sort(soonestFirst)[0] ?? null;
     }
     function tonightChanges(rules: readonly DateRule[], today: string): HubTonightChange[] {
       return rules.flatMap((rule): HubTonightChange[] => {
@@ -16067,6 +16203,8 @@
       readonly text: string;
       /** Row 1 only: the service this line is about, so a Manager's line can open it. */
       readonly venueServiceId?: string;
+      /** Row 4 only: the rule this line reads, which tells apart two lines that read the same. */
+      readonly ruleId?: string;
     }
     export interface HubRowText {
       readonly row: 1 | 2 | 3 | 4 | 5;
@@ -16208,7 +16346,7 @@
         {
           row: 4,
           title: t("availabilityHub.hub.closures.title"),
-          lines: closuresLines(closures, today, ctx).map(line),
+          lines: closuresLines(closures, today, ctx),
         },
         {
           row: 5,
@@ -16279,6 +16417,28 @@
           ...added.flatMap((p) => p.scheduleServices ?? []),
         ],
         assignments: [REGULAR_ASSIGNMENT, ...added.flatMap((p) => p.assignments ?? [])],
+        dateRules,
+      });
+    }
+    export function lunchAndDinner(dateRules: DateRule[] = []): AvailabilityConfig {
+      return valid({
+        schedules: [REGULAR],
+        venueServices: [
+          { id: "vs-lunch", name: "Lunch", position: 0 },
+          { id: "vs-dinner", name: "Dinner", position: 1 },
+        ],
+        scheduleServices: [
+          {
+            ...dinnerRow("regular"),
+            id: "ss-regular-lunch",
+            venueServiceId: "vs-lunch",
+            opensAt: 690,
+            lastSeatingAt: 840,
+            closesAt: 900,
+          },
+          dinnerRow("regular"),
+        ],
+        assignments: [REGULAR_ASSIGNMENT],
         dateRules,
       });
     }

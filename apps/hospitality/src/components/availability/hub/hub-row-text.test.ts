@@ -155,6 +155,48 @@ describe("hubRowTexts", () => {
       ]);
     });
 
+    it("says when a pause for part of the day ends, and nothing once it has", () => {
+      const lunchtime = venue([pause({ window: window(720, 840) })]);
+      expect(lines(4, lunchtime, { nowMinute: 780 })).toEqual([
+        "Online booking paused until 2:00 PM",
+      ]);
+      expect(lines(4, lunchtime, { nowMinute: 900 })).toEqual(["None"]);
+    });
+
+    it("words an online stop made for tonight as the pause", () => {
+      const stop = (from: number, to = 2880) =>
+        rule("r-stop", {
+          kind: "tonight",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          payload: { version: 1, stop: { from, to } },
+        } as never);
+      expect(lines(4, venue([stop(0)]))).toEqual(["Online booking paused until tonight ends"]);
+      expect(lines(4, venue([stop(1080)]))).toEqual(["Online booking pauses at 6:00 PM"]);
+      expect(lines(4, venue([stop(1080, 1200)]), { nowMinute: 1100 })).toEqual([
+        "Online booking paused until 8:00 PM",
+      ]);
+    });
+
+    it("words a closure still in force after midnight as from last night, never as today", () => {
+      // Dinner closes at 2:00 AM; it is 12:30 AM.
+      const late = { regularClosesAt: 1560 };
+      const yesterday = { startsOn: "2026-11-11", endsOn: "2026-11-11" };
+      const fromEleven = rule("r-late", { ...yesterday, window: window(1380) });
+      expect(lines(4, venue([fromEleven], late), { nowMinute: 30 })).toEqual([
+        "Closed since 11:00 PM last night",
+      ]);
+      const patio = rule("r-patio", { ...yesterday, targetKind: "tables", sectionId: "sec-patio" });
+      expect(lines(4, venue([patio], late), { nowMinute: 30 })).toEqual([
+        "Patio closed since yesterday",
+      ]);
+      // One that runs on is worded by its end, with the time it started at.
+      const week = rule("r-week", { ...yesterday, endsOn: "2026-11-20", window: window(1380) });
+      expect(lines(4, venue([week], late), { nowMinute: 30 })).toEqual([
+        "Closed until Nov 20, since 11:00 PM last night",
+      ]);
+    });
+
     it("names a section closed until it is reopened, and never calls an unnamed one the venue", () => {
       const patio = rule("r-patio", { targetKind: "tables", sectionId: "sec-patio", endsOn: null });
       expect(lines(4, venue([patio]))).toEqual(["Patio closed until reopened"]);

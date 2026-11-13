@@ -3311,6 +3311,7 @@
         "pauseTonight": "Online booking paused until tonight ends",
         "pauseUntilResumed": "Online booking paused until resumed",
         "pauseUntil": "Online booking paused until {{date}}",
+        "pauseUntilTime": "Online booking paused until {{time}}",
         "pauseWaiting": "Online booking pauses at {{time}}",
         "closingEarly": "Closing early tonight at {{time}}",
         "stopTonight": "Closed tonight {{from}}–{{to}}",
@@ -3333,6 +3334,8 @@
         },
         "windowFrom": "from {{time}}",
         "windowBetween": "{{from}}–{{to}}",
+        "sinceLastNight": "since {{time}} last night",
+        "sinceYesterday": "since yesterday",
         "now": "{{what}} {{detail}}",
         "next": "Next: {{date}} {{what}}",
         "nextDetail": "Next: {{date}} {{what}}, {{detail}}"
@@ -3344,8 +3347,6 @@
     },
     "dateCheck": {
       "label": "Check a date",
-      "openDate": "Open this date",
-      "openDateName": "Open this date, {{date}}",
       "sentence": "{{date}}: {{what}}. Decided by {{rule}}.",
       "sentenceOver": "{{date}}: {{what}}. Decided by {{rule}}, which wins over {{beneath}}.",
       "uncovered": "{{date}}: closed. No hours cover this date.",
@@ -3353,6 +3354,8 @@
       "service": "{{name}} {{hours}}",
       "closedFrom": "closed from {{time}}",
       "closedBetween": "closed {{from}}–{{to}}",
+      "serviceClosedFrom": "{{name}} closed from {{time}}",
+      "serviceClosedBetween": "{{name}} closed {{from}}–{{to}}",
       "rule": {
         "regular": "your regular hours",
         "special": "your special date",

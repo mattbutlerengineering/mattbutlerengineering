@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useState } from "react";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Link, Navigate, useLocation } from "react-router";
 import { Heading, Skeleton, Text } from "@mattbutlerengineering/rialto";
@@ -9,11 +10,11 @@ import {
 } from "../components/availability/availability-address.js";
 import { DateCheck } from "../components/availability/hub/DateCheck.js";
 import { dateAnswer } from "../components/availability/hub/date-answer.js";
-import { hubActions } from "../components/availability/hub/hub-actions.js";
+import { hubActions, type HubAction } from "../components/availability/hub/hub-actions.js";
 import { hubRowTexts } from "../components/availability/hub/hub-row-text.js";
 import type { HubRowModels } from "../components/availability/hub/hub-rows.js";
 import { shortDate } from "../components/availability/hub/hub-text.js";
-import { HubRow } from "../components/availability/hub/HubRow.js";
+import { HubRow, type HubRowAction } from "../components/availability/hub/HubRow.js";
 import { TodayLine } from "../components/availability/TodayLine.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
@@ -124,7 +125,6 @@ function HubRules({ scope, rows }: HubRulesProps) {
     [config, timezone, date]
   );
   const ctx = useMemo(() => ({ t, format }), [t, format]);
-  const texts = hubRowTexts(rows, today, ctx);
   const actions = hubActions(rows, isManager);
   const marker = answer && t("availabilityHub.hub.decides", { date: shortDate(answer.date, ctx) });
 
@@ -141,32 +141,15 @@ function HubRules({ scope, rows }: HubRulesProps) {
           </Text>
         </div>
         <ol className={styles.rows} aria-labelledby={rulesId}>
-          {texts.map((text, index) => {
-            const action = actions[index];
-            const label = action && t(`availabilityHub.hub.action.${action.kind}`);
-            return (
-              <HubRow
-                key={text.row}
-                text={text}
-                action={
-                  action && label
-                    ? {
-                        to: action.to,
-                        label,
-                        name: t("availabilityHub.hub.rowAction", {
-                          action: label,
-                          row: text.title,
-                        }),
-                      }
-                    : null
-                }
-                serviceTo={
-                  isManager ? (service) => availabilityPath({ view: "hours", service }) : null
-                }
-                marker={answer?.hubRow === text.row ? marker : null}
-              />
-            );
-          })}
+          {hubRowTexts(rows, today, ctx).map((text, index) => (
+            <HubRow
+              key={text.row}
+              text={text}
+              action={rowAction(actions[index] ?? null, text.title, t)}
+              serviceTo={isManager ? serviceTo : null}
+              marker={answer?.hubRow === text.row ? marker : null}
+            />
+          ))}
         </ol>
       </section>
       <Link to={availabilityPath({ view: "history" })} className={styles.link}>
@@ -174,4 +157,17 @@ function HubRules({ scope, rows }: HubRulesProps) {
       </Link>
     </>
   );
+}
+
+const serviceTo = (service: string) => availabilityPath({ view: "hours", service });
+
+/** A row's action with its words: "Edit", and "Edit Regular hours" as its name out of context. */
+function rowAction(action: HubAction | null, row: string, t: TFunction): HubRowAction | null {
+  if (!action) return null;
+  const label = t(`availabilityHub.hub.action.${action.kind}`);
+  return {
+    to: action.to,
+    label,
+    name: t("availabilityHub.hub.rowAction", { action: label, row }),
+  };
 }

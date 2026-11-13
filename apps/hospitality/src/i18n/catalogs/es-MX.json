@@ -3402,6 +3402,7 @@
         "pauseTonight": "Reservas en línea en pausa hasta que termine esta noche",
         "pauseUntilResumed": "Reservas en línea en pausa hasta que se reanuden",
         "pauseUntil": "Reservas en línea en pausa hasta el {{date}}",
+        "pauseUntilTime": "Reservas en línea en pausa hasta las {{time}}",
         "pauseWaiting": "Las reservas en línea se pausan a las {{time}}",
         "closingEarly": "Cierre anticipado esta noche a las {{time}}",
         "stopTonight": "Cerrado esta noche {{from}}–{{to}}",
@@ -3425,6 +3426,8 @@
         },
         "windowFrom": "desde las {{time}}",
         "windowBetween": "{{from}}–{{to}}",
+        "sinceLastNight": "desde las {{time}} de anoche",
+        "sinceYesterday": "desde ayer",
         "now": "{{what}} {{detail}}",
         "next": "Próximo: {{date}} {{what}}",
         "nextDetail": "Próximo: {{date}} {{what}}, {{detail}}"
@@ -3436,8 +3439,6 @@
     },
     "dateCheck": {
       "label": "Consultar una fecha",
-      "openDate": "Abrir esta fecha",
-      "openDateName": "Abrir esta fecha, {{date}}",
       "sentence": "{{date}}: {{what}}. Lo decide {{rule}}.",
       "sentenceOver": "{{date}}: {{what}}. Lo decide {{rule}}, que gana sobre {{beneath}}.",
       "uncovered": "{{date}}: cerrado. Ningún horario cubre esta fecha.",
@@ -3445,6 +3446,8 @@
       "service": "{{name}} {{hours}}",
       "closedFrom": "cerrado desde las {{time}}",
       "closedBetween": "cerrado {{from}}–{{to}}",
+      "serviceClosedFrom": "{{name}} cerrado desde las {{time}}",
+      "serviceClosedBetween": "{{name}} cerrado {{from}}–{{to}}",
       "rule": {
         "regular": "tu horario habitual",
         "special": "tu fecha especial",

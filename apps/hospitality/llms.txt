@@ -5802,14 +5802,20 @@
       type DateAnswerHubRow = 1 | 2 | 3 | 4;
     </item>
     <item priority="low">
+      interface DateAnswerBand {
+        from: number;
+        to: number;
+      }
+    </item>
+    <item priority="low">
       interface DateAnswer {
         date: string;
         services: readonly {
           readonly name: string;
           readonly opensA...;
-        closedBand: { readonly from: number; readonly to: number } | null;
+        closedBand: DateAnswerBand | null;
+        otherClosedBands?: readonly DateAnswerBand[];
         deciding: DateAnswerRule | null;
-        beneath: DateAnswerRule | null;
       }
     </item>
     <item priority="medium">
@@ -5842,13 +5848,31 @@
       }
     </item>
     <item priority="medium">
+      function mergedSpans(spans: readonly Span[]): Span[] { /* ... */ }
+    </item>
+    <item priority="medium">
       function closedSpansOf(day: ResolvedDaySummary): Span[] { /* ... */ }
     </item>
     <item priority="medium">
       function openSpans(open: Span, closed: readonly Span[]): Span[] { /* ... */ }
     </item>
+    <item priority="high">
+      interface ServiceReport {
+        name: string;
+        opensAt: number;
+        closesAt: number;
+        open: readonly Span[];
+        closed: readonly Span[];
+      }
+    </item>
+    <item priority="medium">
+      function serviceReports(day: ResolvedDaySummary): ServiceReport[] { /* ... */ }
+    </item>
     <item priority="medium">
       function reportKey(day: ResolvedDaySummary): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function servicesOf(day: ResolvedDaySummary): DateAnswer["services"] { /* ... */ }
     </item>
     <item priority="medium">
       function decidingOverlays(
@@ -5859,7 +5883,7 @@
       ): Layer[] { /* ... */ }
     </item>
     <item priority="medium">
-      function closedBandOf(day: ResolvedDay, top: Layer | undefined): DateAnswer["closedBand"] { /* ... */ }
+      function closedBandsOf(day: ResolvedDay, top: Layer | undefined): Span[] { /* ... */ }
     </item>
     <item priority="high">
       export function dateAnswer(
@@ -5876,8 +5900,14 @@
     <item priority="medium">
       function ruleText(rule: DateAnswerRule, { t }: HubTextContext): string { /* ... */ }
     </item>
+    <item priority="high">
+      type Service = DateAnswer["services"][number];
+    </item>
     <item priority="medium">
-      function whatHappens(answer: DateAnswer, { t, format }: HubTextContext): string { /* ... */ }
+      function serviceClosedTexts(service: Service, { t, format }: HubTextContext): string[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function whatHappens(answer: DateAnswer, ctx: HubTextContext): string { /* ... */ }
     </item>
     <item priority="high">
       export function dateSentence(answer: DateAnswer, ctx: HubTextContext): string { /* ... */ }
@@ -5907,23 +5937,39 @@
     <item priority="medium">
       function whatText(target: HubClosureTarget, { t, format }: HubTextContext): string { /* ... */ }
     </item>
-    <item priority="medium">
-      function whenText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string | null { /* ... */ }
+    <item priority="high">
+      interface Reading {
+        inForce: boolean;
+        today: string;
+      }
     </item>
     <item priority="medium">
-      function windowText(closure: HubClosure, { t, format }: HubTextContext): string | null { /* ... */ }
+      function whenText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null { /* ... */ }
     </item>
     <item priority="medium">
-      function detailText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string { /* ... */ }
+      function windowText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null { /* ... */ }
     </item>
     <item priority="medium">
-      function nowText(closure: HubClosure, ctx: HubTextContext): string { /* ... */ }
+      function detailText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string { /* ... */ }
     </item>
     <item priority="medium">
-      function nextText(closure: HubClosure, ctx: HubTextContext): string { /* ... */ }
+      function nowText(closure: HubClosure, today: string, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function nextText(closure: HubClosure, today: string, ctx: HubTextContext): string { /* ... */ }
+    </item>
+    <item priority="low">
+      interface ClosuresLine {
+        text: string;
+        ruleId?: string;
+      }
     </item>
     <item priority="high">
-      export function closuresLines(row: ClosuresRow, today: string, ctx: HubTextContext): string[] { /* ... */ }
+      export function closuresLines(
+        row: ClosuresRow,
+        today: string,
+        ctx: HubTextContext
+      ): ClosuresLine[] { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/hub/hub-closures.ts">
@@ -5945,9 +5991,10 @@
     <item priority="low">
       interface HubOnlinePause {
         ruleId: string;
+        source: "closure" | "tonight";
         inForce: boolean;
         fromMinute: number | null;
-        endsOn: string | null;
+        untilMinute: number | null;
       }
     </item>
     <item priority="low">
@@ -5992,6 +6039,12 @@
       function isOnlinePause(rule: DateRule): rule is ClosureRule { /* ... */ }
     </item>
     <item priority="medium">
+      function closurePauses(clock: Clock): HubOnlinePause[] { /* ... */ }
+    </item>
+    <item priority="medium">
+      function tonightPauses({ rules, today, nowMinute }: Clock): HubOnlinePause[] { /* ... */ }
+    </item>
+    <item priority="medium">
       function onlinePause(clock: Clock): HubOnlinePause | null { /* ... */ }
     </item>
     <item priority="medium">
@@ -6018,6 +6071,7 @@
       interface HubLine {
         text: string;
         venueServiceId?: string;
+        ruleId?: string;
       }
     </item>
     <item priority="low">
@@ -6091,6 +6145,9 @@
     </item>
     <item priority="high">
       export function venue(dateRules: DateRule[] = [], ...added: Parts[]): AvailabilityConfig { /* ... */ }
+    </item>
+    <item priority="high">
+      export function lunchAndDinner(dateRules: DateRule[] = []): AvailabilityConfig { /* ... */ }
     </item>
     <item priority="high">
       export function input(config: AvailabilityConfig, rest: Partial<HubRowsInput> = {}): HubRowsInput { /* ... */ }

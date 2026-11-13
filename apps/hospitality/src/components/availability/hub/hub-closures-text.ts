@@ -20,6 +20,12 @@ function pauseText(pause: HubOnlinePause, today: string, ctx: HubTextContext): s
       time: minuteText(pause.fromMinute, t, format),
     });
   }
+  // A pause for part of the day is over at its own time, whatever date it runs to.
+  if (pause.untilMinute !== null) {
+    return t("availabilityHub.hub.closures.pauseUntilTime", {
+      time: minuteText(pause.untilMinute, t, format),
+    });
+  }
   if (pause.endsOn === null) return t("availabilityHub.hub.closures.pauseUntilResumed");
   return pause.endsOn === today
     ? t("availabilityHub.hub.closures.pauseTonight")
@@ -65,8 +71,21 @@ function whatText(target: HubClosureTarget, { t, format }: HubTextContext): stri
   }
 }
 
-/** How long it lasts; a one-date closure says "today" only while it is in force. */
-function whenText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string | null {
+/** When a closure is read: in force or not, and on which date. */
+interface Reading {
+  readonly inForce: boolean;
+  readonly today: string;
+}
+
+/** In force from yesterday's service day, which still runs past midnight. */
+const sinceLastNight = (closure: HubClosure, { inForce, today }: Reading) =>
+  inForce && closure.nextOn < today;
+
+/**
+ * How long it lasts. A one-date closure says "today" only while it is in force on today's date:
+ * one still running from last night says since when, never "today".
+ */
+function whenText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null {
   const { t, format } = ctx;
   if (closure.weekdays !== null) {
     const days = weekdaySummary(closure.weekdays, format, t);
@@ -79,14 +98,22 @@ function whenText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): s
   }
   if (closure.endsOn === null) return t("availabilityHub.hub.closures.when.untilReopened");
   if (closure.endsOn === closure.startsOn) {
-    return inForce ? t("availabilityHub.hub.closures.when.today") : null;
+    if (!reading.inForce) return null;
+    if (!sinceLastNight(closure, reading)) return t("availabilityHub.hub.closures.when.today");
+    return closure.window === null ? t("availabilityHub.hub.closures.sinceYesterday") : null;
   }
   return t("availabilityHub.hub.closures.when.until", { date: shortDate(closure.endsOn, ctx) });
 }
 
-function windowText(closure: HubClosure, { t, format }: HubTextContext): string | null {
+function windowText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string | null {
+  const { t, format } = ctx;
   const { window } = closure;
   if (window === null) return null;
+  if (sinceLastNight(closure, reading)) {
+    return t("availabilityHub.hub.closures.sinceLastNight", {
+      time: minuteText(window.from, t, format),
+    });
+  }
   return window.to >= END_OF_SERVICE_DAY
     ? t("availabilityHub.hub.closures.windowFrom", { time: minuteText(window.from, t, format) })
     : t("availabilityHub.hub.closures.windowBetween", {
@@ -95,33 +122,44 @@ function windowText(closure: HubClosure, { t, format }: HubTextContext): string 
       });
 }
 
-function detailText(closure: HubClosure, inForce: boolean, ctx: HubTextContext): string {
-  return [whenText(closure, inForce, ctx), windowText(closure, ctx)]
+function detailText(closure: HubClosure, reading: Reading, ctx: HubTextContext): string {
+  return [whenText(closure, reading, ctx), windowText(closure, reading, ctx)]
     .filter((part): part is string => part !== null)
     .join(", ");
 }
 
-function nowText(closure: HubClosure, ctx: HubTextContext): string {
+function nowText(closure: HubClosure, today: string, ctx: HubTextContext): string {
   const what = whatText(closure.target, ctx);
-  const detail = detailText(closure, true, ctx);
+  const detail = detailText(closure, { inForce: true, today }, ctx);
   return detail ? ctx.t("availabilityHub.hub.closures.now", { what, detail }) : what;
 }
 
-function nextText(closure: HubClosure, ctx: HubTextContext): string {
+function nextText(closure: HubClosure, today: string, ctx: HubTextContext): string {
   const values = { date: shortDate(closure.nextOn, ctx), what: whatText(closure.target, ctx) };
-  const detail = detailText(closure, false, ctx);
+  const detail = detailText(closure, { inForce: false, today }, ctx);
   return detail
     ? ctx.t("availabilityHub.hub.closures.nextDetail", { ...values, detail })
     : ctx.t("availabilityHub.hub.closures.next", values);
 }
 
+/** One line of the row, with the rule it reads; the "None" line reads no rule. */
+export interface ClosuresLine {
+  readonly text: string;
+  readonly ruleId?: string;
+}
+
 /** The row's lines: the pause, tonight's changes, what is closed now, then the next closure. */
-export function closuresLines(row: ClosuresRow, today: string, ctx: HubTextContext): string[] {
+export function closuresLines(
+  row: ClosuresRow,
+  today: string,
+  ctx: HubTextContext
+): ClosuresLine[] {
+  const { pause, next } = row;
   const lines = [
-    ...(row.pause ? [pauseText(row.pause, today, ctx)] : []),
-    ...row.tonight.map((change) => tonightText(change, ctx)),
-    ...row.now.map((closure) => nowText(closure, ctx)),
-    ...(row.next ? [nextText(row.next, ctx)] : []),
+    ...(pause ? [{ ruleId: pause.ruleId, text: pauseText(pause, today, ctx) }] : []),
+    ...row.tonight.map((change) => ({ ruleId: change.ruleId, text: tonightText(change, ctx) })),
+    ...row.now.map((closure) => ({ ruleId: closure.ruleId, text: nowText(closure, today, ctx) })),
+    ...(next ? [{ ruleId: next.ruleId, text: nextText(next, today, ctx) }] : []),
   ];
-  return lines.length > 0 ? lines : [ctx.t("availabilityHub.hub.closures.empty")];
+  return lines.length > 0 ? lines : [{ text: ctx.t("availabilityHub.hub.closures.empty") }];
 }

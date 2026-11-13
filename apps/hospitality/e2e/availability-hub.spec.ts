@@ -217,7 +217,7 @@ test.describe("Availability hub", () => {
       mockedPage: page,
     }) => {
       await openHub(page, viewport);
-      // With an answer on screen, so the sentence, the marker and Open this date are checked too.
+      // With an answer on screen, so the sentence and the marker are checked too.
       const field = page.getByRole("combobox", { name: "Check a date" });
       await field.fill(DEC_24_TYPED);
       await field.press("Enter");

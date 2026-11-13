@@ -25,8 +25,6 @@ export interface DateCheckProps {
 export function DateCheck({ date, onDateChange, answer, today }: DateCheckProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
-  const longDate =
-    date && format.formatCalendarDate(date, { weekday: "short", month: "short", day: "numeric" });
   return (
     <section className={styles.check}>
       <div className={styles.checkField}>
@@ -44,19 +42,11 @@ export function DateCheck({ date, onDateChange, answer, today }: DateCheckProps)
       </div>
       {/* Always mounted, so a screen reader hears the sentence when it arrives. */}
       <div className={styles.answer} aria-live="polite" data-testid="hub-date-answer">
+        {/* No link to the date itself until the calendar can open on one (D5.3). */}
         {answer && date && (
-          <>
-            <Text variant="body" color="primary">
-              {dateSentence(answer, { t, format })}
-            </Text>
-            <Link
-              to={availabilityPath({ view: "calendar", date })}
-              aria-label={t("availabilityHub.dateCheck.openDateName", { date: longDate })}
-              className={styles.link}
-            >
-              {t("availabilityHub.dateCheck.openDate")}
-            </Link>
-          </>
+          <Text variant="body" color="primary">
+            {dateSentence(answer, { t, format })}
+          </Text>
         )}
       </div>
     </section>

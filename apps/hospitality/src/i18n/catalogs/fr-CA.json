@@ -3402,6 +3402,7 @@
         "pauseTonight": "Réservations en ligne suspendues jusqu'à la fin de la soirée",
         "pauseUntilResumed": "Réservations en ligne suspendues jusqu'à la reprise",
         "pauseUntil": "Réservations en ligne suspendues jusqu'au {{date}}",
+        "pauseUntilTime": "Réservations en ligne suspendues jusqu'à {{time}}",
         "pauseWaiting": "Les réservations en ligne seront suspendues à {{time}}",
         "closingEarly": "Fermeture plus tôt ce soir à {{time}}",
         "stopTonight": "Fermé ce soir {{from}}–{{to}}",
@@ -3425,6 +3426,8 @@
         },
         "windowFrom": "dès {{time}}",
         "windowBetween": "{{from}}–{{to}}",
+        "sinceLastNight": "depuis {{time}} hier soir",
+        "sinceYesterday": "depuis hier",
         "now": "{{what}} {{detail}}",
         "next": "Prochaine : {{date}} {{what}}",
         "nextDetail": "Prochaine : {{date}} {{what}}, {{detail}}"
@@ -3436,8 +3439,6 @@
     },
     "dateCheck": {
       "label": "Vérifier une date",
-      "openDate": "Ouvrir cette date",
-      "openDateName": "Ouvrir cette date, {{date}}",
       "sentence": "{{date}} : {{what}}. Décidé par {{rule}}.",
       "sentenceOver": "{{date}} : {{what}}. Décidé par {{rule}}, qui l'emporte sur {{beneath}}.",
       "uncovered": "{{date}} : fermé. Aucune heure ne couvre cette date.",
@@ -3445,6 +3446,8 @@
       "service": "{{name}} {{hours}}",
       "closedFrom": "fermé dès {{time}}",
       "closedBetween": "fermé {{from}}–{{to}}",
+      "serviceClosedFrom": "{{name}} fermé dès {{time}}",
+      "serviceClosedBetween": "{{name}} fermé {{from}}–{{to}}",
       "rule": {
         "regular": "vos heures habituelles",
         "special": "votre date spéciale",

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { validateConfig } from "@mbe/availability";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
 import { dateAnswer } from "./date-answer.js";
+import { lunchAndDinner } from "./hub-rows-test-helpers.js";
 
 const TIMEZONE = "America/Los_Angeles";
 const SEATING = { version: 1, interval: 15 } as const;
@@ -303,6 +304,120 @@ describe("dateAnswer: a rule decides only when it changes the services or a venu
       closedBand: { from: 840, to: 900 },
       beneath: REGULAR,
       hubRow: 4,
+    });
+  });
+});
+
+/** Dinner alone closed for part of a date. */
+const dinnerClosed = (id: string, date: string, from: number, to = 2880): DateRule =>
+  closure(id, {
+    startsOn: date,
+    endsOn: date,
+    targetKind: "service",
+    venueServiceId: "vs-dinner",
+    window: { version: 1, from, to },
+  });
+const LUNCH = { name: "Lunch", opensAt: 690, closesAt: 900 };
+const DINNER = { name: "Dinner", opensAt: 1020, closesAt: 1320 };
+
+describe("dateAnswer: a closure of one service for part of the day changes that service's hours", () => {
+  it("names the closure, with the service's closed minutes, over regular hours", () => {
+    const config = lunchAndDinner([dinnerClosed("r-dinner", DEC_24, 1080)]);
+    expect(dateAnswer(config, TIMEZONE, DEC_24)).toEqual({
+      date: DEC_24,
+      services: [LUNCH, { ...DINNER, closed: [{ from: 1080, to: 1320 }] }],
+      closedBand: null,
+      deciding: { kind: "closure", ruleId: "r-dinner" },
+      beneath: { kind: "regular", scheduleId: "regular", name: "Regular" },
+      hubRow: 4,
+    });
+  });
+
+  it("never names one whose minutes are outside the service's hours", () => {
+    const config = lunchAndDinner([dinnerClosed("r-morning", DEC_24, 600, 660)]);
+    expect(dateAnswer(config, TIMEZONE, DEC_24)).toEqual({
+      date: DEC_24,
+      services: [LUNCH, DINNER],
+      closedBand: null,
+      deciding: { kind: "regular", scheduleId: "regular", name: "Regular" },
+      beneath: null,
+      hubRow: 1,
+    });
+  });
+
+  it("reports every part of the service two closures take", () => {
+    const config = lunchAndDinner([
+      dinnerClosed("r-early", DEC_24, 1050, 1080),
+      dinnerClosed("r-late", DEC_24, 1200),
+    ]);
+    expect(dateAnswer(config, TIMEZONE, DEC_24)).toMatchObject({
+      services: [
+        LUNCH,
+        {
+          ...DINNER,
+          closed: [
+            { from: 1050, to: 1080 },
+            { from: 1200, to: 1320 },
+          ],
+        },
+      ],
+      deciding: { kind: "closure", ruleId: "r-late" },
+      hubRow: 4,
+    });
+  });
+
+  it("drops a service two closures close between them", () => {
+    const config = lunchAndDinner([
+      dinnerClosed("r-first", DEC_24, 960, 1140),
+      dinnerClosed("r-second", DEC_24, 1140),
+    ]);
+    expect(dateAnswer(config, TIMEZONE, DEC_24)).toMatchObject({
+      services: [LUNCH],
+      closedBand: null,
+      deciding: { kind: "closure", ruleId: "r-second" },
+      hubRow: 4,
+    });
+  });
+
+  it("names a tonight stop over a closure of one service, and reports both", () => {
+    const stop: DateRule = {
+      ...onNov12,
+      id: "r-stop",
+      kind: "tonight",
+      targetKind: "venue",
+      payload: { version: 1, stop: { from: 1260, to: 2880 } },
+    };
+    const config = lunchAndDinner([dinnerClosed("r-dinner", NOV_12, 1080), stop]);
+    expect(dateAnswer(config, TIMEZONE, NOV_12)).toMatchObject({
+      services: [LUNCH, { ...DINNER, closed: [{ from: 1080, to: 1260 }] }],
+      closedBand: { from: 1260, to: 2880 },
+      deciding: { kind: "tonight", ruleId: "r-stop" },
+      beneath: { kind: "closure", ruleId: "r-dinner" },
+      hubRow: 4,
+    });
+  });
+});
+
+describe("dateAnswer: two venue-wide closures on one date", () => {
+  const first = closure("r-first", { window: { version: 1, from: 960, to: 1140 } });
+  const second = closure("r-second", { window: { version: 1, from: 1140, to: 2880 } });
+
+  it.each([
+    ["in order", [first, second]],
+    ["out of order", [second, first]],
+  ])("reports two that meet as the one band they close, %s", (_order, rules) => {
+    const answer = dateAnswer(venue(...rules), TIMEZONE, NOV_12);
+    expect(answer).toMatchObject({ closedBand: { from: 960, to: 2880 }, hubRow: 4 });
+    expect(answer).not.toHaveProperty("otherClosedBands");
+  });
+
+  it("reports the bands apart from the deciding rule's own", () => {
+    const early = closure("r-early", { window: { version: 1, from: 1050, to: 1080 } });
+    const late = closure("r-late", { window: { version: 1, from: 1200, to: 2880 } });
+    expect(dateAnswer(venue(early, late), TIMEZONE, NOV_12)).toMatchObject({
+      deciding: { kind: "closure", ruleId: "r-late" },
+      closedBand: { from: 1200, to: 2880 },
+      otherClosedBands: [{ from: 1050, to: 1080 }],
     });
   });
 });
