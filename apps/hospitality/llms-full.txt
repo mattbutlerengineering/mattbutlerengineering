@@ -200,11 +200,12 @@
     export function alsoApplyOptions(
       config: AvailabilityConfig,
       edit: AvailabilityConfigChanges,
-      sourceScheduleId: string
+      sourceScheduleId: string,
+      serviceDate: string
     ): AlsoApplyOption[] {
       const names = new Map(config.venueServices.map((v) => [v.id, v.name]));
       return changedSourceRows(config, edit, sourceScheduleId).flatMap((row) => {
-        const targets = compareRows(config, row.venueServiceId)
+        const targets = compareRows(config, row.venueServiceId, serviceDate)
           .filter((r) => r.scheduleId !== sourceScheduleId)
           .map((r) => ({ scheduleId: r.scheduleId, scheduleName: r.scheduleName }));
         return targets.length === 0
@@ -240,9 +241,10 @@
       config: AvailabilityConfig,
       edit: AvailabilityConfigChanges,
       sourceScheduleId: string,
-      picks: AlsoApplyPicks
+      picks: AlsoApplyPicks,
+      serviceDate: string
     ): AvailabilityConfigChanges {
-      const options = alsoApplyOptions(config, edit, sourceScheduleId);
+      const options = alsoApplyOptions(config, edit, sourceScheduleId, serviceDate);
       const wanted = pruneAlsoApply(options, picks);
       const stored = new Map(config.scheduleServices.map((s) => [s.id, s]));
       const source = new Map(
@@ -1723,8 +1725,8 @@
     function runs(config: AvailabilityConfig, row: ScheduleService): boolean {
       return scheduleDays(config, row.scheduleId, true).some((day) => hoursOn(row, day) !== null);
     }
-    export function compareServiceOptions(config: AvailabilityConfig) {
-      const live = liveScheduleIds(config);
+    export function compareServiceOptions(config: AvailabilityConfig, serviceDate: string) {
+      const live = liveScheduleIds(config, serviceDate);
       return config.venueServices
         .filter((v) => !v.archivedAt)
         .filter(
@@ -1735,8 +1737,12 @@
         )
         .sort((a, b) => a.position - b.position);
     }
-    export function compareRows(config: AvailabilityConfig, venueServiceId: string): CompareRow[] {
-      const names = new Map(config.schedules.filter((s) => !s.archivedAt).map((s) => [s.id, s.name]));
+    export function compareRows(
+      config: AvailabilityConfig,
+      venueServiceId: string,
+      serviceDate: string
+    ): CompareRow[] {
+      const names = new Map(visibleSchedules(config, serviceDate).map((s) => [s.id, s.name]));
       return config.scheduleServices
         .filter((s) => s.venueServiceId === venueServiceId && names.has(s.scheduleId))
         .filter((s) => runs(config, s))
@@ -1776,18 +1782,20 @@
     }
     export function rowsRemovedSince(
       after: AvailabilityConfig,
-      edits: readonly CompareRow[]
+      edits: readonly CompareRow[],
+      serviceDate: string
     ): string[] {
-      const now = compareRowsById(after);
+      const now = compareRowsById(after, serviceDate);
       return edits.filter((e) => !now.has(e.scheduleServiceId)).map((e) => e.scheduleName);
     }
     export function reapplyEdits(
       before: AvailabilityConfig,
       after: AvailabilityConfig,
-      edits: readonly CompareRow[]
+      edits: readonly CompareRow[],
+      serviceDate: string
     ): Record<string, CompareRow> {
       const was = new Map(before.scheduleServices.map((s) => [s.id, s]));
-      const latest = compareRowsById(after);
+      const latest = compareRowsById(after, serviceDate);
       const entries = edits.flatMap((e) => {
         const old = was.get(e.scheduleServiceId);
         const next = latest.get(e.scheduleServiceId);
@@ -1798,8 +1806,8 @@
       });
       return Object.fromEntries(entries);
     }
-    function compareRowsById(config: AvailabilityConfig): Map<string, CompareRow> {
-      const rows = config.venueServices.flatMap((v) => compareRows(config, v.id));
+    function compareRowsById(config: AvailabilityConfig, serviceDate: string): Map<string, CompareRow> {
+      const rows = config.venueServices.flatMap((v) => compareRows(config, v.id, serviceDate));
       return new Map(rows.map((r) => [r.scheduleServiceId, r]));
     }
     export function buildCompareChanges(
@@ -5910,6 +5918,70 @@
       return { kind: "season", season: season ?? "winter" };
     }
   </file>
+  <file path="src/components/availability/superseded-fixtures.ts">
+    function counter(prefix: string) {
+      let n = 0;
+      return () => `${prefix}-${++n}`;
+    }
+    function later(draft: QuickSetupDraft): QuickSetupDraft {
+      return {
+        ...draft,
+        services: draft.services.map((s) =>
+          s.name === "Dinner"
+            ? { ...s, lastSeating: "21:30", closes: "22:30", lastSeatingLinked: false }
+            : s
+        ),
+      };
+    }
+    export function saveRegularWeek(
+      config: AvailabilityConfig,
+      startsOn: string,
+      prefix = "new"
+    ): AvailabilityConfig {
+      let n = 0;
+      const live = draftFromConfig(config, () => `draft-${++n}`);
+      return applyChanges(
+        config,
+        buildRegularWeekChanges({
+          config,
+          name: "",
+          draft: later(live),
+          startsOn,
+          endsOn: null,
+          winner: "new",
+          makeId: counter(prefix),
+        }),
+        SAVED_AT
+      );
+    }
+    export function supersededWeekOf(config: AvailabilityConfig) {
+      const week = config.schedules.find((s) => s.kind === "regular" && !s.isRegular && !s.archivedAt);
+      if (!week) throw new Error("no superseded regular week in this config");
+      return week;
+    }
+  </file>
+  <file path="src/components/availability/superseded-schedules.ts">
+    export function isSupersededRegularWeek(
+      config: AvailabilityConfig,
+      schedule: Schedule,
+      serviceDate: string
+    ): boolean {
+      if (schedule.archivedAt || schedule.isRegular || schedule.kind !== "regular") return false;
+      // An open end (`null`) runs on with no last day, so it always reaches the service date.
+      const reaches = (endsOn: string | null | undefined) => endsOn == null || endsOn >= serviceDate;
+      return (
+        !config.assignments.some((a) => a.scheduleId === schedule.id && reaches(a.endsOn)) &&
+        !config.dateRules.some(
+          (r) => r.kind === "use_schedule" && r.useScheduleId === schedule.id && reaches(r.endsOn)
+        )
+      );
+    }
+    export function visibleSchedules(config: AvailabilityConfig, serviceDate: string): Schedule[] {
+      return config.schedules.filter(
+        (s) => !s.archivedAt && !isSupersededRegularWeek(config, s, serviceDate)
+      );
+    }
+  </file>
   <file path="src/components/availability/today-line-text.ts">
     type Format = Pick<VenueFormat, "formatLocalTime">;
     type PausedSet =
@@ -7129,6 +7201,16 @@
           clearFailure();
         },
       };
+    }
+  </file>
+  <file path="src/components/availability/use-visible-schedules.ts">
+    export function useServiceDate(config: AvailabilityConfig, timezone: string): string {
+      const now = useNow();
+      return useMemo(() => currentServiceDate(config, timezone, now), [config, timezone, now]);
+    }
+    export function useVisibleSchedules(config: AvailabilityConfig, timezone: string): Schedule[] {
+      const serviceDate = useServiceDate(config, timezone);
+      return useMemo(() => visibleSchedules(config, serviceDate), [config, serviceDate]);
     }
   </file>
   <file path="src/components/availability/use-winning-change-text.ts">
@@ -22184,6 +22266,11 @@
       readonly readiness: "setup" | "operational";
       /** The venue's today, `YYYY-MM-DD`. */
       readonly today: string;
+      /**
+       * The venue's current service date (it trails `today` after midnight on an overnight venue): a
+       * regular week replaced before it is neither counted nor listed (#8688).
+       */
+      readonly serviceDate: string;
       readonly open: GroupLoad<OpenData>;
       readonly sit: GroupLoad<SitData>;
     }
@@ -22281,12 +22368,17 @@
         children,
       };
     }
-    function schedulesNode(config: AvailabilityConfig, manager: boolean): SetupNode {
+    function schedulesNode(
+      config: AvailabilityConfig,
+      serviceDate: string,
+      manager: boolean
+    ): SetupNode {
       const services = new Map(
         active(config.venueServices).map((s) => [s.id, { name: s.name, position: s.position }])
       );
-      const schedules = active(config.schedules).map((s) => scheduleNode(s, config, services, manager));
-      const regular = active(config.schedules).find((s) => s.isRegular);
+      const visible = visibleSchedules(config, serviceDate);
+      const schedules = visible.map((s) => scheduleNode(s, config, services, manager));
+      const regular = visible.find((s) => s.isRegular);
       const regularSet =
         regular !== undefined &&
         schedules.some((n) => n.id === `schedule:${regular.id}` && n.children.length > 0);
@@ -22405,12 +22497,13 @@
     }
     function openNodes(
       data: OpenData,
-      today: string,
+      dates: { readonly today: string; readonly serviceDate: string },
       sections: ReadonlyMap<string, string> | null,
       manager: boolean
     ): SetupNode[] {
+      const { today, serviceDate } = dates;
       return [
-        schedulesNode(data.config, manager),
+        schedulesNode(data.config, serviceDate, manager),
         specialDatesNode(data.config, today, sections, manager),
         bookingNode(data.config, data.settings, today, manager),
       ];
@@ -22523,13 +22616,15 @@
       );
     }
     export function buildSetupTree(input: SetupTreeInput): SetupTree {
-      const { isManager, today } = input;
+      const { isManager, today, serviceDate } = input;
       const sectionNames =
         input.sit.status === "ready"
           ? new Map(input.sit.data.sections.map((s) => [s.id, s.name]))
           : null;
       let open: readonly SetupNode[] =
-        input.open.status === "ready" ? openNodes(input.open.data, today, sectionNames, isManager) : [];
+        input.open.status === "ready"
+          ? openNodes(input.open.data, { today, serviceDate }, sectionNames, isManager)
+          : [];
       let sit: readonly SetupNode[] =
         input.sit.status === "ready" ? sitNodes(input.sit.data, isManager) : [];
     
