@@ -70,7 +70,7 @@
       "limit": "6.86 kB"
     },
     {
-      "name": "Regular hours page (lazy chunk: the Starting field, the form's frame and first setup, availability-hub E4.4; 3.30 kB (3,298 B) measured)",
+      "name": "Regular hours page (lazy chunk: the Starting field, the form's frame and first setup, availability-hub E4.4; 3.34 kB (3,340 B) measured)",
       "path": "dist/assets/AvailabilityHoursPage-*.js",
       "limit": "3.5 kB"
     },

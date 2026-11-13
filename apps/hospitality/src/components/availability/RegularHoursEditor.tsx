@@ -100,26 +100,36 @@ function EditorBody(props: BodyProps) {
   );
   return (
     <div className={styles.editor} data-testid="week-panel">
-      <Stack gap="md">
-        <StartingField today={today} startsOn={draft.startsOn} onChange={draft.setStartsOn} />
-        {!reviewing && (
-          <SaveFailure messages={draft.saver.failure} stranded={draft.saver.stranded} />
+      {/* Wide enough, the draft's notes and guest preview sit beside the form, so the form after
+          an edit fits 1.5 screens (PRD 7); the form's column is the same width before and after. */}
+      <div className={styles.layout}>
+        <Stack gap="md">
+          <StartingField today={today} startsOn={draft.startsOn} onChange={draft.setStartsOn} />
+          {!reviewing && (
+            <SaveFailure messages={draft.saver.failure} stranded={draft.saver.stranded} />
+          )}
+          <div onBlur={draft.leftBlock}>
+            <QuickSetupForm
+              draft={draft.draft}
+              onChange={draft.edit}
+              issues={draft.shown}
+              idScope={draft.scopeId}
+              storedKept={draft.storedKept}
+              collapsible
+              initialOpenId={initialOpenId}
+              afterOpenService={bar}
+              // One preview: while the draft is dirty the draft preview beside it stands in for it.
+              hidePreview={draft.dirty}
+            />
+          </div>
+        </Stack>
+        {draft.dirty && (
+          <Stack gap="md" className={styles.aside}>
+            <DirtyNotes venueId={venueId} draft={draft} />
+          </Stack>
         )}
-        <div onBlur={draft.leftBlock}>
-          <QuickSetupForm
-            draft={draft.draft}
-            onChange={draft.edit}
-            issues={draft.shown}
-            idScope={draft.scopeId}
-            storedKept={draft.storedKept}
-            collapsible
-            initialOpenId={initialOpenId}
-            afterOpenService={bar}
-            // One preview: while the draft is dirty the draft preview below stands in for it.
-            hidePreview={draft.dirty}
-          />
-        </div>
-        {draft.dirty && <DirtyNotes venueId={venueId} draft={draft} />}
+      </div>
+      <Stack gap="md">
         <FormConflictDialog
           saver={draft.saver}
           review={draft.review.review}
