@@ -3338,13 +3338,13 @@
       }
     },
     "saveBar": {
-      "saveForDates_one": "Guardar para {{dates}} fecha",
-      "saveForDates_other": "Guardar para {{dates}} fechas",
-      "saveForDates_many": "Guardar para {{dates}} de fechas",
+      "saveForDates_one": "Guardar para {{count, number}} fecha",
+      "saveForDates_other": "Guardar para {{count, number}} fechas",
+      "saveForDates_many": "Guardar para {{count, number}} de fechas",
       "saveFrom": "Guardar desde el {{date}}",
-      "specialHours_one": "{{dates}} fecha ya tiene horario especial",
-      "specialHours_other": "{{dates}} fechas ya tienen horario especial",
-      "specialHours_many": "{{dates}} de fechas ya tienen horario especial",
+      "specialHours_one": "{{count, number}} fecha ya tiene horario especial",
+      "specialHours_other": "{{count, number}} fechas ya tienen horario especial",
+      "specialHours_many": "{{count, number}} de fechas ya tienen horario especial",
       "fixProblems": "Corrige los problemas de arriba para guardar."
     }
   },

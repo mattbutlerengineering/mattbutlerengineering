@@ -2,7 +2,6 @@ import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Button, SegmentedControl, Text } from "@mattbutlerengineering/rialto";
 import type { ScopeConflictMode } from "@mbe/types";
-import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import styles from "./EditorSaveBar.module.css";
 
 /**
@@ -50,29 +49,21 @@ export interface EditorSaveBarProps {
 /** A count worth saying: 0, a fraction or a missing number says nothing. */
 const countable = (count: number) => Number.isInteger(count) && count > 0;
 
-function useCountText() {
-  const { locale } = useVenueFormat();
-  return (count: number) => new Intl.NumberFormat(locale).format(count);
-}
-
+// The catalogs write these counts as `{{count, number}}`, so they take the locale's number format.
 function useSaveLabel(reach: SaveReach | null) {
   const { t } = useTranslation();
-  const countText = useCountText();
   if (reach?.kind === "from") return t("availabilityHub.saveBar.saveFrom", { date: reach.date });
   if (reach === null || !countable(reach.count)) return t("availabilitySchedules.save");
-  const { count } = reach;
-  return t("availabilityHub.saveBar.saveForDates", { count, dates: countText(count) });
+  return t("availabilityHub.saveBar.saveForDates", { count: reach.count });
 }
 
 function SpecialHours(props: SpecialHoursChoice) {
-  const { count } = props;
   const { t } = useTranslation();
-  const countText = useCountText();
   const labelId = useId();
   return (
     <div className={styles.choice}>
       <Text variant="body" color="primary" id={labelId}>
-        {t("availabilityHub.saveBar.specialHours", { count, dates: countText(count) })}
+        {t("availabilityHub.saveBar.specialHours", { count: props.count })}
       </Text>
       <SegmentedControl
         aria-labelledby={labelId}
