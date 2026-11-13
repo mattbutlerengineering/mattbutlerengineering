@@ -23,6 +23,16 @@ body {
   flex-direction: column;
 }
 
+/* Guest pages (see GuestSurface) have no inner scroller: let the document scroll, or everything
+   below the first screen is unreachable and a fullPage capture is blank there (#8835). */
+html:has([data-guest-surface]),
+body:has([data-guest-surface]),
+html:has([data-guest-surface]) #root {
+  height: auto;
+  min-height: 100%;
+  overflow: visible;
+}
+
 body {
   font-family: var(
     --rialto-font-sans,

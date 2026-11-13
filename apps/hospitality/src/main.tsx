@@ -10,6 +10,7 @@ import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
+import { GuestSurface } from "./components/GuestSurface";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { RequireManager } from "./components/RequireManager";
@@ -180,42 +181,52 @@ const router = createBrowserRouter(
     {
       path: "book/:venueSlug",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <PublicBookingPage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <PublicBookingPage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     // Public menus — no auth, same guest surface as the booking page
     {
       path: "menu/:venueSlug",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <PublicMenusPage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <PublicMenusPage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     {
       path: "menu/:venueSlug/:menuSlug",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <PublicMenuPage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <PublicMenuPage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     {
       path: "reservations/manage",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <ManageReservationPage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <ManageReservationPage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     {
       path: "i/:token",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <InvitePage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <InvitePage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     {
