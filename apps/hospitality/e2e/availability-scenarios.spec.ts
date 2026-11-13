@@ -72,7 +72,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
     mockedPage: page,
   }) => {
     await mockEmptyVenue(page, { derive: true });
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await setUniformBistroWeek(page);
     await page.reload();
     await expect(weekPanel(page)).toBeVisible();
@@ -161,7 +161,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
   }) => {
     // F-bistro: Lunch and Dinner Mon–Fri, saved through quick setup, then the first layer again.
     await mockEmptyVenue(page, { derive: true });
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await setUniformBistroWeek(page);
     await page.reload();
     await mockNoopPreview(page);
@@ -458,7 +458,7 @@ test.describe("Availability scenarios (PRD 18)", () => {
         body: JSON.stringify({ data: { ...buildVenueTeamFixture(), viewerRole: "host" } }),
       })
     );
-    await page.goto("availability");
+    await page.goto("availability/calendar");
 
     await expect(page.getByRole("grid")).toBeVisible();
     await expect(layerOption(page, "Calendar")).toBeChecked();

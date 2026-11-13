@@ -17,7 +17,10 @@ import {
 test.describe("Quick-setup interaction baselines", () => {
   test("the uniform bistro week", async ({ mockedPage }) => {
     const state = await mockEmptyVenue(mockedPage);
+    // Through the hub, which sends a Manager with no hours to the first-setup card by itself:
+    // first setup from the landing page still costs exactly the baseline (availability-hub PRD 7).
     await mockedPage.goto("availability");
+    await expect(mockedPage).toHaveURL(/\/availability\/calendar\?tab=schedules$/);
     const counter = countInteractions(mockedPage);
 
     await setUniformBistroWeek(counter.page);
@@ -30,7 +33,7 @@ test.describe("Quick-setup interaction baselines", () => {
 
   test("the large multi-service setup", async ({ mockedPage }) => {
     const state = await mockEmptyVenue(mockedPage);
-    await mockedPage.goto("availability");
+    await mockedPage.goto("availability/calendar");
     const counter = countInteractions(mockedPage);
 
     await setLargeSetup(counter.page);

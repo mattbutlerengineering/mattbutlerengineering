@@ -20,7 +20,7 @@ test.describe("Change one weekday of the regular week", () => {
     test.slow();
     await page.clock.setFixedTime(new Date(`${localDay()}T12:00:00`));
     const state = await mockEmptyVenue(page, { derive: true });
-    await page.goto("availability");
+    await page.goto("availability/calendar");
     await setDemoWeek(page);
     await page.getByRole("button", { name: "Save and open bookings" }).click();
     await expect(weekPanel(page)).toBeVisible();

@@ -475,7 +475,7 @@ test.describe("The Today line (T1, T2)", () => {
             body: JSON.stringify({ data: { ...buildVenueTeamFixture(), viewerRole: "host" } }),
           })
         );
-        await page.goto("availability");
+        await page.goto("availability/calendar");
         const region = todayLine(page);
         await expect(region).toBeVisible();
         await expect(region).toContainText("Dinner 5:00 PM–11:00 PM");

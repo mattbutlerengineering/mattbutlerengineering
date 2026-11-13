@@ -373,7 +373,7 @@ describe("BookingWidgetDemoPage", () => {
     });
 
     lastOnSetHours?.();
-    expect(mockNavigate).toHaveBeenCalledWith("/availability/calendar");
+    expect(mockNavigate).toHaveBeenCalledWith("/availability");
   });
 
   it("embed code example contains the selected venue ID", async () => {

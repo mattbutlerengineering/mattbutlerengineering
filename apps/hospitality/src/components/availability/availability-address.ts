@@ -2,8 +2,9 @@
  * The only place an Availability address is built or read (availability-hub architecture.md
  * "Address module"). Callers name a target; this module decides the address.
  *
- * Until the item that builds a view lands, its target resolves to the tab of today's page that
- * does the same job, so no link leads to a missing view. Today's page is mounted at `calendar`.
+ * The hub is the index. Until the item that builds any other view lands, its target resolves to
+ * the tab of today's page that does the same job, so no link leads to a missing view. Today's page
+ * is mounted at `calendar`.
  * The item that builds a view gives its target its own path in `availabilityPath`; old addresses
  * follow by themselves, because `legacyRedirect` builds its answer with `availabilityPath`.
  */
@@ -109,6 +110,11 @@ const withSearch = (path: string, params: URLSearchParams): string => {
  */
 export function availabilityPath(target: AvailabilityTarget): string {
   const params = new URLSearchParams();
+  // The hub opens no dialog yet (C2.4), so a section's Close dialog still opens on today's page.
+  if (target.view === "hub" && target.close?.kind !== "section") {
+    if (target.from) params.set("from", target.from);
+    return withSearch(ROUTE, params);
+  }
   const tab = PAGE_TAB[target.view];
   if (tab) params.set("tab", tab);
   if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
@@ -199,13 +205,4 @@ export function legacyRedirect(search: string): string | null {
     }),
     ...(entry.from && { from: entry.from }),
   });
-}
-
-/**
- * Where the bare route sends a visit until the hub lands (breakdown H1.6): an old address to its
- * view, anything else to the landing view, with `from=setup` carried.
- */
-export function indexRedirect(search: string): string {
-  const { from } = readAvailabilityAddress({ search });
-  return legacyRedirect(search) ?? availabilityPath({ view: "hub", ...(from && { from }) });
 }

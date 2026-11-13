@@ -7,6 +7,8 @@ const TOMORROW = "2026-11-13";
 const EMPTY = { row: 4, pause: null, tonight: [], now: [], next: null };
 
 const ONLINE: Partial<DateRule> = { targetKind: "booking", bookingTypes: ["online"] };
+/** A pause a closure makes, with no time it ends at. */
+const FROM_CLOSURE = { source: "closure", untilMinute: null };
 const PATIO = rule("r-patio", {
   targetKind: "tables",
   sectionId: "sec-patio",
@@ -179,7 +181,7 @@ describe("hubRows: 4, online pause", () => {
   it("carries an open-ended pause that is in force, apart from the closures", () => {
     expect(rowsOf(venue([rule("r-pause", { ...ONLINE, endsOn: null })]))[3]).toEqual({
       ...EMPTY,
-      pause: { ruleId: "r-pause", inForce: true, fromMinute: null, endsOn: null },
+      pause: { ...FROM_CLOSURE, ruleId: "r-pause", inForce: true, fromMinute: null, endsOn: null },
     });
   });
 
@@ -187,7 +189,7 @@ describe("hubRows: 4, online pause", () => {
     const waiting = rule("r-pause", { ...ONLINE, endsOn: null, window: window(1080) });
     expect(rowsOf(venue([waiting]))[3]).toEqual({
       ...EMPTY,
-      pause: { ruleId: "r-pause", inForce: false, fromMinute: 1080, endsOn: null },
+      pause: { ...FROM_CLOSURE, ruleId: "r-pause", inForce: false, fromMinute: 1080, endsOn: null },
     });
     // Once its time is reached it is in force.
     expect(rowsOf(venue([waiting]), { nowMinute: 1100 })[3].pause).toMatchObject({
@@ -198,7 +200,7 @@ describe("hubRows: 4, online pause", () => {
   it("carries a pause for tonight only, in force, with the date it ends", () => {
     expect(rowsOf(venue([rule("r-pause", ONLINE)]))[3]).toEqual({
       ...EMPTY,
-      pause: { ruleId: "r-pause", inForce: true, fromMinute: null, endsOn: TODAY },
+      pause: { ...FROM_CLOSURE, ruleId: "r-pause", inForce: true, fromMinute: null, endsOn: TODAY },
     });
   });
 
@@ -206,7 +208,13 @@ describe("hubRows: 4, online pause", () => {
     const waiting = rule("r-pause", { ...ONLINE, window: window(1080) });
     expect(rowsOf(venue([waiting]))[3]).toEqual({
       ...EMPTY,
-      pause: { ruleId: "r-pause", inForce: false, fromMinute: 1080, endsOn: TODAY },
+      pause: {
+        ...FROM_CLOSURE,
+        ruleId: "r-pause",
+        inForce: false,
+        fromMinute: 1080,
+        endsOn: TODAY,
+      },
     });
   });
 
@@ -235,6 +243,106 @@ describe("hubRows: 4, online pause", () => {
   });
 });
 
+describe("hubRows: 4, an online pause for part of the day", () => {
+  // Online booking off from 12:00 PM to 2:00 PM today.
+  const lunchtime = rule("r-pause", { ...ONLINE, window: window(720, 840) });
+
+  it("carries the minute a pause in force ends at", () => {
+    expect(rowsOf(venue([lunchtime]), { nowMinute: 780 })[3]).toEqual({
+      ...EMPTY,
+      pause: {
+        ruleId: "r-pause",
+        source: "closure",
+        inForce: true,
+        fromMinute: 720,
+        untilMinute: 840,
+        endsOn: TODAY,
+      },
+    });
+  });
+
+  it("is no pause once its time has passed", () => {
+    expect(rowsOf(venue([lunchtime]), { nowMinute: 900 })[3]).toEqual(EMPTY);
+  });
+
+  it("holds one that runs on later days as the next closure once today's time has passed", () => {
+    const daily = rule("r-pause", { ...ONLINE, endsOn: "2026-11-14", window: window(720, 840) });
+    expect(rowsOf(venue([daily]), { nowMinute: 900 })[3]).toMatchObject({
+      pause: null,
+      now: [],
+      next: { ruleId: "r-pause", nextOn: TOMORROW },
+    });
+  });
+});
+
+describe("hubRows: 4, an online stop made for tonight is the pause", () => {
+  const stop = (id: string, from: number, to = 2880, rest: Partial<DateRule> = {}): DateRule =>
+    rule(id, {
+      kind: "tonight",
+      ...ONLINE,
+      payload: { version: 1, stop: { from, to } },
+      ...rest,
+    } as Partial<DateRule>);
+
+  it("carries a stop for the rest of tonight as the pause in force", () => {
+    expect(rowsOf(venue([stop("r-stop", 0)]))[3]).toEqual({
+      ...EMPTY,
+      pause: {
+        ruleId: "r-stop",
+        source: "tonight",
+        inForce: true,
+        fromMinute: 0,
+        untilMinute: null,
+        endsOn: TODAY,
+      },
+    });
+  });
+
+  it("carries a stop that waits for its time, then one in force with the minute it ends", () => {
+    const evening = venue([stop("r-stop", 1080, 1200)]);
+    expect(rowsOf(evening)[3].pause).toEqual({
+      ruleId: "r-stop",
+      source: "tonight",
+      inForce: false,
+      fromMinute: 1080,
+      untilMinute: 1200,
+      endsOn: TODAY,
+    });
+    expect(rowsOf(evening, { nowMinute: 1100 })[3].pause).toMatchObject({ inForce: true });
+    // Once the stop is over, online booking is open again.
+    expect(rowsOf(evening, { nowMinute: 1200 })[3]).toEqual(EMPTY);
+  });
+
+  it("counts a stop of online with other ways of booking", () => {
+    const both = stop("r-stop", 0, 2880, { bookingTypes: ["online", "phone"] });
+    expect(rowsOf(venue([both]))[3].pause).toMatchObject({ ruleId: "r-stop", source: "tonight" });
+  });
+
+  it("leaves the slot to a closure pause that is in force", () => {
+    const open = rule("r-open", { ...ONLINE, startsOn: "2026-11-01", endsOn: null });
+    expect(rowsOf(venue([stop("r-stop", 0), open]))[3].pause).toMatchObject({
+      ruleId: "r-open",
+      source: "closure",
+      inForce: true,
+    });
+  });
+
+  it("takes the slot from a closure pause that is still waiting", () => {
+    const waiting = rule("r-waiting", { ...ONLINE, window: window(1080) });
+    expect(rowsOf(venue([waiting, stop("r-stop", 0)]))[3]).toMatchObject({
+      pause: { ruleId: "r-stop", source: "tonight", inForce: true },
+      next: { ruleId: "r-waiting" },
+    });
+  });
+
+  it("does not read a stop made for another night, or of other ways of booking, as the pause", () => {
+    const lastNight = stop("r-stop", 0, 2880, { startsOn: YESTERDAY, endsOn: YESTERDAY });
+    expect(rowsOf(venue([lastNight]))[3]).toEqual(EMPTY);
+    const phone = stop("r-phone", 0, 2880, { bookingTypes: ["phone"] });
+    expect(rowsOf(venue([phone]))[3]).toEqual(EMPTY);
+  });
+});
+
 describe("hubRows: 4, changes made for tonight", () => {
   const tonight = (id: string, rest: Partial<DateRule>): DateRule =>
     rule(id, { kind: "tonight", ...rest } as Partial<DateRule>);
@@ -256,14 +364,6 @@ describe("hubRows: 4, changes made for tonight", () => {
 
   it.each<[string, Partial<DateRule>]>([
     ["a pacing change", { payload: { version: 1, pacing: { covers: 6 } } }],
-    [
-      "an online stop",
-      {
-        targetKind: "booking",
-        bookingTypes: ["online"],
-        payload: { version: 1, stop: { from: 0, to: 2880 } },
-      },
-    ],
     [
       "blocked tables",
       {

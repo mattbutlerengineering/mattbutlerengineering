@@ -33,13 +33,20 @@ export interface HubClosure {
   readonly window: { readonly from: number; readonly to: number } | null;
 }
 
-/** An online-only booking closure that covers today and does not repeat. */
+/**
+ * Online booking paused today: an online-only booking closure that covers today and does not
+ * repeat, or a stop of online booking made for tonight (the Timeline's "Pause online").
+ */
 export interface HubOnlinePause {
   readonly ruleId: string;
+  /** The kind of rule it is, which decides where it is removed. */
+  readonly source: "closure" | "tonight";
   /** `false` while it waits for `fromMinute`. */
   readonly inForce: boolean;
   /** The minute of each day it starts at; `null` when it covers the whole day. */
   readonly fromMinute: number | null;
+  /** The minute of the day it ends at; `null` when it runs to the end of the service day. */
+  readonly untilMinute: number | null;
   /** Its last date; `null` for a pause that lasts until it is resumed. */
   readonly endsOn: string | null;
 }
@@ -114,24 +121,64 @@ function isOnlinePause(rule: DateRule): rule is ClosureRule {
   );
 }
 
-function onlinePause(clock: Clock): HubOnlinePause | null {
+/** The minute a part of the day ends at; `null` when it runs to the end of the service day. */
+const endMinute = (to: number | undefined): number | null =>
+  to !== undefined && to < END_OF_SERVICE_DAY ? to : null;
+
+const soonestFirst = (a: HubOnlinePause, b: HubOnlinePause) =>
+  (a.fromMinute ?? 0) - (b.fromMinute ?? 0);
+
+/** The online-only closures that cover today and whose time today has not passed. */
+function closurePauses(clock: Clock): HubOnlinePause[] {
   const { config, rules, timezone, today, nowMinute } = clock;
-  const pauses = rules
+  return rules
     .filter(isOnlinePause)
     .filter((r) => coversOn(r, rules, today))
-    .sort((a, b) => (a.window?.from ?? 0) - (b.window?.from ?? 0));
-  const inForce = pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute));
-  const shown = inForce ?? pauses[0];
-  if (!shown) return null;
-  return {
-    ruleId: shown.id,
-    inForce: inForce !== undefined,
-    fromMinute: shown.window?.from ?? null,
-    endsOn: shown.endsOn ?? null,
-  };
+    .filter((r) => r.window == null || nowMinute < r.window.to)
+    .map((r): HubOnlinePause => ({
+      ruleId: r.id,
+      source: "closure",
+      inForce: isPauseInForce(r, config, timezone, today, nowMinute),
+      fromMinute: r.window?.from ?? null,
+      untilMinute: endMinute(r.window?.to),
+      endsOn: r.endsOn ?? null,
+    }))
+    .sort(soonestFirst);
 }
 
-/** The tonight rules for today that change the hours; pacing, online stops and blocked tables do not. */
+/** The stops of online booking made for tonight that are not over: what the Today line calls paused. */
+function tonightPauses({ rules, today, nowMinute }: Clock): HubOnlinePause[] {
+  return rules
+    .flatMap((rule): HubOnlinePause[] => {
+      if (rule.kind !== "tonight" || rule.startsOn !== today) return [];
+      if (rule.targetKind !== "booking" || !(rule.bookingTypes ?? []).includes("online")) return [];
+      if (!("stop" in rule.payload)) return [];
+      const { from, to } = rule.payload.stop;
+      if (to <= nowMinute) return [];
+      return [
+        {
+          ruleId: rule.id,
+          source: "tonight",
+          inForce: from <= nowMinute,
+          fromMinute: from,
+          untilMinute: endMinute(to),
+          endsOn: today,
+        },
+      ];
+    })
+    .sort(soonestFirst);
+}
+
+/** A closure pause in force, else a tonight stop in force, else the soonest of those waiting. */
+function onlinePause(clock: Clock): HubOnlinePause | null {
+  const pauses = [...closurePauses(clock), ...tonightPauses(clock)];
+  return pauses.find((p) => p.inForce) ?? [...pauses].sort(soonestFirst)[0] ?? null;
+}
+
+/**
+ * The tonight rules for today that change the hours; pacing and blocked tables do not, and a stop
+ * of booking is the pause when it stops online booking.
+ */
 function tonightChanges(rules: readonly DateRule[], today: string): HubTonightChange[] {
   return rules.flatMap((rule): HubTonightChange[] => {
     if (rule.kind !== "tonight" || rule.startsOn !== today) return [];

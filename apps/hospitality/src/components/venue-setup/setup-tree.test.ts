@@ -248,7 +248,7 @@ describe("buildSetupTree: an empty venue", () => {
 
   it("points the actions at the existing editors", () => {
     const hrs = find(open, "schedules").actions[0];
-    expect(hrs?.target).toEqual({ kind: "link", to: "/availability/calendar?from=setup" });
+    expect(hrs?.target).toEqual({ kind: "link", to: "/availability?from=setup" });
     expect(find(open, "booking").actions[0]?.target).toEqual({
       kind: "dialog",
       dialog: "bookingRules",

@@ -114,7 +114,7 @@ for (const locale of ["es-MX", "fr-CA"] as const) {
     const words = WORDS[locale];
     await page.addInitScript((tag) => localStorage.setItem("mbe-hospitality-locale", tag), locale);
     await mockEmptyVenue(page, { derive: true });
-    await page.goto("availability");
+    await page.goto("availability/calendar");
 
     await page.getByRole("button", { name: words.lunch, exact: true }).click();
     await page.getByRole("button", { name: words.addService }).click();

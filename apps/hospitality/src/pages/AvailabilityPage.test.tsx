@@ -198,7 +198,7 @@ vi.mock("@mbe/availability", async (importOriginal) => ({
 }));
 
 import { AvailabilityPage } from "./AvailabilityPage.js";
-import { AvailabilityIndexRedirect } from "./AvailabilityIndexRedirect.js";
+import { AvailabilityHubPage } from "./AvailabilityHubPage.js";
 import { AvailabilityLayout } from "./AvailabilityLayout.js";
 
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
@@ -1790,7 +1790,7 @@ describe("the Availability route table", () => {
           path: "availability",
           element: <AvailabilityLayout />,
           children: [
-            { index: true, element: <AvailabilityIndexRedirect /> },
+            { index: true, element: <AvailabilityHubPage /> },
             { path: "calendar", element: <AvailabilityPage /> },
           ],
         },
@@ -1828,19 +1828,10 @@ describe("the Availability route table", () => {
   it.each([
     ["/availability?tab=schedules&from=setup", "/availability/calendar?tab=schedules&from=setup"],
     ["/availability?tab=calendar&from=setup", "/availability/calendar?tab=calendar&from=setup"],
-    ["/availability?from=setup", "/availability/calendar?from=setup"],
   ])("carries from=setup from %s", async (old, next) => {
     const router = renderRoutes(old);
     await waitFor(() => expect(address(router)).toBe(next));
     expect(screen.getByRole("link", { name: "Venue Setup" })).toBeInTheDocument();
-  });
-
-  it("sends the index to today's page until the hub lands", async () => {
-    const router = renderRoutes("/availability");
-    await waitFor(() => expect(address(router)).toBe("/availability/calendar"));
-    // No tab named: a Manager lands on Schedules, as before.
-    expect(layerRadio("Schedules")).toBeChecked();
-    expect(router.state.historyAction).toBe("REPLACE");
   });
 
   it("opens a section's Close dialog from the old ?closeSection=", async () => {
@@ -1857,10 +1848,5 @@ describe("the Availability route table", () => {
     await waitFor(() =>
       expect(address(router)).toBe("/availability/calendar?tab=schedules&from=setup")
     );
-  });
-
-  it("drops params that name nothing", async () => {
-    const router = renderRoutes("/availability?tab=nope&x=1");
-    await waitFor(() => expect(address(router)).toBe("/availability/calendar"));
   });
 });

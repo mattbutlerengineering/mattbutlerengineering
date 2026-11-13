@@ -1,9 +1,24 @@
 import { expect } from "vitest";
 import { validateConfig } from "@mbe/availability";
 import type { AvailabilityConfig, DateRule } from "@mbe/types";
+import type { VenueFormat } from "../../../hooks/useVenueFormat.js";
+import { defaultT } from "../../../i18n/default-t.js";
+import { formatCalendarDate, formatLocalTime } from "../../../utils/format.js";
 import { hubRows, type HubRowsInput } from "./hub-rows.js";
+import type { HubTextContext } from "./hub-text.js";
 
 /** Fixtures the hub row tests share. Every config built here has passed `validateConfig`. */
+
+/** The en-US catalog and en-US formats, for the tests that read the hub's words. */
+export const TEXT: HubTextContext = {
+  t: defaultT,
+  format: {
+    locale: "en-US",
+    formatCalendarDate: (date: string, options: Intl.DateTimeFormatOptions) =>
+      formatCalendarDate(date, options, "en-US"),
+    formatLocalTime: (hhmm: string) => formatLocalTime(hhmm, "en-US"),
+  } as VenueFormat,
+};
 
 const TIMEZONE = "America/Los_Angeles";
 const SEATING = { version: 1, interval: 15 } as const;
@@ -82,6 +97,30 @@ export function venue(dateRules: DateRule[] = [], ...added: Parts[]): Availabili
       ...added.flatMap((p) => p.scheduleServices ?? []),
     ],
     assignments: [REGULAR_ASSIGNMENT, ...added.flatMap((p) => p.assignments ?? [])],
+    dateRules,
+  });
+}
+
+/** Regular hours from Jan 1, 2026: Lunch 11:30 AM to 3:00 PM and Dinner 5:00 PM to 10:00 PM every day. */
+export function lunchAndDinner(dateRules: DateRule[] = []): AvailabilityConfig {
+  return valid({
+    schedules: [REGULAR],
+    venueServices: [
+      { id: "vs-lunch", name: "Lunch", position: 0 },
+      { id: "vs-dinner", name: "Dinner", position: 1 },
+    ],
+    scheduleServices: [
+      {
+        ...dinnerRow("regular"),
+        id: "ss-regular-lunch",
+        venueServiceId: "vs-lunch",
+        opensAt: 690,
+        lastSeatingAt: 840,
+        closesAt: 900,
+      },
+      dinnerRow("regular"),
+    ],
+    assignments: [REGULAR_ASSIGNMENT],
     dateRules,
   });
 }
