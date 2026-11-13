@@ -49,15 +49,6 @@ vi.mock("../hooks/useIsManager.js", () => ({ useIsManager: () => viewer.isManage
 vi.mock("../hooks/useVenueReadiness.js", () => ({ useVenueReadiness: () => readiness.value }));
 vi.mock("../contexts/VenueContext.js", () => ({ useVenue: () => venue }));
 vi.mock("../hooks/useNow.js", () => ({ useNow: () => new Date("2026-11-07T18:00:00Z") }));
-vi.mock("../components/availability/BookingRulesDrawer.js", () => ({
-  BookingRulesDrawer: ({ onClose }: { onClose: () => void }) => (
-    <section aria-label="Booking rules editor">
-      <button type="button" onClick={onClose}>
-        Close editor
-      </button>
-    </section>
-  ),
-}));
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 
@@ -240,13 +231,12 @@ describe("Venue Setup: an empty venue", () => {
     expect(screen.getByLabelText("location")).toHaveTextContent("/floor-plans");
   });
 
-  it("opens Booking rules in place", async () => {
+  it("opens Booking rules at the address the Availability hub opens them at", async () => {
     renderPage();
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Booking rules…" }));
-    expect(screen.getByRole("region", { name: "Booking rules editor" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Close editor" }));
-    expect(screen.queryByRole("region", { name: "Booking rules editor" })).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Booking rules…" }));
+    expect(screen.getByLabelText("location")).toHaveTextContent(
+      "/availability/booking-rules?from=setup"
+    );
   });
 
   it("has no accessibility violations", async () => {

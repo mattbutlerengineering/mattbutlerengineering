@@ -1312,7 +1312,6 @@ describe("AvailabilityPage", () => {
           .map((item) => item.textContent)
       ).toEqual([
         "Pause online booking",
-        "Booking rules…",
         "Compare services",
         "Duplicate regular week…",
         "History",
@@ -1580,7 +1579,7 @@ describe("AvailabilityPage layers", () => {
     ).toEqual(["Schedules", "Calendar", "Special dates"]);
   });
 
-  it("first paint for a Manager on a one-schedule venue has 8 controls outside the week panel", () => {
+  it("first paint for a Manager on a one-schedule venue has 7 controls outside the week panel", () => {
     renderPage("/availability/calendar");
     const panel = screen.getByTestId("week-panel");
     const controls = Array.from(
@@ -1594,7 +1593,6 @@ describe("AvailabilityPage layers", () => {
       "Calendar",
       "Special dates",
       "Add a schedule…",
-      "Booking: not set up yet · Set up",
     ]);
   });
 
@@ -1611,11 +1609,11 @@ describe("AvailabilityPage layers", () => {
       expect(await screen.findByRole("dialog")).toBeInTheDocument();
     });
 
-    it("opens Booking rules… from ⋯", async () => {
+    it("has no Booking rules entry in ⋯: the hub's row 5 opens them", () => {
       renderPage(`/availability/calendar?tab=${tab}`);
       fireEvent.click(headerButton("More actions"));
-      fireEvent.click(screen.getByRole("menuitem", { name: "Booking rules…" }));
-      expect(await screen.findByLabelText(/How far ahead guests can book/)).toBeInTheDocument();
+      expect(screen.getByRole("menuitem", { name: "History" })).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: /Booking rules/ })).not.toBeInTheDocument();
     });
 
     it("opens History from ⋯", async () => {

@@ -23,6 +23,7 @@ describe("hubActions", () => {
   });
 
   // Until each view is built its target is the tab of today's page that does the same job.
+  // Booking rules has its own address (C2.5).
   it("sends every action to a view that is mounted today", () => {
     const rows = rowsOf(venue([], seasonal("summer", "Summer hours", {})));
     expect(hubActions(rows, true).map((a) => a?.to)).toEqual([
@@ -30,7 +31,7 @@ describe("hubActions", () => {
       "/availability/calendar?tab=schedules",
       "/availability/calendar?tab=special",
       "/availability/calendar?tab=special",
-      "/availability/calendar?tab=schedules",
+      "/availability/booking-rules",
     ]);
   });
 });

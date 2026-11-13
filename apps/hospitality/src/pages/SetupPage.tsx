@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Text } from "@mattbutlerengineering/rialto";
@@ -14,7 +14,6 @@ import { venueDate } from "../utils/service-day.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
-import { BookingRulesDrawer } from "../components/availability/BookingRulesDrawer.js";
 import { RegularWeekLine } from "../components/availability/RegularWeekLine.js";
 import { SetupGroupSection } from "../components/venue-setup/SetupGroupSection.js";
 import { SetupProgressStrip } from "../components/venue-setup/SetupProgressStrip.js";
@@ -49,8 +48,6 @@ function groupLoad<T>(reads: readonly Read<unknown>[], data: () => T): GroupLoad
   return { status: "ready", data: data() };
 }
 
-type Dialog = "bookingRules" | null;
-
 /**
  * Venue Setup (`/setup`): every resource type the venue is made of, how they nest, whether each is
  * set up, and the one door to its editor. It composes reads the app already makes into a tree
@@ -66,7 +63,6 @@ export function SetupPage() {
   const now = useNow();
   const timeZone = selectedVenue?.ianaTimezone ?? "";
   const today = venueDate(now, timeZone);
-  const [dialog, setDialog] = useState<Dialog>(null);
 
   const config = useAvailabilityConfig({ venueId: selectedVenueId });
   const plans = useFloorPlans({ venueId: selectedVenueId });
@@ -106,11 +102,7 @@ export function SetupPage() {
   );
 
   const onAction = (action: SetupAction) => {
-    if (action.target.kind === "link") {
-      navigate(action.target.to);
-      return;
-    }
-    setDialog(action.target.dialog);
+    navigate(action.target.to);
   };
 
   const bothFailed = open.load.status === "error" && sit.load.status === "error";
@@ -148,8 +140,6 @@ export function SetupPage() {
           />
         </>
       )}
-
-      {dialog === "bookingRules" && <BookingRulesDrawer onClose={() => setDialog(null)} />}
     </div>
   );
 }

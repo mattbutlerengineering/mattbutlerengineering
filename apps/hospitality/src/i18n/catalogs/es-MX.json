@@ -3345,6 +3345,10 @@
       "specialHours_many": "{{count, number}} de fechas ya tienen horario especial",
       "fixProblems": "Corrige los problemas de arriba para guardar."
     },
+    "bookingRules": {
+      "notInHistory": "Los cambios hechos aquí no aparecen en el Historial.",
+      "undoError": "No se pudieron deshacer las reglas de reserva"
+    },
     "hub": {
       "rulesHeading": "Tus reglas",
       "laterRulesWin": "Las reglas de más abajo ganan en las fechas que cubren.",

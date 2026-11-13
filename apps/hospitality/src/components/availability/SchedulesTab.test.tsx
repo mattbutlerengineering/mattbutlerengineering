@@ -80,7 +80,6 @@ function Layer(props: {
   readonly state: AvailabilityConfigState;
   readonly comparing?: boolean;
   readonly onEditorChange?: (editor: ScheduleEditorTarget) => void;
-  readonly onBookingRules?: () => void;
 }) {
   return <SchedulesLayer {...common} {...props} />;
 }
@@ -125,7 +124,7 @@ describe("SchedulesTab", () => {
     expect(onEditorChange).toHaveBeenCalledWith({ mode: "new", seed: "regular" });
   });
 
-  it("says in one line what the layer is and prints the booking summary", () => {
+  it("says in one line what the layer is, and has no Booking line: the hub's row 5 holds the rules", () => {
     venueSettings.value = { maxAdvanceBooking: 30, minAdvanceBooking: 1, maxPartySize: 12 };
     renderWith(<Layer state={state()} />);
     expect(
@@ -133,37 +132,8 @@ describe("SchedulesTab", () => {
         "Your usual week. Other schedules and special dates change it on the days they cover."
       )
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", {
-        name: "Booking: Up to 30 days ahead · 1 hour notice · parties up to 12 online · Change",
-      })
-    ).toBeInTheDocument();
-  });
-
-  it("says so when no booking rule is set", () => {
-    renderWith(<Layer state={state()} />);
-    expect(
-      screen.getByRole("button", { name: "Booking: not set up yet · Set up" })
-    ).toBeInTheDocument();
-  });
-
-  it("lets the Booking line wrap instead of widening the page", () => {
-    renderWith(<Layer state={state()} />);
-    expect(screen.getByRole("button", { name: /^Booking: / }).className).toContain("bookingLine");
-  });
-
-  it("puts the Booking line right after the week panel, before Other schedules, and opens the rules", () => {
-    const onBookingRules = vi.fn();
-    renderWith(<Layer state={state()} onBookingRules={onBookingRules} />);
-    const line = screen.getByRole("button", { name: /^Booking: .* · Set up$/ });
-    const other = screen.getByRole("region", { name: "Other schedules" });
-    expect(line.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const panelStart = screen.getByRole("button", { name: "Starting later…" });
-    expect(
-      panelStart.compareDocumentPosition(line) & Node.DOCUMENT_POSITION_FOLLOWING
-    ).toBeTruthy();
-    fireEvent.click(line);
-    expect(onBookingRules).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /^Booking: / })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Up to 30 days ahead/)).not.toBeInTheDocument();
   });
 
   it("opens Compare services only when the page says so", () => {

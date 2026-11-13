@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
 import { buildAvailabilityConfigFixture, buildVenueTeamFixture, loadFixture } from "./api-mocks.js";
 import { countFirstPaintControls } from "./helpers/first-paint.js";
+import { countInteractions } from "./helpers/interaction-counter.js";
 import { localDay } from "./local-day.js";
 
 /**
@@ -156,7 +157,10 @@ test.describe("Availability hub", () => {
       schedules
     );
     await expect(edit(4, "View Closures and pauses")).toHaveAttribute("href", special);
-    await expect(edit(5, "Edit Booking rules")).toHaveAttribute("href", schedules);
+    await expect(edit(5, "Edit Booking rules")).toHaveAttribute(
+      "href",
+      /\/availability\/booking-rules$/
+    );
 
     // PRD 17: every address a row leads to renders a view. The other links share these addresses.
     const layer = (name: string) => page.getByRole("radio", { name });
@@ -239,5 +243,72 @@ test.describe("Availability hub", () => {
     const { count, controls } = await countFirstPaintControls(page, null);
     expect(count, controls.join("\n")).toBeLessThanOrEqual(10 + 2);
     expect(await screensTall(page, PHONE)).toBeLessThanOrEqual(1.5);
+  });
+});
+
+/** Booking rules (breakdown C2.5): a drawer over the hub at its own address. */
+test.describe("Availability hub: Booking rules", () => {
+  const drawer = (page: Page) => page.getByRole("dialog", { name: "Booking rules" });
+  const daysAhead = (page: Page) => drawer(page).getByLabel("How far ahead guests can book (days)");
+
+  async function capturePatches(page: Page): Promise<Array<Record<string, unknown>>> {
+    const patches: Array<Record<string, unknown>> = [];
+    await page.route(/\/api\/v1\/venues\/[^/?]+$/, (route) => {
+      if (route.request().method() === "PATCH") patches.push(route.request().postDataJSON());
+      return route.fallback();
+    });
+    return patches;
+  }
+
+  test("changing how far ahead guests book is 3 steps from the hub, and the save offers Undo", async ({
+    mockedPage: page,
+  }) => {
+    await mockDemoVenue(page);
+    const patches = await capturePatches(page);
+    await openHub(page);
+    const counter = countInteractions(page);
+
+    await counter.page.getByRole("link", { name: "Edit Booking rules" }).click();
+    await expect(page).toHaveURL(/\/availability\/booking-rules$/);
+    // PRD 18: focus is inside the drawer once it has opened.
+    await expect(drawer(page).locator(":focus")).toHaveCount(1);
+    await expect(drawer(page).getByText("Changes here are not listed in History.")).toBeVisible();
+    await daysAhead(counter.page).fill("60");
+    await drawer(counter.page).getByRole("button", { name: "Save", exact: true }).click();
+
+    await expect.poll(() => patches.length).toBe(1);
+    expect(patches[0]).toMatchObject({ settings: { maxAdvanceBooking: 60 } });
+    // PRD 7: target 3 (walkthrough 14). Baseline 4.
+    expect(counter.count()).toBe(3);
+    await expect(page).toHaveURL(/\/availability$/);
+    await expect(drawer(page)).toHaveCount(0);
+    const notifications = page.getByRole("region", { name: "Notifications" });
+    await expect(notifications.getByText("Booking rules saved")).toBeVisible();
+    await expect(notifications.getByRole("button", { name: "Undo" })).toBeVisible();
+  });
+
+  test("leaving the drawer with an unsaved change asks first", async ({ mockedPage: page }) => {
+    await mockDemoVenue(page);
+    const patches = await capturePatches(page);
+    await openHub(page);
+    await page.getByRole("link", { name: "Edit Booking rules" }).click();
+    await daysAhead(page).fill("60");
+
+    const prompt = page.getByRole("alertdialog", { name: "Discard your changes?" });
+    await drawer(page).getByRole("button", { name: "Cancel" }).click();
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole("button", { name: "Keep editing" }).click();
+    await expect(prompt).toHaveCount(0);
+    await expect(page).toHaveURL(/\/availability\/booking-rules$/);
+    await expect(daysAhead(page)).toHaveValue("60");
+
+    // Browser Back asks too, and Discard returns to the hub with nothing saved.
+    await page.goBack();
+    await expect(prompt).toBeVisible();
+    await prompt.getByRole("button", { name: "Discard" }).click();
+    await expect(page).toHaveURL(/\/availability$/);
+    await expect(drawer(page)).toHaveCount(0);
+    await expect(rowsHeading(page)).toBeVisible();
+    expect(patches).toEqual([]);
   });
 });

@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { VenueSettings } from "@mbe/types";
 import type { VenueContextValue } from "../../contexts/venue-context-object.js";
 
 const mutateAsync = vi.fn();
 vi.mock("../../hooks/useVenues.js", () => ({
+  VENUES_QUERY_KEY: "venues",
   useUpdateVenue: () => ({ mutateAsync, isPending: false }),
 }));
 const venueContext = vi.hoisted(() => ({ value: null as unknown }));
@@ -37,12 +39,16 @@ function renderDrawer(settings: VenueSettings | null) {
     refetchVenues: vi.fn(),
   } satisfies VenueContextValue;
   const onClose = vi.fn();
+  const client = new QueryClient();
+  client.setQueryData(["venues", { limit: 100 }], [venue]);
   render(
-    <ToastProvider>
-      <main>
-        <BookingRulesDrawer onClose={onClose} />
-      </main>
-    </ToastProvider>
+    <QueryClientProvider client={client}>
+      <ToastProvider>
+        <main>
+          <BookingRulesDrawer onClose={onClose} />
+        </main>
+      </ToastProvider>
+    </QueryClientProvider>
   );
   return { onClose };
 }
@@ -67,6 +73,11 @@ describe("BookingRulesDrawer", () => {
     expect(save()).toBeDisabled();
   });
 
+  it("says its changes are not listed in History", () => {
+    renderDrawer(null);
+    expect(screen.getByText("Changes here are not listed in History.")).toBeInTheDocument();
+  });
+
   it("saves the changed rules with every other setting kept, and clearing one unsets it", async () => {
     const { onClose } = renderDrawer({
       maxAdvanceBooking: 60,
@@ -87,8 +98,16 @@ describe("BookingRulesDrawer", () => {
         },
       },
     });
-    expect(onClose).toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(await screen.findByText("Booking rules saved")).toBeInTheDocument();
+    // Undo puts back the three values this save replaced: 60 days, no notice, parties up to 10.
+    fireEvent.click(screen.getByRole("button", { name: "Undo" }));
+    await waitFor(() => expect(mutateAsync).toHaveBeenCalledTimes(2));
+    expect(mutateAsync.mock.calls[1]?.[0].data.settings).toEqual({
+      maxAdvanceBooking: 60,
+      maxPartySize: 10,
+      profile: { website: "https://oak.example.com" },
+    });
   });
 
   it("says what is wrong with a value that cannot be saved, and keeps Save off", () => {

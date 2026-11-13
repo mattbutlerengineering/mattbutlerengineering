@@ -5455,12 +5455,19 @@
         ...(params.get("from") === "setup" && { from: "setup" as const }),
       };
     }
+    export const isBookingRulesPage = (pathname: string): boolean =>
+      pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
     export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
       // The hub opens no dialog yet (C2.4), so a section's Close dialog still opens on today's page.
       if (target.view === "hub" && target.close?.kind !== "section") {
         if (target.from) params.set("from", target.from);
         return withSearch(ROUTE, params);
+      }
+      // The drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
+      if (target.view === "bookingRules") {
+        if (target.from) params.set("from", target.from);
+        return withSearch(BOOKING_RULES, params);
       }
       const tab = PAGE_TAB[target.view];
       if (tab) params.set("tab", tab);
@@ -8249,6 +8256,17 @@
               minute >= nowMinute &&
               !day.closures.some((band) => closesOnline(band, minute, service.venueServiceId))
           )
+      );
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/opened-from-hub.ts">
+    export const OPENED_FROM_HUB = { openedFrom: "hub" } as const;
+    export function wasOpenedFromHub(state: unknown): boolean {
+      return (
+        typeof state === "object" &&
+        state !== null &&
+        "openedFrom" in state &&
+        state.openedFrom === "hub"
       );
     }
   </file>
@@ -24921,7 +24939,8 @@
     }
   </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityUndo.ts">
-    function focusOffToast(offeredFrom: Element | null) {
+    export const UNDO_TOAST_MS = 10_000;
+    export function focusOffToast(offeredFrom: Element | null) {
       const active = document.activeElement;
       if (active && active !== document.body && !active.closest("[aria-live]")) return;
       const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"]');
@@ -24988,6 +25007,79 @@
           });
         },
         [revert, t, toast]
+      );
+    }
+  </file>
+  <file path="apps/hospitality/src/hooks/useBookingRulesUndo.ts">
+    function venueInCache(queryClient: QueryClient, venueId: string): Venue | null {
+      const lists = queryClient.getQueriesData<readonly Venue[]>({ queryKey: [VENUES_QUERY_KEY] });
+      for (const [, venues] of lists) {
+        const venue = venues?.find((v) => v.id === venueId);
+        if (venue) return venue;
+      }
+      return null;
+    }
+    export interface BookingRulesUndoOffer {
+      readonly venueId: string;
+      /** The three rules as they were before the save. */
+      readonly previous: BookingRulesForm;
+    }
+    export function useBookingRulesUndo() {
+      const { t } = useTranslation();
+      const { toast } = useToast();
+      const queryClient = useQueryClient();
+      const { mutateAsync } = useUpdateVenue();
+    
+      return useCallback(
+        ({ venueId, previous }: BookingRulesUndoOffer) => {
+          const offeredFrom = document.activeElement;
+          const failed = (reason?: string) =>
+            toast({
+              title: t("availabilityHub.bookingRules.undoError"),
+              ...(reason && { description: reason }),
+              variant: "error",
+              duration: UNDO_TOAST_MS,
+              action: pressOnce(t("errorBanner.retry")),
+            });
+          const undo = async () => {
+            const venue = venueInCache(queryClient, venueId);
+            // Writing three values onto settings nobody can read would erase every other key.
+            if (!venue) {
+              failed();
+              return;
+            }
+            try {
+              await mutateAsync({
+                venueId,
+                data: { settings: withBookingRules(venue.settings, previous) },
+              });
+            } catch (error) {
+              failed(describeApiError(error).detail);
+              return;
+            }
+            toast({ title: t("availability.undo.done"), variant: "success", duration: 5000 });
+          };
+          // One press per button: a double click must not send the re-save twice.
+          const pressOnce = (label: string) => {
+            let pressed = false;
+            return {
+              label,
+              onClick: () => {
+                focusOffToast(offeredFrom);
+                if (pressed) return;
+                pressed = true;
+                void undo();
+              },
+            };
+          };
+          toast({
+            title: t("availability.bookingRules.saved"),
+            variant: "success",
+            duration: UNDO_TOAST_MS,
+            action: pressOnce(t("availability.undo.action")),
+          });
+        },
+        [mutateAsync, queryClient, t, toast]
       );
     }
   </file>
@@ -101714,9 +101806,7 @@
       | "addFloorPlan"
       | "closeSection"
       | "moveToSection";
-    export type SetupActionTarget =
-      | { readonly kind: "link"; readonly to: string }
-      | { readonly kind: "dialog"; readonly dialog: "bookingRules" };
+    export type SetupActionTarget = { readonly kind: "link"; readonly to: string };
     export interface SetupAction {
       readonly id: SetupActionId;
       readonly target: SetupActionTarget;
@@ -101959,7 +102049,7 @@
         kind: "booking",
         name: null,
         state: anySet ? { kind: "rules", daysAhead, noticeHours, largestParty } : UNSET,
-        actions: manager ? [action("bookingRules", { kind: "dialog", dialog: "bookingRules" })] : [],
+        actions: manager ? [action("bookingRules", link(SETUP_BOOKING_RULES))] : [],
         children: CHANNELS.map((channel) => ({
           id: `channel:${channel}`,
           kind: "channel",

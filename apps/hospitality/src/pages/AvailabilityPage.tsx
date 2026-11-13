@@ -15,7 +15,6 @@ import { useViewport } from "../hooks/useViewport.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { AvailabilityCalendar } from "../components/availability/AvailabilityCalendar.js";
 import { AvailabilityHistoryDrawer } from "../components/availability/AvailabilityHistoryDrawer.js";
-import { BookingRulesDrawer } from "../components/availability/BookingRulesDrawer.js";
 import { StrandedRevertDialog } from "../components/availability/StrandedRevertDialog.js";
 import { AvailabilityMigrationBanner } from "../components/availability/AvailabilityMigrationBanner.js";
 import { AvailabilityQuickSetup } from "../components/availability/AvailabilityQuickSetup.js";
@@ -157,7 +156,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const [editor, setEditor] = useState<ScheduleEditorTarget | null>(null);
   const [comparing, setComparing] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [bookingRulesOpen, setBookingRulesOpen] = useState(false);
   const [goToOpen, setGoToOpen] = useState(false);
   // The day Go to date went to. The dialog hands focus back to its trigger a frame after it
   // closes, so focus moves to the day only once that has happened (see the effect below).
@@ -395,7 +393,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           ? {
               onClose: () => setClosing({ date: null, pause: false }),
               onPause: !pause ? () => setClosing({ date: null, pause: true }) : undefined,
-              onBookingRules: () => setBookingRulesOpen(true),
               onCompareServices: () =>
                 tab === "schedules"
                   ? setComparing(true)
@@ -742,7 +739,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           onEditorChange={setEditor}
           comparing={comparing}
           onComparingChange={setComparing}
-          onBookingRules={() => setBookingRulesOpen(true)}
         />
       ) : (
         loading
@@ -790,7 +786,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         />
       )}
       {layer}
-      {bookingRulesOpen && <BookingRulesDrawer onClose={() => setBookingRulesOpen(false)} />}
       <AvailabilityHistoryDrawer
         open={historyOpen}
         venueId={selectedVenueId}

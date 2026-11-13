@@ -3345,6 +3345,10 @@
       "specialHours_many": "{{count, number}} de dates ont déjà des heures spéciales",
       "fixProblems": "Corrigez les problèmes ci-dessus pour enregistrer."
     },
+    "bookingRules": {
+      "notInHistory": "Les modifications faites ici ne figurent pas dans l’Historique.",
+      "undoError": "Impossible d’annuler la modification des règles de réservation"
+    },
     "hub": {
       "rulesHeading": "Vos règles",
       "laterRulesWin": "Les règles plus bas l'emportent aux dates qu'elles couvrent.",

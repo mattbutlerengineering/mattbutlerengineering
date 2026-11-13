@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { Link } from "react-router";
 import { Heading, Tag, Text } from "@mattbutlerengineering/rialto";
+import { OPENED_FROM_HUB } from "../opened-from-hub.js";
 import type { HubRowText } from "./hub-row-text.js";
 import styles from "./Hub.module.css";
 
@@ -42,6 +43,7 @@ export function HubRow({ text, action, serviceTo, marker }: HubRowProps) {
         {action && (
           <Link
             to={action.to}
+            state={OPENED_FROM_HUB}
             aria-label={action.name}
             className={`${styles.link} ${styles.rowAction}`}
           >

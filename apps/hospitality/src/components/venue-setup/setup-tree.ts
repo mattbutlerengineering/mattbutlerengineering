@@ -101,10 +101,8 @@ export type SetupActionId =
   | "closeSection"
   | "moveToSection";
 
-/** Where an action goes: a route, or an existing editor the page opens in place. */
-export type SetupActionTarget =
-  | { readonly kind: "link"; readonly to: string }
-  | { readonly kind: "dialog"; readonly dialog: "bookingRules" };
+/** Where an action goes: a route. */
+export type SetupActionTarget = { readonly kind: "link"; readonly to: string };
 
 export interface SetupAction {
   readonly id: SetupActionId;
@@ -183,6 +181,7 @@ const SETUP_SCHEDULES = availabilityPath({ view: "hours", from: "setup" });
 const SETUP_CALENDAR_TAB = availabilityPath({ view: "calendar", from: "setup" });
 const SETUP_ADD_SCHEDULE = availabilityPath({ view: "seasonal", screen: "new", from: "setup" });
 const SETUP_SPECIAL = availabilityPath({ view: "specialDates", from: "setup" });
+const SETUP_BOOKING_RULES = availabilityPath({ view: "bookingRules", from: "setup" });
 
 /** Launch steps the Manager must finish; the first unset one becomes the primary button. */
 const isLaunchGate = (node: SetupNode): boolean =>
@@ -393,7 +392,7 @@ function bookingNode(
     kind: "booking",
     name: null,
     state: anySet ? { kind: "rules", daysAhead, noticeHours, largestParty } : UNSET,
-    actions: manager ? [action("bookingRules", { kind: "dialog", dialog: "bookingRules" })] : [],
+    actions: manager ? [action("bookingRules", link(SETUP_BOOKING_RULES))] : [],
     children: CHANNELS.map((channel) => ({
       id: `channel:${channel}`,
       kind: "channel",

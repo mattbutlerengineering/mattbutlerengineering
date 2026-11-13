@@ -351,7 +351,8 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     record("R6", counter.count(), 5);
   });
 
-  test("R7 / H72: change the largest online party from the Booking line (budget 3)", async ({
+  // The Booking line left the old page (availability-hub C2.5): the hub's row 5 opens the rules.
+  test("R7 / H72: change the largest online party from the hub's Booking rules row (budget 3)", async ({
     mockedPage: page,
   }) => {
     const patches: Array<Record<string, unknown>> = [];
@@ -359,10 +360,11 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
       if (route.request().method() === "PATCH") patches.push(route.request().postDataJSON());
       return route.fallback();
     });
-    await firstPaint(page);
+    await page.goto("availability");
+    await expect(page.getByRole("link", { name: "Edit Booking rules" })).toBeVisible();
     const counter = countInteractions(page);
 
-    await counter.page.getByRole("button", { name: /^Booking:/ }).click();
+    await counter.page.getByRole("link", { name: "Edit Booking rules" }).click();
     const drawer = counter.page.getByRole("dialog", { name: "Booking rules" });
     await drawer.getByLabel("Largest party online").fill("8");
     await drawer.getByRole("button", { name: "Save", exact: true }).click();

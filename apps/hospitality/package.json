@@ -65,9 +65,9 @@
       "limit": "14 kB"
     },
     {
-      "name": "Availability hub page (lazy chunk: the hub's rows, date check and wording, availability-hub H1.6; 5.98 kB measured; +0.45 kB at the H1.6 review for service closures and every closed band in the date check, the tonight online stop as the pause, and the pause and past-midnight wording, 6.43 kB measured)",
+      "name": "Availability hub page (lazy chunk: the hub's rows, date check and wording, availability-hub H1.6; 5.98 kB measured; +0.45 kB at the H1.6 review for service closures and every closed band in the date check, the tonight online stop as the pause, and the pause and past-midnight wording, 6.43 kB measured; 6.53 kB (6,533 B) on main once #8820 kept last night's tonight changes in row 4; +0.13 kB at availability-hub C2.5 for the booking rules drawer route over the hub (its drawer slot, the empty-venue redirect held while it is open, and row 5's focus once it closes), 6.66 kB (6,661 B) measured)",
       "path": "dist/assets/AvailabilityHubPage-*.js",
-      "limit": "6.6 kB"
+      "limit": "6.86 kB"
     },
     {
       "name": "Today line + holiday decisions (hoisted at availability-hub H1.6, when the hub page began sharing the Today line, day-summary and the holiday decisions with today's page; rollup names it for useHolidayDecisions; 4.08 kB measured)",

@@ -389,11 +389,12 @@ test.describe("Availability scenarios (PRD 18)", () => {
       if (route.request().method() === "PATCH") patches.push(route.request().postDataJSON());
       return route.fallback();
     });
-    await firstPaint(page);
+    // The ⋯ entry left the old page (availability-hub C2.5): the hub's row 5 opens the rules.
+    await page.goto("availability");
+    await expect(page.getByRole("link", { name: "Edit Booking rules" })).toBeVisible();
     const counter = countInteractions(page);
 
-    await counter.page.getByRole("button", { name: "More actions" }).click();
-    await counter.page.getByRole("menuitem", { name: "Booking rules…" }).click();
+    await counter.page.getByRole("link", { name: "Edit Booking rules" }).click();
     const drawer = counter.page.getByRole("dialog", { name: "Booking rules" });
     await drawer.getByLabel("How far ahead guests can book (days)").fill("45");
     await drawer.getByLabel("Minimum notice (hours)").fill("3");

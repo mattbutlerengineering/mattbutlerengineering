@@ -249,9 +249,10 @@ describe("buildSetupTree: an empty venue", () => {
   it("points the actions at the existing editors", () => {
     const hrs = find(open, "schedules").actions[0];
     expect(hrs?.target).toEqual({ kind: "link", to: "/availability?from=setup" });
+    // The same address the Availability hub's row 5 opens, with the way back to Venue Setup.
     expect(find(open, "booking").actions[0]?.target).toEqual({
-      kind: "dialog",
-      dialog: "bookingRules",
+      kind: "link",
+      to: "/availability/booking-rules?from=setup",
     });
     expect(find(sit, "floor-plan-empty").actions[0]?.target).toEqual({
       kind: "link",

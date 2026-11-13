@@ -3257,6 +3257,10 @@
       "specialHours_other": "{{count, number}} dates already have special hours",
       "fixProblems": "Fix the problems above to save."
     },
+    "bookingRules": {
+      "notInHistory": "Changes here are not listed in History.",
+      "undoError": "Couldn't undo booking rules"
+    },
     "hub": {
       "rulesHeading": "Your rules",
       "laterRulesWin": "Later rules win on the dates they cover.",
