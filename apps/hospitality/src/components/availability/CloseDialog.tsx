@@ -565,6 +565,9 @@ export function CloseDialog(props: CloseDialogProps) {
             {winner && <Text variant="body">{winnerText}</Text>}
           </Alert>
         )}
+        {!savedEarlier && step === 1 && props.pauseOnline && form.when.kind === "until-reopen" && (
+          <Alert variant="info">{t("availability.close.pauseOnline.noEndHint")}</Alert>
+        )}
         {!savedEarlier && step === 1 && (
           <AlreadyClosedNotice
             rules={liveRules}

@@ -481,6 +481,15 @@ describe("CloseDialog", () => {
     expect(primary()).toBe("Pause waitlist");
   });
 
+  it("warns that the default pause has no end, and drops the warning once a When is chosen (#8687)", async () => {
+    renderDialog({ initialDate: null, startTonight: true, pauseOnline: true });
+    expect(screen.getByText(/stays paused until you turn it back on/)).toBeTruthy();
+    chooseWhen("Tonight");
+    await waitFor(() =>
+      expect(screen.queryByText(/stays paused until you turn it back on/)).toBeNull()
+    );
+  });
+
   it("does not claim online booking paused when only another channel was paused", async () => {
     impactState.value = { reservations: 0, covers: 0, depositsHeld: 0, groups: [] };
     create.mockResolvedValue({
