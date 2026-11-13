@@ -3217,6 +3217,9 @@
     }
   },
   "availabilityHub": {
+    "conflict": {
+      "overwriteNotOffered": "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+    },
     "routes": {
       "regularHours": "Regular hours",
       "seasonalHours": "Seasonal hours",

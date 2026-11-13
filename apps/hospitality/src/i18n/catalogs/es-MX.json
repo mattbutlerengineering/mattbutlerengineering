@@ -3303,6 +3303,9 @@
     }
   },
   "availabilityHub": {
+    "conflict": {
+      "overwriteNotOffered": "Sobrescribir no se ofrece para estos horarios. Revisa su cambio para poner los tuyos encima, o vuelve a tu borrador."
+    },
     "routes": {
       "regularHours": "Horario habitual",
       "seasonalHours": "Horarios de temporada",

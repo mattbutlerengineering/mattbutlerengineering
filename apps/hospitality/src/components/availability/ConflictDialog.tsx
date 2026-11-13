@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Button, Dialog, Heading, Stack, Text } from "@mattbutlerengineering/rialto";
 import type {
@@ -64,6 +64,11 @@ export interface ConflictDialogProps {
   readonly stranded?: readonly StrandedReservation[];
   /** The 409 named the version Overwrite goes against; without it Overwrite is not offered. */
   readonly ready: boolean;
+  /**
+   * Why Overwrite is off, for a form that never offers it. Absent, the dialog says it is not
+   * available right now.
+   */
+  readonly unavailableNote?: string;
   /** Overwrite found a newer change; the dialog now shows that one. */
   readonly changedAgain: boolean;
   readonly onOverwrite: () => void;
@@ -126,6 +131,7 @@ export function ConflictDialog(props: ConflictDialogProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const [reviewing, setReviewing] = useState(false);
+  const unavailableId = useId();
   // A form whose answers are under Review (Reapply, Start over) leads with Review, not Overwrite.
   const reviewFirst = props.answers !== undefined;
 
@@ -168,6 +174,7 @@ export function ConflictDialog(props: ConflictDialogProps) {
             onClick={onOverwrite}
             isLoading={isSaving}
             disabled={!ready}
+            aria-describedby={ready ? undefined : unavailableId}
           >
             {t("availability.editor.conflict.overwrite")}
           </Button>
@@ -217,8 +224,8 @@ export function ConflictDialog(props: ConflictDialogProps) {
           </Text>
         )}
         {!ready && (
-          <Text variant="caption" color="secondary" role="status">
-            {t("availability.editor.conflict.unavailable")}
+          <Text id={unavailableId} variant="caption" color="secondary" role="status">
+            {props.unavailableNote ?? t("availability.editor.conflict.unavailable")}
           </Text>
         )}
         {reviewing && (

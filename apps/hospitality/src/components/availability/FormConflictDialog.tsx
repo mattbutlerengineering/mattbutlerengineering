@@ -113,6 +113,7 @@ export function FormConflictDialog(props: FormConflictDialogProps) {
       // Nothing saves from this dialog: every answer here changes the draft, not the stored hours.
       isSaving={false}
       ready={false}
+      unavailableNote={t("availabilityHub.conflict.overwriteNotOffered")}
       changedAgain={false}
       answers={{
         loaded: review.loaded,

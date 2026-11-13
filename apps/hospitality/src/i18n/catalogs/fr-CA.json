@@ -3303,6 +3303,9 @@
     }
   },
   "availabilityHub": {
+    "conflict": {
+      "overwriteNotOffered": "Le remplacement n’est pas offert pour ces heures. Examinez son changement pour y superposer les vôtres, ou retournez à votre brouillon."
+    },
     "routes": {
       "regularHours": "Heures habituelles",
       "seasonalHours": "Heures saisonnières",

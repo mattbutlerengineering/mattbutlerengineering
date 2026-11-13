@@ -285,7 +285,11 @@ describe("schedule drawers", () => {
       const { dialog } = await refusedEdit(withBrunch(fixtureConfig()));
       const overwrite = within(dialog).getByRole("button", { name: "Overwrite" });
       expect(overwrite).toBeDisabled();
-      expect(within(dialog).getByText(/^Overwrite isn’t available right now\./)).toBeTruthy();
+      expect(
+        within(dialog).getByText(
+          "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+        )
+      ).toBeTruthy();
       fireEvent.click(overwrite);
       expect(save).toHaveBeenCalledTimes(1);
     });
@@ -545,6 +549,9 @@ describe("schedule drawers", () => {
       rerenderWith(withBrunch(opened), 8);
       const overwrite = await screen.findByRole("button", { name: "Overwrite" });
       expect(overwrite).toBeDisabled();
+      expect(overwrite).toHaveAccessibleDescription(
+        "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+      );
       fireEvent.click(overwrite);
       expect(save).toHaveBeenCalledTimes(1);
     });

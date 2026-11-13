@@ -348,6 +348,9 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
 
     const overwrite = await screen.findByRole("button", { name: "Overwrite" });
     expect(overwrite).toBeDisabled();
+    expect(overwrite).toHaveAccessibleDescription(
+      "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+    );
     fireEvent.click(overwrite);
     expect(save).toHaveBeenCalledTimes(1);
   });

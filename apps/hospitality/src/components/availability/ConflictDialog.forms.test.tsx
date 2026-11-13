@@ -23,6 +23,7 @@ vi.mock("../../hooks/useAvailabilityPreview.js", () => ({
   useAvailabilityPreview: () => ({ result: null, isFetching: false, error: null, retry: () => {} }),
 }));
 
+import { VenueContext, type VenueContextValue } from "../../contexts/venue-context-object.js";
 import { AvailabilityDayEditor } from "./AvailabilityDayEditor.js";
 import { demoDraft } from "./quick-setup-demo.fixture.js";
 import { draftToConfig } from "./quick-setup-draft.js";
@@ -39,15 +40,23 @@ import {
  * through the date editor, is answered by the same dialog with the same labels.
  */
 
+/**
+ * `useVenueFormat` reads this context, so "saved at" is on the venue's clock whatever zone the
+ * test process runs in.
+ */
+const VENUE = {
+  selectedVenue: { id: "venue-1", ianaTimezone: "America/Los_Angeles", currencyCode: "USD" },
+} as VenueContextValue;
+
 /** The one server answer both forms get: a colleague's change, saved at 3:42 PM on the venue clock. */
-const refusal = () =>
+const refusal = (currentVersion: number | null = 8) =>
   new ApiClientError({
     type: "about:blank",
     title: "version-conflict",
     status: 409,
     detail: "Server said no.",
     code: "version-conflict",
-    currentVersion: 8,
+    ...(currentVersion === null ? {} : { currentVersion }),
     winningChange: {
       id: "chg-8",
       actorId: "auth0|ana",
@@ -75,17 +84,19 @@ function week(lunchDays?: readonly number[]) {
 }
 
 const weekly = (state: AvailabilityConfigState, onStale: () => void) => (
-  <ToastProvider>
-    <main>
-      <RegularWeekPanel
-        venueId="venue-1"
-        state={state}
-        today="2026-10-25"
-        onStale={onStale}
-        onStartLater={vi.fn()}
-      />
-    </main>
-  </ToastProvider>
+  <VenueContext.Provider value={VENUE}>
+    <ToastProvider>
+      <main>
+        <RegularWeekPanel
+          venueId="venue-1"
+          state={state}
+          today="2026-10-25"
+          onStale={onStale}
+          onStartLater={vi.fn()}
+        />
+      </main>
+    </ToastProvider>
+  </VenueContext.Provider>
 );
 
 /** The weekly form, refused: the Manager took Tuesday off Dinner; the reload has landed. */
@@ -108,25 +119,27 @@ async function refuseWeekly() {
 }
 
 /** The date editor, refused: the Manager removed Lunch from one date. */
-async function refuseDate() {
-  save.mockRejectedValueOnce(refusal());
+async function refuseDate(currentVersion: number | null = 8) {
+  save.mockRejectedValueOnce(refusal(currentVersion));
   const utils = render(
-    <ToastProvider>
-      <main>
-        <AvailabilityDayEditor
-          venueId="venue-1"
-          date={FIXTURE_DATE}
-          day={resolveFixtureDay()}
-          state={{ config: fixtureConfig(), version: 4, source: "rows" }}
-          timezone={FIXTURE_TIMEZONE}
-          today="2026-10-28"
-          onDirtyChange={vi.fn()}
-          onCancel={vi.fn()}
-          onFinished={vi.fn()}
-          onStale={vi.fn()}
-        />
-      </main>
-    </ToastProvider>
+    <VenueContext.Provider value={VENUE}>
+      <ToastProvider>
+        <main>
+          <AvailabilityDayEditor
+            venueId="venue-1"
+            date={FIXTURE_DATE}
+            day={resolveFixtureDay()}
+            state={{ config: fixtureConfig(), version: 4, source: "rows" }}
+            timezone={FIXTURE_TIMEZONE}
+            today="2026-10-28"
+            onDirtyChange={vi.fn()}
+            onCancel={vi.fn()}
+            onFinished={vi.fn()}
+            onStale={vi.fn()}
+          />
+        </main>
+      </ToastProvider>
+    </VenueContext.Provider>
   );
   fireEvent.click(screen.getByRole("button", { name: "Edit Lunch" }));
   fireEvent.click(screen.getByRole("button", { name: "Remove Lunch" }));
@@ -259,9 +272,28 @@ describe("one conflict dialog for the weekly form and the date editor", () => {
     const { dialog } = await refuseWeekly();
     const overwrite = within(dialog).getByRole("button", { name: "Overwrite" });
     expect(overwrite).toBeDisabled();
-    expect(within(dialog).getByText(/^Overwrite isn’t available right now\./)).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+      )
+    ).toBeTruthy();
+    expect(overwrite).toHaveAccessibleDescription(
+      "Overwrite isn’t offered for these hours. Review their change to put your changes on top, or go back to your draft."
+    );
+    expect(within(dialog).queryByText(/isn’t available right now/)).toBeNull();
     fireEvent.click(overwrite);
     expect(save).toHaveBeenCalledTimes(1);
+  });
+
+  it("the date editor keeps its own line when its Overwrite is unavailable", async () => {
+    const { dialog } = await refuseDate(null);
+    const overwrite = within(dialog).getByRole("button", { name: "Overwrite" });
+    expect(overwrite).toBeDisabled();
+    const line =
+      "Overwrite isn’t available right now. Go back to your draft, or discard it and start again.";
+    expect(within(dialog).getByText(line)).toBeTruthy();
+    expect(overwrite).toHaveAccessibleDescription(line);
+    expect(within(dialog).queryByText(/isn’t offered for these hours/)).toBeNull();
   });
 
   it("makes Review their change the main action where Overwrite is off; the date editor keeps Overwrite", async () => {
@@ -290,18 +322,20 @@ describe("one conflict dialog for the weekly form and the date editor", () => {
       save.mockRejectedValueOnce(refusal());
       const onStale = vi.fn();
       const at = (error: string | null) => (
-        <ToastProvider>
-          <main>
-            <RegularWeekPanel
-              venueId="venue-1"
-              state={{ config: week(), version: 7, source: "rows" }}
-              today="2026-10-25"
-              onStale={onStale}
-              onStartLater={vi.fn()}
-              refreshError={error}
-            />
-          </main>
-        </ToastProvider>
+        <VenueContext.Provider value={VENUE}>
+          <ToastProvider>
+            <main>
+              <RegularWeekPanel
+                venueId="venue-1"
+                state={{ config: week(), version: 7, source: "rows" }}
+                today="2026-10-25"
+                onStale={onStale}
+                onStartLater={vi.fn()}
+                refreshError={error}
+              />
+            </main>
+          </ToastProvider>
+        </VenueContext.Provider>
       );
       const { rerender } = render(at(null));
       fireEvent.click(screen.getByRole("button", { name: /^Lunch, / }));
