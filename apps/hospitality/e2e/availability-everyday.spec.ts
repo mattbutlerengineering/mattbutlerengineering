@@ -477,10 +477,16 @@ test.describe("Availability, the everyday edits (R1-R11)", () => {
     await expect(dialog).toBeVisible();
     await expect(page.getByRole("dialog", { name: /^Close / })).toHaveCount(0);
     await expect(dialog.getByText(/Step \d of 2/)).toHaveCount(0);
-    await dialog.getByTestId("close-primary").click();
+    // Tonight is chosen, and focus is on it: inside the dialog, on the question.
+    await expect(dialog.getByRole("radio", { name: "Tonight" })).toBeChecked();
+    await expect(dialog.getByRole("radio", { name: "Tonight" })).toBeFocused();
+    await dialog.getByRole("button", { name: "Pause until tonight ends" }).click();
 
     await expect.poll(() => state.saved()).not.toBeNull();
-    await expect(page.getByRole("alert").getByText("Online booking paused")).toBeVisible();
+    // The toast, in rialto's Notifications region: the paused banner shows only an open-ended pause.
+    const toasts = page.getByRole("region", { name: "Notifications" });
+    await expect(toasts.getByText("Online booking paused until tonight ends")).toBeVisible();
+    await expect(toasts.getByRole("button", { name: "Undo" })).toBeVisible();
   });
 
   test("R11: a Host sees the same quiet calendar and legend, and no editors", async ({

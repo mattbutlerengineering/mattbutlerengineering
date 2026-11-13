@@ -3188,6 +3188,47 @@
       });
     }
   </file>
+  <file path="src/components/availability/pause-online-draft.ts">
+    export type PauseChoice = "tonight" | "untilResume" | "untilDate";
+    export const PAUSE_CHOICES: readonly PauseChoice[] = ["tonight", "untilResume", "untilDate"];
+    export interface PauseDraft {
+      readonly choice: PauseChoice;
+      /** The last date paused, for `untilDate`; empty until it is picked, and unread otherwise. */
+      readonly until: string;
+      readonly guestMessage: string;
+    }
+    function pauseOnlineForm(draft: PauseDraft, today: string): CloseForm {
+      const { choice } = draft;
+      return {
+        what: { kind: "booking", types: ["online"] },
+        when:
+          choice === "tonight"
+            ? { kind: "tonight" }
+            : choice === "untilResume"
+              ? { kind: "until-reopen", from: today }
+              : { kind: "range", from: today, to: draft.until },
+        fromMinute: null,
+        staffNote: "",
+        guestMessage: draft.guestMessage,
+      };
+    }
+    export function pauseUntilMax(today: string): string {
+      return addDays(today, MAX_SPAN_DAYS);
+    }
+    export function pauseOnlineProblem(
+      draft: PauseDraft,
+      today: string
+    ): "until" | "guestMessage" | null {
+      if (draft.choice === "untilDate" && draft.until > pauseUntilMax(today)) return "until";
+      const problem = validateClose(pauseOnlineForm(draft, today), today);
+      // A pause always says what it pauses, so the only other problem is its dates.
+      return problem === null || problem === "guestMessage" ? problem : "until";
+    }
+    export function pauseOnlineRule(draft: PauseDraft, id: string, today: string): DateRule | null {
+      if (pauseOnlineProblem(draft, today) !== null) return null;
+      return buildCloseRule(pauseOnlineForm(draft, today), id, today);
+    }
+  </file>
   <file path="src/components/availability/period.ts">
     export function periodLabel(
       view: CalendarView,

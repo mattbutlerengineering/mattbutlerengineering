@@ -68,7 +68,7 @@ import styles from "./CloseDialog.module.css";
  * gone (the page re-rendered without it), focus would fall to the page body: put it on the main
  * region instead, once the dialog has left and its own restore has had its frame.
  */
-function settleFocusAfterSave(frames = 60) {
+export function settleFocusAfterSave(frames = 60) {
   requestAnimationFrame(() => {
     if (document.querySelector('[role="dialog"]') !== null && frames > 0) {
       settleFocusAfterSave(frames - 1);

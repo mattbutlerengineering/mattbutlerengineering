@@ -1370,6 +1370,36 @@
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
     </item>
   </file>
+  <file path="src/components/availability/pause-online-draft.ts">
+    <item priority="low">
+      type PauseChoice = "tonight" | "untilResume" | "untilDate";
+    </item>
+    <item priority="high">
+      export const PAUSE_CHOICES: readonly PauseChoice[];
+    </item>
+    <item priority="low">
+      interface PauseDraft {
+        choice: PauseChoice;
+        until: string;
+        guestMessage: string;
+      }
+    </item>
+    <item priority="medium">
+      function pauseOnlineForm(draft: PauseDraft, today: string): CloseForm { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pauseUntilMax(today: string): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pauseOnlineProblem(
+        draft: PauseDraft,
+        today: string
+      ): "until" | "guestMessage" | null { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pauseOnlineRule(draft: PauseDraft, id: string, today: string): DateRule | null { /* ... */ }
+    </item>
+  </file>
   <file path="src/components/availability/period.ts">
     <item priority="high">
       export function periodLabel(

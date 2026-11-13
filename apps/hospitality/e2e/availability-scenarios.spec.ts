@@ -411,10 +411,14 @@ test.describe("Availability scenarios (PRD 18)", () => {
     const counter = countInteractions(page);
 
     await counter.page.getByRole("button", { name: "Pause online booking" }).click();
-    await counter.page.getByRole("dialog").getByTestId("close-primary").click();
+    // The Pause dialog opens on Tonight: confirming is the second interaction.
+    await counter.page.getByRole("dialog").getByTestId("pause-primary").click();
 
     await expect.poll(() => state.saved()).not.toBeNull();
     expect(JSON.stringify(state.saved())).toContain("online");
+    // Tonight only: the pause ends on the day it starts.
+    const rule = state.saved()?.rule as { startsOn: string; endsOn: string | null };
+    expect(rule.endsOn).toBe(rule.startsOn);
     record("S10", counter.count(), 3);
   });
 
