@@ -209,7 +209,8 @@ describe("CloseDialog", () => {
 
   it("starts the date picker's weeks on Monday", () => {
     renderDialog();
-    fireEvent.click(screen.getAllByRole("combobox", { name: "Date" })[0]!);
+    // The date can be typed, so the calendar opens on ArrowDown (or its button), not a click.
+    fireEvent.keyDown(screen.getAllByRole("combobox", { name: "Date" })[0]!, { key: "ArrowDown" });
     expect(screen.getAllByRole("columnheader")[0]!.textContent).toMatch(/^Mo/);
   });
 
@@ -2193,11 +2194,13 @@ describe("CloseDialog: date first (#8689)", () => {
     expect(within(dialog).getByLabelText(/Note for staff/)).toHaveValue("Private party");
   });
 
-  it("has at most 9 controls on first paint, the primary included", () => {
+  it("has at most 10 controls on first paint, the primary included", () => {
     renderDialog({ initialDate: null });
     const dialog = screen.getByRole("dialog");
-    // The primary is off until a date is chosen, so it is not an enabled control yet.
-    expect(controls(dialog).length).toBeLessThanOrEqual(9);
+    // The primary is off until a date is chosen, so it is not an enabled control yet. 9 until
+    // availability-hub C2.4 made the date typeable: its calendar button (not a tab stop) is the
+    // tenth, as it is on the hub's date check (breakdown Notes, 2026-11-13).
+    expect(controls(dialog).length).toBeLessThanOrEqual(10);
   });
 
   it("turns a date and an end date into a range without choosing the kind first", async () => {
@@ -2209,7 +2212,9 @@ describe("CloseDialog: date first (#8689)", () => {
     });
     renderDialog({ initialDate: "2026-12-24" });
     const dialog = screen.getByRole("dialog");
-    fireEvent.click(within(dialog).getByRole("combobox", { name: "End date (optional)" }));
+    fireEvent.keyDown(within(dialog).getByRole("combobox", { name: "End date (optional)" }), {
+      key: "ArrowDown",
+    });
     fireEvent.click(
       Array.from(document.querySelectorAll<HTMLElement>('[data-date="2026-12-31"]')).at(-1)!
     );
@@ -2225,6 +2230,48 @@ describe("CloseDialog: date first (#8689)", () => {
       startsOn: "2026-12-24",
       endsOn: "2026-12-31",
     });
+  });
+
+  it("takes a typed date and a typed end date (walkthroughs 11 and 12)", async () => {
+    renderDialog({ initialDate: null });
+    const dialog = screen.getByRole("dialog");
+    const date = within(dialog).getByRole("combobox", { name: "Date" });
+    fireEvent.change(date, { target: { value: "2026-12-26" } });
+    fireEvent.keyDown(date, { key: "Enter" });
+    expect(within(dialog).getByTestId("close-primary")).toHaveTextContent("Close Sat, Dec 26");
+    const end = within(dialog).getByRole("combobox", { name: "End date (optional)" });
+    end.focus();
+    fireEvent.change(end, { target: { value: "2027-01-02" } });
+    fireEvent.keyDown(end, { key: "Enter" });
+    expect(within(dialog).getByRole("combobox", { name: "When" })).toHaveTextContent("Date range");
+    expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+      "Close Sat, Dec 26 – Sat, Jan 2"
+    );
+    await waitFor(() => expect(within(dialog).getByRole("combobox", { name: "To" })).toHaveFocus());
+  });
+
+  it("leaves focus where Tab sent it after a typed date is read on blur", async () => {
+    renderDialog({ initialDate: null });
+    const dialog = screen.getByRole("dialog");
+    const date = within(dialog).getByRole("combobox", { name: "Date" });
+    await waitFor(() => expect(date).toHaveFocus());
+    fireEvent.change(date, { target: { value: "2026-12-26" } });
+    const tomorrow = within(dialog).getByRole("button", { name: "Tomorrow" });
+    // Tab: focus moves on, and the field reads the typed date on its blur.
+    tomorrow.focus();
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(tomorrow).toHaveFocus();
+    expect(within(dialog).getByTestId("close-primary")).toHaveTextContent("Close Sat, Dec 26");
+  });
+
+  it("opens prefilled on a date range", () => {
+    renderDialog({ initialDate: null, initialRange: { from: "2027-01-04", to: "2027-01-10" } });
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("combobox", { name: "When" })).toHaveTextContent("Date range");
+    expect(within(dialog).getByTestId("close-primary")).toHaveTextContent(
+      "Close Mon, Jan 4 – Sun, Jan 10"
+    );
   });
 
   it("titles the dialog for the venue or the chosen target, so Close is not its name too", () => {

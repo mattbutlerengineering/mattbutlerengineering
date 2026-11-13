@@ -3,12 +3,14 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   availabilityPath,
+  dialogSearch,
   isBookingRulesPage,
   isTodaysPage,
   legacyRedirect,
   parseAvailabilityEntry,
   readAvailabilityAddress,
   type AvailabilityTarget,
+  type CloseTarget,
 } from "./availability-address.js";
 
 /**
@@ -85,34 +87,70 @@ describe("availabilityPath", () => {
     );
   });
 
-  it("opens a section's Close dialog through the address today's page reads", () => {
+  it("opens a section's Close dialog over the hub, which the layout hosts (C2.4)", () => {
     expect(
       availabilityPath({
         view: "hub",
         close: { kind: "section", sectionId: "a b&c" },
         from: "setup",
       })
-    ).toBe("/availability/calendar?closeSection=a+b%26c&from=setup");
+    ).toBe("/availability?close=section:a+b%26c&from=setup");
   });
 
-  it("drops what today's page cannot open from an address", () => {
-    expect(availabilityPath({ view: "calendar", close: { kind: "tonight" }, pause: true })).toBe(
-      "/availability/calendar?tab=calendar"
+  it("carries a close target or the pause flag on every view, before from=setup", () => {
+    expect(availabilityPath({ view: "calendar", close: { kind: "tonight" } })).toBe(
+      "/availability/calendar?tab=calendar&close=tonight"
     );
-    // The hub hosts no dialog until C2.4, so it drops them too, and so does the drawer over it.
-    expect(availabilityPath({ view: "hub", close: { kind: "tonight" }, pause: true })).toBe(
-      "/availability"
+    expect(availabilityPath({ view: "hub", pause: true, from: "setup" })).toBe(
+      "/availability?pause=1&from=setup"
     );
     expect(
       availabilityPath({ view: "bookingRules", close: { kind: "section", sectionId: "sec-1" } })
-    ).toBe("/availability/booking-rules");
+    ).toBe("/availability/booking-rules?close=section:sec-1");
+    // One dialog at a time: a close target wins over the pause flag.
+    expect(availabilityPath({ view: "hub", close: { kind: "venue" }, pause: true })).toBe(
+      "/availability?close=venue"
+    );
   });
 
-  it("never answers the hub's own address for a search the index would redirect", () => {
-    // The index redirects whatever `legacyRedirect` answers; an answer on the index would loop.
+  it.each<CloseTarget>([
+    { kind: "venue" },
+    { kind: "tonight" },
+    { kind: "date", date: "2026-12-26" },
+    { kind: "range", from: "2027-01-04", to: "2027-01-10" },
+    { kind: "dates", dates: ["2026-12-24", "2026-12-31"] },
+    { kind: "section", sectionId: "sec-bar" },
+  ])("reads back the close target %o it writes", (close) => {
+    const path = availabilityPath({ view: "hub", close });
+    expect(readAvailabilityAddress({ search: path.slice(path.indexOf("?")) }).close).toEqual(close);
+  });
+
+  it("never answers an address the index would redirect again", () => {
+    // The index redirects whatever `legacyRedirect` answers; an answer it redirects would loop.
     for (const search of ["?closeSection=sec-1", "?closeSection=sec-1&from=setup"]) {
-      expect(pathOf(legacyRedirect(search) ?? "")).toBe("/availability/calendar");
+      const next = legacyRedirect(search) ?? "";
+      expect(pathOf(next)).toBe("/availability");
+      expect(legacyRedirect(next.slice(next.indexOf("?")))).toBeNull();
     }
+  });
+});
+
+describe("dialogSearch", () => {
+  it("adds a close target or the pause flag and keeps every other param", () => {
+    expect(
+      dialogSearch("?tab=calendar&from=setup", { close: { kind: "date", date: "2026-12-26" } })
+    ).toBe("?tab=calendar&from=setup&close=2026-12-26");
+    expect(dialogSearch("", { pause: true })).toBe("?pause=1");
+  });
+
+  it("replaces a dialog already named, so two never stack", () => {
+    expect(dialogSearch("?close=tonight&x=1", { pause: true })).toBe("?x=1&pause=1");
+    expect(dialogSearch("?pause=1", { close: { kind: "venue" } })).toBe("?close=venue");
+  });
+
+  it("removes both, and leaves an empty search empty", () => {
+    expect(dialogSearch("?close=venue&pause=1&from=setup", null)).toBe("?from=setup");
+    expect(dialogSearch("?close=venue", null)).toBe("");
   });
 });
 
@@ -160,6 +198,7 @@ describe("readAvailabilityAddress", () => {
   });
 
   it("reads each kind of close target", () => {
+    expect(read("?close=venue").close).toEqual({ kind: "venue" });
     expect(read("?close=tonight").close).toEqual({ kind: "tonight" });
     expect(read("?close=2026-12-24").close).toEqual({ kind: "date", date: "2026-12-24" });
     expect(read("?close=2026-12-24..2026-12-26").close).toEqual({
@@ -191,6 +230,24 @@ describe("readAvailabilityAddress", () => {
     "%E0%A4%A",
   ])("reads the unparseable close target %j as no dialog", (value) => {
     expect(read(`?close=${value}`).close).toBeNull();
+  });
+
+  it("reads a same-day range as that one date", () => {
+    expect(read("?close=2026-12-24..2026-12-24").close).toEqual({
+      kind: "date",
+      date: "2026-12-24",
+    });
+  });
+
+  it("reads several dates once each and in order, and one date left as that date", () => {
+    expect(read("?close=dates:2026-12-31,2026-12-24,2026-12-31").close).toEqual({
+      kind: "dates",
+      dates: ["2026-12-24", "2026-12-31"],
+    });
+    expect(read("?close=dates:2026-12-24,2026-12-24").close).toEqual({
+      kind: "date",
+      date: "2026-12-24",
+    });
   });
 
   it("reads 20 dates, and reads 21 dates as no dialog", () => {
@@ -231,7 +288,7 @@ describe("legacyRedirect", () => {
     ["?tab=calendar", "/availability/calendar?tab=calendar"], // /availability/calendar
     ["?tab=special", "/availability/calendar?tab=special"], // /availability/special-dates
     ["?action=addSchedule", "/availability/calendar?tab=schedules&action=addSchedule"], // /availability/seasonal/new
-    ["?closeSection=sec-bar", "/availability/calendar?closeSection=sec-bar"], // /availability?close=section:sec-bar
+    ["?closeSection=sec-bar", "/availability?close=section:sec-bar"], // final (C2.4)
   ];
 
   it.each(rows)("sends %s to %s", (old, next) => {
@@ -257,14 +314,17 @@ describe("legacyRedirect", () => {
     expect(availabilityPath(views[old] ?? { view: "hub" })).toBe(next);
   });
 
-  it("produces a section that today's page reads back", () => {
+  it("produces a section the layout reads back as a close target", () => {
     const next = legacyRedirect("?closeSection=a%20b%26c") ?? "";
-    expect(parseAvailabilityEntry(next.slice(next.indexOf("?"))).closeSection).toBe("a b&c");
+    expect(readAvailabilityAddress({ search: next.slice(next.indexOf("?")) }).close).toEqual({
+      kind: "section",
+      sectionId: "a b&c",
+    });
   });
 
   it("combines a tab, an action and a section", () => {
     expect(legacyRedirect("?tab=special&closeSection=sec-1&from=setup")).toBe(
-      "/availability/calendar?tab=special&closeSection=sec-1&from=setup"
+      "/availability/calendar?tab=special&close=section:sec-1&from=setup"
     );
     expect(legacyRedirect("?tab=schedules&action=addSchedule")).toBe(
       "/availability/calendar?tab=schedules&action=addSchedule"
@@ -313,7 +373,7 @@ describe("parseAvailabilityEntry", () => {
     });
   });
 
-  it("reads back what availabilityPath builds", () => {
+  it("reads back what availabilityPath builds; a section's Close is no longer an entry", () => {
     const path = availabilityPath({
       view: "seasonal",
       screen: "new",
@@ -322,7 +382,6 @@ describe("parseAvailabilityEntry", () => {
     });
     expect(parseAvailabilityEntry(path.slice(path.indexOf("?")))).toEqual({
       tab: "schedules",
-      closeSection: "a b&c",
       action: "addSchedule",
       from: "setup",
     });

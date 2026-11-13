@@ -587,7 +587,7 @@ describe("buildSetupTree: floor plan, sections and tables", () => {
       {
         id: "closeSection",
         subject: "Bar",
-        target: { kind: "link", to: "/availability/calendar?closeSection=sec-bar&from=setup" },
+        target: { kind: "link", to: "/availability?close=section:sec-bar&from=setup" },
       },
     ]);
   });

@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { act, render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { axe } from "vitest-axe";
-import { createMemoryRouter, MemoryRouter, RouterProvider, useLocation } from "react-router";
+import {
+  createMemoryRouter,
+  MemoryRouter,
+  Route,
+  RouterProvider,
+  Routes,
+  useLocation,
+} from "react-router";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type * as Engine from "@mbe/availability";
 import type * as Format from "../utils/format.js";
@@ -222,12 +229,17 @@ function LocationProbe() {
   return <div data-testid="location">{`${location.pathname}${location.search}`}</div>;
 }
 
+// Under the layout, as main.tsx mounts it: the layout hosts the Close and Pause dialogs (C2.4).
 function page(url = "/availability/calendar?tab=calendar") {
   return (
     <MemoryRouter initialEntries={[url]}>
       <ToastProvider>
         <main>
-          <AvailabilityPage />
+          <Routes>
+            <Route path="availability" element={<AvailabilityLayout />}>
+              <Route path="calendar" element={<AvailabilityPage />} />
+            </Route>
+          </Routes>
         </main>
         <LocationProbe />
       </ToastProvider>
@@ -577,30 +589,35 @@ describe("AvailabilityPage", () => {
       expect(screen.queryByRole("link", { name: "Venue Setup" })).not.toBeInTheDocument();
     });
 
-    it("opens a Manager's Close dialog on the section ?closeSection= names", () => {
-      renderPage("/availability/calendar?closeSection=sec-bar");
-      const dialog = screen.getByRole("dialog", { name: /^Close / });
+    // The layout hosts the dialog over today's page too (C2.4); ?closeSection= is an old address
+    // the index translates (see "the Availability route table" below).
+    it("opens a Manager's Close dialog on the section ?close=section: names", async () => {
+      renderPage("/availability/calendar?close=section:sec-bar");
+      const dialog = await screen.findByRole("dialog", { name: /^Close / });
       expect(within(dialog).getByText("One section: Bar")).toBeInTheDocument();
     });
 
-    it("opens the Close dialog with no preselection for a section the venue lacks", () => {
-      renderPage("/availability/calendar?closeSection=gone");
-      const dialog = screen.getByRole("dialog", { name: /^Close / });
+    it("opens the Close dialog with no preselection for a section the venue lacks", async () => {
+      renderPage("/availability/calendar?close=section:gone");
+      const dialog = await screen.findByRole("dialog", { name: /^Close / });
       expect(within(dialog).getByText("Whole venue")).toBeInTheDocument();
       expect(within(dialog).queryByText(/^One section/)).not.toBeInTheDocument();
     });
 
-    it("opens no Close dialog for a Host", () => {
+    it("opens no Close dialog for a Host, and drops the param", async () => {
       team.value = { viewerRole: "host" };
-      renderPage("/availability/calendar?closeSection=sec-bar");
+      renderPage("/availability/calendar?tab=calendar&close=section:sec-bar");
+      await waitFor(() =>
+        expect(screen.getByTestId("location")).toHaveTextContent(
+          /^\/availability\/calendar\?tab=calendar$/
+        )
+      );
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
-    it("removes closeSection from the URL after mount and keeps the other params", () => {
+    it("no longer reads ?closeSection= on today's page", () => {
       renderPage("/availability/calendar?tab=schedules&closeSection=sec-1&from=setup");
-      expect(screen.getByTestId("location")).toHaveTextContent(
-        "/availability/calendar?tab=schedules&from=setup"
-      );
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
     it("opens the seeded schedule editor on Schedules for ?action=addSchedule, once", async () => {
@@ -862,7 +879,7 @@ describe("AvailabilityPage", () => {
       startDraft();
       closeFromDrawer();
       fireEvent.click(screen.getByRole("button", { name: "Discard" }));
-      expect(screen.getByRole("dialog", { name: /^Close / })).toBeInTheDocument();
+      expect(await screen.findByRole("dialog", { name: /^Close / })).toBeInTheDocument();
       await waitFor(
         () =>
           expect(
@@ -872,11 +889,13 @@ describe("AvailabilityPage", () => {
       );
     });
 
-    it("opens the Close dialog straight away with no draft", () => {
+    it("opens the Close dialog straight away with no draft", async () => {
       renderPage();
       openFriday();
       closeFromDrawer();
-      expect(screen.getByRole("dialog", { name: /^Close / })).toBeInTheDocument();
+      // On that date, through the address the layout hosts (C2.4).
+      expect(screen.getByTestId("location")).toHaveTextContent("close=2026-10-30");
+      expect(await screen.findByRole("dialog", { name: /^Close / })).toBeInTheDocument();
     });
   });
 
@@ -888,10 +907,19 @@ describe("AvailabilityPage", () => {
     expect(refetch).toHaveBeenCalled();
   });
 
-  it("lets a Manager open the Close dialog", () => {
+  it("lets a Manager open the Close dialog", async () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: "Close…" }));
-    expect(screen.getByRole("dialog", { name: /^Close / })).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: /^Close / })).toBeInTheDocument();
+  });
+
+  it("opens Close… and Pause through the address the layout hosts (C2.4)", async () => {
+    renderPage("/availability/calendar?tab=calendar");
+    fireEvent.click(screen.getByRole("button", { name: "Close…" }));
+    expect(screen.getByTestId("location")).toHaveTextContent(
+      "/availability/calendar?tab=calendar&close=venue"
+    );
+    await screen.findByRole("dialog", { name: /^Close / });
   });
 
   it("hides Close from a Host", () => {
@@ -910,14 +938,14 @@ describe("AvailabilityPage", () => {
     const pick = (re: RegExp) =>
       fireEvent.click(screen.getByRole("button", { name: re }), { ctrlKey: true });
 
-    it("opens Close from the selection bar on the selected dates, one closure each (#7981)", () => {
+    it("opens Close from the selection bar on the selected dates, one closure each (#7981)", async () => {
       window.HTMLElement.prototype.scrollIntoView = vi.fn();
       renderPage();
       pick(/Thursday, October 29/);
       pick(/Friday, October 30/);
       const bar = screen.getByRole("group", { name: "Selected dates" });
       fireEvent.click(within(bar).getByRole("button", { name: "Close…" }));
-      const dialog = screen.getByRole("dialog", { name: /^Close / });
+      const dialog = await screen.findByRole("dialog", { name: /^Close / });
       expect(within(dialog).getByRole("combobox", { name: "When" })).toHaveTextContent(
         "Several dates"
       );
@@ -1838,12 +1866,17 @@ describe("the Availability route table", () => {
     expect(screen.getByRole("link", { name: "Venue Setup" })).toBeInTheDocument();
   });
 
-  it("opens a section's Close dialog from the old ?closeSection=", async () => {
+  it("opens a section's Close dialog over the hub from the old ?closeSection=", async () => {
     const router = renderRoutes("/availability?closeSection=sec-bar&from=setup");
     const dialog = await screen.findByRole("dialog", { name: /^Close / });
     expect(within(dialog).getByText("One section: Bar")).toBeInTheDocument();
-    // Today's page spends the param once read.
-    await waitFor(() => expect(address(router)).toBe("/availability/calendar?from=setup"));
+    expect(address(router)).toBe("/availability?close=section:sec-bar&from=setup");
+    expect(router.state.historyAction).toBe("REPLACE");
+    // Cancel leaves the hub with the way back to Venue Setup, and Back leaves Availability.
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(address(router)).toBe("/availability?from=setup"));
+    await act(() => router.navigate(-1));
+    expect(address(router)).toBe("/setup");
   });
 
   it("opens the seeded editor from the old ?action=addSchedule", async () => {

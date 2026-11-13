@@ -29,7 +29,10 @@ import { AvailabilityScheduleControls } from "../components/availability/Availab
 import {
   parseAvailabilityEntry,
   type AvailabilityTab,
+  type CloseTarget,
 } from "../components/availability/availability-address.js";
+import { closeTargetForDates } from "../components/availability/close-dialog-start.js";
+import { useAvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { ScheduleEditorDrawer } from "../components/availability/ScheduleEditorDrawer.js";
 import {
   REGULAR_WEEK_HEADING_ID,
@@ -45,8 +48,6 @@ import {
 import { ClearChangesDialog } from "../components/availability/ClearChangesDialog.js";
 import { UseScheduleDialog } from "../components/availability/UseScheduleDialog.js";
 import { ownSingleDateRules } from "../components/availability/selection-actions.js";
-import { CloseDialog } from "../components/availability/CloseDialog.js";
-import { PauseOnlineDialog } from "../components/availability/PauseOnlineDialog.js";
 import { GoToDateDialog } from "../components/availability/GoToDateDialog.js";
 import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { OnlinePausedBanner } from "../components/availability/OnlinePausedBanner.js";
@@ -76,15 +77,12 @@ import styles from "./AvailabilityPage.module.css";
 const EMPTY: string[] = [];
 
 /**
- * The Close dialog (F5): `date` pre-fills "one date", `dates` (the selection bar's) "Several
- * dates"; `pause` opens the Pause online booking dialog in its place.
+ * The Close dialog (F5) a move opens once the guard lets it through, through the layout
+ * (`openClose`): a day's date, or the selection bar's dates, whose save clears the selection.
  */
 interface Closing {
-  readonly date: string | null;
-  readonly dates?: readonly string[];
-  readonly pause: boolean;
-  /** Opens on One section with this section chosen (`?closeSection=`). */
-  readonly sectionId?: string;
+  readonly target: CloseTarget;
+  readonly onSaved?: () => void;
 }
 
 /** Another layer, and what to do once there (Go to date, Compare services, open a day). */
@@ -153,7 +151,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   const [chosenAnchor, setChosenAnchor] = useState<string | null>(null);
   const [target, setTarget] = useState<OpenTarget>(CLOSED);
   const openDate = target.date;
-  const [closing, setClosing] = useState<Closing | null>(null);
+  const { openClose, openPause } = useAvailabilityScope();
   // The schedule editor and Compare services are the page's: the header ⋯ and the day drawer
   // open them as well as the Schedules layer.
   const [editor, setEditor] = useState<ScheduleEditorTarget | null>(null);
@@ -163,16 +161,15 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   // The day Go to date went to. The dialog hands focus back to its trigger a frame after it
   // closes, so focus moves to the day only once that has happened (see the effect below).
   const [jumpTo, setJumpTo] = useState<string | null>(null);
-  // How another page opened this one (?tab=, ?closeSection=, ?action=, ?from=setup), read once on mount.
+  // How another page opened this one (?tab=, ?action=, ?from=setup), read once on mount.
   const [searchParams, setSearchParams] = useSearchParams();
   const [entry] = useState(() => parseAvailabilityEntry(searchParams));
   // `null` until the viewer picks one: a Manager then lands on Schedules, a Host on Calendar.
   const [chosenTab, setChosenTab] = useState<AvailabilityTab | null>(entry.tab ?? null);
-  // A section's Close dialog and an action are not reopened by a refresh, so those params go once read.
+  // An action is not reopened by a refresh, so the param goes once read.
   useEffect(() => {
-    if (!searchParams.has("closeSection") && !searchParams.has("action")) return;
+    if (!searchParams.has("action")) return;
     const rest = new URLSearchParams(searchParams);
-    rest.delete("closeSection");
     rest.delete("action");
     setSearchParams(rest, { replace: true });
   }, [searchParams, setSearchParams]);
@@ -222,7 +219,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
     ({ closing: nextClosing, editingSchedule: id, ...next }) => {
       setTarget(next);
       if (next.date !== null && !next.fixedDates) setSelection([]);
-      if (nextClosing) setClosing(nextClosing);
+      if (nextClosing) openClose(nextClosing.target, { onSaved: nextClosing.onSaved });
       // The day drawer hands focus back to its calendar cell a frame after it closes, so the editor
       // opens after that (two frames: the restore is queued once this move has rendered).
       if (id) {
@@ -329,18 +326,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
   });
   const teamRead = useVenueTeam({ venueId: selectedVenueId });
   const team = teamRead.data;
-  // ?closeSection= opens the Close dialog for that section, once, for a Manager with the config
-  // loaded (a Host has no Close dialog). An id the venue does not have opens it with no preselection.
-  const entrySection = useRef(entry.closeSection);
   const entryReady = isManager && !!config.data;
   // On a venue with no hours the quick-setup card stands in for the page: the entry is spent, not
   // held back to pop open when that card saves.
   const emptyVenue = config.data?.source === "empty";
-  useEffect(() => {
-    if (!entryReady || entrySection.current === undefined) return;
-    if (!emptyVenue) setClosing({ date: null, pause: false, sectionId: entrySection.current });
-    entrySection.current = undefined;
-  }, [entryReady, emptyVenue]);
   // ?action=addSchedule opens the seeded schedule editor, once, for a Manager who is on Schedules.
   const entryActionRef = useRef(entry.action);
   useEffect(() => {
@@ -394,8 +383,8 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         pending={access.isPending || (isManager && !canAct)}
         {...(isManager || access.isPending
           ? {
-              onClose: () => setClosing({ date: null, pause: false }),
-              onPause: !pause ? () => setClosing({ date: null, pause: true }) : undefined,
+              onClose: () => openClose({ kind: "venue" }),
+              onPause: !pause ? openPause : undefined,
               onCompareServices: () =>
                 tab === "schedules"
                   ? setComparing(true)
@@ -638,7 +627,10 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
         onEditHours={editSelection}
         onClear={clearSelection}
         onCloseDates={(dates) =>
-          guard.request({ date: null, closing: { date: null, dates, pause: false } })
+          guard.request({
+            date: null,
+            closing: { target: closeTargetForDates(dates), onSaved: finishSelectionAction },
+          })
         }
         selecting={selecting}
         onUseSchedule={() => setSelectionAction("use")}
@@ -716,7 +708,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
                 fixedDates: target.fixedDates,
                 onStale: () => void config.refetch(),
                 onCloseDay: (date: string) =>
-                  guard.request({ date: null, closing: { date, pause: false } }),
+                  guard.request({ date: null, closing: { target: { kind: "date", date } } }),
                 onEditSchedule: (scheduleId: string) =>
                   guard.request({ date: null, editingSchedule: scheduleId }),
               }
@@ -830,28 +822,6 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           onStale={() => void config.refetch()}
           refreshError={config.error ? describeApiError(config.error).detail : null}
           onClose={() => setEditor(null)}
-        />
-      )}
-      {closing?.pause && config.data && (
-        <PauseOnlineDialog
-          venueId={selectedVenueId}
-          state={config.data}
-          // The service date: past midnight on a night still running, Tonight is that night.
-          today={serviceDate}
-          onClose={() => setClosing(null)}
-        />
-      )}
-      {closing && !closing.pause && config.data && (
-        <CloseDialog
-          venueId={selectedVenueId}
-          state={config.data}
-          timezone={timeZone}
-          today={today}
-          initialDate={closing.date}
-          initialDates={closing.dates}
-          initialSectionId={closing.sectionId}
-          onSaved={closing.dates ? finishSelectionAction : undefined}
-          onClose={() => setClosing(null)}
         />
       )}
       <DiscardChangesDialog
