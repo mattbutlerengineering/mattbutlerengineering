@@ -18,6 +18,8 @@ import {
   REQUIRED_CHECK_NAME,
   extractCheckRunConclusion,
   parseCheckRunsJsonl,
+  selectLatestConclusiveCheckRun,
+  requiredCheckRunsGhArgs,
   buildRevertPrBody,
   extractBreakageIssueNumber,
   extractClosedIssueNumbers,
@@ -587,6 +589,101 @@ describe("extractCheckRunConclusion", () => {
     expect(extractCheckRunConclusion([], REQUIRED_CHECK_NAME)).toBeNull();
     expect(extractCheckRunConclusion(null, REQUIRED_CHECK_NAME)).toBeNull();
     expect(extractCheckRunConclusion(undefined, REQUIRED_CHECK_NAME)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// selectLatestConclusiveCheckRun — the latest completed run of a named check
+// that passed or failed, from `check-runs?filter=all` (PR #8795). A cancelled
+// rerun leaves the commit with no latest `CI Gate`; the earlier attempt's
+// result is still in `filter=all`.
+// ---------------------------------------------------------------------------
+
+describe("selectLatestConclusiveCheckRun", () => {
+  const gate = (conclusion, completedAt, extra = {}) => ({
+    name: REQUIRED_CHECK_NAME,
+    status: "completed",
+    conclusion,
+    completed_at: completedAt,
+    ...extra,
+  });
+
+  it("reads failure when a failure was followed by a cancelled rerun", () => {
+    const runs = [
+      gate("failure", "2026-11-12T02:19:52Z"),
+      gate("cancelled", "2026-11-12T02:28:38Z"),
+    ];
+    expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBe("failure");
+  });
+
+  it("reads success when a failure was followed by a passing rerun", () => {
+    const runs = [gate("failure", "2026-11-12T02:19:52Z"), gate("success", "2026-11-12T02:50:00Z")];
+    expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBe("success");
+  });
+
+  it("orders by completed_at, not by array order", () => {
+    const runs = [gate("success", "2026-11-12T02:50:00Z"), gate("failure", "2026-11-12T02:19:52Z")];
+    expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBe("success");
+    const reversed = [
+      gate("failure", "2026-11-12T03:00:00Z"),
+      gate("success", "2026-11-12T02:00:00Z"),
+    ];
+    expect(selectLatestConclusiveCheckRun(reversed, REQUIRED_CHECK_NAME)).toBe("failure");
+  });
+
+  it("returns null when every run of the check was inconclusive", () => {
+    const runs = [
+      gate("cancelled", "2026-11-12T02:28:38Z"),
+      gate("skipped", "2026-11-12T02:30:00Z"),
+    ];
+    expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBeNull();
+  });
+
+  it("ignores runs that have not completed and runs of other checks", () => {
+    const runs = [
+      gate("failure", "2026-11-12T02:19:52Z"),
+      { name: REQUIRED_CHECK_NAME, status: "in_progress", conclusion: null, completed_at: null },
+      gate("success", "2026-11-12T03:00:00Z", { status: "queued" }),
+      {
+        name: "CodeQL",
+        status: "completed",
+        conclusion: "success",
+        completed_at: "2026-11-12T04:00:00Z",
+      },
+    ];
+    expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBe("failure");
+  });
+
+  it("ignores a run with no usable completed_at rather than guessing its place", () => {
+    const runs = [gate("failure", "2026-11-12T02:19:52Z"), gate("success", "not a date")];
+    expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBe("failure");
+  });
+
+  it("returns null for empty or nullish lists", () => {
+    expect(selectLatestConclusiveCheckRun([], REQUIRED_CHECK_NAME)).toBeNull();
+    expect(selectLatestConclusiveCheckRun(null, REQUIRED_CHECK_NAME)).toBeNull();
+    expect(selectLatestConclusiveCheckRun(undefined, REQUIRED_CHECK_NAME)).toBeNull();
+  });
+
+  it("considers runs from every page of a paginated response", () => {
+    const page1 = Array.from({ length: 100 }, (_, i) =>
+      JSON.stringify(gate("failure", `2026-11-12T01:${String(i % 60).padStart(2, "0")}:00Z`))
+    );
+    const page2 = [JSON.stringify(gate("success", "2026-11-12T05:00:00Z"))];
+    const runs = parseCheckRunsJsonl([...page1, ...page2].join("\n"));
+    expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBe("success");
+  });
+});
+
+describe("requiredCheckRunsGhArgs", () => {
+  it("asks for every attempt's run of the required check, all pages", () => {
+    const args = requiredCheckRunsGhArgs("abc123");
+    expect(args[0]).toBe("api");
+    expect(args[1]).toBe(
+      "repos/{owner}/{repo}/commits/abc123/check-runs?check_name=CI%20Gate&filter=all&per_page=100"
+    );
+    expect(args).toContain("--paginate");
+    expect(args.slice(-2)).toEqual(["--jq", ".check_runs[]"]);
   });
 });
 

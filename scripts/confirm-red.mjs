@@ -28,6 +28,22 @@ export const MAX_CONFIRMATION_RERUNS = 1;
 const isBlank = (value) =>
   value === null || value === undefined || value === "" || value === "null";
 
+/**
+ * The completed-run conclusions GitHub reports. Anything else read for the
+ * earlier attempt counts as unreadable: on an HTTP error `gh api` prints the
+ * JSON error body on stdout and skips `--jq`, so a 403, 404 or 5xx arrives
+ * here as `{"message":...}`, not as a blank.
+ */
+const KNOWN_CONCLUSIONS = new Set([
+  "success",
+  "failure",
+  "cancelled",
+  "skipped",
+  "timed_out",
+  "neutral",
+  "action_required",
+]);
+
 /** The attempt as a positive integer, or NaN when the caller could not tell. */
 function parseAttempt(runAttempt) {
   const attempt = isBlank(runAttempt) ? NaN : Number(runAttempt);
@@ -73,7 +89,7 @@ function decideCancelled(runAttempt, previousConclusion) {
     };
   }
 
-  if (isBlank(previousConclusion)) {
+  if (!KNOWN_CONCLUSIONS.has(previousConclusion)) {
     return {
       action: "proceed",
       reason: `attempt ${attempt} was cancelled and attempt ${attempt - 1} could not be read; treating the run as a confirmed failure`,

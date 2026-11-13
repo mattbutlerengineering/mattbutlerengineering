@@ -6,7 +6,11 @@ import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { load as loadYaml } from "js-yaml";
 import { decideRedConfirmation, main, MAX_CONFIRMATION_RERUNS } from "../confirm-red.mjs";
-import { resolveRevertAction } from "../revert-watchdog.mjs";
+import {
+  REQUIRED_CHECK_NAME,
+  resolveRevertAction,
+  selectLatestConclusiveCheckRun,
+} from "../revert-watchdog.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const WORKFLOW = loadYaml(
@@ -61,6 +65,20 @@ describe("decideRedConfirmation: a cancelled run", () => {
 
   it("proceeds when the earlier attempt could not be read", () => {
     for (const previousConclusion of [undefined, null, "", "null"]) {
+      expect(cancelled(2, previousConclusion).action).toBe("proceed");
+    }
+  });
+
+  // Real `gh api` prints the JSON error body on stdout for an HTTP error and
+  // skips `--jq`, so an unreadable attempt can arrive as that body.
+  it("proceeds when the earlier attempt's conclusion is not a known conclusion", () => {
+    for (const previousConclusion of [
+      '{"message":"Not Found","status":"404"}',
+      '{"message":"Resource not accessible by integration","status":"403"}',
+      '{"message":"Server Error","status":"502"}',
+      "startup_failure",
+      "FAILURE ",
+    ]) {
       expect(cancelled(2, previousConclusion).action).toBe("proceed");
     }
   });
@@ -168,6 +186,9 @@ function evaluate(expression, context) {
     if (token.startsWith("'")) return token.slice(1, -1);
     if (/^\d+$/.test(token)) return Number(token);
     if (token === "always()") return true;
+    // GitHub: true only when the workflow run itself was cancelled, not when
+    // a needed job concluded `cancelled`.
+    if (token === "cancelled()") return context.workflowCancelled === true;
     if (token.endsWith("()")) throw new Error(`unsupported function: ${token}`);
     return token.split(".").reduce((value, key) => value?.[key] ?? null, context);
   };
@@ -215,20 +236,26 @@ function jobRuns(name, context) {
  * did IF it ran: `{result, confirmed}`. When its own `if:` is false the job is
  * skipped and has no outputs, whatever the row says.
  */
-function runWatchdog({ event = "workflow_run", conclusion, attempt, confirmRed }) {
+function runWatchdog({
+  event = "workflow_run",
+  conclusion,
+  attempt,
+  confirmRed,
+  workflowCancelled = false,
+}) {
   const github = {
     event_name: event,
     event: event === "workflow_run" ? { workflow_run: { conclusion, run_attempt: attempt } } : {},
   };
-  const confirmRuns = jobRuns("confirm-red", { github, needs: {} });
+  const confirmRuns = jobRuns("confirm-red", { github, needs: {}, workflowCancelled: false });
   const outcome = confirmRuns ? confirmRed : { result: "skipped" };
   const needs = {
     "confirm-red": { result: outcome.result, outputs: { confirmed: outcome.confirmed ?? "" } },
   };
   return {
     confirmRed: confirmRuns,
-    onFailure: jobRuns("on-failure", { github, needs }),
-    onSuccess: jobRuns("on-success", { github, needs }),
+    onFailure: jobRuns("on-failure", { github, needs, workflowCancelled }),
+    onSuccess: jobRuns("on-success", { github, needs, workflowCancelled }),
   };
 }
 
@@ -242,6 +269,8 @@ describe("the expression evaluator used by the truth table", () => {
     expect(evaluate("${{ a.missing == 'true' }}", context)).toBe(false);
     expect(evaluate("${{ a.missing != 'success' }}", context)).toBe(true);
     expect(evaluate("${{ always() && (a.n == 3 || a.n == 2) }}", context)).toBe(true);
+    expect(evaluate("${{ !cancelled() }}", context)).toBe(true);
+    expect(evaluate("${{ !cancelled() }}", { workflowCancelled: true })).toBe(false);
   });
 
   it("rejects syntax it does not model, so a new operator cannot pass unseen", () => {
@@ -265,7 +294,7 @@ describe("revert-watchdog.yml job conditions", () => {
   it("gates on-failure on the confirmation and fails closed when confirm-red did not succeed", () => {
     expect(JOBS["on-failure"].needs).toBe("confirm-red");
     expect(JOBS["on-failure"].if).toBe(
-      `\${{ always() && ${RED} && (needs.confirm-red.result != 'success' || needs.confirm-red.outputs.confirmed == 'true') }}`
+      `\${{ always() && !cancelled() && ${RED} && (needs.confirm-red.result != 'success' || needs.confirm-red.outputs.confirmed == 'true') }}`
     );
   });
 
@@ -375,6 +404,18 @@ describe("revert-watchdog.yml job conditions", () => {
       { confirmRed: true, onFailure: true, onSuccess: false },
     ],
     [
+      "attempt 1 failure, the watchdog run cancelled by hand during confirm-red",
+      { conclusion: "failure", attempt: 1, workflowCancelled: true },
+      JOB_CANCELLED,
+      { confirmRed: true, onFailure: false, onSuccess: false },
+    ],
+    [
+      "attempt 2 failure, the watchdog run cancelled by hand after confirm-red confirmed",
+      { conclusion: "failure", attempt: 2, workflowCancelled: true },
+      CONFIRMED,
+      { confirmRed: true, onFailure: false, onSuccess: false },
+    ],
+    [
       "workflow_dispatch",
       { event: "workflow_dispatch" },
       CONFIRMED,
@@ -411,8 +452,10 @@ describe("the confirm-red step", () => {
         "#!/bin/bash",
         'echo "$*" >> "$GH_LOG"',
         'if [ "$1" = "run" ]; then exit "${STUB_RERUN_EXIT:-0}"; fi',
+        // Like real `gh api`: on an HTTP error the JSON error body goes to
+        // stdout and `--jq` is not applied.
         'if [ "$1" = "api" ]; then',
-        '  if [ "${STUB_API_EXIT:-0}" != "0" ]; then exit "$STUB_API_EXIT"; fi',
+        '  if [ "${STUB_API_EXIT:-0}" != "0" ]; then echo "$STUB_API_BODY"; exit "$STUB_API_EXIT"; fi',
         '  echo "$STUB_PREVIOUS"',
         "  exit 0",
         "fi",
@@ -529,14 +572,23 @@ describe("the confirm-red step", () => {
     expect(result.ghCalls).toHaveLength(1);
   });
 
-  it("attempt 2 cancelled and the earlier attempt unreadable: confirms", () => {
+  it.each([
+    [
+      "404",
+      '{"message":"Not Found","documentation_url":"https://docs.github.com/rest","status":"404"}',
+    ],
+    ["403", '{"message":"Resource not accessible by integration","status":"403"}'],
+    ["5xx", '{"message":"Server Error","status":"502"}'],
+    ["empty body", ""],
+  ])("attempt 2 cancelled and the earlier attempt unreadable (%s): confirms", (_label, body) => {
     const result = runStep({
       conclusion: "cancelled",
       attempt: 2,
-      stub: { STUB_API_EXIT: "1" },
+      stub: { STUB_API_EXIT: "1", STUB_API_BODY: body },
     });
     expect(result.exitCode).toBe(0);
     expect(result.output).toBe("confirmed=true");
+    expect(result.ghCalls).toHaveLength(1);
   });
 
   it.each(["", "abc"])("failure with attempt '%s': confirms", (attempt) => {
@@ -553,37 +605,63 @@ describe("the confirm-red step", () => {
 // ---------------------------------------------------------------------------
 // The sequence behind review finding 2: A breaks main, A's rerun is cancelled,
 // B lands on top. Measured on f29ad0d49 (run 43135240654): once the rerun is
-// cancelled, the commit's latest check runs hold no `CI Gate` at all, so the
-// baseline code reads A as inconclusive (`null`).
+// cancelled, `commits/<sha>/check-runs` (latest only) holds no `CI Gate`, while
+// `filter=all` still returns attempt 1's `failure`. The watchdog reads
+// `filter=all` and takes the latest conclusive `CI Gate`, so B's baseline walk
+// stops at A as a pre-existing failure, exactly as it does on main.
 // ---------------------------------------------------------------------------
 
 describe("A breaks main, A's rerun is cancelled, B lands", () => {
-  const conclusions = { parentOfA: "success", A: null, B: "failure" };
+  const gate = (conclusion, completedAt) => ({
+    name: REQUIRED_CHECK_NAME,
+    status: "completed",
+    conclusion,
+    completed_at: completedAt,
+  });
+  // What `check-runs?filter=all` returns for each commit.
+  const scenarios = {
+    // The real f29ad0d49 shape: the cancelled rerun never produced a CI Gate run.
+    "rerun cancelled while queued": {
+      parentOfA: [gate("success", "2026-11-12T01:00:00Z")],
+      A: [gate("failure", "2026-11-12T02:19:52Z")],
+      B: [gate("failure", "2026-11-12T03:00:00Z")],
+    },
+    // The rerun started, so a cancelled CI Gate run sits after the failure.
+    "rerun cancelled while running": {
+      parentOfA: [gate("success", "2026-11-12T01:00:00Z")],
+      A: [gate("cancelled", "2026-11-12T02:28:38Z"), gate("failure", "2026-11-12T02:19:52Z")],
+      B: [gate("failure", "2026-11-12T03:00:00Z")],
+    },
+  };
   const parents = { B: "A", A: "parentOfA" };
-  const blame = (culpritSha) =>
+  const blame = (culpritSha, checkRunsBySha) =>
     resolveRevertAction({
       culpritSha,
       parentSha: parents[culpritSha],
       prNumber: 1,
-      getConclusionForSha: async (sha) => conclusions[sha],
+      getConclusionForSha: async (sha) =>
+        selectLatestConclusiveCheckRun(checkRunsBySha[sha], REQUIRED_CHECK_NAME),
       getParentSha: async (sha) => parents[sha] ?? null,
       getFailingTestPaths: async () => [],
       getChangedFiles: async () => [],
     });
 
-  it("acts on A: the cancelled rerun is confirmed red and A is reported", async () => {
-    expect(failed(1).action).toBe("rerun");
-    expect(cancelled(2, "failure").action).toBe("proceed");
-    expect((await blame("A")).action).toBe("issue-and-revert");
-  });
+  it.each(Object.entries(scenarios))(
+    "%s: A is confirmed red and reported",
+    async (_label, checkRunsBySha) => {
+      expect(failed(1).action).toBe("rerun");
+      expect(cancelled(2, "failure").action).toBe("proceed");
+      expect(selectLatestConclusiveCheckRun(checkRunsBySha.A, REQUIRED_CHECK_NAME)).toBe("failure");
+      expect((await blame("A", checkRunsBySha)).action).toBe("issue-and-revert");
+    }
+  );
 
-  // Known gap, not fixed here: the baseline walk still steps past A, so B is
-  // reported as well as A. Before this fix B was reported INSTEAD of A. The
-  // follow-up is for the walk to read A's earlier attempt (`check-runs` with
-  // `filter=all`), which would end B's walk at A as a pre-existing failure.
-  it("still reports B too, because the baseline walk reads A as inconclusive", async () => {
-    const decision = await blame("B");
-    expect(decision.action).toBe("issue-and-revert");
-    expect(decision.reason).toMatch(/parentOfA/);
-  });
+  it.each(Object.entries(scenarios))(
+    "%s: B is skipped, A is its pre-existing failure",
+    async (_label, checkRunsBySha) => {
+      const decision = await blame("B", checkRunsBySha);
+      expect(decision.action).toBe("skip");
+      expect(decision.reason).toMatch(/pre-existing failure at A/);
+    }
+  );
 });
