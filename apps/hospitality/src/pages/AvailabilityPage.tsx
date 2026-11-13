@@ -826,6 +826,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           {...(editor.sourceId ? { sourceScheduleId: editor.sourceId } : {})}
           {...(editor.seed ? { seed: editor.seed } : {})}
           onStale={() => void config.refetch()}
+          refreshError={config.error ? describeApiError(config.error).detail : null}
           onClose={() => setEditor(null)}
         />
       )}

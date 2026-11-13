@@ -110,7 +110,7 @@ interface BodyProps extends RegularWeekPanelProps {
 
 function RegularWeekPanelBody(props: BodyProps) {
   const { venueId, state, today, onStale, onStartLater, onDirtyChange, settling } = props;
-  const { onDiscard, onSaved, startLaterRef } = props;
+  const { onDiscard, onSaved, startLaterRef, refreshError } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
   const dayName = useWeekdayName();
@@ -139,7 +139,6 @@ function RegularWeekPanelBody(props: BodyProps) {
     previewChanges,
     scopeConflicts,
     submit,
-    overwrite,
   } = useRegularWeekEdit({
     venueId,
     state,
@@ -298,10 +297,10 @@ function RegularWeekPanelBody(props: BodyProps) {
           saver={saver}
           review={review.review}
           rows={draftRows(draft)}
-          stateVersion={state.version}
+          reloadError={refreshError}
+          onReload={onStale}
           onReapply={review.reapply}
           onStartOver={review.discard}
-          onOverwrite={() => void overwrite()}
           onDiscard={onDiscard}
           returnFocus={startLaterRef}
         />

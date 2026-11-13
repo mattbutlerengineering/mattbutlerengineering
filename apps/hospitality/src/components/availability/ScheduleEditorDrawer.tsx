@@ -68,6 +68,8 @@ export interface ScheduleEditorDrawerProps {
   readonly seed?: "regular";
   readonly onStale: () => void;
   readonly onClose: () => void;
+  /** The reload of the config failed (the page's read); a conflict being reviewed says so. */
+  readonly refreshError?: string | null;
 }
 
 const NO_ISSUES: readonly never[] = [];
@@ -328,8 +330,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     [writtenIds, config, timezone, today]
   );
 
-  /** `overwriting` (the conflict dialog's Overwrite) sends the draft as it is over the latest version. */
-  const submit = async (overwriting = false) => {
+  const submit = async () => {
     const makeId = () => crypto.randomUUID();
     const edited =
       editing && sourceScheduleId
@@ -339,8 +340,7 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
             name: trimmed,
             draft,
             makeId,
-            // An Overwrite is the draft over what is stored now, so the stored rows it lacks go.
-            baseline: overwriting ? config : review.baseline,
+            baseline: review.baseline,
           })
         : buildNewScheduleChanges({ config, name: trimmed, draft, useOn, winner, makeId });
     const changes =
@@ -350,15 +350,12 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
     setSent(pruneAlsoApply(alsoOptions, picks));
-    const scopeConflicts = dates.length > 1 ? conflictMode : "replace";
-    const saved = overwriting
-      ? await saver.overwrite(venueId, changes, scopeConflicts)
-      : await saver.save(
-          venueId,
-          { ...state, version: review.baselineVersion },
-          changes,
-          scopeConflicts
-        );
+    const saved = await saver.save(
+      venueId,
+      { ...state, version: review.baselineVersion },
+      changes,
+      dates.length > 1 ? conflictMode : "replace"
+    );
     if (!saved) return;
     offerUndo({
       venueId,
@@ -502,14 +499,10 @@ export function ScheduleEditorDrawer(props: ScheduleEditorDrawerProps) {
         review={review.review}
         rows={draftRows(draft)}
         alsoApply={alsoApplySince ?? undefined}
-        stateVersion={state.version}
-        // An edit of hours that were deleted has nothing left to save over.
-        canOverwrite={
-          !editing || config.schedules.some((s) => s.id === sourceScheduleId && !s.archivedAt)
-        }
+        reloadError={props.refreshError}
+        onReload={onStale}
         onReapply={review.reapply}
         onStartOver={review.discard}
-        onOverwrite={() => void submit(true)}
         onDiscard={onClose}
         returnFocus={cancelRef}
       />

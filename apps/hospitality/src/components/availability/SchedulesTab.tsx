@@ -258,6 +258,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
             timezone={timezone}
             today={today}
             onStale={onStale}
+            refreshError={props.refreshError}
             onDirtyChange={setCompareDirty}
             onEditSchedule={(sourceId) => onEditorChange({ mode: "edit", sourceId })}
           />
@@ -275,6 +276,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
           state={state}
           today={today}
           onStale={onStale}
+          refreshError={props.refreshError}
           initialDraft={startingLater}
           onSaved={(saved) => setLaterVersion(saved.version)}
           onClose={() => setStartingLater(null)}

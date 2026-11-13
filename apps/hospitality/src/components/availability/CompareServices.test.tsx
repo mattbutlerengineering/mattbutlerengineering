@@ -335,7 +335,7 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     expect(screen.queryByText("Loading the latest version…")).not.toBeInTheDocument();
   });
 
-  it("Overwrite writes the edited row as the Manager has it, against the version the dialog named", async () => {
+  it("keeps Overwrite off: a press sends nothing", async () => {
     save.mockRejectedValueOnce(
       Object.assign(new Error("409"), {
         problemDetails: { ...conflict.problemDetails, currentVersion: 6 },
@@ -346,23 +346,10 @@ describe("CompareServices against a colleague's change to the same row (#7999)",
     rerender(ui(atV6));
     fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
 
-    fireEvent.click(await screen.findByRole("button", { name: "Overwrite" }));
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
-    const body = save.mock.calls[1]?.[0].body;
-    expect(body.expectedVersion).toBe(6);
-    const row = body.changes.upsert.scheduleServices[0];
-    // The Manager's row as it was edited: their last seating (840), not the colleague's 810.
-    expect(row.lastSeatingAt).toBe(840);
-    expect(row.bookingTypes).toEqual(["phone"]);
-  });
-
-  it("keeps Overwrite off when the 409 named no version to go against", async () => {
-    save.mockRejectedValueOnce(conflict);
-    const { rerender } = render(ui(atV5));
-    editWeekendBooking();
-    rerender(ui(atV6));
-    fireEvent.click(screen.getByRole("button", { name: "Save 1 schedule" }));
-    expect(await screen.findByRole("button", { name: "Overwrite" })).toBeDisabled();
+    const overwrite = await screen.findByRole("button", { name: "Overwrite" });
+    expect(overwrite).toBeDisabled();
+    fireEvent.click(overwrite);
+    expect(save).toHaveBeenCalledTimes(1);
   });
 
   it("Back to my draft keeps the edits, and the next save meets the conflict afresh", async () => {

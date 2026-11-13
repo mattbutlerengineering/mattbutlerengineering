@@ -208,8 +208,6 @@ describe("one conflict dialog for the weekly form and the date editor", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Review their change" }));
     expect(within(dialog).getByText("Loading the latest version…")).toBeTruthy();
     expect(within(dialog).getByRole("button", { name: "Reapply my changes" })).toBeDisabled();
-    // Not loaded, so Overwrite would go against hours the Manager has not been shown.
-    expect(within(dialog).getByRole("button", { name: "Overwrite" })).toBeDisabled();
   });
 
   it("puts focus inside the dialog when it opens, in both", async () => {
@@ -257,54 +255,85 @@ describe("one conflict dialog for the weekly form and the date editor", () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it("Overwrite saves the draft as it is against the version the dialog named", async () => {
+  it("keeps Overwrite off in the weekly form, says so, and a press sends nothing", async () => {
     const { dialog } = await refuseWeekly();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
-    await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
-    expect(save.mock.calls[1]![0].body.expectedVersion).toBe(8);
+    const overwrite = within(dialog).getByRole("button", { name: "Overwrite" });
+    expect(overwrite).toBeDisabled();
+    expect(within(dialog).getByText(/^Overwrite isn’t available right now\./)).toBeTruthy();
+    fireEvent.click(overwrite);
+    expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it("a refused Overwrite is said inside the dialog, never swallowed", async () => {
-    const { dialog } = await refuseWeekly();
-    save.mockRejectedValueOnce(
-      new ApiClientError({
-        type: "about:blank",
-        title: "invalid-config",
-        status: 422,
-        detail: "Server said no.",
-        code: "invalid-config",
-        issues: [
-          { path: "scheduleServices.0", code: "overlap", message: "Lunch overlaps Dinner." },
-        ],
-      } as never)
+  it("makes Review their change the main action where Overwrite is off; the date editor keeps Overwrite", async () => {
+    const date = await refuseDate();
+    expect(within(date.dialog).getByRole("button", { name: "Overwrite" })).toBeEnabled();
+    expect(within(date.dialog).getByRole("button", { name: "Overwrite" }).className).toMatch(
+      /primary/
     );
-    fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
-    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Lunch overlaps Dinner.");
-  });
-
-  it("an Overwrite that meets a newer change says so and names it", async () => {
-    const { dialog } = await refuseWeekly();
-    save.mockRejectedValueOnce(
-      new ApiClientError({
-        type: "about:blank",
-        title: "version-conflict",
-        status: 409,
-        detail: "Server said no.",
-        code: "version-conflict",
-        currentVersion: 9,
-        winningChange: {
-          id: "chg-9",
-          actorId: "auth0|ana",
-          at: "2026-10-25T22:50:00.000Z",
-          kind: "config",
-          summary: "Brunch opens at 9:00 AM",
-        },
-      } as never)
-    );
-    fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
     expect(
-      await within(dialog).findByText(/Someone saved again while you were deciding/)
-    ).toBeTruthy();
-    expect(within(dialog).getByText(/^Brunch opens at 9:00 AM/)).toBeTruthy();
+      within(date.dialog).getByRole("button", { name: "Review their change" }).className
+    ).toMatch(/secondary/);
+    date.unmount();
+
+    const { dialog } = await refuseWeekly();
+    expect(within(dialog).getByRole("button", { name: "Review their change" }).className).toMatch(
+      /primary/
+    );
+    expect(within(dialog).getByRole("button", { name: "Overwrite" }).className).toMatch(
+      /secondary/
+    );
+  });
+
+  describe("when the latest version does not arrive", () => {
+    /** The weekly form, refused, with the reload still out (or failed with `refreshError`). */
+    async function refuseUnloaded(refreshError: string | null) {
+      save.mockRejectedValueOnce(refusal());
+      const onStale = vi.fn();
+      const at = (error: string | null) => (
+        <ToastProvider>
+          <main>
+            <RegularWeekPanel
+              venueId="venue-1"
+              state={{ config: week(), version: 7, source: "rows" }}
+              today="2026-10-25"
+              onStale={onStale}
+              onStartLater={vi.fn()}
+              refreshError={error}
+            />
+          </main>
+        </ToastProvider>
+      );
+      const { rerender } = render(at(null));
+      fireEvent.click(screen.getByRole("button", { name: /^Lunch, / }));
+      fireEvent.click(
+        within(screen.getByRole("group", { name: "Lunch runs on" })).getByRole("checkbox", {
+          name: "Friday",
+        })
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+      const dialog = await screen.findByRole("dialog", { name: TITLE });
+      rerender(at(refreshError));
+      fireEvent.click(within(dialog).getByRole("button", { name: "Review their change" }));
+      return { dialog, onStale };
+    }
+
+    it("offers Reload hours while it is loading, which asks for the latest version again", async () => {
+      const { dialog, onStale } = await refuseUnloaded(null);
+      expect(within(dialog).getByText("Loading the latest version…")).toBeTruthy();
+      expect(onStale).toHaveBeenCalledTimes(1);
+      fireEvent.click(within(dialog).getByRole("button", { name: "Reload hours" }));
+      expect(onStale).toHaveBeenCalledTimes(2);
+    });
+
+    it("says a failed reload inside the dialog, with the reason and Reload hours", async () => {
+      const { dialog, onStale } = await refuseUnloaded("Network down");
+      const alert = within(dialog).getByRole("alert");
+      expect(alert).toHaveTextContent("Couldn't load availability");
+      expect(alert).toHaveTextContent("Network down");
+      expect(within(dialog).queryByText("Loading the latest version…")).toBeNull();
+      expect(within(dialog).getByRole("button", { name: "Reapply my changes" })).toBeDisabled();
+      fireEvent.click(within(dialog).getByRole("button", { name: "Reload hours" }));
+      expect(onStale).toHaveBeenCalledTimes(2);
+    });
   });
 });

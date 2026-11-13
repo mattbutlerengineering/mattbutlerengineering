@@ -173,11 +173,8 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     : "";
   const scopeConflicts: ScopeConflictMode = dates.length > 1 ? conflictMode : "replace";
 
-  /**
-   * Saves the draft; `true` when it was saved (and Undo offered), `false` when it was not.
-   * `overwriting` sends it as it is over the change a conflict named.
-   */
-  const send = async (overwriting: boolean): Promise<boolean> => {
+  /** Saves the draft; `true` when it was saved (and Undo offered), `false` when it was not. */
+  const submit = async (): Promise<boolean> => {
     if (!startsOn) return false;
     const changes = buildRegularWeekChanges({
       config,
@@ -190,9 +187,7 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     });
     // Checked against the version the draft was built from, so a change made since is a
     // conflict the Manager reviews, not something this save quietly rebases.
-    const saved = overwriting
-      ? await saver.overwrite(venueId, changes, scopeConflicts)
-      : await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
+    const saved = await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
     if (!saved) return false;
     offerUndo({
       venueId,
@@ -238,8 +233,6 @@ export function useRegularWeekEdit(input: RegularWeekEditInput) {
     previewChanges,
     scopeConflicts,
     startText,
-    submit: () => send(false),
-    /** Overwrite in the conflict dialog: the draft as it is, over the version the dialog names. */
-    overwrite: () => send(true),
+    submit,
   };
 }

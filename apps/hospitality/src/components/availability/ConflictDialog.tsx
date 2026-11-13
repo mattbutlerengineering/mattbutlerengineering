@@ -42,6 +42,10 @@ export interface ConflictAnswers {
   readonly onReapply: () => void;
   /** The winning version as it is; the draft is dropped. */
   readonly onStartOver: () => void;
+  /** Why the reload of the latest version failed, said here because the page behind is hidden. */
+  readonly reloadError?: string | null;
+  /** Asks for the latest version again; offered until it has arrived. */
+  readonly onReload?: () => void;
 }
 
 export interface ConflictDialogProps {
@@ -70,19 +74,32 @@ export interface ConflictDialogProps {
 
 /** Reapply my changes and Start over, with why Reapply is off when it is. */
 function Answers(props: { readonly answers: ConflictAnswers; readonly isSaving: boolean }) {
-  const { loaded, gone, onReapply, onStartOver } = props.answers;
+  const { loaded, gone, onReapply, onStartOver, reloadError, onReload } = props.answers;
   const { t } = useTranslation();
   const note = !loaded
     ? t("availabilitySchedules.conflictReview.loading")
     : gone
       ? t("availabilitySchedules.conflictReview.gone")
       : t("availabilitySchedules.conflictReview.hint");
+  // A reload that failed is not still loading: the reason replaces the wait.
+  const failed = !loaded && Boolean(reloadError);
   return (
     <Stack gap="sm">
-      <Text variant="caption" color="secondary" role="status">
-        {note}
-      </Text>
+      {failed ? (
+        <Alert variant="error" title={t("availability.loadError")}>
+          {reloadError}
+        </Alert>
+      ) : (
+        <Text variant="caption" color="secondary" role="status">
+          {note}
+        </Text>
+      )}
       <div className={styles.answers}>
+        {!loaded && onReload && (
+          <Button variant="secondary" size="sm" onClick={onReload}>
+            {t("availability.drawer.reloadHours")}
+          </Button>
+        )}
         <Button
           variant="secondary"
           size="sm"
@@ -109,6 +126,8 @@ export function ConflictDialog(props: ConflictDialogProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const [reviewing, setReviewing] = useState(false);
+  // A form whose answers are under Review (Reapply, Start over) leads with Review, not Overwrite.
+  const reviewFirst = props.answers !== undefined;
 
   // An older server sends no `changesSince`: the winning change alone is named, as before.
   const listed = props.changesSince?.changes ?? [];
@@ -131,7 +150,10 @@ export function ConflictDialog(props: ConflictDialogProps) {
       footer={
         <div className={styles.footer}>
           {!reviewing && (
-            <Button variant="secondary" onClick={() => setReviewing(true)}>
+            <Button
+              variant={reviewFirst ? "primary" : "secondary"}
+              onClick={() => setReviewing(true)}
+            >
               {t("availability.editor.conflict.review")}
             </Button>
           )}
@@ -141,7 +163,12 @@ export function ConflictDialog(props: ConflictDialogProps) {
           <Button variant="secondary" onClick={onDiscard} disabled={isSaving}>
             {t("availability.editor.conflict.discard")}
           </Button>
-          <Button variant="primary" onClick={onOverwrite} isLoading={isSaving} disabled={!ready}>
+          <Button
+            variant={reviewFirst ? "secondary" : "primary"}
+            onClick={onOverwrite}
+            isLoading={isSaving}
+            disabled={!ready}
+          >
             {t("availability.editor.conflict.overwrite")}
           </Button>
         </div>

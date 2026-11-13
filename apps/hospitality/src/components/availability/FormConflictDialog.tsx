@@ -60,22 +60,18 @@ function conflictLines(
 }
 
 export interface FormConflictDialogProps {
-  readonly saver: Pick<
-    ReturnType<typeof useScheduleSave>,
-    "conflict" | "isPending" | "overwriteFailure" | "stranded" | "clearConflict"
-  >;
+  readonly saver: Pick<ReturnType<typeof useScheduleSave>, "conflict" | "clearConflict">;
   /** What `use-conflict-review.ts` found changed; `null` while there is no conflict. */
   readonly review: ConflictReview | null;
   /** The draft, for "Your draft". */
   readonly rows: readonly ConflictDraftRow[];
   readonly alsoApply?: AlsoApplySince;
-  /** The version of the config on hand: Overwrite waits until it is the one the dialog names. */
-  readonly stateVersion: number;
-  /** The draft can be saved over the winning version as it is (what it edits still exists). */
-  readonly canOverwrite?: boolean;
+  /** Why the reload of the latest version failed, as the page words it. */
+  readonly reloadError?: string | null;
+  /** Asks for the latest version again (the form's `onStale`). */
+  readonly onReload: () => void;
   readonly onReapply: () => void;
   readonly onStartOver: () => void;
-  readonly onOverwrite: () => void;
   /** Discard mine: what the form's own Discard or Cancel does, without asking. */
   readonly onDiscard: () => void;
   /** Where focus goes when the answer removed or disabled the control that opened the dialog. */
@@ -85,6 +81,10 @@ export interface FormConflictDialogProps {
 /**
  * The one conflict dialog (`ConflictDialog`) for the forms that save through `useScheduleSave` and
  * review through `use-conflict-review.ts`: the weekly form, its drawers and the compare table.
+ *
+ * Overwrite is off in all of them, pending the Owner (availability-hub E4.3 review): it would write
+ * the Manager's whole draft over the colleague's version without the dialog saying what is lost.
+ * `useScheduleSave().overwrite` stays, pinned by its own tests, and no form calls it.
  */
 export function FormConflictDialog(props: FormConflictDialogProps) {
   const { saver, review, returnFocus } = props;
@@ -103,7 +103,6 @@ export function FormConflictDialog(props: FormConflictDialogProps) {
       if (!active || active === document.body) returnFocus.current?.focus();
     }, 0);
   };
-  const canOverwrite = props.canOverwrite ?? true;
 
   return (
     <ConflictDialog
@@ -111,21 +110,21 @@ export function FormConflictDialog(props: FormConflictDialogProps) {
       winningChange={conflict.winningChange}
       {...(conflict.changesSince ? { changesSince: conflict.changesSince } : {})}
       services={props.rows}
-      isSaving={saver.isPending}
-      failure={saver.overwriteFailure}
-      stranded={saver.overwriteFailure.length > 0 ? saver.stranded : []}
-      // Overwrite sends the draft over the version the dialog names, so it waits for that version
-      // to be the one on hand: the save is then built from hours the Manager has been shown.
-      ready={canOverwrite && conflict.seen !== null && conflict.seen === props.stateVersion}
-      changedAgain={conflict.again}
+      // Nothing saves from this dialog: every answer here changes the draft, not the stored hours.
+      isSaving={false}
+      ready={false}
+      changedAgain={false}
       answers={{
         loaded: review.loaded,
         gone: review.changes.gone,
         lines: conflictLines(review.changes, props.alsoApply, t, format.locale),
         onReapply: leave(props.onReapply),
         onStartOver: leave(props.onStartOver),
+        reloadError: props.reloadError ?? null,
+        onReload: props.onReload,
       }}
-      onOverwrite={props.onOverwrite}
+      // Unreachable while `ready` is false: the button is disabled.
+      onOverwrite={() => undefined}
       onDiscard={leave(props.onDiscard)}
       onBack={leave(saver.clearConflict)}
     />

@@ -51,6 +51,8 @@ export interface CompareServicesProps {
   /** Today on the venue clock. */
   readonly today: string;
   readonly onStale: () => void;
+  /** The reload of the config failed (the page's read); a conflict being reviewed says so. */
+  readonly refreshError?: string | null;
   /** Reports whether rows are edited but not saved, so the surface around can ask before closing. */
   readonly onDirtyChange?: (dirty: boolean) => void;
   /** Opens Edit schedule for a row that has its own days or different hours. */
@@ -240,23 +242,15 @@ export function CompareServices(props: CompareServicesProps) {
     setBulkOpen(false);
   };
 
-  /** `overwriting` (the conflict dialog's Overwrite) sends the edited rows as they are over the latest. */
-  const submit = async (overwriting = false) => {
+  const submit = async () => {
     if (!base) return; // nothing is edited, so there is nothing to save
-    const scopeConflicts = dates.length > 1 ? mode : "replace";
-    const saved = overwriting
-      ? await saver.overwrite(
-          venueId,
-          buildCompareChanges(config, Object.values(edits)),
-          scopeConflicts
-        )
-      : await saver.save(
-          venueId,
-          state,
-          buildCompareChanges(baselineOf(base), Object.values(edits)),
-          scopeConflicts,
-          base.version
-        );
+    const saved = await saver.save(
+      venueId,
+      state,
+      buildCompareChanges(baselineOf(base), Object.values(edits)),
+      dates.length > 1 ? mode : "replace",
+      base.version
+    );
     if (!saved) return;
     offerUndo({
       venueId,
@@ -311,12 +305,10 @@ export function CompareServices(props: CompareServicesProps) {
           opensAt: row.opensAt,
           closesAt: row.closesAt,
         }))}
-        stateVersion={state.version}
-        // A row a colleague removed cannot be written back as it was.
-        canOverwrite={review !== null && review.changes.removed.length === 0}
+        reloadError={props.refreshError}
+        onReload={onStale}
         onReapply={reapply}
         onStartOver={discard}
-        onOverwrite={() => void submit(true)}
         onDiscard={discard}
       />
       <Select

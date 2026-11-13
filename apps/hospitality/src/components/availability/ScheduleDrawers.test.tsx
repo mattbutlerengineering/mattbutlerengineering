@@ -281,14 +281,13 @@ describe("schedule drawers", () => {
       return { props, dialog: await screen.findByRole("dialog", { name: CONFLICT }) };
     }
 
-    it("Overwrite sends the draft as it is over the latest version, against the version the dialog named", async () => {
+    it("keeps Overwrite off: a press sends nothing, and the colleague's Brunch is not removed", async () => {
       const { dialog } = await refusedEdit(withBrunch(fixtureConfig()));
-      fireEvent.click(within(dialog).getByRole("button", { name: "Overwrite" }));
-      await waitFor(() => expect(save).toHaveBeenCalledTimes(2));
-      const body = save.mock.calls[1]?.[0].body;
-      expect(body.expectedVersion).toBe(8);
-      // The draft has Dinner only: Lunch (removed by the Manager) and their Brunch both go.
-      expect([...body.changes.remove.scheduleServices].sort()).toEqual(["ss-brunch", "ss-lunch"]);
+      const overwrite = within(dialog).getByRole("button", { name: "Overwrite" });
+      expect(overwrite).toBeDisabled();
+      expect(within(dialog).getByText(/^Overwrite isn’t available right now\./)).toBeTruthy();
+      fireEvent.click(overwrite);
+      expect(save).toHaveBeenCalledTimes(1);
     });
 
     it("Back to my draft keeps the edit and the version it was built on", async () => {
@@ -529,6 +528,25 @@ describe("schedule drawers", () => {
       rerenderWith(autumnRegular(opened), 8);
       fireEvent.keyDown(document, { key: "Escape" });
       expect(props.onClose).toHaveBeenCalledTimes(1);
+    });
+
+    it("Change regular week keeps Overwrite off: a press sends nothing", async () => {
+      const opened = tueSat();
+      save.mockRejectedValueOnce(
+        Object.assign(conflict(), {
+          problemDetails: { ...conflict().problemDetails, currentVersion: 8 },
+        })
+      );
+      const { props, rerenderWith } = renderWeek(opened);
+      fireEvent.click(screen.getByRole("button", { name: "Remove service 1" }));
+      fireEvent.change(screen.getByLabelText("Starting"), { target: { value: "2026-11-02" } });
+      fireEvent.click(screen.getByRole("button", { name: /^Save/ }));
+      await waitFor(() => expect(props.onStale).toHaveBeenCalledTimes(1));
+      rerenderWith(withBrunch(opened), 8);
+      const overwrite = await screen.findByRole("button", { name: "Overwrite" });
+      expect(overwrite).toBeDisabled();
+      fireEvent.click(overwrite);
+      expect(save).toHaveBeenCalledTimes(1);
     });
 
     it("Start over in Change regular week clears the name and dates too", async () => {

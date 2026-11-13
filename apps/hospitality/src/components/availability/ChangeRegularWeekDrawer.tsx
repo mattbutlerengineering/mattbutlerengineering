@@ -37,6 +37,8 @@ export interface ChangeRegularWeekDrawerProps {
   readonly initialDraft?: QuickSetupDraft;
   /** Starting, prefilled (Copy → Every week). It counts as a change, so Cancel asks first. */
   readonly initialStartsOn?: string;
+  /** The reload of the config failed (the page's read); a conflict being reviewed says so. */
+  readonly refreshError?: string | null;
 }
 
 /**
@@ -86,7 +88,6 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
     scopeConflicts,
     startText,
     submit,
-    overwrite,
   } = useRegularWeekEdit({
     venueId,
     state,
@@ -258,10 +259,10 @@ export function ChangeRegularWeekDrawer(props: ChangeRegularWeekDrawerProps) {
         saver={saver}
         review={review.review}
         rows={draftRows(draft)}
-        stateVersion={state.version}
+        reloadError={props.refreshError}
+        onReload={onStale}
         onReapply={review.reapply}
         onStartOver={review.discard}
-        onOverwrite={() => void overwrite()}
         onDiscard={onClose}
         returnFocus={cancelRef}
       />
