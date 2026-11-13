@@ -761,6 +761,22 @@ describe("collectQueueEfficiency — known-row cost and coverage (#6941)", () =>
     expect(result.sub_metrics.review_coverage_n).toBe(2);
   });
 
+  // #8817: GitHub backfill rows land with reviewer_verdict null before the daily
+  // reconciler stamps unknown_reasons. A null verdict is unmeasured whether or
+  // not the reason is written yet; counting it as "not reviewed" made the
+  // metric fall with backfill volume.
+  it("excludes null-verdict rows awaiting reconciliation and reports how many (#8817)", () => {
+    const result = run(prsN(4), [
+      { pr_number: 10, reviewer_verdict: "pass" },
+      { pr_number: 11, reviewer_verdict: "skipped" },
+      { pr_number: 12, reviewer_verdict: null },
+      { pr_number: 13, reviewer_verdict: null, unknown_reasons: { reviewer_verdict: "x" } },
+    ]);
+    expect(result.sub_metrics.review_coverage).toBe(0.5);
+    expect(result.sub_metrics.review_coverage_n).toBe(2);
+    expect(result.sub_metrics.review_coverage_unmeasured_n).toBe(2);
+  });
+
   it("passes telemetry rows into the baseline weeks", () => {
     const current = makePr({ number: 10, createdAt: isoAgo(4), mergedAt: isoAgo(3) });
     const prior = makePr({ number: 20, createdAt: isoAgo(11), mergedAt: isoAgo(10) });

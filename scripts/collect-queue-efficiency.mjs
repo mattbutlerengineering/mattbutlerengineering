@@ -282,8 +282,8 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
 
 /**
  * Share of the window's PRs that carry a real `pass`/`flag` review verdict.
- * A PR whose row records an `unknown_reasons.reviewer_verdict` is excluded
- * from the denominator (the verdict is unknowable, not missing); a PR with
+ * A PR whose row has a null verdict (backfilled or reconciled-unknown) is
+ * excluded from the denominator (the verdict is unknowable, not missing); a PR with
  * no row at all stays in it.
  *
  * The denominator is `windowPrs.length` — the PRs that *should* have gone
@@ -299,16 +299,22 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
  *
  * @param {Array<object>} windowPrs
  * @param {Array<{ pr_number?: number, reviewer_verdict?: string }>} windowRows
- * @returns {{ coverage: number|null, n: number }}
+ * @returns {{ coverage: number|null, n: number, unmeasured: number }}
  */
 function reviewCoverage(windowPrs, windowRows) {
   const reviewed = windowRows.filter((r) => REAL_VERDICTS.has(r.reviewer_verdict)).length;
-  const unknowable = windowRows.filter(
-    (r) => !REAL_VERDICTS.has(r.reviewer_verdict) && r.unknown_reasons?.reviewer_verdict
-  ).length;
-  const denominator = windowPrs.length - unknowable;
-  if (denominator <= 0) return { coverage: null, n: 0 };
-  return { coverage: Math.round((reviewed / denominator) * 1000) / 1000, n: denominator };
+  // A null verdict is unmeasured, with or without a recorded reason: GitHub
+  // backfill rows are written null before the daily reconciler stamps
+  // `unknown_reasons` (#8817). Reconciler stalls are caught by the
+  // queue-telemetry completeness check, not by this ratio.
+  const unmeasured = windowRows.filter((r) => r.reviewer_verdict == null).length;
+  const denominator = windowPrs.length - unmeasured;
+  if (denominator <= 0) return { coverage: null, n: 0, unmeasured };
+  return {
+    coverage: Math.round((reviewed / denominator) * 1000) / 1000,
+    n: denominator,
+    unmeasured,
+  };
 }
 
 /**
@@ -366,6 +372,7 @@ function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
     cost_coverage_n: matchedCosts.length,
     review_coverage: review.coverage,
     review_coverage_n: review.n,
+    review_coverage_unmeasured_n: review.unmeasured,
   };
 }
 
