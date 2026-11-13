@@ -282,8 +282,8 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
 
 /**
  * Share of the window's PRs that carry a real `pass`/`flag` review verdict.
- * A PR whose row has a null verdict (backfilled or reconciled-unknown) is
- * excluded from the denominator (the verdict is unknowable, not missing); a PR with
+ * A PR whose row is an unmeasured null verdict (see
+ * {@link isUnmeasuredVerdictRow}) is excluded from the denominator (the verdict is unknowable, not missing); a PR with
  * no row at all stays in it.
  *
  * The denominator is `windowPrs.length` — the PRs that *should* have gone
@@ -299,22 +299,42 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
  *
  * @param {Array<object>} windowPrs
  * @param {Array<{ pr_number?: number, reviewer_verdict?: string }>} windowRows
- * @returns {{ coverage: number|null, n: number, unmeasured: number }}
+ * @returns {{ coverage: number|null, n: number, unmeasured: number, share: number }}
  */
 function reviewCoverage(windowPrs, windowRows) {
   const reviewed = windowRows.filter((r) => REAL_VERDICTS.has(r.reviewer_verdict)).length;
-  // A null verdict is unmeasured, with or without a recorded reason: GitHub
-  // backfill rows are written null before the daily reconciler stamps
-  // `unknown_reasons` (#8817). Reconciler stalls are caught by the
-  // queue-telemetry completeness check, not by this ratio.
-  const unmeasured = windowRows.filter((r) => r.reviewer_verdict == null).length;
+  const unmeasured = windowRows.filter(isUnmeasuredVerdictRow).length;
   const denominator = windowPrs.length - unmeasured;
-  if (denominator <= 0) return { coverage: null, n: 0, unmeasured };
+  const share = Math.round((unmeasured / windowPrs.length) * 1000) / 1000;
+  if (denominator <= 0) return { coverage: null, n: 0, unmeasured, share };
   return {
     coverage: Math.round((reviewed / denominator) * 1000) / 1000,
     n: denominator,
     unmeasured,
+    share,
   };
+}
+
+/**
+ * A null verdict is unmeasured only when the row is stamped with
+ * `unknown_reasons.reviewer_verdict` or still carries the GitHub-backfill
+ * signature (every worker-session field null, which the backfill cannot
+ * recover) before the daily reconciler stamps it (#8817). An in-session row
+ * (has a model tier or labels) with a null verdict is a failed write and
+ * stays uncovered.
+ *
+ * @param {object} r
+ * @returns {boolean}
+ */
+function isUnmeasuredVerdictRow(r) {
+  if (r.reviewer_verdict != null) return false;
+  if (r.unknown_reasons?.reviewer_verdict) return true;
+  return (
+    r.model_tier == null &&
+    r.tool_uses == null &&
+    r.subagent_tokens == null &&
+    (r.labels?.length ?? 0) === 0
+  );
 }
 
 /**
@@ -373,6 +393,7 @@ function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
     review_coverage: review.coverage,
     review_coverage_n: review.n,
     review_coverage_unmeasured_n: review.unmeasured,
+    review_coverage_unmeasured_share: review.share,
   };
 }
 

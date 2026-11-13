@@ -762,19 +762,37 @@ describe("collectQueueEfficiency — known-row cost and coverage (#6941)", () =>
   });
 
   // #8817: GitHub backfill rows land with reviewer_verdict null before the daily
-  // reconciler stamps unknown_reasons. A null verdict is unmeasured whether or
-  // not the reason is written yet; counting it as "not reviewed" made the
-  // metric fall with backfill volume.
-  it("excludes null-verdict rows awaiting reconciliation and reports how many (#8817)", () => {
+  // reconciler stamps unknown_reasons. Their signature is every worker-session
+  // field null (the backfill cannot recover them); an in-session row has a
+  // model tier and labels, so a null verdict there is a failed write, not unknown.
+  const BACKFILL = { labels: [], model_tier: null, tool_uses: null, subagent_tokens: null };
+  const IN_SESSION = { labels: ["size:s"], model_tier: "sonnet", tool_uses: 5 };
+
+  it("excludes unreconciled backfill rows and reports count and share (#8817)", () => {
     const result = run(prsN(4), [
-      { pr_number: 10, reviewer_verdict: "pass" },
-      { pr_number: 11, reviewer_verdict: "skipped" },
-      { pr_number: 12, reviewer_verdict: null },
-      { pr_number: 13, reviewer_verdict: null, unknown_reasons: { reviewer_verdict: "x" } },
+      { pr_number: 10, reviewer_verdict: "pass", ...IN_SESSION },
+      { pr_number: 11, reviewer_verdict: "skipped", ...IN_SESSION },
+      { pr_number: 12, reviewer_verdict: null, ...BACKFILL },
+      {
+        pr_number: 13,
+        reviewer_verdict: null,
+        ...IN_SESSION,
+        unknown_reasons: { reviewer_verdict: "x" },
+      },
     ]);
     expect(result.sub_metrics.review_coverage).toBe(0.5);
     expect(result.sub_metrics.review_coverage_n).toBe(2);
     expect(result.sub_metrics.review_coverage_unmeasured_n).toBe(2);
+    expect(result.sub_metrics.review_coverage_unmeasured_share).toBe(0.5);
+  });
+
+  it("keeps an unmarked in-session null verdict in the denominator as uncovered (#8817)", () => {
+    const result = run(prsN(3), [
+      { pr_number: 10, reviewer_verdict: "pass", ...IN_SESSION },
+      { pr_number: 11, reviewer_verdict: null, ...IN_SESSION },
+    ]);
+    expect(result.sub_metrics.review_coverage).toBeCloseTo(0.333, 3);
+    expect(result.sub_metrics.review_coverage_unmeasured_n).toBe(0);
   });
 
   it("passes telemetry rows into the baseline weeks", () => {
