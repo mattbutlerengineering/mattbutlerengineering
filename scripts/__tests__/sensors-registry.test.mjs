@@ -1556,6 +1556,15 @@ describe("metricsFreshness sensor (#5529)", () => {
         join(dir, "shipped-features.json"),
         JSON.stringify({ generatedAt: "2026-09-20T00:00:00.000Z", features: [{ slug: "a" }] })
       );
+      const publicDir = join(tmpDir, "apps/marketing/public");
+      mkdirSync(publicDir, { recursive: true });
+      writeFileSync(
+        join(publicDir, "metrics.json"),
+        JSON.stringify({
+          generatedAt: "2026-09-20T00:00:00.000Z",
+          history: [{ date: "2026-09-19" }],
+        })
+      );
     }
     return tmpDir;
   }
@@ -1576,13 +1585,14 @@ describe("metricsFreshness sensor (#5529)", () => {
     });
 
     expect(data.available).toBe(true);
-    expect(data.stale_count).toBe(9);
+    expect(data.stale_count).toBe(10);
 
     const regressions = sensor().detectRegression(data, undefined, {});
     expect(regressions.map((r) => r.metric).sort()).toEqual([
       "ai-issue-feedback",
       "audit-coverage",
       "lighthouse",
+      "marketing-metrics",
       "mutation-score",
       "queue-telemetry",
       "queueEfficiency",
