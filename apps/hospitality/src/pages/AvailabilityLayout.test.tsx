@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router";
+import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { useAvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { AvailabilityLayout } from "./AvailabilityLayout.js";
@@ -26,6 +27,7 @@ vi.mock("../hooks/useAvailability.js", () => ({
     config.params(params);
     return { data: config.data, isLoading: false, error: config.error, refetch: config.refetch };
   },
+  useRevertAvailabilityChange: () => ({ mutateAsync: vi.fn() }),
 }));
 vi.mock("../hooks/useIsManager.js", () => ({ useManagerAccess: () => access }));
 
@@ -69,7 +71,11 @@ function renderLayout() {
     ],
     { initialEntries: ["/availability/calendar"] }
   );
-  return render(<RouterProvider router={router} />);
+  return render(
+    <ToastProvider>
+      <RouterProvider router={router} />
+    </ToastProvider>
+  );
 }
 
 const read = (name: string) => screen.getByRole("status", { name }).textContent;
