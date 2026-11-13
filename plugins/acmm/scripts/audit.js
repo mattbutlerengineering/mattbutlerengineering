@@ -151,6 +151,88 @@ export function formatBehavioralGateLine(gate, strict) {
 }
 
 /**
+ * Split the next-level gap list into criteria whose absence is confirmed and
+ * criteria whose status this run could not establish.
+ *
+ * An `active`-type criterion whose workflow file is present but whose
+ * `gh run list` call could not run is `unverifiable` (#2023): unknown, not
+ * confirmed false. `--apply` has excluded those from the issues it files since
+ * #3719; this is the same filter, so the console list and `--apply` cannot
+ * drift apart.
+ *
+ * @param {Array<{ id: string, name: string }>} missingForNextLevel
+ * @param {Set<string>} unverifiableIds
+ * @returns {{ confirmed: Array<{ id: string, name: string }>, unverifiable: Array<{ id: string, name: string }> }}
+ */
+export function partitionMissingForNext(missingForNextLevel, unverifiableIds) {
+  const confirmed = [];
+  const unverifiable = [];
+  for (const c of missingForNextLevel) {
+    (unverifiableIds.has(c.id) ? unverifiable : confirmed).push(c);
+  }
+  return { confirmed, unverifiable };
+}
+
+/**
+ * The detected-count delta for the "Since last run" line, attributed when a
+ * drop coincides with criteria this run could not verify.
+ *
+ * `countDelta` is a true statement about `detected` counts, but on its own a
+ * `-8` alongside "no criteria changed" reads as a regression when the cause is
+ * that gh was unavailable here. The clause names that cause rather than
+ * changing the number.
+ *
+ * @param {number} countDelta
+ * @param {number} unverifiableCount
+ * @returns {string}
+ */
+export function formatSinceLastRunCount(countDelta, unverifiableCount) {
+  if (countDelta > 0) return `+${countDelta}`;
+  if (countDelta === 0) return "\u00b10";
+  const suffix =
+    unverifiableCount > 0
+      ? `, ${unverifiableCount} unverifiable this run \u2014 status unknown, not a confirmed regression`
+      : "";
+  return `${countDelta}${suffix}`;
+}
+
+/**
+ * The "Next: …" section of the console summary, as one string.
+ *
+ * Confirmed gaps and status-unknown criteria get their own heading, so the
+ * list a reader is invited to act on is exactly the list `--apply` would file
+ * (see `partitionMissingForNext`). Returning a string rather than writing to
+ * stdout makes the section assertable in a unit test and keeps one
+ * `console.log` per section.
+ *
+ * @param {string} trigger
+ * @param {Array<{ id: string, name: string }>} confirmed
+ * @param {Array<{ id: string, name: string }>} unverifiable
+ * @returns {string}
+ */
+export function formatNextLevelSection(trigger, confirmed, unverifiable) {
+  const LIMIT = 6;
+  /** @param {Array<{ id: string, name: string }>} list @param {string} bullet */
+  const items = (list, bullet) => {
+    const lines = list.slice(0, LIMIT).map((c) => `  ${bullet} ${c.id} — ${c.name}`);
+    if (list.length > LIMIT) lines.push(`  … ${list.length - LIMIT} more`);
+    return lines;
+  };
+  const lines = [
+    `Next: ${trigger}`,
+    `Missing for next level (${confirmed.length}):`,
+    ...items(confirmed, "•"),
+  ];
+  if (unverifiable.length > 0) {
+    lines.push(
+      `Status unknown for next level (${unverifiable.length}) — not filed by --apply:`,
+      ...items(unverifiable, "?")
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
  * Is this module the CLI entry point (invoked directly), rather than
  * imported by a test? `process.argv[1] === __filename` no-ops silently
  * through a symlink or a `/tmp`-resolved path — a symlinked invocation of
@@ -433,8 +515,9 @@ async function main() {
       // File issues for criteria gating the NEXT level — avoids issue spam
       // for L5/L6 items when we're still climbing L3. Unverifiable criteria are
       // excluded: unknown status isn't a confirmed gap (#3719).
-      const failingForNext = computation.missingForNextLevel.filter(
-        (c) => !unverifiableIds.has(c.id)
+      const { confirmed: failingForNext } = partitionMissingForNext(
+        computation.missingForNextLevel,
+        unverifiableIds
       );
 
       // Combine: regressions first, then next-level gaps (dedup handled inside).
@@ -503,12 +586,7 @@ async function main() {
 
   if (diff) {
     const arrow = diff.levelDelta > 0 ? "↑" : diff.levelDelta < 0 ? "↓" : null;
-    const countArrow =
-      diff.countDelta > 0
-        ? `+${diff.countDelta}`
-        : diff.countDelta < 0
-          ? `${diff.countDelta}`
-          : "±0";
+    const countArrow = formatSinceLastRunCount(diff.countDelta, unverifiableIds.size);
     const levelStr = arrow
       ? `L${diff.priorLevel} ${arrow} L${computation.level}`
       : `L${computation.level} (unchanged)`;
@@ -641,16 +719,18 @@ async function main() {
     console.log(formatBehavioralGateLine(gate, STRICT));
   }
 
+  const { confirmed: missingConfirmed, unverifiable: missingUnverifiable } =
+    partitionMissingForNext(computation.missingForNextLevel, unverifiableIds);
+
   if (computation.nextTransitionTrigger) {
     console.log("");
-    console.log(`Next: ${computation.nextTransitionTrigger}`);
-    console.log(`Missing for next level (${computation.missingForNextLevel.length}):`);
-    for (const c of computation.missingForNextLevel.slice(0, 6)) {
-      console.log(`  • ${c.id} — ${c.name}`);
-    }
-    if (computation.missingForNextLevel.length > 6) {
-      console.log(`  … ${computation.missingForNextLevel.length - 6} more`);
-    }
+    console.log(
+      formatNextLevelSection(
+        computation.nextTransitionTrigger,
+        missingConfirmed,
+        missingUnverifiable
+      )
+    );
   }
 
   console.log("");
@@ -661,7 +741,7 @@ async function main() {
       `issues: created ${applyResult.createdCount}, skipped-open ${applyResult.skippedOpen}, skipped-vetoed ${applyResult.skippedVetoed || 0}, reopened ${applyResult.reopenedCount || 0}`
     );
   }
-  if (!APPLY && computation.missingForNextLevel.length > 0) {
+  if (!APPLY && missingConfirmed.length > 0) {
     console.log("");
     console.log(
       "Run with --apply to file GitHub issues for the next-level gaps (implement-queue will pick them up)."
