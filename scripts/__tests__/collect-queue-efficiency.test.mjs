@@ -8,6 +8,7 @@ import {
 import {
   buildReviewCoverageTrail,
   collectQueueEfficiency,
+  reviewCoverage,
   defaultReadPrs,
   fetchCommitsBatched,
   readMergedAiPrsPaged,
@@ -793,6 +794,29 @@ describe("collectQueueEfficiency — known-row cost and coverage (#6941)", () =>
     ]);
     expect(result.sub_metrics.review_coverage).toBeCloseTo(0.333, 3);
     expect(result.sub_metrics.review_coverage_unmeasured_n).toBe(0);
+  });
+
+  it("derives the backfill fixture from the writer's real output (#8817)", async () => {
+    const { deriveTelemetryRows } = await import("../collect-queue-telemetry-from-github.mjs");
+    const { rows } = deriveTelemetryRows(
+      [
+        {
+          number: 10,
+          headRefName: "worktree-agent-abc",
+          body: "Closes #55",
+          labels: [{ name: "agent-authored" }],
+          createdAt: isoAgo(4),
+          mergedAt: isoAgo(3),
+        },
+      ],
+      []
+    );
+    const result = run(prsN(2), rows);
+    expect(result.sub_metrics.review_coverage_unmeasured_n).toBe(1);
+  });
+
+  it("reports a null unmeasured share, never NaN, for an empty window (#8817)", () => {
+    expect(reviewCoverage([], [])).toMatchObject({ share: null });
   });
 
   it("passes telemetry rows into the baseline weeks", () => {

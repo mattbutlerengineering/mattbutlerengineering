@@ -24,6 +24,7 @@ import {
   MissingGithubTokenError,
 } from "@mbe/gh-client";
 import { isAgentPr } from "../plugins/acmm/scripts/agent-pr.js";
+import { isBackfillRow } from "./collect-queue-telemetry-from-github.mjs";
 import { readTelemetryRows } from "./queue-telemetry-store.mjs";
 
 /** Thresholds — imported by sensors-registry.mjs's queueEfficiency entry (co-located with its detectRegression). */
@@ -299,13 +300,14 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
  *
  * @param {Array<object>} windowPrs
  * @param {Array<{ pr_number?: number, reviewer_verdict?: string }>} windowRows
- * @returns {{ coverage: number|null, n: number, unmeasured: number, share: number }}
+ * @returns {{ coverage: number|null, n: number, unmeasured: number, share: number|null }}
  */
-function reviewCoverage(windowPrs, windowRows) {
+export function reviewCoverage(windowPrs, windowRows) {
   const reviewed = windowRows.filter((r) => REAL_VERDICTS.has(r.reviewer_verdict)).length;
   const unmeasured = windowRows.filter(isUnmeasuredVerdictRow).length;
   const denominator = windowPrs.length - unmeasured;
-  const share = Math.round((unmeasured / windowPrs.length) * 1000) / 1000;
+  const share =
+    windowPrs.length === 0 ? null : Math.round((unmeasured / windowPrs.length) * 1000) / 1000;
   if (denominator <= 0) return { coverage: null, n: 0, unmeasured, share };
   return {
     coverage: Math.round((reviewed / denominator) * 1000) / 1000,
@@ -329,12 +331,7 @@ function reviewCoverage(windowPrs, windowRows) {
 function isUnmeasuredVerdictRow(r) {
   if (r.reviewer_verdict != null) return false;
   if (r.unknown_reasons?.reviewer_verdict) return true;
-  return (
-    r.model_tier == null &&
-    r.tool_uses == null &&
-    r.subagent_tokens == null &&
-    (r.labels?.length ?? 0) === 0
-  );
+  return isBackfillRow(r);
 }
 
 /**
