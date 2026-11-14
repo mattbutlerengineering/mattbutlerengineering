@@ -1,6 +1,6 @@
 {
   "schema": "acmm-metrics/v1",
-  "generatedAt": "2026-11-13T11:56:53.670Z",
+  "generatedAt": "2026-11-14T11:17:36.920Z",
   "level": 5,
   "levelName": "Semi-Automated",
   "role": "Operator",
@@ -15,11 +15,11 @@
   },
   "behavioral": {
     "ciFlakeRate": 0.024024024024024024,
-    "agentPrAcceptanceRate": 0.9884615384615385,
-    "agentPrRevertRate": 0.0038910505836575876,
+    "agentPrAcceptanceRate": 0.9884169884169884,
+    "agentPrRevertRate": 0.00390625,
     "evalPassRate": 0.8,
     "evalsStale": false,
-    "evalsLastRun": "2026-11-06T15:50:10.877Z",
+    "evalsLastRun": "2026-11-13T16:47:31.394Z",
     "evalMedianScore": 1
   },
   "history": [
@@ -670,9 +670,39 @@
       "level": 5,
       "detected": 73,
       "total": 84
+    },
+    {
+      "date": "2026-11-14",
+      "level": 5,
+      "detected": 73,
+      "total": 84
     }
   ],
   "recentAgentChanges": [
+    {
+      "number": 8836,
+      "title": "fix(implement-queue): pin review_coverage backfill exclusion to its writer and expose unmeasured share",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8836",
+      "mergedAt": "2026-11-13T20:55:39Z"
+    },
+    {
+      "number": 8855,
+      "title": "fix(acmm): report.md no longer presents unverifiable criteria as confirmed gaps (mbe-feature-drain #8849)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8855",
+      "mergedAt": "2026-11-13T17:16:31Z"
+    },
+    {
+      "number": 8852,
+      "title": "docs(gotchas): drop stale smoke.spec.ts from typecheck 'still uncovered' list (mbe-feature-drain #8850)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8852",
+      "mergedAt": "2026-11-13T16:46:25Z"
+    },
+    {
+      "number": 8848,
+      "title": "fix(rialto-web): drop /demos index from floating-controls clearance e2e (mbe-feature-drain #8845)",
+      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8848",
+      "mergedAt": "2026-11-13T16:26:13Z"
+    },
     {
       "number": 8842,
       "title": "docs(rialto): replace nonexistent pnpm dev with pnpm storybook (mbe-feature-drain #8841)",
@@ -768,30 +798,6 @@
       "title": "fix(hospitality): a service chip no longer places Brunch at 11 PM (#8686)",
       "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8733",
       "mergedAt": "2026-11-12T04:09:25Z"
-    },
-    {
-      "number": 8736,
-      "title": "test(hospitality): e2e for book -> invite -> RSVP -> cancel (mbe-feature-drain #8669)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8736",
-      "mergedAt": "2026-11-12T03:55:48Z"
-    },
-    {
-      "number": 8732,
-      "title": "test(hospitality): e2e for On My Way guest signal reaching staff views",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8732",
-      "mergedAt": "2026-11-12T03:39:54Z"
-    },
-    {
-      "number": 8731,
-      "title": "docs: evaluate dynamic invite og:image renderer (#8668)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8731",
-      "mergedAt": "2026-11-12T03:27:10Z"
-    },
-    {
-      "number": 8726,
-      "title": "fix(ci): scope post-deploy build-id poll to a redeployed marketing site (mbe-feature-drain #8720)",
-      "url": "https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8726",
-      "mergedAt": "2026-11-12T02:16:03Z"
     }
   ],
   "detectedByLevel": {
@@ -813,28 +819,28 @@
       "level": 4,
       "name": "agent-pr-acceptance",
       "passed": true,
-      "value": 0.9884615384615385,
+      "value": 0.9884169884169884,
       "threshold": 0.5
     },
     {
       "level": 5,
       "name": "auto-qa-tuning-history",
       "passed": true,
-      "value": 52,
+      "value": 53,
       "threshold": 1
     },
     {
       "level": 6,
       "name": "agent-pr-revert-rate",
       "passed": true,
-      "value": 0.0038910505836575876,
+      "value": 0.00390625,
       "threshold": 0.1
     },
     {
       "level": 6,
       "name": "human-touch-ratio",
       "passed": true,
-      "value": 0.011673151750972763,
+      "value": 0.01171875,
       "threshold": 0.5
     }
   ]
