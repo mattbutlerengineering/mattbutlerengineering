@@ -5485,3 +5485,12 @@ Re-queued 1 stale `agent-failed` issue (3+ days, capped at 2/run) back to `ready
 - **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
 - **Coverage before this fire:** 100% (137/137, not provisional, 0 uncovered). Unchanged after.
 - **Notes:** `mcp__github__search_issues` does not exist in this sandbox and the `gh` CLI is barred for this routine, so issue state and the ui-quality label sweep came from `mcp__github__list_issues` (same REST surface, `hasNextPage: false` on both queries — 39 labelled issues read in full, every one of the 37 ledger issue numbers covered). No pipeline bugs; no stopped filing; no `blocker: no-browser`.
+
+## 2026-11-14 — mbe-learning-loop
+
+**Sensors:** 16/18 available (`e2eStability` not available; `queueEfficiency` query failed — `GET /repos/.../pulls/8576: fetch failed`). Status: ✅ Healthy. acmm L5 73/84, ciHealth 96% (24/25), mutationScore 99.07% PASS, flakyTests 0/13830, metricsFreshness 0 unhealthy (all 10 watched metrics fresh).
+**Regressions:** 0 detected, 0 issues created.
+**Verifications:** 5 checked (issues closed in last 48h: #8849, #8845, #8841, #8824, #8797) — 0 verified, 0 failed, 5 skipped (no matching verifier for labels / no completed CI runs / lighthouse inventory unavailable to verify against). Nothing reopened.
+**Skill proposals:** 0 (Saturday — Friday-only).
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm headroom 1.662 → 1.674). 30d fix-effectiveness 6/123 (4.9%) looks low but is dominated by `skip` outcomes (115/123) from verifier data gaps, not actual fix failures — not treated as a fix-strategy signal this run. 30d false-positive rate (wontfix+invalid / created) 14/200 = 7.0%, well under the 30% loosen-threshold; issue-feedback budgets unchanged (all 7 categories <40% rejected, budget=3 each).
+**Notes:** GitHub GraphQL 403s (expected in CCR sessions, #5958) forced `queue-efficiency` and `collect-ai-issue-feedback.mjs`'s linked-PR lookup onto REST fallbacks; both degraded gracefully, no action needed.
