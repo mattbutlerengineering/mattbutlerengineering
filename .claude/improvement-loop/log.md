@@ -5420,3 +5420,9 @@ Exit was 0 rather than 1, so no pass-rate regression; no `ready` issue filed for
 **AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — ci-fix 11% (64 total), meta-improvement 0% (17 total), audit 11% (36 total), feature 2% (63 total), acmm 25% (4 total), sentry 0% (13 total), dependencies 0% (3 total). All budgets stay at default 3. One linked-PR lookup failed on a blocked GraphQL call (known sandbox limitation); did not affect the category rates above.
 **Skill proposals:** 0 — today is the Friday skill-extraction day, but `.claude/session-logs/` holds only 1 entry (7d window), below the 3+ similar-session threshold for pattern detection. No proposal filed.
 **Threshold notes:** last-30-days verifications.jsonl: 127 records, 114 `skip` (no automated verifier available), 9 verified / 4 not-verified among the 13 non-skip → fix-effectiveness 69% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above, all ≤25%) stays well under the 30% loosen-threshold trigger. Auto-tuner applied 3 adjustments this run: `ci-fix` 1.248 → 1.198 (high-fp-rate), `acmm` 1.634 → 1.662 (headroom), `ci.ci_pass_rate_drop` 5 → 5.5 (regression-false-positive).
+
+## 2026-11-14
+
+**queueEfficiency:** composite 0.907 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:19, size:m:14, size:xs:20, size:xl:8, size:l:11
+**Issues filed:** 0
