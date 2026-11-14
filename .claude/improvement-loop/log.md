@@ -5473,3 +5473,15 @@ Phase 1 claim: **0 issues claimed.** Only one `ready` issue existed (#8864 "Avai
 ### Auto-retry
 
 Re-queued 1 stale `agent-failed` issue (3+ days, capped at 2/run) back to `ready`: #8566 (`api-failures: GET /api/v1/floor-plan-sections — p95 2182 ms`).
+
+## 2026-11-14 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` exit 0, `source: branch` (head `874a43ca`, merged `origin/main` `249ed1f4`, resolved `metrics/ui-quality-ledger.jsonl` by rule). All three app builds succeeded — no `unreachable:build` rows.
+- **Routes:** 40 due / 40 captured / 40 audited (marketing 1, rialto-web 35, hospitality 4). 24 auth-gated rows marked `unreachable:auth`, never captured. Unjudged: 0. Dropped tells: 0.
+- **Browser:** resolved (`chrome-headless-shell` 1243). All three capture runs passed first time; no retries.
+- **Findings:** mechanical 0, judged 0. Every captured route read cleanly against the v1 rubric's judged tells — no agent-built face or semantic-a11y tells observed. Plan: 6 `close` actions, all `carrier: seed` with `issue: null` (seed-carried findings no longer observed), so no GitHub writes were needed to execute it. Issues created 0, reopened 0, commented 0. Seeds appended: 0.
+- **Calibration stamp: `stale`.** `calibration-status` returned exit 3 (stale); `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (the Verify-stage task where Matt labels ≥ 10 pairs is still outstanding). Logged, not retried. Re-queried status: still exit 3, so the fire ran `rate.mjs pairs` and recorded ratings: 14 pairs over 3 apps → hospitality 0, marketing 2.5, rialto-web 3.33. The `stale` stamp means agent-built findings stay suppressed in the plan — intended, and unchanged until the calibration set is labelled.
+- **Fix PR:** none — the plan carried no `fix_pr_candidate` (zero new findings to fix).
+- **P1 SLA:** 0 open `ui-quality:p1` issues; 0 breaches, 0 escalated.
+- **Coverage before this fire:** 100% (137/137, not provisional, 0 uncovered). Unchanged after.
+- **Notes:** `mcp__github__search_issues` does not exist in this sandbox and the `gh` CLI is barred for this routine, so issue state and the ui-quality label sweep came from `mcp__github__list_issues` (same REST surface, `hasNextPage: false` on both queries — 39 labelled issues read in full, every one of the 37 ledger issue numbers covered). No pipeline bugs; no stopped filing; no `blocker: no-browser`.
