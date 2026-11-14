@@ -169,9 +169,15 @@ importers:
       lint-staged:
         specifier: ^17.6.0
         version: 17.6.0
+      playwright:
+        specifier: ^1.65.0
+        version: 1.65.0
       size-limit:
         specifier: ^14.3.0
         version: 14.3.0
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
       turbo:
         specifier: ^2.11.10
         version: 2.11.10

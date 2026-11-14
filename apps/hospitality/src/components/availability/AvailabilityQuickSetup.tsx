@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiClientError } from "@mbe/api-client";
-import type { AvailabilityConfigState } from "@mbe/types";
+import type { AvailabilityConfigSaveResult, AvailabilityConfigState } from "@mbe/types";
 import { useSaveAvailabilityConfig } from "../../hooks/useAvailability.js";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
@@ -16,10 +16,20 @@ export interface AvailabilityQuickSetupProps {
   readonly state: AvailabilityConfigState;
   /** Refetch the config; used after a lost race so the retry carries the winning version. */
   readonly onStale: () => void;
+  /**
+   * The week was saved: the frame offers Undo under `title` and moves on (Regular hours returns
+   * to the hub). Without it the card offers Undo itself.
+   */
+  readonly onSaved?: (title: string, saved: AvailabilityConfigSaveResult) => void;
 }
 
 /** Wires S1 to the config API: save, toast, and the three ways a save can fail. */
-export function AvailabilityQuickSetup({ venueId, state, onStale }: AvailabilityQuickSetupProps) {
+export function AvailabilityQuickSetup({
+  venueId,
+  state,
+  onStale,
+  onSaved,
+}: AvailabilityQuickSetupProps) {
   const { t } = useTranslation();
   const offerUndo = useAvailabilityUndo();
   // "Mon–Fri" or "every day", as the regular-week line above the calendar will read.
@@ -40,12 +50,12 @@ export function AvailabilityQuickSetup({ venueId, state, onStale }: Availability
       });
       setErrorMessage(null);
       setDirty(false);
-      offerUndo({
-        venueId,
-        saved,
-        // The union of the days any service runs, not just the shared days.
-        title: t("availability.quickSetup.savedToast", { days: summarize(coveredDays(draft)) }),
+      // The union of the days any service runs, not just the shared days.
+      const title = t("availability.quickSetup.savedToast", {
+        days: summarize(coveredDays(draft)),
       });
+      if (onSaved) onSaved(title, saved);
+      else offerUndo({ venueId, saved, title });
     } catch (error) {
       const lostRace =
         error instanceof ApiClientError && error.problemDetails.code === "version-conflict";

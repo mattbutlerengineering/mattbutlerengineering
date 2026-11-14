@@ -12,12 +12,11 @@ export interface AvailabilityHeaderActionsProps {
   readonly pending: boolean;
   /** Absent while online booking is already paused (the banner offers Resume). */
   readonly onPause?: () => void;
-  /** The Manager-only actions are absent for a Host, who keeps History and Go to date. */
+  /** The Manager-only actions are absent for a Host, who keeps Go to date. */
   readonly onClose?: () => void;
   readonly onCompareServices?: () => void;
   /** Absent when the venue has no regular week to copy. */
   readonly onDuplicateRegularWeek?: () => void;
-  readonly onHistory: () => void;
   readonly onGoToDate: () => void;
 }
 
@@ -35,7 +34,8 @@ function afterMenuCloses(open: () => void) {
  * The Manager's page-level actions, the same on every layer (ux.md S-Avail2, F7): Close…, Pause
  * online booking and a ⋯ menu. A phone keeps Close… and folds Pause into ⋯, at the top, so the
  * night-of actions are one interaction on a desktop and two on a phone. A Host is given none of
- * the Manager actions but keeps History and Go to date in ⋯.
+ * the Manager actions but keeps Go to date in ⋯. History is the hub's own link (availability-hub
+ * C2.6).
  */
 export function AvailabilityHeaderActions(props: AvailabilityHeaderActionsProps) {
   const { viewport, pending, onPause, onClose } = props;
@@ -63,11 +63,6 @@ export function AvailabilityHeaderActions(props: AvailabilityHeaderActionsProps)
           },
         ]
       : []),
-    {
-      id: "history",
-      label: t("availability.historyButton"),
-      onSelect: afterMenuCloses(props.onHistory),
-    },
     {
       id: "go-to-date",
       label: t("availability.toolbar.goToDate"),

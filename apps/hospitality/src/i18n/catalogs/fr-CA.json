@@ -3487,6 +3487,18 @@
         "closure": "une fermeture",
         "tonight": "un changement fait pour ce soir"
       }
+    },
+    "closeMenu": {
+      "open": "Fermer ou suspendre",
+      "close": "Fermer l'établissement ou une partie",
+      "pause": "Suspendre les réservations en ligne"
+    },
+    "hours": {
+      "back": "Retour à Disponibilité",
+      "starting": "Début",
+      "appliesToday": "S’applique à toutes les dates couvertes par ces heures, à compter d’aujourd’hui.",
+      "appliesFrom": "S’applique à toutes les dates couvertes par ces heures, à compter du {{date}}.",
+      "loading": "Chargement des heures habituelles"
     }
   },
   "setup": {

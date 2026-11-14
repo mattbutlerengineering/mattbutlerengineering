@@ -370,11 +370,10 @@ describe("buildSetupTree: schedules and services", () => {
       kind: "link",
       to: "/availability/calendar?tab=schedules&from=setup",
     });
-    // Change regular week is a link to the Schedules layer, where the week is edited in place.
-    expect(find(open, "schedule:sch-reg").actions[0]?.target).toEqual({
-      kind: "link",
-      to: "/availability/calendar?tab=schedules&from=setup",
-    });
+    // Change regular week is a link to Regular hours, where the week is edited (E4.4).
+    for (const changeOrEdit of find(open, "schedule:sch-reg").actions) {
+      expect(changeOrEdit.target).toEqual({ kind: "link", to: "/availability/hours?from=setup" });
+    }
     // Add a schedule… opens the seeded editor there.
     expect(find(open, "schedules").actions[1]?.target).toEqual({
       kind: "link",
@@ -587,7 +586,7 @@ describe("buildSetupTree: floor plan, sections and tables", () => {
       {
         id: "closeSection",
         subject: "Bar",
-        target: { kind: "link", to: "/availability/calendar?closeSection=sec-bar&from=setup" },
+        target: { kind: "link", to: "/availability?close=section:sec-bar&from=setup" },
       },
     ]);
   });

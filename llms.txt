@@ -1712,7 +1712,7 @@
       export const isTodaysPage: unknown;
     </item>
     <item priority="low">
-      type CloseTarget = { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | { readonly kind: "dates"; read | { readonly kind: "section"; re;
+      type CloseTarget = { readonly kind: "venue" } | { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | { readonly kind: "dates"; read | { readonly kind: "section"; re;
     </item>
     <item priority="high">
       type AvailabilityView = { readonly view: "hub" } | { readonly view: "hours"; read | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "specialDates | { readonly view: "closures" } | {
@@ -1734,6 +1734,7 @@
         tab?: AvailabilityTab;
         closeSection?: string;
         action?: "addSchedule";
+        date?: string;
         from?: "setup";
       }
     </item>
@@ -1741,10 +1742,37 @@
       export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry { /* ... */ }
     </item>
     <item priority="high">
+      export const readHoursService: unknown;
+    </item>
+    <item priority="high">
       export const isBookingRulesPage: unknown;
     </item>
     <item priority="high">
+      export const isHistoryPage: unknown;
+    </item>
+    <item priority="medium">
+      function closeParam(target: CloseTarget): string { /* ... */ }
+    </item>
+    <item priority="high">
+      type DialogRequest = { readonly close: CloseTarget  | { readonly pause: true } | null;
+    </item>
+    <item priority="medium">
+      function setDialog(params: URLSearchParams, dialog: DialogRequest): void { /* ... */ }
+    </item>
+    <item priority="medium">
+      function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void { /* ... */ }
+    </item>
+    <item priority="high">
       export function availabilityPath(target: AvailabilityTarget): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function dialogSearch(search: string, dialog: DialogRequest): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseDates(listed: readonly string[]): CloseTarget | null { /* ... */ }
+    </item>
+    <item priority="medium">
+      function parseRange(value: string): CloseTarget | null { /* ... */ }
     </item>
     <item priority="medium">
       function parseCloseTarget(value: string | null): CloseTarget | null { /* ... */ }
@@ -1902,6 +1930,23 @@
     </item>
     <item priority="high">
       export function lastSeatingFromClock(clock: string, opensAt: number): number { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/close-dialog-start.ts">
+    <item priority="low">
+      interface CloseDialogStart {
+        initialDate: string | null;
+        initialDates?: readonly string[];
+        initialRange?: { readonly from: string; readonly to: string };
+        initialSectionId?: string;
+        startTonight?: boolean;
+      }
+    </item>
+    <item priority="high">
+      export function closeDialogStart(target: CloseTarget): CloseDialogStart { /* ... */ }
+    </item>
+    <item priority="high">
+      export function closeTargetForDates(dates: readonly string[]): CloseTarget { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/close-dialog-test-helpers.ts">
@@ -2842,6 +2887,14 @@
     </item>
     <item priority="high">
       export const USUALLY_CLOSED: ReadonlySet<HolidayId>;
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/hub-return-focus.ts">
+    <item priority="high">
+      export function focusHubRowOnReturn(testId: string): void { /* ... */ }
+    </item>
+    <item priority="high">
+      export function takeHubReturnRow(): string | null { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/layer-rule-actions-props.ts">
@@ -4464,6 +4517,20 @@
     </item>
     <item priority="high">
       export function useRefusedPress(options: RefusedPressOptions) { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/use-regular-hours-draft.ts">
+    <item priority="low">
+      interface RegularHoursDraftInput {
+        venueId: string;
+        state: AvailabilityConfigState;
+        today: string;
+        onStale: () => void;
+        offerUndo: (title: string, saved: AvailabilityConfigSaveResult) => void;
+      }
+    </item>
+    <item priority="high">
+      export function useRegularHoursDraft(input: RegularHoursDraftInput) { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/use-regular-week-edit.ts">
@@ -7870,6 +7937,14 @@
       export async function mockClosures(page: Page, options: CloseMockOptions = {}): Promise<CloseMock> { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/e2e/helpers/demo-venue.ts">
+    <item priority="high">
+      export function nextChristmasEve(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function mockDemoVenue(page: Page, dec24: string = nextChristmasEve()): Promise<void> { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/e2e/helpers/editor-surfaces.ts">
     <item priority="high">
       export const RESOURCE_TYPES: unknown;
@@ -8529,6 +8604,23 @@
       export const useRevertAvailabilityChange: unknown;
     </item>
   </file>
+  <file path="apps/hospitality/src/hooks/useAvailabilityDialogs.ts">
+    <item priority="low">
+      interface OpenedClose {
+        search: string;
+        target: CloseTarget;
+      }
+    </item>
+    <item priority="low">
+      interface AvailabilityDialogs {
+        opened: OpenedClose | null;
+        leave: () => void;
+      }
+    </item>
+    <item priority="high">
+      export function useAvailabilityDialogs(): AvailabilityDialogs { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/hooks/useAvailabilityHub.ts">
     <item priority="high">
       export function useAvailabilityHub(scope: AvailabilityScope): HubRows | null { /* ... */ }
@@ -8573,6 +8665,11 @@
         today: string;
         state: AvailabilityConfigState | null;
         load: AvailabilityLoad;
+      }
+    </item>
+    <item priority="low">
+      interface CloseOpening {
+        onSaved?: () => void;
       }
     </item>
     <item priority="high">
@@ -10998,6 +11095,25 @@
     </item>
     <item priority="high">
       export function createJourneyRecorder(page: Page, venueName: string) { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="launch-demo">
+  <file path="apps/hospitality/e2e/launch-demo/availability-tour.ts">
+    <item priority="high">
+      export const DEMO_AUTH_ENV: unknown;
+    </item>
+    <item priority="high">
+      export const DEMO_HUB_URL: unknown;
+    </item>
+    <item priority="high">
+      export function demoSessionEntry(nowMs: number = Date.now()): { key: string; value: string } { /* ... */ }
+    </item>
+    <item priority="high">
+      export function typedChristmasEve(): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export async function prepareAvailabilityTour(page: Page): Promise<void> { /* ... */ }
     </item>
   </file>
   </section>

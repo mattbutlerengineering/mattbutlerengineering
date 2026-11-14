@@ -101,8 +101,9 @@ const CLEARANCE_PAGES = [
   { path: "demos/layouts", kind: "breadcrumb" },
   { path: "demos/drivers", kind: "breadcrumb" },
   { path: "demos/teams/new", kind: "breadcrumb" },
-  { path: "demos", kind: "heading" },
   { path: "demos/auth-flow", kind: "heading" },
+  // `/demos` itself is not listed: the index renders inside ShowcaseLayout
+  // (#8641), which has no floating demo controls to clear.
 ] as const;
 
 for (const viewport of [

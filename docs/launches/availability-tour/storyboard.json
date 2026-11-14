@@ -1,0 +1,28 @@
+{
+  "title": "Availability",
+  "tagline": "When guests can book, on one page",
+  "intro": "Availability is the page where a restaurant manager sets when guests can book a table.",
+  "steps": [
+    {
+      "say": "The page lists your rules in five rows, from regular hours to booking rules.",
+      "do": "const { tsImport } = await import('tsx/esm/api'); globalThis.tour = await tsImport('../apps/hospitality/e2e/launch-demo/availability-tour.ts', import.meta.url); await globalThis.tour.prepareAvailabilityTour(page); await page.getByRole('heading', { level: 2, name: 'Your rules' }).waitFor();"
+    },
+    {
+      "say": "Type any date to see the hours guests can book and which rule decided them.",
+      "do": "const field = page.getByRole('combobox', { name: 'Check a date' }); await field.click(); await field.pressSequentially(globalThis.tour.typedChristmasEve(), { delay: 120 }); await field.press('Enter'); await page.getByTestId('hub-date-answer').waitFor();"
+    },
+    {
+      "say": "Regular hours are your normal week, and they apply whenever nothing else does.",
+      "do": "await page.getByTestId('hub-row-1').getByRole('link', { name: 'Edit Regular hours' }).click(); await page.getByRole('heading', { level: 1, name: 'Regular hours' }).waitFor();"
+    },
+    {
+      "say": "Special dates and holidays change single days, like shorter hours on Christmas Eve.",
+      "do": "await page.goBack(); await page.getByTestId('hub-row-3').getByRole('link', { name: 'Edit Special dates and holidays' }).click(); await page.getByRole('radio', { name: 'Special dates' }).waitFor();"
+    },
+    {
+      "say": "Closures and pauses stop bookings for a day, or pause online booking for tonight.",
+      "do": "await page.goBack(); await page.getByTestId('hub-row-4').getByRole('link', { name: 'View Closures and pauses' }).click(); const pause = page.getByRole('button', { name: 'Pause online booking' }); await pause.waitFor(); await page.getByRole('button', { name: /^Close/ }).first().hover(); await new Promise((r) => setTimeout(r, 1500)); await pause.hover();"
+    }
+  ],
+  "outro": "You can answer what any date looks like in one glance."
+}

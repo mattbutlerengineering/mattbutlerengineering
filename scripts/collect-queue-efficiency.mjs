@@ -24,6 +24,7 @@ import {
   MissingGithubTokenError,
 } from "@mbe/gh-client";
 import { isAgentPr } from "../plugins/acmm/scripts/agent-pr.js";
+import { isBackfillRow } from "./collect-queue-telemetry-from-github.mjs";
 import { readTelemetryRows } from "./queue-telemetry-store.mjs";
 
 /** Thresholds — imported by sensors-registry.mjs's queueEfficiency entry (co-located with its detectRegression). */
@@ -282,8 +283,8 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
 
 /**
  * Share of the window's PRs that carry a real `pass`/`flag` review verdict.
- * A PR whose row records an `unknown_reasons.reviewer_verdict` is excluded
- * from the denominator (the verdict is unknowable, not missing); a PR with
+ * A PR whose row is an unmeasured null verdict (see
+ * {@link isUnmeasuredVerdictRow}) is excluded from the denominator (the verdict is unknowable, not missing); a PR with
  * no row at all stays in it.
  *
  * The denominator is `windowPrs.length` — the PRs that *should* have gone
@@ -299,16 +300,38 @@ const REAL_VERDICTS = new Set(["pass", "flag"]);
  *
  * @param {Array<object>} windowPrs
  * @param {Array<{ pr_number?: number, reviewer_verdict?: string }>} windowRows
- * @returns {{ coverage: number|null, n: number }}
+ * @returns {{ coverage: number|null, n: number, unmeasured: number, share: number|null }}
  */
-function reviewCoverage(windowPrs, windowRows) {
+export function reviewCoverage(windowPrs, windowRows) {
   const reviewed = windowRows.filter((r) => REAL_VERDICTS.has(r.reviewer_verdict)).length;
-  const unknowable = windowRows.filter(
-    (r) => !REAL_VERDICTS.has(r.reviewer_verdict) && r.unknown_reasons?.reviewer_verdict
-  ).length;
-  const denominator = windowPrs.length - unknowable;
-  if (denominator <= 0) return { coverage: null, n: 0 };
-  return { coverage: Math.round((reviewed / denominator) * 1000) / 1000, n: denominator };
+  const unmeasured = windowRows.filter(isUnmeasuredVerdictRow).length;
+  const denominator = windowPrs.length - unmeasured;
+  const share =
+    windowPrs.length === 0 ? null : Math.round((unmeasured / windowPrs.length) * 1000) / 1000;
+  if (denominator <= 0) return { coverage: null, n: 0, unmeasured, share };
+  return {
+    coverage: Math.round((reviewed / denominator) * 1000) / 1000,
+    n: denominator,
+    unmeasured,
+    share,
+  };
+}
+
+/**
+ * A null verdict is unmeasured only when the row is stamped with
+ * `unknown_reasons.reviewer_verdict` or still carries the GitHub-backfill
+ * signature (every worker-session field null, which the backfill cannot
+ * recover) before the daily reconciler stamps it (#8817). An in-session row
+ * (has a model tier or labels) with a null verdict is a failed write and
+ * stays uncovered.
+ *
+ * @param {object} r
+ * @returns {boolean}
+ */
+function isUnmeasuredVerdictRow(r) {
+  if (r.reviewer_verdict != null) return false;
+  if (r.unknown_reasons?.reviewer_verdict) return true;
+  return isBackfillRow(r);
 }
 
 /**
@@ -366,6 +389,8 @@ function computeWindowMetrics(windowPrs, ccusageDays, telemetryRows = []) {
     cost_coverage_n: matchedCosts.length,
     review_coverage: review.coverage,
     review_coverage_n: review.n,
+    review_coverage_unmeasured_n: review.unmeasured,
+    review_coverage_unmeasured_share: review.share,
   };
 }
 

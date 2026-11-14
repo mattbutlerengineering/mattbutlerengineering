@@ -41,3 +41,6 @@
 {"timestamp":"2026-11-09T00:00:00.000Z","criterion":"acmm","old_value":1.545,"new_value":1.574,"trigger":"headroom"}
 {"timestamp":"2026-11-11T00:00:00.000Z","criterion":"acmm","old_value":1.574,"new_value":1.604,"trigger":"headroom"}
 {"timestamp":"2026-11-12T00:00:00.000Z","criterion":"acmm","old_value":1.604,"new_value":1.634,"trigger":"headroom"}
+{"timestamp":"2026-11-13T00:00:00.000Z","criterion":"ci-fix","old_value":1.248,"new_value":1.198,"trigger":"high-fp-rate"}
+{"timestamp":"2026-11-13T00:00:00.000Z","criterion":"acmm","old_value":1.634,"new_value":1.662,"trigger":"headroom"}
+{"timestamp":"2026-11-13T00:00:00.000Z","criterion":"ci.ci_pass_rate_drop","old_value":5,"new_value":5.5,"trigger":"regression-false-positive"}

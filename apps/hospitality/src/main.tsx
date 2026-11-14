@@ -81,8 +81,16 @@ const BookingRulesRoute = lazy(() =>
     default: m.BookingRulesRoute,
   }))
 );
+const AvailabilityHistoryRoute = lazy(() =>
+  import("./components/availability/AvailabilityHistoryRoute.js").then((m) => ({
+    default: m.AvailabilityHistoryRoute,
+  }))
+);
 const AvailabilityPage = lazy(() =>
   import("./pages/AvailabilityPage.js").then((m) => ({ default: m.AvailabilityPage }))
+);
+const AvailabilityHoursPage = lazy(() =>
+  import("./pages/AvailabilityHoursPage.js").then((m) => ({ default: m.AvailabilityHoursPage }))
 );
 const ProfilePage = lazy(() =>
   import("./pages/ProfilePage.js").then((m) => ({ default: m.ProfilePage }))
@@ -349,11 +357,34 @@ const router = createBrowserRouter(
                   ),
                 },
                 {
+                  path: "history",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityHubPage>
+                        <Suspense fallback={null}>
+                          <AvailabilityHistoryRoute />
+                        </Suspense>
+                      </AvailabilityHubPage>
+                    </Suspense>
+                  ),
+                },
+                {
                   path: "calendar",
                   element: (
                     <Suspense fallback={<LoadingPage />}>
                       <AvailabilityPage />
                     </Suspense>
+                  ),
+                },
+                {
+                  // An editor: a Host who loads it lands on the hub.
+                  path: "hours",
+                  element: (
+                    <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
+                      <Suspense fallback={<LoadingPage />}>
+                        <AvailabilityHoursPage />
+                      </Suspense>
+                    </RequireManager>
                   ),
                 },
               ],

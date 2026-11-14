@@ -163,7 +163,7 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
       decisions: [],
     });
     expect(body.rule.id).not.toBe("range-1");
-    expect(onSavedQuietly).toHaveBeenCalledWith(saved(0));
+    expect(onSavedQuietly).toHaveBeenCalledWith(saved(0), expect.any(String));
   });
 
   it("decides only on the bookings the new dates close, in Step 2, and offers no Undo once a guest is told", async () => {
@@ -214,7 +214,7 @@ describe("CloseDialog editing a saved closure (#7984)", () => {
 
       await waitFor(() => expect(onClose).toHaveBeenCalled());
       expect(create.mock.calls[0]![0].body).toMatchObject({ tellGivenBackGuests: false });
-      expect(onSavedQuietly).toHaveBeenCalledWith(saved(0));
+      expect(onSavedQuietly).toHaveBeenCalledWith(saved(0), expect.any(String));
     });
 
     it("describes the primary button by the note only while the note is shown", () => {

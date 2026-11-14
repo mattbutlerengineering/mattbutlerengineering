@@ -299,6 +299,7 @@
     export const isTodaysPage = (pathname: string): boolean =>
       pathname.replace(/\/+$/, "").toLowerCase() === TODAYS_PAGE;
     export type CloseTarget =
+      | { readonly kind: "venue" }
       | { readonly kind: "tonight" }
       | { readonly kind: "date"; readonly date: string }
       | { readonly kind: "range"; readonly from: string; readonly to: string }
@@ -330,56 +331,101 @@
       readonly closeSection?: string;
       /** Opens the schedule editor on Schedules, seeded from the regular week (Add a schedule…). */
       readonly action?: "addSchedule";
+      /** Opens that day's drawer on the calendar (`YYYY-MM-DD`, a real day). */
+      readonly date?: string;
       readonly from?: "setup";
     }
     export function parseAvailabilityEntry(search: string | URLSearchParams): AvailabilityEntry {
       const params = typeof search === "string" ? new URLSearchParams(search) : search;
       const tab = params.get("tab");
       const closeSection = params.get("closeSection");
+      const date = params.get("date");
       return {
         ...(isTab(tab) && { tab }),
         ...(closeSection && { closeSection }),
         ...(params.get("action") === "addSchedule" && { action: "addSchedule" as const }),
+        ...(date !== null && isDate(date) && { date }),
         ...(params.get("from") === "setup" && { from: "setup" as const }),
       };
     }
+    export const readHoursService = (location: { readonly search: string }): string | null =>
+      new URLSearchParams(location.search).get("service") || null;
     export const isBookingRulesPage = (pathname: string): boolean =>
       pathname.replace(/\/+$/, "").toLowerCase() === BOOKING_RULES;
+    export const isHistoryPage = (pathname: string): boolean =>
+      pathname.replace(/\/+$/, "").toLowerCase() === HISTORY;
+    function closeParam(target: CloseTarget): string {
+      switch (target.kind) {
+        case "venue":
+        case "tonight":
+          return target.kind;
+        case "date":
+          return target.date;
+        case "range":
+          return `${target.from}${RANGE_SEPARATOR}${target.to}`;
+        case "dates":
+          return `${DATES_PREFIX}${target.dates.join(",")}`;
+        case "section":
+          return `${SECTION_PREFIX}${target.sectionId}`;
+      }
+    }
+    type DialogRequest = { readonly close: CloseTarget } | { readonly pause: true } | null;
+    function setDialog(params: URLSearchParams, dialog: DialogRequest): void {
+      params.delete("close");
+      params.delete("pause");
+      if (dialog && "close" in dialog) params.set("close", closeParam(dialog.close));
+      else if (dialog) params.set("pause", "1");
+    }
+    function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void {
+      setDialog(params, target.close ? { close: target.close } : target.pause ? { pause: true } : null);
+      if (target.from) params.set("from", target.from);
+    }
     export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
-      // The hub opens no dialog yet (C2.4), so a section's Close dialog still opens on today's page.
-      if (target.view === "hub" && target.close?.kind !== "section") {
-        if (target.from) params.set("from", target.from);
-        return withSearch(ROUTE, params);
+      const ownPath = OWN_PATHS[target.view];
+      if (ownPath) {
+        if (target.view === "hours" && target.service) params.set("service", target.service);
+        setOverlay(params, target);
+        return withSearch(ownPath, params);
       }
-      // The drawer sits over the hub, which opens no dialog yet (C2.4): a close target is dropped.
-      if (target.view === "bookingRules") {
-        if (target.from) params.set("from", target.from);
-        return withSearch(BOOKING_RULES, params);
-      }
+      // A date names the calendar by itself (today's page opens Calendar for it), so it needs no tab.
+      const date =
+        target.view === "calendar" && target.date && isDate(target.date) ? target.date : null;
       const tab = PAGE_TAB[target.view];
-      if (tab) params.set("tab", tab);
-      if (target.close?.kind === "section") params.set("closeSection", target.close.sectionId);
+      if (tab && !date) params.set("tab", tab);
       if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
-      if (target.from) params.set("from", target.from);
+      if (date) params.set("date", date);
+      setOverlay(params, target);
       return withSearch(TODAYS_PAGE, params);
+    }
+    export function dialogSearch(search: string, dialog: DialogRequest): string {
+      const params = new URLSearchParams(search);
+      setDialog(params, dialog);
+      const query = queryOf(params);
+      return query ? `?${query}` : "";
+    }
+    function parseDates(listed: readonly string[]): CloseTarget | null {
+      if (listed.length > MAX_CLOSE_DATES || !listed.every(isDate)) return null;
+      const dates = [...new Set(listed)].sort();
+      return dates.length === 1 ? { kind: "date", date: dates[0]! } : { kind: "dates", dates };
+    }
+    function parseRange(value: string): CloseTarget | null {
+      const [from, to, ...rest] = value.split(RANGE_SEPARATOR);
+      if (from === undefined || to === undefined || rest.length > 0) return null;
+      if (!isDate(from) || !isDate(to) || from > to) return null;
+      return from === to ? { kind: "date", date: from } : { kind: "range", from, to };
     }
     function parseCloseTarget(value: string | null): CloseTarget | null {
       if (!value) return null;
-      if (value === "tonight") return { kind: "tonight" };
+      if (value === "venue" || value === "tonight") return { kind: value };
       if (isDate(value)) return { kind: "date", date: value };
       if (value.startsWith(SECTION_PREFIX)) {
         const sectionId = value.slice(SECTION_PREFIX.length);
         return sectionId ? { kind: "section", sectionId } : null;
       }
-      if (value.startsWith(DATES_PREFIX)) {
-        const dates = value.slice(DATES_PREFIX.length).split(",");
-        return dates.length <= MAX_CLOSE_DATES && dates.every(isDate) ? { kind: "dates", dates } : null;
-      }
-      const [from, to, ...rest] = value.split(RANGE_SEPARATOR);
-      if (from === undefined || to === undefined || rest.length > 0) return null;
-      // Dates in this shape sort as text.
-      return isDate(from) && isDate(to) && from <= to ? { kind: "range", from, to } : null;
+      if (value.startsWith(DATES_PREFIX))
+        return parseDates(value.slice(DATES_PREFIX.length).split(","));
+      return parseRange(value);
     }
     export interface AvailabilityAddress {
       /** `null` when there is no close target, or it does not parse: no dialog. */
@@ -699,6 +745,34 @@
     export function lastSeatingFromClock(clock: string, opensAt: number): number {
       const minute = openFromClock(clock);
       return minute < opensAt ? minute + MINUTES_PER_DAY : minute;
+    }
+  </file>
+  <file path="src/components/availability/close-dialog-start.ts">
+    export interface CloseDialogStart {
+      readonly initialDate: string | null;
+      readonly initialDates?: readonly string[];
+      readonly initialRange?: { readonly from: string; readonly to: string };
+      readonly initialSectionId?: string;
+      readonly startTonight?: boolean;
+    }
+    export function closeDialogStart(target: CloseTarget): CloseDialogStart {
+      switch (target.kind) {
+        case "venue":
+          return { initialDate: null };
+        case "tonight":
+          return { initialDate: null, startTonight: true };
+        case "date":
+          return { initialDate: target.date };
+        case "range":
+          return { initialDate: null, initialRange: { from: target.from, to: target.to } };
+        case "dates":
+          return { initialDate: null, initialDates: target.dates };
+        case "section":
+          return { initialDate: null, initialSectionId: target.sectionId };
+      }
+    }
+    export function closeTargetForDates(dates: readonly string[]): CloseTarget {
+      return dates.length === 1 ? { kind: "date", date: dates[0]! } : { kind: "dates", dates };
     }
   </file>
   <file path="src/components/availability/close-dialog-test-helpers.ts">
@@ -2962,6 +3036,16 @@
       "christmasDay",
       "newYearsDay",
     ]);
+  </file>
+  <file path="src/components/availability/hub-return-focus.ts">
+    export function focusHubRowOnReturn(testId: string): void {
+      pending = { testId, at: Date.now() };
+    }
+    export function takeHubReturnRow(): string | null {
+      const request = pending;
+      pending = null;
+      return request && Date.now() - request.at <= RETURN_TTL_MS ? request.testId : null;
+    }
   </file>
   <file path="src/components/availability/layer-rule-actions-props.ts">
     export interface LayerRuleActionsProps {
@@ -6805,6 +6889,89 @@
       return { refuse, refusals };
     }
   </file>
+  <file path="src/components/availability/use-regular-hours-draft.ts">
+    export interface RegularHoursDraftInput {
+      readonly venueId: string;
+      readonly state: AvailabilityConfigState;
+      /** Today on the venue clock: Starting begins here, and no earlier date can be picked. */
+      readonly today: string;
+      readonly onStale: () => void;
+      readonly offerUndo: (title: string, saved: AvailabilityConfigSaveResult) => void;
+      /** Saved from the save bar (not from the leave prompt, whose route change goes ahead itself). */
+      readonly onSaved: (saved: AvailabilityConfigSaveResult) => void;
+      /** The regular hours the draft is based on are gone and the Manager chose to discard. */
+      readonly onDiscard: () => void;
+    }
+    export function useRegularHoursDraft(input: RegularHoursDraftInput) {
+      const { venueId, state, today, onStale, offerUndo, onSaved, onDiscard } = input;
+      const scopeId = useId();
+      // The leave prompt's Save: its route change goes ahead by itself, so no return to the hub.
+      const viaPrompt = useRef(false);
+      const [revealed, setRevealed] = useState(false);
+      const [done, setDone] = useState(false);
+      const [leaving, setLeaving] = useState(false);
+      const edit = useRegularWeekEdit({
+        venueId,
+        state,
+        onStale,
+        defaultStart: today,
+        offerUndo,
+        onGone: onDiscard,
+        onSaved: (saved) => {
+          setDone(true);
+          if (!viaPrompt.current) onSaved(saved);
+        },
+      });
+      const { issues, block, blocked } = edit;
+      const shown = revealed ? issues : issues.filter((issue) => issue.code !== "block_days_required");
+      // Everything wrong is still unsaid: the preview and the bar stay quiet about it.
+      const quiet = block === null && shown.length === 0 && issues.length > 0;
+      // Refused for a problem in the form, not for a conflict or a missing service.
+      const refused = blocked && block === null && issues.length > 0;
+      const { refuse } = useRefusedPress({
+        onRefused: () => setRevealed(true),
+        focusFirstProblem: () => focusFirstInvalid(shown, scopeId),
+      });
+      const save = () => (refused ? refuse() : void edit.submit());
+      const saveAndLeave = async (): Promise<boolean> => {
+        if (blocked) {
+          if (refused) refuse();
+          return false;
+        }
+        // A saved draft keeps the guard mounted until the route change goes through (the page is gone
+        // by then); a refused one keeps `unsaved`, so the guard is still there to answer.
+        viaPrompt.current = true;
+        setLeaving(true);
+        const saved = await edit.submit();
+        viaPrompt.current = false;
+        if (!saved) setLeaving(false);
+        return saved;
+      };
+      const leftBlock = (event: FocusEvent) => {
+        const fieldset = (event.target as HTMLElement).closest("[data-hours-block]");
+        if (fieldset && !fieldset.contains(event.relatedTarget as Node | null)) setRevealed(true);
+      };
+      const reach: SaveReach | null =
+        edit.startsOn !== null && edit.startsOn !== today
+          ? { kind: "from", date: edit.startText }
+          : null;
+      return {
+        ...edit,
+        scopeId,
+        shown,
+        quiet,
+        hasProblem: refused && !quiet,
+        // A reason that is not a field's problem (a conflict, no service left); those are the form's.
+        blockedReason: block === null ? null : edit.blockedText,
+        reach,
+        unsaved: edit.dirty && !done,
+        guarded: (edit.dirty && !done) || leaving,
+        save,
+        saveAndLeave,
+        leftBlock,
+      };
+    }
+  </file>
   <file path="src/components/availability/use-regular-week-edit.ts">
     export interface RegularWeekEditInput {
       readonly venueId: string;
@@ -6823,15 +6990,25 @@
       readonly initialDraft?: QuickSetupDraft;
       /** Starting, prefilled (Copy → Every week). The Manager can change it; it counts as an edit. */
       readonly initialStartsOn?: string;
+      /**
+       * Starting, until the Manager picks another date (Regular hours: today). It is not an edit;
+       * another date is. There is no end date.
+       */
+      readonly defaultStart?: string;
+      /** Offers Undo for the save; the frame's own (the layout's) when it outlives the editor. */
+      readonly offerUndo?: (title: string, saved: AvailabilityConfigSaveResult) => void;
     }
     export function useRegularWeekEdit(input: RegularWeekEditInput) {
       const { venueId, state, onStale, onSaved, onGone, fixedStart, initialDraft, initialStartsOn } =
         input;
+      const { defaultStart } = input;
       const { config } = state;
       const { t } = useTranslation();
       const format = useVenueFormat();
       const dayName = useWeekdayName();
-      const offerUndo = useAvailabilityUndo();
+      const ownUndo = useAvailabilityUndo();
+      const offerUndo = (title: string, saved: AvailabilityConfigSaveResult) =>
+        input.offerUndo ? input.offerUndo(title, saved) : ownUndo({ venueId, saved, title });
       const saver = useScheduleSave(onStale);
     
       const regular = config.schedules.find((s) => s.isRegular && !s.archivedAt);
@@ -6845,8 +7022,10 @@
       const [conflictMode, setConflictMode] = useState<ScopeConflictMode>("keep");
     
       const pinned = fixedStart !== undefined;
-      const startsOn = pinned ? fixedStart : pickedStart;
+      const startsOn = pinned ? fixedStart : (pickedStart ?? defaultStart ?? null);
       const endsOn = pinned ? null : pickedEnd;
+      // A start is an edit when it was picked and differs from the one the frame starts on.
+      const startEdited = !pinned && pickedStart !== null && pickedStart !== defaultStart;
     
       const edit = (next: QuickSetupDraft) => {
         setEdited((was) => editedWeekday(draft, next) ?? was);
@@ -6881,7 +7060,7 @@
       const baselineWeek = useMemo(() => weekOf(review.baseline), [review.baseline]);
       const dirty =
         name.trim() !== "" ||
-        (!pinned && startsOn !== null) ||
+        startEdited ||
         endsOn !== null ||
         weekKey(draft) !== weekKey(baselineWeek);
     
@@ -6959,14 +7138,12 @@
         // conflict the Manager reviews, not something this save quietly rebases.
         const saved = await saver.save(venueId, state, changes, scopeConflicts, review.baselineVersion);
         if (!saved) return false;
-        offerUndo({
-          venueId,
-          saved,
-          title:
-            endsOn === null
-              ? t("availabilitySchedules.regularWeek.savedWeek", { date: startText })
-              : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
-        });
+        offerUndo(
+          endsOn === null
+            ? t("availabilitySchedules.regularWeek.savedWeek", { date: startText })
+            : t("availabilitySchedules.regularWeek.saved", { name: trimmed, date: startText }),
+          saved
+        );
         onSaved?.(saved);
         return true;
       };
@@ -11743,6 +11920,46 @@
       };
     }
   </file>
+  <file path="e2e/helpers/demo-venue.ts">
+    export function nextChristmasEve(): string {
+      const today = localDay();
+      const thisYear = `${today.slice(0, 4)}-12-24`;
+      return today <= thisYear ? thisYear : `${Number(today.slice(0, 4)) + 1}-12-24`;
+    }
+    export async function mockDemoVenue(page: Page, dec24: string = nextChristmasEve()): Promise<void> {
+      const fixture = buildAvailabilityConfigFixture();
+      const special = {
+        id: "dr-dec-24",
+        kind: "special_hours",
+        targetKind: "venue",
+        startsOn: dec24,
+        endsOn: dec24,
+        payload: {
+          version: 1,
+          services: [
+            {
+              venueServiceId: "vs-dinner",
+              opensAt: 960,
+              lastSeatingAt: 1140,
+              closesAt: 1200,
+              seating: { version: 1, interval: 15 },
+              bookingTypes: ["online", "phone"],
+            },
+          ],
+        },
+      };
+      await page.route(`${base}/availability/config`, (route) => {
+        if (route.request().method() !== "GET") return route.fallback();
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({
+            data: { ...fixture, config: { ...fixture.config, dateRules: [special] } },
+          }),
+        });
+      });
+    }
+  </file>
   <file path="e2e/helpers/editor-surfaces.ts">
     export const RESOURCE_TYPES = [
       "weeklyHours",
@@ -13109,6 +13326,58 @@
         trackOwnSave(venueId, () => api.availability.revertChange(venueId, changeId, expectedVersion)),
     });
   </file>
+  <file path="src/hooks/useAvailabilityDialogs.ts">
+    export interface OpenedClose extends CloseOpening {
+      readonly search: string;
+      readonly target: CloseTarget;
+    }
+    export interface AvailabilityDialogs extends Pick<AvailabilityScope, "openClose" | "openPause"> {
+      /** The Close a child opened, while the address still names it; else `null`. */
+      readonly opened: OpenedClose | null;
+      /**
+       * Leaves the dialog: back one entry when this layout pushed it, so Back then leaves the view and
+       * no second copy of it is left; otherwise (loaded by its address) the param goes with a replace.
+       */
+      readonly leave: () => void;
+    }
+    export function useAvailabilityDialogs(): AvailabilityDialogs {
+      const navigate = useNavigate();
+      const location = useLocation();
+      const latest = useRef({ navigate, location });
+      useEffect(() => {
+        latest.current = { navigate, location };
+      });
+      const [opened, setOpened] = useState<OpenedClose | null>(null);
+    
+      const push = useCallback((dialog: Parameters<typeof dialogSearch>[1]): string => {
+        const { navigate: go, location: here } = latest.current;
+        const search = dialogSearch(here.search, dialog);
+        void go({ search }, { state: withPushed(here.state) });
+        return search;
+      }, []);
+      const openClose = useCallback<AvailabilityScope["openClose"]>(
+        (target, opening = {}) => setOpened({ ...opening, target, search: push({ close: target }) }),
+        [push]
+      );
+      const openPause = useCallback(() => {
+        setOpened(null);
+        push({ pause: true });
+      }, [push]);
+      const leave = useCallback(() => {
+        const { navigate: go, location: here } = latest.current;
+        setOpened(null);
+        if (pushedBy(here.state)) void go(-1);
+        else void go({ search: dialogSearch(here.search, null) }, { replace: true, state: here.state });
+      }, []);
+    
+      return {
+        openClose,
+        openPause,
+        leave,
+        opened: opened?.search === location.search ? opened : null,
+      };
+    }
+  </file>
   <file path="src/hooks/useAvailabilityHub.ts">
     export function useAvailabilityHub(scope: AvailabilityScope): HubRows | null {
       const { venueId, state, timezone, today } = scope;
@@ -13228,6 +13497,17 @@
        * works after the child that saved has unmounted.
        */
       readonly offerUndo: (title: string, saved: AvailabilityConfigSaveResult) => void;
+      /**
+       * Opens the Close dialog over the current view on `target`, with a push, so Back closes it. The
+       * layout hosts the dialog (`?close=`). `onSaved` runs once that Close is saved (the calendar
+       * clears its selection). A child with a draft asks its own discard guard first.
+       */
+      readonly openClose: (target: CloseTarget, opening?: CloseOpening) => void;
+      /** Opens the Pause online booking dialog over the current view (`?pause=1`), with a push. */
+      readonly openPause: () => void;
+    }
+    export interface CloseOpening {
+      readonly onSaved?: () => void;
     }
     export function useAvailabilityScope(): AvailabilityScope {
       return useOutletContext<AvailabilityScope>();
@@ -17204,7 +17484,6 @@
       "availability.quickSetup.title",
       "availability.quickSetup.hostEmpty",
       "availability.quickSetup.issues.days_outside_use",
-      "availability.history.revert",
       "availability.history.summary.reverted",
       "availability.history.summary.regularWeekChanged",
       "availability.preview.compareRegularWeek",
@@ -17717,6 +17996,56 @@
           if (blocked) throw new Error(`Journey blocked at "${blocked.name}": ${blocked.error}`);
         },
       };
+    }
+  </file>
+  </section>
+  <section priority="medium" role="launch-demo">
+  <file path="e2e/launch-demo/availability-tour.ts">
+    export const DEMO_AUTH_ENV = {
+      VITE_AUTH_AUTHORITY: "https://launch-demo.invalid",
+      VITE_AUTH_CLIENT_ID: "launch-demo",
+    } as const;
+    export const DEMO_HUB_URL = "http://localhost:3002/hospitality/availability";
+    export function demoSessionEntry(nowMs: number = Date.now()): { key: string; value: string } {
+      const authority = DEMO_AUTH_ENV.VITE_AUTH_AUTHORITY;
+      const user = {
+        access_token: "launch-demo-access-token",
+        id_token: "launch-demo-id-token",
+        token_type: "Bearer",
+        scope: "openid profile email",
+        expires_at: Math.floor(nowMs / 1000) + SESSION_HOURS * 60 * 60,
+        profile: {
+          sub: "launch-demo|manager",
+          email: "manager@launch-demo.invalid",
+          email_verified: true,
+          name: "Demo Manager",
+          iss: `${authority}/`,
+          aud: DEMO_AUTH_ENV.VITE_AUTH_CLIENT_ID,
+        },
+      };
+      return {
+        key: `oidc.user:${authority}:${DEMO_AUTH_ENV.VITE_AUTH_CLIENT_ID}`,
+        value: JSON.stringify(user),
+      };
+    }
+    export function typedChristmasEve(): string {
+      return `12/24/${nextChristmasEve().slice(0, 4)}`;
+    }
+    export async function prepareAvailabilityTour(page: Page): Promise<void> {
+      const { key, value } = demoSessionEntry();
+      await page.addInitScript(
+        ([k, v]) => {
+          localStorage.setItem(k, v);
+        },
+        [key, value] as const
+      );
+      // The reserved authority never resolves; answer it so no request hangs the recording.
+      await page.route(`${DEMO_AUTH_ENV.VITE_AUTH_AUTHORITY}/**`, (route) =>
+        route.fulfill({ status: 404, body: "" })
+      );
+      await mockApi(page);
+      await mockDemoVenue(page);
+      await page.goto(DEMO_HUB_URL);
     }
   </file>
   </section>
@@ -22396,8 +22725,8 @@
         ? []
         : schedule.isRegular
           ? [
-              action("changeRegularWeek", link(SETUP_SCHEDULES)),
-              action("editSchedule", link(SETUP_SCHEDULES), schedule.name),
+              action("changeRegularWeek", link(SETUP_HOURS)),
+              action("editSchedule", link(SETUP_HOURS), schedule.name),
             ]
           : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
       return {

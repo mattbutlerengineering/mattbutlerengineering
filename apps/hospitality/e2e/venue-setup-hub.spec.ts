@@ -78,7 +78,7 @@ test.describe("Venue Setup hub", () => {
 
     await primary.click();
     // The hub sends a Manager with no hours on to first setup, and keeps the way back.
-    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules&from=setup$/);
+    await expect(page).toHaveURL(/\/availability\/hours\?from=setup$/);
     await expect(page.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
     await page.getByRole("link", { name: "Venue Setup" }).click();
     await expect(page).toHaveURL(/\/setup$/);
@@ -165,7 +165,8 @@ test.describe("Venue Setup hub", () => {
     await page.goto("setup");
 
     await page.getByRole("button", { name: "Close for a date… Bar" }).click();
-    await expect(page).toHaveURL(/\/availability\/calendar\?from=setup$/);
+    // The hub hosts the dialog from the address (availability-hub C2.4).
+    await expect(page).toHaveURL(/\/availability\?close=section:sec-bar&from=setup$/);
     const dialog = page.getByRole("dialog", { name: /^Close / });
     await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
   });
