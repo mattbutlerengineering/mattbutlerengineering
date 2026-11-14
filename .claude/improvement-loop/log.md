@@ -5420,3 +5420,50 @@ Exit was 0 rather than 1, so no pass-rate regression; no `ready` issue filed for
 **AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — ci-fix 11% (64 total), meta-improvement 0% (17 total), audit 11% (36 total), feature 2% (63 total), acmm 25% (4 total), sentry 0% (13 total), dependencies 0% (3 total). All budgets stay at default 3. One linked-PR lookup failed on a blocked GraphQL call (known sandbox limitation); did not affect the category rates above.
 **Skill proposals:** 0 — today is the Friday skill-extraction day, but `.claude/session-logs/` holds only 1 entry (7d window), below the 3+ similar-session threshold for pattern detection. No proposal filed.
 **Threshold notes:** last-30-days verifications.jsonl: 127 records, 114 `skip` (no automated verifier available), 9 verified / 4 not-verified among the 13 non-skip → fix-effectiveness 69% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above, all ≤25%) stays well under the 30% loosen-threshold trigger. Auto-tuner applied 3 adjustments this run: `ci-fix` 1.248 → 1.198 (high-fp-rate), `acmm` 1.634 → 1.662 (headroom), `ci.ci_pass_rate_drop` 5 → 5.5 (regression-false-positive).
+
+## 2026-11-14 — mbe-evening (implement-queue)
+
+Phase 0 preflight: `main` green (0 failures in last 5 runs), `main-strictness.mjs` → `strict: true`, base-freshness → `fresh` (0 commits behind, ~2h old). No open PRs or `in-progress` issues needed straggler handling (merge train empty).
+
+Phase 1 claim: **0 issues claimed.** Only one `ready` issue existed (#8864 "Availability hierarchy"), and it carries `needs-human` — a page redefinition call ("this isn't really venue setup... redefine what it actually is"), not an independently implementable task. No batch composed, no workers dispatched, no `metrics/queue-telemetry.jsonl` rows to persist this iteration.
+
+## 2026-11-14 — mbe-evening (progress-tracker)
+
+### Metrics
+
+| Metric                                                    | Value                                                                  | Band                  |
+| --------------------------------------------------------- | ---------------------------------------------------------------------- | --------------------- |
+| Created (7d, audit+ci-fix)                                | 40 (20 audit + 20 ci-fix)                                              | —                     |
+| Closed (7d, audit+ci-fix)                                 | 30 (16 audit + 14 ci-fix)                                              | —                     |
+| Closure Rate                                              | 75.0%                                                                  | Yellow (50-80%)       |
+| Time-to-Close (mean)                                      | ~13.4h                                                                 | Green (<24h)          |
+| Agent Success (has-pr/(has-pr+failed), snapshot)          | 4/4 = 100% (after this run's auto-retry)                               | Green (>70%)          |
+| CI Pass (main, last 20 runs, skipped excluded)            | 13/13 completed non-skipped = 100%                                     | Green                 |
+| Queue (ready, open)                                       | 2 (was 1 at Step-1 claim time; #8566 re-queued by this step)           | Green (<5)            |
+| Stale (ready>7d)                                          | 0                                                                      | Green                 |
+| Blocked (agent-failed, open)                              | 0 (was 1; auto-retried this run)                                       | Green                 |
+| Skipped (agent-skip, open)                                | 0                                                                      | Green                 |
+| Daily/7d Spend (attributed, `agent-spend/sessions.jsonl`) | $0 today, $2.44 (7d, 6 sessions)                                       | Green                 |
+| Queue worker usage (7d, `queue-telemetry.jsonl`)          | 6 sessions, 1,169,635 tokens, **cost unknown** (74 rows missing usage) | not $0 — unattributed |
+| Cost/Issue                                                | unknown (no attributed $ to divide)                                    | —                     |
+
+### Patterns
+
+- **Nothing to claim, for a legitimate reason.** Step 1 (implement-queue) found exactly one `ready` issue, and it's `needs-human`: "redefine what [the venue-setup page] actually is" is a product/design call, not a mechanical implementation task. Zero issues claimed is the correct outcome here, not a queue failure.
+- **`apps-visual.yml` ("Apps Visual Regression") instability persists into its 3rd day.** #8781 (51.5% failure rate) and #8780 (3 consecutive main-push failures) were already open and unresolved in yesterday's (2026-11-13) log entry; still open today. This is now a 3-day-consistent pattern per the skill's own threshold — flagging for the Owner rather than filing a `meta-improvement` issue myself this run, since the two tracking issues already exist and a third would just duplicate them.
+- **Stale `has-pr` labels on already-merged work.** #8817 and #8778 both carry `has-pr`, but their linked PRs (#8836, #8812) merged on 2026-11-13. Single-run observation, not filed — worth a label-hygiene sweep if it recurs.
+- Reverts (7d): 1 — within the >3/week alarm threshold, no action needed.
+
+### Recommendations
+
+- Apps Visual Regression (#8781/#8780) has now sat open and recurring for 3 days straight across two evening reports; worth the Owner's attention directly rather than another automated pass, since implement-queue keeps deprioritizing it as a global-zone `ci-fix` behind other work.
+- #8864 needs a human product decision on what the page becomes before it can be decomposed into `ready` agent work; it is correctly held, not stuck.
+- No new `meta-improvement` issue filed this run (2 max/run budget untouched) — the two candidate patterns above (visual-regression persistence, stale has-pr labels) are each single-additional-observation, not yet warranting a fresh issue over the existing trackers.
+
+### Skipped Issues
+
+0 open `agent-skip` issues — nothing to review.
+
+### Auto-retry
+
+Re-queued 1 stale `agent-failed` issue (3+ days, capped at 2/run) back to `ready`: #8566 (`api-failures: GET /api/v1/floor-plan-sections — p95 2182 ms`).
