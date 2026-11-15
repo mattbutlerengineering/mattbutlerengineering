@@ -109,8 +109,8 @@
   border-radius: var(--rialto-radius-default);
   cursor: pointer;
   transition:
-    background 0.1s var(--rialto-ease-precision),
-    color 0.1s var(--rialto-ease-precision);
+    background var(--rialto-duration-fast) var(--rialto-ease-precision),
+    color var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .item:hover {

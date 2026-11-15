@@ -54,7 +54,7 @@
   color: var(--rialto-text-secondary);
   text-decoration: none;
   padding-block: var(--rialto-space-xs);
-  transition: color 0.15s var(--rialto-ease-precision);
+  transition: color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .link:hover {
@@ -157,8 +157,8 @@
   background: var(--rialto-text-primary);
   border-radius: var(--rialto-radius-round);
   transition:
-    transform 0.2s var(--rialto-ease-precision),
-    opacity 0.2s var(--rialto-ease-precision);
+    transform var(--rialto-duration-slow) var(--rialto-ease-precision),
+    opacity var(--rialto-duration-slow) var(--rialto-ease-precision);
 }
 
 .hamburgerBar {
@@ -215,7 +215,7 @@
   padding-block: var(--rialto-space-sm);
   padding-inline: var(--rialto-space-sm);
   border-radius: var(--rialto-radius-default);
-  transition: background 0.15s var(--rialto-ease-precision);
+  transition: background var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .mobileGroupLabel {

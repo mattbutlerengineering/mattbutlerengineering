@@ -42,8 +42,8 @@
 
   cursor: pointer;
   transition:
-    background 0.1s var(--rialto-ease-precision),
-    border-color 0.1s var(--rialto-ease-precision);
+    background var(--rialto-duration-fast) var(--rialto-ease-precision),
+    border-color var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .interactive:hover {
@@ -109,7 +109,7 @@
   opacity: 0.6;
   cursor: pointer;
   border-radius: var(--rialto-radius-sharp);
-  transition: opacity 0.1s var(--rialto-ease-precision);
+  transition: opacity var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .dismiss:hover {

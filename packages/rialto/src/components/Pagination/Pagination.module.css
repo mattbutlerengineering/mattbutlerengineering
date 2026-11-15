@@ -55,10 +55,10 @@
   color: var(--rialto-text-secondary);
   cursor: pointer;
   transition:
-    background 0.1s var(--rialto-ease-precision),
-    border-color 0.1s var(--rialto-ease-precision),
-    color 0.1s var(--rialto-ease-precision),
-    box-shadow 0.1s var(--rialto-ease-precision);
+    background var(--rialto-duration-fast) var(--rialto-ease-precision),
+    border-color var(--rialto-duration-fast) var(--rialto-ease-precision),
+    color var(--rialto-duration-fast) var(--rialto-ease-precision),
+    box-shadow var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .page:hover,

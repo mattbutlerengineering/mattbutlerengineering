@@ -27,8 +27,8 @@
   overflow: hidden;
   user-select: none;
   transition:
-    border-color 0.15s var(--rialto-ease-precision),
-    background-color 0.15s var(--rialto-ease-precision);
+    border-color var(--rialto-duration-standard) var(--rialto-ease-precision),
+    background-color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .tile:hover {
@@ -117,7 +117,7 @@
   height: 100%;
   object-fit: contain;
   padding: var(--rialto-space-xs);
-  transition: opacity 0.15s var(--rialto-ease-precision);
+  transition: opacity var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 /* ── Replace button ─────────────────────────── */
@@ -137,7 +137,7 @@
   color: var(--rialto-text-secondary);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s var(--rialto-ease-precision);
+  transition: opacity var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .tile:hover .replaceButton,
@@ -161,7 +161,7 @@
   height: 100%;
   border-radius: var(--rialto-radius-round);
   background: var(--rialto-accent);
-  transition: width 0.3s var(--rialto-ease-precision);
+  transition: width var(--rialto-duration-slow) var(--rialto-ease-precision);
 }
 
 /* ── Checkmark ──────────────────────────────── */
