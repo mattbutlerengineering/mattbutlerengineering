@@ -459,7 +459,7 @@ to a single worker without worktree isolation in cloud and keep the local
 - **When:** every Sunday 4:00pm PT (`0 23 * * 0` UTC) — late enough to see the
   full week including Friday's `mbe-weekly-improve` and `mbe-doc-rot` output, early
   enough that Monday's routines start with the blockers already surfaced. It sits in
-  the clean gap between `mbe-midday` (1:07pm) and `mbe-evening` (5:11pm).
+  the clean gap before `mbe-evening` (5:11pm).
 - **Why it exists:** every other routine improves the **product** — the code, the
   docs, the artifacts. This one improves the **factory**. Its question is _what
   blocked flow, and what should change?_
@@ -580,14 +580,14 @@ new weekday schedule slot** (see Plan budget below).
 ## Plan budget (Max 20x)
 
 The Max 20x plan has far more scheduled-run headroom than Max 5x, shared with
-interactive use. The **daily** baseline is 7 runs (`mbe-evening`, `mbe-night`,
-`mbe-auditor`, `mbe-morning`, `mbe-learning-loop`, `mbe-midday`,
+interactive use. The **daily** baseline is 5 runs (`mbe-evening`,
+`mbe-auditor`, `mbe-morning`, `mbe-learning-loop`,
 `mbe-ui-quality`). Weekly/monthly triggers add runs on their day (`mbe-deep-audit` runs in GitHub Actions, so
 it does **not** count against the claude.ai plan quota):
 
-- Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 9
-- Sun: + `mbe-weekly-retro` (opus) → 8
-- 1st of month: + `mbe-monthly-meta-audit` (opus) → 8 (or briefly 10 if the 1st is a Fri)
+- Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 7
+- Sun: + `mbe-weekly-retro` (opus) → 6
+- 1st of month: + `mbe-monthly-meta-audit` (opus) → 6 (or briefly 8 if the 1st is a Fri)
 
 `mbe-feature-drain` (added 2026-10-16) sits on top of that baseline: two hourly
 sonnet triggers offset by 30 minutes, so up to 48 fires/day. A fire with nothing
@@ -603,7 +603,7 @@ disabled on 2026-11-15, halving the cadence without touching the prompt. Note `m
 fire already failed with `USAGE_LIMIT_REACHED` before either sub-hourly routine
 existed, so the Friday-morning stack is the hour to watch.
 
-7-10 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
+5-8 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
 interactive local sessions. The two weekly opus routines are deliberately split
 across different days — `mbe-weekly-improve` on Friday, `mbe-weekly-retro` on
 Sunday — so the heaviest runs never stack. `mbe-monthly-meta-audit` is the one
