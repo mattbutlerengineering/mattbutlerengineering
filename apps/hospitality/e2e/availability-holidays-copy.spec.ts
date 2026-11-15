@@ -162,7 +162,7 @@ test.describe("Holiday decisions", () => {
     record("H1", counter.count(), 4, BEFORE.H1);
   });
 
-  test("H2: Christmas Eve open as usual, seen by a second Manager with 0 interactions (budget 3)", async ({
+  test("H2: Christmas Eve open as usual, seen by a second Manager (budget 3)", async ({
     mockedPage: page,
     browser,
   }) => {
@@ -244,7 +244,7 @@ test.describe("Holiday decisions", () => {
     }
   });
 
-  test("H3: Special hours… on New Year's Eve opens the sheet on that date (budget before)", async ({
+  test("H3: Special hours… on New Year's Eve opens the sheet on that date (budget before + 1)", async ({
     mockedPage: page,
   }) => {
     const store = createSharedConfig(fOneConfig());

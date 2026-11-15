@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
@@ -158,7 +158,6 @@ function pickScope(choice: string) {
 
 /** The filter is one select: open it and pick an option. */
 function pickFilter(name: string) {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   fireEvent.click(screen.getByRole("combobox", { name: "Filter special dates" }));
   fireEvent.click(screen.getByRole("option", { name }));
 }
@@ -167,6 +166,15 @@ function pickFilter(name: string) {
 function planHolidays() {
   fireEvent.click(screen.getByRole("button", { name: /^(Plan|View) holidays$/ }));
 }
+
+// jsdom has no scrollIntoView; the Select's listbox calls it when it opens. Restored after each.
+const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+beforeEach(() => {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+});
+afterEach(() => {
+  window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+});
 
 describe("SpecialDatesTab", () => {
   beforeEach(() => {
@@ -1525,10 +1533,6 @@ describe("SpecialDatesTab", () => {
         startsOn: "2026-12-24",
         endsOn: "2026-12-27",
       } as DateRule;
-      beforeEach(() => {
-        // jsdom has no scrollIntoView; the Select's listbox calls it when it opens.
-        window.HTMLElement.prototype.scrollIntoView = vi.fn();
-      });
       const openRange = (isManager = true) => {
         summaries.value = [summary("holidays", { cancelled: 5, upcomingCancelled: 5 })];
         renderTab(isManager, {
