@@ -50,12 +50,13 @@ function groupLoad<T>(reads: readonly Read<unknown>[], data: () => T): GroupLoad
 }
 
 /**
- * Venue Setup (`/setup`): every resource type the venue is made of, how they nest, whether each is
- * set up, and the one door to its editor. It composes reads the app already makes into a tree
- * (`buildSetupTree`) and renders it; it edits nothing itself. Standing for every venue: before
+ * The Availability map (the hub's `map` route, Venue Setup before #8864): what decides when guests
+ * can book, read top-down from schedules and services to floor plans, sections and tables, whether
+ * each is set up, and the one door to its editor. It composes reads the app already makes into a
+ * tree (`buildSetupTree`) and renders it; it edits nothing itself. Standing for every venue: before
  * launch it also shows the launch steps.
  */
-export function SetupPage() {
+export function AvailabilityMapPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isManager = useIsManager();

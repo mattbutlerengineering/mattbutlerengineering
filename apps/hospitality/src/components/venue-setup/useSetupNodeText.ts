@@ -12,7 +12,7 @@ export interface SetupNodeText {
   /** One line on what the resource is, on the top-level nodes. */
   readonly whatIs: (node: SetupNode) => string | null;
   readonly state: (node: SetupNode) => string;
-  readonly actionLabel: (action: SetupAction, node: SetupNode) => string;
+  readonly actionLabel: (action: SetupAction) => string;
   /** The target an action names, read after its visible label ("Close for a date… Bar"). */
   readonly actionSubject: (action: SetupAction) => string | undefined;
 }
@@ -166,10 +166,7 @@ export function useSetupNodeText(): SetupNodeText {
       }
     },
     state,
-    actionLabel: (action, node) =>
-      action.id === "addFloorPlan" && node.state.kind !== "unset"
-        ? t("setup.hub.actions.addAnotherFloorPlan")
-        : t(`setup.hub.actions.${action.id}`),
+    actionLabel: (action) => t(`setup.hub.actions.${action.id}`),
     actionSubject: (action) => action.subject,
   };
 }

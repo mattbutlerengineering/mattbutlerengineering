@@ -52,7 +52,7 @@ vi.mock("../hooks/useNow.js", () => ({ useNow: () => new Date("2026-11-07T18:00:
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 
-import { SetupPage } from "./SetupPage.js";
+import { AvailabilityMapPage } from "./AvailabilityMapPage.js";
 
 const HOURS = {
   opensAt: 690,
@@ -161,8 +161,8 @@ function Where() {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={["/setup"]}>
-      <SetupPage />
+    <MemoryRouter initialEntries={["/availability/map"]}>
+      <AvailabilityMapPage />
       <Where />
     </MemoryRouter>
   );
@@ -189,13 +189,40 @@ beforeEach(() => {
   setSit([], [], []);
 });
 
-describe("Venue Setup: an empty venue", () => {
+describe("Availability map: an empty venue", () => {
   it("is one page with the two groups, whatever the venue's readiness", () => {
     renderPage();
-    expect(screen.getByRole("heading", { level: 1, name: "Venue Setup" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Availability map" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "When you're open" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Where guests sit" })).toBeInTheDocument();
     expect(screen.getByText("Bistro 42")).toBeInTheDocument();
+  });
+
+  it("says in one sentence what the page is for", () => {
+    renderPage();
+    expect(screen.getByText(/^What decides when guests can book/)).toBeInTheDocument();
+  });
+
+  it("reads top-down in the order that decides availability: schedules, then floor plans", () => {
+    setConfig(WEEK);
+    setSit([plan], [section("sec-bar", "Bar", 0)], [table("t1", "B1", "sec-bar")]);
+    renderPage();
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings).toEqual(["When you're open", "Where guests sit"]);
+    const order = ["Schedules", "Regular week", "Lunch", "Main floor", "Bar"].map((name) =>
+      screen.getByRole("listitem", { name: new RegExp(name) })
+    );
+    order.slice(1).forEach((node, i) => {
+      expect(
+        order[i]!.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).toBeTruthy();
+    });
+  });
+
+  it("marks an unset node as a status, not colour alone", () => {
+    renderPage();
+    const week = screen.getByRole("listitem", { name: /Regular week/ });
+    expect(within(week).getByText("Not set up")).toHaveAttribute("data-state", "unset");
   });
 
   it("marks each resource type 'Not set up' and says what it is", () => {
@@ -245,7 +272,7 @@ describe("Venue Setup: an empty venue", () => {
   });
 });
 
-describe("Venue Setup: schedules and services", () => {
+describe("Availability map: schedules and services", () => {
   it("shows the schedule level for a one-schedule venue, with its services and days", () => {
     setConfig(WEEK);
     renderPage();
@@ -264,8 +291,8 @@ describe("Venue Setup: schedules and services", () => {
     expect(screen.getByRole("button", { name: "Set up regular week" })).toBeInTheDocument();
     setConfig(WEEK);
     view.rerender(
-      <MemoryRouter initialEntries={["/setup"]}>
-        <SetupPage />
+      <MemoryRouter initialEntries={["/availability/map"]}>
+        <AvailabilityMapPage />
       </MemoryRouter>
     );
     expect(screen.queryByRole("button", { name: "Set up regular week" })).not.toBeInTheDocument();
@@ -292,7 +319,7 @@ describe("Venue Setup: schedules and services", () => {
   });
 });
 
-describe("Venue Setup: special dates", () => {
+describe("Availability map: special dates", () => {
   const rules: DateRule[] = [
     {
       id: "r1",
@@ -341,7 +368,7 @@ describe("Venue Setup: special dates", () => {
   });
 });
 
-describe("Venue Setup: booking", () => {
+describe("Availability map: booking", () => {
   it("shows the venue's booking rules after the editor saves them", () => {
     const view = renderPage();
     expect(
@@ -353,8 +380,8 @@ describe("Venue Setup: booking", () => {
       maxPartySize: 8,
     } as VenueSettings;
     view.rerender(
-      <MemoryRouter initialEntries={["/setup"]}>
-        <SetupPage />
+      <MemoryRouter initialEntries={["/availability/map"]}>
+        <AvailabilityMapPage />
       </MemoryRouter>
     );
     const booking = screen.getByRole("listitem", { name: /^Booking/ });
@@ -384,7 +411,7 @@ describe("Venue Setup: booking", () => {
   });
 });
 
-describe("Venue Setup: floor plan, sections and tables", () => {
+describe("Availability map: floor plan, sections and tables", () => {
   beforeEach(() => {
     setSit(
       [plan],
@@ -416,7 +443,7 @@ describe("Venue Setup: floor plan, sections and tables", () => {
     await userEvent.setup().click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("B1")).toBeInTheDocument();
-    expect(screen.getByLabelText("location")).toHaveTextContent("/setup");
+    expect(screen.getByLabelText("location")).toHaveTextContent("/availability/map");
   });
 
   it("offers Close for a date… on a section and Move to a section on No section", async () => {
@@ -443,7 +470,7 @@ describe("Venue Setup: floor plan, sections and tables", () => {
   });
 });
 
-describe("Venue Setup: loading and per-group errors", () => {
+describe("Availability map: loading and per-group errors", () => {
   it("shows skeletons and no actions while a group loads", () => {
     reads.config = read<{ config: AvailabilityConfig; version: number }>(undefined, {
       isLoading: true,
@@ -482,11 +509,11 @@ describe("Venue Setup: loading and per-group errors", () => {
   });
 });
 
-describe("Venue Setup: the Setup progress strip", () => {
+describe("Availability map: the launch progress strip", () => {
   it("shows a Manager the launch steps before launch, with the first unset one primary", () => {
     readiness.value = EMPTY_SETUP;
     renderPage();
-    const strip = screen.getByRole("region", { name: "Venue Setup progress" });
+    const strip = screen.getByRole("region", { name: "Launch progress" });
     expect(within(strip).getByText("1 of 3")).toBeInTheDocument();
     expect(within(strip).getByText("Venue basics").closest("li")).toHaveTextContent("Done");
     expect(within(strip).getByText("Regular week").closest("li")).toHaveTextContent("Next");
@@ -499,11 +526,11 @@ describe("Venue Setup: the Setup progress strip", () => {
 
   it("is not shown once the venue is operational", () => {
     renderPage();
-    expect(screen.queryByRole("region", { name: "Venue Setup progress" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Launch progress" })).not.toBeInTheDocument();
   });
 });
 
-describe("Venue Setup: the Host variant", () => {
+describe("Availability map: the Host variant", () => {
   beforeEach(() => {
     viewer.isManager = false;
     readiness.value = EMPTY_SETUP;
@@ -519,7 +546,7 @@ describe("Venue Setup: the Host variant", () => {
     renderPage();
     const names = screen.queryAllByRole("button").map((b) => b.textContent);
     expect(names.join(" ")).not.toMatch(/set up|edit|change|close|add|move|rules|compare|open/i);
-    expect(screen.queryByRole("region", { name: "Venue Setup progress" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Launch progress" })).not.toBeInTheDocument();
     expect(screen.getByText("Lunch")).toBeInTheDocument();
   });
 

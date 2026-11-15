@@ -19,6 +19,7 @@ import { I18nextProvider } from "react-i18next";
 import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
 import { availabilityPath } from "./components/availability/availability-address.js";
+import { SetupRedirect } from "./components/availability/SetupRedirect.js";
 
 initSentry({
   appName: "hospitality",
@@ -106,8 +107,8 @@ const VenueOnboardingPage = lazy(() =>
     default: m.VenueOnboardingPage,
   }))
 );
-const SetupPage = lazy(() =>
-  import("./pages/SetupPage.js").then((m) => ({ default: m.SetupPage }))
+const AvailabilityMapPage = lazy(() =>
+  import("./pages/AvailabilityMapPage.js").then((m) => ({ default: m.AvailabilityMapPage }))
 );
 const PublicBookingPage = lazy(() =>
   import("./pages/PublicBookingPage.js").then((m) => ({
@@ -172,7 +173,7 @@ if (legacyPath !== null) {
  *
  * Index route: TimelinePage (was HomePage/Dashboard).
  * Dashboard moves to /dashboard.
- * Setup pages: /setup. (/setup/hours redirects to /availability.)
+ * The Availability map: /availability/map. (/setup redirects to it; /setup/hours to /availability.)
  */
 const router = createBrowserRouter(
   [
@@ -249,7 +250,7 @@ const router = createBrowserRouter(
           children: [
             {
               // Index: Timeline is the default landing page in operational mode.
-              // DashboardLayout redirects to /setup for new venues or /timeline for operational ones.
+              // DashboardLayout redirects to the Availability map for new venues or /timeline for operational ones.
               index: true,
               element: (
                 <Suspense fallback={<LoadingPage />}>
@@ -387,6 +388,15 @@ const router = createBrowserRouter(
                     </RequireManager>
                   ),
                 },
+                {
+                  // What decides when guests can book: schedules down to tables (#8864).
+                  path: "map",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityMapPage />
+                    </Suspense>
+                  ),
+                },
               ],
             },
             {
@@ -448,12 +458,9 @@ const router = createBrowserRouter(
               ),
             },
             {
+              // Venue Setup became the Availability map (#8864).
               path: "setup",
-              element: (
-                <Suspense fallback={<LoadingPage />}>
-                  <SetupPage />
-                </Suspense>
-              ),
+              element: <SetupRedirect />,
             },
             {
               path: "setup/hours",

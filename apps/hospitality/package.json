@@ -186,13 +186,13 @@
       "limit": "13.5 kB"
     },
     {
-      "name": "Venue Setup page (lazy chunk)",
-      "path": "dist/assets/SetupPage-*.js",
+      "name": "Availability map page (lazy chunk; Venue Setup before #8864)",
+      "path": "dist/assets/AvailabilityMapPage-*.js",
       "limit": "6 kB"
     },
     {
-      "name": "Regular week line (shared by the availability page and Venue Setup, hoisted)",
-      "path": "dist/assets/RegularWeekLine-*.js",
+      "name": "Regular week line + superseded schedules (shared by the availability page and the Availability map, hoisted; the bundler names the chunk after superseded-schedules since #8864)",
+      "path": "dist/assets/superseded-schedules-*.js",
       "limit": "11 kB"
     },
     {

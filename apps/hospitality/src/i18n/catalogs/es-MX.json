@@ -308,7 +308,7 @@
       "waitlist": "Lista de espera",
       "guests": "Clientes",
       "dashboard": "Panel",
-      "venueSetup": "Configuración del local",
+      "venueSetup": "Mapa de disponibilidad",
       "bookingWidget": "Widget de reservas",
       "signOut": "Cerrar sesión",
       "chat": "Chat",
@@ -334,7 +334,7 @@
       "settings": "Configuración",
       "admin": "Administración",
       "dashboard": "Panel",
-      "setup": "Configuración del local",
+      "setup": "Mapa de disponibilidad",
       "hours": "Disponibilidad",
       "menus": "Menús",
       "availability": "Disponibilidad",
@@ -2215,7 +2215,7 @@
   "availability": {
     "title": "Disponibilidad",
     "description": "Tu horario, días festivos y cambios puntuales.",
-    "backToSetup": "Configuración del local",
+    "backToSetup": "Mapa de disponibilidad",
     "hostNote": "Solo los gerentes cambian los horarios. Para esta noche, usa el panel Esta noche.",
     "loadError": "No se pudo cargar la disponibilidad",
     "noVenue": "Selecciona un local para ver su disponibilidad.",
@@ -3503,11 +3503,11 @@
   },
   "setup": {
     "hub": {
-      "title": "Configuración del local",
-      "description": "Todo lo que un cliente puede reservar y cómo encaja. Cada línea abre el lugar donde lo cambias.",
+      "title": "Mapa de disponibilidad",
+      "description": "Lo que decide cuándo pueden reservar los clientes, de los horarios y servicios hasta las mesas, y cada línea abre el lugar donde lo cambias.",
       "yourVenue": "tu local",
-      "loading": "Cargando la configuración del local",
-      "loadError": "No se pudo cargar la configuración del local.",
+      "loading": "Cargando el mapa de disponibilidad",
+      "loadError": "No se pudo cargar el mapa de disponibilidad.",
       "groupError": "No se pudo cargar «{{group}}».",
       "groups": {
         "open": "Cuándo abres",
@@ -3600,19 +3600,16 @@
         "setUpRegularWeek": "Configurar la semana habitual",
         "changeRegularWeek": "Cambiar la semana habitual…",
         "editSchedule": "Editar",
-        "compareServices": "Comparar servicios",
         "createSchedule": "Agregar un horario…",
-        "openCalendar": "Abrir el calendario",
         "openSpecialDates": "Abrir Fechas especiales",
         "bookingRules": "Reglas de reserva…",
         "openFloorPlan": "Abrir el plano de sala",
         "addFloorPlan": "Agregar plano de sala",
-        "addAnotherFloorPlan": "Agregar otro plano de sala",
         "closeSection": "Cerrar en una fecha…",
         "moveToSection": "Pasar a una sección"
       },
       "strip": {
-        "title": "Avance de la configuración del local",
+        "title": "Avance del lanzamiento",
         "count": "{{done}} de {{total}}",
         "steps": {
           "venueBasics": "Datos básicos del local",
@@ -3774,7 +3771,7 @@
     "venue": {
       "title": "Local",
       "description": "Administra los días y horarios en que tu local acepta reservas.",
-      "venueSetup": "Configuración del local"
+      "venueSetup": "Mapa de disponibilidad"
     },
     "team": {
       "title": "Equipo",

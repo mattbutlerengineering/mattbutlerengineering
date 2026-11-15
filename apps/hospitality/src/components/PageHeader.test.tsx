@@ -112,7 +112,7 @@ describe("vertical spend above content (#6367 WO-3)", () => {
   });
 
   it("keeps a phone's aside on the title's row only when asked (Availability's header actions)", () => {
-    expect(css).toMatch(/\.asideBesideTitle\s*\{[^}]*display:\s*grid/);
+    expect(css).toMatch(/\.asideBesideTitle\s*\{[^}]*display:\s*flex/);
     const { container } = render(
       <PageHeader title="Availability" aside={<button>Close…</button>} />
     );
@@ -121,5 +121,16 @@ describe("vertical spend above content (#6367 WO-3)", () => {
       <PageHeader title="Availability" aside={<button>Close…</button>} asideBesideTitle />
     );
     expect(beside.firstElementChild?.className).toMatch(/asideBesideTitle/);
+  });
+
+  it("drops a phone's aside below the title rather than squeezing the title (#8864: es-MX hub h1 hidden)", () => {
+    const beside = css.match(/\.asideBesideTitle\s*\{([^}]*)\}/)?.[1] ?? "";
+    // A wrapping row: the title keeps its own width, never a zero-minimum grid track.
+    expect(beside).toMatch(/flex-wrap:\s*wrap/);
+    expect(beside).not.toMatch(/minmax\(0,\s*1fr\)/);
+    // The aside asks for only its narrowest form, so it shares the title's row whenever that fits.
+    const aside = css.match(/\.asideBesideTitle \.aside\s*\{([^}]*)\}/)?.[1] ?? "";
+    expect(aside).toMatch(/flex:\s*1 1 0/);
+    expect(aside).toMatch(/min-inline-size:\s*min-content/);
   });
 });

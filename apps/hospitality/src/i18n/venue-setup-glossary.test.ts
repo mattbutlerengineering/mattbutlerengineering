@@ -46,19 +46,21 @@ interface Concept {
 
 const GLOSSARY: readonly Concept[] = [
   {
-    concept: "The setup hub",
+    // Venue Setup until #8864 moved it under the Availability hub.
+    concept: "The availability map",
     term: {
-      "en-US": "Venue Setup",
-      "es-MX": "Configuración del local",
-      "fr-CA": "Configuration de l'établissement",
+      "en-US": "Availability map",
+      "es-MX": "Mapa de disponibilidad",
+      "fr-CA": "Carte des disponibilités",
     },
     exact: [
       "nav.items.venueSetup",
       "layout.routes.setup",
       "setup.hub.title",
       "availability.backToSetup",
+      "settings.venue.venueSetup",
     ],
-    contains: ["settings.venue.venueSetup", "setup.hub.strip.title"],
+    contains: ["setup.hub.loading", "setup.hub.loadError"],
   },
   {
     concept: "The calendar page",
@@ -176,7 +178,7 @@ describe.each(LOCALES)("Venue Setup glossary (%s)", (locale) => {
     expect(lookup(catalog, "layout.routes.hours")).toBe(GLOSSARY[1]!.term[locale]);
   });
 
-  it("names Venue Setup identically in the nav before and after launch", () => {
+  it("names the Availability map identically in the nav before and after launch", () => {
     // One catalog entry serves both readiness states; the progress count is a separate key.
     const navKeys = leaves(catalog.nav).map(([key]) => key);
     expect(navKeys).toContain("items.venueSetup");
@@ -195,9 +197,20 @@ const RETIRED_ANYWHERE: Readonly<Record<LocaleId, readonly RegExp[]>> = {
 
 /** Retired as a whole destination name or label (a value that is exactly the term). */
 const RETIRED_WHOLE: Readonly<Record<LocaleId, readonly string[]>> = {
-  "en-US": ["Setup", "Floor Plans", "Create Floor Plan", "Set Operating Hours"],
-  "es-MX": ["Configuración inicial", "Planos de sala", "Crear plano", "Crear plano de sala"],
-  "fr-CA": ["Configuration", "Plans de salle", "Créer un plan de salle"],
+  "en-US": ["Setup", "Venue Setup", "Floor Plans", "Create Floor Plan", "Set Operating Hours"],
+  "es-MX": [
+    "Configuración inicial",
+    "Configuración del local",
+    "Planos de sala",
+    "Crear plano",
+    "Crear plano de sala",
+  ],
+  "fr-CA": [
+    "Configuration",
+    "Configuration de l'établissement",
+    "Plans de salle",
+    "Créer un plan de salle",
+  ],
 };
 
 /** Section headings are headings, not destination names (ux.md S-Nav). */

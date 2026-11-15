@@ -43,6 +43,7 @@ import { ErrorRetryBanner } from "./ErrorRetryBanner.js";
 import { DashboardSidebar } from "./DashboardSidebar.js";
 import { LocalePicker } from "./LocalePicker/index.js";
 import { SystemHealthBadge } from "./SystemHealthBadge.js";
+import { availabilityPath } from "./availability/availability-address.js";
 import { OnlinePausedPill } from "./availability/OnlinePausedPill.js";
 import { VenueSwitcher } from "./VenueSwitcher.js";
 import styles from "./DashboardLayout.module.css";
@@ -79,6 +80,7 @@ const ROUTE_LABEL_KEYS = {
   calendar: "availabilityHub.routes.calendar",
   "booking-rules": "availabilityHub.routes.bookingRules",
   history: "availabilityHub.routes.history",
+  "availability/map": "layout.routes.setup",
 } as const;
 
 /** The label for a route segment: under its parent first, then by itself, then as an id. */
@@ -97,7 +99,7 @@ function routeLabel(t: TFunction, segment: string, parent?: string): string {
 /** The search-hint key cap; a key name, not translatable text. */
 const SEARCH_KEY = "K";
 
-/** Operational pages that should redirect to /setup when not yet ready */
+/** Operational pages that should redirect to the Availability map when not yet ready */
 const OPERATIONAL_ONLY_PATHS = ["/timeline", "/reservations", "/guests"];
 
 /**
@@ -169,13 +171,14 @@ function DashboardLayoutInner() {
         (p) => path === p || path.startsWith(p + "/")
       );
       if (isOperationalPage) {
-        navigate("/setup", { replace: true });
+        // The map shows the launch steps to a venue whose readiness is `setup`.
+        navigate(availabilityPath({ view: "map" }), { replace: true });
       }
       return;
     }
 
     if (readiness.status === "operational") {
-      // /setup is the standing Venue Setup page for every venue: only the root bounces.
+      // The Availability map is a standing page for every venue: only the root bounces.
       if (path === "/" || path === "") {
         navigate("/timeline", { replace: true });
       }

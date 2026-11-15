@@ -156,7 +156,7 @@ describe("DashboardLayout", () => {
               <Route path="briefing" element={<div>Briefing Content</div>} />
               <Route path="settings" element={<div>Settings Content</div>} />
               <Route path="dashboard" element={<div>Dashboard Content</div>} />
-              <Route path="setup" element={<div>Setup Content</div>} />
+              <Route path="availability/map" element={<div>Availability Map Content</div>} />
               <Route path="setup/hours" element={<div>Setup Hours Content</div>} />
               <Route path="chat" element={<ChatPage />} />
               <Route path="availability/*" element={<div>Availability Content</div>} />
@@ -259,7 +259,7 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Onboarding Content")).toBeInTheDocument();
   });
 
-  it("redirects operational pages to setup when status is setup", () => {
+  it("redirects operational pages to the Availability map when status is setup", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "setup",
       completedSteps: [],
@@ -267,13 +267,13 @@ describe("DashboardLayout", () => {
       progress: 33,
     });
     renderLayout("/timeline");
-    expect(screen.getByText("Setup Content")).toBeDefined();
+    expect(screen.getByText("Availability Map Content")).toBeDefined();
   });
 
   it("allows the dashboard as the post-onboarding landing when status is setup", () => {
     // A freshly-onboarded venue (basics + operating hours, no floor plan yet)
     // is in "setup" status. The dashboard is NOT operational-only, so it must
-    // render as the landing page rather than bouncing to /setup or /onboarding.
+    // render as the landing page rather than bouncing to the map or /onboarding.
     const setupReadiness: VenueReadiness = {
       status: "setup",
       completedSteps: ["onboarding", "operating-hours"],
@@ -296,32 +296,32 @@ describe("DashboardLayout", () => {
     expect(screen.getByText("Timeline Content")).toBeDefined();
   });
 
-  it("keeps an operational venue on /setup: Venue Setup is a standing page", () => {
+  it("keeps an operational venue on the Availability map: it is a standing page", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
       completedSteps: ["onboarding", "operating-hours", "floor-plan"],
       nextStep: null,
       progress: 100,
     });
-    renderLayout("/setup");
-    expect(screen.getByText("Setup Content")).toBeDefined();
+    renderLayout("/availability/map");
+    expect(screen.getByText("Availability Map Content")).toBeDefined();
     expect(screen.queryByText("Timeline Content")).toBeNull();
   });
 
-  it("keeps a setup-status venue on /setup", () => {
+  it("keeps a setup-status venue on the Availability map", () => {
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "setup",
       completedSteps: ["onboarding"],
       nextStep: "operating-hours",
       progress: 33,
     });
-    renderLayout("/setup");
-    expect(screen.getByText("Setup Content")).toBeDefined();
+    renderLayout("/availability/map");
+    expect(screen.getByText("Availability Map Content")).toBeDefined();
   });
 
   it("does NOT redirect /setup/hours to /timeline when operational (#4982)", () => {
     // Editing operating hours must stay reachable after a venue goes
-    // operational, as /setup does.
+    // operational, as the Availability map does.
     vi.mocked(useVenueReadiness).mockReturnValue({
       status: "operational",
       completedSteps: ["onboarding", "operating-hours", "floor-plan"],
@@ -451,11 +451,6 @@ describe("DashboardLayout", () => {
       expect(items[1]).toHaveTextContent("Floor Plan");
     });
 
-    it("labels /setup Venue Setup, and the /setup/hours redirect flash Availability", () => {
-      renderLayout("/setup");
-      expect(screen.getAllByTestId(/^breadcrumb-item-/)[1]).toHaveTextContent("Venue Setup");
-    });
-
     it("labels the chat page Chat, not Details", () => {
       renderLayout("/chat");
       const items = screen.getAllByTestId(/^breadcrumb-item-/);
@@ -492,6 +487,7 @@ describe("DashboardLayout", () => {
       ["/availability/calendar", ["Availability", "Calendar"]],
       ["/availability/booking-rules", ["Availability", "Booking rules"]],
       ["/availability/history", ["Availability", "History"]],
+      ["/availability/map", ["Availability", "Availability map"]],
     ] as const)("never reads Details on %s", (path, labels) => {
       renderLayout(path);
       const items = screen.getAllByTestId(/^breadcrumb-item-/);

@@ -1,6 +1,6 @@
 import { useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Button, Text } from "@mattbutlerengineering/rialto";
+import { Badge, Button, Text } from "@mattbutlerengineering/rialto";
 import type { SetupAction, SetupNode, SetupNodeKind } from "./setup-tree.js";
 import { useSetupNodeText, type SetupNodeText } from "./useSetupNodeText.js";
 import styles from "./VenueSetup.module.css";
@@ -24,7 +24,7 @@ export interface SetupNodeRowProps {
 }
 
 /**
- * One node of the hub: its kind word, name, state and actions. A node with children is a
+ * One node of the Availability map: its kind word, name, state and actions. A node with children is a
  * disclosure (a button with `aria-expanded`); pressing the name expands it and never navigates.
  */
 export function SetupNodeRow(props: SetupNodeRowProps) {
@@ -66,14 +66,16 @@ export function SetupNodeRow(props: SetupNodeRowProps) {
             {label}
           </Text>
         )}
-        <Text
-          as="span"
-          variant="caption"
-          color="secondary"
-          className={unset ? styles.stateUnset : styles.state}
-        >
-          {text.state(node)}
-        </Text>
+        {unset ? (
+          // Not set up reads as a status: its words, with the dot only as a second cue.
+          <Badge variant="warning" size="sm" dot data-state="unset">
+            {text.state(node)}
+          </Badge>
+        ) : (
+          <Text as="span" variant="caption" color="secondary" className={styles.state}>
+            {text.state(node)}
+          </Text>
+        )}
         {node.actions.length > 0 && (
           <div className={styles.actions}>
             {node.actions.map((action) => (
@@ -85,7 +87,7 @@ export function SetupNodeRow(props: SetupNodeRowProps) {
                 data-primary={action.primary ? "true" : undefined}
                 onClick={() => onAction(action)}
               >
-                {text.actionLabel(action, node)}
+                {text.actionLabel(action)}
                 {text.actionSubject(action) && (
                   <>
                     {" "}
