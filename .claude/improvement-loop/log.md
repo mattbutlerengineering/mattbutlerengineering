@@ -5494,3 +5494,53 @@ Re-queued 1 stale `agent-failed` issue (3+ days, capped at 2/run) back to `ready
 **Skill proposals:** 0 (Saturday — Friday-only).
 **Threshold notes:** auto-tuner applied 1 adjustment (acmm headroom 1.662 → 1.674). 30d fix-effectiveness 6/123 (4.9%) looks low but is dominated by `skip` outcomes (115/123) from verifier data gaps, not actual fix failures — not treated as a fix-strategy signal this run. 30d false-positive rate (wontfix+invalid / created) 14/200 = 7.0%, well under the 30% loosen-threshold; issue-feedback budgets unchanged (all 7 categories <40% rejected, budget=3 each).
 **Notes:** GitHub GraphQL 403s (expected in CCR sessions, #5958) forced `queue-efficiency` and `collect-ai-issue-feedback.mjs`'s linked-PR lookup onto REST fallbacks; both degraded gracefully, no action needed.
+
+## 2026-11-15 — mbe-evening (implement-queue)
+
+Phase 0 preflight: `main` green (0 failures in last 5 `gh run list` entries; `CI Gate` present and `success` on head `c581f21`). No `in-progress` issues from another session. None of the 6 open PRs belong to this queue (3 are `auto-merge`-labeled metrics/audit PRs from other automations with no linked issue; the other 3 carry `needs-review` and close issues that don't carry this queue's state labels) — nothing to gate or merge-train this run.
+
+Phase 1 claim: **0 issues claimed.** The only `ready` issue (#8864, "Availability hierarchy") still carries `needs-human` and is still a product/design call ("redefine what it actually is"), not independently implementable — same correct hold as yesterday. No batch composed, no workers dispatched, no worktrees cut, no `metrics/queue-telemetry.jsonl` rows to persist this iteration.
+
+Phase 4: no worktrees present (`.claude/worktrees/` doesn't exist), no merge-train locks were acquired, working tree clean — nothing to reap or persist.
+
+## 2026-11-15 — mbe-evening (progress-tracker)
+
+### Metrics
+
+| Metric                                                    | Value                                                                  | Band                     |
+| --------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------ |
+| Created (7d, audit+ci-fix)                                | 55 (20 audit + 35 ci-fix)                                              | —                        |
+| Closed (7d, audit+ci-fix)                                 | 46 (16 audit + 30 ci-fix)                                              | —                        |
+| Closure Rate                                              | 83.6%                                                                  | Green (>80%)             |
+| Time-to-Close (mean)                                      | ~14.3h                                                                 | Green (<24h)             |
+| Agent Success (has-pr/(has-pr+failed), snapshot)          | 4/5 = 80%                                                              | Green (>70%)             |
+| CI Pass (main, last 20 runs, skipped excluded)            | 16/16 completed non-skipped = 100%                                     | Green                    |
+| Queue (ready, open)                                       | 1 (#8864, held on `needs-human`)                                       | Green (<5)               |
+| Stale (ready>7d)                                          | 0 (#8864 created 2026-11-13, ~1.5d old)                                | Green                    |
+| Blocked (agent-failed, open)                              | 1 (#8566, now also `stealable` — see below)                            | Red (target 0, 1 open)   |
+| Skipped (agent-skip, open)                                | 0                                                                      | Green                    |
+| Daily/7d Spend (attributed, `agent-spend/sessions.jsonl`) | $0 today, $2.44 (7d, 6 sessions)                                       | Green                    |
+| Queue worker usage (7d, `queue-telemetry.jsonl`)          | 7 sessions, 1,235,590 tokens, **cost unknown** (67 rows missing usage) | not $0 — unattributed    |
+| Cost/Issue (attributed $ only, lower bound)               | $2.44 / 46 ≈ $0.05                                                     | Green (<$2, undercounts) |
+
+### Patterns
+
+- **Nothing to claim, for a legitimate reason, 2nd day running.** #8864 is still the sole `ready` issue and still `needs-human`. Same correct hold as 2026-11-14's entry — a design call, not a queue failure.
+- **`auto-retry-stale.mjs` would have re-queued a `stealable` (twice-failed) issue.** #8566 was auto-retried by this same routine yesterday (2026-11-14T01:15), failed its second attempt within hours (2026-11-14T05:39, now carries `stealable` — "needs a different approach" per the Labels table), and `node scripts/auto-retry-stale.mjs --dry-run` today selected it for a _third_ attempt — because `selectStaleForRetry` gates on the issue's `createdAt` (2026-11-09, permanently >3 days old), never on the most recent `agent-failed` transition, and never checks for `stealable` at all. Did not run the real retry: `stealable` already blocks #8566 from `implement-queue` Phase 1 claiming regardless, so re-queuing it to `ready` would misrepresent its state and burn a third mechanical attempt on an issue the system already flagged as needing a different approach. Filed **#8874** (`meta-improvement`) with the full timeline and a two-part fix (exclude `stealable`; measure staleness from the label transition, not `createdAt`).
+- No open-PR label hygiene issues observed this run (unlike 2026-11-14's stale `has-pr` note — not re-checked in detail today since Phase 0 already classified all 6 open PRs as foreign).
+- Reverts (7d): 1 — within the >3/week alarm threshold, no action needed.
+
+### Recommendations
+
+- #8864 still needs a human product decision before it can be decomposed into `ready` agent work; correctly held, not stuck.
+- #8566 needs a human to pick a different approach (per its own `stealable` label) rather than another automated retry; left `agent-failed`+`stealable` this run.
+- `auto-retry-stale.mjs`'s staleness measure should move off `createdAt` before the next scheduled fire re-selects #8566 again (#8874).
+- 1 of 2 `meta-improvement`/run filed this run (#8874); auto-retry budget (max 2/run) left fully unused — correctly, since the only candidate needed a bug fix, not a retry.
+
+### Skipped Issues
+
+0 open `agent-skip` issues — nothing to review.
+
+### Auto-retry
+
+0 issues re-queued this run (see Patterns: the one candidate, #8566, is `stealable` and was deliberately not retried — tracked as #8874 instead).
