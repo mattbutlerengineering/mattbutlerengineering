@@ -143,9 +143,12 @@ After the agent opens a PR, wait for CI to complete:
 
 ```bash
 gh pr checks <PR_NUMBER> --watch --fail-fast --interval 30
+node scripts/ci-gate-status.mjs check --pr <PR_NUMBER>
 ```
 
-**If CI fails on the fix PR:**
+`--watch` only waits: it reports `fail=0 pend=0` both when CI is green and when CI never ran (#3969). The decision comes from the classifier's `state`, handled per `.claude/implement-queue.md` § ci-status (`gate-missing` → dispatch and re-poll; `gate-unattributed`/`unknown` → abstain).
+
+**If `state` is `failed`:**
 
 ```bash
 CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
@@ -153,7 +156,7 @@ CONSECUTIVE_FAILURES=$((CONSECUTIVE_FAILURES + 1))
 
 If `CONSECUTIVE_FAILURES >= MAX_CONSECUTIVE_FAILURES`: stop and report the circuit breaker trip. Otherwise continue.
 
-**If CI passes on the fix PR**, run a Reviewer sub-agent to validate the fix before auto-merging:
+**If `state` is `green`** (only then), run a Reviewer sub-agent to validate the fix before auto-merging:
 
 ```bash
 # Gather review inputs
@@ -221,20 +224,21 @@ gh issue create \
 ### Step 3: Check Open PR Health
 
 ```bash
-gh pr list --state open --json number,title,headRefName,statusCheckRollup --limit 10
+gh pr list --state open --json number,title,headRefName --limit 10
 ```
 
 For each open PR:
 
-1. Check if any status checks are failing
-2. Focus on PRs created by the agent (branch names starting with `agent/`)
+1. Focus on PRs created by the agent (branch names starting with `agent/`)
+2. Classify its CI state; never decide "failing" from a rollup or a `--jq` filter:
 
 ```bash
-# For each PR with failing checks:
-gh pr checks <NUMBER> --json name,state,conclusion --jq '.[] | select(.conclusion == "FAILURE")'
+node scripts/ci-gate-status.mjs check --pr <NUMBER>
 ```
 
-If an agent-created PR has failing checks:
+Only `state: "failed"` counts as failing. `pending` is still running, and `gate-missing` is CI that never ran (dispatch and re-poll); both need different handling than a fix, per `.claude/implement-queue.md` § ci-status.
+
+If an agent-created PR has `state: "failed"`:
 
 **Check circuit breaker:**
 
@@ -248,8 +252,8 @@ fi
 If not tripped, attempt one fix:
 
 ```bash
-# Get the failure details
-gh pr checks <NUMBER> --json name,state,conclusion
+# Get the failure details: the classifier's `reason` names what failed; read job logs via `gh run view --log-failed`
+node scripts/ci-gate-status.mjs check --pr <NUMBER>
 
 # Spawn fix agent for the PR
 mbe agent run "Fix failing CI checks on PR #<NUMBER> [type: <classified type>]:
