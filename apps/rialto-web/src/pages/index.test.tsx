@@ -6,6 +6,7 @@ import { OverviewPage } from "./OverviewPage.js";
 import { DemoLayout, FloatingControls } from "../layouts/DemoLayout.js";
 
 vi.mock("@mattbutlerengineering/rialto", () => ({
+  vibes: { default: {}, transacting: {}, presenting: {}, game: {} },
   Button: ({ children }: { children?: ReactNode }) => <button>{children}</button>,
   Text: ({ children }: { children?: ReactNode }) => <span>{children}</span>,
   Heading: ({ children }: { children?: ReactNode }) => <h2>{children}</h2>,
