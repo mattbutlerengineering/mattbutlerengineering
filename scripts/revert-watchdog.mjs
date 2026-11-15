@@ -216,7 +216,9 @@ export function extractCheckRunConclusion(checkRuns, name) {
  * check runs then hold no `CI Gate` (measured on f29ad0d49), so a latest-only
  * read made the baseline walk step past the broken commit and blame the next,
  * innocent one. A cancelled rerun is ignored here, so the earlier attempt's
- * `failure` still counts; a rerun that passed is later and wins.
+ * `failure` still counts; a rerun that passed is later and wins. A rerun
+ * still running that started after the newest verdict makes the read `null`
+ * (#8826): the earlier attempt's `failure` is stale, not the commit's result.
  *
  * @param {Array<{name?:string, status?:string, conclusion?:string|null, completed_at?:string|null}>|null|undefined} checkRuns
  * @param {string} name
@@ -224,8 +226,16 @@ export function extractCheckRunConclusion(checkRuns, name) {
  */
 export function selectLatestConclusiveCheckRun(checkRuns, name) {
   let latest = null;
+  let newestStart = Number.NEGATIVE_INFINITY;
   for (const run of checkRuns ?? []) {
-    if (run?.name !== name || run.status !== "completed") continue;
+    if (run?.name !== name) continue;
+    if (run.status !== "completed") {
+      // A rerun still running has no verdict yet (#8826). Only a row with a
+      // usable started_at can be placed in time; an unplaceable one is ignored.
+      const startedAt = Date.parse(run.started_at ?? "");
+      if (!Number.isNaN(startedAt)) newestStart = Math.max(newestStart, startedAt);
+      continue;
+    }
     if (!CONCLUSIVE_CONCLUSIONS.has(run.conclusion)) continue;
     const completedAt = Date.parse(run.completed_at ?? "");
     if (Number.isNaN(completedAt)) continue;
@@ -233,6 +243,9 @@ export function selectLatestConclusiveCheckRun(checkRuns, name) {
       latest = { completedAt, conclusion: run.conclusion };
     }
   }
+  // An in-progress attempt that started after the newest verdict supersedes
+  // it: inconclusive, so the baseline walk does not read the stale failure.
+  if (latest && newestStart > latest.completedAt) return null;
   return latest?.conclusion ?? null;
 }
 
