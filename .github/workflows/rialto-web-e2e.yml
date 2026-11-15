@@ -44,6 +44,11 @@ name: Rialto Web E2E
 # billed runner time per run). It needs its own config because the base
 # config's dev server sets no policy at all — running csp.spec.ts there
 # would prove nothing, which is why playwright.config.ts testIgnores it.
+# Both CSP steps carry `if: ${{ !cancelled() }}`, so they run regardless of
+# the functional result: a functional failure or flake must not silently
+# drop CSP coverage (#8890). They need only the setup steps (install, rialto
+# build, Chromium), not the functional step. If a setup step itself failed
+# they still run and fail too: a red run either way, not a silent skip.
 # See docs/fixes/e2e-behind-edge-csp/.
 #
 # This is distinct from rialto-visual.yml, which runs the package-local
@@ -252,10 +257,14 @@ jobs:
           printf '  %s\n' "${specs[@]}"
           pnpm exec playwright test --config apps/rialto-web/playwright.config.ts "${specs[@]}"
       - name: Build rialto-web (the CSP suite runs against built output)
+        # Runs even if the functional step failed (#8890); see the header.
+        if: ${{ !cancelled() }}
         # vite dev serves a module graph that never ships; a violation
         # introduced by bundling or minification would be invisible there.
         run: pnpm --dir apps/rialto-web build
       - name: Run CSP e2e tests (built output, real edge policy)
+        # Runs even if the functional step failed (#8890); see the header.
+        if: ${{ !cancelled() }}
         # Explicit full path, never a glob (#3955) — and note the *second*
         # config: playwright.config.ts deliberately testIgnores this spec.
         run: pnpm exec playwright test --config apps/rialto-web/playwright.csp.config.ts apps/rialto-web/e2e/csp.spec.ts
