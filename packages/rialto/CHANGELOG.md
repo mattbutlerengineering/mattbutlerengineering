@@ -1,5 +1,11 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.17
+
+### Patch Changes
+
+- [#8933](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8933) [`f9562b0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/f9562b0893340e1810c59771ef88fa577e821e77) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Fix the AvatarGroup "+N" overflow badge contrast inside dark surfaces (PageHeader): `.darkSurface` now also redefines `--rialto-surface-matte`, so the badge's light text no longer sits on a light matte background (1.4:1 before).
+
 ## 0.10.16
 
 ### Patch Changes
