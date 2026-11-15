@@ -654,6 +654,34 @@ describe("selectLatestConclusiveCheckRun", () => {
     expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBe("failure");
   });
 
+  it("returns null while a rerun that started after the failure is still running (#8826)", () => {
+    const runs = [
+      gate("failure", "2026-11-12T02:19:52Z", { started_at: "2026-11-12T02:00:00Z" }),
+      {
+        name: REQUIRED_CHECK_NAME,
+        status: "in_progress",
+        conclusion: null,
+        started_at: "2026-11-12T02:30:00Z",
+        completed_at: null,
+      },
+    ];
+    expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBeNull();
+  });
+
+  it("still reads the conclusive result when an in-progress row started earlier (#8826)", () => {
+    const runs = [
+      gate("failure", "2026-11-12T02:19:52Z", { started_at: "2026-11-12T02:10:00Z" }),
+      {
+        name: REQUIRED_CHECK_NAME,
+        status: "in_progress",
+        conclusion: null,
+        started_at: "2026-11-12T02:00:00Z",
+        completed_at: null,
+      },
+    ];
+    expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBe("failure");
+  });
+
   it("ignores a run with no usable completed_at rather than guessing its place", () => {
     const runs = [gate("failure", "2026-11-12T02:19:52Z"), gate("success", "not a date")];
     expect(selectLatestConclusiveCheckRun(runs, REQUIRED_CHECK_NAME)).toBe("failure");
