@@ -21,7 +21,7 @@
   background: var(--rialto-surface-elevated);
   border: none;
   cursor: pointer;
-  transition: background 0.15s var(--rialto-ease-precision);
+  transition: background var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .trigger:hover {
@@ -46,7 +46,7 @@
 .chevron {
   flex-shrink: 0;
   color: var(--rialto-text-tertiary);
-  transition: color 0.15s var(--rialto-ease-precision);
+  transition: color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .trigger[data-open="true"] .chevron {

@@ -23,8 +23,8 @@
   font-weight: var(--rialto-weight-regular);
   color: var(--rialto-text-primary);
   transition:
-    border-color 0.15s var(--rialto-ease-precision),
-    box-shadow 0.15s var(--rialto-ease-precision);
+    border-color var(--rialto-duration-standard) var(--rialto-ease-precision),
+    box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .input::placeholder {

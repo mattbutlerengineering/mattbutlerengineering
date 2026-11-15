@@ -36,7 +36,7 @@
   background: var(--rialto-accent);
   color: var(--rialto-surface);
   box-shadow: var(--rialto-shadow-xs);
-  transition: box-shadow 150ms var(--rialto-ease-precision);
+  transition: box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .button:hover {

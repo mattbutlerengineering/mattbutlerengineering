@@ -178,7 +178,7 @@
   font-size: var(--rialto-text-sm);
   font-weight: 500;
   cursor: pointer;
-  transition: opacity 150ms var(--rialto-ease-precision);
+  transition: opacity var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .sendButton:disabled {

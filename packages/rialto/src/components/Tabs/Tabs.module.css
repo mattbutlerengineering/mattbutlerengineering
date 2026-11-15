@@ -44,8 +44,8 @@
   user-select: none;
   white-space: nowrap;
   transition:
-    color 0.15s var(--rialto-ease-precision),
-    background 0.15s var(--rialto-ease-precision);
+    color var(--rialto-duration-standard) var(--rialto-ease-precision),
+    background var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .tab:hover {
