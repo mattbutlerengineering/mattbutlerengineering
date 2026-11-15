@@ -1,7 +1,7 @@
 ---
 trigger_id: trig_01VczFFpZUHi1vTdrfTauMkh
 environment_id: env_012GDG167Tpz55u8MEpDkL2y
-cron: "0 23 * * 0"
+cron: "CRON_TZ=America/Los_Angeles 0 16 * * 0"
 model: claude-opus-5
 cadence: Sun 4:00pm PT
 ---
