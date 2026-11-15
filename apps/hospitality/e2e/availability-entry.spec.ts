@@ -40,8 +40,10 @@ test.describe("availability deep links", () => {
     await page.goto("availability?tab=nope&closeSection=&from=elsewhere&x=1");
     await expect(page.getByRole("heading", { level: 2, name: "Your rules" })).toBeVisible();
     await expect(weekPanel(page)).toHaveCount(0);
-    // The hub always links to its map; only a visit from the map carries from=setup.
-    expect(new URL(page.url()).searchParams.get("from")).toBe("elsewhere");
+    // The hub always links to its map (#8864 AC4), whatever `from` says, and only once.
+    const mapLink = page.getByRole("main").getByRole("link", { name: "Availability map" });
+    await expect(mapLink).toHaveCount(1);
+    await expect(mapLink).toHaveAttribute("href", /\/availability\/map$/);
   });
 
   test("?closeSection= becomes ?close=section:, keeping from=setup and the back-link", async ({
