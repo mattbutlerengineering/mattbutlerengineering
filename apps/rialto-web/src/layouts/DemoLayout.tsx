@@ -4,12 +4,21 @@ import {
   GlobalNav,
   RialtoProvider,
   useThemeState,
+  vibes,
   type VibeName,
 } from "@mattbutlerengineering/rialto";
 import { useCookieConsent } from "../components/CookieConsent/useCookieConsent";
 import { useScrollToTop } from "../hooks/use-scroll-to-top.js";
 import { CookieBanner, CookiePreferencesDialog } from "../components/CookieConsent/CookieConsent";
 import styles from "./DemoLayout.module.css";
+
+// Record<VibeName, …> makes tsc fail when rialto adds a vibe without a label.
+const VIBE_LABELS: Record<VibeName, string> = {
+  default: "Default",
+  transacting: "Transacting",
+  presenting: "Presenting",
+  game: "Game",
+};
 
 export interface FloatingControlsProps {
   darkMode: boolean;
@@ -128,9 +137,11 @@ export function FloatingControls({
         onChange={(e) => onVibeChange(e.target.value as VibeName)}
         aria-label="Select vibe"
       >
-        <option value="default">Default</option>
-        <option value="transacting">Transacting</option>
-        <option value="presenting">Presenting</option>
+        {(Object.keys(vibes) as VibeName[]).map((name) => (
+          <option key={name} value={name}>
+            {VIBE_LABELS[name]}
+          </option>
+        ))}
       </select>
     </>
   );
