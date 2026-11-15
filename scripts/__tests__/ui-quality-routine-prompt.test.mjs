@@ -60,7 +60,7 @@ describe("docs/routines/mbe-ui-quality.md", () => {
     expect(frontmatter).toMatchObject({
       trigger_id: "trig_01DYzgRBp66dxwQ828y9x1jV",
       environment_id: "env_012GDG167Tpz55u8MEpDkL2y",
-      cron: "23 7 * * *",
+      cron: "CRON_TZ=America/Los_Angeles 23 0 * * *",
       model: "claude-opus-5",
       cadence: "Daily 12:23am PT",
     });
@@ -326,12 +326,12 @@ describe("docs/scheduled-tasks.md — mbe-ui-quality", () => {
     });
     const row = catalog.split("\n").find((line) => line.startsWith("| `mbe-ui-quality`"));
     expect(row).toContain("routines/mbe-ui-quality.md");
-    expect(row).toContain("`23 7 * * *`");
+    expect(row).toContain("`CRON_TZ=America/Los_Angeles 23 0 * * *`");
     expect(row).toContain("**opus**");
   });
 
-  it("counts it in the daily plan budget (6 → 7)", () => {
-    expect(catalog).toMatch(/The \*\*daily\*\* baseline is 7 runs/);
+  it("counts it in the daily plan budget (5 runs since mbe-midday/mbe-night retired, #8920)", () => {
+    expect(catalog).toMatch(/The \*\*daily\*\* baseline is 5 runs/);
     expect(catalog).toMatch(/`mbe-ui-quality`/);
   });
 });
