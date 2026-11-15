@@ -8,7 +8,7 @@
  * Run: npx vitest run infrastructure/worker/edge-router.test.js
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1004,6 +1004,76 @@ describe("Edge Router", () => {
       const response = await edgeRouter.fetch(makeRequest("/"), envWithBrokenAnalytics);
       expect(response.status).toBe(200);
       expect(envWithBrokenAnalytics.ANALYTICS.writeDataPoint).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("CSP report endpoint (#8895)", () => {
+    const LEGACY_REPORT = JSON.stringify({
+      "csp-report": {
+        "document-uri": "https://mattbutlerengineering.com/rialto/",
+        "effective-directive": "font-src",
+        "blocked-uri": "https://fonts.gstatic.com/x.woff2",
+        disposition: "enforce",
+      },
+    });
+
+    function reportRequest(options = {}) {
+      return new Request(`https://${options.hostname ?? "mattbutlerengineering.com"}/csp-report`, {
+        method: options.method ?? "POST",
+        headers: { "Content-Type": "application/csp-report", ...(options.headers ?? {}) },
+        body: (options.method ?? "POST") === "POST" ? LEGACY_REPORT : undefined,
+      });
+    }
+
+    let logSpy;
+    beforeEach(() => {
+      logSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+      env.CSP_REPORTS = createMockAnalytics();
+    });
+
+    afterEach(() => {
+      logSpy.mockRestore();
+    });
+
+    it("handles POST /csp-report with 204 and never routes it to a static site", async () => {
+      const response = await edgeRouter.fetch(reportRequest(), env);
+
+      expect(response.status).toBe(204);
+      expect(env.MARKETING.fetch).not.toHaveBeenCalled();
+      expect(env.CSP_REPORTS.writeDataPoint).toHaveBeenCalledTimes(1);
+      expect(logSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not write the report into the edge_requests dataset", async () => {
+      await edgeRouter.fetch(reportRequest(), env);
+      expect(env.ANALYTICS.writeDataPoint).not.toHaveBeenCalled();
+    });
+
+    it("handles the report on a host-routed site too", async () => {
+      const host = topologyConfig.hostRoutes[0].host;
+      const response = await edgeRouter.fetch(reportRequest({ hostname: host }), env);
+      expect(response.status).toBe(204);
+    });
+
+    it("rejects GET /csp-report with 405 instead of serving the SPA", async () => {
+      const response = await edgeRouter.fetch(reportRequest({ method: "GET" }), env);
+      expect(response.status).toBe(405);
+      expect(env.MARKETING.fetch).not.toHaveBeenCalled();
+    });
+
+    it("is covered by the rate limiter", async () => {
+      const limitedEnv = {
+        ...env,
+        HEALTH_STATE: {
+          ...createMockKv(),
+          get: vi.fn(async (key) => (key.startsWith("ratelimit:") ? "999" : null)),
+          put: vi.fn(),
+        },
+      };
+      const response = await edgeRouter.fetch(reportRequest(), limitedEnv);
+
+      expect(response.status).toBe(429);
+      expect(env.CSP_REPORTS.writeDataPoint).not.toHaveBeenCalled();
     });
   });
 });

@@ -7,7 +7,13 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { buildCspDirectives, injectNonceIntoHtml, SENTRY_INGEST_ORIGIN } from "./csp.js";
+import {
+  buildCspDirectives,
+  injectNonceIntoHtml,
+  SENTRY_INGEST_ORIGIN,
+  CSP_REPORT_PATH,
+  CSP_REPORT_GROUP,
+} from "./csp.js";
 import { AUTH0_ORIGIN } from "./edge-router.js";
 
 describe("buildCspDirectives", () => {
@@ -150,9 +156,27 @@ describe("buildCspDirectives", () => {
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
+      "report-uri /csp-report",
+      "report-to csp-endpoint",
     ].join("; ");
 
     expect(buildCspDirectives(nonce)).toBe(expected);
+  });
+
+  it("points report-uri and report-to at the edge CSP report endpoint (#8895)", () => {
+    const parts = buildCspDirectives(nonce).split("; ");
+    expect(parts).toContain(`report-uri ${CSP_REPORT_PATH}`);
+    expect(parts).toContain(`report-to ${CSP_REPORT_GROUP}`);
+    expect(CSP_REPORT_PATH).toBe("/csp-report");
+    expect(CSP_REPORT_GROUP).toBe("csp-endpoint");
+  });
+
+  it("lets a KV policy override the reporting directives per directive", () => {
+    const csp = buildCspDirectives(nonce, { kvPolicy: { "report-uri": "/elsewhere" } });
+    const parts = csp.split("; ");
+    expect(parts).toContain("report-uri /elsewhere");
+    expect(parts).not.toContain("report-uri /csp-report");
+    expect(parts).toContain("report-to csp-endpoint");
   });
 
   it("overrides directives from a KV policy object", () => {

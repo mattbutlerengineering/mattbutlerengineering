@@ -14,7 +14,8 @@
  */
 import { proxyToOrigin } from "./origin-proxy.js";
 import { checkRateLimit, rateLimitResponse } from "./rate-limiter.js";
-import { AUTH0_ORIGIN } from "./csp.js";
+import { AUTH0_ORIGIN, CSP_REPORT_PATH } from "./csp.js";
+import { handleCspReport } from "./csp-report.js";
 import topologyConfig from "./routes-config.json";
 import {
   generateNonce,
@@ -196,6 +197,11 @@ export default {
 
     if (url.pathname === "/health/deps") {
       return handleHealthDeps(request);
+    }
+
+    // ── CSP violation reports (#8895) — after the rate limit, never proxied ─
+    if (url.pathname === CSP_REPORT_PATH) {
+      return handleCspReport(request, env);
     }
 
     // Redirect www → non-www
