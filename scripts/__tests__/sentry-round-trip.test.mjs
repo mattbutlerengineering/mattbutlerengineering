@@ -66,12 +66,19 @@ describe("eventMatchesMarker", () => {
 describe("buildEventSearchQuery", () => {
   const marker = "mbe-round-trip-20260902T070000000Z-abc123";
 
-  it("searches the requestId tag for a backend target, since #8557 strips the marker from the url/message text", () => {
-    expect(buildEventSearchQuery(marker, "backend")).toBe(`requestId:${marker}`);
+  // The project events endpoint treats `query` as a case-insensitive substring
+  // of `message` — never as `key:value` search syntax (#8778). A backend
+  // message no longer carries the marker (#8557), so ANY query hides the event.
+  it("sends no query for a backend target, since the endpoint can only substring-match message", () => {
+    expect(buildEventSearchQuery(marker, "backend")).toBeUndefined();
   });
 
-  it("defaults to a backend-style query when no kind is given", () => {
-    expect(buildEventSearchQuery(marker, undefined)).toBe(`requestId:${marker}`);
+  it("never sends tag search syntax, which the endpoint would read as literal message text", () => {
+    expect(buildEventSearchQuery(marker, "backend") ?? "").not.toContain("requestId:");
+  });
+
+  it("defaults to a backend-style (no) query when no kind is given", () => {
+    expect(buildEventSearchQuery(marker, undefined)).toBeUndefined();
   });
 
   it("searches the bare marker for a browser target, since it survives in the title/message", () => {
