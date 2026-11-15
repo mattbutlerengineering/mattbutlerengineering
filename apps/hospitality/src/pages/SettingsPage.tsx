@@ -26,6 +26,7 @@ import { TonightNoteCard } from "../components/venue-tonight-note/TonightNoteCar
 import { VenueThemeCard } from "../components/venue-theme/VenueThemeCard.js";
 import { TeamRolesCard } from "../components/venue-team/TeamRolesCard.js";
 import { describeApiError } from "../lib/describe-api-error.js";
+import { availabilityPath } from "../components/availability/availability-address.js";
 import styles from "./SettingsPage.module.css";
 
 /* ── Constants ──────────────────────────────── */
@@ -379,7 +380,10 @@ export function SettingsPage() {
                 <Text variant="caption" color="secondary">
                   {t("settings.venue.description")}
                 </Text>
-                <Button variant="secondary" onClick={() => navigate("/setup")}>
+                <Button
+                  variant="secondary"
+                  onClick={() => navigate(availabilityPath({ view: "map" }))}
+                >
                   {t("settings.venue.venueSetup")}
                 </Button>
                 <Button variant="secondary" onClick={() => navigate("/timeline?rehearsal=true")}>

@@ -16,21 +16,21 @@ async function viewAsHost(page: Page): Promise<void> {
 }
 
 test.describe("Viewer role gate on floor plans", () => {
-  test("a Host opening /floor-plans lands on /setup", async ({ mockedPage }) => {
+  test("a Host opening /floor-plans lands on the Availability map", async ({ mockedPage }) => {
     await viewAsHost(mockedPage);
     await mockedPage.goto("floor-plans");
 
-    await expect(mockedPage).toHaveURL(/\/setup$/);
+    await expect(mockedPage).toHaveURL(/\/availability\/map$/);
     await expect(mockedPage.getByRole("heading", { name: "Floor Plan", exact: true })).toHaveCount(
       0
     );
   });
 
-  test("a Host opening /floor-plans/:id lands on /setup", async ({ mockedPage }) => {
+  test("a Host opening /floor-plans/:id lands on the Availability map", async ({ mockedPage }) => {
     await viewAsHost(mockedPage);
     await mockedPage.goto("floor-plans/fp_e2e_001");
 
-    await expect(mockedPage).toHaveURL(/\/setup$/);
+    await expect(mockedPage).toHaveURL(/\/availability\/map$/);
     await expect(mockedPage.getByRole("heading", { name: "Main Floor" })).toHaveCount(0);
   });
 

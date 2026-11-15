@@ -25,6 +25,7 @@ const MOUNTED: readonly string[] = [
   "/availability/calendar",
   "/availability/history",
   "/availability/hours",
+  "/availability/map",
 ];
 const pathOf = (address: string): string => address.split("?")[0] ?? "";
 
@@ -54,6 +55,7 @@ describe("availabilityPath", () => {
     ],
     [{ view: "bookingRules" }, "/availability/booking-rules"],
     [{ view: "history" }, "/availability/history"],
+    [{ view: "map" }, "/availability/map"],
   ];
 
   it.each(cases)("resolves %o to %s", (target, path) => {
@@ -74,6 +76,7 @@ describe("availabilityPath", () => {
         "history",
         "hours",
         "hub",
+        "map",
         "seasonal",
         "specialDates",
       ].sort()

@@ -18,8 +18,8 @@ describe("DashboardSidebar", () => {
       items: [
         {
           id: "setup",
-          label: "Venue Setup",
-          action: { type: "route", path: "/setup" },
+          label: "Availability map",
+          action: { type: "route", path: "/availability/map" },
           badge: "1 of 3",
         },
       ],
@@ -79,12 +79,65 @@ describe("DashboardSidebar", () => {
 
   it("renders the progress count inside the item's accessible name", () => {
     renderSidebar();
-    const item = screen.getByRole("button", { name: "Venue Setup 1 of 3" });
+    const item = screen.getByRole("button", { name: "Availability map 1 of 3" });
     expect(item.textContent).toContain("1 of 3");
   });
 
   it("renders an item without a badge as its label alone", () => {
     renderSidebar();
     expect(screen.getByRole("button", { name: "Timeline" })).toBeDefined();
+  });
+
+  it("marks only the most specific item current when one path holds another", () => {
+    const sections: NavSection[] = [
+      {
+        label: "Manage",
+        items: [
+          {
+            id: "availability",
+            label: "Availability",
+            action: { type: "route", path: "/availability" },
+          },
+          {
+            id: "setup",
+            label: "Availability map",
+            action: { type: "route", path: "/availability/map" },
+          },
+        ],
+      },
+    ];
+    renderSidebar({ sections, activePath: "/availability/map" });
+    expect(screen.getByRole("button", { name: "Availability map" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
+    expect(screen.getByRole("button", { name: "Availability" })).not.toHaveAttribute(
+      "aria-current"
+    );
+  });
+
+  it("keeps a parent item current on its other children", () => {
+    const sections: NavSection[] = [
+      {
+        label: "Manage",
+        items: [
+          {
+            id: "availability",
+            label: "Availability",
+            action: { type: "route", path: "/availability" },
+          },
+          {
+            id: "setup",
+            label: "Availability map",
+            action: { type: "route", path: "/availability/map" },
+          },
+        ],
+      },
+    ];
+    renderSidebar({ sections, activePath: "/availability/hours" });
+    expect(screen.getByRole("button", { name: "Availability" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
   });
 });

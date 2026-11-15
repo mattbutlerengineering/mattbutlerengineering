@@ -561,16 +561,19 @@ describe("AvailabilityPage", () => {
       renderPage("/availability/calendar?tab=%00&closeSection=&from=nowhere&x=1");
       // No valid tab: a Manager lands on Schedules.
       expect(screen.getByRole("radio", { name: "Schedules" })).toBeChecked();
-      expect(screen.queryByRole("link", { name: "Venue Setup" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Availability map" })).not.toBeInTheDocument();
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
-    it("shows the Venue Setup back-link only for ?from=setup", () => {
+    it("shows the Availability map back-link only for ?from=setup", () => {
       const view = renderPage("/availability/calendar?from=setup");
-      expect(screen.getByRole("link", { name: "Venue Setup" })).toHaveAttribute("href", "/setup");
+      expect(screen.getByRole("link", { name: "Availability map" })).toHaveAttribute(
+        "href",
+        "/availability/map"
+      );
       view.unmount();
       renderPage();
-      expect(screen.queryByRole("link", { name: "Venue Setup" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Availability map" })).not.toBeInTheDocument();
     });
 
     // The layout hosts the dialog over today's page too (C2.4); ?closeSection= is an old address
@@ -1845,7 +1848,7 @@ describe("the Availability route table", () => {
   ])("carries from=setup from %s", async (old, next) => {
     const router = renderRoutes(old);
     await waitFor(() => expect(address(router)).toBe(next));
-    expect(screen.getByRole("link", { name: "Venue Setup" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Availability map" })).toBeInTheDocument();
   });
 
   it("opens a section's Close dialog over the hub from the old ?closeSection=", async () => {

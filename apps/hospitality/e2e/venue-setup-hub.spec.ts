@@ -5,7 +5,7 @@ import { mockAvailability } from "./availability-draft-mock.js";
 import { mockEmptyVenue } from "./helpers/empty-venue-mock.js";
 
 /**
- * Venue Setup (`/setup`): the standing hub of every resource type the venue is made of
+ * The Availability map (`/availability/map`, Venue Setup before #8864): the standing hub of every resource type the venue is made of
  * (docs/features/availability-setup-hierarchy/ux.md S-Hub). Its actions open the editors that
  * already exist; it renders no editor of its own except the two drawers it hosts.
  */
@@ -45,10 +45,10 @@ test.describe("Venue Setup hub", () => {
   }) => {
     await mockEmptyVenue(page);
     await withoutBookingRules(page);
-    await page.goto("setup");
+    await page.goto("availability/map");
 
-    await expect(page).toHaveURL(/\/setup$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Venue Setup" })).toBeVisible();
+    await expect(page).toHaveURL(/\/availability\/map$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
     for (const [name, what] of [
       [/Regular week/, "The days and services guests can book."],
       [/Special dates/, /Closures and special hours/],
@@ -69,9 +69,9 @@ test.describe("Venue Setup hub", () => {
   }) => {
     await mockEmptyVenue(page);
     await withoutBookingRules(page);
-    await page.goto("setup");
+    await page.goto("availability/map");
 
-    const strip = page.getByRole("region", { name: "Venue Setup progress" });
+    const strip = page.getByRole("region", { name: "Launch progress" });
     await expect(strip.getByText("1 of 3")).toBeVisible();
     const primary = page.getByRole("button", { name: "Set up regular week" });
     await expect(primary).toHaveAttribute("data-primary", "true");
@@ -80,8 +80,8 @@ test.describe("Venue Setup hub", () => {
     // The hub sends a Manager with no hours on to first setup, and keeps the way back.
     await expect(page).toHaveURL(/\/availability\/hours\?from=setup$/);
     await expect(page.getByRole("heading", { name: "Set your regular week" })).toBeVisible();
-    await page.getByRole("link", { name: "Venue Setup" }).click();
-    await expect(page).toHaveURL(/\/setup$/);
+    await page.getByRole("link", { name: "Availability map" }).click();
+    await expect(page).toHaveURL(/\/availability\/map$/);
   });
 
   test("Add floor plan opens the floor plan list, and Booking rules opens its editor under Availability", async ({
@@ -89,7 +89,7 @@ test.describe("Venue Setup hub", () => {
   }) => {
     await mockEmptyVenue(page);
     await withoutBookingRules(page);
-    await page.goto("setup");
+    await page.goto("availability/map");
 
     // The same address the Availability hub's row 5 opens (availability-hub C2.5). The venue has
     // no hours yet, and the drawer still opens: booking rules do not depend on them.
@@ -97,7 +97,7 @@ test.describe("Venue Setup hub", () => {
     await expect(page).toHaveURL(/\/availability\/booking-rules\?from=setup$/);
     await expect(page.getByRole("dialog", { name: "Booking rules" })).toBeVisible();
 
-    await page.goto("setup");
+    await page.goto("availability/map");
     await page.getByRole("button", { name: "Add floor plan" }).click();
     await expect(page).toHaveURL(/\/floor-plans$/);
   });
@@ -105,7 +105,7 @@ test.describe("Venue Setup hub", () => {
   test("Booking rules opened from Venue Setup closes onto the hub, with the way back and focus on row 5", async ({
     mockedPage: page,
   }) => {
-    await page.goto("setup");
+    await page.goto("availability/map");
     await page.getByRole("button", { name: "Booking rules…" }).click();
     const drawer = page.getByRole("dialog", { name: "Booking rules" });
     await expect(drawer).toBeVisible();
@@ -113,19 +113,19 @@ test.describe("Venue Setup hub", () => {
     await drawer.getByRole("button", { name: "Cancel" }).click();
     await expect(page).toHaveURL(/\/availability\?from=setup$/);
     await expect(drawer).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Venue Setup" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Availability map" })).toBeVisible();
     // The drawer had no opener on this page, so the hub puts focus on the row it belongs to.
     await expect(page.getByRole("link", { name: "Edit Booking rules" })).toBeFocused();
   });
 
-  test("an operational venue stays on /setup and sees its floor plan and schedule", async ({
+  test("an operational venue stays on the Availability map and sees its floor plan and schedule", async ({
     mockedPage: page,
   }) => {
-    await page.goto("setup");
+    await page.goto("availability/map");
 
-    await expect(page).toHaveURL(/\/setup$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Venue Setup" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Venue Setup progress" })).toHaveCount(0);
+    await expect(page).toHaveURL(/\/availability\/map$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Launch progress" })).toHaveCount(0);
     await expect(page.getByRole("listitem", { name: /Schedules/ })).toContainText("1 schedule");
     const floor = page.getByRole("listitem", { name: /Main Floor/ });
     await expect(floor).toBeVisible();
@@ -162,7 +162,7 @@ test.describe("Venue Setup hub", () => {
         }),
       });
     });
-    await page.goto("setup");
+    await page.goto("availability/map");
 
     await page.getByRole("button", { name: "Close for a date… Bar" }).click();
     // The hub hosts the dialog from the address (availability-hub C2.4).
@@ -174,17 +174,25 @@ test.describe("Venue Setup hub", () => {
   test("the Schedules actions open the Schedules tab on Availability", async ({
     mockedPage: page,
   }) => {
-    await page.goto("setup");
+    await page.goto("availability/map");
     await page.getByRole("button", { name: "Compare services" }).click();
     await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules&from=setup$/);
     await expect(page.getByRole("radio", { name: "Schedules" })).toBeChecked();
   });
 
-  test("an unready venue is still sent to /setup from /timeline", async ({ mockedPage: page }) => {
+  test("an unready venue is still sent to the Availability map from /timeline", async ({
+    mockedPage: page,
+  }) => {
     await mockEmptyVenue(page);
     await page.goto("timeline");
-    await expect(page).toHaveURL(/\/setup$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Venue Setup" })).toBeVisible();
+    await expect(page).toHaveURL(/\/availability\/map$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
+  });
+
+  test("the old /setup address lands on the Availability map", async ({ mockedPage: page }) => {
+    await page.goto("setup");
+    await expect(page).toHaveURL(/\/availability\/map$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
   });
 
   test("/setup/hours still lands on Availability", async ({ mockedPage: page }) => {
@@ -199,13 +207,13 @@ test.describe("Venue Setup hub", () => {
     await mockEmptyVenue(page);
     await withoutBookingRules(page);
     await viewAsHost(page);
-    await page.goto("setup");
+    await page.goto("availability/map");
 
-    await expect(page.getByRole("heading", { level: 1, name: "Venue Setup" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
     const week = page.getByRole("listitem", { name: /Regular week/ });
     await expect(week.getByText("Not set up")).toBeVisible();
     await expect(week.getByText("A manager sets this up.")).toBeVisible();
-    await expect(page.getByRole("region", { name: "Venue Setup progress" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Launch progress" })).toHaveCount(0);
     await expect(
       page.getByRole("main").getByRole("button", {
         name: /set up|edit|change|close|add|move|rules|compare|create|open/i,

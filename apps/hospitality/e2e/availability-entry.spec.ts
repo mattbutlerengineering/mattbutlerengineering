@@ -40,7 +40,8 @@ test.describe("availability deep links", () => {
     await page.goto("availability?tab=nope&closeSection=&from=elsewhere&x=1");
     await expect(page.getByRole("heading", { level: 2, name: "Your rules" })).toBeVisible();
     await expect(weekPanel(page)).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Venue Setup" })).toHaveCount(0);
+    // The hub always links to its map; only a visit from the map carries from=setup.
+    expect(new URL(page.url()).searchParams.get("from")).toBe("elsewhere");
   });
 
   test("?closeSection= becomes ?close=section:, keeping from=setup and the back-link", async ({
@@ -55,7 +56,7 @@ test.describe("availability deep links", () => {
     await expect(dialog.getByText("Whole venue", { exact: true })).toBeVisible();
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Venue Setup" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Availability map" })).toBeVisible();
     expect(new URL(page.url()).search).toBe("?from=setup");
   });
 });

@@ -308,7 +308,7 @@
       "waitlist": "Liste d'attente",
       "guests": "Clients",
       "dashboard": "Tableau de bord",
-      "venueSetup": "Configuration de l'établissement",
+      "venueSetup": "Carte des disponibilités",
       "bookingWidget": "Widget de réservation",
       "signOut": "Se déconnecter",
       "chat": "Clavardage",
@@ -334,7 +334,7 @@
       "settings": "Paramètres",
       "admin": "Administration",
       "dashboard": "Tableau de bord",
-      "setup": "Configuration de l'établissement",
+      "setup": "Carte des disponibilités",
       "hours": "Disponibilité",
       "menus": "Menus",
       "availability": "Disponibilité",
@@ -2215,7 +2215,7 @@
   "availability": {
     "title": "Disponibilité",
     "description": "Vos heures, jours fériés et changements ponctuels.",
-    "backToSetup": "Configuration de l'établissement",
+    "backToSetup": "Carte des disponibilités",
     "hostNote": "Seuls les gérants modifient les heures. Pour ce soir, utilisez le panneau Ce soir.",
     "loadError": "Impossible de charger la disponibilité",
     "noVenue": "Sélectionnez un établissement pour voir sa disponibilité.",
@@ -3503,11 +3503,11 @@
   },
   "setup": {
     "hub": {
-      "title": "Configuration de l'établissement",
-      "description": "Tout ce qu'un client peut réserver, et comment cela s'articule. Chaque ligne ouvre l'endroit où vous le modifiez.",
+      "title": "Carte des disponibilités",
+      "description": "Ce qui décide quand les clients peuvent réserver, des horaires et services jusqu'aux tables, chaque ligne ouvrant l'endroit où vous le modifiez.",
       "yourVenue": "votre établissement",
-      "loading": "Chargement de la configuration de l'établissement",
-      "loadError": "Impossible de charger la configuration de l'établissement.",
+      "loading": "Chargement de la carte des disponibilités",
+      "loadError": "Impossible de charger la carte des disponibilités.",
       "groupError": "Impossible de charger « {{group}} ».",
       "groups": {
         "open": "Quand vous êtes ouvert",
@@ -3612,7 +3612,7 @@
         "moveToSection": "Placer dans une section"
       },
       "strip": {
-        "title": "Progression de la configuration de l'établissement",
+        "title": "Progression du lancement",
         "count": "{{done}} sur {{total}}",
         "steps": {
           "venueBasics": "Infos de base de l'établissement",
@@ -3774,7 +3774,7 @@
     "venue": {
       "title": "Établissement",
       "description": "Gérez les jours et les heures où votre établissement accepte les réservations.",
-      "venueSetup": "Configuration de l'établissement"
+      "venueSetup": "Carte des disponibilités"
     },
     "team": {
       "title": "Équipe",

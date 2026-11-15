@@ -9,7 +9,7 @@ import { wasOpenedFromHub } from "./opened-from-hub.js";
 /**
  * `availability/booking-rules` (availability-hub ux.md, "Booking rules"): the booking rules
  * drawer over the hub, which renders this as its child. Closing it returns to the hub, with the
- * way back to Venue Setup kept: opened from the hub it goes back to the hub's own entry, so no
+ * way back to the Availability map kept: opened from the hub it goes back to the hub's own entry, so no
  * second one is left; loaded any other way it replaces its own entry with the hub's, so Back does
  * not open it again. Only a Manager edits the rules, so a Host who loads the address lands on the
  * hub. The hub puts focus back on row 5's action (`AvailabilityHubPage`).

@@ -301,7 +301,7 @@
       "waitlist": "Waitlist",
       "guests": "Guests",
       "dashboard": "Dashboard",
-      "venueSetup": "Venue Setup",
+      "venueSetup": "Availability map",
       "bookingWidget": "Booking Widget",
       "signOut": "Sign Out",
       "chat": "Chat",
@@ -327,7 +327,7 @@
       "settings": "Settings",
       "admin": "Admin",
       "dashboard": "Dashboard",
-      "setup": "Venue Setup",
+      "setup": "Availability map",
       "hours": "Availability",
       "menus": "Menus",
       "availability": "Availability",
@@ -2166,7 +2166,7 @@
   "availability": {
     "title": "Availability",
     "description": "Your hours, holidays and one-off changes.",
-    "backToSetup": "Venue Setup",
+    "backToSetup": "Availability map",
     "hostNote": "Only managers change hours. For tonight, use the Tonight panel.",
     "loadError": "Couldn't load availability",
     "noVenue": "Select a venue to see its availability.",
@@ -3411,11 +3411,11 @@
   },
   "setup": {
     "hub": {
-      "title": "Venue Setup",
-      "description": "Everything a guest can book, and how it fits together. Each line opens where you change it.",
+      "title": "Availability map",
+      "description": "What decides when guests can book, from schedules and services down to tables, with each line opening where you change it.",
       "yourVenue": "your venue",
-      "loading": "Loading Venue Setup",
-      "loadError": "Couldn't load Venue Setup.",
+      "loading": "Loading the availability map",
+      "loadError": "Couldn't load the availability map.",
       "groupError": "Couldn't load {{group}}.",
       "groups": {
         "open": "When you're open",
@@ -3510,7 +3510,7 @@
         "moveToSection": "Move to a section"
       },
       "strip": {
-        "title": "Venue Setup progress",
+        "title": "Launch progress",
         "count": "{{done}} of {{total}}",
         "steps": {
           "venueBasics": "Venue basics",
@@ -3670,7 +3670,7 @@
     "venue": {
       "title": "Venue",
       "description": "Manage the days and times your venue is open for reservations.",
-      "venueSetup": "Venue Setup"
+      "venueSetup": "Availability map"
     },
     "team": {
       "title": "Team",

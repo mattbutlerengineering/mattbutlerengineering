@@ -12,7 +12,7 @@ import { upcomingRules } from "../availability/rule-summaries.js";
 import { visibleSchedules } from "../availability/superseded-schedules.js";
 
 /**
- * Venue Setup hub (architecture.md "Setup tree"): config, floor plans, sections, tables and
+ * Availability map (architecture.md "Setup tree"; Venue Setup before #8864): config, floor plans, sections, tables and
  * booking settings turned into one tree of nodes. Pure: plain data in, plain data out, no JSX and
  * no translated text; the page renders the words. Owns the nesting (venue → schedules → services;
  * venue → floor plan → sections → tables; special dates → their targets) and each node's state.
