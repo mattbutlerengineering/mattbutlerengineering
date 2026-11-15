@@ -29,6 +29,15 @@ function functionalStepScript(): string {
   return next === -1 ? rest : rest.slice(0, next);
 }
 
+/** The full block of the step whose `- name:` starts with the given text. */
+function stepBlock(name: string): string {
+  const start = workflow.indexOf(`- name: ${name}`);
+  expect(start, `step "${name}" not found in workflow`).toBeGreaterThan(-1);
+  const rest = workflow.slice(start + 1);
+  const next = rest.search(/\n {6}- (name|uses): /);
+  return next === -1 ? rest : rest.slice(0, next);
+}
+
 /** Basenames the functional step excludes from its computed glob. */
 function functionalExclusions(script: string): string[] {
   const match = script.match(/case "\$\(basename "\$spec"\)" in\s*\n\s*([^)\n]+)\)\s*continue/);
@@ -79,6 +88,17 @@ describe("rialto-web e2e workflow coverage", () => {
     // under the dev server), or the functional glob above would be wrong.
     expect(readFileSync(PLAYWRIGHT_CONFIG_PATH, "utf8")).toMatch(
       /testIgnore:\s*"\*\*\/csp\.spec\.ts"/
+    );
+  });
+
+  it.each([
+    "Build rialto-web (the CSP suite runs against built output)",
+    "Run CSP e2e tests (built output, real edge policy)",
+  ])("CSP step %s runs even when the functional step fails (#8890)", (name) => {
+    const block = stepBlock(name);
+    const condition = block.match(/^ {8}if: (.*)$/m)?.[1] ?? "";
+    expect(condition, `CSP step "${name}" has no if: condition`).toMatch(
+      /!cancelled\(\)|always\(\)/
     );
   });
 
