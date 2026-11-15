@@ -5544,3 +5544,9 @@ Phase 4: no worktrees present (`.claude/worktrees/` doesn't exist), no merge-tra
 ### Auto-retry
 
 0 issues re-queued this run (see Patterns: the one candidate, #8566, is `stealable` and was deliberately not retried — tracked as #8874 instead).
+
+## 2026-11-15
+
+**queueEfficiency:** composite 0.917 (baseline n/a) — healthy
+**Difficulty distribution:** size:s:18, size:m:11, size:xs:19, size:xl:6, size:l:10
+**Issues filed:** 0
