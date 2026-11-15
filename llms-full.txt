@@ -38207,8 +38207,10 @@
        *    a lot of live state fits without the eye having to travel.
        * 2. **Near-square corners** (default 6→2, soft 10→4) — rounding reads as
        *    soft and document-like; instruments have edges.
-       * 3. **A duration scale inside the 100ms feedback budget** (fast 0.1→0.06,
-       *    standard 0.15→0.09, slow 0.2→0.12) with a fast-attack easing curve.
+       * 3. **Feedback durations inside the 100ms budget** (fast 0.1→0.06,
+       *    standard 0.15→0.09) with a fast-attack easing curve. `slow` (0.2→0.12s)
+       *    is outside the budget on purpose: it is for larger movements, not
+       *    feedback.
        *    Encoding the budget in the preset means the whole catalog inherits it,
        *    instead of every component being audited for it one at a time.
        *
