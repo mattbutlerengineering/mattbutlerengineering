@@ -5550,3 +5550,21 @@ Phase 4: no worktrees present (`.claude/worktrees/` doesn't exist), no merge-tra
 **queueEfficiency:** composite 0.917 (baseline n/a) — healthy
 **Difficulty distribution:** size:s:18, size:m:11, size:xs:19, size:xl:6, size:l:10
 **Issues filed:** 0
+
+## 2026-11-15 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` source `branch` (ui-quality/ledger @ ebdeb0b, merged origin/main 0142a94, 0 conflicts resolved).
+- **Builds:** all green — `@mbe/cli...`, `@mattbutlerengineering/rialto`, and all three apps. No `unreachable:build` rows.
+- **Routes:** 40 due / 40 captured / 40 audited (rialto-web 39, hospitality 1, marketing 0 due). 24 rows `unreachable:auth`, never captured. **Unjudged: 0. Dropped tells: 0.**
+- **Browser:** resolved (`/opt/pw-browsers/chromium_headless_shell-1243/...`). No `blocker: no-browser`.
+- **Mechanical findings:** 2 — `accessibility/axe-serious` on rialto-web `demos/dashboard` (color-contrast, 1 node) and `demos/telemetry` (color-contrast, 4 nodes).
+- **Judged findings:** 2 raised — `agent-built/inter-headline` on hospitality `i/:token` (headline and body in the system sans, not the rialto display face) and `agent-built/gray-card-border` on rialto-web `demos/drivers/:id` (stat tiles are a bordered card wrapping an identically bordered inner box). **Both dropped by the plan** because the calibration stamp is `stale` — intended behaviour, not a pipeline fault.
+- **Calibration stamp: `stale`.** `calibration-status --model-id claude-opus-5` exited 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried after: still `stale`, so rating proceeded under the "exit 3 that calibration could not clear" branch.
+- **Rating:** 8 pairs judged and recorded (`rate.mjs record`: hospitality 0, rialto-web 5). Against the two dashboard references (shadcn, tremor) the hospitality invite page lost both pairs; against the two component-docs references (Mantine, Chakra) the rialto-web folds won all six.
+- **Issues:** 0 created, **1 reopened (#7268**, rialto-web demos/telemetry axe-serious — recurred), 0 commented, 1 skipped (#6422, already open). Reopened issue still carries `ui-quality`; no filing stop triggered.
+- **Seeds:** 0 appended to `docs/backlog.md` (no P2 overflow).
+- **Fix PR:** none — no action carried `fix_pr_candidate: true`.
+- **P1 breaches escalated:** 0 (0 open `ui-quality:p1` issues).
+- **Coverage before this fire:** 100% (137/137 routes), not provisional. Unchanged after.
+- **Pipeline bugs:** none. Checkpoint commit pushed to `ui-quality/ledger` before the P1 step, as required.
+- **Observed but not filable (no rubric tell covers it):** the cookie-consent banner overflows its container at 375px on every rialto-web route that shows it — its text wraps into a narrow column that paints on top of the page content behind it (seen on `demos/dashboard`, `demos/telemetry`, `demos/auth-flow`, `demos/drivers`, `demos/drivers/:id`, `demos/drivers/:id/edit`, `demos/drivers/new`, `demos/layouts`, `demos/session-expired`). axe does not flag it and rubric v1 has no overlap/overflow tell, so the judge could not name it. Worth a human look, and a candidate for a `rubric_version` bump proposal.
