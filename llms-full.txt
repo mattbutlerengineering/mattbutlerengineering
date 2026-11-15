@@ -15957,6 +15957,15 @@
     }
   </file>
   </section>
+  <section priority="medium" role="dashboard">
+  <file path="apps/rialto-web/src/pages/dashboard/delta-color.ts">
+    export function deltaColor(delta: number): string {
+      if (delta > 0) return "var(--rialto-success)";
+      if (delta < 0) return ERROR_TEXT_COLOR;
+      return "var(--rialto-text-tertiary)";
+    }
+  </file>
+  </section>
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/ai-health-trends.ts">
     export interface TrendPointPayload {

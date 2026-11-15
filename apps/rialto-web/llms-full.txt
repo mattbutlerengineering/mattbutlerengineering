@@ -326,6 +326,15 @@
     }
   </file>
   </section>
+  <section priority="medium" role="dashboard">
+  <file path="src/pages/dashboard/delta-color.ts">
+    export function deltaColor(delta: number): string {
+      if (delta > 0) return "var(--rialto-success)";
+      if (delta < 0) return ERROR_TEXT_COLOR;
+      return "var(--rialto-text-tertiary)";
+    }
+  </file>
+  </section>
   <section priority="medium" role="data">
   <file path="src/data/demo-routes.ts">
     export const DEMO_ROUTES = {

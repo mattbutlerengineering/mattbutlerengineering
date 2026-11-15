@@ -86,6 +86,7 @@
   --rialto-surface: rgb(40 38 35);
   --rialto-surface-elevated: rgb(50 47 43);
   --rialto-surface-recessed: rgb(30 28 26);
+  --rialto-surface-matte: rgb(58 54 51); /* dark-theme matte; AvatarGroup "+N" sits on it */
   --rialto-text-primary: rgb(253 252 250 / 0.92);
   --rialto-text-secondary: rgb(253 252 250 / 0.6);
   --rialto-text-tertiary: rgb(253 252 250 / 0.38);
