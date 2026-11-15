@@ -28,7 +28,13 @@ describe("pauseOnlineRule", () => {
       startsOn: TODAY,
       endsOn: TODAY,
       window: null,
+      origin: "pause",
     });
+  });
+
+  it("marks every choice as made by the Pause dialog, so only these widen the pill (#8687)", () => {
+    expect(rule({ choice: "untilResume" })).toMatchObject({ origin: "pause" });
+    expect(rule({ choice: "untilDate", until: "2026-12-05" })).toMatchObject({ origin: "pause" });
   });
 
   it("Until I resume has no end", () => {

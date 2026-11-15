@@ -18,7 +18,11 @@ const afterMenuCloses = (open: () => void) => () => {
 export function HubCloseMenu({
   openClose,
   openPause,
-}: Pick<AvailabilityScope, "openClose" | "openPause">) {
+  paused,
+}: Pick<AvailabilityScope, "openClose" | "openPause"> & {
+  /** A pause is in force: a second one would save the same closure again, so none is offered. */
+  readonly paused: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <div className={styles.closeMenu}>
@@ -31,11 +35,15 @@ export function HubCloseMenu({
             label: t("availabilityHub.closeMenu.close"),
             onSelect: afterMenuCloses(() => openClose({ kind: "venue" })),
           },
-          {
-            id: "pause",
-            label: t("availabilityHub.closeMenu.pause"),
-            onSelect: afterMenuCloses(openPause),
-          },
+          ...(paused
+            ? []
+            : [
+                {
+                  id: "pause",
+                  label: t("availabilityHub.closeMenu.pause"),
+                  onSelect: afterMenuCloses(openPause),
+                },
+              ]),
         ]}
       />
     </div>

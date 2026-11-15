@@ -189,6 +189,8 @@ export interface DateRuleRow {
   guestMessage: string | null;
   staffNote: string | null;
   expiresAt: Date | null;
+  /** `pause` marks a closure the Pause dialog made. */
+  source?: string;
   tables: { tableId: string }[];
 }
 
@@ -218,6 +220,7 @@ function dateRuleCandidate(row: DateRuleRow): unknown {
     guestMessage: row.guestMessage,
     staffNote: row.staffNote,
     expiresAt: toIso(row.expiresAt),
+    ...(row.source === "pause" ? { origin: "pause" } : {}),
   };
 }
 

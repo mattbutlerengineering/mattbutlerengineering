@@ -6330,21 +6330,26 @@
         !onlineSeatingLeft(config, timezone, today, nowMinute)
       );
     }
+    export function onlinePausesOn(config: AvailabilityConfig, today: string): DateRule[] {
+      return config.dateRules.filter(
+        (r) =>
+          r.kind === "closure" &&
+          r.targetKind === "booking" &&
+          (r.bookingTypes ?? []).includes("online") &&
+          r.startsOn <= today &&
+          (r.endsOn === null ||
+            r.endsOn === undefined ||
+            (r.origin === "pause" && r.endsOn >= today)) &&
+          !r.repeat
+      );
+    }
     export function shownOnlinePause(
       config: AvailabilityConfig,
       timezone: string,
       today: string,
       nowMinute: number
     ): DateRule | null {
-      const pauses = config.dateRules.filter(
-        (r) =>
-          r.kind === "closure" &&
-          r.targetKind === "booking" &&
-          (r.bookingTypes ?? []).includes("online") &&
-          r.startsOn <= today &&
-          (r.endsOn === null || r.endsOn === undefined) &&
-          !r.repeat
-      );
+      const pauses = onlinePausesOn(config, today);
       const earliest = [...pauses].sort((a, b) => (a.window?.from ?? 0) - (b.window?.from ?? 0))[0];
       return (
         pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute)) ?? earliest ?? null
@@ -8387,6 +8392,30 @@
       });
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/pause-end.ts">
+    export type PauseEnd =
+      | { readonly kind: "open" }
+      | { readonly kind: "tomorrow" }
+      | { readonly kind: "date"; readonly date: string };
+    export function pauseEnd(rule: DateRule, today: string): PauseEnd {
+      if (rule.endsOn === null || rule.endsOn === undefined) return { kind: "open" };
+      return rule.endsOn <= today ? { kind: "tomorrow" } : { kind: "date", date: rule.endsOn };
+    }
+    export function pauseEndText(
+      end: PauseEnd,
+      t: TFunction,
+      format: Pick<VenueFormat, "formatCalendarDate">
+    ): string {
+      if (end.kind === "open") return t("availability.paused.noEndShort");
+      if (end.kind === "tomorrow") return t("availability.paused.untilTomorrow");
+      const date = format.formatCalendarDate(end.date, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+      return t("availability.paused.untilDate", { date });
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/pause-online-draft.ts">
     export type PauseChoice = "tonight" | "untilResume" | "untilDate";
     export const PAUSE_CHOICES: readonly PauseChoice[] = ["tonight", "untilResume", "untilDate"];
@@ -8425,7 +8454,9 @@
     }
     export function pauseOnlineRule(draft: PauseDraft, id: string, today: string): DateRule | null {
       if (pauseOnlineProblem(draft, today) !== null) return null;
-      return buildCloseRule(pauseOnlineForm(draft, today), id, today);
+      const built = buildCloseRule(pauseOnlineForm(draft, today), id, today);
+      // The mark is what lets the pill and banner show this pause with its end, and Resume it.
+      return built && { ...built, origin: "pause" };
     }
   </file>
   <file path="apps/hospitality/src/components/availability/period.ts">
@@ -61735,6 +61766,8 @@
       guestMessage: string | null;
       staffNote: string | null;
       expiresAt: Date | null;
+      /** `pause` marks a closure the Pause dialog made. */
+      source?: string;
       tables: { tableId: string }[];
     }
     function dateRuleCandidate(row: DateRuleRow): unknown {
@@ -61763,6 +61796,7 @@
         guestMessage: row.guestMessage,
         staffNote: row.staffNote,
         expiresAt: toIso(row.expiresAt),
+        ...(row.source === "pause" ? { origin: "pause" } : {}),
       };
     }
     interface LegacyVenue {

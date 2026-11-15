@@ -96,6 +96,43 @@ const choose = (dialog: HTMLElement, name: string) =>
   fireEvent.click(within(dialog).getByRole("radio", { name }));
 const sent = (call = 0) => create.mock.calls[call]![0];
 
+describe("PauseOnlineDialog, when a pause already covers today (#8687)", () => {
+  const withPause = (endsOn: string | null, origin?: "pause"): AvailabilityConfigState => ({
+    config: fixtureConfig({
+      id: "existing",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      startsOn: TODAY,
+      endsOn,
+      ...(origin ? { origin } : {}),
+    }),
+    version: 7,
+    source: "rows",
+  });
+
+  it("warns, saying when it ends", () => {
+    renderDialog({ state: withPause(TODAY, "pause") });
+    expect(screen.getByText("Online booking is already paused")).toBeTruthy();
+    expect(screen.getByText(/Until tomorrow/)).toBeTruthy();
+  });
+
+  it("warns of an open-ended pause", () => {
+    renderDialog({ state: withPause(null) });
+    expect(screen.getByText("Online booking is already paused")).toBeTruthy();
+  });
+
+  it("says nothing when no pause covers today", () => {
+    renderDialog();
+    expect(screen.queryByText("Online booking is already paused")).toBeNull();
+  });
+
+  it("says nothing of a dated closure Close... made, which is not a pause", () => {
+    renderDialog({ state: withPause(TODAY) });
+    expect(screen.queryByText("Online booking is already paused")).toBeNull();
+  });
+});
+
 describe("PauseOnlineDialog", () => {
   it("offers Tonight, Until I resume and Until a date, with Tonight chosen", () => {
     const { dialog } = renderDialog();
@@ -125,6 +162,7 @@ describe("PauseOnlineDialog", () => {
         startsOn: TODAY,
         endsOn: TODAY,
         window: null,
+        origin: "pause",
       },
       decisions: [],
     });

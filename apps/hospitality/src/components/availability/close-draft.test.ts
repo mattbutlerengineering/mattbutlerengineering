@@ -498,6 +498,24 @@ describe("shownOnlinePause", () => {
     expect(pausedAt(rule({ startsOn: TODAY, endsOn: TODAY }), TODAY, NOON)).toBeNull();
   });
 
+  it("finds a dated online closure the Pause dialog marked, until its last date has passed (#8687)", () => {
+    const marked = (patch: Record<string, unknown>) => rule({ origin: "pause", ...patch });
+    expect(pausedAt(marked({ startsOn: TODAY, endsOn: TODAY }), TODAY, NOON)?.id).toBe("p1");
+    expect(pausedAt(marked({ startsOn: TODAY, endsOn: "2026-12-05" }), TODAY, NOON)?.id).toBe("p1");
+    expect(
+      pausedAt(marked({ startsOn: "2026-11-20", endsOn: "2026-11-29" }), TODAY, NOON)
+    ).toBeNull();
+  });
+
+  it("still ignores a repeating closure, marked or not", () => {
+    const repeating = rule({
+      origin: "pause",
+      endsOn: "2026-12-05",
+      repeat: { version: 1, weekdays: [1, 2] },
+    });
+    expect(pausedAt(repeating, TODAY, NOON)).toBeNull();
+  });
+
   describe("a pause from a next-day time (#7978)", () => {
     const FRIDAY = "2026-11-06";
     const SATURDAY = "2026-11-07";

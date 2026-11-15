@@ -3056,7 +3056,11 @@
       "resume": "Reprendre",
       "resumed": "Réservations en ligne reprises",
       "resumeError": "Impossible de reprendre les réservations en ligne",
-      "pillNoEnd": "Réservations en ligne suspendues · Aucune date de fin",
+      "noEndShort": "Aucune date de fin",
+      "untilTomorrow": "Jusqu'à demain",
+      "untilDate": "Jusqu'au {{date}}",
+      "pill": "Réservations en ligne suspendues · {{end}}",
+      "bannerEnds": "{{end}} — ou reprenez-les maintenant.",
       "waiting_one": "Les réservations en ligne à partir de {{time}} sont suspendues tous les jours. Les heures précédentes restent ouvertes.",
       "waiting_other": "Les réservations en ligne à partir de {{time}} sont suspendues tous les jours. Les heures précédentes restent ouvertes.",
       "waiting_many": "Les réservations en ligne à partir de {{time}} sont suspendues tous les jours. Les heures précédentes restent ouvertes.",
@@ -3370,6 +3374,10 @@
         "untilDate": "Réservations en ligne suspendues jusqu'au {{date}}"
       },
       "saveError": "Impossible de suspendre les réservations en ligne",
+      "alreadyPaused": {
+        "title": "Les réservations en ligne sont déjà suspendues",
+        "body": "{{end}}. Enregistrer maintenant ajoute une deuxième suspension."
+      },
       "alreadySaved": "Cette suspension a déjà été enregistrée. Vérifiez l'état en haut de Disponibilité avant de suspendre de nouveau.",
       "savedEarlier": {
         "title": "Les réservations en ligne sont déjà suspendues",

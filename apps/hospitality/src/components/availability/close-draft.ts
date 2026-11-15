@@ -605,11 +605,27 @@ export function isPauseInForce(
   );
 }
 
+/** Online pauses that have started and not ended: open-ended, or marked by the Pause dialog. */
+export function onlinePausesOn(config: AvailabilityConfig, today: string): DateRule[] {
+  return config.dateRules.filter(
+    (r) =>
+      r.kind === "closure" &&
+      r.targetKind === "booking" &&
+      (r.bookingTypes ?? []).includes("online") &&
+      r.startsOn <= today &&
+      (r.endsOn === null ||
+        r.endsOn === undefined ||
+        (r.origin === "pause" && r.endsOn >= today)) &&
+      !r.repeat
+  );
+}
+
 /**
  * The online pause the banner shows, with its Resume (ux.md F5 step 9): one in force if there is
  * one, else the earliest waiting for its time, which says so (`isPauseInForce`) and can still be
- * removed. Only the shape the Pause button creates counts: online, open-ended and not repeating,
- * so Resume never deletes a dated or recurring closure.
+ * removed. Only a pause counts that the Pause dialog made (`origin: "pause"`, any end not yet
+ * passed) or the open-ended one the old Pause button made; both online and not repeating. An
+ * unmarked dated closure, say a private event's, never counts, so Resume never deletes it.
  */
 export function shownOnlinePause(
   config: AvailabilityConfig,
@@ -617,15 +633,7 @@ export function shownOnlinePause(
   today: string,
   nowMinute: number
 ): DateRule | null {
-  const pauses = config.dateRules.filter(
-    (r) =>
-      r.kind === "closure" &&
-      r.targetKind === "booking" &&
-      (r.bookingTypes ?? []).includes("online") &&
-      r.startsOn <= today &&
-      (r.endsOn === null || r.endsOn === undefined) &&
-      !r.repeat
-  );
+  const pauses = onlinePausesOn(config, today);
   const earliest = [...pauses].sort((a, b) => (a.window?.from ?? 0) - (b.window?.from ?? 0))[0];
   return (
     pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute)) ?? earliest ?? null

@@ -20,13 +20,16 @@ import { shortDate } from "../components/availability/hub/hub-text.js";
 import { HubCloseMenu } from "../components/availability/hub/HubCloseMenu.js";
 import { HubRow, type HubRowAction } from "../components/availability/hub/HubRow.js";
 import { takeHubReturnRow } from "../components/availability/hub-return-focus.js";
+import { shownOnlinePause } from "../components/availability/close-draft.js";
 import { TodayLine } from "../components/availability/TodayLine.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { useAvailabilityHub } from "../hooks/useAvailabilityHub.js";
 import { useAvailabilityScope, type AvailabilityScope } from "../hooks/useAvailabilityScope.js";
 import { UNLESS_COVERED, useFocusAfter, type FocusAfterApi } from "../hooks/useFocusAfter.js";
+import { useNow } from "../hooks/useNow.js";
 import { useVenueFormat } from "../hooks/useVenueFormat.js";
+import { minutesOfDayIn } from "../utils/service-day.js";
 import styles from "../components/availability/hub/Hub.module.css";
 
 /**
@@ -97,9 +100,18 @@ function AvailabilityHub({ children }: { readonly children?: ReactNode }) {
       {t("availability.backToSetup")}
     </Link>
   );
+  const now = useNow();
+  const paused =
+    scope.state !== null &&
+    shownOnlinePause(
+      scope.state.config,
+      scope.timezone,
+      scope.today,
+      minutesOfDayIn(now, scope.timezone)
+    ) !== null;
   // A Host has no Close or pause (ux.md "Host"); nor does anyone before the config has loaded.
   const closeMenu = venueId && scope.isManager && scope.load === "ready" && (
-    <HubCloseMenu openClose={scope.openClose} openPause={scope.openPause} />
+    <HubCloseMenu openClose={scope.openClose} openPause={scope.openPause} paused={paused} />
   );
   return (
     <div className={styles.page}>

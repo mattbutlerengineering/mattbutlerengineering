@@ -188,6 +188,11 @@ const DateRuleBase = z.object({
   seriesId: IdSchema.nullish(),
   guestMessage: z.string().max(GUEST_MESSAGE_MAX_LENGTH).nullish(),
   staffNote: z.string().max(500).nullish(),
+  /**
+   * Set on a closure the Pause dialog made. Only a marked pause shows its end and offers Resume in
+   * the shell pill and banner; a closure made by Close... never does, so Resume cannot delete it.
+   */
+  origin: z.literal("pause").nullish(),
 });
 
 export const DateRuleSchema = z.discriminatedUnion("kind", [

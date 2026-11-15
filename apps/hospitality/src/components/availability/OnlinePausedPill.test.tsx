@@ -57,6 +57,32 @@ describe("OnlinePausedPill (#8032)", () => {
     expect(screen.getByText("Online booking paused · No end date")).toBeTruthy();
   });
 
+  describe("a pause the Pause dialog marked, with an end (#8687)", () => {
+    const TONIGHT: DateRule = {
+      ...FROM_SIX,
+      id: "pause-2",
+      startsOn: "2026-11-14",
+      endsOn: "2026-11-14",
+      window: null,
+      origin: "pause",
+    };
+
+    it("says Tonight's pause ends tomorrow", () => {
+      renderAt("2026-11-14T19:00:00-05:00", TONIGHT);
+      expect(screen.getByText("Online booking paused · Until tomorrow")).toBeTruthy();
+    });
+
+    it("names the date a dated pause runs to", () => {
+      renderAt("2026-11-14T19:00:00-05:00", { ...TONIGHT, endsOn: "2026-11-20" });
+      expect(screen.getByText(/Online booking paused · Until .*20/)).toBeTruthy();
+    });
+
+    it("shows nothing for the same closure when Close... made it", () => {
+      renderAt("2026-11-14T19:00:00-05:00", { ...TONIGHT, origin: undefined });
+      expect(screen.queryByText(/Online booking paused/)).toBeNull();
+    });
+  });
+
   it("says the pause has no end, since it only ever shows one the Pause button created open-ended (#8687)", () => {
     renderAt("2026-11-14T19:00:00-05:00");
     expect(screen.getByText(/no end date/i)).toBeTruthy();

@@ -2976,7 +2976,11 @@
       "resume": "Resume",
       "resumed": "Online booking resumed",
       "resumeError": "Couldn't resume online booking",
-      "pillNoEnd": "Online booking paused · No end date",
+      "noEndShort": "No end date",
+      "untilTomorrow": "Until tomorrow",
+      "untilDate": "Until {{date}}",
+      "pill": "Online booking paused · {{end}}",
+      "bannerEnds": "{{end}} — or resume it now.",
       "waiting_one": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
       "waiting_other": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
       "waitingNoneToday_one": "Online seatings from {{time}} are paused every day.",
@@ -3282,6 +3286,10 @@
         "untilDate": "Online booking paused until {{date}}"
       },
       "saveError": "Couldn't pause online booking",
+      "alreadyPaused": {
+        "title": "Online booking is already paused",
+        "body": "{{end}}. Saving now adds a second pause."
+      },
       "alreadySaved": "This pause was already saved. Check the status at the top of Availability before pausing again.",
       "savedEarlier": {
         "title": "Online booking is already paused",
