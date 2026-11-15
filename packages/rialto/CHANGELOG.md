@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.16
+
+### Patch Changes
+
+- [#8906](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8906) [`42749df`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/42749dffffa674c94f5c166d463b2375ef0dc873) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Route every component CSS transition through the `--rialto-duration-*` tokens so a vibe can retime them. Literal `0.1s`/`0.12s`/`120ms` now read `fast`, `0.15s`/`150ms` read `standard`, and `0.2s`/`0.3s` read `slow`. A new test guards against literal transition times.
+
+- [#8909](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/8909) [`0dc8a29`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/0dc8a29dd164b9009a46ecf3b13c8053cce95209) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Document that explicit `vibeOverrides` win over the reduced-motion adapter, and clarify that the `game` vibe's 100ms budget covers only the `fast` and `standard` durations.
+
 ## 0.10.15
 
 ### Patch Changes
