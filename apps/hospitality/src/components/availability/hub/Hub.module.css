@@ -25,7 +25,7 @@
   box-shadow: var(--rialto-shadow-focus);
 }
 
-/* Beside the title: Close or pause, then the way back to Venue Setup. */
+/* Beside the title: Close or pause, then the link to the Availability map (also the way back). */
 .headerAside {
   display: flex;
   flex-wrap: wrap;

@@ -46,9 +46,10 @@ type AvailabilityView =
       readonly date?: string;
     }
   | { readonly view: "bookingRules" }
-  | { readonly view: "history" };
+  | { readonly view: "history" }
+  | { readonly view: "map" };
 
-/** A view, plus the dialog to open over it and whether the visit came from Venue Setup. */
+/** A view, plus the dialog to open over it and whether the visit came from the Availability map. */
 export type AvailabilityTarget = AvailabilityView & {
   readonly close?: CloseTarget;
   readonly pause?: boolean;
@@ -118,6 +119,7 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
   calendar: "calendar",
   bookingRules: undefined,
   history: undefined,
+  map: undefined,
 };
 
 /** The booking rules drawer, over the hub. */
@@ -140,12 +142,19 @@ const HISTORY = `${ROUTE}/history`;
 export const isHistoryPage = (pathname: string): boolean =>
   pathname.replace(/\/+$/, "").toLowerCase() === HISTORY;
 
-/** The views with a path of their own: the hub, the drawers over it and regular hours. */
+/** The Availability map: what decides when guests can book, from schedules down to tables. */
+const MAP = `${ROUTE}/map`;
+
+/**
+ * The views with a path of their own: the hub, the drawers over it, regular hours and the
+ * Availability map.
+ */
 const OWN_PATHS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
   hub: ROUTE,
   hours: HOURS,
   bookingRules: BOOKING_RULES,
   history: HISTORY,
+  map: MAP,
 };
 
 // `:` and `,` are legal in a query, so the close target stays readable in the address bar.
@@ -188,7 +197,7 @@ function setDialog(params: URLSearchParams, dialog: DialogRequest): void {
   else if (dialog) params.set("pause", "1");
 }
 
-/** The dialog and the Venue Setup flag every view carries, in that order, last in the query. */
+/** The dialog and the Availability map flag every view carries, in that order, last in the query. */
 function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void {
   setDialog(params, target.close ? { close: target.close } : target.pause ? { pause: true } : null);
   if (target.from) params.set("from", target.from);
@@ -265,7 +274,7 @@ function parseCloseTarget(value: string | null): CloseTarget | null {
   return parseRange(value);
 }
 
-/** What an address asks for beyond its view: a dialog to open, and the Venue Setup back link. */
+/** What an address asks for beyond its view: a dialog to open, and the Availability map back link. */
 export interface AvailabilityAddress {
   /** `null` when there is no close target, or it does not parse: no dialog. */
   readonly close: CloseTarget | null;

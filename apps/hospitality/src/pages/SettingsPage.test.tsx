@@ -283,14 +283,14 @@ describe("SettingsPage", () => {
     });
   });
 
-  it("navigates to /setup when Venue Setup is clicked", async () => {
+  it("navigates to the Availability map when it is clicked", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByText("Venue")).toBeDefined();
     });
 
-    fireEvent.click(screen.getByText("Venue Setup"));
-    expect(mockNavigate).toHaveBeenCalledWith("/setup");
+    fireEvent.click(screen.getByText("Availability map"));
+    expect(mockNavigate).toHaveBeenCalledWith("/availability/map");
   });
 
   it("links to the Friday-night rehearsal from the venue card", async () => {

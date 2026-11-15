@@ -19,6 +19,10 @@ import { localDay } from "./local-day.js";
 
 /** The date check's calendar button, which `first-paint.ts` counts and ux.md's budget does not. */
 const DATE_FIELD_BUTTON = 1;
+/** The always-shown "Availability map" link in the header (#8864 AC4; Owner, 2026-11-15). */
+const MAP_LINK = 1;
+/** ux.md's 10 controls plus one per service (two in the demo venue), plus the two above: 14. */
+const HUB_FIRST_PAINT_BUDGET = DATE_FIELD_BUTTON + 10 + 2 + MAP_LINK;
 
 const DESKTOP = { width: 1280, height: 800 };
 const TABLET = { width: 820, height: 1180 };
@@ -91,14 +95,15 @@ test.describe("Availability hub", () => {
 
     // First paint: 10 controls plus one per service (two here) by ux.md, which counts the date
     // field once; `first-paint.ts` also counts its calendar button (not a tab stop), so +1. C2.4's
-    // "Close or pause" is one of ux.md's 10. Measured 13; whether the budget is restated or the
-    // counter skips that button is the Owner's open question (breakdown Notes, 2026-11-13).
+    // "Close or pause" is one of ux.md's 10. The extra control is the always-shown "Availability
+    // map" link, required by #8864 AC4 (the hub links to the map); the Owner raised the budget
+    // from 13 to 14 for it (2026-11-15).
     const { count, controls } = await countFirstPaintControls(page, null);
     test.info().annotations.push({
       type: "hub first paint controls (agent stand-in)",
       description: `${count}: ${controls.join(" | ")}`,
     });
-    expect(count, controls.join("\n")).toBeLessThanOrEqual(DATE_FIELD_BUTTON + 10 + 2);
+    expect(count, controls.join("\n")).toBeLessThanOrEqual(HUB_FIRST_PAINT_BUDGET);
     expect(await screensTall(page, DESKTOP)).toBeLessThanOrEqual(1.0);
 
     // The date check: one typed date, one sentence, and the row that decided it is marked in text.
@@ -219,7 +224,7 @@ test.describe("Availability hub", () => {
   }) => {
     await openHub(page, PHONE);
     const { count, controls } = await countFirstPaintControls(page, null);
-    expect(count, controls.join("\n")).toBeLessThanOrEqual(DATE_FIELD_BUTTON + 10 + 2);
+    expect(count, controls.join("\n")).toBeLessThanOrEqual(HUB_FIRST_PAINT_BUDGET);
     expect(await screensTall(page, PHONE)).toBeLessThanOrEqual(1.5);
   });
 });

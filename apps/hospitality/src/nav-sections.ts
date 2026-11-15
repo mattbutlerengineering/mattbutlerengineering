@@ -35,9 +35,12 @@ export interface NavSection {
 /** Section ids — the en-US labels, which is what collapse state was first persisted under. */
 export const ACCOUNT_SECTION_ID = "Account";
 
-/** One Venue Setup item in both readiness states: same destination, same label. */
+/**
+ * One Availability map item in both readiness states: same destination, same label. Its id is
+ * still `setup`, the item's id since it was Venue Setup.
+ */
 const SETUP_ITEM_ID = "setup";
-const SETUP_PATH = "/setup";
+const SETUP_PATH = availabilityPath({ view: "map" });
 /** Launch steps counted in the pre-launch badge: venue basics, regular week, floor plan. */
 const SETUP_STEP_COUNT = 3;
 
@@ -123,8 +126,8 @@ function buildOperationalSections(isAdmin: boolean, t: TFunction): readonly NavS
     id: "Manage",
     label: t("nav.sections.manage"),
     items: [
-      route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
       route("availability", t("nav.items.availability"), availabilityPath({ view: "hub" })),
+      route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
       route("menus", t("nav.items.menus"), "/menus"),
       route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
     ],

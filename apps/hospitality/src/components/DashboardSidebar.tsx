@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { NavSection, NavItem } from "../nav-sections.js";
 import type { NavAction } from "../nav-actions.js";
@@ -133,11 +133,23 @@ export function DashboardSidebar({
     [onAction, onMobileClose]
   );
 
+  // The longest item path that holds the active path: on /availability/map the map's item is
+  // current, not Availability's as well.
+  const activeItemPath = useMemo(
+    () =>
+      sections
+        .flatMap((section) => section.items)
+        .flatMap((item) => (item.action.type === "route" ? [item.action.path] : []))
+        .filter((path) => activePath === path || activePath.startsWith(path + "/"))
+        .reduce<string | null>(
+          (best, path) => (best && best.length >= path.length ? best : path),
+          null
+        ),
+    [sections, activePath]
+  );
   const isItemActive = useCallback(
-    (item: NavItem): boolean =>
-      item.action.type === "route" &&
-      (activePath === item.action.path || activePath.startsWith(item.action.path + "/")),
-    [activePath]
+    (item: NavItem): boolean => item.action.type === "route" && item.action.path === activeItemPath,
+    [activeItemPath]
   );
 
   const rootClassName = `${styles.root} ${isMobileOpen ? styles.mobileOpen : ""}`;

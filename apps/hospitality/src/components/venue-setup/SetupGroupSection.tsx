@@ -1,6 +1,6 @@
 import { useId, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Skeleton, Text } from "@mattbutlerengineering/rialto";
+import { Heading, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
 import type { SetupAction, SetupGroup, SetupNode } from "./setup-tree.js";
@@ -15,9 +15,13 @@ export interface SetupGroupSectionProps {
   readonly renderExtra?: (node: SetupNode) => ReactNode;
 }
 
+/** Schedules decide first which dates and times exist, then the floor decides who fits. */
+const GROUP_STEP: Readonly<Record<SetupGroup["id"], number>> = { open: 1, sit: 2 };
+
 /**
- * One group of the hub ("When you're open", "Where guests sit"). Each loads and fails on its own,
- * so a slow or failed floor plan read does not block the schedules, and the other way round.
+ * One group of the Availability map ("When you're open", "Where guests sit"). Each loads and fails
+ * on its own, so a slow or failed floor plan read does not block the schedules, and the other way
+ * round.
  */
 export function SetupGroupSection(props: SetupGroupSectionProps) {
   const { group, isManager, onAction, onRetry, renderExtra } = props;
@@ -27,15 +31,15 @@ export function SetupGroupSection(props: SetupGroupSectionProps) {
 
   return (
     <section className={styles.group} aria-labelledby={headingId}>
-      <Text
-        as="h2"
-        variant="label"
-        color="secondary"
-        id={headingId}
-        className={styles.groupHeading}
-      >
-        {t(`setup.hub.groups.${group.id}`)}
-      </Text>
+      <div className={styles.groupHeader}>
+        {/* The order the groups decide availability in; the list order says it to a screen reader. */}
+        <Text as="span" className={styles.groupStep} aria-hidden="true">
+          {GROUP_STEP[group.id]}
+        </Text>
+        <Heading level={2} size={5} id={headingId} className={styles.groupHeading}>
+          {t(`setup.hub.groups.${group.id}`)}
+        </Heading>
+      </div>
       {load.status === "loading" && (
         <div role="status" aria-label={t("setup.hub.loading")} className={styles.skeletons}>
           <Skeleton variant="text" width="100%" height={44} />

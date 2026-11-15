@@ -9,7 +9,7 @@ cron_b: "29 * * * *"
 cron_c: "44 * * * *"
 cron_d: "59 * * * *"
 model: claude-sonnet-5-5
-cadence: Every 15 minutes (four hourly triggers, offset by 15 minutes)
+cadence: Every 30 minutes (mbe-prune-a and mbe-prune-c; b and d disabled 2026-11-15)
 ---
 
 # mbe-prune
@@ -25,6 +25,11 @@ minutes sit between the account's existing hourly fires (`:03`/`:07`/`:11` and
 `:33`/`:38`/`:41`, across this repo, the skills repo and ai-tooling) and this
 repo's daily routines (`:21`/`:23`/`:37`/`:47`). If this file and any live trigger ever disagree, this
 file wins — see [`docs/scheduled-tasks.md`](../scheduled-tasks.md#editing-a-routine).
+
+**Cadence halved 2026-11-15:** `mbe-prune-b` and `mbe-prune-d` are disabled, so the
+pass fires every 30 minutes (`:14` and `:44`). The previous 7 days had 96 fires a day
+and 2 merged prune PRs. The prompt text still says "every 15 minutes"; it was left
+unchanged so the two live prompts need no edit. Re-enable b and d to restore 15 minutes.
 
 **What it is for.** A pristine repository: every document accurate, every file
 reachable, nothing describing something that no longer exists. It removes and

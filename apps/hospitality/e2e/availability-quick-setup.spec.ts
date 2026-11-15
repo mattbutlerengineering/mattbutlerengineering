@@ -30,13 +30,13 @@ test.describe("Availability quick setup (F1)", () => {
     await expect(mockedPage.getByTestId("hub-row-1")).toContainText("Dinner");
     expect(state.savedBody()).toMatchObject({ expectedVersion: 3 });
 
-    // Venue Setup (the standing /setup page) now shows the saved week and counts the step done.
-    await mockedPage.goto("setup");
+    // The Availability map (the standing page) now shows the saved week and counts the step done.
+    await mockedPage.goto("availability/map");
     await expect(mockedPage.getByRole("listitem", { name: /Schedules/ })).toContainText(
       "1 schedule"
     );
     await expect(
-      mockedPage.getByRole("region", { name: "Venue Setup progress" }).getByText("2 of 3")
+      mockedPage.getByRole("region", { name: "Launch progress" }).getByText("2 of 3")
     ).toBeVisible();
   });
 
