@@ -5489,6 +5489,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="dashboard">
+  <file path="apps/rialto-web/src/pages/dashboard/delta-color.ts">
+    <item priority="high">
+      export function deltaColor(delta: number): string { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/ai-health-trends.ts">
     <item priority="low">
