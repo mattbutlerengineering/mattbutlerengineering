@@ -210,7 +210,7 @@ export function DemoLayout() {
             onOpenCookiePrefs={openPrefs}
           />
         </section>
-        <main id="main-content" tabIndex={-1} style={{ outline: "none" }}>
+        <main id="main-content" tabIndex={-1} className={styles.main}>
           <Outlet />
         </main>
         <CookieBanner
