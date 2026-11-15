@@ -1,0 +1,2438 @@
+<codebase path="packages/availability">
+  <section priority="medium" role="src">
+  <file path="src/apply-draft.ts">
+    type ConfigTable = keyof AvailabilityConfig;
+    type Row<T extends ConfigTable> = AvailabilityConfig[T][number];
+    export const ARCHIVED_ON_REMOVE: ReadonlySet<ConfigTable> = new Set<ConfigTable>([
+      "schedules",
+      "venueServices",
+    ]);
+    function applyTable<T extends ConfigTable>(
+      table: T,
+      rows: AvailabilityConfig[T],
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig[T] {
+      const upserts = (changes.upsert[table] ?? []) as Row<T>[];
+      const removed = new Set(changes.remove[table] ?? []);
+      const byId = new Map(upserts.map((r) => [r.id, r]));
+      const kept = (rows as Row<T>[]).flatMap((row): Row<T>[] => {
+        const replaced = byId.get(row.id) ?? row;
+        if (!removed.has(row.id)) return [replaced];
+        return ARCHIVED_ON_REMOVE.has(table) ? [{ ...replaced, archivedAt: nowIso }] : [];
+      });
+      const known = new Set((rows as Row<T>[]).map((r) => r.id));
+      const added = upserts.filter((r) => !known.has(r.id) && !removed.has(r.id));
+      return [...kept, ...added] as AvailabilityConfig[T];
+    }
+    export function applyChanges(
+      config: AvailabilityConfig,
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): AvailabilityConfig {
+      return {
+        schedules: applyTable("schedules", config.schedules, changes, nowIso),
+        venueServices: applyTable("venueServices", config.venueServices, changes, nowIso),
+        scheduleServices: applyTable("scheduleServices", config.scheduleServices, changes, nowIso),
+        assignments: applyTable("assignments", config.assignments, changes, nowIso),
+        dateRules: applyTable("dateRules", config.dateRules, changes, nowIso),
+      };
+    }
+    export function applyDraft<S extends AvailabilitySnapshot>(
+      snapshot: S,
+      changes: AvailabilityConfigChanges,
+      nowIso: string
+    ): S {
+      return { ...snapshot, config: applyChanges(snapshot.config, changes, nowIso) };
+    }
+  </file>
+  <file path="src/civil-date.ts">
+    function toUtcMs(date: ServiceDate): number {
+      const y = Number(date.slice(0, 4));
+      const m = Number(date.slice(5, 7));
+      const d = Number(date.slice(8, 10));
+      return Date.UTC(y, m - 1, d);
+    }
+    function fromUtcMs(ms: number): ServiceDate {
+      return new Date(ms).toISOString().slice(0, 10);
+    }
+    export function addDays(date: ServiceDate, n: number): ServiceDate {
+      return fromUtcMs(toUtcMs(date) + n * MS_PER_DAY);
+    }
+    export function weekdayOf(date: ServiceDate): Weekday {
+      const sundayFirst = new Date(toUtcMs(date)).getUTCDay();
+      // getUTCDay is 0..6, so the index is always in range.
+      return WEEKDAYS[(sundayFirst + 6) % 7] as Weekday;
+    }
+    export function weekdayIndexOf(date: ServiceDate): number {
+      return new Date(toUtcMs(date)).getUTCDay();
+    }
+  </file>
+  <file path="src/closure-overlap.ts">
+    type Closure = RuleOf<"closure">;
+    function datesOf(rule: DateRule, from: ServiceDate): ServiceDate[] {
+      const first = rule.startsOn > from ? rule.startsOn : from;
+      // A skip or one-date edit of a series never outgrows its date (see `date-rules.ts`).
+      if (rule.seriesId != null) return rule.startsOn >= from ? [rule.startsOn] : [];
+      const last = rule.endsOn ?? addDays(first, OPEN_END_DAYS);
+      const dates: ServiceDate[] = [];
+      for (let date = first; date <= last; date = addDays(date, 1)) {
+        if (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date))) {
+          dates.push(date);
+        }
+      }
+      return dates;
+    }
+    function targetCovers(wide: DateRule, narrow: DateRule): boolean {
+      if (wide.targetKind === "venue") return true;
+      if (wide.targetKind !== narrow.targetKind) return false;
+      switch (wide.targetKind) {
+        case "service":
+          return wide.venueServiceId === narrow.venueServiceId;
+        case "booking":
+          return (narrow.bookingTypes ?? []).every((t) => wide.bookingTypes?.includes(t));
+        default:
+          return (narrow.tableIds ?? []).every((t) => wide.tableIds?.includes(t));
+      }
+    }
+    function windowCovers(wide: DateRule, narrow: DateRule): boolean {
+      const [w, n] = [wide.window ?? WHOLE_DAY, narrow.window ?? WHOLE_DAY];
+      return w.from <= n.from && w.to >= n.to;
+    }
+    function closedBy(rule: Closure, dates: readonly ServiceDate[]): ClosedByRule {
+      return {
+        ruleId: rule.id,
+        targetKind: rule.targetKind,
+        venueServiceId: rule.venueServiceId,
+        bookingTypes: rule.bookingTypes,
+        startsOn: rule.startsOn,
+        endsOn: rule.endsOn,
+        repeat: rule.repeat,
+        window: rule.window,
+        dates: [...dates],
+      };
+    }
+    function overlap(
+      found: readonly { readonly date: ServiceDate; readonly rules: readonly Closure[] }[],
+      everyDate: boolean
+    ): ClosureOverlap {
+      const rules = new Map(found.flatMap((f) => f.rules.map((r) => [r.id, r] as const)));
+      return {
+        everyDate,
+        by: [...rules.values()].map((rule) =>
+          closedBy(
+            rule,
+            found.filter((f) => f.rules.some((r) => r.id === rule.id)).map((f) => f.date)
+          )
+        ),
+      };
+    }
+    export function alreadyClosed(
+      rules: readonly DateRule[],
+      draft: DateRule,
+      from: ServiceDate
+    ): ClosureOverlap {
+      const counts = (rule: Closure) =>
+        rule.id !== draft.id &&
+        rule.id !== draft.seriesId &&
+        (draft.seriesId == null || rule.seriesId !== draft.seriesId) &&
+        (draft.targetKind !== "booking" || rule.targetKind === "booking") &&
+        covers(rule, draft);
+      const dates = datesOf(draft, from);
+      const found = dates.map((date) => ({
+        date,
+        rules: activeRules(rules, date).filter(isClosure).filter(counts),
+      }));
+      const hits = found.filter((f) => f.rules.length > 0);
+      return overlap(hits, dates.length > 0 && hits.length === dates.length);
+    }
+    export function stillClosedAfterReopen(
+      rules: readonly DateRule[],
+      rule: DateRule,
+      from: ServiceDate
+    ): ClosureOverlap {
+      if (rule.kind !== "closure") return { everyDate: false, by: [] };
+      const after = rules.filter((r) => r.id !== rule.id && r.seriesId !== rule.id);
+      const dates = datesOf(rule, from).filter((date) =>
+        activeRules(rules, date).some((r) => r.id === rule.id)
+      );
+      const staying = (other: Closure) =>
+        targetCovers(other, rule) || (rule.targetKind === "venue" && other.targetKind === "service");
+      const found = dates.map((date) => ({
+        date,
+        rules: activeRules(after, date).filter(isClosure).filter(staying),
+      }));
+      const hits = found.filter((f) => f.rules.length > 0);
+      const shut = found.filter((f) => f.rules.some((other) => covers(other, rule)));
+      return overlap(hits, dates.length > 0 && shut.length === dates.length);
+    }
+  </file>
+  <file path="src/date-rules.ts">
+    export type RuleOf<K extends DateRule["kind"]> = Extract<DateRule, { kind: K }>;
+    export const WHOLE_DAY = { from: 0, to: 2 * MINUTES_PER_DAY } as const;
+    function covers(rule: DateRule, serviceDate: ServiceDate): boolean {
+      // A Tonight rule lives exactly one service day, whatever its stored range
+      // says, so its expiry needs no clock and no cleanup job.
+      if (rule.kind === "tonight") return rule.startsOn === serviceDate;
+      // So does a skip or a one-date edit of a series: it never outgrows its date.
+      if (rule.seriesId != null) return rule.startsOn === serviceDate;
+      return (
+        rule.startsOn <= serviceDate &&
+        (rule.endsOn == null || serviceDate <= rule.endsOn) &&
+        (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(serviceDate)))
+      );
+    }
+    export function activeRules(rules: readonly DateRule[], serviceDate: ServiceDate): DateRule[] {
+      const onDate = rules.filter((r) => covers(r, serviceDate));
+      const replaced = new Set(onDate.flatMap((r) => (r.seriesId == null ? [] : [r.seriesId])));
+      return onDate.filter((r) => !replaced.has(r.id));
+    }
+    export function ofKind<K extends DateRule["kind"]>(
+      rules: readonly DateRule[],
+      kind: K
+    ): RuleOf<K>[] {
+      return rules.filter((r): r is RuleOf<K> => r.kind === kind);
+    }
+    function timeRange(from: number, to: number): string {
+      return `${formatMinute(from)} – ${formatMinute(to)}`;
+    }
+    export function targetLabel(rule: DateRule, serviceName: string | undefined): string {
+      switch (rule.targetKind) {
+        case "venue":
+          return "Closed";
+        case "service":
+          return `${serviceName ?? "Service"} closed`;
+        case "booking": {
+          const types = new Intl.ListFormat("en", { type: "conjunction" }).format(
+            rule.bookingTypes ?? []
+          );
+          return `${types.charAt(0).toUpperCase()}${types.slice(1)} booking closed`;
+        }
+        case "tables":
+          return "Tables blocked";
+      }
+    }
+    export function seriesLabel(rule: DateRule, serviceName: string | undefined): string {
+      const days = rule.repeat?.weekdays.map((d) => WEEKDAY_NAMES[d]).join(", ");
+      const range = `${rule.startsOn} – ${rule.endsOn ?? "until reopened"}`;
+      return [targetLabel(rule, serviceName), days, range].filter(Boolean).join(" · ");
+    }
+    export function windowEffect(rule: DateRule): string {
+      return rule.window ? timeRange(rule.window.from, rule.window.to) : "All day";
+    }
+    export function tonightEffect(rule: RuleOf<"tonight">): string {
+      const { payload } = rule;
+      if ("closeAt" in payload) return `Closes at ${formatMinute(payload.closeAt)}`;
+      if ("stop" in payload) return `Stopped ${timeRange(payload.stop.from, payload.stop.to)}`;
+      const { covers } = payload.pacing;
+      return `Pacing ${covers} ${covers === 1 ? "cover" : "covers"}`;
+    }
+    export function hoursEffect(
+      services: readonly { name: string; opensAt: number; closesAt: number }[]
+    ): string {
+      return services.length === 0
+        ? "Closed"
+        : services.map((s) => `${s.name} ${timeRange(s.opensAt, s.closesAt)}`).join(", ");
+    }
+  </file>
+  <file path="src/day-named-schedules.ts">
+    export function weekdayRangeLabel(storedDays: readonly number[]): string {
+      const positions = storedDays.map((d) => (d + 6) % 7).sort((a, b) => a - b);
+      const runs = positions.reduce<number[][]>((acc, p) => {
+        const last = acc[acc.length - 1];
+        return last && last[last.length - 1] === p - 1
+          ? [...acc.slice(0, -1), [...last, p]]
+          : [...acc, [p]];
+      }, []);
+      return runs
+        .map((run) => {
+          const first = WEEKDAY_ABBREVIATIONS[run[0]!];
+          return run.length === 1 ? first : `${first}–${WEEKDAY_ABBREVIATIONS[run[run.length - 1]!]}`;
+        })
+        .join(", ");
+    }
+    export function collapseDayNamedSchedules(
+      config: AvailabilityConfig,
+      newId: () => string
+    ): AvailabilityConfigChanges | null {
+      const live = config.schedules.filter((s) => !s.archivedAt);
+      const regular = live.find((s) => s.isRegular);
+      if (!regular) return null;
+    
+      const regularAssignments = config.assignments.filter((a) => a.scheduleId === regular.id);
+      const regularAssignment = regularAssignments[0];
+      if (regularAssignments.length !== 1 || !regularAssignment || !isUndated(regularAssignment)) {
+        return null;
+      }
+    
+      const referenced = new Set(
+        config.dateRules.flatMap((r) => (r.kind === "use_schedule" ? [r.useScheduleId] : []))
+      );
+      const folded = live.filter((s) => {
+        if (s.isRegular || s.kind !== "alternate" || referenced.has(s.id)) return false;
+        const assignments = config.assignments.filter((a) => a.scheduleId === s.id);
+        if (assignments.length === 0 || !assignments.every(isUndated)) return false;
+        const days = assignments.flatMap((a) => a.weekdays);
+        return s.name === `${weekdayRangeLabel(days)} hours`;
+      });
+      if (folded.length === 0) return null;
+    
+      const foldedIds = new Set(folded.map((s) => s.id));
+      const foldedAssignments = config.assignments.filter((a) => foldedIds.has(a.scheduleId));
+      const participants = [regularAssignment, ...foldedAssignments];
+      const liveIds = new Set(live.map((s) => s.id));
+      const others = config.assignments.filter(
+        (a) => liveIds.has(a.scheduleId) && !participants.includes(a)
+      );
+      const rowsOf = (scheduleId: string) =>
+        config.scheduleServices.filter((r) => r.scheduleId === scheduleId);
+      const regularRows = rowsOf(regular.id);
+    
+      // Each service's hours per weekday as the venue resolves them today.
+      const week = new Map<string, (ServiceHours | null)[]>();
+      for (const row of regularRows) {
+        week.set(row.venueServiceId, new Array<ServiceHours | null>(7).fill(null));
+      }
+      for (const day of WEEKDAYS_OF_WEEK) {
+        const covering = participants.filter((a) => a.weekdays.includes(day));
+        if (covering.length === 0) continue;
+        const before = Math.max(...covering.map((a) => a.precedence));
+        const winners = covering.filter((a) => a.precedence === before);
+        const winner = winners[0];
+        if (winners.length !== 1 || !winner) return null;
+    
+        // After the collapse the regular assignment covers the day at its own precedence; a third
+        // assignment between the two precedences would change sides.
+        const after = regularAssignment.precedence;
+        if (before !== after) {
+          const [low, high] = [Math.min(before, after), Math.max(before, after)];
+          const reordered = others.some(
+            (a) => a.weekdays.includes(day) && a.precedence >= low && a.precedence <= high
+          );
+          if (reordered) return null;
+        }
+    
+        const seen = new Set<string>();
+        for (const row of rowsOf(winner.scheduleId)) {
+          const hours = hoursOn(row, day);
+          if (!hours) continue;
+          if (seen.has(row.venueServiceId)) return null;
+          seen.add(row.venueServiceId);
+          const days = week.get(row.venueServiceId) ?? new Array<ServiceHours | null>(7).fill(null);
+          week.set(
+            row.venueServiceId,
+            days.map((h, d) => (d === day ? hours : h))
+          );
+        }
+      }
+    
+      const weekdays = [...new Set(participants.flatMap((a) => a.weekdays))].sort((a, b) => a - b);
+      const reusable = new Map<string, string>();
+      for (const row of regularRows) {
+        if (!reusable.has(row.venueServiceId)) reusable.set(row.venueServiceId, row.id);
+      }
+      const encoded: ScheduleService[] = encodeWeek(
+        [...week].map(([venueServiceId, days]) => ({ venueServiceId, days })),
+        weekdays
+      ).map((row) => ({
+        id: reusable.get(row.venueServiceId) ?? newId(),
+        scheduleId: regular.id,
+        ...row,
+      }));
+      const kept = new Set(encoded.map((r) => r.id));
+    
+      return {
+        upsert: {
+          scheduleServices: encoded,
+          assignments: [{ ...regularAssignment, weekdays }],
+        },
+        remove: {
+          scheduleServices: regularRows.filter((r) => !kept.has(r.id)).map((r) => r.id),
+          assignments: foldedAssignments.map((a) => a.id),
+          schedules: folded.map((s) => s.id),
+        },
+      };
+    }
+  </file>
+  <file path="src/diff-days.ts">
+    export interface DayDiff {
+      serviceDate: ServiceDate;
+      /** Seating minutes (past the service day's midnight) guests gain, ascending. */
+      added: number[];
+      /** Seating minutes guests lose, ascending. */
+      removed: number[];
+    }
+    export interface DiffDaysOptions {
+      partySize: number;
+      channel: BookingChannel;
+      now: Date;
+      /** Count only seatings with a table that fits the party, not every listed time. */
+      bookableOnly?: boolean;
+    }
+    export function diffDays(
+      before: BookingSnapshot,
+      after: BookingSnapshot,
+      dates: readonly ServiceDate[],
+      options: DiffDaysOptions
+    ): DayDiff[] {
+      return dates.map((serviceDate) => {
+        const was = minutesOn(before, serviceDate, options);
+        const now = minutesOn(after, serviceDate, options);
+        return { serviceDate, added: onlyIn(now, was), removed: onlyIn(was, now) };
+      });
+    }
+  </file>
+  <file path="src/expand-section-rules.ts">
+    export function expandSectionRules(
+      rules: readonly DateRule[],
+      membership: ReadonlyMap<string, readonly string[]>
+    ): DateRule[] {
+      return rules.map((rule) =>
+        rule.sectionId == null
+          ? rule
+          : { ...rule, tableIds: [...(membership.get(rule.sectionId) ?? [])] }
+      );
+    }
+  </file>
+  <file path="src/first-occurrence.ts">
+    export interface OccurrenceRule {
+      readonly startsOn: ServiceDate;
+      readonly endsOn?: ServiceDate | null;
+      readonly repeat?: { readonly weekdays: readonly number[] } | null;
+    }
+    export function firstOccurrenceOnOrAfter(
+      rule: OccurrenceRule,
+      from: ServiceDate
+    ): ServiceDate | null {
+      const start = rule.startsOn > from ? rule.startsOn : from;
+      // A weekly repeat recurs within 7 days; no listed weekday means it never does.
+      const horizon = rule.repeat == null ? 1 : 7;
+      for (let i = 0; i < horizon; i += 1) {
+        const date = addDays(start, i);
+        if (rule.endsOn != null && date > rule.endsOn) return null;
+        if (rule.repeat == null || rule.repeat.weekdays.includes(weekdayIndexOf(date))) return date;
+      }
+      return null;
+    }
+  </file>
+  <file path="src/format-minute.ts">
+    export function formatMinute(minute: number): string {
+      const m = minute % MINUTES_PER_DAY;
+      const hour24 = Math.floor(m / 60);
+      const hour12 = hour24 % 12 === 0 ? 12 : hour24 % 12;
+      return `${hour12}:${String(m % 60).padStart(2, "0")} ${hour24 < 12 ? "AM" : "PM"}`;
+    }
+  </file>
+  <file path="src/instant.ts">
+    function formatterFor(tz: string): Intl.DateTimeFormat {
+      const cached = formatters.get(tz);
+      if (cached) return cached;
+      const created = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hourCycle: "h23",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      formatters.set(tz, created);
+      return created;
+    }
+    interface WallFields {
+      year: number;
+      month: number;
+      day: number;
+      hour: number;
+      minute: number;
+    }
+    function wallFieldsOf(instantMs: number, tz: string): WallFields {
+      const parts = formatterFor(tz).formatToParts(new Date(instantMs));
+      const read = (type: Intl.DateTimeFormatPartTypes) =>
+        Number(parts.find((p) => p.type === type)?.value);
+      return {
+        year: read("year"),
+        month: read("month"),
+        day: read("day"),
+        hour: read("hour"),
+        minute: read("minute"),
+      };
+    }
+    function offsetAt(instantMs: number, tz: string): number {
+      const w = wallFieldsOf(instantMs, tz);
+      const wallMs = Date.UTC(w.year, w.month - 1, w.day, w.hour, w.minute);
+      const flooredInstant = Math.floor(instantMs / MS_PER_MINUTE) * MS_PER_MINUTE;
+      return wallMs - flooredInstant;
+    }
+    export function serviceDayInstant(
+      serviceDate: ServiceDate,
+      minute: number,
+      tz: string
+    ): Date | null {
+      const civil = addDays(serviceDate, Math.floor(minute / MINUTES_PER_DAY));
+      const wallMs =
+        Date.UTC(Number(civil.slice(0, 4)), Number(civil.slice(5, 7)) - 1, Number(civil.slice(8, 10))) +
+        (minute % MINUTES_PER_DAY) * MS_PER_MINUTE;
+      // Candidate offsets from either side of the wall time; a candidate is real
+      // only if the zone actually uses that offset at the resulting instant.
+      const offsets = new Set([offsetAt(wallMs - PROBE_MS, tz), offsetAt(wallMs + PROBE_MS, tz)]);
+      const valid = [...offsets]
+        .map((offset) => wallMs - offset)
+        .filter((instantMs) => offsetAt(instantMs, tz) === wallMs - instantMs);
+      return valid.length === 0 ? null : new Date(Math.min(...valid));
+    }
+    export function localDateTimeOf(instant: Date, tz: string): { date: ServiceDate; minute: number } {
+      const w = wallFieldsOf(instant.getTime(), tz);
+      const pad = (n: number) => String(n).padStart(2, "0");
+      return {
+        date: `${String(w.year).padStart(4, "0")}-${pad(w.month)}-${pad(w.day)}`,
+        minute: w.hour * 60 + w.minute,
+      };
+    }
+  </file>
+  <file path="src/layer-detail.ts">
+    export interface LayerTarget {
+      kind: DateRule["targetKind"];
+      /** The service a `service` target closes, as stored. */
+      serviceName?: string;
+      /** The section a section closure is for (ADR-032); a reader looks its name up. */
+      sectionId?: string;
+      bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
+    }
+    export interface LayerHoursService {
+      name: string;
+      opensAt: number;
+      closesAt: number;
+    }
+    export interface LayerSeries {
+      target: LayerTarget;
+      /** 0 = Sunday, as stored. */
+      weekdays?: number[];
+      startsOn: string;
+      endsOn?: string;
+    }
+    export type LayerTonight =
+      { closeAt: number } | { stop: { from: number; to: number } } | { pacingCovers: number };
+    export interface LayerDetail {
+      /** `schedule` and `use_schedule`: the schedule's name as stored. */
+      scheduleName?: string;
+      /** `schedule`: the venue's regular week, which nothing done on a date removes. */
+      regularWeek?: true;
+      /** `schedule`, `use_schedule` and `special_hours`: the services in force; empty means closed. */
+      hours?: LayerHoursService[];
+      /** `closure`: what it closes. */
+      target?: LayerTarget;
+      /** `closure`: the minutes it closes; absent means all day. */
+      window?: { from: number; to: number };
+      /** `skip` of a series; absent for a skipped date whose series is gone. */
+      skippedFrom?: LayerSeries;
+      /** `tonight`: what Tonight does. */
+      tonight?: LayerTonight;
+    }
+    export function targetOf(rule: DateRule, serviceName: string | undefined): LayerTarget {
+      return {
+        kind: rule.targetKind,
+        ...(serviceName !== undefined ? { serviceName } : {}),
+        ...(rule.targetKind === "tables" && rule.sectionId ? { sectionId: rule.sectionId } : {}),
+        ...(rule.bookingTypes ? { bookingTypes: [...rule.bookingTypes] } : {}),
+      };
+    }
+    export function hoursOf(
+      services: readonly { name: string; opensAt: number; closesAt: number }[]
+    ): LayerHoursService[] {
+      return services.map(({ name, opensAt, closesAt }) => ({ name, opensAt, closesAt }));
+    }
+    export function seriesOf(rule: DateRule, serviceName: string | undefined): LayerSeries {
+      return {
+        target: targetOf(rule, serviceName),
+        ...(rule.repeat ? { weekdays: [...rule.repeat.weekdays] } : {}),
+        startsOn: rule.startsOn,
+        ...(rule.endsOn != null ? { endsOn: rule.endsOn } : {}),
+      };
+    }
+    export function tonightOf(
+      payload: Extract<DateRule, { kind: "tonight" }>["payload"]
+    ): LayerTonight {
+      if ("closeAt" in payload) return { closeAt: payload.closeAt };
+      if ("stop" in payload) return { stop: { from: payload.stop.from, to: payload.stop.to } };
+      return { pacingCovers: payload.pacing.covers };
+    }
+  </file>
+  <file path="src/legacy-hours.ts">
+    export type LegacyShape = "weekday" | "seed_array" | "v2";
+    export interface LegacyWindow {
+      name?: string;
+      open: number;
+      close: number;
+      /** The stored close was at or before the open, so it was read as past midnight. */
+      wrapped?: true;
+    }
+    export interface LegacyOverride {
+      date: ServiceDate;
+      windows: readonly LegacyWindow[];
+      note?: string;
+    }
+    export interface LegacyHours {
+      weekly: Readonly<Record<Weekday, readonly LegacyWindow[]>>;
+      overrides: readonly LegacyOverride[];
+    }
+    export type LegacyHoursFailure =
+      | { ok: false; reason: "no_hours" }
+      | { ok: false; reason: "unknown_shape"; detail: string }
+      | { ok: false; reason: "unknown_version"; detail: string }
+      /** A day the legacy code treated as open has a time this parser cannot read. */
+      | { ok: false; reason: "unreadable_time"; detail: string }
+      /** A v2 override has a date that is not a plain YYYY-MM-DD; dropping it could open a closed date. */
+      | { ok: false; reason: "unreadable_date"; detail: string };
+    export interface LegacyHoursOptions {
+      lenient?: boolean;
+    }
+    export type LegacyHoursResult =
+      | {
+          ok: true;
+          shape: LegacyShape;
+          hours: LegacyHours;
+          /** Lenient mode only: weekdays closed because their times could not be read. */
+          unreadableDays?: string[];
+          /** Lenient mode only: what was read the legacy listing's way instead of refused. */
+          coercions?: string[];
+        }
+      | LegacyHoursFailure;
+    type Loose = Record<string, unknown>;
+    function parseTime(value: unknown, lenient: boolean): number | null {
+      if (typeof value !== "string") return null;
+      const match = (lenient ? LENIENT_TIME : TIME).exec(value);
+      if (!match) return null;
+      const minutes = Number(match[1]) * 60 + Number(match[2]);
+      return minutes > MINUTES_PER_DAY ? null : minutes;
+    }
+    type Problems = string[];
+    interface Reader {
+      problems: Problems;
+      lenient: boolean;
+      /** Lenient mode: problems that closed a single weekday instead of failing the venue. */
+      unreadableDays: string[];
+    }
+    function toWindow(
+      where: string,
+      problems: Problems,
+      lenient: boolean,
+      open: unknown,
+      close: unknown,
+      name?: unknown
+    ): LegacyWindow | null {
+      const o = parseTime(open, lenient);
+      const c = parseTime(close, lenient);
+      if (o === null || c === null || o >= MINUTES_PER_DAY) {
+        problems.push(`${where}: open ${JSON.stringify(open)}, close ${JSON.stringify(close)}`);
+        return null;
+      }
+      if (o === c) return null;
+      const wrapped = c < o;
+      const window = {
+        open: o,
+        close: wrapped ? c + MINUTES_PER_DAY : c,
+        ...(wrapped ? { wrapped: true as const } : {}),
+      };
+      return typeof name === "string" && name.length > 0 ? { name, ...window } : window;
+    }
+    function finish(shape: LegacyShape, reader: Reader, hours: LegacyHours): LegacyHoursResult {
+      const { problems, unreadableDays } = reader;
+      if (problems.length === 0) {
+        return unreadableDays.length > 0
+          ? { ok: true, shape, hours, unreadableDays }
+          : { ok: true, shape, hours };
+      }
+      const reason = problems.some((p) => p.startsWith(DATE_PROBLEM))
+        ? "unreadable_date"
+        : "unreadable_time";
+      return { ok: false, reason, detail: problems.join("; ") };
+    }
+    function weeklyFrom(
+      reader: Reader,
+      windowsFor: (day: Weekday, problems: Problems) => LegacyWindow[]
+    ): Record<Weekday, readonly LegacyWindow[]> {
+      const read = (day: Weekday): LegacyWindow[] => {
+        const dayProblems: Problems = [];
+        const windows = windowsFor(day, dayProblems);
+        if (dayProblems.length === 0) return sortedByOpen(windows);
+        (reader.lenient ? reader.unreadableDays : reader.problems).push(...dayProblems);
+        return [];
+      };
+      return Object.fromEntries(WEEKDAYS.map((d) => [d, read(d)])) as unknown as Record<
+        Weekday,
+        readonly LegacyWindow[]
+      >;
+    }
+    function fromWeekdayKeyed(raw: Loose, reader: Reader): LegacyHoursResult {
+      if (!WEEKDAYS.some((day) => day in raw)) {
+        return { ok: false, reason: "unknown_shape", detail: "no weekday keys" };
+      }
+      // As the legacy code: a missing day, or one flagged `closed` (truthy), is closed.
+      const dayWindows = (day: Weekday, problems: Problems): LegacyWindow[] => {
+        const value = raw[day];
+        if (!isObject(value) || value.closed) return [];
+        const window = toWindow(day, problems, reader.lenient, value.open, value.close);
+        return window ? [window] : [];
+      };
+      const weekly = weeklyFrom(reader, dayWindows);
+      return finish("weekday", reader, { weekly, overrides: [] });
+    }
+    function fromSeedArray(raw: unknown[], reader: Reader): LegacyHoursResult {
+      const rows = raw.filter(isObject);
+      const dayIndexOk = (row: Loose) =>
+        typeof row.dayOfWeek === "number" &&
+        Number.isInteger(row.dayOfWeek) &&
+        row.dayOfWeek >= 0 &&
+        row.dayOfWeek <= 6;
+      if (rows.length === 0 || rows.length !== raw.length || !rows.every(dayIndexOk)) {
+        return { ok: false, reason: "unknown_shape", detail: "array rows lack a 0-6 dayOfWeek" };
+      }
+      const windowsFor = (day: Weekday, problems: Problems) =>
+        rows
+          .filter((row) => !row.isClosed && SUNDAY_FIRST[row.dayOfWeek as number] === day)
+          .map((row) => toWindow(day, problems, reader.lenient, row.openTime, row.closeTime))
+          .filter(isWindow);
+      const weekly = weeklyFrom(reader, windowsFor);
+      return finish("seed_array", reader, { weekly, overrides: [] });
+    }
+    function toWindows(
+      where: string,
+      problems: Problems,
+      lenient: boolean,
+      raw: unknown
+    ): LegacyWindow[] {
+      if (raw === undefined) return [];
+      if (!Array.isArray(raw)) {
+        problems.push(`${where}: windows is not an array`);
+        return [];
+      }
+      return raw.flatMap((w, i) => {
+        if (!isObject(w)) {
+          problems.push(`${where}: window ${i} is not an object`);
+          return [];
+        }
+        const window = toWindow(where, problems, lenient, w.open, w.close, w.name);
+        return window ? [window] : [];
+      });
+    }
+    function toOverrides(problems: Problems, lenient: boolean, raw: unknown): LegacyOverride[] {
+      if (raw === undefined) return [];
+      if (!Array.isArray(raw)) {
+        problems.push(`${DATE_PROBLEM}overrides is not an array`);
+        return [];
+      }
+      const byDate = new Map<string, LegacyOverride>();
+      for (const entry of raw) {
+        if (!isObject(entry) || typeof entry.date !== "string" || !ISO_DATE.test(entry.date)) {
+          problems.push(
+            `${DATE_PROBLEM}override date ${JSON.stringify(isObject(entry) ? entry.date : entry)}`
+          );
+          continue;
+        }
+        if (byDate.has(entry.date)) continue;
+        const where = `override ${entry.date}`;
+        if (!entry.closed && !Array.isArray(entry.windows)) {
+          problems.push(`${where}: open override has no windows array`);
+        }
+        const windows = entry.closed
+          ? []
+          : sortedByOpen(toWindows(where, problems, lenient, entry.windows));
+        byDate.set(entry.date, {
+          date: entry.date,
+          windows,
+          ...(typeof entry.note === "string" ? { note: entry.note } : {}),
+        });
+      }
+      return [...byDate.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
+    }
+    function fromV2(raw: Loose, reader: Reader): LegacyHoursResult {
+      if (!isObject(raw.weekly)) {
+        return { ok: false, reason: "unknown_shape", detail: "v2 document has no weekly object" };
+      }
+      const weeklyRaw = raw.weekly;
+      const weekly = weeklyFrom(reader, (day, problems) =>
+        toWindows(day, problems, reader.lenient, weeklyRaw[day])
+      );
+      // An override is a dated exception: one that cannot be read fails the venue even
+      // in lenient mode, because dropping it could open a date the venue closed.
+      const overrides = toOverrides(reader.problems, reader.lenient, raw.overrides);
+      return finish("v2", reader, { weekly, overrides });
+    }
+    export function normalizeLegacyHours(
+      raw: unknown,
+      options: LegacyHoursOptions = {}
+    ): LegacyHoursResult {
+      const reader: Reader = { problems: [], lenient: options.lenient ?? false, unreadableDays: [] };
+      if (raw === null || raw === undefined) return { ok: false, reason: "no_hours" };
+      if (Array.isArray(raw)) return fromSeedArray(raw, reader);
+      if (!isObject(raw)) {
+        return { ok: false, reason: "unknown_shape", detail: `unexpected ${typeof raw} value` };
+      }
+      if ("version" in raw && raw.version === 1 && reader.lenient && WEEKDAYS.some((d) => d in raw)) {
+        const result = fromWeekdayKeyed(raw, reader);
+        return result.ok ? { ...result, coercions: ["version 1 key ignored (weekday shape)"] } : result;
+      }
+      if ("version" in raw) {
+        return raw.version === 2
+          ? fromV2(raw, reader)
+          : { ok: false, reason: "unknown_version", detail: `version ${JSON.stringify(raw.version)}` };
+      }
+      return fromWeekdayKeyed(raw, reader);
+    }
+  </file>
+  <file path="src/legacy-migration.ts">
+    export const DEFAULT_LAST_SEATING_BUFFER = 90;
+    export const MAX_PAST_MIDNIGHT_SPAN = 16 * 60;
+    export interface LegacyMigrationInput {
+      hours: LegacyHours;
+      /** `settings.slotIntervalMinutes`; absent means the legacy default (15). */
+      slotIntervalMinutes?: number | null;
+      /** `settings.lastSeatingBuffer`; absent means the legacy default (90). */
+      lastSeatingBuffer?: number | null;
+      /** Venue-local today; dated overrides before it are not migrated. */
+      today: ServiceDate;
+      newId: () => string;
+      /**
+       * The live listing fallback only: a day whose window spans implausibly far past
+       * midnight is closed (the legacy listing offered nothing for it) instead of
+       * failing the venue, and out-of-range settings are coerced (see
+       * `lenientIntervalOrBuffer`). The backfill stays strict.
+       */
+      lenient?: boolean;
+    }
+    export interface PastMidnightWindow {
+      /** A weekday name, or an override's date. */
+      day: string;
+      open: number;
+      /** Minutes past the day's midnight, above 1440. */
+      close: number;
+      span: number;
+    }
+    export interface LegacyMigrationNotes {
+      pastMidnightWindows: PastMidnightWindow[];
+      /** Windows the legacy slot loop could never seat (last seating before opening). */
+      droppedWindows: number;
+      skippedPastOverrides: number;
+      migratedOverrides: number;
+      /** Lenient mode only: days closed because their hours could not be used. */
+      unreadableDays?: string[];
+      /** Lenient mode only: settings read the way the legacy loop read them instead of refused. */
+      coercions?: string[];
+    }
+    export type LegacyMigrationResult =
+      | { ok: true; config: AvailabilityConfig; notes: LegacyMigrationNotes }
+      | {
+          ok: false;
+          reason: "invalid_interval" | "invalid_buffer" | "invalid_config" | "implausible_span";
+          detail: string;
+        };
+    interface SeatedWindow {
+      name?: string;
+      open: number;
+      close: number;
+      last: number;
+    }
+    interface NamedWindow extends SeatedWindow {
+      serviceName: string;
+    }
+    function seat(windows: readonly LegacyWindow[], buffer: number): SeatedWindow[] {
+      return windows.map((w) => ({ ...w, last: w.close - buffer })).filter((w) => w.last >= w.open);
+    }
+    function nameWindows(windows: readonly SeatedWindow[], multiple: boolean): NamedWindow[] {
+      const fallback = (i: number) => (multiple ? `Service ${i + 1}` : "Service");
+      const names = windows.map((w, i) => w.name ?? fallback(i));
+      const clash = new Set(names).size < names.length;
+      return windows.map((w, i) => ({ ...w, serviceName: clash ? `Service ${i + 1}` : names[i]! }));
+    }
+    function validIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule | LegacyMigrationResult {
+      const interval = input.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+      if (!Number.isInteger(interval) || interval < 1 || interval > MAX_INTERVAL) {
+        return { ok: false, reason: "invalid_interval", detail: `slotIntervalMinutes ${interval}` };
+      }
+      const buffer = input.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+      if (!Number.isInteger(buffer) || buffer < 0) {
+        return { ok: false, reason: "invalid_buffer", detail: `lastSeatingBuffer ${buffer}` };
+      }
+      return { interval, buffer, coercions: [] };
+    }
+    interface SeatingRule {
+      interval: number;
+      /** Lenient mode: an interval above the engine's maximum, kept as fixed seating times. */
+      fixedStep?: number;
+      buffer: number;
+      coercions: string[];
+    }
+    function lenientIntervalOrBuffer(input: LegacyMigrationInput): SeatingRule {
+      const coercions: string[] = [];
+      const rawInterval = input.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+      const intervalOk = Number.isInteger(rawInterval) && rawInterval >= 1;
+      const fixedStep = intervalOk && rawInterval > MAX_INTERVAL ? rawInterval : undefined;
+      const interval = intervalOk && !fixedStep ? rawInterval : DEFAULT_SLOT_INTERVAL;
+      if (fixedStep) {
+        coercions.push(`slotIntervalMinutes ${rawInterval} read as fixed seatings`);
+      } else if (!intervalOk) {
+        coercions.push(`slotIntervalMinutes ${rawInterval} read as ${DEFAULT_SLOT_INTERVAL}`);
+      }
+      const rawBuffer = input.lastSeatingBuffer ?? DEFAULT_LAST_SEATING_BUFFER;
+      const numericBuffer = Number.isFinite(rawBuffer) ? rawBuffer : DEFAULT_LAST_SEATING_BUFFER;
+      const buffer = Math.max(0, Math.ceil(numericBuffer));
+      if (buffer !== rawBuffer) coercions.push(`lastSeatingBuffer ${rawBuffer} read as ${buffer}`);
+      return { interval, ...(fixedStep ? { fixedStep } : {}), buffer, coercions };
+    }
+    function fixedSeatings(open: number, last: number, step: number): number[] {
+      return Array.from({ length: Math.floor((last - open) / step) + 1 }, (_, k) => open + k * step);
+    }
+    function pastMidnightWindows(hours: LegacyHours): PastMidnightWindow[] {
+      const entries = [
+        ...WEEKDAYS.map((day) => ({ day: day as string, windows: hours.weekly[day] })),
+        ...hours.overrides.map((o) => ({ day: o.date, windows: o.windows })),
+      ];
+      return entries.flatMap(({ day, windows }) =>
+        windows
+          .filter((w) => w.wrapped)
+          .map((w) => ({ day, open: w.open, close: w.close, span: w.close - w.open }))
+      );
+    }
+    function closeImplausibleDays(hours: LegacyHours): { hours: LegacyHours; closed: string[] } {
+      const closed = pastMidnightWindows(hours)
+        .filter((w) => w.span > MAX_PAST_MIDNIGHT_SPAN)
+        .map((w) => `${w.day}: ${w.open}-${w.close} spans ${w.span} minutes`);
+      const keep = (windows: readonly LegacyWindow[]) => (windows.some(isImplausible) ? [] : windows);
+      return {
+        hours: {
+          weekly: Object.fromEntries(
+            WEEKDAYS.map((d) => [d, keep(hours.weekly[d])])
+          ) as unknown as LegacyHours["weekly"],
+          overrides: hours.overrides.map((o) => ({ ...o, windows: keep(o.windows) })),
+        },
+        closed,
+      };
+    }
+    export function buildLegacyConfig(input: LegacyMigrationInput): LegacyMigrationResult {
+      const checked: SeatingRule | LegacyMigrationResult = input.lenient
+        ? lenientIntervalOrBuffer(input)
+        : validIntervalOrBuffer(input);
+      if ("ok" in checked) return checked;
+      const { interval, buffer, fixedStep, coercions } = checked;
+      const { newId, today } = input;
+      const lenient = input.lenient ? closeImplausibleDays(input.hours) : null;
+      const hours = lenient?.hours ?? input.hours;
+    
+      const wrapped = pastMidnightWindows(hours);
+      const tooLong = wrapped.find((w) => w.span > MAX_PAST_MIDNIGHT_SPAN);
+      if (tooLong) {
+        return {
+          ok: false,
+          reason: "implausible_span",
+          detail: `${tooLong.day} ${tooLong.open}-${tooLong.close} spans ${tooLong.span} minutes`,
+        };
+      }
+    
+      const seatedWeek = WEEKDAYS.map((day) => seat(hours.weekly[day], buffer));
+      const dropped = WEEKDAYS.reduce(
+        (n, day, i) => n + hours.weekly[day].length - seatedWeek[i]!.length,
+        0
+      );
+      const multiple =
+        seatedWeek.some((w) => w.length > 1) ||
+        hours.overrides.some((o) => seat(o.windows, buffer).length > 1);
+    
+      const venueServices = new Map<string, { id: string; name: string; position: number }>();
+      const serviceId = (name: string): string => {
+        const existing = venueServices.get(name);
+        if (existing) return existing.id;
+        const created = { id: newId(), name, position: venueServices.size };
+        venueServices.set(name, created);
+        return created.id;
+      };
+    
+      const hoursFields = (w: NamedWindow) => ({
+        venueServiceId: serviceId(w.serviceName),
+        opensAt: w.open,
+        lastSeatingAt: w.last,
+        closesAt: w.close,
+        seating: fixedStep
+          ? { version: 1 as const, fixed: fixedSeatings(w.open, w.last, fixedStep) }
+          : { version: 1 as const, interval },
+        bookingTypes: [...CHANNELS],
+      });
+    
+      // The legacy column holds one set of hours per weekday. Re-read it as each service's hours on
+      // each open weekday (0 = Sunday); `encodeWeek` stores that as one row per service, with other
+      // hours on the days that differ.
+      const openDays: number[] = [];
+      const weekByService = new Map<string, (ServiceHours | null)[]>();
+      seatedWeek.forEach((windows, i) => {
+        if (windows.length === 0) return;
+        const day = storedIndex(i);
+        openDays.push(day);
+        for (const w of nameWindows(windows, multiple)) {
+          const { venueServiceId, ...serviceHours } = hoursFields(w);
+          const days =
+            weekByService.get(venueServiceId) ?? new Array<ServiceHours | null>(7).fill(null);
+          weekByService.set(
+            venueServiceId,
+            days.map((h, d) => (d === day ? serviceHours : h))
+          );
+        }
+      });
+    
+      const scheduleId = newId();
+      const schedule = {
+        id: scheduleId,
+        name: "Regular week",
+        kind: "regular" as const,
+        isRegular: true,
+      };
+      const scheduleServices: ScheduleService[] = encodeWeek(
+        [...weekByService].map(([venueServiceId, days]) => ({ venueServiceId, days })),
+        openDays
+      ).map((row) => ({ id: newId(), scheduleId, ...row }));
+      const assignments =
+        openDays.length > 0
+          ? [
+              {
+                id: newId(),
+                scheduleId,
+                weekdays: [...openDays].sort((a, b) => a - b),
+                precedence: 0,
+              },
+            ]
+          : [];
+    
+      const futureOverrides = hours.overrides.filter((o) => o.date >= today);
+      const dateRules: DateRule[] = futureOverrides.map((override) => {
+        const seated = nameWindows(seat(override.windows, buffer), multiple);
+        const base = {
+          id: newId(),
+          targetKind: "venue" as const,
+          startsOn: override.date,
+          endsOn: override.date,
+          ...(override.note ? { staffNote: override.note.slice(0, MAX_STAFF_NOTE) } : {}),
+        };
+        return seated.length === 0
+          ? { ...base, kind: "closure" as const }
+          : {
+              ...base,
+              kind: "special_hours" as const,
+              payload: { version: 1 as const, services: seated.map(hoursFields) },
+            };
+      });
+    
+      const config: AvailabilityConfig = {
+        schedules: [schedule],
+        venueServices: [...venueServices.values()],
+        scheduleServices,
+        assignments,
+        dateRules,
+      };
+    
+      const issues = validateConfig(config);
+      if (issues.length > 0) {
+        const first = issues
+          .slice(0, 3)
+          .map((i) => `${i.path} ${i.code}`)
+          .join("; ");
+        return { ok: false, reason: "invalid_config", detail: first };
+      }
+      return {
+        ok: true,
+        config,
+        notes: {
+          pastMidnightWindows: wrapped,
+          droppedWindows: dropped,
+          skippedPastOverrides: hours.overrides.length - futureOverrides.length,
+          migratedOverrides: futureOverrides.length,
+          ...(lenient && lenient.closed.length > 0 ? { unreadableDays: lenient.closed } : {}),
+          ...(coercions.length > 0 ? { coercions } : {}),
+        },
+      };
+    }
+  </file>
+  <file path="src/legacy-projection.ts">
+    export type LegacyDayHours = {
+      open: string;
+      close: string;
+      closed?: boolean;
+    };
+    export type LegacyOperatingHours = Record<Weekday, LegacyDayHours>;
+    function clock(minute: number): string {
+      const m = minute % MINUTES_PER_DAY;
+      const hh = String(Math.floor(m / 60)).padStart(2, "0");
+      const mm = String(m % 60).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+    export function projectLegacyOperatingHours(config: AvailabilityConfig): LegacyOperatingHours {
+      // Archived rows stay in the config (others reference them) but no longer run.
+      const liveSchedules = new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
+      const liveServices = new Map(
+        config.venueServices.filter((s) => !s.archivedAt).map((s) => [s.id, s])
+      );
+      const regularWeek = config.assignments.filter(
+        (a) => !a.startsOn && !a.endsOn && liveSchedules.has(a.scheduleId)
+      );
+      const dayHours = (day: Weekday): LegacyDayHours => {
+        const stored = (WEEKDAYS.indexOf(day) + 1) % 7;
+        const covering = regularWeek
+          .filter((a) => a.weekdays.includes(stored))
+          .reduce<(typeof regularWeek)[number] | null>(
+            (best, a) => (best === null || a.precedence > best.precedence ? a : best),
+            null
+          );
+        const services = covering
+          ? servicesOn(
+              config.scheduleServices.filter((s) => s.scheduleId === covering.scheduleId),
+              liveServices,
+              stored
+            )
+          : [];
+        if (services.length === 0) return CLOSED_DAY;
+        const open = Math.min(...services.map((s) => s.opensAt));
+        const close = Math.max(...services.map((s) => s.closesAt));
+        return { open: clock(open), close: clock(close) };
+      };
+      return Object.fromEntries(WEEKDAYS.map((day) => [day, dayHours(day)])) as LegacyOperatingHours;
+    }
+  </file>
+  <file path="src/rebook.ts">
+    export const MAX_REBOOK_OFFERS = 3;
+    export const REBOOK_WINDOW_DAYS = 14;
+    export function rebookOfferId(start: Date): string {
+      return start.toISOString();
+    }
+    export interface RebookReservation {
+      startTime: Date;
+      partySize: number;
+    }
+    export type RebookResult = { kind: "offers"; slots: Slot[] } | { kind: "picker" };
+    function timeOfDayDistance(a: number, b: number): number {
+      const diff = Math.abs(a - b) % MINUTES_PER_DAY;
+      return Math.min(diff, MINUTES_PER_DAY - diff);
+    }
+    interface Ranked {
+      slot: Slot;
+      distance: number;
+      dayRank: number;
+    }
+    function compareRanked(a: Ranked, b: Ranked): number {
+      return (
+        a.dayRank - b.dayRank ||
+        a.distance - b.distance ||
+        a.slot.start.getTime() - b.slot.start.getTime()
+      );
+    }
+    function rankDay(slots: Slot[], originalMinute: number, timezone: string): Ranked[] {
+      return slots
+        .map((slot) => ({
+          slot,
+          distance: timeOfDayDistance(localDateTimeOf(slot.start, timezone).minute, originalMinute),
+          dayRank: 0,
+        }))
+        .sort(compareRanked)
+        .map((ranked, dayRank) => ({ ...ranked, dayRank }));
+    }
+    export function rebookOffers(
+      snapshot: BookingSnapshot,
+      reservation: RebookReservation,
+      now: Date,
+      isBookable: (start: Date) => boolean = () => true
+    ): RebookResult {
+      const { timezone } = snapshot;
+      const originalMinute = localDateTimeOf(reservation.startTime, timezone).minute;
+      const today = localDateTimeOf(now, timezone).date;
+      const isOffer = (s: Slot) =>
+        s.available &&
+        s.start.getTime() > now.getTime() &&
+        isBookable(s.start) &&
+        s.start.getTime() !== reservation.startTime.getTime();
+    
+      const chosen = Array.from({ length: REBOOK_WINDOW_DAYS + 1 }, (_, i) => addDays(today, i - 1))
+        .flatMap((date) => {
+          const open = listSlots(snapshot, date, reservation.partySize, "online", now).filter(isOffer);
+          return rankDay(open, originalMinute, timezone);
+        })
+        .sort(compareRanked)
+        .slice(0, MAX_REBOOK_OFFERS)
+        .map((r) => r.slot)
+        .sort((a, b) => a.start.getTime() - b.start.getTime());
+    
+      return chosen.length === 0 ? { kind: "picker" } : { kind: "offers", slots: chosen };
+    }
+  </file>
+  <file path="src/resolve-day.ts">
+    export interface AvailabilitySnapshot {
+      /** IANA zone of the venue. */
+      timezone: string;
+      config: AvailabilityConfig;
+    }
+    export interface ResolvedClosure {
+      ruleId: string;
+      targetKind: DateRule["targetKind"];
+      venueServiceId?: string;
+      tableIds?: string[];
+      /** The section a section closure names (ADR-032); `tableIds` is its live membership. */
+      sectionId?: string;
+      bookingTypes?: NonNullable<DateRule["bookingTypes"]>;
+      from: number;
+      to: number;
+    }
+    export type BookingOpen = Record<"online" | "phone" | "waitlist", boolean>;
+    export type LayerKind = "schedule" | DateRule["kind"];
+    export interface Layer extends LayerDetail {
+      kind: LayerKind;
+      /** The assignment or date rule row. */
+      id: string;
+      label: string;
+      effect: string;
+      /** The day as it would resolve with this row removed. */
+      removalResult: ResolvedDaySummary;
+    }
+    export interface ResolvedDaySummary {
+      serviceDate: ServiceDate;
+      /** The schedule in force; `null` when no assignment covers the date. */
+      scheduleId: string | null;
+      /** In opening order. */
+      services: ResolvedService[];
+      closures: ResolvedClosure[];
+      bookingOpen: BookingOpen;
+      /** Tonight's lowered pacing, in covers per seating interval. */
+      pacingCovers?: number;
+      guestMessage?: string;
+    }
+    export interface ResolvedDay extends ResolvedDaySummary {
+      /** Contributing layers, bottom-up. */
+      explanation: Layer[];
+    }
+    type PendingLayer = Omit<Layer, "removalResult">;
+    interface Resolution {
+      day: ResolvedDaySummary;
+      layers: PendingLayer[];
+    }
+    function coversDate(assignment: ScheduleAssignment, serviceDate: ServiceDate): boolean {
+      // "YYYY-MM-DD" strings order chronologically; open ends are unbounded.
+      return (
+        assignment.weekdays.includes(weekdayIndexOf(serviceDate)) &&
+        (assignment.startsOn == null || assignment.startsOn <= serviceDate) &&
+        (assignment.endsOn == null || serviceDate <= assignment.endsOn)
+      );
+    }
+    function assignmentFor(
+      config: AvailabilityConfig,
+      serviceDate: ServiceDate
+    ): ScheduleAssignment | null {
+      const live = new Set(config.schedules.filter((s) => !s.archivedAt).map((s) => s.id));
+      return config.assignments
+        .filter((a) => live.has(a.scheduleId) && coversDate(a, serviceDate))
+        .reduce<ScheduleAssignment | null>(
+          (best, a) => (best === null || a.precedence > best.precedence ? a : best),
+          null
+        );
+    }
+    function closureOf(rule: DateRule, band: { from: number; to: number }): ResolvedClosure {
+      return {
+        ruleId: rule.id,
+        targetKind: rule.targetKind,
+        ...(rule.targetKind === "service" && rule.venueServiceId
+          ? { venueServiceId: rule.venueServiceId }
+          : {}),
+        ...(rule.targetKind === "tables" && rule.tableIds ? { tableIds: rule.tableIds } : {}),
+        ...(rule.targetKind === "tables" && rule.sectionId ? { sectionId: rule.sectionId } : {}),
+        ...(rule.targetKind === "booking" && rule.bookingTypes
+          ? { bookingTypes: rule.bookingTypes }
+          : {}),
+        from: band.from,
+        to: band.to,
+      };
+    }
+    function closeBookingTypes(open: BookingOpen, rule: DateRule): BookingOpen {
+      const closed = rule.bookingTypes ?? [];
+      return {
+        online: open.online && !closed.includes("online"),
+        phone: open.phone && !closed.includes("phone"),
+        waitlist: open.waitlist && !closed.includes("waitlist"),
+      };
+    }
+    function applyClosure(day: ResolvedDaySummary, rule: RuleOf<"closure">): ResolvedDaySummary {
+      const closures = [...day.closures, closureOf(rule, rule.window ?? WHOLE_DAY)];
+      if (rule.window) return { ...day, closures };
+      switch (rule.targetKind) {
+        case "venue":
+          return { ...day, closures, services: [] };
+        case "service":
+          return {
+            ...day,
+            closures,
+            services: day.services.filter((s) => s.venueServiceId !== rule.venueServiceId),
+          };
+        case "booking":
+          return { ...day, closures, bookingOpen: closeBookingTypes(day.bookingOpen, rule) };
+        case "tables":
+          return { ...day, closures };
+      }
+    }
+    function closeEarly(service: ResolvedService, closeAt: number): ResolvedService[] {
+      if (service.opensAt >= closeAt) return [];
+      return [
+        {
+          ...service,
+          lastSeatingAt: Math.min(service.lastSeatingAt, closeAt),
+          closesAt: Math.min(service.closesAt, closeAt),
+        },
+      ];
+    }
+    function applyTonight(day: ResolvedDaySummary, rule: RuleOf<"tonight">): ResolvedDaySummary {
+      const { payload } = rule;
+      if ("closeAt" in payload) {
+        // Closing early is about services: a venue rule closes them all, a service
+        // rule closes its own, and booking or table targets have no hours to cut.
+        if (rule.targetKind !== "venue" && rule.targetKind !== "service") return day;
+        const targeted = (s: ResolvedService) =>
+          rule.targetKind === "venue" || s.venueServiceId === rule.venueServiceId;
+        return {
+          ...day,
+          services: day.services.flatMap((s) => (targeted(s) ? closeEarly(s, payload.closeAt) : [s])),
+        };
+      }
+      if ("stop" in payload) {
+        const closures = [...day.closures, closureOf(rule, payload.stop)];
+        // A whole-day booking stop (Pause online) turns those channels off; a windowed one only records its band.
+        const wholeDay = payload.stop.from === 0 && payload.stop.to >= WHOLE_DAY.to;
+        return rule.targetKind === "booking" && wholeDay
+          ? { ...day, closures, bookingOpen: closeBookingTypes(day.bookingOpen, rule) }
+          : { ...day, closures };
+      }
+      return {
+        ...day,
+        pacingCovers: Math.min(day.pacingCovers ?? Infinity, payload.pacing.covers),
+      };
+    }
+    function withMessage(day: ResolvedDaySummary, rule: DateRule): ResolvedDaySummary {
+      return rule.guestMessage ? { ...day, guestMessage: rule.guestMessage } : day;
+    }
+    function resolveLayers(config: AvailabilityConfig, serviceDate: ServiceDate): Resolution {
+      const schedules = new Map(config.schedules.map((s) => [s.id, s]));
+      const venueServices = new Map(
+        config.venueServices.filter((v) => !v.archivedAt).map((v) => [v.id, v])
+      );
+      const rules = activeRules(config.dateRules, serviceDate);
+      const weekday = weekdayIndexOf(serviceDate);
+      const servicesOf = (scheduleId: string | null) =>
+        servicesOn(
+          config.scheduleServices.filter((s) => s.scheduleId === scheduleId),
+          venueServices,
+          weekday
+        );
+      const skippedLabel = (skip: DateRule) => {
+        const series = config.dateRules.find((r) => r.id === skip.seriesId);
+        return series ? `Skipped from: ${seriesLabel(series, serviceName(series))}` : "Skipped date";
+      };
+      const skippedFromOf = (skip: DateRule): Pick<LayerDetail, "skippedFrom"> => {
+        const series = config.dateRules.find((r) => r.id === skip.seriesId);
+        return series ? { skippedFrom: seriesOf(series, serviceName(series)) } : {};
+      };
+      const scheduleName = (id: string) => schedules.get(id)?.name ?? "Schedule";
+      const scheduleDetail = (id: string) => {
+        const inForce = servicesOf(id);
+        return {
+          effect: hoursEffect(inForce),
+          scheduleName: scheduleName(id),
+          hours: hoursOf(inForce),
+        };
+      };
+    
+      const assignment = assignmentFor(config, serviceDate);
+      const useSchedule = ofKind(rules, "use_schedule")
+        .filter((r) => schedules.get(r.useScheduleId)?.archivedAt == null)
+        .at(-1);
+      const scheduleId = useSchedule?.useScheduleId ?? assignment?.scheduleId ?? null;
+      const special = ofKind(rules, "special_hours").at(-1);
+      const services = special
+        ? liveServices(special.payload.services, venueServices)
+        : servicesOf(scheduleId);
+      const closures = ofKind(rules, "closure");
+      const tonights = ofKind(rules, "tonight");
+      const serviceName = (rule: DateRule) =>
+        rule.venueServiceId ? venueServices.get(rule.venueServiceId)?.name : undefined;
+    
+      const base: ResolvedDaySummary = {
+        serviceDate,
+        scheduleId,
+        services,
+        closures: [],
+        bookingOpen: ALL_OPEN,
+      };
+      const afterClosures = closures.reduce(
+        (day, rule) => withMessage(applyClosure(day, rule), rule),
+        special ? withMessage(base, special) : base
+      );
+      const day = tonights.reduce((d, rule) => withMessage(applyTonight(d, rule), rule), afterClosures);
+    
+      const layers: PendingLayer[] = [
+        ...(assignment
+          ? [
+              {
+                kind: "schedule" as const,
+                id: assignment.id,
+                label: scheduleName(assignment.scheduleId),
+                ...scheduleDetail(assignment.scheduleId),
+                ...(schedules.get(assignment.scheduleId)?.isRegular
+                  ? { regularWeek: true as const }
+                  : {}),
+              },
+            ]
+          : []),
+        ...(useSchedule
+          ? [
+              {
+                kind: "use_schedule" as const,
+                id: useSchedule.id,
+                label: `Use ${scheduleName(useSchedule.useScheduleId)}`,
+                ...scheduleDetail(useSchedule.useScheduleId),
+              },
+            ]
+          : []),
+        ...(special
+          ? [
+              {
+                kind: "special_hours" as const,
+                id: special.id,
+                label: "Special hours",
+                effect: hoursEffect(services),
+                hours: hoursOf(services),
+              },
+            ]
+          : []),
+        ...ofKind(rules, "skip").map((r) => ({
+          kind: "skip" as const,
+          id: r.id,
+          label: skippedLabel(r),
+          effect: "Bookable as usual",
+          ...skippedFromOf(r),
+        })),
+        ...closures.map((r) => ({
+          kind: "closure" as const,
+          id: r.id,
+          label: targetLabel(r, serviceName(r)),
+          effect: windowEffect(r),
+          target: targetOf(r, serviceName(r)),
+          ...(r.window ? { window: { from: r.window.from, to: r.window.to } } : {}),
+        })),
+        ...tonights.map((r) => ({
+          kind: "tonight" as const,
+          id: r.id,
+          label: "Tonight",
+          effect: tonightEffect(r),
+          tonight: tonightOf(r.payload),
+        })),
+      ];
+    
+      return { day, layers };
+    }
+    function withoutRow(config: AvailabilityConfig, id: string): AvailabilityConfig {
+      return {
+        ...config,
+        assignments: config.assignments.filter((a) => a.id !== id),
+        dateRules: config.dateRules.filter((r) => r.id !== id),
+      };
+    }
+    export function resolveDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate): ResolvedDay {
+      const { config } = snapshot;
+      const { day, layers } = resolveLayers(config, serviceDate);
+      return {
+        ...day,
+        explanation: layers.map((layer) => ({
+          ...layer,
+          removalResult: resolveLayers(withoutRow(config, layer.id), serviceDate).day,
+        })),
+      };
+    }
+  </file>
+  <file path="src/service-days.ts">
+    export type ServiceHours = Pick<
+      ScheduleService,
+      "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
+    >;
+    function hoursFields(hours: ServiceHours): ServiceHours {
+      return {
+        opensAt: hours.opensAt,
+        lastSeatingAt: hours.lastSeatingAt,
+        closesAt: hours.closesAt,
+        seating: hours.seating,
+        bookingTypes: hours.bookingTypes,
+      };
+    }
+    export interface HoursSource {
+      hours: ServiceHours;
+      /** Index into `dayHours.sets`; `null` for the base hours. */
+      setIndex: number | null;
+    }
+    type DayScopedRow = Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours>;
+    export function hoursSourceOn(row: DayScopedRow, weekday: number): HoursSource | null {
+      const setIndex = row.dayHours.sets.findIndex((s) => s.weekdays.includes(weekday));
+      const set = row.dayHours.sets[setIndex];
+      if (set) return { hours: hoursFields(set), setIndex };
+      return row.weekdays.length === 0 || row.weekdays.includes(weekday)
+        ? { hours: hoursFields(row), setIndex: null }
+        : null;
+    }
+    export function hoursOn(row: DayScopedRow, weekday: number): ServiceHours | null {
+      return hoursSourceOn(row, weekday)?.hours ?? null;
+    }
+    function toResolved(
+      service: ScheduleService | SpecialHoursService,
+      venueService: VenueService
+    ): ResolvedService {
+      return {
+        scheduleServiceId: "id" in service ? service.id : null,
+        venueServiceId: service.venueServiceId,
+        name: venueService.name,
+        opensAt: service.opensAt,
+        lastSeatingAt: service.lastSeatingAt,
+        closesAt: service.closesAt,
+        seating: service.seating,
+        bookingTypes: service.bookingTypes,
+      };
+    }
+    export function liveServices(
+      services: readonly (ScheduleService | SpecialHoursService)[],
+      venueServices: ReadonlyMap<string, VenueService>
+    ): ResolvedService[] {
+      return services
+        .flatMap((s) => {
+          const venueService = venueServices.get(s.venueServiceId);
+          return venueService ? [toResolved(s, venueService)] : [];
+        })
+        .sort((a, b) => a.opensAt - b.opensAt);
+    }
+    export function servicesOn(
+      rows: readonly ScheduleService[],
+      venueServices: ReadonlyMap<string, VenueService>,
+      weekday: number
+    ): ResolvedService[] {
+      return liveServices(
+        rows.flatMap((row) => {
+          const hours = hoursOn(row, weekday);
+          return hours ? [{ ...row, ...hours }] : [];
+        }),
+        venueServices
+      );
+    }
+    export interface ServiceWeek {
+      venueServiceId: string;
+      days: readonly (ServiceHours | null)[];
+    }
+    export type Week = readonly ServiceWeek[];
+    export type EncodedRow = Pick<
+      ScheduleService,
+      "venueServiceId" | "weekdays" | "dayHours" | keyof ServiceHours
+    >;
+    export const WEEK_ORDER: readonly number[] = [1, 2, 3, 4, 5, 6, 0];
+    function hoursKey(h: ServiceHours): string {
+      const seating =
+        "interval" in h.seating
+          ? ["i", h.seating.interval]
+          : ["f", [...h.seating.fixed].sort((a, b) => a - b)];
+      // Order is not meaning: the same booking types or fixed times in another order are the same hours.
+      const bookingTypes = [...h.bookingTypes].sort();
+      return JSON.stringify([h.opensAt, h.lastSeatingAt, h.closesAt, seating, bookingTypes]);
+    }
+    interface HoursGroup {
+      hours: ServiceHours;
+      /** In Monday-first order. */
+      days: number[];
+    }
+    function groupByHours(week: ServiceWeek, coveredDays: ReadonlySet<number>): HoursGroup[] {
+      const groups = new Map<string, HoursGroup>();
+      for (const day of WEEK_ORDER) {
+        const hours = week.days[day];
+        if (!hours || !coveredDays.has(day)) continue;
+        const key = hoursKey(hours);
+        const group = groups.get(key);
+        if (group) group.days.push(day);
+        else groups.set(key, { hours: hoursFields(hours), days: [day] });
+      }
+      // Insertion order is first-Monday-first-day order, and sort is stable, so size breaks the rest.
+      return [...groups.values()].sort((a, b) => b.days.length - a.days.length);
+    }
+    export function encodeWeek(week: Week, coveredDays: readonly number[]): EncodedRow[] {
+      const covered = new Set(coveredDays);
+      return week.flatMap((service) => {
+        const [base, ...others] = groupByHours(service, covered);
+        if (!base) return [];
+        const sets = others
+          .sort((a, b) => WEEK_ORDER.indexOf(a.days[0] ?? 0) - WEEK_ORDER.indexOf(b.days[0] ?? 0))
+          .map((g) => ({ weekdays: g.days, ...g.hours }));
+        const claimed = new Set(others.flatMap((g) => g.days));
+        const implicit = WEEK_ORDER.filter((d) => covered.has(d) && !claimed.has(d));
+        const baseIsEveryOtherDay =
+          implicit.length === base.days.length && implicit.every((d, i) => d === base.days[i]);
+        return [
+          {
+            venueServiceId: service.venueServiceId,
+            ...base.hours,
+            weekdays: baseIsEveryOtherDay ? [] : base.days,
+            dayHours: { version: 1 as const, sets },
+          },
+        ];
+      });
+    }
+    export function decodeWeek(
+      rows: readonly (Pick<ScheduleService, "weekdays" | "dayHours" | keyof ServiceHours> & {
+        venueServiceId: string;
+      })[],
+      coveredDays: readonly number[]
+    ): Week {
+      const covered = new Set(coveredDays);
+      return rows.flatMap((row) => {
+        const days = Array.from({ length: 7 }, (_, day) =>
+          covered.has(day) ? hoursOn(row, day) : null
+        );
+        return days.some((h) => h !== null) ? [{ venueServiceId: row.venueServiceId, days }] : [];
+      });
+    }
+  </file>
+  <file path="src/slot-rules.ts">
+    export const DEFAULT_SLOT_INTERVAL = 15;
+    export type EngineSettings = Pick<
+      VenueSettings,
+      | "durationRules"
+      | "defaultReservationDuration"
+      | "pacingRules"
+      | "slotIntervalMinutes"
+      | "maxPartySize"
+    >;
+    export interface TableFilter {
+      id: string;
+      capacity: number;
+      minCovers: number;
+      maxCovers: number | null;
+      isActive: boolean;
+    }
+    export interface TableCandidate {
+      id: string;
+      capacity: number;
+      priority: number;
+    }
+    export interface ReservationSlim {
+      id: string;
+      tableId: string;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+    }
+    export interface HoldSlim {
+      id: string;
+      tableId: string;
+      startTime: Date;
+      endTime: Date;
+      partySize: number;
+      expiresAt: Date;
+    }
+    type DateThreshold = { lt: Date } | { gt: Date };
+    function passesThreshold(value: Date, threshold: DateThreshold): boolean {
+      return "lt" in threshold ? value < threshold.lt : value > threshold.gt;
+    }
+    export function estimateDuration(partySize: number, settings?: EngineSettings | null): number {
+      const rules = settings?.durationRules ?? DEFAULT_DURATION_RULES;
+      const rule = rules.find((r) => partySize >= r.minPartySize && partySize <= r.maxPartySize);
+    
+      if (rule) return rule.durationMinutes;
+    
+      if (settings?.defaultReservationDuration) {
+        return settings.defaultReservationDuration;
+      }
+    
+      const largestRule = rules.reduce((max, r) => (r.maxPartySize > max.maxPartySize ? r : max));
+      const extraGuests = partySize - largestRule.maxPartySize;
+      const extraTime = Math.ceil(extraGuests / 2) * 15;
+      return largestRule.durationMinutes + extraTime;
+    }
+    export function filterSuitableTables<T extends TableFilter>(tables: T[], partySize: number): T[] {
+      return tables.filter((t) => t.isActive && partyFitsTable(t, partySize));
+    }
+    export function overlapWindow(
+      startTime: Date,
+      endTime: Date
+    ): { startTime: DateThreshold; endTime: DateThreshold } {
+      return {
+        startTime: { lt: endTime },
+        endTime: { gt: startTime },
+      };
+    }
+    export function activeHoldWindow(now: Date): DateThreshold {
+      return { gt: now };
+    }
+    export function checkTableConflict(
+      tableId: string,
+      startTime: Date,
+      endTime: Date,
+      reservations: readonly ReservationSlim[],
+      holds: readonly HoldSlim[],
+      now: Date
+    ): boolean {
+      const window = overlapWindow(startTime, endTime);
+    
+      const hasReservationConflict = reservations.some(
+        (r) =>
+          r.tableId === tableId &&
+          passesThreshold(r.startTime, window.startTime) &&
+          passesThreshold(r.endTime, window.endTime)
+      );
+    
+      if (hasReservationConflict) return true;
+    
+      const activeWindow = activeHoldWindow(now);
+      return holds.some(
+        (h) =>
+          h.tableId === tableId &&
+          passesThreshold(h.expiresAt, activeWindow) &&
+          passesThreshold(h.startTime, window.startTime) &&
+          passesThreshold(h.endTime, window.endTime)
+      );
+    }
+    export function checkPacingForSlot(
+      startTime: Date,
+      partySize: number,
+      settings: EngineSettings | null | undefined,
+      reservations: readonly ReservationSlim[],
+      holds: readonly HoldSlim[],
+      now: Date,
+      coverCap?: number
+    ): boolean {
+      const rule = settings?.pacingRules?.[0];
+      const cap = Math.min(rule?.maxCoversPerSlot ?? Infinity, coverCap ?? Infinity);
+      if (cap === Infinity) return true;
+    
+      const windowMinutes =
+        rule?.timeWindowMinutes ?? settings?.slotIntervalMinutes ?? DEFAULT_SLOT_INTERVAL;
+      const windowEnd = new Date(startTime.getTime() + windowMinutes * MS_PER_MINUTE);
+      const inWindow = (s: { startTime: Date }) => s.startTime >= startTime && s.startTime < windowEnd;
+    
+      const reservationCovers = reservations.filter(inWindow).reduce((sum, r) => sum + r.partySize, 0);
+      const holdCovers = holds
+        .filter((h) => h.expiresAt > now && inWindow(h))
+        .reduce((sum, h) => sum + h.partySize, 0);
+    
+      return reservationCovers + holdCovers + partySize <= cap;
+    }
+    export function selectBestTable<T extends TableCandidate>(
+      candidates: readonly T[],
+      startTime: Date,
+      endTime: Date,
+      reservations: readonly ReservationSlim[],
+      holds: readonly HoldSlim[],
+      now: Date
+    ): T | null {
+      return (
+        candidates.find(
+          (table) => !checkTableConflict(table.id, startTime, endTime, reservations, holds, now)
+        ) ?? null
+      );
+    }
+  </file>
+  <file path="src/slots.ts">
+    export type BookingChannel = "online" | "phone";
+    export interface EngineTable extends TableFilter {
+      name: string;
+      priority: number;
+    }
+    export interface BookingSnapshot extends AvailabilitySnapshot {
+      tables: EngineTable[];
+      /** Non-cancelled reservations for the range, ±1 day. */
+      reservations: ReservationSlim[];
+      holds: HoldSlim[];
+      settings: EngineSettings | null;
+    }
+    export interface Slot {
+      start: Date;
+      serviceDate: ServiceDate;
+      /** Minutes past the service day's midnight; may exceed 1440. */
+      minute: number;
+      venueServiceId: string;
+      /** Suitable tables that are free and not blocked, in snapshot order. */
+      tables: EngineTable[];
+      available: boolean;
+      reason?: "no_table" | "pacing";
+    }
+    export type SoftLimit = "after_last_seating" | "pacing" | "party_size";
+    export type HardReason =
+      | "closed"
+      | "booking_closed"
+      | "outside_service"
+      | "table_blocked"
+      | "table_unavailable"
+      | "conflict";
+    export type Verdict =
+      | { kind: "ok" }
+      | { kind: "ok_with_override"; limits: SoftLimit[] }
+      | { kind: "soft"; limits: SoftLimit[] }
+      | { kind: "hard"; reason: HardReason; message?: string };
+    export interface BookingRequest {
+      start: Date;
+      partySize: number;
+      channel: BookingChannel;
+      tableId?: string;
+      /** The booking's real end; without it the estimated duration for the party size is used. */
+      end?: Date;
+      override?: { reason: string };
+      /**
+       * Where the booking being moved starts now. A booking the Manager kept through a
+       * closure (keep_notify) sits inside it; staff may move it within that same service
+       * date, so the closure no longer refuses the move. Table blocks and limits still apply.
+       */
+      movingFrom?: Date;
+    }
+    function seatingMinutes(service: ResolvedService): number[] {
+      const { opensAt, lastSeatingAt, closesAt, seating } = service;
+      const bookable = (m: number) => m >= opensAt && m <= lastSeatingAt && m < closesAt;
+      if ("interval" in seating) {
+        const count = Math.floor((lastSeatingAt - opensAt) / seating.interval) + 1;
+        return Array.from(
+          { length: Math.max(count, 0) },
+          (_, k) => opensAt + k * seating.interval
+        ).filter(bookable);
+      }
+      return [...new Set(seating.fixed)].filter(bookable).sort((a, b) => a - b);
+    }
+    function inBand(band: ResolvedClosure, minute: number): boolean {
+      return band.from <= minute && minute < band.to;
+    }
+    function closesSeating(
+      band: ResolvedClosure,
+      minute: number,
+      venueServiceId: string,
+      channel: BookingChannel
+    ): boolean {
+      if (!inBand(band, minute)) return false;
+      switch (band.targetKind) {
+        case "venue":
+          return true;
+        case "service":
+          return band.venueServiceId === venueServiceId;
+        case "booking":
+          return (band.bookingTypes ?? []).includes(channel);
+        case "tables":
+          return false;
+      }
+    }
+    function blockedTables(day: ResolvedDaySummary, minute: number): Set<string> {
+      return new Set(
+        day.closures
+          .filter((b) => b.targetKind === "tables" && inBand(b, minute))
+          .flatMap((b) => b.tableIds ?? [])
+      );
+    }
+    function freeTables(
+      snapshot: BookingSnapshot,
+      day: ResolvedDaySummary,
+      minute: number,
+      partySize: number,
+      start: Date,
+      now: Date,
+      requestedEnd?: Date
+    ): EngineTable[] {
+      const end =
+        requestedEnd ??
+        new Date(start.getTime() + estimateDuration(partySize, snapshot.settings) * MS_PER_MINUTE);
+      const blocked = blockedTables(day, minute);
+      return filterSuitableTables(snapshot.tables, partySize).filter(
+        (t) =>
+          !blocked.has(t.id) &&
+          !checkTableConflict(t.id, start, end, snapshot.reservations, snapshot.holds, now)
+      );
+    }
+    function pacingOk(
+      snapshot: BookingSnapshot,
+      day: ResolvedDaySummary,
+      start: Date,
+      partySize: number,
+      now: Date
+    ): boolean {
+      return checkPacingForSlot(
+        start,
+        partySize,
+        snapshot.settings,
+        snapshot.reservations,
+        snapshot.holds,
+        now,
+        day.pacingCovers
+      );
+    }
+    export function listSlots(
+      snapshot: BookingSnapshot,
+      serviceDate: ServiceDate,
+      partySize: number,
+      channel: BookingChannel,
+      now: Date
+    ): Slot[] {
+      const day = resolveDay(snapshot, serviceDate);
+      if (!day.bookingOpen[channel]) return [];
+      return day.services
+        .filter((service) => service.bookingTypes.includes(channel))
+        .flatMap((service) =>
+          seatingMinutes(service).flatMap((minute): Slot[] => {
+            if (day.closures.some((b) => closesSeating(b, minute, service.venueServiceId, channel))) {
+              return [];
+            }
+            const start = serviceDayInstant(serviceDate, minute, snapshot.timezone);
+            if (!start) return [];
+            const tables = freeTables(snapshot, day, minute, partySize, start, now);
+            const paced = pacingOk(snapshot, day, start, partySize, now);
+            return [
+              {
+                start,
+                serviceDate,
+                minute,
+                venueServiceId: service.venueServiceId,
+                tables,
+                available: tables.length > 0 && paced,
+                ...(tables.length === 0 ? { reason: "no_table" as const } : {}),
+                ...(tables.length > 0 && !paced ? { reason: "pacing" as const } : {}),
+              },
+            ];
+          })
+        );
+    }
+    function plannedDay(snapshot: AvailabilitySnapshot, serviceDate: ServiceDate) {
+      const dateRules = snapshot.config.dateRules.filter(
+        (r) => r.kind !== "closure" && r.kind !== "tonight"
+      );
+      return resolveDay({ ...snapshot, config: { ...snapshot.config, dateRules } }, serviceDate);
+    }
+    function owningServiceDay(snapshot: AvailabilitySnapshot, start: Date) {
+      const local = localDateTimeOf(start, snapshot.timezone);
+      const candidates = [
+        { serviceDate: local.date, minute: local.minute },
+        { serviceDate: addDays(local.date, -1), minute: local.minute + MINUTES_PER_DAY },
+      ];
+      return candidates.flatMap(({ serviceDate, minute }) => {
+        const planned = plannedDay(snapshot, serviceDate).services.find(containing(minute));
+        return planned ? [{ serviceDate, minute, planned }] : [];
+      })[0];
+    }
+    export function owningServiceDate(
+      snapshot: AvailabilitySnapshot,
+      start: Date
+    ): ServiceDate | undefined {
+      return owningServiceDay(snapshot, start)?.serviceDate;
+    }
+    function hard(reason: HardReason, message?: string): Verdict {
+      return message ? { kind: "hard", reason, message } : { kind: "hard", reason };
+    }
+    function tableVerdict(
+      snapshot: BookingSnapshot,
+      day: ResolvedDaySummary,
+      minute: number,
+      request: BookingRequest,
+      now: Date
+    ): Verdict | null {
+      const free = freeTables(
+        snapshot,
+        day,
+        minute,
+        request.partySize,
+        request.start,
+        now,
+        request.end
+      );
+      if (request.tableId === undefined) return free.length > 0 ? null : hard("conflict");
+      // Blocked first: strand checks judge a bare snapshot with no tables and rely on this reason.
+      if (blockedTables(day, minute).has(request.tableId)) return hard("table_blocked");
+      // Not a clash with another booking: the table is inactive, unknown or does not fit the party.
+      const suitable = filterSuitableTables(snapshot.tables, request.partySize);
+      if (!suitable.some((t) => t.id === request.tableId)) return hard("table_unavailable");
+      return free.some((t) => t.id === request.tableId) ? null : hard("conflict");
+    }
+    function softLimits(
+      snapshot: BookingSnapshot,
+      day: ResolvedDaySummary,
+      service: ResolvedService,
+      minute: number,
+      request: BookingRequest,
+      now: Date
+    ): SoftLimit[] {
+      const maxParty = snapshot.settings?.maxPartySize;
+      return [
+        ...(minute > service.lastSeatingAt ? ["after_last_seating" as const] : []),
+        ...(pacingOk(snapshot, day, request.start, request.partySize, now) ? [] : ["pacing" as const]),
+        ...(maxParty !== undefined && request.partySize > maxParty ? ["party_size" as const] : []),
+      ];
+    }
+    function keptThroughClosure(
+      snapshot: BookingSnapshot,
+      request: BookingRequest,
+      serviceDate: ServiceDate
+    ): boolean {
+      if (!request.movingFrom) return false;
+      const from = owningServiceDay(snapshot, request.movingFrom);
+      if (!from || from.serviceDate !== serviceDate) return false;
+      return resolveDay(snapshot, serviceDate).closures.some((b) =>
+        closesSeating(b, from.minute, from.planned.venueServiceId, request.channel)
+      );
+    }
+    export function judge(snapshot: BookingSnapshot, request: BookingRequest, now: Date): Verdict {
+      const owner = owningServiceDay(snapshot, request.start);
+      if (!owner) return hard("outside_service");
+      const { serviceDate, minute, planned } = owner;
+      const resolved = resolveDay(snapshot, serviceDate);
+      const message = resolved.guestMessage;
+    
+      // A kept booking is judged against the day as planned: the closure took its service and
+      // channels away, and that is exactly what it was kept through. Table blocks stay.
+      const kept = keptThroughClosure(snapshot, request, serviceDate);
+      const day = kept ? { ...resolved, ...pick(plannedDay(snapshot, serviceDate)) } : resolved;
+      const band = kept
+        ? undefined
+        : day.closures.find((b) => closesSeating(b, minute, planned.venueServiceId, request.channel));
+      if (band) return hard(band.targetKind === "booking" ? "booking_closed" : "closed", message);
+      if (!day.bookingOpen[request.channel]) return hard("booking_closed", message);
+      const service = day.services
+        .filter((s) => s.venueServiceId === planned.venueServiceId)
+        .find(containing(minute));
+      if (!service) return hard("closed", message);
+      if (!service.bookingTypes.includes(request.channel)) return hard("booking_closed", message);
+      // Online guests only book the exact instants listSlots offers (a seating minute, at
+      // second 0, first occurrence of a repeated hour); staff on the phone may book off-grid.
+      if (request.channel === "online") {
+        const offered = serviceDayInstant(serviceDate, minute, snapshot.timezone);
+        if (
+          !seatingMinutes(service).includes(minute) ||
+          offered?.getTime() !== request.start.getTime()
+        ) {
+          return hard("outside_service");
+        }
+      }
+    
+      const tableIssue = tableVerdict(snapshot, day, minute, request, now);
+      if (tableIssue) return tableIssue;
+    
+      const limits = softLimits(snapshot, day, service, minute, request, now);
+      if (limits.length === 0) return { kind: "ok" };
+      const overridden = request.channel === "phone" && (request.override?.reason.trim() ?? "") !== "";
+      return overridden ? { kind: "ok_with_override", limits } : { kind: "soft", limits };
+    }
+  </file>
+  <file path="src/types.ts">
+    export type ServiceDate = string;
+    export interface ResolvedService extends Pick<
+      ScheduleService,
+      "venueServiceId" | "opensAt" | "lastSeatingAt" | "closesAt" | "seating" | "bookingTypes"
+    > {
+      /** `null` for a service from special hours. */
+      scheduleServiceId: string | null;
+      name: string;
+    }
+    export const WEEKDAYS = [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+    ] as const;
+    export type Weekday = (typeof WEEKDAYS)[number];
+    export const MINUTES_PER_DAY = 1440;
+  </file>
+  <file path="src/validate-config.ts">
+    export type ConfigIssueCode =
+      | "invalid"
+      | "overlap"
+      | "weekday_clash"
+      | "close_before_open"
+      | "last_seating_after_close"
+      | "last_seating_before_open"
+      | "multiple_regular_schedules"
+      | "no_regular_schedule"
+      | "precedence_tie"
+      | "ends_before_start"
+      | "seating_outside_service"
+      | "window_ends_before_start"
+      | "booking_types_required"
+      | "section_closure_only";
+    export interface ConfigIssue {
+      /** e.g. `scheduleServices[1].lastSeatingAt`; `""` is the whole config. */
+      path: string;
+      code: ConfigIssueCode;
+      message: string;
+      /** `overlap` on some weekdays only, `weekday_clash`: the weekday (0 = Sunday). */
+      weekday?: number;
+      /** `overlap`: the path of the other service's `opensAt`. */
+      otherPath?: string;
+    }
+    type ServiceHours = Pick<SpecialHoursService, "opensAt" | "lastSeatingAt" | "closesAt" | "seating">;
+    interface PathedService {
+      path: string;
+      hours: ServiceHours;
+    }
+    function issue(path: string, code: ConfigIssueCode, message: string): ConfigIssue {
+      return { path, code, message };
+    }
+    function formatPath(segments: readonly PropertyKey[]): string {
+      return segments
+        .map((s, i) => (typeof s === "number" ? `[${s}]` : `${i === 0 ? "" : "."}${String(s)}`))
+        .join("");
+    }
+    function fixedSeatingIssues({ path, hours }: PathedService): ConfigIssue[] {
+      if (!("fixed" in hours.seating)) return [];
+      return hours.seating.fixed.flatMap((minute, k) =>
+        minute < hours.opensAt || minute > hours.lastSeatingAt
+          ? [
+              issue(
+                `${path}.seating.fixed[${k}]`,
+                "seating_outside_service",
+                "Seating times must fall between opening and last seating."
+              ),
+            ]
+          : []
+      );
+    }
+    function hoursIssues({ path, hours }: PathedService): ConfigIssue[] {
+      const { opensAt, lastSeatingAt, closesAt } = hours;
+      if (closesAt <= opensAt) {
+        return [issue(`${path}.closesAt`, "close_before_open", "Closing time must be after opening.")];
+      }
+      if (lastSeatingAt > closesAt) {
+        return [
+          issue(
+            `${path}.lastSeatingAt`,
+            "last_seating_after_close",
+            "Last seating can't be after closing."
+          ),
+        ];
+      }
+      if (lastSeatingAt < opensAt) {
+        return [
+          issue(
+            `${path}.lastSeatingAt`,
+            "last_seating_before_open",
+            "Last seating can't be before opening."
+          ),
+        ];
+      }
+      return fixedSeatingIssues({ path, hours });
+    }
+    function overlapIssues(services: readonly PathedService[]): ConfigIssue[] {
+      const sorted = services
+        .filter(({ hours }) => hours.closesAt > hours.opensAt)
+        .sort((a, b) => a.hours.opensAt - b.hours.opensAt);
+      return sorted.flatMap((later, i) => {
+        const earlier = sorted.slice(0, i).find((e) => e.hours.closesAt > later.hours.opensAt);
+        if (!earlier) return [];
+        const range = `${formatMinute(earlier.hours.opensAt)} – ${formatMinute(earlier.hours.closesAt)}`;
+        return [issue(`${later.path}.opensAt`, "overlap", `Overlaps another service (${range}).`)];
+      });
+    }
+    function serviceListIssues(services: readonly PathedService[]): ConfigIssue[] {
+      return [...services.flatMap(hoursIssues), ...overlapIssues(services)];
+    }
+    type ScheduleServiceRow = AvailabilityConfig["scheduleServices"][number];
+    interface IndexedRow {
+      index: number;
+      row: ScheduleServiceRow;
+    }
+    function rowHoursIssues({ index, row }: IndexedRow): ConfigIssue[] {
+      const path = `scheduleServices[${index}]`;
+      return [
+        ...hoursIssues({ path, hours: row }),
+        ...row.dayHours.sets.flatMap((set, j) =>
+          hoursIssues({ path: `${path}.dayHours.sets[${j}]`, hours: set })
+        ),
+      ];
+    }
+    function weekdayClashIssues({ index, row }: IndexedRow): ConfigIssue[] {
+      const claimed = new Set(row.weekdays);
+      return row.dayHours.sets.flatMap((set, j) =>
+        WEEK_ORDER.filter((d) => set.weekdays.includes(d)).flatMap((weekday) => {
+          const clash = claimed.has(weekday);
+          claimed.add(weekday);
+          return clash
+            ? [
+                {
+                  ...issue(
+                    `scheduleServices[${index}].dayHours.sets[${j}].weekdays`,
+                    "weekday_clash",
+                    `${WEEKDAY_NAMES[weekday]} can only have one set of hours.`
+                  ),
+                  weekday,
+                },
+              ]
+            : [];
+        })
+      );
+    }
+    interface DayOverlap {
+      later: string;
+      earlier: string;
+      /** The earlier hours, as "5:00 PM – 10:00 PM". */
+      range: string;
+      weekday: number;
+    }
+    function overlapsOn(rows: readonly IndexedRow[], weekday: number): DayOverlap[] {
+      const running = rows.flatMap(({ index, row }) => {
+        const source = hoursSourceOn(row, weekday);
+        if (!source) return [];
+        const base = `scheduleServices[${index}]`;
+        const path = source.setIndex === null ? base : `${base}.dayHours.sets[${source.setIndex}]`;
+        return [{ path, hours: source.hours }];
+      });
+      const sorted = running
+        .filter(({ hours }) => hours.closesAt > hours.opensAt)
+        .sort((a, b) => a.hours.opensAt - b.hours.opensAt);
+      return sorted.flatMap((later, i) => {
+        const earlier = sorted.slice(0, i).find((e) => e.hours.closesAt > later.hours.opensAt);
+        return earlier
+          ? [
+              {
+                later: `${later.path}.opensAt`,
+                earlier: `${earlier.path}.opensAt`,
+                range: `${formatMinute(earlier.hours.opensAt)} – ${formatMinute(earlier.hours.closesAt)}`,
+                weekday,
+              },
+            ]
+          : [];
+      });
+    }
+    function overlapIssuesPerWeekday(rows: readonly IndexedRow[]): ConfigIssue[] {
+      const byPair = new Map<string, DayOverlap[]>();
+      for (const weekday of WEEK_ORDER) {
+        for (const overlap of overlapsOn(rows, weekday)) {
+          const key = `${overlap.later}|${overlap.earlier}`;
+          byPair.set(key, [...(byPair.get(key) ?? []), overlap]);
+        }
+      }
+      return [...byPair.values()].flatMap(([first, ...rest]) => {
+        if (!first) return [];
+        const allDays = rest.length + 1 === WEEK_ORDER.length;
+        return [
+          {
+            ...issue(first.later, "overlap", `Overlaps another service (${first.range}).`),
+            ...(allDays ? {} : { weekday: first.weekday }),
+            otherPath: first.earlier,
+          },
+        ];
+      });
+    }
+    function scheduleServiceIssues(config: AvailabilityConfig): ConfigIssue[] {
+      const rows = config.scheduleServices.map((row, index) => ({ index, row }));
+      const scheduleIds = [...new Set(rows.map(({ row }) => row.scheduleId))];
+      return scheduleIds.flatMap((id) => {
+        const own = rows.filter(({ row }) => row.scheduleId === id);
+        return [
+          ...own.flatMap(rowHoursIssues),
+          ...own.flatMap(weekdayClashIssues),
+          ...overlapIssuesPerWeekday(own),
+        ];
+      });
+    }
+    function specialHoursIssues(config: AvailabilityConfig): ConfigIssue[] {
+      return config.dateRules.flatMap((rule, i) =>
+        rule.kind === "special_hours"
+          ? serviceListIssues(
+              rule.payload.services.map((s, j) => ({
+                path: `dateRules[${i}].payload.services[${j}]`,
+                hours: s,
+              }))
+            )
+          : []
+      );
+    }
+    function regularScheduleIssues(config: AvailabilityConfig): ConfigIssue[] {
+      const regular = config.schedules
+        .map((s, i) => ({ s, i }))
+        .filter(({ s }) => s.isRegular && !s.archivedAt);
+      if (regular.length === 0) {
+        return [issue("schedules", "no_regular_schedule", "Choose one schedule as the regular week.")];
+      }
+      return regular
+        .slice(1)
+        .map(({ i }) =>
+          issue(
+            `schedules[${i}].isRegular`,
+            "multiple_regular_schedules",
+            "Only one schedule can be the regular week."
+          )
+        );
+    }
+    function endsBeforeStart(
+      startsOn: string | null | undefined,
+      endsOn: string | null | undefined
+    ): boolean {
+      return startsOn != null && endsOn != null && endsOn < startsOn;
+    }
+    function rangeIssues(config: AvailabilityConfig): ConfigIssue[] {
+      const message = "The end date can't be before the start date.";
+      return [
+        ...config.assignments.flatMap((a, i) =>
+          endsBeforeStart(a.startsOn, a.endsOn)
+            ? [issue(`assignments[${i}].endsOn`, "ends_before_start", message)]
+            : []
+        ),
+        ...config.dateRules.flatMap((r, i) =>
+          endsBeforeStart(r.startsOn, r.endsOn)
+            ? [issue(`dateRules[${i}].endsOn`, "ends_before_start", message)]
+            : []
+        ),
+      ];
+    }
+    function latest(a?: string | null, b?: string | null): string | null {
+      if (a == null) return b ?? null;
+      return b == null || a > b ? a : b;
+    }
+    function earliest(a?: string | null, b?: string | null): string | null {
+      if (a == null) return b ?? null;
+      return b == null || a < b ? a : b;
+    }
+    function assignmentsMeet(a: ScheduleAssignment, b: ScheduleAssignment): boolean {
+      const shared = a.weekdays.filter((d) => b.weekdays.includes(d));
+      // Open ends are unbounded; "YYYY-MM-DD" strings order chronologically.
+      const from = latest(a.startsOn, b.startsOn);
+      const to = earliest(a.endsOn, b.endsOn);
+      if (shared.length === 0 || (from != null && to != null && from > to)) return false;
+      if (from == null || to == null || addDays(from, 6) <= to) return true;
+      // A common range shorter than a week may miss every shared weekday.
+      const dates = Array.from({ length: 7 }, (_, i) => addDays(from, i)).filter((d) => d <= to);
+      return dates.some((d) => shared.includes(weekdayIndexOf(d)));
+    }
+    function precedenceIssues(config: AvailabilityConfig): ConfigIssue[] {
+      const { assignments } = config;
+      return assignments.flatMap((later, j) =>
+        assignments
+          .slice(0, j)
+          .some((earlier) => earlier.precedence === later.precedence && assignmentsMeet(earlier, later))
+          ? [
+              issue(
+                `assignments[${j}].precedence`,
+                "precedence_tie",
+                "Two assignments cover the same day; choose which one wins."
+              ),
+            ]
+          : []
+      );
+    }
+    function windowIssues(config: AvailabilityConfig): ConfigIssue[] {
+      const message = "The end time must be after the start time.";
+      return config.dateRules.flatMap((rule, i) => [
+        ...(rule.window && rule.window.to <= rule.window.from
+          ? [issue(`dateRules[${i}].window.to`, "window_ends_before_start", message)]
+          : []),
+        ...(rule.kind === "tonight" &&
+        "stop" in rule.payload &&
+        rule.payload.stop.to <= rule.payload.stop.from
+          ? [issue(`dateRules[${i}].payload.stop.to`, "window_ends_before_start", message)]
+          : []),
+      ]);
+    }
+    function bookingTypesIssues(config: AvailabilityConfig): ConfigIssue[] {
+      return config.dateRules.flatMap((rule, i) =>
+        rule.targetKind === "booking" && !rule.bookingTypes?.length
+          ? [
+              issue(
+                `dateRules[${i}].bookingTypes`,
+                "booking_types_required",
+                "Choose which booking types to close."
+              ),
+            ]
+          : []
+      );
+    }
+    function sectionClosureIssues(config: AvailabilityConfig): ConfigIssue[] {
+      return config.dateRules.flatMap((rule, i) =>
+        rule.sectionId != null && !(rule.kind === "closure" && rule.targetKind === "tables")
+          ? [
+              issue(
+                `dateRules[${i}].sectionId`,
+                "section_closure_only",
+                "Only a table closure can name a section."
+              ),
+            ]
+          : []
+      );
+    }
+    export function validateConfig(input: unknown): ConfigIssue[] {
+      const parsed = AvailabilityConfigSchema.safeParse(input);
+      if (!parsed.success) {
+        return parsed.error.issues.map((i) => issue(formatPath(i.path), "invalid", i.message));
+      }
+      const config = parsed.data;
+      return [
+        ...regularScheduleIssues(config),
+        ...scheduleServiceIssues(config),
+        ...specialHoursIssues(config),
+        ...rangeIssues(config),
+        ...precedenceIssues(config),
+        ...windowIssues(config),
+        ...bookingTypesIssues(config),
+        ...sectionClosureIssues(config),
+      ];
+    }
+  </file>
+  <file path="src/week-spans.ts">
+    export function regularWeekView(config: AvailabilityConfig): AvailabilityConfig {
+      const regular = new Set(
+        config.schedules.filter((s) => s.kind === "regular" && !s.archivedAt).map((s) => s.id)
+      );
+      return {
+        ...config,
+        assignments: config.assignments.filter((a) => regular.has(a.scheduleId)),
+        dateRules: [],
+      };
+    }
+    export interface WeekSpansOptions {
+      /** IANA zone of the venue. */
+      timezone: string;
+      /** The first of seven consecutive service dates. */
+      from: ServiceDate;
+      partySize: number;
+      /** The venue's active tables; none means no party check (nothing to check against). */
+      tables: readonly EngineTable[];
+      /** The only clock the function reads. */
+      now: Date;
+      /** The guest's channel; online by default. */
+      channel?: BookingChannel;
+    }
+    export interface ServiceSpan {
+      venueServiceId: string;
+      firstAt: number;
+      lastAt: number;
+      /** The venue has active tables and none fits the party; the service still runs. */
+      noTableFits: boolean;
+    }
+    export interface DaySpans {
+      serviceDate: ServiceDate;
+      /** In opening order; a service with nothing bookable that day is left out. */
+      services: ServiceSpan[];
+    }
+    export function weekSpans(config: AvailabilityConfig, options: WeekSpansOptions): DaySpans[] {
+      const { timezone, from, partySize, tables, now, channel = "online" } = options;
+      const snapshot = {
+        timezone,
+        config,
+        tables: [...tables],
+        reservations: [],
+        holds: [],
+        settings: null,
+      };
+      return Array.from({ length: DAYS_IN_WEEK }, (_, offset) => {
+        const serviceDate = addDays(from, offset);
+        const slots = listSlots(snapshot, serviceDate, partySize, channel, now);
+        const byService = new Map<string, typeof slots>();
+        for (const slot of slots) {
+          byService.set(slot.venueServiceId, [...(byService.get(slot.venueServiceId) ?? []), slot]);
+        }
+        const services = [...byService].map(([venueServiceId, own]): ServiceSpan => {
+          const minutes = own.map((slot) => slot.minute);
+          return {
+            venueServiceId,
+            firstAt: Math.min(...minutes),
+            lastAt: Math.max(...minutes),
+            noTableFits: tables.length > 0 && own.every((slot) => slot.reason === "no_table"),
+          };
+        });
+        return { serviceDate, services };
+      });
+    }
+  </file>
+  </section>
+</codebase>

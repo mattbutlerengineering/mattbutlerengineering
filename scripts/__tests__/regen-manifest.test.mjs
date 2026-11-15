@@ -1,13 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { load as loadYaml } from "js-yaml";
 import {
   FAMILIES,
   llmsPackages,
   familiesForChangedFile,
   artifactPaths,
+  LLMS_EXEMPTIONS,
 } from "../regen-manifest.mjs";
 import { needsFullRegen } from "../check-regen-needed.mjs";
 
@@ -388,5 +390,73 @@ describe("cursorrules family", () => {
 
   it("treats a root AGENTS.md change as a regen source", () => {
     expect(needsFullRegen(["AGENTS.md"])).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Workspace llms.txt coverage — issue #8881: every workspace package must
+// either have a committed llms.txt (family entry) or a reasoned exemption,
+// so a new package can never silently escape `pnpm regen --check`.
+// ---------------------------------------------------------------------------
+describe("workspace llms.txt coverage", () => {
+  /** Glob patterns from pnpm-workspace.yaml's `packages:` list. */
+  function workspacePackagePatterns() {
+    const doc = loadYaml(readFileSync(resolve(ROOT, "pnpm-workspace.yaml"), "utf8"));
+    return doc.packages;
+  }
+
+  /** True when `dir` matches a workspace glob (either a literal dir, or `<prefix>/*`). */
+  function matchesWorkspacePattern(dir, patterns) {
+    return patterns.some((pattern) => {
+      if (!pattern.endsWith("/*")) return dir === pattern;
+      const prefix = pattern.slice(0, -2);
+      return dir.startsWith(`${prefix}/`) && dir.slice(prefix.length + 1).indexOf("/") === -1;
+    });
+  }
+
+  /** Every git-tracked workspace package directory (relative to ROOT, excludes root itself). */
+  function workspacePackageDirs() {
+    const patterns = workspacePackagePatterns();
+    const packageJsonFiles = execFileSync("git", ["ls-files", "*package.json"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    })
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+    const dirs = packageJsonFiles
+      .map((p) => dirname(p))
+      .filter((d) => d !== "." && matchesWorkspacePattern(d, patterns));
+    return [...new Set(dirs)];
+  }
+
+  it("every workspace package dir has a family entry or a reasoned exemption", () => {
+    const covered = new Set(llmsPackages());
+    const exempted = new Set(LLMS_EXEMPTIONS.map((e) => e.dir));
+    const uncovered = workspacePackageDirs().filter((d) => !covered.has(d) && !exempted.has(d));
+    expect(
+      uncovered,
+      `workspace package(s) with no llms.txt family entry and no exemption: ${uncovered.join(", ")}`
+    ).toEqual([]);
+  });
+
+  it("every exemption has a non-empty reason", () => {
+    for (const e of LLMS_EXEMPTIONS) {
+      expect(typeof e.reason, e.dir).toBe("string");
+      expect(e.reason.trim().length, `${e.dir} reason`).toBeGreaterThan(0);
+    }
+  });
+
+  it("every exemption names a directory that still exists", () => {
+    for (const e of LLMS_EXEMPTIONS) {
+      expect(existsSync(resolve(ROOT, e.dir)), e.dir).toBe(true);
+    }
+  });
+
+  it("no exemption also has a family entry", () => {
+    const covered = new Set(llmsPackages());
+    for (const e of LLMS_EXEMPTIONS) {
+      expect(covered.has(e.dir), `${e.dir} is both covered and exempted`).toBe(false);
+    }
   });
 });
