@@ -43,14 +43,14 @@ describe("alert marker", () => {
 });
 
 describe("decideIssueActions", () => {
-  it("opens one issue for a failing project with no open alert, labelled sentry only (SC-7)", () => {
+  it("opens one issue for a failing project with no open alert, labelled sentry and ready-for-human, never ready (SC-7)", () => {
     const [action] = decideIssueActions([sharedFailing], [], RUN_URL);
     expect(action).toMatchObject({
       project: "mattbutlerengineering",
       action: "open",
-      labels: [ALERT_LABEL],
+      labels: [ALERT_LABEL, "ready-for-human"],
     });
-    expect(action.labels).toEqual(["sentry"]);
+    expect(action.labels).toEqual(["sentry", "ready-for-human"]);
     expect(action.title).toContain("mattbutlerengineering");
     expect(action.body).toContain("mattbutlerengineering");
     expect(action.body).toContain("marketing: misrouted → hospitality");

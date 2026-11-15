@@ -58,6 +58,22 @@ const batch = selectZoneSpreadBatch(ready, { maxWorkers: 3, strictMain });
 
 Each issue's zone is estimated from its conventional-commit scope via `issueZone(issue)`, which reuses the shared zone vocabulary (`scripts/zone-vocabulary.mjs`, `WORKSPACE_ROOTS` + `zoneForPath`) — there is no second, divergent zone list.
 
+## reconcile
+
+Phase 0, in the "List open PRs" step. Issues leak out of `ready` without closing (resolved with no PR; `has-pr` outliving its PR; filed with no state label, #8915). Run, and report its counts in the iteration summary:
+
+```bash
+node scripts/reconcile-issue-states.mjs check
+# prints: stateless / has-pr all PRs closed unmerged -> ready / has-pr a PR merged (report only) / has-pr no linked PR (report only)
+node scripts/reconcile-issue-states.mjs check --apply   # only the unmerged -> ready edge, via `mbe issue transition <N> --to ready`
+```
+
+`--apply` never touches anything else: a merged-PR `has-pr` issue is for a human or the reviewer to close or re-queue.
+
+## promote
+
+Phase 1, when the batch is short of `max_workers`. The `stateless` numbers from `node scripts/reconcile-issue-states.mjs check` are candidates, not claims: the session reads each, judges whether it is well-specified and still open-worthy, and labels at most `max_workers` of them `ready` with `mbe issue transition <N> --to ready`. Never promote a `feature-proposal` (the reconciler already excludes it, along with `tracking` and `ideation-batch`). An issue found already resolved is closed with an evidence comment instead.
+
 ## base-freshness
 
 **Before dispatching, verify this checkout's own base** — worktrees are cut from its object store, so its staleness is inherited by every worker (measured 2026-09-20: the main checkout sat 368 commits behind `origin/main` with a divergent local commit, and every worktree cut from it started there):

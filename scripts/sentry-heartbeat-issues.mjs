@@ -23,6 +23,13 @@ import { aggregateExitCode, describeTargetOutcome } from "./sentry-heartbeat.mjs
 /** Existing label. Never `ready`: an alert is for the operator, not implement-queue. */
 export const ALERT_LABEL = "sentry";
 
+/**
+ * Heartbeat failures are environmental (DSN, deploy, Sentry project config); an
+ * agent PR rarely fixes them. The state label keeps the alert out of the
+ * "stateless" bucket of `scripts/reconcile-issue-states.mjs` (#8915).
+ */
+export const HUMAN_STATE_LABEL = "ready-for-human";
+
 const MARKER_PATTERN = /<!-- sentry-heartbeat project=([a-z0-9-]+) -->/;
 
 /** @param {string} project */
@@ -92,7 +99,7 @@ export function decideIssueActions(verdicts, openAlertIssues, runUrl) {
         action: "open",
         title: `Sentry heartbeat failing: ${verdict.project}`,
         body: openBody(verdict, runUrl),
-        labels: [ALERT_LABEL],
+        labels: [ALERT_LABEL, HUMAN_STATE_LABEL],
       };
     }
     if (!verdict.pass) {
