@@ -18,6 +18,7 @@ import { fileURLToPath } from "node:url";
 import {
   ANALYTICS_BINDING,
   EDGE_REQUESTS_DATASET,
+  ANALYTICS_DATASETS,
 } from "../../infrastructure/worker/analytics-schema.js";
 import {
   parseWranglerAnalytics,
@@ -96,6 +97,7 @@ describe("check-analytics-bindings", () => {
       );
       expect(parseWranglerAnalytics(text)).toEqual([
         { binding: "ANALYTICS", dataset: "edge_requests" },
+        { binding: "CSP_REPORTS", dataset: "csp_reports" },
       ]);
     });
 
@@ -105,12 +107,15 @@ describe("check-analytics-bindings", () => {
   });
 
   describe("parsePulumiAnalytics", () => {
-    it("reads exactly one analytics_engine binding from the real index.ts", () => {
+    it("reads both analytics_engine bindings from the real index.ts", () => {
       const text = fs.readFileSync(
         path.join(REPO_ROOT, "infrastructure", "pulumi", "index.ts"),
         "utf-8"
       );
-      expect(parsePulumiAnalytics(text)).toEqual([{ name: "ANALYTICS", dataset: "edge_requests" }]);
+      expect(parsePulumiAnalytics(text)).toEqual([
+        { name: "ANALYTICS", dataset: "edge_requests" },
+        { name: "CSP_REPORTS", dataset: "csp_reports" },
+      ]);
     });
 
     it("still reads the binding when prettier reflows the literal across lines", () => {
@@ -169,6 +174,23 @@ describe("check-analytics-bindings", () => {
       expect(found).toContain("missing-in-schema");
     });
 
+    it("checks every binding when the schema lists several (#8895)", () => {
+      const schemas = [SCHEMA, { binding: "CSP_REPORTS", dataset: "csp_reports" }];
+      const both = {
+        wrangler: [...wrangler, { binding: "CSP_REPORTS", dataset: "csp_reports" }],
+        pulumi: [...pulumi, { name: "CSP_REPORTS", dataset: "csp_reports" }],
+      };
+      expect(diffAnalyticsBindings(both.wrangler, both.pulumi, schemas)).toEqual([]);
+
+      const found = diffAnalyticsBindings(wrangler, both.pulumi, schemas);
+      expect(found).toEqual([
+        {
+          kind: "missing-in-wrangler",
+          message: expect.stringContaining('"CSP_REPORTS"'),
+        },
+      ]);
+    });
+
     it("never passes when both configs parse to nothing (anti-vacuous rule)", () => {
       const findings = diffAnalyticsBindings([], [], SCHEMA);
       expect(findings).not.toEqual([]);
@@ -193,7 +215,8 @@ describe("check-analytics-bindings", () => {
       const result = findAnalyticsBindingFindings(REPO_ROOT);
       expect(result.wrangler.length).toBeGreaterThanOrEqual(1);
       expect(result.pulumi.length).toBeGreaterThanOrEqual(1);
-      expect(result.schema).toEqual(SCHEMA);
+      expect(result.schema).toEqual(ANALYTICS_DATASETS);
+      expect(result.schema).toContainEqual(SCHEMA);
       expect(result.findings).toEqual([]);
     });
 

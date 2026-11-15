@@ -14,6 +14,11 @@ import {
   EDGE_REQUESTS_DATASET,
   EDGE_REQUESTS_COLUMNS,
   toDataPoint,
+  ANALYTICS_DATASETS,
+  CSP_REPORTS_BINDING,
+  CSP_REPORTS_DATASET,
+  CSP_REPORTS_COLUMNS,
+  toCspReportDataPoint,
 } from "./analytics-schema.js";
 
 const COLUMN_PATTERN = /^(blob|double)(\d+)$/;
@@ -76,5 +81,49 @@ describe("analytics-schema", () => {
     expect(point.blobs).toHaveLength(columns.filter((c) => c.startsWith("blob")).length);
     expect(point.doubles).toHaveLength(columns.filter((c) => c.startsWith("double")).length);
     expect(point.indexes).toHaveLength(1);
+  });
+
+  describe("csp_reports dataset (#8895)", () => {
+    it("names a binding and dataset separate from edge_requests", () => {
+      expect(CSP_REPORTS_BINDING).toBe("CSP_REPORTS");
+      expect(CSP_REPORTS_DATASET).toBe("csp_reports");
+      expect(CSP_REPORTS_BINDING).not.toBe(ANALYTICS_BINDING);
+      expect(CSP_REPORTS_DATASET).not.toBe(EDGE_REQUESTS_DATASET);
+    });
+
+    it("lists every binding the edge router writes", () => {
+      expect(ANALYTICS_DATASETS).toEqual([
+        { binding: "ANALYTICS", dataset: "edge_requests" },
+        { binding: "CSP_REPORTS", dataset: "csp_reports" },
+      ]);
+    });
+
+    it("documents the csp_reports column layout", () => {
+      expect(CSP_REPORTS_COLUMNS).toEqual({
+        directive: "blob1",
+        blockedOrigin: "blob2",
+        documentPath: "blob3",
+        disposition: "blob4",
+        index: "directive",
+      });
+    });
+
+    it("toCspReportDataPoint places every field at its declared column", () => {
+      const input = {
+        directive: "font-src",
+        blockedOrigin: "https://fonts.gstatic.com",
+        documentPath: "/rialto/",
+        disposition: "enforce",
+      };
+      const point = toCspReportDataPoint(input);
+      const positional = Object.entries(CSP_REPORTS_COLUMNS).filter(([f]) => f !== "index");
+      for (const [field, column] of positional) {
+        const match = COLUMN_PATTERN.exec(column);
+        expect(match, `${field} → ${column}`).not.toBeNull();
+        expect(point.blobs[Number(match[2]) - 1], `${field} at ${column}`).toBe(input[field]);
+      }
+      expect(point.blobs).toHaveLength(positional.length);
+      expect(point.indexes).toEqual([input[CSP_REPORTS_COLUMNS.index]]);
+    });
   });
 });

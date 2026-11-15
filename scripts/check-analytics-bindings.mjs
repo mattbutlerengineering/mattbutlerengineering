@@ -6,7 +6,7 @@
  *
  * 1. infrastructure/worker/wrangler.toml       — [[analytics_engine_datasets]] binding / dataset
  * 2. infrastructure/pulumi/index.ts            — { name, dataset, type: "analytics_engine" }
- * 3. infrastructure/worker/analytics-schema.js — ANALYTICS_BINDING / EDGE_REQUESTS_DATASET
+ * 3. infrastructure/worker/analytics-schema.js — ANALYTICS_DATASETS (one entry per binding)
  *
  * A sibling of check-service-bindings.js, not an extension: this compares
  * datasets as well as names, and reads the schema module as a third source.
@@ -25,10 +25,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runCheck } from "./lib/fitness-check.mjs";
-import {
-  ANALYTICS_BINDING,
-  EDGE_REQUESTS_DATASET,
-} from "../infrastructure/worker/analytics-schema.js";
+import { ANALYTICS_DATASETS } from "../infrastructure/worker/analytics-schema.js";
 
 const DEFAULT_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -38,11 +35,8 @@ const SOURCE_LABELS = Object.freeze({
   schema: "infrastructure/worker/analytics-schema.js",
 });
 
-/** S3: the constants the writer and reader import. */
-export const SCHEMA_SOURCE = Object.freeze({
-  binding: ANALYTICS_BINDING,
-  dataset: EDGE_REQUESTS_DATASET,
-});
+/** S3: every { binding, dataset } the writer and readers import (edge_requests, csp_reports). */
+export const SCHEMA_SOURCE = ANALYTICS_DATASETS;
 
 /** S1: `[[analytics_engine_datasets]]` tables → [{ binding, dataset }]. Header-anchored, like parseWranglerBindings. */
 export function parseWranglerAnalytics(text) {
@@ -76,9 +70,10 @@ export function parsePulumiAnalytics(text) {
  * Pure comparison of the three sources — returns findings, never logs.
  * Each finding is `{ kind, message }`; kinds: missing-in-wrangler,
  * missing-in-pulumi, missing-in-schema, dataset-mismatch, no-entries:wrangler,
- * no-entries:pulumi.
+ * no-entries:pulumi. `schema` is one `{ binding, dataset }` or an array of them.
  */
 export function diffAnalyticsBindings(wrangler, pulumi, schema) {
+  const schemaEntries = [schema].flat();
   const emptiness = [
     ["wrangler", wrangler.length, "no [[analytics_engine_datasets]] table"],
     ["pulumi", pulumi.length, 'no { type: "analytics_engine" } binding'],
@@ -92,7 +87,7 @@ export function diffAnalyticsBindings(wrangler, pulumi, schema) {
   const bySource = {
     wrangler: new Map(wrangler.map((e) => [e.binding, e.dataset])),
     pulumi: new Map(pulumi.map((e) => [e.name, e.dataset])),
-    schema: new Map([[schema.binding, schema.dataset]]),
+    schema: new Map(schemaEntries.map((e) => [e.binding, e.dataset])),
   };
   const names = [...new Set(Object.values(bySource).flatMap((m) => [...m.keys()]))].sort();
 
@@ -151,7 +146,7 @@ if (isMain) {
     "Checking Analytics Engine binding consistency across 3 sources...\n\n" +
     `  ${SOURCE_LABELS.wrangler}:        [${show(wrangler)}]\n` +
     `  ${SOURCE_LABELS.pulumi}:             [${show(pulumi)}]\n` +
-    `  ${SOURCE_LABELS.schema}:  [${show([schema])}]\n\n`;
+    `  ${SOURCE_LABELS.schema}:  [${show(schema)}]\n\n`;
 
   // The remediation hint moves INTO failMessage (above the findings) rather
   // than after them — runCheck has no post-findings hook, and guidance-then-
@@ -164,7 +159,7 @@ if (isMain) {
       formatFinding: (f) => `[${f.kind}] ${f.message}`,
       passMessage:
         preamble +
-        `PASS: wrangler.toml, pulumi/index.ts and analytics-schema.js agree on the Analytics Engine binding (${schema.binding} → ${schema.dataset}).`,
+        `PASS: wrangler.toml, pulumi/index.ts and analytics-schema.js agree on the Analytics Engine bindings (${show(schema)}).`,
       failMessage:
         preamble +
         "FAIL: Analytics Engine binding drift detected — the Pulumi WorkersScript is what\n" +

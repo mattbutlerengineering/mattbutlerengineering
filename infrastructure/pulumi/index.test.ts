@@ -663,6 +663,22 @@ describe("Configuration Validation", () => {
       expect(analytics!.dataset).toBe("edge_requests");
     });
 
+    it("edge router has a separate Analytics Engine binding for csp_reports (#8895)", () => {
+      const edgeRouter = findResource("cloudflare:index/workersScript:WorkersScript", (name) =>
+        name.includes("edge-router")
+      );
+      const bindings = edgeRouter!.inputs.bindings as Array<{
+        name?: string;
+        type?: string;
+        dataset?: string;
+      }>;
+      const cspReports = bindings.find(
+        (b) => b.type === "analytics_engine" && b.name === "CSP_REPORTS"
+      );
+
+      expect(cspReports?.dataset).toBe("csp_reports");
+    });
+
     it("root DNS record is proxied AAAA 100::", () => {
       const rootDns = findResource(
         "cloudflare:index/dnsRecord:DnsRecord",

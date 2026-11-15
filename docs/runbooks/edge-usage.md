@@ -140,6 +140,25 @@ node scripts/api-failures.mjs --dry-run
   `gh secret set CLOUDFLARE_API_TOKEN --body "<token>"`. Until it exists every
   run fails loudly.
 
+## CSP violation reports (`csp_reports`)
+
+The CSP every edge response carries names `report-uri /csp-report` and
+`report-to csp-endpoint` (`Reporting-Endpoints: csp-endpoint="/csp-report"`).
+`infrastructure/worker/csp-report.js` handles those POSTs and writes one
+`csp-violation` log line and one point per violation to the separate
+`csp_reports` dataset (binding `CSP_REPORTS`). Columns live in
+`CSP_REPORTS_COLUMNS` in `analytics-schema.js`: `blob1` effective directive,
+`blob2` blocked origin (origin only, or `inline`/`eval`/`data`), `blob3`
+document path (no query), `blob4` disposition. Query it with the same token:
+
+```sql
+SELECT blob1 AS directive, blob2 AS blocked, blob3 AS path, SUM(_sample_interval) AS reports
+FROM csp_reports
+WHERE timestamp > NOW() - INTERVAL '7' DAY
+GROUP BY directive, blocked, path
+ORDER BY reports DESC
+```
+
 ## Undercount caveat
 
 The count sees **edge requests only**. The sites behind the router are

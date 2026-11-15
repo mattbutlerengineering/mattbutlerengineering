@@ -9,7 +9,7 @@
  *  - KV CSP policy reader
  */
 
-import { buildCspDirectives } from "./csp.js";
+import { buildCspDirectives, CSP_REPORT_GROUP, CSP_REPORT_PATH } from "./csp.js";
 import topologyConfig from "./routes-config.json";
 import { readKvJson } from "./health/kv-access.js";
 
@@ -29,6 +29,7 @@ function buildSecurityHeaders(nonce, kvPolicy, extraConnectSrc) {
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
     "Content-Security-Policy": buildCspDirectives(nonce, { kvPolicy, extraConnectSrc }),
+    "Reporting-Endpoints": `${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`,
   };
 }
 
