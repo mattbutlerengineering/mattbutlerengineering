@@ -150,7 +150,7 @@
     </item>
     <item priority="high">
       type AvailabilityView = { readonly view: "hub" } | { readonly view: "hours"; read | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "specialDates | { readonly view: "closures" } | {
-            readonly view: "calend | { readonly view: "bookingRules | { readonly view: "history" };
+            readonly view: "calend | { readonly view: "bookingRules | { readonly view: "history" } | { readonly view: "map" };
     </item>
     <item priority="low">
       type AvailabilityTarget = AvailabilityView & {

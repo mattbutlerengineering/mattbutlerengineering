@@ -55,7 +55,7 @@ function groupLoad<T>(reads: readonly Read<unknown>[], data: () => T): GroupLoad
  * (`buildSetupTree`) and renders it; it edits nothing itself. Standing for every venue: before
  * launch it also shows the launch steps.
  */
-export function SetupPage() {
+export function AvailabilityMapPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const isManager = useIsManager();

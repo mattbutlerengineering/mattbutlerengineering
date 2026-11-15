@@ -106,8 +106,8 @@ const VenueOnboardingPage = lazy(() =>
     default: m.VenueOnboardingPage,
   }))
 );
-const SetupPage = lazy(() =>
-  import("./pages/SetupPage.js").then((m) => ({ default: m.SetupPage }))
+const AvailabilityMapPage = lazy(() =>
+  import("./pages/AvailabilityMapPage.js").then((m) => ({ default: m.AvailabilityMapPage }))
 );
 const PublicBookingPage = lazy(() =>
   import("./pages/PublicBookingPage.js").then((m) => ({
@@ -451,7 +451,7 @@ const router = createBrowserRouter(
               path: "setup",
               element: (
                 <Suspense fallback={<LoadingPage />}>
-                  <SetupPage />
+                  <AvailabilityMapPage />
                 </Suspense>
               ),
             },

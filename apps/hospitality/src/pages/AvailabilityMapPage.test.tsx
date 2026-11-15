@@ -52,7 +52,7 @@ vi.mock("../hooks/useNow.js", () => ({ useNow: () => new Date("2026-11-07T18:00:
 // jsdom cannot compute colour contrast; token contrast is covered in rialto.
 const AXE_OPTIONS = { rules: { "color-contrast": { enabled: false } } };
 
-import { SetupPage } from "./SetupPage.js";
+import { AvailabilityMapPage } from "./AvailabilityMapPage.js";
 
 const HOURS = {
   opensAt: 690,
@@ -162,7 +162,7 @@ function Where() {
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={["/setup"]}>
-      <SetupPage />
+      <AvailabilityMapPage />
       <Where />
     </MemoryRouter>
   );
@@ -265,7 +265,7 @@ describe("Venue Setup: schedules and services", () => {
     setConfig(WEEK);
     view.rerender(
       <MemoryRouter initialEntries={["/setup"]}>
-        <SetupPage />
+        <AvailabilityMapPage />
       </MemoryRouter>
     );
     expect(screen.queryByRole("button", { name: "Set up regular week" })).not.toBeInTheDocument();
@@ -354,7 +354,7 @@ describe("Venue Setup: booking", () => {
     } as VenueSettings;
     view.rerender(
       <MemoryRouter initialEntries={["/setup"]}>
-        <SetupPage />
+        <AvailabilityMapPage />
       </MemoryRouter>
     );
     const booking = screen.getByRole("listitem", { name: /^Booking/ });

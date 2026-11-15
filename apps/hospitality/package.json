@@ -186,8 +186,8 @@
       "limit": "13.5 kB"
     },
     {
-      "name": "Venue Setup page (lazy chunk)",
-      "path": "dist/assets/SetupPage-*.js",
+      "name": "Availability map page (lazy chunk; Venue Setup before #8864)",
+      "path": "dist/assets/AvailabilityMapPage-*.js",
       "limit": "6 kB"
     },
     {

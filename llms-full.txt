@@ -5432,7 +5432,8 @@
           readonly date?: string;
         }
       | { readonly view: "bookingRules" }
-      | { readonly view: "history" };
+      | { readonly view: "history" }
+      | { readonly view: "map" };
     export type AvailabilityTarget = AvailabilityView & {
       readonly close?: CloseTarget;
       readonly pause?: boolean;
