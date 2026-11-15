@@ -71,30 +71,28 @@ describe("findMarkedEvent", () => {
     ).toBeUndefined();
   });
 
-  it("returns the first event the matcher accepts, querying the project by the requestId tag (backend default) with a timeout", async () => {
+  it("returns the first event the matcher accepts, listing the project's recent events (backend default) with a timeout", async () => {
     const hit = { id: "e1", tags: [{ key: "requestId", value: MARKER }] };
     const fetchImpl = fetchWithStatuses([200], [{ id: "e0", tags: [] }, hit]);
     expect(await findMarkedEvent("org", "users-api", MARKER, "token", fetchImpl)).toBe(hit);
     const [url, init] = fetchImpl.mock.calls[0];
-    expect(url).toBe(
-      `https://sentry.io/api/0/projects/org/users-api/events/?query=${encodeURIComponent(
-        `requestId:${MARKER}`
-      )}`
-    );
+    expect(url).toBe("https://sentry.io/api/0/projects/org/users-api/events/?statsPeriod=1h");
     expect(init.headers.Authorization).toBe("Bearer token");
     expect(init.signal).toBeInstanceOf(AbortSignal);
   });
 
-  it("queries backend lookups by the requestId tag, since #8557 strips the marker from the message/url text Sentry's free-text search reads", async () => {
+  // #8778: the endpoint reads `query` as a substring of `message`, so the
+  // `requestId:<marker>` query #8812 sent matched nothing, every run. The
+  // backend message carries no marker since #8557, so backend lookups send no
+  // query and match the requestId tag client-side.
+  it("sends backend lookups with no query, matching the requestId tag client-side", async () => {
     const hit = { id: "e1", tags: [{ key: "requestId", value: MARKER }] };
     const fetchImpl = fetchWithStatuses([200], [hit]);
-    await findMarkedEvent("org", "users-api", MARKER, "token", fetchImpl, undefined, "backend");
+    expect(
+      await findMarkedEvent("org", "users-api", MARKER, "token", fetchImpl, undefined, "backend")
+    ).toBe(hit);
     const [url] = fetchImpl.mock.calls[0];
-    expect(url).toBe(
-      `https://sentry.io/api/0/projects/org/users-api/events/?query=${encodeURIComponent(
-        `requestId:${MARKER}`
-      )}`
-    );
+    expect(new URL(url).searchParams.has("query")).toBe(false);
   });
 
   it("still queries browser lookups by the bare marker, since the marker survives in their title", async () => {
