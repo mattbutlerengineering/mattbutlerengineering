@@ -5568,3 +5568,13 @@ Phase 4: no worktrees present (`.claude/worktrees/` doesn't exist), no merge-tra
 - **Coverage before this fire:** 100% (137/137 routes), not provisional. Unchanged after.
 - **Pipeline bugs:** none. Checkpoint commit pushed to `ui-quality/ledger` before the P1 step, as required.
 - **Observed but not filable (no rubric tell covers it):** the cookie-consent banner overflows its container at 375px on every rialto-web route that shows it — its text wraps into a narrow column that paints on top of the page content behind it (seen on `demos/dashboard`, `demos/telemetry`, `demos/auth-flow`, `demos/drivers`, `demos/drivers/:id`, `demos/drivers/:id/edit`, `demos/drivers/new`, `demos/layouts`, `demos/session-expired`). axe does not flag it and rubric v1 has no overlap/overflow tell, so the judge could not name it. Worth a human look, and a candidate for a `rubric_version` bump proposal.
+
+## 2026-11-15 — mbe-learning-loop
+
+**Sensors:** 17/18 available
+**Regressions:** 0 detected, 0 issues created (status: Healthy — ACMM L5 73/84, CI 100% (22/22), mutation 99.07%, queueEfficiency composite 0.924, metricsFreshness 0 unhealthy)
+**Sentry triage:** skipped — Sentry MCP authorization expired (`whoami` returned Authorization Expired)
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed, 5 skipped (no matching/automated verifier for their labels: #8895 security, #8891/#8892/#8893/#8894 meta-improvement)
+**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected); worst is acmm at 25% (4 total); all budgets remain at 3
+**Skill proposals:** 0 (Sunday — Friday-only)
+**Threshold notes:** 30d fix-effectiveness 75% (6/8 non-skip verifications, small sample) — healthy, no review needed; false-positive rate stayed low across all categories (max 25%, acmm) — no loosening needed; threshold-tuner auto-adjusted `acmm` 1.674 → 1.693 (headroom)

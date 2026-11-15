@@ -392,10 +392,16 @@
         "Acceptance rate 97% meets or exceeds the 85% floor (70 merged, 2 rejected). No adjustments needed."
       ],
       "note": "Reviewed PR acceptance data from 2026-11-09. All metrics within acceptable ranges."
+    },
+    {
+      "date": "2026-11-15",
+      "trigger": "threshold-auto-tuner",
+      "adjustments": ["acmm: 1.674 → 1.693 (headroom)"],
+      "note": "Auto-tuned 1 sensor threshold(s) from verification results: acmm."
     }
   ],
   "sensorSensitivity": {
     "ci-fix": 1.198,
-    "acmm": 1.674
+    "acmm": 1.693
   }
 }
