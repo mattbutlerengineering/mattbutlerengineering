@@ -135,8 +135,19 @@ describe("ai-audit.yml query shape", () => {
   });
 
   it("retries the merged-PR query, which is slow enough to time out", () => {
-    expect(executable).toMatch(/for attempt in 1 2 3/);
+    expect(executable).toMatch(/for attempt in 1 2 3 4 5/);
     expect(executable).toMatch(/exit 1/);
+  });
+
+  // #8921: three tries 30 s apart did not outlast a GitHub GraphQL 502 burst, so
+  // a week's audit was lost (2026-11-06, 2026-11-13). Backoff must grow and
+  // total about two minutes; the last attempt must still fail closed.
+  it("backs off between attempts and still fails closed on the last one (#8921)", () => {
+    expect(executable).toMatch(/sleep \$\(\(attempt \* 15\)\)/);
+    expect(executable).toContain('if [ "$attempt" = 5 ]');
+    expect(executable).toContain(
+      "Merged-PR query failed 5 times; refusing to publish an empty audit"
+    );
   });
 
   it("every gh issue list passes an explicit --limit", () => {

@@ -46,7 +46,8 @@ jobs:
           # both. A query that keeps failing fails this job, with gh's stderr
           # visible. W44 (#7952) hid the error and published "0 of 408 merged
           # PRs" as a clean audit, which reads as reassurance.
-          for attempt in 1 2 3; do
+          # 5 tries, backoff 15/30/45/60 s (~2.5 min): rides out a GraphQL 502 burst (#8921).
+          for attempt in 1 2 3 4 5; do
             if gh pr list \
               --repo "$GITHUB_REPOSITORY" \
               --state merged \
@@ -55,11 +56,11 @@ jobs:
               --jq "[.[] | select(.mergedAt >= \"${SINCE}\")]" > /tmp/merged-prs.json; then
               break
             fi
-            if [ "$attempt" = 3 ]; then
-              echo "::error::Merged-PR query failed 3 times; refusing to publish an empty audit"
+            if [ "$attempt" = 5 ]; then
+              echo "::error::Merged-PR query failed 5 times; refusing to publish an empty audit"
               exit 1
             fi
-            sleep 30
+            sleep $((attempt * 15))
           done
 
           # The AI split uses the repo's one canonical predicate (`isAgentPr` in
