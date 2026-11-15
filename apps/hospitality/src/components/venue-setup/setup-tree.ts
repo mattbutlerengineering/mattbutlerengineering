@@ -92,9 +92,7 @@ export type SetupActionId =
   | "setUpRegularWeek"
   | "changeRegularWeek"
   | "editSchedule"
-  | "compareServices"
   | "createSchedule"
-  | "openCalendar"
   | "openSpecialDates"
   | "bookingRules"
   | "openFloorPlan"
@@ -185,7 +183,6 @@ const action = (id: SetupActionId, target: SetupActionTarget, subject?: string):
 const SETUP_CALENDAR = availabilityPath({ view: "hub", from: "setup" });
 const SETUP_SCHEDULES = availabilityPath({ view: "seasonal", from: "setup" });
 const SETUP_HOURS = availabilityPath({ view: "hours", from: "setup" });
-const SETUP_CALENDAR_TAB = availabilityPath({ view: "calendar", from: "setup" });
 const SETUP_ADD_SCHEDULE = availabilityPath({ view: "seasonal", screen: "new", from: "setup" });
 const SETUP_SPECIAL = availabilityPath({ view: "specialDates", from: "setup" });
 const SETUP_BOOKING_RULES = availabilityPath({ view: "bookingRules", from: "setup" });
@@ -268,13 +265,11 @@ function scheduleNode(
           weekdays: covered.slice(),
         }
       : { kind: "week", weekdays };
+  // One link per node (#8864 AC6): the regular week's editor is Regular hours.
   const actions: SetupAction[] = !manager
     ? []
     : schedule.isRegular
-      ? [
-          action("changeRegularWeek", link(SETUP_HOURS)),
-          action("editSchedule", link(SETUP_HOURS), schedule.name),
-        ]
+      ? [action("changeRegularWeek", link(SETUP_HOURS))]
       : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
   return {
     id: `schedule:${schedule.id}`,
@@ -315,12 +310,8 @@ function schedulesNode(
     kind: "schedules",
     name: null,
     state: { kind: "count", count: schedules.length },
-    actions: manager
-      ? [
-          action("compareServices", link(SETUP_SCHEDULES)),
-          action("createSchedule", link(SETUP_ADD_SCHEDULE)),
-        ]
-      : [],
+    // Each schedule below links to its own editor; the group's one link adds another schedule.
+    actions: manager ? [action("createSchedule", link(SETUP_ADD_SCHEDULE))] : [],
     children: schedules,
   };
 }
@@ -374,12 +365,7 @@ function specialDatesNode(
     kind: "specialDates",
     name: null,
     state: upcoming.length === 0 ? UNSET : { kind: "count", count: upcoming.length },
-    actions: manager
-      ? [
-          action("openCalendar", link(SETUP_CALENDAR_TAB)),
-          action("openSpecialDates", link(SETUP_SPECIAL)),
-        ]
-      : [],
+    actions: manager ? [action("openSpecialDates", link(SETUP_SPECIAL))] : [],
     children,
   };
 }
@@ -505,12 +491,8 @@ function floorPlanNode(
     state: hasTables
       ? { kind: "floorPlan", sections: sections.length, tables: tables.length }
       : UNSET,
-    actions: manager
-      ? [
-          action("openFloorPlan", link(planPath), plan.name),
-          action("addFloorPlan", link("/floor-plans")),
-        ]
-      : [],
+    // Another floor plan is added from the floor plan list, which the sidebar and the empty node open.
+    actions: manager ? [action("openFloorPlan", link(planPath), plan.name)] : [],
     children: [...sectionNodes, ...noSection],
   };
 }

@@ -87,7 +87,7 @@ export function SetupNodeRow(props: SetupNodeRowProps) {
                 data-primary={action.primary ? "true" : undefined}
                 onClick={() => onAction(action)}
               >
-                {text.actionLabel(action, node)}
+                {text.actionLabel(action)}
                 {text.actionSubject(action) && (
                   <>
                     {" "}

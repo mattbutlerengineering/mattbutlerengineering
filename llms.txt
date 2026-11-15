@@ -32153,7 +32153,7 @@
             readonly kind: "closur | { readonly kind: "floorPlan";  | { readonly kind: "tables"; rea | { readonly kind: "seats"; read;
     </item>
     <item priority="low">
-      type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "compareServices" | "createSchedule" | "openCalendar" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
+      type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "createSchedule" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
     </item>
     <item priority="low">
       type SetupActionTarget = { readonly kind: "link"; readonly to: string };
@@ -32293,7 +32293,7 @@
         label: (node: SetupNode) => string;
         whatIs: (node: SetupNode) => string | null;
         state: (node: SetupNode) => string;
-        actionLabel: (action: SetupAction, node: SetupNode) => string;
+        actionLabel: (action: SetupAction) => string;
       }
     </item>
     <item priority="high">

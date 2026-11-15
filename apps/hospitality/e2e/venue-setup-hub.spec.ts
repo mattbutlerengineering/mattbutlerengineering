@@ -1,4 +1,5 @@
 import type { Page } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
 import { test, expect } from "./fixtures.js";
 import { buildVenueTeamFixture, loadFixture } from "./api-mocks.js";
 import { mockAvailability } from "./availability-draft-mock.js";
@@ -171,14 +172,43 @@ test.describe("Venue Setup hub", () => {
     await expect(dialog.getByText("One section: Bar", { exact: true })).toBeVisible();
   });
 
-  test("the Schedules actions open the Schedules tab on Availability", async ({
+  test("the Schedules node's one link opens the schedule editor on the Schedules tab", async ({
     mockedPage: page,
   }) => {
     await page.goto("availability/map");
-    await page.getByRole("button", { name: "Compare services" }).click();
-    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules&from=setup$/);
+    const schedules = page.getByRole("listitem", { name: /Schedules/ }).first();
+    await schedules.getByRole("button", { name: "Add a schedule…" }).first().click();
+    await expect(page).toHaveURL(/\/availability\/calendar\?tab=schedules/);
     await expect(page.getByRole("radio", { name: "Schedules" })).toBeChecked();
+    await expect(
+      page.getByRole("dialog").getByRole("textbox", { name: /Schedule name/ })
+    ).toBeVisible();
   });
+
+  for (const viewport of [
+    { width: 1280, height: 720 },
+    { width: 375, height: 812 },
+  ]) {
+    test(`has no axe violation and no sideways scroll at ${viewport.width}px (#8864 AC9, AC10)`, async ({
+      mockedPage: page,
+    }) => {
+      await page.setViewportSize(viewport);
+      await page.goto("availability/map");
+      await expect(page.getByRole("heading", { level: 1, name: "Availability map" })).toBeVisible();
+      await expect(page.getByRole("listitem", { name: /Main Floor/ })).toBeVisible();
+
+      const results = await new AxeBuilder({ page }).include("main").analyze();
+      expect(results.violations).toEqual([]);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+      );
+      expect(overflow).toBeLessThanOrEqual(0);
+      const mainOverflow = await page
+        .locator("main#main-content")
+        .evaluate((el) => el.scrollWidth - el.clientWidth);
+      expect(mainOverflow).toBeLessThanOrEqual(0);
+    });
+  }
 
   test("an unready venue is still sent to the Availability map from /timeline", async ({
     mockedPage: page,
