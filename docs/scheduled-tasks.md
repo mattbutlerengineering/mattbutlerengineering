@@ -113,9 +113,9 @@ not a new row in the catalog below and not an edit of the builtin array in
 > on #6211 under the shared name `mbe-feature-drain` (one `noop` per day at
 > most). Prompt: [`routines/mbe-feature-drain.md`](./routines/mbe-feature-drain.md).
 
-> **`mbe-prune`** is the 15-minute hygiene pass (four hourly RemoteTriggers,
-> `mbe-prune-a`..`-d` at `:14`/`:29`/`:44`/`:59`, for the same one-hour API
-> floor). Its state is the body of the closed ledger issue #6805: STEP 0 reads
+> **`mbe-prune`** is the 30-minute hygiene pass (`mbe-prune-a` at `:14` and
+> `mbe-prune-c` at `:44`; `-b` and `-d` were disabled 2026-11-15 after 96
+> fires a day produced 2 merged PRs in a week). Its state is the body of the closed ledger issue #6805: STEP 0 reads
 > `last_sha` and `lens_date` before `pnpm install` and exits when `origin/main`
 > has not moved and today's lens already ran, so cost tracks merges, not fires.
 > Each working fire runs a DELTA PASS (chase every deleted/renamed path and
@@ -600,9 +600,8 @@ heartbeat on #6211 is the signal that this cadence has hit the plan's limits.
 `mbe-prune` (added 2026-10-16) adds four more hourly sonnet triggers, up to 96
 fires/day, but its STEP 0 gate exits before `pnpm install` whenever `main` has
 not moved since the last completed pass and today's lens already ran — so the
-real cost is one working fire per burst of merges plus one lens per day. If
-`throttled` heartbeats appear on #6211, disable `mbe-prune-b` and `mbe-prune-d`
-to halve the cadence without touching the prompt. Note `mbe-doc-rot`'s 2026-10-09
+real cost is one working fire per burst of merges plus one lens per day. `mbe-prune-b` and `mbe-prune-d` were
+disabled on 2026-11-15, halving the cadence without touching the prompt. Note `mbe-doc-rot`'s 2026-10-09
 fire already failed with `USAGE_LIMIT_REACHED` before either sub-hourly routine
 existed, so the Friday-morning stack is the hour to watch.
 
