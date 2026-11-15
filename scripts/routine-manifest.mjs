@@ -39,18 +39,10 @@
  *     (#6440, #6443). May coexist with `unverifiable` so the signature note
  *     survives until the routine is re-enabled and `paused` is removed.
  *
- * #5748's "known limitation" question — should mbe-night/mbe-midday/
- * mbe-daily-issue also log a line on a no-op (empty-backlog) fire, the way
- * mbe-weekly-improve step 5 does, so a healthy no-op run doesn't read as
- * `dark` — was deliberately left unresolved when #5748 made its mechanical
- * signature flips, rather than decided by editing live RemoteTrigger prompts
- * in that PR. #7043 resolves it for mbe-daily-issue: its docs/routines/*.md
- * prompt now carries a heartbeat final step (mirroring mbe-auditor/
- * mbe-morning, #6190/#6157), and this manifest's entry is flipped to
- * `signature: { type: "heartbeat" }` with an `activatedAt` grace date until
- * the live RemoteTrigger prompt is confirmed updated to match. mbe-night and
- * mbe-midday remain open follow-ups — both stay `paused` and `unverifiable`
- * regardless, so there is nothing live to break by leaving them as-is.
+ * #7043 gave mbe-daily-issue a heartbeat final step so a healthy no-op fire
+ * does not read as `dark`. mbe-night and mbe-midday, the other two routines
+ * that question covered, were retired on 2026-11-15 (paused since 2026-09-25,
+ * superseded by mbe-feature-drain) and removed from this manifest.
  *
  * @module routine-manifest
  */
@@ -129,9 +121,8 @@ const BUILTIN_ROUTINES = [
     name: "mbe-evening",
     triggerId: "trig_01PHwfbFQcFveYajVPaTrbZk",
     periodDays: 1,
-    // Step 1's "queue telemetry" PR title is shared with mbe-midday/mbe-night
-    // (all three run the same /implement-queue step); step 3's
-    // "optimize-implement-queue" PR is the one title unique to mbe-evening.
+    // Step 3's "optimize-implement-queue" PR is the title unique to
+    // mbe-evening (step 1's "queue telemetry" title is not).
     //
     // #5603: the daily checker flagged this routine `dark`. The signature
     // below was never the problem — it has been a real, matching pr-title
@@ -150,19 +141,6 @@ const BUILTIN_ROUTINES = [
       pattern: String.raw`chore\(metrics\): optimize-implement-queue \d{4}-\d{2}-\d{2}`,
       searchTerm: "optimize-implement-queue",
     },
-  },
-  {
-    name: "mbe-night",
-    triggerId: "trig_01E6UxiwdsWcjBNwRGZSjmSV",
-    periodDays: 1,
-    paused: {
-      since: "2026-09-25",
-      reason:
-        "Deliberately paused by Matt: its auto-merge raced the local merge train. RemoteTrigger is enabled:false. Remove `paused` to re-enable liveness checks.",
-    },
-    unverifiable: true,
-    unverifiableReason:
-      'docs/routines/mbe-night.md:22 now specifies a distinct `chore(metrics): night queue telemetry <date>` PR title (#5604/#5608 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine still emits the old shared `chore(metrics): queue telemetry <date>` title, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`. Flip to a real signature (`searchTerm: "night queue telemetry"`) in a follow-up PR once a PR with the new title is observed, proving the live trigger was updated.',
   },
   {
     name: "mbe-auditor",
@@ -212,19 +190,6 @@ const BUILTIN_ROUTINES = [
       pattern: String.raw`chore\(metrics\): learning-loop \d{4}-\d{2}-\d{2}`,
       searchTerm: "learning-loop",
     },
-  },
-  {
-    name: "mbe-midday",
-    triggerId: "trig_0118ZgGfEndrMqQSuTQNXQwT",
-    periodDays: 1,
-    paused: {
-      since: "2026-09-25",
-      reason:
-        "Deliberately paused by Matt: its auto-merge raced the local merge train. RemoteTrigger is enabled:false. Remove `paused` to re-enable liveness checks.",
-    },
-    unverifiable: true,
-    unverifiableReason:
-      'docs/routines/mbe-midday.md:22 now specifies a distinct `chore(metrics): midday queue telemetry <date>` PR title (#5604/#5608 fix), but the live RemoteTrigger prompt at claude.ai has not been updated to match yet — until it is, this routine still emits the old shared `chore(metrics): queue telemetry <date>` title, and searching for the new signature here would find zero matches and misclassify a live routine as `dark`. Flip to a real signature (`searchTerm: "midday queue telemetry"`) in a follow-up PR once a PR with the new title is observed, proving the live trigger was updated.',
   },
   {
     name: "mbe-weekly-improve",
