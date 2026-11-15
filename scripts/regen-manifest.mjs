@@ -96,6 +96,10 @@ export const FAMILIES = [
       "packages/api-client/llms-full.txt",
       "packages/auth/llms.txt",
       "packages/auth/llms-full.txt",
+      "packages/availability/llms.txt",
+      "packages/availability/llms-full.txt",
+      "packages/cancellation-policy/llms.txt",
+      "packages/cancellation-policy/llms-full.txt",
       "packages/config/llms.txt",
       "packages/config/llms-full.txt",
       "packages/database/llms.txt",
@@ -122,6 +126,8 @@ export const FAMILIES = [
       "services/users/llms-full.txt",
       "tools/cli/llms.txt",
       "tools/cli/llms-full.txt",
+      "tools/route-contract/llms.txt",
+      "tools/route-contract/llms-full.txt",
     ],
     // A single source-file edit only makes ONE package's llms.txt stale, not
     // all ~25 — regenerating (and diffing) every package for one file change
@@ -287,6 +293,44 @@ export function llmsPackages() {
     .outputs.filter((o) => o === "llms.txt" || o.endsWith("/llms.txt"))
     .map((o) => (o === "llms.txt" ? "." : o.replace(/\/llms\.txt$/, "")));
 }
+
+/**
+ * Workspace package directories that intentionally have no committed
+ * llms.txt, with a one-line reason each. Checked by
+ * `scripts/__tests__/regen-manifest.test.mjs` ("workspace llms.txt
+ * coverage") against every `pnpm-workspace.yaml` dir with a package.json —
+ * a dir that is neither here nor in `llmsPackages()` fails that test by
+ * name (issue #8881), so a new package can never silently escape
+ * `pnpm regen --check`.
+ */
+export const LLMS_EXEMPTIONS = [
+  {
+    dir: "infrastructure/worker",
+    reason: "plain JavaScript (no .ts files) — mbe pack only reads .ts sources",
+  },
+  {
+    dir: "packages/rialto-plugin",
+    reason:
+      "its only non-test .ts file (scripts/generate-reference.ts) is a non-exporting build script — mbe pack would emit an empty skeleton",
+  },
+  {
+    dir: "plugins/acmm",
+    reason: "plain JavaScript tooling (no .ts files)",
+  },
+  {
+    dir: "scripts",
+    reason: "plain .mjs tooling (no .ts files)",
+  },
+  {
+    dir: "tests/smoke",
+    reason:
+      "e2e harness — the only non-test file mbe pack would read is playwright.config.ts, with no exported API",
+  },
+  {
+    dir: "tools/mutation-testing",
+    reason: "isolated devDependency host for Stryker config; no source files of its own",
+  },
+];
 
 // ---------------------------------------------------------------------------
 // familiesForChangedFile — single-file change detection (issue #2968)

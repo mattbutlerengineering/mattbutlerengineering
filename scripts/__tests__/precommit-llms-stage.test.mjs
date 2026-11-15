@@ -133,6 +133,32 @@ describe("runPrecommitLlmsStage", () => {
     ]);
   });
 
+  // Issue #8881: packages/availability had no llms-txt family entry until
+  // this issue, so an availability source edit never staged a root regen.
+  // Pins that a newly-covered package flows through the same path as any
+  // other covered package.
+  it("stages packages/availability's output and regenerates root (newly-covered package, #8881)", () => {
+    const calls = [];
+    const result = runPrecommitLlmsStage({
+      families: [family("packages/availability")],
+      regen: (pkgDir) => {
+        calls.push(["regen", pkgDir]);
+        return true;
+      },
+      diff: (outputs) => (outputs[0].startsWith("packages/availability") ? outputs : []),
+      stage: (paths) => {
+        calls.push(["stage", ...paths]);
+      },
+    });
+    expect(result.ranRoot).toBe(true);
+    expect(result.packagesChanged).toEqual(["packages/availability"]);
+    expect(calls).toEqual([
+      ["regen", "packages/availability"],
+      ["stage", "packages/availability/llms.txt", "packages/availability/llms-full.txt"],
+      ["regen", "."],
+    ]);
+  });
+
   it("skips a package whose regen command fails, without throwing", () => {
     const calls = [];
     const result = runPrecommitLlmsStage({
