@@ -502,7 +502,8 @@ describe("the confirm-red step", () => {
     expect(step.run).not.toContain("${{");
     expect(step.run.startsWith("set -o pipefail\n")).toBe(true);
     expect(step.env).toEqual({
-      GH_TOKEN: "${{ github.token }}",
+      // AUTOMATION_PAT so the rerun's completion fires workflow_run (#8826).
+      GH_TOKEN: "${{ secrets.AUTOMATION_PAT || github.token }}",
       RUN_ID: "${{ github.event.workflow_run.id }}",
       RUN_ATTEMPT: "${{ github.event.workflow_run.run_attempt }}",
       RUN_CONCLUSION: "${{ github.event.workflow_run.conclusion }}",
