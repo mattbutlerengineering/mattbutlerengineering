@@ -3173,6 +3173,8 @@
         }
       },
       "open": "Esta noche",
+      "openOnDate": "Esta noche · {{date}}",
+      "notSelectedDate": "Estos cambios se aplican a esta noche, no al {{date}}.",
       "chips": "Cambios de esta noche",
       "pause": "Pausar reservas en línea",
       "closeEarly": "Cerrar antes a las",

@@ -3091,6 +3091,8 @@
         }
       },
       "open": "Tonight",
+      "openOnDate": "Tonight · {{date}}",
+      "notSelectedDate": "These changes apply to tonight, not {{date}}.",
       "chips": "Tonight's changes",
       "pause": "Pause online booking",
       "closeEarly": "Close early at",
