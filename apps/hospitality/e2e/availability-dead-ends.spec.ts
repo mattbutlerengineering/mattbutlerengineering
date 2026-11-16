@@ -29,7 +29,15 @@ const COPYABLE = { weekdays: [1, 2, 3, 4, 5, 6] };
 async function openDay(page: Page, label: RegExp) {
   await page.goto("availability?tab=calendar");
   await page.locator("[data-date]").first().waitFor();
-  await page.getByRole("button", { name: label }).nth(20).click();
+  // A date after today: the drawer offers Edit only on today or later, so a cell picked by its
+  // position in the grid turns read-only once the calendar moves past it (red on main from
+  // 2026-11-16, when index 20 of the November grid became yesterday).
+  const cells = page.getByRole("button", { name: label }).and(page.locator("[data-date]"));
+  const dates = await cells.evaluateAll((els) => els.map((el) => el.getAttribute("data-date")));
+  const tomorrow = localDay(1);
+  const date = dates.find((d) => d !== null && d > tomorrow);
+  if (!date) throw new Error(`No calendar cell matching ${String(label)} after ${tomorrow}`);
+  await cells.and(page.locator(`[data-date="${date}"]`)).click();
   return page.getByRole("dialog");
 }
 
