@@ -18,6 +18,7 @@ import {
   isObservationBlackout,
   fetchObservedArtifactsViaGhClient,
   parseHeartbeatLine,
+  buildFleetLateTitle,
 } from "../routine-liveness.mjs";
 import {
   ROUTINE_MANIFEST,
@@ -1899,5 +1900,116 @@ describe("fails closed when the artifact lookup is unavailable (#8551)", async (
     expect(table).toContain("mbe-b");
     expect(table).toContain("would-create");
     expect(table.split("\n").filter((l) => l.includes("mbe-c"))).toHaveLength(1);
+  });
+});
+
+describe("runRoutineLivenessCheck — persistence and correlated lateness (#8941)", () => {
+  const now = "2026-11-16T12:00:00Z";
+  const HOUR = 3600 * 1000;
+  const daily = (name) => ({
+    name,
+    triggerId: `trig_${name}`,
+    periodDays: 1,
+    signature: { type: "pr-title", pattern: `${name} run`, searchTerm: name },
+  });
+  const manifestOf = (names) => names.map(daily);
+  // `ageHours` per routine: 12 = alive, 30 = late (1x-2x of a 1-day period).
+  const observer = (ages) => (entry) => [
+    {
+      type: "pr",
+      title: `${entry.name} run`,
+      observedAt: new Date(Date.parse(now) - ages[entry.name] * HOUR).toISOString(),
+    },
+  ];
+  const run = (ages, extra = {}) => {
+    const names = Object.keys(ages);
+    const rows = [];
+    const created = [];
+    const results = runRoutineLivenessCheck({
+      manifest: manifestOf(names),
+      fetchObservedArtifacts: observer(ages),
+      now,
+      searchCiFixIssues: () => [],
+      recordMetric: (row) => rows.push(row),
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 500;
+      },
+      ...extra,
+    });
+    return { results, rows, created };
+  };
+
+  it("records one row per checked routine, sharing one detected_at, even when all are alive", () => {
+    const { rows } = run({ a: 1, b: 2, c: 3 });
+    expect(rows).toHaveLength(3);
+    expect(new Set(rows.map((r) => r.detected_at))).toEqual(new Set([now]));
+    expect(rows.map((r) => [r.routine, r.status])).toEqual([
+      ["a", "alive"],
+      ["b", "alive"],
+      ["c", "alive"],
+    ]);
+    expect(rows[0].artifact_age_hours).toBe(1);
+  });
+
+  it("records a null age when no artifact matched", () => {
+    const rows = [];
+    runRoutineLivenessCheck({
+      manifest: manifestOf(["a", "b"]),
+      fetchObservedArtifacts: (e) => (e.name === "a" ? observer({ a: 1 })(e) : []),
+      now,
+      searchCiFixIssues: () => [],
+      recordMetric: (row) => rows.push(row),
+      createIssue: () => 1,
+    });
+    expect(rows.find((r) => r.routine === "b").artifact_age_hours).toBeNull();
+  });
+
+  it("files exactly one finding when 3 routines are late in the same pass", () => {
+    const { created, results } = run({ a: 30, b: 30, c: 30, d: 1 });
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe(buildFleetLateTitle());
+    // per-routine results are unchanged: late never files per routine
+    expect(results.filter((r) => r.status === "late").every((r) => !r.action)).toBe(true);
+  });
+
+  it.each([1, 2])("files nothing when only %i routine(s) are late", (n) => {
+    const ages = { a: 1, b: 1, c: 1 };
+    Object.keys(ages)
+      .slice(0, n)
+      .forEach((k) => (ages[k] = 30));
+    expect(run(ages).created).toHaveLength(0);
+  });
+
+  it("dedupes the correlated finding against an already-open issue of the same title", () => {
+    const { created } = run(
+      { a: 30, b: 30, c: 30 },
+      {
+        searchCiFixIssues: () => [{ number: 77, title: buildFleetLateTitle() }],
+        getIssueState: () => "open",
+      }
+    );
+    expect(created).toHaveLength(0);
+  });
+
+  it("files again when the earlier correlated issue is closed", () => {
+    const { created } = run(
+      { a: 30, b: 30, c: 30 },
+      {
+        searchCiFixIssues: () => [{ number: 77, title: buildFleetLateTitle() }],
+        getIssueState: () => "closed",
+      }
+    );
+    expect(created).toHaveLength(1);
+  });
+
+  it("does not treat the fleet issue as a per-routine finding", () => {
+    expect(extractRoutineNameFromIssueTitle({ title: buildFleetLateTitle() })).toBeNull();
+  });
+
+  it("records rows but files nothing in dry-run", () => {
+    const { rows, created } = run({ a: 30, b: 30, c: 30 }, { dryRun: true });
+    expect(rows).toHaveLength(3);
+    expect(created).toHaveLength(0);
   });
 });

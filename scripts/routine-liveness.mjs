@@ -49,6 +49,7 @@
 
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { append } from "./metrics-store.mjs";
 import { createGhClient, COORDINATION_LABELS } from "@mbe/gh-client";
 import { ROUTINE_MANIFEST, HEARTBEAT_ISSUE_NUMBER } from "./routine-manifest.mjs";
 import { issueState, parseIssueNumberFromUrl } from "./lib/issue-filing.mjs";
@@ -450,7 +451,97 @@ export function isObservationBlackout(observations) {
   return signed.length >= 2 && signed.every((o) => o.observedCount === 0);
 }
 
-export function runRoutineLivenessCheck({
+/** Routines `late` in one pass at or above which the pass is a fleet event, not N near-misses (#8941). */
+export const FLEET_LATE_THRESHOLD = 3;
+
+/** Pure: the single deterministic title of the correlated-`late` finding, so re-runs dedupe by title. */
+export function buildFleetLateTitle() {
+  return `ci-fix: routine fleet running late — ${FLEET_LATE_THRESHOLD}+ routines late in one pass`;
+}
+
+/** Pure: one metrics row per routine; every row of a pass shares `detected_at` so readers group by batch. */
+export function buildLivenessMetricRow({ detectedAt, routine, status, matched, nowMs }) {
+  const ageMs = matched?.observedAt ? nowMs - new Date(matched.observedAt).getTime() : NaN;
+  return {
+    detected_at: detectedAt,
+    routine,
+    status,
+    artifact_age_hours: Number.isFinite(ageMs) ? Math.round((ageMs / 3600000) * 10) / 10 : null,
+  };
+}
+
+/**
+ * Runs the liveness pass, then persists one row per checked routine through
+ * `recordMetric` (a quiet all-alive pass too — it is the baseline an outage rate
+ * is measured against) and files ONE issue when >= FLEET_LATE_THRESHOLD routines
+ * are `late` together (#8941). Per-routine classification is unchanged.
+ */
+export function runRoutineLivenessCheck({ recordMetric = () => {}, ...opts }) {
+  const matchedBy = new Map();
+  const results = runLivenessPass({ ...opts, matchedBy });
+  const { now, log = () => {}, dryRun = false } = opts;
+  const nowMs = new Date(now).getTime();
+
+  for (const r of results) {
+    recordMetric(
+      buildLivenessMetricRow({
+        detectedAt: now,
+        routine: r.routine,
+        status: r.status,
+        matched: matchedBy.get(r.routine),
+        nowMs,
+      })
+    );
+  }
+
+  const late = results.filter((r) => r.status === "late");
+  if (late.length >= FLEET_LATE_THRESHOLD) {
+    fileFleetLateFinding({ late, ...opts, log, dryRun });
+  }
+  return results;
+}
+
+function fileFleetLateFinding({
+  late,
+  searchCiFixIssues = () => [],
+  getIssueState = () => "missing",
+  createIssue,
+  log,
+  dryRun,
+}) {
+  const title = buildFleetLateTitle();
+  let candidates;
+  try {
+    candidates = searchCiFixIssues();
+  } catch (err) {
+    log(`search for a prior fleet-late issue failed — not filing this run: ${err?.message}`);
+    return;
+  }
+  const open = (candidates ?? []).find(
+    (c) =>
+      c.title === title &&
+      getIssueState(c.number) !== "closed" &&
+      getIssueState(c.number) !== "missing"
+  );
+  if (open) {
+    log(`Issue #${open.number} already tracks the fleet-late event — skipping.`);
+    return;
+  }
+  if (dryRun) {
+    log(`[dry-run] would create "${title}"`);
+    return;
+  }
+  const names = late.map((r) => r.routine).join(", ");
+  const body =
+    `${late.length} routines classified \`late\` (past 1x but within 2x their period) in the same ` +
+    `liveness pass: ${names}.\n\nOne routine overrunning is noise; several together is a fleet ` +
+    `event (#8941). Per-routine \`late\` never files.\n\nSee \`metrics/routine-liveness.jsonl\` ` +
+    `for the per-routine rows of this pass.`;
+  createIssue(title, body, ["ci-fix", COORDINATION_LABELS.READY], "late");
+  log(`Created fleet-late issue for: ${names}.`);
+}
+
+function runLivenessPass({
   manifest,
   fetchObservedArtifacts,
   now,
@@ -461,6 +552,7 @@ export function runRoutineLivenessCheck({
   runId,
   log = () => {},
   dryRun = false,
+  matchedBy,
 }) {
   const inScope = manifest.filter((entry) => !entry.outOfScope);
 
@@ -553,6 +645,7 @@ export function runRoutineLivenessCheck({
       activatedAt: entry.activatedAt,
       paused: entry.paused,
     });
+    matchedBy.set(entry.name, result.matched ?? null);
 
     if (result.status === "pending") {
       log(`${entry.name} is pending: ${result.reason}`);
@@ -942,6 +1035,8 @@ function main() {
     runId: process.env.GITHUB_RUN_ID,
     log: (msg) => console.error(msg),
     dryRun,
+    // A dry run writes nothing, metrics included.
+    recordMetric: dryRun ? () => {} : (row) => append("routine-liveness", row),
   });
 
   if (dryRun) {

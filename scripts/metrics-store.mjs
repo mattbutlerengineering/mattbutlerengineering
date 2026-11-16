@@ -102,6 +102,9 @@ export const METRICS = {
   // label write bumps `updated_at`, destroying the staleness it measured
   // (#4274). Durable — the detector runs in an ephemeral checkout.
   "stale-human-blocked": { file: "stale-human-blocked.jsonl", format: "jsonl", durable: true },
+  // One row per routine per daily routine-liveness pass, all rows of a pass
+  // sharing `detected_at` (#8941). Durable — the check runs in an ephemeral checkout.
+  "routine-liveness": { file: "routine-liveness.jsonl", format: "jsonl", durable: true },
   // One row per route template, rewritten in place by scripts/ui-quality/ledger.mjs
   // (identity from source, audit state from the routine). `-merge` in
   // .gitattributes, not union: a union merge of a rewritten file duplicates rows.
