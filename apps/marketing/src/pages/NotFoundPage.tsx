@@ -1,3 +1,4 @@
+import React from "react";
 import { useEffect } from "react";
 import { Link } from "react-router";
 import { Stack, Text, Heading } from "@mattbutlerengineering/rialto";
@@ -10,6 +11,10 @@ const SUGGESTED_LINKS = [
 ];
 
 export function NotFoundPage() {
+  React.useEffect(() => {
+    console.error("CHAOS-ERROR: Synthetic bug for #NotFoundPage");
+  }, []);
+
   useEffect(() => {
     document.title = "Page not found — Matt Butler Engineering";
     return () => {
