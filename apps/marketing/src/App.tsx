@@ -12,9 +12,6 @@ const StatusPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("./pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage }))
 );
-const WeeklyIntakePage = lazy(() =>
-  import("./pages/WeeklyIntakePage").then((m) => ({ default: m.WeeklyIntakePage }))
-);
 const MetricsPage = lazy(() =>
   import("./pages/MetricsPage").then((m) => ({ default: m.MetricsPage }))
 );
@@ -103,7 +100,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
               }
             />
             <Route path="/status" element={<StatusPage />} />
-            <Route path="/weekly" element={<WeeklyIntakePage />} />
+            <Route path="/weekly" element={<Navigate to="/" replace />} />
             <Route path="/metrics" element={<MetricsPage />} />
             <Route path="/acmm" element={<AcmmPage />} />
             <Route path="/ai-health" element={<AiHealthPage />} />

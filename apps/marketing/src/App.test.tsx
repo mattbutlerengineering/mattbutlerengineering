@@ -86,7 +86,6 @@ describe("App", () => {
     expect(Array.from(menu.children).map((li) => li.textContent)).toEqual([
       "/metrics",
       "/shipped",
-      "/weekly",
       "/status",
       "/ai-health",
       "/acmm",
@@ -95,6 +94,15 @@ describe("App", () => {
       (li) => li.getAttribute("data-current") === "true"
     );
     expect(current.map((li) => li.textContent)).toEqual(["/shipped"]);
+  });
+
+  it("redirects the retired /weekly page to the homepage", () => {
+    render(
+      <MemoryRouter initialEntries={["/weekly"]}>
+        <App theme="light" onThemeToggle={vi.fn()} />
+      </MemoryRouter>
+    );
+    expect(screen.getByTestId("global-nav").getAttribute("data-current-path")).toBe("/");
   });
 
   it.each(["/", "/metrics", "/shipped", "/not-a-page"])(

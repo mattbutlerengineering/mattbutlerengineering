@@ -1,5 +1,3 @@
-import type { WeeklyResource } from "../data/weekly-intake.js";
-
 // --- Service status types (shared with StatusPage) ---
 
 export interface ServiceStatus {
@@ -152,22 +150,3 @@ export function isReportStale(
   const ageHours = (now.getTime() - new Date(generatedAt).getTime()) / MS_PER_HOUR;
   return ageHours > thresholdHours;
 }
-
-// --- Weekly source maps ---
-
-export const SOURCE_COLORS: Record<
-  WeeklyResource["source"],
-  "yellow" | "blue" | "purple" | "neutral"
-> = {
-  "js-weekly": "yellow",
-  "react-weekly": "blue",
-  "ai-weekly": "purple",
-  other: "neutral",
-};
-
-export const SOURCE_LABELS: Record<WeeklyResource["source"], string> = {
-  "js-weekly": "JS Weekly",
-  "react-weekly": "React Weekly",
-  "ai-weekly": "AI Weekly",
-  other: "Other",
-};

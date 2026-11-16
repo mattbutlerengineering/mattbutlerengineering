@@ -22,9 +22,6 @@ vi.mock("../components/ContactSection.js", () => ({
 vi.mock("../components/factory/FactorySection.js", () => ({
   FactorySection: () => <div data-testid="factory-section" />,
 }));
-vi.mock("../components/ReadingSection.js", () => ({
-  ReadingSection: () => <div data-testid="reading-section" />,
-}));
 vi.mock("../components/Navbar.js", () => ({
   Navbar: () => <nav data-testid="navbar" />,
 }));
@@ -93,10 +90,15 @@ describe("HomePage", () => {
     ).toBe(true);
   });
 
-  it("closes with the reading section above the minimal contact row", () => {
+  it("closes with the minimal contact row right after the factory section", () => {
     renderHomePage();
-    const weekly = screen.getByTestId("reading-section");
-    expect(precedes(screen.getByTestId("factory-section"), weekly)).toBe(true);
-    expect(precedes(weekly, screen.getByTestId("contact-section"))).toBe(true);
+    expect(
+      precedes(screen.getByTestId("factory-section"), screen.getByTestId("contact-section"))
+    ).toBe(true);
+  });
+
+  it("no longer links to the retired /weekly page", () => {
+    const { container } = renderHomePage();
+    expect(container.querySelector('a[href="/weekly"]')).toBeNull();
   });
 });

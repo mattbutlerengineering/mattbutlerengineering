@@ -4,15 +4,14 @@ Page inventory, key components and the E2E spec inventory, moved out of [CLAUDE.
 
 ## Pages
 
-| Page             | Route            | Description                                               |
-| ---------------- | ---------------- | --------------------------------------------------------- |
-| HomePage         | `/`              | Landing: hero, proof strip, projects, weekly CTA, contact |
-| StatusPage       | `/status`        | Real-time health dashboard for APIs and static sites      |
-| WeeklyIntakePage | `/weekly`        | Curated newsletter resources with source filtering        |
-| MetricsPage      | `/metrics`       | ACMM quality metrics dashboard                            |
-| ShippedIndexPage | `/shipped`       | Index of every feature the factory shipped, newest first  |
-| ShippedStoryPage | `/shipped/:slug` | One shipped feature: proposal → children → PR verdicts    |
-| NotFoundPage     | `*`              | 404 with suggested links                                  |
+| Page             | Route            | Description                                              |
+| ---------------- | ---------------- | -------------------------------------------------------- |
+| HomePage         | `/`              | Landing: hero, proof strip, projects, contact            |
+| StatusPage       | `/status`        | Real-time health dashboard for APIs and static sites     |
+| MetricsPage      | `/metrics`       | ACMM quality metrics dashboard                           |
+| ShippedIndexPage | `/shipped`       | Index of every feature the factory shipped, newest first |
+| ShippedStoryPage | `/shipped/:slug` | One shipped feature: proposal → children → PR verdicts   |
+| NotFoundPage     | `*`              | 404 with suggested links                                 |
 
 ## Key Components
 
@@ -35,4 +34,3 @@ Playwright tests in `e2e/`, run in CI by the `Marketing E2E` job (`.github/workf
 | `not-found.spec.ts`       | 404 handling                                    |
 | `seo.spec.ts`             | SEO structure (headings)                        |
 | `status.spec.ts`          | Status page health checks                       |
-| `weekly.spec.ts`          | Weekly intake page                              |

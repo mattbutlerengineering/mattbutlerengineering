@@ -16425,7 +16425,6 @@
     export const ENGINEERING_PAGES: readonly EngineeringPage[] = [
       { label: "Metrics", href: "/metrics" },
       { label: "Shipped", href: "/shipped" },
-      { label: "Weekly", href: "/weekly" },
       { label: "Status", href: "/status" },
       { label: "AI health", href: "/ai-health" },
       { label: "ACMM", href: "/acmm" },
@@ -16653,84 +16652,6 @@
       }
       return undefined;
     }
-  </file>
-  <file path="apps/marketing/src/data/weekly-freshness.ts">
-    export function recentReadingItems(
-      resources: readonly WeeklyResource[],
-      now: Date = new Date()
-    ): readonly WeeklyResource[] {
-      const cutoff = now.getTime() - READING_WINDOW_DAYS * MS_PER_DAY;
-      return resources
-        .filter((resource) => new Date(resource.publishedAt).getTime() >= cutoff)
-        .sort(byNewest)
-        .slice(0, MAX_READING_ITEMS);
-    }
-    export function latestPublishedAt(resources: readonly WeeklyResource[]): string | null {
-      return [...resources].sort(byNewest)[0]?.publishedAt ?? null;
-    }
-  </file>
-  <file path="apps/marketing/src/data/weekly-intake.ts">
-    export interface WeeklyResource {
-      readonly id: string;
-      readonly title: string;
-      readonly url: string;
-      readonly source: "js-weekly" | "react-weekly" | "ai-weekly" | "other";
-      readonly description: string;
-      readonly publishedAt: string;
-      readonly tags: readonly string[];
-    }
-    export const weeklyResources: readonly WeeklyResource[] = [
-      {
-        id: "1",
-        title: "JavaScript Weekly",
-        url: "https://javascriptweekly.com",
-        source: "js-weekly",
-        description:
-          "A weekly newsletter that curates the best JavaScript articles, tutorials, and packages from around the web.",
-        publishedAt: "2026-04-29",
-        tags: ["javascript", "newsletter", "weekly"],
-      },
-      {
-        id: "2",
-        title: "React Status",
-        url: "https://react.statuscode.com",
-        source: "react-weekly",
-        description:
-          "A weekly roundup of the latest React and React Native news, tutorials, and tools.",
-        publishedAt: "2026-04-29",
-        tags: ["react", "newsletter", "weekly"],
-      },
-      {
-        id: "3",
-        title: "AI Breakfast",
-        url: "https://aibreakfast.beehiiv.com",
-        source: "ai-weekly",
-        description:
-          "Daily insights on AI trends, tools, and breakthroughs to keep you ahead of the curve.",
-        publishedAt: "2026-04-29",
-        tags: ["ai", "newsletter", "weekly"],
-      },
-      {
-        id: "4",
-        title: "Frontend Focus",
-        url: "https://frontendfoc.us",
-        source: "other",
-        description:
-          "A weekly newsletter covering the latest in frontend development, CSS, frameworks, and tooling.",
-        publishedAt: "2026-04-29",
-        tags: ["frontend", "css", "newsletter"],
-      },
-      {
-        id: "5",
-        title: "Node Weekly",
-        url: "https://nodeweekly.com",
-        source: "js-weekly",
-        description:
-          "A weekly newsletter covering the latest Node.js news, packages, and best practices.",
-        publishedAt: "2026-04-29",
-        tags: ["nodejs", "backend", "newsletter"],
-      },
-    ];
   </file>
   <file path="apps/rialto-web/src/data/demo-routes.ts">
     export const DEMO_ROUTES = {
@@ -100709,21 +100630,6 @@
       const ageHours = (now.getTime() - new Date(generatedAt).getTime()) / MS_PER_HOUR;
       return ageHours > thresholdHours;
     }
-    export const SOURCE_COLORS: Record<
-      WeeklyResource["source"],
-      "yellow" | "blue" | "purple" | "neutral"
-    > = {
-      "js-weekly": "yellow",
-      "react-weekly": "blue",
-      "ai-weekly": "purple",
-      other: "neutral",
-    };
-    export const SOURCE_LABELS: Record<WeeklyResource["source"], string> = {
-      "js-weekly": "JS Weekly",
-      "react-weekly": "React Weekly",
-      "ai-weekly": "AI Weekly",
-      other: "Other",
-    };
   </file>
   <file path="apps/marketing/src/utils/route-meta.ts">
     export interface RouteMeta {
