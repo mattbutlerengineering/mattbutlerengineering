@@ -99,6 +99,7 @@ export function App({ theme, onThemeToggle }: AppProps) {
                 </Suspense>
               }
             />
+            <Route path="/index.html" element={<Navigate to="/" replace />} />
             <Route path="/status" element={<StatusPage />} />
             <Route path="/weekly" element={<Navigate to="/" replace />} />
             <Route path="/metrics" element={<MetricsPage />} />
