@@ -140,8 +140,8 @@
   cursor: pointer;
   flex-shrink: 0;
   transition:
-    border-color 0.12s var(--rialto-ease-precision),
-    color 0.12s var(--rialto-ease-precision);
+    border-color var(--rialto-duration-fast) var(--rialto-ease-precision),
+    color var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .close:hover {

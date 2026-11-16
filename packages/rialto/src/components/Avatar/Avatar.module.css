@@ -111,7 +111,7 @@
 
 .group .avatar {
   margin-inline-start: -8px;
-  transition: transform 0.15s var(--rialto-ease-precision);
+  transition: transform var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .group .avatar:last-child {

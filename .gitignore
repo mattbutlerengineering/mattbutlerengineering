@@ -142,6 +142,7 @@ reports/mutation/
 !/metrics/production-health/*
 !/metrics/queue-telemetry.jsonl
 !/metrics/review-burden.json
+!/metrics/routine-liveness.jsonl
 !/metrics/sensor-report.jsonl
 !/metrics/service-health.jsonl
 !/metrics/stale-human-blocked.jsonl

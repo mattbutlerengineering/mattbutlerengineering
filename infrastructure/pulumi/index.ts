@@ -347,6 +347,9 @@ const workerScript = new cloudflare.WorkersScript("mattbutlerengineering-edge-ro
     // is also declared in ../worker/wrangler.toml, but this resource is what
     // deploys — scripts/check-analytics-bindings.mjs keeps the two in sync.
     { name: "ANALYTICS", dataset: "edge_requests", type: "analytics_engine" },
+    // CSP violation reports from POST /csp-report (worker/csp-report.js, #8895).
+    // A separate dataset so edge_requests stays one row per request.
+    { name: "CSP_REPORTS", dataset: "csp_reports", type: "analytics_engine" },
   ],
 });
 

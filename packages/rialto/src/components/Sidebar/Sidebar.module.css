@@ -65,8 +65,8 @@
   width: 100%;
   text-align: start;
   transition:
-    background 0.15s var(--rialto-ease-precision),
-    color 0.15s var(--rialto-ease-precision);
+    background var(--rialto-duration-standard) var(--rialto-ease-precision),
+    color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .item:hover {
@@ -121,8 +121,8 @@
   color: var(--rialto-text-tertiary);
   cursor: pointer;
   transition:
-    background 0.15s var(--rialto-ease-precision),
-    color 0.15s var(--rialto-ease-precision);
+    background var(--rialto-duration-standard) var(--rialto-ease-precision),
+    color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .collapseToggle:hover {

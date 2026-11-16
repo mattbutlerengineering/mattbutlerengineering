@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - ".github/workflows/deploy-static.yml"
       - "apps/marketing/**"
       - "apps/hospitality/**"
       - "apps/rialto-web/**"
@@ -75,10 +76,12 @@ jobs:
           # transitively (scripts/__tests__/deploy-static-app-paths.test.mjs).
           filters: |
             marketing:
+              - '.github/workflows/deploy-static.yml'
               - 'apps/marketing/**'
               - 'packages/rialto/**'
               - 'packages/sentry/**'
             hospitality:
+              - '.github/workflows/deploy-static.yml'
               - 'apps/hospitality/**'
               - 'packages/rialto/**'
               - 'packages/auth/**'
@@ -89,6 +92,7 @@ jobs:
               - 'packages/availability/**'
               - 'packages/sentry/**'
             rialto-web:
+              - '.github/workflows/deploy-static.yml'
               - 'apps/rialto-web/**'
               - 'scripts/ui-quality/derive-path.*'
               - 'packages/rialto/**'
@@ -171,6 +175,8 @@ jobs:
 
       - run: pnpm build --filter=@mbe/marketing
         env:
+          # Only marketing sets this: apps/marketing/index.html alone reads it,
+          # for scripts/check-deploy-sha.mjs.
           VITE_BUILD_ID: ${{ github.sha }}
           # Vite inlines VITE_SENTRY_DSN at build time, and packages/sentry
           # enables itself on DSN length alone, so omitting it makes

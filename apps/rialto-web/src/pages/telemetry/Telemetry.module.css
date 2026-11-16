@@ -1,11 +1,5 @@
 .page {
   padding: var(--rialto-space-xl);
-  /* DemoLayout's display controls are out of flow, anchored under the nav.
-     Sibling demos clear that band with a PageHeader; this route opens
-     straight onto the status strip, so it reserves the space itself.
-     Without this the LIVE flag, lap, and position sit underneath the
-     shell's buttons on landing. */
-  padding-block-start: calc(var(--rialto-space-4xl) + var(--rialto-space-lg));
 }
 
 /* The frame is the point — it holds its shape across every feed state. */

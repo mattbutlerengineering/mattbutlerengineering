@@ -20,7 +20,9 @@ const at = (msAgo) => new Date(NOW - msAgo).toISOString();
 
 const makeIssue = (overrides = {}) => ({
   number: 1,
-  createdAt: at(4 * DAY),
+  // Issue is old; staleness must come from agentFailedAt, never createdAt.
+  createdAt: at(30 * DAY),
+  agentFailedAt: at(4 * DAY),
   labels: [{ name: "agent-failed" }],
   ...overrides,
 });
@@ -31,18 +33,18 @@ const makeIssue = (overrides = {}) => ({
 
 describe("selectStaleForRetry", () => {
   it("selects an agent-failed issue older than the 3-day threshold", () => {
-    const issues = [makeIssue({ number: 7, createdAt: at(4 * DAY) })];
+    const issues = [makeIssue({ number: 7, agentFailedAt: at(4 * DAY) })];
     expect(selectStaleForRetry(issues, NOW).map((i) => i.number)).toEqual([7]);
   });
 
   it("excludes an agent-failed issue younger than 3 days", () => {
-    const issues = [makeIssue({ number: 7, createdAt: at(2 * DAY) })];
+    const issues = [makeIssue({ number: 7, agentFailedAt: at(2 * DAY) })];
     expect(selectStaleForRetry(issues, NOW)).toEqual([]);
   });
 
   it("treats exactly 3 days as not-yet-stale (strict greater-than)", () => {
     const issues = [
-      makeIssue({ number: 7, createdAt: new Date(NOW - RETRY_THRESHOLD_MS).toISOString() }),
+      makeIssue({ number: 7, agentFailedAt: new Date(NOW - RETRY_THRESHOLD_MS).toISOString() }),
     ];
     expect(selectStaleForRetry(issues, NOW)).toEqual([]);
   });
@@ -61,9 +63,9 @@ describe("selectStaleForRetry", () => {
 
   it("caps the result at DEFAULT_RETRY_CAP (2), oldest first", () => {
     const issues = [
-      makeIssue({ number: 1, createdAt: at(4 * DAY) }),
-      makeIssue({ number: 2, createdAt: at(6 * DAY) }),
-      makeIssue({ number: 3, createdAt: at(5 * DAY) }),
+      makeIssue({ number: 1, agentFailedAt: at(4 * DAY) }),
+      makeIssue({ number: 2, agentFailedAt: at(6 * DAY) }),
+      makeIssue({ number: 3, agentFailedAt: at(5 * DAY) }),
     ];
     // oldest first: #2 (6d), #3 (5d), then #1 — capped to 2
     expect(selectStaleForRetry(issues, NOW).map((i) => i.number)).toEqual([2, 3]);
@@ -71,19 +73,42 @@ describe("selectStaleForRetry", () => {
 
   it("honors an explicit cap override", () => {
     const issues = [
-      makeIssue({ number: 1, createdAt: at(4 * DAY) }),
-      makeIssue({ number: 2, createdAt: at(6 * DAY) }),
+      makeIssue({ number: 1, agentFailedAt: at(4 * DAY) }),
+      makeIssue({ number: 2, agentFailedAt: at(6 * DAY) }),
     ];
     expect(selectStaleForRetry(issues, NOW, { cap: 1 }).map((i) => i.number)).toEqual([2]);
   });
 
-  it("excludes issues with a malformed createdAt", () => {
-    const issues = [makeIssue({ number: 7, createdAt: "not-a-date" })];
+  it("excludes issues with a malformed agentFailedAt", () => {
+    const issues = [makeIssue({ number: 7, agentFailedAt: "not-a-date" })];
     expect(selectStaleForRetry(issues, NOW)).toEqual([]);
   });
 
+  it("does NOT select an old issue that only failed 1 day ago", () => {
+    const issues = [makeIssue({ number: 7, createdAt: at(30 * DAY), agentFailedAt: at(1 * DAY) })];
+    expect(selectStaleForRetry(issues, NOW)).toEqual([]);
+  });
+
+  it("selects an issue that failed 4 days ago regardless of createdAt", () => {
+    const issues = [makeIssue({ number: 7, createdAt: at(4.5 * DAY), agentFailedAt: at(4 * DAY) })];
+    expect(selectStaleForRetry(issues, NOW).map((i) => i.number)).toEqual([7]);
+  });
+
+  it("excludes stealable issues (already failed twice)", () => {
+    const issues = [
+      makeIssue({ number: 7, labels: [{ name: "agent-failed" }, { name: "stealable" }] }),
+    ];
+    expect(selectStaleForRetry(issues, NOW)).toEqual([]);
+  });
+
+  it("fails closed when the agent-failed label time is missing", () => {
+    const issues = [makeIssue({ number: 7, agentFailedAt: undefined })];
+    expect(selectStaleForRetry(issues, NOW)).toEqual([]);
+    expect(selectStaleForRetry([makeIssue({ number: 8, agentFailedAt: null })], NOW)).toEqual([]);
+  });
+
   it("supports string labels as well as {name} objects", () => {
-    const issues = [makeIssue({ number: 7, labels: ["agent-failed"], createdAt: at(4 * DAY) })];
+    const issues = [makeIssue({ number: 7, labels: ["agent-failed"], agentFailedAt: at(4 * DAY) })];
     expect(selectStaleForRetry(issues, NOW).map((i) => i.number)).toEqual([7]);
   });
 
@@ -95,8 +120,8 @@ describe("selectStaleForRetry", () => {
 
   it("does not mutate the input array", () => {
     const issues = [
-      makeIssue({ number: 1, createdAt: at(4 * DAY) }),
-      makeIssue({ number: 2, createdAt: at(6 * DAY) }),
+      makeIssue({ number: 1, agentFailedAt: at(4 * DAY) }),
+      makeIssue({ number: 2, agentFailedAt: at(6 * DAY) }),
     ];
     const snapshot = issues.map((i) => i.number);
     selectStaleForRetry(issues, NOW);
@@ -116,7 +141,7 @@ describe("runAutoRetry", () => {
   });
 
   it("re-queues each selected issue via the shared markReady transition, then comments", async () => {
-    const issues = [makeIssue({ number: 7, createdAt: at(4 * DAY) })];
+    const issues = [makeIssue({ number: 7, agentFailedAt: at(4 * DAY) })];
     const deps = makeDeps(issues);
     const retried = await runAutoRetry({ ...deps, now: NOW });
 
@@ -129,7 +154,7 @@ describe("runAutoRetry", () => {
   });
 
   it("dry-run reports the selection but performs no mutations", async () => {
-    const issues = [makeIssue({ number: 7, createdAt: at(4 * DAY) })];
+    const issues = [makeIssue({ number: 7, agentFailedAt: at(4 * DAY) })];
     const deps = makeDeps(issues);
     const retried = await runAutoRetry({ ...deps, now: NOW, dryRun: true });
 
@@ -140,9 +165,9 @@ describe("runAutoRetry", () => {
 
   it("respects the per-run cap", async () => {
     const issues = [
-      makeIssue({ number: 1, createdAt: at(4 * DAY) }),
-      makeIssue({ number: 2, createdAt: at(6 * DAY) }),
-      makeIssue({ number: 3, createdAt: at(5 * DAY) }),
+      makeIssue({ number: 1, agentFailedAt: at(4 * DAY) }),
+      makeIssue({ number: 2, agentFailedAt: at(6 * DAY) }),
+      makeIssue({ number: 3, agentFailedAt: at(5 * DAY) }),
     ];
     const deps = makeDeps(issues);
     const retried = await runAutoRetry({ ...deps, now: NOW });
@@ -152,7 +177,7 @@ describe("runAutoRetry", () => {
   });
 
   it("does nothing when no issues qualify", async () => {
-    const deps = makeDeps([makeIssue({ number: 7, createdAt: at(1 * DAY) })]);
+    const deps = makeDeps([makeIssue({ number: 7, agentFailedAt: at(1 * DAY) })]);
     const retried = await runAutoRetry({ ...deps, now: NOW });
     expect(retried).toEqual([]);
     expect(deps.editLabels).not.toHaveBeenCalled();

@@ -64,6 +64,13 @@ describe("Rate Limiter", () => {
       expect(rule.maxRequests).toBe(100);
     });
 
+    it("bounds the unauthenticated /csp-report sink (#8895)", () => {
+      const rule = findRateLimit("/csp-report");
+      expect(rule).not.toBeNull();
+      expect(rule.pattern).toBe("/csp-report");
+      expect(rule.maxRequests).toBeLessThanOrEqual(100);
+    });
+
     it("returns null for non-rate-limited paths", () => {
       const rule = findRateLimit("/hospitality/");
       expect(rule).toBeNull();

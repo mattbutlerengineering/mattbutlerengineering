@@ -47,9 +47,9 @@ describe("hospitality adapter", () => {
   const rows = extractApp("hospitality", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 31 route templates (29 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
-    expect(rows).toHaveLength(31);
-    expect(new Set(rows.map((r) => r.route)).size).toBe(31);
+  it("yields 32 route templates (30 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
+    expect(rows).toHaveLength(32);
+    expect(new Set(rows.map((r) => r.route)).size).toBe(32);
   });
 
   it("reads the children of `availability`: the hub at its index, booking rules and History over it, today's page at `calendar`, regular hours", () => {
@@ -83,6 +83,12 @@ describe("hospitality adapter", () => {
       "apps/hospitality/src/pages/AvailabilityHoursPage.tsx",
       "apps/hospitality/src/main.tsx",
     ]);
+    // The Availability map, Venue Setup before #8864.
+    expect(byRoute["availability/map"].kind).toBe("page");
+    expect(byRoute["availability/map"].source_files).toEqual([
+      "apps/hospitality/src/pages/AvailabilityMapPage.tsx",
+      "apps/hospitality/src/main.tsx",
+    ]);
   });
 
   it("marks the two routes outside <App /> public and everything under it auth0", () => {
@@ -90,7 +96,7 @@ describe("hospitality adapter", () => {
     expect(byRoute["reservations/manage"].auth).toBe("public");
     expect(byRoute["timeline"].auth).toBe("auth0");
     expect(byRoute["/"].auth).toBe("auth0");
-    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(26);
+    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(27);
   });
 
   it("classifies callback as a redirect and * as not-found", () => {
@@ -100,6 +106,8 @@ describe("hospitality adapter", () => {
     expect(rows.filter((r) => r.kind === "page")).toHaveLength(28);
     // /setup/hours moved to the Availability page (#7513); the old path stays as a <Navigate>.
     expect(byRoute["setup/hours"].kind).toBe("redirect");
+    // /setup moved to the Availability map (#8864); the old path stays as a redirect.
+    expect(byRoute["setup"].kind).toBe("redirect");
   });
 
   it("names the page module and main.tsx in every row's source_files", () => {
@@ -108,7 +116,9 @@ describe("hospitality adapter", () => {
       // A bare <Navigate> has no page module of its own.
       expect(row.source_files.length).toBeGreaterThanOrEqual(row.kind === "redirect" ? 1 : 2);
     }
+    // Guest routes sit inside GuestSurface (#8835), a component of the leaf like the page itself.
     expect(byRoute["book/:venueSlug"].source_files).toEqual([
+      "apps/hospitality/src/components/GuestSurface.tsx",
       "apps/hospitality/src/pages/PublicBookingPage.tsx",
       "apps/hospitality/src/main.tsx",
     ]);
@@ -237,7 +247,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(31 + 11 + 124);
+    expect(rows).toHaveLength(32 + 11 + 124);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([

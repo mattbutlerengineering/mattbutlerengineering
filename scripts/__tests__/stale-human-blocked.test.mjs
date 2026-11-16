@@ -56,6 +56,27 @@ describe("findStaleHumanBlockedIssues", () => {
     expect(findStaleHumanBlockedIssues(issues, NOW).map((i) => i.number)).toEqual([1]);
   });
 
+  it("reports an issue stale carrying only `needs-human` (#8940)", () => {
+    const issues = [
+      makeIssue({ number: 8629, createdAt: at(20 * DAY), labels: [{ name: "needs-human" }] }),
+    ];
+    expect(findStaleHumanBlockedIssues(issues, NOW).map((i) => i.number)).toEqual([8629]);
+  });
+
+  it.each(["vetoed", "tracking"])(
+    "excluded label %s still wins over `needs-human` (#8940)",
+    (excluded) => {
+      const issues = [
+        makeIssue({
+          number: 8630,
+          createdAt: at(30 * DAY),
+          labels: [{ name: "needs-human" }, { name: excluded }],
+        }),
+      ];
+      expect(findStaleHumanBlockedIssues(issues, NOW)).toEqual([]);
+    }
+  );
+
   it("does not report a fresh issue", () => {
     const issues = [makeIssue({ number: 2, createdAt: at(1 * DAY) })];
     expect(findStaleHumanBlockedIssues(issues, NOW)).toEqual([]);

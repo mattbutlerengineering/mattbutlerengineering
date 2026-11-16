@@ -26,8 +26,8 @@
   border-radius: var(--rialto-radius-default);
   cursor: text;
   transition:
-    border-color 0.15s var(--rialto-ease-precision),
-    box-shadow 0.15s var(--rialto-ease-precision);
+    border-color var(--rialto-duration-standard) var(--rialto-ease-precision),
+    box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .control:hover {
@@ -96,7 +96,7 @@
   background: none;
   color: var(--rialto-text-secondary);
   cursor: pointer;
-  transition: color 0.1s var(--rialto-ease-precision);
+  transition: color var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .chipRemove:hover {
@@ -149,7 +149,7 @@
   font-size: var(--rialto-text-sm);
   color: var(--rialto-text-primary);
   cursor: pointer;
-  transition: background 0.1s var(--rialto-ease-precision);
+  transition: background var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .option:hover,

@@ -65,11 +65,36 @@ export const BUG_CATALOG: Record<BugType, BugInjector> = {
    */
   "lint-violation": {
     description: "Declares an unused local, failing @typescript-eslint/no-unused-vars in CI",
-    pattern: /(export (?:default )?function \w+[^{]*\{)/,
+    pattern: /export (?:default )?function \w+/,
     injection: () =>
       `\n  const chaosUnusedBinding = "CHAOS-LINT: Chaos Agent synthetic no-unused-vars";\n`,
   },
 };
+
+/**
+ * Index just past the `{` that opens the function body, starting the search at
+ * `from` (the function name). A bare `indexOf("{")` lands inside a destructured
+ * parameter or an inline type (`({ children }: { children: ReactNode })`) and
+ * produces a file `eslint --fix` rejects as a parsing error (#8922), so the
+ * parameter list is skipped by balancing brackets first. Returns -1 if none.
+ */
+function findBodyOpenBrace(content: string, from: number): number {
+  const paramsStart = content.indexOf("(", from);
+  if (paramsStart === -1) return -1;
+  let depth = 0;
+  let i = paramsStart;
+  for (; i < content.length; i++) {
+    const ch = content[i];
+    if (ch === "(" || ch === "{" || ch === "[") depth++;
+    else if (ch === ")" || ch === "}" || ch === "]") {
+      depth--;
+      if (depth === 0) break;
+    }
+  }
+  if (depth !== 0) return -1;
+  const brace = content.indexOf("{", i);
+  return brace === -1 ? -1 : brace + 1;
+}
 
 export interface InjectBugResult {
   injected: boolean;
@@ -99,7 +124,9 @@ export function injectBug(type: BugType, content: string): InjectBugResult {
     if (!next.includes("import React")) {
       next = (bug.imports ?? "") + next;
     }
-    const insertionPoint = next.indexOf("{", match.index) + 1;
+    // `match.index` predates the prepended import, so locate the function again.
+    const insertionPoint = findBodyOpenBrace(next, next.search(bug.pattern));
+    if (insertionPoint === -1) return { injected: false, content };
     next = next.slice(0, insertionPoint) + bug.injection!(match[2]) + next.slice(insertionPoint);
     return { injected: true, content: next };
   }
@@ -110,11 +137,9 @@ export function injectBug(type: BugType, content: string): InjectBugResult {
   if (type === "lint-violation") {
     // Insert immediately after the function's opening brace, so the binding
     // is a local (which the rule flags) rather than a module-level export.
-    const [, signature] = match;
-    if (signature === undefined || match.index === undefined) {
-      return { injected: false, content };
-    }
-    const insertionPoint = match.index + signature.length;
+    if (match.index === undefined) return { injected: false, content };
+    const insertionPoint = findBodyOpenBrace(content, match.index);
+    if (insertionPoint === -1) return { injected: false, content };
     return {
       injected: true,
       content: content.slice(0, insertionPoint) + bug.injection!() + content.slice(insertionPoint),

@@ -259,8 +259,8 @@ async function navigateToTimeline(page: Page): Promise<void> {
 }
 
 async function navigateToFloorPlanEditor(page: Page): Promise<void> {
-  // The floor plan is reached from its Venue Setup node (there is no Floor Plans nav item).
-  await page.getByRole("button", { name: "Venue Setup", exact: true }).click();
+  // The floor plan is reached from its Availability map node (there is no Floor Plans nav item).
+  await page.getByRole("button", { name: "Availability map", exact: true }).click();
   await page.getByRole("button", { name: "Open floor plan Main Floor" }).click();
   await expect(page.getByRole("heading", { name: "Main Floor" })).toBeVisible();
 }

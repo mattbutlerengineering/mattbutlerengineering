@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { RialtoProvider } from "@mattbutlerengineering/rialto";
@@ -171,17 +171,66 @@ describe("feed states", () => {
     expect(screen.getByRole("button", { name: /reconnect/i })).toBeInTheDocument();
   });
 
+  describe("hold", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("retains real values under a HOLD label, not dimmed and with no reconnect", () => {
+      const { container } = renderRoute("?feed=hold");
+
+      const status = screen.getByRole("region", { name: "Session status" });
+      expect(within(status).getByText("HOLD")).toBeInTheDocument();
+      expect(container.querySelector("[data-feed-state]")).toHaveAttribute(
+        "data-feed-state",
+        "hold"
+      );
+      expect(screen.queryAllByText("––")).toHaveLength(0);
+      expect(container.querySelectorAll("[data-skeleton-slot]")).toHaveLength(0);
+      expect(container.querySelector("[data-feed-state]")).not.toHaveAttribute("data-dimmed");
+      expect(screen.queryByRole("button", { name: /reconnect/i })).not.toBeInTheDocument();
+    });
+
+    it("retains the frame instead of ticking", () => {
+      renderRoute("?feed=hold");
+      // Let the odometer finish its one-shot settle from the first frame; that
+      // animation is not a new frame, so it must not count as ticking.
+      act(() => {
+        vi.advanceTimersByTime(5_000);
+      });
+      const hud = () =>
+        [
+          screen.getByRole("region", { name: "Zones" }),
+          screen.getByRole("region", { name: "Vitals" }),
+          screen.getByRole("region", { name: "Session status" }),
+        ].map((r) => r.textContent);
+      const before = hud();
+
+      act(() => {
+        vi.advanceTimersByTime(30_000);
+      });
+
+      expect(hud()).toEqual(before);
+    });
+  });
+
   it("keeps the frame identical across every state", () => {
     const live = rowCounts(renderRoute("?frozen=1").container);
     const empty = rowCounts(renderRoute("?feed=empty").container);
     const connecting = rowCounts(renderRoute().container);
     const stale = rowCounts(renderRoute("?feed=stale").container);
+    const hold = rowCounts(renderRoute("?feed=hold").container);
 
     expect(live.zones).toBeGreaterThan(0);
     expect(live.vitals).toBeGreaterThan(0);
     expect(empty).toEqual(live);
     expect(connecting).toEqual(live);
     expect(stale).toEqual(live);
+    expect(hold).toEqual(live);
   });
 });
 

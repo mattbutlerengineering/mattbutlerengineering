@@ -159,24 +159,31 @@ export async function provokeCapturedError(
 }
 
 /**
- * The Sentry search-API query that will actually surface the marked event.
+ * The `query` to send the project events endpoint, if any.
  *
- * Browser events still carry the marker as plain text in their title/message
- * (`throwHeartbeatInPage`), so Sentry's free-text search finds them unchanged.
- * Backend events no longer do: #8557 strips the query string from the `url`
- * tag and the captured message before they reach Sentry, so the marker that
- * used to make every backend event's message unique is gone from the text
- * Sentry's free-text search reads. The `requestId` tag still carries it
- * verbatim (`setSentryContext`), so backend lookups must search that tag by
- * name instead of hoping free text matches.
+ * That endpoint does NOT parse Sentry search syntax: its `query` is a
+ * case-insensitive substring match on the event's `message`
+ * (`positionCaseInsensitive(message, query)` in getsentry's
+ * `ProjectEventsEndpoint`). So `requestId:<marker>` matched only a message
+ * containing that literal text — never — and every backend lookup came back
+ * empty (#8778).
+ *
+ * Browser events carry the marker in their message (`throwHeartbeatInPage`),
+ * so the bare marker narrows the list to them. Backend events no longer do:
+ * #8557 strips the query string from the `url` tag and the captured message,
+ * so any query would hide them. Backend lookups send no query, list the
+ * project's recent events, and match the `requestId` tag client-side.
  *
  * @param {string} marker
  * @param {string} kind
- * @returns {string}
+ * @returns {string | undefined}
  */
 export function buildEventSearchQuery(marker, kind) {
-  return kind === "browser" ? marker : `requestId:${marker}`;
+  return kind === "browser" ? marker : undefined;
 }
+
+/** How far back an unfiltered backend lookup lists events; a run lasts minutes. */
+const BACKEND_LOOKUP_PERIOD = "1h";
 
 /**
  * Ask Sentry whether an event carrying the marker has landed yet. A non-2xx
@@ -200,8 +207,12 @@ export async function findMarkedEvent(
   kind = "backend"
 ) {
   const query = buildEventSearchQuery(marker, kind);
+  const params =
+    query === undefined
+      ? `statsPeriod=${BACKEND_LOOKUP_PERIOD}`
+      : `query=${encodeURIComponent(query)}`;
   const response = await fetchImpl(
-    `https://sentry.io/api/0/projects/${org}/${project}/events/?query=${encodeURIComponent(query)}`,
+    `https://sentry.io/api/0/projects/${org}/${project}/events/?${params}`,
     {
       headers: { Authorization: `Bearer ${token}` },
       signal: AbortSignal.timeout(SENTRY_REQUEST_TIMEOUT_MS),

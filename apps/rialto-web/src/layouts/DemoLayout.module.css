@@ -3,15 +3,22 @@
    they do not reserve space. --demo-controls-clearance is how far below the
    sticky nav the first line of a demo must start. Nav block-size is
    --rialto-space-3xl plus a 1px border; the bar's top is 3xl + md and its
-   block size is the variable below, then an xs gap. PageHeader reads the
-   rialto-prefixed alias. */
+   block size is the variable below, then an xs gap. The shell pads
+   <main> by it. */
 .root {
   position: relative;
   --demo-controls-block-size: 36px;
   --demo-controls-clearance: calc(
     var(--rialto-space-md) + var(--demo-controls-block-size) + var(--rialto-space-xs) - 1px
   );
-  --rialto-page-header-padding-block-start: var(--demo-controls-clearance);
+  /* The shell pads <main> itself (below), so PageHeader must not clear the band again. */
+  --rialto-page-header-padding-block-start: 0px;
+}
+
+/* Reserve the band for every child route, so a new demo cannot land under the buttons. */
+.main {
+  padding-block-start: var(--demo-controls-clearance);
+  outline: none;
 }
 
 /* ── Display controls ───────────────────────── */

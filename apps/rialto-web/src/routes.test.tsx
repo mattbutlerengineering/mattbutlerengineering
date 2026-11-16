@@ -1,7 +1,10 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import type { ReactNode } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, matchRoutes } from "react-router";
+import type { RouteObject } from "react-router";
 
 // Rialto resolves to an unbuilt dist in the worktree, so — like every other app
 // test — stub it. These stubs pass children through so nested react-router
@@ -200,5 +203,49 @@ describe("demos index route (#8535)", () => {
       const link = screen.getByRole("link", { name: page.label });
       expect(link.getAttribute("href")).toBe(`${BASENAME}${page.path}`);
     }
+  });
+});
+
+describe("post-deploy smoke coverage (#8892)", () => {
+  type SmokeList = {
+    covered: { path: string; heading: string }[];
+    excluded: { path: string; reason: string }[];
+  };
+
+  /** Static-or-param demo paths below a route list; pathless layouts are walked through. */
+  function demoPaths(routes: RouteObject[]): string[] {
+    return routes.flatMap((route) => [
+      ...(route.path !== undefined ? [route.path] : []),
+      ...demoPaths(route.children ?? []),
+    ]);
+  }
+
+  /** Paths relative to /rialto/demos; "" is the index page. */
+  function walkedDemoPaths(): string[] {
+    // The showcase shell owns the index; the top-level `demos` route owns the children.
+    const shell = routeTree.find((r) => !r.path && r.children);
+    const hasIndex = (shell?.children ?? []).some((r) => r.path === "demos");
+    const children = routeTree
+      .filter((r) => r.path === "demos")
+      .flatMap((r) => demoPaths(r.children ?? []));
+    return [...(hasIndex ? [""] : []), ...children];
+  }
+
+  const list = JSON.parse(
+    // vitest runs with cwd = apps/rialto-web (jsdom: import.meta.url is not a file: URL)
+    readFileSync(resolve(process.cwd(), "../../tests/smoke/rialto-demo-routes.json"), "utf8")
+  ) as SmokeList;
+
+  it("every demo route is smoke-covered or explicitly excluded", () => {
+    const known = new Set([...list.covered, ...list.excluded].map((e) => e.path));
+    const missing = walkedDemoPaths().filter((p) => !known.has(p));
+    expect(missing).toEqual([]);
+  });
+
+  it("every excluded entry carries a reason, and no list entry is stale", () => {
+    const walked = new Set(walkedDemoPaths());
+    for (const entry of list.excluded) expect(entry.reason.length).toBeGreaterThan(0);
+    const stale = [...list.covered, ...list.excluded].filter((e) => !walked.has(e.path));
+    expect(stale).toEqual([]);
   });
 });

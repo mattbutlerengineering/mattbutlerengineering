@@ -41,3 +41,11 @@ describe("revert-watchdog reopen-culprit-issues job", () => {
     }
   });
 });
+
+describe("revert-watchdog confirm-red rerun token (#8826)", () => {
+  const job = jobBlock("confirm-red");
+
+  it("starts the rerun with AUTOMATION_PAT, falling back to GITHUB_TOKEN", () => {
+    expect(job).toMatch(/GH_TOKEN: \$\{\{ secrets\.AUTOMATION_PAT \|\| github\.token \}\}/);
+  });
+});

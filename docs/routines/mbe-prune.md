@@ -9,7 +9,7 @@ cron_b: "29 * * * *"
 cron_c: "44 * * * *"
 cron_d: "59 * * * *"
 model: claude-sonnet-5-5
-cadence: Every 15 minutes (four hourly triggers, offset by 15 minutes)
+cadence: Every 30 minutes (mbe-prune-a and mbe-prune-c; b and d disabled 2026-11-15)
 ---
 
 # mbe-prune
@@ -25,6 +25,11 @@ minutes sit between the account's existing hourly fires (`:03`/`:07`/`:11` and
 `:33`/`:38`/`:41`, across this repo, the skills repo and ai-tooling) and this
 repo's daily routines (`:21`/`:23`/`:37`/`:47`). If this file and any live trigger ever disagree, this
 file wins — see [`docs/scheduled-tasks.md`](../scheduled-tasks.md#editing-a-routine).
+
+**Cadence halved 2026-11-15:** `mbe-prune-b` and `mbe-prune-d` are disabled, so the
+pass fires every 30 minutes (`:14` and `:44`). The previous 7 days had 96 fires a day
+and 2 merged prune PRs. The prompt text still says "every 15 minutes"; it was left
+unchanged so the two live prompts need no edit. Re-enable b and d to restore 15 minutes.
 
 **What it is for.** A pristine repository: every document accurate, every file
 reachable, nothing describing something that no longer exists. It removes and
@@ -119,7 +124,7 @@ You are the mbe-prune routine for the mattbutlerengineering monorepo. You fire e
 ENVIRONMENT (Claude Code Remote; measured 2026-10-15, see .claude/rules/gotchas.md § Claude Code Remote):
 - `gh` is installed, but every GraphQL-backed subcommand (gh issue list/view/edit/create, gh pr list/view/checks/merge/edit, gh run list, gh workflow run) answers HTTP 403. Use REST only: `gh api repos/mattbutlerengineering/mattbutlerengineering/...`. If `gh` itself is missing, use the GitHub MCP tools instead (ToolSearch `select:mcp__github__get_issue,mcp__github__update_issue,mcp__github__add_issue_comment,mcp__github__create_issue,mcp__github__list_pull_requests,mcp__github__get_pull_request,mcp__github__create_pull_request,mcp__github__merge_pull_request,mcp__github__search_issues`). Never report "nothing to do" because a tool failed — name the tool that failed.
 - Merge with REST, never `gh pr merge` and never `--auto`. Write the merge body to `/tmp/merge-<N>.json` with the Write tool: `{"merge_method":"squash","sha":"<reviewed head SHA>","commit_title":"<PR title> (#<N>)","commit_message":"<body>"}` — `sha` makes GitHub refuse the merge if the head moved after review, and the squash COMMIT message is what closes issues, so put `Closes #<ISSUE>` in commit_message when the PR resolves one. Then run `gh api -X PUT repos/mattbutlerengineering/mattbutlerengineering/pulls/<N>/merge --input /tmp/merge-<N>.json` as the whole Bash call: literal repository path (never `$R` or `.../`), nothing before or after it (no `cd`, `&&`, `;`, `|`, subshell or variable assignment). In cloud routines the auto-mode classifier still reviews this call and can deny it as `[Merge Without Review]`: a `.claude/settings.json` allow rule does not bypass it there (measured 2026-11-07). A compound form is always classified, so keep the call plain. GitHub auto-deletes merged branches and the proxy blocks ref deletes, so never try to delete branches or tags.
-- CI: `CI Gate` is the ONLY required check on main. Read it on the PR head SHA: `gh api '.../commits/<sha>/check-runs?check_name=CI%20Gate' --jq '[.check_runs[] | {status, conclusion}]'`. `codecov/patch`, `Visual Regression`, `Hospitality E2E` and other advisory checks never block a merge — do not wait on them and do not try to fix them. You have no actions:write and cannot dispatch workflows: if no ci.yml check-runs exist on your branch 10 minutes after the push, push one empty commit (`git commit --allow-empty -m "ci: retrigger"`); if still absent, comment on the PR, label it `needs-review`, and move on.
+- CI: `CI Gate` is the ONLY required check on main. Read it with `node scripts/ci-gate-status.mjs check --pr <N>` and act on its `state`: only `green` is mergeable, `pending` means wait, `failed` means fix, `gate-missing` takes the empty-commit fallback below, and `gate-unattributed`/`unknown` mean comment, label `needs-review` and move on. `codecov/patch`, `Visual Regression`, `Hospitality E2E` and other advisory checks never block a merge — do not wait on them and do not try to fix them. You have no actions:write and cannot dispatch workflows: if no ci.yml check-runs exist on your branch 10 minutes after the push, push one empty commit (`git commit --allow-empty -m "ci: retrigger"`); if still absent, comment on the PR, label it `needs-review`, and move on.
 - If the plain merge call above is denied with `[Merge Without Review]` (expected in cloud), do not retry it through any tool for the rest of this fire; hand the PR to `reviewed-merge.yml` instead. Post a PR comment whose FIRST line is exactly `reviewed-merge: <reviewed head SHA, all 40 characters> PASS <score>/10` (or `PASS fast-path` when the classifier returned `fast: true`), with the review verdict below it, then add the `reviewed` label (`gh api -X POST .../issues/<N>/labels -f 'labels[]=reviewed'`). The workflow merges once CI Gate is green on that SHA, and a new push invalidates the verdict. Report the PR as handed off, not merged.
 - While waiting on CI, prefer `mcp__Claude_Code_Remote__subscribe_pr_activity` plus ScheduleWakeup/Monitor over tight polling. Wait at most 25 minutes per PR.
 

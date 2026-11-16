@@ -47,7 +47,7 @@ export function AvailabilityHoursPage() {
               {t("availabilityHub.hours.back")}
             </Link>
             {from === "setup" && (
-              <Link to="/setup" className={styles.link}>
+              <Link to={availabilityPath({ view: "map" })} className={styles.link}>
                 {t("availability.backToSetup")}
               </Link>
             )}

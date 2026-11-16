@@ -18,6 +18,7 @@ import {
   isObservationBlackout,
   fetchObservedArtifactsViaGhClient,
   parseHeartbeatLine,
+  buildFleetLateTitle,
 } from "../routine-liveness.mjs";
 import {
   ROUTINE_MANIFEST,
@@ -423,12 +424,9 @@ describe("mbe-evening liveness signature (#5603 investigation)", () => {
 // against the 2026-09-13 -> 2026-09-20 window, as documented in the
 // docs/process-retro.md 2026-09-20 entry's liveness table, must report
 // mbe-weekly-improve dark and every other routine with a declared signature
-// alive. Routines marked `unverifiable` in the manifest (mbe-night,
-// mbe-midday — each has a prompt-documented title now, neither confirmed
-// live at the trigger yet; mbe-monthly-meta-audit graduated in #5748;
-// are asserted separately as `unverifiable`, not folded into the "every other
-// routine" alive claim — they are real, distinct findings the manifest
-// surfaces honestly rather than papering over with a fabricated signature.
+// alive. mbe-night and mbe-midday were retired on 2026-11-15 (paused since
+// 2026-09-25, superseded by mbe-feature-drain), so they are no longer in the
+// manifest.
 describe("paused routines (#6440, #6443)", () => {
   const paused = { since: "2026-09-25", reason: "test pause" };
   const entry = {
@@ -455,12 +453,9 @@ describe("paused routines (#6440, #6443)", () => {
     expect(calls).toEqual([]);
   });
 
-  it("marks mbe-night and mbe-midday paused while keeping their signature notes", () => {
+  it("no longer lists the retired mbe-night and mbe-midday routines", () => {
     for (const name of ["mbe-night", "mbe-midday"]) {
-      const e = ROUTINE_MANIFEST.find((r) => r.name === name);
-      expect(e.paused.since).toBe("2026-09-25");
-      expect(e.paused.reason).toBeTruthy();
-      expect(e.unverifiableReason).toBeTruthy();
+      expect(ROUTINE_MANIFEST.find((r) => r.name === name)).toBeUndefined();
     }
   });
 });
@@ -488,13 +483,6 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
         observedAt: "2026-09-20T00:30:00Z", // cron 11 0 * * *
       },
     ],
-    "mbe-night": [
-      {
-        type: "pr",
-        title: "chore(metrics): night queue telemetry 2026-09-20",
-        observedAt: "2026-09-20T05:00:00Z", // cron 47 4 * * *
-      },
-    ],
     "mbe-auditor": [
       { type: "heartbeat", state: "noop", observedAt: "2026-09-20T09:45:00Z" }, // cron 37 9 * * *
     ],
@@ -509,13 +497,6 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
         type: "pr",
         title: "chore(metrics): learning-loop 2026-09-20",
         observedAt: "2026-09-20T18:10:00Z", // cron 0 18 * * *
-      },
-    ],
-    "mbe-midday": [
-      {
-        type: "pr",
-        title: "chore(metrics): midday queue telemetry 2026-09-20",
-        observedAt: "2026-09-20T20:15:00Z", // cron 7 20 * * *
       },
     ],
     "mbe-weekly-improve": [],
@@ -542,9 +523,8 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     ],
   };
 
-  // mbe-night/mbe-midday are `unverifiable` in the manifest (see below) —
-  // runRoutineLivenessCheck files a finding for those too, so createIssue
-  // must be a working stub here, not a throw.
+  // createIssue is a working stub, not a throw, so any finding the check
+  // files cannot abort the fixture.
   let nextIssueNumber = 1000;
   const results = runRoutineLivenessCheck({
     manifest: ROUTINE_MANIFEST,
@@ -559,41 +539,15 @@ describe("known-good fixture: 2026-09-13 -> 2026-09-20 window", () => {
     expect(byRoutine["mbe-weekly-improve"]).toBe("dark");
   });
 
-  // These two have artifacts in this fixture, dated with the distinct titles
-  // their docs/routines/*.md prompts now specify (#5604/#5608) and are still
-  // NOT alive (mbe-daily-issue graduated on 2026-09-25, mbe-monthly-meta-audit
-  // on 2026-10-01, both #5748): the manifest keeps them `unverifiable` on
-  // purpose until the live RemoteTrigger prompts are confirmed updated to
-  // actually emit those titles (see routine-manifest.mjs unverifiableReason)
-  // — flipping the manifest signature ahead of the live trigger would search
-  // for a title nothing emits yet and misclassify a healthy routine as
-  // `dark`, worse than `unverifiable`.
-  const PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION = ["mbe-night", "mbe-midday"];
-
   it("reports every other routine with a declared signature as alive", () => {
     for (const name of Object.keys(observedArtifactsByRoutine)) {
-      if (
-        name === "mbe-weekly-improve" ||
-        PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION.includes(name)
-      )
-        continue;
+      if (name === "mbe-weekly-improve") continue;
       expect(byRoutine[name]).toBe("alive");
     }
   });
 
   it("reports mbe-morning alive from its heartbeat (#6157)", () => {
     expect(byRoutine["mbe-morning"]).toBe("alive");
-  });
-
-  it("keeps every prompt-updated routine paused (not unverifiable) until its live trigger is confirmed updated", () => {
-    // The fixture gives each a real, in-window PR under its NEW title —
-    // proving this is not the pre-fix "no artifact" gap. They still report
-    // `unverifiable`, not `alive`, because the manifest has no live evidence
-    // yet that the RemoteTrigger prompt (not just docs/routines/*.md) emits
-    // this title.
-    for (const name of PROMPT_UPDATED_PENDING_TRIGGER_CONFIRMATION) {
-      expect(byRoutine[name]).toBe("paused");
-    }
   });
 
   // Named separately from the loop above: these are the routines #5605 and
@@ -1946,5 +1900,116 @@ describe("fails closed when the artifact lookup is unavailable (#8551)", async (
     expect(table).toContain("mbe-b");
     expect(table).toContain("would-create");
     expect(table.split("\n").filter((l) => l.includes("mbe-c"))).toHaveLength(1);
+  });
+});
+
+describe("runRoutineLivenessCheck — persistence and correlated lateness (#8941)", () => {
+  const now = "2026-11-16T12:00:00Z";
+  const HOUR = 3600 * 1000;
+  const daily = (name) => ({
+    name,
+    triggerId: `trig_${name}`,
+    periodDays: 1,
+    signature: { type: "pr-title", pattern: `${name} run`, searchTerm: name },
+  });
+  const manifestOf = (names) => names.map(daily);
+  // `ageHours` per routine: 12 = alive, 30 = late (1x-2x of a 1-day period).
+  const observer = (ages) => (entry) => [
+    {
+      type: "pr",
+      title: `${entry.name} run`,
+      observedAt: new Date(Date.parse(now) - ages[entry.name] * HOUR).toISOString(),
+    },
+  ];
+  const run = (ages, extra = {}) => {
+    const names = Object.keys(ages);
+    const rows = [];
+    const created = [];
+    const results = runRoutineLivenessCheck({
+      manifest: manifestOf(names),
+      fetchObservedArtifacts: observer(ages),
+      now,
+      searchCiFixIssues: () => [],
+      recordMetric: (row) => rows.push(row),
+      createIssue: (title, body) => {
+        created.push({ title, body });
+        return 500;
+      },
+      ...extra,
+    });
+    return { results, rows, created };
+  };
+
+  it("records one row per checked routine, sharing one detected_at, even when all are alive", () => {
+    const { rows } = run({ a: 1, b: 2, c: 3 });
+    expect(rows).toHaveLength(3);
+    expect(new Set(rows.map((r) => r.detected_at))).toEqual(new Set([now]));
+    expect(rows.map((r) => [r.routine, r.status])).toEqual([
+      ["a", "alive"],
+      ["b", "alive"],
+      ["c", "alive"],
+    ]);
+    expect(rows[0].artifact_age_hours).toBe(1);
+  });
+
+  it("records a null age when no artifact matched", () => {
+    const rows = [];
+    runRoutineLivenessCheck({
+      manifest: manifestOf(["a", "b"]),
+      fetchObservedArtifacts: (e) => (e.name === "a" ? observer({ a: 1 })(e) : []),
+      now,
+      searchCiFixIssues: () => [],
+      recordMetric: (row) => rows.push(row),
+      createIssue: () => 1,
+    });
+    expect(rows.find((r) => r.routine === "b").artifact_age_hours).toBeNull();
+  });
+
+  it("files exactly one finding when 3 routines are late in the same pass", () => {
+    const { created, results } = run({ a: 30, b: 30, c: 30, d: 1 });
+    expect(created).toHaveLength(1);
+    expect(created[0].title).toBe(buildFleetLateTitle());
+    // per-routine results are unchanged: late never files per routine
+    expect(results.filter((r) => r.status === "late").every((r) => !r.action)).toBe(true);
+  });
+
+  it.each([1, 2])("files nothing when only %i routine(s) are late", (n) => {
+    const ages = { a: 1, b: 1, c: 1 };
+    Object.keys(ages)
+      .slice(0, n)
+      .forEach((k) => (ages[k] = 30));
+    expect(run(ages).created).toHaveLength(0);
+  });
+
+  it("dedupes the correlated finding against an already-open issue of the same title", () => {
+    const { created } = run(
+      { a: 30, b: 30, c: 30 },
+      {
+        searchCiFixIssues: () => [{ number: 77, title: buildFleetLateTitle() }],
+        getIssueState: () => "open",
+      }
+    );
+    expect(created).toHaveLength(0);
+  });
+
+  it("files again when the earlier correlated issue is closed", () => {
+    const { created } = run(
+      { a: 30, b: 30, c: 30 },
+      {
+        searchCiFixIssues: () => [{ number: 77, title: buildFleetLateTitle() }],
+        getIssueState: () => "closed",
+      }
+    );
+    expect(created).toHaveLength(1);
+  });
+
+  it("does not treat the fleet issue as a per-routine finding", () => {
+    expect(extractRoutineNameFromIssueTitle({ title: buildFleetLateTitle() })).toBeNull();
+  });
+
+  it("records rows but files nothing in dry-run", () => {
+    const { rows, created } = run({ a: 30, b: 30, c: 30 }, { dryRun: true });
+    expect(rows).toHaveLength(3);
+    expect(created).toHaveLength(0);
   });
 });

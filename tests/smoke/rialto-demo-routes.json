@@ -1,0 +1,26 @@
+{
+  "covered": [
+    { "path": "", "heading": "Demos" },
+    { "path": "login", "heading": "Sign in to your account" },
+    { "path": "signup", "heading": "Create your account" },
+    { "path": "session-expired", "heading": "Session expired" },
+    { "path": "dashboard", "heading": "Pit Wall" },
+    { "path": "teams/new", "heading": "Register Team" },
+    { "path": "layouts", "heading": "Layout Components" },
+    { "path": "telemetry", "heading": "Live telemetry" },
+    { "path": "auth-flow", "heading": "Auth Flow" },
+    { "path": "drivers", "heading": "Drivers" },
+    { "path": "drivers/new", "heading": "Add Driver" }
+  ],
+  "excluded": [
+    {
+      "path": "drivers/:id",
+      "reason": "Param route: needs a concrete driver id, covered by drivers list."
+    },
+    {
+      "path": "drivers/:id/edit",
+      "reason": "Param route: needs a concrete driver id, covered by drivers/new."
+    },
+    { "path": "visual-test", "reason": "Visual-regression fixture page, not a user-facing demo." }
+  ]
+}

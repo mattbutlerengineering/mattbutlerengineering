@@ -5432,7 +5432,8 @@
           readonly date?: string;
         }
       | { readonly view: "bookingRules" }
-      | { readonly view: "history" };
+      | { readonly view: "history" }
+      | { readonly view: "map" };
     export type AvailabilityTarget = AvailabilityView & {
       readonly close?: CloseTarget;
       readonly pause?: boolean;
@@ -15953,6 +15954,15 @@
       if (score === "risky") return t("crm.risk.risky");
       if (score === "standard") return t("crm.risk.standard");
       return t("crm.risk.trusted");
+    }
+  </file>
+  </section>
+  <section priority="medium" role="dashboard">
+  <file path="apps/rialto-web/src/pages/dashboard/delta-color.ts">
+    export function deltaColor(delta: number): string {
+      if (delta > 0) return "var(--rialto-success)";
+      if (delta < 0) return ERROR_TEXT_COLOR;
+      return "var(--rialto-text-tertiary)";
     }
   </file>
   </section>
@@ -38207,8 +38217,10 @@
        *    a lot of live state fits without the eye having to travel.
        * 2. **Near-square corners** (default 6→2, soft 10→4) — rounding reads as
        *    soft and document-like; instruments have edges.
-       * 3. **A duration scale inside the 100ms feedback budget** (fast 0.1→0.06,
-       *    standard 0.15→0.09, slow 0.2→0.12) with a fast-attack easing curve.
+       * 3. **Feedback durations inside the 100ms budget** (fast 0.1→0.06,
+       *    standard 0.15→0.09) with a fast-attack easing curve. `slow` (0.2→0.12s)
+       *    is outside the budget on purpose: it is for larger movements, not
+       *    feedback.
        *    Encoding the budget in the preset means the whole catalog inherits it,
        *    instead of every component being audited for it one at a time.
        *
@@ -76591,8 +76603,8 @@
         id: "Manage",
         label: t("nav.sections.manage"),
         items: [
-          route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
           route("availability", t("nav.items.availability"), availabilityPath({ view: "hub" })),
+          route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
           route("menus", t("nav.items.menus"), "/menus"),
           route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
         ],
@@ -83343,11 +83355,28 @@
        */
       "lint-violation": {
         description: "Declares an unused local, failing @typescript-eslint/no-unused-vars in CI",
-        pattern: /(export (?:default )?function \w+[^{]*\{)/,
+        pattern: /export (?:default )?function \w+/,
         injection: () =>
           `\n  const chaosUnusedBinding = "CHAOS-LINT: Chaos Agent synthetic no-unused-vars";\n`,
       },
     };
+    function findBodyOpenBrace(content: string, from: number): number {
+      const paramsStart = content.indexOf("(", from);
+      if (paramsStart === -1) return -1;
+      let depth = 0;
+      let i = paramsStart;
+      for (; i < content.length; i++) {
+        const ch = content[i];
+        if (ch === "(" || ch === "{" || ch === "[") depth++;
+        else if (ch === ")" || ch === "}" || ch === "]") {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      if (depth !== 0) return -1;
+      const brace = content.indexOf("{", i);
+      return brace === -1 ? -1 : brace + 1;
+    }
     export interface InjectBugResult {
       injected: boolean;
       content: string;
@@ -83370,7 +83399,9 @@
         if (!next.includes("import React")) {
           next = (bug.imports ?? "") + next;
         }
-        const insertionPoint = next.indexOf("{", match.index) + 1;
+        // `match.index` predates the prepended import, so locate the function again.
+        const insertionPoint = findBodyOpenBrace(next, next.search(bug.pattern));
+        if (insertionPoint === -1) return { injected: false, content };
         next = next.slice(0, insertionPoint) + bug.injection!(match[2]) + next.slice(insertionPoint);
         return { injected: true, content: next };
       }
@@ -83381,11 +83412,9 @@
       if (type === "lint-violation") {
         // Insert immediately after the function's opening brace, so the binding
         // is a local (which the rule flags) rather than a module-level export.
-        const [, signature] = match;
-        if (signature === undefined || match.index === undefined) {
-          return { injected: false, content };
-        }
-        const insertionPoint = match.index + signature.length;
+        if (match.index === undefined) return { injected: false, content };
+        const insertionPoint = findBodyOpenBrace(content, match.index);
+        if (insertionPoint === -1) return { injected: false, content };
         return {
           injected: true,
           content: content.slice(0, insertionPoint) + bug.injection!() + content.slice(insertionPoint),
@@ -102249,9 +102278,7 @@
       | "setUpRegularWeek"
       | "changeRegularWeek"
       | "editSchedule"
-      | "compareServices"
       | "createSchedule"
-      | "openCalendar"
       | "openSpecialDates"
       | "bookingRules"
       | "openFloorPlan"
@@ -102381,13 +102408,11 @@
               weekdays: covered.slice(),
             }
           : { kind: "week", weekdays };
+      // One link per node (#8864 AC6): the regular week's editor is Regular hours.
       const actions: SetupAction[] = !manager
         ? []
         : schedule.isRegular
-          ? [
-              action("changeRegularWeek", link(SETUP_HOURS)),
-              action("editSchedule", link(SETUP_HOURS), schedule.name),
-            ]
+          ? [action("changeRegularWeek", link(SETUP_HOURS))]
           : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
       return {
         id: `schedule:${schedule.id}`,
@@ -102427,12 +102452,8 @@
         kind: "schedules",
         name: null,
         state: { kind: "count", count: schedules.length },
-        actions: manager
-          ? [
-              action("compareServices", link(SETUP_SCHEDULES)),
-              action("createSchedule", link(SETUP_ADD_SCHEDULE)),
-            ]
-          : [],
+        // Each schedule below links to its own editor; the group's one link adds another schedule.
+        actions: manager ? [action("createSchedule", link(SETUP_ADD_SCHEDULE))] : [],
         children: schedules,
       };
     }
@@ -102484,12 +102505,7 @@
         kind: "specialDates",
         name: null,
         state: upcoming.length === 0 ? UNSET : { kind: "count", count: upcoming.length },
-        actions: manager
-          ? [
-              action("openCalendar", link(SETUP_CALENDAR_TAB)),
-              action("openSpecialDates", link(SETUP_SPECIAL)),
-            ]
-          : [],
+        actions: manager ? [action("openSpecialDates", link(SETUP_SPECIAL))] : [],
         children,
       };
     }
@@ -102607,12 +102623,8 @@
         state: hasTables
           ? { kind: "floorPlan", sections: sections.length, tables: tables.length }
           : UNSET,
-        actions: manager
-          ? [
-              action("openFloorPlan", link(planPath), plan.name),
-              action("addFloorPlan", link("/floor-plans")),
-            ]
-          : [],
+        // Another floor plan is added from the floor plan list, which the sidebar and the empty node open.
+        actions: manager ? [action("openFloorPlan", link(planPath), plan.name)] : [],
         children: [...sectionNodes, ...noSection],
       };
     }
@@ -102686,7 +102698,7 @@
       /** One line on what the resource is, on the top-level nodes. */
       readonly whatIs: (node: SetupNode) => string | null;
       readonly state: (node: SetupNode) => string;
-      readonly actionLabel: (action: SetupAction, node: SetupNode) => string;
+      readonly actionLabel: (action: SetupAction) => string;
       /** The target an action names, read after its visible label ("Close for a date… Bar"). */
       readonly actionSubject: (action: SetupAction) => string | undefined;
     }
@@ -102838,10 +102850,7 @@
           }
         },
         state,
-        actionLabel: (action, node) =>
-          action.id === "addFloorPlan" && node.state.kind !== "unset"
-            ? t("setup.hub.actions.addAnotherFloorPlan")
-            : t(`setup.hub.actions.${action.id}`),
+        actionLabel: (action) => t(`setup.hub.actions.${action.id}`),
         actionSubject: (action) => action.subject,
       };
     }

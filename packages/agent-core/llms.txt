@@ -2566,6 +2566,9 @@
     <item priority="high">
       export const BUG_CATALOG: Record<BugType, BugInjector>;
     </item>
+    <item priority="medium">
+      function findBodyOpenBrace(content: string, from: number): number { /* ... */ }
+    </item>
     <item priority="low">
       interface InjectBugResult {
         injected: boolean;

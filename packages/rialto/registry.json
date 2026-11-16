@@ -1,5 +1,5 @@
 {
-  "version": "0.10.15",
+  "version": "0.10.17",
   "components": [
     {
       "name": "Accordion",
@@ -3660,7 +3660,7 @@
           "name": "vibeOverrides",
           "type": "VibeOverrides | undefined",
           "required": false,
-          "description": "Additional CSS custom property overrides merged on top of the vibe preset."
+          "description": "Additional CSS custom property overrides, applied last: they win over the\nvibe preset and the reduced-data and reduced-motion adapters. Pinning a\n`--rialto-duration-*` token here re-imposes motion on users who asked for\nless; leave duration tokens alone or check `device.reducedMotion` first.\nSee `docs/vibes.md`."
         },
         {
           "name": "theme",
@@ -5233,7 +5233,7 @@
     },
     {
       "name": "VibeName",
-      "description": "Rialto Vibe System\n\nVibes are CSS custom property override sets that shift the design\nlanguage to match user intent. They work via the CSS cascade — the\nsame proven pattern as `.darkSurface` in surfaces.module.css.\n\n- `default` — no overrides, standard Rialto tokens\n- `transacting` — tighter spacing, sharper radii, bolder weight for urgency\n- `presenting` — more whitespace, larger type, softer radii for presentation\n- `game` — instrument density: tight spacing, near-square corners, bolder\n  labels, and a duration scale entirely inside a 100ms feedback budget",
+      "description": "Rialto Vibe System\n\nVibes are CSS custom property override sets that shift the design\nlanguage to match user intent. They work via the CSS cascade — the\nsame proven pattern as `.darkSurface` in surfaces.module.css.\n\n- `default` — no overrides, standard Rialto tokens\n- `transacting` — tighter spacing, sharper radii, bolder weight for urgency\n- `presenting` — more whitespace, larger type, softer radii for presentation\n- `game` — instrument density: tight spacing, near-square corners, bolder\n  labels, and feedback durations (`fast`, `standard`) inside a 100ms budget",
       "importPath": "@mattbutlerengineering/rialto",
       "props": [],
       "slots": []

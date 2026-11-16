@@ -1,3 +1,4 @@
+import ts from "typescript";
 import { describe, it, expect } from "vitest";
 import { BUG_CATALOG, injectBug } from "../synthetic-bug-seeder.js";
 
@@ -141,4 +142,33 @@ describe("lint-violation — the only type whose detector sees the chaos branch"
   it("is in the catalog with a description", () => {
     expect(BUG_CATALOG["lint-violation"].description).toMatch(/no-unused-vars/);
   });
+});
+
+/** Syntax errors `eslint --fix` would reject as "Parsing error" (#8922). */
+function syntaxErrors(source: string): string[] {
+  const { diagnostics } = ts.transpileModule(source, {
+    reportDiagnostics: true,
+    compilerOptions: { jsx: ts.JsxEmit.Preserve },
+    fileName: "target.tsx",
+  });
+  return (diagnostics ?? []).map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"));
+}
+
+describe("injection sites stay syntactically valid (#8922)", () => {
+  const TARGETS: Record<string, string> = {
+    "destructured props with an interface type": `interface Props { open: boolean; onClose: () => void }\nexport function LeaveSaveDialog({ open, onClose }: Props) {\n  return <div>{String(open)}</div>;\n}\n`,
+    "destructured props with an inline object type": `export function QueryProvider({ children }: { children: React.ReactNode }) {\n  return <>{children}</>;\n}\n`,
+    "default export with destructured props": `export default function Card({ title, items = [] }: { title: string; items?: string[] }): JSX.Element {\n  return <h1>{title}</h1>;\n}\n`,
+  };
+
+  for (const type of ["lint-violation", "console-error"] as const) {
+    for (const [name, source] of Object.entries(TARGETS)) {
+      it(`${type}: ${name}`, () => {
+        expect(syntaxErrors(source)).toEqual([]);
+        const result = injectBug(type, source);
+        expect(result.injected).toBe(true);
+        expect(syntaxErrors(result.content)).toEqual([]);
+      });
+    }
+  }
 });

@@ -29,6 +29,17 @@ describe("hospitality catch-all route", () => {
   });
 });
 
+describe("the Availability map route (#8864)", () => {
+  it("mounts map as a child of availability", () => {
+    const availability = mainTsxSource.match(/path:\s*"availability",[\s\S]*?\n {14}\],/);
+    expect(availability?.[0]).toMatch(/path:\s*"map"[\s\S]{0,200}AvailabilityMapPage/);
+  });
+
+  it("mounts /setup as a redirect to the map, not as a page", () => {
+    expect(mainTsxSource).toMatch(/path:\s*"setup",\s*element:\s*<SetupRedirect \/>/);
+  });
+});
+
 describe("hospitality router basename (#7709)", () => {
   it("derives the basename from the serving host rather than a literal /hospitality", () => {
     expect(mainTsxSource).not.toMatch(/basename:\s*"\/hospitality"/);

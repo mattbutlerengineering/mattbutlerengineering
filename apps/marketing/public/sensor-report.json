@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-11-13T19:05:41.995Z",
+  "generated_at": "2026-11-15T19:05:05.362Z",
   "period": {
-    "start": "2026-11-06",
-    "end": "2026-11-13"
+    "start": "2026-11-08",
+    "end": "2026-11-15"
   },
   "sensors": {
     "acmm": {
@@ -11,7 +11,7 @@
       "level_name": "Semi-Automated",
       "criteria_met": 73,
       "criteria_total": 84,
-      "last_run": "2026-11-13T11:56:51.777Z",
+      "last_run": "2026-11-15T11:50:16.318Z",
       "capped": false,
       "failing_gates": []
     },
@@ -42,63 +42,63 @@
         {
           "metric": "review-burden",
           "state": "fresh",
-          "age_days": 0.02,
-          "latest": "2026-11-13T18:37:46.708Z",
+          "age_days": 0.05,
+          "latest": "2026-11-15T17:53:53.714Z",
           "max_age_days": 3
         },
         {
           "metric": "queue-telemetry",
           "state": "fresh",
-          "age_days": 0.08,
-          "latest": "2026-11-13T17:09:15.000Z",
+          "age_days": 0.06,
+          "latest": "2026-11-15T17:36:24.000Z",
           "max_age_days": 3
         },
         {
           "metric": "queueEfficiency",
           "state": "fresh",
           "age_days": 0.8,
-          "latest": "2026-11-13T00:00:00.000Z",
+          "latest": "2026-11-15T00:00:00.000Z",
           "max_age_days": 5
         },
         {
           "metric": "sdlcSpeed",
           "state": "fresh",
-          "age_days": 7.8,
+          "age_days": 9.8,
           "latest": "2026-11-06T00:00:00.000Z",
           "max_age_days": 14
         },
         {
           "metric": "lighthouse",
           "state": "fresh",
-          "age_days": 4.8,
+          "age_days": 6.8,
           "latest": "2026-11-09T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "audit-coverage",
           "state": "fresh",
-          "age_days": 3.8,
+          "age_days": 5.8,
           "latest": "2026-11-10T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "mutation-score",
           "state": "fresh",
-          "age_days": 4.8,
+          "age_days": 6.8,
           "latest": "2026-11-09T00:00:00.000Z",
           "max_age_days": 21
         },
         {
           "metric": "ai-issue-feedback",
           "state": "fresh",
-          "age_days": 0.02,
-          "latest": "2026-11-13T18:39:21.158Z",
+          "age_days": 0.05,
+          "latest": "2026-11-15T17:55:20.768Z",
           "max_age_days": 5
         },
         {
           "metric": "shipped-features",
           "state": "fresh",
-          "age_days": 8.52,
+          "age_days": 10.52,
           "latest": "2026-11-05T06:41:47.000Z",
           "max_age_days": 14
         },
@@ -106,14 +106,14 @@
           "metric": "marketing-metrics",
           "state": "fresh",
           "age_days": 0.3,
-          "latest": "2026-11-13T11:56:53.670Z",
+          "latest": "2026-11-15T11:50:19.155Z",
           "max_age_days": 3
         }
       ]
     },
     "reviewBurden": {
       "available": true,
-      "collected_at": "2026-11-13T18:37:46.708Z",
+      "collected_at": "2026-11-15T17:53:53.714Z",
       "window_days": 7,
       "total_closed_prs": 100,
       "total_reviewers": 0,
@@ -126,41 +126,47 @@
     },
     "prCategoryMetrics": {
       "available": true,
-      "total_prs": 93,
-      "total_merged": 90,
-      "total_closed_without_merge": 3,
+      "total_prs": 95,
+      "total_merged": 95,
+      "total_closed_without_merge": 0,
       "by_category": {
         "tier:trivial": {
-          "merged": 20,
+          "merged": 21,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "tier:standard": {
-          "merged": 52,
-          "closed_without_merge": 0,
-          "acceptance_rate": 1
-        },
-        "tier:sensitive": {
-          "merged": 15,
+          "merged": 55,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
         "unlabeled": {
-          "merged": 3,
+          "merged": 4,
           "closed_without_merge": 0,
           "acceptance_rate": 1
         },
-        "priority:critical": {
-          "merged": 0,
-          "closed_without_merge": 3,
-          "acceptance_rate": 0
+        "tier:sensitive": {
+          "merged": 13,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "tier:critical": {
+          "merged": 1,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
+        },
+        "meta-improvement": {
+          "merged": 1,
+          "closed_without_merge": 0,
+          "acceptance_rate": 1
         }
-      }
+      },
+      "signal_note": "Per-category acceptance split is currently uninformative: 0 PRs were closed-without-merge. Bad PRs appear to be fix-forwarded (pushed-over) rather than rejected outright. The metric will become meaningful once closed-without-merge events are observed."
     },
     "agentCost": {
       "available": true,
       "attribution_only": true,
-      "spend_today_usd": 2.44,
+      "spend_today_usd": 0,
       "spend_7d_usd": 2.44,
       "sessions_7d": 6,
       "avg_cost_per_session": 0.41,
@@ -168,9 +174,9 @@
       "total_output_tokens_7d": 26290,
       "avg_turns_per_session": 11.666666666666666,
       "queue": {
-        "sessions_7d": 6,
-        "sessions_without_usage_7d": 80,
-        "tokens_7d": 1169635,
+        "sessions_7d": 14,
+        "sessions_without_usage_7d": 67,
+        "tokens_7d": 1630112,
         "cost_7d_usd": null,
         "cost_known_sessions_7d": 0
       }
@@ -180,17 +186,17 @@
       "spend_today_usd": 0,
       "spend_7d_usd": 0,
       "spend_30d_usd": 0,
-      "cache_read_tokens": 261410,
-      "output_tokens": 365,
-      "cache_creation_tokens": 35195,
-      "cache_hit_rate": 0.8813,
+      "cache_read_tokens": 261503,
+      "output_tokens": 395,
+      "cache_creation_tokens": 35266,
+      "cache_hit_rate": 0.8811,
       "by_model": {
         "claude-sonnet-5": {
           "cost": 0,
           "input_tokens": 6,
-          "output_tokens": 365,
-          "cache_read_tokens": 261410,
-          "cache_creation_tokens": 35195
+          "output_tokens": 395,
+          "cache_read_tokens": 261503,
+          "cache_creation_tokens": 35266
         }
       }
     },
@@ -198,18 +204,18 @@
       "available": true,
       "total_runs": 30,
       "completed": 30,
-      "passed": 23,
+      "passed": 22,
       "failed": 0,
       "phantom": 0,
       "pass_rate_pct": 100,
       "most_recent": {
-        "databaseId": 43487134343,
+        "databaseId": 43749969859,
         "status": "completed",
         "conclusion": "success",
-        "createdAt": "2026-11-13T18:54:33Z",
-        "name": "Scheduled Issue Completion",
+        "createdAt": "2026-11-15T19:00:50Z",
+        "name": "auto-label",
         "headBranch": "main",
-        "headSha": "ae18c4d5bf94199c65efd847b03cb3e98d44b614"
+        "headSha": "1804c4ffe1cf6c90417bba14bc2134125f662143"
       }
     },
     "lighthouse": {
@@ -241,46 +247,46 @@
     },
     "issues": {
       "available": true,
-      "open": 32,
-      "created_7d": 168,
-      "closed_7d": 179,
-      "closure_rate": 107,
-      "queue_depth": 3,
+      "open": 30,
+      "created_7d": 141,
+      "closed_7d": 138,
+      "closure_rate": 98,
+      "queue_depth": 0,
       "agent_failed": 1
     },
     "issueFeedback": {
       "available": true,
-      "collected_at": "2026-11-13T18:39:21.158Z",
+      "collected_at": "2026-11-15T17:55:20.768Z",
       "category_count": 7,
       "unhealthy_categories": [],
       "categories": {
+        "feature": {
+          "total": 59,
+          "accepted": 34,
+          "rejected": 2,
+          "wontfix": 23,
+          "rejection_rate": 0.03389830508474576
+        },
         "meta-improvement": {
-          "total": 15,
-          "accepted": 15,
+          "total": 23,
+          "accepted": 23,
           "rejected": 0,
           "wontfix": 0,
           "rejection_rate": 0
         },
         "ci-fix": {
-          "total": 65,
+          "total": 63,
           "accepted": 21,
           "rejected": 7,
-          "wontfix": 37,
-          "rejection_rate": 0.1076923076923077
+          "wontfix": 35,
+          "rejection_rate": 0.1111111111111111
         },
         "audit": {
-          "total": 35,
-          "accepted": 29,
+          "total": 36,
+          "accepted": 30,
           "rejected": 4,
           "wontfix": 2,
-          "rejection_rate": 0.11428571428571428
-        },
-        "feature": {
-          "total": 66,
-          "accepted": 42,
-          "rejected": 1,
-          "wontfix": 23,
-          "rejection_rate": 0.015151515151515152
+          "rejection_rate": 0.1111111111111111
         },
         "acmm": {
           "total": 3,
@@ -326,8 +332,8 @@
     "codeChurn": {
       "available": true,
       "churn_rate": 0.002,
-      "total_lines_added_7d": 1076664,
-      "lines_churned_7d": 1982,
+      "total_lines_added_7d": 1082103,
+      "lines_churned_7d": 1923,
       "window_days": 7,
       "churn_threshold": 0.3
     },
@@ -386,7 +392,7 @@
       "available": true,
       "flaky_count": 0,
       "flaky_tests": [],
-      "total_runs": 20741,
+      "total_runs": 27190,
       "window_shas": 2
     },
     "e2eStability": {
@@ -395,56 +401,58 @@
     },
     "queueEfficiency": {
       "available": true,
-      "composite": 0.903,
+      "composite": 0.924,
       "sub_metrics": {
-        "issues_merged": 76,
-        "first_pass_success_rate": 0.855,
-        "median_time_to_merge_hours": 0.4,
+        "issues_merged": 70,
+        "first_pass_success_rate": 0.886,
+        "median_time_to_merge_hours": 0.2,
         "median_rework_cycles": 0,
         "cost_per_issue_usd": null,
         "cost_coverage_n": 0,
-        "review_coverage": 0.583,
-        "review_coverage_n": 12,
+        "review_coverage": 0.733,
+        "review_coverage_n": 15,
+        "review_coverage_unmeasured_n": 55,
+        "review_coverage_unmeasured_share": 0.786,
         "review_coverage_trail": [
-          {
-            "value": 0.625,
-            "n": 16
-          },
-          {
-            "value": 0.529,
-            "n": 17
-          },
           {
             "value": 0.583,
             "n": 12
+          },
+          {
+            "value": 0.556,
+            "n": 9
+          },
+          {
+            "value": 0.733,
+            "n": 15
           }
         ]
       },
       "distribution": {
-        "size:m": {
-          "count": 15,
-          "avg_commits": 2.1,
-          "avg_ttm_hours": 2.2
-        },
-        "size:xs": {
-          "count": 20,
-          "avg_commits": 1.1,
-          "avg_ttm_hours": 0.3
-        },
         "size:s": {
           "count": 20,
-          "avg_commits": 1.5,
-          "avg_ttm_hours": 1.2
+          "avg_commits": 1.4,
+          "avg_ttm_hours": 1.4
         },
-        "size:xl": {
-          "count": 10,
-          "avg_commits": 3.2,
-          "avg_ttm_hours": 4.2
+        "size:xs": {
+          "count": 21,
+          "avg_commits": 1,
+          "avg_ttm_hours": 0.3
+        },
+        "size:m": {
+          "count": 13,
+          "avg_commits": 1.9,
+          "avg_ttm_hours": 0.8
         },
         "size:l": {
-          "count": 11,
-          "avg_commits": 2,
-          "avg_ttm_hours": 3
+          "count": 9,
+          "avg_commits": 1.7,
+          "avg_ttm_hours": 2.3
+        },
+        "size:xl": {
+          "count": 7,
+          "avg_commits": 2.1,
+          "avg_ttm_hours": 4.5
         }
       },
       "baseline": null,
@@ -455,7 +463,7 @@
     "agent_success_rate_drop": 10,
     "error_rate_increase": 20,
     "service_uptime_min": 99.5,
-    "ci_pass_rate_drop": 5,
+    "ci_pass_rate_drop": 5.5,
     "lighthouse_score_drop": 0.05,
     "code_churn_rate_max": 0.3,
     "queue_efficiency_composite_drop": 0.05,

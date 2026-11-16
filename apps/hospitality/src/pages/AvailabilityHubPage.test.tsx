@@ -456,10 +456,19 @@ describe("AvailabilityHubPage", () => {
       }
     );
 
-    it("shows the way back to Venue Setup when the visit came from it", () => {
+    it("shows the way back to the Availability map when the visit came from it", () => {
       const router = renderHub(scopeOf(), "/availability?from=setup");
       expect(address(router)).toBe("/availability?from=setup");
-      expect(hrefOf(screen.getByRole("link", { name: "Venue Setup" }))).toBe("/setup");
+      expect(hrefOf(screen.getByRole("link", { name: "Availability map" }))).toBe(
+        "/availability/map"
+      );
+    });
+
+    it("links to the Availability map on every visit", () => {
+      renderHub(scopeOf(), "/availability");
+      expect(hrefOf(screen.getByRole("link", { name: "Availability map" }))).toBe(
+        "/availability/map"
+      );
     });
   });
 });

@@ -1,5 +1,6 @@
 /**
- * The `edge_requests` Analytics Engine dataset — the single statement of its
+ * The edge router's Analytics Engine datasets (`edge_requests`, and
+ * `csp_reports` below) — the single statement of each one's
  * binding name, dataset name, and column layout. Everything that writes or
  * reads the dataset imports this module instead of restating the layout:
  *
@@ -49,4 +50,50 @@ function toDataPoint({ route, method, country, pathname, status, elapsedMs }) {
   };
 }
 
-export { ANALYTICS_BINDING, EDGE_REQUESTS_DATASET, EDGE_REQUESTS_COLUMNS, toDataPoint };
+/**
+ * The `csp_reports` dataset (#8895) — one point per CSP violation the browser
+ * reports to /csp-report (csp-report.js). Kept out of edge_requests on
+ * purpose: those rows are one-per-request with a status and latency, and
+ * edge-usage.mjs / api-failures.mjs count them; a violation is a different
+ * event with a different shape.
+ */
+const CSP_REPORTS_BINDING = "CSP_REPORTS";
+const CSP_REPORTS_DATASET = "csp_reports";
+
+const CSP_REPORTS_COLUMNS = Object.freeze({
+  directive: "blob1",
+  blockedOrigin: "blob2",
+  documentPath: "blob3",
+  disposition: "blob4",
+  index: "directive",
+});
+
+/** Build the writeDataPoint() payload for one CSP violation. */
+function toCspReportDataPoint({ directive, blockedOrigin, documentPath, disposition }) {
+  return {
+    blobs: [directive, blockedOrigin, documentPath, disposition],
+    indexes: [directive],
+  };
+}
+
+/**
+ * Every Analytics Engine binding the edge router writes. This is what
+ * scripts/check-analytics-bindings.mjs compares wrangler.toml and the Pulumi
+ * WorkersScript against.
+ */
+const ANALYTICS_DATASETS = Object.freeze([
+  Object.freeze({ binding: ANALYTICS_BINDING, dataset: EDGE_REQUESTS_DATASET }),
+  Object.freeze({ binding: CSP_REPORTS_BINDING, dataset: CSP_REPORTS_DATASET }),
+]);
+
+export {
+  ANALYTICS_BINDING,
+  EDGE_REQUESTS_DATASET,
+  EDGE_REQUESTS_COLUMNS,
+  toDataPoint,
+  CSP_REPORTS_BINDING,
+  CSP_REPORTS_DATASET,
+  CSP_REPORTS_COLUMNS,
+  toCspReportDataPoint,
+  ANALYTICS_DATASETS,
+};

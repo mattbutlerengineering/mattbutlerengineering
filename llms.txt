@@ -1716,7 +1716,7 @@
     </item>
     <item priority="high">
       type AvailabilityView = { readonly view: "hub" } | { readonly view: "hours"; read | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "specialDates | { readonly view: "closures" } | {
-            readonly view: "calend | { readonly view: "bookingRules | { readonly view: "history" };
+            readonly view: "calend | { readonly view: "bookingRules | { readonly view: "history" } | { readonly view: "map" };
     </item>
     <item priority="low">
       type AvailabilityTarget = AvailabilityView & {
@@ -5486,6 +5486,13 @@
     </item>
     <item priority="high">
       export function riskText(score: GuestRiskScore, t: TFunction = defaultT): string { /* ... */ }
+    </item>
+  </file>
+  </section>
+  <section priority="medium" role="dashboard">
+  <file path="apps/rialto-web/src/pages/dashboard/delta-color.ts">
+    <item priority="high">
+      export function deltaColor(delta: number): string { /* ... */ }
     </item>
   </file>
   </section>
@@ -24884,6 +24891,9 @@
     <item priority="high">
       export const BUG_CATALOG: Record<BugType, BugInjector>;
     </item>
+    <item priority="medium">
+      function findBodyOpenBrace(content: string, from: number): number { /* ... */ }
+    </item>
     <item priority="low">
       interface InjectBugResult {
         injected: boolean;
@@ -32153,7 +32163,7 @@
             readonly kind: "closur | { readonly kind: "floorPlan";  | { readonly kind: "tables"; rea | { readonly kind: "seats"; read;
     </item>
     <item priority="low">
-      type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "compareServices" | "createSchedule" | "openCalendar" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
+      type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "createSchedule" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
     </item>
     <item priority="low">
       type SetupActionTarget = { readonly kind: "link"; readonly to: string };
@@ -32293,7 +32303,7 @@
         label: (node: SetupNode) => string;
         whatIs: (node: SetupNode) => string | null;
         state: (node: SetupNode) => string;
-        actionLabel: (action: SetupAction, node: SetupNode) => string;
+        actionLabel: (action: SetupAction) => string;
       }
     </item>
     <item priority="high">

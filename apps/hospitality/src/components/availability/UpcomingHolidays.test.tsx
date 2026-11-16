@@ -172,6 +172,21 @@ describe("UpcomingHolidays", () => {
       expect(screen.getByRole("button", { name: "Plan holidays" })).toHaveFocus();
     });
 
+    it("is one toggle button that follows the disclosure pattern", () => {
+      setup({}, false);
+      const toggle = screen.getByRole("button", { name: "Plan holidays" });
+      expect(toggle).toHaveAttribute("aria-expanded", "false");
+      fireEvent.click(toggle);
+      // The same element, relabelled, now controlling the open panel.
+      expect(screen.getByRole("button", { name: "Hide holidays" })).toBe(toggle);
+      expect(toggle).toHaveAttribute("aria-expanded", "true");
+      const controls = toggle.getAttribute("aria-controls");
+      expect(controls).toBeTruthy();
+      const target = document.getElementById(controls!);
+      expect(target).not.toBeNull();
+      expect(within(target!).getAllByRole("group").length).toBeGreaterThan(0);
+    });
+
     it("offers a Host View holidays, not Plan holidays", () => {
       setup({ isManager: false }, false);
       expect(screen.queryByRole("button", { name: "Plan holidays" })).toBeNull();
@@ -454,6 +469,19 @@ describe("UpcomingHolidays", () => {
       );
       expect(setDecision).not.toHaveBeenCalled();
       expect(clearDecision).not.toHaveBeenCalled();
+    });
+
+    it("leaves focus on an enabled element after confirming a closure over a decision", () => {
+      read.decisions = [decision("2026-12-24")];
+      setup();
+      fireEvent.click(within(panel()).getByRole("button", { name: /Decided/ }));
+      fireEvent.click(screen.getByRole("button", { name: `Change ${CHRISTMAS_EVE}` }));
+      press(CHRISTMAS_EVE, "Closed");
+      confirmClose("Christmas Eve");
+      const active = document.activeElement as HTMLElement;
+      expect(active).not.toBe(document.body);
+      expect(active.matches(":disabled")).toBe(false);
+      expect(active.closest("[disabled]")).toBeNull();
     });
 
     it("marks the line saving until the sheet closes, and blocks a second press meanwhile", () => {
