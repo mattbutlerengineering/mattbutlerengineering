@@ -456,6 +456,14 @@ describe("Availability map: floor plan, sections and tables", () => {
     );
   });
 
+  it("draws a nested level's actions quieter than its top-level resource's door", () => {
+    renderPage();
+    expect(screen.getByRole("button", { name: /^Open floor plan/ }).className).toMatch(/secondary/);
+    const nested = screen.getByRole("button", { name: "Close for a date… Bar" });
+    expect(nested.className).toMatch(/ghost/);
+    expect(nested.className).not.toMatch(/secondary/);
+  });
+
   it("sends No section's Move to a section to the floor plan", async () => {
     renderPage();
     await userEvent.setup().click(screen.getByRole("button", { name: "Move to a section" }));

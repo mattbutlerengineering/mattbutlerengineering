@@ -117,34 +117,36 @@ export function AvailabilityMapPage() {
     <div className={styles.root}>
       <PageHeader title={t("setup.hub.title")} description={t("setup.hub.description")} />
       {showStrip && <SetupProgressStrip readiness={readiness} />}
-      <Text as="p" variant="label" color="secondary" className={styles.venueName}>
-        {tree.venueName}
-      </Text>
+      <div className={styles.map}>
+        <Text as="p" variant="label" color="secondary" className={styles.venueName}>
+          {tree.venueName}
+        </Text>
 
-      {bothFailed ? (
-        <ErrorRetryBanner
-          title={t("setup.hub.loadError")}
-          error={describeApiError(open.load.error).detail}
-          details={describeApiError(open.load.error).raw}
-          onRetry={retry([...openReads, ...sitReads])}
-        />
-      ) : (
-        <>
-          <SetupGroupSection
-            group={open}
-            isManager={isManager}
-            onAction={onAction}
-            onRetry={retry(openReads)}
-            renderExtra={renderExtra}
+        {bothFailed ? (
+          <ErrorRetryBanner
+            title={t("setup.hub.loadError")}
+            error={describeApiError(open.load.error).detail}
+            details={describeApiError(open.load.error).raw}
+            onRetry={retry([...openReads, ...sitReads])}
           />
-          <SetupGroupSection
-            group={sit}
-            isManager={isManager}
-            onAction={onAction}
-            onRetry={retry(sitReads)}
-          />
-        </>
-      )}
+        ) : (
+          <div className={styles.groups}>
+            <SetupGroupSection
+              group={open}
+              isManager={isManager}
+              onAction={onAction}
+              onRetry={retry(openReads)}
+              renderExtra={renderExtra}
+            />
+            <SetupGroupSection
+              group={sit}
+              isManager={isManager}
+              onAction={onAction}
+              onRetry={retry(sitReads)}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }
