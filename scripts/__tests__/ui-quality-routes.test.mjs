@@ -166,10 +166,11 @@ describe("marketing adapter", () => {
   const rows = extractApp("marketing", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 11 rows: 7 pages, 3 <Navigate> redirects (weekly retired, #8629), 1 not-found", () => {
-    expect(rows).toHaveLength(11);
+  it("yields 12 rows: 7 pages, 4 <Navigate> redirects (weekly retired, #8629; index.html, #8980), 1 not-found", () => {
+    expect(rows).toHaveLength(12);
     expect(rows.filter((r) => r.kind === "redirect").map((r) => r.route)).toEqual([
       "hospitality/*",
+      "index.html",
       "rialto/*",
       "weekly",
     ]);
@@ -255,7 +256,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(33 + 11 + 124);
+    expect(rows).toHaveLength(33 + 12 + 124);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([

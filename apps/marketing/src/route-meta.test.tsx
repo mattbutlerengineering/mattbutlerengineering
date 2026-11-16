@@ -190,6 +190,13 @@ describe("marketing route metadata", () => {
     expect(metaContent('meta[name="twitter:description"]')).toBe(description);
   });
 
+  it("serves /index.html as the homepage, not the noindex 404 (#8980)", () => {
+    renderAt("/index.html");
+    expect(metaContent('meta[name="robots"]')).toBe("index, follow");
+    expect(document.title).toBe(DEFAULT_TITLE);
+    expect(canonicalHref()).toBe(`${ORIGIN}/`);
+  });
+
   it("restores an indexable canonical after leaving the 404", () => {
     let go: (to: string) => void = () => undefined;
     function Nav() {
