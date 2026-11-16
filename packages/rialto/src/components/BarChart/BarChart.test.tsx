@@ -27,7 +27,8 @@ describe("BarChart", () => {
       .map((bar) => bar.style.blockSize)
       .filter((size) => size.endsWith("%"));
     expect(heights).toContain("100%");
-    expect(heights).toContain(`${(18.2 / 22) * 100}%`);
+    // jsdom 31's CSS serializer trims percentages to 6 significant digits.
+    expect(heights.map(parseFloat).some((h) => Math.abs(h - (18.2 / 22) * 100) < 1e-3)).toBe(true);
   });
 
   it("does not let a suffixed duplicate of the first month flatten the rest of the series", () => {
@@ -192,12 +193,10 @@ describe("BarChart", () => {
     const heights = Array.from(container.querySelectorAll("span"))
       .map((bar) => bar.style.blockSize)
       .filter((size) => size.endsWith("%"));
-    expect(heights).toEqual([
-      `${(12 / 3_400_000) * 100}%`,
-      "100%",
-      `${(8 / 3_400_000) * 100}%`,
-      `${(1500 / 3_400_000) * 100}%`,
-    ]);
+    const expected = [(12 / 3_400_000) * 100, 100, (8 / 3_400_000) * 100, (1500 / 3_400_000) * 100];
+    // jsdom 31's CSS serializer trims percentages to 6 significant digits.
+    expect(heights).toHaveLength(expected.length);
+    heights.forEach((h, i) => expect(parseFloat(h)).toBeCloseTo(expected[i] as number, 4));
   });
 
   it("scales a k/m/b suffix only when it directly follows the number", () => {
