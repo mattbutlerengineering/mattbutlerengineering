@@ -365,7 +365,7 @@ describe("buildSetupTree: schedules and services", () => {
     expect(ids(find(open, "schedule:sch-sum").actions)).toEqual(["editSchedule"]);
     expect(find(open, "schedule:sch-sum").actions[0]?.target).toEqual({
       kind: "link",
-      to: "/availability/calendar?tab=schedules&from=setup",
+      to: "/availability/seasonal?from=setup",
     });
     // Change regular week is a link to Regular hours, where the week is edited (E4.4).
     expect(find(open, "schedule:sch-reg").actions[0]?.target).toEqual({

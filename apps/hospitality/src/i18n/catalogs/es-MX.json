@@ -3504,6 +3504,15 @@
       "appliesToday": "Se aplica a todas las fechas que cubre este horario, a partir de hoy.",
       "appliesFrom": "Se aplica a todas las fechas que cubre este horario, a partir del {{date}}.",
       "loading": "Cargando el horario habitual"
+    },
+    "seasonal": {
+      "back": "Volver a Disponibilidad",
+      "add": "Agregar horarios de temporada",
+      "empty": "No hay horarios de temporada. Agrega horarios para una temporada o un periodo, como el verano.",
+      "loading": "Cargando los horarios de temporada",
+      "compare": "Editar un servicio en todos los horarios",
+      "cantDelete": "No se puede eliminar: se usa {{where}}. Primero cambia esos días.",
+      "cantDeleteRules": "No se puede eliminar: {{where}}. Primero cambia esas fechas."
     }
   },
   "setup": {

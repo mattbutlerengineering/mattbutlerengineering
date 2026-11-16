@@ -308,7 +308,9 @@
     type AvailabilityView =
       | { readonly view: "hub" }
       | { readonly view: "hours"; readonly service?: string }
-      | { readonly view: "seasonal"; readonly screen?: "new" | "compare" }
+      | { readonly view: "seasonal"; readonly screen?: "compare" }
+      /** `copy` is the set a new one starts as a copy of (`?copy=`); `?from=` is only ever `setup`. */
+      | { readonly view: "seasonal"; readonly screen: "new"; readonly copy?: string }
       | { readonly view: "seasonal"; readonly screen: "edit"; readonly scheduleId: string }
       | { readonly view: "specialDates" }
       | { readonly view: "closures" }
@@ -383,7 +385,8 @@
     }
     export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
-      const ownPath = OWN_PATHS[target.view];
+      const isSeasonalList = target.view === "seasonal" && !target.screen;
+      const ownPath = isSeasonalList ? SEASONAL : OWN_PATHS[target.view];
       if (ownPath) {
         if (target.view === "hours" && target.service) params.set("service", target.service);
         setOverlay(params, target);
@@ -394,7 +397,11 @@
         target.view === "calendar" && target.date && isDate(target.date) ? target.date : null;
       const tab = PAGE_TAB[target.view];
       if (tab && !date) params.set("tab", tab);
-      if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
+      if (target.view === "seasonal" && target.screen === "new") {
+        params.set("action", "addSchedule");
+        // The new-hours editor (E4.6) takes this address over: `seasonal/new?copy=<id>`.
+        if (target.copy) params.set("copy", target.copy);
+      }
       if (date) params.set("date", date);
       setOverlay(params, target);
       return withSearch(TODAYS_PAGE, params);
@@ -7562,6 +7569,35 @@
           setConflict(null);
           clearFailure();
         },
+      };
+    }
+  </file>
+  <file path="src/components/availability/use-usage-text.ts">
+    export function useUsageText(config: AvailabilityConfig) {
+      const { t } = useTranslation();
+      const format = useVenueFormat();
+      const summary = useWeekdaySummary();
+      const day = (date: string) => format.formatCalendarDate(date, { month: "short", day: "numeric" });
+      return (schedule: Pick<Schedule, "id">): string => {
+        const usage = scheduleUsage(config, schedule.id);
+        if (usage.kind === "unused") return t("availabilitySchedules.notUsed");
+        if (usage.kind === "rules")
+          return t("availabilitySchedules.usedByRules", { count: usage.count });
+        return usage.periods
+          .map((a) => {
+            const days = summary(a.weekdays);
+            if (a.startsOn && a.endsOn)
+              return t("availabilitySchedules.usageRange", {
+                from: day(a.startsOn),
+                to: day(a.endsOn),
+                days,
+              });
+            if (a.startsOn)
+              return t("availabilitySchedules.usageFrom", { from: day(a.startsOn), days });
+            if (a.endsOn) return t("availabilitySchedules.usageUntil", { to: day(a.endsOn), days });
+            return days;
+          })
+          .join("; ");
       };
     }
   </file>
