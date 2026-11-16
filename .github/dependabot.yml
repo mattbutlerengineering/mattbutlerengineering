@@ -60,6 +60,11 @@ updates:
         versions: [">=0.300.0"]
       - dependency-name: "@opentelemetry/instrumentation-pino"
         versions: [">=0.70.0"]
+      # @fastify/otel 1.x is the OTel 3 release (instrumentation 0.300, core
+      # 3, api >=1.10); with api pinned at 1.9.1 it throws on construction
+      # (#8972). Remove once #7715 lands.
+      - dependency-name: "@fastify/otel"
+        versions: [">=1.0.0"]
     open-pull-requests-limit: 10
     labels:
       - "dependencies"
