@@ -5578,6 +5578,7 @@ Phase 4: no worktrees present (`.claude/worktrees/` doesn't exist), no merge-tra
 **AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected); worst is acmm at 25% (4 total); all budgets remain at 3
 **Skill proposals:** 0 (Sunday — Friday-only)
 **Threshold notes:** 30d fix-effectiveness 75% (6/8 non-skip verifications, small sample) — healthy, no review needed; false-positive rate stayed low across all categories (max 25%, acmm) — no loosening needed; threshold-tuner auto-adjusted `acmm` 1.674 → 1.693 (headroom)
+
 ## 2026-11-16
 
 **queueEfficiency:** composite 0.924 (baseline n/a) — healthy
