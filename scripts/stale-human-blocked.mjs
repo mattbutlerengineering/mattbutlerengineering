@@ -5,7 +5,7 @@
  *
  * The weekly retro's backlog-aging pass finds human-blocked work with a
  * fixed label query (`ready-for-human`, `needs-review`, `blocked`,
- * `agent-failed`, `stealable`) — see `docs/process-retro.md` § Pass 2. That
+ * `agent-failed`, `stealable`, `needs-human`) — see `docs/process-retro.md` § Pass 2. That
  * query is only as good as the label the filer happened to apply. #3322 sat
  * untouched for 30 days carrying only `ci-fix` and was invisible to three
  * consecutive weekly retros as a result.
