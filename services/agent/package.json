@@ -23,8 +23,8 @@
     "db:studio": "prisma studio"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^4.0.99",
-    "@ai-sdk/google": "^4.0.118",
+    "@ai-sdk/anthropic": "^4.0.104",
+    "@ai-sdk/google": "^4.0.120",
     "@fastify/rate-limit": "^11.2.2",
     "@json-render/core": "^0.22.0",
     "@mbe/agent-core": "workspace:*",
@@ -39,7 +39,7 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@prisma/client-runtime-utils": "^7.10.1",
-    "ai": "^7.0.165",
+    "ai": "^7.0.172",
     "fastify": "catalog:",
     "pg": "^8.23.1",
     "zod": "catalog:"
