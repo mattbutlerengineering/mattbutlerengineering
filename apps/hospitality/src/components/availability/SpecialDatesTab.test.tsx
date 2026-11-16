@@ -424,7 +424,7 @@ describe("SpecialDatesTab", () => {
     expect(createClosure.mock.calls[0]![0].body.items[0].rule.startsOn).toBe("2026-12-25");
     expect(createClosure.mock.calls[1]![0].body.items[0].rule.startsOn).toBe("2026-12-31");
   });
-  it("Special hours… opens Add special date on that date, starting from an hours row", () => {
+  it("Special hours… opens the day editor on that date, not the Add special dates sheet", () => {
     renderTab(true);
     planHolidays();
     fireEvent.click(
@@ -435,15 +435,13 @@ describe("SpecialDatesTab", () => {
         }
       )
     );
-    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
-    const dates = within(sheet).getAllByLabelText("Date") as HTMLInputElement[];
-    expect(dates.map((d) => d.value)).toEqual(["Dec 25, 2026"]);
-    expect(within(sheet).getByRole("group", { name: "Date 1: Christmas Day" })).toBeTruthy();
-    // No regular week here: there are no usual hours to start from, so the row starts Closed.
-    expect(within(sheet).getByRole("radio", { name: "Closed", checked: true })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Add special dates" })).toBeNull();
+    // No regular week here: the editor opens with nothing to edit but a service to add.
+    expect(screen.getByRole("combobox", { name: "Add service" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "You’re changing" })).toBeTruthy();
   });
 
-  it("starts a Special hours… row from the weekday's usual hours", () => {
+  it("starts a Special hours… edit from the weekday's usual hours", () => {
     renderTab(true, {
       ...STATE,
       config: { ...DEMO_WEEK_CONFIG, dateRules: RULES },
@@ -455,14 +453,11 @@ describe("SpecialDatesTab", () => {
         { name: "Special hours…" }
       )
     );
-    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
-    expect(within(sheet).getByRole("radio", { name: "Special hours", checked: true })).toBeTruthy();
-    // Valentine's Day is a Sunday: the row starts from Sunday's Brunch and Dinner.
-    expect(
-      within(sheet)
-        .getAllByLabelText("Closes")
-        .map((c) => (c as HTMLInputElement).value)
-    ).toEqual(["2:00 PM", "11:00 PM"]);
+    // Valentine's Day is a Sunday: the editor starts from Sunday's Brunch and Dinner.
+    expect(screen.getAllByLabelText("Closes").map((c) => (c as HTMLInputElement).value)).toEqual([
+      "2:00 PM",
+      "11:00 PM",
+    ]);
   });
 
   it("Open as usual saves the decision for the date", async () => {

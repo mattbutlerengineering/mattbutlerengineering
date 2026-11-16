@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { createMemoryRouter, Outlet, RouterProvider } from "react-router";
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 const save = vi.hoisted(() => vi.fn());
 vi.mock("../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),

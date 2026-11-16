@@ -6,6 +6,7 @@ import type { AvailabilityConfigState, DateRule } from "@mbe/types";
 import { ApiClientError } from "@mbe/api-client";
 import { resolveDay } from "@mbe/availability";
 
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 const save = vi.hoisted(() => vi.fn());
 const revertAsync = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", async (importOriginal) => ({
@@ -744,7 +745,9 @@ describe("AvailabilityDayEditor", () => {
 
     it("names only the winning change when an older server sends no list", async () => {
       const { dialog } = await raiseConflict();
-      expect(within(dialog).queryByText(/saved after you opened this day/)).toBeNull();
+      expect(
+        within(dialog).queryByText(/saved after you started editing, newest first/)
+      ).toBeNull();
       expect(within(dialog).queryByText(/earlier change/)).toBeNull();
     });
 
@@ -1031,7 +1034,7 @@ describe("AvailabilityDayEditor", () => {
 
     /** Makes the nth Booking select (rows run in opening order) Phone only. */
     function phoneOnlyOn(index: number) {
-      fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[index]!);
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Booked by" })[index]!);
       fireEvent.click(screen.getByRole("option", { name: "Phone only" }));
     }
 
@@ -1145,7 +1148,7 @@ describe("AvailabilityDayEditor", () => {
       // The date's Dinner differs from the regular week's only in who can book it.
       withOwnDay("r-own", { lastSeatingAt: 1260, closesAt: 1380, bookingTypes: ["phone"] });
       fireEvent.click(screen.getByRole("button", { name: "Edit Dinner" }));
-      fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[0]!);
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Booked by" })[0]!);
       fireEvent.click(screen.getByRole("option", { name: "Online + phone" }));
       chooseScope(/Every regular Friday/);
       expect(screen.getByRole("status")).toHaveTextContent(
@@ -1244,7 +1247,7 @@ describe("AvailabilityDayEditor", () => {
       chooseScope(/Every regular Friday/);
       expect(screen.getByRole("status")).toHaveTextContent(NOT_USED);
       phoneOnlyOn(0);
-      fireEvent.click(screen.getAllByRole("combobox", { name: "Booking" })[0]!);
+      fireEvent.click(screen.getAllByRole("combobox", { name: "Booked by" })[0]!);
       fireEvent.click(screen.getByRole("option", { name: "Online + phone" }));
       chooseScope("This date only");
       expect(screen.getByRole("button", { name: "Remove Lunch" })).toBeInTheDocument();

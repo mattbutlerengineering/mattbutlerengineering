@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, ScheduleService } from "@mbe/types";
 
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 const save = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", () => ({
   // Venues named "hold-…" record their saves the way the real hook does (use-reload-hold.ts), so a

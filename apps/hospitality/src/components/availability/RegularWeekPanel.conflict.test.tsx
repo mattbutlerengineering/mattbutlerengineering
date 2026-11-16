@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 import { ApiClientError } from "@mbe/api-client";
 
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 const save = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", () => ({
   useSaveAvailabilityConfig: () => ({ mutateAsync: save, isPending: false }),

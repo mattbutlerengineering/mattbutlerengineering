@@ -4,6 +4,7 @@ import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 import { ApiClientError } from "@mbe/api-client";
 
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 const save = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useAvailability.js", async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -178,7 +179,9 @@ describe("one conflict dialog for the weekly form and the date editor", () => {
     const fromWeekly = said((await refuseWeekly()).dialog);
 
     expect(fromWeekly).toEqual(fromDate);
-    expect(fromWeekly.what).toBe("Lunch no longer runs on Monday (saved at 3:42 PM).");
+    expect(fromWeekly.what).toBe(
+      "Lunch no longer runs on Monday (saved by a teammate at 3:42 PM)."
+    );
     expect(fromWeekly.answers).toEqual(ANSWERS);
   });
 

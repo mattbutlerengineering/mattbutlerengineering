@@ -2,6 +2,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { AvailabilityConfig, AvailabilityConfigState } from "@mbe/types";
 
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 const save = vi.hoisted(() => vi.fn());
 vi.mock("../../hooks/useTables.js", () => ({
   useTables: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),

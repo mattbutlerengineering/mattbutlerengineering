@@ -61,6 +61,8 @@ export interface DayEditing {
    * one date's and a save replaces the others' (said above the rows).
    */
   readonly hoursDiffer?: boolean;
+  /** Open the editor on the date's rows as soon as the drawer shows, not on the read view. */
+  readonly openEditor?: boolean;
 }
 
 export interface AvailabilityDayDrawerProps {
@@ -249,7 +251,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   // reopening that date cannot re-apply "All dates" to a later, unrelated edit.
   if (chosen !== null && chosen.date !== date) setChosen(null);
   // The date whose editor a layer's Edit asked to open; like `chosen`, it belongs to one date.
-  const [opening, setOpening] = useState<{ date: string; request: number } | null>(null);
+  const [opening, setOpening] = useState<{ date: string; request: number } | null>(() =>
+    editing?.openEditor && date !== null ? { date, request: 1 } : null
+  );
   if (opening !== null && opening.date !== date) setOpening(null);
   const openRequest = opening?.date === date ? opening.request : 0;
   const ruleScope = (chosen?.date === date ? chosen.scope : undefined) ?? editing?.ruleScope;

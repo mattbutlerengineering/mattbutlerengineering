@@ -2477,6 +2477,25 @@
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/conflict-lines.ts">
+    <item priority="low">
+      interface AlsoApplySince {
+        changed: readonly string[];
+        removed: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      type NamedLine = "added" | "removed" | "changed" | "alsoChanged" | "alsoRemoved";
+    </item>
+    <item priority="high">
+      export function conflictLines(
+        changes: ScheduleChangeSince,
+        alsoApply: AlsoApplySince | undefined,
+        t: TFunction,
+        locale: string
+      ): string[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/conflict-problem.ts">
     <item priority="low">
       type Conflict = { readonly code: "version-conf | { readonly code: "closure-exis;
@@ -2511,6 +2530,12 @@
         scheduleId: string,
         latestId: string = scheduleId
       ): ScheduleChangeSince { /* ... */ }
+    </item>
+    <item priority="high">
+      export function servicesChangedSince(
+        before: readonly DraftService[],
+        after: readonly DraftService[]
+      ): { readonly added: string[]; readonly removed: string[]; readonly changed: string[] } { /* ... */ }
     </item>
     <item priority="high">
       interface ReapplyInput {
@@ -2792,6 +2817,17 @@
     </item>
     <item priority="high">
       export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/draft-service-fields.ts">
+    <item priority="high">
+      export function serviceFieldsOf(service: DraftService): ServiceFieldsValue { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyFieldsToService(
+        service: DraftService,
+        next: ServiceFieldsValue
+      ): DraftService { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/draft-wait.ts">
