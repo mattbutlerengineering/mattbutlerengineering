@@ -21,6 +21,8 @@ export interface SetupNodeRowProps {
   /** Extra content under the node's own line (the saved regular-week line on a schedule). */
   readonly renderExtra?: (node: SetupNode) => ReactNode;
   readonly text?: SetupNodeText;
+  /** A node under another: its actions are quiet ghost buttons beneath the top-level door. */
+  readonly nested?: boolean;
 }
 
 /**
@@ -28,7 +30,7 @@ export interface SetupNodeRowProps {
  * disclosure (a button with `aria-expanded`); pressing the name expands it and never navigates.
  */
 export function SetupNodeRow(props: SetupNodeRowProps) {
-  const { node, isManager, onAction, renderExtra } = props;
+  const { node, isManager, onAction, renderExtra, nested = false } = props;
   const { t } = useTranslation();
   const own = useSetupNodeText();
   const text = props.text ?? own;
@@ -44,44 +46,46 @@ export function SetupNodeRow(props: SetupNodeRowProps) {
   return (
     <li className={styles.node} aria-labelledby={labelId}>
       <div className={styles.header}>
-        {caption && (
-          <Text as="span" variant="caption" color="secondary" className={styles.caption}>
-            {caption}
-          </Text>
-        )}
-        {hasChildren ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            id={labelId}
-            className={styles.disclosure}
-            aria-expanded={open}
-            aria-controls={listId}
-            onClick={() => setOpen((was) => !was)}
-          >
-            {label}
-          </Button>
-        ) : (
-          <Text as="span" variant="body" id={labelId} className={styles.name}>
-            {label}
-          </Text>
-        )}
-        {unset ? (
-          // Not set up reads as a status: its words, with the dot only as a second cue.
-          <Badge variant="warning" size="sm" dot data-state="unset">
-            {text.state(node)}
-          </Badge>
-        ) : (
-          <Text as="span" variant="caption" color="secondary" className={styles.state}>
-            {text.state(node)}
-          </Text>
-        )}
+        <div className={styles.title}>
+          {caption && (
+            <Text as="span" variant="caption" color="secondary" className={styles.caption}>
+              {caption}
+            </Text>
+          )}
+          {hasChildren ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              id={labelId}
+              className={styles.disclosure}
+              aria-expanded={open}
+              aria-controls={listId}
+              onClick={() => setOpen((was) => !was)}
+            >
+              {label}
+            </Button>
+          ) : (
+            <Text as="span" variant="body" id={labelId} className={styles.name}>
+              {label}
+            </Text>
+          )}
+          {unset ? (
+            // Not set up reads as a status: its words, with the dot only as a second cue.
+            <Badge variant="warning" size="sm" dot data-state="unset">
+              {text.state(node)}
+            </Badge>
+          ) : (
+            <Text as="span" variant="caption" color="secondary" className={styles.state}>
+              {text.state(node)}
+            </Text>
+          )}
+        </div>
         {node.actions.length > 0 && (
           <div className={styles.actions}>
             {node.actions.map((action) => (
               <Button
                 key={action.id}
-                variant={action.primary ? "primary" : "secondary"}
+                variant={action.primary ? "primary" : nested ? "ghost" : "secondary"}
                 size="sm"
                 className={styles.action}
                 data-primary={action.primary ? "true" : undefined}
@@ -125,6 +129,7 @@ export function SetupNodeRow(props: SetupNodeRowProps) {
               onAction={onAction}
               renderExtra={renderExtra}
               text={text}
+              nested
             />
           ))}
         </ul>

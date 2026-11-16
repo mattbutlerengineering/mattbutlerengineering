@@ -21,27 +21,81 @@
   margin: 0;
 }
 
-.group {
+/* The venue's eyebrow labels the whole map, so it sits close above the groups; the groups
+   themselves sit further apart from each other than from their own cards. */
+.map {
   display: flex;
   flex-direction: column;
   gap: var(--rialto-space-md);
 }
 
+.groups {
+  /* The step marker's size, and the rail its group's cards hang from. */
+  --step-size: 28px;
+  --step-rail: calc(var(--step-size) + var(--rialto-space-sm));
+
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-2xl);
+}
+
+.group {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--rialto-space-md);
+  padding-inline-start: var(--step-rail);
+}
+
+/* A spine down from each step marker: step 1 runs on into step 2, so the page reads as the order
+   availability is decided in, not two unrelated lists. */
+.group::before {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(var(--step-size) / 2);
+  inset-block: calc(var(--step-size) + var(--rialto-space-xs)) 0;
+  border-inline-start: 1px solid var(--rialto-border);
+}
+
+.group:not(:last-child)::before {
+  inset-block-end: calc(var(--rialto-space-xs) - var(--rialto-space-2xl));
+}
+
 .groupHeader {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--rialto-space-sm);
+  margin-inline-start: calc(-1 * var(--step-rail));
 }
 
+/* The order the groups decide availability in, as a marker the heading hangs from. */
 .groupStep {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  inline-size: var(--step-size);
+  block-size: var(--step-size);
+  border-radius: var(--rialto-radius-round);
+  /* A node on the spine: the cards' raised surface, ringed in the spine's own rule. */
+  background: var(--rialto-surface-elevated);
+  box-shadow:
+    0 0 0 1px var(--rialto-border),
+    var(--rialto-shadow-sm);
   font-family: var(--rialto-font-sans);
   font-size: var(--rialto-text-sm);
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--rialto-text-tertiary);
+  line-height: 1;
+  color: var(--rialto-text-secondary);
 }
 
-.groupHeading {
+.groupHeader .groupHeading {
   margin: 0;
+  font-family: var(--rialto-font-display);
+  font-size: var(--rialto-text-lg);
+  font-weight: var(--rialto-weight-regular);
+  letter-spacing: -0.01em;
 }
 
 .skeletons {
@@ -65,12 +119,18 @@
   gap: var(--rialto-space-md);
 }
 
-/* A nested level: indented under its parent, with a guide rule down its start edge. */
+/* A nested level: indented under its parent, each row joined to its parent's start edge by an
+   elbow, the rule running on only while siblings follow. */
 .children {
-  gap: var(--rialto-space-2xs);
-  margin-block-start: var(--rialto-space-xs);
-  padding-inline-start: var(--rialto-space-md);
-  border-inline-start: 1px solid var(--rialto-border);
+  --indent: var(--rialto-space-md);
+  --row-gap: var(--rialto-space-2xs);
+  --row-pad: var(--rialto-space-2xs);
+  /* The middle of a row's 44px title line, where its elbow meets it. */
+  --elbow: calc(var(--row-pad) + 22px);
+
+  gap: var(--row-gap);
+  margin-block-start: var(--rialto-space-2xs);
+  padding-inline-start: var(--indent);
 }
 
 .node {
@@ -78,7 +138,31 @@
   flex-direction: column;
   gap: var(--rialto-space-2xs);
   min-width: 0;
-  padding-block: var(--rialto-space-xs);
+  padding-block: var(--rialto-space-2xs);
+}
+
+.children > .node {
+  position: relative;
+}
+
+.children > .node::before,
+.children > .node:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(-1 * var(--indent));
+  border-inline-start: 1px solid var(--rialto-border);
+}
+
+.children > .node::before {
+  inset-block-start: calc(-1 * var(--row-gap));
+  block-size: calc(var(--row-gap) + var(--elbow));
+  inline-size: calc(var(--indent) - var(--rialto-space-2xs));
+  border-block-end: 1px solid var(--rialto-border);
+  border-end-start-radius: var(--rialto-radius-default);
+}
+
+.children > .node:not(:last-child)::after {
+  inset-block: var(--elbow) calc(-1 * var(--row-gap));
 }
 
 /* A top-level resource sits on its own raised surface; what it holds sits flat inside it. */
@@ -93,8 +177,20 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: var(--rialto-space-2xs) var(--rialto-space-sm);
   min-width: 0;
+}
+
+/* Kind word, name and state: one line that wraps as a unit, apart from the actions. */
+.title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  align-content: center;
+  gap: var(--rialto-space-2xs) var(--rialto-space-sm);
+  min-width: 0;
+  min-height: 44px;
 }
 
 .caption {
@@ -114,9 +210,21 @@
   overflow-wrap: anywhere;
 }
 
+/* A top-level resource's name is a title, in the display face. */
 .tree > .node > .header .name,
 .tree > .node > .header .disclosure {
+  font-family: var(--rialto-font-display);
   font-size: var(--rialto-text-md);
+  letter-spacing: -0.01em;
+}
+
+/* Its count reads as a status, the same shape as the Not set up badge beside other resources. */
+.tree > .node > .header .state {
+  padding: 2px var(--rialto-space-xs);
+  border-radius: var(--rialto-radius-round);
+  background: var(--rialto-surface-recessed);
+  font-size: var(--rialto-text-xs);
+  font-variant-numeric: tabular-nums;
 }
 
 .disclosure {
@@ -129,16 +237,23 @@
   white-space: normal;
 }
 
+/* A drawn chevron: points along the line closed, down open. */
 .disclosure::after {
-  content: "▸";
+  content: "";
   display: inline-block;
-  margin-inline-start: var(--rialto-space-xs);
+  flex: none;
+  inline-size: 6px;
+  block-size: 6px;
+  margin-inline: var(--rialto-space-2xs);
+  border-inline-end: 1.5px solid currentColor;
+  border-block-end: 1.5px solid currentColor;
   color: var(--rialto-text-tertiary);
+  transform: rotate(-45deg);
   transition: transform var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .disclosure[aria-expanded="true"]::after {
-  transform: rotate(90deg);
+  transform: translateY(-2px) rotate(45deg);
 }
 
 .state {
@@ -206,13 +321,42 @@
     padding: var(--rialto-space-sm) var(--rialto-space-md);
   }
 
+  /* No room for a rail beside the cards on a narrow screen: the markers stay, the spine goes. */
+  .group {
+    padding-inline-start: 0;
+  }
+
+  .group::before {
+    content: none;
+  }
+
+  .groupHeader {
+    margin-inline-start: 0;
+  }
+
   .children {
-    padding-inline-start: var(--rialto-space-sm);
+    --indent: var(--rialto-space-sm);
+  }
+
+  /* A nested ghost action starts on its row's text edge, not its padding's. */
+  .children .actions > .action:first-child:not([data-primary]) {
+    margin-inline-start: calc(-1 * var(--rialto-button-sm-padding-x));
+  }
+
+  /* On a narrow screen a node reads title, what it is, then its doors, then what it holds. The
+     header steps aside so its actions can follow the description. */
+  .header {
+    display: contents;
   }
 
   .actions {
+    order: 1;
     margin-inline-start: 0;
-    width: 100%;
+    margin-block: var(--rialto-space-2xs);
+  }
+
+  .children {
+    order: 2;
   }
 }
 
