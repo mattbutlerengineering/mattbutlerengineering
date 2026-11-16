@@ -26,6 +26,7 @@ const MOUNTED: readonly string[] = [
   "/availability/history",
   "/availability/hours",
   "/availability/map",
+  "/availability/seasonal",
 ];
 const pathOf = (address: string): string => address.split("?")[0] ?? "";
 
@@ -36,7 +37,12 @@ describe("availabilityPath", () => {
     [{ view: "hub" }, "/availability"],
     [{ view: "hours" }, "/availability/hours"],
     [{ view: "hours", service: "svc-dinner" }, "/availability/hours?service=svc-dinner"],
-    [{ view: "seasonal" }, "/availability/calendar?tab=schedules"],
+    [{ view: "seasonal" }, "/availability/seasonal"],
+    [{ view: "seasonal", from: "setup" }, "/availability/seasonal?from=setup"],
+    [
+      { view: "seasonal", screen: "new", copy: "sch-1" },
+      "/availability/calendar?tab=schedules&action=addSchedule&copy=sch-1",
+    ],
     [
       { view: "seasonal", screen: "new" },
       "/availability/calendar?tab=schedules&action=addSchedule",

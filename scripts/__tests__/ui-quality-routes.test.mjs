@@ -47,9 +47,9 @@ describe("hospitality adapter", () => {
   const rows = extractApp("hospitality", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 32 route templates (30 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
-    expect(rows).toHaveLength(32);
-    expect(new Set(rows.map((r) => r.route)).size).toBe(32);
+  it("yields 33 route templates (31 leaf paths + 3 index routes, one of which shares `onboarding`)", () => {
+    expect(rows).toHaveLength(33);
+    expect(new Set(rows.map((r) => r.route)).size).toBe(33);
   });
 
   it("reads the children of `availability`: the hub at its index, booking rules and History over it, today's page at `calendar`, regular hours", () => {
@@ -83,6 +83,13 @@ describe("hospitality adapter", () => {
       "apps/hospitality/src/pages/AvailabilityHoursPage.tsx",
       "apps/hospitality/src/main.tsx",
     ]);
+    // The Seasonal hours list, behind the same guard (availability-hub E4.5).
+    expect(byRoute["availability/seasonal"].kind).toBe("page");
+    expect(byRoute["availability/seasonal"].source_files).toEqual([
+      "apps/hospitality/src/components/RequireManager.tsx",
+      "apps/hospitality/src/pages/AvailabilitySeasonalListPage.tsx",
+      "apps/hospitality/src/main.tsx",
+    ]);
     // The Availability map, Venue Setup before #8864.
     expect(byRoute["availability/map"].kind).toBe("page");
     expect(byRoute["availability/map"].source_files).toEqual([
@@ -96,14 +103,14 @@ describe("hospitality adapter", () => {
     expect(byRoute["reservations/manage"].auth).toBe("public");
     expect(byRoute["timeline"].auth).toBe("auth0");
     expect(byRoute["/"].auth).toBe("auth0");
-    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(27);
+    expect(rows.filter((r) => r.auth === "auth0")).toHaveLength(28);
   });
 
   it("classifies callback as a redirect and * as not-found", () => {
     expect(byRoute["callback"].kind).toBe("redirect");
     expect(byRoute["*"].kind).toBe("not-found");
     expect(byRoute["timeline"].kind).toBe("page");
-    expect(rows.filter((r) => r.kind === "page")).toHaveLength(28);
+    expect(rows.filter((r) => r.kind === "page")).toHaveLength(29);
     // /setup/hours moved to the Availability page (#7513); the old path stays as a <Navigate>.
     expect(byRoute["setup/hours"].kind).toBe("redirect");
     // /setup moved to the Availability map (#8864); the old path stays as a redirect.
@@ -248,7 +255,7 @@ describe("routes.mjs all", () => {
       .trimEnd()
       .split("\n")
       .map((l) => JSON.parse(l));
-    expect(rows).toHaveLength(32 + 11 + 124);
+    expect(rows).toHaveLength(33 + 11 + 124);
     const keys = rows.map((r) => `${r.app}\u0000${r.route}`);
     expect(keys).toEqual([...keys].sort());
     expect([...new Set(rows.map((r) => r.app))]).toEqual([

@@ -91,6 +91,11 @@ const AvailabilityHistoryRoute = lazy(() =>
 const AvailabilityPage = lazy(() =>
   import("./pages/AvailabilityPage.js").then((m) => ({ default: m.AvailabilityPage }))
 );
+const AvailabilitySeasonalListPage = lazy(() =>
+  import("./pages/AvailabilitySeasonalListPage.js").then((m) => ({
+    default: m.AvailabilitySeasonalListPage,
+  }))
+);
 const AvailabilityHoursPage = lazy(() =>
   import("./pages/AvailabilityHoursPage.js").then((m) => ({ default: m.AvailabilityHoursPage }))
 );
@@ -395,6 +400,17 @@ const router = createBrowserRouter(
                     <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
                       <Suspense fallback={<LoadingPage />}>
                         <AvailabilityHoursPage />
+                      </Suspense>
+                    </RequireManager>
+                  ),
+                },
+                {
+                  // An editor's list: a Host who loads it lands on the hub.
+                  path: "seasonal",
+                  element: (
+                    <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
+                      <Suspense fallback={<LoadingPage />}>
+                        <AvailabilitySeasonalListPage />
                       </Suspense>
                     </RequireManager>
                   ),

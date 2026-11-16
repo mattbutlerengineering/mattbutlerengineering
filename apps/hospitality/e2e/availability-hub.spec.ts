@@ -694,3 +694,59 @@ test.describe("History over the hub (C2.6)", () => {
     await expect(page).toHaveURL(/\/availability\/calendar$/);
   });
 });
+
+test.describe("Availability hub: Seasonal hours list (E4.5)", () => {
+  /** The demo venue's config with Weeknights (Mon-Thu) added; its regular rows are copied across. */
+  async function serveWithWeeknights(page: Page) {
+    const demo = buildAvailabilityConfigFixture().config as AvailabilityConfig;
+    const copies = demo.scheduleServices.map((s) => ({
+      ...s,
+      id: `${s.id}-wk`,
+      scheduleId: "wk",
+    }));
+    const config: AvailabilityConfig = {
+      ...demo,
+      schedules: [
+        ...demo.schedules,
+        { id: "wk", name: "Weeknights", kind: "alternate", isRegular: false },
+      ],
+      scheduleServices: [...demo.scheduleServices, ...copies],
+      assignments: [
+        ...demo.assignments,
+        { id: "as-wk", scheduleId: "wk", weekdays: [1, 2, 3, 4], precedence: 1 },
+      ],
+    };
+    await serveSharedConfig(page, createSharedConfig(config));
+  }
+
+  test("the delete reason is in the accessibility tree without hover, and compare is offered", async ({
+    mockedPage: page,
+  }) => {
+    await serveWithWeeknights(page);
+    await page.setViewportSize(DESKTOP);
+    await page.goto("availability/seasonal");
+    await expect(page.getByRole("heading", { level: 1, name: "Seasonal hours" })).toBeVisible();
+    const del = page.getByRole("button", { name: "Delete Weeknights" });
+    await expect(del).toBeDisabled();
+    await expect(del).toHaveAccessibleDescription(/Can’t delete: used Mon–Thu/);
+    await expect(page.getByText(/Can’t delete: used Mon–Thu/)).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Edit one service across all hours" })
+    ).toBeVisible();
+  });
+
+  test("a venue with only regular hours shows the empty sentence and no compare link", async ({
+    mockedPage: page,
+  }) => {
+    await serveSharedConfig(
+      page,
+      createSharedConfig(buildAvailabilityConfigFixture().config as AvailabilityConfig)
+    );
+    await page.setViewportSize(DESKTOP);
+    await page.goto("availability/seasonal");
+    await expect(
+      page.getByText("No seasonal hours. Add hours for a season or a period, such as summer.")
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /across all hours/ })).toHaveCount(0);
+  });
+});
