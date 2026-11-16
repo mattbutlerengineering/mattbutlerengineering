@@ -11,15 +11,19 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: read
+  # contents/pull-requests write + actions: persist the liveness rows through an
+  # automation PR (the stale-human-blocked.yml pattern, #8941); actions:write is
+  # for the CI dispatch the GITHUB_TOKEN anti-recursion rule makes necessary.
+  contents: write
+  actions: write
   issues: write
   # scripts/routine-liveness.mjs resolves every `pr-title` signature with
   # `gh pr list --search`, which is a read of pull requests. Without this
   # scope GitHub does not refuse the query — it filters the unreadable
   # results out and answers 200 with an empty list, so all six pr-title
   # routines observe zero artifacts and classify as `dark` (#5603, #5606,
-  # #5607, #5609, #5610, #5611). Same mechanism as #5556.
-  pull-requests: read
+  # #5607, #5609, #5610, #5611). Same mechanism as #5556; write also opens the metrics PR.
+  pull-requests: write
 
 jobs:
   check-routine-liveness:
@@ -42,3 +46,105 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: node scripts/routine-liveness.mjs
+
+      - name: Open PR with the recorded liveness rows
+        id: create-pr
+        # `main` is protected and requires the CI Gate status check, which a
+        # bare `git push` can never produce. Route through a PR on an
+        # automation branch instead — the pattern proven in pr-metrics.yml /
+        # production-feedback.yml. Skipped on a dry run, which writes nothing.
+        uses: peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8 # v8.1.2
+        env:
+          # The action commits inside the runner, firing the husky pre-commit
+          # hook; check-adr needs @mbe/agent-core built, which this job does
+          # not do for a plain metrics-data commit. Validated by CI on the PR.
+          HUSKY: "0"
+        with:
+          # AUTOMATION_PAT (#3684): a GITHUB_TOKEN-authored commit is
+          # attributed to github-actions[bot], which parks every
+          # pull_request-triggered check on the resulting PR at
+          # `action_required` — see docs/SECRETS.md.
+          token: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          commit-message: "chore(metrics): record routine liveness"
+          title: "chore(metrics): record routine liveness"
+          body: |
+            One row per routine from `.github/workflows/routine-liveness.yml`;
+            rows of one pass share `detected_at` (#8941).
+          branch: automation/routine-liveness-metrics
+          delete-branch: true
+          add-paths: |
+            metrics/routine-liveness.jsonl
+          labels: auto-merge
+
+      - name: Dispatch CI on the automation branch
+        # GITHUB_TOKEN-authored pushes/PRs don't trigger other workflows
+        # (anti-recursion), so the pull_request CI run — including the
+        # required CI Gate check — never fires and the PR sits BLOCKED.
+        # workflow_dispatch is the documented exception.
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run ci.yml --ref automation/routine-liveness-metrics
+
+      - name: Dispatch tier-classifier on the automation branch
+        # tier-classifier.yml is dispatched by hand because a GITHUB_TOKEN/AUTOMATION_PAT-authored
+        # PR fires no `pull_request(_target)` event (the anti-recursion gap ci.yml has, #3684),
+        # so no tier:* label would land and the gate below would fail closed (#4070). The
+        # dispatch runs from the default branch: never pass `--ref` (the classifier fails
+        # closed off the default branch and treats the PR head as data).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: gh workflow run tier-classifier.yml -f pr="$PR_NUMBER"
+
+      - name: Approve pending automation workflow runs
+        # #3684/#3982: every pull_request-triggered run on this PR parks at
+        # action_required because the commit is bot-authored. Scoped to
+        # automation/* + auto-merge from the one trusted automation author
+        # (scripts/approve-automation-runs.mjs) — never a blanket approval.
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: node scripts/approve-automation-runs.mjs approve --pr "$PR_NUMBER"
+
+      - name: Wait for tier-classifier label
+        # The dispatch above is fire-and-forget; without waiting, the gate
+        # below reads labels before the tier:* label lands and fails closed
+        # every time (#4070).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: node scripts/wait-for-tier-label.mjs --pr "$PR_NUMBER"
+
+      - name: Enable auto-merge
+        # Through the same eligibility gate auto-merge.yml consults, not a
+        # bare `gh pr merge --auto` — an ungated call would be a permanent
+        # bypass of the tier gate (#3972). Failing closed here is the
+        # documented safe direction; automation-pr-rescue.yml keeps a
+        # not-merged PR visible and up to date (#3966).
+        if: steps.create-pr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ secrets.AUTOMATION_PAT || secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ steps.create-pr.outputs.pull-request-number }}
+        run: |
+          LABELS_CSV=$(gh pr view "$PR_NUMBER" --json labels -q '[.labels[].name] | join(",")')
+          RESULT=$(node scripts/merge-queue-eligibility.mjs check --labels "$LABELS_CSV" --mode automation)
+          echo "$RESULT"
+          if [ "$(echo "$RESULT" | jq -r '.eligible')" != "true" ]; then
+            echo "::notice::Auto-merge not enabled for PR #$PR_NUMBER: $(echo "$RESULT" | jq -r '.reason')"
+            exit 0
+          fi
+
+          AUTHOR=$(gh pr view "$PR_NUMBER" --json author -q '.author.login')
+          AUTHOR_RESULT=$(node scripts/merge-queue-eligibility.mjs check-author --login "$AUTHOR")
+          echo "$AUTHOR_RESULT"
+          if [ "$(echo "$AUTHOR_RESULT" | jq -r '.trusted')" != "true" ]; then
+            echo "::notice::Auto-merge not enabled for PR #$PR_NUMBER: author '$AUTHOR' not in TRUSTED_AUTOMATION_AUTHORS"
+            exit 0
+          fi
+
+          echo "Enabling auto-merge for PR #$PR_NUMBER (squash)"
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
