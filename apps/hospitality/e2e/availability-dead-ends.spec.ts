@@ -32,16 +32,12 @@ async function openDay(page: Page, label: RegExp) {
   // A date after today: the drawer offers Edit only on today or later, so a cell picked by its
   // position in the grid turns read-only once the calendar moves past it (red on main from
   // 2026-11-16, when index 20 of the November grid became yesterday).
-  const dates = await page
-    .locator("button[data-date]")
-    .evaluateAll((cells) => cells.map((cell) => cell.getAttribute("data-date")));
+  const cells = page.getByRole("button", { name: label }).and(page.locator("[data-date]"));
+  const dates = await cells.evaluateAll((els) => els.map((el) => el.getAttribute("data-date")));
   const tomorrow = localDay(1);
   const date = dates.find((d) => d !== null && d > tomorrow);
-  if (!date) throw new Error(`No calendar cell after ${tomorrow}`);
-  await page
-    .getByRole("button", { name: label })
-    .and(page.locator(`[data-date="${date}"]`))
-    .click();
+  if (!date) throw new Error(`No calendar cell matching ${String(label)} after ${tomorrow}`);
+  await cells.and(page.locator(`[data-date="${date}"]`)).click();
   return page.getByRole("dialog");
 }
 
