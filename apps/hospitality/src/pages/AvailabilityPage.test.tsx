@@ -1554,6 +1554,14 @@ describe("AvailabilityPage Services filter (#7981)", () => {
 });
 
 describe("AvailabilityPage layers", () => {
+  // The Special dates row also reads "Online booking paused" (#8687); the banner is the alert holding it.
+  const pausedBanner = () => {
+    const alert = screen
+      .getAllByRole("alert")
+      .find((el) => within(el).queryByText("Online booking paused") !== null);
+    if (!alert) throw new Error("no paused banner");
+    return within(alert).getByText("Online booking paused");
+  };
   beforeEach(() => {
     window.HTMLElement.prototype.scrollIntoView = vi.fn();
     vi.clearAllMocks();
@@ -1701,7 +1709,7 @@ describe("AvailabilityPage layers", () => {
         },
       ];
       renderPage(`/availability/calendar?tab=${tab}`);
-      expect(screen.getByText("Online booking paused")).toBeInTheDocument();
+      expect(pausedBanner()).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "Pause online booking" })
       ).not.toBeInTheDocument();
@@ -1722,7 +1730,7 @@ describe("AvailabilityPage layers", () => {
       const line = screen.getByRole("region", { name: "Today line" });
       expect(line).toHaveAttribute("data-venue", "venue-1");
       expect(line).toHaveAttribute("data-banner", "true");
-      const banner = screen.getByText("Online booking paused");
+      const banner = pausedBanner();
       expect(line.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     });
 
