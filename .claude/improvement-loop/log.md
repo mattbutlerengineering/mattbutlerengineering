@@ -5646,3 +5646,12 @@ Phase 4: no worktrees present (`.claude/worktrees/` doesn't exist), no merge-tra
 - **Coverage before this fire:** 100% (136/136 routes), not provisional.
 - **Pipeline bugs:** none. The exit 2 is the guard working as designed, not a fault.
 - **Observed but not filable (no rubric tell covers it), carried from 2026-11-15:** at 375px the cookie-consent banner on rialto-web `demos/dashboard` still paints on top of the page content, its text interleaving illegibly with the BEST LAP / TIRES card beneath it. Also seen this fire and unfilable for the same reason: rialto-web `components/split-flap` overflows its card and the viewport at 375px, and several rialto-web routes (`components/slider`, `components/spinner`, `components/split-flap`, `components/table`) end their sidebar and page background at 720px, leaving a bare white band below the fold. Rubric v1 has no overflow/overlap tell; all three remain candidates for a `rubric_version` bump proposal.
+
+## 2026-11-16 — mbe-learning-loop
+
+**Sensors:** 17/18 available (e2eStability skipped — stale main SHA not in local object store)
+**Regressions:** 1 detected, 1 issue created (lighthouse `/index.html:seo` 1 → 0.63, high severity; `/rialto/index.html:seo` unaffected, so scoped to the marketing root route — filed as #8980)
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed, 5 skipped (no matching/automated verifier for their labels: #8962 audit/lighthouse-inventory, #8941/#8940/#8891–#8894 meta-improvement, #8931 ci-fix no CI runs, #8922 bug no completed CI runs)
+**AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected); worst is acmm at 33% (1/3, tiny sample) and ci-fix at 14% (8/56); all budgets remain at 3
+**Skill proposals:** 0 (Monday — Friday-only)
+**Threshold notes:** 30d fix-effectiveness 75% (6/8 non-skip verifications) — healthy, no review needed; false-positive rate stayed under 30% for every category with a meaningful sample (acmm's 33% is 1 rejection out of 3 total, not treated as a signal); threshold-tuner auto-adjusted `acmm` 1.693 → 1.72 (headroom)

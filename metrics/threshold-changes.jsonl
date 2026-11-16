@@ -46,3 +46,4 @@
 {"timestamp":"2026-11-13T00:00:00.000Z","criterion":"ci.ci_pass_rate_drop","old_value":5,"new_value":5.5,"trigger":"regression-false-positive"}
 {"timestamp":"2026-11-14T00:00:00.000Z","criterion":"acmm","old_value":1.662,"new_value":1.674,"trigger":"headroom"}
 {"timestamp":"2026-11-15T00:00:00.000Z","criterion":"acmm","old_value":1.674,"new_value":1.693,"trigger":"headroom"}
+{"timestamp":"2026-11-16T00:00:00.000Z","criterion":"acmm","old_value":1.693,"new_value":1.72,"trigger":"headroom"}
