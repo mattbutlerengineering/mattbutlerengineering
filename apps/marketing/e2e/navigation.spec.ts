@@ -9,17 +9,11 @@ test.describe("Homepage", () => {
     await expect(page.getByRole("link", { name: "Live metrics" })).toBeVisible();
   });
 
-  test("reading section is absent while the weekly intake has nothing recent", async ({ page }) => {
-    await page.goto("/");
-
-    await expect(page.getByRole("heading", { name: /what i.m reading/i })).toHaveCount(0);
-    await expect(page.getByRole("link", { name: "Browse the stack" })).toHaveCount(0);
-  });
-
-  test("weekly intake page renders", async ({ page }) => {
+  test("retired /weekly page redirects to the homepage", async ({ page }) => {
     await page.goto("/weekly");
 
-    await expect(page.getByRole("heading", { name: "Weekly Information Intake" })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.getByRole("link", { name: "Read the code" })).toBeVisible();
   });
 
   test("Recently shipped link opens a story and back to the index", async ({ page }) => {

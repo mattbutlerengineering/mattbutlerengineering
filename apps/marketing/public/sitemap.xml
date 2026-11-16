@@ -464,8 +464,4 @@
     <loc>https://mattbutlerengineering.com/status</loc>
     <priority>0.6</priority>
   </url>
-  <url>
-    <loc>https://mattbutlerengineering.com/weekly</loc>
-    <priority>0.6</priority>
-  </url>
 </urlset>

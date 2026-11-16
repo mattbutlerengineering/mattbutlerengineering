@@ -24,11 +24,6 @@ const ROUTE_META: readonly RouteMeta[] = [
       "Live health of the API services and static sites behind mattbutlerengineering.com.",
   },
   {
-    pattern: "/weekly",
-    title: `Weekly Information Intake — ${SITE_NAME}`,
-    description: "The articles, talks and resources Matt Butler reads and learns from each week.",
-  },
-  {
     pattern: "/metrics",
     title: `Quality Metrics — ${SITE_NAME}`,
     description:
