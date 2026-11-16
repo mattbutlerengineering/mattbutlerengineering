@@ -3420,7 +3420,7 @@
       "loading": "Loading seasonal hours",
       "compare": "Edit one service across all hours",
       "cantDelete": "Can’t delete: used {{where}}. Change those days first.",
-      "cantDeleteRules": "Can’t delete: {{where}}. Change those dates first."
+      "cantDeleteRules": "Can’t delete. {{where}}. Change those dates first."
     }
   },
   "setup": {

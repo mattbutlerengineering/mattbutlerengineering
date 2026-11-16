@@ -145,6 +145,33 @@ describe("AvailabilitySeasonalListPage", () => {
     expect(within(rowOf("Spare")).queryByText(/Can’t delete/)).not.toBeInTheDocument();
   });
 
+  it("words the reason as its own sentence when only Use schedule rules use the hours", () => {
+    const config = threeSchedules();
+    renderPage(
+      scopeOf({
+        state: stateOf({
+          ...config,
+          dateRules: [
+            ...config.dateRules,
+            {
+              id: "r-use-spare",
+              kind: "use_schedule",
+              targetKind: "venue",
+              startsOn: "2026-11-02",
+              endsOn: "2026-11-02",
+              useScheduleId: "spare",
+            },
+          ],
+        }),
+      })
+    );
+    expect(
+      within(rowOf("Spare")).getByText(
+        "Can’t delete. Used by 1 Use schedule rule. Change those dates first."
+      )
+    ).toBeVisible();
+  });
+
   it("deletes unused hours after a confirmation and offers Undo", async () => {
     renderPage(scopeOf());
     fireEvent.click(screen.getByRole("button", { name: "Delete Spare" }));

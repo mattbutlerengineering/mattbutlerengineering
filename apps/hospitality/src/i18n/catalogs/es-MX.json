@@ -3512,7 +3512,7 @@
       "loading": "Cargando los horarios de temporada",
       "compare": "Editar un servicio en todos los horarios",
       "cantDelete": "No se puede eliminar: se usa {{where}}. Primero cambia esos días.",
-      "cantDeleteRules": "No se puede eliminar: {{where}}. Primero cambia esas fechas."
+      "cantDeleteRules": "No se puede eliminar. {{where}}. Primero cambia esas fechas."
     }
   },
   "setup": {

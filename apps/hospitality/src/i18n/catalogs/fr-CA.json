@@ -3512,7 +3512,7 @@
       "loading": "Chargement des heures saisonnières",
       "compare": "Modifier un service dans toutes les heures",
       "cantDelete": "Suppression impossible : utilisé {{where}}. Changez d’abord ces jours.",
-      "cantDeleteRules": "Suppression impossible : {{where}}. Changez d’abord ces dates."
+      "cantDeleteRules": "Suppression impossible. {{where}}. Changez d’abord ces dates."
     }
   },
   "setup": {
