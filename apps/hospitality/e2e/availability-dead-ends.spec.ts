@@ -91,7 +91,7 @@ test.describe("a read that failed", () => {
     answering = true;
     await alert.getByRole("button", { name: "Retry" }).click();
     await expect(alert).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Tonight ▾" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Tonight(?!'s)/ })).toBeVisible();
   });
 });
 

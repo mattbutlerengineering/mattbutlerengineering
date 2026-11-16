@@ -7,7 +7,6 @@ import {
   Divider,
   Drawer,
   NumberInput,
-  Popover,
   Select,
   Stack,
   Tag,
@@ -56,6 +55,8 @@ export interface TonightControlProps {
   readonly sections: readonly FloorPlanSection[];
   /** Start with the panel open: the Today line's "Change tonight" link lands here. */
   readonly defaultOpen?: boolean;
+  /** The date the timeline shows (YYYY-MM-DD); the trigger names it unless it is tonight. */
+  readonly selectedDate?: string;
 }
 
 type TonightBody = SetTonightRequest["change"];
@@ -131,7 +132,7 @@ function groupBySection(
 }
 
 /**
- * The Tonight panel (ux.md F7/S8): header chips for the changes in force and a popover (a bottom
+ * The Tonight panel (ux.md F7/S8): header chips for the changes in force and a slide-out drawer (a bottom
  * sheet on phones) to make them. A Host with the grant sees the emergency close with What and
  * When locked; a Host without it sees why not, as text.
  */
@@ -181,6 +182,14 @@ export function TonightControl(props: TonightControlProps) {
   )[0];
   const canEmergencyClose = viewerRole === "manager" || hostEmergencyClose;
   const isSheet = viewport === "phone";
+  const triggerLabel =
+    props.selectedDate === undefined || props.selectedDate === today
+      ? t("availability.tonight.open")
+      : format.formatCalendarDate(props.selectedDate, {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
 
   const tableGroups = useMemo(() => groupBySection(tables, sections), [tables, sections]);
   const blockOptions = [
@@ -348,7 +357,7 @@ export function TonightControl(props: TonightControlProps) {
     <div
       className={styles.panel}
       data-testid="tonight-panel"
-      data-layout={isSheet ? "sheet" : "popover"}
+      data-layout={isSheet ? "sheet" : "drawer"}
     >
       <Stack gap="md">
         <Toggle
@@ -514,10 +523,11 @@ export function TonightControl(props: TonightControlProps) {
       variant="secondary"
       size="md"
       className={styles.trigger}
+      aria-haspopup="dialog"
       aria-expanded={open}
-      onClick={isSheet ? () => setOpen(!open) : undefined}
+      onClick={() => setOpen(!open)}
     >
-      {t("availability.tonight.open")}
+      {triggerLabel}
     </Button>
   );
 
@@ -536,31 +546,15 @@ export function TonightControl(props: TonightControlProps) {
       )}
       {/* A chip ✕ works with the panel closed, so its failure can't live only inside the panel. */}
       {!open && failure}
-      {isSheet ? (
-        <>
-          {trigger}
-          <Drawer
-            open={open}
-            onClose={() => setOpen(false)}
-            side="bottom"
-            title={t("availability.tonight.title")}
-          >
-            {panel}
-          </Drawer>
-        </>
-      ) : (
-        <Popover
-          trigger={trigger}
-          title={t("availability.tonight.title")}
-          placement="bottom"
-          open={open}
-          onOpenChange={setOpen}
-          // A column of fields over the timeline grid: glass let the grid show through them.
-          solid
-        >
-          {panel}
-        </Popover>
-      )}
+      {trigger}
+      <Drawer
+        open={open}
+        onClose={() => setOpen(false)}
+        side={isSheet ? "bottom" : "right"}
+        title={t("availability.tonight.title")}
+      >
+        {panel}
+      </Drawer>
       {needsDecisions && (
         <TonightDecisionsDialog
           venueId={venueId}

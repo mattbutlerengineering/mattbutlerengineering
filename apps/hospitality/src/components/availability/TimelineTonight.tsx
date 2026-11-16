@@ -17,7 +17,7 @@ const OPEN_PARAM = "tonight";
  * availability config and the viewer's role have loaded: the panel never guesses a role. A read
  * that failed says so with Retry, because this is where a Host finds Emergency close.
  */
-export function TimelineTonight() {
+export function TimelineTonight({ selectedDate }: { readonly selectedDate?: string }) {
   const { t } = useTranslation();
   const { selectedVenueId, selectedVenue } = useVenue();
   const now = useNow();
@@ -76,6 +76,7 @@ export function TimelineTonight() {
       tables={tables.data ?? []}
       sections={sections.data ?? []}
       defaultOpen={openRequested}
+      selectedDate={selectedDate}
     />
   );
 }
