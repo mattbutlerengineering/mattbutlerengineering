@@ -182,13 +182,19 @@ export function TonightControl(props: TonightControlProps) {
   )[0];
   const canEmergencyClose = viewerRole === "manager" || hostEmergencyClose;
   const isSheet = viewport === "phone";
+  const dateParts: Intl.DateTimeFormatOptions = {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  };
+  // Every change here writes to tonight; on another date the trigger and drawer say so.
+  const otherDate =
+    props.selectedDate !== undefined && props.selectedDate !== today ? props.selectedDate : null;
   const triggerLabel =
-    props.selectedDate === undefined || props.selectedDate === today
+    otherDate === null
       ? t("availability.tonight.open")
-      : format.formatCalendarDate(props.selectedDate, {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
+      : t("availability.tonight.openOnDate", {
+          date: format.formatCalendarDate(today, dateParts),
         });
 
   const tableGroups = useMemo(() => groupBySection(tables, sections), [tables, sections]);
@@ -360,6 +366,13 @@ export function TonightControl(props: TonightControlProps) {
       data-layout={isSheet ? "sheet" : "drawer"}
     >
       <Stack gap="md">
+        {otherDate !== null && (
+          <Text variant="caption" color="secondary">
+            {t("availability.tonight.notSelectedDate", {
+              date: format.formatCalendarDate(otherDate, dateParts),
+            })}
+          </Text>
+        )}
         <Toggle
           label={t("availability.tonight.pause")}
           checked={pauseChange !== undefined}
