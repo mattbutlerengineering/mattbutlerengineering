@@ -1,4 +1,3 @@
-import { useMemo, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Text } from "@mattbutlerengineering/rialto";
@@ -15,14 +14,12 @@ import { currentServiceDate } from "../utils/current-service-date.js";
 import { describeApiError } from "../lib/describe-api-error.js";
 import { PageHeader } from "../components/PageHeader.js";
 import { ErrorRetryBanner } from "../components/ErrorRetryBanner.js";
-import { RegularWeekLine } from "../components/availability/RegularWeekLine.js";
 import { SetupGroupSection } from "../components/venue-setup/SetupGroupSection.js";
 import { SetupProgressStrip } from "../components/venue-setup/SetupProgressStrip.js";
 import {
   buildSetupTree,
   type GroupLoad,
   type SetupAction,
-  type SetupNode,
 } from "../components/venue-setup/setup-tree.js";
 import styles from "../components/venue-setup/VenueSetup.module.css";
 
@@ -94,18 +91,6 @@ export function AvailabilityMapPage() {
     reads.forEach((r) => void r.refetch());
   };
 
-  const savedConfig = config.data;
-  const renderExtra = useMemo(
-    () =>
-      savedConfig
-        ? (node: SetupNode): ReactNode =>
-            node.kind === "schedules" && node.state.kind === "count" ? (
-              <RegularWeekLine config={savedConfig.config} timeZone={timeZone} now={now} />
-            ) : null
-        : undefined,
-    [savedConfig, timeZone, now]
-  );
-
   const onAction = (action: SetupAction) => {
     navigate(action.target.to);
   };
@@ -136,7 +121,6 @@ export function AvailabilityMapPage() {
               isManager={isManager}
               onAction={onAction}
               onRetry={retry(openReads)}
-              renderExtra={renderExtra}
             />
             <SetupGroupSection
               group={sit}

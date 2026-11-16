@@ -286,6 +286,14 @@ describe("Availability map: schedules and services", () => {
     expect(within(week).getByRole("listitem", { name: /Dinner/ })).toBeInTheDocument();
   });
 
+  it("lists the regular week once, as its services, with no summary line repeating them", () => {
+    setConfig(WEEK);
+    renderPage();
+    const schedules = screen.getByRole("listitem", { name: /^Schedules/ });
+    expect(within(schedules).getByRole("listitem", { name: /Lunch/ })).toBeInTheDocument();
+    expect(within(schedules).queryByText(/^Regular week:/)).not.toBeInTheDocument();
+  });
+
   it("updates the node when the config changes after an editor saves", () => {
     const view = renderPage();
     expect(screen.getByRole("button", { name: "Set up regular week" })).toBeInTheDocument();
