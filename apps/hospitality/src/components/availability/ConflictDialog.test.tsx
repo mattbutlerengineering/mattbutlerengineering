@@ -1,6 +1,8 @@
 import { afterAll, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { AvailabilityChangeSummary } from "@mbe/types";
+vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
+
 import { VenueContext, type VenueContextValue } from "../../contexts/venue-context-object.js";
 import { localeRuntime } from "../../i18n/runtime.js";
 import esMX from "../../i18n/catalogs/es-MX.json";
@@ -86,8 +88,19 @@ describe("ConflictDialog wording of the other change", () => {
     await localeRuntime.i18n.changeLanguage("en-US");
     renderDialog({ ...change("a", AT_ONE_FIFTEEN, undefined), detail: undefined });
     expect(
-      screen.getByText("Availability updated: 1 added, 0 changed, 0 removed (saved at 1:15 AM).")
+      screen.getByText(
+        "Availability updated: 1 added, 0 changed, 0 removed (saved by a teammate at 1:15 AM)."
+      )
     ).toBeTruthy();
+  });
+
+  it("names the Manager's own earlier save as 'you', and every other person as a teammate", async () => {
+    await localeRuntime.i18n.changeLanguage("en-US");
+    const mine = { ...change("b", AT_ONE_FIFTEEN, undefined), actorId: "auth0|me" };
+    const theirs = change("a", AT_TWO, undefined);
+    renderDialog(theirs, [theirs, mine]);
+    expect(screen.getByText(/\(saved by a teammate at 2:00 PM\)\.$/)).toBeTruthy();
+    expect(screen.getByText(/\(saved by you at 1:15 AM\)\.$/)).toBeTruthy();
   });
 
   it("words the code in es-MX, with 'a la' for one o'clock on the venue's clock", async () => {
@@ -95,7 +108,7 @@ describe("ConflictDialog wording of the other change", () => {
     renderDialog(change("a", AT_ONE_FIFTEEN, SAVED));
     expect(
       screen.getByText(
-        "Disponibilidad actualizada · Agregados: 1 · Cambiados: 0 · Quitados: 0 (guardado a la 1:15 a.m.)."
+        "Disponibilidad actualizada · Agregados: 1 · Cambiados: 0 · Quitados: 0 (guardado por un compañero a la 1:15 a.m.)."
       )
     ).toBeTruthy();
   });
@@ -103,7 +116,7 @@ describe("ConflictDialog wording of the other change", () => {
   it("uses 'a las' for every other hour", async () => {
     await useLocale("es-MX", esMX);
     renderDialog(change("a", AT_TWO, SAVED));
-    expect(screen.getByText(/\(guardado a las 2:00 p\.m\.\)\.$/)).toBeTruthy();
+    expect(screen.getByText(/\(guardado por un compañero a las 2:00 p\.m\.\)\.$/)).toBeTruthy();
   });
 
   it("words every change in the list with one mapping, and the Review column too", async () => {
@@ -111,7 +124,9 @@ describe("ConflictDialog wording of the other change", () => {
     const first = change("a", AT_TWO, { code: "tonight_ended" });
     const second = change("b", AT_ONE_FIFTEEN, SAVED);
     renderDialog(first, [first, second]);
-    expect(screen.getByText(/^Le changement de ce soir est terminé \(enregistré à/)).toBeTruthy();
+    expect(
+      screen.getByText(/^Le changement de ce soir est terminé \(enregistré par un collègue à/)
+    ).toBeTruthy();
     expect(screen.getByText(/^Disponibilités mises à jour : ajouts 1/)).toBeTruthy();
     expect(screen.queryByText(/Tonight change ended/)).toBeNull();
   });

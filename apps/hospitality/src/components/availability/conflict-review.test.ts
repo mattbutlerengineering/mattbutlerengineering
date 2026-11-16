@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AvailabilityConfig } from "@mbe/types";
 import { seedServices, type DraftService } from "./draft-changes.js";
-import { reapplyDraft, scheduleChangesSince } from "./conflict-review.js";
+import { reapplyDraft, scheduleChangesSince, servicesChangedSince } from "./conflict-review.js";
 import { fixtureConfig } from "./resolved-day-fixtures.js";
 import { DEMO_WEEK_CONFIG } from "../../utils/demo-week.fixture.js";
 
@@ -79,6 +79,28 @@ describe("scheduleChangesSince", () => {
   it("says a deleted schedule is gone", () => {
     const after = { ...fixtureConfig(), schedules: [] };
     expect(scheduleChangesSince(fixtureConfig(), after, "regular").gone).toBe(true);
+  });
+});
+
+describe("servicesChangedSince", () => {
+  it("names the services a version added, removed and changed, by name", () => {
+    const before = rowsOf(fixtureConfig());
+    const after = rowsOf(colleagueEdited());
+    expect(servicesChangedSince(before, after)).toEqual({
+      added: ["Brunch"],
+      removed: [],
+      changed: ["Dinner"],
+    });
+    expect(servicesChangedSince(after, before)).toEqual({
+      added: [],
+      removed: ["Brunch"],
+      changed: ["Dinner"],
+    });
+  });
+
+  it("names nothing when the hours are the same", () => {
+    const rows = rowsOf(fixtureConfig());
+    expect(servicesChangedSince(rows, [...rows])).toEqual({ added: [], removed: [], changed: [] });
   });
 });
 

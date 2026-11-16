@@ -16,6 +16,10 @@ export interface SpecialHoursEditDrawerProps {
   readonly date: string;
   /** Set for "This and following" / "All dates" of a range or repeating rule; absent: this date only. */
   readonly ruleScope?: { readonly ruleId: string; readonly mode: SeriesScope };
+  /** Open straight on the date's rows, as a layer's "Edit hours for <date>" does. */
+  readonly startEditing?: boolean;
+  /** The draft was saved (not discarded); runs just before the drawer closes. */
+  readonly onSaved?: () => void;
   readonly onStale: () => void;
   /** Why the config could not be reloaded; the drawer shows it with a Retry. */
   readonly reloadError?: string | null;
@@ -31,6 +35,7 @@ export interface SpecialHoursEditDrawerProps {
  */
 export function SpecialHoursEditDrawer(props: SpecialHoursEditDrawerProps) {
   const { venueId, state, timezone, today, date, ruleScope, onStale, reloadError, onClose } = props;
+  const { startEditing, onSaved } = props;
   const guard = useDiscardGuard<null>(onClose);
   const day = useMemo(
     () => resolveDay({ timezone, config: state.config }, date),
@@ -52,8 +57,12 @@ export function SpecialHoursEditDrawer(props: SpecialHoursEditDrawerProps) {
           timezone,
           today,
           ruleScope,
+          openEditor: startEditing,
           onDirtyChange: guard.setDirty,
-          onFinished: () => guard.release(null),
+          onFinished: (saved) => {
+            if (saved) onSaved?.();
+            guard.release(null);
+          },
           onStale,
         }}
         onClose={() => guard.request(null)}

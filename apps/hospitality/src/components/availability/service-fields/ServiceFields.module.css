@@ -1,6 +1,8 @@
 .times {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* 8.5rem fits a time and its clock icon: a wide form holds all three in a row, the 400px day
+     drawer holds two a row instead of squeezing three. */
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
   gap: var(--rialto-space-sm);
 }
 

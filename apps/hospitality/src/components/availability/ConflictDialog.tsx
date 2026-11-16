@@ -7,6 +7,7 @@ import type {
   StrandedReservation,
 } from "@mbe/types";
 import type { TFunction } from "i18next";
+import { useAuth } from "@mbe/auth/react";
 import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js";
 import { changeSummaryText } from "./change-summary-text.js";
 import { clockHourOfInstant } from "../../utils/clock-hour.js";
@@ -16,8 +17,14 @@ import { StrandedBookings } from "./StrandedBookings.js";
 import styles from "./ConflictDialog.module.css";
 
 /** "Closed Thu, Dec 24 (saved at 1:00 AM)": a change worded in the viewer's language, on the venue's clock. */
-function theirsText(change: AvailabilityChangeSummary, t: TFunction, format: VenueFormat): string {
+function theirsText(
+  change: AvailabilityChangeSummary,
+  t: TFunction,
+  format: VenueFormat,
+  mine: boolean
+): string {
   return t("availability.editor.conflict.theirs", {
+    who: mine ? t("availability.history.you") : t("availability.history.teammate"),
     summary: changeSummaryText(change, format, t),
     time: format.formatInstant(change.at, { hour: "numeric", minute: "2-digit" }),
     count: clockHourOfInstant(change.at, format),
@@ -130,10 +137,14 @@ export function ConflictDialog(props: ConflictDialogProps) {
   const { ready, changedAgain, onBack } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
+  const { user } = useAuth();
+  // The Manager's own earlier save can be what the draft lost to (another tab, or a second try).
+  const sayTheirs = (change: AvailabilityChangeSummary) =>
+    theirsText(change, t, format, user?.id === change.actorId);
   const [reviewing, setReviewing] = useState(false);
   const unavailableId = useId();
-  // A form whose answers are under Review (Reapply, Start over) leads with Review, not Overwrite.
-  const reviewFirst = props.answers !== undefined;
+  // A form whose answers are under Review (Reapply, Start over) leads with Review while Overwrite is off.
+  const reviewFirst = props.answers !== undefined && !ready;
 
   // An older server sends no `changesSince`: the winning change alone is named, as before.
   const listed = props.changesSince?.changes ?? [];
@@ -144,7 +155,7 @@ export function ConflictDialog(props: ConflictDialogProps) {
     : 0;
 
   const theirs = winningChange
-    ? theirsText(winningChange, t, format)
+    ? sayTheirs(winningChange)
     : t("availability.editor.conflict.theirsUnknown");
 
   return (
@@ -207,7 +218,7 @@ export function ConflictDialog(props: ConflictDialogProps) {
               {listed.map((change) => (
                 <li key={change.id}>
                   <Text as="span" variant="body" color="primary">
-                    {theirsText(change, t, format)}
+                    {sayTheirs(change)}
                   </Text>
                 </li>
               ))}

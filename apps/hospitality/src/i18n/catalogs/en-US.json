@@ -2547,10 +2547,7 @@
       "opens": "Opens",
       "lastSeating": "Last seating",
       "closes": "Closes",
-      "seating": "Seating",
-      "interval": "Every {{minutes}} min",
       "fixedTimes": "Fixed seating times: {{times}}",
-      "booking": "Booking",
       "bookingOptions": {
         "onlinePhone": "Online + phone",
         "onlineOnly": "Online only",
@@ -2598,8 +2595,8 @@
       "strandedRule_other": "{{count}} bookings would fall outside the new hours. Nothing was cancelled. Change the hours, or deal with the bookings first.",
       "conflict": {
         "title": "Someone changed availability first",
-        "theirs_one": "{{summary}} (saved at {{time}}).",
-        "theirs_other": "{{summary}} (saved at {{time}}).",
+        "theirs_one": "{{summary}} (saved by {{who}} at {{time}}).",
+        "theirs_other": "{{summary}} (saved by {{who}} at {{time}}).",
         "theirsUnknown": "Another change was saved after you started editing.",
         "since": "These changes were saved after you started editing, newest first:",
         "earlier_one": "And {{count}} earlier change that isn’t listed.",

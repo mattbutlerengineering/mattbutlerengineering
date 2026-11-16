@@ -7020,6 +7020,38 @@
       return { upsert: scheduleServices.length > 0 ? { scheduleServices } : {}, remove: {} };
     }
   </file>
+  <file path="apps/hospitality/src/components/availability/conflict-lines.ts">
+    export interface AlsoApplySince {
+      readonly changed: readonly string[];
+      readonly removed: readonly string[];
+    }
+    type NamedLine = "added" | "removed" | "changed" | "alsoChanged" | "alsoRemoved";
+    export function conflictLines(
+      changes: ScheduleChangeSince,
+      alsoApply: AlsoApplySince | undefined,
+      t: TFunction,
+      locale: string
+    ): string[] {
+      const list = new Intl.ListFormat(locale, { type: "conjunction" });
+      const named = (key: NamedLine, names: readonly string[] | undefined) =>
+        names && names.length > 0
+          ? [t(`availabilitySchedules.conflictReview.${key}`, { names: list.format(names) })]
+          : [];
+      return [
+        ...(changes.replacedBy !== null
+          ? [t("availabilitySchedules.conflictReview.regularReplaced", { name: changes.replacedBy })]
+          : []),
+        ...(changes.renamedTo !== null
+          ? [t("availabilitySchedules.conflictReview.renamed", { name: changes.renamedTo })]
+          : []),
+        ...named("added", changes.added),
+        ...named("removed", changes.removed),
+        ...named("changed", changes.changed),
+        ...named("alsoChanged", alsoApply?.changed),
+        ...named("alsoRemoved", alsoApply?.removed),
+      ];
+    }
+  </file>
   <file path="apps/hospitality/src/components/availability/conflict-problem.ts">
     export type Conflict =
       /** Someone saved first; `winningChange` is `null` when the server recorded none. */
@@ -7093,6 +7125,23 @@
             return prior !== undefined && !same(prior.week, v.week);
           })
           .map(([, v]) => v.name),
+      };
+    }
+    export function servicesChangedSince(
+      before: readonly DraftService[],
+      after: readonly DraftService[]
+    ): { readonly added: string[]; readonly removed: string[]; readonly changed: string[] } {
+      const was = new Map(before.map((s) => [s.venueServiceId, s]));
+      const now = new Map(after.map((s) => [s.venueServiceId, s]));
+      return {
+        added: after.filter((s) => !was.has(s.venueServiceId)).map((s) => s.name),
+        removed: before.filter((s) => !now.has(s.venueServiceId)).map((s) => s.name),
+        changed: after
+          .filter((s) => {
+            const prior = was.get(s.venueServiceId);
+            return prior !== undefined && HOURS_FIELDS.some((f) => !same(prior[f], s[f]));
+          })
+          .map((s) => s.name),
       };
     }
     interface ReapplyInput {
@@ -7932,6 +7981,56 @@
         payload
       );
       return { upsert: { ...venueServices, dateRules: [rule] }, remove: {} };
+    }
+  </file>
+  <file path="apps/hospitality/src/components/availability/draft-service-fields.ts">
+    export function serviceFieldsOf(service: DraftService): ServiceFieldsValue {
+      return {
+        opens: toClock(service.opensAt),
+        lastSeating: toClock(service.lastSeatingAt),
+        closes: toClock(service.closesAt),
+        lastSeatingLinked: false,
+        seating: service.seating,
+        // A copy: the fields' type is mutable, the row's is not.
+        bookingTypes: [...service.bookingTypes],
+      };
+    }
+    export function applyFieldsToService(
+      service: DraftService,
+      next: ServiceFieldsValue
+    ): DraftService {
+      const was = serviceFieldsOf(service);
+      const opensAt =
+        next.opens !== null && next.opens !== was.opens ? openFromClock(next.opens) : service.opensAt;
+      const lastSeating = next.lastSeating !== was.lastSeating ? next.lastSeating : null;
+      const closes = next.closes !== was.closes ? next.closes : null;
+      const opened = opensAt !== service.opensAt;
+      const lastSeatingAt = lastSeating
+        ? lastSeatingFromClock(lastSeating, opensAt)
+        : opened
+          ? lastSeatingFromClock(was.lastSeating ?? "", opensAt)
+          : service.lastSeatingAt;
+      const closesAt = closes
+        ? closeFromClock(closes, opensAt)
+        : opened
+          ? closeFromClock(was.closes ?? "", opensAt)
+          : service.closesAt;
+      const changed =
+        opened ||
+        lastSeatingAt !== service.lastSeatingAt ||
+        closesAt !== service.closesAt ||
+        !sameSeating(next.seating, was.seating) ||
+        !sameBookingTypes(next.bookingTypes, was.bookingTypes);
+      return changed
+        ? {
+            ...service,
+            opensAt,
+            lastSeatingAt,
+            closesAt,
+            seating: next.seating,
+            bookingTypes: [...next.bookingTypes],
+          }
+        : service;
     }
   </file>
   <file path="apps/hospitality/src/components/availability/draft-wait.ts">

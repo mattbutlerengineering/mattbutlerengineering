@@ -2608,10 +2608,7 @@
       "opens": "Abre",
       "lastSeating": "Última asignación de mesa",
       "closes": "Cierra",
-      "seating": "Asignación de mesas",
-      "interval": "Cada {{minutes}} min",
       "fixedTimes": "Horarios fijos de asignación: {{times}}",
-      "booking": "Reservas",
       "bookingOptions": {
         "onlinePhone": "En línea + teléfono",
         "onlineOnly": "Solo en línea",
@@ -2669,9 +2666,9 @@
       "strandedRule_many": "{{count}} de reservas quedarían fuera del nuevo horario. No se canceló nada. Cambia los horarios o atiende primero las reservas.",
       "conflict": {
         "title": "Alguien cambió la disponibilidad primero",
-        "theirs_one": "{{summary}} (guardado a la {{time}}).",
-        "theirs_other": "{{summary}} (guardado a las {{time}}).",
-        "theirs_many": "{{summary}} (guardado a las {{time}}).",
+        "theirs_one": "{{summary}} (guardado por {{who}} a la {{time}}).",
+        "theirs_other": "{{summary}} (guardado por {{who}} a las {{time}}).",
+        "theirs_many": "{{summary}} (guardado por {{who}} a las {{time}}).",
         "theirsUnknown": "Se guardó otro cambio después de que empezaste a editar.",
         "since": "Estos cambios se guardaron después de que empezaste a editar, del más reciente al más antiguo:",
         "earlier_one": "Y {{count}} cambio anterior que no aparece en la lista.",

@@ -2608,10 +2608,7 @@
       "opens": "Ouvre",
       "lastSeating": "Dernière prise de table",
       "closes": "Ferme",
-      "seating": "Prise de table",
-      "interval": "Aux {{minutes}} min",
       "fixedTimes": "Heures de prise de table fixes : {{times}}",
-      "booking": "Réservations",
       "bookingOptions": {
         "onlinePhone": "En ligne + téléphone",
         "onlineOnly": "En ligne seulement",
@@ -2669,9 +2666,9 @@
       "strandedRule_many": "{{count}} réservations seraient hors des nouvelles heures. Rien n’a été annulé. Modifiez les heures ou réglez d’abord les réservations.",
       "conflict": {
         "title": "Quelqu’un a modifié la disponibilité avant vous",
-        "theirs_one": "{{summary}} (enregistré à {{time}}).",
-        "theirs_other": "{{summary}} (enregistré à {{time}}).",
-        "theirs_many": "{{summary}} (enregistré à {{time}}).",
+        "theirs_one": "{{summary}} (enregistré par {{who}} à {{time}}).",
+        "theirs_other": "{{summary}} (enregistré par {{who}} à {{time}}).",
+        "theirs_many": "{{summary}} (enregistré par {{who}} à {{time}}).",
         "theirsUnknown": "Un autre changement a été enregistré après le début de vos modifications.",
         "since": "Ces changements ont été enregistrés après le début de vos modifications, du plus récent au plus ancien :",
         "earlier_one": "Et {{count}} changement antérieur qui n’est pas listé.",
