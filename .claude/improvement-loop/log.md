@@ -5462,6 +5462,7 @@ Exit was 0 rather than 1, so no pass-rate regression; no `ready` issue filed for
 ### Skipped Issues
 
 0 `agent-skip` issues open — nothing to list.
+
 ## 2026-11-14
 
 **queueEfficiency:** composite 0.907 (baseline n/a) — healthy
