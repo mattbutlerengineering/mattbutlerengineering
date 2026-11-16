@@ -3504,6 +3504,15 @@
       "appliesToday": "S’applique à toutes les dates couvertes par ces heures, à compter d’aujourd’hui.",
       "appliesFrom": "S’applique à toutes les dates couvertes par ces heures, à compter du {{date}}.",
       "loading": "Chargement des heures habituelles"
+    },
+    "seasonal": {
+      "back": "Retour à Disponibilité",
+      "add": "Ajouter des heures saisonnières",
+      "empty": "Aucune heure saisonnière. Ajoutez des heures pour une saison ou une période, comme l’été.",
+      "loading": "Chargement des heures saisonnières",
+      "compare": "Modifier un service dans toutes les heures",
+      "cantDelete": "Suppression impossible : utilisé {{where}}. Changez d’abord ces jours.",
+      "cantDeleteRules": "Suppression impossible. {{where}}. Changez d’abord ces dates."
     }
   },
   "setup": {

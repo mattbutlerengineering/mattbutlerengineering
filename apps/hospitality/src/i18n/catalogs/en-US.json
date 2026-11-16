@@ -3412,6 +3412,15 @@
       "appliesToday": "Applies to every date these hours cover, starting today.",
       "appliesFrom": "Applies to every date these hours cover, starting {{date}}.",
       "loading": "Loading regular hours"
+    },
+    "seasonal": {
+      "back": "Back to Availability",
+      "add": "Add seasonal hours",
+      "empty": "No seasonal hours. Add hours for a season or a period, such as summer.",
+      "loading": "Loading seasonal hours",
+      "compare": "Edit one service across all hours",
+      "cantDelete": "Can’t delete: used {{where}}. Change those days first.",
+      "cantDeleteRules": "Can’t delete. {{where}}. Change those dates first."
     }
   },
   "setup": {

@@ -149,7 +149,7 @@
       type CloseTarget = { readonly kind: "venue" } | { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | { readonly kind: "dates"; read | { readonly kind: "section"; re;
     </item>
     <item priority="high">
-      type AvailabilityView = { readonly view: "hub" } | { readonly view: "hours"; read | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "specialDates | { readonly view: "closures" } | {
+      type AvailabilityView = { readonly view: "hub" } | { readonly view: "hours"; read | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "specialDates | { readonly view: "closures" } | {
             readonly view: "calend | { readonly view: "bookingRules | { readonly view: "history" } | { readonly view: "map" };
     </item>
     <item priority="low">
@@ -3100,6 +3100,11 @@
           | "availabilitySpecial.series.stranded"
           | "availabilitySpecial.rowStranded" = "availabilitySchedules.stranded"
       ) { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/use-usage-text.ts">
+    <item priority="high">
+      export function useUsageText(config: AvailabilityConfig) { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/use-visible-schedules.ts">
