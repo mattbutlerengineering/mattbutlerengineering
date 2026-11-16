@@ -5420,3 +5420,45 @@ Exit was 0 rather than 1, so no pass-rate regression; no `ready` issue filed for
 **AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected) — ci-fix 11% (64 total), meta-improvement 0% (17 total), audit 11% (36 total), feature 2% (63 total), acmm 25% (4 total), sentry 0% (13 total), dependencies 0% (3 total). All budgets stay at default 3. One linked-PR lookup failed on a blocked GraphQL call (known sandbox limitation); did not affect the category rates above.
 **Skill proposals:** 0 — today is the Friday skill-extraction day, but `.claude/session-logs/` holds only 1 entry (7d window), below the 3+ similar-session threshold for pattern detection. No proposal filed.
 **Threshold notes:** last-30-days verifications.jsonl: 127 records, 114 `skip` (no automated verifier available), 9 verified / 4 not-verified among the 13 non-skip → fix-effectiveness 69% (>50%, healthy, no review needed). False-positive proxy (category rejection rates above, all ≤25%) stays well under the 30% loosen-threshold trigger. Auto-tuner applied 3 adjustments this run: `ci-fix` 1.248 → 1.198 (high-fp-rate), `acmm` 1.634 → 1.662 (headroom), `ci.ci_pass_rate_drop` 5 → 5.5 (regression-false-positive).
+
+## 2026-11-16 — mbe-evening
+
+### Metrics (7d)
+
+| Metric                                             | Value                                                                                                                                                                                   | Status          |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| Created (audit+ci-fix)                             | 52 (audit 19, ci-fix 33)                                                                                                                                                                | -               |
+| Closed (audit+ci-fix)                              | 52 (audit 17, ci-fix 35)                                                                                                                                                                | -               |
+| Closure Rate                                       | 100%                                                                                                                                                                                    | 🟢 >80%         |
+| Time-to-Close                                      | mean 22.0h, max 97.0h (n=52)                                                                                                                                                            | 🟢 <24h         |
+| Agent Success (has-pr/(has-pr+failed), snapshot)   | 0% (0 has-pr / 1 agent-failed)                                                                                                                                                          | 🔴 but see note |
+| CI Pass (main, last 20 pushes, cancelled excluded) | 92.9% (13/14; 6 cancelled runs excluded per #4538/#4685)                                                                                                                                | 🟡 85-95%       |
+| Queue (ready)                                      | 0 (1 re-added mid-run, see Actions)                                                                                                                                                     | 🟢 <5           |
+| Stale (ready>7d)                                   | 0                                                                                                                                                                                       | 🟢              |
+| Blocked (agent-failed)                             | 0 (was 1, auto-retried)                                                                                                                                                                 | 🟢              |
+| Skipped (agent-skip)                               | 0                                                                                                                                                                                       | 🟢              |
+| Daily Spend                                        | $0 attributed (recordSpend); today's queue-worker usage (~76k tokens, 1 session) has no `cost_usd` — true cost unknown, not $0                                                          | —               |
+| 7d Spend                                           | $2.44 attributed (recordSpend, 6 sessions) + 408,891 queue-worker tokens across 4 sessions with unknown cost (56 telemetry rows lack usage) — true total exceeds $2.44, unknown exactly | —               |
+| Cost/Issue                                         | ~$0.047 ($2.44 attributed / 52 closed) — understates true cost since queue-worker cost is unattributed                                                                                  | —               |
+| Reverts (7d)                                       | 1                                                                                                                                                                                       | 🟢 <3/wk        |
+
+### Patterns
+
+- Queue draining faster than it fills: created == closed (52 == 52) over 7d with a 22h mean close time. Healthy.
+- Agent Success reads 0% only because exactly one long-standing `agent-failed`+`stealable` issue (#8566, created 2026-11-09) sat in the backlog with nothing currently parked in `has-pr`; not a trend signal on a single-issue denominator.
+- CI pass rate softened entirely by cancelled runs (6/20), not failures (1/20) — consistent with high merge throughput (257 PRs merged in 7d) superseding in-flight runs on fast-moving branches, not a repo-cause failure pattern.
+- This run's implement-queue iteration found PR #8944 (titled with "mbe-feature-drain" in its own title but carrying no `Driver:` line) already merged by that routine moments before this session's review-gate could act on it — Phase 0's foreign-vs-ours heuristic (body `Driver:` line only) let a non-implement-queue PR read as this queue's. Single occurrence, not a 3+ day pattern yet; no issue filed, noted for future recurrence.
+- Issue #8939 (sdlc-speed p90 regression, 446.5→954.1 min) resolved via evidence, not a code fix: all three named slow PRs traced to a documented 31h claude.ai fleet outage, genuine review rework, and human weekend unavailability — not a collector bug.
+
+### Recommendations
+
+- No action needed on CI cancelled-run rate; revisit only if failures (not cancellations) start climbing.
+- If the `Driver:`-line gap on non-implement-queue PRs recurs, consider filing a meta-improvement issue to have other PR-opening routines (e.g. `mbe-feature-drain`) stamp their own `Driver:` line.
+
+### Actions taken this run
+
+- `node scripts/auto-retry-stale.mjs` (1/2 cap used): re-queued #8566 (`api-failures: GET /api/v1/floor-plan-sections`) from `agent-failed`+`stealable` back to `ready` after 7 days stale.
+
+### Skipped Issues
+
+0 `agent-skip` issues open — nothing to list.
