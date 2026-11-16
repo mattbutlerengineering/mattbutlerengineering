@@ -5626,3 +5626,23 @@ Phase 4: no worktrees present (`.claude/worktrees/` doesn't exist), no merge-tra
 **queueEfficiency:** composite 0.924 (baseline n/a) — healthy
 **Difficulty distribution:** size:m:15, size:xs:22, size:s:25, size:xl:8, size:l:9
 **Issues filed:** 0
+
+## 2026-11-16 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` source `branch` (ui-quality/ledger @ 6c05029, merged origin/main bc9c004, 1 conflict resolved by rule: `metrics/ui-quality-ledger.jsonl`).
+- **Builds:** all green — `@mbe/cli...`, `@mattbutlerengineering/rialto`, and all three apps. No `unreachable:build` rows.
+- **Routes:** 31 due / 31 captured / 31 audited (rialto-web 18, marketing 8, hospitality 5). 25 rows `unreachable:auth`, never captured. **Unjudged: 0. Dropped tells: 0.**
+- **Browser:** resolved (`/opt/pw-browsers/chromium_headless_shell-1243/...`). No `blocker: no-browser`.
+- **Mechanical findings:** 1 — `bugs/failed-request` on marketing `status` (3 same-origin probes aborted: `/`, `/hospitality/`, `/rialto/` — all `net::ERR_ABORTED`, while the page itself renders every target as "Operational").
+- **Judged findings:** 1 raised — `agent-built/gray-card-border` on marketing `ai-health` (every region is a 1px bordered box, including the size:*, PR-category and 18 Sensor Status list rows, each its own outlined box instead of table rows). Dropped by the plan anyway: the plan refused before planning (see below), and the `stale` calibration stamp would have dropped it regardless.
+- **Calibration stamp: `stale`.** `calibration-status --model-id claude-opus-5` exited 3; `rate.mjs pairs --calibration` exited 2 — `docs/ui-quality/calibration.json` still has no labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried after: still `stale`, so rating proceeded under the "exit 3 that calibration could not clear" branch. **Third consecutive fire blocked on this; agent-built findings stay suppressed until the set is labelled.**
+- **Rating:** 18 pairs judged and recorded (`rate.mjs record`: hospitality 0, marketing 0.42, rialto-web 1.25). The rialto-web `components/table` fold beat the Chakra button-docs reference and tied Mantine's; marketing `shipped` tied Mantine's home; the hospitality invite, menu and empty-state folds lost every pair.
+- **FILING STOPPED — `findings.mjs plan` exit 2.** Six `ui-quality`-labelled issues are not in the findings ledger and carry no current finding title: **#8883, #8884, #8885, #8886, #8887, #8888** (all closed; titles are `test(rialto-web)`/`fix(rialto)`/`docs(rialto)` work, not findings). The plan planned nothing rather than risk refiling. Escalation issue opened as written: **#8959** (`ui-quality` label confirmed present). No creates, no reopens, no comments, no `record`, no `seeds`, no checkpoint commit — steps 6d–6h were skipped per the exit-2 branch.
+- **Recovery (human, per #8959):** for each of the six, either retitle it to its finding title so the next fire adopts it, or remove its `ui-quality` label; then close #8959. While #8959 is open every fire keeps refusing to file.
+- **Issues:** 1 created (the escalation, #8959), 0 reopened, 0 commented.
+- **Seeds:** 0 appended to `docs/backlog.md` (filing stopped before the seeds step).
+- **Fix PR:** none — filing stopped at the plan, so no action could carry `fix_pr_candidate: true`.
+- **P1 breaches escalated:** 0 — the P1 SLA step (6h) was not reached under the exit-2 branch.
+- **Coverage before this fire:** 100% (136/136 routes), not provisional.
+- **Pipeline bugs:** none. The exit 2 is the guard working as designed, not a fault.
+- **Observed but not filable (no rubric tell covers it), carried from 2026-11-15:** at 375px the cookie-consent banner on rialto-web `demos/dashboard` still paints on top of the page content, its text interleaving illegibly with the BEST LAP / TIRES card beneath it. Also seen this fire and unfilable for the same reason: rialto-web `components/split-flap` overflows its card and the viewport at 375px, and several rialto-web routes (`components/slider`, `components/spinner`, `components/split-flap`, `components/table`) end their sidebar and page background at 720px, leaving a bare white band below the fold. Rubric v1 has no overflow/overlap tell; all three remain candidates for a `rubric_version` bump proposal.
