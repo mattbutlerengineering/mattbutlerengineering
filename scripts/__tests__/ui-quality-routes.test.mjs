@@ -159,11 +159,12 @@ describe("marketing adapter", () => {
   const rows = extractApp("marketing", io);
   const byRoute = Object.fromEntries(rows.map((r) => [r.route, r]));
 
-  it("yields 11 rows: 8 pages, 2 <Navigate> redirects, 1 not-found", () => {
+  it("yields 11 rows: 7 pages, 3 <Navigate> redirects (weekly retired, #8629), 1 not-found", () => {
     expect(rows).toHaveLength(11);
     expect(rows.filter((r) => r.kind === "redirect").map((r) => r.route)).toEqual([
       "hospitality/*",
       "rialto/*",
+      "weekly",
     ]);
     expect(rows.filter((r) => r.kind === "not-found").map((r) => r.route)).toEqual(["*"]);
     expect(rows.every((r) => r.auth === "public")).toBe(true);
