@@ -560,10 +560,15 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           onStale={onStale}
           initialRows={adding.rows}
           onEditDay={(date) => {
-            // The holiday that opened the sheet follows the editor: its close settles the line,
-            // its save runs the holiday's own chain.
+            // The holiday that opened the sheet follows the editor: its close settles the line.
+            // Not `afterSaved`: the editor saves the date's own rule in place, and the chain
+            // would remove that rule (a decided Special hours); the rule outranks an open mark.
             setAdding(null);
-            setEditingHours({ date, holiday: adding.request, startEditing: true });
+            setEditingHours({
+              date,
+              holiday: adding.request && { onSettled: adding.request.onSettled },
+              startEditing: true,
+            });
           }}
           autoNext={adding.autoNext}
           savedTitle={adding.savedTitle}

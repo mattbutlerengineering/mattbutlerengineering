@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 
 const saveConfig = vi.hoisted(() => vi.fn());
 const revert = vi.hoisted(() => vi.fn());
 const previewImpacts = vi.hoisted(() => vi.fn());
+const getConfig = vi.hoisted(() => vi.fn());
 
 vi.mock("../../hooks/useClosures.js", () => ({
   useClosureSummaries: () => ({ data: [], isLoading: false, error: null, refetch: vi.fn() }),
@@ -28,7 +29,7 @@ vi.mock("../../hooks/useHolidayDecisions.js", () => ({
   useClearHolidayDecision: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }));
 vi.mock("../../hooks/useApiClient.js", () => ({
-  useApiClient: () => ({ availability: { getConfig: vi.fn() } }),
+  useApiClient: () => ({ availability: { getConfig } }),
 }));
 vi.mock("@mbe/auth/react", () => ({ useAuth: () => ({ user: { id: "auth0|me" } }) }));
 vi.mock("./AvailabilityGuestPreview.js", () => ({ AvailabilityGuestPreview: () => null }));
@@ -40,7 +41,7 @@ vi.mock("../../contexts/VenueContext.js", () => ({
 
 import { VenueContext, type VenueContextValue } from "../../contexts/venue-context-object.js";
 import { SpecialDatesTab } from "./SpecialDatesTab.js";
-import { fixtureConfig } from "./resolved-day-fixtures.js";
+import { EARLY_DINNER, fixtureConfig } from "./resolved-day-fixtures.js";
 
 /**
  * availability-hub D5.1 (#8691 proposed change 1, Owner decision 2026-11-15): Special hours in
@@ -54,14 +55,14 @@ const VENUE = {
 } as VenueContextValue;
 const STATE = { config: fixtureConfig(), version: 7, source: "rows" } as AvailabilityConfigState;
 
-function renderTab() {
+function renderTab(state: AvailabilityConfigState = STATE) {
   return render(
     <VenueContext.Provider value={VENUE}>
       <ToastProvider>
         <main>
           <SpecialDatesTab
             venueId="venue-1"
-            state={STATE}
+            state={state}
             timezone="America/Los_Angeles"
             today="2026-12-01"
             onStale={vi.fn()}
@@ -98,6 +99,7 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-12-01T12:00:00"));
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
   previewImpacts.mockResolvedValue([]);
+  getConfig.mockResolvedValue({ version: 8 });
   saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
   revert.mockResolvedValue({ version: 9, changeId: "chg-9" });
 });
@@ -141,6 +143,33 @@ describe("Add special dates, Special hours", () => {
       "button"
     )) {
       expect((b as HTMLButtonElement).disabled).toBe(false);
+    }
+  });
+  it("from a holiday already on special hours, saving the editor never removes that rule", async () => {
+    const own = { ...EARLY_DINNER, id: "r1", startsOn: "2026-12-25", endsOn: "2026-12-25" };
+    renderTab({ ...STATE, config: fixtureConfig(own) });
+    fireEvent.click(screen.getByRole("button", { name: /^(Plan|View) holidays$/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Decided/ }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Change Christmas Day, Fri, Dec 25" })
+    );
+    fireEvent.click(
+      within(screen.getByRole("group", { name: /^Christmas Day/ })).getByRole("button", {
+        name: "Closed",
+      })
+    );
+    fireEvent.click(await screen.findByRole("button", { name: "Close Christmas Day" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Special hours" }));
+    fireEvent.click(screen.getByTestId("add-dates-primary"));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove Lunch" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save 1 date" }));
+
+    await waitFor(() => expect(saveConfig).toHaveBeenCalledTimes(1));
+    await screen.findByRole("button", { name: "Undo" });
+    // The chain's mocked reads and saves settle in microtasks; give them several turns.
+    for (let turn = 0; turn < 10; turn += 1) await act(async () => Promise.resolve());
+    for (const [arg] of saveConfig.mock.calls) {
+      expect(arg.body.changes.remove?.dateRules ?? []).not.toContain("r1");
     }
   });
 });
