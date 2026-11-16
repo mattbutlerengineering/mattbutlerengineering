@@ -209,10 +209,30 @@ describe("SpecialDatesTab", () => {
       ...STATE,
       config: { ...STATE.config, dateRules: [fromSix] },
     });
-    expect(screen.getByText("Booking paused: Online · From 6:00 PM")).toBeTruthy();
+    expect(screen.getByText("Online booking paused · From 6:00 PM")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Remove closure for Fri, Nov 13 until reopened" })
     ).toBeTruthy();
+  });
+
+  it("names a marked dated pause as the banner does, and a dated online closure a pause only when marked", () => {
+    const dated: DateRule = {
+      id: "dated",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      startsOn: "2026-12-30",
+      endsOn: "2026-12-30",
+    };
+    const { unmount } = renderTab(true, {
+      ...STATE,
+      config: { ...STATE.config, dateRules: [{ ...dated, origin: "pause" }] },
+    });
+    expect(screen.getByText("Online booking paused")).toBeTruthy();
+    unmount();
+    renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [dated] } });
+    expect(screen.getByText("Booking paused: Online")).toBeTruthy();
+    expect(screen.queryByText("Online booking paused")).toBeNull();
   });
 
   it("names a closure's start time (#8032)", () => {

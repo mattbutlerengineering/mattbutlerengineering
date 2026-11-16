@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import type { ResolvedDay } from "@mbe/availability";
+import type { DateRule } from "@mbe/types";
 import { AvailabilityDayDrawer } from "./AvailabilityDayDrawer.js";
 import {
   EARLY_DINNER,
@@ -233,5 +234,28 @@ describe("AvailabilityDayDrawer windowed closure wording", () => {
     const texts = removedTexts(resolveFixtureDay(WEEKLY_CLOSURE, SKIP_WEEKLY));
     expect(texts[1]).toContain("If removed: closed 10:00 PM – 11:00 PM");
     expect(texts[1]).not.toContain("Closed 10:00");
+  });
+});
+
+describe("one name for the paused state in the day drawer layer", () => {
+  const labelsOf = (rule: DateRule) => {
+    renderDrawer({ day: resolveFixtureDay(rule), dateRules: [rule] });
+    return screen
+      .getAllByRole("listitem")
+      .map((l) => l.querySelector("[data-layer-label]")?.textContent);
+  };
+
+  it("names a marked online pause as the banner does", () => {
+    expect(labelsOf({ ...ONLINE_CLOSURE, origin: "pause" })).toContain("Online booking paused");
+  });
+
+  it("names an open-ended online-only closure as the pill does", () => {
+    expect(labelsOf({ ...ONLINE_CLOSURE, endsOn: null })).toContain("Online booking paused");
+  });
+
+  it("keeps a dated, unmarked online closure a closure", () => {
+    const labels = labelsOf(ONLINE_CLOSURE);
+    expect(labels).toContain("Online booking closed");
+    expect(labels).not.toContain("Online booking paused");
   });
 });

@@ -1387,7 +1387,9 @@
         layer: Layer,
         t: TFunction,
         format: VenueFormat,
-        sectionNames?: ReadonlyMap<string, string>
+        sectionNames?: ReadonlyMap<string, string>,
+        /** The layer's rule is an online pause, which reads as the banner and pill do. */
+        isPause = false
       ): string { /* ... */ }
     </item>
     <item priority="high">
@@ -2102,6 +2104,9 @@
     </item>
     <item priority="high">
       export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isOnlinePauseRule(rule: DateRule): boolean { /* ... */ }
     </item>
     <item priority="low">
       type ClosureKind = { readonly kind: "venue" } | { readonly kind: "section"; re | { readonly kind: "booking"; re;

@@ -34,6 +34,7 @@ import {
   closureSubject,
   DATE_FORMAT,
   hoursSubject,
+  isOnlinePauseRule,
   rangeLabel,
   rowTitle,
 } from "./rule-subjects.js";
@@ -94,7 +95,7 @@ function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): s
     .join(", ");
 }
 
-/** "Closed · From 10:00 PM", or "Booking paused: Online": what a closure really closes, and from when. */
+/** "Closed · From 10:00 PM", or "Online booking paused": what a closure really closes, and from when. */
 function closureDetail(
   rule: SpecialDateRule,
   format: VenueFormat,
@@ -102,8 +103,9 @@ function closureDetail(
   sectionNames?: ReadonlyMap<string, string>
 ): string {
   const closes = closureKindOf(rule, sectionNames);
-  const what =
-    closes.kind === "booking"
+  const what = isOnlinePauseRule(rule)
+    ? t("availability.paused.banner")
+    : closes.kind === "booking"
       ? t("availabilitySpecial.kind.bookingPaused", {
           channels: closes.channels
             .map((c) => t(`availability.close.what.channel.${c}`))

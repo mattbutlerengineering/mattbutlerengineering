@@ -29,6 +29,7 @@ import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
 import { layerEffectText, layerLabelText } from "./layer-text.js";
+import { isOnlinePauseRule } from "./rule-subjects.js";
 import { useHolidayNames } from "./use-holidays.js";
 import styles from "./AvailabilityDayDrawer.module.css";
 
@@ -143,6 +144,10 @@ function DayBody({
       only !== undefined &&
       datedAssignmentOf(config, only) !== undefined);
   // A rule's note for staff ("Smith wedding"): why the day is the way it is, for whoever opens it.
+  const isPauseLayer = (layer: Layer) => {
+    const rule = dateRules?.find((r) => r.id === layer.id);
+    return layer.kind === "closure" && rule !== undefined && isOnlinePauseRule(rule);
+  };
   const noteOf = (layer: Layer) => dateRules?.find((rule) => rule.id === layer.id)?.staffNote;
 
   return (
@@ -169,7 +174,7 @@ function DayBody({
             {day.explanation.map((layer) => (
               <li key={layer.id} className={styles.layer}>
                 <Text as="span" variant="body" color="primary" data-layer-label>
-                  {layerLabelText(layer, t, format, sectionNames)}
+                  {layerLabelText(layer, t, format, sectionNames, isPauseLayer(layer))}
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
                   {layerEffectText(layer, t, format)}
