@@ -244,7 +244,7 @@ test.describe("Holiday decisions", () => {
     }
   });
 
-  test("H3: Special hours… on New Year's Eve opens the sheet on that date (budget before + 1)", async ({
+  test("H3: Special hours… on New Year's Eve opens the day editor on that date (budget before + 1)", async ({
     mockedPage: page,
   }) => {
     const store = createSharedConfig(fOneConfig());
@@ -257,11 +257,12 @@ test.describe("Holiday decisions", () => {
     await choices(counter.page, "New Year’s Eve, Thu, Dec 31")
       .getByRole("button", { name: "Special hours…" })
       .click();
-    const sheet = counter.page.getByRole("dialog", { name: "Add special dates" });
-    await expect(sheet.getByRole("combobox", { name: "Date" })).toHaveValue("Dec 31, 2026");
-    await expect(sheet.getByRole("radio", { name: "Special hours" })).toBeChecked();
+    // The day editor (D5.1), not the Add special dates sheet, open on that date's hours.
+    await expect(counter.page.getByRole("dialog", { name: "Add special dates" })).toHaveCount(0);
+    const editor = counter.page.getByRole("dialog");
+    await expect(editor.getByRole("button", { name: "Remove Dinner" })).toBeVisible();
     // A later Dinner close, as the walkthrough has it.
-    await sheet
+    await editor
       .getByRole("group", { name: "Dinner" })
       .getByRole("combobox", { name: "Closes" })
       .click();
@@ -269,7 +270,7 @@ test.describe("Holiday decisions", () => {
       .getByRole("listbox", { name: "Closes" })
       .getByRole("option", { name: "1:00 AM", exact: true })
       .click();
-    await sheet.getByTestId("add-dates-primary").click();
+    await editor.getByRole("button", { name: /^Save 1 date/ }).click();
 
     await expect.poll(() => store.configPuts.length + store.batches.length).toBeGreaterThan(0);
     const rules = store.config.dateRules.filter((r) => r.startsOn === "2026-12-31");

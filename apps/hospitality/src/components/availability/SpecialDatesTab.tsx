@@ -323,8 +323,10 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [editingHours, setEditingHours] = useState<{
     date: string;
     ruleScope?: { ruleId: string; mode: SeriesScope };
-    /** A holiday's "Special hours…": the editor opens on its rows, and its chain follows a save. */
+    /** A holiday's "Special hours…": its chain follows a save. */
     holiday?: HolidaySheetRequest;
+    /** Open straight on the date's rows: a holiday's "Special hours…" or the Add sheet's. */
+    startEditing?: boolean;
   } | null>(null);
   const [scopingHours, setScopingHours] = useState<{ ruleId: string; date: string } | null>(null);
   const [removingHours, setRemovingHours] = useState<SpecialDateRule | null>(null);
@@ -536,7 +538,9 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           onClose={(rows, savedTitle, request) =>
             openSheet({ rows, autoNext: true, savedTitle, request })
           }
-          onSpecialHours={(row, request) => setEditingHours({ date: row.date, holiday: request })}
+          onSpecialHours={(row, request) =>
+            setEditingHours({ date: row.date, holiday: request, startEditing: true })
+          }
           onReopen={(ruleId, then) => {
             const rule = rules.find((r): r is SpecialDateRule => r.id === ruleId);
             if (!rule) return;
@@ -555,6 +559,17 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           today={today}
           onStale={onStale}
           initialRows={adding.rows}
+          onEditDay={(date) => {
+            // The holiday that opened the sheet follows the editor: its close settles the line.
+            // Not `afterSaved`: the editor saves the date's own rule in place, and the chain
+            // would remove that rule (a decided Special hours); the rule outranks an open mark.
+            setAdding(null);
+            setEditingHours({
+              date,
+              holiday: adding.request && { onSettled: adding.request.onSettled },
+              startEditing: true,
+            });
+          }}
           autoNext={adding.autoNext}
           savedTitle={adding.savedTitle}
           onSaved={
@@ -632,7 +647,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           today={today}
           date={editingHours.date}
           ruleScope={editingHours.ruleScope}
-          startEditing={editingHours.holiday !== undefined}
+          startEditing={editingHours.startEditing}
           onSaved={
             editingHours.holiday?.afterSaved
               ? () => void editingHours.holiday?.afterSaved?.()

@@ -1868,14 +1868,10 @@
       "kindLabel": "What happens on date {{n}}",
       "kind": {
         "closed": "Closed",
-        "hours": "Special hours",
-        "same": "Same as another day"
+        "hours": "Special hours"
       },
-      "sameAs": "Copy hours from",
-      "sameAsDay": "Same as {{day}}",
-      "sameEmpty": "The regular week has no hours on {{day}}. Choose another day or use Closed.",
-      "hoursInvalid": "Add at least one of the venue's existing services. New services are added from the day editor.",
-      "hoursNeedDate": "Choose a date first: its usual hours fill in here to change.",
+      "hoursOneDate": "One date at a time: Special hours opens the day editor. Remove the other dates, or choose Closed for them.",
+      "hoursHandoff": "Next opens this date in the day editor, where you set its hours.",
       "removeRow": "Remove date {{n}}",
       "addRow": "Add another date",
       "shareMessage": "Use one message for every date",

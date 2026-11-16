@@ -5123,22 +5123,13 @@
   </section>
   <section priority="medium" role="availability">
   <file path="apps/hospitality/src/components/availability/add-dates-draft.ts">
-    export type RowKind = "closed" | "hours" | "same";
+    export type RowKind = "closed" | "hours";
     export interface DateRow {
       /** React key and id seed; stable across edits. */
       readonly key: string;
       /** `""` until picked. */
       readonly date: string;
       readonly kind: RowKind;
-      /** The weekday a "Same as" row copies (0 = Sunday). */
-      readonly sameAs: number;
-      /** The hours a Special hours or Same as row writes. */
-      readonly services: readonly DraftService[];
-      /**
-       * The weekday `services` were copied from while the Manager has not edited them, so a new date
-       * can replace them; absent once edited (their hours are then theirs).
-       */
-      readonly seededFor?: number;
       /** This row's message for guests; the shared one wins while `shareMessage` is on. */
       readonly message: string;
       /** What the date is, when the sheet opened on it (a holiday's name); shown in the row's legend. */
@@ -5150,49 +5141,26 @@
       readonly sharedMessage: string;
     }
     export type RowField = "dateMissing" | "date" | "hours" | "message";
-    export const rowFieldId = (rowKey: string, field: "date" | "hours" | "message" | "same"): string =>
+    export const rowFieldId = (rowKey: string, field: "date" | "message"): string =>
       `add-date-${rowKey}-${field}`;
     export const emptyRow = (key: string, date: string, name?: string): DateRow => ({
       key,
       date,
       kind: "closed",
-      sameAs: date ? weekdayIndexOf(date) : 0,
-      services: [],
       message: "",
       ...(name ? { name } : {}),
     });
-    function hasOwnHours(config: AvailabilityConfig, date: string): boolean {
-      return config.dateRules.some(
-        (r) =>
-          r.kind === "special_hours" &&
-          r.seriesId == null &&
-          r.startsOn <= date &&
-          (r.endsOn ?? date) >= date &&
-          (r.repeat == null || r.repeat.weekdays.includes(weekdayIndexOf(date)))
-      );
-    }
     export function validateRows(
       form: AddDatesForm,
-      config: AvailabilityConfig,
       today: string
     ): { readonly key: string; readonly field: RowField } | null {
       const seen = new Set<string>();
       for (const row of form.rows) {
         if (row.date === "") return { key: row.key, field: "dateMissing" };
-        if (
-          row.date < today ||
-          seen.has(row.date) ||
-          (row.kind !== "closed" && hasOwnHours(config, row.date))
-        ) {
-          return { key: row.key, field: "date" };
-        }
+        if (row.date < today || seen.has(row.date)) return { key: row.key, field: "date" };
         seen.add(row.date);
-        // The closure command saves a rule against the venue's existing services only.
-        const unknown = row.services.some((s) => s.venueServiceId === null);
-        if (row.kind !== "closed" && (row.services.length === 0 || unknown)) {
-          return { key: row.key, field: "hours" };
-        }
-        if (messageOf(form, row).length > GUEST_MESSAGE_MAX_LENGTH) {
+        if (row.kind === "hours" && form.rows.length > 1) return { key: row.key, field: "hours" };
+        if (row.kind === "closed" && messageOf(form, row).length > GUEST_MESSAGE_MAX_LENGTH) {
           return { key: row.key, field: "message" };
         }
       }
@@ -5204,54 +5172,20 @@
       idFor: (rowKey: string) => string
     ): { readonly rowKey: string; readonly rule: DateRule }[] {
       return form.rows.flatMap((row) => {
-        const message = messageOf(form, row);
-        const rule =
-          row.kind === "closed"
-            ? buildCloseRule(
-                {
-                  what: { kind: "venue" },
-                  when: { kind: "date", date: row.date },
-                  fromMinute: null,
-                  staffNote: "",
-                  guestMessage: message,
-                },
-                idFor(row.key),
-                today
-              )
-            : hoursRule(row, idFor(row.key), message);
+        if (row.kind !== "closed") return [];
+        const rule = buildCloseRule(
+          {
+            what: { kind: "venue" },
+            when: { kind: "date", date: row.date },
+            fromMinute: null,
+            staffNote: "",
+            guestMessage: messageOf(form, row),
+          },
+          idFor(row.key),
+          today
+        );
         return rule ? [{ rowKey: row.key, rule }] : [];
       });
-    }
-    function hoursRule(row: DateRow, id: string, message: string): DateRule {
-      const services: SpecialHoursService[] = row.services.map((s) => ({
-        venueServiceId: s.venueServiceId!, // validateRows refuses a row with a new service
-        opensAt: s.opensAt,
-        lastSeatingAt: s.lastSeatingAt,
-        closesAt: s.closesAt,
-        seating: s.seating,
-        bookingTypes: [...s.bookingTypes],
-      }));
-      return {
-        id,
-        kind: "special_hours",
-        targetKind: "venue",
-        startsOn: row.date,
-        endsOn: row.date,
-        payload: { version: 1, services },
-        ...(message ? { guestMessage: message } : {}),
-      };
-    }
-    export function regularServices(
-      config: AvailabilityConfig,
-      timezone: string,
-      weekday: number,
-      today: string
-    ): DraftService[] {
-      let date = today;
-      while (weekdayIndexOf(date) !== weekday) date = addDays(date, 1);
-      const regular = { ...config, dateRules: [] };
-      const day = resolveDay({ timezone, config: regular }, date);
-      return seedServices(regular, day, { kind: "date", date });
     }
     export function combineImpacts(impacts: readonly ClosureImpact[]): ClosureImpact {
       const sum = (pick: (i: ClosureImpact) => number) =>
@@ -11944,7 +11878,7 @@
         title: string,
         request: HolidaySheetRequest
       ) => void;
-      /** Special hours for one date through the same sheet. */
+      /** Special hours for one date, in the day editor. */
       readonly onSpecialHours: (row: PlannedDate, request: HolidaySheetRequest) => void;
       /** Reopen a closure; `then` runs once it is reopened, not if cancelled. */
       readonly onReopen: (ruleId: string, then: () => void) => void;
@@ -12069,7 +12003,7 @@
           }
           return;
         }
-        const row = plannedOf(holiday, to === "closed" ? "closed" : "hours");
+        const row = plannedOf(holiday);
         // The sheet is the save: the line is saving until it closes, and nothing else is pressed.
         setStatus(holiday.date, { phase: "saving", to });
         const request: HolidaySheetRequest = {
@@ -12088,7 +12022,7 @@
       const closeMany = (holidays: readonly NamedHoliday[], title: string): void => {
         for (const h of holidays) setStatus(h.date, { phase: "saving", to: "closed" });
         flow.onClose(
-          holidays.map((h) => plannedOf(h, "closed")),
+          holidays.map((h) => plannedOf(h)),
           title,
           { onSettled: () => holidays.forEach((h) => setStatus(h.date, null)) }
         );
@@ -30691,7 +30625,6 @@
       "availabilitySchedules.layer.intro",
       "availabilitySchedules.layer.add",
       "availabilitySchedules.layer.other",
-      "availabilitySpecial.add.sameEmpty",
     ]);
     interface GlossaryProblem {
       readonly kind: "retired-word" | "missing-key" | "stale-legacy-key";
