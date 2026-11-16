@@ -173,6 +173,22 @@ describe("DateRuleSchema", () => {
     ).toBe(true);
   });
 
+  it("carries the pause origin a Pause dialog closure is marked with, and refuses any other", () => {
+    const closure = {
+      id: "dr-5",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      startsOn: "2026-11-01",
+      endsOn: "2026-11-03",
+    };
+    expect(DateRuleSchema.parse({ ...closure, origin: "pause" })).toMatchObject({
+      origin: "pause",
+    });
+    expect(DateRuleSchema.parse(closure)).not.toHaveProperty("origin");
+    expect(DateRuleSchema.safeParse({ ...closure, origin: "holiday" }).success).toBe(false);
+  });
+
   it("rejects a guest message over 200 characters", () => {
     expect(
       DateRuleSchema.safeParse({

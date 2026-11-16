@@ -11,6 +11,7 @@ import { describeApiError } from "../../lib/describe-api-error.js";
 import { minutesOfDayIn, venueDate } from "../../utils/service-day.js";
 import { isPauseInForce } from "./close-draft.js";
 import { clockHour } from "../../utils/clock-hour.js";
+import { pauseEnd, pauseEndText } from "./pause-end.js";
 import { minuteText } from "./closure-band.js";
 import { conflictOf } from "./conflict-problem.js";
 import { onlineSeatingLeft } from "./online-seatings.js";
@@ -45,6 +46,7 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
       ? rule.window.from
       : null;
   const waiting = waitingFrom !== null;
+  const end = pauseEnd(rule, today);
   const others = (rule.bookingTypes ?? []).filter((channel) => channel !== "online");
 
   const resume = async () => {
@@ -111,9 +113,11 @@ export function OnlinePausedBanner({ venueId, state, rule, canResume }: OnlinePa
           <Text as="span" variant="body">
             {t("availability.paused.banner")}
           </Text>{" "}
-          {/* Resume only ever shows a pause the Pause button created: always open-ended. */}
+          {/* Only an open-ended pause or one the Pause dialog marked is shown, so it can say its end. */}
           <Text as="span" variant="caption" color="secondary">
-            {t("availability.paused.noEnd")}
+            {end.kind === "open"
+              ? t("availability.paused.noEnd")
+              : t("availability.paused.bannerEnds", { end: pauseEndText(end, t, format) })}
           </Text>
         </>
       )}

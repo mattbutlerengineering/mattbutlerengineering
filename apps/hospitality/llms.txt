@@ -620,6 +620,9 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
+      export function onlinePausesOn(config: AvailabilityConfig, today: string): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function shownOnlinePause(
         config: AvailabilityConfig,
         timezone: string,
@@ -1421,6 +1424,21 @@
     </item>
     <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="src/components/availability/pause-end.ts">
+    <item priority="low">
+      type PauseEnd = { readonly kind: "open" } | { readonly kind: "tomorrow" } | { readonly kind: "date"; reado;
+    </item>
+    <item priority="high">
+      export function pauseEnd(rule: DateRule, today: string): PauseEnd { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pauseEndText(
+        end: PauseEnd,
+        t: TFunction,
+        format: Pick<VenueFormat, "formatCalendarDate">
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="src/components/availability/pause-online-draft.ts">

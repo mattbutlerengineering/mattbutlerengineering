@@ -25,7 +25,9 @@ import { useVenueFormat, type VenueFormat } from "../../hooks/useVenueFormat.js"
 import { WEEK_STARTS_ON } from "./calendar-dates.js";
 import { settleFocusAfterSave } from "./CloseDialog.js";
 import styles from "./CloseDialog.module.css";
+import { onlinePausesOn } from "./close-draft.js";
 import { DiscardChangesDialog } from "./DiscardChangesDialog.js";
+import { pauseEnd, pauseEndText } from "./pause-end.js";
 import {
   PAUSE_CHOICES,
   pauseOnlineProblem,
@@ -198,6 +200,8 @@ export function PauseOnlineDialog(props: PauseOnlineDialogProps) {
   const winnerText = useWinningChangeText(failure?.winner ?? null);
   const savedEarlier = attempts.earlier !== undefined;
   const problem = pauseOnlineProblem(draft, today);
+  // A pause that already covers today: a second one would be the same closure again.
+  const covering = onlinePausesOn(props.state.config, today)[0];
 
   // Focus opens on the question, on the choice already made; the dialog's own trap has put it
   // inside, on the first control it found.
@@ -251,6 +255,13 @@ export function PauseOnlineDialog(props: PauseOnlineDialogProps) {
           </div>
         }
       >
+        {!savedEarlier && covering && (
+          <Alert variant="warning" title={t("availabilityHub.pause.alreadyPaused.title")}>
+            {t("availabilityHub.pause.alreadyPaused.body", {
+              end: pauseEndText(pauseEnd(covering, today), t, format),
+            })}
+          </Alert>
+        )}
         {savedEarlier && (
           // The first attempt is what applied; later edits did not. Never invite a retry.
           <Alert variant="info" title={t("availabilityHub.pause.savedEarlier.title")}>

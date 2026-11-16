@@ -558,6 +558,8 @@ enum DateRuleSource {
   manual
   holiday
   tonight
+  /// An online-booking closure made by the Pause dialog (A0.2b).
+  pause
 }
 
 enum ClosureAction {

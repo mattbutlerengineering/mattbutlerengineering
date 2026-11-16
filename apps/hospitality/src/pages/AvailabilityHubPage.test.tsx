@@ -244,6 +244,26 @@ describe("AvailabilityHubPage", () => {
       await waitFor(() => expect(openPause).toHaveBeenCalledTimes(1));
     });
 
+    it("does not offer a second pause while one is in force (#8687)", async () => {
+      const user = userEvent.setup();
+      const paused = venue([
+        {
+          id: "pause-1",
+          kind: "closure",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          startsOn: TODAY,
+          endsOn: TODAY,
+          origin: "pause",
+        },
+      ]);
+      renderHub(scopeOf({ state: stateOf(paused) }));
+      await user.click(menuButton());
+      expect(screen.getAllByRole("menuitem").map((item) => item.textContent)).toEqual([
+        "Close the venue or part of it",
+      ]);
+    });
+
     it("is not offered to a Host, nor while the role is read", () => {
       renderHub(scopeOf({ isManager: false }));
       expect(screen.queryByRole("button", { name: "Close or pause" })).not.toBeInTheDocument();

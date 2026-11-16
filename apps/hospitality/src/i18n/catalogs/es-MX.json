@@ -3056,7 +3056,11 @@
       "resume": "Reanudar",
       "resumed": "Reservas en línea reanudadas",
       "resumeError": "No se pudieron reanudar las reservas en línea",
-      "pillNoEnd": "Reservas en línea en pausa · Sin fecha de fin",
+      "noEndShort": "Sin fecha de fin",
+      "untilTomorrow": "Hasta mañana",
+      "untilDate": "Hasta el {{date}}",
+      "pill": "Reservas en línea en pausa · {{end}}",
+      "bannerEnds": "{{end}}, o reanúdalas ahora.",
       "waiting_one": "Las reservas en línea desde la {{time}} están en pausa todos los días. Los horarios anteriores siguen abiertos.",
       "waiting_other": "Las reservas en línea desde las {{time}} están en pausa todos los días. Los horarios anteriores siguen abiertos.",
       "waiting_many": "Las reservas en línea desde las {{time}} están en pausa todos los días. Los horarios anteriores siguen abiertos.",
@@ -3370,6 +3374,10 @@
         "untilDate": "Reservas en línea en pausa hasta el {{date}}"
       },
       "saveError": "No se pudieron pausar las reservas en línea",
+      "alreadyPaused": {
+        "title": "Las reservas en línea ya están en pausa",
+        "body": "{{end}}. Si guardas ahora, se añade una segunda pausa."
+      },
       "alreadySaved": "Esta pausa ya se guardó. Revisa el estado en la parte superior de Disponibilidad antes de pausar otra vez.",
       "savedEarlier": {
         "title": "Las reservas en línea ya están en pausa",

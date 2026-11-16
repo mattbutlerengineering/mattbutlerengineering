@@ -444,6 +444,17 @@ describe("dateRuleData derived fields", () => {
     expect(data.expiresAt).toEqual(new Date("2026-10-28T02:00:00.000Z"));
   });
 
+  it("stores the pause origin of a closure as source pause", async () => {
+    const db = makeDb();
+    const diff = emptyDiff();
+    diff.update.dateRules = [rule("p", { origin: "pause" })];
+
+    await writeConfigDiff(asDb(db), "venue-1", diff, ctx);
+
+    const data = (db.dateRule.update.mock.calls[0]![0] as { data: Record<string, unknown> }).data;
+    expect(data.source).toBe("pause");
+  });
+
   it("omits source and nulls expiresAt for any other kind", async () => {
     const db = makeDb();
     const diff = emptyDiff();

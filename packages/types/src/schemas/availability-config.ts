@@ -31,7 +31,7 @@ export const SERVICE_BOOKING_TYPES = ["online", "phone"] as const;
 export const RULE_BOOKING_TYPES = ["online", "phone", "waitlist"] as const;
 
 /** Where a date rule came from. Holiday rules arrive in Phase 2. */
-export const DATE_RULE_SOURCES = ["manual", "holiday", "tonight"] as const;
+export const DATE_RULE_SOURCES = ["manual", "holiday", "tonight", "pause"] as const;
 /** The Manager's choice for a reservation a closure affects. */
 export const CLOSURE_ACTIONS = ["cancel", "move", "keep_notify", "keep_silent"] as const;
 export const CLOSURE_REFUND_STATUSES = ["none", "pending", "done", "failed"] as const;
@@ -188,6 +188,11 @@ const DateRuleBase = z.object({
   seriesId: IdSchema.nullish(),
   guestMessage: z.string().max(GUEST_MESSAGE_MAX_LENGTH).nullish(),
   staffNote: z.string().max(500).nullish(),
+  /**
+   * Set on a closure the Pause dialog made. Only a marked pause shows its end and offers Resume in
+   * the shell pill and banner; a closure made by Close... never does, so Resume cannot delete it.
+   */
+  origin: z.literal("pause").nullish(),
 });
 
 export const DateRuleSchema = z.discriminatedUnion("kind", [
