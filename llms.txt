@@ -32250,7 +32250,8 @@
         schedule: Schedule,
         config: AvailabilityConfig,
         services: ReadonlyMap<string, { readonly name: string; readonly position: number }>,
-        manager: boolean
+        manager: boolean,
+        serviceDate: string
       ): SetupNode { /* ... */ }
     </item>
     <item priority="medium">
