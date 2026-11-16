@@ -265,7 +265,7 @@ test.describe("375 px: nothing scrolls sideways", () => {
     });
   }
 
-  // Its three segments once ran "Same as another day" off the edge; a phone stacks them as radios.
+  // Its segments once ran "Same as another day" off the edge; a phone stacks them as radios.
   for (const locale of ["en-US", "fr-CA"]) {
     test(`Add special dates fits, with every kind of date on screen (${locale})`, async ({
       mockedPage: page,
@@ -282,7 +282,7 @@ test.describe("375 px: nothing scrolls sideways", () => {
         .click();
       const sheet = page.getByRole("dialog").first();
       const kinds = sheet.getByRole("radio");
-      await expect(kinds).toHaveCount(3);
+      await expect(kinds).toHaveCount(2);
       // The sheet slides in from the right: measure once it has settled.
       await expect
         .poll(() =>

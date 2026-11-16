@@ -267,9 +267,9 @@ describe("UpcomingHolidays", () => {
       closeUsual(3);
       expect(props.onClose).toHaveBeenCalledWith(
         [
-          { date: "2026-11-26", name: "Thanksgiving", kind: "closed" },
-          { date: "2026-12-25", name: "Christmas Day", kind: "closed" },
-          { date: "2027-01-01", name: "New Year’s Day", kind: "closed" },
+          { date: "2026-11-26", name: "Thanksgiving" },
+          { date: "2026-12-25", name: "Christmas Day" },
+          { date: "2027-01-01", name: "New Year’s Day" },
         ],
         "Closed on Thanksgiving, Christmas Day, and New Year’s Day",
         { onSettled: expect.any(Function) }
@@ -463,7 +463,7 @@ describe("UpcomingHolidays", () => {
       const { props } = setup();
       press(THANKSGIVING, "Closed");
       expect(props.onClose).toHaveBeenCalledWith(
-        [{ date: "2026-11-26", name: "Thanksgiving", kind: "closed" }],
+        [{ date: "2026-11-26", name: "Thanksgiving" }],
         "Closed on Thanksgiving, Thu, Nov 26",
         { onSettled: expect.any(Function) }
       );
@@ -503,7 +503,7 @@ describe("UpcomingHolidays", () => {
       press(CHRISTMAS_EVE, "Closed");
       expect(props.onClose).toHaveBeenCalledTimes(2);
       expect(vi.mocked(props.onClose).mock.calls[1]![0]).toEqual([
-        { date: "2026-12-24", name: "Christmas Eve", kind: "closed" },
+        { date: "2026-12-24", name: "Christmas Eve" },
       ]);
     });
 
@@ -594,11 +594,11 @@ describe("UpcomingHolidays", () => {
   });
 
   describe("Special hours…", () => {
-    it("from undecided opens the sheet with an hours row for the date", () => {
+    it("from undecided hands the date to the day editor", () => {
       const { props } = setup();
       press(THANKSGIVING, "Special hours…");
       expect(props.onSpecialHours).toHaveBeenCalledWith(
-        { date: "2026-11-26", name: "Thanksgiving", kind: "hours" },
+        { date: "2026-11-26", name: "Thanksgiving" },
         { onSettled: expect.any(Function) }
       );
     });

@@ -10,10 +10,8 @@ import {
   Text,
   useToast,
 } from "@mattbutlerengineering/rialto";
-import { weekdayIndexOf } from "@mbe/availability";
 import {
   GUEST_MESSAGE_MAX_LENGTH,
-  type AvailabilityConfig,
   type AvailabilityConfigState,
   type ClosureImpact,
 } from "@mbe/types";
@@ -27,7 +25,6 @@ import {
   combineImpacts,
   decisionsFor,
   emptyRow,
-  regularServices,
   ruleItems,
   saveLabelParts,
   rowFieldId,
@@ -61,6 +58,8 @@ export interface AddSpecialDatesSheetProps {
   readonly today: string;
   readonly onStale: () => void;
   readonly onClose: () => void;
+  /** Special hours on one date: the host opens the day editor on it and closes this sheet. */
+  readonly onEditDay: (date: string) => void;
   /** One Closed row per date to start from (the holidays offered on Special dates); else one empty row. */
   readonly initialRows?: readonly PlannedDate[];
   /**
@@ -78,38 +77,19 @@ export interface AddSpecialDatesSheetProps {
 export interface PlannedDate {
   readonly date: string;
   readonly name: string;
-  /**
-   * How the row starts. "hours" starts from the weekday's usual hours, so saving it untouched
-   * cancels nothing: the safe start for a day most venues open (Valentine's Day, Mother's Day).
-   */
-  readonly kind: "closed" | "hours";
-}
-
-function plannedRow(
-  planned: PlannedDate,
-  config: AvailabilityConfig,
-  timezone: string,
-  today: string
-): DateRow {
-  const row = emptyRow(crypto.randomUUID(), planned.date, planned.name);
-  if (planned.kind === "closed") return row;
-  const weekday = weekdayIndexOf(planned.date);
-  const services = regularServices(config, timezone, weekday, today);
-  // A weekday with no usual hours has nothing to start from: the row stays Closed.
-  return services.length === 0 ? row : { ...row, kind: "hours", services, seededFor: weekday };
 }
 
 const SHARED_MESSAGE_ID = "add-dates-shared-message";
 
 /**
- * + Add special date (ux.md F6, S7 "Several dates"): rows of Closed, Special hours or Same as a
- * day, then one Step 2 with a choice per group from every row (a closed day, or hours that
- * shorten a service). The rows save together in one transaction, so a booking is never cancelled
- * for one date while another fails. Manager only.
+ * + Add special date (ux.md F6, S7 "Several dates"): rows of Closed, then one Step 2 with a
+ * choice per group from every row. The rows save together in one transaction, so a booking is
+ * never cancelled for one date while another fails. Special hours (one date) hands off to the
+ * day editor through `onEditDay`. Manager only.
  */
 export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const viewport = useViewport();
-  const { venueId, state, timezone, today, onStale, onClose, initialRows } = props;
+  const { venueId, state, timezone, today, onStale, onClose, onEditDay, initialRows } = props;
   const { autoNext, savedTitle, onSaved } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
@@ -122,7 +102,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   const [form, setForm] = useState<AddDatesForm>(() => ({
     rows:
       initialRows && initialRows.length > 0
-        ? initialRows.map((r) => plannedRow(r, state.config, timezone, today))
+        ? initialRows.map((r) => emptyRow(crypto.randomUUID(), r.date, r.name))
         : [emptyRow(crypto.randomUUID(), "")],
     shareMessage: false,
     sharedMessage: "",
@@ -148,7 +128,7 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
     const id = pendingFocusRef.current;
     pendingFocusRef.current = null;
     const target = id ? document.getElementById(id) : null;
-    // A hours row names a wrapper: focus the first control inside it.
+    // A date picker names a wrapper: focus the first control inside it.
     const control = target?.matches("input, textarea, button, select")
       ? target
       : target?.querySelector<HTMLElement>("input, textarea, button, select");
@@ -295,24 +275,22 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
   };
 
   const next = async () => {
-    const problem = validateRows(form, state.config, today);
+    const problem = validateRows(form, today);
     setInvalid(problem);
     if (problem) {
-      // ux.md S6: field-level messages; focus moves to the first.
-      const row = form.rows.find((r) => r.key === problem.key);
-      const field =
-        problem.field === "dateMissing"
-          ? "date"
-          : problem.field === "hours" && row?.kind === "same"
-            ? "same"
-            : problem.field;
+      // ux.md S6: field-level messages; focus moves to the first. A Special hours row among
+      // several dates has no field of its own: focus goes to its date.
+      const field = problem.field === "message" ? "message" : "date";
       pendingFocusRef.current =
         field === "message" && form.shareMessage
           ? SHARED_MESSAGE_ID
-          : field === "same"
-            ? // Rialto Select puts its id on the field and focuses via `<id>-trigger`.
-              `${rowFieldId(problem.key, field)}-trigger`
-            : rowFieldId(problem.key, field);
+          : rowFieldId(problem.key, field);
+      return;
+    }
+    // validateRows leaves a Special hours row only as the one dated row.
+    const handOff = form.rows.find((r) => r.kind === "hours");
+    if (handOff) {
+      onEditDay(handOff.date);
       return;
     }
     try {
@@ -442,8 +420,6 @@ export function AddSpecialDatesSheet(props: AddSpecialDatesSheetProps) {
                   key={row.key}
                   row={row}
                   index={index}
-                  config={state.config}
-                  timezone={timezone}
                   today={today}
                   invalid={invalid?.key === row.key ? invalid.field : null}
                   canRemove={form.rows.length > 1}
