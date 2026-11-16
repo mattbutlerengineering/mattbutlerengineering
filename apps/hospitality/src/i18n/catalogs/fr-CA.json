@@ -1906,7 +1906,7 @@
         "closed": "Fermé",
         "hours": "Horaire spécial"
       },
-      "hoursOneDate": "Une date à la fois : Heures spéciales ouvre l’éditeur de la journée. Retirez les autres dates ou choisissez Fermé pour elles.",
+      "hoursOneDate": "Une date à la fois : Horaire spécial ouvre l’éditeur de la journée. Retirez les autres dates ou choisissez Fermé pour elles.",
       "hoursHandoff": "Suivant ouvre cette date dans l’éditeur de la journée, où vous réglez ses heures.",
       "removeRow": "Retirer la date {{n}}",
       "addRow": "Ajouter une autre date",

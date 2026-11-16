@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState } from "@mbe/types";
 
@@ -97,6 +97,7 @@ beforeEach(() => {
   vi.useFakeTimers({ toFake: ["Date"] });
   vi.setSystemTime(new Date("2026-12-01T12:00:00"));
   window.HTMLElement.prototype.scrollIntoView = vi.fn();
+  previewImpacts.mockResolvedValue([]);
   saveConfig.mockResolvedValue({ version: 8, changeId: "chg-8" });
   revert.mockResolvedValue({ version: 9, changeId: "chg-9" });
 });
@@ -125,5 +126,21 @@ describe("Add special dates, Special hours", () => {
     expect(saveConfig.mock.calls[0]![0].body.expectedVersion).toBe(7);
     fireEvent.click(await screen.findByRole("button", { name: "Undo" }));
     await waitFor(() => expect(revert).toHaveBeenCalledTimes(1));
+  });
+  it("from a holiday line, leaves the holiday buttons enabled once the day editor closes", async () => {
+    renderTab();
+    fireEvent.click(screen.getByRole("button", { name: /^(Plan|View) holidays$/ }));
+    const line = await screen.findByRole("group", { name: /^Christmas Day/ });
+    fireEvent.click(within(line).getByRole("button", { name: "Closed" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Special hours" }));
+    fireEvent.click(screen.getByTestId("add-dates-primary"));
+    await screen.findByRole("button", { name: "Remove Dinner" });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Remove Dinner" })).toBeNull());
+    for (const b of within(screen.getByRole("group", { name: /^Christmas Day/ })).getAllByRole(
+      "button"
+    )) {
+      expect((b as HTMLButtonElement).disabled).toBe(false);
+    }
   });
 });
