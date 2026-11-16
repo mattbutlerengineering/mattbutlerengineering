@@ -5,36 +5,22 @@ import {
   Radio,
   RadioGroup,
   SegmentedControl,
-  Select,
   Tag,
   Text,
   TextArea,
 } from "@mattbutlerengineering/rialto";
-import { addDays, weekdayIndexOf } from "@mbe/availability";
-import { GUEST_MESSAGE_MAX_LENGTH, type AvailabilityConfig } from "@mbe/types";
+import { GUEST_MESSAGE_MAX_LENGTH } from "@mbe/types";
 import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { useViewport } from "../../hooks/useViewport.js";
-import {
-  regularServices,
-  rowFieldId,
-  type DateRow,
-  type RowField,
-  type RowKind,
-} from "./add-dates-draft.js";
+import { rowFieldId, type DateRow, type RowField, type RowKind } from "./add-dates-draft.js";
 import { WEEK_STARTS_ON } from "./calendar-dates.js";
-import { namedServiceHoursText } from "./service-hours.js";
-import { ServicesEditor } from "./ServicesEditor.js";
 import styles from "./AddSpecialDatesSheet.module.css";
 
-/** 2026-01-04 is a Sunday; weekday index n is that date plus n days. */
-const SUNDAY = "2026-01-04";
-const KINDS: readonly RowKind[] = ["closed", "hours", "same"];
+const KINDS: readonly RowKind[] = ["closed", "hours"];
 
 export interface AddDateRowProps {
   readonly row: DateRow;
   readonly index: number;
-  readonly config: AvailabilityConfig;
-  readonly timezone: string;
   readonly today: string;
   /** The field of this row that blocks Next, if any. */
   readonly invalid: RowField | null;
@@ -45,56 +31,28 @@ export interface AddDateRowProps {
   readonly onRemove: () => void;
 }
 
-/** One row of the Add special date sheet (ux.md F6): a date, what happens to it, its message. */
+/**
+ * One row of the Add special date sheet (ux.md F6): a date, Closed or Special hours, its message.
+ * Special hours has no fields here: Next opens the day editor on the date (D5.1).
+ */
 export function AddDateRow(props: AddDateRowProps) {
-  const { row, index, config, timezone, today, invalid, messageShared, onChange } = props;
+  const { row, index, today, invalid, messageShared, onChange } = props;
   const { t } = useTranslation();
   const format = useVenueFormat();
-  // Three segments do not fit a phone's sheet ("Same as another day" ran off the edge), so a phone
-  // stacks them as radios, as the Close dialog's What and When do.
+  // Segments stack as radios on a phone, as the Close dialog's What and When do.
   const onPhone = useViewport() === "phone";
   // Trimmed, like validateRows: what blocks Next is what the field flags.
   const messageError = row.message.trim().length > GUEST_MESSAGE_MAX_LENGTH;
-  const seed = (weekday: number) => regularServices(config, timezone, weekday, today);
-  const weekdayName = (d: number) =>
-    format.formatCalendarDate(addDays(SUNDAY, d), { weekday: "long" });
-
-  // Special hours start from the regular hours of the row's own weekday.
-  const ownWeekday = (date: string, fallback: number) => (date ? weekdayIndexOf(date) : fallback);
-
-  const chooseKind = (kind: RowKind) => {
-    if (kind === "same") {
-      return onChange({ ...row, kind, services: seed(row.sameAs), seededFor: undefined });
-    }
-    const weekday = ownWeekday(row.date, row.sameAs);
-    // Hours copied from another weekday (the date changed while the row was Closed) follow the
-    // date too; hours the Manager edited carry no `seededFor` and stay theirs.
-    const stale = row.seededFor !== undefined && row.seededFor !== weekday;
-    // With no date yet there is no weekday to start from: the hours fill in when one is chosen.
-    if (kind === "hours" && row.date && (row.services.length === 0 || stale)) {
-      return onChange({ ...row, kind, services: seed(weekday), seededFor: weekday });
-    }
-    onChange({ ...row, kind });
-  };
+  const closed = row.kind === "closed";
 
   const holidayMessage = row.name
     ? t("availability.close.suggestions.holidayNamed", { name: row.name })
     : "";
 
   const chooseDate = (date: string) => {
-    const weekday = ownWeekday(date, row.sameAs);
-    // Hours still as copied from a weekday follow the date; hours the Manager edited stay theirs.
-    const follows =
-      row.kind === "hours" && (row.services.length === 0 || row.seededFor !== undefined);
     // The row's name was the date it opened on; another date is not that holiday.
     const { name: _name, ...rest } = row;
-    onChange({
-      ...(date === row.date ? row : rest),
-      date,
-      // "Same as" starts on the date's own weekday.
-      sameAs: row.kind === "closed" ? weekday : row.sameAs,
-      ...(follows ? { services: seed(weekday), seededFor: weekday } : {}),
-    });
+    onChange({ ...(date === row.date ? row : rest), date });
   };
 
   return (
@@ -138,7 +96,7 @@ export function AddDateRow(props: AddDateRowProps) {
           label={t("availabilitySpecial.add.kindLabel", { n: index + 1 })}
           name={`add-date-kind-${row.key}`}
           value={row.kind}
-          onChange={(id) => chooseKind(id as RowKind)}
+          onChange={(id) => onChange({ ...row, kind: id as RowKind })}
         >
           {KINDS.map((id) => (
             <Radio key={id} value={id} label={t(`availabilitySpecial.add.kind.${id}`)} />
@@ -149,61 +107,23 @@ export function AddDateRow(props: AddDateRowProps) {
           aria-label={t("availabilitySpecial.add.kindLabel", { n: index + 1 })}
           segments={KINDS.map((id) => ({ id, label: t(`availabilitySpecial.add.kind.${id}`) }))}
           value={row.kind}
-          onChange={(id) => chooseKind(id as RowKind)}
+          onChange={(id) => onChange({ ...row, kind: id as RowKind })}
         />
       )}
-      {row.kind === "same" && (
-        <>
-          <Select
-            id={rowFieldId(row.key, "same")}
-            label={t("availabilitySpecial.add.sameAs")}
-            value={String(row.sameAs)}
-            options={[0, 1, 2, 3, 4, 5, 6].map((d) => ({
-              value: String(d),
-              label: t("availabilitySpecial.add.sameAsDay", { day: weekdayName(d) }),
-            }))}
-            onChange={(v) => onChange({ ...row, sameAs: Number(v), services: seed(Number(v)) })}
-          />
-          <ul className={styles.summary}>
-            {row.services.map((s) => (
-              <li key={s.key}>
-                <Text variant="caption" color="secondary">
-                  {namedServiceHoursText(s.name, s, { t, format })}
-                </Text>
-              </li>
-            ))}
-          </ul>
-          {row.services.length === 0 && (
-            <Text variant="caption" color="error" role="alert">
-              {t("availabilitySpecial.add.sameEmpty", { day: weekdayName(row.sameAs) })}
-            </Text>
+      {!closed && (
+        <Text
+          variant="caption"
+          color={invalid === "hours" ? "error" : "secondary"}
+          role={invalid === "hours" ? "alert" : undefined}
+        >
+          {t(
+            invalid === "hours"
+              ? "availabilitySpecial.add.hoursOneDate"
+              : "availabilitySpecial.add.hoursHandoff"
           )}
-        </>
-      )}
-      {row.kind === "hours" && !row.date && row.services.length === 0 && (
-        <Text variant="caption" color="secondary">
-          {t("availabilitySpecial.add.hoursNeedDate")}
         </Text>
       )}
-      {row.kind === "hours" && (row.date || row.services.length > 0) && (
-        <>
-          <div id={rowFieldId(row.key, "hours")}>
-            <ServicesEditor
-              services={row.services}
-              config={config}
-              date={row.date || undefined}
-              allowNew={false}
-              onChange={(services) => onChange({ ...row, services, seededFor: undefined })}
-            />
-          </div>
-          {invalid === "hours" && (
-            <Text variant="caption" color="error" role="alert">
-              {t("availabilitySpecial.add.hoursInvalid")}
-            </Text>
-          )}
-        </>
-      )}
-      {!messageShared && (
+      {closed && !messageShared && (
         <TextArea
           id={rowFieldId(row.key, "message")}
           label={t("availability.close.guestMessage")}
@@ -220,7 +140,7 @@ export function AddDateRow(props: AddDateRowProps) {
         />
       )}
       {/* A row the sheet opened on a holiday offers the Close dialog's wording for it. */}
-      {!messageShared && row.name && row.kind === "closed" && (
+      {closed && !messageShared && row.name && (
         <div className={styles.chips}>
           <Tag
             selected={row.message === holidayMessage}

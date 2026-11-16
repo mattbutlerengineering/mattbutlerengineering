@@ -122,7 +122,6 @@ export const LEGACY_KEYS: ReadonlySet<string> = new Set([
   "availabilitySchedules.layer.intro",
   "availabilitySchedules.layer.add",
   "availabilitySchedules.layer.other",
-  "availabilitySpecial.add.sameEmpty",
 ]);
 
 interface GlossaryProblem {

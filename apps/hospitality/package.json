@@ -76,14 +76,9 @@
       "limit": "3.5 kB"
     },
     {
-      "name": "Weekly form editing (use-regular-week-edit with the conflict review and the draft preview; hoisted out of today's page at availability-hub E4.4, when Regular hours began sharing it; 7.51 kB (7,512 B) measured)",
+      "name": "Weekly form editing (use-regular-week-edit with the conflict review, the draft preview and the date editor's draft changes; hoisted out of today's page at availability-hub E4.4; D5.1 folded draft-changes into it when the Add special dates sheet stopped importing it, 7.51 kB + 2.15 kB before, 8.8 kB measured)",
       "path": "dist/assets/use-regular-week-edit-*.js",
-      "limit": "7.7 kB"
-    },
-    {
-      "name": "Date-editor draft changes (hoisted out of today's page at availability-hub E4.4, when Regular hours' conflict review began sharing it; 2.15 kB (2,152 B) measured)",
-      "path": "dist/assets/draft-changes-*.js",
-      "limit": "2.3 kB"
+      "limit": "9 kB"
     },
     {
       "name": "Day summary text (hoisted out of today's page at availability-hub E4.4, shared with the hub and Regular hours; 1.86 kB (1,863 B) measured)",
@@ -156,9 +151,9 @@
       "limit": "64 kB"
     },
     {
-      "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured; +0.95 kB at #8972 for the framer-motion/motion-dom 14.12 → 14.14 bump that rialto bundles, 93.85 kB (93,846 B) measured, 92.9 kB on main before)",
+      "name": "Rialto Vendor (design system; 91.84 kB before typed dates in DatePicker: +1 kB at #8798, availability-hub C2.1, for the typed-date reader, the field's problem state and four message keys in three locales, 92.84 kB measured; +0.95 kB at #8972 for the framer-motion/motion-dom 14.12 → 14.14 bump that rialto bundles, 93.85 kB (93,846 B) measured, 92.9 kB on main before; re-measured at 93,846 B after merging main at #8978, limit 94 kB for room against hash-driven drift)",
       "path": "dist/assets/rialto-vendor-*.js",
-      "limit": "93.9 kB"
+      "limit": "94 kB"
     },
     {
       "name": "Router Vendor (react-router)",

@@ -40,7 +40,7 @@ export interface HolidayFlow {
     title: string,
     request: HolidaySheetRequest
   ) => void;
-  /** Special hours for one date through the same sheet. */
+  /** Special hours for one date, in the day editor. */
   readonly onSpecialHours: (row: PlannedDate, request: HolidaySheetRequest) => void;
   /** Reopen a closure; `then` runs once it is reopened, not if cancelled. */
   readonly onReopen: (ruleId: string, then: () => void) => void;
@@ -57,11 +57,7 @@ export interface UseHolidayDecisionOptions {
   readonly onDecided: () => void;
 }
 
-const plannedOf = (h: NamedHoliday, kind: PlannedDate["kind"]): PlannedDate => ({
-  date: h.date,
-  name: h.name,
-  kind,
-});
+const plannedOf = (h: NamedHoliday): PlannedDate => ({ date: h.date, name: h.name });
 
 /**
  * One holiday's save, per date (architecture.md B2). Every chain is ordered so that a failure
@@ -180,7 +176,7 @@ export function useHolidayDecision(options: UseHolidayDecisionOptions) {
       }
       return;
     }
-    const row = plannedOf(holiday, to === "closed" ? "closed" : "hours");
+    const row = plannedOf(holiday);
     // The sheet is the save: the line is saving until it closes, and nothing else is pressed.
     setStatus(holiday.date, { phase: "saving", to });
     const request: HolidaySheetRequest = {
@@ -199,7 +195,7 @@ export function useHolidayDecision(options: UseHolidayDecisionOptions) {
   const closeMany = (holidays: readonly NamedHoliday[], title: string): void => {
     for (const h of holidays) setStatus(h.date, { phase: "saving", to: "closed" });
     flow.onClose(
-      holidays.map((h) => plannedOf(h, "closed")),
+      holidays.map((h) => plannedOf(h)),
       title,
       { onSettled: () => holidays.forEach((h) => setStatus(h.date, null)) }
     );

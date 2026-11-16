@@ -1003,6 +1003,41 @@ describe("TonightControl", () => {
     });
   });
 
+  describe("the trigger and drawer on another date (#8955)", () => {
+    it("says plain Tonight, with no note, when the selected date is tonight", () => {
+      renderControl({ selectedDate: "2026-10-30" });
+      fireEvent.click(screen.getByRole("button", { name: /^Tonight/ }));
+      expect(screen.getByRole("button", { name: "Tonight" })).toBeInTheDocument();
+      expect(screen.queryByText(/These changes apply to tonight/)).not.toBeInTheDocument();
+    });
+
+    it("keeps Tonight and adds tonight's date when another date is selected", () => {
+      renderControl({ selectedDate: "2026-11-21" });
+      expect(screen.getByRole("button", { name: "Tonight · Fri, Oct 30" })).toBeInTheDocument();
+    });
+
+    it("tells the user the changes apply to tonight, not the selected date", () => {
+      renderControl({ selectedDate: "2026-11-21" });
+      fireEvent.click(screen.getByRole("button", { name: /^Tonight/ }));
+      expect(
+        within(screen.getByRole("dialog", { name: "Tonight" })).getByText(
+          "These changes apply to tonight, not Sat, Nov 21."
+        )
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe("on desktop", () => {
+    it("opens as a slide-out dialog, not a popover, and closes on Escape", async () => {
+      renderControl({ selectedDate: "2026-11-21" });
+      fireEvent.click(screen.getByRole("button", { name: /^Tonight/ }));
+      const dialog = screen.getByRole("dialog", { name: "Tonight" });
+      expect(within(dialog).getByTestId("tonight-panel")).toHaveAttribute("data-layout", "drawer");
+      fireEvent.keyDown(dialog, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Tonight" })).toBeNull());
+    });
+  });
+
   it("has no axe violations when open", async () => {
     const { container } = renderControl();
     open();

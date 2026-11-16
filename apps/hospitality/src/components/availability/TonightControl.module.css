@@ -7,11 +7,6 @@
   list-style: none;
 }
 
-.trigger::after {
-  content: "\25BE";
-  margin-inline-start: var(--rialto-space-xs);
-}
-
 .panel {
   display: flex;
   flex-direction: column;

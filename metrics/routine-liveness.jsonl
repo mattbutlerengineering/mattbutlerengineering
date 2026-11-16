@@ -1,0 +1,12 @@
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-evening","status":"alive","artifact_age_hours":16.9}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-auditor","status":"alive","artifact_age_hours":7.7}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-daily-issue","status":"blocked","artifact_age_hours":3}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-morning","status":"alive","artifact_age_hours":1.4}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-learning-loop","status":"alive","artifact_age_hours":23.3}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-weekly-improve","status":"alive","artifact_age_hours":74.1}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-doc-rot","status":"alive","artifact_age_hours":74}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-weekly-retro","status":"alive","artifact_age_hours":18.1}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-monthly-meta-audit","status":"alive","artifact_age_hours":364.1}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-ui-quality","status":"alive","artifact_age_hours":9.9}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-feature-drain","status":"alive","artifact_age_hours":2.4}
+{"detected_at":"2026-11-16T18:27:13.005Z","routine":"mbe-prune","status":"alive","artifact_age_hours":18.2}

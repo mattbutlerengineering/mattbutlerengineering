@@ -1904,14 +1904,10 @@
       "kindLabel": "Qué pasa en la fecha {{n}}",
       "kind": {
         "closed": "Cerrado",
-        "hours": "Horario especial",
-        "same": "Igual que otro día"
+        "hours": "Horario especial"
       },
-      "sameAs": "Copiar horario de",
-      "sameAsDay": "Igual que el {{day}}",
-      "sameEmpty": "La semana regular no tiene horario el {{day}}. Elige otro día o usa Cerrado.",
-      "hoursInvalid": "Agrega al menos uno de los servicios existentes del local. Los servicios nuevos se agregan desde el editor del día.",
-      "hoursNeedDate": "Elige primero una fecha: su horario habitual aparece aquí para cambiarlo.",
+      "hoursOneDate": "Una fecha a la vez: Horario especial abre el editor del día. Quita las demás fechas o elige Cerrado para ellas.",
+      "hoursHandoff": "Siguiente abre esta fecha en el editor del día, donde defines su horario.",
       "removeRow": "Quitar la fecha {{n}}",
       "addRow": "Agregar otra fecha",
       "shareMessage": "Usar un solo mensaje para todas las fechas",
@@ -3173,6 +3169,8 @@
         }
       },
       "open": "Esta noche",
+      "openOnDate": "Esta noche · {{date}}",
+      "notSelectedDate": "Estos cambios se aplican a esta noche, no al {{date}}.",
       "chips": "Cambios de esta noche",
       "pause": "Pausar reservas en línea",
       "closeEarly": "Cerrar antes a las",

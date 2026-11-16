@@ -611,7 +611,7 @@ function LiveTimelinePage() {
             >
               {t("timeline.page.walkIn")}
             </Button>
-            <TimelineTonight />
+            <TimelineTonight selectedDate={selectedDate} />
             {walkInDisabled && (
               <Text
                 as="span"

@@ -504,7 +504,7 @@ test.describe("The Today line (T1, T2)", () => {
 
         // A reload of the Timeline keeps the panel closed; Back lands on /availability.
         await page.reload();
-        await expect(page.getByRole("button", { name: /^Tonight\s*▾/ })).toBeVisible();
+        await expect(page.getByRole("button", { name: /^Tonight(?!'s)/ })).toBeVisible();
         await expect(page.getByRole("button", { name: "Emergency: close tonight…" })).toHaveCount(
           0
         );
