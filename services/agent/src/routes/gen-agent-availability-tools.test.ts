@@ -425,7 +425,7 @@ describe("availability chat tools", () => {
 
     it("rejects fields a change type does not take before anything is confirmed", () => {
       const tools = createAgentTools(log, api as never, { venueId: "v1" });
-      const schema = tools.change_tonight_availability!.inputSchema as {
+      const schema = tools.change_tonight_availability!.inputSchema as unknown as {
         safeParse: (v: unknown) => { success: boolean };
       };
 
