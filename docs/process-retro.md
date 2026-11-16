@@ -155,7 +155,7 @@ Because the flag is unknown, `gh pr update-branch` churn is **not** reported as
 a cost this week — that cost only exists when `strict` is `true`. See Escalations.
 
 **Regression (1 proposal).** human open-to-merge p90 went **446.5 → 954.1 min
-(+114%)**. Filed verbatim below.
+(+114%)**. Filed verbatim as #8939.
 
 **What the sensor does not cover, measured by hand** over 812 `ci.yml` runs in
 window (62 failures):
@@ -290,13 +290,13 @@ not a trend, and this entry does not manufacture one.
    Today an entire label's worth of human-blocked work is invisible to the
    detector that exists to surface it and to this retro's own membership query;
    #8629 has been unseen since 2026-11-10. Highest flow-per-unit-effort change
-   available this week. → filed.
+   available this week. → filed as #8940.
 2. **Make routine-liveness durable and correlated.** Persist every
    classification to a metrics JSONL so fleet downtime is a trendable number
    rather than a self-closing issue, and file once when **≥3 routines are
    `late` in the same pass**. Both changes live in one file. This is what would
    have made 2026-11-10 visible on the day instead of ~24 h later and
-   unrecorded forever. → filed.
+   unrecorded forever. → filed as #8941.
 3. **Land the Monday `sdlcSpeed` row.** The collector runs with `--record`,
    computes a row, and it never reaches `metrics/process-metrics.jsonl`; the
    freshness guard passes anyway. Until this is fixed, every weekly retro
