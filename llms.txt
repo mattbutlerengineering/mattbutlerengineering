@@ -1715,8 +1715,8 @@
       type CloseTarget = { readonly kind: "venue" } | { readonly kind: "tonight" } | { readonly kind: "date"; reado | { readonly kind: "range"; read | { readonly kind: "dates"; read | { readonly kind: "section"; re;
     </item>
     <item priority="high">
-      type AvailabilityView = { readonly view: "hub" } | { readonly view: "hours"; read | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "specialDates | { readonly view: "closures" } | {
-            readonly view: "calend | { readonly view: "bookingRules | { readonly view: "history" };
+      type AvailabilityView = { readonly view: "hub" } | { readonly view: "hours"; read | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "seasonal"; r | { readonly view: "specialDates | { readonly view: "closures" } | {
+            readonly view: "calend | { readonly view: "bookingRules | { readonly view: "history" } | { readonly view: "map" };
     </item>
     <item priority="low">
       type AvailabilityTarget = AvailabilityView & {
@@ -2186,6 +2186,9 @@
       ): boolean { /* ... */ }
     </item>
     <item priority="high">
+      export function onlinePausesOn(config: AvailabilityConfig, today: string): DateRule[] { /* ... */ }
+    </item>
+    <item priority="high">
       export function shownOnlinePause(
         config: AvailabilityConfig,
         timezone: string,
@@ -2474,6 +2477,25 @@
       ): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/conflict-lines.ts">
+    <item priority="low">
+      interface AlsoApplySince {
+        changed: readonly string[];
+        removed: readonly string[];
+      }
+    </item>
+    <item priority="high">
+      type NamedLine = "added" | "removed" | "changed" | "alsoChanged" | "alsoRemoved";
+    </item>
+    <item priority="high">
+      export function conflictLines(
+        changes: ScheduleChangeSince,
+        alsoApply: AlsoApplySince | undefined,
+        t: TFunction,
+        locale: string
+      ): string[] { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/conflict-problem.ts">
     <item priority="low">
       type Conflict = { readonly code: "version-conf | { readonly code: "closure-exis;
@@ -2508,6 +2530,12 @@
         scheduleId: string,
         latestId: string = scheduleId
       ): ScheduleChangeSince { /* ... */ }
+    </item>
+    <item priority="high">
+      export function servicesChangedSince(
+        before: readonly DraftService[],
+        after: readonly DraftService[]
+      ): { readonly added: string[]; readonly removed: string[]; readonly changed: string[] } { /* ... */ }
     </item>
     <item priority="high">
       interface ReapplyInput {
@@ -2791,6 +2819,17 @@
       export function buildDraftChanges(input: BuildInput): AvailabilityConfigChanges { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/draft-service-fields.ts">
+    <item priority="high">
+      export function serviceFieldsOf(service: DraftService): ServiceFieldsValue { /* ... */ }
+    </item>
+    <item priority="high">
+      export function applyFieldsToService(
+        service: DraftService,
+        next: ServiceFieldsValue
+      ): DraftService { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/draft-wait.ts">
     <item priority="high">
       export const skipInitialFocus: unknown;
@@ -2950,7 +2989,9 @@
         layer: Layer,
         t: TFunction,
         format: VenueFormat,
-        sectionNames?: ReadonlyMap<string, string>
+        sectionNames?: ReadonlyMap<string, string>,
+        /** The layer's rule is an online pause, which reads as the banner and pill do. */
+        isPause = false
       ): string { /* ... */ }
     </item>
     <item priority="high">
@@ -2987,6 +3028,21 @@
     </item>
     <item priority="high">
       export function outcomeLabel(counts: OutcomeCounts, t: TFunction): string { /* ... */ }
+    </item>
+  </file>
+  <file path="apps/hospitality/src/components/availability/pause-end.ts">
+    <item priority="low">
+      type PauseEnd = { readonly kind: "open" } | { readonly kind: "tomorrow" } | { readonly kind: "date"; reado;
+    </item>
+    <item priority="high">
+      export function pauseEnd(rule: DateRule, today: string): PauseEnd { /* ... */ }
+    </item>
+    <item priority="high">
+      export function pauseEndText(
+        end: PauseEnd,
+        t: TFunction,
+        format: Pick<VenueFormat, "formatCalendarDate">
+      ): string { /* ... */ }
     </item>
   </file>
   <file path="apps/hospitality/src/components/availability/pause-online-draft.ts">
@@ -3650,6 +3706,9 @@
     </item>
     <item priority="high">
       export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TFunction): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function isOnlinePauseRule(rule: DateRule): boolean { /* ... */ }
     </item>
     <item priority="low">
       type ClosureKind = { readonly kind: "venue" } | { readonly kind: "section"; re | { readonly kind: "booking"; re;
@@ -4609,6 +4668,11 @@
       ) { /* ... */ }
     </item>
   </file>
+  <file path="apps/hospitality/src/components/availability/use-usage-text.ts">
+    <item priority="high">
+      export function useUsageText(config: AvailabilityConfig) { /* ... */ }
+    </item>
+  </file>
   <file path="apps/hospitality/src/components/availability/use-visible-schedules.ts">
     <item priority="high">
       export function useServiceDate(config: AvailabilityConfig, timezone: string): string { /* ... */ }
@@ -5489,6 +5553,13 @@
     </item>
   </file>
   </section>
+  <section priority="medium" role="dashboard">
+  <file path="apps/rialto-web/src/pages/dashboard/delta-color.ts">
+    <item priority="high">
+      export function deltaColor(delta: number): string { /* ... */ }
+    </item>
+  </file>
+  </section>
   <section priority="medium" role="data">
   <file path="apps/marketing/src/data/ai-health-trends.ts">
     <item priority="low">
@@ -5901,31 +5972,6 @@
     </item>
     <item priority="high">
       export function statusProbeFixture(url: string, method: string): ProbeFixture | undefined { /* ... */ }
-    </item>
-  </file>
-  <file path="apps/marketing/src/data/weekly-freshness.ts">
-    <item priority="high">
-      export function recentReadingItems(
-        resources: readonly WeeklyResource[],
-        now: Date = new Date()
-      ): readonly WeeklyResource[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function latestPublishedAt(resources: readonly WeeklyResource[]): string | null { /* ... */ }
-    </item>
-  </file>
-  <file path="apps/marketing/src/data/weekly-intake.ts">
-    <item priority="low">
-      interface WeeklyResource {
-        id: string;
-        title: string;
-        url: string;
-        source: "js-weekly" | "react-weekly" | "ai-weekly" | "other";
-        description: string;
-      }
-    </item>
-    <item priority="high">
-      export const weeklyResources: readonly WeeklyResource[];
     </item>
   </file>
   <file path="apps/rialto-web/src/data/demo-routes.ts">
@@ -24884,6 +24930,9 @@
     <item priority="high">
       export const BUG_CATALOG: Record<BugType, BugInjector>;
     </item>
+    <item priority="medium">
+      function findBodyOpenBrace(content: string, from: number): number { /* ... */ }
+    </item>
     <item priority="low">
       interface InjectBugResult {
         injected: boolean;
@@ -31649,14 +31698,6 @@
         now: Date = new Date()
       ): boolean { /* ... */ }
     </item>
-    <item priority="high">
-      export const SOURCE_COLORS: Record<
-        WeeklyResource["source"],
-        "yellow" | "blue" |...;
-    </item>
-    <item priority="high">
-      export const SOURCE_LABELS: Record<WeeklyResource["source"], string>;
-    </item>
   </file>
   <file path="apps/marketing/src/utils/route-meta.ts">
     <item priority="low">
@@ -32153,7 +32194,7 @@
             readonly kind: "closur | { readonly kind: "floorPlan";  | { readonly kind: "tables"; rea | { readonly kind: "seats"; read;
     </item>
     <item priority="low">
-      type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "compareServices" | "createSchedule" | "openCalendar" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
+      type SetupActionId = "setUpRegularWeek" | "changeRegularWeek" | "editSchedule" | "createSchedule" | "openSpecialDates" | "bookingRules" | "openFloorPlan" | "addFloorPlan" | "closeSection" | "moveToSection";
     </item>
     <item priority="low">
       type SetupActionTarget = { readonly kind: "link"; readonly to: string };
@@ -32293,7 +32334,7 @@
         label: (node: SetupNode) => string;
         whatIs: (node: SetupNode) => string | null;
         state: (node: SetupNode) => string;
-        actionLabel: (action: SetupAction, node: SetupNode) => string;
+        actionLabel: (action: SetupAction) => string;
       }
     </item>
     <item priority="high">

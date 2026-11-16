@@ -39,9 +39,9 @@
   color: var(--rialto-text-secondary);
   cursor: pointer;
   transition:
-    background var(--rialto-ease-precision) 120ms,
-    color var(--rialto-ease-precision) 120ms,
-    border-color var(--rialto-ease-precision) 120ms;
+    background var(--rialto-ease-precision) var(--rialto-duration-fast),
+    color var(--rialto-ease-precision) var(--rialto-duration-fast),
+    border-color var(--rialto-ease-precision) var(--rialto-duration-fast);
 }
 
 .navButton:hover {
@@ -99,9 +99,9 @@
   font-variant-numeric: tabular-nums;
   cursor: pointer;
   transition:
-    background var(--rialto-ease-precision) 120ms,
-    color var(--rialto-ease-precision) 120ms,
-    border-color var(--rialto-ease-precision) 120ms;
+    background var(--rialto-ease-precision) var(--rialto-duration-fast),
+    color var(--rialto-ease-precision) var(--rialto-duration-fast),
+    border-color var(--rialto-ease-precision) var(--rialto-duration-fast);
 }
 
 .day:hover {

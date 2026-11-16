@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import type { DateRule } from "@mbe/types";
 import type { VenueFormat } from "../../hooks/useVenueFormat.js";
 import { addDays } from "../../utils/service-day.js";
 import type { SpecialDateRule } from "./special-dates.js";
@@ -81,6 +82,22 @@ export function closureSubject(rule: SpecialDateRule, format: VenueFormat, t: TF
     });
   }
   return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
+}
+
+/**
+ * An online-only pause, which every surface names the same way: one the Pause dialog marked
+ * (`origin: "pause"`), or the open-ended one the pill already treats as a pause. A dated unmarked
+ * online closure, say a private event's, is a closure.
+ */
+export function isOnlinePauseRule(rule: DateRule): boolean {
+  return (
+    rule.kind === "closure" &&
+    rule.targetKind === "booking" &&
+    rule.bookingTypes?.length === 1 &&
+    rule.bookingTypes[0] === "online" &&
+    !rule.repeat &&
+    (rule.origin === "pause" || rule.endsOn == null)
+  );
 }
 
 /** What a closure closes: the whole venue, one section (ADR-032), or only some ways of booking. */

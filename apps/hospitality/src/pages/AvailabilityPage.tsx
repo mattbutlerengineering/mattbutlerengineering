@@ -25,6 +25,7 @@ import { AvailabilityDayDrawer } from "../components/availability/AvailabilityDa
 import { AvailabilityHeaderActions } from "../components/availability/AvailabilityHeaderActions.js";
 import { AvailabilityScheduleControls } from "../components/availability/AvailabilityScheduleControls.js";
 import {
+  availabilityPath,
   parseAvailabilityEntry,
   type AvailabilityTab,
   type CloseTarget,
@@ -410,7 +411,7 @@ function AvailabilityContent({ rootRef }: { readonly rootRef: RefObject<HTMLDivE
           <div className={styles.headerAside}>
             {actions}
             {entry.from === "setup" && (
-              <Link to="/setup" className={styles.backLink}>
+              <Link to={availabilityPath({ view: "map" })} className={styles.backLink}>
                 {t("availability.backToSetup")}
               </Link>
             )}

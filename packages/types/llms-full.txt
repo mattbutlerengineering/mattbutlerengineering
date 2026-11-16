@@ -1349,7 +1349,7 @@
     export const DATE_RULE_TARGETS = ["venue", "service", "booking", "tables"] as const;
     export const SERVICE_BOOKING_TYPES = ["online", "phone"] as const;
     export const RULE_BOOKING_TYPES = ["online", "phone", "waitlist"] as const;
-    export const DATE_RULE_SOURCES = ["manual", "holiday", "tonight"] as const;
+    export const DATE_RULE_SOURCES = ["manual", "holiday", "tonight", "pause"] as const;
     export const CLOSURE_ACTIONS = ["cancel", "move", "keep_notify", "keep_silent"] as const;
     export const CLOSURE_REFUND_STATUSES = ["none", "pending", "done", "failed"] as const;
     export const ScheduleKindSchema = z.enum(SCHEDULE_KINDS);

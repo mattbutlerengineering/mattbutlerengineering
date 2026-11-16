@@ -29,6 +29,7 @@ import { ScheduleNudge } from "./ScheduleNudge.js";
 import type { SeriesScope } from "./series-edit.js";
 import { diffRemoval, removalChangeText } from "./removal-diff.js";
 import { layerEffectText, layerLabelText } from "./layer-text.js";
+import { isOnlinePauseRule } from "./rule-subjects.js";
 import { useHolidayNames } from "./use-holidays.js";
 import styles from "./AvailabilityDayDrawer.module.css";
 
@@ -60,6 +61,8 @@ export interface DayEditing {
    * one date's and a save replaces the others' (said above the rows).
    */
   readonly hoursDiffer?: boolean;
+  /** Open the editor on the date's rows as soon as the drawer shows, not on the read view. */
+  readonly openEditor?: boolean;
 }
 
 export interface AvailabilityDayDrawerProps {
@@ -143,6 +146,10 @@ function DayBody({
       only !== undefined &&
       datedAssignmentOf(config, only) !== undefined);
   // A rule's note for staff ("Smith wedding"): why the day is the way it is, for whoever opens it.
+  const isPauseLayer = (layer: Layer) => {
+    const rule = dateRules?.find((r) => r.id === layer.id);
+    return layer.kind === "closure" && rule !== undefined && isOnlinePauseRule(rule);
+  };
   const noteOf = (layer: Layer) => dateRules?.find((rule) => rule.id === layer.id)?.staffNote;
 
   return (
@@ -169,7 +176,7 @@ function DayBody({
             {day.explanation.map((layer) => (
               <li key={layer.id} className={styles.layer}>
                 <Text as="span" variant="body" color="primary" data-layer-label>
-                  {layerLabelText(layer, t, format, sectionNames)}
+                  {layerLabelText(layer, t, format, sectionNames, isPauseLayer(layer))}
                 </Text>
                 <Text as="span" variant="caption" color="secondary">
                   {layerEffectText(layer, t, format)}
@@ -244,7 +251,9 @@ export function AvailabilityDayDrawer(props: AvailabilityDayDrawerProps) {
   // reopening that date cannot re-apply "All dates" to a later, unrelated edit.
   if (chosen !== null && chosen.date !== date) setChosen(null);
   // The date whose editor a layer's Edit asked to open; like `chosen`, it belongs to one date.
-  const [opening, setOpening] = useState<{ date: string; request: number } | null>(null);
+  const [opening, setOpening] = useState<{ date: string; request: number } | null>(() =>
+    editing?.openEditor && date !== null ? { date, request: 1 } : null
+  );
   if (opening !== null && opening.date !== date) setOpening(null);
   const openRequest = opening?.date === date ? opening.request : 0;
   const ruleScope = (chosen?.date === date ? chosen.scope : undefined) ?? editing?.ruleScope;

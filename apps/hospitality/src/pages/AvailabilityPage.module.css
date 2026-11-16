@@ -1,4 +1,4 @@
-/* The header's actions with, beneath them, the way back to Venue Setup when the page came from it. */
+/* The header's actions with, beneath them, the way back to the Availability map when the page came from it. */
 .headerAside {
   display: flex;
   flex-direction: column;
@@ -18,7 +18,7 @@
   composes: phoneTargets from "../components/availability/phone-targets.module.css";
 }
 
-/* "Venue Setup" in the page header, shown when the page was opened from the setup hub. */
+/* "Availability map" in the page header, shown when the page was opened from the map. */
 .backLink {
   color: var(--rialto-text-secondary);
   font-size: var(--rialto-text-sm);

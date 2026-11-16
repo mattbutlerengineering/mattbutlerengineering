@@ -5,7 +5,6 @@ const HOME_TITLE = "Matt Butler Engineering";
 
 const INDEXABLE_ROUTES: readonly { readonly path: string; readonly title: string }[] = [
   { path: "/status", title: "System Status — Matt Butler Engineering" },
-  { path: "/weekly", title: "Weekly Information Intake — Matt Butler Engineering" },
   { path: "/metrics", title: "Quality Metrics — Matt Butler Engineering" },
   { path: "/acmm", title: "ACMM Dashboard — Matt Butler Engineering" },
   { path: "/ai-health", title: "AI Health Dashboard — Matt Butler Engineering" },
@@ -42,12 +41,6 @@ test.describe("SEO metadata", () => {
     await page.goto("/status");
 
     await expect(page).toHaveTitle("System Status — Matt Butler Engineering");
-  });
-
-  test("weekly page has its own title", async ({ page }) => {
-    await page.goto("/weekly");
-
-    await expect(page).toHaveTitle("Weekly Information Intake — Matt Butler Engineering");
   });
 
   test("404 page sets page-not-found title", async ({ page }) => {

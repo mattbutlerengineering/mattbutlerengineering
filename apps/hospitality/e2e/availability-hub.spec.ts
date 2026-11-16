@@ -19,6 +19,10 @@ import { localDay } from "./local-day.js";
 
 /** The date check's calendar button, which `first-paint.ts` counts and ux.md's budget does not. */
 const DATE_FIELD_BUTTON = 1;
+/** The always-shown "Availability map" link in the header (#8864 AC4; Owner, 2026-11-15). */
+const MAP_LINK = 1;
+/** ux.md's 10 controls plus one per service (two in the demo venue), plus the two above: 14. */
+const HUB_FIRST_PAINT_BUDGET = DATE_FIELD_BUTTON + 10 + 2 + MAP_LINK;
 
 const DESKTOP = { width: 1280, height: 800 };
 const TABLET = { width: 820, height: 1180 };
@@ -91,14 +95,15 @@ test.describe("Availability hub", () => {
 
     // First paint: 10 controls plus one per service (two here) by ux.md, which counts the date
     // field once; `first-paint.ts` also counts its calendar button (not a tab stop), so +1. C2.4's
-    // "Close or pause" is one of ux.md's 10. Measured 13; whether the budget is restated or the
-    // counter skips that button is the Owner's open question (breakdown Notes, 2026-11-13).
+    // "Close or pause" is one of ux.md's 10. The extra control is the always-shown "Availability
+    // map" link, required by #8864 AC4 (the hub links to the map); the Owner raised the budget
+    // from 13 to 14 for it (2026-11-15).
     const { count, controls } = await countFirstPaintControls(page, null);
     test.info().annotations.push({
       type: "hub first paint controls (agent stand-in)",
       description: `${count}: ${controls.join(" | ")}`,
     });
-    expect(count, controls.join("\n")).toBeLessThanOrEqual(DATE_FIELD_BUTTON + 10 + 2);
+    expect(count, controls.join("\n")).toBeLessThanOrEqual(HUB_FIRST_PAINT_BUDGET);
     expect(await screensTall(page, DESKTOP)).toBeLessThanOrEqual(1.0);
 
     // The date check: one typed date, one sentence, and the row that decided it is marked in text.
@@ -219,7 +224,7 @@ test.describe("Availability hub", () => {
   }) => {
     await openHub(page, PHONE);
     const { count, controls } = await countFirstPaintControls(page, null);
-    expect(count, controls.join("\n")).toBeLessThanOrEqual(DATE_FIELD_BUTTON + 10 + 2);
+    expect(count, controls.join("\n")).toBeLessThanOrEqual(HUB_FIRST_PAINT_BUDGET);
     expect(await screensTall(page, PHONE)).toBeLessThanOrEqual(1.5);
   });
 });
@@ -687,5 +692,61 @@ test.describe("History over the hub (C2.6)", () => {
     await expect(page.getByRole("dialog", { name: new RegExp(dayName) })).toBeVisible();
     // The page reads ?date= once and drops it, so a reload does not reopen the day.
     await expect(page).toHaveURL(/\/availability\/calendar$/);
+  });
+});
+
+test.describe("Availability hub: Seasonal hours list (E4.5)", () => {
+  /** The demo venue's config with Weeknights (Mon-Thu) added; its regular rows are copied across. */
+  async function serveWithWeeknights(page: Page) {
+    const demo = buildAvailabilityConfigFixture().config as AvailabilityConfig;
+    const copies = demo.scheduleServices.map((s) => ({
+      ...s,
+      id: `${s.id}-wk`,
+      scheduleId: "wk",
+    }));
+    const config: AvailabilityConfig = {
+      ...demo,
+      schedules: [
+        ...demo.schedules,
+        { id: "wk", name: "Weeknights", kind: "alternate", isRegular: false },
+      ],
+      scheduleServices: [...demo.scheduleServices, ...copies],
+      assignments: [
+        ...demo.assignments,
+        { id: "as-wk", scheduleId: "wk", weekdays: [1, 2, 3, 4], precedence: 1 },
+      ],
+    };
+    await serveSharedConfig(page, createSharedConfig(config));
+  }
+
+  test("the delete reason is in the accessibility tree without hover, and compare is offered", async ({
+    mockedPage: page,
+  }) => {
+    await serveWithWeeknights(page);
+    await page.setViewportSize(DESKTOP);
+    await page.goto("availability/seasonal");
+    await expect(page.getByRole("heading", { level: 1, name: "Seasonal hours" })).toBeVisible();
+    const del = page.getByRole("button", { name: "Delete Weeknights" });
+    await expect(del).toBeDisabled();
+    await expect(del).toHaveAccessibleDescription(/Can’t delete: used Mon–Thu/);
+    await expect(page.getByText(/Can’t delete: used Mon–Thu/)).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Edit one service across all hours" })
+    ).toBeVisible();
+  });
+
+  test("a venue with only regular hours shows the empty sentence and no compare link", async ({
+    mockedPage: page,
+  }) => {
+    await serveSharedConfig(
+      page,
+      createSharedConfig(buildAvailabilityConfigFixture().config as AvailabilityConfig)
+    );
+    await page.setViewportSize(DESKTOP);
+    await page.goto("availability/seasonal");
+    await expect(
+      page.getByText("No seasonal hours. Add hours for a season or a period, such as summer.")
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /across all hours/ })).toHaveCount(0);
   });
 });

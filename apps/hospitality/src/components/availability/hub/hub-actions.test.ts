@@ -28,7 +28,7 @@ describe("hubActions", () => {
     const rows = rowsOf(venue([], seasonal("summer", "Summer hours", {})));
     expect(hubActions(rows, true).map((a) => a?.to)).toEqual([
       "/availability/hours",
-      "/availability/calendar?tab=schedules",
+      "/availability/seasonal",
       "/availability/calendar?tab=special",
       "/availability/calendar?tab=special",
       "/availability/booking-rules",

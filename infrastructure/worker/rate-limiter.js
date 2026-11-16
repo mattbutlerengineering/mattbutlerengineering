@@ -27,6 +27,9 @@ const RATE_LIMITS = Object.freeze([
   // asserts every originRoutes prefix has an entry here, so the next prefix
   // added cannot repeat that.
   { pattern: "/public/", maxRequests: 100, windowSeconds: 60 },
+  // Unauthenticated, browser-fed CSP report sink (#8895). Real pages send a
+  // handful per load (the Reporting API batches); this bounds a flood.
+  { pattern: "/csp-report", maxRequests: 60, windowSeconds: 60 },
 ]);
 
 /**

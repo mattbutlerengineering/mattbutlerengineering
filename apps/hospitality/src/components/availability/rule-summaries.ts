@@ -2,7 +2,7 @@ import type { AvailabilityConfig, DateRule } from "@mbe/types";
 
 /**
  * Where a rule applies, as facts with no text (availability-hub architecture.md, "Shared rule
- * summaries"): the Availability hub's rows, the Seasonal hours list and the Venue Setup tree read
+ * summaries"): the Availability hub's rows, the Seasonal hours list and the Availability map tree read
  * the same answer here and word it themselves. Pure: plain data in, plain data out.
  */
 

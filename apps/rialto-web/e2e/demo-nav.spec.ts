@@ -100,6 +100,8 @@ const CLEARANCE_PAGES = [
   { path: "demos/dashboard", kind: "breadcrumb" },
   { path: "demos/layouts", kind: "breadcrumb" },
   { path: "demos/drivers", kind: "breadcrumb" },
+  { path: "demos/drivers/new", kind: "breadcrumb" },
+  { path: "demos/telemetry", kind: "status" },
   { path: "demos/teams/new", kind: "breadcrumb" },
   { path: "demos/auth-flow", kind: "heading" },
   // `/demos` itself is not listed: the index renders inside ShowcaseLayout
@@ -134,7 +136,9 @@ for (const viewport of [
       const target =
         kind === "breadcrumb"
           ? page.getByRole("navigation", { name: /breadcrumb/i })
-          : page.getByRole("heading", { level: 1 });
+          : kind === "status"
+            ? page.getByRole("region", { name: "Session status" })
+            : page.getByRole("heading", { level: 1 });
       const controlsBox = await controls.boundingBox();
       const targetBox = await target.boundingBox();
       expect(controlsBox).not.toBeNull();

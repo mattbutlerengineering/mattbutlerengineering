@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { MemoryRouter, Routes, Route } from "react-router";
 import { Dashboard } from "./Dashboard";
@@ -59,7 +59,10 @@ vi.mock("@mattbutlerengineering/rialto", () => {
     Kbd: Passthrough,
     PageHeader,
     Pagination: Passthrough,
-    Progress: Passthrough,
+    // Mirrors the real Progress: the bar's name comes from aria-label (or label).
+    Progress: ({ "aria-label": ariaLabel, label }: { "aria-label"?: string; label?: string }) => (
+      <div role="progressbar" aria-label={ariaLabel ?? label} aria-valuenow={72} />
+    ),
     Select: Passthrough,
     Skeleton: Passthrough,
     Slider: Passthrough,
@@ -85,6 +88,21 @@ function renderDashboardWithRoutes() {
     </MemoryRouter>
   );
 }
+
+describe("Dashboard — accessible names", () => {
+  it("gives the Lap Progress progressbar an accessible name (axe aria-progressbar-name)", () => {
+    vi.useFakeTimers();
+    try {
+      renderDashboardWithRoutes();
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(screen.getByRole("progressbar", { name: "Lap progress" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
 
 describe("Dashboard — breadcrumbs", () => {
   it("router-navigates the 'Telemetry' breadcrumb instead of doing a hard navigation via href", () => {

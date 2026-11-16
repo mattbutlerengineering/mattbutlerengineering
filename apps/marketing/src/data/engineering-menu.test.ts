@@ -2,11 +2,10 @@ import { describe, it, expect } from "vitest";
 import { ENGINEERING_PAGES, isEngineeringPageCurrent } from "./engineering-menu";
 
 describe("engineering menu", () => {
-  it("lists the six pages in the owner's order", () => {
+  it("lists the five pages in the owner's order", () => {
     expect(ENGINEERING_PAGES.map((p) => p.label)).toEqual([
       "Metrics",
       "Shipped",
-      "Weekly",
       "Status",
       "AI health",
       "ACMM",

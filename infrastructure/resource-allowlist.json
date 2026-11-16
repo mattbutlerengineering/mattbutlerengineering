@@ -13,6 +13,21 @@
       "name": "_dmarc",
       "type": "TXT",
       "reason": "Email DMARC policy — manually managed"
+    },
+    {
+      "name": "send",
+      "type": "CNAME",
+      "reason": "Resend outbound email (sending domain verification) — managed in the Resend dashboard"
+    },
+    {
+      "name": "rsend",
+      "type": "CNAME",
+      "reason": "Resend outbound email (sending domain verification) — managed in the Resend dashboard"
+    },
+    {
+      "name": "resend._domainkey",
+      "type": "TXT",
+      "reason": "Resend outbound email (sending domain verification) — managed in the Resend dashboard"
     }
   ]
 }

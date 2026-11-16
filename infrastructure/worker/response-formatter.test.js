@@ -151,6 +151,11 @@ describe("response-formatter", () => {
       const headers = buildSecurityHeaders("abc123", null, ["https://mattbutlerengineering.com"]);
       expect(headers["Content-Security-Policy"]).toContain("https://mattbutlerengineering.com");
     });
+
+    it("declares the csp-endpoint reporting group the CSP report-to names (#8895)", () => {
+      const headers = buildSecurityHeaders("abc123", null);
+      expect(headers["Reporting-Endpoints"]).toBe('csp-endpoint="/csp-report"');
+    });
   });
 
   describe("cacheControlFor", () => {

@@ -89,6 +89,8 @@ import { deriveReducedDataOverrides, reducedDataOverrides } from "rialto/provide
 
 So Save-Data tightens even a loose preset like `presenting` (step 2 wins over step 1), and reduced motion zeroes a preset's durations (step 3 wins over step 1), but a caller can still pin any single token through `vibeOverrides` (step 4 wins over everything). When every source is empty — `default` vibe, Save-Data off, reduced motion off, no overrides — no inline `style` is applied at all.
 
+> **Accessibility caution:** because step 4 outranks step 3, pinning any `--rialto-duration-*` token through `vibeOverrides` wins over reduced motion and brings motion back for a user who asked for less. Leave the duration tokens alone, or read `useUIEnvironment().device.reducedMotion` and skip the override when it is `true`.
+
 ### The Reduced-Motion Adapter
 
 The third adapter derives from `device.reducedMotion` — the browser's `prefers-reduced-motion: reduce` signal. When it is on, the duration scale collapses to `0s` and **nothing else changes**.
@@ -130,7 +132,7 @@ import { RialtoProvider } from "rialto";
 </RialtoProvider>
 ```
 
-Overrides merge on top of the vibe preset. You can override any `--rialto-*` token.
+Overrides merge on top of the vibe preset. You can override any `--rialto-*` token. Caution: they also win over the reduced-motion adapter, so do not pin `--rialto-duration-*` tokens unless `device.reducedMotion` is false (see [Composition & precedence](#composition--precedence)).
 
 ### With theme — Combine vibes and dark mode
 

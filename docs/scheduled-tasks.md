@@ -51,20 +51,18 @@ not a new row in the catalog below and not an edit of the builtin array in
 | `mbe-deep-audit`             | — (disabled; runs in GH Actions)                                                                                                                                      | —                                                                            | Mon 9:23am          | `23 16 * * 1`                                             | —        | issues                                                    | Weekly live-site availability sweep — **runs in GitHub Actions** (`audit-sweep.yml`), not claude.ai (see note)                                                                                     |
 | `drift-fix` _(new)_          | — (runs in GH Actions)                                                                                                                                                | —                                                                            | Daily 6:17am        | `17 13 * * *`                                             | — (none) | PR when drifted                                           | Generated-artifact drift — **runs in GitHub Actions** (`drift-fix.yml`), no agent (see note)                                                                                                       |
 | `metrics-collectors` _(new)_ | — (runs in GH Actions)                                                                                                                                                | —                                                                            | Daily 4:29am        | `29 11 * * *`                                             | — (none) | PR with metrics; `ci-fix` issue when stale                | Runs the review-burden collector where `gh` exists — **GitHub Actions** (`metrics-collectors.yml`), no agent (see note)                                                                            |
-| `mbe-evening`                | `trig_01PHwfbFQcFveYajVPaTrbZk`                                                                                                                                       | [`routines/mbe-evening.md`](./routines/mbe-evening.md)                       | Daily 5:11pm        | `11 0 * * *` †                                            | sonnet   | PRs / metrics                                             | `/idea-to-prod:implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                                                                                           |
-| `mbe-night` _(new)_          | `trig_01E6UxiwdsWcjBNwRGZSjmSV`                                                                                                                                       | [`routines/mbe-night.md`](./routines/mbe-night.md)                           | Daily 9:47pm        | `47 4 * * *` †                                            | sonnet   | PRs / issues                                              | Overnight drain (`/idea-to-prod:implement-queue`) + CI health check                                                                                                                                |
-| `mbe-auditor` _(new)_        | `trig_019cUkf16QbqTL7RrVXXqXsw`                                                                                                                                       | [`routines/mbe-auditor.md`](./routines/mbe-auditor.md)                       | Daily 2:37am        | `37 9 * * *` †                                            | sonnet   | issues                                                    | Read-only rotating 7-lens audit (see lens table below)                                                                                                                                             |
-| `mbe-daily-issue` _(new)_    | `trig_01Df3XFeJnGYeH33NeqE1Mp3`                                                                                                                                       | [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md)               | Daily 7:21am        | `21 14 * * *` †                                           | sonnet   | 1 merged PR                                               | One `ready` issue taken all the way to CLOSED — review gate, `CI Gate`, squash merge (see note)                                                                                                    |
+| `mbe-evening`                | `trig_01PHwfbFQcFveYajVPaTrbZk`                                                                                                                                       | [`routines/mbe-evening.md`](./routines/mbe-evening.md)                       | Daily 5:11pm        | `CRON_TZ=America/Los_Angeles 11 17 * * *`                 | sonnet   | PRs / metrics                                             | `/idea-to-prod:implement-queue` (batch ≤3) + progress-tracker + optimize-implement-queue                                                                                                           |
+| `mbe-auditor` _(new)_        | `trig_019cUkf16QbqTL7RrVXXqXsw`                                                                                                                                       | [`routines/mbe-auditor.md`](./routines/mbe-auditor.md)                       | Daily 2:37am        | `CRON_TZ=America/Los_Angeles 37 2 * * *`                  | sonnet   | issues                                                    | Read-only rotating 7-lens audit (see lens table below)                                                                                                                                             |
+| `mbe-daily-issue` _(new)_    | `trig_01Df3XFeJnGYeH33NeqE1Mp3`                                                                                                                                       | [`routines/mbe-daily-issue.md`](./routines/mbe-daily-issue.md)               | Daily 7:21am        | `CRON_TZ=America/Los_Angeles 21 7 * * *`                  | sonnet   | 1 merged PR                                               | One `ready` issue taken all the way to CLOSED — review gate, `CI Gate`, squash merge (see note)                                                                                                    |
 | `mbe-morning`                | `trig_01QYoHCMjUgJybAoXUvjjrWX`                                                                                                                                       | [`routines/mbe-morning.md`](./routines/mbe-morning.md)                       | Daily 9:03am        | `CRON_TZ=America/Los_Angeles 3 9 * * *`                   | sonnet   | issues                                                    | `/ideate` (cycle-check + ideation) — ACMM audit step retired (#5955), see prompt file                                                                                                              |
-| `mbe-learning-loop`          | `trig_018hcYeu5uCXgiddRwqaeYwd`                                                                                                                                       | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `0 18 * * *` †                                            | sonnet   | issues                                                    | Sensor report → verify past fixes → triage regressions                                                                                                                                             |
-| `mbe-midday`                 | `trig_0118ZgGfEndrMqQSuTQNXQwT`                                                                                                                                       | [`routines/mbe-midday.md`](./routines/mbe-midday.md)                         | Daily 1:07pm        | `7 20 * * *` †                                            | sonnet   | PRs                                                       | `/idea-to-prod:implement-queue` (batch ≤3) + CI monitor                                                                                                                                            |
-| `mbe-ui-quality` _(new)_     | `trig_01DYzgRBp66dxwQ828y9x1jV`                                                                                                                                       | [`routines/mbe-ui-quality.md`](./routines/mbe-ui-quality.md)                 | Daily 12:23am       | `23 7 * * *` †                                            | **opus** | 1 PR (`ledger <date>`) + ≤1 fix PR + issues               | Captures due routes of the three apps, judges them against the rubric, files findings (see note)                                                                                                   |
+| `mbe-learning-loop`          | `trig_018hcYeu5uCXgiddRwqaeYwd`                                                                                                                                       | [`routines/mbe-learning-loop.md`](./routines/mbe-learning-loop.md)           | Daily 11:00am       | `CRON_TZ=America/Los_Angeles 0 11 * * *`                  | sonnet   | issues                                                    | Sensor report → verify past fixes → triage regressions                                                                                                                                             |
+| `mbe-ui-quality` _(new)_     | `trig_01DYzgRBp66dxwQ828y9x1jV`                                                                                                                                       | [`routines/mbe-ui-quality.md`](./routines/mbe-ui-quality.md)                 | Daily 12:23am       | `CRON_TZ=America/Los_Angeles 23 0 * * *`                  | **opus** | 1 PR (`ledger <date>`) + ≤1 fix PR + issues               | Captures due routes of the three apps, judges them against the rubric, files findings (see note)                                                                                                   |
 | `mbe-feature-drain` _(new)_  | `trig_01RT7JnCPWyxw4fcKKVmCTb8` (`:03`) + `trig_013Yd7dJ2X98nAwME7fi7iqx` (`:33`)                                                                                     | [`routines/mbe-feature-drain.md`](./routines/mbe-feature-drain.md)           | Every 30 min        | `3 * * * *` + `33 * * * *`                                | sonnet   | merged PRs (`… (mbe-feature-drain #N)`) + heartbeat       | Finish in-flight user-facing work (red main → open PRs → orphaned issues → `ready`), then decompose one post-veto proposal; two offset hourly triggers (see note)                                  |
 | `mbe-prune` _(new)_          | `trig_01TBQ4jQS9UGwJTxrWfWBCyQ` (`:14`) + `trig_01SoduJryRjjQN5D75h3ZJjv` (`:29`) + `trig_01CzgACLRQpi8ApXfSUM7T5q` (`:44`) + `trig_016WxmLRG8kYUymu3QmwEk3P` (`:59`) | [`routines/mbe-prune.md`](./routines/mbe-prune.md)                           | Every 15 min        | `14 * * * *` + `29 * * * *` + `44 * * * *` + `59 * * * *` | sonnet   | merged PRs (`… (mbe-prune)`) + `ready` issues + heartbeat | Keep the repo pristine: a delta-driven prune of stale docs and provably dead code after every merge to `main`, plus one rotating full-surface lens per day; four offset hourly triggers (see note) |
 | `mbe-weekly-improve`         | `trig_01G12wULcCweXSb2jmVkChPW`                                                                                                                                       | [`routines/mbe-weekly-improve.md`](./routines/mbe-weekly-improve.md)         | Fri 7:00am          | `CRON_TZ=America/Los_Angeles 0 7 * * 5`                   | **opus** | 1 PR (`weekly improve <date>`) + `ready` issues           | Codebase improvement survey → implement the best change (see note)                                                                                                                                 |
 | `mbe-doc-rot` _(new)_        | `trig_0176gF6ty4Jg8oyyXYApKWyi`                                                                                                                                       | [`routines/mbe-doc-rot.md`](./routines/mbe-doc-rot.md)                       | Fri 8:00am          | `CRON_TZ=America/Los_Angeles 0 8 * * 5`                   | sonnet   | 1 PR                                                      | Documentation drift — dead links, stale refs, and false claims in docs (see note)                                                                                                                  |
-| `mbe-weekly-retro` _(new)_   | `trig_01VczFFpZUHi1vTdrfTauMkh`                                                                                                                                       | [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md)             | Sun 4:00pm          | `0 23 * * 0` †                                            | **opus** | 1 PR + ≤3 issues                                          | Process retro — what blocked flow last week and what to change (see note)                                                                                                                          |
-| `mbe-monthly-meta-audit`     | `trig_01SoWm7jxBGnJHxiyTMEKX1i`                                                                                                                                       | [`routines/mbe-monthly-meta-audit.md`](./routines/mbe-monthly-meta-audit.md) | 1st of month 7:00am | `0 14 1 * *` †                                            | **opus** | 1 PR + `ready` issues                                     | Claude Code config + docs/automation health                                                                                                                                                        |
+| `mbe-weekly-retro` _(new)_   | `trig_01VczFFpZUHi1vTdrfTauMkh`                                                                                                                                       | [`routines/mbe-weekly-retro.md`](./routines/mbe-weekly-retro.md)             | Sun 4:00pm          | `CRON_TZ=America/Los_Angeles 0 16 * * 0`                  | **opus** | 1 PR + ≤3 issues                                          | Process retro — what blocked flow last week and what to change (see note)                                                                                                                          |
+| `mbe-monthly-meta-audit`     | `trig_01SoWm7jxBGnJHxiyTMEKX1i`                                                                                                                                       | [`routines/mbe-monthly-meta-audit.md`](./routines/mbe-monthly-meta-audit.md) | 1st of month 7:00am | `CRON_TZ=America/Los_Angeles 0 7 1 * *`                   | **opus** | 1 PR + `ready` issues                                     | Claude Code config + docs/automation health                                                                                                                                                        |
 
 > **`mbe-deep-audit` runs in GitHub Actions, not claude.ai.** The claude.ai
 > remote environment has **no egress to the live site** — its agent proxy denies
@@ -75,13 +73,14 @@ not a new row in the catalog below and not an edit of the builtin array in
 > `mbe-deep-audit` RemoteTrigger is disabled to avoid re-filing the same
 > infrastructure issue every week.
 
-> **`mbe-night`** runs the overnight drain: `/idea-to-prod:implement-queue` keeps clearing
-> the `ready` backlog while Matt is offline, then a CI health check confirms
-> `main` is still green before the next morning's routines run. Prompt:
-> [`routines/mbe-night.md`](./routines/mbe-night.md).
+> **Retired 2026-11-15:** `mbe-midday` (`trig_0118ZgGfEndrMqQSuTQNXQwT`) and
+> `mbe-night` (`trig_01E6UxiwdsWcjBNwRGZSjmSV`). Both were paused on 2026-09-25
+> after their auto-merge raced the local merge train (#5722), and
+> `mbe-feature-drain` now does their implement-queue work. Their prompts are in
+> git history (`git show 1804c4ffe:docs/routines/mbe-midday.md`).
 
 > **`mbe-daily-issue`** is the only routine whose unit of success is an issue
-> **CLOSED**, not a PR opened. `mbe-midday`/`mbe-evening`/`mbe-night` each drain a
+> **CLOSED**, not a PR opened. `mbe-evening` drains a
 > batch of up to 3 `ready` issues and leave the merge to someone else; this one
 > takes a single oldest-`ready` issue through TDD, the `reviewer` subagent gate,
 > a green `CI Gate`, a squash merge whose **commit** body carries `Closes #N`,
@@ -113,9 +112,9 @@ not a new row in the catalog below and not an edit of the builtin array in
 > on #6211 under the shared name `mbe-feature-drain` (one `noop` per day at
 > most). Prompt: [`routines/mbe-feature-drain.md`](./routines/mbe-feature-drain.md).
 
-> **`mbe-prune`** is the 15-minute hygiene pass (four hourly RemoteTriggers,
-> `mbe-prune-a`..`-d` at `:14`/`:29`/`:44`/`:59`, for the same one-hour API
-> floor). Its state is the body of the closed ledger issue #6805: STEP 0 reads
+> **`mbe-prune`** is the 30-minute hygiene pass (`mbe-prune-a` at `:14` and
+> `mbe-prune-c` at `:44`; `-b` and `-d` were disabled 2026-11-15 after 96
+> fires a day produced 2 merged PRs in a week). Its state is the body of the closed ledger issue #6805: STEP 0 reads
 > `last_sha` and `lens_date` before `pnpm install` and exits when `origin/main`
 > has not moved and today's lens already ran, so cost tracks merges, not fires.
 > Each working fire runs a DELTA PASS (chase every deleted/renamed path and
@@ -266,15 +265,14 @@ days (zero action = consent) → un-vetoed proposals decompose into
 every proposal is vetoed, deferred, or shipped, the batch closes with a
 scorecard and the next batch is generated automatically.
 
-## Cloud drain (`/idea-to-prod:implement-queue` in `mbe-midday` / `mbe-evening`)
+## Cloud drain (`/idea-to-prod:implement-queue` in `mbe-evening`)
 
-The midday and evening routines run the full implement-queue (parallel TDD
+The evening routine (and, until 2026-11-15, the midday routine) runs the full implement-queue (parallel TDD
 worktree agents + auto-merge train) instead of the serial `/issue-worker`, so
 the backlog drains ~6-9 issues/day without Matt's laptop.
 
-The `/idea-to-prod:implement-queue` step (replacing the old issue-worker step) is in both
-routines' live prompts — see [`routines/mbe-midday.md`](./routines/mbe-midday.md)
-and [`routines/mbe-evening.md`](./routines/mbe-evening.md) for the exact text.
+The `/idea-to-prod:implement-queue` step (replacing the old issue-worker step) is in the
+live prompt — see [`routines/mbe-evening.md`](./routines/mbe-evening.md) for the exact text.
 
 If cloud worktree agents prove unreliable (validation run pending), fall back
 to a single worker without worktree isolation in cloud and keep the local
@@ -461,7 +459,7 @@ to a single worker without worktree isolation in cloud and keep the local
 - **When:** every Sunday 4:00pm PT (`0 23 * * 0` UTC) — late enough to see the
   full week including Friday's `mbe-weekly-improve` and `mbe-doc-rot` output, early
   enough that Monday's routines start with the blockers already surfaced. It sits in
-  the clean gap between `mbe-midday` (1:07pm) and `mbe-evening` (5:11pm).
+  the clean gap before `mbe-evening` (5:11pm).
 - **Why it exists:** every other routine improves the **product** — the code, the
   docs, the artifacts. This one improves the **factory**. Its question is _what
   blocked flow, and what should change?_
@@ -582,14 +580,14 @@ new weekday schedule slot** (see Plan budget below).
 ## Plan budget (Max 20x)
 
 The Max 20x plan has far more scheduled-run headroom than Max 5x, shared with
-interactive use. The **daily** baseline is 7 runs (`mbe-evening`, `mbe-night`,
-`mbe-auditor`, `mbe-morning`, `mbe-learning-loop`, `mbe-midday`,
+interactive use. The **daily** baseline is 5 runs (`mbe-evening`,
+`mbe-auditor`, `mbe-morning`, `mbe-learning-loop`,
 `mbe-ui-quality`). Weekly/monthly triggers add runs on their day (`mbe-deep-audit` runs in GitHub Actions, so
 it does **not** count against the claude.ai plan quota):
 
-- Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 9
-- Sun: + `mbe-weekly-retro` (opus) → 8
-- 1st of month: + `mbe-monthly-meta-audit` (opus) → 8 (or briefly 10 if the 1st is a Fri)
+- Fri: + `mbe-weekly-improve` (opus) + `mbe-doc-rot` (sonnet) → 7
+- Sun: + `mbe-weekly-retro` (opus) → 6
+- 1st of month: + `mbe-monthly-meta-audit` (opus) → 6 (or briefly 8 if the 1st is a Fri)
 
 `mbe-feature-drain` (added 2026-10-16) sits on top of that baseline: two hourly
 sonnet triggers offset by 30 minutes, so up to 48 fires/day. A fire with nothing
@@ -600,13 +598,12 @@ heartbeat on #6211 is the signal that this cadence has hit the plan's limits.
 `mbe-prune` (added 2026-10-16) adds four more hourly sonnet triggers, up to 96
 fires/day, but its STEP 0 gate exits before `pnpm install` whenever `main` has
 not moved since the last completed pass and today's lens already ran — so the
-real cost is one working fire per burst of merges plus one lens per day. If
-`throttled` heartbeats appear on #6211, disable `mbe-prune-b` and `mbe-prune-d`
-to halve the cadence without touching the prompt. Note `mbe-doc-rot`'s 2026-10-09
+real cost is one working fire per burst of merges plus one lens per day. `mbe-prune-b` and `mbe-prune-d` were
+disabled on 2026-11-15, halving the cadence without touching the prompt. Note `mbe-doc-rot`'s 2026-10-09
 fire already failed with `USAGE_LIMIT_REACHED` before either sub-hourly routine
 existed, so the Friday-morning stack is the hour to watch.
 
-7-10 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
+5-8 runs/day is well within the Max 20x plan's headroom, even alongside Matt's
 interactive local sessions. The two weekly opus routines are deliberately split
 across different days — `mbe-weekly-improve` on Friday, `mbe-weekly-retro` on
 Sunday — so the heaviest runs never stack. `mbe-monthly-meta-audit` is the one
@@ -650,15 +647,15 @@ Live triggers store `cron_expression` in one of two forms:
 - **Plain UTC** — the sub-hourly offset groups (`mbe-feature-drain`,
   `mbe-prune`). They fire on fixed minutes, so DST is irrelevant.
 
-**† Unverified rows.** Single-fire claude.ai rows marked † still show the pre-conversion
-plain-UTC value (correct for PDT only, off by 1h in PST). They are _likely_
-`CRON_TZ=America/Los_Angeles` now (same bulk conversion), but that has not been
-confirmed with `get_trigger`; the matching `cron:` in `docs/routines/<name>.md`
-is equally unverified. Replace the value and drop the † when a routine's live
-trigger is next read.
+**All single-fire rows verified.** The remaining single-fire claude.ai rows
+(`mbe-evening`, `mbe-auditor`, `mbe-daily-issue`, `mbe-learning-loop`,
+`mbe-ui-quality`, `mbe-weekly-retro`, `mbe-monthly-meta-audit`) were read with
+`get_trigger` on 2026-11-15 (#8411): all store `CRON_TZ=America/Los_Angeles`
+expressions matching their Cadence (PT) column, as do the matching `cron:` values
+in `docs/routines/<name>.md`.
 The three GitHub Actions rows (`mbe-deep-audit`, `drift-fix`,
 `metrics-collectors`) are not triggers: their plain-UTC cron is the `schedule:`
-value in the named workflow file and carries no †.
+value in the named workflow file.
 
 ## Editing a routine
 

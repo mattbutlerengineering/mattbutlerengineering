@@ -43,6 +43,15 @@ export const AUTH0_ORIGIN = "https://dev-ytbgmz5ls3wh4xdx.us.auth0.com";
 // buildCspDirectives options.
 export const SENTRY_INGEST_ORIGIN = "https://o4510650299842560.ingest.us.sentry.io";
 
+// Where browsers send CSP violation reports (#8895). A refusal is otherwise
+// visible only in devtools — the zero-web-fonts outage (#4330) ran nine weeks
+// that way. Same-origin path handled by edge-router.js (csp-report.js), so it
+// works on every host the worker serves. CSP_REPORT_GROUP is the
+// Reporting-Endpoints group name `report-to` refers to; response-formatter.js
+// declares it. `report-uri` stays alongside for browsers without report-to.
+export const CSP_REPORT_PATH = "/csp-report";
+export const CSP_REPORT_GROUP = "csp-endpoint";
+
 /**
  * Default CSP directive map — matches current production policy exactly.
  * Values that contain the nonce are intentionally left as functions of
@@ -67,6 +76,8 @@ function defaultDirectives(nonce, auth0Origin, sentryIngestOrigin, extraConnectS
     "frame-ancestors": "'none'",
     "base-uri": "'self'",
     "form-action": "'self'",
+    "report-uri": CSP_REPORT_PATH,
+    "report-to": CSP_REPORT_GROUP,
   };
 }
 

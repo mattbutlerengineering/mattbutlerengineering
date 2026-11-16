@@ -65,5 +65,7 @@ export function pauseOnlineProblem(
 /** The one rule the pause saves, or `null` while `pauseOnlineProblem` names a problem. */
 export function pauseOnlineRule(draft: PauseDraft, id: string, today: string): DateRule | null {
   if (pauseOnlineProblem(draft, today) !== null) return null;
-  return buildCloseRule(pauseOnlineForm(draft, today), id, today);
+  const built = buildCloseRule(pauseOnlineForm(draft, today), id, today);
+  // The mark is what lets the pill and banner show this pause with its end, and Resume it.
+  return built && { ...built, origin: "pause" };
 }

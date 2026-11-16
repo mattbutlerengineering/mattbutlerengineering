@@ -10,6 +10,7 @@ import { initSentry, handleErrorBoundary } from "@mbe/sentry/react";
 import { ThemeContext, useThemeState } from "./hooks/use-theme";
 import { App, CallbackRedirect } from "./App";
 import { AuthConfigError } from "./components/AuthConfigError";
+import { GuestSurface } from "./components/GuestSurface";
 import { LoadingPage } from "./pages/LoadingPage";
 import { RequireAdmin } from "./components/RequireAdmin";
 import { RequireManager } from "./components/RequireManager";
@@ -19,6 +20,7 @@ import { I18nextProvider } from "react-i18next";
 import { localeRuntime, LocaleBridge } from "./i18n/runtime.js";
 import { ToastLocaleOverride } from "./components/booking-widget/ToastLocaleOverride.js";
 import { availabilityPath } from "./components/availability/availability-address.js";
+import { SetupRedirect } from "./components/availability/SetupRedirect.js";
 
 initSentry({
   appName: "hospitality",
@@ -89,6 +91,11 @@ const AvailabilityHistoryRoute = lazy(() =>
 const AvailabilityPage = lazy(() =>
   import("./pages/AvailabilityPage.js").then((m) => ({ default: m.AvailabilityPage }))
 );
+const AvailabilitySeasonalListPage = lazy(() =>
+  import("./pages/AvailabilitySeasonalListPage.js").then((m) => ({
+    default: m.AvailabilitySeasonalListPage,
+  }))
+);
 const AvailabilityHoursPage = lazy(() =>
   import("./pages/AvailabilityHoursPage.js").then((m) => ({ default: m.AvailabilityHoursPage }))
 );
@@ -106,8 +113,8 @@ const VenueOnboardingPage = lazy(() =>
     default: m.VenueOnboardingPage,
   }))
 );
-const SetupPage = lazy(() =>
-  import("./pages/SetupPage.js").then((m) => ({ default: m.SetupPage }))
+const AvailabilityMapPage = lazy(() =>
+  import("./pages/AvailabilityMapPage.js").then((m) => ({ default: m.AvailabilityMapPage }))
 );
 const PublicBookingPage = lazy(() =>
   import("./pages/PublicBookingPage.js").then((m) => ({
@@ -172,7 +179,7 @@ if (legacyPath !== null) {
  *
  * Index route: TimelinePage (was HomePage/Dashboard).
  * Dashboard moves to /dashboard.
- * Setup pages: /setup. (/setup/hours redirects to /availability.)
+ * The Availability map: /availability/map. (/setup redirects to it; /setup/hours to /availability.)
  */
 const router = createBrowserRouter(
   [
@@ -180,42 +187,52 @@ const router = createBrowserRouter(
     {
       path: "book/:venueSlug",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <PublicBookingPage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <PublicBookingPage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     // Public menus — no auth, same guest surface as the booking page
     {
       path: "menu/:venueSlug",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <PublicMenusPage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <PublicMenusPage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     {
       path: "menu/:venueSlug/:menuSlug",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <PublicMenuPage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <PublicMenuPage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     {
       path: "reservations/manage",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <ManageReservationPage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <ManageReservationPage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     {
       path: "i/:token",
       element: (
-        <Suspense fallback={<LoadingPage />}>
-          <InvitePage />
-        </Suspense>
+        <GuestSurface>
+          <Suspense fallback={<LoadingPage />}>
+            <InvitePage />
+          </Suspense>
+        </GuestSurface>
       ),
     },
     {
@@ -249,7 +266,7 @@ const router = createBrowserRouter(
           children: [
             {
               // Index: Timeline is the default landing page in operational mode.
-              // DashboardLayout redirects to /setup for new venues or /timeline for operational ones.
+              // DashboardLayout redirects to the Availability map for new venues or /timeline for operational ones.
               index: true,
               element: (
                 <Suspense fallback={<LoadingPage />}>
@@ -387,6 +404,26 @@ const router = createBrowserRouter(
                     </RequireManager>
                   ),
                 },
+                {
+                  // An editor's list: a Host who loads it lands on the hub.
+                  path: "seasonal",
+                  element: (
+                    <RequireManager redirectTo={availabilityPath({ view: "hub" })}>
+                      <Suspense fallback={<LoadingPage />}>
+                        <AvailabilitySeasonalListPage />
+                      </Suspense>
+                    </RequireManager>
+                  ),
+                },
+                {
+                  // What decides when guests can book: schedules down to tables (#8864).
+                  path: "map",
+                  element: (
+                    <Suspense fallback={<LoadingPage />}>
+                      <AvailabilityMapPage />
+                    </Suspense>
+                  ),
+                },
               ],
             },
             {
@@ -448,12 +485,9 @@ const router = createBrowserRouter(
               ),
             },
             {
+              // Venue Setup became the Availability map (#8864).
               path: "setup",
-              element: (
-                <Suspense fallback={<LoadingPage />}>
-                  <SetupPage />
-                </Suspense>
-              ),
+              element: <SetupRedirect />,
             },
             {
               path: "setup/hours",

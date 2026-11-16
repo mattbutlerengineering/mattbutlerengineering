@@ -94,8 +94,8 @@
   border: none;
   background: none;
   transition:
-    background 0.1s var(--rialto-ease-precision),
-    color 0.1s var(--rialto-ease-precision);
+    background var(--rialto-duration-fast) var(--rialto-ease-precision),
+    color var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .close:hover {

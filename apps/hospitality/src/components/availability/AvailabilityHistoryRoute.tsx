@@ -8,7 +8,7 @@ import { wasOpenedFromHub } from "./opened-from-hub.js";
 /**
  * `availability/history` (availability-hub ux.md, "History"): the History drawer over the hub,
  * which renders this as its child. A Host reads it too, without Undo. Closing it returns to the
- * hub, with the way back to Venue Setup kept: opened from the hub it goes back to the hub's own
+ * hub, with the way back to the Availability map kept: opened from the hub it goes back to the hub's own
  * entry; loaded any other way it replaces its own entry with the hub's, so Back does not open it
  * again. View day replaces the drawer's entry with the calendar on that date, for the same
  * reason. The hub puts focus back on its History link (`AvailabilityHubPage`).

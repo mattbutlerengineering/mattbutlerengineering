@@ -244,7 +244,7 @@ describe("buildSetupTree: an empty venue", () => {
 
   it("offers the one editor for each unset node to a Manager", () => {
     expect(ids(find(open, "schedules").actions)).toEqual(["setUpRegularWeek"]);
-    expect(ids(find(open, "special-dates").actions)).toEqual(["openCalendar", "openSpecialDates"]);
+    expect(ids(find(open, "special-dates").actions)).toEqual(["openSpecialDates"]);
     expect(ids(find(open, "booking").actions)).toEqual(["bookingRules"]);
     expect(ids(find(sit, "floor-plan-empty").actions)).toEqual(["addFloorPlan"]);
   });
@@ -357,25 +357,23 @@ describe("buildSetupTree: schedules and services", () => {
     });
   });
 
-  it("offers change/edit on the regular week and edit-only on another schedule", () => {
+  it("offers Change regular week on the regular week and Edit on another schedule", () => {
     const tree = buildSetupTree(input({ open: openOf(SUMMER_HOURS) }));
     const open = group(tree, "open").nodes;
-    expect(ids(find(open, "schedules").actions)).toEqual(["compareServices", "createSchedule"]);
-    expect(ids(find(open, "schedule:sch-reg").actions)).toEqual([
-      "changeRegularWeek",
-      "editSchedule",
-    ]);
+    expect(ids(find(open, "schedules").actions)).toEqual(["createSchedule"]);
+    expect(ids(find(open, "schedule:sch-reg").actions)).toEqual(["changeRegularWeek"]);
     expect(ids(find(open, "schedule:sch-sum").actions)).toEqual(["editSchedule"]);
     expect(find(open, "schedule:sch-sum").actions[0]?.target).toEqual({
       kind: "link",
-      to: "/availability/calendar?tab=schedules&from=setup",
+      to: "/availability/seasonal?from=setup",
     });
     // Change regular week is a link to Regular hours, where the week is edited (E4.4).
-    for (const changeOrEdit of find(open, "schedule:sch-reg").actions) {
-      expect(changeOrEdit.target).toEqual({ kind: "link", to: "/availability/hours?from=setup" });
-    }
+    expect(find(open, "schedule:sch-reg").actions[0]?.target).toEqual({
+      kind: "link",
+      to: "/availability/hours?from=setup",
+    });
     // Add a schedule… opens the seeded editor there.
-    expect(find(open, "schedules").actions[1]?.target).toEqual({
+    expect(find(open, "schedules").actions[0]?.target).toEqual({
       kind: "link",
       to: "/availability/calendar?tab=schedules&action=addSchedule&from=setup",
     });
@@ -473,9 +471,8 @@ describe("buildSetupTree: special dates and their targets", () => {
     ]);
   });
 
-  it("opens the calendar and the Special dates tab", () => {
+  it("opens the Special dates tab, its one editor", () => {
     expect(node.actions.map((a) => a.target)).toEqual([
-      { kind: "link", to: "/availability/calendar?tab=calendar&from=setup" },
       { kind: "link", to: "/availability/calendar?tab=special&from=setup" },
     ]);
   });
@@ -577,10 +574,9 @@ describe("buildSetupTree: floor plan, sections and tables", () => {
     ]);
   });
 
-  it("opens the floor plan, adds another, and closes a section for a date", () => {
+  it("opens the floor plan, and closes a section for a date", () => {
     expect(fp.actions.map((a) => [a.id, a.target])).toEqual([
       ["openFloorPlan", { kind: "link", to: "/floor-plans/fp-1" }],
-      ["addFloorPlan", { kind: "link", to: "/floor-plans" }],
     ]);
     expect(find(sit, "section:sec-bar").actions).toMatchObject([
       {
@@ -602,6 +598,27 @@ describe("buildSetupTree: floor plan, sections and tables", () => {
       sections: 0,
       tables: 1,
     });
+  });
+});
+
+describe("buildSetupTree: one link per node (#8864 AC6)", () => {
+  it("gives a Manager at most one action on every node, set up or not", () => {
+    const full = buildSetupTree(
+      input({
+        open: openOf({ ...SUMMER_HOURS, dateRules: [closure("r1", "2026-12-24")] }),
+        sit: sitOf(
+          [plan("fp-1", "Main")],
+          [section("sec-bar", "Bar")],
+          [table("t-1", "B1", "sec-bar"), table("t-2", "Loose", null)]
+        ),
+      })
+    );
+    const empty = buildSetupTree(input({ readiness: "setup" }));
+    const nodes = walk([...full.groups, ...empty.groups].flatMap((g) => g.nodes));
+    const crowded = nodes
+      .filter((n) => n.actions.length > 1)
+      .map((n) => `${n.id}: ${ids(n.actions)}`);
+    expect(crowded).toEqual([]);
   });
 });
 

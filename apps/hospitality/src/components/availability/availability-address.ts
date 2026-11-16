@@ -36,7 +36,9 @@ export type CloseTarget =
 type AvailabilityView =
   | { readonly view: "hub" }
   | { readonly view: "hours"; readonly service?: string }
-  | { readonly view: "seasonal"; readonly screen?: "new" | "compare" }
+  | { readonly view: "seasonal"; readonly screen?: "compare" }
+  /** `copy` is the set a new one starts as a copy of (`?copy=`); `?from=` is only ever `setup`. */
+  | { readonly view: "seasonal"; readonly screen: "new"; readonly copy?: string }
   | { readonly view: "seasonal"; readonly screen: "edit"; readonly scheduleId: string }
   | { readonly view: "specialDates" }
   | { readonly view: "closures" }
@@ -46,9 +48,10 @@ type AvailabilityView =
       readonly date?: string;
     }
   | { readonly view: "bookingRules" }
-  | { readonly view: "history" };
+  | { readonly view: "history" }
+  | { readonly view: "map" };
 
-/** A view, plus the dialog to open over it and whether the visit came from Venue Setup. */
+/** A view, plus the dialog to open over it and whether the visit came from the Availability map. */
 export type AvailabilityTarget = AvailabilityView & {
   readonly close?: CloseTarget;
   readonly pause?: boolean;
@@ -118,6 +121,7 @@ const PAGE_TAB: Readonly<Record<AvailabilityView["view"], AvailabilityTab | unde
   calendar: "calendar",
   bookingRules: undefined,
   history: undefined,
+  map: undefined,
 };
 
 /** The booking rules drawer, over the hub. */
@@ -140,12 +144,22 @@ const HISTORY = `${ROUTE}/history`;
 export const isHistoryPage = (pathname: string): boolean =>
   pathname.replace(/\/+$/, "").toLowerCase() === HISTORY;
 
-/** The views with a path of their own: the hub, the drawers over it and regular hours. */
+/** The Seasonal hours list. Its editor and compare screens are not built yet (breakdown E4.6, E4.7). */
+const SEASONAL = `${ROUTE}/seasonal`;
+
+/** The Availability map: what decides when guests can book, from schedules down to tables. */
+const MAP = `${ROUTE}/map`;
+
+/**
+ * The views with a path of their own: the hub, the drawers over it, regular hours and the
+ * Availability map.
+ */
 const OWN_PATHS: Readonly<Partial<Record<AvailabilityView["view"], string>>> = {
   hub: ROUTE,
   hours: HOURS,
   bookingRules: BOOKING_RULES,
   history: HISTORY,
+  map: MAP,
 };
 
 // `:` and `,` are legal in a query, so the close target stays readable in the address bar.
@@ -188,7 +202,7 @@ function setDialog(params: URLSearchParams, dialog: DialogRequest): void {
   else if (dialog) params.set("pause", "1");
 }
 
-/** The dialog and the Venue Setup flag every view carries, in that order, last in the query. */
+/** The dialog and the Availability map flag every view carries, in that order, last in the query. */
 function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void {
   setDialog(params, target.close ? { close: target.close } : target.pause ? { pause: true } : null);
   if (target.from) params.set("from", target.from);
@@ -204,7 +218,8 @@ function setOverlay(params: URLSearchParams, target: AvailabilityTarget): void {
  */
 export function availabilityPath(target: AvailabilityTarget): string {
   const params = new URLSearchParams();
-  const ownPath = OWN_PATHS[target.view];
+  const isSeasonalList = target.view === "seasonal" && !target.screen;
+  const ownPath = isSeasonalList ? SEASONAL : OWN_PATHS[target.view];
   if (ownPath) {
     if (target.view === "hours" && target.service) params.set("service", target.service);
     setOverlay(params, target);
@@ -215,7 +230,11 @@ export function availabilityPath(target: AvailabilityTarget): string {
     target.view === "calendar" && target.date && isDate(target.date) ? target.date : null;
   const tab = PAGE_TAB[target.view];
   if (tab && !date) params.set("tab", tab);
-  if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
+  if (target.view === "seasonal" && target.screen === "new") {
+    params.set("action", "addSchedule");
+    // The new-hours editor (E4.6) takes this address over: `seasonal/new?copy=<id>`.
+    if (target.copy) params.set("copy", target.copy);
+  }
   if (date) params.set("date", date);
   setOverlay(params, target);
   return withSearch(TODAYS_PAGE, params);
@@ -265,7 +284,7 @@ function parseCloseTarget(value: string | null): CloseTarget | null {
   return parseRange(value);
 }
 
-/** What an address asks for beyond its view: a dialog to open, and the Venue Setup back link. */
+/** What an address asks for beyond its view: a dialog to open, and the Availability map back link. */
 export interface AvailabilityAddress {
   /** `null` when there is no close target, or it does not parse: no dialog. */
   readonly close: CloseTarget | null;

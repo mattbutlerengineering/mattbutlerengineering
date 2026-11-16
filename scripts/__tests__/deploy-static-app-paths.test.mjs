@@ -14,6 +14,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { loadWorkflow } from "../lib/workflow.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const APPS = ["marketing", "hospitality", "rialto-web"];
@@ -92,9 +93,82 @@ describe("deploy-static.yml redeploys each app when anything it bundles changes"
     expect(missing).toEqual([]);
   });
 
+  // A change to the deploy workflow itself must redeploy every app: the push
+  // trigger alone is not enough, the per-app filters would skip every job (#8894).
+  const SELF = ".github/workflows/deploy-static.yml";
+
+  it("the push trigger lists the workflow's own path", () => {
+    expect(triggerPaths()).toContain(SELF);
+  });
+
+  it.each(APPS)("%s: its filter lists the workflow's own path", (app) => {
+    expect(filterPaths(app)).toContain(SELF);
+  });
+
   it.each(APPS)("%s: every bundled package triggers the workflow", (app) => {
     const paths = triggerPaths();
     const missing = runtimeClosure(app, dirs).filter((dir) => !paths.includes(`${dir}/**`));
     expect(missing).toEqual([]);
+  });
+});
+
+/**
+ * Every `VITE_*` variable an app (or a workspace package it bundles) reads must
+ * be set in that app's build step: Vite inlines them at build time, and an unset
+ * one ships as `undefined` with no error (#8894). Mirrors the Sentry-only pin in
+ * deploy-static-sentry-env.test.mjs for the rest of the variables.
+ */
+const VITE_ENV_ALLOWLIST = new Set([
+  // Add a name here only with a comment saying why the build need not set it.
+]);
+
+function sourceFiles(dir) {
+  const out = [];
+  for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+    const rel = `${dir}/${entry.name}`;
+    if (entry.isDirectory()) {
+      if (["node_modules", "dist", "e2e", "__tests__", "test", "coverage"].includes(entry.name))
+        continue;
+      out.push(...sourceFiles(rel));
+    } else if (
+      /\.(ts|tsx|html)$/.test(entry.name) &&
+      !/\.(test|spec|stories)\.|\.d\.ts$/.test(entry.name)
+    ) {
+      out.push(rel);
+    }
+  }
+  return out;
+}
+
+function viteVarsRead(app, dirs) {
+  const names = new Set();
+  for (const dir of runtimeClosure(app, dirs)) {
+    for (const file of sourceFiles(dir)) {
+      const text = readFileSync(join(ROOT, file), "utf8");
+      for (const m of text.matchAll(/import\.meta\.env\.(VITE_[A-Z0-9_]+)|%(VITE_[A-Z0-9_]+)%/g)) {
+        names.add(m[1] ?? m[2]);
+      }
+    }
+  }
+  return [...names].sort();
+}
+
+function buildEnvKeys(app) {
+  const step = Object.values(loadWorkflow("deploy-static.yml").jobs)
+    .flatMap((job) => job.steps)
+    .find((s) => s.run?.includes(`pnpm build --filter=@mbe/${app}`));
+  return step ? Object.keys(step.env ?? {}) : null;
+}
+
+describe("deploy-static.yml sets every VITE_* variable each app reads", () => {
+  const dirs = workspaceDirs();
+
+  it.each(APPS)("%s: build step env covers its VITE_* reads", (app) => {
+    const keys = buildEnvKeys(app);
+    expect(keys, `${app} build step not found`).not.toBeNull();
+    const missing = viteVarsRead(app, dirs).filter(
+      (name) => !keys.includes(name) && !VITE_ENV_ALLOWLIST.has(name)
+    );
+    expect(missing, `${app} build step is missing: ${missing.join(", ")}`).toEqual([]);
   });
 });

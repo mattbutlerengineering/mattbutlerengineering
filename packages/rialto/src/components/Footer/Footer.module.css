@@ -98,7 +98,7 @@
   text-decoration: none;
   font-size: var(--rialto-text-sm);
   border-radius: var(--rialto-radius-sharp);
-  transition: color 0.15s ease;
+  transition: color var(--rialto-duration-standard) ease;
 }
 
 .link:hover {

@@ -34,6 +34,7 @@ import {
   closureSubject,
   DATE_FORMAT,
   hoursSubject,
+  isOnlinePauseRule,
   rangeLabel,
   rowTitle,
 } from "./rule-subjects.js";
@@ -94,7 +95,7 @@ function hoursRange(rule: SpecialDateRule, format: VenueFormat, t: TFunction): s
     .join(", ");
 }
 
-/** "Closed · From 10:00 PM", or "Booking paused: Online": what a closure really closes, and from when. */
+/** "Closed · From 10:00 PM", or "Online booking paused": what a closure really closes, and from when. */
 function closureDetail(
   rule: SpecialDateRule,
   format: VenueFormat,
@@ -102,8 +103,9 @@ function closureDetail(
   sectionNames?: ReadonlyMap<string, string>
 ): string {
   const closes = closureKindOf(rule, sectionNames);
-  const what =
-    closes.kind === "booking"
+  const what = isOnlinePauseRule(rule)
+    ? t("availability.paused.banner")
+    : closes.kind === "booking"
       ? t("availabilitySpecial.kind.bookingPaused", {
           channels: closes.channels
             .map((c) => t(`availability.close.what.channel.${c}`))
@@ -321,6 +323,8 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
   const [editingHours, setEditingHours] = useState<{
     date: string;
     ruleScope?: { ruleId: string; mode: SeriesScope };
+    /** A holiday's "Special hours…": the editor opens on its rows, and its chain follows a save. */
+    holiday?: HolidaySheetRequest;
   } | null>(null);
   const [scopingHours, setScopingHours] = useState<{ ruleId: string; date: string } | null>(null);
   const [removingHours, setRemovingHours] = useState<SpecialDateRule | null>(null);
@@ -532,7 +536,7 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           onClose={(rows, savedTitle, request) =>
             openSheet({ rows, autoNext: true, savedTitle, request })
           }
-          onSpecialHours={(row, request) => openSheet({ rows: [row], request })}
+          onSpecialHours={(row, request) => setEditingHours({ date: row.date, holiday: request })}
           onReopen={(ruleId, then) => {
             const rule = rules.find((r): r is SpecialDateRule => r.id === ruleId);
             if (!rule) return;
@@ -628,10 +632,19 @@ export function SpecialDatesTab(props: SpecialDatesTabProps) {
           today={today}
           date={editingHours.date}
           ruleScope={editingHours.ruleScope}
+          startEditing={editingHours.holiday !== undefined}
+          onSaved={
+            editingHours.holiday?.afterSaved
+              ? () => void editingHours.holiday?.afterSaved?.()
+              : undefined
+          }
           onStale={onStale}
           reloadError={reloadError}
           sectionNames={sectionNames}
-          onClose={() => setEditingHours(null)}
+          onClose={() => {
+            editingHours.holiday?.onSettled();
+            setEditingHours(null);
+          }}
         />
       )}
       {removingHours && (

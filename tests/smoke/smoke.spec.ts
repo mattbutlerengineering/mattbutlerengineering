@@ -1,4 +1,9 @@
+import { readFileSync } from "node:fs";
 import { test, expect } from "@playwright/test";
+
+const demoRoutes = JSON.parse(
+  readFileSync(new URL("./rialto-demo-routes.json", import.meta.url), "utf8")
+) as { covered: { path: string; heading: string }[] };
 
 const BASE_URL = process.env.SMOKE_BASE_URL ?? "https://mattbutlerengineering.com";
 const API_URL = process.env.SMOKE_API_URL ?? "https://api.mattbutlerengineering.com";
@@ -59,5 +64,27 @@ test.describe("Post-deploy smoke tests", () => {
       const response = await page.goto(`${BASE_URL}/rialto`);
       expect(response?.status()).toBe(200);
     });
+  });
+
+  // rialto-web is an SPA: every path returns 200 and unknown routes are
+  // redirected client-side to the overview, so assert the final pathname and
+  // the rendered heading, not the status. The list is guarded against drift by
+  // apps/rialto-web/src/routes.test.tsx. Read-only page loads; nothing is submitted.
+  test.describe("Rialto demo routes", () => {
+    for (const { path, heading } of demoRoutes.covered) {
+      const demoPath = path === "" ? "/rialto/demos" : `/rialto/demos/${path}`;
+      test(`demo ${demoPath} renders`, async ({ page }) => {
+        const pageErrors: Error[] = [];
+        page.on("pageerror", (error) => pageErrors.push(error));
+
+        await page.goto(`${BASE_URL}${demoPath}`);
+
+        await expect(page.locator("main")).toBeVisible();
+        // attached, not visible: telemetry's h1 is screen-reader-only
+        await expect(page.getByRole("heading", { name: heading }).first()).toBeAttached();
+        expect(new URL(page.url()).pathname.replace(/\/$/, "")).toBe(demoPath);
+        expect(pageErrors).toEqual([]);
+      });
+    }
   });
 });

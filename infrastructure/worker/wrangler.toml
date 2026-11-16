@@ -41,3 +41,8 @@ id = "dda61075cc654b0a849046ae563d8d45"
 [[analytics_engine_datasets]]
 binding = "ANALYTICS"
 dataset = "edge_requests"
+
+# CSP violation reports from POST /csp-report (csp-report.js, #8895)
+[[analytics_engine_datasets]]
+binding = "CSP_REPORTS"
+dataset = "csp_reports"

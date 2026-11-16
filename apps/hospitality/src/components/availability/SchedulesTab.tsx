@@ -10,19 +10,18 @@ import {
 } from "@mattbutlerengineering/rialto";
 import type { AvailabilityConfigState, Schedule } from "@mbe/types";
 import { useAvailabilityUndo } from "../../hooks/useAvailabilityUndo.js";
-import { useVenueFormat } from "../../hooks/useVenueFormat.js";
 import { ChangeRegularWeekDrawer } from "./ChangeRegularWeekDrawer.js";
 import { CompareServices } from "./CompareServices.js";
 import { scheduleNameText } from "./day-summary.js";
 import { buildDeleteScheduleChanges, isScheduleUnused } from "./schedule-changes.js";
 import type { QuickSetupDraft } from "./quick-setup-draft.js";
 import { RegularWeekPanel } from "./RegularWeekPanel.js";
-import { scheduleUsage } from "./rule-summaries.js";
 import type { ScheduleEditorMode } from "./ScheduleEditorDrawer.js";
-import { SaveFailure, ScheduleDraftGuard, useWeekdaySummary } from "./ScheduleFormParts.js";
+import { SaveFailure, ScheduleDraftGuard } from "./ScheduleFormParts.js";
 import { visibleSchedules } from "./superseded-schedules.js";
 import { useDiscardGuard } from "./use-discard-guard.js";
 import { useScheduleSave } from "./use-schedule-save.js";
+import { useUsageText } from "./use-usage-text.js";
 import styles from "./SchedulesTab.module.css";
 
 export interface SchedulesTabProps {
@@ -56,38 +55,6 @@ export interface ScheduleEditorTarget {
 export const REGULAR_WEEK_HEADING_ID = "availability-regular-week-heading";
 
 /**
- * Where a schedule applies, in words: "Mon–Thu", "Jun 1 – Sep 15, every day", the Use schedule
- * rules that point at it, or none yet.
- */
-function useUsageText(state: AvailabilityConfigState) {
-  const { t } = useTranslation();
-  const format = useVenueFormat();
-  const summary = useWeekdaySummary();
-  const day = (date: string) => format.formatCalendarDate(date, { month: "short", day: "numeric" });
-  return (schedule: Schedule): string => {
-    const usage = scheduleUsage(state.config, schedule.id);
-    if (usage.kind === "unused") return t("availabilitySchedules.notUsed");
-    if (usage.kind === "rules")
-      return t("availabilitySchedules.usedByRules", { count: usage.count });
-    return usage.periods
-      .map((a) => {
-        const days = summary(a.weekdays);
-        if (a.startsOn && a.endsOn)
-          return t("availabilitySchedules.usageRange", {
-            from: day(a.startsOn),
-            to: day(a.endsOn),
-            days,
-          });
-        if (a.startsOn)
-          return t("availabilitySchedules.usageFrom", { from: day(a.startsOn), days });
-        if (a.endsOn) return t("availabilitySchedules.usageUntil", { to: day(a.endsOn), days });
-        return days;
-      })
-      .join("; ");
-  };
-}
-
-/**
  * The Schedules layer (ux.md S-Avail2): the regular week as an editable form with its guest
  * preview, the other schedules and where they apply (Edit, Duplicate, Delete) and, when asked
  * for, Compare services.
@@ -97,7 +64,7 @@ export function SchedulesTab(props: SchedulesTabProps) {
   const { onEditorChange, comparing, onComparingChange } = props;
   const { t } = useTranslation();
   const offerUndo = useAvailabilityUndo();
-  const usage = useUsageText(state);
+  const usage = useUsageText(state.config);
   const saver = useScheduleSave(onStale);
   const [compareDirty, setCompareDirty] = useState(false);
   const [weekDirty, setWeekDirty] = useState(false);

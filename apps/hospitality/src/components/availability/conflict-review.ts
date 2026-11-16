@@ -79,6 +79,25 @@ export function scheduleChangesSince(
   };
 }
 
+/** The services a version added, removed or changed in a date's rows, by name. */
+export function servicesChangedSince(
+  before: readonly DraftService[],
+  after: readonly DraftService[]
+): { readonly added: string[]; readonly removed: string[]; readonly changed: string[] } {
+  const was = new Map(before.map((s) => [s.venueServiceId, s]));
+  const now = new Map(after.map((s) => [s.venueServiceId, s]));
+  return {
+    added: after.filter((s) => !was.has(s.venueServiceId)).map((s) => s.name),
+    removed: before.filter((s) => !now.has(s.venueServiceId)).map((s) => s.name),
+    changed: after
+      .filter((s) => {
+        const prior = was.get(s.venueServiceId);
+        return prior !== undefined && HOURS_FIELDS.some((f) => !same(prior[f], s[f]));
+      })
+      .map((s) => s.name),
+  };
+}
+
 interface ReapplyInput {
   /** The rows the draft was seeded from. */
   readonly base: readonly DraftService[];

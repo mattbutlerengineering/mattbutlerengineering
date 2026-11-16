@@ -22,16 +22,17 @@ This skill closes that gap: run it before push, get the same red/green CI gives 
 
 In parallel, from the repo root:
 
-| Step | Command                                                                                                             | Mirrors CI job              |
-| ---- | ------------------------------------------------------------------------------------------------------------------- | --------------------------- |
-| 1    | `pnpm install --frozen-lockfile`                                                                                    | `prepare`                   |
-| 2    | `pnpm lint`                                                                                                         | `lint`                      |
-| 3    | `pnpm typecheck`                                                                                                    | `typecheck`                 |
-| 4    | `pnpm --filter @mbe/cli build && pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps` | `architecture-audit`        |
-| 5    | dep-graph regen + `git diff --exit-code`, then `mbe pack <dir> --check` per `llms.txt` package (see Drift lane)     | `build` / `integrity` drift |
-| 6    | `pnpm turbo run size:check --filter='...[origin/main]'` (affected packages only; see Size lane)                     | `build` bundle size budgets |
+| Step | Command                                                                                                                | Mirrors CI job              |
+| ---- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| 1    | `pnpm install --frozen-lockfile`                                                                                       | `prepare`                   |
+| 2    | `pnpm lint`                                                                                                            | `lint`                      |
+| 3    | `pnpm check:knip` (own lane; memory-heavy, skip with `--skip-knip`)                                                    | `lint` (knip step)          |
+| 4    | `pnpm typecheck`                                                                                                       | `typecheck`                 |
+| 5    | `pnpm build --filter @mbe/cli... && pnpm --filter @mbe/cli start check-adr && pnpm --filter @mbe/cli start check-deps` | `architecture-audit`        |
+| 6    | dep-graph regen + `git diff --exit-code`, then `mbe pack <dir> --check` per `llms.txt` package (see Drift lane)        | `build` / `integrity` drift |
+| 7    | `pnpm turbo run size:check --filter='...[origin/main]'` (affected packages only; see Size lane)                        | `build` bundle size budgets |
 
-Steps 2–6 run in parallel after step 1 completes. Total time on a warm cache: ~30s (vs ~5 min for a CI round-trip); the size lane measured 18.5 s for a branch touching `apps/hospitality`, build included.
+Steps 2–7 run in parallel after step 1 completes. `scripts/__tests__/local-ci-precheck-mirror.test.mjs` fails when a `pnpm` command in CI's `lint`, `typecheck` or `architecture-audit` job is missing from this file. Total time on a warm cache: ~30s (vs ~5 min for a CI round-trip); the size lane measured 18.5 s for a branch touching `apps/hospitality`, build included.
 
 ## Invocation
 
@@ -53,6 +54,9 @@ Steps 2–6 run in parallel after step 1 completes. Total time on a warm cache: 
 
 # Skip the size lane (e.g. a rialto change that rebuilds every consuming app)
 /local-ci-precheck --skip-size
+
+# Skip the knip lane (memory-heavy locally; a chained run was killed with exit 137 on 2026-10-25)
+/local-ci-precheck --skip-knip
 ```
 
 Implementation pattern (Bash):
@@ -73,9 +77,15 @@ fail=0
 {
   pnpm lint 2>&1 | sed 's/^/[lint] /' &
   lint_pid=$!
+  # knip is its own lane, never chained onto lint: CI runs it as a separate step.
+  knip_pid=""
+  if [[ " $* " != *" --skip-knip "* ]]; then
+    pnpm check:knip 2>&1 | sed 's/^/[knip] /' &
+    knip_pid=$!
+  fi
   pnpm typecheck 2>&1 | sed 's/^/[typecheck] /' &
   type_pid=$!
-  ( pnpm --filter @mbe/cli build && \
+  ( pnpm build --filter @mbe/cli... && \
     pnpm --filter @mbe/cli start check-adr && \
     pnpm --filter @mbe/cli start check-deps ) 2>&1 | sed 's/^/[arch-audit] /' &
   arch_pid=$!
@@ -101,6 +111,7 @@ fail=0
   fi
 
   wait $lint_pid || fail=1
+  [[ -z "$knip_pid" ]] || wait $knip_pid || fail=1
   wait $type_pid || fail=1
   wait $arch_pid || fail=1
   wait $drift_pid || fail=1
@@ -122,7 +133,7 @@ echo "✓ /local-ci-precheck: all CI-blocking checks pass."
 
 - Exits **0** when CI would pass — push with confidence.
 - Exits **1** when CI would block — fix before pushing.
-- Each line is prefixed with `[lint]`, `[typecheck]`, `[arch-audit]`, `[drift]`, or `[size]` so parallel output is readable.
+- Each line is prefixed with `[lint]`, `[knip]`, `[typecheck]`, `[arch-audit]`, `[drift]`, or `[size]` so parallel output is readable.
 
 ## Drift lane
 

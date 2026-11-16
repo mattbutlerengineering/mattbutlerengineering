@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { axe } from "vitest-axe";
 import { ToastProvider } from "@mattbutlerengineering/rialto";
@@ -158,7 +158,6 @@ function pickScope(choice: string) {
 
 /** The filter is one select: open it and pick an option. */
 function pickFilter(name: string) {
-  window.HTMLElement.prototype.scrollIntoView = vi.fn();
   fireEvent.click(screen.getByRole("combobox", { name: "Filter special dates" }));
   fireEvent.click(screen.getByRole("option", { name }));
 }
@@ -167,6 +166,15 @@ function pickFilter(name: string) {
 function planHolidays() {
   fireEvent.click(screen.getByRole("button", { name: /^(Plan|View) holidays$/ }));
 }
+
+// jsdom has no scrollIntoView; the Select's listbox calls it when it opens. Restored after each.
+const originalScrollIntoView = window.HTMLElement.prototype.scrollIntoView;
+beforeEach(() => {
+  window.HTMLElement.prototype.scrollIntoView = vi.fn();
+});
+afterEach(() => {
+  window.HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
+});
 
 describe("SpecialDatesTab", () => {
   beforeEach(() => {
@@ -201,10 +209,30 @@ describe("SpecialDatesTab", () => {
       ...STATE,
       config: { ...STATE.config, dateRules: [fromSix] },
     });
-    expect(screen.getByText("Booking paused: Online · From 6:00 PM")).toBeTruthy();
+    expect(screen.getByText("Online booking paused · From 6:00 PM")).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Remove closure for Fri, Nov 13 until reopened" })
     ).toBeTruthy();
+  });
+
+  it("names a marked dated pause as the banner does, and a dated online closure a pause only when marked", () => {
+    const dated: DateRule = {
+      id: "dated",
+      kind: "closure",
+      targetKind: "booking",
+      bookingTypes: ["online"],
+      startsOn: "2026-12-30",
+      endsOn: "2026-12-30",
+    };
+    const { unmount } = renderTab(true, {
+      ...STATE,
+      config: { ...STATE.config, dateRules: [{ ...dated, origin: "pause" }] },
+    });
+    expect(screen.getByText("Online booking paused")).toBeTruthy();
+    unmount();
+    renderTab(true, { ...STATE, config: { ...STATE.config, dateRules: [dated] } });
+    expect(screen.getByText("Booking paused: Online")).toBeTruthy();
+    expect(screen.queryByText("Online booking paused")).toBeNull();
   });
 
   it("names a closure's start time (#8032)", () => {
@@ -396,7 +424,7 @@ describe("SpecialDatesTab", () => {
     expect(createClosure.mock.calls[0]![0].body.items[0].rule.startsOn).toBe("2026-12-25");
     expect(createClosure.mock.calls[1]![0].body.items[0].rule.startsOn).toBe("2026-12-31");
   });
-  it("Special hours… opens Add special date on that date, starting from an hours row", () => {
+  it("Special hours… opens the day editor on that date, not the Add special dates sheet", () => {
     renderTab(true);
     planHolidays();
     fireEvent.click(
@@ -407,15 +435,13 @@ describe("SpecialDatesTab", () => {
         }
       )
     );
-    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
-    const dates = within(sheet).getAllByLabelText("Date") as HTMLInputElement[];
-    expect(dates.map((d) => d.value)).toEqual(["Dec 25, 2026"]);
-    expect(within(sheet).getByRole("group", { name: "Date 1: Christmas Day" })).toBeTruthy();
-    // No regular week here: there are no usual hours to start from, so the row starts Closed.
-    expect(within(sheet).getByRole("radio", { name: "Closed", checked: true })).toBeTruthy();
+    expect(screen.queryByRole("dialog", { name: "Add special dates" })).toBeNull();
+    // No regular week here: the editor opens with nothing to edit but a service to add.
+    expect(screen.getByRole("combobox", { name: "Add service" })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: "You’re changing" })).toBeTruthy();
   });
 
-  it("starts a Special hours… row from the weekday's usual hours", () => {
+  it("starts a Special hours… edit from the weekday's usual hours", () => {
     renderTab(true, {
       ...STATE,
       config: { ...DEMO_WEEK_CONFIG, dateRules: RULES },
@@ -427,14 +453,11 @@ describe("SpecialDatesTab", () => {
         { name: "Special hours…" }
       )
     );
-    const sheet = screen.getByRole("dialog", { name: "Add special dates" });
-    expect(within(sheet).getByRole("radio", { name: "Special hours", checked: true })).toBeTruthy();
-    // Valentine's Day is a Sunday: the row starts from Sunday's Brunch and Dinner.
-    expect(
-      within(sheet)
-        .getAllByLabelText("Closes")
-        .map((c) => (c as HTMLInputElement).value)
-    ).toEqual(["2:00 PM", "11:00 PM"]);
+    // Valentine's Day is a Sunday: the editor starts from Sunday's Brunch and Dinner.
+    expect(screen.getAllByLabelText("Closes").map((c) => (c as HTMLInputElement).value)).toEqual([
+      "2:00 PM",
+      "11:00 PM",
+    ]);
   });
 
   it("Open as usual saves the decision for the date", async () => {
@@ -1525,10 +1548,6 @@ describe("SpecialDatesTab", () => {
         startsOn: "2026-12-24",
         endsOn: "2026-12-27",
       } as DateRule;
-      beforeEach(() => {
-        // jsdom has no scrollIntoView; the Select's listbox calls it when it opens.
-        window.HTMLElement.prototype.scrollIntoView = vi.fn();
-      });
       const openRange = (isManager = true) => {
         summaries.value = [summary("holidays", { cancelled: 5, upcomingCancelled: 5 })];
         renderTab(isManager, {

@@ -16,7 +16,7 @@
   user-select: none;
   cursor: pointer;
   position: relative;
-  transition: box-shadow 0.15s var(--rialto-ease-precision);
+  transition: box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 /* ── Secondary (aluminum — the default) ──────── */

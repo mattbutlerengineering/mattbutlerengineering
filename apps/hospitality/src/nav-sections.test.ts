@@ -29,7 +29,7 @@ const OPERATIONAL_READINESS: VenueReadiness = {
 
 describe("buildNavSections", () => {
   describe("setup readiness", () => {
-    it("returns a 'Get Started' section holding one Venue Setup item with the progress count", () => {
+    it("returns a 'Get Started' section holding one Availability map item with the progress count", () => {
       const sections = buildNavSections(SETUP_READINESS, false);
       const getStarted = sections.find((s) => s.label === "Get Started");
 
@@ -37,8 +37,8 @@ describe("buildNavSections", () => {
       expect(getStarted!.items).toEqual([
         {
           id: "setup",
-          label: "Venue Setup",
-          action: { type: "route", path: "/setup" },
+          label: "Availability map",
+          action: { type: "route", path: "/availability/map" },
           badge: "1 of 3",
         },
       ]);
@@ -76,15 +76,15 @@ describe("buildNavSections", () => {
   });
 
   describe("same destination, same label in both readiness states", () => {
-    it("labels /setup 'Venue Setup' before and after launch", () => {
+    it("labels the map 'Availability map' before and after launch", () => {
       const find = (r: VenueReadiness) =>
         buildNavSections(r, false)
           .flatMap((s) => s.items)
-          .filter((i) => i.action.type === "route" && i.action.path === "/setup");
+          .filter((i) => i.action.type === "route" && i.action.path === "/availability/map");
       const before = find(SETUP_READINESS);
       const after = find(OPERATIONAL_READINESS);
-      expect(before.map((i) => i.label)).toEqual(["Venue Setup"]);
-      expect(after.map((i) => i.label)).toEqual(["Venue Setup"]);
+      expect(before.map((i) => i.label)).toEqual(["Availability map"]);
+      expect(after.map((i) => i.label)).toEqual(["Availability map"]);
       expect(after[0]).not.toHaveProperty("badge");
     });
   });
@@ -106,19 +106,19 @@ describe("buildNavSections", () => {
       expect(manage!.items.length).toBeGreaterThan(0);
     });
 
-    it("lists Venue Setup then Availability in Manage, with no Floor Plans item", () => {
+    it("lists Availability then its map in Manage, with no Floor Plans item", () => {
       const manage = buildNavSections(OPERATIONAL_READINESS, false).find(
         (s) => s.label === "Manage"
       )!;
       expect(manage.items.map((i) => i.id)).toEqual([
-        "setup",
         "availability",
+        "setup",
         "menus",
         "booking-widget",
       ]);
       expect(manage.items.map((i) => i.label)).toEqual([
-        "Venue Setup",
         "Availability",
+        "Availability map",
         "Menus",
         "Booking Widget",
       ]);

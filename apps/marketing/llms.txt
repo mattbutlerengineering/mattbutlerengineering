@@ -413,31 +413,6 @@
       export function statusProbeFixture(url: string, method: string): ProbeFixture | undefined { /* ... */ }
     </item>
   </file>
-  <file path="src/data/weekly-freshness.ts">
-    <item priority="high">
-      export function recentReadingItems(
-        resources: readonly WeeklyResource[],
-        now: Date = new Date()
-      ): readonly WeeklyResource[] { /* ... */ }
-    </item>
-    <item priority="high">
-      export function latestPublishedAt(resources: readonly WeeklyResource[]): string | null { /* ... */ }
-    </item>
-  </file>
-  <file path="src/data/weekly-intake.ts">
-    <item priority="low">
-      interface WeeklyResource {
-        id: string;
-        title: string;
-        url: string;
-        source: "js-weekly" | "react-weekly" | "ai-weekly" | "other";
-        description: string;
-      }
-    </item>
-    <item priority="high">
-      export const weeklyResources: readonly WeeklyResource[];
-    </item>
-  </file>
   </section>
   <section priority="medium" role="factory">
   <file path="src/components/factory/factory-palette.ts">
@@ -606,14 +581,6 @@
         thresholdHours: number = DEFAULT_REPORT_STALE_THRESHOLD_HOURS,
         now: Date = new Date()
       ): boolean { /* ... */ }
-    </item>
-    <item priority="high">
-      export const SOURCE_COLORS: Record<
-        WeeklyResource["source"],
-        "yellow" | "blue" |...;
-    </item>
-    <item priority="high">
-      export const SOURCE_LABELS: Record<WeeklyResource["source"], string>;
     </item>
   </file>
   <file path="src/utils/route-meta.ts">

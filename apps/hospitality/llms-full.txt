@@ -308,7 +308,9 @@
     type AvailabilityView =
       | { readonly view: "hub" }
       | { readonly view: "hours"; readonly service?: string }
-      | { readonly view: "seasonal"; readonly screen?: "new" | "compare" }
+      | { readonly view: "seasonal"; readonly screen?: "compare" }
+      /** `copy` is the set a new one starts as a copy of (`?copy=`); `?from=` is only ever `setup`. */
+      | { readonly view: "seasonal"; readonly screen: "new"; readonly copy?: string }
       | { readonly view: "seasonal"; readonly screen: "edit"; readonly scheduleId: string }
       | { readonly view: "specialDates" }
       | { readonly view: "closures" }
@@ -318,7 +320,8 @@
           readonly date?: string;
         }
       | { readonly view: "bookingRules" }
-      | { readonly view: "history" };
+      | { readonly view: "history" }
+      | { readonly view: "map" };
     export type AvailabilityTarget = AvailabilityView & {
       readonly close?: CloseTarget;
       readonly pause?: boolean;
@@ -382,7 +385,8 @@
     }
     export function availabilityPath(target: AvailabilityTarget): string {
       const params = new URLSearchParams();
-      const ownPath = OWN_PATHS[target.view];
+      const isSeasonalList = target.view === "seasonal" && !target.screen;
+      const ownPath = isSeasonalList ? SEASONAL : OWN_PATHS[target.view];
       if (ownPath) {
         if (target.view === "hours" && target.service) params.set("service", target.service);
         setOverlay(params, target);
@@ -393,7 +397,11 @@
         target.view === "calendar" && target.date && isDate(target.date) ? target.date : null;
       const tab = PAGE_TAB[target.view];
       if (tab && !date) params.set("tab", tab);
-      if (target.view === "seasonal" && target.screen === "new") params.set("action", "addSchedule");
+      if (target.view === "seasonal" && target.screen === "new") {
+        params.set("action", "addSchedule");
+        // The new-hours editor (E4.6) takes this address over: `seasonal/new?copy=<id>`.
+        if (target.copy) params.set("copy", target.copy);
+      }
       if (date) params.set("date", date);
       setOverlay(params, target);
       return withSearch(TODAYS_PAGE, params);
@@ -1215,21 +1223,26 @@
         !onlineSeatingLeft(config, timezone, today, nowMinute)
       );
     }
+    export function onlinePausesOn(config: AvailabilityConfig, today: string): DateRule[] {
+      return config.dateRules.filter(
+        (r) =>
+          r.kind === "closure" &&
+          r.targetKind === "booking" &&
+          (r.bookingTypes ?? []).includes("online") &&
+          r.startsOn <= today &&
+          (r.endsOn === null ||
+            r.endsOn === undefined ||
+            (r.origin === "pause" && r.endsOn >= today)) &&
+          !r.repeat
+      );
+    }
     export function shownOnlinePause(
       config: AvailabilityConfig,
       timezone: string,
       today: string,
       nowMinute: number
     ): DateRule | null {
-      const pauses = config.dateRules.filter(
-        (r) =>
-          r.kind === "closure" &&
-          r.targetKind === "booking" &&
-          (r.bookingTypes ?? []).includes("online") &&
-          r.startsOn <= today &&
-          (r.endsOn === null || r.endsOn === undefined) &&
-          !r.repeat
-      );
+      const pauses = onlinePausesOn(config, today);
       const earliest = [...pauses].sort((a, b) => (a.window?.from ?? 0) - (b.window?.from ?? 0))[0];
       return (
         pauses.find((r) => isPauseInForce(r, config, timezone, today, nowMinute)) ?? earliest ?? null
@@ -1900,6 +1913,38 @@
       return { upsert: scheduleServices.length > 0 ? { scheduleServices } : {}, remove: {} };
     }
   </file>
+  <file path="src/components/availability/conflict-lines.ts">
+    export interface AlsoApplySince {
+      readonly changed: readonly string[];
+      readonly removed: readonly string[];
+    }
+    type NamedLine = "added" | "removed" | "changed" | "alsoChanged" | "alsoRemoved";
+    export function conflictLines(
+      changes: ScheduleChangeSince,
+      alsoApply: AlsoApplySince | undefined,
+      t: TFunction,
+      locale: string
+    ): string[] {
+      const list = new Intl.ListFormat(locale, { type: "conjunction" });
+      const named = (key: NamedLine, names: readonly string[] | undefined) =>
+        names && names.length > 0
+          ? [t(`availabilitySchedules.conflictReview.${key}`, { names: list.format(names) })]
+          : [];
+      return [
+        ...(changes.replacedBy !== null
+          ? [t("availabilitySchedules.conflictReview.regularReplaced", { name: changes.replacedBy })]
+          : []),
+        ...(changes.renamedTo !== null
+          ? [t("availabilitySchedules.conflictReview.renamed", { name: changes.renamedTo })]
+          : []),
+        ...named("added", changes.added),
+        ...named("removed", changes.removed),
+        ...named("changed", changes.changed),
+        ...named("alsoChanged", alsoApply?.changed),
+        ...named("alsoRemoved", alsoApply?.removed),
+      ];
+    }
+  </file>
   <file path="src/components/availability/conflict-problem.ts">
     export type Conflict =
       /** Someone saved first; `winningChange` is `null` when the server recorded none. */
@@ -1973,6 +2018,23 @@
             return prior !== undefined && !same(prior.week, v.week);
           })
           .map(([, v]) => v.name),
+      };
+    }
+    export function servicesChangedSince(
+      before: readonly DraftService[],
+      after: readonly DraftService[]
+    ): { readonly added: string[]; readonly removed: string[]; readonly changed: string[] } {
+      const was = new Map(before.map((s) => [s.venueServiceId, s]));
+      const now = new Map(after.map((s) => [s.venueServiceId, s]));
+      return {
+        added: after.filter((s) => !was.has(s.venueServiceId)).map((s) => s.name),
+        removed: before.filter((s) => !now.has(s.venueServiceId)).map((s) => s.name),
+        changed: after
+          .filter((s) => {
+            const prior = was.get(s.venueServiceId);
+            return prior !== undefined && HOURS_FIELDS.some((f) => !same(prior[f], s[f]));
+          })
+          .map((s) => s.name),
       };
     }
     interface ReapplyInput {
@@ -2814,6 +2876,56 @@
       return { upsert: { ...venueServices, dateRules: [rule] }, remove: {} };
     }
   </file>
+  <file path="src/components/availability/draft-service-fields.ts">
+    export function serviceFieldsOf(service: DraftService): ServiceFieldsValue {
+      return {
+        opens: toClock(service.opensAt),
+        lastSeating: toClock(service.lastSeatingAt),
+        closes: toClock(service.closesAt),
+        lastSeatingLinked: false,
+        seating: service.seating,
+        // A copy: the fields' type is mutable, the row's is not.
+        bookingTypes: [...service.bookingTypes],
+      };
+    }
+    export function applyFieldsToService(
+      service: DraftService,
+      next: ServiceFieldsValue
+    ): DraftService {
+      const was = serviceFieldsOf(service);
+      const opensAt =
+        next.opens !== null && next.opens !== was.opens ? openFromClock(next.opens) : service.opensAt;
+      const lastSeating = next.lastSeating !== was.lastSeating ? next.lastSeating : null;
+      const closes = next.closes !== was.closes ? next.closes : null;
+      const opened = opensAt !== service.opensAt;
+      const lastSeatingAt = lastSeating
+        ? lastSeatingFromClock(lastSeating, opensAt)
+        : opened
+          ? lastSeatingFromClock(was.lastSeating ?? "", opensAt)
+          : service.lastSeatingAt;
+      const closesAt = closes
+        ? closeFromClock(closes, opensAt)
+        : opened
+          ? closeFromClock(was.closes ?? "", opensAt)
+          : service.closesAt;
+      const changed =
+        opened ||
+        lastSeatingAt !== service.lastSeatingAt ||
+        closesAt !== service.closesAt ||
+        !sameSeating(next.seating, was.seating) ||
+        !sameBookingTypes(next.bookingTypes, was.bookingTypes);
+      return changed
+        ? {
+            ...service,
+            opensAt,
+            lastSeatingAt,
+            closesAt,
+            seating: next.seating,
+            bookingTypes: [...next.bookingTypes],
+          }
+        : service;
+    }
+  </file>
   <file path="src/components/availability/draft-wait.ts">
     export const skipInitialFocus = { "data-focus-trap-skip-initial": "true" } as const;
     export function waitingProps(waiting: boolean, reasonId: string | undefined) {
@@ -3156,8 +3268,11 @@
       layer: Layer,
       t: TFunction,
       format: VenueFormat,
-      sectionNames?: ReadonlyMap<string, string>
+      sectionNames?: ReadonlyMap<string, string>,
+      /** The layer's rule is an online pause, which reads as the banner and pill do. */
+      isPause = false
     ): string {
+      if (isPause) return t("availability.paused.banner");
       switch (layer.kind) {
         case "schedule":
           return layer.scheduleName !== undefined
@@ -3272,6 +3387,30 @@
       });
     }
   </file>
+  <file path="src/components/availability/pause-end.ts">
+    export type PauseEnd =
+      | { readonly kind: "open" }
+      | { readonly kind: "tomorrow" }
+      | { readonly kind: "date"; readonly date: string };
+    export function pauseEnd(rule: DateRule, today: string): PauseEnd {
+      if (rule.endsOn === null || rule.endsOn === undefined) return { kind: "open" };
+      return rule.endsOn <= today ? { kind: "tomorrow" } : { kind: "date", date: rule.endsOn };
+    }
+    export function pauseEndText(
+      end: PauseEnd,
+      t: TFunction,
+      format: Pick<VenueFormat, "formatCalendarDate">
+    ): string {
+      if (end.kind === "open") return t("availability.paused.noEndShort");
+      if (end.kind === "tomorrow") return t("availability.paused.untilTomorrow");
+      const date = format.formatCalendarDate(end.date, {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+      return t("availability.paused.untilDate", { date });
+    }
+  </file>
   <file path="src/components/availability/pause-online-draft.ts">
     export type PauseChoice = "tonight" | "untilResume" | "untilDate";
     export const PAUSE_CHOICES: readonly PauseChoice[] = ["tonight", "untilResume", "untilDate"];
@@ -3310,7 +3449,9 @@
     }
     export function pauseOnlineRule(draft: PauseDraft, id: string, today: string): DateRule | null {
       if (pauseOnlineProblem(draft, today) !== null) return null;
-      return buildCloseRule(pauseOnlineForm(draft, today), id, today);
+      const built = buildCloseRule(pauseOnlineForm(draft, today), id, today);
+      // The mark is what lets the pill and banner show this pause with its end, and Resume it.
+      return built && { ...built, origin: "pause" };
     }
   </file>
   <file path="src/components/availability/period.ts">
@@ -4791,6 +4932,16 @@
         });
       }
       return rule.endsOn == null ? t("availabilitySpecial.reopen.subjectOpen", { from }) : span;
+    }
+    export function isOnlinePauseRule(rule: DateRule): boolean {
+      return (
+        rule.kind === "closure" &&
+        rule.targetKind === "booking" &&
+        rule.bookingTypes?.length === 1 &&
+        rule.bookingTypes[0] === "online" &&
+        !rule.repeat &&
+        (rule.origin === "pause" || rule.endsOn == null)
+      );
     }
     export type ClosureKind =
       | { readonly kind: "venue" }
@@ -7418,6 +7569,35 @@
           setConflict(null);
           clearFailure();
         },
+      };
+    }
+  </file>
+  <file path="src/components/availability/use-usage-text.ts">
+    export function useUsageText(config: AvailabilityConfig) {
+      const { t } = useTranslation();
+      const format = useVenueFormat();
+      const summary = useWeekdaySummary();
+      const day = (date: string) => format.formatCalendarDate(date, { month: "short", day: "numeric" });
+      return (schedule: Pick<Schedule, "id">): string => {
+        const usage = scheduleUsage(config, schedule.id);
+        if (usage.kind === "unused") return t("availabilitySchedules.notUsed");
+        if (usage.kind === "rules")
+          return t("availabilitySchedules.usedByRules", { count: usage.count });
+        return usage.periods
+          .map((a) => {
+            const days = summary(a.weekdays);
+            if (a.startsOn && a.endsOn)
+              return t("availabilitySchedules.usageRange", {
+                from: day(a.startsOn),
+                to: day(a.endsOn),
+                days,
+              });
+            if (a.startsOn)
+              return t("availabilitySchedules.usageFrom", { from: day(a.startsOn), days });
+            if (a.endsOn) return t("availabilitySchedules.usageUntil", { to: day(a.endsOn), days });
+            return days;
+          })
+          .join("; ");
       };
     }
   </file>
@@ -19691,8 +19871,8 @@
         id: "Manage",
         label: t("nav.sections.manage"),
         items: [
-          route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
           route("availability", t("nav.items.availability"), availabilityPath({ view: "hub" })),
+          route(SETUP_ITEM_ID, t("nav.items.venueSetup"), SETUP_PATH),
           route("menus", t("nav.items.menus"), "/menus"),
           route("booking-widget", t("nav.items.bookingWidget"), "/booking-widget"),
         ],
@@ -22589,9 +22769,7 @@
       | "setUpRegularWeek"
       | "changeRegularWeek"
       | "editSchedule"
-      | "compareServices"
       | "createSchedule"
-      | "openCalendar"
       | "openSpecialDates"
       | "bookingRules"
       | "openFloorPlan"
@@ -22721,13 +22899,11 @@
               weekdays: covered.slice(),
             }
           : { kind: "week", weekdays };
+      // One link per node (#8864 AC6): the regular week's editor is Regular hours.
       const actions: SetupAction[] = !manager
         ? []
         : schedule.isRegular
-          ? [
-              action("changeRegularWeek", link(SETUP_HOURS)),
-              action("editSchedule", link(SETUP_HOURS), schedule.name),
-            ]
+          ? [action("changeRegularWeek", link(SETUP_HOURS))]
           : [action("editSchedule", link(SETUP_SCHEDULES), schedule.name)];
       return {
         id: `schedule:${schedule.id}`,
@@ -22767,12 +22943,8 @@
         kind: "schedules",
         name: null,
         state: { kind: "count", count: schedules.length },
-        actions: manager
-          ? [
-              action("compareServices", link(SETUP_SCHEDULES)),
-              action("createSchedule", link(SETUP_ADD_SCHEDULE)),
-            ]
-          : [],
+        // Each schedule below links to its own editor; the group's one link adds another schedule.
+        actions: manager ? [action("createSchedule", link(SETUP_ADD_SCHEDULE))] : [],
         children: schedules,
       };
     }
@@ -22824,12 +22996,7 @@
         kind: "specialDates",
         name: null,
         state: upcoming.length === 0 ? UNSET : { kind: "count", count: upcoming.length },
-        actions: manager
-          ? [
-              action("openCalendar", link(SETUP_CALENDAR_TAB)),
-              action("openSpecialDates", link(SETUP_SPECIAL)),
-            ]
-          : [],
+        actions: manager ? [action("openSpecialDates", link(SETUP_SPECIAL))] : [],
         children,
       };
     }
@@ -22947,12 +23114,8 @@
         state: hasTables
           ? { kind: "floorPlan", sections: sections.length, tables: tables.length }
           : UNSET,
-        actions: manager
-          ? [
-              action("openFloorPlan", link(planPath), plan.name),
-              action("addFloorPlan", link("/floor-plans")),
-            ]
-          : [],
+        // Another floor plan is added from the floor plan list, which the sidebar and the empty node open.
+        actions: manager ? [action("openFloorPlan", link(planPath), plan.name)] : [],
         children: [...sectionNodes, ...noSection],
       };
     }
@@ -23026,7 +23189,7 @@
       /** One line on what the resource is, on the top-level nodes. */
       readonly whatIs: (node: SetupNode) => string | null;
       readonly state: (node: SetupNode) => string;
-      readonly actionLabel: (action: SetupAction, node: SetupNode) => string;
+      readonly actionLabel: (action: SetupAction) => string;
       /** The target an action names, read after its visible label ("Close for a date… Bar"). */
       readonly actionSubject: (action: SetupAction) => string | undefined;
     }
@@ -23178,10 +23341,7 @@
           }
         },
         state,
-        actionLabel: (action, node) =>
-          action.id === "addFloorPlan" && node.state.kind !== "unset"
-            ? t("setup.hub.actions.addAnotherFloorPlan")
-            : t(`setup.hub.actions.${action.id}`),
+        actionLabel: (action) => t(`setup.hub.actions.${action.id}`),
         actionSubject: (action) => action.subject,
       };
     }

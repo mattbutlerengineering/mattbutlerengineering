@@ -33,8 +33,8 @@
     0 1px 2px rgb(26 25 24 / 0.06),
     0 2px 6px rgb(26 25 24 / 0.06);
   transition:
-    box-shadow 0.15s var(--rialto-ease-precision),
-    border-color 0.15s var(--rialto-ease-precision);
+    box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision),
+    border-color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .trigger:hover {
@@ -86,7 +86,7 @@
 .chevron {
   flex-shrink: 0;
   color: var(--rialto-text-tertiary);
-  transition: color 0.15s var(--rialto-ease-precision);
+  transition: color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .trigger[data-open="true"] .chevron {
@@ -146,8 +146,8 @@
   cursor: pointer;
   text-align: start;
   transition:
-    background 0.1s var(--rialto-ease-precision),
-    color 0.1s var(--rialto-ease-precision);
+    background var(--rialto-duration-fast) var(--rialto-ease-precision),
+    color var(--rialto-duration-fast) var(--rialto-ease-precision);
 }
 
 .option:hover,

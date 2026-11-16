@@ -25,7 +25,13 @@ const THEME_COLOR: Record<"light" | "dark", string> = {
 export interface RialtoProviderProps {
   /** Active vibe preset. Defaults to `'default'` (no overrides). */
   vibe?: VibeName;
-  /** Additional CSS custom property overrides merged on top of the vibe preset. */
+  /**
+   * Additional CSS custom property overrides, applied last: they win over the
+   * vibe preset and the reduced-data and reduced-motion adapters. Pinning a
+   * `--rialto-duration-*` token here re-imposes motion on users who asked for
+   * less; leave duration tokens alone or check `device.reducedMotion` first.
+   * See `docs/vibes.md`.
+   */
   vibeOverrides?: VibeOverrides;
   /** Theme mode. `'system'` follows the OS color scheme. Defaults to `'system'`. */
   theme?: "light" | "dark" | "system";

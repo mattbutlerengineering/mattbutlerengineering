@@ -25,7 +25,7 @@
   inset-inline-end: calc(-50% + 18px);
   height: 2px;
   background: var(--rialto-border);
-  transition: background 0.3s var(--rialto-ease-precision);
+  transition: background var(--rialto-duration-slow) var(--rialto-ease-precision);
 }
 
 .horizontal .step.completed:not(:last-child)::after {
@@ -55,7 +55,7 @@
   bottom: 0;
   width: 2px;
   background: var(--rialto-border);
-  transition: background 0.3s var(--rialto-ease-precision);
+  transition: background var(--rialto-duration-slow) var(--rialto-ease-precision);
 }
 
 .vertical .step.completed:not(:last-child)::after {
@@ -78,10 +78,10 @@
   font-size: var(--rialto-text-xs);
   font-weight: var(--rialto-weight-medium);
   transition:
-    border-color 0.3s var(--rialto-ease-precision),
-    background 0.3s var(--rialto-ease-precision),
-    color 0.3s var(--rialto-ease-precision),
-    box-shadow 0.3s var(--rialto-ease-precision);
+    border-color var(--rialto-duration-slow) var(--rialto-ease-precision),
+    background var(--rialto-duration-slow) var(--rialto-ease-precision),
+    color var(--rialto-duration-slow) var(--rialto-ease-precision),
+    box-shadow var(--rialto-duration-slow) var(--rialto-ease-precision);
   position: relative;
   z-index: 1;
 }
@@ -134,7 +134,7 @@
   font-size: var(--rialto-text-sm);
   font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-tertiary);
-  transition: color 0.3s var(--rialto-ease-precision);
+  transition: color var(--rialto-duration-slow) var(--rialto-ease-precision);
 }
 
 .completed .stepLabel,

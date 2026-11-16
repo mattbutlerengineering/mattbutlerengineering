@@ -308,7 +308,7 @@
       "waitlist": "Liste d'attente",
       "guests": "Clients",
       "dashboard": "Tableau de bord",
-      "venueSetup": "Configuration de l'établissement",
+      "venueSetup": "Carte des disponibilités",
       "bookingWidget": "Widget de réservation",
       "signOut": "Se déconnecter",
       "chat": "Clavardage",
@@ -334,7 +334,7 @@
       "settings": "Paramètres",
       "admin": "Administration",
       "dashboard": "Tableau de bord",
-      "setup": "Configuration de l'établissement",
+      "setup": "Carte des disponibilités",
       "hours": "Disponibilité",
       "menus": "Menus",
       "availability": "Disponibilité",
@@ -2215,7 +2215,7 @@
   "availability": {
     "title": "Disponibilité",
     "description": "Vos heures, jours fériés et changements ponctuels.",
-    "backToSetup": "Configuration de l'établissement",
+    "backToSetup": "Carte des disponibilités",
     "hostNote": "Seuls les gérants modifient les heures. Pour ce soir, utilisez le panneau Ce soir.",
     "loadError": "Impossible de charger la disponibilité",
     "noVenue": "Sélectionnez un établissement pour voir sa disponibilité.",
@@ -2608,10 +2608,7 @@
       "opens": "Ouvre",
       "lastSeating": "Dernière prise de table",
       "closes": "Ferme",
-      "seating": "Prise de table",
-      "interval": "Aux {{minutes}} min",
       "fixedTimes": "Heures de prise de table fixes : {{times}}",
-      "booking": "Réservations",
       "bookingOptions": {
         "onlinePhone": "En ligne + téléphone",
         "onlineOnly": "En ligne seulement",
@@ -2669,9 +2666,9 @@
       "strandedRule_many": "{{count}} réservations seraient hors des nouvelles heures. Rien n’a été annulé. Modifiez les heures ou réglez d’abord les réservations.",
       "conflict": {
         "title": "Quelqu’un a modifié la disponibilité avant vous",
-        "theirs_one": "{{summary}} (enregistré à {{time}}).",
-        "theirs_other": "{{summary}} (enregistré à {{time}}).",
-        "theirs_many": "{{summary}} (enregistré à {{time}}).",
+        "theirs_one": "{{summary}} (enregistré par {{who}} à {{time}}).",
+        "theirs_other": "{{summary}} (enregistré par {{who}} à {{time}}).",
+        "theirs_many": "{{summary}} (enregistré par {{who}} à {{time}}).",
         "theirsUnknown": "Un autre changement a été enregistré après le début de vos modifications.",
         "since": "Ces changements ont été enregistrés après le début de vos modifications, du plus récent au plus ancien :",
         "earlier_one": "Et {{count}} changement antérieur qui n’est pas listé.",
@@ -3056,7 +3053,11 @@
       "resume": "Reprendre",
       "resumed": "Réservations en ligne reprises",
       "resumeError": "Impossible de reprendre les réservations en ligne",
-      "pillNoEnd": "Réservations en ligne suspendues · Aucune date de fin",
+      "noEndShort": "Aucune date de fin",
+      "untilTomorrow": "Jusqu'à demain",
+      "untilDate": "Jusqu'au {{date}}",
+      "pill": "Réservations en ligne suspendues · {{end}}",
+      "bannerEnds": "{{end}} — ou reprenez-les maintenant.",
       "waiting_one": "Les réservations en ligne à partir de {{time}} sont suspendues tous les jours. Les heures précédentes restent ouvertes.",
       "waiting_other": "Les réservations en ligne à partir de {{time}} sont suspendues tous les jours. Les heures précédentes restent ouvertes.",
       "waiting_many": "Les réservations en ligne à partir de {{time}} sont suspendues tous les jours. Les heures précédentes restent ouvertes.",
@@ -3370,6 +3371,10 @@
         "untilDate": "Réservations en ligne suspendues jusqu'au {{date}}"
       },
       "saveError": "Impossible de suspendre les réservations en ligne",
+      "alreadyPaused": {
+        "title": "Les réservations en ligne sont déjà suspendues",
+        "body": "{{end}}. Enregistrer maintenant ajoute une deuxième suspension."
+      },
       "alreadySaved": "Cette suspension a déjà été enregistrée. Vérifiez l'état en haut de Disponibilité avant de suspendre de nouveau.",
       "savedEarlier": {
         "title": "Les réservations en ligne sont déjà suspendues",
@@ -3499,15 +3504,24 @@
       "appliesToday": "S’applique à toutes les dates couvertes par ces heures, à compter d’aujourd’hui.",
       "appliesFrom": "S’applique à toutes les dates couvertes par ces heures, à compter du {{date}}.",
       "loading": "Chargement des heures habituelles"
+    },
+    "seasonal": {
+      "back": "Retour à Disponibilité",
+      "add": "Ajouter des heures saisonnières",
+      "empty": "Aucune heure saisonnière. Ajoutez des heures pour une saison ou une période, comme l’été.",
+      "loading": "Chargement des heures saisonnières",
+      "compare": "Modifier un service dans toutes les heures",
+      "cantDelete": "Suppression impossible : utilisé {{where}}. Changez d’abord ces jours.",
+      "cantDeleteRules": "Suppression impossible. {{where}}. Changez d’abord ces dates."
     }
   },
   "setup": {
     "hub": {
-      "title": "Configuration de l'établissement",
-      "description": "Tout ce qu'un client peut réserver, et comment cela s'articule. Chaque ligne ouvre l'endroit où vous le modifiez.",
+      "title": "Carte des disponibilités",
+      "description": "Ce qui décide quand les clients peuvent réserver, des horaires et services jusqu'aux tables, chaque ligne ouvrant l'endroit où vous le modifiez.",
       "yourVenue": "votre établissement",
-      "loading": "Chargement de la configuration de l'établissement",
-      "loadError": "Impossible de charger la configuration de l'établissement.",
+      "loading": "Chargement de la carte des disponibilités",
+      "loadError": "Impossible de charger la carte des disponibilités.",
       "groupError": "Impossible de charger « {{group}} ».",
       "groups": {
         "open": "Quand vous êtes ouvert",
@@ -3600,19 +3614,16 @@
         "setUpRegularWeek": "Configurer la semaine habituelle",
         "changeRegularWeek": "Modifier la semaine habituelle…",
         "editSchedule": "Modifier",
-        "compareServices": "Comparer les services",
         "createSchedule": "Ajouter un horaire…",
-        "openCalendar": "Ouvrir le calendrier",
         "openSpecialDates": "Ouvrir Dates spéciales",
         "bookingRules": "Règles de réservation…",
         "openFloorPlan": "Ouvrir le plan de salle",
         "addFloorPlan": "Ajouter un plan de salle",
-        "addAnotherFloorPlan": "Ajouter un autre plan de salle",
         "closeSection": "Fermer à une date…",
         "moveToSection": "Placer dans une section"
       },
       "strip": {
-        "title": "Progression de la configuration de l'établissement",
+        "title": "Progression du lancement",
         "count": "{{done}} sur {{total}}",
         "steps": {
           "venueBasics": "Infos de base de l'établissement",
@@ -3774,7 +3785,7 @@
     "venue": {
       "title": "Établissement",
       "description": "Gérez les jours et les heures où votre établissement accepte les réservations.",
-      "venueSetup": "Configuration de l'établissement"
+      "venueSetup": "Carte des disponibilités"
     },
     "team": {
       "title": "Équipe",

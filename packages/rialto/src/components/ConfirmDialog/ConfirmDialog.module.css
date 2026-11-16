@@ -12,8 +12,8 @@
   cursor: pointer;
   border: none;
   transition:
-    background 0.15s var(--rialto-ease-precision),
-    color 0.15s var(--rialto-ease-precision);
+    background var(--rialto-duration-standard) var(--rialto-ease-precision),
+    color var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .cancel {

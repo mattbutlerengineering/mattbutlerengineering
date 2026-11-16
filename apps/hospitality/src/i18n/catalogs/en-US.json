@@ -301,7 +301,7 @@
       "waitlist": "Waitlist",
       "guests": "Guests",
       "dashboard": "Dashboard",
-      "venueSetup": "Venue Setup",
+      "venueSetup": "Availability map",
       "bookingWidget": "Booking Widget",
       "signOut": "Sign Out",
       "chat": "Chat",
@@ -327,7 +327,7 @@
       "settings": "Settings",
       "admin": "Admin",
       "dashboard": "Dashboard",
-      "setup": "Venue Setup",
+      "setup": "Availability map",
       "hours": "Availability",
       "menus": "Menus",
       "availability": "Availability",
@@ -2166,7 +2166,7 @@
   "availability": {
     "title": "Availability",
     "description": "Your hours, holidays and one-off changes.",
-    "backToSetup": "Venue Setup",
+    "backToSetup": "Availability map",
     "hostNote": "Only managers change hours. For tonight, use the Tonight panel.",
     "loadError": "Couldn't load availability",
     "noVenue": "Select a venue to see its availability.",
@@ -2547,10 +2547,7 @@
       "opens": "Opens",
       "lastSeating": "Last seating",
       "closes": "Closes",
-      "seating": "Seating",
-      "interval": "Every {{minutes}} min",
       "fixedTimes": "Fixed seating times: {{times}}",
-      "booking": "Booking",
       "bookingOptions": {
         "onlinePhone": "Online + phone",
         "onlineOnly": "Online only",
@@ -2598,8 +2595,8 @@
       "strandedRule_other": "{{count}} bookings would fall outside the new hours. Nothing was cancelled. Change the hours, or deal with the bookings first.",
       "conflict": {
         "title": "Someone changed availability first",
-        "theirs_one": "{{summary}} (saved at {{time}}).",
-        "theirs_other": "{{summary}} (saved at {{time}}).",
+        "theirs_one": "{{summary}} (saved by {{who}} at {{time}}).",
+        "theirs_other": "{{summary}} (saved by {{who}} at {{time}}).",
         "theirsUnknown": "Another change was saved after you started editing.",
         "since": "These changes were saved after you started editing, newest first:",
         "earlier_one": "And {{count}} earlier change that isn’t listed.",
@@ -2976,7 +2973,11 @@
       "resume": "Resume",
       "resumed": "Online booking resumed",
       "resumeError": "Couldn't resume online booking",
-      "pillNoEnd": "Online booking paused · No end date",
+      "noEndShort": "No end date",
+      "untilTomorrow": "Until tomorrow",
+      "untilDate": "Until {{date}}",
+      "pill": "Online booking paused · {{end}}",
+      "bannerEnds": "{{end}} — or resume it now.",
       "waiting_one": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
       "waiting_other": "Online seatings from {{time}} are paused every day. Earlier seatings stay open.",
       "waitingNoneToday_one": "Online seatings from {{time}} are paused every day.",
@@ -3282,6 +3283,10 @@
         "untilDate": "Online booking paused until {{date}}"
       },
       "saveError": "Couldn't pause online booking",
+      "alreadyPaused": {
+        "title": "Online booking is already paused",
+        "body": "{{end}}. Saving now adds a second pause."
+      },
       "alreadySaved": "This pause was already saved. Check the status at the top of Availability before pausing again.",
       "savedEarlier": {
         "title": "Online booking is already paused",
@@ -3407,15 +3412,24 @@
       "appliesToday": "Applies to every date these hours cover, starting today.",
       "appliesFrom": "Applies to every date these hours cover, starting {{date}}.",
       "loading": "Loading regular hours"
+    },
+    "seasonal": {
+      "back": "Back to Availability",
+      "add": "Add seasonal hours",
+      "empty": "No seasonal hours. Add hours for a season or a period, such as summer.",
+      "loading": "Loading seasonal hours",
+      "compare": "Edit one service across all hours",
+      "cantDelete": "Can’t delete: used {{where}}. Change those days first.",
+      "cantDeleteRules": "Can’t delete. {{where}}. Change those dates first."
     }
   },
   "setup": {
     "hub": {
-      "title": "Venue Setup",
-      "description": "Everything a guest can book, and how it fits together. Each line opens where you change it.",
+      "title": "Availability map",
+      "description": "What decides when guests can book, from schedules and services down to tables, with each line opening where you change it.",
       "yourVenue": "your venue",
-      "loading": "Loading Venue Setup",
-      "loadError": "Couldn't load Venue Setup.",
+      "loading": "Loading the availability map",
+      "loadError": "Couldn't load the availability map.",
       "groupError": "Couldn't load {{group}}.",
       "groups": {
         "open": "When you're open",
@@ -3498,19 +3512,16 @@
         "setUpRegularWeek": "Set up regular week",
         "changeRegularWeek": "Change regular week…",
         "editSchedule": "Edit",
-        "compareServices": "Compare services",
         "createSchedule": "Add a schedule…",
-        "openCalendar": "Open calendar",
         "openSpecialDates": "Open Special dates",
         "bookingRules": "Booking rules…",
         "openFloorPlan": "Open floor plan",
         "addFloorPlan": "Add floor plan",
-        "addAnotherFloorPlan": "Add another floor plan",
         "closeSection": "Close for a date…",
         "moveToSection": "Move to a section"
       },
       "strip": {
-        "title": "Venue Setup progress",
+        "title": "Launch progress",
         "count": "{{done}} of {{total}}",
         "steps": {
           "venueBasics": "Venue basics",
@@ -3670,7 +3681,7 @@
     "venue": {
       "title": "Venue",
       "description": "Manage the days and times your venue is open for reservations.",
-      "venueSetup": "Venue Setup"
+      "venueSetup": "Availability map"
     },
     "team": {
       "title": "Team",

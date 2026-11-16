@@ -2,11 +2,14 @@ import type { ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Routes, Route, useNavigate } from "react-router";
+import { vibes } from "@mattbutlerengineering/rialto";
 import { DemoLayout, FloatingControls } from "./DemoLayout.js";
 
 vi.mock("@mattbutlerengineering/rialto", async (importOriginal) => ({
   // Real theme store: DemoLayout shares it with the app root.
   useThemeState: (await importOriginal<Record<string, unknown>>()).useThemeState,
+  // Real vibe map: the switcher derives its options from it.
+  vibes: (await importOriginal<Record<string, unknown>>()).vibes,
   GlobalNav: ({ onThemeToggle }: { onThemeToggle?: () => void }) => (
     <nav data-testid="global-nav">
       <button onClick={onThemeToggle} data-testid="theme-toggle">
@@ -360,6 +363,47 @@ describe("FloatingControls", () => {
       target: { value: "presenting" },
     });
     expect(onVibeChange).toHaveBeenCalledWith("presenting");
+  });
+
+  it("offers one vibe option per key of rialto's vibes map, including game", () => {
+    render(
+      <FloatingControls
+        darkMode={false}
+        onDarkModeChange={vi.fn()}
+        rtl={false}
+        onRtlChange={vi.fn()}
+        activeVibe="default"
+        onVibeChange={vi.fn()}
+      />
+    );
+    const select = screen.getByLabelText("Select vibe") as HTMLSelectElement;
+    const values = Array.from(select.options).map((o) => o.value);
+    expect(values).toEqual(Object.keys(vibes));
+    expect(values).toContain("game");
+    expect(Array.from(select.options).map((o) => o.textContent)).toEqual([
+      "Default",
+      "Transacting",
+      "Presenting",
+      "Game",
+    ]);
+  });
+
+  it("calls onVibeChange with game when the game vibe is selected", () => {
+    const onVibeChange = vi.fn();
+    render(
+      <FloatingControls
+        darkMode={false}
+        onDarkModeChange={vi.fn()}
+        rtl={false}
+        onRtlChange={vi.fn()}
+        activeVibe="default"
+        onVibeChange={onVibeChange}
+      />
+    );
+    fireEvent.change(screen.getByLabelText("Select vibe"), {
+      target: { value: "game" },
+    });
+    expect(onVibeChange).toHaveBeenCalledWith("game");
   });
 
   it("renders cookie preferences button when onOpenCookiePrefs is provided", () => {

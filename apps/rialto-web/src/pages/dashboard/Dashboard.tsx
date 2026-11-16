@@ -25,6 +25,7 @@ import {
   Tooltip,
 } from "@mattbutlerengineering/rialto";
 import { DEMO_ROUTES } from "../../data/demo-routes";
+import { deltaColor } from "./delta-color";
 import styles from "./Dashboard.module.css";
 
 /* ── Mock data ──────────────────────────────── */
@@ -249,7 +250,7 @@ export function Dashboard() {
             {/* Lap Progress */}
             <Card variant="elevated">
               <Text variant="label">Lap Progress</Text>
-              <Progress value={72} showValue />
+              <Progress value={72} showValue aria-label="Lap progress" />
               <Stack direction="row" gap="xs" align="center">
                 <Tooltip content="Current position in stint" placement="bottom">
                   <Text variant="caption" as="span">
@@ -352,14 +353,8 @@ export function Dashboard() {
                               align: "right",
                               render: (row) => {
                                 const d = row.delta as number;
-                                const color =
-                                  d > 0
-                                    ? "var(--rialto-success)"
-                                    : d < 0
-                                      ? "var(--rialto-error)"
-                                      : "var(--rialto-text-tertiary)";
                                 return (
-                                  <Text style={{ color, fontWeight: 500 }}>
+                                  <Text style={{ color: deltaColor(d), fontWeight: 500 }}>
                                     {d > 0 ? "+" : ""}
                                     {d}
                                   </Text>

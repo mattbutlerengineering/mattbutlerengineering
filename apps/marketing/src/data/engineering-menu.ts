@@ -7,7 +7,6 @@ export interface EngineeringPage {
 export const ENGINEERING_PAGES: readonly EngineeringPage[] = [
   { label: "Metrics", href: "/metrics" },
   { label: "Shipped", href: "/shipped" },
-  { label: "Weekly", href: "/weekly" },
   { label: "Status", href: "/status" },
   { label: "AI health", href: "/ai-health" },
   { label: "ACMM", href: "/acmm" },

@@ -100,7 +100,7 @@ No stored data changes. Three pieces of client state gain a defined home.
 | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `/availability`                                                 | hub                                                                                                                   |
 | `/availability/hours`                                           | regular hours; `?service=<venueServiceId>` names the service to open                                                  |
-| `/availability/seasonal` · `/new` · `/:scheduleId` · `/compare` | list · new (`?from=<scheduleId>` copies that set; default copies regular hours) · edit · one service across all hours |
+| `/availability/seasonal` · `/new` · `/:scheduleId` · `/compare` | list · new (`?copy=<scheduleId>` copies that set; default copies regular hours) · edit · one service across all hours |
 | `/availability/special-dates` · `/new`                          | list and holidays · the add sheet                                                                                     |
 | `/availability/closures`                                        | closures and pauses                                                                                                   |
 | `/availability/calendar`                                        | `?view=month\|week`, `?date=<YYYY-MM-DD>` opens that day                                                              |

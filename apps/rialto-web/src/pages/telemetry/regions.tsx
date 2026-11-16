@@ -132,7 +132,7 @@ export function StatusStrip({
       </Text>
       <div className={styles.systemMeter}>
         <Meter
-          value={frame ? Math.round(frame.vitals.fuel * 100) : 0}
+          value={frame ? Math.round(frame.vitals.fuel * 100) : null}
           label="SYS"
           size="sm"
           variant="accent"
@@ -225,7 +225,7 @@ export function VitalsRail({ frame, kind }: { frame: TelemetryFrame | null; kind
           <div key={key} className={styles.vitalRow} data-vital={key}>
             {/* Meter renders its own label — a second one here would duplicate
                 the accessible name it derives from that same prop. */}
-            <Meter value={percent} label={label} variant={variant} size="sm" />
+            <Meter value={frame ? percent : null} label={label} variant={variant} size="sm" />
             <ValueSlot kind={kind} width="2.5rem">{`${percent}%`}</ValueSlot>
           </div>
         );

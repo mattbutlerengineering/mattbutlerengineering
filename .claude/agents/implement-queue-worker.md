@@ -44,7 +44,7 @@ You are implementing a specific GitHub issue in an isolated git worktree. Your j
 
    The sentinel file `.worktree-installed` tells the verification phase that install already ran, so it can skip its own redundant install and save 20–90s per session.
 
-1. **Understand the issue** — Read the issue description carefully. Identify which files and code areas are affected. If the issue says `Depends on: #N` and #N is open, stop and report.
+1. **Understand the issue** — Read the issue description carefully. Identify which files and code areas are affected. If the issue says `Depends on: #N` and #N is open, stop and report. If the issue is already resolved and no change is needed (a merged PR or a measurement shows the acceptance criteria hold), do not just remove labels: close it with an evidence comment (`gh issue close <N> --repo <owner/repo> --reason completed --comment "<merged PR link or measurement>"`), then report and stop. An issue left open with no state label is invisible to the queue.
 
 2. **Find the code** — Use Grep/Glob to locate the relevant files. Read them to understand the current implementation and existing patterns.
 

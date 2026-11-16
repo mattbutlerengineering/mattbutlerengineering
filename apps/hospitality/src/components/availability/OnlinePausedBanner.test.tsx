@@ -195,6 +195,28 @@ describe("OnlinePausedBanner for a pause waiting for its time (#8032)", () => {
     expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
   });
 
+  describe("a pause the Pause dialog marked, with an end (#8687)", () => {
+    const dated: DateRule = {
+      ...pause(["online"]),
+      startsOn: "2026-11-14",
+      endsOn: "2026-11-14",
+      origin: "pause",
+    };
+
+    it("says Tonight's pause ends tomorrow and offers Resume", () => {
+      renderAt("2026-11-14T19:00:00-05:00", dated);
+      expect(screen.getByText("Online booking paused")).toBeTruthy();
+      expect(screen.getByText(/Until tomorrow/)).toBeTruthy();
+      expect(screen.queryByText(/No end date/)).toBeNull();
+      expect(screen.getByRole("button", { name: "Resume" })).toBeTruthy();
+    });
+
+    it("names the last date of a dated pause", () => {
+      renderAt("2026-11-14T19:00:00-05:00", { ...dated, endsOn: "2026-11-20" });
+      expect(screen.getByText(/Until .*20/)).toBeTruthy();
+    });
+  });
+
   it("says the pause has no end, since Resume only ever shows one it created open-ended (#8687)", () => {
     renderAt("2026-11-14T19:00:00-05:00");
     expect(screen.getByText("No end date — resume it when you're ready.")).toBeTruthy();

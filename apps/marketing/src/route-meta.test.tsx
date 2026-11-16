@@ -117,10 +117,10 @@ describe("marketing route metadata", () => {
     expect(metaContent('meta[property="og:title"]')).toBe(
       "System Status — Matt Butler Engineering"
     );
-    act(() => go("/weekly"));
-    expect(document.title).toBe("Weekly Information Intake — Matt Butler Engineering");
-    expect(canonicalHref()).toBe(`${ORIGIN}/weekly`);
-    expect(metaContent('meta[property="og:url"]')).toBe(`${ORIGIN}/weekly`);
+    act(() => go("/metrics"));
+    expect(document.title).toBe("Quality Metrics — Matt Butler Engineering");
+    expect(canonicalHref()).toBe(`${ORIGIN}/metrics`);
+    expect(metaContent('meta[property="og:url"]')).toBe(`${ORIGIN}/metrics`);
     expect(metaContent('meta[property="og:title"]')).toBe(document.title);
     expect(metaContent('meta[name="twitter:title"]')).toBe(document.title);
     expect(metaContent('meta[property="og:description"]')).toBe(metaDescription());
@@ -129,7 +129,7 @@ describe("marketing route metadata", () => {
 
   it("finds the router config routes", () => {
     expect(routePaths()).toEqual(
-      expect.arrayContaining(["/", "/status", "/weekly", "/metrics", "/ai-health", "/shipped"])
+      expect.arrayContaining(["/", "/status", "/metrics", "/ai-health", "/shipped"])
     );
   });
 

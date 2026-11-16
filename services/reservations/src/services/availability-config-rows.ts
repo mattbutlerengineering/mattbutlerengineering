@@ -111,6 +111,7 @@ const dateRuleData = (r: DateRule) => ({
   useScheduleId: r.kind === "use_schedule" ? r.useScheduleId : null,
   seriesId: r.seriesId ?? null,
   ...(r.kind === "tonight" ? { source: "tonight" as const } : {}),
+  ...(r.origin === "pause" ? { source: "pause" as const } : {}),
   guestMessage: r.guestMessage ?? null,
   staffNote: r.staffNote ?? null,
   expiresAt: r.kind === "tonight" ? toInstantOrNull(r.expiresAt) : null,

@@ -12,8 +12,6 @@ import {
   formatTimestamp,
   isStale,
   isReportStale,
-  SOURCE_COLORS,
-  SOURCE_LABELS,
 } from "./formatters.js";
 import type { ServiceStatus } from "./formatters.js";
 
@@ -213,41 +211,5 @@ describe("isReportStale", () => {
     const now = new Date("2026-07-30T00:00:00Z");
     const generatedAt = new Date(now.getTime() - 49 * 60 * 60 * 1000).toISOString();
     expect(isReportStale(generatedAt, undefined, now)).toBe(true);
-  });
-});
-
-describe("SOURCE_COLORS", () => {
-  it("maps js-weekly to yellow", () => {
-    expect(SOURCE_COLORS["js-weekly"]).toBe("yellow");
-  });
-
-  it("maps react-weekly to blue", () => {
-    expect(SOURCE_COLORS["react-weekly"]).toBe("blue");
-  });
-
-  it("maps ai-weekly to purple", () => {
-    expect(SOURCE_COLORS["ai-weekly"]).toBe("purple");
-  });
-
-  it("maps other to neutral", () => {
-    expect(SOURCE_COLORS["other"]).toBe("neutral");
-  });
-});
-
-describe("SOURCE_LABELS", () => {
-  it("maps js-weekly to JS Weekly", () => {
-    expect(SOURCE_LABELS["js-weekly"]).toBe("JS Weekly");
-  });
-
-  it("maps react-weekly to React Weekly", () => {
-    expect(SOURCE_LABELS["react-weekly"]).toBe("React Weekly");
-  });
-
-  it("maps ai-weekly to AI Weekly", () => {
-    expect(SOURCE_LABELS["ai-weekly"]).toBe("AI Weekly");
-  });
-
-  it("maps other to Other", () => {
-    expect(SOURCE_LABELS["other"]).toBe("Other");
   });
 });

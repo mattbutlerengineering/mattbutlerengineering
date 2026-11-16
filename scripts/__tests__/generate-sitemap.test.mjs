@@ -45,7 +45,7 @@ describe("committed sitemap", () => {
 
   it("includes marketing routes that were previously missing", () => {
     const xml = readFileSync(resolve(ROOT, SITEMAP_PATH), "utf8");
-    for (const p of ["/status", "/weekly", "/acmm", "/ai-health"]) {
+    for (const p of ["/status", "/acmm", "/ai-health"]) {
       expect(xml).toContain(`<loc>https://mattbutlerengineering.com${p}</loc>`);
     }
   });

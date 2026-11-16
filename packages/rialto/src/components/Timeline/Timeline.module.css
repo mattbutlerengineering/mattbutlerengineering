@@ -32,7 +32,7 @@
   width: 2px;
   transform: translateX(-50%);
   background: var(--rialto-border);
-  transition: background 0.3s var(--rialto-ease-precision);
+  transition: background var(--rialto-duration-slow) var(--rialto-ease-precision);
 }
 
 .item.completed:not(:last-child) .track::after {
@@ -75,9 +75,9 @@
   position: relative;
   z-index: 1;
   transition:
-    border-color 0.3s var(--rialto-ease-precision),
-    background 0.3s var(--rialto-ease-precision),
-    box-shadow 0.3s var(--rialto-ease-precision);
+    border-color var(--rialto-duration-slow) var(--rialto-ease-precision),
+    background var(--rialto-duration-slow) var(--rialto-ease-precision),
+    box-shadow var(--rialto-duration-slow) var(--rialto-ease-precision);
 }
 
 /* Completed: gold filled */
@@ -119,7 +119,7 @@
   font-weight: var(--rialto-weight-medium);
   color: var(--rialto-text-tertiary);
   line-height: var(--rialto-leading-tight);
-  transition: color 0.3s var(--rialto-ease-precision);
+  transition: color var(--rialto-duration-slow) var(--rialto-ease-precision);
 }
 
 .completed .title {

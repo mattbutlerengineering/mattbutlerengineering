@@ -128,8 +128,11 @@ export function layerLabelText(
   layer: Layer,
   t: TFunction,
   format: VenueFormat,
-  sectionNames?: ReadonlyMap<string, string>
+  sectionNames?: ReadonlyMap<string, string>,
+  /** The layer's rule is an online pause, which reads as the banner and pill do. */
+  isPause = false
 ): string {
+  if (isPause) return t("availability.paused.banner");
   switch (layer.kind) {
     case "schedule":
       return layer.scheduleName !== undefined

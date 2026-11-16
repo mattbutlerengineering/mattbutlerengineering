@@ -264,6 +264,33 @@ describe("loadAvailabilitySnapshot", () => {
     expect(resolveDay(snapshot, "2026-11-05").services).toEqual([]);
   });
 
+  it("reads a row stored with source pause as a closure with origin pause", async () => {
+    const { db } = fakeDb({
+      dateRules: [
+        {
+          ...baseRule,
+          id: "r-pause",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          source: "pause",
+        },
+        {
+          ...baseRule,
+          id: "r-manual",
+          targetKind: "booking",
+          bookingTypes: ["online"],
+          source: "manual",
+        },
+      ],
+    });
+    const { snapshot } = await loadAvailabilitySnapshot("v1", "2026-11-05", "2026-11-05", now, {
+      db,
+    });
+    const byId = new Map(snapshot.config.dateRules.map((r) => [r.id, r]));
+    expect(byId.get("r-pause")).toMatchObject({ origin: "pause" });
+    expect(byId.get("r-manual")).not.toHaveProperty("origin");
+  });
+
   it("treats a booking closure with no channels listed as closing every channel", async () => {
     const { db } = fakeDb({
       dateRules: [{ ...baseRule, id: "r-booking", targetKind: "booking" }],

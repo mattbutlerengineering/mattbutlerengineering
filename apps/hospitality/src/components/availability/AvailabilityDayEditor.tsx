@@ -27,6 +27,8 @@ import { describeApiError } from "../../lib/describe-api-error.js";
 import { AvailabilityGuestPreview } from "./AvailabilityGuestPreview.js";
 import { ConflictDialog } from "./ConflictDialog.js";
 import { availabilityProblemOf } from "./conflict-problem.js";
+import { conflictLines } from "./conflict-lines.js";
+import { reapplyDraft, servicesChangedSince } from "./conflict-review.js";
 import { keepParked, parkedName, switchScope, type ParkedEdit } from "./scope-switch.js";
 import {
   buildDraftChanges,
@@ -376,6 +378,35 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
     onFinished(false);
   };
 
+  // Reapply and Start over lay the draft on, or drop it for, the version that won: the one the 409
+  // named, which the reload then brings in as `state` and `day`.
+  const latestRows = edit ? seedServices(state.config, day, edit.scope) : [];
+  const latestLoaded =
+    edit !== null &&
+    (conflict?.seen != null ? state.version >= conflict.seen : state.version > edit.base.version);
+  const draftScope = edit?.scope;
+  // A schedule that was deleted or archived leaves nothing to lay the draft over.
+  const scopeGone =
+    draftScope?.kind === "schedule" &&
+    !state.config.schedules.some((x) => x.id === draftScope.scheduleId && !x.archivedAt);
+  const settleOn = (services: DraftService[]) => {
+    if (!edit) return;
+    setConflict(null);
+    update({
+      ...edit,
+      base: state,
+      services,
+      baseline: latestRows,
+      parked: [],
+      unsaved: [],
+      overridden: [],
+    });
+  };
+  const reapplyMine = () => {
+    if (!edit) return;
+    settleOn(reapplyDraft({ base: edit.baseline, draft: edit.services, latest: latestRows }));
+  };
+
   if (!edit) {
     return (
       <Stack gap="sm">
@@ -638,6 +669,26 @@ export function AvailabilityDayEditor(props: AvailabilityDayEditorProps) {
           isSaving={isPending}
           failure={failure?.messages ?? []}
           stranded={failure?.stranded ?? []}
+          answers={{
+            loaded: latestLoaded,
+            gone: scopeGone,
+            lines: latestLoaded
+              ? conflictLines(
+                  {
+                    gone: false,
+                    replacedBy: null,
+                    renamedTo: null,
+                    ...servicesChangedSince(edit.baseline, latestRows),
+                  },
+                  undefined,
+                  t,
+                  format.locale
+                )
+              : [],
+            onReapply: reapplyMine,
+            onStartOver: () => settleOn(latestRows),
+            ...(onStale ? { onReload: onStale } : {}),
+          }}
           ready={conflict.seen !== null}
           changedAgain={conflict.again}
           onOverwrite={() => void submit(true)}

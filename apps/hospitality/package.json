@@ -106,6 +106,11 @@
       "limit": "2.15 kB"
     },
     {
+      "name": "Pause dialog (lazy chunk: availability-hub A0.2, loaded by the layout's host; crossed the 5 kB raw coverage floor at A0.2b, 5,204 B raw, for the already-paused warning and the pause's end wording)",
+      "path": "dist/assets/PauseOnlineDialog-*.js",
+      "limit": "2.5 kB"
+    },
+    {
       "name": "Availability layout (lazy chunk: the scope every Availability route reads, Undo, and since availability-hub C2.4 the Close and Pause host, which loads both dialogs only when an address names one; 2.06 kB (2,063 B) measured; 2.25 kB (2,254 B) once the layout became the one mount of the blocked-undo dialog, after the dialogs it hosts, and the phone's 44 px targets moved into a module both it and today's page compose)",
       "path": "dist/assets/AvailabilityLayout-*.js",
       "limit": "2.5 kB"
@@ -186,13 +191,13 @@
       "limit": "13.5 kB"
     },
     {
-      "name": "Venue Setup page (lazy chunk)",
-      "path": "dist/assets/SetupPage-*.js",
+      "name": "Availability map page (lazy chunk; Venue Setup before #8864)",
+      "path": "dist/assets/AvailabilityMapPage-*.js",
       "limit": "6 kB"
     },
     {
-      "name": "Regular week line (shared by the availability page and Venue Setup, hoisted)",
-      "path": "dist/assets/RegularWeekLine-*.js",
+      "name": "Regular week line + superseded schedules (shared by the availability page and the Availability map, hoisted; the bundler names the chunk after superseded-schedules since #8864)",
+      "path": "dist/assets/superseded-schedules-*.js",
       "limit": "11 kB"
     },
     {

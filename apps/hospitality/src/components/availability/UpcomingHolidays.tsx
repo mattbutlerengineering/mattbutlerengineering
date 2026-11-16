@@ -62,6 +62,7 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
   const { t } = useTranslation();
   const format = useVenueFormat();
   const headingId = useId();
+  const panelId = useId();
   const sectionRef = useRef<HTMLElement>(null);
   const country = useHolidayCountry();
   const decisions = useHolidayDecisions({
@@ -175,135 +176,147 @@ export function UpcomingHolidays(props: UpcomingHolidaysProps) {
   }
   if (holidays.length === 0) return null;
 
-  if (!expanded) {
-    return (
-      <section
-        ref={sectionRef}
-        tabIndex={-1}
-        className={`${styles.holidays} ${styles.collapsed}`}
-        aria-label={t("availabilitySpecial.holidays.heading")}
-      >
-        <Text variant="body" color="secondary">
-          {undecided.length > 0
-            ? t("availabilitySpecial.holidays.notPlanned", { count: undecided.length })
-            : t("availabilitySpecial.holidays.allPlanned")}
-        </Text>
-        <Button
-          ref={planRef}
-          variant="ghost"
-          size="sm"
-          aria-expanded={false}
-          onClick={() => setExpanded(true)}
-        >
-          {t(
-            isManager && undecided.length > 0
-              ? "availabilitySpecial.holidays.plan"
-              : "availabilitySpecial.holidays.view"
-          )}
-        </Button>
-      </section>
-    );
-  }
+  // One toggle for both states: it keeps its element, so focus stays on it, and it controls the
+  // panel below it (aria-controls names the panel only while the panel is mounted).
+  const toggle = (
+    <Button
+      ref={planRef}
+      variant="ghost"
+      size="sm"
+      aria-expanded={expanded}
+      aria-controls={expanded ? panelId : undefined}
+      onClick={() => setExpanded(!expanded)}
+    >
+      {t(
+        expanded
+          ? "availabilitySpecial.holidays.hide"
+          : isManager && undecided.length > 0
+            ? "availabilitySpecial.holidays.plan"
+            : "availabilitySpecial.holidays.view"
+      )}
+    </Button>
+  );
 
   return (
-    <section ref={sectionRef} tabIndex={-1} className={styles.holidays} aria-labelledby={headingId}>
-      {/* Level 2: the page's h1 is the last heading above it (axe heading-order). */}
+    <section
+      ref={sectionRef}
+      tabIndex={-1}
+      className={styles.holidays}
+      {...(expanded
+        ? { "aria-labelledby": headingId }
+        : { "aria-label": t("availabilitySpecial.holidays.heading") })}
+    >
       <div className={styles.headingRow}>
-        <Heading level={2} size={6} id={headingId}>
-          {t("availabilitySpecial.holidays.heading")}
-        </Heading>
-        <Button variant="ghost" size="sm" aria-expanded onClick={() => setExpanded(false)}>
-          {t("availabilitySpecial.holidays.hide")}
-        </Button>
-      </div>
-      {isManager && usual.length >= 2 && (
-        <div className={styles.usual}>
-          <Text variant="caption" color="secondary">
-            {t("availabilitySpecial.holidays.usualClosedLine", { names: usualNames })}
-          </Text>
-          <Button
-            variant="secondary"
-            size="sm"
-            className={styles.choice}
-            disabled={busy}
-            onClick={() => setConfirming(usual)}
-          >
-            {t("availabilitySpecial.holidays.closeUsual", { count: usual.length })}
-          </Button>
-        </div>
-      )}
-      {byMonth(shown).map(({ month, holidays: inMonth }) => (
-        <div key={month} className={styles.month}>
-          <Heading level={3} size={6}>
-            {format.formatCalendarDate(`${month}-01`, {
-              month: "long",
-              ...(month.startsWith(year) ? {} : { year: "numeric" }),
-            })}
+        {expanded ? (
+          // Level 2: the page's h1 is the last heading above it (axe heading-order).
+          <Heading level={2} size={6} id={headingId}>
+            {t("availabilitySpecial.holidays.heading")}
           </Heading>
-          <ul className={styles.list}>{inMonth.map(line)}</ul>
+        ) : (
+          <Text variant="body" color="secondary">
+            {undecided.length > 0
+              ? t("availabilitySpecial.holidays.notPlanned", { count: undecided.length })
+              : t("availabilitySpecial.holidays.allPlanned")}
+          </Text>
+        )}
+        {toggle}
+      </div>
+      {expanded && (
+        <div id={panelId} className={styles.panel}>
+          {isManager && usual.length >= 2 && (
+            <div className={styles.usual}>
+              <Text variant="caption" color="secondary">
+                {t("availabilitySpecial.holidays.usualClosedLine", { names: usualNames })}
+              </Text>
+              <Button
+                variant="secondary"
+                size="sm"
+                className={styles.choice}
+                disabled={busy}
+                onClick={() => setConfirming(usual)}
+              >
+                {t("availabilitySpecial.holidays.closeUsual", { count: usual.length })}
+              </Button>
+            </div>
+          )}
+          {byMonth(shown).map(({ month, holidays: inMonth }) => (
+            <div key={month} className={styles.month}>
+              <Heading level={3} size={6}>
+                {format.formatCalendarDate(`${month}-01`, {
+                  month: "long",
+                  ...(month.startsWith(year) ? {} : { year: "numeric" }),
+                })}
+              </Heading>
+              <ul className={styles.list}>{inMonth.map(line)}</ul>
+            </div>
+          ))}
+          {!showAll && undecided.length > FIRST_SHOWN && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`${styles.more} ${styles.choice}`}
+              onClick={() => setShowAll(true)}
+            >
+              {t("availabilitySpecial.holidays.showMore", {
+                count: undecided.length - FIRST_SHOWN,
+              })}
+            </Button>
+          )}
+          {decided.length > 0 && (
+            <Collapsible
+              open={decidedOpen}
+              onOpenChange={setDecidedOpen}
+              headingTag="h3"
+              trigger={t("availabilitySpecial.holidays.decided", { count: decided.length })}
+            >
+              <ul className={styles.list}>{decided.map(line)}</ul>
+            </Collapsible>
+          )}
+          {confirmingOne && (
+            <ConfirmDialog
+              open
+              title={t("availabilitySpecial.holidays.closeOneTitle", { name: confirmingOne.name })}
+              description={t("availabilitySpecial.holidays.closeOneDescription", {
+                name: confirmingOne.name,
+                date: confirmingOne.dateLabel,
+              })}
+              confirmLabel={t("availabilitySpecial.holidays.closeOneConfirm", {
+                name: confirmingOne.name,
+              })}
+              cancelLabel={t("availabilitySpecial.holidays.closeManyCancel")}
+              onConfirm={() => {
+                const holiday = confirmingOne;
+                setConfirmingOne(null);
+                // The Closed button that opened the dialog is disabled while this saves.
+                sectionRef.current?.focus();
+                setChanging((prev) => new Set([...prev].filter((d) => d !== holiday.date)));
+                decide(holiday, "closed");
+              }}
+              onCancel={() => setConfirmingOne(null)}
+            />
+          )}
+          {confirming && (
+            <ConfirmDialog
+              open
+              title={t("availabilitySpecial.holidays.closeManyTitle", { count: confirming.length })}
+              description={t("availabilitySpecial.holidays.closeManyDescription", {
+                dates: list.format(confirming.map((h) => `${h.name}, ${h.dateLabel}`)),
+              })}
+              confirmLabel={t("availabilitySpecial.holidays.closeManyConfirm", {
+                count: confirming.length,
+              })}
+              cancelLabel={t("availabilitySpecial.holidays.closeManyCancel")}
+              onConfirm={() => {
+                const names = list.format(confirming.map((h) => h.name));
+                closeMany(confirming, t("availabilitySpecial.holidays.closedToast", { names }));
+                setConfirming(null);
+                // The Close these button that opened the dialog is disabled while this saves.
+                sectionRef.current?.focus();
+              }}
+              onCancel={() => setConfirming(null)}
+            />
+          )}
         </div>
-      ))}
-      {!showAll && undecided.length > FIRST_SHOWN && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className={`${styles.more} ${styles.choice}`}
-          onClick={() => setShowAll(true)}
-        >
-          {t("availabilitySpecial.holidays.showMore", {
-            count: undecided.length - FIRST_SHOWN,
-          })}
-        </Button>
-      )}
-      {decided.length > 0 && (
-        <Collapsible
-          open={decidedOpen}
-          onOpenChange={setDecidedOpen}
-          headingTag="h3"
-          trigger={t("availabilitySpecial.holidays.decided", { count: decided.length })}
-        >
-          <ul className={styles.list}>{decided.map(line)}</ul>
-        </Collapsible>
-      )}
-      {confirmingOne && (
-        <ConfirmDialog
-          open
-          title={t("availabilitySpecial.holidays.closeOneTitle", { name: confirmingOne.name })}
-          description={t("availabilitySpecial.holidays.closeOneDescription", {
-            name: confirmingOne.name,
-            date: confirmingOne.dateLabel,
-          })}
-          confirmLabel={t("availabilitySpecial.holidays.closeOneConfirm", {
-            name: confirmingOne.name,
-          })}
-          cancelLabel={t("availabilitySpecial.holidays.closeManyCancel")}
-          onConfirm={() => {
-            const holiday = confirmingOne;
-            setConfirmingOne(null);
-            setChanging((prev) => new Set([...prev].filter((d) => d !== holiday.date)));
-            decide(holiday, "closed");
-          }}
-          onCancel={() => setConfirmingOne(null)}
-        />
-      )}
-      {confirming && (
-        <ConfirmDialog
-          open
-          title={t("availabilitySpecial.holidays.closeManyTitle", { count: confirming.length })}
-          description={t("availabilitySpecial.holidays.closeManyDescription", {
-            dates: list.format(confirming.map((h) => `${h.name}, ${h.dateLabel}`)),
-          })}
-          confirmLabel={t("availabilitySpecial.holidays.closeManyConfirm", {
-            count: confirming.length,
-          })}
-          cancelLabel={t("availabilitySpecial.holidays.closeManyCancel")}
-          onConfirm={() => {
-            const names = list.format(confirming.map((h) => h.name));
-            closeMany(confirming, t("availabilitySpecial.holidays.closedToast", { names }));
-            setConfirming(null);
-          }}
-          onCancel={() => setConfirming(null)}
-        />
       )}
     </section>
   );

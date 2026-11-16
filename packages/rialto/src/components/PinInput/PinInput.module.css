@@ -35,8 +35,8 @@
   caret-color: var(--rialto-accent);
   outline: none;
   transition:
-    border-color 0.15s var(--rialto-ease-precision),
-    box-shadow 0.15s var(--rialto-ease-precision);
+    border-color var(--rialto-duration-standard) var(--rialto-ease-precision),
+    box-shadow var(--rialto-duration-standard) var(--rialto-ease-precision);
 }
 
 .cell::placeholder {
