@@ -118,15 +118,26 @@ explicitly **unknown** rather than back-filled from `updatedAt`.
 closed**: #3253 (closed 2026-09-23), #3277 (2026-09-23), #3388 (2026-09-25),
 #3389 (2026-08-17). That list is obsolete and should stop being carried forward.
 
-**A human-blocked label the detector cannot see.** #8629 (`marketing: /weekly
+**A human-blocked label _this pass_ cannot see.** #8629 (`marketing: /weekly
 feed still stale since Apr 28, 2026`, open since 2026-11-10) carries
-`needs-human` — a label the repo genuinely uses (`scripts/reconcile-issue-states.mjs:41`,
-and `mbe-feature-drain`'s rung-3 skip list) but which is **absent from
-`scripts/stale-human-blocked.mjs`'s fixed label query** (`ready-for-human`,
-`needs-review`, `blocked`, `agent-failed`, `stealable` — see its header
-comment, lines 7–8). #8629 is invisible to the staleness detector _and_ to this
-pass's own membership query; it surfaced here only because open issues number
-14 in total and could be read by hand. Filed as an issue below.
+`needs-human` — a label the repo genuinely uses
+(`scripts/reconcile-issue-states.mjs:41`, and `mbe-feature-drain`'s rung-3 skip
+list) but which is **absent from the five-label membership query in this
+routine's own Pass 2 prompt** (`ready-for-human`, `needs-review`, `blocked`,
+`agent-failed`, `stealable`). It surfaced here only because open issues number
+14 in total and could be read by hand.
+
+**Corrected after the fact (see the 2026-11-16 postscript below).** This
+paragraph first blamed `scripts/stale-human-blocked.mjs`'s "fixed label query"
+and #8940 was filed on that premise. The premise was wrong:
+`stale-human-blocked.mjs` detects **by behaviour, not by label** (#4043) —
+`findStaleHumanBlockedIssues()` gates only on `isOpen` and `EXCLUDED_LABELS`,
+so it would catch #8629 regardless of its labels. The five-label list in its
+header is documentation _of this pass's query_, not of the script's own
+selection. #8629 has no JSONL row simply because it is ~6 days old against a
+`STALE_THRESHOLD_DAYS = 14` — correct behaviour, not a defect. The durable fix
+is to this routine's prompt, which no PR from this routine may make. See
+Escalations.
 
 ### Friction
 
@@ -286,11 +297,13 @@ not a trend, and this entry does not manufacture one.
 
 ### Top 3 changes
 
-1. **Add `needs-human` to `stale-human-blocked.mjs`'s label query.** One line.
-   Today an entire label's worth of human-blocked work is invisible to the
-   detector that exists to surface it and to this retro's own membership query;
-   #8629 has been unseen since 2026-11-10. Highest flow-per-unit-effort change
-   available this week. → filed as #8940.
+1. **Add `needs-human` to this routine's Pass 2 membership query.** One word.
+   Today an entire label's worth of human-blocked work is invisible to this
+   retro's own label query; #8629 has been unseen since 2026-11-10. Highest
+   flow-per-unit-effort change available this week. → filed as #8940 **on a
+   wrong premise** (see Blockers); the code change #8942 merged is correct as
+   far as it goes, but the fix that matters is in `docs/routines/mbe-weekly-retro.md`
+   and the live trigger. Escalated instead.
 2. **Make routine-liveness durable and correlated.** Persist every
    classification to a metrics JSONL so fleet downtime is a trendable number
    rather than a self-closing issue, and file once when **≥3 routines are
@@ -333,6 +346,43 @@ repos/mattbutlerengineering/mattbutlerengineering/branches/main/protection/requi
    claude.ai account hit a plan/usage limit or a platform incident on
    2026-11-10, since nothing in the repo can distinguish those from a
    configuration change.
+5. **Add `needs-human` to this routine's Pass 2 label query** — the fix #8940
+   was really reaching for. `docs/routines/mbe-weekly-retro.md` is the
+   authoritative prompt, and CLAUDE.md requires the docs PR to merge _before_
+   the live trigger is updated; a routine may not edit its own live trigger, so
+   this run could not do it. **Ask:** merge a one-word change to
+   `docs/routines/mbe-weekly-retro.md`'s Pass 2 (`ready-for-human`,
+   `needs-review`, `blocked`, `agent-failed`, `stealable`, **`needs-human`**),
+   apply it to `trig_01VczFFpZUHi1vTdrfTauMkh`, then `get_trigger` to verify.
+   Until then every weekly retro keeps missing `needs-human`-only issues.
+
+### Postscript — 2026-11-16, after the entry merged
+
+Written by the same run, ~35 min after #8938 merged, on evidence that arrived
+afterwards. Kept as a correction rather than a silent edit.
+
+The implement fleet picked up this entry's issues within the hour: #8940 closed
+via #8942 at 00:40Z, #8941 claimed `in-progress`, #8939 still `ready`. Reading
+#8942's diff showed it changed **one comment line** in
+`scripts/stale-human-blocked.mjs` plus 21 lines of new tests — and that the
+tests pass because the script never filtered on blocker labels at all. That
+falsified the premise of #8940 as filed, which is corrected inline in Blockers
+above and in Top 3 item 1, and added Escalation 5.
+
+Two process lessons, which are this routine's actual subject:
+
+- **A detector's header comment documenting _another_ component's query reads
+  exactly like documentation of its own.** `stale-human-blocked.mjs` opens
+  "detect … by behaviour, not by label (#4043)" and then lists five labels; the
+  list belongs to this retro's Pass 2. This run read the list, not the sentence
+  above it. The grep that would have caught it — for a blocker-label gate in
+  `findStaleHumanBlockedIssues()` — was run only _after_ the issue was filed.
+- **Fleet latency is now shorter than this routine's own verification loop.**
+  With `ready` at 0 (see Throughput) a filed issue is claimed in ~10 minutes
+  and merged in ~17, so a mis-framed issue reaches `main` before its filer has
+  re-read it. Filing against an unverified premise used to cost a stale
+  backlog row; it now costs a merged commit. Read the code before filing, not
+  after.
 
 ---
 
