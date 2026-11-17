@@ -84,6 +84,18 @@ test.describe("SEO metadata", () => {
     });
   }
 
+  for (const route of INDEXABLE_ROUTES) {
+    test(`${route.path} serves its own head in the raw HTML, before any JS runs`, async ({
+      request,
+    }) => {
+      const response = await request.get(route.path);
+      expect(response.status()).toBe(200);
+      const html = await response.text();
+      expect(html).toContain(`<title>${route.title}</title>`);
+      expect(html).toContain(`<link rel="canonical" href="${ORIGIN}${route.path}" />`);
+    });
+  }
+
   test("client-side navigation updates canonical and social tags, then restores home", async ({
     page,
   }) => {
