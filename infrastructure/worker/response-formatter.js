@@ -102,6 +102,10 @@ function addHeaders(response, pathname, nonce, kvPolicy, extraConnectSrc) {
 
   const contentType = headers.get("Content-Type") || "";
   if (contentType.includes("text/html")) {
+    // The body carries a per-request nonce, so an origin validator is wrong:
+    // a 304 would pair a fresh CSP header with the cached body's old nonce.
+    headers.delete("ETag");
+    headers.delete("Last-Modified");
     return new HTMLRewriter().on("script", new NonceInjector(nonce)).transform(
       new Response(response.body, {
         status: response.status,
