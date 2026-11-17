@@ -52,15 +52,40 @@ process.stdout.write(String(calls.length));
   return Number(result.stdout);
 }
 
-/** Classic (parser-blocking) scripts. A module, defer, or async script can run too late. */
+/**
+ * Bodies of classic (parser-blocking) scripts. A module, defer, or async
+ * script can run after the entry module, which is too late for the flag.
+ *
+ * Tag names are case-insensitive, and an end tag may have whitespace or junk
+ * before `>` (`</script >`, `</script\t\n bar>`). A regexp that only accepts
+ * `</script>` misses those, which is the CodeQL bad-tag-filter finding.
+ */
 function classicScripts(html: string): string[] {
-  return [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].flatMap((match) => {
-    const attrs = match[1] ?? "";
-    const body = match[2] ?? "";
-    if (/\btype\s*=\s*["']module["']/i.test(attrs)) return [];
-    if (/\b(?:defer|async)\b/i.test(attrs)) return [];
-    return [body];
-  });
+  const lower = html.toLowerCase();
+  const bodies: string[] = [];
+  let from = 0;
+  while (from < html.length) {
+    const open = lower.indexOf("<script", from);
+    if (open === -1) break;
+    const afterName = open + "<script".length;
+    const boundary = lower[afterName];
+    if (boundary !== undefined && /[a-z0-9]/.test(boundary)) {
+      from = afterName;
+      continue;
+    }
+    const openEnd = lower.indexOf(">", afterName);
+    if (openEnd === -1) break;
+    const attrs = html.slice(afterName, openEnd);
+    const close = lower.indexOf("</script", openEnd + 1);
+    if (close === -1) break;
+    const closeEnd = lower.indexOf(">", close + "</script".length);
+    if (closeEnd === -1) break;
+    const isModule = /\btype\s*=\s*["']module["']/i.test(attrs);
+    const isDeferred = /\b(?:defer|async)\b/i.test(attrs);
+    if (!isModule && !isDeferred) bodies.push(html.slice(openEnd + 1, close));
+    from = closeEnd + 1;
+  }
+  return bodies;
 }
 
 describe("hospitality zod CSP", () => {
@@ -78,12 +103,12 @@ describe("hospitality zod CSP", () => {
     expect(blocking).toHaveLength(1);
   });
 
-  it("treats an uppercase SCRIPT tag as parser-blocking, and skips module and defer", () => {
+  it("closes on a spaced or messy end tag, and skips module and defer", () => {
     const html = [
-      `<SCRIPT>\n${PRELUDE}\n</SCRIPT>`,
-      `<SCRIPT type="module">${PRELUDE}</SCRIPT>`,
-      `<SCRIPT defer>${PRELUDE}</SCRIPT>`,
+      `<SCRIPT>\n${PRELUDE}\n</SCRIPT >`,
+      `<SCRIPT type="module">module-body</SCRIPT>`,
+      `<SCRIPT defer>defer-body</script\t\n bar>`,
     ].join("\n");
-    expect(classicScripts(html).filter((body) => body.includes(PRELUDE))).toHaveLength(1);
+    expect(classicScripts(html)).toEqual([`\n${PRELUDE}\n`]);
   });
 });
