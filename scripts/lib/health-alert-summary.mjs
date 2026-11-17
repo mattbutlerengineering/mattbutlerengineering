@@ -6,7 +6,10 @@
  *
  * Bug: `/health/system`'s coarse (unauthenticated) response only carries
  * `{status}` per subsystem — no `.checks` map (that requires a valid
- * `X-Audit-Token`/Bearer credential; see `AUDIT_TOKEN` in the workflow).
+ * Bearer token matching `HEALTH_TOKEN`; see `isHealthAuthorized()` in
+ * `infrastructure/worker/health/system.js`. `AUDIT_TOKEN` is an unrelated
+ * edge-router rate-limit bypass — see `isAuditRequest()` in
+ * `infrastructure/worker/edge-router.js` — and does not gate this detail).
  * The old inline jq read `.checks` only, so a degraded `services` or
  * `static_sites` subsystem with no `.checks` produced an empty SUMMARY and
  * an empty, useless title ("System health degraded: ", issue #4359).
@@ -76,12 +79,12 @@ export function buildHealthAlertSummary(healthResponseJson) {
   if (failedServices) {
     summary += `Services down: ${failedServices}. `;
   } else if (!OK_STATUSES.has(servicesStatus)) {
-    summary += `Services: ${servicesStatus} (no per-check detail — AUDIT_TOKEN not configured or check data unavailable). `;
+    summary += `Services: ${servicesStatus} (no per-check detail — HEALTH_TOKEN not configured or check data unavailable). `;
   }
   if (failedSites) {
     summary += `Static sites down: ${failedSites}. `;
   } else if (!OK_STATUSES.has(staticSitesStatus)) {
-    summary += `Static sites: ${staticSitesStatus} (no per-check detail — AUDIT_TOKEN not configured or check data unavailable). `;
+    summary += `Static sites: ${staticSitesStatus} (no per-check detail — HEALTH_TOKEN not configured or check data unavailable). `;
   }
   if (ciStatus !== "healthy") {
     summary += `CI: ${ciStatus}. `;
