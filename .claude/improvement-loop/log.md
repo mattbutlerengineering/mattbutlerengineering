@@ -5655,3 +5655,46 @@ Phase 4: no worktrees present (`.claude/worktrees/` doesn't exist), no merge-tra
 **AI issue feedback:** 7 categories collected, 0 unhealthy (>40% rejected); worst is acmm at 33% (1/3, tiny sample) and ci-fix at 14% (8/56); all budgets remain at 3
 **Skill proposals:** 0 (Monday — Friday-only)
 **Threshold notes:** 30d fix-effectiveness 75% (6/8 non-skip verifications) — healthy, no review needed; false-positive rate stayed under 30% for every category with a meaningful sample (acmm's 33% is 1 rejection out of 3 total, not treated as a signal); threshold-tuner auto-adjusted `acmm` 1.693 → 1.72 (headroom)
+
+## 2026-11-17
+
+**queueEfficiency:** composite 0.912 (baseline n/a) — healthy
+**Difficulty distribution:** size:xs:17, size:xl:10, size:s:25, size:m:14, size:l:10
+**Issues filed:** 0
+
+## 2026-11-17 — progress-tracker
+
+### Metrics
+
+| Metric                                         | Value                                                                                           |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Created (7d, audit+ci-fix)                     | 45 (audit 20, ci-fix 25)                                                                        |
+| Closed (7d, audit+ci-fix)                      | 40 (audit 18, ci-fix 22)                                                                        |
+| Closure Rate                                   | 88.9% — green                                                                                   |
+| Time-to-Close (mean)                           | ~73.9h — red (audit 132.2h, ci-fix 26.2h; priority order explains the split)                    |
+| Agent Success                                  | n/a (0 has-pr / 0 agent-failed open at snapshot time)                                           |
+| CI Pass (main, last 20 runs, skipped excluded) | 14/14 = 100% — green                                                                            |
+| Queue (ready)                                  | 1 (#8994, blocked on human merge of #8995) — green                                              |
+| Stale (ready>7d)                               | 0 — green                                                                                       |
+| Blocked (agent-failed)                         | 0 — green                                                                                       |
+| Skipped (agent-skip)                           | 0 — green                                                                                       |
+| Daily Spend (attributed)                       | $0 today; 3 queue-worker sessions dispatched this run, cost_usd not yet recorded                |
+| 7d Spend (attributed)                          | $2.44 + 1,705,947 tokens across 15 queue-worker sessions with unknown cost (#5885 gap persists) |
+| Cost/Issue                                     | ≥$0.06 (floor only — most queue-worker rows lack cost_usd)                                      |
+
+### Patterns
+
+- **Production incident today:** commit 1656784 (#8992) failed post-deploy smoke tests; auto-rollback opened PR #8995. Gated it through this run's review (universal 10/10 + both matched specialists, all pass) but the merge itself was denied by the auto-mode classifier (expected, #6125) — posted the verdict comment and left it "reviewed, green, awaiting human merge." Pushed a notification to the Owner.
+- ci-fix issues close far faster (26h) than audit issues (132h), which is priority-by-design (ci-fix > audit), not a new regression — pulls the combined mean into the red band. No 3-day-consistent pattern confirmed in this log yet, so no meta-improvement issue filed for it this run.
+- CI on `main` fully green (100%, 14/14 non-skipped) over the last 20 runs — stable.
+- Queue is healthy and empty of leaks: `reconcile-issue-states.mjs check` found 0 has-pr leaks, 4 stateless issues (#8988, #8846, #8781, #8691); #8988 was well-specified enough to promote into this run's batch, the two flaky-CI issues (#8846, #8781) were left stateless — both are open-ended flake investigations, a poor fit for a single 45-minute TDD worker without being decomposed first.
+- Cost-attribution gap (#5885) persists: 52/67 `metrics/queue-telemetry.jsonl` rows still lack `cost_usd`; `agentCost` sensor reports tokens but "cost unknown" for queue workers.
+
+### Recommendations
+
+- Owner: merge #8995 by hand to restore production (already pushed as a notification).
+- Consider filing a decompose-first task for the two flaky-workflow issues (#8846 E2E Screenshots 49% failures, #8781 Apps Visual Regression 51.5% failures) rather than leaving them stateless indefinitely — they're well past "new."
+
+### Skipped Issues
+
+None (`agent-skip` is empty).
