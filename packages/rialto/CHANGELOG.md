@@ -1,5 +1,15 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.18
+
+### Patch Changes
+
+- [#9025](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9025) [`3a2c247`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/3a2c247fd1d88f51ddce98b44f7c0e80ad738666) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Footer links keep a 24px minimum hit area (WCAG 2.5.8); they were 20px tall.
+
+- [#9031](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9031) [`24e909e`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/24e909e91b47dd7f9b80539bb30c620cc2d9db47) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - `Table`'s scrolling wrapper is now `role="group"` instead of `role="region"` while it overflows. Every overflowing table shared the "Scrollable content" name, so a page with several tables failed axe `landmark-unique`. The wrapper stays focusable and labelled.
+
+- [#9023](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9023) [`a3fe424`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/a3fe4245e6cc738d37c0b4aa6bca6d93ce86d16a) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Make `Table`'s horizontally scrolling wrapper keyboard-reachable while it actually overflows: it now gets `tabIndex={0}`, `role="region"` and the localized "Scrollable content" label (the same as `ScrollArea`), plus the focus ring. A table that fits adds no tab stop. Previously a table with no sortable columns that scrolled on a narrow screen could not be scrolled from the keyboard (axe `scrollable-region-focusable`).
+
 ## 0.10.17
 
 ### Patch Changes
