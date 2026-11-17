@@ -312,6 +312,7 @@
   "layout": {
     "home": "Home",
     "details": "Details",
+    "notFound": "Page not found",
     "venueFallback": "Hospitality",
     "documentTitle": "{{page}} · {{venue}}",
     "routes": {

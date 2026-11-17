@@ -160,6 +160,7 @@ describe("DashboardLayout", () => {
               <Route path="setup/hours" element={<div>Setup Hours Content</div>} />
               <Route path="chat" element={<ChatPage />} />
               <Route path="availability/*" element={<div>Availability Content</div>} />
+              <Route path="*" element={<div>Not Found Content</div>} />
             </Route>
           </Routes>
         </MemoryRouter>
@@ -355,6 +356,11 @@ describe("DashboardLayout", () => {
     it("sets a different title on the settings route", () => {
       renderLayout("/settings");
       expect(document.title).toBe("Settings · Hospitality");
+    });
+
+    it("titles an unknown top-level path as not found, not as a details page", () => {
+      renderLayout("/nope-xyz");
+      expect(document.title).toBe("Page not found · Hospitality");
     });
   });
 

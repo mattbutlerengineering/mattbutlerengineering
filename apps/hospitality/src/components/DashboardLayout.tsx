@@ -83,7 +83,7 @@ const ROUTE_LABEL_KEYS = {
   "availability/map": "layout.routes.setup",
 } as const;
 
-/** The label for a route segment: under its parent first, then by itself, then as an id. */
+/** The label for a route segment: under its parent first, then by itself, then as an id (or not found at the top level). */
 function routeLabel(t: TFunction, segment: string, parent?: string): string {
   const keys = ROUTE_LABEL_KEYS as Record<
     string,
@@ -93,7 +93,9 @@ function routeLabel(t: TFunction, segment: string, parent?: string): string {
     (parent !== undefined ? keys[`${parent}/${segment}`] : undefined) ??
     keys[segment] ??
     (parent !== undefined ? keys[`${parent}/*`] : undefined);
-  return key ? t(key) : t("layout.details");
+  if (key) return t(key);
+  // A top-level segment with no parent cannot be a record id, so it is a path no route matched.
+  return parent === undefined ? t("layout.notFound") : t("layout.details");
 }
 
 /** The search-hint key cap; a key name, not translatable text. */
