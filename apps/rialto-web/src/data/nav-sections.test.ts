@@ -93,4 +93,15 @@ describe("DEMO_PAGES", () => {
     const ids = DEMO_PAGES.map((p) => p.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it("demo pages are a disjoint population from NAV_SECTIONS component items (#8988)", () => {
+    // The sidebar appends DEMO_PAGES to NAV_SECTIONS; "Browse by category"
+    // renders NAV_SECTIONS only. Those two totals legitimately differ by
+    // DEMO_PAGES.length — pinning disjointness here is what makes that an
+    // intentional population difference rather than an accidental double-count.
+    const navIds = new Set(NAV_SECTIONS.flatMap((s: NavSection) => s.items.map((i) => i.id)));
+    for (const demo of DEMO_PAGES) {
+      expect(navIds.has(demo.id)).toBe(false);
+    }
+  });
 });

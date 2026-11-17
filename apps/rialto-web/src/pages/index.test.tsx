@@ -147,6 +147,11 @@ describe("OverviewPage — Hero, headings, and manifest-driven stats", () => {
     expect(note.textContent).toContain(String(__RIALTO_COMPONENT_COUNT__));
   });
 
+  it("explains that the sidebar's Demos section is additional to these category counts (#8988)", () => {
+    renderOverview();
+    expect(screen.getByText(/sidebar also lists a separate Demos section/i)).toBeInTheDocument();
+  });
+
   it("renders a primary conversion CTA", () => {
     renderOverview();
     expect(screen.getByRole("button", { name: /get started/i })).toBeInTheDocument();

@@ -206,6 +206,17 @@
   padding-inline-end: var(--rialto-space-2xs);
 }
 
+/* ── Section caption (e.g. the Demos disclaimer) ─ */
+
+.sectionCaption {
+  margin: 0;
+  padding: 0 var(--rialto-space-sm) var(--rialto-space-xs);
+  font-family: var(--rialto-font-sans);
+  font-size: var(--rialto-text-xs);
+  line-height: var(--rialto-leading-normal);
+  color: var(--rialto-text-tertiary);
+}
+
 /* ── Section items list ──────────────────────── */
 
 .sectionItems {
