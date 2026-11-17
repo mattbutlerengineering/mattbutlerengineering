@@ -5698,3 +5698,23 @@ Phase 4: no worktrees present (`.claude/worktrees/` doesn't exist), no merge-tra
 ### Skipped Issues
 
 None (`agent-skip` is empty).
+
+## 2026-11-17 — mbe-ui-quality
+
+- **State:** `state.mjs checkout` source `main` — `ui-quality/ledger` did not exist on `origin` and was recreated from `origin/main` @ 94c3cb2. No merge, no conflicts (`merged_main: null`, `resolved: []`).
+- **Builds:** all green — `@mbe/cli...`, `@mattbutlerengineering/rialto`, and all three apps (`@mbe/marketing`, `@mbe/rialto-web`, `@mbe/hospitality`). No `unreachable:build` rows.
+- **Routes:** 9 due / 9 captured / 9 audited (marketing 8, rialto-web 1; hospitality planned 0 — the capture run skipped with "no hospitality routes planned"). 25 rows `unreachable:auth`, never captured. **Unjudged: 0. Dropped tells: 0.**
+- **Browser:** resolved (`/opt/pw-browsers/chromium_headless_shell-1243/...`). No `blocker: no-browser`.
+- **Mechanical findings:** 1 — `bugs/failed-request` on marketing `status` (3 same-origin probes aborted: `/`, `/hospitality/`, `/rialto/`, all `net::ERR_ABORTED`). Same finding as 2026-11-16, already in the ledger, so the plan skipped it. Worth repeating: the page paints all six targets "Operational · Latency: 17ms" while those three probes never completed — the green state is not evidence the probe succeeded.
+- **Judged findings:** 2 raised, both `agent-built/gray-card-border` (marketing `ai-health`, marketing `metrics`). On `ai-health` the size:\*, PR-category and 18 Sensor-Status list rows are each their own 1px outlined box holding a second bordered pill; on `metrics` the five Behavioral-Gates cards each hold a bordered `Pass` pill and the ~20 Recent-AI-Changes entries are separately outlined boxes, while the History table below them uses no per-row border at all. Both **dropped by the plan** under the `stale` calibration stamp, as designed.
+- **Calibration stamp: `stale`.** `calibration-status --model-id claude-opus-5` exited 3; `rate.mjs pairs --calibration` exited 0 but wrote no plan — `docs/ui-quality/calibration.json` still has 0 labelled pairs (Verify-owned: Matt labels ≥ 10 pairs once). Logged, not retried. Re-queried after: still `stale`, so rating proceeded under the "exit 3 that calibration could not clear" branch. **Fourth consecutive fire blocked on this; every agent-built finding stays suppressed until the set is labelled.**
+- **Rating:** 8 pairs judged and recorded (`rate.mjs record`: marketing 0.42, rialto-web 5). The rialto-web hero fold beat both the Chakra and Mantine button-docs references; marketing `shipped` tied Mantine's home; marketing `metrics` and the 404 lost every pair against shadcn and Mantine.
+- **FILING RAN NORMALLY — the 2026-11-16 block is cleared.** `findings.mjs plan` exited 0: the six issues that triggered escalation #8959 (#8883–#8888) no longer carry the `ui-quality` label, and #8959 itself is closed. 40 `ui-quality`-labelled issues read (single page, `hasNextPage: false`); all 40 closed; the only three not in the findings ledger are the three closed escalation issues (#7477, #7908, #8959). 37/37 ledger issue states fetched, all `closed`.
+- **Issues:** 0 created, 0 reopened, 0 commented. Plan was 1 `skip`, 0 `create`, 0 `adopt`. No escalation file written.
+- **Seeds:** 0 appended to `docs/backlog.md`.
+- **Checkpoint:** `chore(ui-quality): checkpoint 2026-11-17` committed on `ui-quality/ledger` and pushed (new branch on `origin`).
+- **Fix PR:** none — no action carried `fix_pr_candidate: true` (the single planned action was a `skip`).
+- **P1 breaches escalated:** 0 — `label:ui-quality:p1 is:open` returned 0 issues; `p1-age.mjs` reported 0 of 0 older than 7 days.
+- **Coverage before this fire:** 100% (136/136 routes), not provisional.
+- **Pipeline bugs:** none.
+- **Observed but not filable (no rubric v1 tell covers it):** marketing `metrics` renders its full ~130-row history table inline at 8022px tall with no pagination or collapse — a usability problem, not a tell. The rialto-web component routes carrying the 375px overflow/overlap observations from 2026-11-15/16 were not due this fire, so none of those could be re-confirmed.
