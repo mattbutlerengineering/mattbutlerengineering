@@ -797,6 +797,11 @@
       export const tableCatalogMeta: unknown;
     </item>
   </file>
+  <file path="src/components/Table/useOverflowingX.ts">
+    <item priority="high">
+      export function useOverflowingX(): readonly [(node: HTMLElement | null) => void, boolean] { /* ... */ }
+    </item>
+  </file>
   </section>
   <section priority="medium" role="Tabs">
   <file path="src/components/Tabs/Tabs.catalog.ts">

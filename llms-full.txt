@@ -2135,6 +2135,23 @@
       },
     } satisfies CatalogMeta;
   </file>
+  <file path="packages/rialto/src/components/Table/useOverflowingX.ts">
+    export function useOverflowingX(): readonly [(node: HTMLElement | null) => void, boolean] {
+      const [node, setNode] = useState<HTMLElement | null>(null);
+      const [overflowing, setOverflowing] = useState(false);
+    
+      useEffect(() => {
+        if (node === null || typeof ResizeObserver === "undefined") return undefined;
+        const measure = () => setOverflowing(node.scrollWidth > node.clientWidth);
+        const observer = new ResizeObserver(measure);
+        observer.observe(node);
+        if (node.firstElementChild) observer.observe(node.firstElementChild);
+        return () => observer.disconnect();
+      }, [node]);
+    
+      return [setNode, overflowing];
+    }
+  </file>
   </section>
   <section priority="medium" role="Tabs">
   <file path="packages/rialto/src/components/Tabs/Tabs.catalog.ts">
