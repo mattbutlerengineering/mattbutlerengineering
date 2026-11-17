@@ -1,8 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Text, Divider, Stack } from "@mattbutlerengineering/rialto";
+import { BASE_TITLE } from "../../document-title";
 import styles from "./ComponentPageLayout.module.css";
-
-const BASE_TITLE = "Rialto — Design System";
 
 export interface ComponentPageLayoutProps {
   /** Component name, e.g. "Button" */

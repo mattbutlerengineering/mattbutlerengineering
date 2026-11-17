@@ -7,6 +7,7 @@ import { OverviewPage } from "./pages/OverviewPage";
 import { PrivacyPage } from "./pages/PrivacyPage";
 import { DemosIndexPage } from "./pages/DemosIndexPage";
 import { PAGE_REGISTRY } from "./data/page-registry";
+import { DocumentTitle } from "./document-title";
 
 /* ── Lazy-loaded demo pages ──────────────────────── */
 const SignIn = lazy(() => import("./pages/auth/SignIn").then((m) => ({ default: m.SignIn })));
@@ -76,6 +77,16 @@ function suspended(Component: React.LazyExoticComponent<React.ComponentType>) {
   );
 }
 
+/** A route element that also titles the tab (component pages title themselves). */
+function titled(title: string, element: React.ReactNode) {
+  return (
+    <>
+      <DocumentTitle title={title} />
+      {element}
+    </>
+  );
+}
+
 /* ── Component routes derived from PAGE_REGISTRY ── */
 const componentRoutes: RouteObject[] = PAGE_REGISTRY.map((entry) => {
   // Strip the leading slash to get the relative path for React Router
@@ -105,7 +116,7 @@ export const routeTree: RouteObject[] = [
       { index: true, element: <OverviewPage /> },
       // Demos index lives in the showcase shell (sidebar + footer, #8641); the
       // demo pages themselves stay full-page under DemoLayout.
-      { path: "demos", element: <DemosIndexPage /> },
+      { path: "demos", element: titled("Demos", <DemosIndexPage />) },
       ...componentRoutes,
     ],
   },
@@ -114,30 +125,38 @@ export const routeTree: RouteObject[] = [
     path: "demos",
     element: suspended(DemoLayout),
     children: [
-      { path: "login", element: suspended(SignIn) },
-      { path: "signup", element: suspended(SignUp) },
-      { path: "session-expired", element: suspended(SessionExpired) },
-      { path: "dashboard", element: suspended(Dashboard) },
-      { path: "teams/new", element: suspended(TeamCreate) },
-      { path: "layouts", element: suspended(LayoutDemo) },
-      { path: "telemetry", element: suspended(Telemetry) },
-      { path: "auth-flow", element: suspended(AuthFlowPage) },
-      { path: "visual-test", element: suspended(VisualTest) },
+      { path: "login", element: titled("Sign In", suspended(SignIn)) },
+      { path: "signup", element: titled("Sign Up", suspended(SignUp)) },
+      { path: "session-expired", element: titled("Session Expired", suspended(SessionExpired)) },
+      { path: "dashboard", element: titled("Pit Wall", suspended(Dashboard)) },
+      { path: "teams/new", element: titled("Team Create", suspended(TeamCreate)) },
+      { path: "layouts", element: titled("Layout Demo", suspended(LayoutDemo)) },
+      { path: "telemetry", element: titled("Telemetry HUD", suspended(Telemetry)) },
+      { path: "auth-flow", element: titled("Auth Flow", suspended(AuthFlowPage)) },
+      { path: "visual-test", element: titled("Visual Test", suspended(VisualTest)) },
       {
         element: suspended(DriverProvider),
         children: [
-          { path: "drivers", element: suspended(DriverList) },
-          { path: "drivers/new", element: suspended(DriverCreate) },
-          { path: "drivers/:id", element: suspended(DriverRead) },
-          { path: "drivers/:id/edit", element: suspended(DriverUpdate) },
+          { path: "drivers", element: titled("Drivers CRUD", suspended(DriverList)) },
+          { path: "drivers/new", element: titled("New Driver", suspended(DriverCreate)) },
+          { path: "drivers/:id", element: titled("Driver", suspended(DriverRead)) },
+          { path: "drivers/:id/edit", element: titled("Edit Driver", suspended(DriverUpdate)) },
         ],
       },
     ],
   },
   // Standalone visual-test
-  { path: "visual-test", element: <main>{suspended(VisualTest)}</main> },
+  {
+    path: "visual-test",
+    element: (
+      <main>
+        <DocumentTitle title="Visual Test" />
+        {suspended(VisualTest)}
+      </main>
+    ),
+  },
   // Privacy policy
-  { path: "privacy", element: <PrivacyPage /> },
+  { path: "privacy", element: titled("Privacy Policy", <PrivacyPage />) },
   // Catch-all
   { path: "*", element: <Navigate to="/" replace /> },
 ];
