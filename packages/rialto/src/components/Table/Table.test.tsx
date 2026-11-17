@@ -305,12 +305,14 @@ describe("Table horizontal scroll region", () => {
     expect(wrapper).not.toHaveAttribute("role");
   });
 
-  it("becomes a focusable, labelled region once it overflows, so keyboard users can scroll it", () => {
+  it("becomes a focusable, labelled group once it overflows, so keyboard users can scroll it", () => {
     const wrapper = renderTable();
     setWidths(wrapper, 520, 280);
     act(() => notifyResize());
     expect(wrapper).toHaveAttribute("tabindex", "0");
-    expect(screen.getByRole("region", { name: "Scrollable content" })).toBe(wrapper);
+    expect(screen.getByRole("group", { name: "Scrollable content" })).toBe(wrapper);
+    // A group, not a region: several tables on a page must not each add a page landmark.
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
   });
 
   it("stops being a tab stop when it no longer overflows", () => {

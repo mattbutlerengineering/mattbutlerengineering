@@ -184,7 +184,7 @@ function TableInner<T extends Record<string, unknown>>(
       // A scrolling region must be reachable by keyboard; only while it scrolls,
       // so a table that fits adds no tab stop. Spread: the attributes are conditional.
       {...(scrollable
-        ? { tabIndex: 0, role: "region", "aria-label": messages.scrollableContent }
+        ? { tabIndex: 0, role: "group", "aria-label": messages.scrollableContent }
         : {})}
     >
       <table className={cn(styles.table, densityClass)}>
