@@ -122,6 +122,11 @@ describe("HistoryPanel", () => {
     expect(screen.getByPlaceholderText("Search prompts...")).toBeDefined();
   });
 
+  it("should give the search input an accessible name", () => {
+    render(<HistoryPanel {...defaultProps} entries={[createMockEntry()]} />);
+    expect(screen.getByRole("textbox", { name: "Search prompts" })).toBeDefined();
+  });
+
   it("should show entry count", () => {
     const entries = [createMockEntry({ id: "1" }), createMockEntry({ id: "2" })];
     render(<HistoryPanel {...defaultProps} entries={entries} />);
