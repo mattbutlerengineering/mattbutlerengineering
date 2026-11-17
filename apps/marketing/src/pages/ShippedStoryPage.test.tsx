@@ -18,6 +18,13 @@ const mockData = vi.hoisted(() => ({ feature: undefined as unknown }));
 vi.mock("../data/shipped-features.js", () => ({
   findShippedFeature: () => mockData.feature,
 }));
+const videoData = vi.hoisted(() => ({ video: undefined as unknown }));
+vi.mock("../data/shipped-videos.js", () => ({
+  findShippedVideo: () => videoData.video,
+}));
+vi.mock("../components/ShippedVideo.js", () => ({
+  ShippedVideo: () => <div data-testid="promo-video" />,
+}));
 vi.mock("./NotFoundPage.js", () => ({ NotFoundPage: () => <h1>404</h1> }));
 
 import { ShippedStoryPage } from "./ShippedStoryPage.js";
@@ -80,6 +87,7 @@ const renderPage = () =>
 describe("ShippedStoryPage", () => {
   beforeEach(() => {
     mockData.feature = feature();
+    videoData.video = undefined;
   });
 
   it("renders the NotFound page for an unknown slug", () => {
@@ -135,5 +143,19 @@ describe("ShippedStoryPage", () => {
     const h2s = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(h2s).toEqual(["Decomposition", "Pull requests"]);
     expect(screen.queryByRole("link", { name: /see it live/i })).toBeNull();
+  });
+
+  it("shows a Watch the demo section right after the subtitle when a video exists", () => {
+    videoData.video = { slug: "demo" };
+    renderPage();
+    expect(screen.getByTestId("promo-video")).toBeInTheDocument();
+    const h2s = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(h2s[0]).toBe("Watch the demo");
+  });
+
+  it("omits the video section when there is no video", () => {
+    renderPage();
+    expect(screen.queryByTestId("promo-video")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Watch the demo" })).toBeNull();
   });
 });

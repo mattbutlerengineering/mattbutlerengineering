@@ -656,6 +656,58 @@
       return SHIPPED_FEATURES.find((feature) => feature.slug === slug);
     }
   </file>
+  <file path="src/data/shipped-videos.ts">
+    export interface ShippedVideo {
+      readonly slug: string;
+      /** Same-origin path under `/videos/`, always an `.mp4`. */
+      readonly src: string;
+      readonly title: string;
+      /** Narration text, shown under the player for accessibility. */
+      readonly transcript: string;
+      /** Calendar date, `YYYY-MM-DD`. */
+      readonly recordedAt: string;
+    }
+    export interface ShippedVideosFile {
+      readonly videos: readonly ShippedVideo[];
+    }
+    function isObj(value: unknown): value is Record<string, unknown> {
+      return typeof value === "object" && value !== null && !Array.isArray(value);
+    }
+    function isShippedVideo(value: unknown): value is ShippedVideo {
+      if (!isObj(value)) return false;
+      return (
+        isNonEmptyString(value.slug) &&
+        isNonEmptyString(value.title) &&
+        isNonEmptyString(value.transcript) &&
+        isNonEmptyString(value.recordedAt) &&
+        !Number.isNaN(Date.parse(value.recordedAt)) &&
+        isNonEmptyString(value.src) &&
+        VIDEO_SRC.test(value.src) &&
+        !value.src.includes("..")
+      );
+    }
+    export function isShippedVideosFile(value: unknown): value is ShippedVideosFile {
+      return isObj(value) && Array.isArray(value.videos) && value.videos.every(isShippedVideo);
+    }
+    export function selectShippedVideos(raw: unknown): readonly ShippedVideo[] {
+      if (!isShippedVideosFile(raw)) return [];
+      return [...raw.videos].sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt));
+    }
+    export function findShippedVideoIn(
+      videos: readonly ShippedVideo[],
+      slug: string
+    ): ShippedVideo | undefined {
+      return videos.find((video) => video.slug === slug);
+    }
+    export function latestShippedVideoIn(videos: readonly ShippedVideo[]): ShippedVideo | undefined {
+      return videos[0];
+    }
+    export const SHIPPED_VIDEOS: readonly ShippedVideo[] = selectShippedVideos(committedVideos);
+    export const findShippedVideo = (slug: string): ShippedVideo | undefined =>
+      findShippedVideoIn(SHIPPED_VIDEOS, slug);
+    export const latestShippedVideo = (): ShippedVideo | undefined =>
+      latestShippedVideoIn(SHIPPED_VIDEOS);
+  </file>
   <file path="src/data/status-probes.ts">
     export const STATUS_SERVICES = [
       { name: "Users API", url: "/api/v1/users/health" },

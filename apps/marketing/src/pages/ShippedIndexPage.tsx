@@ -2,6 +2,8 @@ import { Link } from "react-router";
 import { Card, Badge, Heading, Text } from "@mattbutlerengineering/rialto";
 import { SHIPPED_FEATURES } from "../data/shipped-features.js";
 import type { ShippedFeature } from "../data/shipped-features.js";
+import { latestShippedVideo } from "../data/shipped-videos.js";
+import { ShippedVideo } from "../components/ShippedVideo.js";
 import snapshot from "../data/shipped-features.json";
 import { formatDate, formatWallClock } from "../utils/formatters.js";
 import styles from "./ShippedIndexPage.module.css";
@@ -36,6 +38,7 @@ function FeatureCard({ feature }: { readonly feature: ShippedFeature }) {
 }
 
 export function ShippedIndexPage() {
+  const latestVideo = latestShippedVideo();
   return (
     <section className={styles.container}>
       <Heading level={1} className={styles.heading}>
@@ -49,6 +52,16 @@ export function ShippedIndexPage() {
         <time dateTime={snapshot.generatedAt}>{formatDate(snapshot.generatedAt)}</time>; not a live
         feed.
       </Text>
+
+      {latestVideo !== undefined && (
+        <section className={styles.latest}>
+          <Heading level={2}>Latest release</Heading>
+          <ShippedVideo video={latestVideo} />
+          <Link to={`/shipped/${latestVideo.slug}`} className={styles.link}>
+            {latestVideo.title}
+          </Link>
+        </section>
+      )}
 
       {SHIPPED_FEATURES.length === 0 ? (
         <Text className={styles.empty}>Nothing has shipped yet. Check back soon.</Text>
