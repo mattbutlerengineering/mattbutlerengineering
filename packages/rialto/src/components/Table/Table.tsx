@@ -2,6 +2,7 @@ import React, { forwardRef, useState, useCallback, type ReactNode } from "react"
 import { cn } from "../../utils/class-composer";
 import styles from "./Table.module.css";
 import { useRialtoLocale } from "../../i18n/RialtoLocaleProvider";
+import { useOverflowingX } from "./useOverflowingX";
 
 /* ── Types ───────────────────────────────────── */
 type SortDirection = "asc" | "desc";
@@ -124,6 +125,15 @@ function TableInner<T extends Record<string, unknown>>(
 ) {
   const { messages } = useRialtoLocale();
   const emptyMessage = emptyMessageProp ?? messages.noData;
+  const [setScrollNode, scrollable] = useOverflowingX();
+  const setWrapperRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      setScrollNode(node);
+      if (typeof ref === "function") ref(node);
+      else if (ref) ref.current = node;
+    },
+    [ref, setScrollNode]
+  );
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<SortDirection>("asc");
 
@@ -168,7 +178,15 @@ function TableInner<T extends Record<string, unknown>>(
   };
 
   return (
-    <div ref={ref} className={cn(styles.wrapper, className)}>
+    <div
+      ref={setWrapperRef}
+      className={cn(styles.wrapper, className)}
+      // A scrolling region must be reachable by keyboard; only while it scrolls,
+      // so a table that fits adds no tab stop. Spread: the attributes are conditional.
+      {...(scrollable
+        ? { tabIndex: 0, role: "region", "aria-label": messages.scrollableContent }
+        : {})}
+    >
       <table className={cn(styles.table, densityClass)}>
         <thead className={styles.thead}>
           <tr>
