@@ -4,10 +4,13 @@ import { sentryVitePlugin } from "@sentry/vite-plugin";
 import { VitePWA } from "vite-plugin-pwa";
 import { resolve } from "path";
 import { workboxPrecacheGlobPatterns, workboxRuntimeCaching } from "./pwa/workbox-options.js";
+import { routeHtmlPlugin } from "./pwa/route-html.js";
+import { ROUTE_META } from "./src/utils/route-meta-data.js";
 
 export default defineConfig({
   plugins: [
     react(),
+    routeHtmlPlugin(ROUTE_META),
     VitePWA({
       injectRegister: "script-defer",
       registerType: "autoUpdate",

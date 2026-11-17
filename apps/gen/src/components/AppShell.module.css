@@ -39,6 +39,8 @@
   cursor: pointer;
   color: inherit;
   font: inherit;
+  /* 32px matches .panelToggle and clears the 24px WCAG 2.2 target minimum. */
+  min-block-size: 32px;
 }
 
 .logoButton > span {

@@ -13354,6 +13354,23 @@
   </file>
   </section>
   <section priority="medium" role="pwa">
+  <file path="apps/marketing/pwa/route-html.ts">
+    <item priority="medium">
+      function replaceOnce(html: string, pattern: RegExp, replacement: string, label: string): string { /* ... */ }
+    </item>
+    <item priority="medium">
+      function metaTag(attribute: "name" | "property", key: string): RegExp { /* ... */ }
+    </item>
+    <item priority="high">
+      export function prerenderableRoutes(routes: readonly RouteMeta[]): readonly RouteMeta[] { /* ... */ }
+    </item>
+    <item priority="high">
+      export function renderRouteHtml(shell: string, meta: RouteMeta): string { /* ... */ }
+    </item>
+    <item priority="high">
+      export function routeHtmlPlugin(routes: readonly RouteMeta[]): Plugin { /* ... */ }
+    </item>
+  </file>
   <file path="apps/marketing/pwa/workbox-options.ts">
     <item priority="low">
       interface ServiceWorkerRuntimeRoute {
@@ -31727,7 +31744,7 @@
       ): boolean { /* ... */ }
     </item>
   </file>
-  <file path="apps/marketing/src/utils/route-meta.ts">
+  <file path="apps/marketing/src/utils/route-meta-data.ts">
     <item priority="low">
       interface RouteMeta {
         pattern: string;
@@ -31736,6 +31753,14 @@
         indexable?: boolean;
       }
     </item>
+    <item priority="high">
+      export const SITE_ORIGIN: unknown;
+    </item>
+    <item priority="high">
+      export const ROUTE_META: readonly RouteMeta[];
+    </item>
+  </file>
+  <file path="apps/marketing/src/utils/route-meta.ts">
     <item priority="high">
       interface HeadSnapshot {
         title: string;
