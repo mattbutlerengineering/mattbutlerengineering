@@ -54,7 +54,7 @@ process.stdout.write(String(calls.length));
 
 /** Classic (parser-blocking) scripts. A module, defer, or async script can run too late. */
 function classicScripts(html: string): string[] {
-  return [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g)].flatMap((match) => {
+  return [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi)].flatMap((match) => {
     const attrs = match[1] ?? "";
     const body = match[2] ?? "";
     if (/\btype\s*=\s*["']module["']/i.test(attrs)) return [];
@@ -76,5 +76,14 @@ describe("hospitality zod CSP", () => {
     const html = readFileSync(INDEX_HTML, "utf8");
     const blocking = classicScripts(html).filter((body) => body.includes(PRELUDE));
     expect(blocking).toHaveLength(1);
+  });
+
+  it("treats an uppercase SCRIPT tag as parser-blocking, and skips module and defer", () => {
+    const html = [
+      `<SCRIPT>\n${PRELUDE}\n</SCRIPT>`,
+      `<SCRIPT type="module">${PRELUDE}</SCRIPT>`,
+      `<SCRIPT defer>${PRELUDE}</SCRIPT>`,
+    ].join("\n");
+    expect(classicScripts(html).filter((body) => body.includes(PRELUDE))).toHaveLength(1);
   });
 });
