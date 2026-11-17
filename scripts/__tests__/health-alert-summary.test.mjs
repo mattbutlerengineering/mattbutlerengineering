@@ -117,6 +117,26 @@ describe("buildHealthAlertSummary", () => {
     expect(result.title).toContain("Deploys: unknown");
   });
 
+  it("attributes missing per-check detail to HEALTH_TOKEN, not AUDIT_TOKEN (#8975)", () => {
+    // Per-check detail on /health/system is gated by isHealthAuthorized()
+    // in infrastructure/worker/health/system.js, which checks a Bearer
+    // token against env.HEALTH_TOKEN — AUDIT_TOKEN (X-Audit-Token) is an
+    // unrelated edge-router rate-limit bypass (infrastructure/worker/edge-router.js).
+    // Blaming AUDIT_TOKEN here sends investigators chasing the wrong secret.
+    const result = buildHealthAlertSummary({
+      status: "unhealthy",
+      subsystems: {
+        services: { status: "unhealthy" },
+        static_sites: { status: "ok" },
+        ci: { status: "healthy" },
+        deploys: { status: "healthy" },
+      },
+    });
+
+    expect(result.title).toContain("HEALTH_TOKEN");
+    expect(result.title).not.toContain("AUDIT_TOKEN");
+  });
+
   it("truncates the title to 256 characters", () => {
     const longChecks = Object.fromEntries(
       Array.from({ length: 50 }, (_, i) => [`service-${i}-with-a-long-name`, { status: "error" }])

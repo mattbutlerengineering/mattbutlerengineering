@@ -79,6 +79,18 @@ describe("ShowcaseSidebar", () => {
     expect(screen.getByText("Sign In")).toBeInTheDocument();
   });
 
+  it("marks the Demos section as a separate population from the component categories (#8988)", () => {
+    renderSidebar();
+
+    // The sidebar sums to more than "Browse by category" because it appends a
+    // synthetic Demos section on top of the same NAV_SECTIONS the browse page
+    // renders. Without this note, summing every visible section count reads
+    // as a disagreement with the browse-by-category total.
+    expect(
+      screen.getByText(/full-page demos.*not (?:one of the )?component categories/i)
+    ).toBeInTheDocument();
+  });
+
   it("collapses section on click", () => {
     renderSidebar();
 

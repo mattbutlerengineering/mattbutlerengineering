@@ -275,6 +275,11 @@ export function ShowcaseSidebar({
           {visibleSections.map((section) => {
             const isExpanded = isFiltering || !collapsed.has(section.label);
             const sectionId = `sidebar-section-${section.label.toLowerCase().replace(/\s+/g, "-")}`;
+            // Demos is appended on top of the component-category sections
+            // above (see allSections); without this note, summing every
+            // visible section count looks like a disagreement with the
+            // "Browse by category" total, which counts categories only (#8988).
+            const isDemos = section.label === "Demos";
 
             return (
               <div key={section.label} className={styles.section}>
@@ -291,6 +296,13 @@ export function ShowcaseSidebar({
                   <span className={styles.sectionLabel}>{section.label}</span>
                   <span className={styles.sectionCount}>{section.items.length}</span>
                 </button>
+
+                {isExpanded && isDemos && (
+                  <p className={styles.sectionCaption}>
+                    Full-page demos — not component categories, so this count isn&apos;t part of the
+                    totals above.
+                  </p>
+                )}
 
                 {isExpanded && (
                   <ul id={sectionId} className={styles.sectionItems}>
