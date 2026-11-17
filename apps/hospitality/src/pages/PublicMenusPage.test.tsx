@@ -70,4 +70,11 @@ describe("PublicMenusPage", () => {
     await waitFor(() => expect(screen.getByText("Menu not found")).toBeTruthy());
     expect(screen.queryByText(/by-slug/)).toBeNull();
   });
+
+  it("titles the not-found state with the page's h1, since nothing else on it is a heading", async () => {
+    mockGetBySlug.mockRejectedValue(new Error("404"));
+    mockListPublic.mockRejectedValue(new Error("404"));
+    renderPage("/menu/grand");
+    expect(await screen.findByRole("heading", { level: 1, name: "Menu not found" })).toBeTruthy();
+  });
 });
