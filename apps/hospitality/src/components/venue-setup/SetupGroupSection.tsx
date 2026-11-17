@@ -1,9 +1,9 @@
-import { useId, type ReactNode } from "react";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { Heading, Skeleton, Text } from "@mattbutlerengineering/rialto";
 import { ErrorRetryBanner } from "../ErrorRetryBanner.js";
 import { describeApiError } from "../../lib/describe-api-error.js";
-import type { SetupAction, SetupGroup, SetupNode } from "./setup-tree.js";
+import type { SetupAction, SetupGroup } from "./setup-tree.js";
 import { SetupNodeRow } from "./SetupNodeRow.js";
 import styles from "./VenueSetup.module.css";
 
@@ -12,7 +12,6 @@ export interface SetupGroupSectionProps {
   readonly isManager: boolean;
   readonly onAction: (action: SetupAction) => void;
   readonly onRetry: () => void;
-  readonly renderExtra?: (node: SetupNode) => ReactNode;
 }
 
 /** Schedules decide first which dates and times exist, then the floor decides who fits. */
@@ -24,7 +23,7 @@ const GROUP_STEP: Readonly<Record<SetupGroup["id"], number>> = { open: 1, sit: 2
  * round.
  */
 export function SetupGroupSection(props: SetupGroupSectionProps) {
-  const { group, isManager, onAction, onRetry, renderExtra } = props;
+  const { group, isManager, onAction, onRetry } = props;
   const { t } = useTranslation();
   const headingId = useId();
   const { load } = group;
@@ -57,13 +56,7 @@ export function SetupGroupSection(props: SetupGroupSectionProps) {
       {load.status === "ready" && (
         <ul className={styles.tree}>
           {group.nodes.map((node) => (
-            <SetupNodeRow
-              key={node.id}
-              node={node}
-              isManager={isManager}
-              onAction={onAction}
-              renderExtra={renderExtra}
-            />
+            <SetupNodeRow key={node.id} node={node} isManager={isManager} onAction={onAction} />
           ))}
         </ul>
       )}
