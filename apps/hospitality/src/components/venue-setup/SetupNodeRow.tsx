@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Badge, Button, Text } from "@mattbutlerengineering/rialto";
 import type { SetupAction, SetupNode, SetupNodeKind } from "./setup-tree.js";
@@ -18,6 +18,8 @@ export interface SetupNodeRowProps {
   readonly node: SetupNode;
   readonly isManager: boolean;
   readonly onAction: (action: SetupAction) => void;
+  /** Extra content under the node's own line (the saved regular-week line on a schedule). */
+  readonly renderExtra?: (node: SetupNode) => ReactNode;
   readonly text?: SetupNodeText;
   /** A node under another: its actions are quiet ghost buttons beneath the top-level door. */
   readonly nested?: boolean;
@@ -28,7 +30,7 @@ export interface SetupNodeRowProps {
  * disclosure (a button with `aria-expanded`); pressing the name expands it and never navigates.
  */
 export function SetupNodeRow(props: SetupNodeRowProps) {
-  const { node, isManager, onAction, nested = false } = props;
+  const { node, isManager, onAction, renderExtra, nested = false } = props;
   const { t } = useTranslation();
   const own = useSetupNodeText();
   const text = props.text ?? own;
@@ -116,6 +118,7 @@ export function SetupNodeRow(props: SetupNodeRowProps) {
           {t("setup.hub.floorPlanHint")}
         </Text>
       )}
+      {renderExtra?.(node)}
       {hasChildren && open && (
         <ul id={listId} className={styles.children}>
           {node.children.map((child) => (
@@ -124,6 +127,7 @@ export function SetupNodeRow(props: SetupNodeRowProps) {
               node={child}
               isManager={isManager}
               onAction={onAction}
+              renderExtra={renderExtra}
               text={text}
               nested
             />

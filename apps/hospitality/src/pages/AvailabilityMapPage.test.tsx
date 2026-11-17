@@ -286,47 +286,6 @@ describe("Availability map: schedules and services", () => {
     expect(within(week).getByRole("listitem", { name: /Dinner/ })).toBeInTheDocument();
   });
 
-  it("lists the regular week once, as its services, with no summary line repeating them", () => {
-    setConfig(WEEK);
-    renderPage();
-    const schedules = screen.getByRole("listitem", { name: /^Schedules/ });
-    expect(within(schedules).getByRole("listitem", { name: /Lunch/ })).toBeInTheDocument();
-    expect(within(schedules).queryByText(/^Regular week:/)).not.toBeInTheDocument();
-  });
-
-  it("dates a regular week saved to start later, so it never reads as the week in force", () => {
-    setConfig({
-      ...WEEK,
-      schedules: [
-        { id: "sch-reg", name: "Regular week", kind: "regular", isRegular: false },
-        { id: "sch-winter", name: "Winter week", kind: "regular", isRegular: true },
-      ],
-      scheduleServices: [
-        ...WEEK.scheduleServices,
-        { ...WEEK.scheduleServices[0]!, id: "ss-3", scheduleId: "sch-winter" },
-      ],
-      assignments: [
-        {
-          id: "as-1",
-          scheduleId: "sch-reg",
-          weekdays: [0, 1, 2, 3, 4, 5, 6],
-          precedence: 0,
-          endsOn: "2026-11-30",
-        },
-        {
-          id: "as-2",
-          scheduleId: "sch-winter",
-          weekdays: [0, 1, 2, 3, 4, 5, 6],
-          precedence: 0,
-          startsOn: "2026-12-01",
-        },
-      ],
-    });
-    renderPage();
-    const winter = screen.getByRole("listitem", { name: /Winter week/ });
-    expect(within(winter).getByText(/^From /)).toBeInTheDocument();
-  });
-
   it("updates the node when the config changes after an editor saves", () => {
     const view = renderPage();
     expect(screen.getByRole("button", { name: "Set up regular week" })).toBeInTheDocument();

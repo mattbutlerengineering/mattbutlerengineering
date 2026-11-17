@@ -102370,8 +102370,7 @@
       schedule: Schedule,
       config: AvailabilityConfig,
       services: ReadonlyMap<string, { readonly name: string; readonly position: number }>,
-      manager: boolean,
-      serviceDate: string
+      manager: boolean
     ): SetupNode {
       const assignments = config.assignments.filter((a) => a.scheduleId === schedule.id);
       const covered =
@@ -102421,15 +102420,11 @@
       const dated = assignments.filter((a) => a.startsOn || a.endsOn);
       const starts = dated.map((a) => a.startsOn).filter((d): d is string => !!d);
       const ends = dated.map((a) => a.endsOn);
-      const startsOn = starts.length > 0 ? starts.reduce((a, b) => (a < b ? a : b)) : null;
-      // The regular week in force reads as a plain week; one saved to take over later says when, or
-      // it would read as the week running today.
-      const upcomingRegular = schedule.isRegular && startsOn !== null && startsOn > serviceDate;
       const state: NodeState =
-        (!schedule.isRegular || upcomingRegular) && dated.length > 0
+        !schedule.isRegular && dated.length > 0
           ? {
               kind: "period",
-              startsOn,
+              startsOn: starts.length > 0 ? starts.reduce((a, b) => (a < b ? a : b)) : null,
               endsOn: ends.some((d) => !d) ? null : latest(ends),
               weekdays: covered.slice(),
             }
@@ -102458,7 +102453,7 @@
         active(config.venueServices).map((s) => [s.id, { name: s.name, position: s.position }])
       );
       const visible = visibleSchedules(config, serviceDate);
-      const schedules = visible.map((s) => scheduleNode(s, config, services, manager, serviceDate));
+      const schedules = visible.map((s) => scheduleNode(s, config, services, manager));
       const regular = visible.find((s) => s.isRegular);
       const regularSet =
         regular !== undefined &&
