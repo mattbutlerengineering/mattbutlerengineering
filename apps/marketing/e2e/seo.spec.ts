@@ -84,6 +84,25 @@ test.describe("SEO metadata", () => {
     });
   }
 
+  // Per-route HTML is emitted by the build plugin (pwa/route-html.ts,
+  // apply: "build"); `pnpm dev` serves the homepage shell for every path.
+  // CI serves the build with `vite preview` (see playwright.config.ts), so
+  // these run there and are skipped locally unless run with CI=1.
+  const rawHtmlTest = process.env.CI ? test : test.skip;
+
+  for (const route of INDEXABLE_ROUTES) {
+    rawHtmlTest(
+      `${route.path} serves its own head in the raw HTML, before any JS runs`,
+      async ({ request }) => {
+        const response = await request.get(route.path);
+        expect(response.status()).toBe(200);
+        const html = await response.text();
+        expect(html).toContain(`<title>${route.title}</title>`);
+        expect(html).toContain(`<link rel="canonical" href="${ORIGIN}${route.path}" />`);
+      }
+    );
+  }
+
   test("client-side navigation updates canonical and social tags, then restores home", async ({
     page,
   }) => {
