@@ -356,7 +356,7 @@
 
 /* On a pointer screen a nested row is one zone: hovering anywhere on it lays a band behind the row and
    turns its quiet door into a button, so a door at the far edge reads as that row's. */
-@media (min-width: 1024px) {
+@media (min-width: 1024px) and (hover: hover) {
   .children > .node > .header:has(button) {
     margin-inline: calc(-1 * var(--rialto-space-2xs));
     padding-inline: var(--rialto-space-2xs);
@@ -371,6 +371,14 @@
   }
 
   .children > .node > .header:hover .action:not([data-primary]) {
+    border-color: var(--rialto-border);
+    color: var(--rialto-text-primary);
+  }
+}
+
+/* A touch screen, or a narrow one, has no hover to reveal a nested door, so it shows its edge at rest. */
+@media (max-width: 1023px), (hover: none) {
+  .children .action:not([data-primary]) {
     border-color: var(--rialto-border);
     color: var(--rialto-text-primary);
   }
@@ -401,12 +409,6 @@
 
   .children {
     --indent: var(--rialto-space-sm);
-  }
-
-  /* A touch screen has no hover to reveal a nested door, so it shows its edge at rest. */
-  .children .action:not([data-primary]) {
-    border-color: var(--rialto-border);
-    color: var(--rialto-text-primary);
   }
 
   /* On a narrow screen a node reads title, what it is, then its doors, then what it holds. The
