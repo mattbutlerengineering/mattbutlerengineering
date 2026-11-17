@@ -702,7 +702,6 @@
     export function latestShippedVideoIn(videos: readonly ShippedVideo[]): ShippedVideo | undefined {
       return videos[0];
     }
-    export const SHIPPED_VIDEOS: readonly ShippedVideo[] = selectShippedVideos(committedVideos);
     export const findShippedVideo = (slug: string): ShippedVideo | undefined =>
       findShippedVideoIn(SHIPPED_VIDEOS, slug);
     export const latestShippedVideo = (): ShippedVideo | undefined =>

@@ -67,7 +67,7 @@ export function latestShippedVideoIn(videos: readonly ShippedVideo[]): ShippedVi
 }
 
 /** Validated, sorted videos from the committed file. */
-export const SHIPPED_VIDEOS: readonly ShippedVideo[] = selectShippedVideos(committedVideos);
+const SHIPPED_VIDEOS: readonly ShippedVideo[] = selectShippedVideos(committedVideos);
 
 export const findShippedVideo = (slug: string): ShippedVideo | undefined =>
   findShippedVideoIn(SHIPPED_VIDEOS, slug);

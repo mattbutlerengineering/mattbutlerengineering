@@ -432,9 +432,6 @@
       export function latestShippedVideoIn(videos: readonly ShippedVideo[]): ShippedVideo | undefined { /* ... */ }
     </item>
     <item priority="high">
-      export const SHIPPED_VIDEOS: readonly ShippedVideo[];
-    </item>
-    <item priority="high">
       export const findShippedVideo: unknown;
     </item>
     <item priority="high">
