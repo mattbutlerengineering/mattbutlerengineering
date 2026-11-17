@@ -21,6 +21,14 @@ vi.mock("../data/shipped-features.js", () => ({
   },
 }));
 
+const videoData = vi.hoisted(() => ({ video: undefined as unknown }));
+vi.mock("../data/shipped-videos.js", () => ({
+  latestShippedVideo: () => videoData.video,
+}));
+vi.mock("../components/ShippedVideo.js", () => ({
+  ShippedVideo: () => <div data-testid="promo-video" />,
+}));
+
 import { ShippedIndexPage } from "./ShippedIndexPage.js";
 
 function feature(slug: string, over: Partial<ShippedFeature> = {}): ShippedFeature {
@@ -65,6 +73,7 @@ const renderPage = () =>
 describe("ShippedIndexPage", () => {
   beforeEach(() => {
     mockData.features = [];
+    videoData.video = undefined;
   });
 
   it("renders an explicit empty state", () => {
@@ -93,5 +102,22 @@ describe("ShippedIndexPage", () => {
     expect(container.querySelector("time[datetime]")).not.toBeNull();
     expect(screen.getByText(/snapshot from/i)).toBeInTheDocument();
     expect(screen.queryByText(/^as of/i)).toBeNull();
+  });
+
+  it("features the latest video above the list, linking to its story", () => {
+    mockData.features = [feature("a")];
+    videoData.video = { slug: "a", title: "A tour" };
+    renderPage();
+    expect(screen.getByTestId("promo-video")).toBeInTheDocument();
+    const h2s = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(h2s).toEqual(["Latest release", "Feature a"]);
+    expect(screen.getByRole("link", { name: /a tour/i })).toHaveAttribute("href", "/shipped/a");
+  });
+
+  it("omits the latest-release section when there is no video", () => {
+    mockData.features = [feature("a")];
+    renderPage();
+    expect(screen.queryByTestId("promo-video")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Latest release" })).toBeNull();
   });
 });
