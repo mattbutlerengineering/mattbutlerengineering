@@ -76,7 +76,7 @@
     "state": "open",
     "severity": "P2",
     "first_seen": "2026-10-01",
-    "last_seen": "2026-11-13",
+    "last_seen": "2026-11-17",
     "escalated_at": null
   },
   "rialto-web|components/aspect-ratio|r1|accessibility/axe-serious": {
