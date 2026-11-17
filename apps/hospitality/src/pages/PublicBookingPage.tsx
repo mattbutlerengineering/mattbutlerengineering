@@ -119,6 +119,7 @@ function PublicBookingPageContent() {
         <div className={styles.errorCenter}>
           <EmptyState
             variant="elevated"
+            headingLevel={1}
             heading={t("publicBooking.notFoundHeading")}
             description={t("publicBooking.notFoundDescription")}
             action={

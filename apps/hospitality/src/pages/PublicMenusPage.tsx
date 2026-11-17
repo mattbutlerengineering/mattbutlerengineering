@@ -54,6 +54,7 @@ function PublicMenusPageContent() {
         <div className={styles.center}>
           <EmptyState
             variant="elevated"
+            headingLevel={1}
             heading={t("publicMenu.notFoundHeading")}
             description={t("publicMenu.notFoundDescription")}
             action={

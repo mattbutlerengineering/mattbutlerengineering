@@ -76,19 +76,24 @@ vi.mock("@mattbutlerengineering/rialto", () => ({
   ),
   EmptyState: ({
     heading,
+    headingLevel = 2,
     description,
     action,
   }: {
     heading?: string;
+    headingLevel?: 1 | 2 | 3 | 4 | 5 | 6;
     description?: string;
     action?: ReactNode;
-  }) => (
-    <div data-testid="empty-state">
-      {heading ? <p>{heading}</p> : null}
-      {description ? <p>{description}</p> : null}
-      {action}
-    </div>
-  ),
+  }) => {
+    const Heading = `h${headingLevel}` as "h1";
+    return (
+      <div data-testid="empty-state">
+        {heading ? <Heading>{heading}</Heading> : null}
+        {description ? <p>{description}</p> : null}
+        {action}
+      </div>
+    );
+  },
 }));
 
 vi.mock("./PublicBookingPage.module.css", () => ({
@@ -205,6 +210,14 @@ describe("PublicBookingPage", () => {
         expect(screen.getByRole("main").textContent).toContain("Venue not found");
       });
       expect(screen.getAllByRole("main")).toHaveLength(1);
+    });
+
+    it("titles the not-found state with the page's h1, since nothing else on it is a heading", async () => {
+      mockGetBySlug.mockRejectedValue(new Error("nope"));
+      renderPage();
+      expect(
+        await screen.findByRole("heading", { level: 1, name: "Venue not found" })
+      ).toBeDefined();
     });
 
     it("wraps the resolved page (heading + widget) in a single main landmark", async () => {
