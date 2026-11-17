@@ -228,6 +228,8 @@
 }
 
 .disclosure {
+  /* Static, so its hit area below can reach past the name to the whole title line. */
+  position: static;
   min-height: 44px;
   padding: 0;
   background: none;
@@ -235,6 +237,47 @@
   cursor: pointer;
   text-align: start;
   white-space: normal;
+}
+
+/* The kind word, name, chevron and state all toggle the level: one target the width of the line,
+   not a hit area the width of the name. */
+.title:has(> .disclosure) {
+  position: relative;
+  /* Room for the focus ring around the line, without moving the line. */
+  margin-inline: calc(-1 * var(--rialto-space-2xs));
+  padding-inline: var(--rialto-space-2xs);
+  border-radius: var(--rialto-radius-default);
+}
+
+.disclosure::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+/* Its hover is the name underlined and the chevron lit, never a box hugging the name. */
+.title > .disclosure:hover,
+.title > .disclosure:active,
+.title > .disclosure:focus-visible {
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--rialto-text-primary);
+}
+
+.title:has(> .disclosure:hover) .disclosure {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.title:has(> .disclosure:hover) .disclosure::after {
+  color: var(--rialto-text-primary);
+}
+
+.title:has(> .disclosure:focus-visible) {
+  box-shadow: var(--rialto-shadow-focus);
 }
 
 /* A drawn chevron: points along the line closed, down open. */
@@ -311,6 +354,28 @@
   color: var(--rialto-text-secondary);
 }
 
+/* On a pointer screen a nested row is one zone: hovering anywhere on it lays a band behind the row and
+   turns its quiet door into a button, so a door at the far edge reads as that row's. */
+@media (min-width: 1024px) {
+  .children > .node > .header:has(button) {
+    margin-inline: calc(-1 * var(--rialto-space-2xs));
+    padding-inline: var(--rialto-space-2xs);
+    border-radius: var(--rialto-radius-default);
+    transition: background-color var(--rialto-duration-fast) var(--rialto-ease-precision);
+  }
+
+  .children > .node > .header:has(button):hover,
+  .children > .node > .header:has(:focus-visible) {
+    /* A wash of the text colour: lighter than the card in dark mode, darker in light. */
+    background: color-mix(in srgb, var(--rialto-text-primary) 5%, transparent);
+  }
+
+  .children > .node > .header:hover .action:not([data-primary]) {
+    border-color: var(--rialto-border);
+    color: var(--rialto-text-primary);
+  }
+}
+
 @media (max-width: 1023px) {
   .root {
     padding: var(--rialto-space-md);
@@ -338,9 +403,10 @@
     --indent: var(--rialto-space-sm);
   }
 
-  /* A nested ghost action starts on its row's text edge, not its padding's. */
-  .children .actions > .action:first-child:not([data-primary]) {
-    margin-inline-start: calc(-1 * var(--rialto-button-sm-padding-x));
+  /* A touch screen has no hover to reveal a nested door, so it shows its edge at rest. */
+  .children .action:not([data-primary]) {
+    border-color: var(--rialto-border);
+    color: var(--rialto-text-primary);
   }
 
   /* On a narrow screen a node reads title, what it is, then its doors, then what it holds. The
