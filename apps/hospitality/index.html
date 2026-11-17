@@ -42,6 +42,18 @@
   </head>
   <body>
     <script>
+      // Zod 4 probes new Function("") the first time an object schema is built.
+      // The throw is caught, but the edge CSP (script-src, no 'unsafe-eval')
+      // still reports it, and Chrome files that as an eval violation. The
+      // entry chunk builds @mbe/types object schemas while it evaluates, so
+      // the probe runs on every visit, including the signed-out shell.
+      // jitless skips the probe. It has to be set before Zod's module loads:
+      // this classic script runs during parse, and the entry is a deferred
+      // module, so the assignment wins even after Vite hoists that module
+      // into <head>. Zod reads the object off globalThis (shared by every
+      // copy of the package). Do not mark this script type="module", defer,
+      // or async — any of those can run it after the probe.
+      globalThis.__zod_globalConfig = { jitless: true };
       if ("serviceWorker" in navigator) {
         navigator.serviceWorker.getRegistrations().then(function (regs) {
           regs.forEach(function (r) {
