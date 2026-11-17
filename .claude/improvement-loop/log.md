@@ -5718,3 +5718,13 @@ None (`agent-skip` is empty).
 - **Coverage before this fire:** 100% (136/136 routes), not provisional.
 - **Pipeline bugs:** none.
 - **Observed but not filable (no rubric v1 tell covers it):** marketing `metrics` renders its full ~130-row history table inline at 8022px tall with no pagination or collapse — a usability problem, not a tell. The rialto-web component routes carrying the 375px overflow/overlap observations from 2026-11-15/16 were not due this fire, so none of those could be re-confirmed.
+
+## 2026-11-17
+
+**Sensors:** 17/18 available (status: Healthy — ACMM L5 73/84, CI 100% (23/23), mutationScore 99.07% PASS, queueEfficiency composite 0.918)
+**Sentry triage:** skipped — Sentry MCP auth expired (re-authorization required)
+**Regressions:** 0 detected, 0 issues created
+**Verifications:** 5 checked (48h window), 0 verified, 0 failed/reopened — all 5 skipped for lack of comparable signal (#9011/#9010/#9009 need a fresh Lighthouse/audit inventory; #9001/#8994 have no CI runs to compare against)
+**AI issue feedback:** 8 categories updated; acmm rejection rate 33% (3 total, above the 30% false-positive note threshold but n is small); agent-failed 100% (n=1, noise); all other categories ≤15% rejected
+**Skill proposals:** 0 (Tuesday — Friday-only)
+**Threshold notes:** auto-tuner applied 1 adjustment (acmm: 1.72 → 1.731, headroom). 30-day verification log: 115/123 entries are confidence=skip (no comparable signal available this cloud environment has no egress to re-run audits/Lighthouse); of the 8 determinable entries, 6 verified / 2 failed (75% effectiveness) — above the 50% threshold, but coverage is too thin to treat as conclusive. acmm's 33% rejection rate is the one category worth a human look if it persists.
