@@ -135,7 +135,7 @@ the charter, and stop.
 
 - `PRODUCT.md` — themes, non-goals, guardrails (mandatory).
 - Signals: `metrics/process-metrics.jsonl`, `metrics/last-audit.json`,
-  `metrics/pr-acceptance.json`, `metrics/agent-perf.jsonl`,
+  `metrics/pr-acceptance.json`,
   `metrics/queue-telemetry.jsonl`,
   `metrics/audit-coverage.jsonl` (per-surface sweep status; zones with no row are
   "never recorded" — `.audit-state/` is gitignored and invisible to you), `.claude/acmm/state.json`,

@@ -197,7 +197,7 @@ node scripts/sensor-report.mjs --json | jq '.sensors.queueEfficiency'
 
 - **Read-only orchestration:** never mutate queue state, never edit issue prompts, never auto-merge
 - **Max 2 issues per run** (consistent with learning-loop budget)
-- **Append-only log** — never overwrite `.claude/improvement-loop/log.md`
+- **Append-only log** — never overwrite `.claude/improvement-loop/log.md`; after appending run `node scripts/cap-improvement-log.mjs` (keeps the newest 60 entries, older ones live in git history)
 - **No synchronous eval** — eval runs async or as a filed issue
 - **Difficulty-normalization required** — always call `isRealRegression()` before filing
 - **Phase-2 (auto-tuning) is NOT built** — document the seam, do not implement it
