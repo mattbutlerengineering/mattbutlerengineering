@@ -270,11 +270,29 @@ export function extractRoutineFindingStatusFromTitle(issue) {
  * @returns {{number: number, title: string} | null}
  */
 export function findPriorRoutineFindingCandidate(candidates, routineName) {
-  const match = (candidates ?? []).find(
+  const matches = (candidates ?? []).filter(
     (issue) => extractRoutineNameFromIssueTitle(issue) === routineName
   );
-  return match ?? null;
+  // Prefer a still-open issue (no `closedAt`) so dedupe never loses sight of a
+  // live tracker; otherwise the most recently closed one drives the cooldown.
+  // `gh issue list --json closedAt` reports an open issue as the zero time (0001-...).
+  const open = matches.find((issue) => !issue.closedAt || issue.closedAt.startsWith("0001-"));
+  if (open) return open;
+  const byClosedAtDesc = [...matches].sort(
+    (a, b) => new Date(b.closedAt).getTime() - new Date(a.closedAt).getTime()
+  );
+  return byClosedAtDesc[0] ?? null;
 }
+
+/**
+ * A closed finding suppresses a fresh one for this long. Six findings for one
+ * routine were filed in one day and closed NOT_PLANNED (#9072); a routine that
+ * is still dark after a human closed its issue is not a new incident each run.
+ */
+export const FINDING_COOLDOWN_DAYS = 14;
+
+/** Label on finding issues. Not `ci-fix`: these are routine-fleet signals, not CI failures (#9072). */
+export const FINDING_LABEL = "auto-health";
 
 /**
  * Pure decision: given a routine's classified liveness status and any
@@ -297,15 +315,30 @@ export function findPriorRoutineFindingCandidate(candidates, routineName) {
  *   status: "alive"|"late"|"dark"|"unverifiable",
  *   existingIssue: {number: number, state: "open"|"closed"|"missing", filedStatus?: "dark"|"unverifiable"|null} | null,
  * }} args
- * @returns {{action: "create"} | {action: "skip", issueNumber: number} | {action: "close", issueNumber: number} | {action: "no-op"}}
+ * @returns {{action: "create"} | {action: "cooldown", issueNumber: number} | {action: "skip", issueNumber: number} | {action: "close", issueNumber: number} | {action: "no-op"}}
  */
-export function decideIssueTransition({ status, existingIssue }) {
+export function decideIssueTransition({
+  status,
+  existingIssue,
+  now,
+  cooldownDays = FINDING_COOLDOWN_DAYS,
+}) {
   if (status === "dark" || status === "blocked" || status === "unverifiable") {
     if (!existingIssue || existingIssue.state === "missing") {
       return { action: "create" };
     }
     if (existingIssue.state === "open") {
       return { action: "skip", issueNumber: existingIssue.number };
+    }
+    // Closed: inside the cooldown a recurrence is the same incident, not a new one.
+    const closedMs = existingIssue.closedAt ? new Date(existingIssue.closedAt).getTime() : NaN;
+    const nowMs = now === undefined ? NaN : new Date(now).getTime();
+    if (
+      Number.isFinite(closedMs) &&
+      Number.isFinite(nowMs) &&
+      nowMs - closedMs < cooldownDays * 86400000
+    ) {
+      return { action: "cooldown", issueNumber: existingIssue.number };
     }
     return { action: "create" };
   }
@@ -382,7 +415,7 @@ export function buildRoutineFindingCreateArgs(title, body, status) {
     "--body",
     body,
     "--label",
-    "ci-fix",
+    FINDING_LABEL,
     "--label",
     status === "blocked" ? "ready-for-human" : COORDINATION_LABELS.READY,
   ];
@@ -537,7 +570,7 @@ function fileFleetLateFinding({
     `liveness pass: ${names}.\n\nOne routine overrunning is noise; several together is a fleet ` +
     `event (#8941). Per-routine \`late\` never files.\n\nSee \`metrics/routine-liveness.jsonl\` ` +
     `for the per-routine rows of this pass.`;
-  createIssue(title, body, ["ci-fix", COORDINATION_LABELS.READY], "late");
+  createIssue(title, body, [FINDING_LABEL, COORDINATION_LABELS.READY], "late");
   log(`Created fleet-late issue for: ${names}.`);
 }
 
@@ -684,6 +717,7 @@ function runLivenessPass({
           number: priorMatch.number,
           state: getIssueState(priorMatch.number),
           filedStatus: extractRoutineFindingStatusFromTitle(priorMatch),
+          closedAt: priorMatch.closedAt,
         }
       : null;
 
@@ -694,10 +728,22 @@ function runLivenessPass({
       return { routine: entry.name, status: result.status, action: "state-error" };
     }
 
-    const decision = decideIssueTransition({ status: result.status, existingIssue });
+    const decision = decideIssueTransition({ status: result.status, existingIssue, now });
 
     if (decision.action === "no-op") {
       return { routine: entry.name, status: result.status };
+    }
+
+    if (decision.action === "cooldown") {
+      log(
+        `Issue #${decision.issueNumber} for ${entry.name} closed within ${FINDING_COOLDOWN_DAYS} days — not re-filing (#9072).`
+      );
+      return {
+        routine: entry.name,
+        status: result.status,
+        action: "cooldown",
+        issueNumber: decision.issueNumber,
+      };
     }
 
     if (decision.action === "skip") {
@@ -748,7 +794,7 @@ function runLivenessPass({
       matched: result.matched,
     });
     const labels = [
-      "ci-fix",
+      FINDING_LABEL,
       result.status === "blocked" ? "ready-for-human" : COORDINATION_LABELS.READY,
     ];
     if (dryRun) {
@@ -1023,7 +1069,7 @@ function main() {
         "--limit",
         "200",
         "--json",
-        "number,title",
+        "number,title,closedAt",
       ]),
     getIssueState: (issueNumber) => issueState(ghClient, issueNumber),
     createIssue: (title, body, _labels, status) =>

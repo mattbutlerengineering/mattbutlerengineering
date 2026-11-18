@@ -127,13 +127,23 @@ export function selectInjectableCandidate(candidates, isInjectable) {
  * have none configured for this job, which crashes `git commit` with
  * "Author identity unknown" (#4287). Matches the convention already used in
  * `.github/workflows/post-merge.yml`.
+ *
+ * Commits with `--no-verify`: the injected bug is deliberately broken code, and
+ * the pre-commit lint-staged hook (eslint --fix) rejects it ("Parsing error"),
+ * failing the whole Seed Bug step — 4 of the last 10 weekly runs (#9073). The
+ * bug is meant to reach the PR so CI's detectors can be graded on it.
  */
 export function commitChaosBug(exec, { branchName, targetFile, type, relativePath }) {
   exec("git", ["checkout", "-b", branchName]);
   exec("git", ["config", "user.name", "github-actions[bot]"]);
   exec("git", ["config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com"]);
   exec("git", ["add", targetFile]);
-  exec("git", ["commit", "-m", `chore(chaos): seed synthetic ${type} in ${relativePath}`]);
+  exec("git", [
+    "commit",
+    "--no-verify",
+    "-m",
+    `chore(chaos): seed synthetic ${type} in ${relativePath}`,
+  ]);
 }
 
 /**
