@@ -82,6 +82,50 @@ export function monthOfIso(iso: string): CalendarMonth {
   return { year: parts.year, month: parts.month - 1 };
 }
 
+/** A real `yyyy-mm-dd` bound, or `null` when the prop is missing or not a date. */
+export function boundIso(iso: string | undefined): string | null {
+  return iso && parseIsoDate(iso) ? iso : null;
+}
+
+/** Pull `iso` into `[min, max]`. A null bound leaves that side open. */
+export function clampIsoToBounds(iso: string, min: string | null, max: string | null): string {
+  if (min !== null && iso < min) return min;
+  if (max !== null && iso > max) return max;
+  return iso;
+}
+
+/** True when the month contains at least one day inside `[min, max]`. */
+export function monthIntersectsBounds(
+  month: CalendarMonth,
+  min: string | null,
+  max: string | null
+): boolean {
+  if (min === null && max === null) return true;
+  const first = toIsoDate(month.year, month.month, 1);
+  const last = toIsoDate(month.year, month.month, daysInMonth(month.year, month.month));
+  if (max !== null && first > max) return false;
+  if (min !== null && last < min) return false;
+  return true;
+}
+
+/**
+ * Date an empty calendar opens on when today sits outside `[min, max]`.
+ * `null` means today is already in range (the caller keeps today).
+ * A future `min` wins over a past `max`, so an inverted range still opens on
+ * `min`. `ignoreMax` is for an `isDateDisabled` predicate, which replaces
+ * `max` for that guess; a future `min` still names the opening month.
+ */
+export function openingAnchor(
+  today: string,
+  min: string | null,
+  max: string | null,
+  ignoreMax = false
+): string | null {
+  if (min !== null && today < min) return min;
+  if (!ignoreMax && max !== null && today > max) return max;
+  return null;
+}
+
 export function startOfWeek(iso: string, weekStartsOn: number): string {
   const lead = (isoToUtc(iso).getUTCDay() - weekStartsOn + 7) % 7;
   return addDays(iso, -lead);

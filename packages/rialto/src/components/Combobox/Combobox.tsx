@@ -244,6 +244,13 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
       [inputValue, onInputChange]
     );
 
+    // No free-text mode: the field shows the selected option's label (or is
+    // empty). Text that was typed but never committed is discarded.
+    const revertQuery = useCallback(() => {
+      const next = multiple ? "" : (options.find((o) => o.value === selectedValue)?.label ?? "");
+      if (next !== query) setQuery(next);
+    }, [multiple, options, selectedValue, query, setQuery]);
+
     // Keep the single-select input in sync with a controlled value change.
     useEffect(() => {
       if (multiple || inputValue !== undefined) return;
@@ -302,10 +309,19 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
           removeValue(selectedValues[selectedValues.length - 1] as string);
           return;
         }
+        if (e.key === "Escape") revertQuery();
         if (open && e.key === "Enter") {
           e.preventDefault();
           const opt = focusedIndex >= 0 ? visible[focusedIndex] : undefined;
-          if (opt) handleSelect(opt);
+          if (opt) {
+            handleSelect(opt);
+            return;
+          }
+          // Nothing matches: drop the typed text instead of keeping free text.
+          if (!loading && visible.length === 0) {
+            revertQuery();
+            close();
+          }
           return;
         }
         if (open && (e.key === "Home" || e.key === "End")) {
@@ -329,6 +345,9 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
         visible,
         focusedIndex,
         handleSelect,
+        revertQuery,
+        loading,
+        close,
       ]
     );
 
@@ -468,6 +487,7 @@ export const Combobox = forwardRef<HTMLInputElement, ComboboxProps>(
             placeholder={chips.length === 0 ? placeholder : undefined}
             onChange={handleInputChange}
             onKeyDown={handleKeyDown}
+            onBlur={revertQuery}
             onFocus={() => !open && openList()}
           />
         </div>
