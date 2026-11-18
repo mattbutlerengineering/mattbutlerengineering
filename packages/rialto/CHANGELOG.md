@@ -1,5 +1,13 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.20
+
+### Patch Changes
+
+- [#9087](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9087) [`6c42fe1`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/6c42fe187059e05e7fd9117491fc6aab5d68cc68) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ReservationList and TimeSlots now show a venue-local `YYYY-MM-DD HH:mm` (or ISO `T`) time text as a localized short date plus the locale's clock ("Oct 16, 9:26 AM") instead of the raw string.
+
+- [#9093](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9093) [`ba98b61`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/ba98b6142dc1e21dfdc21397b4d30bb66b6c5fdd) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - ReservationList catalog description now tells the model to copy each row's time as is, including the date the chat tool adds when bookings span several dates.
+
 ## 0.10.19
 
 ### Patch Changes
