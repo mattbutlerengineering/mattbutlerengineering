@@ -55,7 +55,7 @@ When CI passes, these agent PRs may be auto-merged without human review:
 - Documentation-only changes (`*.md` outside governance files)
 - Test-only additions (no production code changes)
 - Comment and JSDoc updates
-- Auto-generated files (`llms.txt`, `llms-full.txt`)
+- Auto-generated files (`generated-schemas.ts`, dependency graph)
 - Editor/tooling config (`.editorconfig`, `.vscode/*`)
 
 ### Human Review Required
