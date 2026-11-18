@@ -3,10 +3,14 @@ import {
   addDays,
   addMonthsToIso,
   addMonthsToMonth,
+  boundIso,
   buildWeeks,
+  clampIsoToBounds,
   daysInMonth,
+  monthIntersectsBounds,
   monthLabel,
   monthOfIso,
+  openingAnchor,
   parseIsoDate,
   resolveWeekStart,
   startOfWeek,
@@ -149,6 +153,45 @@ describe("weekdayLabels", () => {
 
   it("starts with Sunday when weekStartsOn is 0", () => {
     expect(weekdayLabels("en-US", 0)[0]?.long).toBe("Sunday");
+  });
+});
+
+describe("boundIso / clampIsoToBounds / monthIntersectsBounds / openingAnchor", () => {
+  it("rejects a bound that is not a date", () => {
+    expect(boundIso(undefined)).toBeNull();
+    expect(boundIso("soon")).toBeNull();
+    expect(boundIso("2026-07-05")).toBe("2026-07-05");
+  });
+
+  it("clamps a date into an inclusive range and leaves an open side alone", () => {
+    expect(clampIsoToBounds("2026-11-18", "2026-07-05", "2026-07-25")).toBe("2026-07-25");
+    expect(clampIsoToBounds("2026-03-01", "2026-07-05", "2026-07-25")).toBe("2026-07-05");
+    expect(clampIsoToBounds("2026-07-10", "2026-07-05", "2026-07-25")).toBe("2026-07-10");
+    expect(clampIsoToBounds("2026-11-18", null, null)).toBe("2026-11-18");
+    expect(clampIsoToBounds("2026-06-01", "2026-07-05", null)).toBe("2026-07-05");
+  });
+
+  it("treats a month as reachable when any of its days sit inside the range", () => {
+    const july = { year: 2026, month: 6 };
+    const june = { year: 2026, month: 5 };
+    const august = { year: 2026, month: 7 };
+    expect(monthIntersectsBounds(july, "2026-07-05", "2026-07-25")).toBe(true);
+    expect(monthIntersectsBounds(june, "2026-07-05", "2026-07-25")).toBe(false);
+    expect(monthIntersectsBounds(august, "2026-07-05", "2026-07-25")).toBe(false);
+    // June still overlaps when min is mid-month.
+    expect(monthIntersectsBounds(june, "2026-06-15", "2026-07-25")).toBe(true);
+    expect(monthIntersectsBounds(july, null, null)).toBe(true);
+  });
+
+  it("anchors an empty calendar on today clamped into the range", () => {
+    expect(openingAnchor("2026-11-18", "2026-07-05", "2026-07-25")).toBe("2026-07-25");
+    expect(openingAnchor("2026-03-01", "2026-07-05", "2026-07-25")).toBe("2026-07-05");
+    expect(openingAnchor("2026-07-10", "2026-07-05", "2026-07-25")).toBeNull();
+    // A future min wins over a past max, including an inverted range.
+    expect(openingAnchor("2099-03-10", "2099-05-10", "2099-05-01")).toBe("2099-05-10");
+    // A predicate replaces max, but a future min still names the opening month.
+    expect(openingAnchor("2026-11-18", "2026-07-05", "2026-07-25", true)).toBeNull();
+    expect(openingAnchor("2026-03-01", "2026-07-05", "2026-07-25", true)).toBe("2026-07-05");
   });
 });
 

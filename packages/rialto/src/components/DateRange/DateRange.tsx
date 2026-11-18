@@ -7,9 +7,12 @@ import {
   addDays,
   addMonthsToIso,
   addMonthsToMonth,
+  boundIso,
   buildWeeks,
+  clampIsoToBounds,
   daysInMonth,
   localToday,
+  monthIntersectsBounds,
   monthLabel,
   monthOfIso,
   parseIsoDate,
@@ -149,6 +152,11 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
     [isDateDisabled, min, max]
   );
 
+  // A predicate replaces min/max for which days, and therefore which months,
+  // can be reached. Day disabling already treats the predicate as authoritative.
+  const rangeMin = isDateDisabled ? null : boundIso(min);
+  const rangeMax = isDateDisabled ? null : boundIso(max);
+
   // Move DOM focus onto the roving day only after a keyboard navigation — a
   // mount-guarded effect (never requestAnimationFrame, which testing-library
   // does not await). No setState here, per the Rialto rule.
@@ -178,22 +186,28 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
   const goToMonth = useCallback(
     (delta: number) => {
       const next = addMonthsToMonth(visibleMonth, delta);
+      if (!monthIntersectsBounds(next, rangeMin, rangeMax)) return;
       const parts = parseIsoDate(focusedDate) ?? { year: next.year, month: next.month + 1, day: 1 };
       const day = Math.min(parts.day, daysInMonth(next.year, next.month));
-      setVisibleMonth(next);
-      setFocusedDate(toIsoDate(next.year, next.month, day));
+      const landed = clampIsoToBounds(toIsoDate(next.year, next.month, day), rangeMin, rangeMax);
+      setVisibleMonth(monthOfIso(landed));
+      setFocusedDate(landed);
     },
-    [visibleMonth, focusedDate]
+    [visibleMonth, focusedDate, rangeMin, rangeMax]
   );
 
-  const moveFocus = useCallback((next: string) => {
-    pendingFocusRef.current = true;
-    setFocusedDate(next);
-    setVisibleMonth((current) => {
-      const target = monthOfIso(next);
-      return target.year === current.year && target.month === current.month ? current : target;
-    });
-  }, []);
+  const moveFocus = useCallback(
+    (next: string) => {
+      const landed = clampIsoToBounds(next, rangeMin, rangeMax);
+      pendingFocusRef.current = true;
+      setFocusedDate(landed);
+      setVisibleMonth((current) => {
+        const target = monthOfIso(landed);
+        return target.year === current.year && target.month === current.month ? current : target;
+      });
+    },
+    [rangeMin, rangeMax]
+  );
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const forward = dir === "rtl" ? -1 : 1;
@@ -235,6 +249,16 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
   const weekdays = weekdayLabels(locale, weekStart);
   const weeks = buildWeeks(visibleMonth, weekStart);
   const label = monthLabel(visibleMonth, locale);
+  const previousDisabled = !monthIntersectsBounds(
+    addMonthsToMonth(visibleMonth, -1),
+    rangeMin,
+    rangeMax
+  );
+  const nextDisabled = !monthIntersectsBounds(
+    addMonthsToMonth(visibleMonth, 1),
+    rangeMin,
+    rangeMax
+  );
 
   // Committed range (drives aria-selected), always normalised start ≤ end.
   const committed = normaliseRange(startIso, endIso);
@@ -259,6 +283,8 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
           className={styles.navButton}
           onClick={() => goToMonth(-1)}
           aria-label={messages.previousMonth}
+          disabled={previousDisabled}
+          aria-disabled={previousDisabled || undefined}
         >
           <ChevronLeft size={16} aria-hidden="true" />
         </button>
@@ -270,6 +296,8 @@ export const DateRange = forwardRef<HTMLDivElement, DateRangeProps>(function Dat
           className={styles.navButton}
           onClick={() => goToMonth(1)}
           aria-label={messages.nextMonth}
+          disabled={nextDisabled}
+          aria-disabled={nextDisabled || undefined}
         >
           <ChevronRight size={16} aria-hidden="true" />
         </button>

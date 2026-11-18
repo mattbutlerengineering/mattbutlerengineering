@@ -170,6 +170,62 @@ describe("DateRange — month navigation", () => {
     await user.click(screen.getByRole("button", { name: /next month/i }));
     expect(screen.getByRole("grid")).toHaveAttribute("aria-label", expect.stringContaining("July"));
   });
+
+  it("disables month buttons that would leave min/max", () => {
+    renderRange({
+      value: { start: "2026-07-10", end: null },
+      min: "2026-07-05",
+      max: "2026-07-25",
+    });
+    const previous = screen.getByRole("button", { name: /previous month/i });
+    const next = screen.getByRole("button", { name: /next month/i });
+    expect(previous).toBeDisabled();
+    expect(previous).toHaveAttribute("aria-disabled", "true");
+    expect(next).toBeDisabled();
+    expect(next).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("clamps PageUp and PageDown to the allowed range", async () => {
+    const { container } = renderRange({
+      value: { start: "2026-07-18", end: null },
+      min: "2026-07-05",
+      max: "2026-07-25",
+    });
+    act(() => cell(container, "2026-07-18").focus());
+    await user.keyboard("{PageDown}");
+    expect(activeIso()).toBe("2026-07-25");
+    expect(screen.getByRole("grid")).toHaveAttribute(
+      "aria-label",
+      expect.stringMatching(/July\s+2026/)
+    );
+    await user.keyboard("{PageUp}");
+    expect(activeIso()).toBe("2026-07-05");
+  });
+
+  it("still pages into a month that overlaps the range", async () => {
+    const { container } = renderRange({
+      value: { start: "2024-06-10", end: null },
+      min: "2024-05-01",
+      max: "2024-08-31",
+    });
+    expect(screen.getByRole("button", { name: /next month/i })).toBeEnabled();
+    act(() => cell(container, "2024-06-10").focus());
+    await user.keyboard("{PageDown}");
+    expect(activeIso()).toBe("2024-07-10");
+  });
+
+  it("keeps month navigation when a predicate replaces min and max", async () => {
+    const { container } = renderRange({
+      value: { start: "2024-06-10", end: "2024-06-10" },
+      min: "2024-06-05",
+      max: "2024-06-20",
+      isDateDisabled: () => false,
+    });
+    expect(screen.getByRole("button", { name: /previous month/i })).toBeEnabled();
+    act(() => cell(container, "2024-06-10").focus());
+    await user.keyboard("{PageUp}");
+    expect(activeIso()).toBe("2024-05-10");
+  });
 });
 
 describe("DateRange — initial month when today is outside min/max", () => {

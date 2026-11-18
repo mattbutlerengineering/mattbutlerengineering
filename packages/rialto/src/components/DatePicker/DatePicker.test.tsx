@@ -289,6 +289,33 @@ describe("DatePicker typed dates (editable)", () => {
   });
 });
 
+describe("DatePicker — bounds", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("opens an empty bounded field on today clamped into min/max", async () => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date(2026, 10, 18, 12) });
+    render(
+      <DatePicker
+        label="Arrival"
+        value={null}
+        onChange={vi.fn()}
+        min="2026-07-05"
+        max="2026-07-25"
+        locale="en-US"
+      />
+    );
+    await user.click(screen.getByLabelText("Arrival"));
+    expect(screen.getByRole("grid")).toHaveAccessibleName(/July 2026/);
+    const focused = document.querySelector('[role="gridcell"][tabindex="0"]');
+    expect(focused).toHaveAttribute("data-date", "2026-07-25");
+    expect(focused).not.toHaveAttribute("aria-disabled");
+    expect(screen.getByRole("button", { name: /previous month/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /next month/i })).toBeDisabled();
+  });
+});
+
 /**
  * Measured on the component page at 375×812: the field ends at y=526 and the
  * month grid wants 332px, leaving 278px below — shorter than the grid, taller

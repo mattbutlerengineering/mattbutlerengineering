@@ -221,7 +221,13 @@ test.describe("booking wizard past dates", () => {
     yesterday.setDate(yesterday.getDate() - 1);
     const iso = localIso(yesterday);
     if ((await dialog.locator(`[data-date="${iso}"]`).count()) === 0) {
-      await dialog.getByRole("button", { name: "Previous month" }).click();
+      const previous = dialog.getByRole("button", { name: "Previous month" });
+      // min is today, so a previous month that contains only past days is disabled.
+      if (await previous.isDisabled()) {
+        await expect(page.getByRole("combobox", { name: "Check-in" })).toHaveValue("");
+        return;
+      }
+      await previous.click();
     }
     const cell = dialog.locator(`[data-date="${iso}"]`);
     await expect(cell).toHaveAttribute("aria-disabled", "true");

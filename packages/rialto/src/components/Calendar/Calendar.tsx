@@ -7,11 +7,15 @@ import {
   addDays,
   addMonthsToIso,
   addMonthsToMonth,
+  boundIso,
   buildWeeks,
+  clampIsoToBounds,
   daysInMonth,
   localToday,
+  monthIntersectsBounds,
   monthLabel,
   monthOfIso,
+  openingAnchor,
   parseIsoDate,
   resolveWeekStart,
   startOfWeek,
@@ -105,12 +109,23 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
 
   // The visible month is derived once (lazy init) and thereafter changed only in
   // event handlers — never synced from a `useEffect` body.
-  // With no value, a `min` after today names where the first choosable day is: open there, not on
-  // a month whose every day is disabled (a "To" field after a chosen "From").
-  // An explicit `defaultMonth` wins over that guess, and a selected date wins over both.
+  // With no value, open on today clamped into [min, max] so the grid is not a
+  // month of disabled days. A future min wins over a past max (an inverted
+  // range still opens on min). An isDateDisabled predicate replaces max for
+  // that guess, but a future min still names the month — a "To" field after a
+  // chosen "From". An explicit defaultMonth wins over the guess, and a
+  // selected date wins over both.
+  const minIso = boundIso(min);
+  const maxIso = boundIso(max);
+  // A predicate replaces min/max for which days, and therefore which months,
+  // can be reached. Day disabling already treats the predicate as authoritative.
+  const rangeMin = isDateDisabled ? null : minIso;
+  const rangeMax = isDateDisabled ? null : maxIso;
   const validIso = (iso: string | null | undefined) => (iso && parseIsoDate(iso) ? iso : null);
-  const futureMin = min && parseIsoDate(min) && min > today ? min : null;
-  const opening = validIso(value) ?? validIso(defaultMonth) ?? futureMin;
+  const opening =
+    validIso(value) ??
+    validIso(defaultMonth) ??
+    openingAnchor(today, minIso, maxIso, Boolean(isDateDisabled));
   const [visibleMonth, setVisibleMonth] = useState<CalendarMonth>(() =>
     monthOfIso(opening ?? today)
   );
@@ -150,23 +165,30 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
   const goToMonth = useCallback(
     (delta: number) => {
       const next = addMonthsToMonth(visibleMonth, delta);
+      if (!monthIntersectsBounds(next, rangeMin, rangeMax)) return;
       const parts = parseIsoDate(focusedDate) ?? { year: next.year, month: next.month + 1, day: 1 };
       const day = Math.min(parts.day, daysInMonth(next.year, next.month));
-      setVisibleMonth(next);
-      // Keep the roving day inside the new month without stealing DOM focus.
-      setFocusedDate(toIsoDate(next.year, next.month, day));
+      // Keep the roving day inside the new month, and inside the range, without
+      // stealing DOM focus.
+      const landed = clampIsoToBounds(toIsoDate(next.year, next.month, day), rangeMin, rangeMax);
+      setVisibleMonth(monthOfIso(landed));
+      setFocusedDate(landed);
     },
-    [visibleMonth, focusedDate]
+    [visibleMonth, focusedDate, rangeMin, rangeMax]
   );
 
-  const moveFocus = useCallback((next: string) => {
-    pendingFocusRef.current = true;
-    setFocusedDate(next);
-    setVisibleMonth((current) => {
-      const target = monthOfIso(next);
-      return target.year === current.year && target.month === current.month ? current : target;
-    });
-  }, []);
+  const moveFocus = useCallback(
+    (next: string) => {
+      const landed = clampIsoToBounds(next, rangeMin, rangeMax);
+      pendingFocusRef.current = true;
+      setFocusedDate(landed);
+      setVisibleMonth((current) => {
+        const target = monthOfIso(landed);
+        return target.year === current.year && target.month === current.month ? current : target;
+      });
+    },
+    [rangeMin, rangeMax]
+  );
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     const forward = dir === "rtl" ? -1 : 1;
@@ -208,6 +230,16 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
   const weekdays = weekdayLabels(locale, weekStart);
   const weeks = buildWeeks(visibleMonth, weekStart);
   const label = monthLabel(visibleMonth, locale);
+  const previousDisabled = !monthIntersectsBounds(
+    addMonthsToMonth(visibleMonth, -1),
+    rangeMin,
+    rangeMax
+  );
+  const nextDisabled = !monthIntersectsBounds(
+    addMonthsToMonth(visibleMonth, 1),
+    rangeMin,
+    rangeMax
+  );
 
   return (
     <div ref={ref} className={cn(styles.calendar, className)} {...rest}>
@@ -217,6 +249,8 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
           className={styles.navButton}
           onClick={() => goToMonth(-1)}
           aria-label={messages.previousMonth}
+          disabled={previousDisabled}
+          aria-disabled={previousDisabled || undefined}
           // In an overlay's focus trap, opening focus belongs on the roving day.
           data-focus-trap-skip-initial="true"
         >
@@ -230,6 +264,8 @@ export const Calendar = forwardRef<HTMLDivElement, CalendarProps>(function Calen
           className={styles.navButton}
           onClick={() => goToMonth(1)}
           aria-label={messages.nextMonth}
+          disabled={nextDisabled}
+          aria-disabled={nextDisabled || undefined}
           data-focus-trap-skip-initial="true"
         >
           <ChevronRight size={16} aria-hidden="true" />

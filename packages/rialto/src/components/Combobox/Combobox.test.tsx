@@ -237,6 +237,121 @@ describe("Combobox — single select", () => {
   });
 });
 
+describe("Combobox — uncommitted text", () => {
+  // There is no free-text mode: the field shows the selected option's label,
+  // and text that was never committed is discarded.
+
+  it("restores the selected label when invalid text is blurred", async () => {
+    render(
+      <>
+        <Combobox label="Fruit" options={options} value="banana" />
+        <button type="button">Next</button>
+      </>
+    );
+    const input = screen.getByRole("combobox");
+    expect(input).toHaveValue("Banana");
+    await user.clear(input);
+    await user.type(input, "zzz");
+    expect(input).toHaveValue("zzz");
+    await user.tab();
+    expect(input).toHaveValue("Banana");
+    expect(screen.getByRole("button", { name: "Next" })).toHaveFocus();
+  });
+
+  it("clears the field on blur when nothing is selected", async () => {
+    render(
+      <>
+        <Combobox label="Fruit" options={options} />
+        <button type="button">Next</button>
+      </>
+    );
+    const input = screen.getByRole("combobox");
+    await user.type(input, "zzz");
+    await user.tab();
+    expect(input).toHaveValue("");
+  });
+
+  it("restores the selected label on Escape", async () => {
+    render(<Combobox label="Fruit" options={options} value="banana" />);
+    const input = screen.getByRole("combobox");
+    await user.clear(input);
+    await user.type(input, "zzz");
+    await user.keyboard("{Escape}");
+    expect(input).toHaveValue("Banana");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("restores the selected label on Enter when nothing matches", async () => {
+    const onChange = vi.fn();
+    render(<Combobox label="Fruit" options={options} value="banana" onChange={onChange} />);
+    const input = screen.getByRole("combobox");
+    await user.clear(input);
+    await user.type(input, "zzzz{Enter}");
+    expect(input).toHaveValue("Banana");
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+  });
+
+  it("does not commit typed text that names a different option", async () => {
+    const onChange = vi.fn();
+    render(
+      <>
+        <Combobox label="Fruit" options={options} value="banana" onChange={onChange} />
+        <button type="button">Next</button>
+      </>
+    );
+    const input = screen.getByRole("combobox");
+    await user.clear(input);
+    await user.type(input, "Apple");
+    await user.tab();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(input).toHaveValue("Banana");
+  });
+
+  it("keeps a query that still has matches when Enter is pressed with nothing highlighted", async () => {
+    render(<Combobox label="Fruit" options={options} value="banana" />);
+    const input = screen.getByRole("combobox");
+    await user.clear(input);
+    await user.type(input, "Ap");
+    await user.keyboard("{Enter}");
+    expect(input).toHaveValue("Ap");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
+  });
+
+  it("asks a controlled input to restore the selected label on blur", async () => {
+    const onInputChange = vi.fn();
+    render(
+      <>
+        <Combobox
+          label="Fruit"
+          options={options}
+          value="banana"
+          inputValue="zzz"
+          onInputChange={onInputChange}
+        />
+        <button type="button">Next</button>
+      </>
+    );
+    screen.getByRole("combobox").focus();
+    await user.tab();
+    expect(onInputChange).toHaveBeenCalledWith("Banana");
+  });
+
+  it("clears an uncommitted multi-select filter on blur and keeps the chips", async () => {
+    render(
+      <>
+        <Combobox label="Fruit" options={options} multiple values={["banana"]} />
+        <button type="button">Next</button>
+      </>
+    );
+    const input = screen.getByRole("combobox");
+    await user.type(input, "zzz");
+    await user.tab();
+    expect(input).toHaveValue("");
+    expect(screen.getByText("Banana")).toBeInTheDocument();
+  });
+});
+
 describe("Combobox — multi select", () => {
   it("marks the listbox multiselectable", async () => {
     render(<Combobox label="Fruit" options={options} multiple />);
