@@ -339,6 +339,30 @@ describe("AcmmPage", () => {
     expect(screen.queryByText(/local:/)).not.toBeInTheDocument();
   });
 
+  it("keeps the source prefix when two sources share a criterion name (#9085)", async () => {
+    const withDupes = {
+      ...STALE_EVALS_REPORT,
+      repo: {
+        ...STALE_EVALS_REPORT.repo,
+        checks: {
+          "acmm:structural-gates": { passed: true },
+          "aef:structural-gates": { passed: false },
+          "acmm:unique-one": { passed: true },
+        },
+      },
+    };
+    mockFetch.mockResolvedValue({ ok: true, json: async () => withDupes });
+    render(<AcmmPage />);
+    await waitFor(() => screen.getByText("Fully Autonomous"));
+    fireEvent.click(screen.getByRole("button", { name: /criteria/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText("acmm:structural-gates")).toBeInTheDocument();
+    });
+    expect(screen.getByText("aef:structural-gates")).toBeInTheDocument();
+    expect(screen.getByText("unique-one")).toBeInTheDocument();
+  });
+
   it("collapses on second toggle click", async () => {
     mockFetch.mockResolvedValue({ ok: true, json: async () => STALE_EVALS_REPORT });
     render(<AcmmPage />);
