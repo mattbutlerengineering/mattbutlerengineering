@@ -1,8 +1,7 @@
 # AGENTS.md - Core Development Guidelines for AI Coding Agents
 
-> This file is the primary source of project context for all AI agents (Gemini, Claude, OpenCode, Codex, Cursor).
-> For tool-specific mandates, see [CLAUDE.md](./CLAUDE.md) (Claude), [GEMINI.md](./GEMINI.md) (Gemini), or [.cursorrules](./.cursorrules) (Cursor).
-> OpenCode reads [opencode.json](./opencode.json). Codex reads [.codex/config.toml](./.codex/config.toml).
+> This file is the primary source of project context for all AI agents (Claude, Cursor).
+> For tool-specific mandates, see [CLAUDE.md](./CLAUDE.md) (Claude) or [.cursorrules](./.cursorrules) (Cursor).
 > Reference material (package inventory, tool lists, routing/Auth0/deploy facts, Semgrep config, Turborepo caching, AI context catalog) lives in [docs/agents-reference.md](./docs/agents-reference.md).
 
 ## Project Identity
@@ -153,7 +152,7 @@ Agents must signal their current phase using the following tokens:
 
 ## AI Context Catalog
 
-The files agents should know about, in load order (`CLAUDE.md`, `GEMINI.md`, `.cursorrules`, `.claude/rules/gotchas.md`, per-package `CLAUDE.md`, …): [docs/agents-reference.md § AI Context Catalog](./docs/agents-reference.md#ai-context-catalog).
+The files agents should know about, in load order (`CLAUDE.md`, `.cursorrules`, `.claude/rules/gotchas.md`, per-package `CLAUDE.md`, …): [docs/agents-reference.md § AI Context Catalog](./docs/agents-reference.md#ai-context-catalog).
 
 ## AI Tooling Adoption Gate
 

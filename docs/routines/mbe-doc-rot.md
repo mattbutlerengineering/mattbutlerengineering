@@ -28,7 +28,7 @@ Run both:
     node scripts/detect-instruction-rot.mjs
     node scripts/check-doc-freshness.mjs
 
-They detect dead internal Markdown links and references to deleted packages/apps across CLAUDE.md, AGENTS.md, GEMINI.md, README.md files and .cursorrules. For each hit, work out whether the target MOVED (fix the link) or was DELETED (remove or rewrite the surrounding claim — do not leave a sentence describing something that no longer exists). Both scripts are also run by CI's Integrity job, so anything they flag is already failing or about to.
+They detect dead internal Markdown links and references to deleted packages/apps across CLAUDE.md, AGENTS.md, README.md files and .cursorrules. For each hit, work out whether the target MOVED (fix the link) or was DELETED (remove or rewrite the surrounding claim — do not leave a sentence describing something that no longer exists). Both scripts are also run by CI's Integrity job, so anything they flag is already failing or about to.
 
 ## 2. Semantic staleness — the part no script can do
 

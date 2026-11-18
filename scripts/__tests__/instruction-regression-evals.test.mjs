@@ -4,7 +4,7 @@
  *
  * Why this file exists: the harness is one of the exercised paths
  * `scripts/check-workflow-paths-coverage.mjs` ALLOWLISTs. The workflow's
- * `paths:` filter covers only CLAUDE.md / AGENTS.md / GEMINI.md, so a change to
+ * `paths:` filter covers only CLAUDE.md / AGENTS.md, so a change to
  * the harness runs no eval. This test is the compensating control: it reads the
  * real workflow on every PR, so deleting either invocation fails here instead of
  * silently shipping an eval job that no longer evals anything.

@@ -6,10 +6,6 @@
  * generator, so Cursor kept reading a long-stale copy (#6779). This check
  * fails when the committed file differs from what the generator would write.
  *
- * GEMINI.md is deliberately not covered: sync-rules only injects an AGENTS.md
- * link when the file lacks one, and GEMINI.md already links it, so the
- * generator never rewrites it and there is no generated content to drift.
- *
  * Fix: pnpm build --filter @mbe/cli... && node tools/cli/dist/index.js sync-rules
  *
  * Usage: node scripts/check-cursorrules-drift.mjs
