@@ -62,6 +62,7 @@
         "src/**/*.test.{ts,tsx}",
         "src/setupTests.ts",
         "*.config.test.ts",
+        "route-html.test.ts",
       ],
       // The vite/vitest config resolves the gitignored packages/rialto/dist/manifest.json
       // at load time; knip must run with no build, so skip the plugins' config loading
