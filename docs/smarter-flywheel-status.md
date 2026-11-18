@@ -40,7 +40,7 @@ Writes `metrics/process-metrics.jsonl` with: `time_to_fix_hours`, `cost_per_fix_
 
 ### M6: Instruction Evolver (PR #1651)
 
-Friday-only learning step in `scripts/instruction-evolver.mjs`. Pattern detection at 3+ occurrences. Risk classification: low-risk (gotchas, threshold notes) → auto-commit; high-risk (skill/policy changes) → review-gated issue. Logs to `metrics/instruction-changes.jsonl`.
+Friday-only learning step (its script, `scripts/instruction-evolver.mjs`, was removed in #9107; `metrics/instruction-changes.jsonl` is still read by the M7 meta-criteria). Pattern detection at 3+ occurrences. Risk classification: low-risk (gotchas, threshold notes) → auto-commit; high-risk (skill/policy changes) → review-gated issue. Logs to `metrics/instruction-changes.jsonl`.
 
 ### M7: ACMM Meta-Criteria (PR #1655)
 
@@ -62,7 +62,6 @@ Followed PRD guidance: M5 (read-only data) → M3 (detection-only) → M1 (detec
 | `metrics/instruction-changes.jsonl`     | M6     | Auto-commit audit trail          |
 | `plugins/acmm/scripts/audit.js`         | M3     | Extended with substance checkers |
 | `plugins/acmm/scripts/meta-criteria.js` | M7     | 5 self-improvement L6 criteria   |
-| `scripts/instruction-evolver.mjs`       | M6     | Friday pattern extraction        |
 
 ## Guard Rails (Load-Bearing)
 
