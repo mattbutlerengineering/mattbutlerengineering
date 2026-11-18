@@ -1,5 +1,17 @@
 # @mattbutlerengineering/rialto
 
+## 0.10.19
+
+### Patch Changes
+
+- [#9043](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9043) [`90f8d67`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/90f8d671c640779a551aadd03f99ac508b79ec1e) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - GlobalNav brand link keeps a 24px minimum hit area (WCAG 2.5.8); it was 23px tall.
+
+- [#9035](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9035) [`12d48db`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/12d48db647caea76e8e0d1a9a7ad8f027dc7089c) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - PinInput cells shrink to the container, so a 6-digit code stays inside a narrow card instead of painting past it.
+
+- [#9050](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9050) [`5c9473d`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/5c9473d2ca7834856b57f6819741404ea48ac4f9) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - A default horizontal Divider keeps the md vertical margin, so compact is the smaller gap and a bare rule no longer sits flush against the next control.
+
+- [#9044](https://github.com/mattbutlerengineering/mattbutlerengineering/pull/9044) [`17b97b0`](https://github.com/mattbutlerengineering/mattbutlerengineering/commit/17b97b04e947284ef11b4f5d84e3513db2f7b1f0) Thanks [@mattbutlerengineering](https://github.com/mattbutlerengineering)! - Context menus open from the keyboard, and dismissing a focused toast returns focus instead of dropping it on the page.
+
 ## 0.10.18
 
 ### Patch Changes
