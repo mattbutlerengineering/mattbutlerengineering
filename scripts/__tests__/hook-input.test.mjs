@@ -509,6 +509,63 @@ describe("hook seam: Bash hooks read the command from the stdin payload", () => 
   );
 
   it(
+    "verify-push-sha verifies the worktree named by a leading `cd X &&`, not the payload cwd",
+    () => {
+      // Regression (#9066): payload cwd is the main checkout, the push ran in
+      // the worktree. A bare `HEAD` push used to read the main checkout's
+      // branch and warn "not found on origin" after a push that landed.
+      const { work, tree } = gitFixtureWithPushedWorktree();
+      const result = run(
+        "verify-push-sha.sh",
+        bashPayloadFor(`cd ${tree} && git push -u origin HEAD`),
+        work
+      );
+      expect(result.stderr, "false alarm on a worktree push").toBe("");
+      expect(result.status).toBe(0);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha verifies the worktree named by `git -C X push`",
+    () => {
+      const { work, tree } = gitFixtureWithPushedWorktree();
+      const ok = run(
+        "verify-push-sha.sh",
+        bashPayloadFor(`git -C "${tree}" push -u origin HEAD`),
+        work
+      );
+      expect(ok.stderr, "false alarm on a worktree push").toBe("");
+      expect(ok.status).toBe(0);
+      // Not blind: the form is now matched, so an unpushed branch still warns.
+      const bad = run(
+        "verify-push-sha.sh",
+        bashPayloadFor(`git -C ${work} push -u origin HEAD`),
+        work
+      );
+      expect(bad.stderr).toContain("not found on");
+      expect(bad.status).toBe(2);
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
+    "verify-push-sha skips quietly when the named tree cannot be resolved",
+    () => {
+      const { work } = gitFixtureWithPushedWorktree();
+      for (const command of [
+        "cd /nonexistent/tree && git push -u origin HEAD",
+        "cd $WT && git push -u origin HEAD",
+      ]) {
+        const result = run("verify-push-sha.sh", bashPayloadFor(command), work);
+        expect(result.stderr, command).toBe("");
+        expect(result.status, command).toBe(0);
+      }
+    },
+    SEAM_TIMEOUT_MS
+  );
+
+  it(
     "verify-push-sha resolves a src:dst refspec against the remote side",
     () => {
       const { work } = gitFixtureWithPushedWorktree();
