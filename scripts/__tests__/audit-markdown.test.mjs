@@ -5,10 +5,52 @@ import {
   isArchivalDoc,
   isDirectoryTreeEntry,
   isKnownException,
+  excludeShippedRuns,
   auditContent,
   applyFixes,
   KNOWN_EXCEPTIONS,
 } from "../audit-markdown.mjs";
+
+describe("excludeShippedRuns (#9078)", () => {
+  const files = [
+    "README.md",
+    "docs/features/done/idea.md",
+    "docs/features/done/retro.md",
+    "docs/features/live/idea.md",
+    "docs/features/live/prd.md",
+    "docs/fixes/closed/defect.md",
+    "docs/fixes/closed/retro.md",
+    "docs/fixes/open/defect.md",
+    "docs/other/note.md",
+  ];
+
+  it("drops every file of a run that has a retro.md, keeping live runs", () => {
+    expect(excludeShippedRuns(files)).toEqual([
+      "README.md",
+      "docs/features/live/idea.md",
+      "docs/features/live/prd.md",
+      "docs/fixes/open/defect.md",
+      "docs/other/note.md",
+    ]);
+  });
+
+  it("keeps a nested file's run in step with its run directory", () => {
+    expect(
+      excludeShippedRuns([
+        "docs/fixes/closed/retro.md",
+        "docs/fixes/closed/proof/notes.md",
+        "docs/fixes/other/retro.md.md",
+      ])
+    ).toEqual(["docs/fixes/other/retro.md.md"]);
+  });
+
+  it("does not treat a retro.md outside a run tree as a marker", () => {
+    expect(excludeShippedRuns(["docs/misc/retro.md", "docs/misc/a.md"])).toEqual([
+      "docs/misc/retro.md",
+      "docs/misc/a.md",
+    ]);
+  });
+});
 
 describe("stripInlineCode", () => {
   it("blanks an inline code span while preserving offsets", () => {

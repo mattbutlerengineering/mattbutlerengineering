@@ -142,9 +142,16 @@ describe(".claude/settings.json hook contract", () => {
   });
 
   it("guards every formatter invocation behind a non-empty path check", () => {
+    // Formatter calls live in the post-edit dispatcher (#9068); any settings.json
+    // entry that still inlines `npx` must keep its own guard.
     for (const cmd of writeHookCommands().filter((c) => c.includes("npx "))) {
       expect(cmd).toContain('[ -n "$FILE" ]');
     }
+    const dispatcher = readFileSync(join(REPO_ROOT, ".claude", "hooks", "post-edit.sh"), "utf8");
+    const guardAt = dispatcher.indexOf('[ -n "$FILE" ] || exit 0');
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(dispatcher.indexOf("npx prettier"));
+    expect(guardAt).toBeLessThan(dispatcher.indexOf("npx eslint"));
   });
 });
 
@@ -202,7 +209,7 @@ describe("hook seam: an empty file path is a no-op", () => {
     "passes the real path through to prettier when one is present",
     () => {
       const target = join(sandbox, "a.js");
-      const result = run(commandContaining("prettier"), payloadFor(target));
+      const result = run(commandContaining("post-edit.sh"), payloadFor(target));
 
       expect(result.status).toBe(0);
       expect(readFileSync(npxLog, "utf8")).toContain(`prettier --write --ignore-unknown ${target}`);
