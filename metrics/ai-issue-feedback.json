@@ -1,20 +1,20 @@
 {
-  "collected_at": "2026-11-17T19:11:36.247Z",
+  "collected_at": "2026-11-18T19:10:24.190Z",
   "period_days": 90,
   "categories": {
-    "ci-fix": {
-      "total": 55,
-      "accepted": 19,
-      "rejected": 8,
-      "wontfix": 28,
-      "rejection_rate": 0.14545454545454545
-    },
     "audit": {
-      "total": 41,
-      "accepted": 34,
+      "total": 42,
+      "accepted": 35,
       "rejected": 4,
       "wontfix": 3,
-      "rejection_rate": 0.0975609756097561
+      "rejection_rate": 0.09523809523809523
+    },
+    "ci-fix": {
+      "total": 54,
+      "accepted": 18,
+      "rejected": 8,
+      "wontfix": 28,
+      "rejection_rate": 0.14814814814814814
     },
     "acmm": {
       "total": 3,

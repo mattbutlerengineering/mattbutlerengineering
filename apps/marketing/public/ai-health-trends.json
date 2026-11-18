@@ -1,15 +1,10 @@
 {
-  "generated_at": "2026-11-17T19:05:45.255Z",
+  "generated_at": "2026-11-18T19:05:23.632Z",
   "window_days": 60,
   "acmmLevel": {
     "label": "ACMM maturity level",
     "source": ".claude/acmm/state.json",
     "points": [
-      {
-        "date": "2026-09-18",
-        "value": 5,
-        "note": null
-      },
       {
         "date": "2026-09-19",
         "value": 5,
@@ -251,11 +246,6 @@
     "label": "Queue efficiency composite",
     "source": "metrics/process-metrics.jsonl",
     "points": [
-      {
-        "date": "2026-09-18",
-        "value": 0.961,
-        "note": null
-      },
       {
         "date": "2026-09-19",
         "value": 0.962,

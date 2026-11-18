@@ -5768,3 +5768,12 @@ None (`agent-skip` is empty).
 ### Skipped Issues
 
 None (`agent-skip` is empty).
+
+## 2026-11-18
+
+**Sensors:** 16/18 available
+**Regressions:** 1 detected, 1 issue created (#9112: metricsFreshness.review-burden stale +3.05d, threshold maxAgeDays=3)
+**Verifications:** 5 checked, 0 verified, 0 failed, 5 skipped (#9083/#9011/#9010/#9009 — no lighthouse inventory to verify against; #9034 — no CI runs to verify against)
+**AI issue feedback:** 8 categories tracked (90d); overall rejection ~8% (16/200); ci-fix 15% rejected (budget stays 3, not halved); agent-failed 100% rejected on n=1 (budget already halved to 1)
+**Skill proposals:** 0 (Wednesday — Friday-only)
+**Threshold notes:** false-positive rate well under 30% (no loosening needed). Fix-effectiveness 86% (6/7) over 30d, but 116/123 (94%) of verification attempts were skipped for lack of a verifier/CI data to check against — the verification signal itself is thin; worth revisiting which sensor labels have real verifiers. Auto-tuner applied 1 adjustment: acmm headroom 1.731 → 1.754.
